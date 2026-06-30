@@ -7,5 +7,11 @@ workers_dev = true
 [env.production]
 name = "first-contact-public-site"
 routes = [
-  { pattern = "1stcontact.io/*", zone_name = "1stcontact.io" }
+  # public-site is the generic multi-tenant site server:
+  #   apex (1stcontact.io)  = the 1st Contact marketing site
+  #   *.1stcontact.io       = customer sites by slug subdomain
+  # `app` is a reserved slug, so control-app's more-specific app.1stcontact.io/*
+  # route takes precedence over this wildcard.
+  { pattern = "1stcontact.io/*", zone_name = "1stcontact.io" },
+  { pattern = "*.1stcontact.io/*", zone_name = "1stcontact.io" }
 ]
