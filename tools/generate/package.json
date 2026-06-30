@@ -2,7 +2,26 @@
   "name": "@1stcontact/generate",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
+  "bin": {
+    "1c": "./bin/1c.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store/index.ts",
+    "./render": "./src/render/index.ts",
+    "./cli": "./src/cli/index.ts"
+  },
   "scripts": {
-    "build": "echo placeholder build: generate"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@1stcontact/framework": "workspace:*",
+    "@1stcontact/site-schema": "workspace:*",
+    "astro": "^7.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "typescript": "^6.0.3"
   }
 }

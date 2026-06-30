@@ -1,0 +1,20 @@
+{
+  "revisions": [
+    {
+      "id": 1,
+      "publishedAt": "2026-06-30T22:36:52.939Z",
+      "message": "Initial published revision",
+      "by": "operator",
+      "basedOn": null,
+      "changes": {
+        "added": [
+          "pages/home.json",
+          "pages/services.json",
+          "site.json"
+        ],
+        "modified": [],
+        "removed": []
+      }
+    }
+  ]
+}

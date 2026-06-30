@@ -1,0 +1,62 @@
+{
+  "id": "services",
+  "slug": "services",
+  "title": "Services",
+  "seoMeta": {
+    "title": "1st Contact — Services",
+    "description": "What we build for small businesses."
+  },
+  "modules": [
+    {
+      "id": "header",
+      "type": "header",
+      "version": 1,
+      "variant": "top-nav",
+      "dials": {
+        "surface": "default"
+      },
+      "content": {
+        "logo": "1st Contact",
+        "entries": []
+      }
+    },
+    {
+      "id": "svc-hero",
+      "type": "hero",
+      "version": 1,
+      "variant": "bg-color",
+      "dials": {
+        "size": "md",
+        "align": "left"
+      },
+      "content": {
+        "eyebrow": "Services",
+        "heading": "Everything your first page needs",
+        "subhead": "Design, copy, and a publishing workflow that keeps up with you."
+      }
+    },
+    {
+      "id": "svc-body",
+      "type": "text-block",
+      "version": 1,
+      "variant": "prose",
+      "dials": {},
+      "content": {
+        "body": "### What you get\n\n- A mobile-first homepage\n- Server-rendered HTML for speed and SEO\n- A versioned draft → publish workflow\n- One-click rollback to any past revision"
+      }
+    },
+    {
+      "id": "footer",
+      "type": "footer",
+      "version": 1,
+      "variant": "minimal",
+      "dials": {
+        "surface": "inverse"
+      },
+      "content": {
+        "copyrightHolder": "1st Contact",
+        "tagline": "Websites that make a great first impression."
+      }
+    }
+  ]
+}

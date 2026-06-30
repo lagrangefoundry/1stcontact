@@ -1,0 +1,67 @@
+{
+  "id": "home",
+  "slug": "home",
+  "title": "Home",
+  "seoMeta": {
+    "title": "Harbor Café — Coffee, brunch & harbour views",
+    "description": "A neighbourhood café on the waterfront. Open daily from 8am."
+  },
+  "modules": [
+    {
+      "id": "header",
+      "type": "header",
+      "version": 1,
+      "variant": "top-nav",
+      "dials": {
+        "surface": "default"
+      },
+      "content": {
+        "logo": "Harbor Café",
+        "entries": []
+      }
+    },
+    {
+      "id": "hero",
+      "type": "hero",
+      "version": 1,
+      "variant": "bg-color",
+      "dials": {
+        "size": "lg",
+        "align": "left",
+        "spacingTop": "xl",
+        "spacingBottom": "lg"
+      },
+      "content": {
+        "eyebrow": "On the waterfront",
+        "heading": "Slow mornings, good coffee",
+        "subhead": "Brunch, pastries, and a window seat over the harbour."
+      }
+    },
+    {
+      "id": "menu",
+      "type": "text-block",
+      "version": 1,
+      "variant": "landing",
+      "dials": {
+        "surface": "subtle"
+      },
+      "content": {
+        "heading": "This week",
+        "body": "Single-origin pour-overs, sourdough crumpets, and a rotating brunch special. **Open daily, 8am–4pm.**"
+      }
+    },
+    {
+      "id": "footer",
+      "type": "footer",
+      "version": 1,
+      "variant": "minimal",
+      "dials": {
+        "surface": "inverse"
+      },
+      "content": {
+        "copyrightHolder": "Harbor Café",
+        "tagline": "Coffee, brunch, and harbour views."
+      }
+    }
+  ]
+}
