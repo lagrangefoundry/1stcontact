@@ -5,6 +5,12 @@ import Hero from './hero/index.astro'
 import { heroMeta } from './hero/meta'
 import Footer from './footer/index.astro'
 import { footerMeta } from './footer/meta'
+import TextBlock from './text-block/index.astro'
+import { textBlockMeta } from './text-block/meta'
+import ServicesGrid from './services-grid/index.astro'
+import { servicesGridMeta } from './services-grid/meta'
+import ContactForm from './contact-form/index.astro'
+import { contactFormMeta } from './contact-form/meta'
 
 /**
  * The module catalog. `tools/generate` (REQ-6) discovers modules through this
@@ -15,6 +21,9 @@ const MODULES: ModuleDefinition[] = [
   { meta: headerMeta, Component: Header },
   { meta: heroMeta, Component: Hero },
   { meta: footerMeta, Component: Footer },
+  { meta: textBlockMeta, Component: TextBlock },
+  { meta: servicesGridMeta, Component: ServicesGrid },
+  { meta: contactFormMeta, Component: ContactForm },
 ]
 
 /** Catalog keyed by `"<id>@<version>"`. */

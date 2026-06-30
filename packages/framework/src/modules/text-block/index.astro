@@ -1,0 +1,109 @@
+---
+import { renderMarkdown } from '../markdown'
+
+interface Props {
+  variant?: string
+  dials?: Record<string, string>
+  content: {
+    heading?: string
+    body: string
+  }
+}
+
+const { variant = 'prose', dials = {}, content } = Astro.props as Props
+const size = dials.size ?? 'md'
+const align = dials.align ?? 'left'
+const surface = dials.surface ?? 'default'
+const spacingTop = dials.spacingTop ?? 'lg'
+const spacingBottom = dials.spacingBottom ?? 'lg'
+const textAlign = dials.textAlign ?? 'left'
+
+const { heading } = content
+const bodyHtml = await renderMarkdown(content.body)
+---
+
+<section
+  class:list={[
+    'text-block',
+    `variant-${variant}`,
+    `size-${size}`,
+    `align-${align}`,
+    `surface-${surface}`,
+    `text-align-${textAlign}`,
+    `spacing-top-${spacingTop}`,
+    `spacing-bottom-${spacingBottom}`,
+  ]}
+>
+  <div class="text-block__inner">
+    {heading && <h2 class="text-block__heading">{heading}</h2>}
+    <div class="text-block__body" set:html={bodyHtml} />
+  </div>
+</section>
+
+<style>
+  .text-block { background: var(--color-bg); color: var(--color-text); }
+  .text-block.surface-subtle { background: var(--color-surface-subtle); }
+  .text-block.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
+  .text-block.surface-accent { background: var(--color-accent); color: var(--color-bg); }
+
+  .text-block.spacing-top-none { padding-top: var(--space-0); }
+  .text-block.spacing-top-sm { padding-top: var(--space-4); }
+  .text-block.spacing-top-md { padding-top: var(--space-8); }
+  .text-block.spacing-top-lg { padding-top: var(--space-16); }
+  .text-block.spacing-top-xl { padding-top: var(--space-24); }
+  .text-block.spacing-bottom-none { padding-bottom: var(--space-0); }
+  .text-block.spacing-bottom-sm { padding-bottom: var(--space-4); }
+  .text-block.spacing-bottom-md { padding-bottom: var(--space-8); }
+  .text-block.spacing-bottom-lg { padding-bottom: var(--space-16); }
+  .text-block.spacing-bottom-xl { padding-bottom: var(--space-24); }
+
+  /* Container width is set by the variant, not a dial. */
+  .text-block__inner {
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .text-block.variant-prose .text-block__inner { max-width: var(--container-narrow); }
+  .text-block.variant-landing .text-block__inner { max-width: var(--container-default); }
+
+  .text-block.align-center .text-block__inner { align-items: center; }
+  .text-block.text-align-center .text-block__inner { text-align: center; }
+
+  .text-block__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+    font-size: var(--font-size-3xl);
+  }
+
+  /* The body type scale follows the size dial (DOC-7 §4.1). */
+  .text-block__body { line-height: var(--line-height-relaxed); }
+  .text-block.size-sm .text-block__body { font-size: var(--font-size-sm); }
+  .text-block.size-md .text-block__body { font-size: var(--font-size-base); }
+  .text-block.size-lg .text-block__body { font-size: var(--font-size-lg); }
+
+  .text-block__body :global(h1),
+  .text-block__body :global(h2),
+  .text-block__body :global(h3) {
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-tight);
+  }
+  .text-block__body :global(a) { color: var(--color-primary); }
+  .text-block__body :global(img) { max-width: 100%; height: auto; border-radius: var(--radius-md); }
+  .text-block__body :global(blockquote) {
+    margin: 0;
+    padding-inline-start: var(--space-4);
+    border-inline-start: 3px solid var(--color-border);
+    color: var(--color-muted);
+  }
+  .text-block__body :global(pre) {
+    overflow-x: auto;
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-subtle);
+  }
+</style>

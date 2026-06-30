@@ -4,6 +4,9 @@ import { registry, getModule } from '../packages/framework/src/modules/registry'
 import { headerMeta } from '../packages/framework/src/modules/header/meta'
 import { heroMeta } from '../packages/framework/src/modules/hero/meta'
 import { footerMeta } from '../packages/framework/src/modules/footer/meta'
+import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
+import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
+import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import type { ModuleMeta } from '../packages/framework/src/modules/types'
 
 /**
@@ -86,12 +89,16 @@ describe('@1stcontact/framework module registry', () => {
 
   it('test_UAT_FC_REQ-4_every_module_exports_module_meta', () => {
     // Compile-time: each meta satisfies the ModuleMeta contract (DOC-7 §3.1).
+    // Re-exercised against REQ-5's three content modules — they all conform.
     expectTypeOf(headerMeta).toMatchTypeOf<ModuleMeta>()
     expectTypeOf(heroMeta).toMatchTypeOf<ModuleMeta>()
     expectTypeOf(footerMeta).toMatchTypeOf<ModuleMeta>()
+    expectTypeOf(textBlockMeta).toMatchTypeOf<ModuleMeta>()
+    expectTypeOf(servicesGridMeta).toMatchTypeOf<ModuleMeta>()
+    expectTypeOf(contactFormMeta).toMatchTypeOf<ModuleMeta>()
 
     // Runtime: every registered module exposes the full contract shape.
-    expect(registry.size).toBe(3)
+    expect(registry.size).toBe(6)
     for (const def of registry.values()) {
       const meta = def.meta
       expect(typeof meta.id).toBe('string')

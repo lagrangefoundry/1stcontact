@@ -20,7 +20,25 @@ export type {
   DeepPartial,
 } from './tokens'
 
-export { registry, getModule, headerMeta, heroMeta, footerMeta, navHref } from './modules'
-export type { ModuleMeta, ModuleDefinition, ContentFieldSpec, ContentFieldType } from './modules'
+export {
+  registry,
+  getModule,
+  headerMeta,
+  heroMeta,
+  footerMeta,
+  textBlockMeta,
+  servicesGridMeta,
+  contactFormMeta,
+  navHref,
+  renderMarkdown,
+  validateModuleContent,
+} from './modules'
+export type {
+  ModuleMeta,
+  ModuleDefinition,
+  ContentFieldSpec,
+  ContentFieldType,
+  ContentValidationError,
+} from './modules'
 
 export { BUILD_YEAR } from './buildInfo'

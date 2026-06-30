@@ -22,6 +22,10 @@ export type ContentFieldType =
 export interface ContentFieldSpec {
   type: ContentFieldType
   required: boolean
+  /** Minimum length for a `list` field (inclusive). Ignored for other types. */
+  minItems?: number
+  /** Maximum length for a `list` field (inclusive). Ignored for other types. */
+  maxItems?: number
 }
 
 /** The full module contract, exported as `moduleMeta` from each module. */

@@ -1,0 +1,29 @@
+import type { ModuleMeta } from '../types'
+import { ALIGN_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+
+/**
+ * `text-block` — prose / manifesto section. The canonical graceful-degradation
+ * fallback for prose-shaped content (DOC-7 §7.4): its markdown `body` carries
+ * headings, lists, links, images, blockquotes, and code.
+ *
+ * Container width is dictated by the variant, not a dial — that is what keeps
+ * the two variants meaningful: `prose` is narrow (article column), `landing` is
+ * the default width (marketing breathing room).
+ */
+export const textBlockMeta = {
+  id: 'text-block',
+  version: 1,
+  variants: ['prose', 'landing'],
+  dials: {
+    size: SIZE_DIAL,
+    align: ALIGN_DIAL,
+    spacingTop: SPACING_DIAL,
+    spacingBottom: SPACING_DIAL,
+    surface: SURFACE_DIAL,
+    textAlign: ALIGN_DIAL,
+  },
+  contentSchema: {
+    heading: { type: 'string', required: false },
+    body: { type: 'markdown', required: true },
+  },
+} as const satisfies ModuleMeta
