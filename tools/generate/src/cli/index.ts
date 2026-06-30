@@ -9,9 +9,28 @@ import {
   InvalidDefinitionError,
   type GlobalOptions,
 } from './commands'
+import {
+  editAssetAdd,
+  editAssetGet,
+  editAssetList,
+  editAssetRm,
+  editConfigGet,
+  editConfigSet,
+  editPageAdd,
+  editPageGet,
+  editPageList,
+  editPageRm,
+  editPageUpdate,
+  editStatus,
+  type EditOutput,
+} from './edit'
+import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 
 export * from './commands'
+export * from './edit'
+export { CommandError, EXIT_CODES } from './errors'
+export type { ErrorCode, CommandErrorShape } from './errors'
 export { startServe } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
 export { parseArgs } from './args'
@@ -27,9 +46,28 @@ Usage:
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
 
+Structured-edit commands (REQ-11) — operate on draft/; support --json:
+  1c status <slug>
+  1c page list <slug>
+  1c page get <slug> <pageId>
+  1c page add <slug> <pageId> [--title <t>] [--path <p>]
+  1c page update <slug> <pageId> [--title <t>] [--path <p>]
+  1c page rm <slug> <pageId> [--force]
+  1c config get <slug> [<key>]
+  1c config set <slug> <key> <value>
+  1c asset list <slug>
+  1c asset get <slug> <assetName>
+  1c asset add <slug> <file> [--as <name>]
+  1c asset rm <slug> <assetName> [--force]
+
 Every command defaults to the git-tracked sites/ tree; --sandbox targets the
 gitignored sandbox/ scratch tree. Rendered output always lands in
-dist/<root>/<slug>/<channel>/.`
+dist/<root>/<slug>/<channel>/.
+
+In --json mode, structured-edit commands emit {"ok":true,"data":...} on success
+or {"ok":false,"error":{code,message,path?,hint?}} on failure. Exit codes:
+0 success, 2 schema-invalid, 3 not-found, 4 referential-integrity, 5 conflict,
+1 unexpected/internal.`
 
 /** Parse a revision positional (`0001` or `1`) to a number, or undefined. */
 function parseRev(tok: string | undefined): number | undefined {
@@ -137,6 +175,19 @@ export async function run(argv: string[]): Promise<void> {
       return
     }
 
+    case 'page':
+    case 'config':
+    case 'asset':
+    case 'status': {
+      const json = flags.json === true
+      try {
+        emit(dispatchEdit(command, rest, flags, global), json)
+      } catch (err) {
+        fail(err, json)
+      }
+      return
+    }
+
     default:
       console.error(`Unknown command: ${command}\n\n${USAGE}`)
       process.exitCode = 1
@@ -144,11 +195,118 @@ export async function run(argv: string[]): Promise<void> {
   }
 }
 
+/** Route a structured-edit command to its handler; throws {@link CommandError}. */
+function dispatchEdit(
+  command: string,
+  rest: string[],
+  flags: Record<string, string | boolean>,
+  global: GlobalOptions,
+): EditOutput {
+  const str = (name: string): string | undefined => {
+    const v = flags[name]
+    return typeof v === 'string' ? v : undefined
+  }
+  const force = flags.force === true
+
+  if (command === 'status') {
+    return editStatus(requireArg(rest[0], 'slug'), global)
+  }
+
+  const sub = rest[0]
+  const slug = requireArg(rest[1], 'slug')
+
+  if (command === 'page') {
+    const writeOpts = { ...global, title: str('title'), path: str('path') }
+    switch (sub) {
+      case 'list':
+        return editPageList(slug, global)
+      case 'get':
+        return editPageGet(slug, requireArg(rest[2], 'pageId'), global)
+      case 'add':
+        return editPageAdd(slug, requireArg(rest[2], 'pageId'), writeOpts)
+      case 'update':
+        return editPageUpdate(slug, requireArg(rest[2], 'pageId'), writeOpts)
+      case 'rm':
+        return editPageRm(slug, requireArg(rest[2], 'pageId'), { ...global, force })
+      default:
+        throw unknownSub('page', sub)
+    }
+  }
+
+  if (command === 'config') {
+    switch (sub) {
+      case 'get':
+        return editConfigGet(slug, rest[2], global)
+      case 'set':
+        return editConfigSet(slug, requireArg(rest[2], 'key'), requireArg(rest[3], 'value'), global)
+      default:
+        throw unknownSub('config', sub)
+    }
+  }
+
+  // command === 'asset'
+  switch (sub) {
+    case 'list':
+      return editAssetList(slug, global)
+    case 'get':
+      return editAssetGet(slug, requireArg(rest[2], 'assetName'), global)
+    case 'add':
+      return editAssetAdd(slug, requireArg(rest[2], 'file'), { ...global, as: str('as') })
+    case 'rm':
+      return editAssetRm(slug, requireArg(rest[2], 'assetName'), { ...global, force })
+    default:
+      throw unknownSub('asset', sub)
+  }
+}
+
+/** Print a success result: a `{ok,data}` envelope in JSON mode, else the human text. */
+function emit(out: EditOutput, json: boolean): void {
+  if (json) {
+    console.log(JSON.stringify({ ok: true, data: out.data }))
+  } else if (out.human) {
+    console.log(out.human)
+  }
+}
+
+/** Print a failure: a `{ok:false,error}` envelope in JSON mode, else a human line. Sets exit code. */
+function fail(err: unknown, json: boolean): void {
+  const ce =
+    err instanceof CommandError
+      ? err
+      : new CommandError({ code: 'INTERNAL', message: err instanceof Error ? err.message : String(err) })
+  if (json) {
+    console.log(JSON.stringify({ ok: false, error: ce.toEnvelope() }))
+  } else {
+    console.error(ce.toHuman())
+  }
+  process.exitCode = EXIT_CODES[ce.code]
+}
+
+function unknownSub(command: string, sub: string | undefined): CommandError {
+  return new CommandError({
+    code: 'INTERNAL',
+    message: `Unknown '${command}' subcommand: ${sub ?? '(none)'}`,
+    hint: 'See `1c help` for usage.',
+  })
+}
+
 function requireSlug(slug: string | undefined): string {
   if (!slug) {
     throw new Error('Missing required <slug> argument.')
   }
   return slug
+}
+
+/** Require a positional arg or throw a structured (enveloped) error. */
+function requireArg(val: string | undefined, name: string): string {
+  if (val === undefined || val === '') {
+    throw new CommandError({
+      code: 'INTERNAL',
+      message: `Missing required <${name}> argument.`,
+      hint: 'See `1c help` for usage.',
+    })
+  }
+  return val
 }
 
 export { InvalidDefinitionError }
