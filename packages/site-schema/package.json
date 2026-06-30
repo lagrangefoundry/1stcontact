@@ -1,0 +1,8 @@
+{
+  "name": "@1stcontact/site-schema",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo placeholder build: site-schema"
+  }
+}

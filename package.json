@@ -1,0 +1,29 @@
+{
+  "name": "1stcontact",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "concurrently -n public,control -c blue,magenta \"pnpm dev:public\" \"pnpm dev:control\"",
+    "dev:public": "pnpm --filter @1stcontact/public-site dev",
+    "dev:control": "pnpm --filter @1stcontact/control-app dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "deploy:public": "pnpm --filter @1stcontact/public-site exec wrangler deploy --env production",
+    "deploy:control": "pnpm --filter @1stcontact/control-app exec wrangler deploy --env production",
+    "dryrun:public": "pnpm --filter @1stcontact/public-site exec wrangler deploy --env production --dry-run",
+    "dryrun:control": "pnpm --filter @1stcontact/control-app exec wrangler deploy --env production --dry-run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240718.0",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "wrangler": "3.114.17",
+    "yaml": "^2.5.0"
+  }
+}

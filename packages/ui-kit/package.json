@@ -1,0 +1,8 @@
+{
+  "name": "@1stcontact/ui-kit",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo placeholder build: ui-kit"
+  }
+}
