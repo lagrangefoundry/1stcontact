@@ -1,6 +1,8 @@
 import type { z } from 'zod'
 import type {
   assetRefSchema,
+  breakpointTokensSchema,
+  containerTokensSchema,
   contentValueSchema,
   moduleInstanceSchema,
   navConfigSchema,
@@ -8,10 +10,15 @@ import type {
   navPatternSchema,
   navTargetSchema,
   pageSchema,
+  paletteTokensSchema,
+  radiusTokensSchema,
   seoMetaSchema,
+  shadowTokensSchema,
   siteConfigSchema,
   siteSchema,
+  spacingTokensSchema,
   themeTokensSchema,
+  typographyTokensSchema,
 } from './schema'
 
 /**
@@ -25,6 +32,13 @@ import type {
 export type Site = z.infer<typeof siteSchema>
 export type SiteConfig = z.infer<typeof siteConfigSchema>
 export type ThemeTokens = z.infer<typeof themeTokensSchema>
+export type PaletteTokens = z.infer<typeof paletteTokensSchema>
+export type TypographyTokens = z.infer<typeof typographyTokensSchema>
+export type SpacingTokens = z.infer<typeof spacingTokensSchema>
+export type RadiusTokens = z.infer<typeof radiusTokensSchema>
+export type ShadowTokens = z.infer<typeof shadowTokensSchema>
+export type ContainerTokens = z.infer<typeof containerTokensSchema>
+export type BreakpointTokens = z.infer<typeof breakpointTokensSchema>
 export type NavConfig = z.infer<typeof navConfigSchema>
 export type NavPattern = z.infer<typeof navPatternSchema>
 export type NavEntry = z.infer<typeof navEntrySchema>

@@ -1,6 +1,6 @@
 {
   "name": "1stcontact",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "packageManager": "pnpm@11.8.0",
   "engines": {
@@ -20,9 +20,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240718.0",
+    "astro": "^4.16.19",
     "concurrently": "^9.1.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
+    "vitest": "^2.1.9",
     "wrangler": "3.114.17",
     "yaml": "^2.5.0"
   }

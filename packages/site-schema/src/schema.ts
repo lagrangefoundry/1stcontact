@@ -121,66 +121,109 @@ export const navConfigSchema = z.object({
 /**
  * Site-wide theme tokens (DOC-7 §4). Every slot below is required — a missing
  * slot is a validation failure, per the ticket's token-completeness contract.
+ *
+ * This is the REQ-4 superset (55 tokens total): the framework imports
+ * `ThemeTokens` from here and never redefines it. Sub-token schemas are named
+ * exports so consumers (the framework's defaults + CSS generator) can derive
+ * precise types per group.
  */
-export const themeTokensSchema = z.object({
-  palette: z.object({
-    primary: hexColor,
-    accent: hexColor,
-    fg: hexColor,
-    bg: hexColor,
-    surface: hexColor,
-    surfaceSubtle: hexColor,
-    surfaceInverse: hexColor,
-    border: hexColor,
-    muted: hexColor,
+
+/** 9 palette roles. `text` is the foreground role (replaced REQ-3's `fg`). */
+export const paletteTokensSchema = z.object({
+  bg: hexColor,
+  surface: hexColor,
+  surfaceSubtle: hexColor,
+  surfaceInverse: hexColor,
+  text: hexColor,
+  muted: hexColor,
+  primary: hexColor,
+  accent: hexColor,
+  border: hexColor,
+})
+
+/** Typography: families, a 9-step size scale, 5 weights, 3 line-heights. */
+export const typographyTokensSchema = z.object({
+  family: z.object({
+    heading: z.string(),
+    body: z.string(),
   }),
-  typography: z.object({
-    family: z.object({
-      heading: z.string(),
-      body: z.string(),
-    }),
-    scale: z.object({
-      xs: cssValue,
-      sm: cssValue,
-      base: cssValue,
-      lg: cssValue,
-      xl: cssValue,
-      '2xl': cssValue,
-      '3xl': cssValue,
-      '4xl': cssValue,
-    }),
-  }),
-  spacing: z.object({
-    none: cssValue,
+  scale: z.object({
     xs: cssValue,
     sm: cssValue,
-    md: cssValue,
+    base: cssValue,
     lg: cssValue,
     xl: cssValue,
     '2xl': cssValue,
+    '3xl': cssValue,
+    '4xl': cssValue,
+    '5xl': cssValue,
   }),
-  radius: z.object({
-    none: cssValue,
-    sm: cssValue,
-    md: cssValue,
-    lg: cssValue,
-    full: cssValue,
+  weights: z.object({
+    regular: cssValue,
+    medium: cssValue,
+    semibold: cssValue,
+    bold: cssValue,
+    black: cssValue,
   }),
-  shadow: z.object({
-    none: cssValue,
-    sm: cssValue,
-    md: cssValue,
-    lg: cssValue,
+  lineHeights: z.object({
+    tight: cssValue,
+    normal: cssValue,
+    relaxed: cssValue,
   }),
-  container: z.object({
-    maxWidth: cssValue,
-  }),
-  breakpoints: z.object({
-    sm: cssValue,
-    md: cssValue,
-    lg: cssValue,
-    xl: cssValue,
-  }),
+})
+
+/** 10-step geometric spacing scale. Keys are quoted numeric strings. */
+export const spacingTokensSchema = z.object({
+  '0': cssValue,
+  '1': cssValue,
+  '2': cssValue,
+  '3': cssValue,
+  '4': cssValue,
+  '6': cssValue,
+  '8': cssValue,
+  '12': cssValue,
+  '16': cssValue,
+  '24': cssValue,
+})
+
+export const radiusTokensSchema = z.object({
+  none: cssValue,
+  sm: cssValue,
+  md: cssValue,
+  lg: cssValue,
+  full: cssValue,
+})
+
+export const shadowTokensSchema = z.object({
+  none: cssValue,
+  sm: cssValue,
+  md: cssValue,
+  lg: cssValue,
+})
+
+/** 4 container widths; `default` is the canonical body container. */
+export const containerTokensSchema = z.object({
+  narrow: cssValue,
+  default: cssValue,
+  wide: cssValue,
+  bleed: cssValue,
+})
+
+export const breakpointTokensSchema = z.object({
+  sm: cssValue,
+  md: cssValue,
+  lg: cssValue,
+  xl: cssValue,
+})
+
+export const themeTokensSchema = z.object({
+  palette: paletteTokensSchema,
+  typography: typographyTokensSchema,
+  spacing: spacingTokensSchema,
+  radius: radiusTokensSchema,
+  shadow: shadowTokensSchema,
+  container: containerTokensSchema,
+  breakpoints: breakpointTokensSchema,
 })
 
 /** Business profile, contact, and integration config. */

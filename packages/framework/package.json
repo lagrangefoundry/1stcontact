@@ -2,7 +2,21 @@
   "name": "@1stcontact/framework",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens": "./src/tokens/index.ts",
+    "./modules": "./src/modules/index.ts",
+    "./registry": "./src/modules/registry.ts"
+  },
   "scripts": {
-    "build": "echo placeholder build: framework"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@1stcontact/site-schema": "workspace:*",
+    "astro": "^4.16.19"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
   }
 }

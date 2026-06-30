@@ -1,0 +1,117 @@
+---
+import type { AssetRef } from '@1stcontact/site-schema'
+
+interface Props {
+  variant?: string
+  dials?: Record<string, string>
+  content: {
+    eyebrow?: string
+    heading: string
+    subhead?: string
+    cta?: { label: string; href: string }
+    image?: AssetRef
+  }
+}
+
+const { variant = 'bg-color', dials = {}, content } = Astro.props as Props
+const size = dials.size ?? 'md'
+const align = dials.align ?? 'left'
+const surface = dials.surface ?? 'default'
+const spacingTop = dials.spacingTop ?? 'lg'
+const spacingBottom = dials.spacingBottom ?? 'lg'
+
+const { eyebrow, heading, subhead, cta } = content
+// The background image is rendered for the bg-image variant only.
+const bgImage = variant === 'bg-image' ? content.image : undefined
+---
+
+<section
+  class:list={[
+    'hero',
+    `variant-${variant}`,
+    `size-${size}`,
+    `align-${align}`,
+    `surface-${surface}`,
+    `spacing-top-${spacingTop}`,
+    `spacing-bottom-${spacingBottom}`,
+  ]}
+>
+  {bgImage && <img class="hero__bg" src={bgImage.src} alt={bgImage.alt} />}
+
+  <div class="hero__inner">
+    {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
+    <h1 class="hero__heading">{heading}</h1>
+    {subhead && <div class="hero__subhead">{subhead}</div>}
+    {cta && <a class="hero__cta" href={cta.href}>{cta.label}</a>}
+  </div>
+</section>
+
+<style>
+  .hero { position: relative; background: var(--color-bg); color: var(--color-text); overflow: hidden; }
+  .hero.surface-subtle { background: var(--color-surface-subtle); }
+  .hero.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
+  .hero.surface-accent { background: var(--color-accent); color: var(--color-bg); }
+
+  .hero.spacing-top-none { padding-top: var(--space-0); }
+  .hero.spacing-top-sm { padding-top: var(--space-4); }
+  .hero.spacing-top-md { padding-top: var(--space-8); }
+  .hero.spacing-top-lg { padding-top: var(--space-16); }
+  .hero.spacing-top-xl { padding-top: var(--space-24); }
+  .hero.spacing-bottom-none { padding-bottom: var(--space-0); }
+  .hero.spacing-bottom-sm { padding-bottom: var(--space-4); }
+  .hero.spacing-bottom-md { padding-bottom: var(--space-8); }
+  .hero.spacing-bottom-lg { padding-bottom: var(--space-16); }
+  .hero.spacing-bottom-xl { padding-bottom: var(--space-24); }
+
+  .hero__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+  .hero__inner {
+    position: relative;
+    z-index: 1;
+    max-width: var(--container-default);
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+  .hero.align-center .hero__inner { align-items: center; text-align: center; }
+
+  .hero__eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-muted);
+  }
+  .hero__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+  }
+  /* Responsive type: clamp between scale steps per size dial. */
+  .hero.size-sm .hero__heading { font-size: clamp(var(--font-size-2xl), 4vw, var(--font-size-3xl)); }
+  .hero.size-md .hero__heading { font-size: clamp(var(--font-size-3xl), 6vw, var(--font-size-4xl)); }
+  .hero.size-lg .hero__heading { font-size: clamp(var(--font-size-4xl), 8vw, var(--font-size-5xl)); }
+
+  .hero__subhead { font-size: var(--font-size-lg); line-height: var(--line-height-relaxed); max-width: 60ch; }
+  .hero.align-center .hero__subhead { margin-inline: auto; }
+
+  .hero__cta {
+    display: inline-block;
+    background: var(--color-primary);
+    color: var(--color-bg);
+    padding: var(--space-3) var(--space-6);
+    border-radius: var(--radius-md);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+</style>

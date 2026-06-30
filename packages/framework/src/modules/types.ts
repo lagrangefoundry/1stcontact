@@ -1,0 +1,51 @@
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js'
+
+/**
+ * Module contract types (DOC-7 §3.1). Every module file exports a `moduleMeta`
+ * object declaring its full contract: stable id, version, the finite set of
+ * variants, the finite enumeration of each dial's values, and a typed schema
+ * for each content field. All visual properties are finite enumerations —
+ * free-form strings/numbers are forbidden (DOC-7 §3.2 rule 1).
+ */
+
+/** Content-field kinds (DOC-7 §3.2). Structured fields use `object` / `list`. */
+export type ContentFieldType =
+  | 'string'
+  | 'markdown'
+  | 'url'
+  | 'asset-ref'
+  | 'enum'
+  | 'list'
+  | 'object'
+
+/** One content field's contract. */
+export interface ContentFieldSpec {
+  type: ContentFieldType
+  required: boolean
+}
+
+/** The full module contract, exported as `moduleMeta` from each module. */
+export interface ModuleMeta {
+  /** Stable identifier, never renamed (DOC-7 §3.3). */
+  id: string
+  /** Monotonically incremented on a breaking contract change. */
+  version: number
+  /** Finite set of layout variants. */
+  variants: readonly string[]
+  /** Per-dial finite enumeration of permitted values. */
+  dials: Record<string, readonly string[]>
+  /** Per-field content schema. */
+  contentSchema: Record<string, ContentFieldSpec>
+}
+
+/** A registry entry: a module's contract paired with its renderable component. */
+export interface ModuleDefinition {
+  meta: ModuleMeta
+  Component: AstroComponentFactory
+}
+
+/**
+ * Compile-time assertion helper: a module's `meta` must satisfy {@link ModuleMeta}.
+ * Used by the type-level UAT to verify every module's contract shape.
+ */
+export type AssertModuleMeta<T extends ModuleMeta> = T

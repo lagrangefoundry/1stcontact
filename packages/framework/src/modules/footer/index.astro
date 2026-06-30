@@ -1,0 +1,94 @@
+---
+import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
+import { navHref } from '../nav'
+import { BUILD_YEAR } from '../../buildInfo'
+
+interface Props {
+  variant?: string
+  dials?: Record<string, string>
+  content: {
+    logo?: AssetRef | string
+    tagline?: string
+    copyrightHolder: string
+    links?: NavEntry[]
+  }
+}
+
+const { dials = {}, content } = Astro.props as Props
+const surface = dials.surface ?? 'inverse'
+const spacingTop = dials.spacingTop ?? 'lg'
+const spacingBottom = dials.spacingBottom ?? 'lg'
+
+const { tagline, copyrightHolder } = content
+const links = content.links ?? []
+const logo = content.logo
+const logoIsImage = typeof logo === 'object' && logo !== null
+// Build-time constant — keeps output deterministic across rebuilds.
+const year = BUILD_YEAR
+---
+
+<footer
+  class:list={[
+    'footer',
+    `surface-${surface}`,
+    `spacing-top-${spacingTop}`,
+    `spacing-bottom-${spacingBottom}`,
+  ]}
+>
+  <div class="footer__inner">
+    {logo && (
+      <div class="footer__logo">
+        {logoIsImage ? <img src={(logo as AssetRef).src} alt={(logo as AssetRef).alt} /> : <span>{logo}</span>}
+      </div>
+    )}
+    {tagline && <p class="footer__tagline">{tagline}</p>}
+
+    {links.length > 0 && (
+      <nav class="footer__links" aria-label="Footer">
+        {links.map((entry) => <a href={navHref(entry.target)}>{entry.label}</a>)}
+      </nav>
+    )}
+
+    <p class="footer__copyright">© {year} {copyrightHolder}</p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--color-surface-inverse);
+    color: var(--color-bg);
+    padding-top: var(--space-8);
+    padding-bottom: var(--space-8);
+  }
+  .footer.surface-default { background: var(--color-bg); color: var(--color-text); border-top: 1px solid var(--color-border); }
+  .footer.surface-subtle { background: var(--color-surface-subtle); color: var(--color-text); }
+  .footer.surface-accent { background: var(--color-accent); color: var(--color-bg); }
+
+  .footer.spacing-top-none { padding-top: var(--space-0); }
+  .footer.spacing-top-sm { padding-top: var(--space-2); }
+  .footer.spacing-top-md { padding-top: var(--space-4); }
+  .footer.spacing-top-lg { padding-top: var(--space-8); }
+  .footer.spacing-top-xl { padding-top: var(--space-12); }
+  .footer.spacing-bottom-none { padding-bottom: var(--space-0); }
+  .footer.spacing-bottom-sm { padding-bottom: var(--space-2); }
+  .footer.spacing-bottom-md { padding-bottom: var(--space-4); }
+  .footer.spacing-bottom-lg { padding-bottom: var(--space-8); }
+  .footer.spacing-bottom-xl { padding-bottom: var(--space-12); }
+
+  .footer__inner {
+    max-width: var(--container-default);
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: center;
+    text-align: center;
+  }
+  .footer__logo img { display: block; height: var(--space-8); width: auto; }
+  .footer__logo span { font-weight: var(--font-weight-bold); }
+  .footer__tagline { margin: 0; color: inherit; opacity: 0.85; }
+  .footer__links { display: flex; flex-wrap: wrap; gap: var(--space-4); justify-content: center; }
+  .footer__links a { color: inherit; text-decoration: none; font-size: var(--font-size-sm); }
+  .footer__copyright { margin: 0; font-size: var(--font-size-sm); opacity: 0.7; }
+</style>

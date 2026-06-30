@@ -1,0 +1,108 @@
+---
+import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
+import { navHref } from '../nav'
+
+interface Props {
+  variant?: string
+  dials?: Record<string, string>
+  content: {
+    logo?: AssetRef | string
+    entries: NavEntry[]
+  }
+}
+
+const { dials = {}, content } = Astro.props as Props
+const surface = dials.surface ?? 'default'
+const spacingTop = dials.spacingTop ?? 'md'
+const spacingBottom = dials.spacingBottom ?? 'md'
+const entries = content.entries ?? []
+const logo = content.logo
+const logoIsImage = typeof logo === 'object' && logo !== null
+---
+
+<header
+  class:list={[
+    'header',
+    `surface-${surface}`,
+    `spacing-top-${spacingTop}`,
+    `spacing-bottom-${spacingBottom}`,
+  ]}
+>
+  <div class="header__inner">
+    <a class="header__logo" href="/">
+      {logoIsImage ? <img src={(logo as AssetRef).src} alt={(logo as AssetRef).alt} /> : <span>{logo}</span>}
+    </a>
+
+    <button
+      class="header__toggle"
+      type="button"
+      data-nav-toggle
+      aria-label="Toggle navigation"
+      aria-expanded="false"
+    >
+      <span class="header__toggle-bar"></span>
+      <span class="header__toggle-bar"></span>
+      <span class="header__toggle-bar"></span>
+    </button>
+
+    <nav class="header__nav" aria-label="Primary">
+      {entries.map((entry) => <a href={navHref(entry.target)}>{entry.label}</a>)}
+    </nav>
+  </div>
+</header>
+
+<style>
+  .header {
+    background: var(--color-bg);
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-4);
+  }
+  .header.surface-subtle { background: var(--color-surface-subtle); }
+  .header.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
+  .header.surface-accent { background: var(--color-accent); color: var(--color-bg); }
+
+  .header.spacing-top-none { padding-top: var(--space-0); }
+  .header.spacing-top-sm { padding-top: var(--space-2); }
+  .header.spacing-top-md { padding-top: var(--space-4); }
+  .header.spacing-top-lg { padding-top: var(--space-8); }
+  .header.spacing-top-xl { padding-top: var(--space-12); }
+  .header.spacing-bottom-none { padding-bottom: var(--space-0); }
+  .header.spacing-bottom-sm { padding-bottom: var(--space-2); }
+  .header.spacing-bottom-md { padding-bottom: var(--space-4); }
+  .header.spacing-bottom-lg { padding-bottom: var(--space-8); }
+  .header.spacing-bottom-xl { padding-bottom: var(--space-12); }
+
+  .header__inner {
+    max-width: var(--container-default);
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .header__logo { font-weight: var(--font-weight-bold); color: inherit; text-decoration: none; }
+  .header__logo img { display: block; height: var(--space-8); width: auto; }
+
+  .header__nav { display: flex; gap: var(--space-6); }
+  .header__nav a { color: inherit; text-decoration: none; font-weight: var(--font-weight-medium); }
+
+  /* Hamburger toggle: hidden on desktop, shown below the md breakpoint. */
+  .header__toggle {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: var(--space-2);
+  }
+  .header__toggle-bar { display: block; width: 22px; height: 2px; background: currentColor; }
+
+  @media (max-width: 768px) {
+    .header__toggle { display: flex; }
+    .header__nav { display: none; }
+  }
+</style>
