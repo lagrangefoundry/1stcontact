@@ -1,10 +1,10 @@
 {
   "name": "1stcontact",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": true,
-  "packageManager": "pnpm@11.8.0",
+  "packageManager": "pnpm@11.9.0",
   "engines": {
-    "node": ">=20",
+    "node": ">=22.12",
     "pnpm": ">=9"
   },
   "scripts": {
@@ -19,13 +19,13 @@
     "dryrun:control": "pnpm --filter @1stcontact/control-app exec wrangler deploy --env production --dry-run"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240718.0",
-    "astro": "^4.16.19",
+    "@cloudflare/workers-types": "^4.20260630.1",
+    "astro": "^7.0.4",
     "concurrently": "^9.1.0",
     "jsdom": "^25.0.1",
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.9",
-    "wrangler": "3.114.17",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.106.0",
     "yaml": "^2.5.0"
   }
 }

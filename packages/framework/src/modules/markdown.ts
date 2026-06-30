@@ -1,4 +1,4 @@
-import { createMarkdownProcessor, type MarkdownProcessor } from '@astrojs/markdown-remark'
+import { createMarkdownProcessor, type MarkdownRenderer } from '@astrojs/markdown-remark'
 
 /**
  * Markdown → HTML rendering for content fields typed `markdown` (DOC-7 §3.2).
@@ -9,9 +9,9 @@ import { createMarkdownProcessor, type MarkdownProcessor } from '@astrojs/markdo
  * plugin chain) and the result is a pure function of its input, so one instance
  * is shared for the lifetime of the build / dev server.
  */
-let processor: Promise<MarkdownProcessor> | undefined
+let processor: Promise<MarkdownRenderer> | undefined
 
-function getProcessor(): Promise<MarkdownProcessor> {
+function getProcessor(): Promise<MarkdownRenderer> {
   // GFM is on by default; syntax highlighting is left at the default theme.
   // Raw HTML in content fields is the validator's concern (DOC-7 §6.5 layer 1),
   // not this renderer's — we render trusted, already-validated markdown.
