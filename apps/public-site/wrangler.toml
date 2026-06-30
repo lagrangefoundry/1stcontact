@@ -1,11 +1,11 @@
-name = "first-contact-public-site"
+name = "1stcontact-public-site"
 main = "src/index.ts"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [env.production]
-name = "first-contact-public-site"
+name = "1stcontact-public-site"
 routes = [
   # public-site is the generic multi-tenant site server:
   #   apex (1stcontact.io)  = the 1st Contact marketing site
