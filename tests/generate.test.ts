@@ -61,6 +61,30 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     expect(readFileSync(path.join(outDir, 'theme.css'), 'utf8')).toContain('--color-primary')
   })
 
+  it('test_UAT_FC_BUG-1_theme_css_carries_module_component_styles', async () => {
+    cmdNew('acme', { cwd })
+    const { outDir } = await cmdRender('acme', { cwd })
+
+    const themeCss = readFileSync(path.join(outDir, 'theme.css'), 'utf8')
+    const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
+
+    // The design tokens are still present…
+    expect(themeCss).toContain('--color-primary')
+    // …but theme.css must ALSO carry the module component rules — the bug was
+    // that it contained ONLY :root tokens and no class selectors.
+    expect(themeCss).toMatch(/\.hero\b/)
+    expect(themeCss).toContain('.header__inner')
+    expect(themeCss).toContain('.footer__inner')
+
+    // Every module class the render emits on the starter page must have a
+    // matching rule in theme.css — otherwise the page renders unstyled. The
+    // starter hero uses spacing-top-lg; its dial rule must be present.
+    expect(html).toMatch(/class="[^"]*\bhero\b[^"]*\bspacing-top-lg\b/)
+    expect(themeCss).toContain('.hero.spacing-top-lg')
+    // And the surface-dial rules that make surfaces visible.
+    expect(themeCss).toContain('.hero.surface-accent')
+  })
+
   it('test_UAT_FC_REQ-9_publish_creates_locked_revision', async () => {
     cmdNew('acme', { cwd })
     const { id } = await cmdPublish('acme', { cwd, message: 'first', by: 'op', now: '2026-01-01T00:00:00.000Z' })

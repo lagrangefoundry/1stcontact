@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import { generateThemeCss, getModule } from '@1stcontact/framework'
+import { generateThemeCss, getModule, getModuleCss } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
 import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
@@ -88,7 +88,11 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
   const { site, sourceDir } = loaded
   emptyDir(outDir)
 
-  writeText(path.join(outDir, 'theme.css'), generateThemeCss(site.theme))
+  // theme.css = design-token :root variables + the module component CSS. The
+  // container render (renderModules) emits module HTML but drops each module's
+  // scoped <style>, so the component rules must be folded in here or the page
+  // renders unstyled (BUG-1).
+  writeText(path.join(outDir, 'theme.css'), `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n`)
 
   const container = await AstroContainer.create()
   const written: string[] = []

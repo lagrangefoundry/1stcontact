@@ -23,6 +23,7 @@ export type {
 export {
   registry,
   getModule,
+  getModuleCss,
   headerMeta,
   heroMeta,
   footerMeta,
