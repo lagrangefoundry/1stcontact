@@ -24,11 +24,13 @@ import {
   editStatus,
   type EditOutput,
 } from './edit'
+import { cmdCapturePage } from './capture'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 
 export * from './commands'
 export * from './edit'
+export * from './capture'
 export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
 export { startServe } from './serve'
@@ -45,6 +47,9 @@ Usage:
   1c checkout <slug> [<revId>] [--force] [--sandbox]
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
+
+Reference capture (REQ-12) — rendered-only headless-browser capture:
+  1c capture page <url>
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -172,6 +177,21 @@ export async function run(argv: string[]): Promise<void> {
       console.log(`Serving ${rootDir}\n  ${url}`)
       // Keep the process alive until the server closes.
       await new Promise<void>(() => {})
+      return
+    }
+
+    case 'capture': {
+      const sub = rest[0]
+      if (sub !== 'page') {
+        console.error(`Unknown capture subcommand: ${sub ?? '(none)'}\n\n${USAGE}`)
+        process.exitCode = 1
+        return
+      }
+      const url = requireSlug(rest[1])
+      const { bundleDir, capture } = await cmdCapturePage(url, global)
+      console.log(
+        `Captured ${url} → ${bundleDir}\n  ${capture.sections.length} section(s), ${capture.assets.length} asset(s)`,
+      )
       return
     }
 

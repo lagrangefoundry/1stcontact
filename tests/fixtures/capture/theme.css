@@ -1,0 +1,97 @@
+/* Golden fixture stylesheet for REQ-12 capture UATs.
+   Colors are defined as CSS custom properties and consumed via var() so the
+   capture must resolve them to painted hex from *computed* styles (DOC-13 §5). */
+:root {
+  --brand: #1a73e8;
+  --ink: #10233f;
+  --paper: #ffffff;
+  --hero-ink: #f5f7fa;
+}
+* {
+  margin: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+@font-face {
+  font-family: 'GoldHead';
+  src: url('/heading-font.ttf') format('truetype');
+  font-weight: 700;
+  font-display: block;
+}
+.hero {
+  background-color: #10233f; /* dark band */
+  color: var(--hero-ink);
+  padding: 80px 0;
+  text-align: center;
+}
+.hero h1 {
+  font-family: 'GoldHead', serif;
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--hero-ink);
+}
+.hero .tagline {
+  font-size: 20px;
+  color: var(--hero-ink);
+}
+.content {
+  background-color: var(--paper); /* light band */
+  color: var(--ink);
+  padding: 64px 0;
+  position: relative;
+  overflow: hidden;
+}
+.content h2 {
+  font-size: 32px;
+  font-family: 'GoldHead', serif;
+  color: var(--brand);
+}
+.content p {
+  font-size: 16px;
+  color: var(--ink);
+}
+.grid {
+  display: flex;
+  gap: 24px;
+  margin-top: 24px;
+}
+.card {
+  flex: 1;
+  padding: 16px;
+  background: #f2f5fa;
+}
+.card h3 {
+  font-size: 18px;
+  color: var(--brand);
+}
+.card p {
+  font-size: 14px;
+  color: var(--ink);
+}
+.logo {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+/* A "region picker" drawer, slid fully off-screen — visible in the DOM but not
+   painted. DOC-13 §6: visibility filtering must drop it. */
+.drawer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 280px;
+  transform: translateX(-100%);
+}
+/* Chrome hidden outright. */
+.hidden {
+  display: none;
+}

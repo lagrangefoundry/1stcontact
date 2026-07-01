@@ -1,0 +1,26 @@
+/* Golden fixture: a uniformly-styled page. Every band shares one style
+   signature (same background, color scheme, type treatment), so DOC-13 §2.7
+   segmentation must collapse it to a SINGLE segment. */
+* {
+  margin: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #222222;
+  background: #ffffff;
+}
+.band {
+  background: #ffffff;
+  color: #222222;
+  padding: 48px 24px;
+}
+.band h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #222222;
+}
+.band p {
+  font-size: 16px;
+  color: #222222;
+}

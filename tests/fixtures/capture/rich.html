@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bright Harbor Studio</title>
+    <link rel="stylesheet" href="/theme.css" />
+  </head>
+  <body>
+    <section class="hero" id="hero">
+      <div class="container">
+        <h1>Bright Harbor Studio</h1>
+        <p class="tagline">Design that ships on time</p>
+      </div>
+    </section>
+
+    <main class="content">
+      <div class="container">
+        <img class="logo" src="/logo.png" alt="Bright Harbor logo" />
+        <h2>What we do</h2>
+        <p>We craft calm, fast websites for small teams.</p>
+
+        <div class="grid">
+          <div class="card"><h3>Strategy</h3><p>Positioning and messaging.</p></div>
+          <div class="card"><h3>Design</h3><p>Interfaces people trust.</p></div>
+          <div class="card"><h3>Build</h3><p>Ship on modern infra.</p></div>
+        </div>
+
+        <!-- Chrome that must NOT appear in the capture (DOC-13 §6). -->
+        <div class="hidden">SECRET_HIDDEN_DISPLAY_NONE</div>
+        <aside class="drawer" aria-hidden="true">
+          <p>SECRET_DRAWER_REGION_PICKER</p>
+        </aside>
+      </div>
+    </main>
+
+    <script>
+      // Apply the hero background image + a semi-transparent overlay AT RUNTIME.
+      // The raw server HTML therefore never mentions it — only the rendered,
+      // computed view does. This is exactly the static blindness DOC-13 defeats.
+      window.addEventListener('DOMContentLoaded', function () {
+        var hero = document.getElementById('hero')
+        hero.style.backgroundImage =
+          'linear-gradient(rgba(8, 20, 40, 0.55), rgba(8, 20, 40, 0.55)), url("/hero.png")'
+        hero.style.backgroundSize = 'cover'
+        hero.style.backgroundPosition = 'center'
+      })
+    </script>
+  </body>
+</html>
