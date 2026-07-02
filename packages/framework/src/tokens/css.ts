@@ -1,3 +1,4 @@
+import type { FontFace } from '@1stcontact/site-schema'
 import type { DeepPartial, PartialPalette, ThemeTokens } from './contract'
 import { defaultTokens } from './defaults'
 
@@ -16,10 +17,16 @@ export function generateThemeCss(
 ): string {
   const t = mergeTokens(defaultTokens, tokens)
 
+  // The display family (REQ-24) falls back to the heading family when a site
+  // declares no bespoke display face, so `--font-family-display` is always safe
+  // to reference from a module.
+  const displayFamily = t.typography.family.display ?? t.typography.family.heading
+
   const vars: string[] = [
     ...paletteVars(t.palette),
     `--font-family-heading: ${t.typography.family.heading};`,
     `--font-family-body: ${t.typography.family.body};`,
+    `--font-family-display: ${displayFamily};`,
     ...mapVars('--font-size-', t.typography.scale),
     ...mapVars('--font-weight-', t.typography.weights),
     ...mapVars('--line-height-', t.typography.lineHeights),
@@ -32,6 +39,11 @@ export function generateThemeCss(
 
   let css = `:root {\n${vars.map((v) => `  ${v}`).join('\n')}\n}`
 
+  // Site-declared web fonts (REQ-24) become `@font-face` rules ahead of `:root`
+  // so the families are registered before any custom property references them.
+  const faces = fontFaceRules(t.fonts)
+  if (faces) css = `${faces}\n\n${css}`
+
   if (options?.dark) {
     const darkVars = paletteVars(options.dark)
     if (darkVars.length > 0) {
@@ -43,6 +55,41 @@ export function generateThemeCss(
   }
 
   return css
+}
+
+/**
+ * Site-declared fonts → concatenated `@font-face` rules (REQ-24). Each field is
+ * a validated structured value from the site's theme (never raw CSS): the
+ * family and asset `src` are emitted verbatim, a `format()` hint is derived from
+ * the asset extension, and `font-display` defaults to `swap`.
+ */
+function fontFaceRules(fonts?: FontFace[]): string {
+  if (!fonts || fonts.length === 0) return ''
+  return fonts.map(fontFaceBlock).join('\n\n')
+}
+
+function fontFaceBlock(f: FontFace): string {
+  const lines = [`  font-family: "${f.family}";`, `  src: url("${f.src}")${formatHint(f.src)};`]
+  if (f.weight) lines.push(`  font-weight: ${f.weight};`)
+  if (f.style) lines.push(`  font-style: ${f.style};`)
+  lines.push(`  font-display: ${f.display ?? 'swap'};`)
+  return `@font-face {\n${lines.join('\n')}\n}`
+}
+
+/** CSS `format(...)` hint derived from a font asset's file extension. */
+function formatHint(src: string): string {
+  const ext = src.split('.').pop()?.toLowerCase()
+  const fmt =
+    ext === 'woff2'
+      ? 'woff2'
+      : ext === 'woff'
+        ? 'woff'
+        : ext === 'ttf'
+          ? 'truetype'
+          : ext === 'otf'
+            ? 'opentype'
+            : undefined
+  return fmt ? ` format("${fmt}")` : ''
 }
 
 /** Palette roles → `--color-<kebab-role>` declarations. */

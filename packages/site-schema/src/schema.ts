@@ -366,11 +366,34 @@ export const paletteTokensSchema = z.object({
   border: hexColor,
 })
 
-/** Typography: families, a 9-step size scale, 5 weights, 3 line-heights. */
+/**
+ * A site-declared web font (REQ-24). Structured — never raw `@font-face` CSS
+ * (DOC-7 §6.2). The framework's CSS generator turns each entry into one
+ * validated `@font-face` rule pointing at the mirrored asset. `src` is an
+ * asset-relative path (e.g. "assets/cinzel.woff2"), the same shape
+ * `AssetRef.src` uses; `weight`/`style`/`display` are optional descriptors.
+ */
+export const fontFaceSchema = z.object({
+  family: z.string().min(1),
+  src: z.string().min(1),
+  weight: cssValue.optional(),
+  style: z.enum(['normal', 'italic']).optional(),
+  display: z.enum(['auto', 'block', 'swap', 'fallback', 'optional']).optional(),
+})
+
+/**
+ * Typography: families, a 9-step size scale, 5 weights, 3 line-heights.
+ *
+ * `family.display` (REQ-24) is an optional third family slot for a bespoke
+ * display/wordmark face (e.g. a gold Cinzel wordmark), distinct from the
+ * `heading`/`body` families. Omitted → the CSS generator falls back to
+ * `heading` for `--font-family-display`.
+ */
 export const typographyTokensSchema = z.object({
   family: z.object({
     heading: z.string(),
     body: z.string(),
+    display: z.string().optional(),
   }),
   scale: z.object({
     xs: cssValue,
@@ -449,6 +472,8 @@ export const themeTokensSchema = z.object({
   shadow: shadowTokensSchema,
   container: containerTokensSchema,
   breakpoints: breakpointTokensSchema,
+  /** Site-declared web fonts (REQ-24). Optional — most sites use system fonts. */
+  fonts: z.array(fontFaceSchema).optional(),
 })
 
 /** Business profile, contact, and integration config. */

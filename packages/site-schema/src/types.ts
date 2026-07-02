@@ -8,6 +8,7 @@ import type {
   breakpointTokensSchema,
   containerTokensSchema,
   contentValueSchema,
+  fontFaceSchema,
   imageTreatmentSchema,
   layerChildSchema,
   layerReflowSchema,
@@ -48,6 +49,7 @@ export type SiteConfig = z.infer<typeof siteConfigSchema>
 export type ThemeTokens = z.infer<typeof themeTokensSchema>
 export type PaletteTokens = z.infer<typeof paletteTokensSchema>
 export type TypographyTokens = z.infer<typeof typographyTokensSchema>
+export type FontFace = z.infer<typeof fontFaceSchema>
 export type SpacingTokens = z.infer<typeof spacingTokensSchema>
 export type RadiusTokens = z.infer<typeof radiusTokensSchema>
 export type ShadowTokens = z.infer<typeof shadowTokensSchema>

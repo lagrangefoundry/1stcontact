@@ -15,6 +15,9 @@ const { dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const spacingTop = dials.spacingTop ?? 'md'
 const spacingBottom = dials.spacingBottom ?? 'md'
+// Wordmark font-family + colour treatment (REQ-24), applied to a text logo only.
+const logoFont = dials.logoFont ?? 'heading'
+const logoTreatment = dials.logoTreatment ?? 'plain'
 const entries = content.entries ?? []
 const logo = content.logo
 const logoIsImage = typeof logo === 'object' && logo !== null
@@ -30,7 +33,17 @@ const logoIsImage = typeof logo === 'object' && logo !== null
 >
   <div class="header__inner">
     <a class="header__logo" href="/">
-      {logoIsImage ? <img src={(logo as AssetRef).src} alt={(logo as AssetRef).alt} /> : <span>{logo}</span>}
+      {logoIsImage ? (
+        <img src={(logo as AssetRef).src} alt={(logo as AssetRef).alt} />
+      ) : (
+        <span
+          class:list={[
+            'header__wordmark',
+            `header__wordmark--font-${logoFont}`,
+            `header__wordmark--${logoTreatment}`,
+          ]}
+        >{logo}</span>
+      )}
     </a>
 
     <button
@@ -85,6 +98,31 @@ const logoIsImage = typeof logo === 'object' && logo !== null
   }
   .header__logo { font-weight: var(--font-weight-bold); color: inherit; text-decoration: none; }
   .header__logo img { display: block; height: var(--space-8); width: auto; }
+
+  /* Wordmark font-family selection (REQ-24). Default heading family; `display`
+     picks the site's bespoke display face, `body` the body family. */
+  .header__wordmark { font-family: var(--font-family-heading); }
+  .header__wordmark--font-heading { font-family: var(--font-family-heading); }
+  .header__wordmark--font-body { font-family: var(--font-family-body); }
+  .header__wordmark--font-display {
+    font-family: var(--font-family-display);
+    font-size: var(--font-size-2xl);
+    letter-spacing: 0.08em;
+  }
+
+  /* Gold wordmark treatment (REQ-24): a metallic-gold gradient clipped to the
+     glyphs, keyed to the site accent. `plain` inherits the header text colour. */
+  .header__wordmark--gold {
+    background-image: linear-gradient(
+      180deg,
+      #f7e4a8 0%,
+      var(--color-accent) 48%,
+      #b07d24 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 
   .header__nav { display: flex; gap: var(--space-6); }
   .header__nav a { color: inherit; text-decoration: none; font-weight: var(--font-weight-medium); }
