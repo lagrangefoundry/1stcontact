@@ -78,7 +78,7 @@ function siteWithImageLogo(cwd: string, slug: string): void {
   editAssetAdd(slug, staged, { cwd, as: 'logo.png' })
   // Point the header logo at the served absolute path — the exact shape that
   // used to render blank when the page couldn't reach its own assets.
-  const homePath = path.join(cwd, 'sites', slug, 'draft', 'pages', 'home.json')
+  const homePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
   const home = JSON.parse(readFileSync(homePath, 'utf8'))
   home.modules[0].content.logo = { id: 'logo.png', src: '/assets/logo.png', alt: 'Logo' }
   writeFileSync(homePath, JSON.stringify(home, null, 2))

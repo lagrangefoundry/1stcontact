@@ -267,7 +267,7 @@ describe('REQ-15 — z-compositing over another module (1c render)', () => {
     // End-to-end: a layer on the hero renders one layer wrapper, and the layer
     // structural CSS reaches the per-site stylesheet.
     cmdNew('acme', { cwd })
-    const pagePath = path.join(cwd, 'sites', 'acme', 'draft', 'pages', 'home.json')
+    const pagePath = path.join(cwd, 'storage', 'sites', 'acme', 'draft', 'pages', 'home.json')
     const page = JSON.parse(readFileSync(pagePath, 'utf8'))
     const hero = page.modules.find((m: { type: string }) => m.type === 'hero')
     hero.layer = {

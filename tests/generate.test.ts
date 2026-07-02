@@ -39,8 +39,8 @@ function dirsIdentical(a: string, b: string): boolean {
   return fa.every((rel) => sameBytes(path.join(a, rel), path.join(b, rel)))
 }
 
-const sitePath = (...parts: string[]) => path.join(cwd, 'sites', ...parts)
-const distPath = (...parts: string[]) => path.join(cwd, 'dist', ...parts)
+const sitePath = (...parts: string[]) => path.join(cwd, 'storage', 'sites', ...parts)
+const distPath = (...parts: string[]) => path.join(cwd, 'storage', 'dist', ...parts)
 
 describe('1c CLI — storage, versioning & render (REQ-9)', () => {
   it('test_UAT_FC_REQ-9_render_draft_produces_html', async () => {
@@ -224,7 +224,7 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
   it('test_UAT_FC_REQ-9_sandbox_isolation', async () => {
     cmdNew('scratch', { cwd, sandbox: true })
     // Created under sandbox/, NOT sites/.
-    expect(existsSync(path.join(cwd, 'sandbox', 'scratch', 'draft'))).toBe(true)
+    expect(existsSync(path.join(cwd, 'storage', 'sandbox', 'scratch', 'draft'))).toBe(true)
     expect(existsSync(sitePath('scratch'))).toBe(false)
 
     const { outDir } = await cmdRender('scratch', { cwd, sandbox: true })
@@ -243,8 +243,8 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
         return false
       }
     }
-    expect(ignored('dist/sites/example/draft/index.html')).toBe(true)
-    expect(ignored('sandbox/example/draft/site.json')).toBe(true)
-    expect(ignored('sites/1stcontact/site.json')).toBe(false)
+    expect(ignored('storage/dist/sites/example/draft/index.html')).toBe(true)
+    expect(ignored('storage/sandbox/example/draft/site.json')).toBe(true)
+    expect(ignored('storage/sites/1stcontact/site.json')).toBe(false)
   })
 })

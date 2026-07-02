@@ -60,7 +60,7 @@ function loadOrThrow(ctx: StoreContext, slug: string, source: SiteSource): Loade
 
 /** List slugs that have a `draft/` under the active root. */
 function listSlugs(ctx: StoreContext): string[] {
-  return listDirs(path.join(ctx.cwd, ctx.root)).filter((slug) =>
+  return listDirs(path.join(ctx.cwd, 'storage', ctx.root)).filter((slug) =>
     pathExists(draftDir(ctx, slug)),
   )
 }

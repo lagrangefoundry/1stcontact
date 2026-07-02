@@ -215,7 +215,7 @@ describe('REQ-14 — Background is section-scoped (1c render)', () => {
     cmdNew('acme', { cwd })
 
     // Add a background to the hero only; the header/footer have none.
-    const pagePath = path.join(cwd, 'sites', 'acme', 'draft', 'pages', 'home.json')
+    const pagePath = path.join(cwd, 'storage', 'sites', 'acme', 'draft', 'pages', 'home.json')
     const page = JSON.parse(readFileSync(pagePath, 'utf8'))
     const hero = page.modules.find((m: { type: string }) => m.type === 'hero')
     hero.background = { type: 'color', value: '#abcdef', overlay: { color: '#000000', opacity: 0.3 } }

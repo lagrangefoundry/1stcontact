@@ -43,7 +43,7 @@ afterEach(() => {
 })
 
 const draftPath = (slug: string, ...parts: string[]) =>
-  path.join(cwd, 'sites', slug, 'draft', ...parts)
+  path.join(cwd, 'storage', 'sites', slug, 'draft', ...parts)
 
 /** Capture a draft tree as a rel→bytes map, for byte-identity assertions. */
 function snapshotDraft(slug: string): Map<string, string> {
@@ -258,15 +258,15 @@ describe('1c structured-edit command surface (REQ-11)', () => {
 
     // Edit the draft, then status reports the modification against r1.
     editPageUpdate('acme', 'home', { cwd, title: 'Home (edited)' })
-    const revsBefore = listFilesRel(path.join(cwd, 'sites', 'acme', 'revisions')).length
-    const historyBefore = readFileSync(path.join(cwd, 'sites', 'acme', 'history.json'), 'utf8')
+    const revsBefore = listFilesRel(path.join(cwd, 'storage', 'sites', 'acme', 'revisions')).length
+    const historyBefore = readFileSync(path.join(cwd, 'storage', 'sites', 'acme', 'history.json'), 'utf8')
 
     const status = editStatus('acme', { cwd }).data as { modified: string[] }
     expect(status.modified).toContain('pages/home.json')
 
     // status creates no revision and writes nothing.
-    expect(listFilesRel(path.join(cwd, 'sites', 'acme', 'revisions')).length).toBe(revsBefore)
-    expect(readFileSync(path.join(cwd, 'sites', 'acme', 'history.json'), 'utf8')).toBe(historyBefore)
+    expect(listFilesRel(path.join(cwd, 'storage', 'sites', 'acme', 'revisions')).length).toBe(revsBefore)
+    expect(readFileSync(path.join(cwd, 'storage', 'sites', 'acme', 'history.json'), 'utf8')).toBe(historyBefore)
   })
 
   it('test_UAT_FC_REQ-11_failed_command_is_atomic', () => {

@@ -2,7 +2,7 @@
  * Bundle I/O (DOC-13 §4). A capture is written to a gitignored, fully
  * self-contained directory:
  *
- *   references/<host>/<path>/
+ *   storage/references/<host>/<path>/
  *     capture.json         structured essence — the AI's primary input
  *     screenshot.full.png  the AI's eyes
  *     rendered.html        post-JS DOM — the AI's escape hatch
@@ -27,9 +27,9 @@ function pathSlug(urlPath: string): string {
   return trimmed.replace(/[^a-zA-Z0-9._-]+/g, '_')
 }
 
-/** `references/<host>/<path>/` under the working directory (DOC-13 §4). */
+/** `storage/references/<host>/<path>/` under the working directory (DOC-13 §4). */
 export function bundleDirFor(cwd: string, capture: Pick<Capture, 'host' | 'path'>): string {
-  return path.join(cwd, 'references', capture.host, pathSlug(capture.path))
+  return path.join(cwd, 'storage', 'references', capture.host, pathSlug(capture.path))
 }
 
 export function writeBundle(result: CaptureResult, cwd: string): BundleLocation {
