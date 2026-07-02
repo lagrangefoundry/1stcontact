@@ -11,7 +11,7 @@ interface Props {
   }
 }
 
-const { dials = {}, content } = Astro.props as Props
+const { variant = 'top-nav', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const spacingTop = dials.spacingTop ?? 'md'
 const spacingBottom = dials.spacingBottom ?? 'md'
@@ -26,6 +26,7 @@ const logoIsImage = typeof logo === 'object' && logo !== null
 <header
   class:list={[
     'header',
+    `variant-${variant}`,
     `surface-${surface}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
@@ -75,6 +76,13 @@ const logoIsImage = typeof logo === 'object' && logo !== null
   .header.surface-subtle { background: var(--color-surface-subtle); }
   .header.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .header.surface-accent { background: var(--color-accent); color: var(--color-bg); }
+
+  /* Overlay variant (REQ-25): transparent chrome the render pipeline floats over
+     the following section's band so the two share one image band. Declared after
+     the surface rules so its transparent fill wins the specificity tie — a
+     `surface` dial still selects the text colour (e.g. `inverse` for light text
+     over a dark image) while the fill stays clear. */
+  .header.variant-overlay { background: transparent; border-bottom: none; }
 
   .header.spacing-top-none { padding-top: var(--space-0); }
   .header.spacing-top-sm { padding-top: var(--space-2); }

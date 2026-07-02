@@ -2,6 +2,7 @@ export { registry, getModule } from './registry'
 export { getModuleCss } from './styles'
 export { SECTION_CSS, renderBackgroundLayers, wrapWithBackground } from './background'
 export { LAYER_CSS, renderLayer, wrapWithLayer } from './layer'
+export { OVERLAY_BAND_CSS, composeOverlayHeader } from './overlay'
 export {
   MOTION_CSS,
   MOTION_SCRIPT,

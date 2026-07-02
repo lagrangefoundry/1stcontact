@@ -30,6 +30,8 @@ export {
   LAYER_CSS,
   renderLayer,
   wrapWithLayer,
+  OVERLAY_BAND_CSS,
+  composeOverlayHeader,
   MOTION_CSS,
   MOTION_SCRIPT,
   motionClasses,

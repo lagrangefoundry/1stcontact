@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import {
+  composeOverlayHeader,
   generateThemeCss,
   getModule,
   getModuleCss,
@@ -8,6 +9,7 @@ import {
   LAYER_CSS,
   MOTION_CSS,
   MOTION_SCRIPT,
+  OVERLAY_BAND_CSS,
   SECTION_CSS,
   wrapWithBackground,
   wrapWithLayer,
@@ -38,6 +40,10 @@ type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 /** Render every module instance on a page, in order, to one HTML fragment. */
 async function renderModules(container: Container, page: Page): Promise<string> {
   const parts: string[] = []
+  // A `header` with variant `overlay` (REQ-25) is not emitted as its own band —
+  // it is held here and floated over the following module's band so the two
+  // share one continuous image band.
+  let pendingOverlayHeader: string | null = null
   for (const m of page.modules) {
     const { Component } = getModule(m.type, m.version)
     const html = await container.renderToString(Component, {
@@ -47,10 +53,25 @@ async function renderModules(container: Container, page: Page): Promise<string> 
     // background/overlay/content layers; a layer (REQ-15) then composites its
     // freely-positioned children over that; motion (REQ-16) wraps outermost so
     // the whole section animates as one unit. Modules with none are unchanged.
-    parts.push(
-      wrapWithMotion(await wrapWithLayer(wrapWithBackground(html, m.background), m.layer), m.motion),
+    const band = wrapWithMotion(
+      await wrapWithLayer(wrapWithBackground(html, m.background), m.layer),
+      m.motion,
     )
+
+    if (m.type === 'header' && m.variant === 'overlay') {
+      pendingOverlayHeader = band
+      continue
+    }
+    if (pendingOverlayHeader) {
+      // Composite the held header over this band, then clear the hold.
+      parts.push(composeOverlayHeader(pendingOverlayHeader, band))
+      pendingOverlayHeader = null
+      continue
+    }
+    parts.push(band)
   }
+  // An overlay header with no following band still renders — never dropped.
+  if (pendingOverlayHeader) parts.push(pendingOverlayHeader)
   return parts.join('\n')
 }
 
@@ -128,7 +149,7 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
   // renders unstyled (BUG-1).
   writeText(
     path.join(outDir, 'theme.css'),
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${MOTION_CSS}\n`,
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${MOTION_CSS}\n`,
   )
 
   const container = await AstroContainer.create()

@@ -5,7 +5,9 @@ import { LOGO_FONT_DIAL, LOGO_TREATMENT_DIAL, SPACING_DIAL, SURFACE_DIAL } from 
 export const headerMeta = {
   id: 'header',
   version: 1,
-  variants: ['top-nav'],
+  // `overlay` (REQ-25) renders transparent chrome the render pipeline floats
+  // over the following section's band, so header + hero share one image band.
+  variants: ['top-nav', 'overlay'],
   dials: {
     spacingTop: SPACING_DIAL,
     spacingBottom: SPACING_DIAL,
