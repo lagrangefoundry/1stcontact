@@ -26,6 +26,20 @@ export interface ContentFieldSpec {
   minItems?: number
   /** Maximum length for a `list` field (inclusive). Ignored for other types. */
   maxItems?: number
+  /**
+   * Closed set of permitted values for an `enum` field (DOC-7 §3.2 rule 1 —
+   * visual/semantic choices are finite enumerations, never free strings). A
+   * value outside the set is a validation failure. Ignored for other types.
+   */
+  values?: readonly string[]
+  /**
+   * Per-field contract for a structured field. For a `list` of objects this is
+   * the contract each element must satisfy; for an `object` field it is the
+   * contract of the object itself. {@link validateModuleContent} recurses into
+   * it, so nested `required`/`enum` constraints are enforced to arbitrary depth.
+   * Ignored for scalar field types.
+   */
+  itemSchema?: Record<string, ContentFieldSpec>
 }
 
 /** The full module contract, exported as `moduleMeta` from each module. */

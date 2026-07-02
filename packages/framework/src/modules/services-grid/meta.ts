@@ -2,12 +2,33 @@ import type { ModuleMeta } from '../types'
 import { GAP_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /**
+ * Card accent-border colour (REQ-26). A closed set of palette-role names, not a
+ * raw colour — each resolves to a semantic token in the module's scoped CSS
+ * (`accent` → `--color-accent`, `primary` → `--color-primary`, `muted` →
+ * `--color-muted`). `none` (the absence of the field) draws no accent bar.
+ */
+export const CARD_ACCENT = ['primary', 'accent', 'muted'] as const
+
+/**
+ * Status-badge colour variant (REQ-26). Semantic, token-backed — never a raw
+ * colour. `primary`/`accent` key off the brand tokens; `neutral` uses the
+ * muted/border pair for a low-emphasis pill.
+ */
+export const BADGE_VARIANT = ['neutral', 'primary', 'accent'] as const
+
+/**
  * `services-grid` — a grid of service / offering cards. Both variants collapse
  * to a single column below the `md` breakpoint (DOC-7 §4.2 mobile-first).
  *
  * The `items` list is bounded 2..6: a single card is not a grid, and beyond six
  * the layout stops reading as a scannable grid. The bound is enforced at the
  * content-schema level via {@link validateModuleContent}.
+ *
+ * Each card's structured fields (REQ-26) carry the "expensive" card treatments
+ * seen in the gigabytealchemy import — an accent left border, a status badge,
+ * and a green ✓ checklist — as closed, validated values rather than markdown
+ * italics and plain bullets. All three are optional; a card declaring none
+ * renders exactly as before.
  */
 export const servicesGridMeta = {
   id: 'services-grid',
@@ -22,7 +43,28 @@ export const servicesGridMeta = {
   contentSchema: {
     heading: { type: 'string', required: false },
     subhead: { type: 'markdown', required: false },
-    // Each item: { icon?: AssetRef | string, title, body (markdown), cta? }.
-    items: { type: 'list', required: true, minItems: 2, maxItems: 6 },
+    items: {
+      type: 'list',
+      required: true,
+      minItems: 2,
+      maxItems: 6,
+      itemSchema: {
+        icon: { type: 'asset-ref', required: false },
+        title: { type: 'string', required: true },
+        body: { type: 'markdown', required: true },
+        cta: { type: 'object', required: false },
+        // REQ-26 card treatments — structured, closed-value, token-backed.
+        accent: { type: 'enum', required: false, values: CARD_ACCENT },
+        badge: {
+          type: 'object',
+          required: false,
+          itemSchema: {
+            label: { type: 'string', required: true },
+            variant: { type: 'enum', required: false, values: BADGE_VARIANT },
+          },
+        },
+        checklist: { type: 'list', required: false, maxItems: 8 },
+      },
+    },
   },
 } as const satisfies ModuleMeta
