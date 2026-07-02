@@ -30,7 +30,24 @@ export const SECTION_CSS = `/* section background (REQ-14) */
   background-repeat: no-repeat;
 }
 .fc-bg-section__overlay { position: absolute; inset: 0; z-index: 1; }
-.fc-bg-section__content { position: relative; z-index: 2; }`
+.fc-bg-section__content { position: relative; z-index: 2; }
+
+/* background × surface composition (REQ-27).
+ * A section background paints behind the module band (z 0); the band's own
+ * surface fill (\`.hero.surface-inverse { background: … }\` etc.) would otherwise
+ * paint over it and make the background inert. When a background is present we
+ * suppress the band's own background-color/-image so the background layer shows,
+ * while leaving the surface's \`color\` untouched — so \`surface\` still supplies the
+ * text-color/contrast contract over the background. The two-class selector below
+ * is specificity (0,2,0), tying the \`.<module>.surface-*\` rules; SECTION_CSS is
+ * emitted after the module CSS in the per-site stylesheet, so it wins the tie.
+ * This is a documented precedence rule — background paints, surface contracts —
+ * not last-declaration-wins by accident. Modules with no background wrapper have
+ * no \`.fc-bg-section\` ancestor, so their surface fills paint normally. */
+.fc-bg-section > .fc-bg-section__content > * {
+  background-color: transparent;
+  background-image: none;
+}`
 
 /** Escape a string for safe use inside a double-quoted HTML attribute. */
 function escapeAttr(value: string): string {
