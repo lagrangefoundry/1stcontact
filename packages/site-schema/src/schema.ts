@@ -59,6 +59,45 @@ export const seoMetaSchema = z.object({
   ogImage: z.string().optional(),
 })
 
+/**
+ * A layer painted between a section background and its content, giving text
+ * legible contrast over busy images (REQ-14 / DOC-13 §4). `opacity` is a 0..1
+ * fraction; `color` a hex color.
+ */
+export const backgroundOverlaySchema = z.object({
+  color: hexColor,
+  opacity: z.number().min(0).max(1),
+})
+
+/** How an image background fills its section. */
+export const backgroundFitSchema = z.enum(['cover', 'contain'])
+
+/**
+ * Section-level background (REQ-14, DOC-13 §4): a color fill, an image, or a
+ * CSS gradient, each with an optional overlay and text rendered on top. A
+ * discriminated union on `type` so each variant carries exactly the fields it
+ * needs — `color` requires `value`, `image` requires `asset`, `gradient`
+ * requires `gradient` — and validation errors point at the offending field.
+ */
+export const backgroundSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('color'),
+    value: hexColor,
+    overlay: backgroundOverlaySchema.optional(),
+  }),
+  z.object({
+    type: z.literal('image'),
+    asset: assetRefSchema,
+    fit: backgroundFitSchema.optional(),
+    overlay: backgroundOverlaySchema.optional(),
+  }),
+  z.object({
+    type: z.literal('gradient'),
+    gradient: cssValue,
+    overlay: backgroundOverlaySchema.optional(),
+  }),
+])
+
 /** A single module instance within a page. */
 export const moduleInstanceSchema = z.object({
   id: z.string(),
@@ -67,6 +106,8 @@ export const moduleInstanceSchema = z.object({
   variant: z.string(),
   dials: z.record(z.string(), z.string()),
   content: z.record(z.string(), contentValueSchema),
+  /** Optional section-level background painted behind this module (REQ-14). */
+  background: backgroundSchema.optional(),
 })
 
 /** A page: an ordered list of module instances. */

@@ -1,5 +1,6 @@
 export { registry, getModule } from './registry'
 export { getModuleCss } from './styles'
+export { SECTION_CSS, renderBackgroundLayers, wrapWithBackground } from './background'
 export { headerMeta } from './header/meta'
 export { heroMeta } from './hero/meta'
 export { footerMeta } from './footer/meta'

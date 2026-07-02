@@ -1,6 +1,9 @@
 import type { z } from 'zod'
 import type {
   assetRefSchema,
+  backgroundFitSchema,
+  backgroundOverlaySchema,
+  backgroundSchema,
   breakpointTokensSchema,
   containerTokensSchema,
   contentValueSchema,
@@ -49,6 +52,9 @@ export type ModuleContent = ModuleInstance['content']
 export type Dials = ModuleInstance['dials']
 export type ContentValue = z.infer<typeof contentValueSchema>
 export type AssetRef = z.infer<typeof assetRefSchema>
+export type Background = z.infer<typeof backgroundSchema>
+export type BackgroundOverlay = z.infer<typeof backgroundOverlaySchema>
+export type BackgroundFit = z.infer<typeof backgroundFitSchema>
 export type SeoMeta = z.infer<typeof seoMetaSchema>
 
 /**

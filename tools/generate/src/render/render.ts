@@ -1,6 +1,12 @@
 import path from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import { generateThemeCss, getModule, getModuleCss } from '@1stcontact/framework'
+import {
+  generateThemeCss,
+  getModule,
+  getModuleCss,
+  SECTION_CSS,
+  wrapWithBackground,
+} from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
 import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
@@ -31,7 +37,9 @@ async function renderModules(container: Container, page: Page): Promise<string> 
     const html = await container.renderToString(Component, {
       props: { variant: m.variant, dials: m.dials, content: m.content },
     })
-    parts.push(html)
+    // A section-level background (REQ-14) wraps the module's markup in stacked
+    // background/overlay/content layers; modules without one are unchanged.
+    parts.push(wrapWithBackground(html, m.background))
   }
   return parts.join('\n')
 }
@@ -92,7 +100,10 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
   // container render (renderModules) emits module HTML but drops each module's
   // scoped <style>, so the component rules must be folded in here or the page
   // renders unstyled (BUG-1).
-  writeText(path.join(outDir, 'theme.css'), `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n`)
+  writeText(
+    path.join(outDir, 'theme.css'),
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n`,
+  )
 
   const container = await AstroContainer.create()
   const written: string[] = []
