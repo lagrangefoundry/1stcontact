@@ -27,6 +27,7 @@ import {
 import { cmdCapturePage } from './capture'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
+import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 
 export * from './commands'
 export * from './edit'
@@ -35,6 +36,8 @@ export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
 export { startServe } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
+export { cmdShot, VIEWPORTS } from './shot'
+export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export { parseArgs } from './args'
 
 const USAGE = `1c — file-backed site storage, versioning & server-side render (REQ-9)
@@ -50,6 +53,10 @@ Usage:
 
 Reference capture (REQ-12) — rendered-only headless-browser capture:
   1c capture page <url>
+
+Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
+  1c shot <slug> [--source draft|published] [--viewport mobile|tablet|desktop] [--out <file>] [--sandbox]
+  1c shot --url <url> [--viewport mobile|tablet|desktop] [--out <file>]
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -195,6 +202,23 @@ export async function run(argv: string[]): Promise<void> {
       return
     }
 
+    case 'shot': {
+      const targetUrl = typeof flags.url === 'string' ? flags.url : undefined
+      const slug = targetUrl ? undefined : requireSlug(rest[0])
+      const source = flags.source === 'published' ? 'published' : 'draft'
+      const viewport = parseViewport(flags.viewport)
+      const { outFile, url: shotUrl, viewport: vp } = await cmdShot({
+        ...global,
+        slug,
+        url: targetUrl,
+        source,
+        viewport,
+        out: typeof flags.out === 'string' ? flags.out : undefined,
+      })
+      console.log(`Shot ${shotUrl} @ ${vp.width}×${vp.height} → ${outFile}`)
+      return
+    }
+
     case 'page':
     case 'config':
     case 'asset':
@@ -308,6 +332,15 @@ function unknownSub(command: string, sub: string | undefined): CommandError {
     message: `Unknown '${command}' subcommand: ${sub ?? '(none)'}`,
     hint: 'See `1c help` for usage.',
   })
+}
+
+/** Validate a `--viewport` flag against the known presets (default desktop). */
+function parseViewport(val: string | boolean | undefined): ViewportName {
+  if (typeof val !== 'string') return 'desktop'
+  if (!(val in VIEWPORTS)) {
+    throw new Error(`Invalid --viewport '${val}'. Use ${Object.keys(VIEWPORTS).join('|')}.`)
+  }
+  return val as ViewportName
 }
 
 function requireSlug(slug: string | undefined): string {
