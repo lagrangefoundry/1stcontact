@@ -44,12 +44,43 @@ export const assetRefSchema = z.object({
 
 /**
  * Recursive content value. MarkdownString, UrlString, and EnumValue from
- * DOC-7's type list all reduce to `string` at runtime — the only structural
- * distinctions are: scalar string, asset reference, or a list of values.
+ * DOC-7's type list all reduce to `string` at runtime; the remaining structural
+ * distinctions are: scalar (string / number / boolean), asset reference, a
+ * nested object (a typed record — e.g. a services-grid item, a contact-form
+ * field, a footer link), or a list of any of these.
+ *
+ * Number and boolean scalars are first-class: modules consume them as data, not
+ * as text (e.g. contact-form's `field.required` is a real boolean bound to an
+ * HTML attribute). Restricting content to strings would force every such value
+ * through stringify/parse round-trips at the module boundary.
+ *
+ * The object form is a plain `z.record` of content values: it validates *shape*
+ * (nested content values keyed by string), never per-module field names — that
+ * remains `validateModuleContent`'s job at the framework layer (per the
+ * schema-layer scope comment above). None of these forms is a raw-CSS/HTML
+ * escape hatch: values stay within this closed set of content-value shapes, so
+ * no raw `style`/`css`/`html` can be smuggled through, and the `.strict()`
+ * raw-prop rejection on `moduleInstanceSchema` (DOC-7 §6.2) is untouched.
+ *
+ * `assetRefSchema` precedes the generic record in the union so an asset content
+ * value still validates (and types) as an AssetRef rather than a plain record.
  */
-type ContentValueT = string | z.infer<typeof assetRefSchema> | ContentValueT[]
+type ContentValueT =
+  | string
+  | number
+  | boolean
+  | z.infer<typeof assetRefSchema>
+  | ContentValueT[]
+  | { [key: string]: ContentValueT }
 export const contentValueSchema: z.ZodType<ContentValueT> = z.lazy(() =>
-  z.union([z.string(), assetRefSchema, z.array(contentValueSchema)]),
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    assetRefSchema,
+    z.array(contentValueSchema),
+    z.record(z.string(), contentValueSchema),
+  ]),
 )
 
 /** SEO metadata for a page. */

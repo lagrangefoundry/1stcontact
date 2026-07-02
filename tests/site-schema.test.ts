@@ -250,4 +250,80 @@ describe('@1stcontact/site-schema validateSite', () => {
       expect(result.errors.some((e) => e.path === '/pages/0/modules/1/id')).toBe(true)
     }
   })
+
+  // REQ-23 — structured list content (arrays of typed objects). The catalog's
+  // list-based modules (services-grid items, contact-form fields, footer links)
+  // author content as arrays of records; the storage schema must round-trip them.
+  it('test_UAT_FC_REQ-23_list_of_object_content_round_trips', () => {
+    const site = minimalSite() as Record<string, any>
+    site.pages[0].modules = [
+      {
+        id: 'm-services',
+        type: 'services-grid',
+        version: 1,
+        variant: 'three-col',
+        dials: {},
+        content: {
+          items: [
+            { title: 'Design', body: 'We design.', icon: 'pen', cta: 'Learn more' },
+            { title: 'Build', body: 'We build.', icon: 'hammer' },
+          ],
+        },
+      },
+      {
+        id: 'm-contact',
+        type: 'contact-form',
+        version: 1,
+        variant: 'stacked',
+        dials: {},
+        content: {
+          fields: [
+            { name: 'email', label: 'Email', type: 'email', required: true, maxLength: 120 },
+            { name: 'message', label: 'Message', type: 'textarea', required: false },
+          ],
+        },
+      },
+      {
+        id: 'm-footer',
+        type: 'footer',
+        version: 1,
+        variant: 'simple',
+        dials: {},
+        content: {
+          links: [
+            { label: 'Home', target: '/' },
+            { label: 'Privacy', target: '/privacy' },
+          ],
+        },
+      },
+    ]
+    const result = validateSite(site)
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      const items = result.value.pages[0].modules[0].content.items as Array<Record<string, unknown>>
+      expect(items).toHaveLength(2)
+      expect(items[0].title).toBe('Design')
+      // Nested object values — including boolean/number scalars — survive intact.
+      const fields = result.value.pages[0].modules[1].content.fields as Array<Record<string, unknown>>
+      expect(fields[0].name).toBe('email')
+      expect(fields[0].required).toBe(true)
+      expect(fields[0].maxLength).toBe(120)
+      expect(fields[1].required).toBe(false)
+    }
+  })
+
+  // REQ-23 — an asset content value inside a list must still validate (and
+  // type) as an AssetRef, not collapse into the generic object form. AssetRef
+  // precedes the record in the union so its required id/src/alt shape wins.
+  it('test_UAT_FC_REQ-23_asset_ref_content_still_validates', () => {
+    const site = minimalSite() as Record<string, any>
+    site.pages[0].modules[0].content = {
+      gallery: [
+        { id: 'g1', src: '/assets/g1.jpg', alt: 'One' },
+        { id: 'g2', src: '/assets/g2.jpg', alt: 'Two', focalPoint: { x: 0.5, y: 0.5 } },
+      ],
+    }
+    const result = validateSite(site)
+    expect(result.ok).toBe(true)
+  })
 })
