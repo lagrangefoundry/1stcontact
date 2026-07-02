@@ -12,6 +12,10 @@ import type {
   layerChildSchema,
   layerReflowSchema,
   layerSchema,
+  motionSchema,
+  motionTypeSchema,
+  motionTriggerSchema,
+  motionEasingSchema,
   positionOverrideSchema,
   positionSchema,
   moduleInstanceSchema,
@@ -69,6 +73,10 @@ export type ImageTreatment = z.infer<typeof imageTreatmentSchema>
 export type LayerChild = z.infer<typeof layerChildSchema>
 export type LayerReflow = z.infer<typeof layerReflowSchema>
 export type Layer = z.infer<typeof layerSchema>
+export type Motion = z.infer<typeof motionSchema>
+export type MotionType = z.infer<typeof motionTypeSchema>
+export type MotionTrigger = z.infer<typeof motionTriggerSchema>
+export type MotionEasing = z.infer<typeof motionEasingSchema>
 export type SeoMeta = z.infer<typeof seoMetaSchema>
 
 /**

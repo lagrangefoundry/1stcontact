@@ -160,9 +160,45 @@ export const imageTreatmentSchema = z
   .strict()
 
 /**
+ * Structured motion (REQ-16, DOC-7 §6, sycamore.so analysis).
+ *
+ * A motion describes an animation as *structured params*, never raw CSS: `type`
+ * is what animates (fade / slide / scale, or `stagger` to sequence a group's
+ * children), `trigger` is when (`load` on render, `scroll` when the element
+ * enters the viewport via the island, `hover` on pointer). `duration`/`delay`
+ * are milliseconds; `easing` is a named curve from a finite set — a raw
+ * `cubic-bezier(...)` string is not accepted, keeping the security /
+ * reproducibility line of DOC-7 §6.2. The framework — never the instance —
+ * turns these into CSS custom properties + classes. `.strict()` rejects any
+ * smuggled raw-CSS field.
+ */
+export const motionTypeSchema = z.enum(['fade', 'slide', 'scale', 'stagger'])
+export const motionTriggerSchema = z.enum(['load', 'scroll', 'hover'])
+export const motionEasingSchema = z.enum([
+  'linear',
+  'ease',
+  'ease-in',
+  'ease-out',
+  'ease-in-out',
+])
+export const motionSchema = z
+  .object({
+    type: motionTypeSchema,
+    trigger: motionTriggerSchema,
+    /** Animation length in milliseconds. Framework default when omitted. */
+    duration: z.number().int().nonnegative().optional(),
+    /** Named easing curve. Framework default when omitted. */
+    easing: motionEasingSchema.optional(),
+    /** Start delay in milliseconds. Framework default when omitted. */
+    delay: z.number().int().nonnegative().optional(),
+  })
+  .strict()
+
+/**
  * One freely-positioned child of a layer (REQ-15). A discriminated union on
  * `kind`: an `image` (with an optional treatment) or a `text` run (markdown).
- * Each carries its own structured `position`. `.strict()` rejects raw CSS.
+ * Each carries its own structured `position` and an optional `motion`
+ * (REQ-16). `.strict()` rejects raw CSS.
  */
 export const layerChildSchema = z.discriminatedUnion('kind', [
   z
@@ -171,6 +207,7 @@ export const layerChildSchema = z.discriminatedUnion('kind', [
       asset: assetRefSchema,
       treatment: imageTreatmentSchema.optional(),
       position: positionSchema,
+      motion: motionSchema.optional(),
     })
     .strict(),
   z
@@ -178,6 +215,7 @@ export const layerChildSchema = z.discriminatedUnion('kind', [
       kind: z.literal('text'),
       text: z.string(),
       position: positionSchema,
+      motion: motionSchema.optional(),
     })
     .strict(),
 ])
@@ -220,6 +258,8 @@ export const moduleInstanceSchema = z
     background: backgroundSchema.optional(),
     /** Optional layer of freely-positioned children composited over this module (REQ-15). */
     layer: layerSchema.optional(),
+    /** Optional entrance / scroll-reveal / hover motion for this module (REQ-16). */
+    motion: motionSchema.optional(),
   })
   .strict()
 

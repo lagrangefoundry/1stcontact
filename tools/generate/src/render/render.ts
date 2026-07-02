@@ -4,10 +4,14 @@ import {
   generateThemeCss,
   getModule,
   getModuleCss,
+  isScrollMotion,
   LAYER_CSS,
+  MOTION_CSS,
+  MOTION_SCRIPT,
   SECTION_CSS,
   wrapWithBackground,
   wrapWithLayer,
+  wrapWithMotion,
 } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
@@ -41,10 +45,23 @@ async function renderModules(container: Container, page: Page): Promise<string> 
     })
     // A section-level background (REQ-14) wraps the module's markup in stacked
     // background/overlay/content layers; a layer (REQ-15) then composites its
-    // freely-positioned children over that. Modules with neither are unchanged.
-    parts.push(await wrapWithLayer(wrapWithBackground(html, m.background), m.layer))
+    // freely-positioned children over that; motion (REQ-16) wraps outermost so
+    // the whole section animates as one unit. Modules with none are unchanged.
+    parts.push(
+      wrapWithMotion(await wrapWithLayer(wrapWithBackground(html, m.background), m.layer), m.motion),
+    )
   }
   return parts.join('\n')
+}
+
+/**
+ * Whether any module on the page — or any child of a module's layer — carries a
+ * scroll-triggered motion, and therefore needs the reveal island shipped.
+ */
+function pageHasScrollMotion(page: Page): boolean {
+  return page.modules.some(
+    (m) => isScrollMotion(m.motion) || (m.layer?.children ?? []).some((c) => isScrollMotion(c.motion)),
+  )
 }
 
 /** Build a complete HTML document for one page. */
@@ -53,6 +70,12 @@ async function renderPage(container: Container, site: Site, page: Page): Promise
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
   const ogImage = page.seoMeta?.ogImage
   const body = await renderModules(container, page)
+  // The scroll-reveal island (REQ-16) ships only when the page needs it — a
+  // self-contained inline script, since the container render drops component
+  // <script> blocks the same way it drops <style>.
+  const motionScript = pageHasScrollMotion(page)
+    ? `\n<script>${MOTION_SCRIPT}</script>`
+    : ''
 
   const head = [
     '<meta charset="utf-8" />',
@@ -79,7 +102,7 @@ async function renderPage(container: Container, site: Site, page: Page): Promise
 ${head}
 </head>
 <body>
-${body}
+${body}${motionScript}
 </body>
 </html>
 `
@@ -105,7 +128,7 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
   // renders unstyled (BUG-1).
   writeText(
     path.join(outDir, 'theme.css'),
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n`,
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${MOTION_CSS}\n`,
   )
 
   const container = await AstroContainer.create()

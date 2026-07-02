@@ -2,6 +2,14 @@ export { registry, getModule } from './registry'
 export { getModuleCss } from './styles'
 export { SECTION_CSS, renderBackgroundLayers, wrapWithBackground } from './background'
 export { LAYER_CSS, renderLayer, wrapWithLayer } from './layer'
+export {
+  MOTION_CSS,
+  MOTION_SCRIPT,
+  motionClasses,
+  motionVars,
+  wrapWithMotion,
+  isScrollMotion,
+} from './motion'
 export { headerMeta } from './header/meta'
 export { heroMeta } from './hero/meta'
 export { footerMeta } from './footer/meta'

@@ -1,5 +1,6 @@
 import type { ImageTreatment, Layer, LayerChild, Position } from '@1stcontact/site-schema'
 import { renderMarkdown } from './markdown'
+import { wrapWithMotion } from './motion'
 
 /**
  * Layer rendering (REQ-15, DOC-7 §6, DOC-14, DOC-15 design log).
@@ -177,11 +178,19 @@ async function renderChild(child: LayerChild): Promise<string> {
       .join(' ')
     const src = escapeAttr(child.asset.src)
     const alt = escapeAttr(child.asset.alt)
-    return `<div class="${cls}" style="${style}"><img src="${src}" alt="${alt}" loading="lazy" decoding="async" /></div>`
+    // Motion (REQ-16) wraps the child's *inner* content, not the positioned
+    // element — the child already owns `transform: rotate(...)`, which a
+    // slide/scale keyframe would otherwise clobber.
+    const inner = wrapWithMotion(
+      `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" />`,
+      child.motion,
+    )
+    return `<div class="${cls}" style="${style}">${inner}</div>`
   }
   // Text run: markdown, rendered through the same processor as text-block.
   const html = await renderMarkdown(child.text)
-  return `<div class="fc-layer__child fc-layer__child--text" style="${style}"><div class="fc-layer__text">${html}</div></div>`
+  const inner = wrapWithMotion(`<div class="fc-layer__text">${html}</div>`, child.motion)
+  return `<div class="fc-layer__child fc-layer__child--text" style="${style}">${inner}</div>`
 }
 
 /** Render the positioned-child stack (without the wrapping context). */
