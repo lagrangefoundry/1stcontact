@@ -1,0 +1,193 @@
+{
+  "id": "home",
+  "slug": "home",
+  "title": "Home",
+  "seoMeta": {
+    "title": "Gigabyte Alchemy — Intentional Software",
+    "description": "A software studio building technology to elevate—not just engage. Tools for clarity, presence, and positive connection."
+  },
+  "modules": [
+    {
+      "id": "header",
+      "type": "header",
+      "version": 1,
+      "variant": "overlay",
+      "dials": {
+        "surface": "inverse",
+        "spacingTop": "md",
+        "spacingBottom": "md",
+        "logoFont": "display",
+        "logoTreatment": "gold"
+      },
+      "content": {
+        "logo": "GIGABYTE ALCHEMY",
+        "entries": []
+      }
+    },
+    {
+      "id": "hero",
+      "type": "hero",
+      "version": 1,
+      "variant": "bg-image",
+      "dials": { "size": "md", "align": "left", "surface": "inverse", "spacingTop": "xl", "spacingBottom": "xl" },
+      "content": {
+        "heading": "Intentional Software",
+        "subhead": "Tools for clarity, presence, and positive connection\n\nWe're a software studio building technology to elevate—not just engage. Tools that help you access your wisdom, create inner space, and cultivate positive connection—with yourself and others.",
+        "image": {
+          "id": "alchemist-lab",
+          "src": "assets/AlchemistLabWithTech.png",
+          "alt": "Alchemist's lab lit by candlelight with vintage technology"
+        }
+      }
+    },
+    {
+      "id": "approach",
+      "type": "text-block",
+      "version": 1,
+      "variant": "landing",
+      "dials": { "size": "lg", "spacingTop": "xl", "spacingBottom": "xl", "surface": "default" },
+      "content": {
+        "heading": "A Different Approach",
+        "body": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.\n\nThrough privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.\n\n*We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.*"
+      }
+    },
+    {
+      "id": "mission",
+      "type": "services-grid",
+      "version": 1,
+      "variant": "three-col",
+      "dials": { "spacingTop": "xl", "spacingBottom": "md", "gap": "normal", "surface": "subtle" },
+      "content": {
+        "heading": "Our Mission",
+        "subhead": "Our work is guided by a simple belief: the world needs more presence, positivity, and human connection.",
+        "items": [
+          {
+            "title": "Presence",
+            "body": "Technology that creates inner space for clarity and insight, helping you access what you know but can't easily reach"
+          },
+          {
+            "title": "Positivity",
+            "body": "Tools that elevate mood and perspective, supporting gratitude, joy, and emotional well-being"
+          },
+          {
+            "title": "Connection",
+            "body": "Technology that brings people together to create positive experiences and meaningful interactions"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mission-note",
+      "type": "text-block",
+      "version": 1,
+      "variant": "landing",
+      "dials": { "spacingTop": "none", "spacingBottom": "xl", "surface": "subtle" },
+      "content": {
+        "body": "**These aren't just features—they're foundations. Every tool we build starts with these principles.**"
+      }
+    },
+    {
+      "id": "building",
+      "type": "services-grid",
+      "version": 1,
+      "variant": "two-col",
+      "dials": { "spacingTop": "xl", "spacingBottom": "md", "gap": "normal", "surface": "default" },
+      "content": {
+        "heading": "What We're Building",
+        "subhead": "From personal reflection tools to developer platforms, our work spans the spectrum of human experience.",
+        "items": [
+          {
+            "title": "Sanctum Voice",
+            "accent": "accent",
+            "badge": { "label": "In development", "variant": "primary" },
+            "body": "**Your private space to think out loud**\n\nA voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
+            "checklist": [
+              "Completely on-device—your thoughts never leave your phone",
+              "Creates space for deeper reflection and insight",
+              "Optional modules for journaling, dreams, gratitude, and personal growth"
+            ]
+          },
+          {
+            "title": "XGD (Extreme Generative Development)",
+            "accent": "primary",
+            "badge": { "label": "Coming soon", "variant": "neutral" },
+            "body": "**AI-powered development methodology and tools**\n\nAn open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
+            "checklist": [
+              "Designed for developers building AI-enhanced workflows",
+              "Open source and community-driven",
+              "Practical tools for modern software development"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "exploring",
+      "type": "text-block",
+      "version": 1,
+      "variant": "landing",
+      "dials": { "spacingTop": "none", "spacingBottom": "xl", "surface": "default" },
+      "content": {
+        "heading": "What We're Exploring",
+        "body": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*"
+      }
+    },
+    {
+      "id": "alchemy",
+      "type": "text-block",
+      "version": 1,
+      "variant": "landing",
+      "dials": { "size": "lg", "spacingTop": "xl", "spacingBottom": "xl", "surface": "subtle" },
+      "content": {
+        "heading": "The Alchemy",
+        "body": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.\n\nBut the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.\n\nThat's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.\n\n**We're not trying to change you. We're creating space for you to discover what's already there.**"
+      }
+    },
+    {
+      "id": "subscribe",
+      "type": "contact-form",
+      "version": 1,
+      "variant": "inline",
+      "dials": { "spacingTop": "xl", "spacingBottom": "none", "align": "left", "surface": "default" },
+      "content": {
+        "heading": "Get in touch",
+        "subhead": "Join our mailing list for updates on our work.",
+        "action": "https://gigabytealchemy.ai/api/subscribe",
+        "fields": [
+          { "name": "email", "label": "Your email address", "type": "email", "required": true }
+        ],
+        "submitLabel": "Subscribe"
+      }
+    },
+    {
+      "id": "contact",
+      "type": "contact-form",
+      "version": 1,
+      "variant": "inline",
+      "dials": { "spacingTop": "none", "spacingBottom": "xl", "align": "left", "surface": "default" },
+      "content": {
+        "action": "https://gigabytealchemy.ai/api/contact",
+        "fields": [
+          { "name": "name", "label": "Your name", "type": "text", "required": true },
+          { "name": "email", "label": "Your email", "type": "email", "required": true },
+          { "name": "message", "label": "Your message", "type": "textarea", "required": true }
+        ],
+        "submitLabel": "Send message"
+      }
+    },
+    {
+      "id": "footer",
+      "type": "footer",
+      "version": 1,
+      "variant": "minimal",
+      "dials": { "surface": "inverse", "spacingTop": "lg", "spacingBottom": "lg" },
+      "content": {
+        "copyrightHolder": "Gigabyte Alchemy",
+        "links": [
+          { "label": "LinkedIn", "target": "https://www.linkedin.com/" },
+          { "label": "GitHub", "target": "https://github.com/" }
+        ]
+      }
+    }
+  ]
+}
