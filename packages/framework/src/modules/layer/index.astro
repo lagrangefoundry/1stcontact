@@ -1,0 +1,20 @@
+---
+interface Props {
+  variant?: string
+  dials?: Record<string, string>
+  content?: Record<string, unknown>
+}
+
+// The layer module is a bare positioning host: it renders an empty section that
+// gives the instance's `layer` children a box to be positioned within. The
+// children themselves are composited over this section by `wrapWithLayer` in
+// the render pipeline (REQ-15), so the component has no content of its own.
+const { variant = 'default' } = Astro.props as Props
+---
+
+<section class:list={['layer', `variant-${variant}`]}></section>
+
+<style>
+  .layer { min-height: 60vh; }
+  .layer.variant-full { min-height: 100vh; }
+</style>

@@ -4,9 +4,16 @@ import type {
   backgroundFitSchema,
   backgroundOverlaySchema,
   backgroundSchema,
+  breakpointNameSchema,
   breakpointTokensSchema,
   containerTokensSchema,
   contentValueSchema,
+  imageTreatmentSchema,
+  layerChildSchema,
+  layerReflowSchema,
+  layerSchema,
+  positionOverrideSchema,
+  positionSchema,
   moduleInstanceSchema,
   navConfigSchema,
   navEntrySchema,
@@ -55,6 +62,13 @@ export type AssetRef = z.infer<typeof assetRefSchema>
 export type Background = z.infer<typeof backgroundSchema>
 export type BackgroundOverlay = z.infer<typeof backgroundOverlaySchema>
 export type BackgroundFit = z.infer<typeof backgroundFitSchema>
+export type BreakpointName = z.infer<typeof breakpointNameSchema>
+export type Position = z.infer<typeof positionSchema>
+export type PositionOverride = z.infer<typeof positionOverrideSchema>
+export type ImageTreatment = z.infer<typeof imageTreatmentSchema>
+export type LayerChild = z.infer<typeof layerChildSchema>
+export type LayerReflow = z.infer<typeof layerReflowSchema>
+export type Layer = z.infer<typeof layerSchema>
 export type SeoMeta = z.infer<typeof seoMetaSchema>
 
 /**

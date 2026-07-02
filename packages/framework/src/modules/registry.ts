@@ -11,6 +11,8 @@ import ServicesGrid from './services-grid/index.astro'
 import { servicesGridMeta } from './services-grid/meta'
 import ContactForm from './contact-form/index.astro'
 import { contactFormMeta } from './contact-form/meta'
+import LayerHost from './layer/index.astro'
+import { layerMeta } from './layer/meta'
 
 /**
  * The module catalog. `tools/generate` (REQ-6) discovers modules through this
@@ -24,6 +26,7 @@ const MODULES: ModuleDefinition[] = [
   { meta: textBlockMeta, Component: TextBlock },
   { meta: servicesGridMeta, Component: ServicesGrid },
   { meta: contactFormMeta, Component: ContactForm },
+  { meta: layerMeta, Component: LayerHost },
 ]
 
 /** Catalog keyed by `"<id>@<version>"`. */

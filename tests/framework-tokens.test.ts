@@ -7,6 +7,7 @@ import { footerMeta } from '../packages/framework/src/modules/footer/meta'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
+import { layerMeta } from '../packages/framework/src/modules/layer/meta'
 import type { ModuleMeta } from '../packages/framework/src/modules/types'
 
 /**
@@ -96,9 +97,11 @@ describe('@1stcontact/framework module registry', () => {
     expectTypeOf(textBlockMeta).toMatchTypeOf<ModuleMeta>()
     expectTypeOf(servicesGridMeta).toMatchTypeOf<ModuleMeta>()
     expectTypeOf(contactFormMeta).toMatchTypeOf<ModuleMeta>()
+    expectTypeOf(layerMeta).toMatchTypeOf<ModuleMeta>()
 
     // Runtime: every registered module exposes the full contract shape.
-    expect(registry.size).toBe(6)
+    // 7 modules: the REQ-4/5 six plus REQ-15's `layer` host.
+    expect(registry.size).toBe(7)
     for (const def of registry.values()) {
       const meta = def.meta
       expect(typeof meta.id).toBe('string')

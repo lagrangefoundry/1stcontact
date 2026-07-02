@@ -4,8 +4,10 @@ import {
   generateThemeCss,
   getModule,
   getModuleCss,
+  LAYER_CSS,
   SECTION_CSS,
   wrapWithBackground,
+  wrapWithLayer,
 } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
@@ -38,8 +40,9 @@ async function renderModules(container: Container, page: Page): Promise<string> 
       props: { variant: m.variant, dials: m.dials, content: m.content },
     })
     // A section-level background (REQ-14) wraps the module's markup in stacked
-    // background/overlay/content layers; modules without one are unchanged.
-    parts.push(wrapWithBackground(html, m.background))
+    // background/overlay/content layers; a layer (REQ-15) then composites its
+    // freely-positioned children over that. Modules with neither are unchanged.
+    parts.push(await wrapWithLayer(wrapWithBackground(html, m.background), m.layer))
   }
   return parts.join('\n')
 }
@@ -102,7 +105,7 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
   // renders unstyled (BUG-1).
   writeText(
     path.join(outDir, 'theme.css'),
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n`,
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n`,
   )
 
   const container = await AstroContainer.create()

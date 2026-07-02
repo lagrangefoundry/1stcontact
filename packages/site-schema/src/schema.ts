@@ -98,17 +98,130 @@ export const backgroundSchema = z.discriminatedUnion('type', [
   }),
 ])
 
-/** A single module instance within a page. */
-export const moduleInstanceSchema = z.object({
-  id: z.string(),
-  type: z.string(),
-  version: z.number().int().positive(),
-  variant: z.string(),
-  dials: z.record(z.string(), z.string()),
-  content: z.record(z.string(), contentValueSchema),
-  /** Optional section-level background painted behind this module (REQ-14). */
-  background: backgroundSchema.optional(),
-})
+/** The four responsive breakpoints, by token name (REQ-15). */
+export const breakpointNameSchema = z.enum(['sm', 'md', 'lg', 'xl'])
+
+/**
+ * A structured position for a layer child (REQ-15, DOC-7 §3.2 rule 1).
+ *
+ * Every field is a *number*, never raw CSS: `x`/`y` are percentage offsets of
+ * the layer box (0 = left/top edge), `z` is stacking order, `width`/`height`
+ * are percentages of the layer box, `rotate` is degrees. The framework — never
+ * the instance — turns these into CSS custom properties. `breakpoints` carries
+ * per-breakpoint overrides for any subset of the same fields. `.strict()` so a
+ * raw `style`/`css` field smuggled onto a position is a validation error.
+ */
+const positionFields = {
+  x: z.number(),
+  y: z.number(),
+  z: z.number().int(),
+  width: z.number().positive().optional(),
+  height: z.number().positive().optional(),
+  rotate: z.number().optional(),
+}
+export const positionOverrideSchema = z
+  .object({
+    x: positionFields.x.optional(),
+    y: positionFields.y.optional(),
+    z: positionFields.z.optional(),
+    width: positionFields.width,
+    height: positionFields.height,
+    rotate: positionFields.rotate,
+  })
+  .strict()
+/** Per-breakpoint overrides: any subset of the four breakpoints may be set. */
+export const positionBreakpointsSchema = z
+  .object({
+    sm: positionOverrideSchema.optional(),
+    md: positionOverrideSchema.optional(),
+    lg: positionOverrideSchema.optional(),
+    xl: positionOverrideSchema.optional(),
+  })
+  .strict()
+export const positionSchema = z
+  .object({
+    ...positionFields,
+    /** Per-breakpoint overrides, keyed by breakpoint token name. */
+    breakpoints: positionBreakpointsSchema.optional(),
+  })
+  .strict()
+
+/**
+ * Image-child edge/shape treatments (REQ-15, DOC-15 design log §A/B). `shape`
+ * clips the image (circle / rounded); `edge` feathers or tears it (`soft-mask`
+ * = radial mask, `torn-asset` = a pre-torn PNG mask supplied as an asset). All
+ * are enumerated, never raw CSS.
+ */
+export const imageTreatmentSchema = z
+  .object({
+    shape: z.enum(['none', 'circle', 'rounded']).optional(),
+    edge: z.enum(['none', 'soft-mask', 'torn-asset']).optional(),
+  })
+  .strict()
+
+/**
+ * One freely-positioned child of a layer (REQ-15). A discriminated union on
+ * `kind`: an `image` (with an optional treatment) or a `text` run (markdown).
+ * Each carries its own structured `position`. `.strict()` rejects raw CSS.
+ */
+export const layerChildSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('image'),
+      asset: assetRefSchema,
+      treatment: imageTreatmentSchema.optional(),
+      position: positionSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('text'),
+      text: z.string(),
+      position: positionSchema,
+    })
+    .strict(),
+])
+
+/**
+ * A layer: an ordered stack of freely-positioned children composited over the
+ * host module's markup (REQ-15). `reflow` controls narrow-viewport behaviour —
+ * `stack` (default) collapses absolute positioning to normal document flow
+ * below `reflowBelow` (default `sm`); `none` keeps positioning at every width.
+ * An optional `overlay` tints between the host content and the child stack,
+ * reusing REQ-14's overlay shape. `.strict()` rejects raw CSS/HTML.
+ */
+export const layerReflowSchema = z.enum(['stack', 'none'])
+export const layerSchema = z
+  .object({
+    children: z.array(layerChildSchema),
+    reflow: layerReflowSchema.optional(),
+    reflowBelow: breakpointNameSchema.optional(),
+    overlay: backgroundOverlaySchema.optional(),
+  })
+  .strict()
+
+/**
+ * A single module instance within a page.
+ *
+ * `.strict()` (REQ-15): the only permitted keys are those declared below.
+ * Structured layout (`background`, `layer`) is welcome; a raw `style`/`css`/
+ * `html` prop is the security/reproducibility line (DOC-7 §6.2) and is rejected
+ * with a path-pointed error so AI callers can self-correct (DOC-8 §6).
+ */
+export const moduleInstanceSchema = z
+  .object({
+    id: z.string(),
+    type: z.string(),
+    version: z.number().int().positive(),
+    variant: z.string(),
+    dials: z.record(z.string(), z.string()),
+    content: z.record(z.string(), contentValueSchema),
+    /** Optional section-level background painted behind this module (REQ-14). */
+    background: backgroundSchema.optional(),
+    /** Optional layer of freely-positioned children composited over this module (REQ-15). */
+    layer: layerSchema.optional(),
+  })
+  .strict()
 
 /** A page: an ordered list of module instances. */
 export const pageSchema = z
