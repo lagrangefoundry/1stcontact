@@ -33,7 +33,9 @@ export const BADGE_VARIANT = ['neutral', 'primary', 'accent'] as const
 export const servicesGridMeta = {
   id: 'services-grid',
   version: 1,
-  variants: ['three-col', 'two-col'],
+  // `stacked` (REQ-30) keeps each card full-width in a single column at every
+  // breakpoint (the multi-col variants only spread from `md` up).
+  variants: ['three-col', 'two-col', 'stacked'],
   dials: {
     spacingTop: SPACING_DIAL,
     spacingBottom: SPACING_DIAL,

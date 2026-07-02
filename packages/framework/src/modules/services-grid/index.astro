@@ -141,10 +141,13 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.gap-normal .services-grid__cards { gap: var(--space-6); }
   .services-grid.gap-loose .services-grid__cards { gap: var(--space-8); }
 
-  /* Mobile-first: single column by default, multi-column from md up. */
+  /* Mobile-first: single column by default, multi-column from md up. The
+     `stacked` variant (REQ-30) opts out of the multi-column rules entirely, so
+     each card stays full-width in one column at every breakpoint. */
   @media (min-width: 768px) {
     .services-grid.variant-three-col .services-grid__cards { grid-template-columns: repeat(3, 1fr); }
     .services-grid.variant-two-col .services-grid__cards { grid-template-columns: repeat(2, 1fr); }
+    .services-grid.variant-stacked .services-grid__cards { grid-template-columns: 1fr; }
   }
 
   .services-grid__card {

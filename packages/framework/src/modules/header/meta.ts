@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { LOGO_FONT_DIAL, LOGO_TREATMENT_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { ALIGN_DIAL, LOGO_FONT_DIAL, LOGO_TREATMENT_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /** `header` — top navigation chrome (DOC-7 §5 `top-tabs`-style nav). */
 export const headerMeta = {
@@ -12,6 +12,9 @@ export const headerMeta = {
     spacingTop: SPACING_DIAL,
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
+    // Horizontal placement of the wordmark/nav within the header band (REQ-29).
+    // `center` groups the content centrally (e.g. a centered wordmark).
+    align: ALIGN_DIAL,
     // Wordmark font-family + colour treatment (REQ-24). Apply only when the
     // logo is a text wordmark, not an image.
     logoFont: LOGO_FONT_DIAL,

@@ -15,6 +15,8 @@ const { variant = 'top-nav', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const spacingTop = dials.spacingTop ?? 'md'
 const spacingBottom = dials.spacingBottom ?? 'md'
+// Horizontal placement of the header content (REQ-29).
+const align = dials.align ?? 'left'
 // Wordmark font-family + colour treatment (REQ-24), applied to a text logo only.
 const logoFont = dials.logoFont ?? 'heading'
 const logoTreatment = dials.logoTreatment ?? 'plain'
@@ -28,6 +30,7 @@ const logoIsImage = typeof logo === 'object' && logo !== null
     'header',
     `variant-${variant}`,
     `surface-${surface}`,
+    `align-${align}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -104,6 +107,9 @@ const logoIsImage = typeof logo === 'object' && logo !== null
     justify-content: space-between;
     gap: var(--space-4);
   }
+  /* Content alignment (REQ-29): `center` groups the wordmark/nav centrally
+     rather than spreading them edge-to-edge. */
+  .header.align-center .header__inner { justify-content: center; }
   .header__logo { font-weight: var(--font-weight-bold); color: inherit; text-decoration: none; }
   .header__logo img { display: block; height: var(--space-8); width: auto; }
 

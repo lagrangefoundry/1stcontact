@@ -33,3 +33,12 @@ export const LOGO_FONT_DIAL = ['heading', 'body', 'display'] as const
  * the site's `--color-accent`; `plain` inherits the header's text colour.
  */
 export const LOGO_TREATMENT_DIAL = ['plain', 'gold'] as const
+
+/**
+ * Heading colour treatment for the hero (REQ-28). `plain` inherits the surface
+ * text colour; `accent` fills the heading with the solid site accent; `gold`
+ * applies the same metallic-gold gradient as the header wordmark (REQ-24),
+ * keyed to `--color-accent`. Used by the gigabytealchemy import, whose hero
+ * heading is gold rather than the inverse-surface default (white).
+ */
+export const HEADING_TREATMENT_DIAL = ['plain', 'accent', 'gold'] as const

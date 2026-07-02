@@ -19,6 +19,8 @@ const align = dials.align ?? 'left'
 const surface = dials.surface ?? 'default'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
+// Heading colour treatment (REQ-28), independent of the surface text colour.
+const headingTreatment = dials.headingTreatment ?? 'plain'
 
 const { eyebrow, heading, subhead, cta } = content
 // The background image is rendered for the bg-image variant only.
@@ -40,7 +42,7 @@ const bgImage = variant === 'bg-image' ? content.image : undefined
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class="hero__heading">{heading}</h1>
+    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`]}>{heading}</h1>
     {subhead && <div class="hero__subhead">{subhead}</div>}
     {cta && <a class="hero__cta" href={cta.href}>{cta.label}</a>}
   </div>
@@ -96,6 +98,21 @@ const bgImage = variant === 'bg-image' ? content.image : undefined
     font-family: var(--font-family-heading);
     font-weight: var(--font-weight-bold);
     line-height: var(--line-height-tight);
+  }
+  /* Heading colour treatment (REQ-28) — overrides the inherited surface colour.
+     `accent` is a solid accent fill; `gold` is the metallic-gold gradient
+     clipped to the glyphs, matching the header wordmark (REQ-24). */
+  .hero__heading.treatment-accent { color: var(--color-accent); }
+  .hero__heading.treatment-gold {
+    background-image: linear-gradient(
+      180deg,
+      #f7e4a8 0%,
+      var(--color-accent) 48%,
+      #b07d24 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   /* Responsive type: clamp between scale steps per size dial. */
   .hero.size-sm .hero__heading { font-size: clamp(var(--font-size-2xl), 4vw, var(--font-size-3xl)); }

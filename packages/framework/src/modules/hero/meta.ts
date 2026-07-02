@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { ALIGN_DIAL, HEADING_TREATMENT_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /** `hero` — primary above-the-fold section. */
 export const heroMeta = {
@@ -12,6 +12,9 @@ export const heroMeta = {
     spacingTop: SPACING_DIAL,
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
+    // Heading colour treatment (REQ-28) — independent of the surface text
+    // colour, so a hero can carry e.g. a gold heading over an inverse band.
+    headingTreatment: HEADING_TREATMENT_DIAL,
   },
   contentSchema: {
     eyebrow: { type: 'string', required: false },
