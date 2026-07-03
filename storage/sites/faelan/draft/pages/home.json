@@ -40,7 +40,8 @@
             "treatment": {
               "edge": "soft-mask",
               "shadow": "xl",
-              "feather": "md"
+              "feather": "md",
+              "shape": "rounded"
             },
             "position": {
               "x": 6,
@@ -71,7 +72,8 @@
             "treatment": {
               "edge": "soft-mask",
               "shadow": "xl",
-              "feather": "md"
+              "feather": "md",
+              "shape": "rounded"
             },
             "position": {
               "x": 30,
@@ -102,7 +104,8 @@
             "treatment": {
               "edge": "soft-mask",
               "shadow": "xl",
-              "feather": "md"
+              "feather": "md",
+              "shape": "rounded"
             },
             "position": {
               "x": 6,
