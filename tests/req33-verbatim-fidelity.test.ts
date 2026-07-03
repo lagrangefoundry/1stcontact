@@ -101,6 +101,18 @@ describe('REQ-33 checklist tick is a real text run (AC3)', () => {
   })
 })
 
+describe('REQ-33 display wordmark tracking + weight (AC7)', () => {
+  it('test_UAT_FC_REQ-33_display_wordmark_is_tight_and_not_faux_bold', () => {
+    const css = moduleSource('../packages/framework/src/modules/header/index.astro')
+    // Tight (negative) tracking, never the old positive spread.
+    expect(css).toMatch(/\.header__wordmark--font-display\s*\{[^}]*letter-spacing:\s*-0?\.\d+em/)
+    expect(css).not.toMatch(/\.header__wordmark--font-display\s*\{[^}]*letter-spacing:\s*0\.08em/)
+    // The display wordmark carries its own semibold so a 600-only face is not
+    // faux-bolded to 700 by the inherited header-logo `bold`.
+    expect(css).toMatch(/\.header__wordmark--font-display\s*\{[^}]*font-weight:\s*var\(--font-weight-semibold\)/)
+  })
+})
+
 describe('REQ-33 warm palette roles accent-light / accent-deep (AC4)', () => {
   it('test_UAT_FC_REQ-33_warm_roles_in_treatment_vocabulary', () => {
     // Both roles are selectable anywhere a treatment role is (gradient stops,

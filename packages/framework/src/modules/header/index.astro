@@ -130,7 +130,13 @@ const wordmarkGradient =
   .header__wordmark--font-body { font-family: var(--font-family-body); }
   .header__wordmark--font-display {
     font-family: var(--font-family-display);
-    letter-spacing: 0.08em;
+    /* Tight tracking for a large display wordmark — a positive value spreads the
+       glyphs unnaturally at hero scale. */
+    letter-spacing: -0.025em;
+    /* Render the display face's own semibold rather than inheriting the header
+       logo's `bold` (700). When the face ships only a 600 weight, forcing 700
+       makes the browser synthesise faux-bold — a heavier, distorted wordmark. */
+    font-weight: var(--font-weight-semibold);
   }
 
   /* Wordmark size (independent of font/treatment). Default `md` preserves the
