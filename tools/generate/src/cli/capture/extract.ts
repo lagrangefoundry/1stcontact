@@ -17,6 +17,16 @@ export interface RawRun {
   fontFamily: string
   fontSizePx: number
   fontWeight: number
+  // ── REQ-31 per-element value fields (raw; normalized in sections.ts) ───────
+  lineHeightPx: number | null
+  letterSpacingPx: number
+  /** Raw computed `background-image` when the run paints a text-fill gradient. */
+  gradientCss: string | null
+  /** Left border width in px (0 when none painted). */
+  borderLeftWidthPx: number
+  /** Left border colour `#rrggbb` when a left border is painted, else null. */
+  borderLeftColor: string | null
+  paddingLeftPx: number
 }
 
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
@@ -126,6 +136,17 @@ export const EXTRACT_SCRIPT = `(() => {
       if (!el || !visible(el)) continue;
       if (excludes && insideAny(el, excludes)) continue;
       var s = getComputedStyle(el);
+      // A text-fill gradient is a background-image gradient clipped to the text
+      // (background-clip: text). Capture the raw gradient CSS for TS-side
+      // normalization; ignore non-clipped backgrounds (those are band fills).
+      var clip = s.webkitBackgroundClip || s.backgroundClip || '';
+      var bgImg = s.backgroundImage || 'none';
+      var gradientCss = (clip === 'text' && /gradient\\(/.test(bgImg)) ? bgImg : null;
+      // A painted left-edge accent bar (border-l-4 border-emerald-400 and kin).
+      var blW = Math.round(parseFloat(s.borderLeftWidth)) || 0;
+      var blStyle = s.borderLeftStyle;
+      var blColor = (blW > 0 && blStyle && blStyle !== 'none') ? rgbToHex(s.borderLeftColor) : null;
+      var lh = parseFloat(s.lineHeight); // NaN for 'normal'
       out.push({
         role: roleOf(el),
         text: text,
@@ -133,6 +154,12 @@ export const EXTRACT_SCRIPT = `(() => {
         fontFamily: primaryFamily(s.fontFamily),
         fontSizePx: Math.round(parseFloat(s.fontSize)),
         fontWeight: parseInt(s.fontWeight, 10) || 400,
+        lineHeightPx: isNaN(lh) ? null : Math.round(lh),
+        letterSpacingPx: (s.letterSpacing === 'normal') ? 0 : (Math.round(parseFloat(s.letterSpacing) * 100) / 100 || 0),
+        gradientCss: gradientCss,
+        borderLeftWidthPx: blW,
+        borderLeftColor: blColor,
+        paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
       });
     }
     return out;

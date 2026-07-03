@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Values fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
+      section { padding: 48px; }
+      /* A wordmark with a horizontal (90deg) text-fill gradient — the exact
+         shape of the gigabytealchemy wordmark REQ-31 must capture. */
+      .wordmark {
+        font-size: 72px;
+        font-weight: 600;
+        background-image: linear-gradient(90deg, #f6c453, #d98c30);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      /* A left-bar callout — border-l-4 border-emerald-400 pl-6 and kin. */
+      .callout {
+        border-left: 4px solid #34d399;
+        padding-left: 24px;
+        color: #334155;
+        font-size: 18px;
+        letter-spacing: 0.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <section>
+      <h1 class="wordmark">Gigabyte Alchemy</h1>
+      <p class="callout">A callout with an emerald left bar</p>
+    </section>
+  </body>
+</html>

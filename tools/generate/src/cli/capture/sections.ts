@@ -9,8 +9,10 @@
  * exact styling regardless of where a boundary falls (DOC-13 §5).
  */
 import type { RawBand, RawRun, RawSignals } from './extract'
+import { normalizeGradient } from './values-diff'
 import type {
   Background,
+  BorderTreatment,
   Box,
   ContentRun,
   Layout,
@@ -53,15 +55,29 @@ function backgroundOf(band: RawBand, urlToLocal: (url: string) => string | undef
   return { kind: 'color', color }
 }
 
-const toContentRuns = (runs: RawRun[]): ContentRun[] =>
-  runs.map((r) => ({
+/** Project a raw run to a persisted {@link ContentRun}, normalizing the REQ-31 value fields. */
+function toContentRun(r: RawRun): ContentRun {
+  const borderLeft: BorderTreatment | null =
+    r.borderLeftWidthPx > 0 && r.borderLeftColor
+      ? { widthPx: r.borderLeftWidthPx, color: r.borderLeftColor }
+      : null
+  const run: ContentRun = {
     role: r.role,
     text: r.text,
     color: r.color,
     fontFamily: r.fontFamily,
     fontSizePx: r.fontSizePx,
     fontWeight: r.fontWeight,
-  }))
+    letterSpacingPx: r.letterSpacingPx,
+    gradient: normalizeGradient(r.gradientCss),
+    borderLeft,
+    paddingLeftPx: r.paddingLeftPx,
+  }
+  if (r.lineHeightPx !== null) run.lineHeightPx = r.lineHeightPx
+  return run
+}
+
+const toContentRuns = (runs: RawRun[]): ContentRun[] => runs.map(toContentRun)
 
 /** A band's style signature — the key segmentation coalesces on. */
 function signatureOf(band: RawBand): string {

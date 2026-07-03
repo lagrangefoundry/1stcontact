@@ -12,5 +12,22 @@ export { reextractFromBundle } from './reextract'
 export { writeBundle, readCapture, bundleDirFor } from './bundle'
 export type { BundleLocation } from './bundle'
 export { EXTRACT_SCRIPT } from './extract'
-export type { RawSignals } from './extract'
+export type { RawSignals, RawRun } from './extract'
+export {
+  flattenCapture,
+  flattenSignals,
+  diffManifests,
+  normalizeGradient,
+  colorToHex,
+  contentRunToElement,
+  rawRunToElement,
+} from './values-diff'
+export type {
+  ValueElement,
+  ValueManifest,
+  ValueDelta,
+  DeltaProperty,
+  ValuesDiffReport,
+  DiffOptions,
+} from './values-diff'
 export * from './types'

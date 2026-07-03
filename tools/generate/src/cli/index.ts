@@ -28,6 +28,8 @@ import { cmdCapturePage } from './capture'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
+import { cmdValuesDiff, formatReport } from './fidelity'
+import type { RenderChannel } from '../store'
 
 export * from './commands'
 export * from './edit'
@@ -38,6 +40,8 @@ export { startServe } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
+export { cmdValuesDiff, formatReport } from './fidelity'
+export type { ValuesDiffOptions } from './fidelity'
 export { parseArgs } from './args'
 
 const USAGE = `1c — file-backed site storage, versioning & server-side render (REQ-9)
@@ -57,6 +61,10 @@ Reference capture (REQ-12) — rendered-only headless-browser capture:
 Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
   1c shot <slug> [--source draft|published] [--viewport mobile|tablet|desktop] [--out <file>] [--sandbox]
   1c shot --url <url> [--viewport mobile|tablet|desktop] [--out <file>]
+
+Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
+  1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json] [--sandbox]
+  1c values-diff --ref <captureBundleDir> --actual <manifest.json> [--out <file>] [--json]
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -216,6 +224,34 @@ export async function run(argv: string[]): Promise<void> {
         out: typeof flags.out === 'string' ? flags.out : undefined,
       })
       console.log(`Shot ${shotUrl} @ ${vp.width}×${vp.height} → ${outFile}`)
+      return
+    }
+
+    case 'values-diff': {
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('values-diff requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const actualPath = typeof flags.actual === 'string' ? flags.actual : undefined
+      const slug = actualPath ? undefined : requireSlug(rest[0])
+      const source: RenderChannel = flags.source === 'published' ? 'published' : 'draft'
+      const report = await cmdValuesDiff({
+        ...global,
+        slug,
+        source,
+        refBundleDir: ref,
+        actualManifestPath: actualPath,
+        out: typeof flags.out === 'string' ? flags.out : undefined,
+      })
+      if (flags.json === true) {
+        console.log(JSON.stringify(report, null, 2))
+      } else {
+        console.log(formatReport(report))
+      }
+      // A non-empty diff is a fidelity failure the operator must clear.
+      if (report.deltas.length > 0) process.exitCode = 1
       return
     }
 

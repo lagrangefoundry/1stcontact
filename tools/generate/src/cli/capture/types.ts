@@ -115,6 +115,26 @@ export interface Layout {
   contentMaxWidthPx: number | null
 }
 
+/**
+ * A text-fill gradient, normalized from the computed `background-image` of an
+ * element painted with `background-clip: text` (REQ-31). Direction is captured
+ * as a concrete angle so a horizontal (90°) vs vertical (180°) sweep — the
+ * gigabytealchemy wordmark delta — is a mechanically-comparable field, not a
+ * judgement call left to the eye.
+ */
+export interface TextGradient {
+  /** CSS angle in degrees (0 = to-top, 90 = to-right, 180 = to-bottom), or null if unparseable. */
+  angleDeg: number | null
+  /** Painted colour stops in order, each `#rrggbb`. */
+  stops: string[]
+}
+
+/** A left-edge accent bar (REQ-31): `border-l-4 border-emerald-400` and kin. */
+export interface BorderTreatment {
+  widthPx: number
+  color: string
+}
+
 export interface ContentRun {
   role: 'heading' | 'subheading' | 'body' | 'link' | 'action' | 'listitem'
   /** Verbatim text (DOC-13 §5). */
@@ -123,6 +143,19 @@ export interface ContentRun {
   fontFamily: string
   fontSizePx: number
   fontWeight: number
+  // ── REQ-31 per-element value manifest fields ─────────────────────────────
+  // Optional so pre-REQ-31 capture.json bundles still parse; the values-diff
+  // only compares fields that are present on the expected side.
+  /** Computed line-height in px, when resolvable to a length. */
+  lineHeightPx?: number
+  /** Computed letter-spacing in px (0 for `normal`). */
+  letterSpacingPx?: number
+  /** Text-fill gradient when the element paints one (`background-clip: text`). */
+  gradient?: TextGradient | null
+  /** Left-edge accent bar when the element paints one. */
+  borderLeft?: BorderTreatment | null
+  /** Computed left padding/indent in px. */
+  paddingLeftPx?: number
 }
 
 export interface SectionItem {
