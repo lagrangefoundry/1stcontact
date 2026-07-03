@@ -48,10 +48,10 @@ describe('@1stcontact/framework theme tokens', () => {
     ]) {
       expect(css, `missing ${name}`).toContain(`${name}:`)
     }
-    // The full token surface is 56 custom properties (REQ-24 added
-    // --font-family-display).
+    // The full token surface is 57 custom properties (REQ-24 added
+    // --font-family-display; REQ-20 added --color-secondary).
     const declCount = (rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length
-    expect(declCount).toBe(56)
+    expect(declCount).toBe(57)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_substitutes_defaults_for_missing_slots', () => {
@@ -60,7 +60,7 @@ describe('@1stcontact/framework theme tokens', () => {
     expect(css).toContain('--color-primary: #ff0000;') // the override
     expect(css).toContain('--color-bg: #ffffff;') // default-filled palette slot
     expect(css).toContain('--space-4: 1rem;') // default-filled non-palette slot
-    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(56)
+    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(57)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_emits_dark_mode_block_when_dark_palette_provided', () => {

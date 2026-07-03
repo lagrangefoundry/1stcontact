@@ -7,14 +7,24 @@ import { GAP_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
  * (`accent` → `--color-accent`, `primary` → `--color-primary`, `muted` →
  * `--color-muted`). `none` (the absence of the field) draws no accent bar.
  */
-export const CARD_ACCENT = ['primary', 'accent', 'muted'] as const
+export const CARD_ACCENT = ['primary', 'accent', 'muted', 'secondary'] as const
 
 /**
  * Status-badge colour variant (REQ-26). Semantic, token-backed — never a raw
- * colour. `primary`/`accent` key off the brand tokens; `neutral` uses the
- * muted/border pair for a low-emphasis pill.
+ * colour. `primary`/`accent`/`secondary` key off the brand tokens; `neutral`
+ * uses the muted pair for a low-emphasis pill. All variants render as a soft
+ * pill (a light tint of the role behind the role-coloured label), matching the
+ * captured gigabytealchemy badges. The card's checklist ✓ ticks follow the
+ * badge variant's colour.
  */
-export const BADGE_VARIANT = ['neutral', 'primary', 'accent'] as const
+export const BADGE_VARIANT = ['neutral', 'primary', 'accent', 'secondary'] as const
+
+/**
+ * Card fill (REQ-20). `default` is the standard surface card; `muted` is a
+ * filled neutral panel (a subtle grey tint) — the gigabytealchemy "What We're
+ * Exploring" panel. Token-backed, never a raw colour.
+ */
+export const CARD_SURFACE = ['default', 'muted'] as const
 
 /**
  * `services-grid` — a grid of service / offering cards. Both variants collapse
@@ -57,6 +67,8 @@ export const servicesGridMeta = {
         cta: { type: 'object', required: false },
         // REQ-26 card treatments — structured, closed-value, token-backed.
         accent: { type: 'enum', required: false, values: CARD_ACCENT },
+        // Card fill (REQ-20) — `muted` renders a filled neutral panel.
+        surface: { type: 'enum', required: false, values: CARD_SURFACE },
         badge: {
           type: 'object',
           required: false,

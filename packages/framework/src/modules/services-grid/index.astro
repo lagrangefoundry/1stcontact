@@ -8,10 +8,12 @@ interface ServiceItem {
   body: string
   cta?: { label: string; href: string }
   /** Accent left-border colour (REQ-26) — a palette-role name, not a raw colour. */
-  accent?: 'primary' | 'accent' | 'muted'
+  accent?: 'primary' | 'accent' | 'muted' | 'secondary'
+  /** Card fill (REQ-20) — `muted` is a filled neutral panel. */
+  surface?: 'default' | 'muted'
   /** Status pill shown top-right (REQ-26). */
-  badge?: { label: string; variant?: 'neutral' | 'primary' | 'accent' }
-  /** Body items rendered as green ✓ checks instead of plain bullets (REQ-26). */
+  badge?: { label: string; variant?: 'neutral' | 'primary' | 'accent' | 'secondary' }
+  /** Body items rendered as ✓ checks (REQ-26); tick colour follows the badge. */
   checklist?: string[]
 }
 
@@ -64,6 +66,9 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
           class:list={[
             'services-grid__card',
             item.accent && `has-accent accent-${item.accent}`,
+            item.surface && item.surface !== 'default' && `surface-${item.surface}`,
+            // The ✓ checklist ticks take the badge variant's colour.
+            item.badge && `status-${item.badge.variant ?? 'neutral'}`,
           ]}
         >
           {item.badge && (
@@ -166,6 +171,13 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid__card.accent-primary { border-left-color: var(--color-primary); }
   .services-grid__card.accent-accent { border-left-color: var(--color-accent); }
   .services-grid__card.accent-muted { border-left-color: var(--color-muted); }
+  .services-grid__card.accent-secondary { border-left-color: var(--color-secondary); }
+
+  /* Filled panel card (REQ-20) — a subtle neutral tint distinguishing it from
+     the standard surface cards (the "What We're Exploring" panel). */
+  .services-grid__card.surface-muted {
+    background: color-mix(in srgb, var(--color-muted) 8%, #ffffff);
+  }
 
   /* Status badge (REQ-26) — a pill in the card's top-right corner. */
   .services-grid__badge {
@@ -179,9 +191,21 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     line-height: var(--line-height-tight);
     white-space: nowrap;
   }
+  /* Soft pills (REQ-20): a light tint of the role behind the role-coloured
+     label, matching the captured badges (e.g. `bg-blue-100 text-blue-700`). */
   .services-grid__badge.badge-neutral { background: var(--color-surface-subtle); color: var(--color-muted); }
-  .services-grid__badge.badge-primary { background: var(--color-primary); color: var(--color-bg); }
-  .services-grid__badge.badge-accent { background: var(--color-accent); color: var(--color-bg); }
+  .services-grid__badge.badge-primary {
+    background: color-mix(in srgb, var(--color-primary) 16%, #ffffff);
+    color: var(--color-primary);
+  }
+  .services-grid__badge.badge-accent {
+    background: color-mix(in srgb, var(--color-accent) 22%, #ffffff);
+    color: color-mix(in srgb, var(--color-accent) 65%, #000000);
+  }
+  .services-grid__badge.badge-secondary {
+    background: color-mix(in srgb, var(--color-secondary) 16%, #ffffff);
+    color: var(--color-secondary);
+  }
 
   /* Checklist (REQ-26) — green ✓ items keyed to the theme primary. */
   .services-grid__checklist {
@@ -204,6 +228,11 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     color: var(--color-primary);
     font-weight: var(--font-weight-bold);
   }
+  /* Tick colour follows the card's badge variant (REQ-20): a card marked
+     "coming soon" (secondary/blue) gets blue ticks, matching the reference. */
+  .services-grid__card.status-accent .services-grid__check::before { color: var(--color-accent); }
+  .services-grid__card.status-secondary .services-grid__check::before { color: var(--color-secondary); }
+  .services-grid__card.status-neutral .services-grid__check::before { color: var(--color-muted); }
 
   .services-grid__icon img { display: block; height: var(--space-12); width: auto; }
   .services-grid__icon span { font-size: var(--font-size-3xl); line-height: 1; }

@@ -17,6 +17,7 @@
       "muted": "#4a4a4a",
       "primary": "#0f9d6e",
       "accent": "#fbba72",
+      "secondary": "#3b82f6",
       "border": "#d9ccba"
     },
     "typography": {

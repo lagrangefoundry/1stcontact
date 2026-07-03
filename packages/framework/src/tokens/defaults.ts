@@ -16,6 +16,7 @@ export const defaultTokens: ThemeTokens = {
     muted: '#6b7280',
     primary: '#2563eb',
     accent: '#f59e0b',
+    secondary: '#3b82f6',
     border: '#e5e7eb',
   },
   typography: {

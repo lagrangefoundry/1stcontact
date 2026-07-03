@@ -353,7 +353,13 @@ export const navConfigSchema = z.object({
  * precise types per group.
  */
 
-/** 9 palette roles. `text` is the foreground role (replaced REQ-3's `fg`). */
+/**
+ * Palette roles. `text` is the foreground role (replaced REQ-3's `fg`).
+ * `secondary` (REQ-20) is an optional second functional accent — a hue distinct
+ * from the brand `accent`, used where a site marks a second status/category
+ * (e.g. gigabytealchemy's blue "coming soon" cards). Optional so existing 9-role
+ * themes keep validating; the token defaults fill it when omitted.
+ */
 export const paletteTokensSchema = z.object({
   bg: hexColor,
   surface: hexColor,
@@ -363,6 +369,7 @@ export const paletteTokensSchema = z.object({
   muted: hexColor,
   primary: hexColor,
   accent: hexColor,
+  secondary: hexColor.optional(),
   border: hexColor,
 })
 

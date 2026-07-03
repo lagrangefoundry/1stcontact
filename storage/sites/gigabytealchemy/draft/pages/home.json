@@ -141,10 +141,10 @@
           },
           {
             "title": "XGD (Extreme Generative Development)",
-            "accent": "primary",
+            "accent": "secondary",
             "badge": {
               "label": "Coming soon",
-              "variant": "neutral"
+              "variant": "secondary"
             },
             "body": "**AI-powered development methodology and tools**\n\nAn open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
             "checklist": [
@@ -152,23 +152,14 @@
               "Open source and community-driven",
               "Practical tools for modern software development"
             ]
+          },
+          {
+            "title": "What We're Exploring",
+            "accent": "muted",
+            "surface": "muted",
+            "body": "We're also developing technology that brings people together to create positive experiences\u2014tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*"
           }
         ]
-      }
-    },
-    {
-      "id": "exploring",
-      "type": "text-block",
-      "version": 1,
-      "variant": "landing",
-      "dials": {
-        "spacingTop": "none",
-        "spacingBottom": "xl",
-        "surface": "default"
-      },
-      "content": {
-        "heading": "What We're Exploring",
-        "body": "We're also developing technology that brings people together to create positive experiences\u2014tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*"
       }
     },
     {

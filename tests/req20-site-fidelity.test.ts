@@ -7,10 +7,13 @@ import Hero from '../packages/framework/src/modules/hero/index.astro'
 import Header from '../packages/framework/src/modules/header/index.astro'
 import Footer from '../packages/framework/src/modules/footer/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import { heroMeta } from '../packages/framework/src/modules/hero/meta'
 import { headerMeta } from '../packages/framework/src/modules/header/meta'
 import { footerMeta } from '../packages/framework/src/modules/footer/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
+import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
+import { generateThemeCss } from '../packages/framework/src/tokens'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 
 /**
@@ -149,6 +152,69 @@ describe('REQ-20 contact-form width', () => {
       content: { action: '/x', fields: [{ name: 'email', label: 'Email', type: 'email', required: true }] },
     })
     expect(html).toContain('width-half')
+  })
+})
+
+describe('REQ-20 secondary palette role + card treatments', () => {
+  it('test_UAT_FC_REQ-20_theme_css_emits_secondary_color_token', () => {
+    // A partial palette still gets a `--color-secondary`, filled from defaults.
+    const css = generateThemeCss({ palette: { primary: '#0f9d6e' } })
+    expect(css).toMatch(/--color-secondary:\s*#[0-9a-fA-F]{6};/)
+  })
+
+  it('test_UAT_FC_REQ-20_services_grid_meta_extends_accent_badge_and_adds_surface', () => {
+    expect(servicesGridMeta.contentSchema.items.itemSchema.accent.values).toContain('secondary')
+    expect(servicesGridMeta.contentSchema.items.itemSchema.badge.itemSchema.variant.values).toContain(
+      'secondary',
+    )
+    expect(servicesGridMeta.contentSchema.items.itemSchema.surface.values).toEqual(['default', 'muted'])
+  })
+
+  it('test_UAT_FC_REQ-20_card_renders_secondary_accent_badge_and_status', async () => {
+    const html = await render(ServicesGrid, {
+      variant: 'stacked',
+      dials: {},
+      content: {
+        items: [
+          {
+            title: 'XGD',
+            body: 'A methodology.',
+            accent: 'secondary',
+            badge: { label: 'Coming soon', variant: 'secondary' },
+            checklist: ['Open source'],
+          },
+          { title: 'Filler', body: 'x' },
+        ],
+      },
+    })
+    expect(html).toContain('accent-secondary')
+    expect(html).toContain('badge-secondary')
+    // The status hook recolours the ✓ ticks to match the badge (blue here).
+    expect(html).toContain('status-secondary')
+  })
+
+  it('test_UAT_FC_REQ-20_card_renders_muted_panel_surface', async () => {
+    const html = await render(ServicesGrid, {
+      variant: 'stacked',
+      dials: {},
+      content: {
+        items: [
+          { title: 'What We’re Exploring', body: 'Body.', accent: 'muted', surface: 'muted' },
+          { title: 'Filler', body: 'x' },
+        ],
+      },
+    })
+    expect(html).toContain('surface-muted')
+  })
+
+  it('test_UAT_FC_REQ-20_default_card_has_no_surface_or_status_class', async () => {
+    const html = await render(ServicesGrid, {
+      variant: 'stacked',
+      dials: {},
+      content: { items: [{ title: 'One', body: 'x' }, { title: 'Two', body: 'y' }] },
+    })
+    expect(html).not.toContain('surface-muted')
+    expect(html).not.toContain('status-')
   })
 })
 
