@@ -227,6 +227,11 @@ export const imageTreatmentSchema = z
   .object({
     shape: z.enum(['none', 'circle', 'rounded']).optional(),
     edge: z.enum(['none', 'soft-mask', 'torn-asset']).optional(),
+    // Soft-mask feather amount (REQ-32 cap 5 follow-up): how far the radial mask
+    // stays opaque before feathering out. `sm` is a crisp edge (small feather),
+    // `lg` the softest; only meaningful with `edge: 'soft-mask'`. Absent → the
+    // prior fixed default.
+    feather: z.enum(['sm', 'md', 'lg']).optional(),
     shadow: layerShadowSchema.optional(),
     border: layerBorderSchema.optional(),
   })

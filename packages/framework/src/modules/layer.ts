@@ -112,8 +112,8 @@ export const LAYER_CSS = `/* layer (REQ-15) */
 .fc-layer__child--shape-circle img { border-radius: 50%; }
 .fc-layer__child--shape-rounded img { border-radius: var(--radius-lg); }
 .fc-layer__child--edge-soft img {
-  -webkit-mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%);
-  mask-image: radial-gradient(ellipse at center, #000 55%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 var(--fc-feather, 55%), transparent 100%);
+  mask-image: radial-gradient(ellipse at center, #000 var(--fc-feather, 55%), transparent 100%);
 }
 .fc-layer__child--edge-torn img {
   -webkit-mask-image: var(--fc-torn-mask, none);
@@ -197,6 +197,17 @@ const TRACKING_EM: Record<string, string> = {
 }
 
 /**
+ * Soft-mask feather steps → the radial mask's opaque-stop percentage (REQ-32
+ * cap 5). A higher stop = a crisper edge (a smaller feathered band); `lg`
+ * reproduces the prior fixed 55% default.
+ */
+const FEATHER_STOP: Record<string, string> = {
+  sm: '82%',
+  md: '70%',
+  lg: '55%',
+}
+
+/**
  * Framework-computed `style` declarations for an image child's shadow/border
  * treatment (REQ-32 cap 5). Both resolve to theme tokens (`var(--shadow-*)`,
  * `var(--color-*)`) — no raw CSS crosses the boundary. Applied to the `<img>`
@@ -209,6 +220,11 @@ function imageTreatmentStyle(treatment: ImageTreatment | undefined): string {
   if (treatment.border && treatment.border.width !== 'none') {
     const width = BORDER_WIDTH_PX[treatment.border.width]
     decls.push(`border: ${width} solid var(--color-${treatment.border.color});`)
+  }
+  // Feather is read by the soft-mask CSS via --fc-feather; only meaningful when
+  // the edge is a soft-mask (a no-op otherwise).
+  if (treatment.feather && treatment.edge === 'soft-mask') {
+    decls.push(`--fc-feather: ${FEATHER_STOP[treatment.feather]};`)
   }
   return decls.join(' ')
 }

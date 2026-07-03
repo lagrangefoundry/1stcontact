@@ -118,6 +118,37 @@ describe('REQ-32 cap 5 — layer image shadow + border', () => {
     expect(stack).toContain('fc-layer__child--shape-circle')
   })
 
+  it('test_UAT_FC_REQ-32_soft_mask_feather_stop', async () => {
+    const layer = {
+      children: [
+        {
+          kind: 'image',
+          asset: PHOTO,
+          treatment: { edge: 'soft-mask', feather: 'md' },
+          position: { x: 0, y: 0, z: 1, width: 30 },
+        },
+        // feather is a no-op without a soft-mask edge.
+        {
+          kind: 'image',
+          asset: PHOTO,
+          treatment: { shape: 'circle', feather: 'sm' },
+          position: { x: 40, y: 0, z: 2, width: 30 },
+        },
+      ],
+    }
+    const site = minimalSite()
+    site.pages[0].modules[0].layer = layer
+    expect(validateSite(site).ok).toBe(true)
+
+    const stack = await renderLayer(layer as any)
+    // The soft-mask child emits the feather stop as a custom property...
+    expect(stack).toContain('--fc-feather: 70%;')
+    // ...which the static mask rule reads (default 55% preserved as fallback).
+    expect(LAYER_CSS).toContain('radial-gradient(ellipse at center, #000 var(--fc-feather, 55%), transparent 100%)')
+    // The circle child (no soft-mask) does not emit a feather property.
+    expect(stack).not.toContain('--fc-feather: 82%;')
+  })
+
   it('test_UAT_FC_REQ-32_border_none_emits_no_border', async () => {
     const layer = {
       children: [
