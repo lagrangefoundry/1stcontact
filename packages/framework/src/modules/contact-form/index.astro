@@ -163,6 +163,10 @@ const honeypotName = 'hp_company_url'
 
   .contact-form__submit {
     align-self: flex-start;
+    /* Inherit the site font family + size — without this a <button> falls back
+       to the UA default (Arial 13px), diverging from the site's type. Weight is
+       set explicitly below so the label still reads as an action. */
+    font: inherit;
     background: var(--color-primary);
     color: var(--color-bg);
     padding: var(--space-3) var(--space-6);

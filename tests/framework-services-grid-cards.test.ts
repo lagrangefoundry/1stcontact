@@ -130,10 +130,12 @@ describe('REQ-26 services-grid card treatments — rendering (AC2)', () => {
     })
     expect(html.match(/class="services-grid__check"/g)?.length).toBe(3)
     expect(html).toContain('On-device')
-    // The ✓ mark keys off the theme primary — the "green check" of the reference.
+    // The ✓ is a real leading text run (present in the DOM), not a ::before
+    // pseudo — so a faithful-repro capture can read it. Three items → three marks.
+    expect(html.match(/services-grid__check-mark[^>]*>✓<\/span>/g)?.length).toBe(3)
+    // The mark keys off the theme primary — the "green check" of the reference.
     const css = moduleSource()
-    expect(css).toMatch(/\.services-grid__check::before\s*\{[^}]*var\(--color-primary\)/)
-    expect(css).toMatch(/\.services-grid__check::before\s*\{[^}]*content:\s*'✓'/)
+    expect(css).toMatch(/\.services-grid__check-mark\s*\{[^}]*var\(--color-primary\)/)
   })
 
   it('test_UAT_FC_REQ-26_untreated_card_emits_no_treatment_markup', async () => {

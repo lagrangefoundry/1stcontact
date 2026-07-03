@@ -69,7 +69,14 @@ function getProcessor(): Promise<MarkdownRenderer> {
   // GFM is on by default; syntax highlighting is left at the default theme.
   // Raw HTML in content fields is the validator's concern (DOC-7 §6.5 layer 1),
   // not this renderer's — we render trusted, already-validated markdown.
-  processor ??= createMarkdownProcessor({})
+  //
+  // `smartypants: false` — this is a faithful-repro engine, so content renders
+  // *verbatim*. The default (on) silently curls straight quotes and turns `--`
+  // into an em-dash, which diverges from the authored/captured source and makes
+  // text fail the fidelity value-match (a straight `We're` no longer equals the
+  // rendered `We’re`). Punctuation the source wants curled must be authored that
+  // way, not injected by the renderer.
+  processor ??= createMarkdownProcessor({ smartypants: false })
   return processor
 }
 
