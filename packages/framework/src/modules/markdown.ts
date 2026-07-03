@@ -52,6 +52,8 @@ blockquote.fc-callout--accent { border-inline-start-color: var(--color-accent); 
 blockquote.fc-callout--secondary { border-inline-start-color: var(--color-secondary); }
 blockquote.fc-callout--muted { border-inline-start-color: var(--color-muted); }
 blockquote.fc-callout--neutral-cool { border-inline-start-color: var(--color-neutral-cool); }
+blockquote.fc-callout--accent-light { border-inline-start-color: var(--color-accent-light); }
+blockquote.fc-callout--accent-deep { border-inline-start-color: var(--color-accent-deep); }
 blockquote.fc-callout--italic { font-style: italic; }`
 
 /**

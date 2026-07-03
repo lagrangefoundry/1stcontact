@@ -8,6 +8,7 @@ import {
   SCRIM_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
+  SUBHEAD_COLOR_DIAL,
   SURFACE_DIAL,
   TREATMENT_ROLE_DIAL,
 } from '../dials'
@@ -33,6 +34,9 @@ export const heroMeta = {
     scrim: SCRIM_DIAL,
     // Vertical anchor of the content within a `fold` band (REQ-32).
     contentAnchor: CONTENT_ANCHOR_DIAL,
+    // Subhead/body colour (REQ-33) — tints the whole subhead block a palette
+    // role (e.g. a gold lead paragraph), independent of the surface text colour.
+    subheadColor: SUBHEAD_COLOR_DIAL,
   },
   contentSchema: {
     eyebrow: { type: 'string', required: false },

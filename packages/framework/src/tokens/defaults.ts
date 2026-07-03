@@ -18,6 +18,11 @@ export const defaultTokens: ThemeTokens = {
     accent: '#f59e0b',
     secondary: '#3b82f6',
     neutralCool: '#64748b',
+    // Warm companions to `accent` (REQ-33): a lighter and a deeper amber, so the
+    // `--color-accent-light` / `--color-accent-deep` custom properties are always
+    // declared even when a site omits them.
+    accentLight: '#fcd34d',
+    accentDeep: '#b45309',
     border: '#e5e7eb',
   },
   typography: {

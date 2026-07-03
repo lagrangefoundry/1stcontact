@@ -28,6 +28,8 @@ const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 // `half` flexes the band into a shared two-column row (grouped by the pipeline).
 const width = dials.width ?? 'full'
+// Submit-button colour treatment (REQ-33): `primary` (brand) or dark `neutral`.
+const submitTreatment = dials.submitTreatment ?? 'primary'
 
 const { heading, action } = content
 const fields = content.fields ?? []
@@ -77,7 +79,7 @@ const honeypotName = 'hp_company_url'
       <div data-turnstile-target></div>
 
       <p class="contact-form__error" data-contact-error hidden></p>
-      <button class="contact-form__submit" type="submit">{submitLabel}</button>
+      <button class:list={['contact-form__submit', `submit-${submitTreatment}`]} type="submit">{submitLabel}</button>
     </form>
 
     {/* Client enhancement swaps the form for this on a successful submit. */}
@@ -167,13 +169,16 @@ const honeypotName = 'hp_company_url'
        to the UA default (Arial 13px), diverging from the site's type. Weight is
        set explicitly below so the label still reads as an action. */
     font: inherit;
-    background: var(--color-primary);
-    color: var(--color-bg);
     padding: var(--space-3) var(--space-6);
     border: 0;
     border-radius: var(--radius-md);
     font-weight: var(--font-weight-semibold);
     cursor: pointer;
   }
+  /* Colour treatment (REQ-33). `primary` is the brand button; `neutral` is a
+     high-contrast dark button (the theme's text colour) with a near-white label
+     — e.g. a black "Send message" on a light band. */
+  .contact-form__submit.submit-primary { background: var(--color-primary); color: var(--color-bg); }
+  .contact-form__submit.submit-neutral { background: var(--color-text); color: var(--color-surface); }
   .contact-form.align-center .contact-form__submit { align-self: center; }
 </style>

@@ -29,6 +29,12 @@ const height = dials.height ?? 'auto'
 // Legibility scrim + content anchor (REQ-32).
 const scrim = dials.scrim ?? 'none'
 const contentAnchor = dials.contentAnchor ?? 'center'
+// Subhead/body colour (REQ-33): `inherit` keeps the surface colour; any palette
+// role tints the whole subhead block. Framework-computed inline style (a closed
+// role set), never instance-supplied raw CSS — mirrors the gradient treatment.
+const subheadColor = dials.subheadColor ?? 'inherit'
+const subheadStyle =
+  subheadColor !== 'inherit' ? `color: var(--color-${subheadColor});` : undefined
 
 const { eyebrow, heading, subhead, cta } = content
 // The background image is rendered for the bg-image variant only.
@@ -63,7 +69,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
     <h1 class:list={['hero__heading', `treatment-${headingTreatment}`]} style={headingGradient}>{heading}</h1>
-    {subheadHtml && <div class="hero__subhead" set:html={subheadHtml} />}
+    {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
     {cta && <a class="hero__cta" href={cta.href}>{cta.label}</a>}
   </div>
 </section>

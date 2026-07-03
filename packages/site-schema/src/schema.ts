@@ -375,6 +375,14 @@ export const paletteTokensSchema = z.object({
   // its neutral text colour. Optional so existing themes keep validating; the
   // token defaults fill it when omitted.
   neutralCool: hexColor.optional(),
+  // `accentLight` / `accentDeep` (REQ-33) are optional warm companions to the
+  // brand `accent` — a lighter and a deeper warm hue. A site declares them to
+  // build a multi-stop warm brand gradient (e.g. gigabytealchemy's gold→orange
+  // wordmark) or a solid warm highlight from palette roles rather than raw
+  // colour. Optional so existing themes keep validating; the token defaults
+  // fill them when omitted.
+  accentLight: hexColor.optional(),
+  accentDeep: hexColor.optional(),
   border: hexColor,
 })
 

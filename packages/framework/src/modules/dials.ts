@@ -74,7 +74,29 @@ export const TREATMENT_ROLE_DIAL = [
   'secondary',
   'muted',
   'neutral-cool',
+  // `accent-light` / `accent-deep` (REQ-33) are optional warm companions to the
+  // brand `accent` — a lighter and a deeper warm hue. They let a multi-stop warm
+  // brand gradient (e.g. a gold→orange wordmark) and a solid warm highlight text
+  // be expressed as roles, so no raw colour ever reaches a gradient stop.
+  'accent-light',
+  'accent-deep',
 ] as const
+
+/**
+ * Hero subhead/body colour dial (REQ-33). `inherit` (default) keeps the surface
+ * text colour; any palette role tints the whole subhead block that role — e.g. a
+ * gold lead paragraph over an inverse hero. A closed set (role names, never a raw
+ * colour), so the framework computes the `var(--color-<role>)` fill.
+ */
+export const SUBHEAD_COLOR_DIAL = ['inherit', ...TREATMENT_ROLE_DIAL] as const
+
+/**
+ * Contact-form submit-button colour treatment (REQ-33). `primary` (default)
+ * fills the button with the brand primary; `neutral` fills it with the dark
+ * neutral text colour and a near-white label — a high-contrast dark button
+ * (e.g. gigabytealchemy's black "Send message") on a light band.
+ */
+export const SUBMIT_TREATMENT_DIAL = ['primary', 'neutral'] as const
 
 /**
  * Gradient sweep direction (REQ-32) — the eight principal directions, kept as a

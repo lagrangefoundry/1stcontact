@@ -4,7 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import Hero from '../packages/framework/src/modules/hero/index.astro'
 import { renderMarkdown } from '../packages/framework/src/modules/markdown'
+import { TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
+import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens'
 
 /**
  * UATs for REQ-33 — three *universal* framework-code fidelity corrections
@@ -71,7 +74,7 @@ describe('REQ-33 contact-form submit inherits site type (AC2)', () => {
         submitLabel: 'Subscribe',
       },
     })
-    expect(html).toMatch(/class="contact-form__submit"[^>]*>Subscribe</)
+    expect(html).toMatch(/class="contact-form__submit[^"]*"[^>]*>Subscribe</)
   })
 })
 
@@ -95,5 +98,72 @@ describe('REQ-33 checklist tick is a real text run (AC3)', () => {
     // The old pseudo-element approach is gone (no invisible glyph).
     const css = moduleSource('../packages/framework/src/modules/services-grid/index.astro')
     expect(css).not.toContain("services-grid__check::before")
+  })
+})
+
+describe('REQ-33 warm palette roles accent-light / accent-deep (AC4)', () => {
+  it('test_UAT_FC_REQ-33_warm_roles_in_treatment_vocabulary', () => {
+    // Both roles are selectable anywhere a treatment role is (gradient stops,
+    // callouts, subhead colour).
+    expect(TREATMENT_ROLE_DIAL).toContain('accent-light')
+    expect(TREATMENT_ROLE_DIAL).toContain('accent-deep')
+  })
+
+  it('test_UAT_FC_REQ-33_warm_roles_emit_color_custom_properties', () => {
+    // A site declaring the roles gets `--color-accent-light` / `--color-accent-deep`.
+    const css = generateThemeCss({
+      ...defaultTokens,
+      palette: { ...defaultTokens.palette, accentLight: '#f5e6a3', accentDeep: '#ff6b35' },
+    })
+    expect(css).toContain('--color-accent-light: #f5e6a3;')
+    expect(css).toContain('--color-accent-deep: #ff6b35;')
+  })
+})
+
+describe('REQ-33 hero subheadColor dial (AC5)', () => {
+  async function renderHero(dials: Record<string, string>) {
+    return render(Hero, {
+      variant: 'bg-color',
+      dials,
+      content: { heading: 'H', subhead: 'Lead paragraph.' },
+    })
+  }
+
+  it('test_UAT_FC_REQ-33_subhead_tinted_by_palette_role', async () => {
+    const html = await renderHero({ subheadColor: 'accent-light' })
+    // Framework-computed inline colour keyed to the role (never raw CSS).
+    expect(html).toMatch(/hero__subhead[^>]*style="[^"]*color: var\(--color-accent-light\)/)
+  })
+
+  it('test_UAT_FC_REQ-33_subhead_inherits_by_default', async () => {
+    const html = await renderHero({})
+    // No colour override when the dial is absent — inherits the surface colour.
+    expect(html).not.toMatch(/hero__subhead[^>]*style="[^"]*color:/)
+  })
+})
+
+describe('REQ-33 contact-form submitTreatment dial (AC6)', () => {
+  async function renderForm(dials: Record<string, string>) {
+    return render(ContactForm, {
+      dials,
+      content: {
+        action: '/x',
+        fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+        submitLabel: 'Send',
+      },
+    })
+  }
+
+  it('test_UAT_FC_REQ-33_submit_neutral_is_dark_button', async () => {
+    const html = await renderForm({ submitTreatment: 'neutral' })
+    expect(html).toMatch(/class="contact-form__submit submit-neutral"/)
+    const css = moduleSource('../packages/framework/src/modules/contact-form/index.astro')
+    // Neutral fills with the theme text colour (a dark button on a light band).
+    expect(css).toMatch(/\.submit-neutral\s*\{[^}]*var\(--color-text\)/)
+  })
+
+  it('test_UAT_FC_REQ-33_submit_defaults_to_primary', async () => {
+    const html = await renderForm({})
+    expect(html).toMatch(/class="contact-form__submit submit-primary"/)
   })
 })
