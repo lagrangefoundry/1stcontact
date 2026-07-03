@@ -5,7 +5,7 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 import Hero from '../packages/framework/src/modules/hero/index.astro'
-import { renderMarkdown } from '../packages/framework/src/modules/markdown'
+import { renderMarkdown, CALLOUT_CSS } from '../packages/framework/src/modules/markdown'
 import { TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens'
 
@@ -98,6 +98,22 @@ describe('REQ-33 checklist tick is a real text run (AC3)', () => {
     // The old pseudo-element approach is gone (no invisible glyph).
     const css = moduleSource('../packages/framework/src/modules/services-grid/index.astro')
     expect(css).not.toContain("services-grid__check::before")
+  })
+})
+
+describe('REQ-33 callout is medium-weight emphasis (AC9)', () => {
+  it('test_UAT_FC_REQ-33_callout_text_is_medium_weight', () => {
+    // A callout is a weight-emphasised statement (500) — its weight lives here,
+    // in the treatment, not as a raw font-weight in any site-def.
+    expect(CALLOUT_CSS).toMatch(/blockquote\.fc-callout\s*\{[^}]*font-weight:\s*var\(--font-weight-medium\)/)
+  })
+
+  it('test_UAT_FC_REQ-33_callout_marker_renders_left_bar', async () => {
+    // An authored `> [!primary] …` becomes a semantic left-bar callout, not the
+    // `**bold**` paragraph it was mis-transcribed as.
+    const html = await renderMarkdown('> [!primary] These are foundations.')
+    expect(html).toContain('blockquote class="fc-callout fc-callout--primary"')
+    expect(html).not.toContain('<strong>')
   })
 })
 

@@ -46,6 +46,10 @@ blockquote.fc-callout {
   border-inline-start: var(--space-1) solid var(--color-muted);
   padding-inline-start: var(--space-6);
   color: inherit;
+  /* A callout is a weight-emphasised statement — medium (500), a subtle step
+     above body copy without the slab of full bold. This is the one place a
+     callout's weight is defined; a site-def never sets a raw font-weight. */
+  font-weight: var(--font-weight-medium);
 }
 blockquote.fc-callout--primary { border-inline-start-color: var(--color-primary); }
 blockquote.fc-callout--accent { border-inline-start-color: var(--color-accent); }
