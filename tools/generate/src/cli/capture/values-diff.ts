@@ -48,6 +48,14 @@ export interface ValueElement {
   gradient?: TextGradient | null
   borderLeft?: BorderTreatment | null
   paddingLeftPx?: number
+  /**
+   * REQ-35 — true when this run's colour could not be resolved from computed
+   * styles and fell back to the `#000000`/`#ffffff` sentinel. The capture was
+   * *guessing*, so the diff treats the colour as low-confidence and does not
+   * emit a hard colour delta against it (a dark footer / over-image header the
+   * fallback mislabels as black-on-white would otherwise diff forever).
+   */
+  colorInferred?: boolean
 }
 
 /**
@@ -148,6 +156,38 @@ export function colorToHex(token: string): string | null {
   return null
 }
 
+/** `#rrggbb`/`rgb()` → `[r, g, b]` (0–255), or null if unparseable. */
+function toRgb(token: string): [number, number, number] | null {
+  const hex = colorToHex(token)
+  if (!hex) return null
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ]
+}
+
+/**
+ * Perceptual distance between two colours (REQ-35), using the low-cost "redmean"
+ * approximation of CIE ΔE. Two identical colours score 0; the largest possible
+ * distance (`#000` vs `#fff`) is ≈765. A tiny threshold (~3) suppresses the
+ * imperceptible per-channel rounding that separates a re-render from its capture
+ * while leaving real near-neighbour deltas — the flagship gold-vs-gold
+ * (`#f5e6a3` vs `#fbba72`, ≈113) the tool exists to catch — well above the line.
+ * Unparseable input scores `Infinity` so an unknown colour is never silently
+ * treated as a match.
+ */
+export function colorDistance(a: string, b: string): number {
+  const ca = toRgb(a)
+  const cb = toRgb(b)
+  if (!ca || !cb) return Infinity
+  const rmean = (ca[0] + cb[0]) / 2
+  const dr = ca[0] - cb[0]
+  const dg = ca[1] - cb[1]
+  const db = ca[2] - cb[2]
+  return Math.sqrt((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db)
+}
+
 /**
  * Normalize a computed `linear-gradient(...)` string to {@link TextGradient}.
  * Non-linear (radial/conic) or unparseable input yields `{ angleDeg: null }` so
@@ -205,6 +245,7 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.gradient !== undefined) el.gradient = run.gradient
   if (run.borderLeft !== undefined) el.borderLeft = run.borderLeft
   if (run.paddingLeftPx !== undefined) el.paddingLeftPx = run.paddingLeftPx
+  if (run.colorInferred) el.colorInferred = true
   return el
 }
 
@@ -227,6 +268,7 @@ export function rawRunToElement(run: RawRun): ValueElement {
     paddingLeftPx: run.paddingLeftPx,
   }
   if (run.lineHeightPx !== null) el.lineHeightPx = run.lineHeightPx
+  if (run.colorInferred) el.colorInferred = true
   return el
 }
 
@@ -288,9 +330,42 @@ const SEVERITY: Record<DeltaProperty, number> = {
   letterSpacingPx: 20,
 }
 
+/**
+ * Diff tolerances (REQ-35). The measurement fields carry jitter-tolerant
+ * defaults so a "clean" diff reflects real fidelity gaps, not sub-pixel /
+ * sub-step measurement noise — line-height rounds by font metric, weights snap
+ * to the nearest *loaded* face, sizes ±1px viewport-clamp. Each is tight enough
+ * to still catch a genuine off-by-one-step design error. `strict` zeroes every
+ * measurement tolerance for an exact-match pass (colour → exact hex).
+ */
 export interface DiffOptions {
-  /** Absolute px tolerance for size/length fields (default 0 — exact). */
-  sizeTolerancePx?: number
+  /** Exact-match mode: zero every measurement tolerance below. Overrides them. */
+  strict?: boolean
+  /** Perceptual colour distance (redmean ΔE) under which a colour pair matches (default 3). */
+  colorTolerance?: number
+  /** Font-size px tolerance (default 1). */
+  fontSizeTolerancePx?: number
+  /**
+   * Line-height px floor tolerance (default 2). Line-height is proportional to
+   * font size, so the effective tolerance is `max(floor, ratio × expected)` —
+   * this floor only dominates on small text. See {@link lineHeightToleranceRatio}.
+   */
+  lineHeightTolerancePx?: number
+  /**
+   * Line-height relative tolerance as a fraction of the expected line-height
+   * (default 0.12). The dominant jitter bucket is font-metric line-height drift,
+   * which scales with the value; a relative band tracks it where an absolute px
+   * floor cannot (4px is noise on a 72px heading, a real delta on a 14px caption).
+   */
+  lineHeightToleranceRatio?: number
+  /** Letter-spacing px tolerance (default 0.5). */
+  letterSpacingTolerancePx?: number
+  /** Left-padding px tolerance (default 1). */
+  paddingTolerancePx?: number
+  /** Left-bar width px tolerance (default 1). */
+  borderWidthTolerancePx?: number
+  /** Font-weight tolerance — suppresses nearest-loaded-weight snap (default 100). */
+  fontWeightTolerance?: number
   /** Gradient direction tolerance in degrees (default 20). */
   gradientAngleToleranceDeg?: number
   /** Overlay (scrim) opacity tolerance, 0–1 (default 0.1). */
@@ -343,7 +418,20 @@ export function diffManifests(
   actual: ValueManifest,
   opts: DiffOptions = {},
 ): ValuesDiffReport {
-  const sizeTol = opts.sizeTolerancePx ?? 0
+  const strict = opts.strict ?? false
+  // `strict` collapses every measurement tolerance to exact; otherwise each
+  // falls back to its jitter-tolerant default.
+  const tol = (v: number | undefined, def: number): number => (strict ? 0 : (v ?? def))
+  const colorTol = tol(opts.colorTolerance, 3)
+  const fontSizeTol = tol(opts.fontSizeTolerancePx, 1)
+  const lineHeightFloor = tol(opts.lineHeightTolerancePx, 2)
+  const lineHeightRatio = tol(opts.lineHeightToleranceRatio, 0.12)
+  const letterSpacingTol = tol(opts.letterSpacingTolerancePx, 0.5)
+  const paddingTol = tol(opts.paddingTolerancePx, 1)
+  const borderWidthTol = tol(opts.borderWidthTolerancePx, 1)
+  const weightTol = tol(opts.fontWeightTolerance, 100)
+  // Structural tolerances (direction bucket, scrim opacity, vertical anchor) are
+  // not sub-step measurement jitter, so `strict` leaves them at their defaults.
   const angleTol = opts.gradientAngleToleranceDeg ?? 20
   const opacityTol = opts.overlayOpacityTolerance ?? 0.1
   const anchorTol = opts.anchorTolerance ?? 0.15
@@ -405,13 +493,15 @@ export function diffManifests(
       push(exp, 'text', exp.text, act.text)
     }
 
-    if (exp.color.toLowerCase() !== act.color.toLowerCase()) {
+    // A colour the capture had to infer (fallback #000/#fff) is low-confidence
+    // reference data, not a real target — never a hard delta (REQ-35).
+    if (!exp.colorInferred && colorDistance(exp.color, act.color) > colorTol) {
       push(exp, 'color', exp.color, act.color)
     }
-    if (Math.abs(exp.fontSizePx - act.fontSizePx) > sizeTol) {
+    if (Math.abs(exp.fontSizePx - act.fontSizePx) > fontSizeTol) {
       push(exp, 'fontSizePx', `${exp.fontSizePx}`, `${act.fontSizePx}`)
     }
-    if (exp.fontWeight !== act.fontWeight) {
+    if (Math.abs(exp.fontWeight - act.fontWeight) > weightTol) {
       push(exp, 'fontWeight', `${exp.fontWeight}`, `${act.fontWeight}`)
     }
     if (exp.fontFamily.toLowerCase() !== act.fontFamily.toLowerCase()) {
@@ -428,21 +518,22 @@ export function diffManifests(
       const a = act.borderLeft ?? null
       const ok =
         (!e && !a) ||
-        (!!e && !!a && Math.abs(e.widthPx - a.widthPx) <= sizeTol && e.color.toLowerCase() === a.color.toLowerCase())
+        (!!e && !!a && Math.abs(e.widthPx - a.widthPx) <= borderWidthTol && e.color.toLowerCase() === a.color.toLowerCase())
       if (!ok) push(exp, 'borderLeft', borderLabel(e), borderLabel(a))
     }
     if (exp.lineHeightPx !== undefined && act.lineHeightPx !== undefined) {
-      if (Math.abs(exp.lineHeightPx - act.lineHeightPx) > sizeTol) {
+      const lineHeightTol = Math.max(lineHeightFloor, lineHeightRatio * exp.lineHeightPx)
+      if (Math.abs(exp.lineHeightPx - act.lineHeightPx) > lineHeightTol) {
         push(exp, 'lineHeightPx', `${exp.lineHeightPx}`, `${act.lineHeightPx}`)
       }
     }
     if (exp.letterSpacingPx !== undefined && act.letterSpacingPx !== undefined) {
-      if (Math.abs(exp.letterSpacingPx - act.letterSpacingPx) > sizeTol) {
+      if (Math.abs(exp.letterSpacingPx - act.letterSpacingPx) > letterSpacingTol) {
         push(exp, 'letterSpacingPx', `${exp.letterSpacingPx}`, `${act.letterSpacingPx}`)
       }
     }
     if (exp.paddingLeftPx !== undefined && act.paddingLeftPx !== undefined) {
-      if (Math.abs(exp.paddingLeftPx - act.paddingLeftPx) > sizeTol) {
+      if (Math.abs(exp.paddingLeftPx - act.paddingLeftPx) > paddingTol) {
         push(exp, 'paddingLeftPx', `${exp.paddingLeftPx}`, `${act.paddingLeftPx}`)
       }
     }

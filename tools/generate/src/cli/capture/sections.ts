@@ -82,6 +82,7 @@ function toContentRun(r: RawRun): ContentRun {
     paddingLeftPx: r.paddingLeftPx,
   }
   if (r.lineHeightPx !== null) run.lineHeightPx = r.lineHeightPx
+  if (r.colorInferred) run.colorInferred = true
   return run
 }
 

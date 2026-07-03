@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-35 inferred-colour fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #0f172a; }
+      section { padding: 48px; }
+      /* A run whose text colour is transparent — the computed `color` resolves
+         to rgba(0,0,0,0), so capture cannot read a painted colour and must fall
+         back to the #000000 sentinel. This is the low-confidence case REQ-35
+         flags as colorInferred. */
+      .ghost { color: transparent; font-size: 20px; }
+      /* A run with a real, resolvable colour — must NOT be flagged inferred. */
+      .solid { color: #e2e8f0; font-size: 20px; }
+    </style>
+  </head>
+  <body>
+    <section>
+      <p class="ghost">Transparent inferred colour run</p>
+      <p class="solid">Solid confident colour run</p>
+    </section>
+  </body>
+</html>

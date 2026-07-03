@@ -14,6 +14,8 @@ export interface RawRun {
   role: 'heading' | 'subheading' | 'body' | 'link' | 'action' | 'listitem'
   text: string
   color: string
+  /** REQ-35 — true when `color` fell back to the `#000000` sentinel (unresolvable). */
+  colorInferred?: boolean
   fontFamily: string
   fontSizePx: number
   fontWeight: number
@@ -204,10 +206,15 @@ export const EXTRACT_SCRIPT = `(() => {
       var blStyle = s.borderLeftStyle;
       var blColor = (blW > 0 && blStyle && blStyle !== 'none') ? rgbToHex(s.borderLeftColor) : null;
       var lh = parseFloat(s.lineHeight); // NaN for 'normal'
+      // REQ-35: when the painted colour is unresolvable (transparent / not
+      // painted), rgbToHex returns null and we fall back to a sentinel — flag it
+      // low-confidence so the values-diff won't hold a re-render to a guess.
+      var resolvedColor = rgbToHex(s.color);
       out.push({
         role: roleOf(el),
         text: text,
-        color: rgbToHex(s.color) || '#000000',
+        color: resolvedColor || '#000000',
+        colorInferred: !resolvedColor,
         fontFamily: primaryFamily(s.fontFamily),
         fontSizePx: Math.round(parseFloat(s.fontSize)),
         fontWeight: parseInt(s.fontWeight, 10) || 400,

@@ -165,6 +165,14 @@ export interface ContentRun {
   borderLeft?: BorderTreatment | null
   /** Computed left padding/indent in px. */
   paddingLeftPx?: number
+  /**
+   * REQ-35 — true when {@link color} could not be resolved from computed styles
+   * and fell back to the `#000000`/`#ffffff` sentinel (a transparent/unpainted
+   * text colour). Marks the value as low-confidence so the values-diff does not
+   * hold a re-render to a colour the capture only guessed. Optional so pre-REQ-35
+   * bundles still parse.
+   */
+  colorInferred?: boolean
 }
 
 export interface SectionItem {

@@ -28,6 +28,7 @@ import {
   diffManifests,
   flattenCapture,
   flattenSignals,
+  type DiffOptions,
   type ValueManifest,
   type ValuesDiffReport,
 } from './capture/values-diff'
@@ -44,6 +45,8 @@ export interface ValuesDiffOptions extends GlobalOptions {
   actualManifestPath?: string
   /** Write the full report JSON here in addition to returning it. */
   out?: string
+  /** Diff tolerances / strict mode (REQ-35); defaults are jitter-tolerant. */
+  diffOptions?: DiffOptions
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */
   driverFactory?: BrowserDriverFactory
   /** Fixed serve port; defaults to an ephemeral port. */
@@ -90,7 +93,7 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
     actual = await extractDraftManifest(opts.slug, opts.source ?? 'draft', factory, opts)
   }
 
-  const report = diffManifests(expected, actual)
+  const report = diffManifests(expected, actual, opts.diffOptions)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
   return report
 }

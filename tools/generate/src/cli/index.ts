@@ -65,6 +65,9 @@ Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
 Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json] [--sandbox]
   1c values-diff --ref <captureBundleDir> --actual <manifest.json> [--out <file>] [--json]
+  Noise controls (REQ-35): tolerances default to jitter-tolerant; --strict = exact match.
+    [--strict] [--color-tol <ΔE>] [--font-size-tol <px>] [--line-height-tol <px>]
+    [--letter-spacing-tol <px>] [--padding-tol <px>] [--border-tol <px>] [--weight-tol <n>]
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -237,6 +240,25 @@ export async function run(argv: string[]): Promise<void> {
       const actualPath = typeof flags.actual === 'string' ? flags.actual : undefined
       const slug = actualPath ? undefined : requireSlug(rest[0])
       const source: RenderChannel = flags.source === 'published' ? 'published' : 'draft'
+      // REQ-35 tolerance flags: `--strict` for an exact pass, or per-metric
+      // numeric overrides (`--color-tol`, `--line-height-tol`, …).
+      const numFlag = (name: string): number | undefined => {
+        const v = flags[name]
+        if (typeof v !== 'string') return undefined
+        const n = Number(v)
+        if (Number.isNaN(n)) throw new Error(`--${name} expects a number, got '${v}'.`)
+        return n
+      }
+      const diffOptions = {
+        strict: flags.strict === true,
+        colorTolerance: numFlag('color-tol'),
+        fontSizeTolerancePx: numFlag('font-size-tol'),
+        lineHeightTolerancePx: numFlag('line-height-tol'),
+        letterSpacingTolerancePx: numFlag('letter-spacing-tol'),
+        paddingTolerancePx: numFlag('padding-tol'),
+        borderWidthTolerancePx: numFlag('border-tol'),
+        fontWeightTolerance: numFlag('weight-tol'),
+      }
       const report = await cmdValuesDiff({
         ...global,
         slug,
@@ -244,6 +266,7 @@ export async function run(argv: string[]): Promise<void> {
         refBundleDir: ref,
         actualManifestPath: actualPath,
         out: typeof flags.out === 'string' ? flags.out : undefined,
+        diffOptions,
       })
       if (flags.json === true) {
         console.log(JSON.stringify(report, null, 2))

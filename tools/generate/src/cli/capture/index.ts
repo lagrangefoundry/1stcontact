@@ -19,6 +19,7 @@ export {
   diffManifests,
   normalizeGradient,
   colorToHex,
+  colorDistance,
   contentRunToElement,
   rawRunToElement,
 } from './values-diff'
