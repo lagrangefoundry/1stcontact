@@ -27,7 +27,12 @@ const cfg = typeof cfgFn === 'function' ? await cfgFn({ command: 'serve', mode: 
 const server = await createServer({
   ...cfg,
   root: repoRoot,
-  server: { middlewareMode: true, hmr: false },
+  // `ws: false` returns a no-op WebSocket stub so the SSR server never binds
+  // Vite's HMR port (24678). Under Vite 8, `hmr: false` alone no longer
+  // suppresses the ws server — it is now gated on `server.ws` — so a running
+  // `1c serve` (which holds 24678) would otherwise make every other `1c`
+  // invocation log "Port 24678 is already in use". The CLI never needs HMR.
+  server: { middlewareMode: true, hmr: false, ws: false },
   appType: 'custom',
   logLevel: 'error',
 })

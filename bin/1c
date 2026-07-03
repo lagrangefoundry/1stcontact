@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+#
+# `1c` launcher — thin wrapper around the generate CLI.
+#
+# Dispatches to tools/generate/bin/1c.mjs so you can type `1c <cmd>` instead of
+# `node tools/generate/bin/1c.mjs <cmd>`. The repo root is resolved from this
+# script's own location, so the launcher works from any directory. The caller's
+# working directory is deliberately preserved (no `cd`): the CLI roots Vite at
+# the repo but resolves site/dist paths relative to CWD, so `1c` behaves the
+# same as invoking node directly.
+#
+# Usage:
+#   ./bin/1c list
+#   ./bin/1c render <slug> [--source draft|latest|<revId>]
+#
+# To type `1c` from anywhere, add this repo's bin/ to PATH, e.g.:
+#   export PATH="/Users/martin/Projects/1stcontact/bin:$PATH"
+# or alias it:
+#   alias 1c="/Users/martin/Projects/1stcontact/bin/1c"
+#
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+exec node "$repo_root/tools/generate/bin/1c.mjs" "$@"
