@@ -192,6 +192,50 @@ describe('REQ-31 values-diff — colour precision', () => {
   })
 })
 
+// ── verbatim content: casing the join key folds away ─────────────────────────
+
+describe('REQ-31 values-diff — verbatim text content', () => {
+  it('test_UAT_FC_REQ-31_casing_delta_flagged', () => {
+    // Small-caps "Gigabyte Alchemy" rendered as literal all-caps: the join key
+    // (case-folded) pairs them, but the casing itself is wrong — a content delta
+    // computed styles and screenshots both miss.
+    const expected: ValueManifest = { source: 'ref', elements: [el('Gigabyte Alchemy', { role: 'heading' })] }
+    const actual: ValueManifest = { source: 'draft', elements: [el('GIGABYTE ALCHEMY', { role: 'heading' })] }
+    const report = diffManifests(expected, actual)
+    // Paired (not reported "missing"), yet flagged on the verbatim text.
+    expect(report.matched).toBe(1)
+    expect(report.unmatched).toBe(0)
+    expect(hasDelta(report.deltas, 'Gigabyte Alchemy', 'text')).toBe(true)
+    const d = report.deltas.find((x) => x.property === 'text')
+    expect(d?.expected).toBe('Gigabyte Alchemy')
+    expect(d?.actual).toBe('GIGABYTE ALCHEMY')
+  })
+
+  it('test_UAT_FC_REQ-31_whitespace_only_difference_not_flagged', () => {
+    // Both sides collapse identically → formatting noise, not a content delta.
+    const expected: ValueManifest = { source: 'ref', elements: [el('Get  Started')] }
+    const actual: ValueManifest = { source: 'draft', elements: [el(' Get Started ')] }
+    const report = diffManifests(expected, actual)
+    expect(report.matched).toBe(1)
+    expect(report.deltas).toEqual([])
+  })
+
+  it('test_UAT_FC_REQ-31_text_delta_ranks_above_styling', () => {
+    // A content delta (severity 95) outranks a colour delta (90) — it sorts first.
+    const expected: ValueManifest = {
+      source: 'ref',
+      elements: [el('Read More', { color: '#000000' })],
+    }
+    const actual: ValueManifest = {
+      source: 'draft',
+      elements: [el('READ MORE', { color: '#ffffff' })],
+    }
+    const report = diffManifests(expected, actual)
+    expect(report.deltas[0].property).toBe('text')
+    expect(report.deltas[1].property).toBe('color')
+  })
+})
+
 // ── ranking + alignment ──────────────────────────────────────────────────────
 
 describe('REQ-31 values-diff — ranking and alignment', () => {

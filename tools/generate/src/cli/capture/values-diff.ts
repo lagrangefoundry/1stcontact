@@ -14,10 +14,13 @@
  *      flat {@link ValueManifest}: one {@link ValueElement} per verbatim text
  *      run, carrying its resolved styling. Text is captured verbatim (DOC-13
  *      §5), so the run text is the natural join key between the two sides.
- *   2. {@link diffManifests} — align expected↔actual by text and diff each
- *      styling field, emitting a severity-ranked {@link ValueDelta} list. Vision
- *      is then reserved for what a manifest can't encode ("does the gradient
- *      read intentional"), not for reading a hex.
+ *   2. {@link diffManifests} — align expected↔actual by case-folded text and
+ *      diff each field, including the *verbatim* text (casing is normalized away
+ *      in the join key but is itself a captured value, so "Gigabyte Alchemy" vs
+ *      "GIGABYTE ALCHEMY" is flagged), emitting a severity-ranked
+ *      {@link ValueDelta} list. Vision is then reserved for what a manifest
+ *      can't encode ("does the gradient read intentional"), not for reading a
+ *      hex or spotting a casing slip.
  */
 import type {
   BorderTreatment,
@@ -54,6 +57,7 @@ export interface ValueManifest {
 
 export type DeltaProperty =
   | 'missing'
+  | 'text'
   | 'color'
   | 'gradient'
   | 'borderLeft'
@@ -160,7 +164,10 @@ export function normalizeGradient(css: string | null | undefined): TextGradient 
 
 // ── projection: runs → elements ──────────────────────────────────────────────
 
-const norm = (text: string): string => text.replace(/\s+/g, ' ').trim().toLowerCase()
+/** Collapse internal whitespace runs and trim — the case-preserving normal form. */
+const collapse = (text: string): string => text.replace(/\s+/g, ' ').trim()
+/** Case-insensitive join key: the collapsed text lowercased. */
+const norm = (text: string): string => collapse(text).toLowerCase()
 
 /** Project a {@link ContentRun} (from a capture bundle) to a {@link ValueElement}. */
 export function contentRunToElement(run: ContentRun): ValueElement {
@@ -231,6 +238,7 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
 /** Per-property rank weights: the deltas the eye misses most sort to the top. */
 const SEVERITY: Record<DeltaProperty, number> = {
   missing: 100,
+  text: 95,
   color: 90,
   gradient: 85,
   borderLeft: 80,
@@ -271,9 +279,11 @@ function gradientsMatch(a: TextGradient, b: TextGradient, tolDeg: number): boole
 
 /**
  * Diff an actual manifest against an expected one, field by field, aligning
- * elements by verbatim text. Only fields present on the *expected* side are
- * compared — the expected manifest (the captured reference) is authoritative
- * about what must be reproduced. Returns deltas ranked most-severe first.
+ * elements by case-folded text. The verbatim text is itself compared once
+ * paired (casing/whitespace the join key folds away is still a captured value).
+ * Only fields present on the *expected* side are compared — the expected
+ * manifest (the captured reference) is authoritative about what must be
+ * reproduced. Returns deltas ranked most-severe first.
  */
 export function diffManifests(
   expected: ValueManifest,
@@ -322,6 +332,16 @@ export function diffManifests(
       continue
     }
     matched++
+
+    // Verbatim content. Elements pair on the case-folded, whitespace-collapsed
+    // key, so a pairing that survives can still differ in casing — small-caps
+    // "Gigabyte Alchemy" rendered as literal "GIGABYTE ALCHEMY" is a content
+    // delta both screenshots and computed styles miss (the join hid it, not a
+    // font). Compare the collapsed forms case-sensitively; whitespace-only
+    // formatting noise stays ignored because both sides are collapsed first.
+    if (collapse(exp.text) !== collapse(act.text)) {
+      push(exp, 'text', exp.text, act.text)
+    }
 
     if (exp.color.toLowerCase() !== act.color.toLowerCase()) {
       push(exp, 'color', exp.color, act.color)
