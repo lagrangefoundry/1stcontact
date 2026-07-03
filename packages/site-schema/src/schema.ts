@@ -370,6 +370,11 @@ export const paletteTokensSchema = z.object({
   primary: hexColor,
   accent: hexColor,
   secondary: hexColor.optional(),
+  // `neutralCool` (REQ-32) is an optional cool neutral (slate) distinct from the
+  // often-warm `muted`, so a site can tint panels/borders cool independent of
+  // its neutral text colour. Optional so existing themes keep validating; the
+  // token defaults fill it when omitted.
+  neutralCool: hexColor.optional(),
   border: hexColor,
 })
 

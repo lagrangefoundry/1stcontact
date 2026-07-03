@@ -1,5 +1,14 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, LOGO_FONT_DIAL, LOGO_SIZE_DIAL, LOGO_TREATMENT_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import {
+  ALIGN_DIAL,
+  GRADIENT_DIRECTION_DIAL,
+  LOGO_FONT_DIAL,
+  LOGO_SIZE_DIAL,
+  LOGO_TREATMENT_DIAL,
+  SPACING_DIAL,
+  SURFACE_DIAL,
+  TREATMENT_ROLE_DIAL,
+} from '../dials'
 
 /** `header` — top navigation chrome (DOC-7 §5 `top-tabs`-style nav). */
 export const headerMeta = {
@@ -27,5 +36,22 @@ export const headerMeta = {
     logo: { type: 'asset-ref', required: false },
     // List of NavEntry ({ label, target }).
     entries: { type: 'list', required: true },
+    // Structured gradient for the `gradient` logoTreatment (REQ-32): a direction
+    // plus ≥2 palette-role stops. Read only when `logoTreatment` is `gradient`.
+    logoGradient: {
+      type: 'object',
+      required: false,
+      itemSchema: {
+        direction: { type: 'enum', required: true, values: GRADIENT_DIRECTION_DIAL },
+        stops: {
+          type: 'list',
+          required: true,
+          minItems: 2,
+          itemSchema: {
+            role: { type: 'enum', required: true, values: TREATMENT_ROLE_DIAL },
+          },
+        },
+      },
+    },
   },
 } as const satisfies ModuleMeta

@@ -1,6 +1,7 @@
 ---
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
+import { gradientTextStyle, type GradientTreatment } from '../gradient'
 
 interface Props {
   variant?: string
@@ -11,6 +12,7 @@ interface Props {
     subhead?: string
     cta?: { label: string; href: string }
     image?: AssetRef
+    headingGradient?: GradientTreatment
   }
 }
 
@@ -24,10 +26,17 @@ const spacingBottom = dials.spacingBottom ?? 'lg'
 const headingTreatment = dials.headingTreatment ?? 'plain'
 // Band height: `fold` fills the viewport to the fold; `auto` sizes to content.
 const height = dials.height ?? 'auto'
+// Legibility scrim + content anchor (REQ-32).
+const scrim = dials.scrim ?? 'none'
+const contentAnchor = dials.contentAnchor ?? 'center'
 
 const { eyebrow, heading, subhead, cta } = content
 // The background image is rendered for the bg-image variant only.
 const bgImage = variant === 'bg-image' ? content.image : undefined
+// Structured gradient heading (REQ-32): framework-computed clipped gradient,
+// used only when the treatment dial selects it.
+const headingGradient =
+  headingTreatment === 'gradient' ? gradientTextStyle(content.headingGradient) : undefined
 // Subhead is markdown (schema type `markdown`): render it so multi-paragraph
 // copy keeps its structure (a subhead line + body paragraphs) rather than
 // collapsing into one run-on string.
@@ -42,15 +51,18 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `align-${align}`,
     `surface-${surface}`,
     `height-${height}`,
+    `scrim-${scrim}`,
+    `anchor-${contentAnchor}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
 >
   {bgImage && <img class="hero__bg" src={bgImage.src} alt={bgImage.alt} />}
+  {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`]}>{heading}</h1>
+    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`]} style={headingGradient}>{heading}</h1>
     {subheadHtml && <div class="hero__subhead" set:html={subheadHtml} />}
     {cta && <a class="hero__cta" href={cta.href}>{cta.label}</a>}
   </div>
@@ -77,6 +89,12 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
      container so the content stays left-aligned with the bands below. */
   .hero.height-fold .hero__inner { width: 100%; }
 
+  /* Content anchor (REQ-32): where the content sits within a `fold` band.
+     `center` is the default height-fold behaviour; `top`/`bottom` push the
+     content to the band's start/end. No effect on an `auto`-height band. */
+  .hero.height-fold.anchor-top { justify-content: flex-start; }
+  .hero.height-fold.anchor-bottom { justify-content: flex-end; }
+
   .hero.spacing-top-none { padding-top: var(--space-0); }
   .hero.spacing-top-sm { padding-top: var(--space-4); }
   .hero.spacing-top-md { padding-top: var(--space-8); }
@@ -96,6 +114,19 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     object-fit: cover;
     z-index: 0;
   }
+  /* Legibility scrim (REQ-32): a dark-neutral tint painted over the image (z 0,
+     above the bg, below the content at z 1) at a strength set by the scrim dial.
+     Keyed to `--color-surface-inverse` so the tint tracks the theme's dark
+     neutral rather than a hard-coded colour. */
+  .hero__scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--color-surface-inverse);
+  }
+  .hero.scrim-light .hero__scrim { opacity: 0.2; }
+  .hero.scrim-medium .hero__scrim { opacity: 0.35; }
+  .hero.scrim-strong .hero__scrim { opacity: 0.55; }
   .hero__inner {
     position: relative;
     z-index: 1;

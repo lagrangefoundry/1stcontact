@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import {
+  CALLOUT_CSS,
   composeOverlayHeader,
   generateThemeCss,
   getModule,
@@ -170,7 +171,7 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
   // renders unstyled (BUG-1).
   writeText(
     path.join(outDir, 'theme.css'),
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${ROW_CSS}\n\n${MOTION_CSS}\n`,
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${ROW_CSS}\n\n${MOTION_CSS}\n`,
   )
 
   const container = await AstroContainer.create()

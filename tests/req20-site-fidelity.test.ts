@@ -167,7 +167,11 @@ describe('REQ-20 secondary palette role + card treatments', () => {
     expect(servicesGridMeta.contentSchema.items.itemSchema.badge.itemSchema.variant.values).toContain(
       'secondary',
     )
-    expect(servicesGridMeta.contentSchema.items.itemSchema.surface.values).toEqual(['default', 'muted'])
+    expect(servicesGridMeta.contentSchema.items.itemSchema.surface.values).toEqual([
+      'default',
+      'muted',
+      'neutral-cool',
+    ])
   })
 
   it('test_UAT_FC_REQ-20_card_renders_secondary_accent_badge_and_status', async () => {

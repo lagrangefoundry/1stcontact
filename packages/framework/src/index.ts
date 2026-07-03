@@ -49,6 +49,9 @@ export {
   layerMeta,
   navHref,
   renderMarkdown,
+  CALLOUT_CSS,
+  gradientImage,
+  gradientTextStyle,
   validateModuleContent,
 } from './modules'
 export type {
@@ -57,6 +60,8 @@ export type {
   ContentFieldSpec,
   ContentFieldType,
   ContentValidationError,
+  GradientTreatment,
+  GradientStop,
 } from './modules'
 
 export { BUILD_YEAR } from './buildInfo'

@@ -7,7 +7,7 @@ import { GAP_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
  * (`accent` → `--color-accent`, `primary` → `--color-primary`, `muted` →
  * `--color-muted`). `none` (the absence of the field) draws no accent bar.
  */
-export const CARD_ACCENT = ['primary', 'accent', 'muted', 'secondary'] as const
+export const CARD_ACCENT = ['primary', 'accent', 'muted', 'secondary', 'neutral-cool'] as const
 
 /**
  * Status-badge colour variant (REQ-26). Semantic, token-backed — never a raw
@@ -20,11 +20,12 @@ export const CARD_ACCENT = ['primary', 'accent', 'muted', 'secondary'] as const
 export const BADGE_VARIANT = ['neutral', 'primary', 'accent', 'secondary'] as const
 
 /**
- * Card fill (REQ-20). `default` is the standard surface card; `muted` is a
- * filled neutral panel (a subtle grey tint) — the gigabytealchemy "What We're
- * Exploring" panel. Token-backed, never a raw colour.
+ * Card fill (REQ-20, REQ-32). `default` is the standard surface card; `muted` is
+ * a filled neutral panel (a subtle warm-grey tint); `neutral-cool` is the same
+ * treatment keyed to the cool-neutral role, so a panel can read cool (slate)
+ * rather than warm. Token-backed, never a raw colour.
  */
-export const CARD_SURFACE = ['default', 'muted'] as const
+export const CARD_SURFACE = ['default', 'muted', 'neutral-cool'] as const
 
 /**
  * `services-grid` — a grid of service / offering cards. Both variants collapse
