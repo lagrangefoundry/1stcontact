@@ -29,6 +29,7 @@ import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import { cmdValuesDiff, formatReport } from './fidelity'
+import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
 import type { RenderChannel } from '../store'
 
 export * from './commands'
@@ -42,6 +43,26 @@ export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export { cmdValuesDiff, formatReport } from './fidelity'
 export type { ValuesDiffOptions } from './fidelity'
+export {
+  cmdDiff,
+  cmdCrop,
+  computeDiff,
+  deriveRegions,
+  decodeImage,
+  cropRaster,
+  writeRasterPng,
+  formatDiffReport,
+} from './perceptual'
+export type {
+  DiffOptions,
+  DiffTuning,
+  CoreDiffResult,
+  DiffRegion,
+  PerceptualDiffReport,
+  Raster,
+  RegionBox,
+  CropOptions,
+} from './perceptual'
 export { parseArgs } from './args'
 
 const USAGE = `1c — file-backed site storage, versioning & server-side render (REQ-9)
@@ -68,6 +89,12 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   Noise controls (REQ-35): tolerances default to jitter-tolerant; --strict = exact match.
     [--strict] [--color-tol <ΔE>] [--font-size-tol <px>] [--line-height-tol <px>]
     [--letter-spacing-tol <px>] [--padding-tol <px>] [--border-tol <px>] [--weight-tol <n>]
+
+Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regions + crop triptychs:
+  1c diff <slug> --ref <bundleDir|refPng> [--source draft|published] [--out <dir>] [--json] [--sandbox]
+  1c diff --ref <bundleDir|refPng> --actual <png> [--out <dir>] [--json]
+    Tuning: [--block <px>] [--threshold <0-255>] [--block-threshold <0-255>] [--bands <n>] [--top <n>] [--pad <px>]
+  1c crop <image> --box <x,y,w,h> [--out <png>]
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -278,6 +305,62 @@ export async function run(argv: string[]): Promise<void> {
       return
     }
 
+    case 'diff': {
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('diff requires --ref <bundleDir|refPng>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const actualImagePath = typeof flags.actual === 'string' ? flags.actual : undefined
+      const slug = actualImagePath ? undefined : requireSlug(rest[0])
+      const source: RenderChannel = flags.source === 'published' ? 'published' : 'draft'
+      const numFlag = (name: string): number | undefined => {
+        const v = flags[name]
+        if (typeof v !== 'string') return undefined
+        const n = Number(v)
+        if (Number.isNaN(n)) throw new Error(`--${name} expects a number, got '${v}'.`)
+        return n
+      }
+      const tuning: DiffTuning = {
+        blockPx: numFlag('block'),
+        pixelThreshold: numFlag('threshold'),
+        blockThreshold: numFlag('block-threshold'),
+        bands: numFlag('bands'),
+        topN: numFlag('top'),
+        padPx: numFlag('pad'),
+      }
+      const report = await cmdDiff({
+        ...global,
+        slug,
+        source,
+        ref,
+        actualImagePath,
+        out: typeof flags.out === 'string' ? flags.out : undefined,
+        tuning,
+      })
+      if (flags.json === true) {
+        console.log(JSON.stringify(report, null, 2))
+      } else {
+        console.log(formatDiffReport(report))
+      }
+      // Any region of interest is a perceptual delta the operator must clear.
+      if (report.regions.length > 0) process.exitCode = 1
+      return
+    }
+
+    case 'crop': {
+      const input = requireSlug(rest[0])
+      const box = parseBox(flags.box)
+      const { outFile, box: applied } = await cmdCrop({
+        input,
+        box,
+        out: typeof flags.out === 'string' ? flags.out : undefined,
+      })
+      console.log(`Cropped ${input} @ ${applied.x},${applied.y} ${applied.w}×${applied.h} → ${outFile}`)
+      return
+    }
+
     case 'page':
     case 'config':
     case 'asset':
@@ -407,6 +490,19 @@ function requireSlug(slug: string | undefined): string {
     throw new Error('Missing required <slug> argument.')
   }
   return slug
+}
+
+/** Parse a `--box x,y,w,h` flag into a {@link RegionBox}. */
+function parseBox(val: string | boolean | undefined): RegionBox {
+  if (typeof val !== 'string') {
+    throw new Error('crop requires --box <x,y,w,h>.')
+  }
+  const parts = val.split(',').map((p) => Number(p.trim()))
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
+    throw new Error(`Invalid --box '${val}'. Use --box x,y,w,h (four numbers).`)
+  }
+  const [x, y, w, h] = parts
+  return { x, y, w, h }
 }
 
 /** Require a positional arg or throw a structured (enveloped) error. */

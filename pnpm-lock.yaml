@@ -104,6 +104,9 @@ importers:
       playwright:
         specifier: ^1.61.1
         version: 1.61.1
+      sharp:
+        specifier: ^0.35.0
+        version: 0.35.2
     devDependencies:
       '@types/node':
         specifier: ^26.0.1
@@ -4918,7 +4921,6 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.2
       '@img/sharp-win32-ia32': 0.35.2
       '@img/sharp-win32-x64': 0.35.2
-    optional: true
 
   shell-quote@1.8.4: {}
 
