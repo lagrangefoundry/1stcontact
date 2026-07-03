@@ -12,8 +12,10 @@
  *   1. {@link flattenCapture} / {@link flattenSignals} — project a capture
  *      bundle (the reference) or a live extraction (our reproduction) into a
  *      flat {@link ValueManifest}: one {@link ValueElement} per verbatim text
- *      run, carrying its resolved styling. Text is captured verbatim (DOC-13
- *      §5), so the run text is the natural join key between the two sides.
+ *      run, carrying its resolved styling, plus a {@link SectionValues} per
+ *      section for treatments a text run can't hold (a hero scrim, where the
+ *      content sits vertically). Text is captured verbatim (DOC-13 §5), so the
+ *      run text is the natural join key; sections join by ordinal index.
  *   2. {@link diffManifests} — align expected↔actual by case-folded text and
  *      diff each field, including the *verbatim* text (casing is normalized away
  *      in the join key but is itself a captured value, so "Gigabyte Alchemy" vs
@@ -48,11 +50,28 @@ export interface ValueElement {
   paddingLeftPx?: number
 }
 
+/**
+ * Section-level values — treatments that belong to a whole section, not a text
+ * run, so they have no text to join on and are aligned by ordinal index instead
+ * (REQ-31). These are exactly the composition-level deltas a text-run manifest
+ * couldn't encode: a hero scrim and where the content sits vertically.
+ */
+export interface SectionValues {
+  /** Section ordinal in document order — the join key between the two sides. */
+  index: number
+  /** Full-bleed translucent overlay (a hero scrim) painted over the section, or null. */
+  overlay: { color: string; opacity: number } | null
+  /** Vertical content anchor (0 = top … 1 = bottom), or null when the section is textless. */
+  contentAnchorRatio: number | null
+}
+
 /** A flat, structured value manifest — the single artifact the diff and a human both read. */
 export interface ValueManifest {
   /** Where these values came from (a capture host/path, or `draft:<slug>`). */
   source: string
   elements: ValueElement[]
+  /** Section-level treatments (scrim, vertical anchor), aligned by ordinal index. */
+  sections: SectionValues[]
 }
 
 export type DeltaProperty =
@@ -60,8 +79,10 @@ export type DeltaProperty =
   | 'text'
   | 'color'
   | 'gradient'
+  | 'overlay'
   | 'borderLeft'
   | 'fontSizePx'
+  | 'contentAnchor'
   | 'fontWeight'
   | 'fontFamily'
   | 'lineHeightPx'
@@ -70,7 +91,7 @@ export type DeltaProperty =
 
 /** A single field-level disagreement between expected and actual. */
 export interface ValueDelta {
-  /** Expected element text (truncated for display). */
+  /** Expected element text, or `§<n>` for a section-level delta (truncated for display). */
   text: string
   role: string
   property: DeltaProperty
@@ -212,25 +233,40 @@ export function rawRunToElement(run: RawRun): ValueElement {
 /** Flatten a capture bundle's sections (+ repeated items) into a value manifest. */
 export function flattenCapture(capture: Capture): ValueManifest {
   const elements: ValueElement[] = []
+  const sections: SectionValues[] = capture.sections.map((section, index) => ({
+    index,
+    overlay: section.background.overlay ?? null,
+    contentAnchorRatio: section.layout.contentAnchorRatio ?? null,
+  }))
   for (const section of capture.sections) {
     for (const run of section.content) elements.push(contentRunToElement(run))
     for (const item of section.items) {
       for (const run of item.content) elements.push(contentRunToElement(run))
     }
   }
-  return { source: `${capture.host}${capture.path}`, elements }
+  return { source: `${capture.host}${capture.path}`, elements, sections }
 }
 
-/** Flatten a live extraction (our reproduction) into a value manifest. */
+/**
+ * Flatten a live extraction (our reproduction) into a value manifest. Section
+ * values are read from the *raw* bands (uncoalesced), so section indices align
+ * with the capture's coalesced sections at the top of the document — where the
+ * hero (the scrim/anchor target) always sits at index 0.
+ */
 export function flattenSignals(signals: RawSignals, source: string): ValueManifest {
   const elements: ValueElement[] = []
+  const sections: SectionValues[] = signals.bands.map((band, index) => ({
+    index,
+    overlay: band.overlay ?? null,
+    contentAnchorRatio: band.contentAnchorRatio ?? null,
+  }))
   for (const band of signals.bands) {
     for (const run of band.content) elements.push(rawRunToElement(run))
     for (const item of band.items) {
       for (const run of item) elements.push(rawRunToElement(run))
     }
   }
-  return { source, elements }
+  return { source, elements, sections }
 }
 
 // ── diff ─────────────────────────────────────────────────────────────────────
@@ -241,8 +277,10 @@ const SEVERITY: Record<DeltaProperty, number> = {
   text: 95,
   color: 90,
   gradient: 85,
+  overlay: 82,
   borderLeft: 80,
   fontSizePx: 70,
+  contentAnchor: 65,
   fontFamily: 55,
   fontWeight: 50,
   lineHeightPx: 30,
@@ -255,6 +293,10 @@ export interface DiffOptions {
   sizeTolerancePx?: number
   /** Gradient direction tolerance in degrees (default 20). */
   gradientAngleToleranceDeg?: number
+  /** Overlay (scrim) opacity tolerance, 0–1 (default 0.1). */
+  overlayOpacityTolerance?: number
+  /** Vertical-anchor tolerance as a fraction of box height (default 0.15). */
+  anchorTolerance?: number
 }
 
 function gradientLabel(g: TextGradient | null | undefined): string {
@@ -265,6 +307,16 @@ function gradientLabel(g: TextGradient | null | undefined): string {
 
 function borderLabel(b: BorderTreatment | null | undefined): string {
   return b ? `${b.widthPx}px ${b.color}` : 'none'
+}
+
+function overlayLabel(o: { color: string; opacity: number } | null): string {
+  return o ? `${o.color} @ ${o.opacity}` : 'none'
+}
+
+/** Ratio → legible anchor label, e.g. `bottom (0.82)`. */
+function anchorLabel(ratio: number): string {
+  const band = ratio < 0.38 ? 'top' : ratio > 0.62 ? 'bottom' : 'center'
+  return `${band} (${ratio.toFixed(2)})`
 }
 
 /** True when both gradients agree on direction (within tolerance) and stop colours. */
@@ -279,11 +331,12 @@ function gradientsMatch(a: TextGradient, b: TextGradient, tolDeg: number): boole
 
 /**
  * Diff an actual manifest against an expected one, field by field, aligning
- * elements by case-folded text. The verbatim text is itself compared once
- * paired (casing/whitespace the join key folds away is still a captured value).
- * Only fields present on the *expected* side are compared — the expected
- * manifest (the captured reference) is authoritative about what must be
- * reproduced. Returns deltas ranked most-severe first.
+ * text elements by case-folded text and section-level values (scrim, vertical
+ * anchor) by ordinal index. The verbatim text is itself compared once paired
+ * (casing/whitespace the join key folds away is still a captured value). Only
+ * fields present on the *expected* side are compared — the expected manifest
+ * (the captured reference) is authoritative about what must be reproduced.
+ * Returns deltas ranked most-severe first.
  */
 export function diffManifests(
   expected: ValueManifest,
@@ -292,6 +345,8 @@ export function diffManifests(
 ): ValuesDiffReport {
   const sizeTol = opts.sizeTolerancePx ?? 0
   const angleTol = opts.gradientAngleToleranceDeg ?? 20
+  const opacityTol = opts.overlayOpacityTolerance ?? 0.1
+  const anchorTol = opts.anchorTolerance ?? 0.15
 
   // Group actual elements by normalized text into FIFO queues so repeated texts
   // pair with expected occurrences in document order.
@@ -307,21 +362,28 @@ export function diffManifests(
   let matched = 0
   let unmatched = 0
 
-  const push = (
-    e: ValueElement,
+  const record = (
+    text: string,
+    role: string,
     property: DeltaProperty,
     expectedVal: string,
     actualVal: string,
   ): void => {
     deltas.push({
-      text: e.text.length > 60 ? `${e.text.slice(0, 57)}…` : e.text,
-      role: e.role,
+      text: text.length > 60 ? `${text.slice(0, 57)}…` : text,
+      role,
       property,
       expected: expectedVal,
       actual: actualVal,
       severity: SEVERITY[property],
     })
   }
+  const push = (
+    e: ValueElement,
+    property: DeltaProperty,
+    expectedVal: string,
+    actualVal: string,
+  ): void => record(e.text, e.role, property, expectedVal, actualVal)
 
   for (const exp of expected.elements) {
     const q = queues.get(norm(exp.text))
@@ -382,6 +444,33 @@ export function diffManifests(
     if (exp.paddingLeftPx !== undefined && act.paddingLeftPx !== undefined) {
       if (Math.abs(exp.paddingLeftPx - act.paddingLeftPx) > sizeTol) {
         push(exp, 'paddingLeftPx', `${exp.paddingLeftPx}`, `${act.paddingLeftPx}`)
+      }
+    }
+  }
+
+  // Section-level values (scrim, vertical anchor) — no text to join on, so
+  // aligned by ordinal index. Extra sections on either side (a segmentation
+  // mismatch, not a value delta) have no counterpart and are skipped.
+  const actBySection = new Map<number, SectionValues>()
+  for (const s of actual.sections ?? []) actBySection.set(s.index, s)
+  for (const es of expected.sections ?? []) {
+    const as = actBySection.get(es.index)
+    if (!as) continue
+    const label = `§${es.index}`
+
+    const eo = es.overlay
+    const ao = as.overlay
+    const overlayOk =
+      (!eo && !ao) ||
+      (!!eo &&
+        !!ao &&
+        eo.color.toLowerCase() === ao.color.toLowerCase() &&
+        Math.abs(eo.opacity - ao.opacity) <= opacityTol)
+    if (!overlayOk) record(label, 'section', 'overlay', overlayLabel(eo), overlayLabel(ao))
+
+    if (es.contentAnchorRatio !== null && as.contentAnchorRatio !== null) {
+      if (Math.abs(es.contentAnchorRatio - as.contentAnchorRatio) > anchorTol) {
+        record(label, 'section', 'contentAnchor', anchorLabel(es.contentAnchorRatio), anchorLabel(as.contentAnchorRatio))
       }
     }
   }

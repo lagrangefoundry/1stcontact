@@ -39,6 +39,11 @@ export interface RawBand {
   textAlign: 'left' | 'center' | 'right'
   paddingTopPx: number
   paddingBottomPx: number
+  // ── REQ-31 section-level value fields ─────────────────────────────────────
+  /** Full-bleed translucent overlay painted over the band (a hero scrim), else null. */
+  overlay: { color: string; opacity: number } | null
+  /** Content block's vertical centre as a fraction of band height (0=top…1=bottom), or null if textless. */
+  contentAnchorRatio: number | null
   content: RawRun[]
   items: RawRun[][]
 }
@@ -121,6 +126,58 @@ export const EXTRACT_SCRIPT = `(() => {
   function insideAny(el, roots) {
     for (var k = 0; k < roots.length; k++) if (roots[k].contains(el)) return true;
     return false;
+  }
+
+  function hx(n) { return ('0' + Math.round(n).toString(16)).slice(-2); }
+
+  // A scrim: a visible descendant that blankets most of the band and paints a
+  // semi-transparent (0<alpha<1) background — the translucent layer that darkens
+  // a hero image so text reads over it. The most-covering such layer wins. This
+  // is a separate overlay element (bg-slate-950/30 over an image), which a band's
+  // own backgroundColor/backgroundImage can never reveal.
+  function overlayOf(band, bbox) {
+    var area = bbox.width * bbox.height;
+    if (area <= 0) return null;
+    var desc = band.getElementsByTagName('*');
+    var best = null;
+    for (var i = 0; i < desc.length; i++) {
+      var el = desc[i];
+      if (!visible(el)) continue;
+      var m = getComputedStyle(el).backgroundColor.match(/rgba\\(([^)]+)\\)/);
+      if (!m) continue;
+      var p = m[1].split(',').map(function (x) { return parseFloat(x.trim()); });
+      if (p.length < 4) continue;
+      var a = p[3];
+      if (!(a > 0 && a < 1)) continue; // opaque or fully transparent → not a scrim
+      var r = absBox(el);
+      var cover = (r.width * r.height) / area;
+      if (cover < 0.6) continue; // must substantially blanket the band
+      if (!best || cover > best.cover) {
+        best = { color: '#' + hx(p[0]) + hx(p[1]) + hx(p[2]), opacity: Math.round(a * 100) / 100, cover: cover };
+      }
+    }
+    return best ? { color: best.color, opacity: best.opacity } : null;
+  }
+
+  // Vertical content anchor: the centre of the band's text content as a fraction
+  // of band height. Measured from where the text landed, not from padding or
+  // flex classes, so a low-anchored hero (pt-80 or justify-end) reads the same.
+  function anchorRatioOf(band, bbox) {
+    if (bbox.height <= 0) return null;
+    var walker = document.createTreeWalker(band, NodeFilter.SHOW_TEXT, null);
+    var n, top = Infinity, bot = -Infinity, any = false;
+    while ((n = walker.nextNode())) {
+      if (!n.nodeValue.replace(/\\s+/g, ' ').trim()) continue;
+      var el = n.parentElement;
+      if (!el || !visible(el)) continue;
+      var r = absBox(el);
+      if (r.y < top) top = r.y;
+      if (r.y + r.height > bot) bot = r.y + r.height;
+      any = true;
+    }
+    if (!any) return null;
+    var ratio = ((top + bot) / 2 - bbox.y) / bbox.height;
+    return Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100;
   }
 
   // Collect visible text runs under a root, in document order, skipping any node
@@ -209,8 +266,9 @@ export const EXTRACT_SCRIPT = `(() => {
     var s = getComputedStyle(band);
     var bg = rgbToHex(s.backgroundColor) || bodyBg;
     var grp = itemGroup(band);
+    var bbox = absBox(band);
     bands.push({
-      box: absBox(band),
+      box: bbox,
       backgroundColor: bg,
       backgroundImage: s.backgroundImage || 'none',
       colorScheme: luminance(bg) < 0.5 ? 'dark' : 'light',
@@ -218,6 +276,8 @@ export const EXTRACT_SCRIPT = `(() => {
       textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',
       paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
       paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
+      overlay: overlayOf(band, bbox),
+      contentAnchorRatio: anchorRatioOf(band, bbox),
       content: runsUnder(band, grp.roots),
       items: grp.items,
     });

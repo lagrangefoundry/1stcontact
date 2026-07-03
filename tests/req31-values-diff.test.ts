@@ -236,6 +236,63 @@ describe('REQ-31 values-diff — verbatim text content', () => {
   })
 })
 
+// ── section-level values: scrim + vertical anchor ────────────────────────────
+
+/** A ValueManifest carrying only section-level values (no text elements). */
+function sectionManifest(source: string, sections: ValueManifest['sections']): ValueManifest {
+  return { source, elements: [], sections }
+}
+
+describe('REQ-31 values-diff — section scrim + vertical anchor', () => {
+  it('test_UAT_FC_REQ-31_missing_scrim_flagged', () => {
+    // The hero's darkening scrim is dropped in the repro — invisible to a
+    // text-run diff, flagged here as a section-level overlay delta.
+    const expected = sectionManifest('ref', [{ index: 0, overlay: { color: '#020617', opacity: 0.45 }, contentAnchorRatio: null }])
+    const actual = sectionManifest('draft', [{ index: 0, overlay: null, contentAnchorRatio: null }])
+    const report = diffManifests(expected, actual)
+    expect(hasDelta(report.deltas, '§0', 'overlay')).toBe(true)
+    const d = report.deltas.find((x) => x.property === 'overlay')
+    expect(d?.expected).toContain('#020617')
+    expect(d?.actual).toBe('none')
+  })
+
+  it('test_UAT_FC_REQ-31_scrim_opacity_within_tolerance_ok', () => {
+    // 0.45 vs 0.50 is a rounding-scale difference (≤0.1) — not a delta.
+    const expected = sectionManifest('ref', [{ index: 0, overlay: { color: '#020617', opacity: 0.45 }, contentAnchorRatio: null }])
+    const actual = sectionManifest('draft', [{ index: 0, overlay: { color: '#020617', opacity: 0.5 }, contentAnchorRatio: null }])
+    expect(diffManifests(expected, actual).deltas).toEqual([])
+    // …but a different scrim colour still diffs.
+    const wrongColour = sectionManifest('draft', [{ index: 0, overlay: { color: '#111827', opacity: 0.45 }, contentAnchorRatio: null }])
+    expect(hasDelta(diffManifests(expected, wrongColour).deltas, '§0', 'overlay')).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-31_content_anchor_delta_flagged', () => {
+    // Reference hero anchors content low (0.82 = bottom); the repro centres it.
+    const expected = sectionManifest('ref', [{ index: 0, overlay: null, contentAnchorRatio: 0.82 }])
+    const actual = sectionManifest('draft', [{ index: 0, overlay: null, contentAnchorRatio: 0.5 }])
+    const report = diffManifests(expected, actual)
+    expect(hasDelta(report.deltas, '§0', 'contentAnchor')).toBe(true)
+    const d = report.deltas.find((x) => x.property === 'contentAnchor')
+    expect(d?.expected).toContain('bottom')
+    expect(d?.actual).toContain('center')
+  })
+
+  it('test_UAT_FC_REQ-31_content_anchor_within_tolerance_ok', () => {
+    // 0.50 vs 0.60 stays within the 0.15 anchor tolerance — no delta.
+    const expected = sectionManifest('ref', [{ index: 0, overlay: null, contentAnchorRatio: 0.5 }])
+    const actual = sectionManifest('draft', [{ index: 0, overlay: null, contentAnchorRatio: 0.6 }])
+    expect(diffManifests(expected, actual).deltas).toEqual([])
+  })
+
+  it('test_UAT_FC_REQ-31_scrim_outranks_anchor', () => {
+    // Both flagged on one section; the scrim (82) sorts above the anchor (65).
+    const expected = sectionManifest('ref', [{ index: 0, overlay: { color: '#020617', opacity: 0.45 }, contentAnchorRatio: 0.82 }])
+    const actual = sectionManifest('draft', [{ index: 0, overlay: null, contentAnchorRatio: 0.4 }])
+    const report = diffManifests(expected, actual)
+    expect(report.deltas.map((d) => d.property)).toEqual(['overlay', 'contentAnchor'])
+  })
+})
+
 // ── ranking + alignment ──────────────────────────────────────────────────────
 
 describe('REQ-31 values-diff — ranking and alignment', () => {
@@ -347,6 +404,22 @@ describe('REQ-31 capture records per-element values (real Chromium)', () => {
     expect(callout, 'callout run present').toBeDefined()
     expect(callout?.borderLeft?.widthPx).toBe(4)
     expect(callout?.borderLeft?.color).toBe('#34d399')
+  })
+
+  itB('test_UAT_FC_REQ-31_capture_records_hero_scrim', () => {
+    // The separate translucent overlay div (bg-slate-950/45) is read as a
+    // section-level scrim — a band's own background can never reveal it.
+    const hero = flattenCapture(capture).sections[0]
+    expect(hero.overlay?.color).toBe('#020617')
+    expect(hero.overlay?.opacity).toBeCloseTo(0.45, 2)
+  })
+
+  itB('test_UAT_FC_REQ-31_capture_records_content_anchor', () => {
+    // Content anchored to the bottom of a 600px hero → a high anchor ratio,
+    // read from geometry (align-items:flex-end), not from any class.
+    const hero = flattenCapture(capture).sections[0]
+    expect(hero.contentAnchorRatio).not.toBeNull()
+    expect(hero.contentAnchorRatio as number).toBeGreaterThan(0.6)
   })
 
   itB('test_UAT_FC_REQ-31_capture_json_persists_value_fields', () => {

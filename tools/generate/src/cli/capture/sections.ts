@@ -41,18 +41,26 @@ function backgroundOf(band: RawBand, urlToLocal: (url: string) => string | undef
   const hasGradient = /gradient\(/.test(img)
   const color = band.backgroundColor ?? undefined
 
+  let bg: Background
   if (hasUrl) {
+    bg = { kind: 'image', color }
     const url = firstUrl(img)
-    const bg: Background = { kind: 'image', color }
     if (url) bg.image = urlToLocal(url) ?? url
     if (hasGradient) {
       const overlay = firstOverlay(img)
       if (overlay) bg.overlay = overlay
     }
-    return bg
+  } else if (hasGradient) {
+    bg = { kind: 'gradient', color, gradient: img }
+  } else {
+    bg = { kind: 'color', color }
   }
-  if (hasGradient) return { kind: 'gradient', color, gradient: img }
-  return { kind: 'color', color }
+
+  // A separate translucent overlay element (a hero scrim, bg-slate-950/30 over an
+  // image) is invisible to the band's own background-image; the extractor detects
+  // it directly and it takes precedence over any gradient-in-image overlay.
+  if (band.overlay) bg.overlay = band.overlay
+  return bg
 }
 
 /** Project a raw run to a persisted {@link ContentRun}, normalizing the REQ-31 value fields. */
@@ -113,6 +121,7 @@ function sectionFromBands(bands: RawBand[], signals: RawSignals, urlToLocal: (ur
     arrangement: items.length > 1 ? 'row' : 'stack',
     columns: items.length > 0 ? items.length : 1,
     contentMaxWidthPx: signals.containerMaxWidthPx,
+    contentAnchorRatio: head.contentAnchorRatio ?? null,
   }
   return { box, screenshot: box, background, layout, content, items }
 }

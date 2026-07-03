@@ -25,6 +25,7 @@ export {
 export type {
   ValueElement,
   ValueManifest,
+  SectionValues,
   ValueDelta,
   DeltaProperty,
   ValuesDiffReport,

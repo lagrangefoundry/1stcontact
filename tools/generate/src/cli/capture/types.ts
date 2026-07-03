@@ -113,6 +113,15 @@ export interface Layout {
   arrangement: 'stack' | 'row'
   columns: number
   contentMaxWidthPx: number | null
+  /**
+   * Vertical anchor of the section's content within its box (REQ-31): the
+   * content block's centre as a fraction of box height — 0 = pinned to the top,
+   * 0.5 = centred, 1 = pinned to the bottom. Measured from geometry, so it's
+   * robust to *how* it's achieved (`pt-80` padding vs flex `justify-end`) — the
+   * gigabytealchemy hero's low anchor was missed precisely because nothing
+   * compared it. `null` when the section paints no text.
+   */
+  contentAnchorRatio: number | null
 }
 
 /**

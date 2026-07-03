@@ -6,6 +6,20 @@
     <style>
       body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
       section { padding: 48px; }
+      /* A hero band: a background image, a full-bleed translucent scrim (a
+         separate overlay div, bg-slate-950/45), and content anchored to the
+         bottom — the exact gigabytealchemy hero shape REQ-31 must capture. */
+      .hero {
+        position: relative;
+        min-height: 600px;
+        display: flex;
+        align-items: flex-end;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23334155'/%3E%3C/svg%3E");
+        background-size: cover;
+      }
+      .scrim { position: absolute; inset: 0; background: rgba(2, 6, 23, 0.45); }
+      .hero-content { position: relative; padding: 48px; }
+      .hero-title { margin: 0; color: #ffffff; font-size: 56px; font-weight: 700; }
       /* A wordmark with a horizontal (90deg) text-fill gradient — the exact
          shape of the gigabytealchemy wordmark REQ-31 must capture. */
       .wordmark {
@@ -27,6 +41,12 @@
     </style>
   </head>
   <body>
+    <div class="hero">
+      <div class="scrim"></div>
+      <div class="hero-content">
+        <h2 class="hero-title">Hero anchored low</h2>
+      </div>
+    </div>
     <section>
       <h1 class="wordmark">Gigabyte Alchemy</h1>
       <p class="callout">A callout with an emerald left bar</p>
