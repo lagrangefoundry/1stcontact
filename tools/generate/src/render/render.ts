@@ -10,6 +10,8 @@ import {
   MOTION_CSS,
   MOTION_SCRIPT,
   OVERLAY_BAND_CSS,
+  ROW_CSS,
+  composeRow,
   SECTION_CSS,
   wrapWithBackground,
   wrapWithLayer,
@@ -44,6 +46,15 @@ async function renderModules(container: Container, page: Page): Promise<string> 
   // it is held here and floated over the following module's band so the two
   // share one continuous image band.
   let pendingOverlayHeader: string | null = null
+  // Consecutive `width: half` bands (REQ-20) are buffered and flushed into one
+  // shared `fc-row` so they render as two columns rather than stacking.
+  let rowBuffer: string[] = []
+  const flushRow = (): void => {
+    if (rowBuffer.length === 0) return
+    parts.push(rowBuffer.length === 1 ? rowBuffer[0] : composeRow(rowBuffer))
+    rowBuffer = []
+  }
+
   for (const m of page.modules) {
     const { Component } = getModule(m.type, m.version)
     const html = await container.renderToString(Component, {
@@ -59,17 +70,27 @@ async function renderModules(container: Container, page: Page): Promise<string> 
     )
 
     if (m.type === 'header' && m.variant === 'overlay') {
+      // A header can't sit mid-row; close any open row before holding it.
+      flushRow()
       pendingOverlayHeader = band
       continue
     }
     if (pendingOverlayHeader) {
-      // Composite the held header over this band, then clear the hold.
+      // Composite the held header over this band, then clear the hold. The
+      // composited unit is always a full-width band.
+      flushRow()
       parts.push(composeOverlayHeader(pendingOverlayHeader, band))
       pendingOverlayHeader = null
       continue
     }
+    if (m.dials?.width === 'half') {
+      rowBuffer.push(band)
+      continue
+    }
+    flushRow()
     parts.push(band)
   }
+  flushRow()
   // An overlay header with no following band still renders — never dropped.
   if (pendingOverlayHeader) parts.push(pendingOverlayHeader)
   return parts.join('\n')
@@ -149,7 +170,7 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
   // renders unstyled (BUG-1).
   writeText(
     path.join(outDir, 'theme.css'),
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${MOTION_CSS}\n`,
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${ROW_CSS}\n\n${MOTION_CSS}\n`,
   )
 
   const container = await AstroContainer.create()

@@ -20,6 +20,8 @@ const align = dials.align ?? 'left'
 // Wordmark font-family + colour treatment (REQ-24), applied to a text logo only.
 const logoFont = dials.logoFont ?? 'heading'
 const logoTreatment = dials.logoTreatment ?? 'plain'
+// Wordmark size, independent of font/treatment; `xl` reads at display scale.
+const logoSize = dials.logoSize ?? 'md'
 const entries = content.entries ?? []
 const logo = content.logo
 const logoIsImage = typeof logo === 'object' && logo !== null
@@ -45,6 +47,7 @@ const logoIsImage = typeof logo === 'object' && logo !== null
             'header__wordmark',
             `header__wordmark--font-${logoFont}`,
             `header__wordmark--${logoTreatment}`,
+            `header__wordmark--size-${logoSize}`,
           ]}
         >{logo}</span>
       )}
@@ -120,9 +123,15 @@ const logoIsImage = typeof logo === 'object' && logo !== null
   .header__wordmark--font-body { font-family: var(--font-family-body); }
   .header__wordmark--font-display {
     font-family: var(--font-family-display);
-    font-size: var(--font-size-2xl);
     letter-spacing: 0.08em;
   }
+
+  /* Wordmark size (independent of font/treatment). Default `md` preserves the
+     prior 2xl scale; `xl` reads at display scale for a hero wordmark. */
+  .header__wordmark--size-sm { font-size: var(--font-size-xl); }
+  .header__wordmark--size-md { font-size: var(--font-size-2xl); }
+  .header__wordmark--size-lg { font-size: var(--font-size-4xl); }
+  .header__wordmark--size-xl { font-size: clamp(var(--font-size-4xl), 6vw, var(--font-size-5xl)); }
 
   /* Gold wordmark treatment (REQ-24): a metallic-gold gradient clipped to the
      glyphs, keyed to the site accent. `plain` inherits the header text colour. */

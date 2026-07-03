@@ -18,7 +18,8 @@
         "spacingBottom": "md",
         "logoFont": "display",
         "logoTreatment": "gold",
-        "align": "center"
+        "logoSize": "lg",
+        "align": "left"
       },
       "content": {
         "logo": "GIGABYTE ALCHEMY",
@@ -34,6 +35,7 @@
         "size": "md",
         "align": "left",
         "surface": "inverse",
+        "height": "fold",
         "spacingTop": "xl",
         "spacingBottom": "xl",
         "headingTreatment": "gold"
@@ -192,9 +194,10 @@
       "variant": "inline",
       "dials": {
         "spacingTop": "xl",
-        "spacingBottom": "none",
+        "spacingBottom": "xl",
         "align": "left",
-        "surface": "default"
+        "surface": "default",
+        "width": "half"
       },
       "content": {
         "heading": "Get in touch",
@@ -217,10 +220,11 @@
       "version": 1,
       "variant": "inline",
       "dials": {
-        "spacingTop": "none",
+        "spacingTop": "xl",
         "spacingBottom": "xl",
         "align": "left",
-        "surface": "default"
+        "surface": "default",
+        "width": "half"
       },
       "content": {
         "action": "https://gigabytealchemy.ai/api/contact",
@@ -254,6 +258,7 @@
       "variant": "minimal",
       "dials": {
         "surface": "inverse",
+        "layout": "spread",
         "spacingTop": "lg",
         "spacingBottom": "lg"
       },

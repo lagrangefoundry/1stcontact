@@ -14,8 +14,32 @@ export const SURFACE_DIAL = ['default', 'subtle', 'inverse', 'accent'] as const
 /** Hero size dial values. */
 export const SIZE_DIAL = ['sm', 'md', 'lg'] as const
 
+/**
+ * Hero band height dial. `auto` sizes the band to its content (default);
+ * `fold` fills the viewport to the fold (min-height 100vh) with the content
+ * vertically centred — used where the hero image is meant to fill the screen.
+ */
+export const HEIGHT_DIAL = ['auto', 'fold'] as const
+
+/**
+ * Header wordmark size dial (independent of the surface/heading scale). Steps
+ * up from the default `md` so a display wordmark can read at hero scale.
+ */
+export const LOGO_SIZE_DIAL = ['sm', 'md', 'lg', 'xl'] as const
+
+/**
+ * Band width dial. `full` (default) spans the container; `half` flexes to one
+ * of two columns — consecutive `half` bands are grouped into a shared row by
+ * the render pipeline, so e.g. a subscribe + contact form sit side by side.
+ */
+export const WIDTH_DIAL = ['full', 'half'] as const
+
 /** Horizontal alignment dial values (block alignment + text-align share these). */
 export const ALIGN_DIAL = ['left', 'center'] as const
+
+/** Footer content layout dial. `center` stacks centred; `spread` puts the
+ * copyright and links on opposite ends of one row (justified, left/right). */
+export const FOOTER_LAYOUT_DIAL = ['center', 'spread'] as const
 
 /** Inter-card / inter-item gap dial values (services-grid). */
 export const GAP_DIAL = ['tight', 'normal', 'loose'] as const

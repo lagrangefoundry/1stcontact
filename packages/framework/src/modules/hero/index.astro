@@ -1,5 +1,6 @@
 ---
 import type { AssetRef } from '@1stcontact/site-schema'
+import { renderMarkdown } from '../markdown'
 
 interface Props {
   variant?: string
@@ -21,10 +22,16 @@ const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 // Heading colour treatment (REQ-28), independent of the surface text colour.
 const headingTreatment = dials.headingTreatment ?? 'plain'
+// Band height: `fold` fills the viewport to the fold; `auto` sizes to content.
+const height = dials.height ?? 'auto'
 
 const { eyebrow, heading, subhead, cta } = content
 // The background image is rendered for the bg-image variant only.
 const bgImage = variant === 'bg-image' ? content.image : undefined
+// Subhead is markdown (schema type `markdown`): render it so multi-paragraph
+// copy keeps its structure (a subhead line + body paragraphs) rather than
+// collapsing into one run-on string.
+const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
 ---
 
 <section
@@ -34,6 +41,7 @@ const bgImage = variant === 'bg-image' ? content.image : undefined
     `size-${size}`,
     `align-${align}`,
     `surface-${surface}`,
+    `height-${height}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -43,7 +51,7 @@ const bgImage = variant === 'bg-image' ? content.image : undefined
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
     <h1 class:list={['hero__heading', `treatment-${headingTreatment}`]}>{heading}</h1>
-    {subhead && <div class="hero__subhead">{subhead}</div>}
+    {subheadHtml && <div class="hero__subhead" set:html={subheadHtml} />}
     {cta && <a class="hero__cta" href={cta.href}>{cta.label}</a>}
   </div>
 </section>
@@ -53,6 +61,21 @@ const bgImage = variant === 'bg-image' ? content.image : undefined
   .hero.surface-subtle { background: var(--color-surface-subtle); }
   .hero.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .hero.surface-accent { background: var(--color-accent); color: var(--color-bg); }
+
+  /* Height dial: `fold` fills the viewport to the fold and centres the content
+     vertically, so a bg-image hero (and any header composited over it) fills the
+     screen. `box-sizing: border-box` (base reset) keeps the padding inside the
+     100vh, so the band is exactly the fold. */
+  .hero.height-fold {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  /* As a flex item the inner would shrink to its content and the auto margins
+     would centre that narrow block; `width: 100%` keeps it spanning the
+     container so the content stays left-aligned with the bands below. */
+  .hero.height-fold .hero__inner { width: 100%; }
 
   .hero.spacing-top-none { padding-top: var(--space-0); }
   .hero.spacing-top-sm { padding-top: var(--space-4); }
@@ -121,6 +144,11 @@ const bgImage = variant === 'bg-image' ? content.image : undefined
 
   .hero__subhead { font-size: var(--font-size-lg); line-height: var(--line-height-relaxed); max-width: 60ch; }
   .hero.align-center .hero__subhead { margin-inline: auto; }
+  /* Markdown subhead: the lead paragraph reads as a prominent subhead line;
+     any following paragraphs are the smaller body copy. */
+  .hero__subhead p { margin: 0; }
+  .hero__subhead p:first-child { font-size: var(--font-size-xl); }
+  .hero__subhead p + p { margin-top: var(--space-4); font-size: var(--font-size-base); }
 
   .hero__cta {
     display: inline-block;

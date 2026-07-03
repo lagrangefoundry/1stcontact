@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, LOGO_FONT_DIAL, LOGO_TREATMENT_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { ALIGN_DIAL, LOGO_FONT_DIAL, LOGO_SIZE_DIAL, LOGO_TREATMENT_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /** `header` — top navigation chrome (DOC-7 §5 `top-tabs`-style nav). */
 export const headerMeta = {
@@ -19,6 +19,8 @@ export const headerMeta = {
     // logo is a text wordmark, not an image.
     logoFont: LOGO_FONT_DIAL,
     logoTreatment: LOGO_TREATMENT_DIAL,
+    // Wordmark size (REQ-20 import) — `xl` reads at display/hero scale.
+    logoSize: LOGO_SIZE_DIAL,
   },
   contentSchema: {
     // AssetRef for an image logo, or a plain string for a wordmark.

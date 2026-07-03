@@ -18,6 +18,9 @@ const { dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'inverse'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
+// Content layout: `center` stacks centred (default); `spread` justifies the
+// copyright and links to opposite ends of one row.
+const layout = dials.layout ?? 'center'
 
 const { tagline, copyrightHolder } = content
 const links = content.links ?? []
@@ -31,6 +34,7 @@ const year = BUILD_YEAR
   class:list={[
     'footer',
     `surface-${surface}`,
+    `layout-${layout}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -85,6 +89,16 @@ const year = BUILD_YEAR
     align-items: center;
     text-align: center;
   }
+  /* Spread layout: copyright and links justified to opposite ends of one row.
+     `order` pulls the copyright ahead of the links so it reads left / links
+     right, regardless of DOM order. Wraps to a stack on narrow viewports. */
+  .footer.layout-spread .footer__inner {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    text-align: left;
+  }
+  .footer.layout-spread .footer__copyright { order: -1; }
   .footer__logo img { display: block; height: var(--space-8); width: auto; }
   .footer__logo span { font-weight: var(--font-weight-bold); }
   .footer__tagline { margin: 0; color: inherit; opacity: 0.85; }

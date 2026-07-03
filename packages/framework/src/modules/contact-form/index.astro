@@ -26,6 +26,8 @@ const surface = dials.surface ?? 'default'
 const align = dials.align ?? 'left'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
+// `half` flexes the band into a shared two-column row (grouped by the pipeline).
+const width = dials.width ?? 'full'
 
 const { heading, action } = content
 const fields = content.fields ?? []
@@ -44,6 +46,7 @@ const honeypotName = 'hp_company_url'
     'contact-form',
     `surface-${surface}`,
     `align-${align}`,
+    `width-${width}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -113,6 +116,13 @@ const honeypotName = 'hp_company_url'
     gap: var(--space-4);
   }
   .contact-form.align-center .contact-form__inner { align-items: center; text-align: center; }
+  /* Half-width band: the shared `fc-row` supplies the container width and gutter,
+     so the form inner runs fluid to fill its column. */
+  .contact-form.width-half .contact-form__inner {
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
 
   .contact-form__heading {
     margin: 0;

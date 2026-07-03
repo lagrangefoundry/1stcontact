@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, HEADING_TREATMENT_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { ALIGN_DIAL, HEADING_TREATMENT_DIAL, HEIGHT_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /** `hero` — primary above-the-fold section. */
 export const heroMeta = {
@@ -9,6 +9,8 @@ export const heroMeta = {
   dials: {
     size: SIZE_DIAL,
     align: ALIGN_DIAL,
+    // Band height (`auto`/`fold`) — `fold` fills the viewport to the fold.
+    height: HEIGHT_DIAL,
     spacingTop: SPACING_DIAL,
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,

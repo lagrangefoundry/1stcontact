@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { ALIGN_DIAL, SPACING_DIAL, SURFACE_DIAL, WIDTH_DIAL } from '../dials'
 
 /**
  * `contact-form` — lead-capture form. Server-rendered and fully functional
@@ -20,6 +20,9 @@ export const contactFormMeta = {
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     align: ALIGN_DIAL,
+    // `half` flexes the band into one of two columns (REQ-20) — consecutive
+    // half-width bands are grouped into a shared row by the render pipeline.
+    width: WIDTH_DIAL,
   },
   contentSchema: {
     heading: { type: 'string', required: false },
