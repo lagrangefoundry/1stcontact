@@ -48,7 +48,8 @@
         "spacingBottom": "xl",
         "headingTreatment": "accent",
         "scrim": "medium",
-        "subheadColor": "accent-light"
+        "subheadColor": "accent-light",
+        "subheadSize": "lg"
       },
       "content": {
         "heading": "Intentional Software",
