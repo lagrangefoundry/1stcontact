@@ -9,6 +9,7 @@ import {
   SIZE_DIAL,
   SPACING_DIAL,
   SUBHEAD_COLOR_DIAL,
+  SUBHEAD_SIZE_DIAL,
   SURFACE_DIAL,
   TREATMENT_ROLE_DIAL,
 } from '../dials'
@@ -37,6 +38,9 @@ export const heroMeta = {
     // Subhead/body colour (REQ-33) — tints the whole subhead block a palette
     // role (e.g. a gold lead paragraph), independent of the surface text colour.
     subheadColor: SUBHEAD_COLOR_DIAL,
+    // Subhead/body scale (REQ-33) — sizes the lead + body copy independently of
+    // the heading `size`, for a prominent lead subtitle under a modest heading.
+    subheadSize: SUBHEAD_SIZE_DIAL,
   },
   contentSchema: {
     eyebrow: { type: 'string', required: false },

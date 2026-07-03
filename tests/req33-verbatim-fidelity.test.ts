@@ -101,6 +101,30 @@ describe('REQ-33 checklist tick is a real text run (AC3)', () => {
   })
 })
 
+describe('REQ-33 hero subheadSize dial (AC8)', () => {
+  async function renderHero(dials: Record<string, string>) {
+    return render(Hero, {
+      variant: 'bg-color',
+      dials,
+      content: { heading: 'H', subhead: 'Lead line.\n\nBody paragraph.' },
+    })
+  }
+
+  it('test_UAT_FC_REQ-33_subhead_size_lg_scales_lead_and_body_up', async () => {
+    const html = await renderHero({ subheadSize: 'lg' })
+    expect(html).toMatch(/class="hero[^"]*\bsubhead-size-lg\b/)
+    const css = moduleSource('../packages/framework/src/modules/hero/index.astro')
+    // lg lead → 2xl, body → lg (a prominent lead subtitle).
+    expect(css).toMatch(/subhead-size-lg[^{]*p:first-child\s*\{[^}]*var\(--font-size-2xl\)/)
+    expect(css).toMatch(/subhead-size-lg[^{]*p \+ p\s*\{[^}]*var\(--font-size-lg\)/)
+  })
+
+  it('test_UAT_FC_REQ-33_subhead_size_defaults_to_md', async () => {
+    const html = await renderHero({})
+    expect(html).toMatch(/class="hero[^"]*\bsubhead-size-md\b/)
+  })
+})
+
 describe('REQ-33 display wordmark tracking + weight (AC7)', () => {
   it('test_UAT_FC_REQ-33_display_wordmark_is_tight_and_not_faux_bold', () => {
     const css = moduleSource('../packages/framework/src/modules/header/index.astro')

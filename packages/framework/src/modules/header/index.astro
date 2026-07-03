@@ -101,7 +101,9 @@ const wordmarkGradient =
   .header.spacing-top-sm { padding-top: var(--space-2); }
   .header.spacing-top-md { padding-top: var(--space-4); }
   .header.spacing-top-lg { padding-top: var(--space-8); }
-  .header.spacing-top-xl { padding-top: var(--space-12); }
+  /* `xl` gives a hero-scale overlay wordmark generous top breathing room — the
+     reference floats the wordmark well below the top edge, not flush to it. */
+  .header.spacing-top-xl { padding-top: var(--space-16); }
   .header.spacing-bottom-none { padding-bottom: var(--space-0); }
   .header.spacing-bottom-sm { padding-bottom: var(--space-2); }
   .header.spacing-bottom-md { padding-bottom: var(--space-4); }

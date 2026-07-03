@@ -35,6 +35,8 @@ const contentAnchor = dials.contentAnchor ?? 'center'
 const subheadColor = dials.subheadColor ?? 'inherit'
 const subheadStyle =
   subheadColor !== 'inherit' ? `color: var(--color-${subheadColor});` : undefined
+// Subhead/body scale (REQ-33), independent of the heading `size`.
+const subheadSize = dials.subheadSize ?? 'md'
 
 const { eyebrow, heading, subhead, cta } = content
 // The background image is rendered for the bg-image variant only.
@@ -59,6 +61,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `height-${height}`,
     `scrim-${scrim}`,
     `anchor-${contentAnchor}`,
+    `subhead-size-${subheadSize}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -182,10 +185,16 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero__subhead { font-size: var(--font-size-lg); line-height: var(--line-height-relaxed); max-width: 60ch; }
   .hero.align-center .hero__subhead { margin-inline: auto; }
   /* Markdown subhead: the lead paragraph reads as a prominent subhead line;
-     any following paragraphs are the smaller body copy. */
+     any following paragraphs are the smaller body copy. The subhead-size dial
+     (REQ-33) steps the lead/body pair together; `md` preserves the prior scale. */
   .hero__subhead p { margin: 0; }
-  .hero__subhead p:first-child { font-size: var(--font-size-xl); }
-  .hero__subhead p + p { margin-top: var(--space-4); font-size: var(--font-size-base); }
+  .hero__subhead p + p { margin-top: var(--space-4); }
+  .hero.subhead-size-sm .hero__subhead p:first-child { font-size: var(--font-size-lg); }
+  .hero.subhead-size-sm .hero__subhead p + p { font-size: var(--font-size-sm); }
+  .hero.subhead-size-md .hero__subhead p:first-child { font-size: var(--font-size-xl); }
+  .hero.subhead-size-md .hero__subhead p + p { font-size: var(--font-size-base); }
+  .hero.subhead-size-lg .hero__subhead p:first-child { font-size: var(--font-size-2xl); }
+  .hero.subhead-size-lg .hero__subhead p + p { font-size: var(--font-size-lg); }
 
   .hero__cta {
     display: inline-block;

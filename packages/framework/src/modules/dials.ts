@@ -91,6 +91,14 @@ export const TREATMENT_ROLE_DIAL = [
 export const SUBHEAD_COLOR_DIAL = ['inherit', ...TREATMENT_ROLE_DIAL] as const
 
 /**
+ * Hero subhead/body scale dial (REQ-33). Sizes the lead paragraph and the body
+ * copy independently of the heading `size` — a hero can carry a modest heading
+ * but a prominent lead subtitle (e.g. gigabytealchemy). `md` (default) preserves
+ * the prior xl/base scale; `sm`/`lg` step the pair down/up together.
+ */
+export const SUBHEAD_SIZE_DIAL = ['sm', 'md', 'lg'] as const
+
+/**
  * Contact-form submit-button colour treatment (REQ-33). `primary` (default)
  * fills the button with the brand primary; `neutral` fills it with the dark
  * neutral text colour and a near-white label — a high-contrast dark button
