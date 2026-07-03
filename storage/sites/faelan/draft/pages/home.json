@@ -25,48 +25,47 @@
         "overlay": { "color": "#000000", "opacity": 0.3 }
       },
       "layer": {
-        "reflow": "stack",
-        "reflowBelow": "md",
+        "reflow": "none",
         "children": [
           {
             "kind": "image",
-            "asset": { "id": "ghostship-eyes", "src": "assets/ghostship-eyes.jpg", "alt": "Ghostship" },
+            "asset": { "id": "faelan-violin-bw", "src": "assets/faelan-violin-bw.jpg", "alt": "Faelan with violin" },
             "treatment": { "edge": "soft-mask", "shadow": "xl" },
-            "position": { "x": 5, "y": 5, "z": 5, "width": 25, "rotate": 3 },
+            "position": { "x": 6, "y": 50, "z": 1, "width": 47, "rotate": -8, "breakpoints": { "md": { "x": 15, "y": 45, "width": 20 } } },
             "motion": { "type": "scale", "trigger": "hover" }
           },
           {
             "kind": "image",
             "asset": { "id": "heal-click-alley", "src": "assets/heal-click-alley.jpg", "alt": "Alley scene" },
             "treatment": { "edge": "soft-mask", "shadow": "xl" },
-            "position": { "x": 35, "y": 18, "z": 6, "width": 35, "rotate": 4 },
+            "position": { "x": 30, "y": 33, "z": 2, "width": 55, "rotate": 4, "breakpoints": { "md": { "x": 35, "y": 18, "width": 35 } } },
             "motion": { "type": "scale", "trigger": "hover" }
           },
           {
             "kind": "image",
-            "asset": { "id": "faelan-violin-bw", "src": "assets/faelan-violin-bw.jpg", "alt": "Faelan with violin" },
+            "asset": { "id": "ghostship-eyes", "src": "assets/ghostship-eyes.jpg", "alt": "Ghostship" },
             "treatment": { "edge": "soft-mask", "shadow": "xl" },
-            "position": { "x": 15, "y": 45, "z": 8, "width": 20, "rotate": -8 },
+            "position": { "x": 6, "y": 3, "z": 5, "width": 62, "rotate": 3, "breakpoints": { "md": { "x": 5, "y": 5, "width": 25 } } },
             "motion": { "type": "scale", "trigger": "hover" }
           },
           {
             "kind": "image",
             "asset": { "id": "faelan-stramash", "src": "assets/faelan-stramash.jpeg", "alt": "Faelan" },
             "treatment": { "shape": "circle", "shadow": "xl", "border": { "width": "thick", "color": "bg" } },
-            "position": { "x": 72, "y": 8, "z": 15, "width": 17.5, "height": 28, "rotate": -5 },
+            "position": { "x": 47, "y": 15, "z": 15, "width": 48, "height": 28, "rotate": -5, "breakpoints": { "md": { "x": 72, "y": 8, "width": 17.5 } } },
             "motion": { "type": "scale", "trigger": "hover" }
           },
           {
             "kind": "text",
             "text": "FAELAN",
             "typography": { "size": "5xl", "weight": "black", "color": "bg", "font": "display", "tracking": "wide", "align": "left", "shadow": true },
-            "position": { "x": 8, "y": 8, "z": 21 }
+            "position": { "x": 8, "y": 5, "z": 21, "breakpoints": { "md": { "y": 8 } } }
           },
           {
             "kind": "text",
             "text": "Artist • [Musician](https://open.spotify.com/artist/4YkpJkV28COxXYjbGUi0S9) • Creator",
             "typography": { "size": "2xl", "weight": "regular", "color": "bg", "align": "left", "shadow": true },
-            "position": { "x": 8, "y": 16, "z": 21 }
+            "position": { "x": 8, "y": 13, "z": 21, "breakpoints": { "md": { "y": 16 } } }
           }
         ]
       }
