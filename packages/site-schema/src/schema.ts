@@ -255,6 +255,9 @@ export const layerTextTypographySchema = z
     color: layerColorRoleSchema.optional(),
     font: z.enum(['heading', 'body', 'display']).optional(),
     tracking: z.enum(['normal', 'wide', 'wider']).optional(),
+    // Line-height (REQ-32 cap 5) — a theme line-height token. Controls the run's
+    // vertical rhythm / box height so a positioned run lands where intended.
+    leading: z.enum(['tight', 'normal', 'relaxed']).optional(),
     align: z.enum(['left', 'center', 'right']).optional(),
     /** A dark legibility text-shadow for text over busy imagery. */
     shadow: z.boolean().optional(),

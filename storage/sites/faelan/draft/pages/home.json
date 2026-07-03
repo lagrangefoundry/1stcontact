@@ -52,7 +52,7 @@
                 "md": {
                   "x": 15,
                   "y": 45,
-                  "width": 20
+                  "width": 20.31
                 }
               }
             },
@@ -83,7 +83,7 @@
                 "md": {
                   "x": 35,
                   "y": 18,
-                  "width": 35
+                  "width": 35.16
                 }
               }
             },
@@ -143,11 +143,10 @@
               "y": 15,
               "z": 15,
               "width": 48,
-              "height": 28,
               "rotate": -5,
               "breakpoints": {
                 "md": {
-                  "x": 72,
+                  "x": 72.5,
                   "y": 8,
                   "width": 17.5
                 }
@@ -167,6 +166,7 @@
               "color": "bg",
               "font": "display",
               "tracking": "wide",
+              "leading": "normal",
               "align": "left",
               "shadow": true
             },
@@ -188,6 +188,7 @@
               "size": "2xl",
               "weight": "regular",
               "color": "bg",
+              "leading": "normal",
               "align": "left",
               "shadow": true
             },

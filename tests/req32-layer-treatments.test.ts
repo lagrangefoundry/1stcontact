@@ -118,6 +118,16 @@ describe('REQ-32 cap 5 — layer image shadow + border', () => {
     expect(stack).toContain('fc-layer__child--shape-circle')
   })
 
+  it('test_UAT_FC_REQ-32_motion_transparent_to_image_sizing', () => {
+    // The motion wrapper must not break an image child's height:100% — otherwise
+    // object-fit collapses to the natural aspect (a circle renders as an ellipse).
+    expect(LAYER_CSS).toContain(
+      '.fc-layer__child--image .fc-motion { display: block; width: 100%; height: 100%; }',
+    )
+    // A circle is square from its width alone (no fragile percentage height).
+    expect(LAYER_CSS).toContain('.fc-layer__child--shape-circle { aspect-ratio: 1; }')
+  })
+
   it('test_UAT_FC_REQ-32_soft_mask_feather_stop', async () => {
     const layer = {
       children: [
@@ -142,11 +152,11 @@ describe('REQ-32 cap 5 — layer image shadow + border', () => {
 
     const stack = await renderLayer(layer as any)
     // The soft-mask child emits the feather stop as a custom property...
-    expect(stack).toContain('--fc-feather: 70%;')
-    // ...which the static mask rule reads (default 55% preserved as fallback).
-    expect(LAYER_CSS).toContain('radial-gradient(ellipse at center, #000 var(--fc-feather, 55%), transparent 100%)')
+    expect(stack).toContain('--fc-feather: 72%;')
+    // ...which the static mask rule reads (a box-sized ellipse, default fallback).
+    expect(LAYER_CSS).toContain('radial-gradient(ellipse 92% 92% at center, #000 var(--fc-feather, 60%), transparent 100%)')
     // The circle child (no soft-mask) does not emit a feather property.
-    expect(stack).not.toContain('--fc-feather: 82%;')
+    expect(stack).not.toContain('--fc-feather: 78%;')
   })
 
   it('test_UAT_FC_REQ-32_border_none_emits_no_border', async () => {

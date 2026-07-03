@@ -100,9 +100,22 @@ export const LAYER_CSS = `/* layer (REQ-15) */
   height: var(--fc-h, auto);
   z-index: var(--fc-z, 0);
   transform: rotate(var(--fc-rotate, 0deg));
-  transform-origin: top left;
+  /* Rotate about the element centre (the CSS default, and what an art-directed
+     montage expects): the child's top/left place its box, then it tilts in
+     place. A top-left origin would swing the box around its corner, displacing
+     every rotated child away from its intended position. */
+  transform-origin: center;
 }
 .fc-layer__child--image img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Motion (REQ-16) wraps the <img> in an fc-motion element; without this it has
+   auto height, so a child's height:100% / object-fit collapses to the image's
+   natural aspect (an ellipse for a circle). Make the wrapper transparent to
+   sizing so a definite-height image child fills its box whether or not it has
+   motion. */
+.fc-layer__child--image .fc-motion { display: block; width: 100%; height: 100%; }
+/* A circle is square from its width alone — no reliance on a percentage height
+   (which resolves against the layer box, not the child's width). */
+.fc-layer__child--shape-circle { aspect-ratio: 1; }
 /* Text run (REQ-32 cap 5): the child carries token-backed typography as inline
    custom properties on this element; the markdown children inherit it. Reset the
    markdown block margins so the run sits exactly at its positioned offset, and
@@ -112,8 +125,8 @@ export const LAYER_CSS = `/* layer (REQ-15) */
 .fc-layer__child--shape-circle img { border-radius: 50%; }
 .fc-layer__child--shape-rounded img { border-radius: var(--radius-lg); }
 .fc-layer__child--edge-soft img {
-  -webkit-mask-image: radial-gradient(ellipse at center, #000 var(--fc-feather, 55%), transparent 100%);
-  mask-image: radial-gradient(ellipse at center, #000 var(--fc-feather, 55%), transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 92% 92% at center, #000 var(--fc-feather, 60%), transparent 100%);
+  mask-image: radial-gradient(ellipse 92% 92% at center, #000 var(--fc-feather, 60%), transparent 100%);
 }
 .fc-layer__child--edge-torn img {
   -webkit-mask-image: var(--fc-torn-mask, none);
@@ -202,9 +215,9 @@ const TRACKING_EM: Record<string, string> = {
  * reproduces the prior fixed 55% default.
  */
 const FEATHER_STOP: Record<string, string> = {
-  sm: '82%',
-  md: '70%',
-  lg: '55%',
+  sm: '78%',
+  md: '72%',
+  lg: '60%',
 }
 
 /**
@@ -242,6 +255,7 @@ function textTypographyStyle(typo: LayerTextTypography | undefined): string {
   if (typo.weight) decls.push(`font-weight: var(--font-weight-${typo.weight});`)
   if (typo.color) decls.push(`color: var(--color-${typo.color});`)
   if (typo.font) decls.push(`font-family: var(--font-family-${typo.font});`)
+  if (typo.leading) decls.push(`line-height: var(--line-height-${typo.leading});`)
   if (typo.tracking) decls.push(`letter-spacing: ${TRACKING_EM[typo.tracking]};`)
   if (typo.align) decls.push(`text-align: ${typo.align};`)
   if (typo.shadow) {
