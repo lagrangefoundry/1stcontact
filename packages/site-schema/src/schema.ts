@@ -259,8 +259,10 @@ export const layerTextTypographySchema = z
     // vertical rhythm / box height so a positioned run lands where intended.
     leading: z.enum(['tight', 'normal', 'relaxed']).optional(),
     align: z.enum(['left', 'center', 'right']).optional(),
-    /** A dark legibility text-shadow for text over busy imagery. */
-    shadow: z.boolean().optional(),
+    /** Text-shadow preset for text over busy imagery (REQ-32 cap 5): `soft` is a
+     * dark legibility shadow; `glow` adds a soft light halo for a luminous
+     * wordmark. A closed set — the framework emits the shadow, never raw CSS. */
+    shadow: z.enum(['soft', 'glow']).optional(),
   })
   .strict()
 

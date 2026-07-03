@@ -214,7 +214,7 @@ describe('REQ-32 cap 5 — layer text typography', () => {
             font: 'display',
             tracking: 'wide',
             align: 'left',
-            shadow: true,
+            shadow: 'glow',
           },
           position: { x: 8, y: 8, z: 20 },
         },
@@ -248,7 +248,7 @@ describe('REQ-32 cap 5 — layer text typography', () => {
     expect(stack).not.toContain('fc-layer__text" style=')
     // The base run CSS (margin reset + link colour inherit) is present.
     expect(LAYER_CSS).toContain('.fc-layer__text > * { margin: 0; }')
-    expect(LAYER_CSS).toContain('.fc-layer__text a { color: inherit; }')
+    expect(LAYER_CSS).toContain('.fc-layer__text a { color: inherit; text-underline-offset: 0.16em; }')
   })
 
   it('test_UAT_FC_REQ-32_typography_rejects_raw_css', () => {

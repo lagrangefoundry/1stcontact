@@ -168,7 +168,7 @@
               "tracking": "wide",
               "leading": "normal",
               "align": "left",
-              "shadow": true
+              "shadow": "glow"
             },
             "position": {
               "x": 8,
@@ -190,7 +190,7 @@
               "color": "bg",
               "leading": "normal",
               "align": "left",
-              "shadow": true
+              "shadow": "soft"
             },
             "position": {
               "x": 8,
@@ -198,7 +198,7 @@
               "z": 21,
               "breakpoints": {
                 "md": {
-                  "y": 22
+                  "y": 21
                 }
               }
             }

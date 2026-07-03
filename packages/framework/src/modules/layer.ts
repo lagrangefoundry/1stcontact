@@ -121,7 +121,7 @@ export const LAYER_CSS = `/* layer (REQ-15) */
    markdown block margins so the run sits exactly at its positioned offset, and
    let links inherit the run's colour. */
 .fc-layer__text > * { margin: 0; }
-.fc-layer__text a { color: inherit; }
+.fc-layer__text a { color: inherit; text-underline-offset: 0.16em; }
 .fc-layer__child--shape-circle img { border-radius: 50%; }
 .fc-layer__child--shape-rounded img { border-radius: var(--radius-lg); }
 .fc-layer__child--edge-soft img {
@@ -221,6 +221,16 @@ const FEATHER_STOP: Record<string, string> = {
 }
 
 /**
+ * Text-shadow presets for a layer text run (REQ-32 cap 5). `soft` is a dark
+ * legibility shadow; `glow` adds a soft light halo for a luminous wordmark over
+ * imagery. Framework-computed — no raw CSS crosses the boundary.
+ */
+const TEXT_SHADOW: Record<string, string> = {
+  soft: '2px 2px 10px rgba(0,0,0,0.9)',
+  glow: '4px 4px 20px rgba(0,0,0,0.9), 0 0 40px rgba(255,255,255,0.3)',
+}
+
+/**
  * Framework-computed `style` declarations for an image child's shadow/border
  * treatment (REQ-32 cap 5). Both resolve to theme tokens (`var(--shadow-*)`,
  * `var(--color-*)`) — no raw CSS crosses the boundary. Applied to the `<img>`
@@ -258,9 +268,7 @@ function textTypographyStyle(typo: LayerTextTypography | undefined): string {
   if (typo.leading) decls.push(`line-height: var(--line-height-${typo.leading});`)
   if (typo.tracking) decls.push(`letter-spacing: ${TRACKING_EM[typo.tracking]};`)
   if (typo.align) decls.push(`text-align: ${typo.align};`)
-  if (typo.shadow) {
-    decls.push('text-shadow: 2px 2px 12px rgba(0,0,0,0.85), 0 0 28px rgba(0,0,0,0.45);')
-  }
+  if (typo.shadow) decls.push(`text-shadow: ${TEXT_SHADOW[typo.shadow]};`)
   return decls.join(' ')
 }
 
