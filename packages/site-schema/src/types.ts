@@ -16,6 +16,7 @@ import type {
   layerReflowSchema,
   layerSchema,
   layerShadowSchema,
+  layerTextLineSchema,
   layerTextTypographySchema,
   motionSchema,
   motionTypeSchema,
@@ -80,6 +81,7 @@ export type LayerColorRole = z.infer<typeof layerColorRoleSchema>
 export type LayerShadow = z.infer<typeof layerShadowSchema>
 export type LayerBorder = z.infer<typeof layerBorderSchema>
 export type LayerTextTypography = z.infer<typeof layerTextTypographySchema>
+export type LayerTextLine = z.infer<typeof layerTextLineSchema>
 export type LayerChild = z.infer<typeof layerChildSchema>
 export type LayerReflow = z.infer<typeof layerReflowSchema>
 export type Layer = z.infer<typeof layerSchema>

@@ -162,17 +162,32 @@
           },
           {
             "kind": "text",
-            "text": "FAELAN",
-            "typography": {
-              "size": "5xl",
-              "weight": "black",
-              "color": "bg",
-              "font": "display",
-              "tracking": "wide",
-              "leading": "normal",
-              "align": "left",
-              "shadow": "glow"
-            },
+            "lines": [
+              {
+                "text": "FAELAN",
+                "typography": {
+                  "size": "5xl",
+                  "weight": "black",
+                  "color": "bg",
+                  "font": "display",
+                  "tracking": "wide",
+                  "leading": "normal",
+                  "align": "left",
+                  "shadow": "glow"
+                }
+              },
+              {
+                "text": "Artist • [Musician](https://open.spotify.com/artist/4YkpJkV28COxXYjbGUi0S9) • Creator",
+                "typography": {
+                  "size": "2xl",
+                  "weight": "regular",
+                  "color": "bg",
+                  "leading": "normal",
+                  "align": "left",
+                  "shadow": "soft"
+                }
+              }
+            ],
             "position": {
               "x": 8,
               "y": 5,
@@ -180,28 +195,6 @@
               "breakpoints": {
                 "md": {
                   "y": 8
-                }
-              }
-            }
-          },
-          {
-            "kind": "text",
-            "text": "Artist • [Musician](https://open.spotify.com/artist/4YkpJkV28COxXYjbGUi0S9) • Creator",
-            "typography": {
-              "size": "2xl",
-              "weight": "regular",
-              "color": "bg",
-              "leading": "normal",
-              "align": "left",
-              "shadow": "soft"
-            },
-            "position": {
-              "x": 8,
-              "y": 13,
-              "z": 21,
-              "breakpoints": {
-                "md": {
-                  "y": 21
                 }
               }
             }

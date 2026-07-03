@@ -307,27 +307,56 @@ export const motionSchema = z
  * Each carries its own structured `position` and an optional `motion`
  * (REQ-16). `.strict()` rejects raw CSS.
  */
-export const layerChildSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('image'),
-      asset: assetRefSchema,
-      treatment: imageTreatmentSchema.optional(),
-      position: positionSchema,
-      motion: motionSchema.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('text'),
-      text: z.string(),
-      /** Token-backed typography for the run (REQ-32 cap 5). */
-      typography: layerTextTypographySchema.optional(),
-      position: positionSchema,
-      motion: motionSchema.optional(),
-    })
-    .strict(),
-])
+/**
+ * One line of a layer text "titled block" (REQ-32 cap 5): a markdown run with
+ * its own token-backed typography. Several lines flow in one positioned block so
+ * their gap is content-based (fixed), not a percentage of the band height.
+ */
+export const layerTextLineSchema = z
+  .object({
+    text: z.string(),
+    typography: layerTextTypographySchema.optional(),
+  })
+  .strict()
+
+export const layerChildSchema = z
+  .discriminatedUnion('kind', [
+    z
+      .object({
+        kind: z.literal('image'),
+        asset: assetRefSchema,
+        treatment: imageTreatmentSchema.optional(),
+        position: positionSchema,
+        motion: motionSchema.optional(),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal('text'),
+        // A single markdown run…
+        text: z.string().optional(),
+        /** Token-backed typography for the single-run form (REQ-32 cap 5). */
+        typography: layerTextTypographySchema.optional(),
+        // …or a multi-line "titled block" (REQ-32 cap 5): the lines flow as one
+        // positioned block, so a wordmark + tagline keep a fixed gap at any
+        // viewport height (a percentage `top` on two separate children would
+        // drift them apart as the band's `100vh` grows).
+        lines: z.array(layerTextLineSchema).min(1).optional(),
+        position: positionSchema,
+        motion: motionSchema.optional(),
+      })
+      .strict(),
+  ])
+  // A text child carries exactly one of `text` or `lines`. Enforced here rather
+  // than inline because a discriminated-union member cannot itself be refined.
+  .superRefine((child, ctx) => {
+    if (child.kind === 'text' && (child.text === undefined) === (child.lines === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a text layer child needs exactly one of `text` or `lines`',
+      })
+    }
+  })
 
 /**
  * A layer: an ordered stack of freely-positioned children composited over the

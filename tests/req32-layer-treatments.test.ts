@@ -236,6 +236,52 @@ describe('REQ-32 cap 5 — layer text typography', () => {
     expect(stack).toMatch(/fc-layer__text" style="[^"]*font-size: var\(--font-size-5xl\)/)
   })
 
+  it('test_UAT_FC_REQ-32_titled_block_lines_flow_as_one_positioned_block', async () => {
+    const layer = {
+      children: [
+        {
+          kind: 'text',
+          lines: [
+            { text: 'FAELAN', typography: { size: '5xl', weight: 'black' } },
+            { text: 'Artist • [Musician](https://x.test) • Creator', typography: { size: '2xl' } },
+          ],
+          position: { x: 8, y: 8, z: 21 },
+        },
+      ],
+    }
+    const site = minimalSite()
+    site.pages[0].modules[0].layer = layer
+    expect(validateSite(site).ok, 'a lines titled-block should validate').toBe(true)
+
+    const stack = await renderLayer(layer as any)
+    // One positioned child, one flowing block, two typography-styled runs.
+    expect((stack.match(/fc-layer__child--text/g) ?? []).length).toBe(1)
+    expect(stack).toContain('<div class="fc-layer__block">')
+    expect((stack.match(/fc-layer__text/g) ?? []).length).toBe(2)
+    expect(stack).toContain('font-size: var(--font-size-5xl);')
+    expect(stack).toContain('font-size: var(--font-size-2xl);')
+    expect(stack).toContain('FAELAN')
+    expect(stack).toContain('>Musician</a>')
+    // The fixed inter-line gap lives in LAYER_CSS (viewport-height-independent).
+    expect(LAYER_CSS).toContain('.fc-layer__block > * + * { margin-top: 0.5rem; }')
+  })
+
+  it('test_UAT_FC_REQ-32_text_child_requires_exactly_one_of_text_or_lines', () => {
+    // Both `text` and `lines` → rejected.
+    const both = minimalSite()
+    both.pages[0].modules[0].layer = {
+      children: [{ kind: 'text', text: 'x', lines: [{ text: 'y' }], position: { x: 0, y: 0, z: 0 } }],
+    }
+    expect(validateSite(both).ok).toBe(false)
+
+    // Neither → rejected.
+    const neither = minimalSite()
+    neither.pages[0].modules[0].layer = {
+      children: [{ kind: 'text', position: { x: 0, y: 0, z: 0 } }],
+    }
+    expect(validateSite(neither).ok).toBe(false)
+  })
+
   it('test_UAT_FC_REQ-32_text_child_without_typography_unchanged', async () => {
     // Regression: a text child with no typography renders exactly as before —
     // no empty style attribute, no leaked declarations.

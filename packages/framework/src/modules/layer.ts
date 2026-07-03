@@ -122,6 +122,11 @@ export const LAYER_CSS = `/* layer (REQ-15) */
    let links inherit the run's colour. */
 .fc-layer__text > * { margin: 0; }
 .fc-layer__text a { color: inherit; text-underline-offset: 0.16em; }
+/* Titled block (REQ-32 cap 5): the lines flow in normal document order, so
+   their inter-line gap is content-based and fixed at any viewport height. A
+   small default gap separates a title from its tagline. */
+.fc-layer__block { display: block; }
+.fc-layer__block > * + * { margin-top: 0.5rem; }
 .fc-layer__child--shape-circle img { border-radius: 50%; }
 .fc-layer__child--shape-rounded img { border-radius: var(--radius-lg); }
 .fc-layer__child--edge-soft img {
@@ -294,10 +299,29 @@ async function renderChild(child: LayerChild): Promise<string> {
     )
     return `<div class="${cls}" style="${style}">${inner}</div>`
   }
-  // Text run: markdown, rendered through the same processor as text-block.
+  // Titled block (REQ-32 cap 5): multiple typography-styled lines flow inside one
+  // positioned block, so a wordmark + tagline keep a *content-based* (fixed) gap
+  // at any viewport height — unlike two separately `top: %`-positioned children,
+  // whose gap scales with the band's `100vh`.
+  if (child.lines) {
+    const rendered = await Promise.all(
+      child.lines.map(async (line) => {
+        const lineHtml = await renderMarkdown(line.text)
+        const lineStyle = escapeAttr(textTypographyStyle(line.typography))
+        const lineStyleAttr = lineStyle ? ` style="${lineStyle}"` : ''
+        return `<div class="fc-layer__text"${lineStyleAttr}>${lineHtml}</div>`
+      }),
+    )
+    const block = wrapWithMotion(
+      `<div class="fc-layer__block">${rendered.join('')}</div>`,
+      child.motion,
+    )
+    return `<div class="fc-layer__child fc-layer__child--text" style="${style}">${block}</div>`
+  }
+  // Single text run: markdown, rendered through the same processor as text-block.
   // Token-backed typography (REQ-32 cap 5) is emitted on the run wrapper; the
   // markdown children inherit font-size/weight/colour/tracking/shadow from it.
-  const html = await renderMarkdown(child.text)
+  const html = await renderMarkdown(child.text ?? '')
   const typoStyle = escapeAttr(textTypographyStyle(child.typography))
   const typoStyleAttr = typoStyle ? ` style="${typoStyle}"` : ''
   const inner = wrapWithMotion(
