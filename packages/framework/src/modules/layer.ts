@@ -1,4 +1,10 @@
-import type { ImageTreatment, Layer, LayerChild, Position } from '@1stcontact/site-schema'
+import type {
+  ImageTreatment,
+  Layer,
+  LayerChild,
+  LayerTextTypography,
+  Position,
+} from '@1stcontact/site-schema'
 import { renderMarkdown } from './markdown'
 import { wrapWithMotion } from './motion'
 
@@ -97,6 +103,12 @@ export const LAYER_CSS = `/* layer (REQ-15) */
   transform-origin: top left;
 }
 .fc-layer__child--image img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* Text run (REQ-32 cap 5): the child carries token-backed typography as inline
+   custom properties on this element; the markdown children inherit it. Reset the
+   markdown block margins so the run sits exactly at its positioned offset, and
+   let links inherit the run's colour. */
+.fc-layer__text > * { margin: 0; }
+.fc-layer__text a { color: inherit; }
 .fc-layer__child--shape-circle img { border-radius: 50%; }
 .fc-layer__child--shape-rounded img { border-radius: var(--radius-lg); }
 .fc-layer__child--edge-soft img {
@@ -169,6 +181,59 @@ function treatmentClasses(treatment: ImageTreatment | undefined): string {
   return parts.join(' ')
 }
 
+/** Border-width tokens → px (REQ-32 cap 5). `none` emits no border. */
+const BORDER_WIDTH_PX: Record<string, string> = {
+  none: '0',
+  thin: '1px',
+  medium: '2px',
+  thick: '4px',
+}
+
+/** Letter-spacing tokens → em (REQ-32 cap 5). A closed set, never raw CSS. */
+const TRACKING_EM: Record<string, string> = {
+  normal: 'normal',
+  wide: '0.03em',
+  wider: '0.08em',
+}
+
+/**
+ * Framework-computed `style` declarations for an image child's shadow/border
+ * treatment (REQ-32 cap 5). Both resolve to theme tokens (`var(--shadow-*)`,
+ * `var(--color-*)`) — no raw CSS crosses the boundary. Applied to the `<img>`
+ * so a `box-shadow` follows the shape/border-radius and a border rings it.
+ */
+function imageTreatmentStyle(treatment: ImageTreatment | undefined): string {
+  if (!treatment) return ''
+  const decls: string[] = []
+  if (treatment.shadow) decls.push(`box-shadow: var(--shadow-${treatment.shadow});`)
+  if (treatment.border && treatment.border.width !== 'none') {
+    const width = BORDER_WIDTH_PX[treatment.border.width]
+    decls.push(`border: ${width} solid var(--color-${treatment.border.color});`)
+  }
+  return decls.join(' ')
+}
+
+/**
+ * Framework-computed `style` declarations for a text child's typography
+ * (REQ-32 cap 5). Every field resolves to a theme-token custom property or a
+ * fixed framework value (tracking → em, shadow → a legibility text-shadow) — no
+ * raw CSS. Emitted on the `.fc-layer__text` run; the markdown children inherit.
+ */
+function textTypographyStyle(typo: LayerTextTypography | undefined): string {
+  if (!typo) return ''
+  const decls: string[] = []
+  if (typo.size) decls.push(`font-size: var(--font-size-${typo.size});`)
+  if (typo.weight) decls.push(`font-weight: var(--font-weight-${typo.weight});`)
+  if (typo.color) decls.push(`color: var(--color-${typo.color});`)
+  if (typo.font) decls.push(`font-family: var(--font-family-${typo.font});`)
+  if (typo.tracking) decls.push(`letter-spacing: ${TRACKING_EM[typo.tracking]};`)
+  if (typo.align) decls.push(`text-align: ${typo.align};`)
+  if (typo.shadow) {
+    decls.push('text-shadow: 2px 2px 12px rgba(0,0,0,0.85), 0 0 28px rgba(0,0,0,0.45);')
+  }
+  return decls.join(' ')
+}
+
 /** Render one layer child (image or text) to positioned HTML. */
 async function renderChild(child: LayerChild): Promise<string> {
   const style = escapeAttr(positionVars(child.position))
@@ -178,18 +243,29 @@ async function renderChild(child: LayerChild): Promise<string> {
       .join(' ')
     const src = escapeAttr(child.asset.src)
     const alt = escapeAttr(child.asset.alt)
+    // Shadow/border (REQ-32 cap 5) ride on the `<img>` itself so a `box-shadow`
+    // tracks the shape and a border rings it. Framework-computed token refs only.
+    const imgStyle = escapeAttr(imageTreatmentStyle(child.treatment))
+    const imgStyleAttr = imgStyle ? ` style="${imgStyle}"` : ''
     // Motion (REQ-16) wraps the child's *inner* content, not the positioned
     // element — the child already owns `transform: rotate(...)`, which a
     // slide/scale keyframe would otherwise clobber.
     const inner = wrapWithMotion(
-      `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" />`,
+      `<img src="${src}" alt="${alt}" loading="lazy" decoding="async"${imgStyleAttr} />`,
       child.motion,
     )
     return `<div class="${cls}" style="${style}">${inner}</div>`
   }
   // Text run: markdown, rendered through the same processor as text-block.
+  // Token-backed typography (REQ-32 cap 5) is emitted on the run wrapper; the
+  // markdown children inherit font-size/weight/colour/tracking/shadow from it.
   const html = await renderMarkdown(child.text)
-  const inner = wrapWithMotion(`<div class="fc-layer__text">${html}</div>`, child.motion)
+  const typoStyle = escapeAttr(textTypographyStyle(child.typography))
+  const typoStyleAttr = typoStyle ? ` style="${typoStyle}"` : ''
+  const inner = wrapWithMotion(
+    `<div class="fc-layer__text"${typoStyleAttr}>${html}</div>`,
+    child.motion,
+  )
   return `<div class="fc-layer__child fc-layer__child--text" style="${style}">${inner}</div>`
 }
 

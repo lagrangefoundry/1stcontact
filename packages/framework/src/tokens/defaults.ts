@@ -78,6 +78,9 @@ export const defaultTokens: ThemeTokens = {
     sm: '0 1px 2px rgba(0,0,0,0.05)',
     md: '0 4px 6px rgba(0,0,0,0.1)',
     lg: '0 10px 15px rgba(0,0,0,0.1)',
+    // `xl` (REQ-32 cap 5) — a lifted drop + soft glow for art-directed layer
+    // photos; sites tune the exact value in their theme.
+    xl: '0 15px 50px rgba(0,0,0,0.55), 0 0 30px rgba(255,255,255,0.12)',
   },
   container: {
     narrow: '40rem',

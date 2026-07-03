@@ -1,0 +1,113 @@
+{
+  "id": "home",
+  "slug": "home",
+  "title": "Home",
+  "seoMeta": {
+    "title": "Faelan",
+    "description": "Welcome to my corner of the internet"
+  },
+  "modules": [
+    {
+      "id": "montage",
+      "type": "layer",
+      "version": 1,
+      "variant": "full",
+      "dials": {},
+      "content": {},
+      "background": {
+        "type": "image",
+        "asset": {
+          "id": "scorched-earth",
+          "src": "assets/scorched-earth.jpeg",
+          "alt": "Scorched earth hillside"
+        },
+        "fit": "cover",
+        "overlay": { "color": "#000000", "opacity": 0.3 }
+      },
+      "layer": {
+        "reflow": "stack",
+        "reflowBelow": "md",
+        "children": [
+          {
+            "kind": "image",
+            "asset": { "id": "ghostship-eyes", "src": "assets/ghostship-eyes.jpg", "alt": "Ghostship" },
+            "treatment": { "edge": "soft-mask", "shadow": "xl" },
+            "position": { "x": 5, "y": 5, "z": 5, "width": 25, "rotate": 3 },
+            "motion": { "type": "scale", "trigger": "hover" }
+          },
+          {
+            "kind": "image",
+            "asset": { "id": "heal-click-alley", "src": "assets/heal-click-alley.jpg", "alt": "Alley scene" },
+            "treatment": { "edge": "soft-mask", "shadow": "xl" },
+            "position": { "x": 35, "y": 18, "z": 6, "width": 35, "rotate": 4 },
+            "motion": { "type": "scale", "trigger": "hover" }
+          },
+          {
+            "kind": "image",
+            "asset": { "id": "faelan-violin-bw", "src": "assets/faelan-violin-bw.jpg", "alt": "Faelan with violin" },
+            "treatment": { "edge": "soft-mask", "shadow": "xl" },
+            "position": { "x": 15, "y": 45, "z": 8, "width": 20, "rotate": -8 },
+            "motion": { "type": "scale", "trigger": "hover" }
+          },
+          {
+            "kind": "image",
+            "asset": { "id": "faelan-stramash", "src": "assets/faelan-stramash.jpeg", "alt": "Faelan" },
+            "treatment": { "shape": "circle", "shadow": "xl", "border": { "width": "thick", "color": "bg" } },
+            "position": { "x": 72, "y": 8, "z": 15, "width": 17.5, "height": 28, "rotate": -5 },
+            "motion": { "type": "scale", "trigger": "hover" }
+          },
+          {
+            "kind": "text",
+            "text": "FAELAN",
+            "typography": { "size": "5xl", "weight": "black", "color": "bg", "font": "display", "tracking": "wide", "align": "left", "shadow": true },
+            "position": { "x": 8, "y": 8, "z": 21 }
+          },
+          {
+            "kind": "text",
+            "text": "Artist • [Musician](https://open.spotify.com/artist/4YkpJkV28COxXYjbGUi0S9) • Creator",
+            "typography": { "size": "2xl", "weight": "regular", "color": "bg", "align": "left", "shadow": true },
+            "position": { "x": 8, "y": 16, "z": 21 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "about",
+      "type": "hero",
+      "version": 1,
+      "variant": "bg-color",
+      "dials": {
+        "size": "md",
+        "align": "center",
+        "surface": "inverse",
+        "spacingTop": "xl",
+        "spacingBottom": "xl",
+        "subheadColor": "neutral-cool",
+        "subheadSize": "lg"
+      },
+      "content": {
+        "heading": "Faelan",
+        "subhead": "Worlds End Studio founder, DJ, Producer and Fiddle Player"
+      }
+    },
+    {
+      "id": "footer",
+      "type": "footer",
+      "version": 1,
+      "variant": "minimal",
+      "dials": {
+        "surface": "inverse",
+        "layout": "center",
+        "spacingTop": "lg",
+        "spacingBottom": "lg"
+      },
+      "content": {
+        "copyrightHolder": "Faelan Westhead. All rights reserved."
+      },
+      "background": {
+        "type": "color",
+        "value": "#000000"
+      }
+    }
+  ]
+}

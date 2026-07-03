@@ -1,0 +1,245 @@
+import { describe, expect, it } from 'vitest'
+import { LAYER_CSS, renderLayer } from '../packages/framework/src/index'
+import { generateThemeCss } from '../packages/framework/src/tokens/css'
+import { validateSite } from '../packages/site-schema/src/index'
+
+/**
+ * UATs for REQ-32 capability 5 — layer art-direction treatments (surfaced by the
+ * faelan.com import, REQ-21). Three generalizations of the REQ-15 `layer` child:
+ * image `shadow` + `border`, text `typography`, and the `xl` shadow token.
+ *
+ * Entry points under test: the public `validateSite` (the extended treatment /
+ * typography contract + `.strict()` raw-CSS rejection), the framework's
+ * `renderLayer` (the computed token-backed styles), and `generateThemeCss` (the
+ * `xl` shadow token). Nothing internal is mocked.
+ */
+
+const PHOTO = { id: 'photo', src: '/assets/photo.jpg', alt: 'Montage' }
+
+/** A minimal, schema-valid site; a `layer` is attached to module `m1` per test. */
+function minimalSite(): Record<string, any> {
+  return {
+    id: 'site-layer-treatments',
+    config: { businessName: 'Acme Co' },
+    theme: {
+      palette: {
+        bg: '#ffffff',
+        surface: '#f9fafb',
+        surfaceSubtle: '#f3f4f6',
+        surfaceInverse: '#111827',
+        text: '#111827',
+        muted: '#6b7280',
+        primary: '#2563eb',
+        accent: '#f59e0b',
+        border: '#e5e7eb',
+      },
+      typography: {
+        family: { heading: 'Inter, sans-serif', body: 'Inter, sans-serif' },
+        scale: {
+          xs: '0.75rem',
+          sm: '0.875rem',
+          base: '1rem',
+          lg: '1.125rem',
+          xl: '1.25rem',
+          '2xl': '1.5rem',
+          '3xl': '1.875rem',
+          '4xl': '2.25rem',
+          '5xl': '3rem',
+        },
+        weights: { regular: '400', medium: '500', semibold: '600', bold: '700', black: '900' },
+        lineHeights: { tight: '1.1', normal: '1.5', relaxed: '1.75' },
+      },
+      spacing: {
+        '0': '0',
+        '1': '0.25rem',
+        '2': '0.5rem',
+        '3': '0.75rem',
+        '4': '1rem',
+        '6': '1.5rem',
+        '8': '2rem',
+        '12': '3rem',
+        '16': '4rem',
+        '24': '6rem',
+      },
+      radius: { none: '0', sm: '0.125rem', md: '0.375rem', lg: '0.5rem', full: '9999px' },
+      shadow: {
+        none: 'none',
+        sm: '0 1px 2px rgba(0,0,0,0.05)',
+        md: '0 4px 6px rgba(0,0,0,0.1)',
+        lg: '0 10px 15px rgba(0,0,0,0.1)',
+      },
+      container: { narrow: '40rem', default: '72rem', wide: '90rem', bleed: '100%' },
+      breakpoints: { sm: '640px', md: '768px', lg: '1024px', xl: '1280px' },
+    },
+    nav: { pattern: 'in-page-anchors', entries: [] },
+    pages: [
+      {
+        id: 'page-home',
+        slug: 'home',
+        title: 'Home',
+        modules: [
+          {
+            id: 'm1',
+            type: 'layer',
+            version: 1,
+            variant: 'full',
+            dials: {},
+            content: {},
+          },
+        ],
+      },
+    ],
+  }
+}
+
+describe('REQ-32 cap 5 — layer image shadow + border', () => {
+  it('test_UAT_FC_REQ-32_image_shadow_and_border_render_token_backed', async () => {
+    const layer = {
+      children: [
+        {
+          kind: 'image',
+          asset: PHOTO,
+          treatment: { shape: 'circle', shadow: 'xl', border: { width: 'thick', color: 'bg' } },
+          position: { x: 5, y: 5, z: 1, width: 20 },
+        },
+      ],
+    }
+    // Validates as structured data (extended treatment contract).
+    const site = minimalSite()
+    site.pages[0].modules[0].layer = layer
+    expect(validateSite(site).ok, 'shadow + border treatment should validate').toBe(true)
+
+    // The framework emits token-backed styles on the <img> — never raw CSS.
+    const stack = await renderLayer(layer as any)
+    expect(stack).toContain('box-shadow: var(--shadow-xl);')
+    expect(stack).toContain('border: 4px solid var(--color-bg);')
+    // The border/shadow ride on the image element, alongside the shape class.
+    expect(stack).toMatch(/<img[^>]+style="[^"]*box-shadow: var\(--shadow-xl\);/)
+    expect(stack).toContain('fc-layer__child--shape-circle')
+  })
+
+  it('test_UAT_FC_REQ-32_border_none_emits_no_border', async () => {
+    const layer = {
+      children: [
+        {
+          kind: 'image',
+          asset: PHOTO,
+          treatment: { shadow: 'md', border: { width: 'none', color: 'accent' } },
+          position: { x: 0, y: 0, z: 1, width: 30 },
+        },
+      ],
+    }
+    const stack = await renderLayer(layer as any)
+    expect(stack).toContain('box-shadow: var(--shadow-md);')
+    // `width: none` means no border declaration is emitted at all.
+    expect(stack).not.toContain('border:')
+  })
+
+  it('test_UAT_FC_REQ-32_treatment_rejects_bad_enum_and_raw_css', () => {
+    // An out-of-set shadow step is rejected (closed enum).
+    const badShadow = minimalSite()
+    badShadow.pages[0].modules[0].layer = {
+      children: [{ kind: 'image', asset: PHOTO, treatment: { shadow: 'huge' }, position: { x: 0, y: 0, z: 0 } }],
+    }
+    expect(validateSite(badShadow).ok).toBe(false)
+
+    // A raw-CSS field smuggled onto the border is rejected by `.strict()`.
+    const rawCss = minimalSite()
+    rawCss.pages[0].modules[0].layer = {
+      children: [
+        {
+          kind: 'image',
+          asset: PHOTO,
+          treatment: { border: { width: 'thin', color: 'accent', style: 'outline: 2px' } },
+          position: { x: 0, y: 0, z: 0 },
+        },
+      ],
+    }
+    expect(validateSite(rawCss).ok).toBe(false)
+  })
+})
+
+describe('REQ-32 cap 5 — layer text typography', () => {
+  it('test_UAT_FC_REQ-32_text_typography_renders_token_props', async () => {
+    const layer = {
+      children: [
+        {
+          kind: 'text',
+          text: 'FAELAN',
+          typography: {
+            size: '5xl',
+            weight: 'black',
+            color: 'bg',
+            font: 'display',
+            tracking: 'wide',
+            align: 'left',
+            shadow: true,
+          },
+          position: { x: 8, y: 8, z: 20 },
+        },
+      ],
+    }
+    const site = minimalSite()
+    site.pages[0].modules[0].layer = layer
+    expect(validateSite(site).ok, 'text typography should validate').toBe(true)
+
+    const stack = await renderLayer(layer as any)
+    expect(stack).toContain('font-size: var(--font-size-5xl);')
+    expect(stack).toContain('font-weight: var(--font-weight-black);')
+    expect(stack).toContain('color: var(--color-bg);')
+    expect(stack).toContain('font-family: var(--font-family-display);')
+    expect(stack).toContain('letter-spacing: 0.03em;')
+    expect(stack).toContain('text-align: left;')
+    expect(stack).toContain('text-shadow:')
+    // Emitted on the text run wrapper (children inherit it).
+    expect(stack).toMatch(/fc-layer__text" style="[^"]*font-size: var\(--font-size-5xl\)/)
+  })
+
+  it('test_UAT_FC_REQ-32_text_child_without_typography_unchanged', async () => {
+    // Regression: a text child with no typography renders exactly as before —
+    // no empty style attribute, no leaked declarations.
+    const layer = {
+      children: [{ kind: 'text', text: '**Hi**', position: { x: 10, y: 10, z: 1 } }],
+    }
+    const stack = await renderLayer(layer as any)
+    expect(stack).toContain('fc-layer__child--text')
+    expect(stack).toContain('<div class="fc-layer__text">')
+    expect(stack).not.toContain('fc-layer__text" style=')
+    // The base run CSS (margin reset + link colour inherit) is present.
+    expect(LAYER_CSS).toContain('.fc-layer__text > * { margin: 0; }')
+    expect(LAYER_CSS).toContain('.fc-layer__text a { color: inherit; }')
+  })
+
+  it('test_UAT_FC_REQ-32_typography_rejects_raw_css', () => {
+    const bad = minimalSite()
+    bad.pages[0].modules[0].layer = {
+      children: [
+        {
+          kind: 'text',
+          text: 'x',
+          typography: { size: '5xl', css: 'color: red' },
+          position: { x: 0, y: 0, z: 0 },
+        },
+      ],
+    }
+    expect(validateSite(bad).ok).toBe(false)
+  })
+})
+
+describe('REQ-32 cap 5 — xl shadow token', () => {
+  it('test_UAT_FC_REQ-32_xl_shadow_token_emitted_and_overridable', () => {
+    // The default theme now emits `--shadow-xl` (safe to reference from a treatment).
+    const css = generateThemeCss()
+    expect(css).toContain('--shadow-xl:')
+
+    // A site can tune the exact value in its theme (site-specific config).
+    const tuned = generateThemeCss({
+      shadow: { xl: '0 20px 60px rgba(0,0,0,0.6)' } as any,
+    })
+    expect(tuned).toContain('--shadow-xl: 0 20px 60px rgba(0,0,0,0.6);')
+
+    // A theme that omits `xl` still validates (optional token).
+    const site = minimalSite()
+    expect(validateSite(site).ok).toBe(true)
+  })
+})

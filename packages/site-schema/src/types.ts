@@ -10,9 +10,13 @@ import type {
   contentValueSchema,
   fontFaceSchema,
   imageTreatmentSchema,
+  layerBorderSchema,
   layerChildSchema,
+  layerColorRoleSchema,
   layerReflowSchema,
   layerSchema,
+  layerShadowSchema,
+  layerTextTypographySchema,
   motionSchema,
   motionTypeSchema,
   motionTriggerSchema,
@@ -72,6 +76,10 @@ export type BreakpointName = z.infer<typeof breakpointNameSchema>
 export type Position = z.infer<typeof positionSchema>
 export type PositionOverride = z.infer<typeof positionOverrideSchema>
 export type ImageTreatment = z.infer<typeof imageTreatmentSchema>
+export type LayerColorRole = z.infer<typeof layerColorRoleSchema>
+export type LayerShadow = z.infer<typeof layerShadowSchema>
+export type LayerBorder = z.infer<typeof layerBorderSchema>
+export type LayerTextTypography = z.infer<typeof layerTextTypographySchema>
 export type LayerChild = z.infer<typeof layerChildSchema>
 export type LayerReflow = z.infer<typeof layerReflowSchema>
 export type Layer = z.infer<typeof layerSchema>

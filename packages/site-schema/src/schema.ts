@@ -178,15 +178,81 @@ export const positionSchema = z
   .strict()
 
 /**
- * Image-child edge/shape treatments (REQ-15, DOC-15 design log §A/B). `shape`
- * clips the image (circle / rounded); `edge` feathers or tears it (`soft-mask`
- * = radial mask, `torn-asset` = a pre-torn PNG mask supplied as an asset). All
- * are enumerated, never raw CSS.
+ * Palette-role names selectable as a layer treatment colour (REQ-32 cap 5). The
+ * closed set of theme palette roles in kebab-case — each resolves to
+ * `var(--color-<role>)`, so a border/text colour is always token-backed and no
+ * raw colour reaches the page. Mirrors the `--color-*` names emitted by the
+ * token CSS.
+ */
+export const layerColorRoleSchema = z.enum([
+  'bg',
+  'surface',
+  'surface-subtle',
+  'surface-inverse',
+  'text',
+  'muted',
+  'border',
+  'primary',
+  'accent',
+  'secondary',
+  'neutral-cool',
+  'accent-light',
+  'accent-deep',
+])
+
+/** Shadow step for a layer image child (REQ-32 cap 5) — a theme shadow token. */
+export const layerShadowSchema = z.enum(['none', 'sm', 'md', 'lg', 'xl'])
+
+/**
+ * Token-backed border for a layer image child (REQ-32 cap 5): a width step
+ * (mapped to px by the framework) and a palette-role colour. `.strict()` rejects
+ * a raw CSS border string.
+ */
+export const layerBorderSchema = z
+  .object({
+    width: z.enum(['none', 'thin', 'medium', 'thick']),
+    color: layerColorRoleSchema,
+  })
+  .strict()
+
+/**
+ * Image-child edge/shape treatments (REQ-15, DOC-15 design log §A/B; extended
+ * REQ-32 cap 5). `shape` clips the image (circle / rounded); `edge` feathers or
+ * tears it (`soft-mask` = radial mask, `torn-asset` = a pre-torn PNG mask
+ * supplied as an asset); `shadow` lifts it off the background (theme shadow
+ * token); `border` frames/rings it (token-backed width + palette-role colour).
+ * All are enumerated / token-backed, never raw CSS.
  */
 export const imageTreatmentSchema = z
   .object({
     shape: z.enum(['none', 'circle', 'rounded']).optional(),
     edge: z.enum(['none', 'soft-mask', 'torn-asset']).optional(),
+    shadow: layerShadowSchema.optional(),
+    border: layerBorderSchema.optional(),
+  })
+  .strict()
+
+/**
+ * Structured, token-backed typography for a layer *text* child (REQ-32 cap 5).
+ * A positioned text run otherwise renders at the inherited body size, so a
+ * wordmark/label in an art-directed layer can't be scaled. Every field is a
+ * closed enum resolving to a theme token custom property (`--font-size-*`,
+ * `--font-weight-*`, `--color-*`, `--font-family-*`) or a fixed framework value
+ * (`tracking` → em, `shadow` → a legibility text-shadow) — no raw CSS. `.strict()`
+ * rejects a smuggled style field.
+ */
+export const layerTextTypographySchema = z
+  .object({
+    size: z
+      .enum(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl'])
+      .optional(),
+    weight: z.enum(['regular', 'medium', 'semibold', 'bold', 'black']).optional(),
+    color: layerColorRoleSchema.optional(),
+    font: z.enum(['heading', 'body', 'display']).optional(),
+    tracking: z.enum(['normal', 'wide', 'wider']).optional(),
+    align: z.enum(['left', 'center', 'right']).optional(),
+    /** A dark legibility text-shadow for text over busy imagery. */
+    shadow: z.boolean().optional(),
   })
   .strict()
 
@@ -245,6 +311,8 @@ export const layerChildSchema = z.discriminatedUnion('kind', [
     .object({
       kind: z.literal('text'),
       text: z.string(),
+      /** Token-backed typography for the run (REQ-32 cap 5). */
+      typography: layerTextTypographySchema.optional(),
       position: positionSchema,
       motion: motionSchema.optional(),
     })
@@ -467,6 +535,10 @@ export const shadowTokensSchema = z.object({
   sm: cssValue,
   md: cssValue,
   lg: cssValue,
+  // `xl` (REQ-32 cap 5) — a lifted drop+glow for art-directed layer photos.
+  // Optional so existing themes validate unchanged; `defaultTokens` fills it, so
+  // `--shadow-xl` is always emitted and safe to reference from a treatment.
+  xl: cssValue.optional(),
 })
 
 /** 4 container widths; `default` is the canonical body container. */
