@@ -46,6 +46,19 @@ Summary:
 
 **The Rule**: When replacing an approach, delete the old one. If tests pass, the new implementation is correct.
 
+## ⚠️ CRITICAL: Generalize Modules Before Adding New Ones
+
+**When a capability gap appears, first try to generalize an existing module — add a dial, variant, or treatment — before creating a new module.** A new module is the last resort, justified only when the capability genuinely does not belong on any existing one.
+
+**Why**: The framework's power is a small set of composable, well-understood modules. Every new module is more surface area to learn, test, document, and keep coherent; it fragments capability that users then have to hunt across. Generalizing keeps related capability in one place and makes it reusable by every site, not just the one that needed it.
+
+**How to decide** (the same test as config-vs-capability):
+- Does the gap fit an existing module's purpose? → add a **dial / variant / treatment / content field** there.
+- Is it a cross-cutting layout/composition concern several modules share? → a **shared primitive** (e.g. the `fc-row` half-width grouping, the overlay band), not a bespoke module.
+- Only if it is a genuinely new *kind* of section with its own purpose → a **new module**.
+
+**Evidence this works**: the gigabytealchemy import (REQ-20) was closed almost entirely by generalizing — `height`/`headingTreatment` on hero, `logoSize` on header, `layout` on footer, `accent`/`badge`/`surface`/`status` on services-grid, a `secondary` palette role. Zero new modules; only two new *primitives* (`fc-row`, the secondary role) where no existing module fit. See [[REQ-32]] (treat its capabilities as generalizations of hero / text-block / header, not new modules) and the runbook [[DOC-19]].
+
 ## ⚠️ CRITICAL: Failure vs Error Taxonomy (Workflow Outcomes)
 
 **Failures, terminal failures, and errors are fundamentally different. Do NOT confuse them.**

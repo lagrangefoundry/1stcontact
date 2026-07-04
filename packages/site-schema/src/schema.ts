@@ -490,6 +490,12 @@ export const paletteTokensSchema = z.object({
   // fill them when omitted.
   accentLight: hexColor.optional(),
   accentDeep: hexColor.optional(),
+  // `accentMid` (REQ-20) is an optional third warm companion sitting between
+  // `accentLight` and `accentDeep` — it lets a warm brand gradient carry a
+  // distinct mid-stop hue (e.g. gigabytealchemy's gold→orange wordmark whose
+  // sweep passes through a lighter orange before the deep orange) as a palette
+  // role rather than a raw colour. Optional so existing themes keep validating.
+  accentMid: hexColor.optional(),
   border: hexColor,
 })
 

@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { GAP_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { GAP_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /**
  * Card accent-border colour (REQ-26). A closed set of palette-role names, not a
@@ -52,6 +52,11 @@ export const servicesGridMeta = {
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     gap: GAP_DIAL,
+    // Card type scale (REQ-20). `md` (default) preserves the prior scale; `lg`
+    // steps the card heading/subhead/badge/checklist typography up one notch
+    // (the gigabytealchemy reference runs its cards at a larger scale); `sm`
+    // steps down. Consistent with the `size` dial on hero / text-block.
+    size: SIZE_DIAL,
   },
   contentSchema: {
     heading: { type: 'string', required: false },
@@ -65,6 +70,10 @@ export const servicesGridMeta = {
         icon: { type: 'asset-ref', required: false },
         title: { type: 'string', required: true },
         body: { type: 'markdown', required: true },
+        // Per-card type scale (REQ-20) — `lg` is a featured card (larger title /
+        // body / badge), `md` (default) the standard scale. Lets one grid mix
+        // headline offerings and a quieter companion panel.
+        size: { type: 'enum', required: false, values: SIZE_DIAL },
         cta: { type: 'object', required: false },
         // REQ-26 card treatments — structured, closed-value, token-backed.
         accent: { type: 'enum', required: false, values: CARD_ACCENT },

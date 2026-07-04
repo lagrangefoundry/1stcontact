@@ -14,6 +14,8 @@ import { footerMeta } from '../packages/framework/src/modules/footer/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens'
+import { gradientTextStyle } from '../packages/framework/src/modules/gradient'
+import { SIZE_DIAL, TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 
 /**
@@ -283,5 +285,95 @@ describe('REQ-20 render pipeline — half-width row grouping', () => {
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     // The default scaffold carries no half-width bands, so no row wrapper.
     expect(html).not.toContain('class="fc-row"')
+  })
+})
+
+/**
+ * REQ-20 eyes pass #3 — closing the type-scale + warm-gradient fidelity gaps the
+ * values-diff surfaced on the gigabytealchemy re-import:
+ *
+ *   1. services-grid grid `size` dial — scales the grid's intro subhead.
+ *   2. services-grid per-card `size` field — a featured card reads larger than
+ *      the standard cards beside it (title / body lead+description / badge), so
+ *      one grid can mix headline offerings and a quiet companion panel.
+ *   3. regular-weight checklist ✓ — the captured tick is a normal-weight glyph.
+ *   4. `accent-mid` palette role — a warm gradient can carry a third mid-stop
+ *      hue (the wordmark's lighter orange) as a role, never a raw colour.
+ */
+describe('REQ-20 fidelity — services-grid type scale + accent-mid role', () => {
+  it('test_UAT_FC_REQ-20_services_grid_meta_exposes_size_dial', () => {
+    expect(servicesGridMeta.dials.size).toEqual(SIZE_DIAL)
+  })
+
+  it('test_UAT_FC_REQ-20_services_grid_card_exposes_size_field', () => {
+    const item = servicesGridMeta.contentSchema.items.itemSchema as Record<
+      string,
+      { values?: readonly string[] }
+    >
+    expect(item.size?.values).toEqual(SIZE_DIAL)
+  })
+
+  it('test_UAT_FC_REQ-20_featured_card_carries_lg_scale_class', async () => {
+    // The behavioural contract: a card declaring `size: lg` is rendered as a
+    // featured card (its `card-size-lg` class drives the larger title / body /
+    // badge scale in the module's scoped CSS), while a card that omits `size`
+    // falls back to the standard `card-size-md` scale — so one grid mixes a
+    // headline offering and a quiet companion. The section also carries the
+    // grid-level `size-lg` class that scales its intro subhead.
+    const html = await render(ServicesGrid, {
+      variant: 'stacked',
+      dials: { size: 'lg' },
+      content: {
+        subhead: 'Intro line under the heading.',
+        items: [
+          {
+            title: 'Featured',
+            size: 'lg',
+            body: 'Lead line\n\nBody paragraph.',
+            badge: { label: 'New', variant: 'primary' },
+          },
+          { title: 'Standard', body: 'Just a card.' },
+        ],
+      },
+    })
+    expect(html).toContain('size-lg') // grid intro scale
+    expect(html).toMatch(/services-grid__card card-size-lg/) // featured card
+    expect(html).toMatch(/services-grid__card card-size-md/) // standard card
+  })
+
+  it('test_UAT_FC_REQ-20_card_defaults_to_md_scale_when_size_absent', async () => {
+    // A grid with no per-card sizes renders every card at the prior `md` scale,
+    // so existing sites are unchanged by the new dial.
+    const html = await render(ServicesGrid, {
+      variant: 'three-col',
+      content: {
+        items: [
+          { title: 'A', body: 'x' },
+          { title: 'B', body: 'y' },
+        ],
+      },
+    })
+    expect(html).not.toContain('card-size-lg')
+    expect((html.match(/card-size-md/g) ?? []).length).toBe(2)
+  })
+
+  it('test_UAT_FC_REQ-20_accent_mid_role_resolves_in_gradient', () => {
+    // The warm gradient can carry a third mid-stop hue as a palette role…
+    expect(TREATMENT_ROLE_DIAL).toContain('accent-mid')
+    // …which the framework clips to the run as the site's --color-accent-mid.
+    const style = gradientTextStyle({
+      direction: 'to-right',
+      stops: [
+        { role: 'accent-light', position: 0 },
+        { role: 'accent-mid', position: 90 },
+        { role: 'accent-deep', position: 100 },
+      ],
+    })
+    expect(style).toContain('var(--color-accent-mid)')
+  })
+
+  it('test_UAT_FC_REQ-20_theme_emits_accent_mid_custom_property', () => {
+    const css = generateThemeCss({ palette: { accentMid: '#ff8c42' } })
+    expect(css).toContain('--color-accent-mid: #ff8c42;')
   })
 })

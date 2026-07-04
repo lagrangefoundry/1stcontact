@@ -80,6 +80,11 @@ export const TREATMENT_ROLE_DIAL = [
   // be expressed as roles, so no raw colour ever reaches a gradient stop.
   'accent-light',
   'accent-deep',
+  // `accent-mid` (REQ-20) is a third warm companion between `accent-light` and
+  // `accent-deep`, so a multi-stop warm gradient can pass through a distinct
+  // mid hue (the gigabytealchemy wordmark's lighter orange before its deep
+  // orange) from a palette role rather than a raw colour.
+  'accent-mid',
 ] as const
 
 /**

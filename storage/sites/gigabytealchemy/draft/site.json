@@ -20,6 +20,7 @@
       "secondary": "#3b82f6",
       "neutralCool": "#64748b",
       "accentLight": "#f5e6a3",
+      "accentMid": "#ff8c42",
       "accentDeep": "#ff6b35",
       "border": "#d9ccba"
     },

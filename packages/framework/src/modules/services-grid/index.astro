@@ -6,6 +6,9 @@ interface ServiceItem {
   icon?: AssetRef | string
   title: string
   body: string
+  /** Per-card type scale (REQ-20) — `lg` marks a featured card (larger title,
+   *  body, badge); `md` (default) is the standard scale. */
+  size?: 'sm' | 'md' | 'lg'
   cta?: { label: string; href: string }
   /** Accent left-border colour (REQ-26) — a palette-role name, not a raw colour. */
   accent?: 'primary' | 'accent' | 'muted' | 'secondary' | 'neutral-cool'
@@ -30,6 +33,9 @@ interface Props {
 const { variant = 'three-col', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const gap = dials.gap ?? 'normal'
+// Card type scale (REQ-20): `md` preserves the prior scale; `lg`/`sm` step the
+// card heading/subhead/badge/checklist typography up/down one notch.
+const size = dials.size ?? 'md'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 
@@ -52,6 +58,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `variant-${variant}`,
     `surface-${surface}`,
     `gap-${gap}`,
+    `size-${size}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -65,6 +72,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
         <li
           class:list={[
             'services-grid__card',
+            `card-size-${item.size ?? 'md'}`,
             item.accent && `has-accent accent-${item.accent}`,
             item.surface && item.surface !== 'default' && `surface-${item.surface}`,
             // The ✓ checklist ticks take the badge variant's colour.
@@ -236,7 +244,9 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid__check-mark {
     flex: none;
     color: var(--color-primary);
-    font-weight: var(--font-weight-bold);
+    /* Regular weight (REQ-20): the captured ✓ is a normal-weight glyph; a bold
+       tick reads heavier than the reference. Colour still carries the emphasis. */
+    font-weight: var(--font-weight-regular);
   }
   /* Tick colour follows the card's badge variant (REQ-20): a card marked
      "coming soon" (secondary/blue) gets blue ticks, matching the reference. */
@@ -250,8 +260,45 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     margin: 0;
     font-family: var(--font-family-heading);
     font-weight: var(--font-weight-semibold);
-    font-size: var(--font-size-xl);
   }
+
+  /* Grid intro scale (REQ-20 grid `size` dial) — sizes the grid's own subhead
+     (the intro line under the heading). `md` (default) preserves the prior
+     scale so sites that don't set the dial are unchanged; `lg`/`sm` step it
+     up/down. Card typography is a *separate*, per-card axis (below) because a
+     reference grid mixes standard and featured cards under one intro. */
+  .services-grid.size-sm .services-grid__subhead { font-size: var(--font-size-sm); }
+  .services-grid.size-md .services-grid__subhead { font-size: var(--font-size-base); }
+  .services-grid.size-lg .services-grid__subhead { font-size: var(--font-size-lg); }
+
+  /* Per-card type scale (REQ-20 per-card `size` field) — a featured card
+     (`lg`) reads larger than the standard cards beside it: bigger title, body,
+     badge, and a tighter checklist rhythm. `md` (default / absent) is the prior
+     fixed scale, so cards that don't set `size` are unchanged. This is what lets
+     one grid carry both headline offerings and a quiet companion panel, exactly
+     as the gigabytealchemy "What We're Building" grid does. */
+  .services-grid__card.card-size-sm .services-grid__card-title { font-size: var(--font-size-lg); }
+  .services-grid__card.card-size-md .services-grid__card-title { font-size: var(--font-size-xl); }
+  .services-grid__card.card-size-lg .services-grid__card-title { font-size: var(--font-size-2xl); }
+
+  .services-grid__card.card-size-sm .services-grid__card-body { font-size: var(--font-size-sm); }
+  /* A featured card's body reads as a lead line + description, mirroring the
+     hero subhead: the first paragraph is the larger lead, following paragraphs
+     the smaller body copy — so a headline offering's opening line stands out. */
+  .services-grid__card.card-size-lg .services-grid__card-body p:first-child {
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-normal);
+  }
+  .services-grid__card.card-size-lg .services-grid__card-body p + p {
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+  }
+
+  .services-grid__card.card-size-lg .services-grid__badge {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+  }
+  .services-grid__card.card-size-lg .services-grid__check { line-height: var(--line-height-normal); }
   .services-grid__card-body { line-height: var(--line-height-relaxed); color: inherit; }
   .services-grid__card-cta {
     margin-top: auto;
