@@ -23,6 +23,7 @@
 .xgd/tickets/hot/index.json
 .xgd/tickets/cold/index.json
 .xgd/tickets/*.tmp
+.xgd/tickets/search/
 .xgd/uat_index.json
 .xgd/cache/
 .xgd/claude_pid_tracking.txt
