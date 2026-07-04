@@ -87,9 +87,10 @@ describe('services-grid module', () => {
       content: { heading: 'What we do', items: items(3) },
     })
     expect(html).toContain('variant-three-col')
-    // One card title per card — resilient to the class:list size/accent tokens
-    // the card <li> now carries (REQ-26), while still proving exactly 3 cards render.
-    expect(html.match(/class="services-grid__card-title"/g)?.length).toBe(3)
+    // Each card's class list leads with `services-grid__card` followed by its
+    // per-card `card-size-*` scale class (REQ-20), so match the leading token
+    // rather than an exact class attribute.
+    expect(html.match(/class="services-grid__card /g)?.length).toBe(3)
     expect(html).toContain('Service 1')
     expect(html).toContain('Service 3')
   })
@@ -101,8 +102,8 @@ describe('services-grid module', () => {
       content: { items: items(2) },
     })
     expect(html).toContain('variant-two-col')
-    // One card title per card — see three-col test above for rationale.
-    expect(html.match(/class="services-grid__card-title"/g)?.length).toBe(2)
+    // Leading `services-grid__card` token — see the three-col case above.
+    expect(html.match(/class="services-grid__card /g)?.length).toBe(2)
   })
 
   it('test_UAT_FC_REQ-5_services_grid_collapses_to_single_column_below_md', async () => {
