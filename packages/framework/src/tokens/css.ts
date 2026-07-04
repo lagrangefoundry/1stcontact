@@ -30,6 +30,7 @@ export function generateThemeCss(
     ...mapVars('--font-size-', t.typography.scale),
     ...mapVars('--font-weight-', t.typography.weights),
     ...mapVars('--line-height-', t.typography.lineHeights),
+    ...mapVars('--tracking-', t.typography.tracking),
     ...mapVars('--space-', t.spacing),
     ...mapVars('--radius-', t.radius),
     ...mapVars('--shadow-', t.shadow),

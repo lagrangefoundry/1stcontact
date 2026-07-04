@@ -551,6 +551,18 @@ export const typographyTokensSchema = z.object({
     normal: cssValue,
     relaxed: cssValue,
   }),
+  // Letter-spacing (tracking) steps backing the `tracking` treatment (REQ-45).
+  // Emitted as `--tracking-<step>`; em-based so they scale with the type. A
+  // `.default()` (not `.optional()`) so existing themes that predate this group
+  // keep validating while the resolved type stays required — the token emitter
+  // never sees an undefined group.
+  tracking: z
+    .object({
+      normal: cssValue,
+      tight: cssValue,
+      tighter: cssValue,
+    })
+    .default({ normal: '0em', tight: '-0.025em', tighter: '-0.05em' }),
 })
 
 /** 10-step geometric spacing scale. Keys are quoted numeric strings. */

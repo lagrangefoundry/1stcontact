@@ -53,6 +53,14 @@ export const defaultTokens: ThemeTokens = {
       normal: '1.5',
       relaxed: '1.75',
     },
+    // Letter-spacing (tracking) steps for the `tracking` treatment (REQ-45),
+    // em-based so they scale with the type. `normal` is the neutral default;
+    // `tight`/`tighter` pull display glyphs in at large sizes.
+    tracking: {
+      normal: '0em',
+      tight: '-0.025em',
+      tighter: '-0.05em',
+    },
   },
   spacing: {
     '0': '0',

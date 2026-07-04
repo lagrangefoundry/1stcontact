@@ -7,6 +7,7 @@ import {
   LOGO_TREATMENT_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
+  TRACKING_DIAL,
   TREATMENT_ROLE_DIAL,
 } from '../dials'
 
@@ -30,6 +31,9 @@ export const headerMeta = {
     logoTreatment: LOGO_TREATMENT_DIAL,
     // Wordmark size (REQ-20 import) — `xl` reads at display/hero scale.
     logoSize: LOGO_SIZE_DIAL,
+    // Wordmark letter-spacing (REQ-45) — `normal` (default) leaves the wordmark
+    // untracked; `tight`/`tighter` pull the glyphs in for a display wordmark.
+    tracking: TRACKING_DIAL,
   },
   contentSchema: {
     // AssetRef for an image logo, or a plain string for a wordmark.

@@ -24,6 +24,8 @@ const logoFont = dials.logoFont ?? 'heading'
 const logoTreatment = dials.logoTreatment ?? 'plain'
 // Wordmark size, independent of font/treatment; `xl` reads at display scale.
 const logoSize = dials.logoSize ?? 'md'
+// Wordmark letter-spacing (REQ-45): `normal` leaves the wordmark untracked.
+const tracking = dials.tracking ?? 'normal'
 const entries = content.entries ?? []
 const logo = content.logo
 const logoIsImage = typeof logo === 'object' && logo !== null
@@ -54,6 +56,7 @@ const wordmarkGradient =
             `header__wordmark--font-${logoFont}`,
             `header__wordmark--${logoTreatment}`,
             `header__wordmark--size-${logoSize}`,
+            `header__wordmark--tracking-${tracking}`,
           ]}
           style={wordmarkGradient}
         >{logo}</span>
@@ -147,6 +150,15 @@ const wordmarkGradient =
   .header__wordmark--size-md { font-size: var(--font-size-2xl); }
   .header__wordmark--size-lg { font-size: var(--font-size-4xl); }
   .header__wordmark--size-xl { font-size: clamp(var(--font-size-4xl), 6vw, var(--font-size-5xl)); }
+
+  /* Wordmark letter-spacing (REQ-45), independent of font/size/treatment. Only
+     the tighter steps emit an override; `normal` sets nothing so a display
+     wordmark keeps the font face's built-in tracking (default fallback
+     unchanged). Declared after the font rules so an explicit tracking dial wins
+     over that built-in tracking. Token-backed — no raw em value reaches the
+     page. */
+  .header__wordmark--tracking-tight { letter-spacing: var(--tracking-tight); }
+  .header__wordmark--tracking-tighter { letter-spacing: var(--tracking-tighter); }
 
   /* Gold wordmark treatment (REQ-24): a metallic-gold gradient clipped to the
      glyphs, keyed to the site accent. `plain` inherits the header text colour. */

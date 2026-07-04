@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { ALIGN_DIAL, CONTENT_WIDTH_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /**
  * `text-block` — prose / manifesto section. The canonical graceful-degradation
@@ -21,6 +21,11 @@ export const textBlockMeta = {
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     textAlign: ALIGN_DIAL,
+    // Constrained content column (REQ-45) — caps the content within the section
+    // frame; the `align` dial then pins it left (default) or centres it. A
+    // narrow left-pinned measure wraps prose like the reference, collapsing
+    // cumulative vertical drift. `default` leaves the variant width unchanged.
+    contentWidth: CONTENT_WIDTH_DIAL,
   },
   contentSchema: {
     heading: { type: 'string', required: false },

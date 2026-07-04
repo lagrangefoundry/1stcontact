@@ -36,6 +36,9 @@ const gap = dials.gap ?? 'normal'
 // Card type scale (REQ-20): `md` preserves the prior scale; `lg`/`sm` step the
 // card heading/subhead/badge/checklist typography up/down one notch.
 const size = dials.size ?? 'md'
+// Constrained content column (REQ-45): `default` fills the frame; a capped
+// column pins to the frame's left gutter (the section flex default).
+const contentWidth = dials.contentWidth ?? 'default'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 
@@ -59,6 +62,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `surface-${surface}`,
     `gap-${gap}`,
     `size-${size}`,
+    `content-width-${contentWidth}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -137,6 +141,16 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     flex-direction: column;
     gap: var(--space-6);
   }
+  /* Constrained content column (REQ-45): the inner stays a full-width frame
+     while these cap the content (heading, intro, cards) to a narrower measure.
+     The inner is a flex column at its default cross-start, so a capped child
+     pins to the frame's left gutter — the same edge as the header/hero content
+     — reading as a narrow left-aligned column. `content-width-default` sets no
+     cap, so a grid that omits the dial fills the frame and is unchanged.
+     Token-backed widths, no raw CSS. */
+  .services-grid.content-width-narrow .services-grid__inner > * { max-width: var(--container-narrow); width: 100%; }
+  .services-grid.content-width-wide .services-grid__inner > * { max-width: var(--container-wide); width: 100%; }
+
   .services-grid__heading {
     margin: 0;
     font-family: var(--font-family-heading);

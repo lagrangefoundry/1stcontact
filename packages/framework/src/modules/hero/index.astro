@@ -37,6 +37,10 @@ const subheadStyle =
   subheadColor !== 'inherit' ? `color: var(--color-${subheadColor});` : undefined
 // Subhead/body scale (REQ-33), independent of the heading `size`.
 const subheadSize = dials.subheadSize ?? 'md'
+// Heading letter-spacing (REQ-45): `normal` leaves the heading untracked.
+const tracking = dials.tracking ?? 'normal'
+// Subhead line-height (REQ-45): `relaxed` preserves the prior leading.
+const subheadLeading = dials.subheadLeading ?? 'relaxed'
 
 const { eyebrow, heading, subhead, cta } = content
 // The background image is rendered for the bg-image variant only.
@@ -62,6 +66,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `scrim-${scrim}`,
     `anchor-${contentAnchor}`,
     `subhead-size-${subheadSize}`,
+    `subhead-leading-${subheadLeading}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -71,7 +76,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`]} style={headingGradient}>{heading}</h1>
+    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`]} style={headingGradient}>{heading}</h1>
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
     {cta && <a class="hero__cta" href={cta.href}>{cta.label}</a>}
   </div>
@@ -162,6 +167,11 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     font-weight: var(--font-weight-bold);
     line-height: var(--line-height-tight);
   }
+  /* Heading letter-spacing (REQ-45): only the tighter steps emit an override;
+     `normal` sets nothing, leaving the heading untracked (default fallback
+     unchanged). Token-backed so no raw em value reaches the page. */
+  .hero__heading.tracking-tight { letter-spacing: var(--tracking-tight); }
+  .hero__heading.tracking-tighter { letter-spacing: var(--tracking-tighter); }
   /* Heading colour treatment (REQ-28) — overrides the inherited surface colour.
      `accent` is a solid accent fill; `gold` is the metallic-gold gradient
      clipped to the glyphs, matching the header wordmark (REQ-24). */
@@ -182,7 +192,12 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.size-md .hero__heading { font-size: clamp(var(--font-size-3xl), 6vw, var(--font-size-4xl)); }
   .hero.size-lg .hero__heading { font-size: clamp(var(--font-size-4xl), 8vw, var(--font-size-5xl)); }
 
-  .hero__subhead { font-size: var(--font-size-lg); line-height: var(--line-height-relaxed); max-width: 60ch; }
+  .hero__subhead { font-size: var(--font-size-lg); max-width: 60ch; }
+  /* Subhead line-height (REQ-45): `relaxed` preserves the prior leading, so a
+     hero that omits the dial is unchanged; the tighter steps densen the block. */
+  .hero.subhead-leading-relaxed .hero__subhead { line-height: var(--line-height-relaxed); }
+  .hero.subhead-leading-normal .hero__subhead { line-height: var(--line-height-normal); }
+  .hero.subhead-leading-tight .hero__subhead { line-height: var(--line-height-tight); }
   .hero.align-center .hero__subhead { margin-inline: auto; }
   /* Markdown subhead: the lead paragraph reads as a prominent subhead line;
      any following paragraphs are the smaller body copy. The subhead-size dial

@@ -112,6 +112,48 @@ export const SUBHEAD_SIZE_DIAL = ['sm', 'md', 'lg'] as const
 export const SUBMIT_TREATMENT_DIAL = ['primary', 'neutral'] as const
 
 /**
+ * Contact-form submit-label foreground role (REQ-45). `auto` (default) keeps the
+ * label colour the `submitTreatment` derives from its surface — unchanged
+ * fallback. Any palette role paints the label that role instead, so a button can
+ * carry a legible on-primary label (e.g. `bg` for a white "Send message") rather
+ * than inheriting a surface tint that renders cream. A closed role set (never a
+ * raw colour) — the framework computes the `var(--color-<role>)` fill, mirroring
+ * the hero `subheadColor` treatment.
+ */
+export const SUBMIT_FOREGROUND_DIAL = ['auto', ...TREATMENT_ROLE_DIAL, 'bg'] as const
+
+/**
+ * Constrained content-column width (REQ-45). Sizes the content column *within*
+ * the section's full-width (`container-default`) frame, so the existing `align`
+ * dial governs where that column sits: `left` (default) pins it to the frame's
+ * left gutter — the same edge as the header/hero content — while `center`
+ * centres it. `default` (dial default) fills the frame, so a section that omits
+ * the dial is unchanged; `narrow`/`wide` cap the column to the matching
+ * `--container-*` token. This is what lets a body column read as a narrow
+ * left-aligned measure (fixing cumulative vertical drift) instead of a wide
+ * centred one.
+ */
+export const CONTENT_WIDTH_DIAL = ['default', 'narrow', 'wide'] as const
+
+/**
+ * Letter-spacing (tracking) treatment for display type (REQ-45) — hero heading +
+ * header wordmark. A closed enum mapped to em steps (never a raw value): `normal`
+ * (default) is `0`, so type that omits the dial is unchanged; `tight`/`tighter`
+ * pull the glyphs in for a large display setting (a wide heading/wordmark reads
+ * loose at scale). Token-backed via the `--tracking-*` custom properties.
+ */
+export const TRACKING_DIAL = ['normal', 'tight', 'tighter'] as const
+
+/**
+ * Line-height (leading) treatment (REQ-45) — currently the hero subhead. A closed
+ * enum mapped to the `--line-height-*` tokens so leading is set independently of
+ * the global relaxed default: `relaxed` (dial default) preserves the prior
+ * `--line-height-relaxed`, so a subhead that omits the dial is unchanged;
+ * `normal`/`tight` pull the lines together for a denser subhead.
+ */
+export const LINE_HEIGHT_DIAL = ['tight', 'normal', 'relaxed'] as const
+
+/**
  * Gradient sweep direction (REQ-32) — the eight principal directions, kept as a
  * closed enum (like `motionEasing`) rather than a raw angle so no free CSS value
  * enters an instance. Each maps to a CSS `linear-gradient` direction keyword.

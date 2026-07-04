@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { GAP_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { CONTENT_WIDTH_DIAL, GAP_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /**
  * Card accent-border colour (REQ-26). A closed set of palette-role names, not a
@@ -57,6 +57,12 @@ export const servicesGridMeta = {
     // (the gigabytealchemy reference runs its cards at a larger scale); `sm`
     // steps down. Consistent with the `size` dial on hero / text-block.
     size: SIZE_DIAL,
+    // Constrained content column (REQ-45) — caps the grid's content within the
+    // section frame, pinned to the left gutter, so the intro copy and cards
+    // read as a narrow left-aligned measure (collapsing vertical drift) rather
+    // than a wide centred one. `default` leaves the content filling the frame,
+    // so a grid that omits the dial is unchanged.
+    contentWidth: CONTENT_WIDTH_DIAL,
   },
   contentSchema: {
     heading: { type: 'string', required: false },

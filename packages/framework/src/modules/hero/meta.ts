@@ -5,12 +5,14 @@ import {
   GRADIENT_DIRECTION_DIAL,
   HEADING_TREATMENT_DIAL,
   HEIGHT_DIAL,
+  LINE_HEIGHT_DIAL,
   SCRIM_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
   SUBHEAD_COLOR_DIAL,
   SUBHEAD_SIZE_DIAL,
   SURFACE_DIAL,
+  TRACKING_DIAL,
   TREATMENT_ROLE_DIAL,
 } from '../dials'
 
@@ -41,6 +43,12 @@ export const heroMeta = {
     // Subhead/body scale (REQ-33) — sizes the lead + body copy independently of
     // the heading `size`, for a prominent lead subtitle under a modest heading.
     subheadSize: SUBHEAD_SIZE_DIAL,
+    // Heading letter-spacing (REQ-45) — `normal` (default) leaves the heading
+    // untracked; `tight`/`tighter` pull a large display heading's glyphs in.
+    tracking: TRACKING_DIAL,
+    // Subhead line-height (REQ-45) — set the lead/body leading independently of
+    // the global relaxed default; `relaxed` (default) preserves the prior value.
+    subheadLeading: LINE_HEIGHT_DIAL,
   },
   contentSchema: {
     eyebrow: { type: 'string', required: false },
