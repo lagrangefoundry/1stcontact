@@ -237,6 +237,9 @@ describe('1c capture page — rendered-only reference capture (REQ-12)', () => {
       responses(): CapturedResponse[] {
         return []
       }
+      diagnostics() {
+        return { consoleErrors: [], pageErrors: [], failedRequests: [] }
+      }
       async content(): Promise<string> {
         return '<html><body>Fake Hero</body></html>'
       }

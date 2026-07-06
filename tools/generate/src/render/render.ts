@@ -18,9 +18,27 @@ import {
   wrapWithLayer,
   wrapWithMotion,
 } from '@1stcontact/framework'
+import type { ModuleDefinition } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
 import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
+
+/**
+ * Resolve a module instance's `type` + `version` to its renderable definition.
+ * Defaults to the framework catalog ({@link getModule}); the conformance harness
+ * (REQ-39) injects a resolver backed by a test-only registry so deliberately-
+ * broken fixture modules render through this *same* path without polluting the
+ * shipping catalog.
+ */
+export type ModuleResolver = (type: string, version: number) => ModuleDefinition
+
+/** Optional render treatments. All default to the production catalog behaviour. */
+export interface RenderSiteOptions {
+  /** Module catalog to resolve each instance against (default: framework `getModule`). */
+  resolveModule?: ModuleResolver
+  /** Extra CSS appended to `theme.css` — lets injected modules ship their own rules. */
+  extraCss?: string
+}
 
 /**
  * Server-side render of a loaded site to a directory of static HTML (DOC-7
@@ -41,7 +59,11 @@ function escapeHtml(s: string): string {
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 
 /** Render every module instance on a page, in order, to one HTML fragment. */
-async function renderModules(container: Container, page: Page): Promise<string> {
+async function renderModules(
+  container: Container,
+  page: Page,
+  resolveModule: ModuleResolver,
+): Promise<string> {
   const parts: string[] = []
   // A `header` with variant `overlay` (REQ-25) is not emitted as its own band —
   // it is held here and floated over the following module's band so the two
@@ -57,7 +79,7 @@ async function renderModules(container: Container, page: Page): Promise<string> 
   }
 
   for (const m of page.modules) {
-    const { Component } = getModule(m.type, m.version)
+    const { Component } = resolveModule(m.type, m.version)
     const html = await container.renderToString(Component, {
       props: { variant: m.variant, dials: m.dials, content: m.content },
     })
@@ -108,11 +130,16 @@ function pageHasScrollMotion(page: Page): boolean {
 }
 
 /** Build a complete HTML document for one page. */
-async function renderPage(container: Container, site: Site, page: Page): Promise<string> {
+async function renderPage(
+  container: Container,
+  site: Site,
+  page: Page,
+  resolveModule: ModuleResolver,
+): Promise<string> {
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
   const ogImage = page.seoMeta?.ogImage
-  const body = await renderModules(container, page)
+  const body = await renderModules(container, page, resolveModule)
   // The scroll-reveal island (REQ-16) ships only when the page needs it — a
   // self-contained inline script, since the container render drops component
   // <script> blocks the same way it drops <style>.
@@ -161,24 +188,31 @@ function homePage(site: Site): Page | undefined {
  * never linger. Writes `<slug>.html` per page, an `index.html` alias for the
  * home page, the per-site `theme.css`, and copies `assets/` through.
  */
-export async function renderSite(loaded: LoadedSite, outDir: string): Promise<string[]> {
+export async function renderSite(
+  loaded: LoadedSite,
+  outDir: string,
+  opts: RenderSiteOptions = {},
+): Promise<string[]> {
   const { site, sourceDir } = loaded
+  const resolveModule = opts.resolveModule ?? getModule
   emptyDir(outDir)
 
   // theme.css = design-token :root variables + the module component CSS. The
   // container render (renderModules) emits module HTML but drops each module's
   // scoped <style>, so the component rules must be folded in here or the page
-  // renders unstyled (BUG-1).
+  // renders unstyled (BUG-1). An optional `extraCss` tail lets an injected
+  // catalog (REQ-39) ship rules the framework module CSS does not carry.
+  const extraCss = opts.extraCss ? `\n\n${opts.extraCss}` : ''
   writeText(
     path.join(outDir, 'theme.css'),
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${ROW_CSS}\n\n${MOTION_CSS}\n`,
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${ROW_CSS}\n\n${MOTION_CSS}${extraCss}\n`,
   )
 
   const container = await AstroContainer.create()
   const written: string[] = []
 
   for (const page of site.pages) {
-    const html = await renderPage(container, site, page)
+    const html = await renderPage(container, site, page, resolveModule)
     const file = `${page.slug}.html`
     writeText(path.join(outDir, file), html)
     written.push(file)
@@ -186,7 +220,7 @@ export async function renderSite(loaded: LoadedSite, outDir: string): Promise<st
 
   const home = homePage(site)
   if (home) {
-    const html = await renderPage(container, site, home)
+    const html = await renderPage(container, site, home, resolveModule)
     writeText(path.join(outDir, 'index.html'), html)
     written.push('index.html')
   }

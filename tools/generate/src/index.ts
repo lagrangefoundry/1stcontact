@@ -4,4 +4,6 @@
  */
 export * from './store'
 export { renderSite } from './render'
+export type { ModuleResolver, RenderSiteOptions } from './render'
 export * from './cli'
+export * from './conformance'

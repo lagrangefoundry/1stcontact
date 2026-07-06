@@ -37,6 +37,22 @@ export interface CapturedResponse {
 }
 
 /**
+ * Page-health signals captured *during* navigation (REQ-39). These are the
+ * observations a screenshot cannot make: a page that renders but logs a console
+ * error, throws an uncaught exception, or fails a subresource request is broken
+ * even though a screenshot may look plausible. The conformance harness reads
+ * these to flag safety violations; the capture pipeline ignores them.
+ */
+export interface PageDiagnostics {
+  /** `console.error(...)` messages emitted during load. */
+  consoleErrors: string[]
+  /** Uncaught exceptions / unhandled rejections thrown in page scope. */
+  pageErrors: string[]
+  /** URLs of requests that failed outright (network error, not a 4xx/5xx body). */
+  failedRequests: string[]
+}
+
+/**
  * The driver seam. Mirrors CF Browser Rendering: navigate a *live* URL (JS
  * hydrates against its real origin), screenshot, evaluate a script in page
  * scope, read the post-JS DOM, and expose every response seen during
@@ -44,14 +60,20 @@ export interface CapturedResponse {
  * re-create static blindness (DOC-13 §2.3).
  */
 export interface BrowserDriver {
-  /** Navigate live and wait for network idle, caching every response. */
-  navigate(url: string): Promise<void>
+  /**
+   * Navigate live and wait for network idle, caching every response. An
+   * optional {@link Viewport} sizes the page *before* load so responsive layout
+   * and media queries resolve at that width (REQ-39 fast-tier viewport axis).
+   */
+  navigate(url: string, viewport?: Viewport): Promise<void>
   /** Full-page PNG bytes. */
   screenshot(viewport?: Viewport): Promise<Uint8Array>
   /** Evaluate a JS expression string in page scope; returns its JSON value. */
   query<T = unknown>(script: string): Promise<T>
   /** Every response cached during {@link navigate}. */
   responses(): CapturedResponse[]
+  /** Page-health signals observed during {@link navigate} (REQ-39). */
+  diagnostics(): PageDiagnostics
   /** The rendered, post-JS DOM (`page.content()`). */
   content(): Promise<string>
   /** Release the browser/page. */

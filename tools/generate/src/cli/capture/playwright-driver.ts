@@ -6,7 +6,13 @@
  * interface — nothing above this file changes.
  */
 import type { Browser, Page, Response } from 'playwright'
-import type { BrowserDriver, BrowserDriverFactory, CapturedResponse, Viewport } from './types'
+import type {
+  BrowserDriver,
+  BrowserDriverFactory,
+  CapturedResponse,
+  PageDiagnostics,
+  Viewport,
+} from './types'
 
 const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
 
@@ -14,16 +20,31 @@ class PlaywrightDriver implements BrowserDriver {
   private browser: Browser | null = null
   private page: Page | null = null
   private readonly cached: CapturedResponse[] = []
+  private readonly diag: PageDiagnostics = {
+    consoleErrors: [],
+    pageErrors: [],
+    failedRequests: [],
+  }
 
-  async navigate(url: string): Promise<void> {
+  async navigate(url: string, viewport?: Viewport): Promise<void> {
     const { chromium } = await import('playwright')
     this.browser = await chromium.launch()
-    const context = await this.browser.newContext({ viewport: DEFAULT_VIEWPORT })
+    const context = await this.browser.newContext({ viewport: viewport ?? DEFAULT_VIEWPORT })
     this.page = await context.newPage()
 
     // Cache every response as it arrives; bodies are read after load settles.
     const pending: Response[] = []
     this.page.on('response', (resp) => pending.push(resp))
+
+    // Page-health signals (REQ-39): listeners must be armed *before* goto so
+    // load-time console errors, uncaught exceptions and failed subresource
+    // requests are all observed. `console` type 'error' also captures the
+    // "Uncaught (in promise)" line Chromium logs for unhandled rejections.
+    this.page.on('console', (msg) => {
+      if (msg.type() === 'error') this.diag.consoleErrors.push(msg.text())
+    })
+    this.page.on('pageerror', (err) => this.diag.pageErrors.push(err.message))
+    this.page.on('requestfailed', (req) => this.diag.failedRequests.push(req.url()))
 
     await this.page.goto(url, { waitUntil: 'networkidle' })
 
@@ -55,6 +76,10 @@ class PlaywrightDriver implements BrowserDriver {
 
   responses(): CapturedResponse[] {
     return this.cached
+  }
+
+  diagnostics(): PageDiagnostics {
+    return this.diag
   }
 
   async content(): Promise<string> {

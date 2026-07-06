@@ -63,6 +63,9 @@ class FakeDriver implements BrowserDriver {
   responses(): CapturedResponse[] {
     return []
   }
+  diagnostics() {
+    return { consoleErrors: [], pageErrors: [], failedRequests: [] }
+  }
   async content(): Promise<string> {
     return ''
   }
@@ -106,6 +109,7 @@ describe('1c shot — page screenshot primitive (REQ-13)', () => {
         screenshot: (vp?: Viewport) => real.screenshot(vp),
         query: <T>(s: string) => real.query<T>(s),
         responses: () => real.responses(),
+        diagnostics: () => real.diagnostics(),
         content: () => real.content(),
         close: () => real.close(),
       }

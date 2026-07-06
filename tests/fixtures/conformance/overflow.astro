@@ -1,0 +1,16 @@
+---
+/**
+ * REQ-39 negative fixture (test infrastructure, NOT a shipping module): a module
+ * that overflows horizontally. A fixed 4000px-wide block forces
+ * `documentElement.scrollWidth` far past any viewport, which the harness's
+ * `safety.overflow` check MUST flag red. Inline styles only — the container
+ * render drops scoped <style>.
+ */
+---
+
+<section style="padding: 40px">
+  <h2>Overflow fixture</h2>
+  <div style="width: 4000px; height: 120px; background: #334155; color: #fff">
+    This block is 4000px wide and spills far past the viewport.
+  </div>
+</section>
