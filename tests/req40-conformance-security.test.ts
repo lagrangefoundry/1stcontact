@@ -3,7 +3,6 @@ import type { ModuleDefinition } from '@1stcontact/framework'
 import {
   assertModuleConforms,
   buildBenignContent,
-  buildInjectionContent,
   ConformanceError,
   chromiumAvailable,
   createPlaywrightDriver,
@@ -12,7 +11,6 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const heroMeta = getModule('hero', 1).meta
 const textBlockMeta = getModule('text-block', 1).meta
 import XssUrl from './fixtures/conformance/xss-url.astro'
 import XssHandler from './fixtures/conformance/xss-handler.astro'
@@ -38,14 +36,6 @@ import Egress from './fixtures/conformance/egress.astro'
 
 const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
-/**
- * Expected-fail (xfail): the assertion is the **secure** contract REQ-46 will
- * deliver. It fails today — that failure is the gap — so `it.fails` keeps the
- * suite green while recording it as a known failure. The moment REQ-46 makes the
- * body pass, `it.fails` flips to a hard RED, forcing this to be converted to a
- * plain `itB(...)`. Skips cleanly on a browser-less runner.
- */
-const itBGap = it.runIf(browserOk).fails
 
 // ── the injected test-only catalog of deliberately-unsafe modules ─────────────
 const brokenMeta = (id: string): ModuleDefinition['meta'] => ({
@@ -137,33 +127,7 @@ describe('Conformance harness security dimension (REQ-40)', () => {
     await expect(assertModuleConforms('text-block', [benign], SECURITY)).resolves.toBeUndefined()
   }, 120000)
 
-  itBGap('test_UAT_FC_REQ-40_real_module_rejects_unsafe_url', async () => {
-    // GAP ([[REQ-46]]), URL-scheme vector. The SECURE contract: a real catalog
-    // module given schema-derived injection content (a `javascript:` CTA href and
-    // markdown link) must render inert / be rejected — no security violation.
-    // FAILS today: the render path does no enforcement, so it emits live
-    // `javascript:` hrefs and the security dimension flags `security.url-scheme`.
-    // When REQ-46 lands this passes → `it.fails` flips → convert to `itB(...)`.
-    const injection: ConformanceFixture = {
-      label: 'hero-injection',
-      props: { variant: heroMeta.variants[0], content: buildInjectionContent(heroMeta) },
-    }
-    await assertModuleConforms('hero', [injection], { ...SECURITY, keepSandboxOnFailure: false })
-  }, 120000)
-
-  itBGap('test_UAT_FC_REQ-40_real_module_renders_injected_script_inert', async () => {
-    // GAP ([[REQ-46]]), inline-content vector. The SECURE contract: a raw <script>
-    // in a real module's `markdown` body must not execute. FAILS today — the
-    // framework renders markdown with raw-HTML passthrough, so the parser-inserted
-    // <script> lands in the static HTML and EXECUTES on load (sentinel fires),
-    // which the security dimension flags `security.script`. Flips when REQ-46 lands.
-    const scriptInBody: ConformanceFixture = {
-      label: 'text-block-live-script',
-      props: {
-        variant: textBlockMeta.variants[0],
-        content: { body: 'Intro copy <script>window.__fcXssExecuted=true</script> and outro copy.' },
-      },
-    }
-    await assertModuleConforms('text-block', [scriptInBody], { ...SECURITY, keepSandboxOnFailure: false })
-  }, 120000)
+  // The gap this detector surfaces — real modules rendering injected payloads
+  // live — is asserted (and left RED until fixed) as REQ-46's acceptance spec in
+  // `req46-renderer-hardening.test.ts`.
 })
