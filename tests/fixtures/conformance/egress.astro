@@ -1,0 +1,15 @@
+---
+/**
+ * REQ-40 negative fixture (test infrastructure, NOT a shipping module): a module
+ * that issues a network request to an off-allowlist origin. The image points at a
+ * different loopback port (a cross-origin request that fails fast, connection
+ * refused), so the request is *observed* even though it never resolves — the
+ * harness's `security.egress` check MUST flag any origin outside the served page.
+ * The scheme is `http`, so this is egress only, not an unsafe-scheme violation.
+ */
+---
+
+<section style="padding: 40px">
+  <h2>Egress fixture</h2>
+  <img src="http://127.0.0.1:9/tracker.gif" alt="" />
+</section>

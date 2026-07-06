@@ -64,7 +64,7 @@ class FakeDriver implements BrowserDriver {
     return []
   }
   diagnostics() {
-    return { consoleErrors: [], pageErrors: [], failedRequests: [] }
+    return { consoleErrors: [], pageErrors: [], failedRequests: [], requestedUrls: [] }
   }
   async content(): Promise<string> {
     return ''

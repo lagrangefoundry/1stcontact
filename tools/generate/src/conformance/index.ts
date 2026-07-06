@@ -7,6 +7,13 @@ export { assertModuleConforms, serveOneModulePage, ConformanceError } from './ha
 export type { OneModuleServe } from './harness'
 export { evaluateSafety, SAFETY_PROBE } from './checks'
 export type { SafetyProbe } from './checks'
+export { evaluateSecurity, SECURITY_PROBE, XSS_SENTINEL } from './checks'
+export type { SecurityProbe } from './checks'
+export {
+  buildInjectionContent,
+  buildBenignContent,
+  buildSecurityFixtures,
+} from './payloads'
 export type {
   ConformanceFixture,
   ConformanceOptions,

@@ -28,7 +28,14 @@ import {
 } from '../cli'
 import { renderSite } from '../render'
 import { distDir, draftDir, loadSite, type StoreContext } from '../store'
-import { evaluateSafety, SAFETY_PROBE, type SafetyProbe } from './checks'
+import {
+  evaluateSafety,
+  evaluateSecurity,
+  SAFETY_PROBE,
+  SECURITY_PROBE,
+  type SafetyProbe,
+  type SecurityProbe,
+} from './checks'
 import type { ConformanceFixture, ConformanceOptions, ConformanceViolation } from './types'
 
 /** Fast-tier default viewport widths: one desktop, one mobile (DOC-20). */
@@ -129,7 +136,9 @@ export async function serveOneModulePage(
 }
 
 /**
- * Assert every fixture of `slug` conforms to the fast-tier safety contract.
+ * Assert every fixture of `slug` conforms to the fast-tier contract for the
+ * requested {@link ConformanceOptions.dimension} — `safety` (default) or
+ * `security` (REQ-40: content-injection inert + no off-allowlist egress).
  * Throws {@link ConformanceError} on any non-excepted violation. On a Chromium-
  * less runner (and only with the default driver) the check is advisory and
  * returns cleanly — the leaf is a no-op rather than a hard failure (DOC-20).
@@ -149,6 +158,7 @@ export async function assertModuleConforms(
 
   for (const fixture of fixtures) {
     const served = await serveOneModulePage(slug, fixture, opts)
+    const servedOrigin = new URL(served.handle.url).origin
     const fixtureViolations: ConformanceViolation[] = []
     try {
       for (const width of widths) {
@@ -156,10 +166,24 @@ export async function assertModuleConforms(
         const driver = await factory()
         try {
           await driver.navigate(served.handle.url, viewport)
-          const probe = await driver.query<SafetyProbe>(SAFETY_PROBE)
-          fixtureViolations.push(
-            ...evaluateSafety(fixture.label, String(width), probe, driver.diagnostics()),
-          )
+          if (opts.dimension === 'security') {
+            const probe = await driver.query<SecurityProbe>(SECURITY_PROBE)
+            fixtureViolations.push(
+              ...evaluateSecurity(
+                fixture.label,
+                String(width),
+                probe,
+                driver.diagnostics().requestedUrls,
+                servedOrigin,
+                opts.assetAllowlist,
+              ),
+            )
+          } else {
+            const probe = await driver.query<SafetyProbe>(SAFETY_PROBE)
+            fixtureViolations.push(
+              ...evaluateSafety(fixture.label, String(width), probe, driver.diagnostics()),
+            )
+          }
         } finally {
           await driver.close()
         }

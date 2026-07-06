@@ -24,6 +24,7 @@ class PlaywrightDriver implements BrowserDriver {
     consoleErrors: [],
     pageErrors: [],
     failedRequests: [],
+    requestedUrls: [],
   }
 
   async navigate(url: string, viewport?: Viewport): Promise<void> {
@@ -45,6 +46,10 @@ class PlaywrightDriver implements BrowserDriver {
     })
     this.page.on('pageerror', (err) => this.diag.pageErrors.push(err.message))
     this.page.on('requestfailed', (req) => this.diag.failedRequests.push(req.url()))
+    // Every request, before it resolves — the full egress surface (REQ-40). A
+    // failed cross-origin request never becomes a response, so egress cannot be
+    // derived from `responses()`; it must be observed at request time.
+    this.page.on('request', (req) => this.diag.requestedUrls.push(req.url()))
 
     await this.page.goto(url, { waitUntil: 'networkidle' })
 

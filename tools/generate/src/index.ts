@@ -7,3 +7,7 @@ export { renderSite } from './render'
 export type { ModuleResolver, RenderSiteOptions } from './render'
 export * from './cli'
 export * from './conformance'
+// Re-export the module catalog accessor so consumers (and the conformance
+// self-tests) can reach a real module's contract without a direct framework
+// dependency — the generate package already renders against this catalog.
+export { getModule } from '@1stcontact/framework'

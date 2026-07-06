@@ -88,3 +88,115 @@ export function evaluateSafety(
 
   return violations
 }
+
+// ── REQ-40 security dimension ([[DOC-20]] AC-M2; detector for [[REQ-46]]) ──────
+
+/**
+ * A page-scope sentinel a payload sets if it actually *executes* (a fired
+ * `javascript:` navigation, an inline handler that ran). The probe reads it as a
+ * belt-and-suspenders signal alongside the static DOM scan below.
+ */
+export const XSS_SENTINEL = '__fcXssExecuted'
+
+/**
+ * Raw security signals returned by {@link SECURITY_PROBE} from page scope. Every
+ * signal is read from the **authored** DOM (`getAttribute`, not the resolved
+ * property) so a scheme the browser would silently neutralize is still seen — the
+ * detector must judge what the module *emitted*, not what Chromium tolerated.
+ */
+export interface SecurityProbe {
+  /** `href`/`src`/`action`/`formaction` values whose URL scheme is unsafe. */
+  unsafeUrls: string[]
+  /** Descriptions of elements carrying an inline `on*` event-handler attribute. */
+  eventHandlers: string[]
+  /** Descriptions of elements whose inline `style=` shows CSS-context breakout. */
+  styleBreakouts: string[]
+  /** True if an injected payload actually executed (set the sentinel). */
+  xssFired: boolean
+}
+
+/**
+ * A page-scope IIFE (evaluated as an expression by the driver) that scans the
+ * rendered DOM for content-injection artefacts a module acting as the
+ * sanitization boundary must never emit: unsafe URL schemes on link/resource
+ * attributes, inline event handlers, and inline styles that break out of their
+ * declaration context. Schemes are read from the raw attribute so a neutralized-
+ * but-still-emitted `javascript:` is caught.
+ */
+export const SECURITY_PROBE = `(() => {
+  const SAFE = new Set(['http', 'https', 'mailto', 'tel']);
+  const schemeOf = (u) => { const m = /^([a-z][a-z0-9+.-]*):/i.exec((u || '').trim()); return m ? m[1].toLowerCase() : ''; };
+  const isUnsafeUrl = (u) => {
+    const s = schemeOf(u);
+    if (!s) return false;                       // relative / hash / no scheme
+    if (SAFE.has(s)) return false;
+    if (s === 'data') return !/^\\s*data:image\\//i.test(u);  // data:image/* on assets only
+    return true;                                // javascript:, vbscript:, data:text/html, …
+  };
+  const describe = (el) => {
+    const text = (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 30);
+    return el.tagName.toLowerCase() + (text ? ': "' + text + '"' : '');
+  };
+  const unsafeUrls = [];
+  const eventHandlers = [];
+  const styleBreakouts = [];
+  const URL_ATTRS = ['href', 'src', 'action', 'formaction', 'xlink:href'];
+  for (const el of Array.from(document.querySelectorAll('*'))) {
+    for (const attr of URL_ATTRS) {
+      const v = el.getAttribute(attr);
+      if (v && isUnsafeUrl(v)) unsafeUrls.push(attr + '=' + v.trim().slice(0, 60) + ' on ' + describe(el));
+    }
+    for (const a of Array.from(el.attributes)) {
+      if (/^on/i.test(a.name)) eventHandlers.push(a.name + ' on ' + describe(el));
+    }
+    const st = el.getAttribute('style');
+    if (st && (/[{}<]/.test(st) || /javascript:|expression\\s*\\(/i.test(st))) {
+      styleBreakouts.push('style="' + st.slice(0, 60) + '" on ' + describe(el));
+    }
+  }
+  return { unsafeUrls, eventHandlers, styleBreakouts, xssFired: window['${XSS_SENTINEL}'] === true };
+})()`
+
+/** Origin of a URL (`scheme://host:port`), or '' for non-network schemes. */
+function originOf(url: string): string {
+  try {
+    const u = new URL(url)
+    if (u.protocol === 'data:' || u.protocol === 'blob:' || u.protocol === 'about:') return ''
+    return u.origin
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Fold the {@link SecurityProbe} plus the driver's requested-URL list into
+ * AC-tagged security violations for one fixture at one viewport. Egress is any
+ * request whose origin is neither the served origin nor a declared asset-allowlist
+ * origin (same-origin assets + declared fonts).
+ */
+export function evaluateSecurity(
+  fixture: string,
+  viewport: string,
+  probe: SecurityProbe,
+  requestedUrls: string[],
+  servedOrigin: string,
+  assetAllowlist: string[] = [],
+): ConformanceViolation[] {
+  const violations: ConformanceViolation[] = []
+  const flag = (ac: string, message: string): void => {
+    violations.push({ fixture, viewport, ac, message })
+  }
+
+  for (const u of probe.unsafeUrls) flag('security.url-scheme', `unsafe URL scheme: ${u}`)
+  for (const h of probe.eventHandlers) flag('security.script', `inline event handler emitted: ${h}`)
+  if (probe.xssFired) flag('security.script', 'an injected payload executed (sentinel fired)')
+  for (const s of probe.styleBreakouts) flag('security.css-breakout', `content broke out of inline style context: ${s}`)
+
+  const allowed = new Set([servedOrigin, ...assetAllowlist])
+  for (const url of requestedUrls) {
+    const origin = originOf(url)
+    if (origin && !allowed.has(origin)) flag('security.egress', `request to off-allowlist origin: ${url}`)
+  }
+
+  return violations
+}

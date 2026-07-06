@@ -41,6 +41,12 @@ export interface ConformanceOptions {
    * whose {@link ConformanceViolation.ac} is listed here does not fail the run.
    */
   except?: string[]
+  /**
+   * Extra origins (beyond the served same-origin) a module may issue requests to
+   * without tripping `security.egress` — declared fonts / CDNs (DOC-20 AC-M2).
+   * Only consulted by the `security` dimension.
+   */
+  assetAllowlist?: string[]
 
   // ── test-infrastructure injection points (below the matrix line) ────────────
   /** Custom catalog — the self-tests mount broken modules through the same renderer. */

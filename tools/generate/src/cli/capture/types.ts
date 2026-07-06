@@ -50,6 +50,14 @@ export interface PageDiagnostics {
   pageErrors: string[]
   /** URLs of requests that failed outright (network error, not a 4xx/5xx body). */
   failedRequests: string[]
+  /**
+   * Every URL the page *requested* during navigation — issued or not, succeeded
+   * or not (REQ-40). Unlike {@link failedRequests} (a subset that errored) and
+   * `responses()` (a subset that returned bytes), this records the full egress
+   * surface, so the security conformance dimension can flag any request whose
+   * origin falls outside the asset allowlist even when it never resolves.
+   */
+  requestedUrls: string[]
 }
 
 /**
