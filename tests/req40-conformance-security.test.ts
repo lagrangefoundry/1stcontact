@@ -38,6 +38,14 @@ import Egress from './fixtures/conformance/egress.astro'
 
 const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
+/**
+ * Expected-fail (xfail): the assertion is the **secure** contract REQ-46 will
+ * deliver. It fails today — that failure is the gap — so `it.fails` keeps the
+ * suite green while recording it as a known failure. The moment REQ-46 makes the
+ * body pass, `it.fails` flips to a hard RED, forcing this to be converted to a
+ * plain `itB(...)`. Skips cleanly on a browser-less runner.
+ */
+const itBGap = it.runIf(browserOk).fails
 
 // ── the injected test-only catalog of deliberately-unsafe modules ─────────────
 const brokenMeta = (id: string): ModuleDefinition['meta'] => ({
@@ -129,37 +137,26 @@ describe('Conformance harness security dimension (REQ-40)', () => {
     await expect(assertModuleConforms('text-block', [benign], SECURITY)).resolves.toBeUndefined()
   }, 120000)
 
-  itB('test_UAT_FC_REQ-40_real_module_leaks_unsafe_url_today', async () => {
-    // GAP DEMONSTRATION ([[REQ-46]]). A real catalog module, configured with
-    // schema-derived injection content (a `javascript:` CTA href and markdown
-    // link), renders the unsafe scheme straight through — the render path does no
-    // enforcement today. The security dimension therefore flags it red.
-    //
-    // When REQ-46 hardens the renderer/validator, the payload is rejected at load
-    // (or rendered inert) and this module will PASS — flip this assertion to
-    // `.resolves.toBeUndefined()` alongside that change.
+  itBGap('test_UAT_FC_REQ-40_real_module_rejects_unsafe_url', async () => {
+    // GAP ([[REQ-46]]), URL-scheme vector. The SECURE contract: a real catalog
+    // module given schema-derived injection content (a `javascript:` CTA href and
+    // markdown link) must render inert / be rejected — no security violation.
+    // FAILS today: the render path does no enforcement, so it emits live
+    // `javascript:` hrefs and the security dimension flags `security.url-scheme`.
+    // When REQ-46 lands this passes → `it.fails` flips → convert to `itB(...)`.
     const injection: ConformanceFixture = {
       label: 'hero-injection',
       props: { variant: heroMeta.variants[0], content: buildInjectionContent(heroMeta) },
     }
-    const err = await conformanceErrorOf('hero', injection, {
-      ...SECURITY,
-      keepSandboxOnFailure: false,
-    })
-    expect(err).toBeInstanceOf(ConformanceError)
-    expect(err?.violations.some((v) => v.ac === 'security.url-scheme')).toBe(true)
+    await assertModuleConforms('hero', [injection], { ...SECURITY, keepSandboxOnFailure: false })
   }, 120000)
 
-  itB('test_UAT_FC_REQ-40_real_module_executes_injected_script_today', async () => {
-    // GAP DEMONSTRATION ([[REQ-46]]) — the inline-content vector. A raw <script>
-    // in a real module's `markdown` content field is passed straight into the
-    // static HTML and EXECUTES on load (the framework renders markdown with raw
-    // HTML passthrough, and a parser-inserted <script> runs). Confirmed live: the
-    // execution sentinel fires, so the security dimension flags `security.script`.
-    //
-    // When REQ-46 hardens the renderer to strip/escape raw HTML (or reject it at
-    // load), the script no longer executes and this module PASSES — flip this to
-    // `.resolves.toBeUndefined()` alongside that change.
+  itBGap('test_UAT_FC_REQ-40_real_module_renders_injected_script_inert', async () => {
+    // GAP ([[REQ-46]]), inline-content vector. The SECURE contract: a raw <script>
+    // in a real module's `markdown` body must not execute. FAILS today — the
+    // framework renders markdown with raw-HTML passthrough, so the parser-inserted
+    // <script> lands in the static HTML and EXECUTES on load (sentinel fires),
+    // which the security dimension flags `security.script`. Flips when REQ-46 lands.
     const scriptInBody: ConformanceFixture = {
       label: 'text-block-live-script',
       props: {
@@ -167,11 +164,6 @@ describe('Conformance harness security dimension (REQ-40)', () => {
         content: { body: 'Intro copy <script>window.__fcXssExecuted=true</script> and outro copy.' },
       },
     }
-    const err = await conformanceErrorOf('text-block', scriptInBody, {
-      ...SECURITY,
-      keepSandboxOnFailure: false,
-    })
-    expect(err).toBeInstanceOf(ConformanceError)
-    expect(err?.violations.some((v) => v.ac === 'security.script')).toBe(true)
+    await assertModuleConforms('text-block', [scriptInBody], { ...SECURITY, keepSandboxOnFailure: false })
   }, 120000)
 })
