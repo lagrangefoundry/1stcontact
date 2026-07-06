@@ -17,6 +17,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { ContentSafetyError } from '@1stcontact/framework'
 import {
   chromiumAvailable,
   cmdNew,
@@ -113,10 +114,20 @@ export async function serveOneModulePage(
     )
   }
 
-  await renderSite(loaded.value, distDir(ctx, slug, 'draft'), {
-    resolveModule: opts.resolveModule,
-    extraCss: opts.extraCss,
-  })
+  try {
+    await renderSite(loaded.value, distDir(ctx, slug, 'draft'), {
+      resolveModule: opts.resolveModule,
+      extraCss: opts.extraCss,
+    })
+  } catch (err) {
+    // A module that fails loud (REQ-46 `ContentSafetyError`) rather than emit
+    // dangerous content has *refused* the fixture — the security dimension counts
+    // that as conformant. Clean up the sandbox and rethrow the typed error so
+    // `assertModuleConforms` can record a safe rejection (any other error is a
+    // real bug and propagates unchanged).
+    rmSync(root, { recursive: true, force: true })
+    throw err
+  }
   const handle = await startServe(slug, { cwd: root, source: 'draft' })
 
   const dispose = async ({ keepRoot = false }: { keepRoot?: boolean } = {}): Promise<void> => {
@@ -157,7 +168,17 @@ export async function assertModuleConforms(
   const allViolations: ConformanceViolation[] = []
 
   for (const fixture of fixtures) {
-    const served = await serveOneModulePage(slug, fixture, opts)
+    let served: OneModuleServe
+    try {
+      served = await serveOneModulePage(slug, fixture, opts)
+    } catch (err) {
+      // The module failed loud on dangerous content (REQ-46). Refusing to render
+      // an injection payload IS the secure contract — the security dimension
+      // records no violation for this fixture and moves on. Any non-safety error
+      // is a real bug and propagates.
+      if (opts.dimension === 'security' && err instanceof ContentSafetyError) continue
+      throw err
+    }
     const servedOrigin = new URL(served.handle.url).origin
     const fixtureViolations: ConformanceViolation[] = []
     try {

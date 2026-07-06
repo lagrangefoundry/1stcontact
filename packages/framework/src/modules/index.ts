@@ -25,6 +25,7 @@ export { gradientImage, gradientTextStyle } from './gradient'
 export type { GradientTreatment, GradientStop } from './gradient'
 export { validateModuleContent } from './validate'
 export type { ContentValidationError } from './validate'
+export { ContentSafetyError, isUnsafeUrl, assertSafeUrl, assertSafeHtml } from './safety'
 export { SPACING_DIAL, SURFACE_DIAL, SIZE_DIAL, ALIGN_DIAL, GAP_DIAL } from './dials'
 export type {
   ModuleMeta,

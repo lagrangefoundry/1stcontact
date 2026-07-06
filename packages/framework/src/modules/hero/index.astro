@@ -1,6 +1,7 @@
 ---
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
+import { assertSafeUrl } from '../safety'
 import { gradientTextStyle, type GradientTreatment } from '../gradient'
 
 interface Props {
@@ -71,14 +72,14 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `spacing-bottom-${spacingBottom}`,
   ]}
 >
-  {bgImage && <img class="hero__bg" src={bgImage.src} alt={bgImage.alt} />}
+  {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
     <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`]} style={headingGradient}>{heading}</h1>
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
-    {cta && <a class="hero__cta" href={cta.href}>{cta.label}</a>}
+    {cta && <a class="hero__cta" href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
 </section>
 

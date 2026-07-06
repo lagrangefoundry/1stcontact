@@ -1,5 +1,6 @@
 ---
 import { renderMarkdown } from '../markdown'
+import { assertSafeUrl } from '../safety'
 
 interface FormField {
   name: string
@@ -70,7 +71,7 @@ const honeypotName = 'hp_company_url'
     {heading && <h2 class="contact-form__heading">{heading}</h2>}
     {subheadHtml && <div class="contact-form__subhead" set:html={subheadHtml} />}
 
-    <form class="contact-form__form" data-contact-form action={action} method="post">
+    <form class="contact-form__form" data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
       {fields.map((field) => (
         <div class="contact-form__field">
           <label for={`cf-${field.name}`}>{field.label}</label>

@@ -11,3 +11,12 @@ export * from './conformance'
 // self-tests) can reach a real module's contract without a direct framework
 // dependency — the generate package already renders against this catalog.
 export { getModule } from '@1stcontact/framework'
+// Re-export the content-safety boundary (REQ-46) and the markdown renderer so the
+// hardening unit tests can exercise them as runtime values through this package.
+export {
+  ContentSafetyError,
+  isUnsafeUrl,
+  assertSafeUrl,
+  assertSafeHtml,
+  renderMarkdown,
+} from '@1stcontact/framework'

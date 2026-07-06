@@ -53,6 +53,10 @@ export {
   gradientImage,
   gradientTextStyle,
   validateModuleContent,
+  ContentSafetyError,
+  isUnsafeUrl,
+  assertSafeUrl,
+  assertSafeHtml,
 } from './modules'
 export type {
   ModuleMeta,

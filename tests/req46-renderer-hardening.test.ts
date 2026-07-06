@@ -9,19 +9,23 @@ import {
 } from '../tools/generate/src'
 
 /**
- * REQ-46 acceptance spec — the renderer/validator must **fail loud on dangerous
- * content** instead of silently rendering it. These are deliberately **RED until
- * REQ-46 is implemented**: they assert the SECURE contract (a real catalog module
- * given schema-derived injection content renders inert / is rejected — no security
- * violation), which the render path does NOT satisfy today. They are the
- * failing-test signal that the gap the [[REQ-40]] security dimension detects is
- * still open; each turns GREEN the moment REQ-46 lands.
+ * REQ-46 acceptance spec — the renderer **fails loud on dangerous content**
+ * instead of silently rendering it. Each test asserts the SECURE contract: a real
+ * catalog module given schema-derived injection content produces **no security
+ * violation** — because the render path *rejects* the dangerous value
+ * (`ContentSafetyError`) rather than emitting it. The [[REQ-40]] security
+ * dimension is the detector these run through; its harness now counts a fail-loud
+ * rejection as conformant.
  *
- * Two vectors, both confirmed live by the REQ-40 detector:
- *   1. unsafe URL scheme  — a `javascript:` CTA href / markdown link is emitted raw.
- *   2. inline HTML         — a raw <script> in a markdown field executes on load.
+ * These were RED until REQ-46 landed (the render path emitted the live vectors);
+ * they are GREEN now that enforcement is in place. Two confirmed vectors plus the
+ * other two URL-bearing modules, proving the sink wiring end-to-end:
+ *   1. unsafe URL scheme  — a `javascript:` CTA href / markdown link (hero,
+ *      services-grid) and a `javascript:` form `action` (contact-form).
+ *   2. inline HTML         — a raw <script> in a markdown field (text-block).
  *
- * Browser-driving tests skip cleanly where no Chromium is available.
+ * Browser-driving tests skip cleanly where no Chromium is available; note the
+ * rejection short-circuits *before* any browser launch (it throws at render).
  */
 
 const browserOk = await chromiumAvailable()
@@ -29,26 +33,32 @@ const itB = it.runIf(browserOk)
 const SECURITY = { dimension: 'security' as const, driverFactory: createPlaywrightDriver }
 const heroMeta = getModule('hero', 1).meta
 const textBlockMeta = getModule('text-block', 1).meta
+const servicesGridMeta = getModule('services-grid', 1).meta
+const contactFormMeta = getModule('contact-form', 1).meta
 
-describe('Renderer hardening acceptance (REQ-46) — RED until implemented', () => {
+/** An injection fixture built generically from a module's own content schema. */
+function injectionFixture(meta: typeof heroMeta): ConformanceFixture {
+  return {
+    label: `${meta.id}-injection`,
+    props: { variant: meta.variants[0], content: buildInjectionContent(meta) },
+  }
+}
+
+describe('Renderer hardening acceptance (REQ-46)', () => {
   itB('test_UAT_FC_REQ-46_real_module_rejects_unsafe_url', async () => {
-    // SECURE contract: a real `hero` given a `javascript:` CTA href + markdown link
-    // must render inert / be rejected. FAILS today — the render path emits the live
-    // scheme and the security dimension flags `security.url-scheme`.
-    const injection: ConformanceFixture = {
-      label: 'hero-injection',
-      props: { variant: heroMeta.variants[0], content: buildInjectionContent(heroMeta) },
-    }
+    // A real `hero` given a `javascript:` CTA href + markdown link must be rejected
+    // (was: emitted live → `security.url-scheme`).
     await expect(
-      assertModuleConforms('hero', [injection], { ...SECURITY, keepSandboxOnFailure: false }),
+      assertModuleConforms('hero', [injectionFixture(heroMeta)], {
+        ...SECURITY,
+        keepSandboxOnFailure: false,
+      }),
     ).resolves.toBeUndefined()
   }, 120000)
 
   itB('test_UAT_FC_REQ-46_real_module_renders_injected_script_inert', async () => {
-    // SECURE contract: a raw <script> in a real `text-block` markdown body must not
-    // execute. FAILS today — markdown renders with raw-HTML passthrough, so the
-    // parser-inserted <script> lands in the static HTML and runs (sentinel fires),
-    // flagged `security.script`.
+    // A raw <script> in a real `text-block` markdown body must not execute (was:
+    // parser-inserted script ran on load → sentinel fired → `security.script`).
     const scriptInBody: ConformanceFixture = {
       label: 'text-block-live-script',
       props: {
@@ -58,6 +68,28 @@ describe('Renderer hardening acceptance (REQ-46) — RED until implemented', () 
     }
     await expect(
       assertModuleConforms('text-block', [scriptInBody], { ...SECURITY, keepSandboxOnFailure: false }),
+    ).resolves.toBeUndefined()
+  }, 120000)
+
+  itB('test_UAT_FC_REQ-46_services_grid_rejects_unsafe_url', async () => {
+    // A real `services-grid` given injected card CTA hrefs + markdown-link bodies
+    // must be rejected at the render sinks (`assertSafeUrl` / hardened markdown).
+    await expect(
+      assertModuleConforms('services-grid', [injectionFixture(servicesGridMeta)], {
+        ...SECURITY,
+        keepSandboxOnFailure: false,
+      }),
+    ).resolves.toBeUndefined()
+  }, 120000)
+
+  itB('test_UAT_FC_REQ-46_contact_form_rejects_unsafe_action', async () => {
+    // A real `contact-form` given a `javascript:` form `action` must be rejected
+    // at the `action` sink rather than emitting a live scheme.
+    await expect(
+      assertModuleConforms('contact-form', [injectionFixture(contactFormMeta)], {
+        ...SECURITY,
+        keepSandboxOnFailure: false,
+      }),
     ).resolves.toBeUndefined()
   }, 120000)
 })

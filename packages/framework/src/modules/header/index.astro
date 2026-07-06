@@ -1,6 +1,7 @@
 ---
 import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
 import { navHref } from '../nav'
+import { assertSafeUrl } from '../safety'
 import { gradientTextStyle, type GradientTreatment } from '../gradient'
 
 interface Props {
@@ -48,7 +49,7 @@ const wordmarkGradient =
   <div class="header__inner">
     <a class="header__logo" href="/">
       {logoIsImage ? (
-        <img src={(logo as AssetRef).src} alt={(logo as AssetRef).alt} />
+        <img src={assertSafeUrl((logo as AssetRef).src, 'header logo src')} alt={(logo as AssetRef).alt} />
       ) : (
         <span
           class:list={[

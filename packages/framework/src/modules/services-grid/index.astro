@@ -1,6 +1,7 @@
 ---
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
+import { assertSafeUrl } from '../safety'
 
 interface ServiceItem {
   icon?: AssetRef | string
@@ -91,7 +92,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
           {item.icon && (
             <div class="services-grid__icon">
               {iconIsImage(item.icon)
-                ? <img src={item.icon.src} alt={item.icon.alt} loading="lazy" decoding="async" />
+                ? <img src={assertSafeUrl(item.icon.src, 'services-grid icon src')} alt={item.icon.alt} loading="lazy" decoding="async" />
                 : <span aria-hidden="true">{item.icon}</span>}
             </div>
           )}
@@ -108,7 +109,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
             </ul>
           )}
           {item.cta && (
-            <a class="services-grid__card-cta" href={item.cta.href}>{item.cta.label}</a>
+            <a class="services-grid__card-cta" href={assertSafeUrl(item.cta.href, 'services-grid cta href')}>{item.cta.label}</a>
           )}
         </li>
       ))}

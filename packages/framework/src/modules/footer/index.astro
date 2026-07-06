@@ -1,6 +1,7 @@
 ---
 import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
 import { navHref } from '../nav'
+import { assertSafeUrl } from '../safety'
 import { BUILD_YEAR } from '../../buildInfo'
 
 interface Props {
@@ -42,7 +43,7 @@ const year = BUILD_YEAR
   <div class="footer__inner">
     {logo && (
       <div class="footer__logo">
-        {logoIsImage ? <img src={(logo as AssetRef).src} alt={(logo as AssetRef).alt} /> : <span>{logo}</span>}
+        {logoIsImage ? <img src={assertSafeUrl((logo as AssetRef).src, 'footer logo src')} alt={(logo as AssetRef).alt} /> : <span>{logo}</span>}
       </div>
     )}
     {tagline && <p class="footer__tagline">{tagline}</p>}

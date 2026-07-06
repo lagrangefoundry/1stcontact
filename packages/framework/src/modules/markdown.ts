@@ -1,5 +1,6 @@
 import { createMarkdownProcessor, type MarkdownRenderer } from '@astrojs/markdown-remark'
 import { TREATMENT_ROLE_DIAL } from './dials'
+import { assertSafeHtml } from './safety'
 
 /**
  * Callout / left-bar treatment (REQ-32).
@@ -73,8 +74,10 @@ let processor: Promise<MarkdownRenderer> | undefined
 
 function getProcessor(): Promise<MarkdownRenderer> {
   // GFM is on by default; syntax highlighting is left at the default theme.
-  // Raw HTML in content fields is the validator's concern (DOC-7 §6.5 layer 1),
-  // not this renderer's — we render trusted, already-validated markdown.
+  // Raw HTML and unsafe URL schemes are this renderer's concern (REQ-46): the
+  // module is the sanitization boundary for untrusted content, so `renderMarkdown`
+  // rejects dangerous output loudly (see `assertSafeHtml` below) rather than
+  // passing a `<script>` or a `javascript:` link through to `set:html`.
   //
   // `smartypants: false` — this is a faithful-repro engine, so content renders
   // *verbatim*. The default (on) silently curls straight quotes and turns `--`
@@ -100,5 +103,8 @@ const BARE_IMG = /<img(?![^>]*\bloading=)([^>]*)>/g
 export async function renderMarkdown(md: string): Promise<string> {
   const { code } = await (await getProcessor()).render(md)
   const withImgs = code.replace(BARE_IMG, '<img loading="lazy" decoding="async"$1>')
-  return transformCallouts(withImgs)
+  const html = transformCallouts(withImgs)
+  // Fail loud (REQ-46): a `<script>`, inline handler or `javascript:` link in a
+  // markdown content field is rejected here, before it can reach `set:html`.
+  return assertSafeHtml(html, 'markdown content')
 }
