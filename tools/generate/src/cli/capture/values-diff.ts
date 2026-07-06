@@ -25,9 +25,13 @@
  *      hex or spotting a casing slip.
  */
 import type {
+  Arrangement,
   BorderTreatment,
+  Box,
   Capture,
   ContentRun,
+  Field,
+  NameSource,
   TextGradient,
 } from './types'
 import type { RawRun, RawSignals } from './extract'
@@ -56,6 +60,32 @@ export interface ValueElement {
    * fallback mislabels as black-on-white would otherwise diff forever).
    */
   colorInferred?: boolean
+  // ── REQ-47 rendered geometry / shape / structure ─────────────────────────
+  /** `getBoundingClientRect()` box in full-page document coords. */
+  box?: Box
+  /** Largest computed corner radius in px (0 when square). */
+  borderRadiusPx?: number
+  /** Computed `box-shadow` when a shadow is painted, else null. */
+  boxShadow?: string | null
+  /** ARIA role — the browser's framework-agnostic semantic label. */
+  a11yRole?: string
+  /** Rendered arrangement relative to the previous element in the section. */
+  arrangement?: Arrangement | null
+  /**
+   * REQ-47 — true for a text-free element (input, divider). It has no text join
+   * key, so the diff pairs it on `a11yRole + document order` and never routes it
+   * through the text queue (where an empty string would collide with every other
+   * textless element).
+   */
+  textless?: boolean
+  /** REQ-47 — a text-free control's accessible name (empty when unlabelled). */
+  accessibleName?: string
+  /**
+   * REQ-47 — where the accessible name is rendered: `placeholder` = inside the
+   * field box, `label`/`aria` = outside/above it. The fact that distinguishes
+   * placeholder-inside from label-above — neither geometry nor text can see it.
+   */
+  nameSource?: NameSource | null
 }
 
 /**
@@ -96,6 +126,41 @@ export type DeltaProperty =
   | 'lineHeightPx'
   | 'letterSpacingPx'
   | 'paddingLeftPx'
+  // ── REQ-47 structural properties ─────────────────────────────────────────
+  | 'position'
+  | 'size'
+  | 'shape'
+  | 'arrangement'
+  | 'containment'
+
+/**
+ * REQ-47 — the severity taxonomy. Every delta is tagged with a {@link DeltaKind}
+ * (derivable purely from *which projected field* differs), which maps through a
+ * fixed table to a {@link SeverityTier}. Ranking is by tier first, so a
+ * small-but-structural defect (a 100%-wrong form) can never sort below a
+ * large-but-tonal one (a mildly off colour) — pixel area is never an input.
+ */
+export type SeverityTier = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+
+export type DeltaKind =
+  | 'presence'
+  | 'containment'
+  | 'arrangement'
+  | 'position'
+  | 'text'
+  | 'size'
+  | 'fontSize'
+  | 'fontFamily'
+  | 'shape'
+  | 'borderLeft'
+  | 'gradient'
+  | 'fontWeight'
+  | 'color'
+  | 'overlay'
+  | 'contentAnchor'
+  | 'lineHeight'
+  | 'padding'
+  | 'letterSpacing'
 
 /** A single field-level disagreement between expected and actual. */
 export interface ValueDelta {
@@ -105,7 +170,20 @@ export interface ValueDelta {
   property: DeltaProperty
   expected: string
   actual: string
-  /** Rank weight; higher sorts first. */
+  /** REQ-47 — the severity kind this delta is tagged with. */
+  kind: DeltaKind
+  /** REQ-47 — the severity tier the kind maps to (the primary sort key). */
+  tier: SeverityTier
+  /**
+   * REQ-47 — within-tier tiebreak magnitude (Δpx, ΔE, …). A tiebreak *within a
+   * kind* only; it can never lift a delta across tiers. `0` when a kind has no
+   * meaningful scalar magnitude.
+   */
+  magnitude: number
+  /**
+   * Composite rank weight; higher sorts first. Encodes `(tier, kind-within-tier,
+   * magnitude)` so a single descending sort reproduces the severity ordering.
+   */
   severity: number
 }
 
@@ -230,6 +308,24 @@ const collapse = (text: string): string => text.replace(/\s+/g, ' ').trim()
 /** Case-insensitive join key: the collapsed text lowercased. */
 const norm = (text: string): string => collapse(text).toLowerCase()
 
+/** Copy the REQ-47 geometry / shape / structure fields present on `src` onto `el`. */
+function copyGeometry(
+  el: ValueElement,
+  src: {
+    box?: Box
+    borderRadiusPx?: number
+    boxShadow?: string | null
+    a11yRole?: string
+    arrangement?: Arrangement | null
+  },
+): void {
+  if (src.box !== undefined) el.box = src.box
+  if (src.borderRadiusPx !== undefined) el.borderRadiusPx = src.borderRadiusPx
+  if (src.boxShadow !== undefined) el.boxShadow = src.boxShadow
+  if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
+  if (src.arrangement !== undefined) el.arrangement = src.arrangement
+}
+
 /** Project a {@link ContentRun} (from a capture bundle) to a {@link ValueElement}. */
 export function contentRunToElement(run: ContentRun): ValueElement {
   const el: ValueElement = {
@@ -246,6 +342,31 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.borderLeft !== undefined) el.borderLeft = run.borderLeft
   if (run.paddingLeftPx !== undefined) el.paddingLeftPx = run.paddingLeftPx
   if (run.colorInferred) el.colorInferred = true
+  copyGeometry(el, run)
+  return el
+}
+
+/**
+ * Project a text-free {@link Field} to a {@link ValueElement} (REQ-47). Its
+ * accessible name doubles as the display text; `textless` routes it to the
+ * role+order pairing path. Accepts the raw extracted field too (structurally
+ * identical), so both sides of the diff project through one function.
+ */
+export function fieldToElement(field: Field): ValueElement {
+  const el: ValueElement = {
+    text: field.accessibleName || `(${field.a11yRole})`,
+    role: field.a11yRole,
+    color: '',
+    fontFamily: '',
+    fontSizePx: 0,
+    fontWeight: 0,
+    textless: true,
+    a11yRole: field.a11yRole,
+    accessibleName: field.accessibleName,
+    nameSource: field.nameSource,
+  }
+  copyGeometry(el, field)
+  el.a11yRole = field.a11yRole
   return el
 }
 
@@ -269,10 +390,11 @@ export function rawRunToElement(run: RawRun): ValueElement {
   }
   if (run.lineHeightPx !== null) el.lineHeightPx = run.lineHeightPx
   if (run.colorInferred) el.colorInferred = true
+  copyGeometry(el, run)
   return el
 }
 
-/** Flatten a capture bundle's sections (+ repeated items) into a value manifest. */
+/** Flatten a capture bundle's sections (+ repeated items, + text-free fields) into a value manifest. */
 export function flattenCapture(capture: Capture): ValueManifest {
   const elements: ValueElement[] = []
   const sections: SectionValues[] = capture.sections.map((section, index) => ({
@@ -285,6 +407,8 @@ export function flattenCapture(capture: Capture): ValueManifest {
     for (const item of section.items) {
       for (const run of item.content) elements.push(contentRunToElement(run))
     }
+    // REQ-47 — text-free elements (guarded: pre-REQ-47 bundles carry no `fields`).
+    for (const field of section.fields ?? []) elements.push(fieldToElement(field))
   }
   return { source: `${capture.host}${capture.path}`, elements, sections }
 }
@@ -307,27 +431,108 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
     for (const item of band.items) {
       for (const run of item) elements.push(rawRunToElement(run))
     }
+    // REQ-47 — text-free elements (form controls, dividers).
+    for (const field of band.fields ?? []) elements.push(fieldToElement(field))
   }
   return { source, elements, sections }
 }
 
 // ── diff ─────────────────────────────────────────────────────────────────────
 
-/** Per-property rank weights: the deltas the eye misses most sort to the top. */
-const SEVERITY: Record<DeltaProperty, number> = {
-  missing: 100,
-  text: 95,
-  color: 90,
-  gradient: 85,
-  overlay: 82,
-  borderLeft: 80,
-  fontSizePx: 70,
-  contentAnchor: 65,
-  fontFamily: 55,
-  fontWeight: 50,
-  lineHeightPx: 30,
-  paddingLeftPx: 25,
-  letterSpacingPx: 20,
+/**
+ * REQ-47 — the fixed kind → tier table. Structural facts the eye reads first
+ * (is it there, is the name inside the box, is the button beside or below,
+ * where does it sit) are CRITICAL; a size is HIGH; a shape/treatment is MEDIUM;
+ * tone (colour, scrim, spacing) is LOW. Pixel area is never consulted.
+ */
+const KIND_TIER: Record<DeltaKind, SeverityTier> = {
+  presence: 'CRITICAL',
+  containment: 'CRITICAL',
+  arrangement: 'CRITICAL',
+  position: 'CRITICAL',
+  text: 'CRITICAL',
+  size: 'HIGH',
+  fontSize: 'HIGH',
+  fontFamily: 'HIGH',
+  shape: 'MEDIUM',
+  borderLeft: 'MEDIUM',
+  gradient: 'MEDIUM',
+  fontWeight: 'MEDIUM',
+  color: 'LOW',
+  overlay: 'LOW',
+  contentAnchor: 'LOW',
+  lineHeight: 'LOW',
+  padding: 'LOW',
+  letterSpacing: 'LOW',
+}
+
+const TIER_RANK: Record<SeverityTier, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
+
+/**
+ * Within-tier ordering (higher sorts first) — the coarse tiebreak *before*
+ * magnitude, so kinds sort deterministically even when their magnitudes aren't
+ * commensurable (a ΔE and a Δpx can't be compared numerically). Chosen to
+ * preserve the orderings the REQ-31/REQ-35 UATs pin: `overlay > contentAnchor`,
+ * `color > letterSpacing`. `contentAnchor` stays LOW (below `overlay`): the
+ * coarse section-anchor proxy is superseded by the per-element CRITICAL
+ * `position` kind, so demoting it costs nothing and keeps the pinned order.
+ */
+const KIND_RANK: Record<DeltaKind, number> = {
+  // CRITICAL band
+  presence: 6,
+  containment: 5,
+  arrangement: 4,
+  position: 3,
+  text: 2,
+  // HIGH band
+  size: 3,
+  fontSize: 2,
+  fontFamily: 1,
+  // MEDIUM band
+  shape: 4,
+  borderLeft: 3,
+  gradient: 2,
+  fontWeight: 1,
+  // LOW band
+  color: 6,
+  overlay: 5,
+  contentAnchor: 4,
+  lineHeight: 3,
+  padding: 2,
+  letterSpacing: 1,
+}
+
+/**
+ * Composite rank: `(tier, kind-within-tier, magnitude)` folded into one
+ * descending-sortable number. Tier dominates (×1000); kind orders within a tier
+ * (×10); magnitude is a within-kind tiebreak folded to `[0,1)` so it can never
+ * lift a delta past its kind, let alone its tier.
+ */
+function severityOf(kind: DeltaKind, magnitude: number): number {
+  const magFrac = 1 - 1 / (1 + Math.max(0, magnitude))
+  return TIER_RANK[KIND_TIER[kind]] * 1000 + KIND_RANK[kind] * 10 + magFrac
+}
+
+/** The kind a fine-grained {@link DeltaProperty} belongs to (for the tier table). */
+const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
+  missing: 'presence',
+  text: 'text',
+  color: 'color',
+  gradient: 'gradient',
+  overlay: 'overlay',
+  borderLeft: 'borderLeft',
+  fontSizePx: 'fontSize',
+  contentAnchor: 'contentAnchor',
+  fontWeight: 'fontWeight',
+  fontFamily: 'fontFamily',
+  lineHeightPx: 'lineHeight',
+  letterSpacingPx: 'letterSpacing',
+  paddingLeftPx: 'padding',
+  position: 'position',
+  size: 'size',
+  shape: 'shape',
+  arrangement: 'arrangement',
+  containment: 'containment',
 }
 
 /**
@@ -372,6 +577,17 @@ export interface DiffOptions {
   overlayOpacityTolerance?: number
   /** Vertical-anchor tolerance as a fraction of box height (default 0.15). */
   anchorTolerance?: number
+  /**
+   * REQ-47 — element position tolerance in px (default 24). A rendered box whose
+   * x or y differs by more than this emits a `position` delta. Loose by design:
+   * the tool is a smoke detector, and a false positive costs one glance while a
+   * false negative is the hero-block-200px-out miss this ticket exists to catch.
+   */
+  positionTolerancePx?: number
+  /** REQ-47 — element size (width/height) tolerance in px (default 16). */
+  sizeTolerancePx?: number
+  /** REQ-47 — corner-radius tolerance in px (default 4); rounded-vs-square pops. */
+  borderRadiusTolerancePx?: number
 }
 
 function gradientLabel(g: TextGradient | null | undefined): string {
@@ -392,6 +608,44 @@ function overlayLabel(o: { color: string; opacity: number } | null): string {
 function anchorLabel(ratio: number): string {
   const band = ratio < 0.38 ? 'top' : ratio > 0.62 ? 'bottom' : 'center'
   return `${band} (${ratio.toFixed(2)})`
+}
+
+/** `{x,y}` origin label, e.g. `@ (120, 195)`. */
+function posLabel(box: Box): string {
+  return `@ (${Math.round(box.x)}, ${Math.round(box.y)})`
+}
+
+/** `w×h` size label. */
+function sizeLabel(box: Box): string {
+  return `${Math.round(box.width)}×${Math.round(box.height)}`
+}
+
+/** Rendered-shape label — radius + shadow presence. */
+function shapeLabel(radiusPx: number | undefined, shadow: string | null | undefined): string {
+  const r = radiusPx === undefined ? '?' : `${radiusPx}px`
+  return `radius ${r}, shadow ${shadow ? 'yes' : 'no'}`
+}
+
+/** Arrangement → prose, e.g. `beside (right-of)` / `below`. */
+function arrangementLabel(a: Arrangement | null | undefined): string {
+  if (a === 'row') return 'beside (right-of prev)'
+  if (a === 'stack') return 'below prev'
+  return 'unknown'
+}
+
+/** Name-source → prose that names *where* the label renders. */
+function nameSourceLabel(src: NameSource | null | undefined): string {
+  if (src === 'placeholder') return 'placeholder (inside field)'
+  if (src === 'label') return 'label (outside/above)'
+  if (src === 'aria') return 'aria (outside)'
+  if (src === 'text') return 'text'
+  if (src === 'alt') return 'alt'
+  return 'none'
+}
+
+/** True when the accessible name is rendered *inside* the field box (placeholder). */
+function nameContained(src: NameSource | null | undefined): boolean {
+  return src === 'placeholder'
 }
 
 /** True when both gradients agree on direction (within tolerance) and stop colours. */
@@ -435,15 +689,24 @@ export function diffManifests(
   const angleTol = opts.gradientAngleToleranceDeg ?? 20
   const opacityTol = opts.overlayOpacityTolerance ?? 0.1
   const anchorTol = opts.anchorTolerance ?? 0.15
+  // REQ-47 geometry tolerances — loose (smoke detector, biased to over-emit).
+  const positionTol = tol(opts.positionTolerancePx, 24)
+  const sizeTol = tol(opts.sizeTolerancePx, 16)
+  const radiusTol = tol(opts.borderRadiusTolerancePx, 4)
 
-  // Group actual elements by normalized text into FIFO queues so repeated texts
-  // pair with expected occurrences in document order.
+  // Group actual elements into FIFO queues so repeated keys pair with expected
+  // occurrences in document order. Text runs join on normalized text; text-free
+  // fields have no text key, so they join on `a11yRole` (REQ-47) instead — kept
+  // in a separate map so an empty-text field never collides with a text run.
   const queues = new Map<string, ValueElement[]>()
+  const fieldQueues = new Map<string, ValueElement[]>()
   for (const el of actual.elements) {
-    const key = norm(el.text)
-    const q = queues.get(key)
+    const [map, key] = el.textless
+      ? [fieldQueues, el.a11yRole ?? el.role]
+      : [queues, norm(el.text)]
+    const q = map.get(key)
     if (q) q.push(el)
-    else queues.set(key, [el])
+    else map.set(key, [el])
   }
 
   const deltas: ValueDelta[] = []
@@ -456,14 +719,19 @@ export function diffManifests(
     property: DeltaProperty,
     expectedVal: string,
     actualVal: string,
+    magnitude = 0,
   ): void => {
+    const kind = PROPERTY_KIND[property]
     deltas.push({
       text: text.length > 60 ? `${text.slice(0, 57)}…` : text,
       role,
       property,
       expected: expectedVal,
       actual: actualVal,
-      severity: SEVERITY[property],
+      kind,
+      tier: KIND_TIER[kind],
+      magnitude,
+      severity: severityOf(kind, magnitude),
     })
   }
   const push = (
@@ -471,9 +739,62 @@ export function diffManifests(
     property: DeltaProperty,
     expectedVal: string,
     actualVal: string,
-  ): void => record(e.text, e.role, property, expectedVal, actualVal)
+    magnitude = 0,
+  ): void => record(e.text, e.role, property, expectedVal, actualVal, magnitude)
+
+  // REQ-47 — geometry / shape / arrangement, shared by text runs and fields.
+  // Every comparison is guarded on the field being present on *both* sides, so
+  // a synthetic manifest (or a pre-REQ-47 bundle) that carries none is inert.
+  const compareGeometry = (exp: ValueElement, act: ValueElement): void => {
+    if (exp.box && act.box) {
+      const dpos = Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y))
+      if (dpos > positionTol) push(exp, 'position', posLabel(exp.box), posLabel(act.box), dpos)
+      const dsize = Math.max(
+        Math.abs(exp.box.width - act.box.width),
+        Math.abs(exp.box.height - act.box.height),
+      )
+      if (dsize > sizeTol) push(exp, 'size', sizeLabel(exp.box), sizeLabel(act.box), dsize)
+    }
+    if (exp.borderRadiusPx !== undefined && act.borderRadiusPx !== undefined) {
+      const dr = Math.abs(exp.borderRadiusPx - act.borderRadiusPx)
+      const shadowDiffers = !!exp.boxShadow !== !!act.boxShadow
+      if (dr > radiusTol || shadowDiffers) {
+        push(
+          exp,
+          'shape',
+          shapeLabel(exp.borderRadiusPx, exp.boxShadow),
+          shapeLabel(act.borderRadiusPx, act.boxShadow),
+          dr,
+        )
+      }
+    }
+    if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
+      push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))
+    }
+  }
+
+  // ── text-free fields (REQ-47): pair by a11yRole + document order ─────────────
+  for (const exp of expected.elements) {
+    if (!exp.textless) continue
+    const q = fieldQueues.get(exp.a11yRole ?? exp.role)
+    const act = q && q.length > 0 ? q.shift() : undefined
+    if (!act) {
+      unmatched++
+      push(exp, 'missing', 'present', 'absent')
+      continue
+    }
+    matched++
+    // Containment: is the accessible name rendered *inside* the field box
+    // (placeholder) or *outside* it (label/aria)? The placeholder-inside vs
+    // label-above defect the perceptual + value diffs both miss.
+    if (nameContained(exp.nameSource) !== nameContained(act.nameSource)) {
+      push(exp, 'containment', nameSourceLabel(exp.nameSource), nameSourceLabel(act.nameSource))
+    }
+    compareGeometry(exp, act)
+  }
 
   for (const exp of expected.elements) {
+    if (exp.textless) continue
     const q = queues.get(norm(exp.text))
     const act = q && q.length > 0 ? q.shift() : undefined
     if (!act) {
@@ -495,11 +816,12 @@ export function diffManifests(
 
     // A colour the capture had to infer (fallback #000/#fff) is low-confidence
     // reference data, not a real target — never a hard delta (REQ-35).
-    if (!exp.colorInferred && colorDistance(exp.color, act.color) > colorTol) {
-      push(exp, 'color', exp.color, act.color)
+    if (!exp.colorInferred) {
+      const dE = colorDistance(exp.color, act.color)
+      if (dE > colorTol) push(exp, 'color', exp.color, act.color, dE)
     }
     if (Math.abs(exp.fontSizePx - act.fontSizePx) > fontSizeTol) {
-      push(exp, 'fontSizePx', `${exp.fontSizePx}`, `${act.fontSizePx}`)
+      push(exp, 'fontSizePx', `${exp.fontSizePx}`, `${act.fontSizePx}`, Math.abs(exp.fontSizePx - act.fontSizePx))
     }
     if (Math.abs(exp.fontWeight - act.fontWeight) > weightTol) {
       push(exp, 'fontWeight', `${exp.fontWeight}`, `${act.fontWeight}`)
@@ -537,6 +859,10 @@ export function diffManifests(
         push(exp, 'paddingLeftPx', `${exp.paddingLeftPx}`, `${act.paddingLeftPx}`)
       }
     }
+
+    // REQ-47 — a text run also carries geometry: the hero heading 195px out of
+    // position, a mis-sized box, a squared-off corner, a stacked-vs-inline button.
+    compareGeometry(exp, act)
   }
 
   // Section-level values (scrim, vertical anchor) — no text to join on, so
@@ -566,7 +892,9 @@ export function diffManifests(
     }
   }
 
-  // Stable sort: within a severity band, deltas keep document order.
+  // Stable sort by composite severity = (tier, kind-within-tier, magnitude), so a
+  // small structural defect always outranks a large tonal one and, within a kind,
+  // the larger magnitude leads. Equal keys keep document order (V8 sort is stable).
   deltas.sort((a, b) => b.severity - a.severity)
   return {
     expectedSource: expected.source,

@@ -12,7 +12,7 @@ export { reextractFromBundle } from './reextract'
 export { writeBundle, readCapture, bundleDirFor } from './bundle'
 export type { BundleLocation } from './bundle'
 export { EXTRACT_SCRIPT } from './extract'
-export type { RawSignals, RawRun } from './extract'
+export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
 export {
   flattenCapture,
   flattenSignals,
@@ -22,6 +22,7 @@ export {
   colorDistance,
   contentRunToElement,
   rawRunToElement,
+  fieldToElement,
 } from './values-diff'
 export type {
   ValueElement,
@@ -29,6 +30,8 @@ export type {
   SectionValues,
   ValueDelta,
   DeltaProperty,
+  DeltaKind,
+  SeverityTier,
   ValuesDiffReport,
   DiffOptions,
 } from './values-diff'

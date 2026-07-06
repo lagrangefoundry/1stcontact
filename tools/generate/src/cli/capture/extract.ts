@@ -9,8 +9,32 @@
  * the exact source below is what Chromium evaluates — no build step rewrites it.
  */
 
+/**
+ * REQ-47 — rendered element geometry, shape, structure and arrangement. Every
+ * field is a *rendered* fact (a painted box, a computed radius, the browser's
+ * own a11y role/name), never a CSS mechanism (no `flex-direction`, no tag) — so
+ * two different DOMs that render identically project to the same values.
+ */
+export interface RawGeometry {
+  /** `getBoundingClientRect()` in full-page document coords. */
+  box: { x: number; y: number; width: number; height: number }
+  /** Largest computed corner radius in px (0 when square). */
+  borderRadiusPx: number
+  /** Raw computed `box-shadow` when a shadow is painted, else null. */
+  boxShadow: string | null
+  /** ARIA role — the browser's framework-agnostic semantic label for this element. */
+  a11yRole: string
+  /**
+   * How this element sits relative to the *previous* rendered element in its
+   * section, derived purely from geometry: `row` (beside / right-of), `stack`
+   * (below), or null (first element / indeterminate). Captures "button is
+   * right-of vs below the input" without ever reading `flex-direction`.
+   */
+  arrangement: 'row' | 'stack' | null
+}
+
 /** A single visible text run with its exact painted styling. */
-export interface RawRun {
+export interface RawRun extends RawGeometry {
   role: 'heading' | 'subheading' | 'body' | 'link' | 'action' | 'listitem'
   text: string
   color: string
@@ -31,6 +55,22 @@ export interface RawRun {
   paddingLeftPx: number
 }
 
+/**
+ * REQ-47 — a text-free rendered element (an input box, textarea, select,
+ * divider). It carries no text join key, so the diff pairs it on `a11yRole +
+ * document order` instead. `accessibleName`/`nameSource` are the a11y tree's
+ * projection of *what* labels the control and *where* that label is rendered
+ * (`placeholder` = inside the box, `label`/`aria` = outside) — the exact fact
+ * that distinguishes placeholder-inside from label-above, which no geometry or
+ * text-value field can see.
+ */
+export interface RawField extends RawGeometry {
+  /** Resolved accessible name (may be empty when the control is unlabelled). */
+  accessibleName: string
+  /** Where the accessible name comes from, or null when unnamed. */
+  nameSource: 'placeholder' | 'label' | 'aria' | 'text' | 'alt' | null
+}
+
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
 export interface RawBand {
   box: { x: number; y: number; width: number; height: number }
@@ -48,6 +88,8 @@ export interface RawBand {
   contentAnchorRatio: number | null
   content: RawRun[]
   items: RawRun[][]
+  /** REQ-47 — text-free rendered elements (form controls, dividers) in this band. */
+  fields: RawField[]
 }
 
 export interface RawImage {
@@ -123,6 +165,105 @@ export const EXTRACT_SCRIPT = `(() => {
     if (t === 'button') return 'action';
     if (t === 'li') return 'listitem';
     return 'body';
+  }
+
+  // ── REQ-47 rendered shape / structure helpers ───────────────────────────────
+  function collapseText(t) { return (t || '').replace(/\\s+/g, ' ').trim(); }
+  // Largest painted corner radius (px). Rounded-vs-square is visually obvious but
+  // tiny in pixels, so it is captured as an explicit rendered value, not left to
+  // an image diff to (barely) see.
+  function borderRadiusOf(s) {
+    var vals = [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomLeftRadius, s.borderBottomRightRadius];
+    var max = 0;
+    for (var i = 0; i < vals.length; i++) { var v = parseFloat(vals[i]); if (!isNaN(v) && v > max) max = v; }
+    return Math.round(max);
+  }
+  function boxShadowOf(s) {
+    var bs = s.boxShadow;
+    return (bs && bs !== 'none') ? bs : null;
+  }
+  // The a11y role: an explicit role attr wins, else the implicit role for the tag
+  // (the browser's own framework-agnostic semantic label — a <button>, an <a
+  // href>, and a role="button" div all project to the same fact).
+  function a11yRoleOf(el) {
+    var explicit = el.getAttribute && el.getAttribute('role');
+    if (explicit) return explicit.trim().toLowerCase();
+    var t = el.tagName.toLowerCase();
+    if (t === 'a') return el.getAttribute('href') != null ? 'link' : 'generic';
+    if (t === 'button') return 'button';
+    if (t === 'textarea') return 'textbox';
+    if (t === 'select') return 'combobox';
+    if (t === 'img') return 'img';
+    if (t === 'hr') return 'separator';
+    if (t === 'h1' || t === 'h2' || t === 'h3' || t === 'h4' || t === 'h5' || t === 'h6') return 'heading';
+    if (t === 'input') {
+      var ty = (el.getAttribute('type') || 'text').toLowerCase();
+      if (ty === 'submit' || ty === 'button' || ty === 'reset' || ty === 'image') return 'button';
+      if (ty === 'checkbox') return 'checkbox';
+      if (ty === 'radio') return 'radio';
+      return 'textbox';
+    }
+    return 'generic';
+  }
+  // Accessible name + its source, following the a11y precedence the browser uses:
+  // aria-label / aria-labelledby (explicit) → an associated <label> (rendered
+  // OUTSIDE the control) → placeholder (rendered INSIDE the control) → value/text.
+  // The *source* is the fact that separates placeholder-inside from label-above.
+  function accessibleNameOf(el) {
+    var aria = el.getAttribute && el.getAttribute('aria-label');
+    if (aria && aria.trim()) return { name: collapseText(aria), source: 'aria' };
+    var lb = el.getAttribute && el.getAttribute('aria-labelledby');
+    if (lb) {
+      var nm = collapseText(lb.split(/\\s+/).map(function (id) {
+        var e = document.getElementById(id); return e ? e.textContent : '';
+      }).join(' '));
+      if (nm) return { name: nm, source: 'aria' };
+    }
+    var tag = el.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+      var lbl = null;
+      if (el.id) {
+        var idSel = (window.CSS && CSS.escape) ? CSS.escape(el.id) : el.id;
+        try { lbl = document.querySelector('label[for="' + idSel + '"]'); } catch (e) { lbl = null; }
+      }
+      if (!lbl && el.closest) lbl = el.closest('label');
+      var lblText = lbl ? collapseText(lbl.textContent) : '';
+      if (lblText) return { name: lblText, source: 'label' };
+      var ph = el.getAttribute('placeholder');
+      if (ph && ph.trim()) return { name: collapseText(ph), source: 'placeholder' };
+      var val = el.value;
+      if (val && ('' + val).trim()) return { name: collapseText('' + val), source: 'text' };
+      return { name: '', source: null };
+    }
+    if (tag === 'img') {
+      var alt = el.getAttribute('alt');
+      return (alt && alt.trim()) ? { name: collapseText(alt), source: 'alt' } : { name: '', source: null };
+    }
+    var txt = collapseText(el.textContent);
+    return txt ? { name: txt, source: 'text' } : { name: '', source: null };
+  }
+  // Relate two boxes geometrically: substantial vertical overlap → same row
+  // (beside / right-of); the later element sitting clearly below → stacked. This
+  // is the rendered arrangement, whatever CSS (flex row, float, grid) produced it.
+  function relate(prev, curr) {
+    var top = Math.max(prev.y, curr.y);
+    var bot = Math.min(prev.y + prev.height, curr.y + curr.height);
+    var overlap = bot - top;
+    var minH = Math.min(prev.height, curr.height) || 1;
+    if (overlap > 0.5 * minH) return 'row';
+    if (curr.y >= prev.y + prev.height * 0.5) return 'stack';
+    return null;
+  }
+  // Assign each element's arrangement relative to the previous element in
+  // document (top-to-bottom, then left-to-right) order within its section.
+  function assignArrangement(elements) {
+    var sorted = elements.slice().sort(function (a, b) {
+      if (Math.abs(a.box.y - b.box.y) > 4) return a.box.y - b.box.y;
+      return a.box.x - b.box.x;
+    });
+    for (var i = 0; i < sorted.length; i++) {
+      sorted[i].arrangement = i === 0 ? null : relate(sorted[i - 1].box, sorted[i].box);
+    }
   }
 
   function insideAny(el, roots) {
@@ -224,6 +365,38 @@ export const EXTRACT_SCRIPT = `(() => {
         borderLeftWidthPx: blW,
         borderLeftColor: blColor,
         paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
+        // REQ-47 per-element geometry / shape / structure (arrangement filled later).
+        box: absBox(el),
+        borderRadiusPx: borderRadiusOf(s),
+        boxShadow: boxShadowOf(s),
+        a11yRole: a11yRoleOf(el),
+        arrangement: null,
+      });
+    }
+    return out;
+  }
+
+  // REQ-47 — text-free rendered elements (form controls, dividers) under a root,
+  // in document order, skipping excluded subtrees. These have no text join key,
+  // so they carry their a11y role + accessible-name source for role+order pairing.
+  function fieldsUnder(root, excludes) {
+    var out = [];
+    var els = root.querySelectorAll('input, textarea, select, hr');
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (el.type === 'hidden') continue;
+      if (!visible(el)) continue;
+      if (excludes && insideAny(el, excludes)) continue;
+      var s = getComputedStyle(el);
+      var an = accessibleNameOf(el);
+      out.push({
+        box: absBox(el),
+        borderRadiusPx: borderRadiusOf(s),
+        boxShadow: boxShadowOf(s),
+        a11yRole: a11yRoleOf(el),
+        arrangement: null,
+        accessibleName: an.name,
+        nameSource: an.source,
       });
     }
     return out;
@@ -274,6 +447,12 @@ export const EXTRACT_SCRIPT = `(() => {
     var bg = rgbToHex(s.backgroundColor) || bodyBg;
     var grp = itemGroup(band);
     var bbox = absBox(band);
+    var content = runsUnder(band, grp.roots);
+    var fields = fieldsUnder(band, grp.roots);
+    // Arrangement is relative to the previous element in reading order, so text
+    // runs and text-free fields must be ordered together (a Subscribe button's
+    // predecessor is the email input, not the last paragraph).
+    assignArrangement(content.concat(fields));
     bands.push({
       box: bbox,
       backgroundColor: bg,
@@ -285,8 +464,9 @@ export const EXTRACT_SCRIPT = `(() => {
       paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
       overlay: overlayOf(band, bbox),
       contentAnchorRatio: anchorRatioOf(band, bbox),
-      content: runsUnder(band, grp.roots),
+      content: content,
       items: grp.items,
+      fields: fields,
     });
   });
 

@@ -174,7 +174,48 @@ export interface BorderTreatment {
   color: string
 }
 
-export interface ContentRun {
+/** REQ-47 — how an element sits relative to the previous element in its section. */
+export type Arrangement = 'row' | 'stack'
+
+/** REQ-47 — where a control's accessible name is rendered. */
+export type NameSource = 'placeholder' | 'label' | 'aria' | 'text' | 'alt'
+
+/**
+ * REQ-47 — per-element rendered geometry, shape and structure, shared by text
+ * runs and text-free fields. All optional so pre-REQ-47 `capture.json` bundles
+ * (and synthetic value manifests) still parse; the diff only compares fields
+ * present on the expected side. Every field is a *rendered* fact, never a CSS
+ * mechanism — the layer where two different DOMs that render identically match.
+ */
+export interface ElementGeometry {
+  /** `getBoundingClientRect()` box in full-page document coords. */
+  box?: Box
+  /** Largest computed corner radius in px (0 when square). */
+  borderRadiusPx?: number
+  /** Computed `box-shadow` when a shadow is painted, else null. */
+  boxShadow?: string | null
+  /** ARIA role — the browser's framework-agnostic semantic label. */
+  a11yRole?: string
+  /** Rendered arrangement relative to the previous element in the section. */
+  arrangement?: Arrangement | null
+}
+
+/**
+ * REQ-47 — a text-free rendered element (input box, textarea, select, divider).
+ * No text join key, so the diff pairs it on `a11yRole + document order`.
+ * `nameSource` is the a11y-tree fact that separates placeholder-inside
+ * (`placeholder`) from label-above (`label`/`aria`).
+ */
+export interface Field extends ElementGeometry {
+  a11yRole: string
+  box: Box
+  /** Resolved accessible name (may be empty when unlabelled). */
+  accessibleName: string
+  /** Where the accessible name comes from, or null when unnamed. */
+  nameSource: NameSource | null
+}
+
+export interface ContentRun extends ElementGeometry {
   role: 'heading' | 'subheading' | 'body' | 'link' | 'action' | 'listitem'
   /** Verbatim text (DOC-13 §5). */
   text: string
@@ -218,6 +259,8 @@ export interface Section {
   layout: Layout
   content: ContentRun[]
   items: SectionItem[]
+  /** REQ-47 — text-free rendered elements (form controls, dividers) in this section. */
+  fields: Field[]
 }
 
 export interface CaptureAsset {

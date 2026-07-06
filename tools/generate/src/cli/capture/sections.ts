@@ -8,13 +8,14 @@
  * Segmentation errors are grouping errors only: every text run keeps its own
  * exact styling regardless of where a boundary falls (DOC-13 §5).
  */
-import type { RawBand, RawRun, RawSignals } from './extract'
+import type { RawBand, RawField, RawRun, RawSignals } from './extract'
 import { normalizeGradient } from './values-diff'
 import type {
   Background,
   BorderTreatment,
   Box,
   ContentRun,
+  Field,
   Layout,
   Section,
   SectionItem,
@@ -83,10 +84,29 @@ function toContentRun(r: RawRun): ContentRun {
   }
   if (r.lineHeightPx !== null) run.lineHeightPx = r.lineHeightPx
   if (r.colorInferred) run.colorInferred = true
+  // REQ-47 — rendered geometry / shape / structure (always captured live).
+  run.box = r.box
+  run.borderRadiusPx = r.borderRadiusPx
+  run.boxShadow = r.boxShadow
+  run.a11yRole = r.a11yRole
+  run.arrangement = r.arrangement
   return run
 }
 
 const toContentRuns = (runs: RawRun[]): ContentRun[] => runs.map(toContentRun)
+
+/** Project a raw text-free element to a persisted {@link Field} (REQ-47). */
+function toField(f: RawField): Field {
+  return {
+    a11yRole: f.a11yRole,
+    box: f.box,
+    borderRadiusPx: f.borderRadiusPx,
+    boxShadow: f.boxShadow,
+    arrangement: f.arrangement,
+    accessibleName: f.accessibleName,
+    nameSource: f.nameSource,
+  }
+}
 
 /** A band's style signature — the key segmentation coalesces on. */
 function signatureOf(band: RawBand): string {
@@ -116,6 +136,7 @@ function sectionFromBands(bands: RawBand[], signals: RawSignals, urlToLocal: (ur
   const items: SectionItem[] = bands.flatMap((b) =>
     b.items.map((runs) => ({ content: toContentRuns(runs) })),
   )
+  const fields: Field[] = bands.flatMap((b) => (b.fields ?? []).map(toField))
   const layout: Layout = {
     textOverImage: background.kind === 'image' && content.length > 0,
     contentAlign: head.textAlign,
@@ -124,7 +145,7 @@ function sectionFromBands(bands: RawBand[], signals: RawSignals, urlToLocal: (ur
     contentMaxWidthPx: signals.containerMaxWidthPx,
     contentAnchorRatio: head.contentAnchorRatio ?? null,
   }
-  return { box, screenshot: box, background, layout, content, items }
+  return { box, screenshot: box, background, layout, content, items, fields }
 }
 
 export function buildSections(

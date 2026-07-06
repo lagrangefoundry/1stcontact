@@ -98,12 +98,18 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
   return report
 }
 
-/** One-line-per-delta human rendering, most-severe first. */
+/**
+ * One-line-per-delta human rendering, most-severe first. Each row leads with the
+ * severity **tier** (REQ-47) — the report leads with the severity-ranked delta
+ * list, not the aggregate fidelity mean, which reads like "≈98% done" while the
+ * most obvious structural defects sit unflagged.
+ */
 export function formatReport(report: ValuesDiffReport): string {
   const head = `values-diff: ${report.expectedSource} ⇄ ${report.actualSource}\n  ${report.matched} matched, ${report.unmatched} unmatched, ${report.deltas.length} delta(s)`
   if (report.deltas.length === 0) return `${head}\n  ✓ no value deltas`
   const rows = report.deltas.map(
-    (d) => `  [${d.property}] "${d.text}" (${d.role}): expected ${d.expected} · actual ${d.actual}`,
+    (d) =>
+      `  ${d.tier.padEnd(8)} [${d.kind}] "${d.text}" (${d.role}): expected ${d.expected} · actual ${d.actual}`,
   )
   return `${head}\n${rows.join('\n')}`
 }
