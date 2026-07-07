@@ -111,6 +111,8 @@ function toField(f: RawField): Field {
     filter: f.filter,
     textShadow: f.textShadow,
     maskEdge: f.maskEdge,
+    objectFit: f.objectFit,
+    intrinsicAspect: f.intrinsicAspect,
     accessibleName: f.accessibleName,
     nameSource: f.nameSource,
   }

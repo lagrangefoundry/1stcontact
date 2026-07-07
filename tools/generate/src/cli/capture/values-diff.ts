@@ -86,6 +86,10 @@ export interface ValueElement {
    * textless element).
    */
   textless?: boolean
+  /** REQ-48 (item 4) — computed `object-fit` for a media element (`img`), else null. */
+  objectFit?: string | null
+  /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
+  intrinsicAspect?: number | null
   /** REQ-47 — a text-free control's accessible name (empty when unlabelled). */
   accessibleName?: string
   /**
@@ -146,6 +150,9 @@ export type DeltaProperty =
   | 'filter'
   | 'textShadow'
   | 'mask'
+  // ── REQ-48 (item 4) media fidelity ───────────────────────────────────────
+  | 'objectFit'
+  | 'aspect'
 
 /**
  * REQ-47 — the severity taxonomy. Every delta is tagged with a {@link DeltaKind}
@@ -163,6 +170,7 @@ export type DeltaKind =
   | 'position'
   | 'text'
   | 'zOrder'
+  | 'media'
   | 'size'
   | 'fontSize'
   | 'fontFamily'
@@ -430,6 +438,8 @@ export function fieldToElement(field: Field): ValueElement {
   }
   copyGeometry(el, field)
   el.a11yRole = field.a11yRole
+  if (field.objectFit !== undefined) el.objectFit = field.objectFit
+  if (field.intrinsicAspect !== undefined) el.intrinsicAspect = field.intrinsicAspect
   return el
 }
 
@@ -515,6 +525,7 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   position: 'CRITICAL',
   text: 'CRITICAL',
   zOrder: 'HIGH',
+  media: 'HIGH',
   size: 'HIGH',
   fontSize: 'HIGH',
   fontFamily: 'HIGH',
@@ -550,7 +561,8 @@ const KIND_RANK: Record<DeltaKind, number> = {
   position: 3,
   text: 2,
   // HIGH band
-  zOrder: 4,
+  zOrder: 5,
+  media: 4,
   size: 3,
   fontSize: 2,
   fontFamily: 1,
@@ -629,6 +641,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   filter: 'treatment',
   textShadow: 'treatment',
   mask: 'treatment',
+  objectFit: 'media',
+  aspect: 'media',
 }
 
 /**
@@ -940,6 +954,28 @@ export function diffManifests(
     compareTreatment(exp, act, 'filter', exp.filter, act.filter)
     compareTreatment(exp, act, 'textShadow', exp.textShadow, act.textShadow)
     compareTreatment(exp, act, 'mask', exp.maskEdge, act.maskEdge)
+    compareMedia(exp, act)
+  }
+
+  // REQ-48 (item 4) — media fidelity for captured photo children (a11yRole
+  // `img`). Two rendered facts a text-run manifest can't hold: `object-fit`
+  // (a `fill` where the reference `cover`s stretches the photo) and the rendered
+  // box aspect ratio — a portrait meant to be a circle (1:1) rendered as an
+  // ellipse (≠1) is the same box size within px tolerance yet visibly wrong.
+  const compareMedia = (exp: ValueElement, act: ValueElement): void => {
+    const media = exp.a11yRole === 'img' && act.a11yRole === 'img'
+    if (!media) return
+    if (exp.objectFit != null && act.objectFit != null && exp.objectFit !== act.objectFit) {
+      push(exp, 'objectFit', exp.objectFit, act.objectFit)
+    }
+    if (exp.box && act.box && exp.box.height > 0 && act.box.height > 0) {
+      const ea = exp.box.width / exp.box.height
+      const aa = act.box.width / act.box.height
+      const rel = Math.abs(ea - aa) / Math.max(ea, aa)
+      // 10% aspect drift is a shape change the eye reads (circle → ellipse),
+      // well past the sub-px jitter a px size tolerance would swallow.
+      if (rel > 0.1) push(exp, 'aspect', `${ea.toFixed(2)}:1`, `${aa.toFixed(2)}:1`, rel)
+    }
   }
 
   // REQ-48 (item 3) — emit a treatment delta when a treatment's *presence*

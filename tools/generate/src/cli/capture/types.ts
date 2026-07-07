@@ -233,6 +233,10 @@ export interface Field extends ElementGeometry {
   accessibleName: string
   /** Where the accessible name comes from, or null when unnamed. */
   nameSource: NameSource | null
+  /** REQ-48 (item 4) — computed `object-fit` for a media element (`img`), else null. */
+  objectFit?: string | null
+  /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
+  intrinsicAspect?: number | null
 }
 
 export interface ContentRun extends ElementGeometry {

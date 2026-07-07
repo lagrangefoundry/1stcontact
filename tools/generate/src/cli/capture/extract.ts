@@ -77,6 +77,10 @@ export interface RawField extends RawGeometry {
   accessibleName: string
   /** Where the accessible name comes from, or null when unnamed. */
   nameSource: 'placeholder' | 'label' | 'aria' | 'text' | 'alt' | null
+  /** REQ-48 (item 4) — computed `object-fit` for a media element (`img`), else null. */
+  objectFit?: string | null
+  /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
+  intrinsicAspect?: number | null
 }
 
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
@@ -409,9 +413,14 @@ export const EXTRACT_SCRIPT = `(() => {
   // REQ-47 — text-free rendered elements (form controls, dividers) under a root,
   // in document order, skipping excluded subtrees. These have no text join key,
   // so they carry their a11y role + accessible-name source for role+order pairing.
+  // REQ-48 (item 4) -- capture descends into media children too. Montage/collage
+  // photos are text-free and are not form controls, so pre-REQ-48 capture dropped
+  // them entirely (items:[]), leaving nothing for the diff to compare while it
+  // reported "matched". img is text-free like a field, so it pairs on a11yRole +
+  // document order; its object-fit + intrinsic aspect catch circle-as-ellipse.
   function fieldsUnder(root, excludes) {
     var out = [];
-    var els = root.querySelectorAll('input, textarea, select, hr');
+    var els = root.querySelectorAll('input, textarea, select, hr, img');
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
       if (el.type === 'hidden') continue;
@@ -419,6 +428,10 @@ export const EXTRACT_SCRIPT = `(() => {
       if (excludes && insideAny(el, excludes)) continue;
       var s = getComputedStyle(el);
       var an = accessibleNameOf(el);
+      var isImg = el.tagName.toLowerCase() === 'img';
+      var intrinsicAspect = (isImg && el.naturalHeight > 0)
+        ? Math.round((el.naturalWidth / el.naturalHeight) * 100) / 100
+        : null;
       out.push({
         box: absBox(el),
         borderRadiusPx: borderRadiusOf(s),
@@ -429,6 +442,8 @@ export const EXTRACT_SCRIPT = `(() => {
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s),
+        objectFit: isImg ? (s.objectFit || 'fill') : null,
+        intrinsicAspect: intrinsicAspect,
         accessibleName: an.name,
         nameSource: an.source,
       });

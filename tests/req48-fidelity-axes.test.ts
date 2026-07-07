@@ -259,3 +259,63 @@ describe('REQ-48 item 3 — treatments (filter / text-glow / mask edge)', () => 
     expect(report.deltas.some((d) => d.kind === 'treatment')).toBe(false)
   })
 })
+
+// ── Item 4 — media fidelity + capture descends into children ─────────────────
+
+const box = (x: number, y: number, width: number, height: number) => ({ x, y, width, height })
+
+/** A captured media child (img): text-free, pairs on a11yRole `img` + order. */
+function imgEl(name: string, over: Partial<ValueElement> = {}): ValueElement {
+  return {
+    text: name,
+    role: 'img',
+    color: '',
+    fontFamily: '',
+    fontSizePx: 0,
+    fontWeight: 0,
+    textless: true,
+    a11yRole: 'img',
+    accessibleName: name,
+    ...over,
+  }
+}
+
+describe('REQ-48 item 4 — media fidelity / capture descent', () => {
+  it('test_UAT_FC_REQ-48_circle_rendered_as_ellipse_flagged', () => {
+    // Reference portrait is a circle (200×200, aspect 1); the repro renders it as
+    // an ellipse (200×120). A media aspect delta fires at HIGH.
+    const expected = mani('ref', [imgEl('portrait', { box: box(0, 0, 200, 200) })])
+    const actual = mani('draft', [imgEl('portrait', { box: box(0, 0, 200, 120) })])
+    const report = diffManifests(expected, actual)
+    const m = report.deltas.filter((d) => d.property === 'aspect')
+    expect(m).toHaveLength(1)
+    expect(m[0].tier).toBe('HIGH')
+  })
+
+  it('test_UAT_FC_REQ-48_object_fit_mismatch_flagged', () => {
+    const expected = mani('ref', [imgEl('hero', { objectFit: 'cover', box: box(0, 0, 300, 200) })])
+    const actual = mani('draft', [imgEl('hero', { objectFit: 'fill', box: box(0, 0, 300, 200) })])
+    const report = diffManifests(expected, actual)
+    expect(report.deltas.filter((d) => d.property === 'objectFit')).toHaveLength(1)
+  })
+
+  it('test_UAT_FC_REQ-48_uncaptured_photo_child_flagged_missing', () => {
+    // The montage-as-items:[] false negative: the reference has a photo child the
+    // repro lacks. Now that capture descends into media, the diff pairs it and a
+    // missing one surfaces as a CRITICAL presence delta instead of "matched".
+    const expected = mani('ref', [imgEl('montage-1', { box: box(0, 0, 200, 200) })])
+    const actual = mani('draft', [])
+    const report = diffManifests(expected, actual)
+    expect(report.deltas.some((d) => d.kind === 'presence')).toBe(true)
+    expect(report.unmatched).toBe(1)
+  })
+
+  it('test_UAT_FC_REQ-48_matching_media_clean', () => {
+    const m = mani('ref', [imgEl('portrait', { objectFit: 'cover', box: box(0, 0, 200, 200) })])
+    const report = diffManifests(
+      m,
+      mani('draft', [imgEl('portrait', { objectFit: 'cover', box: box(0, 0, 200, 200) })]),
+    )
+    expect(report.deltas).toHaveLength(0)
+  })
+})
