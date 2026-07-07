@@ -38,4 +38,11 @@ export type {
   ValuesDiffReport,
   DiffOptions,
 } from './values-diff'
+export {
+  makeCalibrationBaseline,
+  calibrateDiscriminator,
+  discriminatorIsCalibrated,
+  SEEDED_DEFECTS,
+} from './calibration'
+export type { SeededDefect, CalibrationResult } from './calibration'
 export * from './types'

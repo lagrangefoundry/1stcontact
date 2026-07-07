@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  calibrateDiscriminator,
   colorDistance,
   diffManifests,
+  discriminatorIsCalibrated,
   horizontalOverflows,
+  makeCalibrationBaseline,
   RESPONSIVE_VIEWPORTS,
+  SEEDED_DEFECTS,
   unresolvedFonts,
   type ValueElement,
   type ValueManifest,
@@ -463,5 +467,42 @@ describe('REQ-48 item 1 — motion / transform', () => {
   it('test_UAT_FC_REQ-48_motion_absent_axis_inert', () => {
     const report = diffManifests(mani('ref', [el('x')]), mani('draft', [el('x')]))
     expect(report.deltas.some((d) => d.kind === 'transform' || d.kind === 'motion')).toBe(false)
+  })
+})
+
+// ── Item 11 — anti-self-grading / negative-fixture calibration ───────────────
+
+describe('REQ-48 item 11 — discriminator calibration', () => {
+  it('test_UAT_FC_REQ-48_every_seeded_defect_fires', () => {
+    // The independent oracle: each known defect must produce its expected delta
+    // kind. A defect that does NOT fire is a blind axis — prove discrimination
+    // before trusting any clean verdict.
+    const results = calibrateDiscriminator()
+    const blind = results.filter((r) => !r.fired)
+    expect(blind, `blind axes: ${blind.map((b) => b.name).join(', ')}`).toEqual([])
+    expect(results).toHaveLength(SEEDED_DEFECTS.length)
+  })
+
+  it('test_UAT_FC_REQ-48_discriminator_reports_calibrated', () => {
+    const { calibrated, results } = discriminatorIsCalibrated()
+    expect(calibrated).toBe(true)
+    expect(results.every((r) => r.fired)).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-48_faithful_baseline_grades_clean', () => {
+    // The negated control: an untouched faithful render must score zero — the
+    // discriminator fires on defects but does not cry on a faithful repro.
+    const baseline = makeCalibrationBaseline()
+    const report = diffManifests(baseline, JSON.parse(JSON.stringify(baseline)))
+    expect(report.deltas).toHaveLength(0)
+  })
+
+  it('test_UAT_FC_REQ-48_calibration_catches_a_blinded_gate', () => {
+    // If the gate were blind to one axis (simulated by masking that kind), the
+    // calibration must catch it — proving the calibration itself has teeth.
+    const results = calibrateDiscriminator(undefined, { ignore: ['.*'] })
+    // An ignore-everything mask suppresses text-anchored deltas, so at least one
+    // seeded defect must now fail to fire — the calibration is not a rubber stamp.
+    expect(results.some((r) => !r.fired)).toBe(true)
   })
 })
