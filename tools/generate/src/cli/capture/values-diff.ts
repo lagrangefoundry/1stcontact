@@ -61,6 +61,8 @@ export interface ValueElement {
    * fallback mislabels as black-on-white would otherwise diff forever).
    */
   colorInferred?: boolean
+  /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
+  fontLoaded?: boolean
   // ── REQ-47 rendered geometry / shape / structure ─────────────────────────
   /** `getBoundingClientRect()` box in full-page document coords. */
   box?: Box
@@ -164,6 +166,8 @@ export type DeltaProperty =
   // ── REQ-48 (item 5) multi-viewport / responsive reflow ───────────────────
   | 'viewport'
   | 'overflow'
+  // ── REQ-48 (item 7) web-font load ────────────────────────────────────────
+  | 'fontLoad'
 
 /**
  * REQ-47 — the severity taxonomy. Every delta is tagged with a {@link DeltaKind}
@@ -182,6 +186,7 @@ export type DeltaKind =
   | 'position'
   | 'text'
   | 'overflow'
+  | 'fontLoad'
   | 'zOrder'
   | 'media'
   | 'size'
@@ -426,6 +431,7 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.borderLeft !== undefined) el.borderLeft = run.borderLeft
   if (run.paddingLeftPx !== undefined) el.paddingLeftPx = run.paddingLeftPx
   if (run.colorInferred) el.colorInferred = true
+  if (run.fontLoaded === false) el.fontLoaded = false
   copyGeometry(el, run)
   return el
 }
@@ -476,6 +482,7 @@ export function rawRunToElement(run: RawRun): ValueElement {
   }
   if (run.lineHeightPx !== null) el.lineHeightPx = run.lineHeightPx
   if (run.colorInferred) el.colorInferred = true
+  if (run.fontLoaded === false) el.fontLoaded = false
   copyGeometry(el, run)
   return el
 }
@@ -556,6 +563,18 @@ export function horizontalOverflows(manifest: ValueManifest, tolerancePx = 1): V
   )
 }
 
+/**
+ * REQ-48 (item 7) — the web-font resolution check: elements whose intended named
+ * face did not resolve, so the browser painted a fallback with different metrics
+ * (a FOUT/fallback that silently shifts every size, line-height and wrap below
+ * it). Only elements the capture positively marked `fontLoaded: false` count —
+ * an undefined field (a generic keyword, or a pre-REQ-48 bundle) is never a
+ * false positive. Needs only the render itself; no reference side.
+ */
+export function unresolvedFonts(manifest: ValueManifest): ValueElement[] {
+  return manifest.elements.filter((e) => e.fontLoaded === false)
+}
+
 // ── diff ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -572,6 +591,7 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   position: 'CRITICAL',
   text: 'CRITICAL',
   overflow: 'HIGH',
+  fontLoad: 'HIGH',
   zOrder: 'HIGH',
   media: 'HIGH',
   size: 'HIGH',
@@ -611,7 +631,8 @@ const KIND_RANK: Record<DeltaKind, number> = {
   position: 3,
   text: 2,
   // HIGH band
-  overflow: 6,
+  overflow: 7,
+  fontLoad: 6,
   zOrder: 5,
   media: 4,
   size: 3,
@@ -673,6 +694,7 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   missing: 'presence',
   viewport: 'viewport',
   overflow: 'overflow',
+  fontLoad: 'fontLoad',
   text: 'text',
   color: 'color',
   gradient: 'gradient',
@@ -1192,6 +1214,13 @@ export function diffManifests(
   for (const e of horizontalOverflows(actual)) {
     const right = Math.round(e.box!.x + e.box!.width)
     record(e.text, e.role, 'overflow', `≤${actual.viewport!.width}w`, `${right}w`, right - actual.viewport!.width)
+  }
+
+  // REQ-48 (item 7) — web-font load. An element that fell back to a different
+  // face renders with different metrics; skip the wait and the whole suite is
+  // flaky, so a positively-detected fallback is a HIGH delta on our own render.
+  for (const e of unresolvedFonts(actual)) {
+    record(e.text, e.role, 'fontLoad', 'intended face', `fallback (${e.fontFamily})`)
   }
 
   // REQ-48 (item 9) — drop deltas an explicit ignore-mask claims are correct-by-

@@ -245,6 +245,8 @@ export interface ContentRun extends ElementGeometry {
   text: string
   color: string
   fontFamily: string
+  /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
+  fontLoaded?: boolean
   fontSizePx: number
   fontWeight: number
   // ── REQ-31 per-element value manifest fields ─────────────────────────────

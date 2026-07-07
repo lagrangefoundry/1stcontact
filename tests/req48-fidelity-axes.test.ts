@@ -4,6 +4,7 @@ import {
   diffManifests,
   horizontalOverflows,
   RESPONSIVE_VIEWPORTS,
+  unresolvedFonts,
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
@@ -373,5 +374,39 @@ describe('REQ-48 item 5 — multi-viewport / responsive reflow', () => {
     expect(widths).toEqual([320, 375, 768, 1024, 1280, 1440])
     // At least one non-desktop width so a mobile reflow break can surface.
     expect(widths.some((w) => w < 768)).toBe(true)
+  })
+})
+
+// ── Item 7 — web-font load / FOUT ────────────────────────────────────────────
+
+describe('REQ-48 item 7 — web-font load / fallback metrics', () => {
+  it('test_UAT_FC_REQ-48_fallback_font_flagged_high', () => {
+    // Our render fell back off the intended face (fontLoaded:false): a FOUT that
+    // shifts metrics for every run below it. HIGH, unilateral on our side.
+    const expected = mani('ref', [el('Heading', { fontFamily: 'Inter' })])
+    const actual = mani('draft', [el('Heading', { fontFamily: 'Inter', fontLoaded: false })])
+    const report = diffManifests(expected, actual)
+    const f = report.deltas.filter((d) => d.kind === 'fontLoad')
+    expect(f).toHaveLength(1)
+    expect(f[0].tier).toBe('HIGH')
+  })
+
+  it('test_UAT_FC_REQ-48_resolved_font_is_clean', () => {
+    const report = diffManifests(
+      mani('ref', [el('Heading', { fontFamily: 'Inter' })]),
+      mani('draft', [el('Heading', { fontFamily: 'Inter', fontLoaded: true })]),
+    )
+    expect(report.deltas.some((d) => d.kind === 'fontLoad')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_unresolved_fonts_helper_selects_only_false', () => {
+    const m = mani('draft', [
+      el('a', { fontLoaded: false }),
+      el('b', { fontLoaded: true }),
+      el('c'), // undefined — generic / pre-REQ-48, never a false positive
+    ])
+    const unresolved = unresolvedFonts(m)
+    expect(unresolved).toHaveLength(1)
+    expect(unresolved[0].text).toBe('a')
   })
 })

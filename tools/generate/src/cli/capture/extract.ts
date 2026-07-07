@@ -49,6 +49,8 @@ export interface RawRun extends RawGeometry {
   /** REQ-35 — true when `color` fell back to the `#000000` sentinel (unresolvable). */
   colorInferred?: boolean
   fontFamily: string
+  /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
+  fontLoaded?: boolean
   fontSizePx: number
   fontWeight: number
   // ── REQ-31 per-element value fields (raw; normalized in sections.ts) ───────
@@ -150,6 +152,20 @@ export const EXTRACT_SCRIPT = `(() => {
   }
   function primaryFamily(ff) {
     return (ff || '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+  }
+  // REQ-48 (item 7) -- did the intended named face actually resolve, or is the
+  // browser painting a fallback with different metrics? Generic keywords need no
+  // load (always true). A named face is checked against the loaded FontFaceSet;
+  // when the API is missing we assume loaded rather than cry false-positive.
+  function fontLoadedOf(s, family) {
+    if (!family) return true;
+    var generic = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-|inherit|initial|unset|-apple-system|blinkmacsystemfont)/i;
+    if (generic.test(family)) return true;
+    try {
+      return document.fonts && document.fonts.check ? document.fonts.check(s.fontSize + ' "' + family + '"') : true;
+    } catch (e) {
+      return true;
+    }
   }
   function visible(el) {
     var node = el;
@@ -387,6 +403,7 @@ export const EXTRACT_SCRIPT = `(() => {
         color: resolvedColor || '#000000',
         colorInferred: !resolvedColor,
         fontFamily: primaryFamily(s.fontFamily),
+        fontLoaded: fontLoadedOf(s, primaryFamily(s.fontFamily)),
         fontSizePx: Math.round(parseFloat(s.fontSize)),
         fontWeight: parseInt(s.fontWeight, 10) || 400,
         lineHeightPx: isNaN(lh) ? null : Math.round(lh),

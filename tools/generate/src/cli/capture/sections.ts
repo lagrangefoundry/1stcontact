@@ -84,6 +84,7 @@ function toContentRun(r: RawRun): ContentRun {
   }
   if (r.lineHeightPx !== null) run.lineHeightPx = r.lineHeightPx
   if (r.colorInferred) run.colorInferred = true
+  if (r.fontLoaded === false) run.fontLoaded = false
   // REQ-47 — rendered geometry / shape / structure (always captured live).
   run.box = r.box
   run.borderRadiusPx = r.borderRadiusPx

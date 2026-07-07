@@ -24,6 +24,7 @@ export {
   rawRunToElement,
   fieldToElement,
   horizontalOverflows,
+  unresolvedFonts,
   RESPONSIVE_VIEWPORTS,
 } from './values-diff'
 export type {

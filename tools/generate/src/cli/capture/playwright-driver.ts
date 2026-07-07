@@ -53,6 +53,16 @@ class PlaywrightDriver implements BrowserDriver {
 
     await this.page.goto(url, { waitUntil: 'networkidle' })
 
+    // REQ-48 (item 7) — web-font load precondition. `networkidle` can settle
+    // before the browser swaps from a fallback face to the intended @font-face,
+    // so computed styles read now would record fallback metrics (FOUT) and every
+    // downstream delta would be contaminated. Waiting on `document.fonts.ready`
+    // guarantees each declared face has resolved (or failed) first. Best-effort:
+    // an engine without the FontFaceSet API must not block the capture.
+    await this.page
+      .evaluate('document.fonts && document.fonts.ready ? document.fonts.ready.then(function(){return true}) : true')
+      .catch(() => undefined)
+
     for (const resp of pending) {
       try {
         const body = await resp.body()
