@@ -410,3 +410,58 @@ describe('REQ-48 item 7 — web-font load / fallback metrics', () => {
     expect(unresolved[0].text).toBe('a')
   })
 })
+
+// ── Item 1 — motion & interaction (transforms + declared motion) ─────────────
+
+describe('REQ-48 item 1 — motion / transform', () => {
+  it('test_UAT_FC_REQ-48_rotation_mismatch_flagged_high', () => {
+    // A collage layer rotated 15° in the reference, upright in the repro.
+    const expected = mani('ref', [el('layer', { transformRotateDeg: 15 })])
+    const actual = mani('draft', [el('layer', { transformRotateDeg: 0 })])
+    const report = diffManifests(expected, actual)
+    const t = report.deltas.filter((d) => d.kind === 'transform')
+    expect(t).toHaveLength(1)
+    expect(t[0].tier).toBe('HIGH')
+  })
+
+  it('test_UAT_FC_REQ-48_scale_mismatch_flagged', () => {
+    const report = diffManifests(
+      mani('ref', [el('badge', { transformScale: 1 })]),
+      mani('draft', [el('badge', { transformScale: 1.3 })]),
+    )
+    expect(report.deltas.filter((d) => d.property === 'transform')).toHaveLength(1)
+  })
+
+  it('test_UAT_FC_REQ-48_small_rotation_jitter_tolerated', () => {
+    // A 1° matrix-rounding difference is sub-threshold (±2°).
+    const report = diffManifests(
+      mani('ref', [el('layer', { transformRotateDeg: 0 })]),
+      mani('draft', [el('layer', { transformRotateDeg: 1 })]),
+    )
+    expect(report.deltas.some((d) => d.kind === 'transform')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_missing_motion_flagged_medium', () => {
+    // An entrance animation present in the reference, absent in the repro.
+    const expected = mani('ref', [el('hero', { motion: 'animation' })])
+    const actual = mani('draft', [el('hero', { motion: null })])
+    const report = diffManifests(expected, actual)
+    const m = report.deltas.filter((d) => d.kind === 'motion')
+    expect(m).toHaveLength(1)
+    expect(m[0].tier).toBe('MEDIUM')
+  })
+
+  it('test_UAT_FC_REQ-48_matching_transform_and_motion_clean', () => {
+    const m = mani('ref', [el('x', { transformRotateDeg: 8, transformScale: 1.1, motion: 'transition' })])
+    const report = diffManifests(
+      m,
+      mani('draft', [el('x', { transformRotateDeg: 8, transformScale: 1.1, motion: 'transition' })]),
+    )
+    expect(report.deltas).toHaveLength(0)
+  })
+
+  it('test_UAT_FC_REQ-48_motion_absent_axis_inert', () => {
+    const report = diffManifests(mani('ref', [el('x')]), mani('draft', [el('x')]))
+    expect(report.deltas.some((d) => d.kind === 'transform' || d.kind === 'motion')).toBe(false)
+  })
+})

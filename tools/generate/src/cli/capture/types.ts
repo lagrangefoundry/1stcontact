@@ -218,6 +218,23 @@ export interface ElementGeometry {
   textShadow?: string | null
   /** Computed `mask-image` or `clip-path` when the element is masked/clipped (feather halo, shaped edge), else null. */
   maskEdge?: string | null
+  /**
+   * REQ-48 (item 1) — transform rotation in degrees, decomposed from the computed
+   * transform matrix (0 when none). A mis-rotated collage layer is a first-class
+   * delta; `transform-origin` displacement, by contrast, needs no field because
+   * {@link box} is already the *effective post-transform* rect and surfaces as a
+   * position delta.
+   */
+  transformRotateDeg?: number
+  /** REQ-48 (item 1) — transform uniform scale factor, decomposed from the matrix (1 when none). */
+  transformScale?: number
+  /**
+   * REQ-48 (item 1) — declared motion: `animation` (keyframes / entrance /
+   * scroll-reveal), `transition` (hover-transition), `both`, or null. Presence is
+   * what the resting frame can't hold — a hover-scale or entrance leaves no signal
+   * at rest, but its declaration does.
+   */
+  motion?: 'animation' | 'transition' | 'both' | null
 }
 
 /**

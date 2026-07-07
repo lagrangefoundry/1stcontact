@@ -30,7 +30,16 @@ class PlaywrightDriver implements BrowserDriver {
   async navigate(url: string, viewport?: Viewport): Promise<void> {
     const { chromium } = await import('playwright')
     this.browser = await chromium.launch()
-    const context = await this.browser.newContext({ viewport: viewport ?? DEFAULT_VIEWPORT })
+    // REQ-48 (item 1) — freeze-determinism precondition. Motion (entrance
+    // animations, hover transitions, parallax) is time-dependent, so an
+    // unfrozen page projects a different frame every run and the whole gate is
+    // flaky. Emulating `prefers-reduced-motion: reduce` collapses animations to
+    // their resting state so the projection is deterministic; the *declaration*
+    // of motion is still captured from computed styles (item 1 motion field).
+    const context = await this.browser.newContext({
+      viewport: viewport ?? DEFAULT_VIEWPORT,
+      reducedMotion: 'reduce',
+    })
     this.page = await context.newPage()
 
     // Cache every response as it arrives; bodies are read after load settles.

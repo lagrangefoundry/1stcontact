@@ -95,6 +95,9 @@ function toContentRun(r: RawRun): ContentRun {
   run.filter = r.filter
   run.textShadow = r.textShadow
   run.maskEdge = r.maskEdge
+  run.transformRotateDeg = r.transformRotateDeg
+  run.transformScale = r.transformScale
+  run.motion = r.motion
   return run
 }
 
@@ -112,6 +115,9 @@ function toField(f: RawField): Field {
     filter: f.filter,
     textShadow: f.textShadow,
     maskEdge: f.maskEdge,
+    transformRotateDeg: f.transformRotateDeg,
+    transformScale: f.transformScale,
+    motion: f.motion,
     objectFit: f.objectFit,
     intrinsicAspect: f.intrinsicAspect,
     accessibleName: f.accessibleName,

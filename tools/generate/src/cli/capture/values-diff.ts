@@ -82,6 +82,12 @@ export interface ValueElement {
   textShadow?: string | null
   /** REQ-48 (item 3) — computed `mask-image`/`clip-path` when masked/clipped, else null. */
   maskEdge?: string | null
+  /** REQ-48 (item 1) — transform rotation in degrees (0 when none). */
+  transformRotateDeg?: number
+  /** REQ-48 (item 1) — transform uniform scale (1 when none). */
+  transformScale?: number
+  /** REQ-48 (item 1) — declared motion: animation / transition / both / null. */
+  motion?: 'animation' | 'transition' | 'both' | null
   /**
    * REQ-47 — true for a text-free element (input, divider). It has no text join
    * key, so the diff pairs it on `a11yRole + document order` and never routes it
@@ -168,6 +174,9 @@ export type DeltaProperty =
   | 'overflow'
   // ── REQ-48 (item 7) web-font load ────────────────────────────────────────
   | 'fontLoad'
+  // ── REQ-48 (item 1) motion & interaction ─────────────────────────────────
+  | 'transform'
+  | 'motion'
 
 /**
  * REQ-47 — the severity taxonomy. Every delta is tagged with a {@link DeltaKind}
@@ -187,12 +196,14 @@ export type DeltaKind =
   | 'text'
   | 'overflow'
   | 'fontLoad'
+  | 'transform'
   | 'zOrder'
   | 'media'
   | 'size'
   | 'fontSize'
   | 'fontFamily'
   | 'shape'
+  | 'motion'
   | 'treatment'
   | 'borderLeft'
   | 'gradient'
@@ -402,6 +413,9 @@ function copyGeometry(
     filter?: string | null
     textShadow?: string | null
     maskEdge?: string | null
+    transformRotateDeg?: number
+    transformScale?: number
+    motion?: 'animation' | 'transition' | 'both' | null
   },
 ): void {
   if (src.box !== undefined) el.box = src.box
@@ -413,6 +427,9 @@ function copyGeometry(
   if (src.filter !== undefined) el.filter = src.filter
   if (src.textShadow !== undefined) el.textShadow = src.textShadow
   if (src.maskEdge !== undefined) el.maskEdge = src.maskEdge
+  if (src.transformRotateDeg !== undefined) el.transformRotateDeg = src.transformRotateDeg
+  if (src.transformScale !== undefined) el.transformScale = src.transformScale
+  if (src.motion !== undefined) el.motion = src.motion
 }
 
 /** Project a {@link ContentRun} (from a capture bundle) to a {@link ValueElement}. */
@@ -592,12 +609,14 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   text: 'CRITICAL',
   overflow: 'HIGH',
   fontLoad: 'HIGH',
+  transform: 'HIGH',
   zOrder: 'HIGH',
   media: 'HIGH',
   size: 'HIGH',
   fontSize: 'HIGH',
   fontFamily: 'HIGH',
   shape: 'MEDIUM',
+  motion: 'MEDIUM',
   treatment: 'MEDIUM',
   borderLeft: 'MEDIUM',
   gradient: 'MEDIUM',
@@ -631,15 +650,17 @@ const KIND_RANK: Record<DeltaKind, number> = {
   position: 3,
   text: 2,
   // HIGH band
-  overflow: 7,
-  fontLoad: 6,
+  overflow: 8,
+  fontLoad: 7,
+  transform: 6,
   zOrder: 5,
   media: 4,
   size: 3,
   fontSize: 2,
   fontFamily: 1,
   // MEDIUM band
-  shape: 5,
+  shape: 6,
+  motion: 5,
   treatment: 4,
   borderLeft: 3,
   gradient: 2,
@@ -718,6 +739,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   mask: 'treatment',
   objectFit: 'media',
   aspect: 'media',
+  transform: 'transform',
+  motion: 'motion',
 }
 
 /**
@@ -1030,6 +1053,24 @@ export function diffManifests(
     compareTreatment(exp, act, 'textShadow', exp.textShadow, act.textShadow)
     compareTreatment(exp, act, 'mask', exp.maskEdge, act.maskEdge)
     compareMedia(exp, act)
+    // REQ-48 (item 1) — transform: a mis-rotated collage layer or a wrong scale.
+    // Rotation ±2° / scale ±0.05 tolerances absorb sub-degree matrix rounding.
+    // (transform-origin displacement needs no field — box is the effective
+    // post-transform rect and already surfaces as a position delta.)
+    if (exp.transformRotateDeg !== undefined && act.transformRotateDeg !== undefined) {
+      const dr = Math.abs(exp.transformRotateDeg - act.transformRotateDeg)
+      if (dr > 2) push(exp, 'transform', `rot ${exp.transformRotateDeg}°`, `rot ${act.transformRotateDeg}°`, dr)
+    }
+    if (exp.transformScale !== undefined && act.transformScale !== undefined) {
+      const ds = Math.abs(exp.transformScale - act.transformScale)
+      if (ds > 0.05) push(exp, 'transform', `×${exp.transformScale}`, `×${act.transformScale}`, ds)
+    }
+    // REQ-48 (item 1) — declared motion presence. A hover-scale / entrance /
+    // scroll-reveal present in the reference but absent in the repro (or vice
+    // versa) leaves no resting-frame signal; its declaration does.
+    if (exp.motion !== undefined && act.motion !== undefined && (exp.motion ?? null) !== (act.motion ?? null)) {
+      push(exp, 'motion', exp.motion ?? 'none', act.motion ?? 'none')
+    }
   }
 
   // REQ-48 (item 4) — media fidelity for captured photo children (a11yRole

@@ -39,6 +39,12 @@ export interface RawGeometry {
   textShadow: string | null
   /** REQ-48 (item 3) — computed `mask-image` or `clip-path` when the element is masked/clipped, else null. */
   maskEdge: string | null
+  /** REQ-48 (item 1) — transform rotation in degrees, decomposed from the matrix (0 when none). */
+  transformRotateDeg: number
+  /** REQ-48 (item 1) — transform uniform scale, decomposed from the matrix (1 when none). */
+  transformScale: number
+  /** REQ-48 (item 1) — declared motion: animation / transition / both / null. */
+  motion: 'animation' | 'transition' | 'both' | null
 }
 
 /** A single visible text run with its exact painted styling. */
@@ -227,6 +233,34 @@ export const EXTRACT_SCRIPT = `(() => {
   // clip). Either mechanism collapses to one field; presence is what the eye reads.
   function maskEdgeOf(s) {
     return paintedOrNull(s.maskImage || s.webkitMaskImage) || paintedOrNull(s.clipPath);
+  }
+  // REQ-48 (item 1) -- decompose the 2D transform matrix into rotation (deg) and
+  // uniform scale. matrix(a,b,c,d,e,f): rotation = atan2(b,a), scale = hypot(a,b).
+  // Translation (e,f) is already folded into the getBoundingClientRect box, so it
+  // needs no field. matrix3d and an unparseable value fall back to identity.
+  function transformOf(s) {
+    var t = s.transform;
+    if (!t || t === 'none') return { rotate: 0, scale: 1 };
+    var m = t.match(/matrix\(([^)]+)\)/);
+    if (!m) return { rotate: 0, scale: 1 };
+    var p = m[1].split(',');
+    var a = parseFloat(p[0]), b = parseFloat(p[1]);
+    if (isNaN(a) || isNaN(b)) return { rotate: 0, scale: 1 };
+    return {
+      rotate: Math.round(Math.atan2(b, a) * 180 / Math.PI),
+      scale: Math.round(Math.sqrt(a * a + b * b) * 100) / 100,
+    };
+  }
+  // REQ-48 (item 1) -- declared motion. Keyframe animation (entrance / scroll-
+  // reveal) and a non-zero transition (hover) leave no signal in a resting frame,
+  // but their declaration is a rendered fact the projection can hold.
+  function motionOf(s) {
+    var anim = s.animationName && s.animationName !== 'none';
+    var trans = s.transitionDuration && s.transitionDuration !== '0s' && s.transitionProperty !== 'none';
+    if (anim && trans) return 'both';
+    if (anim) return 'animation';
+    if (trans) return 'transition';
+    return null;
   }
   // The a11y role: an explicit role attr wins, else the implicit role for the tag
   // (the browser's own framework-agnostic semantic label — a <button>, an <a
@@ -422,6 +456,9 @@ export const EXTRACT_SCRIPT = `(() => {
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s),
+        transformRotateDeg: transformOf(s).rotate,
+        transformScale: transformOf(s).scale,
+        motion: motionOf(s),
       });
     }
     return out;
@@ -459,6 +496,9 @@ export const EXTRACT_SCRIPT = `(() => {
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s),
+        transformRotateDeg: transformOf(s).rotate,
+        transformScale: transformOf(s).scale,
+        motion: motionOf(s),
         objectFit: isImg ? (s.objectFit || 'fill') : null,
         intrinsicAspect: intrinsicAspect,
         accessibleName: an.name,
