@@ -196,6 +196,8 @@ export interface ValuesDiffReport {
   unmatched: number
   /** Field-level deltas, most-severe first. */
   deltas: ValueDelta[]
+  /** REQ-48 (item 9) — count of deltas suppressed by an ignore-mask this run. */
+  suppressed: number
 }
 
 // ── gradient normalization ───────────────────────────────────────────────────
@@ -546,6 +548,23 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
 export interface DiffOptions {
   /** Exact-match mode: zero every measurement tolerance below. Overrides them. */
   strict?: boolean
+  /**
+   * REQ-48 (item 9) — ignore-masks for legitimately-dynamic content. Each entry
+   * is a regular-expression *source* string; a delta is suppressed when the
+   * pattern matches the element text OR either the expected/actual value.
+   * Purpose: a hardcoded `© 2025` in a captured reference vs our dynamic current
+   * year is a permanent correct-by-design false positive (also live counters,
+   * "N days ago", A/B slots). An un-compilable pattern is skipped, never fatal.
+   */
+  ignore?: string[]
+  /**
+   * REQ-48 (item 9) — built-in mask for the calendar-year case (default on).
+   * Suppresses a `text` delta whose expected and actual are identical once every
+   * 4-digit year (19xx/20xx) is normalized away, so `© 2025` vs `© 2026` is inert
+   * without per-site config while any *other* text change on the same run still
+   * fires. Set false to compare years verbatim.
+   */
+  ignoreDynamicYear?: boolean
   /** Perceptual colour distance (redmean ΔE) under which a colour pair matches (default 3). */
   colorTolerance?: number
   /** Font-size px tolerance (default 1). */
@@ -659,6 +678,32 @@ function gradientsMatch(a: TextGradient, b: TextGradient, tolDeg: number): boole
 }
 
 /**
+ * REQ-48 (item 9) — collapse every 4-digit calendar year (19xx/20xx) to a fixed
+ * placeholder so a year-only text difference (`© 2025` vs `© 2026`) folds to
+ * equality while any other change on the run survives.
+ */
+function normalizeYears(s: string): string {
+  return s.replace(/\b(?:19|20)\d{2}\b/g, 'YYYY')
+}
+
+/**
+ * REQ-48 (item 9) — compile ignore-mask sources once. An un-compilable pattern
+ * is dropped rather than thrown: a malformed mask must never crash the gate (a
+ * bad allowlist entry should degrade to "not ignored", the safe direction).
+ */
+function compileIgnore(sources: string[] | undefined): RegExp[] {
+  const out: RegExp[] = []
+  for (const src of sources ?? []) {
+    try {
+      out.push(new RegExp(src))
+    } catch {
+      // skip a malformed mask; over-reporting is safer than a crash
+    }
+  }
+  return out
+}
+
+/**
  * Diff an actual manifest against an expected one, field by field, aligning
  * text elements by case-folded text and section-level values (scrim, vertical
  * anchor) by ordinal index. The verbatim text is itself compared once paired
@@ -694,6 +739,15 @@ export function diffManifests(
   const sizeTol = tol(opts.sizeTolerancePx, 16)
   const radiusTol = tol(opts.borderRadiusTolerancePx, 4)
 
+  // REQ-48 (item 9) — the calendar-year mask folds every 4-digit year in the
+  // *join key* and the verbatim-text comparison, so a footer that differs only by
+  // `© 2025` vs our dynamic `© 2026` still pairs and then reads as unchanged text.
+  // Without folding the key, a year-only change breaks the pairing and surfaces as
+  // a spurious CRITICAL `missing` delta — the exact permanent false positive this
+  // mask exists to kill. `--compare-years` sets it false to compare years verbatim.
+  const maskYears = opts.ignoreDynamicYear ?? true
+  const joinKey = (t: string): string => norm(maskYears ? normalizeYears(t) : t)
+
   // Group actual elements into FIFO queues so repeated keys pair with expected
   // occurrences in document order. Text runs join on normalized text; text-free
   // fields have no text key, so they join on `a11yRole` (REQ-47) instead — kept
@@ -703,7 +757,7 @@ export function diffManifests(
   for (const el of actual.elements) {
     const [map, key] = el.textless
       ? [fieldQueues, el.a11yRole ?? el.role]
-      : [queues, norm(el.text)]
+      : [queues, joinKey(el.text)]
     const q = map.get(key)
     if (q) q.push(el)
     else map.set(key, [el])
@@ -795,7 +849,7 @@ export function diffManifests(
 
   for (const exp of expected.elements) {
     if (exp.textless) continue
-    const q = queues.get(norm(exp.text))
+    const q = queues.get(joinKey(exp.text))
     const act = q && q.length > 0 ? q.shift() : undefined
     if (!act) {
       unmatched++
@@ -810,7 +864,12 @@ export function diffManifests(
     // delta both screenshots and computed styles miss (the join hid it, not a
     // font). Compare the collapsed forms case-sensitively; whitespace-only
     // formatting noise stays ignored because both sides are collapsed first.
-    if (collapse(exp.text) !== collapse(act.text)) {
+    // REQ-48 (item 9) — when the year mask is on, compare year-normalized forms
+    // so a paired run differing *only* by a calendar year reads as unchanged,
+    // while any other casing/word change on the same run still surfaces.
+    const expText = maskYears ? normalizeYears(exp.text) : exp.text
+    const actText = maskYears ? normalizeYears(act.text) : act.text
+    if (collapse(expText) !== collapse(actText)) {
       push(exp, 'text', exp.text, act.text)
     }
 
@@ -892,15 +951,29 @@ export function diffManifests(
     }
   }
 
+  // REQ-48 (item 9) — drop deltas an explicit ignore-mask claims are correct-by-
+  // design dynamic content (live counters, "N days ago", A/B slots). A mask hits
+  // when its pattern matches the element text or either side's value. (The
+  // calendar-year case is handled structurally above, at the join key + text
+  // compare, so it never reaches here.) Filtering happens *after* recording — so
+  // `suppressed` is an honest count — and *before* the sort, so a masked row can
+  // never rank.
+  const ignore = compileIgnore(opts.ignore)
+  const isIgnored = (d: ValueDelta): boolean =>
+    ignore.some((re) => re.test(d.text) || re.test(d.expected) || re.test(d.actual))
+  const kept = ignore.length > 0 ? deltas.filter((d) => !isIgnored(d)) : deltas
+  const suppressed = deltas.length - kept.length
+
   // Stable sort by composite severity = (tier, kind-within-tier, magnitude), so a
   // small structural defect always outranks a large tonal one and, within a kind,
   // the larger magnitude leads. Equal keys keep document order (V8 sort is stable).
-  deltas.sort((a, b) => b.severity - a.severity)
+  kept.sort((a, b) => b.severity - a.severity)
   return {
     expectedSource: expected.source,
     actualSource: actual.source,
     matched,
     unmatched,
-    deltas,
+    deltas: kept,
+    suppressed,
   }
 }

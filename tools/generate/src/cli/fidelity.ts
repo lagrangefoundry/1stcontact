@@ -105,7 +105,8 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
  * most obvious structural defects sit unflagged.
  */
 export function formatReport(report: ValuesDiffReport): string {
-  const head = `values-diff: ${report.expectedSource} ⇄ ${report.actualSource}\n  ${report.matched} matched, ${report.unmatched} unmatched, ${report.deltas.length} delta(s)`
+  const masked = report.suppressed > 0 ? `, ${report.suppressed} masked` : ''
+  const head = `values-diff: ${report.expectedSource} ⇄ ${report.actualSource}\n  ${report.matched} matched, ${report.unmatched} unmatched, ${report.deltas.length} delta(s)${masked}`
   if (report.deltas.length === 0) return `${head}\n  ✓ no value deltas`
   const rows = report.deltas.map(
     (d) =>

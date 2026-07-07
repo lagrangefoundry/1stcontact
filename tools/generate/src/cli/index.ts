@@ -89,6 +89,7 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   Noise controls (REQ-35): tolerances default to jitter-tolerant; --strict = exact match.
     [--strict] [--color-tol <ΔE>] [--font-size-tol <px>] [--line-height-tol <px>]
     [--letter-spacing-tol <px>] [--padding-tol <px>] [--border-tol <px>] [--weight-tol <n>]
+  Ignore-masks (REQ-48): [--ignore <regex,regex,…>] suppress dynamic content; [--compare-years] disable the built-in © year mask.
 
 Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regions + crop triptychs:
   1c diff <slug> --ref <bundleDir|refPng> [--source draft|published] [--out <dir>] [--json] [--sandbox]
@@ -276,8 +277,19 @@ export async function run(argv: string[]): Promise<void> {
         if (Number.isNaN(n)) throw new Error(`--${name} expects a number, got '${v}'.`)
         return n
       }
+      // REQ-48 (item 9) ignore-masks: `--ignore` is a comma-separated list of
+      // regex sources; `--compare-years` opts out of the built-in year mask.
+      const ignore =
+        typeof flags.ignore === 'string'
+          ? flags.ignore
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : undefined
       const diffOptions = {
         strict: flags.strict === true,
+        ignore,
+        ignoreDynamicYear: flags['compare-years'] === true ? false : undefined,
         colorTolerance: numFlag('color-tol'),
         fontSizeTolerancePx: numFlag('font-size-tol'),
         lineHeightTolerancePx: numFlag('line-height-tol'),

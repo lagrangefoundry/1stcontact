@@ -1,0 +1,101 @@
+import { describe, expect, it } from 'vitest'
+import { diffManifests, type ValueElement, type ValueManifest } from '../tools/generate/src/cli'
+
+/**
+ * UATs for REQ-48 — extending the fidelity gate beyond the static single-state
+ * frame. Built incrementally, one capability per commit; this file grows as each
+ * axis lands.
+ *
+ * Item 9 (ignore-masks). A captured reference hardcodes `© 2025` while our render
+ * emits the dynamic current year — a permanent, correct-by-design false positive
+ * the gate must suppress without hiding a real content change. These UATs prove
+ * the built-in calendar-year mask folds a year-only difference (so it never
+ * surfaces even as a broken pairing), that any *other* change on the same run
+ * still fires, that `--compare-years` (ignoreDynamicYear:false) restores verbatim
+ * comparison, and that an explicit `--ignore` pattern suppresses arbitrary dynamic
+ * content while leaving unmasked deltas — and never crashes on a malformed mask.
+ */
+
+// ── manifest builders (mirror req31/req35) ───────────────────────────────────
+
+function el(text: string, over: Partial<ValueElement> = {}): ValueElement {
+  return { role: 'body', text, color: '#000000', fontFamily: 'sans', fontSizePx: 18, fontWeight: 400, ...over }
+}
+function mani(source: string, elements: ValueElement[]): ValueManifest {
+  return { source, elements, sections: [] }
+}
+
+// ── Item 9 — ignore-masks ────────────────────────────────────────────────────
+
+describe('REQ-48 item 9 — ignore-masks', () => {
+  it('test_UAT_FC_REQ-48_dynamic_year_not_flagged', () => {
+    // Reference footer hardcodes 2025; our dynamic render says 2026 — everything
+    // else identical. The year mask (on by default) must yield a clean diff.
+    const expected = mani('ref', [el('© 2025 GigaByte Alchemy')])
+    const actual = mani('draft', [el('© 2026 GigaByte Alchemy')])
+    const report = diffManifests(expected, actual)
+    expect(report.deltas).toHaveLength(0)
+    expect(report.matched).toBe(1)
+    expect(report.unmatched).toBe(0)
+  })
+
+  it('test_UAT_FC_REQ-48_year_mask_preserves_non_year_text_change', () => {
+    // Only a non-year word changed alongside the year: the gate must still fire.
+    const expected = mani('ref', [el('© 2025 GigaByte Alchemy')])
+    const actual = mani('draft', [el('© 2026 GigaByte Foundry')])
+    const report = diffManifests(expected, actual)
+    expect(report.deltas.length).toBeGreaterThan(0)
+  })
+
+  it('test_UAT_FC_REQ-48_compare_years_restores_year_delta', () => {
+    // Opting out of the mask makes a year-only difference a real delta again.
+    const expected = mani('ref', [el('© 2025 GigaByte Alchemy')])
+    const actual = mani('draft', [el('© 2026 GigaByte Alchemy')])
+    const report = diffManifests(expected, actual, { ignoreDynamicYear: false })
+    expect(report.deltas.length).toBeGreaterThan(0)
+  })
+
+  it('test_UAT_FC_REQ-48_explicit_ignore_mask_suppresses_delta', () => {
+    // A live "updated N minutes ago" run carries a real colour delta, but the
+    // operator masks the whole run as dynamic; it is suppressed and counted.
+    const expected = mani('ref', [el('Updated 3 minutes ago', { color: '#111111' })])
+    const actual = mani('draft', [el('Updated 3 minutes ago', { color: '#3388ff' })])
+    const report = diffManifests(expected, actual, { ignore: ['^Updated \\d+ minute'] })
+    expect(report.deltas).toHaveLength(0)
+    expect(report.suppressed).toBe(1)
+  })
+
+  it('test_UAT_FC_REQ-48_ignore_mask_leaves_unmasked_delta', () => {
+    // The mask hits one run; a genuine delta on a different run still ranks.
+    const expected = mani('ref', [
+      el('Live viewers: 1,204', { color: '#111111' }),
+      el('Our Mission', { color: '#111111' }),
+    ])
+    const actual = mani('draft', [
+      el('Live viewers: 1,204', { color: '#3388ff' }),
+      el('Our Mission', { color: '#c00000' }),
+    ])
+    const report = diffManifests(expected, actual, { ignore: ['^Live viewers'] })
+    expect(report.suppressed).toBe(1)
+    expect(report.deltas).toHaveLength(1)
+    expect(report.deltas[0].text).toBe('Our Mission')
+  })
+
+  it('test_UAT_FC_REQ-48_malformed_ignore_pattern_is_skipped_not_fatal', () => {
+    // An un-compilable mask must degrade to "not ignored", never crash the gate.
+    const expected = mani('ref', [el('Our Mission', { color: '#111111' })])
+    const actual = mani('draft', [el('Our Mission', { color: '#c00000' })])
+    const report = diffManifests(expected, actual, { ignore: ['('] })
+    expect(report.suppressed).toBe(0)
+    expect(report.deltas).toHaveLength(1)
+  })
+
+  it('test_UAT_FC_REQ-48_faithful_control_passes_clean', () => {
+    // The unchanged-pass control the acceptance requires: identical manifests
+    // produce zero deltas and suppress nothing.
+    const m = mani('ref', [el('© 2026 GigaByte Alchemy'), el('Our Mission')])
+    const report = diffManifests(m, mani('draft', [el('© 2026 GigaByte Alchemy'), el('Our Mission')]))
+    expect(report.deltas).toHaveLength(0)
+    expect(report.suppressed).toBe(0)
+  })
+})
