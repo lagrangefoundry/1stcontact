@@ -30,10 +30,14 @@ import {
 import { renderSite } from '../render'
 import { distDir, draftDir, loadSite, type StoreContext } from '../store'
 import {
+  evaluateResponsive,
   evaluateSafety,
   evaluateSecurity,
+  MOBILE_BAND_MAX_PX,
+  RESPONSIVE_PROBE,
   SAFETY_PROBE,
   SECURITY_PROBE,
+  type ResponsiveProbe,
   type SafetyProbe,
   type SecurityProbe,
 } from './checks'
@@ -41,6 +45,8 @@ import type { ConformanceFixture, ConformanceOptions, ConformanceViolation } fro
 
 /** Fast-tier default viewport widths: one desktop, one mobile (DOC-20). */
 const DEFAULT_WIDTHS = [1280, 375]
+/** Responsive-dimension default sweep: the full viewport ladder (REQ-41). */
+const RESPONSIVE_WIDTHS = [320, 375, 768, 1024, 1280, 1440]
 /** Full-page height for the probe viewport; width is the deterministic axis. */
 const PROBE_HEIGHT = 900
 
@@ -148,9 +154,11 @@ export async function serveOneModulePage(
 
 /**
  * Assert every fixture of `slug` conforms to the fast-tier contract for the
- * requested {@link ConformanceOptions.dimension} — `safety` (default) or
- * `security` (REQ-40: content-injection inert + no off-allowlist egress).
- * Throws {@link ConformanceError} on any non-excepted violation. On a Chromium-
+ * requested {@link ConformanceOptions.dimension} — `safety` (default),
+ * `security` (REQ-40: content-injection inert + no off-allowlist egress), or
+ * `responsive` (REQ-41: safety across the viewport ladder + mobile-band tap
+ * target / font-floor checks). Throws {@link ConformanceError} on any
+ * non-excepted violation. On a Chromium-
  * less runner (and only with the default driver) the check is advisory and
  * returns cleanly — the leaf is a no-op rather than a hard failure (DOC-20).
  */
@@ -162,7 +170,8 @@ export async function assertModuleConforms(
   const factory: BrowserDriverFactory = opts.driverFactory ?? createPlaywrightDriver
   if (!opts.driverFactory && !(await chromiumAvailable())) return
 
-  const widths = opts.viewports ?? DEFAULT_WIDTHS
+  const widths =
+    opts.viewports ?? (opts.dimension === 'responsive' ? RESPONSIVE_WIDTHS : DEFAULT_WIDTHS)
   const except = opts.except ?? []
   const keepOnFailure = opts.keepSandboxOnFailure ?? true
   const allViolations: ConformanceViolation[] = []
@@ -200,10 +209,18 @@ export async function assertModuleConforms(
               ),
             )
           } else {
+            // `safety` and `responsive` both run the safety checks at every
+            // width; `responsive` adds the mobile-band checks (tap targets, font
+            // floor) at widths ≤ MOBILE_BAND_MAX_PX. The overflow check already
+            // covers "images scale within the viewport" at each width.
             const probe = await driver.query<SafetyProbe>(SAFETY_PROBE)
             fixtureViolations.push(
               ...evaluateSafety(fixture.label, String(width), probe, driver.diagnostics()),
             )
+            if (opts.dimension === 'responsive' && width <= MOBILE_BAND_MAX_PX) {
+              const rprobe = await driver.query<ResponsiveProbe>(RESPONSIVE_PROBE)
+              fixtureViolations.push(...evaluateResponsive(fixture.label, String(width), rprobe))
+            }
           }
         } finally {
           await driver.close()

@@ -200,3 +200,104 @@ export function evaluateSecurity(
 
   return violations
 }
+
+// ── REQ-41 responsive dimension ([[DOC-20]] AC-M4) ────────────────────────────
+//
+// Responsive is the **viewport axis** over the fast safety checks (overflow /
+// collapsed / clipped, run at every width by {@link evaluateSafety}) plus the two
+// mobile-band checks below. The overflow check already enforces "images scale
+// within the viewport" — an image wider than the viewport *is* horizontal
+// overflow — so there is no separate image-scale check; that would be a redundant
+// code path for a signal `safety.overflow` already catches.
+
+/** Widths at/below which the mobile-specific checks apply (the "mobile band"). */
+export const MOBILE_BAND_MAX_PX = 480
+/** Minimum rendered size (px, both axes) for a mobile tap target (Apple HIG). */
+export const MIN_TAP_TARGET_PX = 44
+/** Legibility floor (px) for on-screen text in the mobile band. Matches the
+ *  smallest design token (`--font-size-xs` = 0.75rem = 12px), so a well-formed
+ *  module using the smallest token still passes. */
+export const MOBILE_FONT_FLOOR_PX = 12
+
+/** Raw mobile-band signals returned by {@link RESPONSIVE_PROBE} from page scope. */
+export interface ResponsiveProbe {
+  /** Interactive controls whose rendered box is under {@link MIN_TAP_TARGET_PX}. */
+  smallTapTargets: string[]
+  /** Visible text runs whose computed font-size is under {@link MOBILE_FONT_FLOOR_PX}. */
+  smallFonts: string[]
+}
+
+/**
+ * A page-scope IIFE (evaluated as an expression by the driver) that, at a mobile
+ * viewport, reports interactive controls too small to tap and text below the
+ * legibility floor. Inline anchors sitting in a text flow are exempt from the
+ * tap-target rule (WCAG 2.5.5's inline exception) — otherwise every prose link
+ * would false-positive. Only elements carrying their *own* direct text node are
+ * measured for the font floor, so container elements are not judged by a child's
+ * size.
+ */
+export const RESPONSIVE_PROBE = `(() => {
+  const MIN_TAP = ${MIN_TAP_TARGET_PX};
+  const FONT_FLOOR = ${MOBILE_FONT_FLOOR_PX};
+  const innerWidth = window.innerWidth;
+  const smallTapTargets = [];
+  const smallFonts = [];
+  const describe = (el) => {
+    const text = (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 30);
+    const label = el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('name') || el.getAttribute('type'));
+    return el.tagName.toLowerCase() + (text ? ': "' + text + '"' : (label ? ' [' + label + ']' : ''));
+  };
+  const visible = (cs) => cs.display !== 'none' && cs.visibility !== 'hidden' && cs.visibility !== 'collapse';
+  const INTERACTIVE = 'button, [role="button"], input, select, textarea, a[href]';
+  for (const el of Array.from(document.querySelectorAll(INTERACTIVE))) {
+    const cs = getComputedStyle(el);
+    if (!visible(cs)) continue;
+    if (el.tagName === 'INPUT' && el.getAttribute('type') === 'hidden') continue;
+    if (el.tagName === 'A' && cs.display === 'inline') continue;   // inline-in-text link: exempt
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;                  // not laid out
+    if (r.width + 0.5 < MIN_TAP || r.height + 0.5 < MIN_TAP) {
+      smallTapTargets.push(describe(el) + ' (' + Math.round(r.width) + 'x' + Math.round(r.height) + 'px)');
+    }
+  }
+  const hasDirectText = (el) => {
+    for (const n of Array.from(el.childNodes)) {
+      if (n.nodeType === 3 && (n.textContent || '').trim().length > 0) return true;
+    }
+    return false;
+  };
+  for (const el of Array.from(document.body.querySelectorAll('*'))) {
+    const cs = getComputedStyle(el);
+    if (!visible(cs)) continue;
+    if (!hasDirectText(el)) continue;
+    const size = parseFloat(cs.fontSize);
+    if (size && size + 0.5 < FONT_FLOOR) {
+      smallFonts.push(describe(el) + ' (' + size.toFixed(1) + 'px)');
+    }
+  }
+  return { smallTapTargets, smallFonts };
+})()`
+
+/**
+ * Fold the {@link ResponsiveProbe} into AC-tagged mobile-band violations for one
+ * fixture at one (mobile) viewport. Called only for widths ≤
+ * {@link MOBILE_BAND_MAX_PX}; the overflow / collapse / clip signals are handled
+ * by {@link evaluateSafety} at every width.
+ */
+export function evaluateResponsive(
+  fixture: string,
+  viewport: string,
+  probe: ResponsiveProbe,
+): ConformanceViolation[] {
+  const violations: ConformanceViolation[] = []
+  const flag = (ac: string, message: string): void => {
+    violations.push({ fixture, viewport, ac, message })
+  }
+
+  for (const t of probe.smallTapTargets)
+    flag('responsive.tap-target', `mobile tap target below ${MIN_TAP_TARGET_PX}px: ${t}`)
+  for (const f of probe.smallFonts)
+    flag('responsive.font-floor', `text below the ${MOBILE_FONT_FLOOR_PX}px mobile legibility floor: ${f}`)
+
+  return violations
+}

@@ -1,0 +1,17 @@
+---
+/**
+ * REQ-41 negative fixture (test infrastructure, NOT a shipping module): a module
+ * with a standalone interactive control far below the 44px minimum tap target.
+ * The 20x20px block-level button is flagged `responsive.tap-target` in the mobile
+ * band. It is a block button (not an inline-in-text link), so it is not covered
+ * by the WCAG inline-anchor exemption. Inline styles only.
+ */
+---
+
+<section style="padding: 24px">
+  <h2>Small-tap-target fixture</h2>
+  <p>The button below is only 20x20px — too small to tap reliably on mobile.</p>
+  <button type="button" style="display: block; width: 20px; height: 20px; padding: 0; font-size: 12px">
+    Go
+  </button>
+</section>

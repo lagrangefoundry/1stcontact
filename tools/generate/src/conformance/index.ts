@@ -10,6 +10,14 @@ export type { SafetyProbe } from './checks'
 export { evaluateSecurity, SECURITY_PROBE, XSS_SENTINEL } from './checks'
 export type { SecurityProbe } from './checks'
 export {
+  evaluateResponsive,
+  RESPONSIVE_PROBE,
+  MOBILE_BAND_MAX_PX,
+  MIN_TAP_TARGET_PX,
+  MOBILE_FONT_FLOOR_PX,
+} from './checks'
+export type { ResponsiveProbe } from './checks'
+export {
   buildInjectionContent,
   buildBenignContent,
   buildSecurityFixtures,
