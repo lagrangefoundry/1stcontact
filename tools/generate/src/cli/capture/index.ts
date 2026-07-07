@@ -23,6 +23,8 @@ export {
   contentRunToElement,
   rawRunToElement,
   fieldToElement,
+  horizontalOverflows,
+  RESPONSIVE_VIEWPORTS,
 } from './values-diff'
 export type {
   ValueElement,

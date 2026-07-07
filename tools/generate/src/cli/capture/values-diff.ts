@@ -33,6 +33,7 @@ import type {
   Field,
   NameSource,
   TextGradient,
+  Viewport,
 } from './types'
 import type { RawRun, RawSignals } from './extract'
 
@@ -122,6 +123,13 @@ export interface ValueManifest {
   elements: ValueElement[]
   /** Section-level treatments (scrim, vertical anchor), aligned by ordinal index. */
   sections: SectionValues[]
+  /**
+   * REQ-48 (item 5) — the viewport this manifest was projected at. Layout
+   * recomposes per width, so a diff is only meaningful between two sides shot at
+   * the *same* viewport; the diff treats a width mismatch as a precondition
+   * failure (see {@link diffManifests}). Optional so pre-REQ-48 manifests parse.
+   */
+  viewport?: Viewport
 }
 
 export type DeltaProperty =
@@ -153,6 +161,9 @@ export type DeltaProperty =
   // ── REQ-48 (item 4) media fidelity ───────────────────────────────────────
   | 'objectFit'
   | 'aspect'
+  // ── REQ-48 (item 5) multi-viewport / responsive reflow ───────────────────
+  | 'viewport'
+  | 'overflow'
 
 /**
  * REQ-47 — the severity taxonomy. Every delta is tagged with a {@link DeltaKind}
@@ -165,10 +176,12 @@ export type SeverityTier = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
 export type DeltaKind =
   | 'presence'
+  | 'viewport'
   | 'containment'
   | 'arrangement'
   | 'position'
   | 'text'
+  | 'overflow'
   | 'zOrder'
   | 'media'
   | 'size'
@@ -483,7 +496,7 @@ export function flattenCapture(capture: Capture): ValueManifest {
     // REQ-47 — text-free elements (guarded: pre-REQ-47 bundles carry no `fields`).
     for (const field of section.fields ?? []) elements.push(fieldToElement(field))
   }
-  return { source: `${capture.host}${capture.path}`, elements, sections }
+  return { source: `${capture.host}${capture.path}`, elements, sections, viewport: capture.viewport }
 }
 
 /**
@@ -507,7 +520,40 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
     // REQ-47 — text-free elements (form controls, dividers).
     for (const field of band.fields ?? []) elements.push(fieldToElement(field))
   }
-  return { source, elements, sections }
+  return { source, elements, sections, viewport: signals.viewport }
+}
+
+/**
+ * REQ-48 (item 5) — the responsive viewport ladder the fidelity gate shoots at.
+ * Layout recomposes across these widths, so a diff at only the desktop width
+ * misses a mobile reflow break (the faelan wordmark overflow needed a full mobile
+ * redo). Two phone widths, one tablet, three desktop — the breakpoints real CSS
+ * targets. The harness projects + diffs at each; a delta at ≥1 non-desktop width
+ * is a responsive failure.
+ */
+export const RESPONSIVE_VIEWPORTS: readonly Viewport[] = [
+  { width: 320, height: 800 },
+  { width: 375, height: 800 },
+  { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+]
+
+/**
+ * REQ-48 (item 5) — the cheap, deterministic no-horizontal-overflow check: every
+ * visible element must fit within the viewport width (`scrollWidth <= width`). An
+ * element whose right edge exceeds the viewport (a wordmark that won't wrap at
+ * 320px, a fixed-width table) forces a horizontal scrollbar — the classic mobile
+ * reflow break. Needs only our own render at a width; no reference side. Returns
+ * the overflowing elements, empty when the layout fits.
+ */
+export function horizontalOverflows(manifest: ValueManifest, tolerancePx = 1): ValueElement[] {
+  const vw = manifest.viewport?.width
+  if (vw === undefined) return []
+  return manifest.elements.filter(
+    (e) => e.box !== undefined && e.box.x + e.box.width > vw + tolerancePx,
+  )
 }
 
 // ── diff ─────────────────────────────────────────────────────────────────────
@@ -520,10 +566,12 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
  */
 const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   presence: 'CRITICAL',
+  viewport: 'CRITICAL',
   containment: 'CRITICAL',
   arrangement: 'CRITICAL',
   position: 'CRITICAL',
   text: 'CRITICAL',
+  overflow: 'HIGH',
   zOrder: 'HIGH',
   media: 'HIGH',
   size: 'HIGH',
@@ -554,13 +602,16 @@ const TIER_RANK: Record<SeverityTier, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 
  * `position` kind, so demoting it costs nothing and keeps the pinned order.
  */
 const KIND_RANK: Record<DeltaKind, number> = {
-  // CRITICAL band
+  // CRITICAL band — viewport is a precondition failure (the diff can't be
+  // trusted at all), so it leads the band.
+  viewport: 7,
   presence: 6,
   containment: 5,
   arrangement: 4,
   position: 3,
   text: 2,
   // HIGH band
+  overflow: 6,
   zOrder: 5,
   media: 4,
   size: 3,
@@ -620,6 +671,8 @@ function escalateTier(base: SeverityTier, count: number, threshold: number): Sev
 /** The kind a fine-grained {@link DeltaProperty} belongs to (for the tier table). */
 const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   missing: 'presence',
+  viewport: 'viewport',
+  overflow: 'overflow',
   text: 'text',
   color: 'color',
   gradient: 'gradient',
@@ -1114,6 +1167,31 @@ export function diffManifests(
         record(label, 'section', 'contentAnchor', anchorLabel(es.contentAnchorRatio), anchorLabel(as.contentAnchorRatio))
       }
     }
+  }
+
+  // REQ-48 (item 5) — viewport-match precondition. Layout recomposes per width,
+  // so two sides shot at different viewports produce deltas that are artefacts of
+  // the width mismatch, not real fidelity gaps — a false-positive trap. When both
+  // carry a viewport and the widths differ, lead with a CRITICAL `viewport` delta
+  // so the operator fixes the shot before trusting anything below it.
+  if (expected.viewport && actual.viewport && expected.viewport.width !== actual.viewport.width) {
+    record(
+      '§viewport',
+      'document',
+      'viewport',
+      `${expected.viewport.width}w`,
+      `${actual.viewport.width}w`,
+      Math.abs(expected.viewport.width - actual.viewport.width),
+    )
+  }
+
+  // REQ-48 (item 5) — no-horizontal-overflow check on our own render. Any element
+  // whose right edge exceeds the viewport forces a horizontal scrollbar — the
+  // mobile reflow break (a wordmark that won't wrap at 320px). Unilateral: it
+  // needs no reference, so it fires even when the reference side is absent.
+  for (const e of horizontalOverflows(actual)) {
+    const right = Math.round(e.box!.x + e.box!.width)
+    record(e.text, e.role, 'overflow', `≤${actual.viewport!.width}w`, `${right}w`, right - actual.viewport!.width)
   }
 
   // REQ-48 (item 9) — drop deltas an explicit ignore-mask claims are correct-by-

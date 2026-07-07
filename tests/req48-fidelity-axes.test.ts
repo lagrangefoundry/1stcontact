@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   colorDistance,
   diffManifests,
+  horizontalOverflows,
+  RESPONSIVE_VIEWPORTS,
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
@@ -317,5 +319,59 @@ describe('REQ-48 item 4 — media fidelity / capture descent', () => {
       mani('draft', [imgEl('portrait', { objectFit: 'cover', box: box(0, 0, 200, 200) })]),
     )
     expect(report.deltas).toHaveLength(0)
+  })
+})
+
+// ── Item 5 — multi-viewport / responsive reflow ──────────────────────────────
+
+/** A manifest tagged with the viewport it was projected at. */
+function maniV(source: string, elements: ValueElement[], width: number, height = 800): ValueManifest {
+  return { source, elements, sections: [], viewport: { width, height } }
+}
+
+describe('REQ-48 item 5 — multi-viewport / responsive reflow', () => {
+  it('test_UAT_FC_REQ-48_viewport_mismatch_flagged_critical', () => {
+    // Reference shot at mobile, repro at desktop: the diff would be all artefacts
+    // of the width mismatch. The precondition leads with a CRITICAL viewport delta.
+    const expected = maniV('ref', [el('Home')], 375)
+    const actual = maniV('draft', [el('Home')], 1280)
+    const report = diffManifests(expected, actual)
+    expect(report.deltas[0].kind).toBe('viewport')
+    expect(report.deltas[0].tier).toBe('CRITICAL')
+  })
+
+  it('test_UAT_FC_REQ-48_matching_viewport_no_precondition_delta', () => {
+    const report = diffManifests(maniV('ref', [el('Home')], 375), maniV('draft', [el('Home')], 375))
+    expect(report.deltas.some((d) => d.kind === 'viewport')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_horizontal_overflow_flagged_at_mobile', () => {
+    // A wordmark 400px wide at a 320px viewport overflows — a mobile reflow break.
+    const overflowing = el('WORDMARK', { box: box(0, 0, 400, 40) })
+    const report = diffManifests(maniV('ref', [overflowing], 320), maniV('draft', [overflowing], 320))
+    const o = report.deltas.filter((d) => d.kind === 'overflow')
+    expect(o).toHaveLength(1)
+    expect(o[0].tier).toBe('HIGH')
+    expect(o[0].text).toBe('WORDMARK')
+  })
+
+  it('test_UAT_FC_REQ-48_no_overflow_when_layout_fits', () => {
+    const fits = el('Nav', { box: box(0, 0, 280, 40) })
+    expect(horizontalOverflows(maniV('draft', [fits], 320))).toHaveLength(0)
+    const report = diffManifests(maniV('ref', [fits], 320), maniV('draft', [fits], 320))
+    expect(report.deltas.some((d) => d.kind === 'overflow')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_overflow_inert_without_viewport', () => {
+    // Pre-REQ-48 manifests carry no viewport; the overflow check must stay silent.
+    const wide = el('Wide', { box: box(0, 0, 9999, 40) })
+    expect(horizontalOverflows(mani('draft', [wide]))).toHaveLength(0)
+  })
+
+  it('test_UAT_FC_REQ-48_responsive_viewport_ladder', () => {
+    const widths = RESPONSIVE_VIEWPORTS.map((v) => v.width)
+    expect(widths).toEqual([320, 375, 768, 1024, 1280, 1440])
+    // At least one non-desktop width so a mobile reflow break can surface.
+    expect(widths.some((w) => w < 768)).toBe(true)
   })
 })
