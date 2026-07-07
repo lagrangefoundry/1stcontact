@@ -106,6 +106,10 @@ export const defaultTokens: ThemeTokens = {
   },
   container: {
     narrow: '40rem',
+    // `readable` (REQ-49) — a reading measure (48rem/768px, Tailwind `max-w-3xl`)
+    // between `narrow` and `default`, so a constrained column (e.g. the hero
+    // body) can size independently of the `narrow` token.
+    readable: '48rem',
     default: '72rem',
     wide: '90rem',
     bleed: '100%',

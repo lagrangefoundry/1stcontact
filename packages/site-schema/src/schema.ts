@@ -615,9 +615,13 @@ export const shadowTokensSchema = z.object({
   xl: cssValue.optional(),
 })
 
-/** 4 container widths; `default` is the canonical body container. */
+/** Container widths; `default` is the canonical body container. `readable`
+ * (REQ-49, ~48rem/768px reading measure) is optional so existing themes validate
+ * unchanged — `defaultTokens` fills it, so `--container-readable` is always
+ * emitted (cf. `shadow.xl`). */
 export const containerTokensSchema = z.object({
   narrow: cssValue,
+  readable: cssValue.optional(),
   default: cssValue,
   wide: cssValue,
   bleed: cssValue,

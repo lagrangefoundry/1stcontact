@@ -43,9 +43,13 @@ const subheadStyle =
 // Subhead/body scale (REQ-33), independent of the heading `size`.
 const subheadSize = dials.subheadSize ?? 'md'
 // Subhead/body content-column width (REQ-49): `default` fills the inner frame
-// (the prior hardcoded 60ch cap is removed); `narrow`/`wide` cap the measure to
-// the matching container token so the lead/body can match a reference column.
+// (the prior hardcoded 60ch cap is removed); `narrow`/`readable`/`wide` cap the
+// measure to the matching container token so the lead/body can match a reference
+// column (`readable` ~768px, decoupled from the `narrow` token).
 const contentWidth = dials.contentWidth ?? 'default'
+// Content horizontal inset / gutter (REQ-49 cap 5): `sm` (default) is the prior
+// 16px `padding-inline`; `md`/`lg` widen the gutter to align the front-door edge.
+const contentInset = dials.contentInset ?? 'sm'
 // Subhead/body font-weight (REQ-49): `regular` (default) keeps the inherited
 // body weight; `light`/`medium`/`semibold` set the lead/body weight.
 const subheadWeight = dials.subheadWeight ?? 'regular'
@@ -80,6 +84,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `content-offset-top-${contentOffsetTop}`,
     `subhead-size-${subheadSize}`,
     `content-width-${contentWidth}`,
+    `content-inset-${contentInset}`,
     `subhead-weight-${subheadWeight}`,
     `subhead-leading-${subheadLeading}`,
     `spacing-top-${spacingTop}`,
@@ -177,6 +182,12 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     flex-direction: column;
     gap: var(--space-4);
   }
+  /* Content horizontal inset / gutter (REQ-49 cap 5): the `padding-inline` as a
+     token step, so the front-door left edge can align to a reference's gutter.
+     `sm` is the base 16px above (so a hero that omits the dial is unchanged);
+     `md`/`lg` widen it. Token-backed via `--space-*`. */
+  .hero.content-inset-md .hero__inner { padding-inline: var(--space-6); }
+  .hero.content-inset-lg .hero__inner { padding-inline: var(--space-8); }
   .hero.align-center .hero__inner { align-items: center; text-align: center; }
 
   .hero__eyebrow {
@@ -226,27 +237,35 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
      `align` dial then places the capped column (left gutter or centred).
      Token-backed, no raw measure. */
   .hero.content-width-narrow .hero__subhead { max-width: var(--container-narrow); }
+  .hero.content-width-readable .hero__subhead { max-width: var(--container-readable); }
   .hero.content-width-wide .hero__subhead { max-width: var(--container-wide); }
-  /* Subhead/body font-weight (REQ-49): `regular` (default) emits no override so
-     the subhead keeps the inherited body weight and a hero that omits the dial
-     is unchanged; the other steps set a token-backed weight (`light` = 300 for a
-     delicate lead). */
-  .hero.subhead-weight-light .hero__subhead { font-weight: var(--font-weight-light); }
-  .hero.subhead-weight-medium .hero__subhead { font-weight: var(--font-weight-medium); }
-  .hero.subhead-weight-semibold .hero__subhead { font-weight: var(--font-weight-semibold); }
-  /* Subhead line-height (REQ-45; `snug` REQ-49): `relaxed` preserves the prior
-     leading, so a hero that omits the dial is unchanged; the tighter steps
-     densen the block, with `snug` (~1.33) the intermediate step. */
-  .hero.subhead-leading-relaxed .hero__subhead { line-height: var(--line-height-relaxed); }
-  .hero.subhead-leading-normal .hero__subhead { line-height: var(--line-height-normal); }
-  .hero.subhead-leading-snug .hero__subhead { line-height: var(--line-height-snug); }
-  .hero.subhead-leading-tight .hero__subhead { line-height: var(--line-height-tight); }
+  /* Subhead font-weight + line-height (REQ-45/49): applied to the LEAD paragraph
+     only (`p:first-child`), so a delicate light + snug lead does not leak onto
+     the smaller body copy below it — the reference splits a `font-light`/snug
+     lead from a `font-normal`/relaxed body (REQ-49 residual 3). `regular`/
+     `relaxed` (defaults) emit no lead override, so the lead keeps the inherited
+     weight and the prior relaxed leading; a hero that omits the dials is
+     unchanged. The body (`p + p`) is governed by its own deterministic defaults
+     below (regular weight, relaxed leading), never by these dials. */
+  .hero.subhead-weight-light .hero__subhead p:first-child { font-weight: var(--font-weight-light); }
+  .hero.subhead-weight-medium .hero__subhead p:first-child { font-weight: var(--font-weight-medium); }
+  .hero.subhead-weight-semibold .hero__subhead p:first-child { font-weight: var(--font-weight-semibold); }
+  .hero.subhead-leading-relaxed .hero__subhead p:first-child { line-height: var(--line-height-relaxed); }
+  .hero.subhead-leading-normal .hero__subhead p:first-child { line-height: var(--line-height-normal); }
+  .hero.subhead-leading-snug .hero__subhead p:first-child { line-height: var(--line-height-snug); }
+  .hero.subhead-leading-tight .hero__subhead p:first-child { line-height: var(--line-height-tight); }
   .hero.align-center .hero__subhead { margin-inline: auto; }
   /* Markdown subhead: the lead paragraph reads as a prominent subhead line;
      any following paragraphs are the smaller body copy. The subhead-size dial
-     (REQ-33) steps the lead/body pair together; `md` preserves the prior scale. */
+     (REQ-33) steps the lead/body pair together; `md` preserves the prior scale.
+     The body copy holds readable defaults (regular weight, relaxed leading)
+     independent of the lead's weight/leading dials (REQ-49 residual 3). */
   .hero__subhead p { margin: 0; }
-  .hero__subhead p + p { margin-top: var(--space-4); }
+  .hero__subhead p + p {
+    margin-top: var(--space-4);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-relaxed);
+  }
   .hero.subhead-size-sm .hero__subhead p:first-child { font-size: var(--font-size-lg); }
   .hero.subhead-size-sm .hero__subhead p + p { font-size: var(--font-size-sm); }
   .hero.subhead-size-md .hero__subhead p:first-child { font-size: var(--font-size-xl); }

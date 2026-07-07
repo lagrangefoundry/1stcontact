@@ -4,6 +4,7 @@ import Hero from '../packages/framework/src/modules/hero/index.astro'
 import { heroMeta } from '../packages/framework/src/modules/hero/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens'
 import {
+  CONTENT_INSET_DIAL,
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
   LINE_HEIGHT_DIAL,
@@ -51,6 +52,17 @@ describe('REQ-49 fidelity primitives — meta surfaces the dials', () => {
     // The `subheadLeading` dial gains a `snug` step between `tight` and `normal`.
     expect(heroMeta.dials.subheadLeading).toEqual(LINE_HEIGHT_DIAL)
     expect(LINE_HEIGHT_DIAL).toContain('snug')
+  })
+
+  it('test_UAT_FC_REQ-49_hero_meta_exposes_content_inset_dial', () => {
+    // Capability 5 — the hero content horizontal inset / gutter dial.
+    expect(heroMeta.dials.contentInset).toEqual(CONTENT_INSET_DIAL)
+  })
+
+  it('test_UAT_FC_REQ-49_content_width_dial_carries_readable_step', () => {
+    // Residual 1 — a `readable` (768px) step decoupled from the `narrow` token.
+    expect(heroMeta.dials.contentWidth).toEqual(CONTENT_WIDTH_DIAL)
+    expect(CONTENT_WIDTH_DIAL).toContain('readable')
   })
 })
 
@@ -143,11 +155,66 @@ describe('REQ-49 capability 4 — finer subhead leading (`snug`)', () => {
   })
 })
 
+describe('REQ-49 capability 5 — hero content horizontal inset', () => {
+  it('test_UAT_FC_REQ-49_hero_carries_content_inset_class', async () => {
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      dials: { contentInset: 'md' },
+      content: { heading: 'Acme', subhead: 'Body copy.' },
+    })
+    expect(html).toContain('content-inset-md')
+  })
+
+  it('test_UAT_FC_REQ-49_hero_content_inset_defaults_to_sm', async () => {
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      content: { heading: 'Acme', subhead: 'Body copy.' },
+    })
+    // Default `sm` = the prior 16px padding-inline; never a widened gutter.
+    expect(html).toContain('content-inset-sm')
+    expect(html).not.toContain('content-inset-md')
+  })
+})
+
+describe('REQ-49 residual 1 — readable (768px) content-width, decoupled from narrow', () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_carries_readable_content_width_class', async () => {
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      dials: { contentWidth: 'readable' },
+      content: { heading: 'Intentional Software', subhead: 'Body copy.' },
+    })
+    expect(html).toContain('content-width-readable')
+  })
+})
+
+describe('REQ-49 residual 3 — lead/body split for weight + leading', () => {
+  it('test_UAT_FC_REQ-49_hero_renders_lead_and_body_as_separate_paragraphs', async () => {
+    // The lead-only weight/leading dials key on `p:first-child`; a multi-paragraph
+    // subhead must render a distinct lead + body paragraph for that split to hold.
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      dials: { subheadWeight: 'light', subheadLeading: 'snug' },
+      content: { heading: 'Acme', subhead: 'Delicate lead.\n\nHeavier body copy.' },
+    })
+    // Both paragraphs present, and the lead dials still applied at section level.
+    expect(html).toContain('Delicate lead.')
+    expect(html).toContain('Heavier body copy.')
+    expect(html).toContain('subhead-weight-light')
+    expect(html).toContain('subhead-leading-snug')
+    expect((html.match(/<p>/g) ?? []).length).toBeGreaterThanOrEqual(2)
+  })
+})
+
 describe('REQ-49 token surface — extended scale backs the dials', () => {
   it('test_UAT_FC_REQ-49_theme_emits_snug_line_height_and_light_weight', () => {
     const css = generateThemeCss()
     expect(css).toContain('--line-height-snug: 1.33;')
     expect(css).toContain('--font-weight-light: 300;')
+  })
+
+  it('test_UAT_FC_REQ-49_theme_emits_readable_container_measure', () => {
+    // Residual 1 — the 768px reading measure backing the hero `readable` width.
+    expect(generateThemeCss()).toContain('--container-readable: 48rem;')
   })
 
   it('test_UAT_FC_REQ-49_theme_emits_large_spacing_steps_for_content_offset', () => {

@@ -144,8 +144,16 @@ export const SUBMIT_FOREGROUND_DIAL = ['auto', ...TREATMENT_ROLE_DIAL, 'bg'] as 
  * `--container-*` token. This is what lets a body column read as a narrow
  * left-aligned measure (fixing cumulative vertical drift) instead of a wide
  * centred one.
+ *
+ * `readable` (REQ-49) is a fourth step — a reading measure (`--container-readable`,
+ * ~48rem/768px by default) between `narrow` and `default`. It exists because one
+ * `narrow` token cannot serve two different constrained columns at once: the
+ * gigabytealchemy hero body is `max-w-3xl` (768px) while its text sections are
+ * `max-w-4xl` (896px, and `container.narrow` is set to 896 to serve them). A hero
+ * that reused `narrow` overshot 768 by 128px; `readable` gives the hero its own
+ * measure, decoupled from the text-block `narrow`.
  */
-export const CONTENT_WIDTH_DIAL = ['default', 'narrow', 'wide'] as const
+export const CONTENT_WIDTH_DIAL = ['default', 'narrow', 'readable', 'wide'] as const
 
 /**
  * Letter-spacing (tracking) treatment for display type (REQ-45) — hero heading +
@@ -211,6 +219,18 @@ export const CONTENT_ANCHOR_DIAL = ['top', 'center', 'bottom'] as const
  * 4rem, `md` 8rem, `lg` 12rem, `xl` 20rem (=320px, the gigabytealchemy inset).
  */
 export const CONTENT_OFFSET_TOP_DIAL = ['none', 'sm', 'md', 'lg', 'xl'] as const
+
+/**
+ * Hero content horizontal inset (gutter) dial (REQ-49 cap 5). Sets the
+ * `padding-inline` on `.hero__inner` — the distance from the centred container's
+ * edge to the content — as a token-backed step instead of the hardcoded 16px.
+ * The front door's left edge is a deliberate choice ([[hero-fidelity-front-door]]):
+ * the gigabytealchemy reference uses `px-6` (24px), landing its wordmark/heading/
+ * subhead 8px right of our hardcoded `px-4` (16px). `sm` (default) is the prior
+ * 16px so a hero that omits the dial is unchanged; `md` is 24px, `lg` 32px.
+ * Maps to `--space-4`/`--space-6`/`--space-8`; token-backed, no raw padding.
+ */
+export const CONTENT_INSET_DIAL = ['sm', 'md', 'lg'] as const
 
 /**
  * Heading colour treatment for the hero (REQ-28). `plain` inherits the surface

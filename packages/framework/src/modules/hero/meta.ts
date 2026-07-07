@@ -2,6 +2,7 @@ import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
   CONTENT_ANCHOR_DIAL,
+  CONTENT_INSET_DIAL,
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
   GRADIENT_DIRECTION_DIAL,
@@ -52,10 +53,14 @@ export const heroMeta = {
     // the heading `size`, for a prominent lead subtitle under a modest heading.
     subheadSize: SUBHEAD_SIZE_DIAL,
     // Subhead/body content-column width (REQ-49) — caps the lead/body measure
-    // (reusing the shared `contentWidth` container scale) so it can match a
-    // reference's column; `default` fills the inner frame (prior behaviour was a
-    // hardcoded 60ch — now removed).
+    // (reusing the shared `contentWidth` container scale, incl. the `readable`
+    // 768px step) so it can match a reference's column; `default` fills the inner
+    // frame (prior behaviour was a hardcoded 60ch — now removed).
     contentWidth: CONTENT_WIDTH_DIAL,
+    // Content horizontal inset / gutter (REQ-49 cap 5) — the `.hero__inner`
+    // padding-inline as a token step; `sm` (default) is the prior 16px, `md`
+    // 24px (the reference `px-6`), `lg` 32px. Aligns the front-door left edge.
+    contentInset: CONTENT_INSET_DIAL,
     // Subhead/body font-weight (REQ-49) — sets the lead/body weight independently
     // of the heading; `regular` (default) keeps the inherited body weight,
     // `light` gives a delicate lead (e.g. gigabytealchemy's `font-light`).
