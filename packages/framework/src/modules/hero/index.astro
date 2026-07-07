@@ -30,6 +30,10 @@ const height = dials.height ?? 'auto'
 // Legibility scrim + content anchor (REQ-32).
 const scrim = dials.scrim ?? 'none'
 const contentAnchor = dials.contentAnchor ?? 'center'
+// Fixed top inset for content within a `fold` band (REQ-49): `none` (default)
+// applies no inset; `sm`..`xl` step a token-backed distance from the band top,
+// a separate axis from the flex `contentAnchor`.
+const contentOffsetTop = dials.contentOffsetTop ?? 'none'
 // Subhead/body colour (REQ-33): `inherit` keeps the surface colour; any palette
 // role tints the whole subhead block. Framework-computed inline style (a closed
 // role set), never instance-supplied raw CSS — mirrors the gradient treatment.
@@ -38,9 +42,16 @@ const subheadStyle =
   subheadColor !== 'inherit' ? `color: var(--color-${subheadColor});` : undefined
 // Subhead/body scale (REQ-33), independent of the heading `size`.
 const subheadSize = dials.subheadSize ?? 'md'
+// Subhead/body content-column width (REQ-49): `default` fills the inner frame
+// (the prior hardcoded 60ch cap is removed); `narrow`/`wide` cap the measure to
+// the matching container token so the lead/body can match a reference column.
+const contentWidth = dials.contentWidth ?? 'default'
+// Subhead/body font-weight (REQ-49): `regular` (default) keeps the inherited
+// body weight; `light`/`medium`/`semibold` set the lead/body weight.
+const subheadWeight = dials.subheadWeight ?? 'regular'
 // Heading letter-spacing (REQ-45): `normal` leaves the heading untracked.
 const tracking = dials.tracking ?? 'normal'
-// Subhead line-height (REQ-45): `relaxed` preserves the prior leading.
+// Subhead line-height (REQ-45; `snug` REQ-49): `relaxed` preserves the prior leading.
 const subheadLeading = dials.subheadLeading ?? 'relaxed'
 
 const { eyebrow, heading, subhead, cta } = content
@@ -66,7 +77,10 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `height-${height}`,
     `scrim-${scrim}`,
     `anchor-${contentAnchor}`,
+    `content-offset-top-${contentOffsetTop}`,
     `subhead-size-${subheadSize}`,
+    `content-width-${contentWidth}`,
+    `subhead-weight-${subheadWeight}`,
     `subhead-leading-${subheadLeading}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
@@ -109,6 +123,17 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
      content to the band's start/end. No effect on an `auto`-height band. */
   .hero.height-fold.anchor-top { justify-content: flex-start; }
   .hero.height-fold.anchor-bottom { justify-content: flex-end; }
+
+  /* Fixed top inset for a `fold` hero's content (REQ-49): a deliberate
+     token-backed distance from the band top, independent of the flex anchor —
+     paired with `anchor-top` it pins the content N px from the top (the
+     reference's `pt-80` = 320px). `none` (default) sets nothing, so a hero that
+     omits the dial is unchanged. Token-backed via the extended `--space-*`
+     scale; no effect on an `auto`-height band. */
+  .hero.height-fold.content-offset-top-sm .hero__inner { margin-top: var(--space-16); }
+  .hero.height-fold.content-offset-top-md .hero__inner { margin-top: var(--space-32); }
+  .hero.height-fold.content-offset-top-lg .hero__inner { margin-top: var(--space-48); }
+  .hero.height-fold.content-offset-top-xl .hero__inner { margin-top: var(--space-80); }
 
   .hero.spacing-top-none { padding-top: var(--space-0); }
   .hero.spacing-top-sm { padding-top: var(--space-4); }
@@ -193,11 +218,28 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.size-md .hero__heading { font-size: clamp(var(--font-size-3xl), 6vw, var(--font-size-4xl)); }
   .hero.size-lg .hero__heading { font-size: clamp(var(--font-size-4xl), 8vw, var(--font-size-5xl)); }
 
-  .hero__subhead { font-size: var(--font-size-lg); max-width: 60ch; }
-  /* Subhead line-height (REQ-45): `relaxed` preserves the prior leading, so a
-     hero that omits the dial is unchanged; the tighter steps densen the block. */
+  .hero__subhead { font-size: var(--font-size-lg); }
+  /* Subhead/body content-column width (REQ-49): caps the lead/body measure so it
+     can match a reference's column (e.g. 768px). `content-width-default` sets no
+     cap — the subhead fills the inner frame — replacing the prior hardcoded
+     `max-width: 60ch`; `narrow`/`wide` use the matching container tokens. The
+     `align` dial then places the capped column (left gutter or centred).
+     Token-backed, no raw measure. */
+  .hero.content-width-narrow .hero__subhead { max-width: var(--container-narrow); }
+  .hero.content-width-wide .hero__subhead { max-width: var(--container-wide); }
+  /* Subhead/body font-weight (REQ-49): `regular` (default) emits no override so
+     the subhead keeps the inherited body weight and a hero that omits the dial
+     is unchanged; the other steps set a token-backed weight (`light` = 300 for a
+     delicate lead). */
+  .hero.subhead-weight-light .hero__subhead { font-weight: var(--font-weight-light); }
+  .hero.subhead-weight-medium .hero__subhead { font-weight: var(--font-weight-medium); }
+  .hero.subhead-weight-semibold .hero__subhead { font-weight: var(--font-weight-semibold); }
+  /* Subhead line-height (REQ-45; `snug` REQ-49): `relaxed` preserves the prior
+     leading, so a hero that omits the dial is unchanged; the tighter steps
+     densen the block, with `snug` (~1.33) the intermediate step. */
   .hero.subhead-leading-relaxed .hero__subhead { line-height: var(--line-height-relaxed); }
   .hero.subhead-leading-normal .hero__subhead { line-height: var(--line-height-normal); }
+  .hero.subhead-leading-snug .hero__subhead { line-height: var(--line-height-snug); }
   .hero.subhead-leading-tight .hero__subhead { line-height: var(--line-height-tight); }
   .hero.align-center .hero__subhead { margin-inline: auto; }
   /* Markdown subhead: the lead paragraph reads as a prominent subhead line;

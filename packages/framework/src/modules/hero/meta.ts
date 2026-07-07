@@ -2,6 +2,8 @@ import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
   CONTENT_ANCHOR_DIAL,
+  CONTENT_OFFSET_TOP_DIAL,
+  CONTENT_WIDTH_DIAL,
   GRADIENT_DIRECTION_DIAL,
   HEADING_TREATMENT_DIAL,
   HEIGHT_DIAL,
@@ -11,6 +13,7 @@ import {
   SPACING_DIAL,
   SUBHEAD_COLOR_DIAL,
   SUBHEAD_SIZE_DIAL,
+  SUBHEAD_WEIGHT_DIAL,
   SURFACE_DIAL,
   TRACKING_DIAL,
   TREATMENT_ROLE_DIAL,
@@ -37,17 +40,32 @@ export const heroMeta = {
     scrim: SCRIM_DIAL,
     // Vertical anchor of the content within a `fold` band (REQ-32).
     contentAnchor: CONTENT_ANCHOR_DIAL,
+    // Fixed top inset for the content within a `fold` band (REQ-49) — pins the
+    // content a deliberate token-backed distance from the band top (the
+    // reference `pt-80`), a separate axis from the flex `contentAnchor`. `none`
+    // (default) applies no inset.
+    contentOffsetTop: CONTENT_OFFSET_TOP_DIAL,
     // Subhead/body colour (REQ-33) — tints the whole subhead block a palette
     // role (e.g. a gold lead paragraph), independent of the surface text colour.
     subheadColor: SUBHEAD_COLOR_DIAL,
     // Subhead/body scale (REQ-33) — sizes the lead + body copy independently of
     // the heading `size`, for a prominent lead subtitle under a modest heading.
     subheadSize: SUBHEAD_SIZE_DIAL,
+    // Subhead/body content-column width (REQ-49) — caps the lead/body measure
+    // (reusing the shared `contentWidth` container scale) so it can match a
+    // reference's column; `default` fills the inner frame (prior behaviour was a
+    // hardcoded 60ch — now removed).
+    contentWidth: CONTENT_WIDTH_DIAL,
+    // Subhead/body font-weight (REQ-49) — sets the lead/body weight independently
+    // of the heading; `regular` (default) keeps the inherited body weight,
+    // `light` gives a delicate lead (e.g. gigabytealchemy's `font-light`).
+    subheadWeight: SUBHEAD_WEIGHT_DIAL,
     // Heading letter-spacing (REQ-45) — `normal` (default) leaves the heading
     // untracked; `tight`/`tighter` pull a large display heading's glyphs in.
     tracking: TRACKING_DIAL,
-    // Subhead line-height (REQ-45) — set the lead/body leading independently of
-    // the global relaxed default; `relaxed` (default) preserves the prior value.
+    // Subhead line-height (REQ-45; `snug` added REQ-49) — set the lead/body
+    // leading independently of the global relaxed default; `relaxed` (default)
+    // preserves the prior value, `snug` (~1.33) is the intermediate step.
     subheadLeading: LINE_HEIGHT_DIAL,
   },
   contentSchema: {

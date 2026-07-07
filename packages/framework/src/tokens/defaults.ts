@@ -42,6 +42,9 @@ export const defaultTokens: ThemeTokens = {
       '5xl': '3rem',
     },
     weights: {
+      // `light` (300, REQ-49) backs the hero `subheadWeight` dial's lighter step
+      // — a delicate lead weight (e.g. gigabytealchemy's `font-light` subhead).
+      light: '300',
       regular: '400',
       medium: '500',
       semibold: '600',
@@ -50,6 +53,9 @@ export const defaultTokens: ThemeTokens = {
     },
     lineHeights: {
       tight: '1.1',
+      // `snug` (~1.33, REQ-49) sits between `tight` and `normal` for the hero
+      // `subheadLeading` dial's intermediate step.
+      snug: '1.33',
       normal: '1.5',
       relaxed: '1.75',
     },
@@ -73,6 +79,14 @@ export const defaultTokens: ThemeTokens = {
     '12': '3rem',
     '16': '4rem',
     '24': '6rem',
+    // Large steps (REQ-49) extend the scale past 6rem so a `fold` hero can pin
+    // its content a deliberate distance from the band top (the reference's
+    // `pt-80` = 20rem = 320px). Backs the hero `contentOffsetTop` dial; a general
+    // spacing extension, available to every `--space-*` consumer.
+    '32': '8rem',
+    '48': '12rem',
+    '64': '16rem',
+    '80': '20rem',
   },
   radius: {
     none: '0',

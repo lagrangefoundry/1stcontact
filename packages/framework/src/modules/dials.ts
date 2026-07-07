@@ -104,6 +104,18 @@ export const SUBHEAD_COLOR_DIAL = ['inherit', ...TREATMENT_ROLE_DIAL] as const
 export const SUBHEAD_SIZE_DIAL = ['sm', 'md', 'lg'] as const
 
 /**
+ * Hero subhead/body font-weight dial (REQ-49). Sets the lead/body weight
+ * independently of the heading weight and of the subhead `size` — a hero can
+ * carry a bold heading over a delicate light lead (e.g. gigabytealchemy's
+ * `font-light` 300 subhead). A closed set mapped to the `--font-weight-*`
+ * tokens: `regular` (default) emits no override, so the subhead keeps the
+ * inherited body weight and a hero that omits the dial is unchanged; `light`
+ * steps down (300, added to the default weight scale for this dial), `medium`/
+ * `semibold` step up. Token-backed, never a raw weight.
+ */
+export const SUBHEAD_WEIGHT_DIAL = ['light', 'regular', 'medium', 'semibold'] as const
+
+/**
  * Contact-form submit-button colour treatment (REQ-33). `primary` (default)
  * fills the button with the brand primary; `neutral` fills it with the dark
  * neutral text colour and a near-white label — a high-contrast dark button
@@ -149,9 +161,12 @@ export const TRACKING_DIAL = ['normal', 'tight', 'tighter'] as const
  * enum mapped to the `--line-height-*` tokens so leading is set independently of
  * the global relaxed default: `relaxed` (dial default) preserves the prior
  * `--line-height-relaxed`, so a subhead that omits the dial is unchanged;
- * `normal`/`tight` pull the lines together for a denser subhead.
+ * `normal`/`tight` pull the lines together for a denser subhead. `snug` (REQ-49)
+ * is an intermediate step between `tight` and `normal` (~1.33 in the default
+ * scale) for a reference whose leading sits below the loose `normal` but above
+ * the very tight `tight` — the gigabytealchemy hero subhead measured 1.33.
  */
-export const LINE_HEIGHT_DIAL = ['tight', 'normal', 'relaxed'] as const
+export const LINE_HEIGHT_DIAL = ['tight', 'snug', 'normal', 'relaxed'] as const
 
 /**
  * Gradient sweep direction (REQ-32) — the eight principal directions, kept as a
@@ -183,6 +198,19 @@ export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong'] as const
  * image.
  */
 export const CONTENT_ANCHOR_DIAL = ['top', 'center', 'bottom'] as const
+
+/**
+ * Fixed top inset for a `fold`-height hero's content (REQ-49). A separate axis
+ * from `contentAnchor`: the anchor picks *where in the flex* the content sits
+ * (start/centre/end), while this pins it a deliberate token-backed distance from
+ * the band's top edge — the reference's `pt-80` (320px) top inset that no flex
+ * anchor and no `spacingTop` step could express (the spacing scale topped out at
+ * 6rem/96px). Paired with `contentAnchor: top` it reads as "content begins N px
+ * from the fold top". `none` (default) applies no inset, so a hero that omits the
+ * dial is unchanged. Steps map to the (now-extended) `--space-*` scale: `sm`
+ * 4rem, `md` 8rem, `lg` 12rem, `xl` 20rem (=320px, the gigabytealchemy inset).
+ */
+export const CONTENT_OFFSET_TOP_DIAL = ['none', 'sm', 'md', 'lg', 'xl'] as const
 
 /**
  * Heading colour treatment for the hero (REQ-28). `plain` inherits the surface

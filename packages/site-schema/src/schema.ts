@@ -540,6 +540,10 @@ export const typographyTokensSchema = z.object({
     '5xl': cssValue,
   }),
   weights: z.object({
+    // `light` (300, REQ-49) is optional so existing themes validate unchanged;
+    // `defaultTokens` fills it, so `--font-weight-light` is always emitted and
+    // safe for the hero `subheadWeight` dial to reference (cf. `shadow.xl`).
+    light: cssValue.optional(),
     regular: cssValue,
     medium: cssValue,
     semibold: cssValue,
@@ -548,6 +552,9 @@ export const typographyTokensSchema = z.object({
   }),
   lineHeights: z.object({
     tight: cssValue,
+    // `snug` (~1.33, REQ-49) optional + default-filled, so `--line-height-snug`
+    // is always emitted for the hero `subheadLeading` dial (cf. `shadow.xl`).
+    snug: cssValue.optional(),
     normal: cssValue,
     relaxed: cssValue,
   }),
@@ -565,7 +572,13 @@ export const typographyTokensSchema = z.object({
     .default({ normal: '0em', tight: '-0.025em', tighter: '-0.05em' }),
 })
 
-/** 10-step geometric spacing scale. Keys are quoted numeric strings. */
+/**
+ * Geometric spacing scale. Keys are quoted numeric strings. The base 10 steps
+ * (0–24) are required; the large steps `32`/`48`/`64`/`80` (REQ-49) are optional
+ * so existing themes validate unchanged — `defaultTokens` fills them, so the
+ * `--space-32…80` custom properties are always emitted (cf. `shadow.xl`). They
+ * extend the scale past 6rem for a `fold` hero's `contentOffsetTop` inset.
+ */
 export const spacingTokensSchema = z.object({
   '0': cssValue,
   '1': cssValue,
@@ -577,6 +590,10 @@ export const spacingTokensSchema = z.object({
   '12': cssValue,
   '16': cssValue,
   '24': cssValue,
+  '32': cssValue.optional(),
+  '48': cssValue.optional(),
+  '64': cssValue.optional(),
+  '80': cssValue.optional(),
 })
 
 export const radiusTokensSchema = z.object({
