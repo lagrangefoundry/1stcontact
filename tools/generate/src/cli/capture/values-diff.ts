@@ -185,6 +185,16 @@ export interface ValueDelta {
    * magnitude)` so a single descending sort reproduces the severity ordering.
    */
   severity: number
+  /**
+   * REQ-48 (item 8a) — set on the synthetic *aggregate* row that stands in for a
+   * sub-threshold delta repeated across many elements. Its {@link tier} is
+   * escalated above the per-element kind so a pervasive-but-individually-quiet
+   * drift (e.g. near-black-vs-slate body tone on 30 runs) is not buried under
+   * per-element ranking. The individual rows are still emitted alongside it.
+   */
+  systemic?: boolean
+  /** REQ-48 (item 8a) — on a {@link systemic} row, how many elements share the drift. */
+  count?: number
 }
 
 export interface ValuesDiffReport {
@@ -515,6 +525,31 @@ function severityOf(kind: DeltaKind, magnitude: number): number {
   return TIER_RANK[KIND_TIER[kind]] * 1000 + KIND_RANK[kind] * 10 + magFrac
 }
 
+/**
+ * REQ-48 (item 8a) — composite rank for a synthetic aggregate row, whose tier is
+ * *escalated* above the per-element kind's natural tier (so it cannot be computed
+ * by {@link severityOf}, which reads the kind's fixed tier). Same shape otherwise.
+ */
+function severityForTier(tier: SeverityTier, kind: DeltaKind, magnitude: number): number {
+  const magFrac = 1 - 1 / (1 + Math.max(0, magnitude))
+  return TIER_RANK[tier] * 1000 + KIND_RANK[kind] * 10 + magFrac
+}
+
+const TIER_ORDER: SeverityTier[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+
+/**
+ * REQ-48 (item 8a) — escalate a base tier by how pervasively its delta repeats.
+ * One tier at the threshold, another tier per further 3× the threshold, so a
+ * body-tone drift on 30 elements lands well above an isolated one — but a tonal
+ * drift, however pervasive, is capped at HIGH: it must never masquerade as a
+ * CRITICAL structural break (a wrong z-order, a 200px-displaced hero).
+ */
+function escalateTier(base: SeverityTier, count: number, threshold: number): SeverityTier {
+  const steps = 1 + Math.floor(count / (threshold * 3))
+  const capped = Math.min(TIER_ORDER.indexOf(base) + steps, TIER_ORDER.indexOf('HIGH'))
+  return TIER_ORDER[capped]
+}
+
 /** The kind a fine-grained {@link DeltaProperty} belongs to (for the tier table). */
 const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   missing: 'presence',
@@ -565,6 +600,14 @@ export interface DiffOptions {
    * fires. Set false to compare years verbatim.
    */
   ignoreDynamicYear?: boolean
+  /**
+   * REQ-48 (item 8a) — the minimum number of elements sharing one LOW/MEDIUM-tier
+   * delta kind before a synthetic escalated "systemic" row is emitted (default 5).
+   * A small per-element delta repeated across ~30 elements is individually below
+   * notice but collectively obvious; per-element ranking buries it. Set to 0 to
+   * disable aggregation.
+   */
+  systemicThreshold?: number
   /** Perceptual colour distance (redmean ΔE) under which a colour pair matches (default 3). */
   colorTolerance?: number
   /** Font-size px tolerance (default 1). */
@@ -963,6 +1006,43 @@ export function diffManifests(
     ignore.some((re) => re.test(d.text) || re.test(d.expected) || re.test(d.actual))
   const kept = ignore.length > 0 ? deltas.filter((d) => !isIgnored(d)) : deltas
   const suppressed = deltas.length - kept.length
+
+  // REQ-48 (item 8a) — systemic sub-threshold aggregation. A LOW/MEDIUM delta
+  // that repeats across many elements is individually quiet but collectively
+  // obvious (the near-black-vs-slate body tone that slipped past on ~30 runs).
+  // Per-element ranking buries it, so for each such kind seen on ≥N elements we
+  // emit one synthetic row whose tier is escalated by pervasiveness. The
+  // per-element rows stay — the aggregate is an *added* headline, not a rollup.
+  const systemicThreshold = opts.systemicThreshold ?? 5
+  if (systemicThreshold > 0) {
+    const byKind = new Map<DeltaKind, ValueDelta[]>()
+    for (const d of kept) {
+      if (d.systemic) continue
+      if (KIND_TIER[d.kind] !== 'LOW' && KIND_TIER[d.kind] !== 'MEDIUM') continue
+      const g = byKind.get(d.kind)
+      if (g) g.push(d)
+      else byKind.set(d.kind, [d])
+    }
+    for (const [kind, group] of byKind) {
+      if (group.length < systemicThreshold) continue
+      const count = group.length
+      const tier = escalateTier(KIND_TIER[kind], count, systemicThreshold)
+      const sample = group[0]
+      kept.push({
+        text: `⟨${count} elements⟩`,
+        role: 'aggregate',
+        property: sample.property,
+        expected: `systemic ${kind} drift ×${count}`,
+        actual: `e.g. ${sample.expected} → ${sample.actual}`,
+        kind,
+        tier,
+        magnitude: count,
+        severity: severityForTier(tier, kind, count),
+        systemic: true,
+        count,
+      })
+    }
+  }
 
   // Stable sort by composite severity = (tier, kind-within-tier, magnitude), so a
   // small structural defect always outranks a large tonal one and, within a kind,

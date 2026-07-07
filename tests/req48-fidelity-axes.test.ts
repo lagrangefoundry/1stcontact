@@ -99,3 +99,55 @@ describe('REQ-48 item 9 — ignore-masks', () => {
     expect(report.suppressed).toBe(0)
   })
 })
+
+// ── Item 8a — systemic sub-threshold aggregation ─────────────────────────────
+
+/** N body runs, each a distinct text so they pair 1:1, all painted `color`. */
+function bodyRuns(n: number, color: string): ValueElement[] {
+  return Array.from({ length: n }, (_, i) => el(`line ${i + 1}`, { color }))
+}
+
+describe('REQ-48 item 8a — systemic sub-threshold aggregation', () => {
+  it('test_UAT_FC_REQ-48_systemic_low_delta_escalates_above_isolated', () => {
+    // A near-black body tone rendered as slate-700 on 8 runs: each colour delta
+    // is an isolated LOW, but collectively the drift is obvious. The synthetic
+    // aggregate must lead the report, escalated above the per-element LOW rows.
+    const expected = mani('ref', bodyRuns(8, '#111111'))
+    const actual = mani('draft', bodyRuns(8, '#556677'))
+    const report = diffManifests(expected, actual)
+    const top = report.deltas[0]
+    expect(top.systemic).toBe(true)
+    expect(top.kind).toBe('color')
+    expect(top.count).toBe(8)
+    expect(top.tier).not.toBe('LOW')
+    // The individual rows survive; the aggregate is an added headline.
+    expect(report.deltas.filter((d) => !d.systemic && d.kind === 'color')).toHaveLength(8)
+  })
+
+  it('test_UAT_FC_REQ-48_isolated_low_delta_not_escalated', () => {
+    // Three colour deltas — below the default threshold of 5 — stay per-element.
+    const expected = mani('ref', bodyRuns(3, '#111111'))
+    const actual = mani('draft', bodyRuns(3, '#556677'))
+    const report = diffManifests(expected, actual)
+    expect(report.deltas.some((d) => d.systemic)).toBe(false)
+    expect(report.deltas.every((d) => d.tier === 'LOW')).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-48_systemic_tier_scales_with_pervasiveness_capped_at_high', () => {
+    // A colour drift on 30 elements is maximally pervasive; escalation caps at
+    // HIGH — a tonal drift never masquerades as a CRITICAL structural break.
+    const report = diffManifests(mani('ref', bodyRuns(30, '#111111')), mani('draft', bodyRuns(30, '#556677')))
+    const agg = report.deltas.find((d) => d.systemic)
+    expect(agg?.tier).toBe('HIGH')
+    // Even at 30 it never reaches CRITICAL.
+    expect(report.deltas.some((d) => d.tier === 'CRITICAL')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_systemic_threshold_zero_disables_aggregation', () => {
+    const report = diffManifests(mani('ref', bodyRuns(8, '#111111')), mani('draft', bodyRuns(8, '#556677')), {
+      systemicThreshold: 0,
+    })
+    expect(report.deltas.some((d) => d.systemic)).toBe(false)
+    expect(report.deltas).toHaveLength(8)
+  })
+})
