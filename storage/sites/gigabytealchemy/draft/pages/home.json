@@ -63,7 +63,7 @@
         "scrim": "medium",
         "subheadColor": "accent-light",
         "subheadSize": "lg",
-        "contentAnchor": "bottom",
+        "contentAnchor": "center",
         "tracking": "tight",
         "subheadLeading": "normal"
       },

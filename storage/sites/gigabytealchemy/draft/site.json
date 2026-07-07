@@ -95,6 +95,7 @@
       {
         "family": "Cinzel",
         "src": "assets/cinzel.woff2",
+        "weight": "600",
         "display": "swap"
       }
     ]
