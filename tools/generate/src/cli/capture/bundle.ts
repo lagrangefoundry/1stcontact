@@ -11,8 +11,9 @@
  *
  * Self-containment is what makes offline re-extraction possible (DOC-13 §9).
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import type { MultiStateCapture } from './values-diff'
 import type { Capture, CaptureResult } from './types'
 
 export interface BundleLocation {
@@ -52,4 +53,28 @@ export function writeBundle(result: CaptureResult, cwd: string): BundleLocation 
 /** Read a bundle's `capture.json` back into a {@link Capture}. */
 export function readCapture(bundleDir: string): Capture {
   return JSON.parse(readFileSync(path.join(bundleDir, 'capture.json'), 'utf8')) as Capture
+}
+
+/** The multi-state projection matrix filename within a bundle (REQ-48). */
+const MULTISTATE_FILE = 'multistate.json'
+
+/**
+ * REQ-48 (items 1, 5, 6, 10) — persist the multi-state projection matrix
+ * (`engine × viewport × interaction-state`) alongside `capture.json`. This is the
+ * artifact {@link diffMultiState} pairs against; writing it into the bundle keeps
+ * the re-capture discipline (item 10) — when the schema grows, re-capturing
+ * refreshes every cell rather than leaving new fields comparing null↔null.
+ */
+export function writeMultiState(bundleDir: string, matrix: MultiStateCapture): string {
+  mkdirSync(bundleDir, { recursive: true })
+  const dest = path.join(bundleDir, MULTISTATE_FILE)
+  writeFileSync(dest, JSON.stringify(matrix, null, 2))
+  return dest
+}
+
+/** Read a bundle's `multistate.json`, or null when the bundle predates multi-state capture. */
+export function readMultiState(bundleDir: string): MultiStateCapture | null {
+  const src = path.join(bundleDir, MULTISTATE_FILE)
+  if (!existsSync(src)) return null
+  return JSON.parse(readFileSync(src, 'utf8')) as MultiStateCapture
 }

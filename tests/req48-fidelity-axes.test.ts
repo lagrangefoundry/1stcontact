@@ -4,15 +4,25 @@ import {
   colorDistance,
   createEngineDriver,
   diffManifests,
+  diffMultiState,
   discriminatorIsCalibrated,
   engineAvailable,
   horizontalOverflows,
   makeCalibrationBaseline,
   RESPONSIVE_VIEWPORTS,
+  runMultiStateCapture,
   SEEDED_DEFECTS,
   unresolvedFonts,
+  type BrowserDriver,
+  type CapturedResponse,
+  type InteractionState,
+  type MultiStateCapture,
+  type RawSignals,
+  type RenderEngine,
+  type StateProjection,
   type ValueElement,
   type ValueManifest,
+  type Viewport,
 } from '../tools/generate/src/cli'
 
 /**
@@ -527,5 +537,270 @@ describe('REQ-48 item 6 — cross-engine', () => {
     expect(typeof createEngineDriver('webkit')).toBe('function')
     expect(typeof createEngineDriver('firefox')).toBe('function')
     expect(typeof (await engineAvailable('webkit'))).toBe('boolean')
+  })
+})
+
+// ── Items 1/5/6 — multi-state capture orchestration (hover actuation + loop) ──
+
+/**
+ * A fake driver for the multi-state loop: it never launches a browser. `navigate`
+ * records the viewport; `actuate` records the forced state; `query` returns a
+ * RawSignals whose single heading *scales under `:hover`* (transformScale 1.2) —
+ * so a projection's geometry provably reflects the actuated state, exactly the
+ * signal a resting frame cannot hold. `canActuate` is configurable to model a
+ * non-Blink engine that can't force pseudo-states.
+ */
+class FakeStateDriver implements BrowserDriver {
+  navigated: { url: string; viewport?: Viewport }[] = []
+  actuated: InteractionState[] = []
+  private state: InteractionState = 'rest'
+  private viewport: Viewport = { width: 1280, height: 800 }
+  constructor(private readonly actuates = true) {}
+  async navigate(url: string, viewport?: Viewport): Promise<void> {
+    this.navigated.push({ url, viewport })
+    if (viewport) this.viewport = viewport
+    this.state = 'rest'
+  }
+  async actuate(state: InteractionState): Promise<void> {
+    this.actuated.push(state)
+    this.state = state
+  }
+  canActuate(): boolean {
+    return this.actuates
+  }
+  async screenshot(): Promise<Uint8Array> {
+    return new Uint8Array()
+  }
+  async query<T = unknown>(): Promise<T> {
+    const scale = this.state === 'hover' ? 1.2 : 1
+    const signals: RawSignals = {
+      viewport: { width: this.viewport.width, height: this.viewport.height },
+      bands: [
+        {
+          box: box(0, 0, this.viewport.width, 200),
+          backgroundColor: '#ffffff',
+          backgroundImage: 'none',
+          colorScheme: 'light',
+          fontFamily: 'sans',
+          textAlign: 'left',
+          paddingTopPx: 0,
+          paddingBottomPx: 0,
+          overlay: null,
+          contentAnchorRatio: 0.5,
+          content: [
+            {
+              role: 'heading',
+              text: 'Buy now',
+              color: '#000000',
+              fontFamily: 'sans',
+              fontSizePx: 32,
+              fontWeight: 700,
+              lineHeightPx: 40,
+              letterSpacingPx: 0,
+              gradientCss: null,
+              borderLeftWidthPx: 0,
+              borderLeftColor: null,
+              paddingLeftPx: 0,
+              box: box(0, 0, 200, 40),
+              borderRadiusPx: 0,
+              boxShadow: null,
+              a11yRole: 'heading',
+              arrangement: null,
+              zIndex: 0,
+              filter: null,
+              textShadow: null,
+              maskEdge: null,
+              transformRotateDeg: 0,
+              transformScale: scale,
+              motion: 'transition',
+            },
+          ],
+          items: [],
+          fields: [],
+        },
+      ],
+      colorUsage: [],
+      fontFaces: [],
+      typeScale: [32],
+      spacingScalePx: [],
+      containerMaxWidthPx: null,
+      images: [],
+    }
+    return signals as T
+  }
+  responses(): CapturedResponse[] {
+    return []
+  }
+  diagnostics() {
+    return { consoleErrors: [], pageErrors: [], failedRequests: [], requestedUrls: [] }
+  }
+  async content(): Promise<string> {
+    return '<html></html>'
+  }
+  async close(): Promise<void> {}
+}
+
+describe('REQ-48 items 1/5/6 — multi-state capture orchestration', () => {
+  it('test_UAT_FC_REQ-48_multistate_loop_projects_every_state_and_viewport', async () => {
+    // engines × viewports × states = 1 × 2 × 2 = 4 projections, each tagged with
+    // its full provenance, and hover is actually actuated on the open page.
+    const driver = new FakeStateDriver()
+    const matrix = await runMultiStateCapture('http://x.test', {
+      engines: ['chromium'],
+      viewports: [{ width: 320, height: 800 }, { width: 1280, height: 800 }],
+      states: ['rest', 'hover'],
+      driverFactoryFor: () => async () => driver,
+      isEngineAvailable: async () => true,
+    })
+    expect(matrix.projections).toHaveLength(4)
+    expect(matrix.notes).toEqual([])
+    const keys = matrix.projections.map((p) => `${p.engine}:${p.viewport.width}:${p.state}`).sort()
+    expect(keys).toEqual(['chromium:1280:hover', 'chromium:1280:rest', 'chromium:320:hover', 'chromium:320:rest'])
+    // Every non-rest state was forced on the page (hover twice — once per viewport).
+    expect(driver.actuated.filter((s) => s === 'hover')).toHaveLength(2)
+  })
+
+  it('test_UAT_FC_REQ-48_hover_actuation_changes_projected_geometry', async () => {
+    // Actuation feeds through: the hover projection carries the scaled transform
+    // (1.2) the resting frame never shows — the whole point of a time axis.
+    const matrix = await runMultiStateCapture('http://x.test', {
+      engines: ['chromium'],
+      viewports: [{ width: 1280, height: 800 }],
+      states: ['rest', 'hover'],
+      driverFactoryFor: () => async () => new FakeStateDriver(),
+      isEngineAvailable: async () => true,
+    })
+    const rest = matrix.projections.find((p) => p.state === 'rest')!
+    const hover = matrix.projections.find((p) => p.state === 'hover')!
+    expect(rest.manifest.elements[0].transformScale).toBe(1)
+    expect(hover.manifest.elements[0].transformScale).toBe(1.2)
+  })
+
+  it('test_UAT_FC_REQ-48_multistate_holds_non_actuating_driver_to_rest', async () => {
+    // A driver that can't actuate (non-Blink engine) is held to rest and the
+    // dropped hover cell is NOTED — never a silent unactuated frame posing as hover.
+    const matrix = await runMultiStateCapture('http://x.test', {
+      engines: ['chromium'],
+      viewports: [{ width: 1280, height: 800 }],
+      states: ['rest', 'hover'],
+      driverFactoryFor: () => async () => new FakeStateDriver(false),
+      isEngineAvailable: async () => true,
+    })
+    expect(matrix.projections.map((p) => p.state)).toEqual(['rest'])
+    expect(matrix.notes.some((n) => /cannot actuate/.test(n) && /hover/.test(n))).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-48_multistate_skips_unavailable_engine_with_note', async () => {
+    // WebKit unavailable → no webkit projections, and the gap is surfaced as a
+    // note (a partial matrix must never read as full coverage).
+    const matrix = await runMultiStateCapture('http://x.test', {
+      engines: ['chromium', 'webkit'],
+      viewports: [{ width: 1280, height: 800 }],
+      states: ['rest'],
+      driverFactoryFor: () => async () => new FakeStateDriver(),
+      isEngineAvailable: async (e: RenderEngine) => e === 'chromium',
+    })
+    expect(matrix.projections.every((p) => p.engine === 'chromium')).toBe(true)
+    expect(matrix.notes.some((n) => /webkit/.test(n) && /unavailable/.test(n))).toBe(true)
+  })
+})
+
+// ── diffMultiState — cell-for-cell pairing across the matrix ──────────────────
+
+/** A one-element manifest tagged with its full {engine, viewport, state} provenance. */
+function proj(
+  engine: RenderEngine,
+  width: number,
+  state: InteractionState,
+  over: Partial<ValueElement>,
+): StateProjection {
+  const viewport = { width, height: 800 }
+  const manifest: ValueManifest = {
+    source: `${engine}:${width}:${state}`,
+    elements: [el('Buy now', { box: box(0, 0, 200, 40), ...over })],
+    sections: [],
+    viewport,
+    engine,
+    state,
+  }
+  return { engine, viewport, state, manifest }
+}
+
+describe('REQ-48 items 1/5/6 — diffMultiState pairing', () => {
+  it('test_UAT_FC_REQ-48_diff_multistate_localizes_hover_delta', () => {
+    // A hover-scale present in the reference (1.2) but absent in the repro (1.0)
+    // fires in the HOVER cell, while the rest cell (both 1.0) stays clean.
+    const reference: MultiStateCapture = {
+      url: 'u',
+      projections: [
+        proj('chromium', 1280, 'rest', { transformScale: 1 }),
+        proj('chromium', 1280, 'hover', { transformScale: 1.2 }),
+      ],
+      notes: [],
+    }
+    const repro: MultiStateCapture = {
+      url: 'u',
+      projections: [
+        proj('chromium', 1280, 'rest', { transformScale: 1 }),
+        proj('chromium', 1280, 'hover', { transformScale: 1 }),
+      ],
+      notes: [],
+    }
+    const diffs = diffMultiState(reference, repro)
+    const hoverCell = diffs.find((d) => d.state === 'hover')!
+    const restCell = diffs.find((d) => d.state === 'rest')!
+    expect(hoverCell.report!.deltas.some((d) => d.property === 'transform')).toBe(true)
+    expect(restCell.report!.deltas.some((d) => d.property === 'transform')).toBe(false)
+    // The worst cell (hover) sorts first.
+    expect(diffs[0].state).toBe('hover')
+  })
+
+  it('test_UAT_FC_REQ-48_diff_multistate_pairs_per_viewport', () => {
+    // A break at 320 only must fire at 320 and leave 1280 clean — layout keyed on
+    // width, never bled across viewports.
+    const reference: MultiStateCapture = {
+      url: 'u',
+      projections: [
+        proj('chromium', 320, 'rest', { box: box(0, 0, 200, 40) }),
+        proj('chromium', 1280, 'rest', { box: box(0, 0, 200, 40) }),
+      ],
+      notes: [],
+    }
+    const repro: MultiStateCapture = {
+      url: 'u',
+      projections: [
+        proj('chromium', 320, 'rest', { box: box(400, 0, 200, 40) }), // shifted only at mobile
+        proj('chromium', 1280, 'rest', { box: box(0, 0, 200, 40) }),
+      ],
+      notes: [],
+    }
+    const diffs = diffMultiState(reference, repro)
+    const mobile = diffs.find((d) => d.viewportWidth === 320)!
+    const desktop = diffs.find((d) => d.viewportWidth === 1280)!
+    expect(mobile.report!.deltas.some((d) => d.kind === 'position')).toBe(true)
+    expect(desktop.report!.deltas.some((d) => d.kind === 'position')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_diff_multistate_missing_cell_flagged', () => {
+    // A reference cell the repro never projected is a coverage gap: missing:true,
+    // report null, and it sorts first (nothing to compare is maximally severe).
+    const reference: MultiStateCapture = {
+      url: 'u',
+      projections: [
+        proj('chromium', 1280, 'rest', { transformScale: 1 }),
+        proj('chromium', 1280, 'hover', { transformScale: 1.2 }),
+      ],
+      notes: [],
+    }
+    const repro: MultiStateCapture = {
+      url: 'u',
+      projections: [proj('chromium', 1280, 'rest', { transformScale: 1 })],
+      notes: [],
+    }
+    const diffs = diffMultiState(reference, repro)
+    const hoverCell = diffs.find((d) => d.state === 'hover')!
+    expect(hoverCell.missing).toBe(true)
+    expect(hoverCell.report).toBeNull()
+    expect(diffs[0].missing).toBe(true)
   })
 })

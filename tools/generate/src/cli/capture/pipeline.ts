@@ -5,15 +5,25 @@
  * static fallback (DOC-13 §2.1, §3).
  */
 import { EXTRACT_SCRIPT, type RawSignals } from './extract'
-import { createPlaywrightDriver } from './playwright-driver'
+import { createEngineDriver, createPlaywrightDriver, engineAvailable } from './playwright-driver'
 import { buildSections } from './sections'
 import { buildTheme } from './theme'
+import {
+  flattenSignals,
+  RESPONSIVE_VIEWPORTS,
+  type MultiStateCapture,
+  type StateProjection,
+} from './values-diff'
 import type {
+  BrowserDriver,
   BrowserDriverFactory,
   Capture,
   CaptureAsset,
   CaptureResult,
   CapturedResponse,
+  InteractionState,
+  RenderEngine,
+  Viewport,
 } from './types'
 
 export interface CapturePipelineOptions {
@@ -143,4 +153,96 @@ export async function runCapturePipeline(url: string, opts: CapturePipelineOptio
   throw new Error(
     `Capture failed for ${url} after ${attempts} attempt(s): ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
   )
+}
+
+// ── REQ-48 (items 1, 5, 6) — multi-state capture orchestration ────────────────
+
+export interface MultiStateCaptureOptions {
+  /** Engines to shoot across (default `['chromium']`). Unavailable ones are skipped, noted. */
+  engines?: RenderEngine[]
+  /** Viewport ladder (default {@link RESPONSIVE_VIEWPORTS}). */
+  viewports?: readonly Viewport[]
+  /** Interaction states (default `['rest', 'hover']`). Non-rest needs an actuating driver. */
+  states?: InteractionState[]
+  /** Per-engine driver factory (default {@link createEngineDriver}); tests inject a fake. */
+  driverFactoryFor?: (engine: RenderEngine) => BrowserDriverFactory
+  /** Engine-availability probe (default {@link engineAvailable}); tests inject a stub. */
+  isEngineAvailable?: (engine: RenderEngine) => Promise<boolean>
+}
+
+/**
+ * REQ-48 (items 1, 5, 6) — project a live URL across the full state matrix:
+ * `engines × viewports × interaction-states`. Navigation happens once per
+ * `{engine, viewport}` and the interaction states are actuated *on that open
+ * page* (cheap: no re-navigation per hover/focus). Each projection is flattened to
+ * a {@link ValueManifest} tagged with its `{engine, viewport, state}` provenance,
+ * ready for {@link diffMultiState} to pair reference↔repro cell-for-cell.
+ *
+ * The matrix is honest about gaps: an unavailable engine is skipped and noted; a
+ * driver that can't actuate (a non-Blink engine, a bare fake) is held to `rest`
+ * and noted — never a hover/focus cell filled with an unactuated frame that would
+ * read as a false "clean".
+ */
+export async function runMultiStateCapture(
+  url: string,
+  opts: MultiStateCaptureOptions = {},
+): Promise<MultiStateCapture> {
+  const engines = opts.engines ?? ['chromium']
+  const viewports = opts.viewports ?? RESPONSIVE_VIEWPORTS
+  const requestedStates = opts.states ?? ['rest', 'hover']
+  const factoryFor = opts.driverFactoryFor ?? createEngineDriver
+  const isAvailable = opts.isEngineAvailable ?? engineAvailable
+
+  const projections: StateProjection[] = []
+  const notes: string[] = []
+
+  for (const engine of engines) {
+    if (!(await isAvailable(engine))) {
+      notes.push(`engine ${engine} unavailable — skipped`)
+      continue
+    }
+    for (const viewport of viewports) {
+      const driver = await factoryFor(engine)()
+      try {
+        await driver.navigate(url, viewport)
+        const states = effectiveStates(driver, engine, requestedStates, viewport, notes)
+        for (const state of states) {
+          if (driver.actuate) await driver.actuate(state)
+          const signals = await driver.query<RawSignals>(EXTRACT_SCRIPT)
+          const manifest = flattenSignals(signals, `${url}@${engine}:${viewport.width}:${state}`)
+          // Provenance is the *requested* combination, so pairing is deterministic
+          // (the measured innerWidth can drift a px from the requested width).
+          manifest.viewport = viewport
+          manifest.engine = engine
+          manifest.state = state
+          projections.push({ engine, viewport, state, manifest })
+        }
+      } finally {
+        await driver.close()
+      }
+    }
+  }
+
+  return { url, projections, notes }
+}
+
+/**
+ * The states this driver can honestly project at this viewport: every requested
+ * state when the driver actuates for real, otherwise only `rest` (with a note, so
+ * the dropped hover/focus cells are visible, not silent). `rest` is always kept.
+ */
+function effectiveStates(
+  driver: BrowserDriver,
+  engine: RenderEngine,
+  requested: InteractionState[],
+  viewport: Viewport,
+  notes: string[],
+): InteractionState[] {
+  const nonRest = requested.filter((s) => s !== 'rest')
+  const canActuate = typeof driver.actuate === 'function' && (driver.canActuate?.() ?? true)
+  if (nonRest.length > 0 && !canActuate) {
+    notes.push(`engine ${engine} cannot actuate @${viewport.width} — states ${nonRest.join(',')} skipped`)
+    return requested.filter((s) => s === 'rest')
+  }
+  return requested
 }

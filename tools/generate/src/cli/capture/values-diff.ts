@@ -31,7 +31,9 @@ import type {
   Capture,
   ContentRun,
   Field,
+  InteractionState,
   NameSource,
+  RenderEngine,
   TextGradient,
   Viewport,
 } from './types'
@@ -138,6 +140,55 @@ export interface ValueManifest {
    * failure (see {@link diffManifests}). Optional so pre-REQ-48 manifests parse.
    */
   viewport?: Viewport
+  /**
+   * REQ-48 (item 6) — the rendering engine this manifest was projected on.
+   * Multi-state diffs pair reference↔repro on `{engine, viewport.width, state}`,
+   * so a WebKit-only shift is diffed against WebKit, never against Blink. Optional
+   * so single-engine (pre-multi-state) manifests parse.
+   */
+  engine?: RenderEngine
+  /**
+   * REQ-48 (item 1) — the interaction state this manifest was projected in
+   * (`rest` / `hover` / `focus` / `active`). The pairing key's third axis, so a
+   * hover-scale is diffed hover↔hover and cannot be masked by the resting frame.
+   */
+  state?: InteractionState
+}
+
+/**
+ * REQ-48 (items 1, 5, 6) — one projected manifest tagged with the full state it
+ * was shot in: engine × viewport × interaction-state. The unit the multi-state
+ * capture loop emits and {@link diffMultiState} pairs on.
+ */
+export interface StateProjection {
+  engine: RenderEngine
+  viewport: Viewport
+  state: InteractionState
+  manifest: ValueManifest
+}
+
+/** REQ-48 — a whole capture across every {engine × viewport × state} combination. */
+export interface MultiStateCapture {
+  url: string
+  projections: StateProjection[]
+  /**
+   * REQ-48 — what the loop dropped and why (an unavailable engine, a driver that
+   * couldn't actuate so was held to `rest`). Never a silent cap: a gap in the
+   * matrix is surfaced here so a partial run cannot read as full coverage.
+   */
+  notes: string[]
+}
+
+/** REQ-48 — one paired-and-diffed cell of the multi-state matrix. */
+export interface StateDiff {
+  engine: RenderEngine
+  /** The viewport *width* is the layout key (height doesn't recompose layout). */
+  viewportWidth: number
+  state: InteractionState
+  /** The diff for this cell, or null when the repro never projected this cell. */
+  report: ValuesDiffReport | null
+  /** True when the reference has this cell but the repro is missing it (a coverage gap). */
+  missing: boolean
 }
 
 export type DeltaProperty =
@@ -1326,4 +1377,53 @@ export function diffManifests(
     deltas: kept,
     suppressed,
   }
+}
+
+/** The `{engine}:{width}:{state}` pairing key for one projection (REQ-48). */
+function projectionKey(engine: RenderEngine, viewportWidth: number, state: InteractionState): string {
+  return `${engine}:${viewportWidth}:${state}`
+}
+
+/**
+ * REQ-48 (items 1, 5, 6) — diff a reproduction against a reference across the
+ * whole multi-state matrix. Each reference projection is paired with the repro
+ * projection shot in the *same* `{engine, viewport-width, state}` cell and diffed
+ * there; a hover-scale is compared hover↔hover, a mobile reflow at 375↔375, a
+ * WebKit shift on WebKit — never bled across cells where the resting / desktop /
+ * Blink frame would mask it. A reference cell the repro never projected is a
+ * coverage gap (`missing: true`, `report: null`), surfaced rather than silently
+ * counted clean. Results are ordered by descending max severity so the worst cell
+ * leads.
+ */
+export function diffMultiState(
+  reference: MultiStateCapture,
+  repro: MultiStateCapture,
+  opts: DiffOptions = {},
+): StateDiff[] {
+  const reproByKey = new Map<string, StateProjection>()
+  for (const p of repro.projections) {
+    reproByKey.set(projectionKey(p.engine, p.viewport.width, p.state), p)
+  }
+
+  const out: StateDiff[] = reference.projections.map((ref) => {
+    const key = projectionKey(ref.engine, ref.viewport.width, ref.state)
+    const match = reproByKey.get(key)
+    if (!match) {
+      return { engine: ref.engine, viewportWidth: ref.viewport.width, state: ref.state, report: null, missing: true }
+    }
+    return {
+      engine: ref.engine,
+      viewportWidth: ref.viewport.width,
+      state: ref.state,
+      report: diffManifests(ref.manifest, match.manifest, opts),
+      missing: false,
+    }
+  })
+
+  // Worst cell first: a missing cell is maximally severe (nothing to compare), then
+  // by the top delta's severity within each cell.
+  const worst = (d: StateDiff): number =>
+    d.missing ? Number.POSITIVE_INFINITY : (d.report?.deltas[0]?.severity ?? 0)
+  out.sort((a, b) => worst(b) - worst(a))
+  return out
 }

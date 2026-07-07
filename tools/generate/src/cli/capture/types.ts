@@ -25,6 +25,22 @@ export interface Viewport {
 }
 
 /**
+ * REQ-48 (item 6) — the rendering engines the fidelity gate can shoot across. A
+ * real faelan `%-top` shift showed only in Safari/FF while the harness had
+ * Chromium alone, so a single-engine "clean" is clean only on that engine. Lives
+ * on the pure type surface (not the Playwright driver) so the diff and the
+ * capture loop can name an engine without importing a browser library.
+ */
+export type RenderEngine = 'chromium' | 'webkit' | 'firefox'
+
+/**
+ * REQ-48 (item 1) — the interaction pseudo-states the capture can actuate. A
+ * resting frame cannot hold a hover-scale, a focus ring, or an `:active` press;
+ * projecting each state separately is what gives the motion axis a time dimension.
+ */
+export type InteractionState = 'rest' | 'hover' | 'focus' | 'active'
+
+/**
  * One intercepted network response, cached verbatim during navigation. The
  * pipeline mirrors these bytes into the bundle's `assets/` so capture is
  * re-extractable offline (DOC-13 §3, §9).
@@ -74,6 +90,31 @@ export interface BrowserDriver {
    * and media queries resolve at that width (REQ-39 fast-tier viewport axis).
    */
   navigate(url: string, viewport?: Viewport): Promise<void>
+  /**
+   * REQ-48 (item 1) — force an interaction pseudo-state globally, so the next
+   * {@link query}/{@link screenshot} projects the *actuated* frame (a hover-scale,
+   * a focus ring) instead of the resting one; `'rest'` clears every forced state.
+   * Forcing the pseudo-class on every element at once is not a physically
+   * reachable frame, but the fidelity gate applies it *symmetrically* to reference
+   * and repro — so a hover effect present in one side and absent in the other
+   * still surfaces as a real geometry/treatment delta, while the capture stays
+   * single-pass and deterministic (no mouse choreography, no animation timing).
+   *
+   * Optional capability negotiation, not a legacy fallback: a driver that cannot
+   * actuate (a bare fake, a CF driver until it implements this) simply omits it,
+   * and the multi-state loop restricts itself to `'rest'` and *says so* rather
+   * than silently emitting empty non-rest states that would read as false "clean".
+   */
+  actuate?(state: InteractionState): Promise<void>
+  /**
+   * REQ-48 (item 1) — whether {@link actuate} does real work on this driver, as
+   * opposed to a no-op (a non-Blink engine whose CDP shim lacks
+   * `forcePseudoState`). The multi-state loop restricts a no-op driver to `'rest'`
+   * so it never emits an unactuated frame mislabelled as a hover/focus state.
+   * Absent → assume real (a fake that implements {@link actuate} for a test does
+   * mean it).
+   */
+  canActuate?(): boolean
   /** Full-page PNG bytes. */
   screenshot(viewport?: Viewport): Promise<Uint8Array>
   /** Evaluate a JS expression string in page scope; returns its JSON value. */

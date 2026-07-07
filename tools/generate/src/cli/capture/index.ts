@@ -5,8 +5,8 @@
  */
 export { cmdCapturePage } from './capture'
 export type { CapturePageOptions, CapturePageResult } from './capture'
-export { runCapturePipeline } from './pipeline'
-export type { CapturePipelineOptions } from './pipeline'
+export { runCapturePipeline, runMultiStateCapture } from './pipeline'
+export type { CapturePipelineOptions, MultiStateCaptureOptions } from './pipeline'
 export {
   createPlaywrightDriver,
   createEngineDriver,
@@ -15,7 +15,7 @@ export {
 } from './playwright-driver'
 export type { RenderEngine } from './playwright-driver'
 export { reextractFromBundle } from './reextract'
-export { writeBundle, readCapture, bundleDirFor } from './bundle'
+export { writeBundle, readCapture, bundleDirFor, writeMultiState, readMultiState } from './bundle'
 export type { BundleLocation } from './bundle'
 export { EXTRACT_SCRIPT } from './extract'
 export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
@@ -23,6 +23,7 @@ export {
   flattenCapture,
   flattenSignals,
   diffManifests,
+  diffMultiState,
   normalizeGradient,
   colorToHex,
   colorDistance,
@@ -43,6 +44,9 @@ export type {
   SeverityTier,
   ValuesDiffReport,
   DiffOptions,
+  StateProjection,
+  MultiStateCapture,
+  StateDiff,
 } from './values-diff'
 export {
   makeCalibrationBaseline,

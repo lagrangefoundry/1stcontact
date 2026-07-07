@@ -10,20 +10,30 @@ import type {
   BrowserDriver,
   BrowserDriverFactory,
   CapturedResponse,
+  InteractionState,
   PageDiagnostics,
+  RenderEngine,
   Viewport,
 } from './types'
 
 const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
 
 /**
- * REQ-48 (item 6) — the rendering engines the fidelity gate can shoot across.
- * A real faelan `%-top` shift showed only in Safari/FF while the harness had
- * Chromium alone; a single-engine "clean" is clean only on that engine. Diffs
- * across engines are layout-box equivalence (the px-tolerant geometry compare),
- * never pixel-equality — anti-aliasing and font hinting differ per engine.
+ * REQ-48 (item 6) — the rendering engines the fidelity gate can shoot across
+ * (Blink / WebKit / Gecko). Defined on the pure type surface ({@link
+ * ./types}); re-exported here so existing importers keep their path. Cross-engine
+ * diffs are layout-box equivalence (the px-tolerant geometry compare), never
+ * pixel-equality — anti-aliasing and font hinting differ per engine.
  */
-export type RenderEngine = 'chromium' | 'webkit' | 'firefox'
+export type { RenderEngine } from './types'
+
+/** The subset of a CDP `DOM.Node` the pseudo-state walk reads (REQ-48 item 1). */
+interface CdpNode {
+  nodeId: number
+  nodeType: number
+  children?: CdpNode[]
+  contentDocument?: CdpNode
+}
 
 class PlaywrightDriver implements BrowserDriver {
   private browser: Browser | null = null
@@ -103,6 +113,53 @@ class PlaywrightDriver implements BrowserDriver {
     if (viewport) await page.setViewportSize(viewport)
     const buf = await page.screenshot({ fullPage: true, type: 'png' })
     return new Uint8Array(buf)
+  }
+
+  /**
+   * REQ-48 (item 1) — actuate an interaction pseudo-state on the *whole* rendered
+   * DOM via CDP `CSS.forcePseudoState`, so the next {@link query}/{@link
+   * screenshot} reads the hover / focus / active frame. `'rest'` forces the empty
+   * set, clearing any prior state. Chromium-only (CDP is a Blink protocol); WebKit
+   * and Gecko launch through Playwright's Chromium-shaped CDP shim for the other
+   * capture signals but do not expose `forcePseudoState`, so on those engines this
+   * is a no-op and the loop keeps them to `'rest'` (it checks
+   * {@link PlaywrightDriver.canActuate}).
+   *
+   * The `reducedMotion: 'reduce'` context (set in {@link navigate}) collapses each
+   * transition to its end-state instantly, so the forced frame is deterministic —
+   * there is no animation mid-point to race.
+   */
+  async actuate(state: InteractionState): Promise<void> {
+    const page = this.requirePage()
+    const client = await page.context().newCDPSession(page)
+    try {
+      await client.send('DOM.enable')
+      await client.send('CSS.enable')
+      const forced = state === 'rest' ? [] : [state]
+      const { root } = (await client.send('DOM.getDocument', { depth: -1, pierce: true })) as {
+        root: CdpNode
+      }
+      const ids: number[] = []
+      const stack: CdpNode[] = [root]
+      while (stack.length) {
+        const node = stack.pop()!
+        if (node.nodeType === 1) ids.push(node.nodeId) // element nodes only
+        if (node.children) stack.push(...node.children)
+        if (node.contentDocument) stack.push(node.contentDocument)
+      }
+      for (const nodeId of ids) {
+        // A node may have been detached between snapshot and force — tolerate it
+        // per-node rather than aborting the whole actuation.
+        await client.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: forced }).catch(() => undefined)
+      }
+    } finally {
+      await client.detach().catch(() => undefined)
+    }
+  }
+
+  /** Whether {@link actuate} does real work here (CDP `forcePseudoState` is Blink-only). */
+  canActuate(): boolean {
+    return this.engine === 'chromium'
   }
 
   async query<T = unknown>(script: string): Promise<T> {
