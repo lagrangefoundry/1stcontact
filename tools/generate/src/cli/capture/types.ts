@@ -206,6 +206,18 @@ export interface ElementGeometry {
    * geometry field; only this paint-order axis separates them.
    */
   zIndex?: number
+  /**
+   * REQ-48 (item 3) — treatments REQ-47's shape (radius/border/box-shadow) can't
+   * hold. Each is the raw computed value when painted, else null; the diff
+   * compares *presence* (has-glow vs not, rounded-vs-masked edge), the pixel-
+   * obvious signal, not brittle cross-engine value strings.
+   */
+  /** Computed `filter` when non-`none` (blur/drop-shadow halo, saturate), else null. */
+  filter?: string | null
+  /** Computed `text-shadow` when painted (glow / legibility shadow), else null. */
+  textShadow?: string | null
+  /** Computed `mask-image` or `clip-path` when the element is masked/clipped (feather halo, shaped edge), else null. */
+  maskEdge?: string | null
 }
 
 /**

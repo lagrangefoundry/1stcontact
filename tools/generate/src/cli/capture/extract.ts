@@ -33,6 +33,12 @@ export interface RawGeometry {
   arrangement: 'row' | 'stack' | null
   /** REQ-48 (item 2) — effective computed `z-index` as an integer (`auto` → 0). */
   zIndex: number
+  /** REQ-48 (item 3) — computed `filter` when painted, else null. */
+  filter: string | null
+  /** REQ-48 (item 3) — computed `text-shadow` when painted, else null. */
+  textShadow: string | null
+  /** REQ-48 (item 3) — computed `mask-image` or `clip-path` when the element is masked/clipped, else null. */
+  maskEdge: string | null
 }
 
 /** A single visible text run with its exact painted styling. */
@@ -191,6 +197,16 @@ export const EXTRACT_SCRIPT = `(() => {
   function zIndexOf(s) {
     var z = parseInt(s.zIndex, 10);
     return isNaN(z) ? 0 : z;
+  }
+  // REQ-48 (item 3) -- a computed value that is painted, or null when it is the
+  // no-op default. Normalises the several spellings of "nothing" to one null.
+  function paintedOrNull(v) {
+    return (v && v !== 'none' && v !== 'normal') ? v : null;
+  }
+  // REQ-48 (item 3) -- the element's masked/clipped edge (feather halo or shaped
+  // clip). Either mechanism collapses to one field; presence is what the eye reads.
+  function maskEdgeOf(s) {
+    return paintedOrNull(s.maskImage || s.webkitMaskImage) || paintedOrNull(s.clipPath);
   }
   // The a11y role: an explicit role attr wins, else the implicit role for the tag
   // (the browser's own framework-agnostic semantic label — a <button>, an <a
@@ -382,6 +398,9 @@ export const EXTRACT_SCRIPT = `(() => {
         a11yRole: a11yRoleOf(el),
         arrangement: null,
         zIndex: zIndexOf(s),
+        filter: paintedOrNull(s.filter),
+        textShadow: paintedOrNull(s.textShadow),
+        maskEdge: maskEdgeOf(s),
       });
     }
     return out;
@@ -407,6 +426,9 @@ export const EXTRACT_SCRIPT = `(() => {
         a11yRole: a11yRoleOf(el),
         arrangement: null,
         zIndex: zIndexOf(s),
+        filter: paintedOrNull(s.filter),
+        textShadow: paintedOrNull(s.textShadow),
+        maskEdge: maskEdgeOf(s),
         accessibleName: an.name,
         nameSource: an.source,
       });

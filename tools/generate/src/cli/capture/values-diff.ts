@@ -73,6 +73,12 @@ export interface ValueElement {
   arrangement?: Arrangement | null
   /** REQ-48 (item 2) — effective paint order (computed `z-index`, `auto` → 0). */
   zIndex?: number
+  /** REQ-48 (item 3) — computed `filter` when painted (blur/drop-shadow halo), else null. */
+  filter?: string | null
+  /** REQ-48 (item 3) — computed `text-shadow` when painted (glow), else null. */
+  textShadow?: string | null
+  /** REQ-48 (item 3) — computed `mask-image`/`clip-path` when masked/clipped, else null. */
+  maskEdge?: string | null
   /**
    * REQ-47 — true for a text-free element (input, divider). It has no text join
    * key, so the diff pairs it on `a11yRole + document order` and never routes it
@@ -136,6 +142,10 @@ export type DeltaProperty =
   | 'containment'
   // ── REQ-48 (item 2) layering ─────────────────────────────────────────────
   | 'zIndex'
+  // ── REQ-48 (item 3) treatments beyond box-shadow ─────────────────────────
+  | 'filter'
+  | 'textShadow'
+  | 'mask'
 
 /**
  * REQ-47 — the severity taxonomy. Every delta is tagged with a {@link DeltaKind}
@@ -157,6 +167,7 @@ export type DeltaKind =
   | 'fontSize'
   | 'fontFamily'
   | 'shape'
+  | 'treatment'
   | 'borderLeft'
   | 'gradient'
   | 'fontWeight'
@@ -362,6 +373,9 @@ function copyGeometry(
     a11yRole?: string
     arrangement?: Arrangement | null
     zIndex?: number
+    filter?: string | null
+    textShadow?: string | null
+    maskEdge?: string | null
   },
 ): void {
   if (src.box !== undefined) el.box = src.box
@@ -370,6 +384,9 @@ function copyGeometry(
   if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
   if (src.arrangement !== undefined) el.arrangement = src.arrangement
   if (src.zIndex !== undefined) el.zIndex = src.zIndex
+  if (src.filter !== undefined) el.filter = src.filter
+  if (src.textShadow !== undefined) el.textShadow = src.textShadow
+  if (src.maskEdge !== undefined) el.maskEdge = src.maskEdge
 }
 
 /** Project a {@link ContentRun} (from a capture bundle) to a {@link ValueElement}. */
@@ -502,6 +519,7 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   fontSize: 'HIGH',
   fontFamily: 'HIGH',
   shape: 'MEDIUM',
+  treatment: 'MEDIUM',
   borderLeft: 'MEDIUM',
   gradient: 'MEDIUM',
   fontWeight: 'MEDIUM',
@@ -537,7 +555,8 @@ const KIND_RANK: Record<DeltaKind, number> = {
   fontSize: 2,
   fontFamily: 1,
   // MEDIUM band
-  shape: 4,
+  shape: 5,
+  treatment: 4,
   borderLeft: 3,
   gradient: 2,
   fontWeight: 1,
@@ -607,6 +626,9 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   arrangement: 'arrangement',
   containment: 'containment',
   zIndex: 'zOrder',
+  filter: 'treatment',
+  textShadow: 'treatment',
+  mask: 'treatment',
 }
 
 /**
@@ -911,6 +933,27 @@ export function diffManifests(
     if (exp.zIndex !== undefined && act.zIndex !== undefined && exp.zIndex !== act.zIndex) {
       push(exp, 'zIndex', `z:${exp.zIndex}`, `z:${act.zIndex}`, Math.abs(exp.zIndex - act.zIndex))
     }
+    // REQ-48 (item 3) — treatments beyond box-shadow (filter halo, text glow,
+    // mask-feather / clip edge). Like box-shadow, compare *presence*: a missing
+    // glow or a rounded-vs-masked edge is pixel-obvious, while exact value strings
+    // (blur radii, mask gradients) drift across engines and would be noise.
+    compareTreatment(exp, act, 'filter', exp.filter, act.filter)
+    compareTreatment(exp, act, 'textShadow', exp.textShadow, act.textShadow)
+    compareTreatment(exp, act, 'mask', exp.maskEdge, act.maskEdge)
+  }
+
+  // REQ-48 (item 3) — emit a treatment delta when a treatment's *presence*
+  // differs between the paired elements (guarded on the field existing on both,
+  // so pre-REQ-48 bundles that carry neither stay inert).
+  const compareTreatment = (
+    exp: ValueElement,
+    act: ValueElement,
+    property: DeltaProperty,
+    e: string | null | undefined,
+    a: string | null | undefined,
+  ): void => {
+    if (e === undefined || a === undefined) return
+    if (!!e !== !!a) push(exp, property, e ? 'present' : 'none', a ? 'present' : 'none')
   }
 
   // ── text-free fields (REQ-47): pair by a11yRole + document order ─────────────

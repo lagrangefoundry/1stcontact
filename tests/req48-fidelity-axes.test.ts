@@ -214,3 +214,48 @@ describe('REQ-48 item 2 — layering / z-order', () => {
     expect(report.deltas.some((d) => d.kind === 'zOrder')).toBe(false)
   })
 })
+
+// ── Item 3 — treatments beyond box-shadow ────────────────────────────────────
+
+describe('REQ-48 item 3 — treatments (filter / text-glow / mask edge)', () => {
+  it('test_UAT_FC_REQ-48_missing_text_glow_flagged', () => {
+    const expected = mani('ref', [el('Neon', { textShadow: '0 0 8px #0ff' })])
+    const actual = mani('draft', [el('Neon', { textShadow: null })])
+    const report = diffManifests(expected, actual)
+    const t = report.deltas.filter((d) => d.kind === 'treatment')
+    expect(t).toHaveLength(1)
+    expect(t[0].property).toBe('textShadow')
+    expect(t[0].tier).toBe('MEDIUM')
+  })
+
+  it('test_UAT_FC_REQ-48_mask_edge_presence_flagged', () => {
+    // Rounded-vs-masked edge: the reference feathers with a mask, the repro doesn't.
+    const expected = mani('ref', [el('portrait', { maskEdge: 'linear-gradient(#000, transparent)' })])
+    const actual = mani('draft', [el('portrait', { maskEdge: null })])
+    const report = diffManifests(expected, actual)
+    expect(report.deltas.filter((d) => d.property === 'mask')).toHaveLength(1)
+  })
+
+  it('test_UAT_FC_REQ-48_filter_halo_presence_flagged', () => {
+    const report = diffManifests(
+      mani('ref', [el('logo', { filter: 'drop-shadow(0 0 12px #fff)' })]),
+      mani('draft', [el('logo', { filter: null })]),
+    )
+    expect(report.deltas.filter((d) => d.property === 'filter')).toHaveLength(1)
+  })
+
+  it('test_UAT_FC_REQ-48_matching_treatment_presence_is_clean', () => {
+    // Presence-based: both glow, so even differing value strings do not flag
+    // (engine-drifting blur radii are noise, not a fidelity gap).
+    const report = diffManifests(
+      mani('ref', [el('Neon', { textShadow: '0 0 8px #0ff' })]),
+      mani('draft', [el('Neon', { textShadow: '0 0 9px #0ff' })]),
+    )
+    expect(report.deltas.some((d) => d.kind === 'treatment')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_treatment_absent_axis_inert', () => {
+    const report = diffManifests(mani('ref', [el('a')]), mani('draft', [el('a')]))
+    expect(report.deltas.some((d) => d.kind === 'treatment')).toBe(false)
+  })
+})

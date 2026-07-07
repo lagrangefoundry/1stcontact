@@ -91,6 +91,9 @@ function toContentRun(r: RawRun): ContentRun {
   run.a11yRole = r.a11yRole
   run.arrangement = r.arrangement
   run.zIndex = r.zIndex
+  run.filter = r.filter
+  run.textShadow = r.textShadow
+  run.maskEdge = r.maskEdge
   return run
 }
 
@@ -105,6 +108,9 @@ function toField(f: RawField): Field {
     boxShadow: f.boxShadow,
     arrangement: f.arrangement,
     zIndex: f.zIndex,
+    filter: f.filter,
+    textShadow: f.textShadow,
+    maskEdge: f.maskEdge,
     accessibleName: f.accessibleName,
     nameSource: f.nameSource,
   }
