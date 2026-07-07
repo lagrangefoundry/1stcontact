@@ -257,25 +257,52 @@ function toRgb(token: string): [number, number, number] | null {
   ]
 }
 
+/** sRGB channel (0–255) → linear-light [0,1] (inverse companding). */
+function srgbToLinear(c: number): number {
+  const n = c / 255
+  return n <= 0.04045 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4)
+}
+
 /**
- * Perceptual distance between two colours (REQ-35), using the low-cost "redmean"
- * approximation of CIE ΔE. Two identical colours score 0; the largest possible
- * distance (`#000` vs `#fff`) is ≈765. A tiny threshold (~3) suppresses the
- * imperceptible per-channel rounding that separates a re-render from its capture
- * while leaving real near-neighbour deltas — the flagship gold-vs-gold
- * (`#f5e6a3` vs `#fbba72`, ≈113) the tool exists to catch — well above the line.
- * Unparseable input scores `Infinity` so an unknown colour is never silently
- * treated as a match.
+ * sRGB `[r,g,b]` (0–255) → OKLab `[L, a, b]` (Björn Ottosson's OKLab, the
+ * perceptually-uniform space CSS `oklch()` is built on). Euclidean distance in
+ * this space is ΔEOK — see {@link colorDistance}.
+ */
+function toOklab([r, g, b]: [number, number, number]): [number, number, number] {
+  const lr = srgbToLinear(r)
+  const lg = srgbToLinear(g)
+  const lb = srgbToLinear(b)
+  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
+  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
+  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ]
+}
+
+/**
+ * Perceptual distance between two colours (REQ-48 item 8b), as ΔEOK — Euclidean
+ * distance in **OKLab** (the space `oklch()` builds on), replacing the earlier
+ * redmean RGB approximation. OKLab is perceptually uniform, so one threshold
+ * holds across the gamut: raw RGB over/under-weights greens and darks, so a
+ * single RGB tolerance is simultaneously too loose in one region and too tight
+ * in another. Two identical colours score 0; `#000` vs `#fff` is ≈1.0. A tiny
+ * threshold (~0.02, the ΔEOK just-noticeable band) suppresses the imperceptible
+ * per-channel rounding between a re-render and its capture (`#808080` vs
+ * `#818080` ≈ 0.0015) while leaving real near-neighbour deltas — the flagship
+ * gold-vs-gold (`#f5e6a3` vs `#fbba72` ≈ 0.105), and the near-black-vs-slate body
+ * tone (`#111` vs `#334155` ≈ 0.198) — well above the line. Unparseable input
+ * scores `Infinity` so an unknown colour is never silently treated as a match.
  */
 export function colorDistance(a: string, b: string): number {
   const ca = toRgb(a)
   const cb = toRgb(b)
   if (!ca || !cb) return Infinity
-  const rmean = (ca[0] + cb[0]) / 2
-  const dr = ca[0] - cb[0]
-  const dg = ca[1] - cb[1]
-  const db = ca[2] - cb[2]
-  return Math.sqrt((2 + rmean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rmean) / 256) * db * db)
+  const [la, aa, ba] = toOklab(ca)
+  const [lb, ab, bb] = toOklab(cb)
+  return Math.hypot(la - lb, aa - ab, ba - bb)
 }
 
 /**
@@ -608,7 +635,7 @@ export interface DiffOptions {
    * disable aggregation.
    */
   systemicThreshold?: number
-  /** Perceptual colour distance (redmean ΔE) under which a colour pair matches (default 3). */
+  /** Perceptual colour distance (OKLab ΔEOK) under which a colour pair matches (default 0.02, the JND band). */
   colorTolerance?: number
   /** Font-size px tolerance (default 1). */
   fontSizeTolerancePx?: number
@@ -764,7 +791,7 @@ export function diffManifests(
   // `strict` collapses every measurement tolerance to exact; otherwise each
   // falls back to its jitter-tolerant default.
   const tol = (v: number | undefined, def: number): number => (strict ? 0 : (v ?? def))
-  const colorTol = tol(opts.colorTolerance, 3)
+  const colorTol = tol(opts.colorTolerance, 0.02)
   const fontSizeTol = tol(opts.fontSizeTolerancePx, 1)
   const lineHeightFloor = tol(opts.lineHeightTolerancePx, 2)
   const lineHeightRatio = tol(opts.lineHeightToleranceRatio, 0.12)

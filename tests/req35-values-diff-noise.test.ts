@@ -162,12 +162,13 @@ describe('REQ-35 values-diff — strict mode restores exact matching', () => {
 
 describe('REQ-35 values-diff — perceptual colour tolerance', () => {
   it('test_UAT_FC_REQ-35_color_distance_scale', () => {
+    // REQ-48 item 8b: distance is now ΔEOK (OKLab), scale 0..~1 not 0..~765.
     expect(colorDistance('#000000', '#000000')).toBe(0)
-    expect(colorDistance('#000000', '#ffffff')).toBeGreaterThan(700)
-    // A single-channel ±1 rounding step is perceptually ~1.6 — sub-threshold.
-    expect(colorDistance('#808080', '#818080')).toBeLessThan(3)
-    // The flagship near-neighbour golds are ~113 apart — far above any tolerance.
-    expect(colorDistance('#f5e6a3', '#fbba72')).toBeGreaterThan(50)
+    expect(colorDistance('#000000', '#ffffff')).toBeGreaterThan(0.9)
+    // A single-channel ±1 rounding step is ≈0.0015 ΔEOK — sub-threshold.
+    expect(colorDistance('#808080', '#818080')).toBeLessThan(0.01)
+    // The flagship near-neighbour golds are ≈0.105 ΔEOK apart — above tolerance.
+    expect(colorDistance('#f5e6a3', '#fbba72')).toBeGreaterThan(0.05)
     // Unparseable input is never silently treated as a match.
     expect(colorDistance('#f5e6a3', 'not-a-colour')).toBe(Infinity)
   })

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { diffManifests, type ValueElement, type ValueManifest } from '../tools/generate/src/cli'
+import {
+  colorDistance,
+  diffManifests,
+  type ValueElement,
+  type ValueManifest,
+} from '../tools/generate/src/cli'
 
 /**
  * UATs for REQ-48 — extending the fidelity gate beyond the static single-state
@@ -149,5 +154,35 @@ describe('REQ-48 item 8a — systemic sub-threshold aggregation', () => {
     })
     expect(report.deltas.some((d) => d.systemic)).toBe(false)
     expect(report.deltas).toHaveLength(8)
+  })
+})
+
+// ── Item 8b — perceptual ΔE via OKLCH ────────────────────────────────────────
+
+describe('REQ-48 item 8b — perceptual OKLab colour distance', () => {
+  it('test_UAT_FC_REQ-48_color_distance_is_oklab_scale', () => {
+    // ΔEOK: identical = 0, full black→white ≈ 1, a ±1 rounding step is a tiny
+    // fraction, and the flagship near-neighbour golds are clearly separated.
+    expect(colorDistance('#000000', '#000000')).toBe(0)
+    expect(colorDistance('#000000', '#ffffff')).toBeCloseTo(1, 1)
+    expect(colorDistance('#808080', '#818080')).toBeLessThan(0.01)
+    expect(colorDistance('#f5e6a3', '#fbba72')).toBeGreaterThan(0.05)
+  })
+
+  it('test_UAT_FC_REQ-48_oklab_jitter_passes_but_near_neighbour_flags', () => {
+    // Sub-JND rounding on one run is clean; a near-neighbour gold shift on
+    // another is a real colour delta — one perceptual threshold separates them.
+    const expected = mani('ref', [
+      el('caption', { color: '#808080' }),
+      el('brand', { color: '#f5e6a3' }),
+    ])
+    const actual = mani('draft', [
+      el('caption', { color: '#818080' }),
+      el('brand', { color: '#fbba72' }),
+    ])
+    const report = diffManifests(expected, actual)
+    const colorDeltas = report.deltas.filter((d) => d.kind === 'color' && !d.systemic)
+    expect(colorDeltas).toHaveLength(1)
+    expect(colorDeltas[0].text).toBe('brand')
   })
 })
