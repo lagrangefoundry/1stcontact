@@ -14,7 +14,7 @@
       "surfaceSubtle": "#d9ccba",
       "surfaceInverse": "#0f1b2e",
       "text": "#000000",
-      "muted": "#4a4a4a",
+      "muted": "#475569",
       "primary": "#0f9d6e",
       "accent": "#fbba72",
       "secondary": "#3b82f6",
@@ -80,7 +80,7 @@
       "lg": "0 10px 15px rgba(0,0,0,0.1)"
     },
     "container": {
-      "narrow": "28rem",
+      "narrow": "56rem",
       "default": "72rem",
       "wide": "90rem",
       "bleed": "100%"

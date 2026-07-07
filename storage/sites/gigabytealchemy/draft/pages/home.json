@@ -27,10 +27,22 @@
         "logoGradient": {
           "direction": "to-right",
           "stops": [
-            { "role": "accent-light", "position": 0 },
-            { "role": "accent-light", "position": 60 },
-            { "role": "accent-mid", "position": 90 },
-            { "role": "accent-deep", "position": 100 }
+            {
+              "role": "accent-light",
+              "position": 0
+            },
+            {
+              "role": "accent-light",
+              "position": 60
+            },
+            {
+              "role": "accent-mid",
+              "position": 90
+            },
+            {
+              "role": "accent-deep",
+              "position": 100
+            }
           ]
         }
       }
@@ -51,7 +63,9 @@
         "scrim": "medium",
         "subheadColor": "accent-light",
         "subheadSize": "lg",
-        "contentAnchor": "bottom"
+        "contentAnchor": "bottom",
+        "tracking": "tight",
+        "subheadLeading": "normal"
       },
       "content": {
         "heading": "Intentional Software",
@@ -72,7 +86,9 @@
         "size": "lg",
         "spacingTop": "xl",
         "spacingBottom": "xl",
-        "surface": "default"
+        "surface": "default",
+        "contentWidth": "narrow",
+        "align": "left"
       },
       "content": {
         "heading": "A Different Approach",
@@ -89,7 +105,8 @@
         "spacingBottom": "md",
         "gap": "normal",
         "surface": "subtle",
-        "size": "lg"
+        "size": "lg",
+        "contentWidth": "narrow"
       },
       "content": {
         "heading": "Our Mission",
@@ -119,7 +136,9 @@
         "size": "lg",
         "spacingTop": "none",
         "spacingBottom": "xl",
-        "surface": "subtle"
+        "surface": "subtle",
+        "contentWidth": "narrow",
+        "align": "left"
       },
       "content": {
         "body": "> [!primary] These aren't just features—they're foundations. Every tool we build starts with these principles."
@@ -135,7 +154,8 @@
         "spacingBottom": "md",
         "gap": "normal",
         "surface": "default",
-        "size": "lg"
+        "size": "lg",
+        "contentWidth": "narrow"
       },
       "content": {
         "heading": "What We're Building",
@@ -173,8 +193,8 @@
           },
           {
             "title": "What We're Exploring",
-            "accent": "muted",
-            "surface": "muted",
+            "accent": "neutral-cool",
+            "surface": "neutral-cool",
             "body": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*"
           }
         ]
@@ -189,7 +209,9 @@
         "size": "lg",
         "spacingTop": "xl",
         "spacingBottom": "xl",
-        "surface": "subtle"
+        "surface": "subtle",
+        "contentWidth": "narrow",
+        "align": "left"
       },
       "content": {
         "heading": "The Alchemy",
@@ -206,7 +228,8 @@
         "spacingBottom": "xl",
         "align": "left",
         "surface": "default",
-        "width": "half"
+        "width": "half",
+        "subheadSize": "lg"
       },
       "content": {
         "heading": "Get in touch",
