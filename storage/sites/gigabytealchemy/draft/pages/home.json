@@ -57,15 +57,18 @@
         "align": "left",
         "surface": "inverse",
         "height": "fold",
-        "spacingTop": "xl",
+        "spacingTop": "none",
         "spacingBottom": "xl",
         "headingTreatment": "accent",
         "scrim": "medium",
         "subheadColor": "accent-light",
         "subheadSize": "lg",
-        "contentAnchor": "center",
+        "contentAnchor": "top",
+        "contentOffsetTop": "xl",
+        "contentWidth": "narrow",
+        "subheadWeight": "light",
         "tracking": "tight",
-        "subheadLeading": "normal"
+        "subheadLeading": "snug"
       },
       "content": {
         "heading": "Intentional Software",
