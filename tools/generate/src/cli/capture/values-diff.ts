@@ -71,6 +71,8 @@ export interface ValueElement {
   a11yRole?: string
   /** Rendered arrangement relative to the previous element in the section. */
   arrangement?: Arrangement | null
+  /** REQ-48 (item 2) — effective paint order (computed `z-index`, `auto` → 0). */
+  zIndex?: number
   /**
    * REQ-47 — true for a text-free element (input, divider). It has no text join
    * key, so the diff pairs it on `a11yRole + document order` and never routes it
@@ -132,6 +134,8 @@ export type DeltaProperty =
   | 'shape'
   | 'arrangement'
   | 'containment'
+  // ── REQ-48 (item 2) layering ─────────────────────────────────────────────
+  | 'zIndex'
 
 /**
  * REQ-47 — the severity taxonomy. Every delta is tagged with a {@link DeltaKind}
@@ -148,6 +152,7 @@ export type DeltaKind =
   | 'arrangement'
   | 'position'
   | 'text'
+  | 'zOrder'
   | 'size'
   | 'fontSize'
   | 'fontFamily'
@@ -356,6 +361,7 @@ function copyGeometry(
     boxShadow?: string | null
     a11yRole?: string
     arrangement?: Arrangement | null
+    zIndex?: number
   },
 ): void {
   if (src.box !== undefined) el.box = src.box
@@ -363,6 +369,7 @@ function copyGeometry(
   if (src.boxShadow !== undefined) el.boxShadow = src.boxShadow
   if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
   if (src.arrangement !== undefined) el.arrangement = src.arrangement
+  if (src.zIndex !== undefined) el.zIndex = src.zIndex
 }
 
 /** Project a {@link ContentRun} (from a capture bundle) to a {@link ValueElement}. */
@@ -490,6 +497,7 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   arrangement: 'CRITICAL',
   position: 'CRITICAL',
   text: 'CRITICAL',
+  zOrder: 'HIGH',
   size: 'HIGH',
   fontSize: 'HIGH',
   fontFamily: 'HIGH',
@@ -524,6 +532,7 @@ const KIND_RANK: Record<DeltaKind, number> = {
   position: 3,
   text: 2,
   // HIGH band
+  zOrder: 4,
   size: 3,
   fontSize: 2,
   fontFamily: 1,
@@ -597,6 +606,7 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   shape: 'shape',
   arrangement: 'arrangement',
   containment: 'containment',
+  zIndex: 'zOrder',
 }
 
 /**
@@ -894,6 +904,12 @@ export function diffManifests(
     }
     if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
       push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))
+    }
+    // REQ-48 (item 2) — paint order. A wrong z-index means a correctly-placed
+    // element stacks on the wrong side of its neighbours (portrait over caption,
+    // scrim behind instead of in front) — invisible to every 2D field above.
+    if (exp.zIndex !== undefined && act.zIndex !== undefined && exp.zIndex !== act.zIndex) {
+      push(exp, 'zIndex', `z:${exp.zIndex}`, `z:${act.zIndex}`, Math.abs(exp.zIndex - act.zIndex))
     }
   }
 

@@ -90,6 +90,7 @@ function toContentRun(r: RawRun): ContentRun {
   run.boxShadow = r.boxShadow
   run.a11yRole = r.a11yRole
   run.arrangement = r.arrangement
+  run.zIndex = r.zIndex
   return run
 }
 
@@ -103,6 +104,7 @@ function toField(f: RawField): Field {
     borderRadiusPx: f.borderRadiusPx,
     boxShadow: f.boxShadow,
     arrangement: f.arrangement,
+    zIndex: f.zIndex,
     accessibleName: f.accessibleName,
     nameSource: f.nameSource,
   }

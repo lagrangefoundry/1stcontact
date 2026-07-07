@@ -186,3 +186,31 @@ describe('REQ-48 item 8b — perceptual OKLab colour distance', () => {
     expect(colorDeltas[0].text).toBe('brand')
   })
 })
+
+// ── Item 2 — layering / z-order ──────────────────────────────────────────────
+
+describe('REQ-48 item 2 — layering / z-order', () => {
+  it('test_UAT_FC_REQ-48_wrong_z_order_flagged_high', () => {
+    // Portrait and caption correctly *placed* but their stacking is swapped —
+    // identical on every 2D field, separated only by paint order. HIGH.
+    const expected = mani('ref', [el('portrait', { zIndex: 1 }), el('caption', { zIndex: 5 })])
+    const actual = mani('draft', [el('portrait', { zIndex: 5 }), el('caption', { zIndex: 1 })])
+    const report = diffManifests(expected, actual)
+    const z = report.deltas.filter((d) => d.kind === 'zOrder')
+    expect(z).toHaveLength(2)
+    expect(z.every((d) => d.tier === 'HIGH')).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-48_matching_z_order_clean', () => {
+    const m = mani('ref', [el('portrait', { zIndex: 1 }), el('caption', { zIndex: 5 })])
+    const report = diffManifests(m, mani('draft', [el('portrait', { zIndex: 1 }), el('caption', { zIndex: 5 })]))
+    expect(report.deltas).toHaveLength(0)
+  })
+
+  it('test_UAT_FC_REQ-48_z_order_absent_is_inert', () => {
+    // Pre-REQ-48 manifests carry no zIndex; the axis must stay silent, not
+    // synthesise a spurious 0-vs-undefined delta.
+    const report = diffManifests(mani('ref', [el('a')]), mani('draft', [el('a')]))
+    expect(report.deltas.some((d) => d.kind === 'zOrder')).toBe(false)
+  })
+})

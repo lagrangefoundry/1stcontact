@@ -31,6 +31,8 @@ export interface RawGeometry {
    * right-of vs below the input" without ever reading `flex-direction`.
    */
   arrangement: 'row' | 'stack' | null
+  /** REQ-48 (item 2) — effective computed `z-index` as an integer (`auto` → 0). */
+  zIndex: number
 }
 
 /** A single visible text run with its exact painted styling. */
@@ -181,6 +183,14 @@ export const EXTRACT_SCRIPT = `(() => {
   function boxShadowOf(s) {
     var bs = s.boxShadow;
     return (bs && bs !== 'none') ? bs : null;
+  }
+  // REQ-48 (item 2) -- effective paint order. z-index:auto (the default, and the
+  // common case) resolves to 0; an explicit integer is the rendered stacking
+  // value. This is the only field that separates a correctly-placed-but-wrongly-
+  // stacked layer from its reference.
+  function zIndexOf(s) {
+    var z = parseInt(s.zIndex, 10);
+    return isNaN(z) ? 0 : z;
   }
   // The a11y role: an explicit role attr wins, else the implicit role for the tag
   // (the browser's own framework-agnostic semantic label — a <button>, an <a
@@ -371,6 +381,7 @@ export const EXTRACT_SCRIPT = `(() => {
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
         arrangement: null,
+        zIndex: zIndexOf(s),
       });
     }
     return out;
@@ -395,6 +406,7 @@ export const EXTRACT_SCRIPT = `(() => {
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
         arrangement: null,
+        zIndex: zIndexOf(s),
         accessibleName: an.name,
         nameSource: an.source,
       });

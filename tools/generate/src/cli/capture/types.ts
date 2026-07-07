@@ -198,6 +198,14 @@ export interface ElementGeometry {
   a11yRole?: string
   /** Rendered arrangement relative to the previous element in the section. */
   arrangement?: Arrangement | null
+  /**
+   * REQ-48 (item 2) — effective paint order: the computed `z-index` resolved to
+   * an integer (`auto` → 0). Two elements correctly positioned but wrongly
+   * stacked — a portrait painted over its caption, a collage layer under instead
+   * of over, a scrim behind instead of in front — are identical on every 2D
+   * geometry field; only this paint-order axis separates them.
+   */
+  zIndex?: number
 }
 
 /**
