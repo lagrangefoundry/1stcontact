@@ -16,6 +16,15 @@ import type {
 
 const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
 
+/**
+ * REQ-48 (item 6) — the rendering engines the fidelity gate can shoot across.
+ * A real faelan `%-top` shift showed only in Safari/FF while the harness had
+ * Chromium alone; a single-engine "clean" is clean only on that engine. Diffs
+ * across engines are layout-box equivalence (the px-tolerant geometry compare),
+ * never pixel-equality — anti-aliasing and font hinting differ per engine.
+ */
+export type RenderEngine = 'chromium' | 'webkit' | 'firefox'
+
 class PlaywrightDriver implements BrowserDriver {
   private browser: Browser | null = null
   private page: Page | null = null
@@ -27,9 +36,11 @@ class PlaywrightDriver implements BrowserDriver {
     requestedUrls: [],
   }
 
+  constructor(private readonly engine: RenderEngine = 'chromium') {}
+
   async navigate(url: string, viewport?: Viewport): Promise<void> {
-    const { chromium } = await import('playwright')
-    this.browser = await chromium.launch()
+    const playwright = await import('playwright')
+    this.browser = await playwright[this.engine].launch()
     // REQ-48 (item 1) — freeze-determinism precondition. Motion (entrance
     // animations, hover transitions, parallax) is time-dependent, so an
     // unfrozen page projects a different frame every run and the whole gate is
@@ -126,18 +137,31 @@ class PlaywrightDriver implements BrowserDriver {
 export const createPlaywrightDriver: BrowserDriverFactory = async () => new PlaywrightDriver()
 
 /**
- * Whether a real Chromium can launch here. Lets fidelity UATs skip cleanly on a
- * browser-less runner instead of hard-failing (CI provisions Chromium via
- * `playwright install --with-deps chromium`). Resolves `playwright` from this
- * package, which declares it.
+ * REQ-48 (item 6) — a driver factory bound to a specific engine, so the same
+ * capture pipeline can shoot Blink, WebKit and Gecko behind the one seam. The
+ * WebKit/Gecko binaries are provisioned separately (`playwright install webkit
+ * firefox`); {@link engineAvailable} lets a caller skip an absent engine cleanly.
  */
-export async function chromiumAvailable(): Promise<boolean> {
+export function createEngineDriver(engine: RenderEngine): BrowserDriverFactory {
+  return async () => new PlaywrightDriver(engine)
+}
+
+/**
+ * Whether a real browser of the given engine can launch here. Lets fidelity UATs
+ * skip cleanly on a runner missing that engine instead of hard-failing (CI
+ * provisions engines via `playwright install --with-deps <engine>`). Resolves
+ * `playwright` from this package, which declares it.
+ */
+export async function engineAvailable(engine: RenderEngine = 'chromium'): Promise<boolean> {
   try {
-    const { chromium } = await import('playwright')
-    const browser = await chromium.launch()
+    const playwright = await import('playwright')
+    const browser = await playwright[engine].launch()
     await browser.close()
     return true
   } catch {
     return false
   }
 }
+
+/** Back-compat alias — whether a real Chromium can launch here. */
+export const chromiumAvailable = (): Promise<boolean> => engineAvailable('chromium')

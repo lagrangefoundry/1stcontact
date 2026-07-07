@@ -7,7 +7,13 @@ export { cmdCapturePage } from './capture'
 export type { CapturePageOptions, CapturePageResult } from './capture'
 export { runCapturePipeline } from './pipeline'
 export type { CapturePipelineOptions } from './pipeline'
-export { createPlaywrightDriver, chromiumAvailable } from './playwright-driver'
+export {
+  createPlaywrightDriver,
+  createEngineDriver,
+  chromiumAvailable,
+  engineAvailable,
+} from './playwright-driver'
+export type { RenderEngine } from './playwright-driver'
 export { reextractFromBundle } from './reextract'
 export { writeBundle, readCapture, bundleDirFor } from './bundle'
 export type { BundleLocation } from './bundle'

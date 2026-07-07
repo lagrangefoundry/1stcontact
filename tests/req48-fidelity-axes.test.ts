@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   calibrateDiscriminator,
   colorDistance,
+  createEngineDriver,
   diffManifests,
   discriminatorIsCalibrated,
+  engineAvailable,
   horizontalOverflows,
   makeCalibrationBaseline,
   RESPONSIVE_VIEWPORTS,
@@ -504,5 +506,26 @@ describe('REQ-48 item 11 — discriminator calibration', () => {
     // An ignore-everything mask suppresses text-anchored deltas, so at least one
     // seeded defect must now fail to fire — the calibration is not a rubber stamp.
     expect(results.some((r) => !r.fired)).toBe(true)
+  })
+})
+
+// ── Item 6 — cross-engine divergence ─────────────────────────────────────────
+
+describe('REQ-48 item 6 — cross-engine', () => {
+  it('test_UAT_FC_REQ-48_cross_engine_subpixel_layout_tolerated', () => {
+    // Diffs across engines are layout-box equivalence, not pixel-equality: a few
+    // px of AA / font-hinting drift between Blink and WebKit must not flag.
+    const expected = mani('ref', [el('Heading', { box: box(0, 0, 300, 40) })])
+    const actual = mani('draft', [el('Heading', { box: box(2, 2, 302, 41) })])
+    const report = diffManifests(expected, actual)
+    expect(report.deltas.some((d) => d.kind === 'position' || d.kind === 'size')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-48_engine_driver_factory_and_availability', async () => {
+    // The engine seam exists for all three engines; availability resolves to a
+    // boolean (never throws) so a runner missing WebKit/Gecko skips, not fails.
+    expect(typeof createEngineDriver('webkit')).toBe('function')
+    expect(typeof createEngineDriver('firefox')).toBe('function')
+    expect(typeof (await engineAvailable('webkit'))).toBe('boolean')
   })
 })
