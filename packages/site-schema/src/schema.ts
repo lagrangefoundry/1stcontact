@@ -549,6 +549,11 @@ export const typographyTokensSchema = z.object({
     '5xl': cssValue,
   }),
   weights: z.object({
+    // `extralight` (200, REQ-36) is optional so existing themes validate
+    // unchanged; `defaultTokens` fills it, so `--font-weight-extralight` is
+    // always emitted and safe for the text-block/hero `headingWeight` dial to
+    // reference (the joyfulculinary section headings are Oswald 200–300).
+    extralight: cssValue.optional(),
     // `light` (300, REQ-49) is optional so existing themes validate unchanged;
     // `defaultTokens` fills it, so `--font-weight-light` is always emitted and
     // safe for the hero `subheadWeight` dial to reference (cf. `shadow.xl`).

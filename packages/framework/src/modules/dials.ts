@@ -280,6 +280,27 @@ export const HEADING_COLOR_DIAL = ['plain', 'accent', 'gold'] as const
 export const HEADING_CASE_DIAL = ['normal', 'upper'] as const
 
 /**
+ * Heading font-weight (REQ-36), shared by text-block / services-grid / hero.
+ * Section headings carry deliberate weight — the joyfulculinary headings are
+ * Oswald `extralight` (200) / `light` (300), where our modules hard-coded
+ * `bold` (700), a different-typeface impression the values-diff flagged but no
+ * dial could reach. `bold` (default) preserves the prior weight so a module that
+ * omits the dial is unchanged. Maps to the `--font-weight-*` scale (token-backed,
+ * never a raw weight); `extralight` was added to the default weight scale for it.
+ */
+export const HEADING_WEIGHT_DIAL = ['extralight', 'light', 'regular', 'medium', 'semibold', 'bold'] as const
+
+/**
+ * Heading font-size step (REQ-36), independent of the body `size` dial — the
+ * text-block heading was hard-pinned to `3xl` (the `size` dial only scaled the
+ * body), so a reference heading at a larger step (the joyfulculinary section
+ * headings are `4xl` = 44px) was unreachable. `md` (default = `3xl`) preserves
+ * the prior heading size so a module that omits the dial is unchanged; `sm`/`lg`/
+ * `xl` step to `2xl`/`4xl`/`5xl`. Maps to the `--font-size-*` scale.
+ */
+export const HEADING_SIZE_DIAL = ['sm', 'md', 'lg', 'xl'] as const
+
+/**
  * Hero divider rule (REQ-36) — a thin horizontal rule between the heading and
  * subhead. `none` (default) renders nothing, so a hero that omits the dial is
  * unchanged; `rule` draws a short rule inheriting the surface text colour (the

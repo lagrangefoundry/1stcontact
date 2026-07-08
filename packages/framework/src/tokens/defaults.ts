@@ -46,6 +46,9 @@ export const defaultTokens: ThemeTokens = {
       '5xl': '3rem',
     },
     weights: {
+      // `extralight` (200, REQ-36) backs the `headingWeight` dial's lightest step
+      // — the joyfulculinary section headings are Oswald 200 (extralight).
+      extralight: '200',
       // `light` (300, REQ-49) backs the hero `subheadWeight` dial's lighter step
       // — a delicate lead weight (e.g. gigabytealchemy's `font-light` subhead).
       light: '300',

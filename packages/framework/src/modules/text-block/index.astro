@@ -27,6 +27,16 @@ const contentWidth = dials.contentWidth ?? 'default'
 const headingTreatment = dials.headingTreatment ?? 'plain'
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
+// Heading typography (REQ-36) — weight/size/alignment independent of the body:
+// `bold`/`md`/`left` preserve the prior heading, so an omitting section is
+// unchanged. Lighter weights + a larger size reach the reference's extralight
+// section headings; `headingAlign` centres the heading over a left-aligned body.
+const headingWeight = dials.headingWeight ?? 'bold'
+const headingSize = dials.headingSize ?? 'md'
+const headingAlign = dials.headingAlign ?? 'left'
+// Body line-height (REQ-36) — `relaxed` (default) preserves the prior leading;
+// tighter steps match a denser reference body and collapse vertical drift.
+const leading = dials.leading ?? 'relaxed'
 const { heading } = content
 const bodyHtml = await renderMarkdown(content.body)
 ---
@@ -40,12 +50,13 @@ const bodyHtml = await renderMarkdown(content.body)
     `surface-${surface}`,
     `text-align-${textAlign}`,
     `content-width-${contentWidth}`,
+    `leading-${leading}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
 >
   <div class="text-block__inner">
-    {heading && <h2 class:list={['text-block__heading', `treatment-${headingTreatment}`, `case-${headingCase}`]}>{heading}</h2>}
+    {heading && <h2 class:list={['text-block__heading', `treatment-${headingTreatment}`, `case-${headingCase}`, `hw-${headingWeight}`, `hs-${headingSize}`, `halign-${headingAlign}`]}>{heading}</h2>}
     <div class="text-block__body" set:html={bodyHtml} />
   </div>
 </section>
@@ -112,9 +123,30 @@ const bodyHtml = await renderMarkdown(content.body)
     line-height: var(--line-height-tight);
     font-size: var(--font-size-3xl);
   }
+  /* Heading font-weight (REQ-36) — `bold` is the base above; the lighter steps
+     reach the reference's extralight/light section headings. */
+  .text-block__heading.hw-extralight { font-weight: var(--font-weight-extralight); }
+  .text-block__heading.hw-light { font-weight: var(--font-weight-light); }
+  .text-block__heading.hw-regular { font-weight: var(--font-weight-regular); }
+  .text-block__heading.hw-medium { font-weight: var(--font-weight-medium); }
+  .text-block__heading.hw-semibold { font-weight: var(--font-weight-semibold); }
+  /* Heading font-size step (REQ-36) — `hs-md` = the `3xl` base above; the rest
+     step the heading independently of the body `size` dial. */
+  .text-block__heading.hs-sm { font-size: var(--font-size-2xl); }
+  .text-block__heading.hs-lg { font-size: var(--font-size-4xl); }
+  .text-block__heading.hs-xl { font-size: var(--font-size-5xl); }
+  /* Heading text-alignment (REQ-36) — independent of the block/body align, so a
+     centred heading can sit over a left-aligned body (the reference). */
+  .text-block__heading.halign-left { text-align: left; }
+  .text-block__heading.halign-center { text-align: center; }
 
   /* The body type scale follows the size dial (DOC-7 §4.1). */
   .text-block__body { line-height: var(--line-height-relaxed); }
+  /* Body line-height (REQ-36) — `relaxed` is the base above; tighter steps match
+     a denser reference body and collapse the drift a loose default injects. */
+  .text-block.leading-tight .text-block__body { line-height: var(--line-height-tight); }
+  .text-block.leading-snug .text-block__body { line-height: var(--line-height-snug); }
+  .text-block.leading-normal .text-block__body { line-height: var(--line-height-normal); }
   .text-block.size-sm .text-block__body { font-size: var(--font-size-sm); }
   .text-block.size-md .text-block__body { font-size: var(--font-size-base); }
   .text-block.size-lg .text-block__body { font-size: var(--font-size-lg); }

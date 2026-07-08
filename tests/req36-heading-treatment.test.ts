@@ -194,3 +194,46 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
     expect((r + g + b) / 3).toBeLessThan(40)
   })
 })
+
+describe('REQ-36 text-block heading finish — weight / size / align / leading', () => {
+  const content = { heading: 'THE HOLISTIC APPROACH', body: 'Prose paragraph.' }
+
+  it('test_UAT_FC_REQ-36_textblock_headingWeight_reaches_extralight', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { headingWeight: 'extralight' }, content })
+    expect(html).toContain('hw-extralight')
+    expect(textBlockCss).toMatch(/\.text-block__heading\.hw-extralight\s*\{[^}]*font-weight:\s*var\(--font-weight-extralight\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_extralight_weight_token_emitted_as_200', () => {
+    const css = generateThemeCss({ palette: { primary: '#ff0000' } })
+    expect(css).toMatch(/--font-weight-extralight:\s*200/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_headingSize_steps_the_heading_independently_of_body', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { headingSize: 'lg', size: 'sm' }, content })
+    expect(html).toContain('hs-lg')
+    // `lg` heading = 4xl, independent of the body `size` dial (which stays sm).
+    expect(textBlockCss).toMatch(/\.text-block__heading\.hs-lg\s*\{[^}]*font-size:\s*var\(--font-size-4xl\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_headingAlign_centres_heading_over_left_body', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { headingAlign: 'center', textAlign: 'left' }, content })
+    expect(html).toContain('halign-center')
+    expect(textBlockCss).toMatch(/\.text-block__heading\.halign-center\s*\{[^}]*text-align:\s*center/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_body_leading_tightens', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { leading: 'snug' }, content })
+    expect(html).toContain('leading-snug')
+    expect(textBlockCss).toMatch(/\.text-block\.leading-snug\s+\.text-block__body\s*\{[^}]*line-height:\s*var\(--line-height-snug\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_heading_finish_defaults_unchanged', async () => {
+    const html = await render(TextBlock, { variant: 'prose', content })
+    // Omitting the new dials preserves the prior heading (bold / 3xl / left) + relaxed body.
+    expect(html).toContain('hw-bold')
+    expect(html).toContain('hs-md')
+    expect(html).toContain('halign-left')
+    expect(html).toContain('leading-relaxed')
+  })
+})
