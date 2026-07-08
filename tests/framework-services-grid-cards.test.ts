@@ -196,3 +196,46 @@ describe('REQ-26 services-grid card treatments — gigabytealchemy fidelity (AC3
     expect(html.match(/class="services-grid__check"/g)?.length).toBe(6)
   })
 })
+
+/**
+ * UATs for REQ-36 / CAP-1 — the grid-wide `cardSurface: bare` dial. A bare grid
+ * strips the card fill/border/radius/padding so cards read as plain text columns
+ * on the band (the joyfulculinary dark "Our Offerings" / process grids, where a
+ * white card breaks the composition). Effect + default-unchanged + composability.
+ */
+describe('REQ-36 services-grid bare cards — CAP-1', () => {
+  const twoCards = [
+    { title: 'Personal Chef Services', body: 'Weekly, bi-weekly or monthly.' },
+    { title: 'Cooking Classes', body: 'For small groups.' },
+  ]
+
+  it('test_UAT_FC_REQ-36_bare_applies_grid_class_and_strips_chrome_css', async () => {
+    const html = await render({ variant: 'three-col', dials: { cardSurface: 'bare' }, content: { items: twoCards } })
+    // The dial wires through to a grid-level class.
+    expect(html).toContain('card-surface-bare')
+    // The scoped CSS strips the card chrome under that class (the effect).
+    const css = moduleSource()
+    expect(css).toMatch(/\.services-grid\.card-surface-bare\s+\.services-grid__card\s*\{[^}]*background:\s*transparent/)
+    expect(css).toMatch(/\.services-grid\.card-surface-bare\s+\.services-grid__card\s*\{[^}]*border:\s*none/)
+    // Chrome (the badge) is suppressed under bare.
+    expect(css).toMatch(/\.services-grid\.card-surface-bare\s+\.services-grid__badge\s*\{\s*display:\s*none/)
+  })
+
+  it('test_UAT_FC_REQ-36_default_leaves_cards_unchanged', async () => {
+    const html = await render({ variant: 'three-col', content: { items: twoCards } })
+    // Omitting the dial yields the standard card treatment, never the bare class.
+    expect(html).toContain('card-surface-default')
+    expect(html).not.toContain('card-surface-bare')
+  })
+
+  it('test_UAT_FC_REQ-36_bare_composes_with_every_variant', async () => {
+    for (const variant of servicesGridMeta.variants) {
+      const html = await render({ variant, dials: { cardSurface: 'bare' }, content: { items: twoCards } })
+      // Bare is orthogonal to layout: the variant class and the bare class
+      // co-exist, and the card content still renders.
+      expect(html).toContain(`variant-${variant}`)
+      expect(html).toContain('card-surface-bare')
+      expect(html).toContain('Personal Chef Services')
+    }
+  })
+})

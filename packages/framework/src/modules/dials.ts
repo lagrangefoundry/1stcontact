@@ -45,6 +45,18 @@ export const FOOTER_LAYOUT_DIAL = ['center', 'spread'] as const
 export const GAP_DIAL = ['tight', 'normal', 'loose'] as const
 
 /**
+ * Grid-wide card chrome for services-grid (REQ-36 / CAP-1). `default` draws the
+ * standard filled + bordered card; `bare` strips the card's fill, border,
+ * radius and padding so the cards read as plain text columns composited on the
+ * band itself — for dark, art-directed grids (the joyfulculinary "Our Offerings"
+ * / process grids) where a white card would break the composition. Card title
+ * and body inherit the band's text colour; chrome (badge, accent border) is
+ * suppressed under `bare`, so the dial is orthogonal to `variant` and composes
+ * with every layout. Omitting the dial (`default`) leaves cards unchanged.
+ */
+export const CARD_SURFACE_DIAL = ['default', 'bare'] as const
+
+/**
  * Wordmark font-family selection for the header logo (REQ-24). `display`
  * selects the site's bespoke display face (`--font-family-display`), enabling a
  * wordmark in a font distinct from the theme's heading/body families.

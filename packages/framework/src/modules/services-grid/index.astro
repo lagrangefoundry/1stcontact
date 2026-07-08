@@ -34,6 +34,10 @@ interface Props {
 const { variant = 'three-col', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const gap = dials.gap ?? 'normal'
+// Grid-wide card chrome (REQ-36 / CAP-1): `bare` strips the card fill/border/
+// radius/padding so cards read as plain text columns on the band; `default`
+// keeps the standard filled+bordered card.
+const cardSurface = dials.cardSurface ?? 'default'
 // Card type scale (REQ-20): `md` preserves the prior scale; `lg`/`sm` step the
 // card heading/subhead/badge/checklist typography up/down one notch.
 const size = dials.size ?? 'md'
@@ -61,6 +65,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     'services-grid',
     `variant-${variant}`,
     `surface-${surface}`,
+    `card-surface-${cardSurface}`,
     `gap-${gap}`,
     `size-${size}`,
     `content-width-${contentWidth}`,
@@ -192,6 +197,19 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
   }
+
+  /* Bare cards (REQ-36 / CAP-1): strip the fill/border/radius/padding so cards
+     read as plain text columns composited on the band. Title and body inherit
+     the band's text colour (white on an inverse band). Chrome — the status
+     badge and accent left-border — is suppressed, so `bare` is a clean,
+     chrome-less treatment orthogonal to `variant`. */
+  .services-grid.card-surface-bare .services-grid__card {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+  .services-grid.card-surface-bare .services-grid__badge { display: none; }
 
   /* Accent left border (REQ-26) — a thicker rule keyed to a semantic token. */
   .services-grid__card.has-accent { border-left-width: var(--space-1); }

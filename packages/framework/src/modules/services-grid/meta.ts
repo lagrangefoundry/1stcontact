@@ -1,5 +1,12 @@
 import type { ModuleMeta } from '../types'
-import { CONTENT_WIDTH_DIAL, GAP_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import {
+  CARD_SURFACE_DIAL,
+  CONTENT_WIDTH_DIAL,
+  GAP_DIAL,
+  SIZE_DIAL,
+  SPACING_DIAL,
+  SURFACE_DIAL,
+} from '../dials'
 
 /**
  * Card accent-border colour (REQ-26). A closed set of palette-role names, not a
@@ -52,6 +59,10 @@ export const servicesGridMeta = {
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     gap: GAP_DIAL,
+    // Grid-wide card chrome (REQ-36 / CAP-1) — `bare` strips the card fill/
+    // border/radius/padding so cards read as plain text columns on the band
+    // (dark art-directed grids). `default` leaves cards unchanged.
+    cardSurface: CARD_SURFACE_DIAL,
     // Card type scale (REQ-20). `md` (default) preserves the prior scale; `lg`
     // steps the card heading/subhead/badge/checklist typography up one notch
     // (the gigabytealchemy reference runs its cards at a larger scale); `sm`
