@@ -496,6 +496,15 @@ export const paletteTokensSchema = z.object({
   // sweep passes through a lighter orange before the deep orange) as a palette
   // role rather than a raw colour. Optional so existing themes keep validating.
   accentMid: hexColor.optional(),
+  // `scrim` (REQ-36) is the legibility-tint colour painted over a hero
+  // background image (the `scrim` dial sets its opacity). Decoupled from
+  // `surfaceInverse`: a scrim exists to *darken* an image for text contrast, so
+  // it defaults to a near-black — whereas `surfaceInverse` is a band background
+  // that a site may legitimately set to a mid neutral (joyfulculinary's grey
+  // inverse bands), which would turn a surface-inverse-keyed scrim into a grey
+  // wash that lightens rather than darkens. Optional so existing themes keep
+  // validating; the token defaults fill it when omitted.
+  scrim: hexColor.optional(),
   border: hexColor,
 })
 

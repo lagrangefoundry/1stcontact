@@ -27,6 +27,12 @@ const spacingBottom = dials.spacingBottom ?? 'lg'
 const headingTreatment = dials.headingTreatment ?? 'plain'
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
+// Divider rule between heading and subhead (REQ-36) — `rule` draws the short
+// rule under the heading; `none` (default) omits the element entirely.
+const divider = dials.divider ?? 'none'
+// Content-column horizontal placement (REQ-36) — `left` hugs the band's left
+// gutter; `center` (default) keeps the prior centred column.
+const contentColumn = dials.contentColumn ?? 'center'
 // Band height: `fold` fills the viewport to the fold; `auto` sizes to content.
 const height = dials.height ?? 'auto'
 // Legibility scrim + content anchor (REQ-32).
@@ -61,6 +67,11 @@ const tracking = dials.tracking ?? 'normal'
 const subheadLeading = dials.subheadLeading ?? 'relaxed'
 
 const { eyebrow, heading, subhead, cta } = content
+// Explicit heading line breaks (REQ-36): a newline in the heading string renders
+// as a `<br>` so a display heading breaks exactly where the reference does (the
+// joyfulculinary hero hard-breaks after "meals"), without capping the measure.
+// Each segment stays an escaped text node — no raw HTML is interpolated.
+const headingLines = heading.split('\n')
 // The background image is rendered for the bg-image variant only.
 const bgImage = variant === 'bg-image' ? content.image : undefined
 // Structured gradient heading (REQ-32): framework-computed clipped gradient,
@@ -87,6 +98,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `subhead-size-${subheadSize}`,
     `content-width-${contentWidth}`,
     `content-inset-${contentInset}`,
+    `content-column-${contentColumn}`,
     `subhead-weight-${subheadWeight}`,
     `subhead-leading-${subheadLeading}`,
     `spacing-top-${spacingTop}`,
@@ -98,7 +110,8 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`]} style={headingGradient}>{heading}</h1>
+    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`]} style={headingGradient}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
+    {divider === 'rule' && <hr class="hero__divider" />}
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
     {cta && <a class="hero__cta" href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
@@ -161,15 +174,17 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     object-fit: cover;
     z-index: 0;
   }
-  /* Legibility scrim (REQ-32): a dark-neutral tint painted over the image (z 0,
+  /* Legibility scrim (REQ-32; REQ-36): a dark tint painted over the image (z 0,
      above the bg, below the content at z 1) at a strength set by the scrim dial.
-     Keyed to `--color-surface-inverse` so the tint tracks the theme's dark
-     neutral rather than a hard-coded colour. */
+     Keyed to `--color-scrim` (a near-black by default), NOT `--color-surface-inverse`
+     — a scrim exists to darken an image for text contrast, so it must not track a
+     theme's inverse-band colour when that is a mid neutral (which greys, not
+     darkens). Themes override `--color-scrim` for a tinted scrim. */
   .hero__scrim {
     position: absolute;
     inset: 0;
     z-index: 0;
-    background: var(--color-surface-inverse);
+    background: var(--color-scrim);
   }
   .hero.scrim-light .hero__scrim { opacity: 0.2; }
   .hero.scrim-medium .hero__scrim { opacity: 0.35; }
@@ -191,6 +206,25 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.content-inset-md .hero__inner { padding-inline: var(--space-6); }
   .hero.content-inset-lg .hero__inner { padding-inline: var(--space-8); }
   .hero.align-center .hero__inner { align-items: center; text-align: center; }
+  /* Content-column placement (REQ-36): `left` drops the auto start-margin so the
+     capped column hugs the band's left gutter instead of centring in the band —
+     the reference bleeds its front-door content to the left edge. `center`
+     (default) keeps the `margin-inline: auto` above, so an omitting hero is
+     unchanged. */
+  .hero.content-column-left .hero__inner { margin-inline: 0 auto; }
+
+  /* Divider rule (REQ-36): a thin rule between heading and subhead inheriting the
+     surface text colour. Caps to a short measure (the reference's ~505px rule)
+     and shrinks with the column on narrow viewports. Rendered only for
+     `divider: rule`; the flex-column `gap` provides its vertical spacing. */
+  .hero__divider {
+    width: 100%;
+    max-width: 32rem;
+    height: 0;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid currentColor;
+  }
 
   .hero__eyebrow {
     margin: 0;

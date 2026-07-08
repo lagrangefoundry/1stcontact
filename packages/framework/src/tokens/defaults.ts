@@ -23,6 +23,10 @@ export const defaultTokens: ThemeTokens = {
     // declared even when a site omits them.
     accentLight: '#fcd34d',
     accentDeep: '#b45309',
+    // Hero legibility scrim (REQ-36) — a near-black so the `scrim` dial darkens a
+    // background image for text contrast, independent of `surfaceInverse` (which
+    // a theme may set to a mid neutral). A site can override for a tinted scrim.
+    scrim: '#0a0a0a',
     border: '#e5e7eb',
   },
   typography: {

@@ -2,11 +2,13 @@ import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
   CONTENT_ANCHOR_DIAL,
+  CONTENT_COLUMN_DIAL,
   CONTENT_INSET_DIAL,
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
   GRADIENT_DIRECTION_DIAL,
   HEADING_CASE_DIAL,
+  HERO_DIVIDER_DIAL,
   HEADING_TREATMENT_DIAL,
   HEIGHT_DIAL,
   LINE_HEIGHT_DIAL,
@@ -41,6 +43,13 @@ export const heroMeta = {
     // time while the DOM text stays literal (the joyfulculinary hero types
     // mixed-case and uppercases via CSS).
     headingCase: HEADING_CASE_DIAL,
+    // Divider rule between heading and subhead (REQ-36) — `rule` draws the
+    // joyfulculinary hero's short rule under the heading; `none` (default) omits.
+    divider: HERO_DIVIDER_DIAL,
+    // Content-column horizontal placement (REQ-36) — `left` hugs the band's left
+    // gutter (the joyfulculinary front door); `center` (default) keeps the prior
+    // centred column. Distinct from `align`, which sets text alignment within it.
+    contentColumn: CONTENT_COLUMN_DIAL,
     // Legibility scrim over the background image (REQ-32) — a dark-tint opacity
     // step so overlaid text stays readable on a busy image.
     scrim: SCRIM_DIAL,

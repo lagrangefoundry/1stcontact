@@ -278,3 +278,23 @@ export const HEADING_COLOR_DIAL = ['plain', 'accent', 'gold'] as const
  * whose source is already uppercase is unaffected (the transform is idempotent).
  */
 export const HEADING_CASE_DIAL = ['normal', 'upper'] as const
+
+/**
+ * Hero divider rule (REQ-36) — a thin horizontal rule between the heading and
+ * subhead. `none` (default) renders nothing, so a hero that omits the dial is
+ * unchanged; `rule` draws a short rule inheriting the surface text colour (the
+ * joyfulculinary hero's ~505px rule under the heading). A recurring "expensive"
+ * typography tell, generalized onto the hero rather than shipped as a module.
+ */
+export const HERO_DIVIDER_DIAL = ['none', 'rule'] as const
+
+/**
+ * Hero content-column horizontal placement (REQ-36) — where the capped
+ * `.hero__inner` column sits within the band, distinct from `align` (which sets
+ * text alignment *inside* the column). `center` (default) keeps the prior
+ * `margin-inline: auto` centring, so a hero that omits the dial is unchanged;
+ * `left` drops the start margin so the column hugs the band's left gutter (the
+ * joyfulculinary hero bleeds its content to x≈20, where our centred 72rem column
+ * otherwise floats it to x≈88).
+ */
+export const CONTENT_COLUMN_DIAL = ['center', 'left'] as const

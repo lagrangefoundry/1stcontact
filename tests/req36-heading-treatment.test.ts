@@ -7,6 +7,7 @@ import ServicesGrid from '../packages/framework/src/modules/services-grid/index.
 import Hero from '../packages/framework/src/modules/hero/index.astro'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
+import { generateThemeCss } from '../packages/framework/src/tokens/index'
 
 // Read a module's .astro source for CSS-rule assertions (Astro's container
 // rewrites scoped selectors with data-astro-cid hashes, so we assert the
@@ -120,5 +121,76 @@ describe('REQ-36 heading letter-case (upper) — DOM stays literal', () => {
     // The left hero pins the CTA to the content-start edge (align-self) so it
     // hugs its label rather than stretching into a full-width bar.
     expect(heroCss).toMatch(/\.hero\.align-left\s+\.hero__cta\s*\{[^}]*align-self:\s*flex-start/)
+  })
+})
+
+describe('REQ-36 hero front-door geometry — line breaks, divider, column pin', () => {
+  it('test_UAT_FC_REQ-36_hero_heading_newline_renders_as_br_segments', async () => {
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      content: { heading: 'Dreaming of healthier meals\non your dinner table?', subhead: 'x' },
+    })
+    // The newline becomes a hard <br> so the heading breaks exactly where the
+    // reference does — without capping the measure.
+    expect(html).toMatch(/Dreaming of healthier meals<br[^>]*>on your dinner table\?/)
+  })
+
+  it('test_UAT_FC_REQ-36_hero_heading_without_newline_has_no_br', async () => {
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      content: { heading: 'Dreaming of healthier meals', subhead: 'x' },
+    })
+    // A single-line heading is unchanged (no injected break).
+    expect(html).toContain('Dreaming of healthier meals')
+    expect(html).not.toContain('<br')
+  })
+
+  it('test_UAT_FC_REQ-36_hero_divider_rule_renders_only_when_selected', async () => {
+    const withRule = await render(Hero, {
+      variant: 'bg-color',
+      dials: { divider: 'rule' },
+      content: { heading: 'H', subhead: 'x' },
+    })
+    const without = await render(Hero, {
+      variant: 'bg-color',
+      content: { heading: 'H', subhead: 'x' },
+    })
+    expect(withRule).toContain('hero__divider')
+    expect(without).not.toContain('hero__divider')
+    // The rule inherits the surface text colour (currentColor), not a hard-coded one.
+    expect(heroCss).toMatch(/\.hero__divider\s*\{[^}]*border-top:\s*1px solid currentColor/)
+  })
+
+  it('test_UAT_FC_REQ-36_hero_content_column_left_drops_the_centring_margin', async () => {
+    const left = await render(Hero, {
+      variant: 'bg-color',
+      dials: { contentColumn: 'left' },
+      content: { heading: 'H', subhead: 'x' },
+    })
+    expect(left).toContain('content-column-left')
+    // `left` pins the column to the gutter (start margin 0); `center` is default.
+    expect(heroCss).toMatch(/\.hero\.content-column-left\s+\.hero__inner\s*\{[^}]*margin-inline:\s*0 auto/)
+    const dflt = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x' } })
+    expect(dflt).toContain('content-column-center')
+  })
+
+  it('test_UAT_FC_REQ-36_hero_scrim_keys_to_dedicated_scrim_token_not_surface_inverse', () => {
+    // The legibility scrim paints `--color-scrim` (a near-black), NOT
+    // `--color-surface-inverse` — so a theme with a mid-grey inverse band
+    // (joyfulculinary) still darkens its hero image instead of greying it.
+    expect(heroCss).toMatch(/\.hero__scrim\s*\{[^}]*background:\s*var\(--color-scrim\)/)
+    expect(heroCss).not.toMatch(/\.hero__scrim\s*\{[^}]*var\(--color-surface-inverse\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_scrim_token_defaults_to_a_near_black', () => {
+    // The generated theme always declares --color-scrim, defaulting dark so the
+    // scrim darkens for contrast even when the site omits the role.
+    const css = generateThemeCss({ palette: { primary: '#ff0000' } })
+    const m = css.match(/--color-scrim:\s*(#[0-9a-fA-F]{6})/)
+    expect(m).not.toBeNull()
+    const hex = m![1]
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+    // Luminance well below mid-grey — a genuine darkening tint, not a wash.
+    expect((r + g + b) / 3).toBeLessThan(40)
   })
 })
