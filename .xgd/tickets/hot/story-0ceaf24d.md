@@ -5,10 +5,10 @@ type: story
 title: Multi-tenant platform scaffold with auto-deploy pipeline
 created_by: xgd
 created_at: '2026-07-08T19:03:53.904032+00:00'
-updated_at: '2026-07-08T19:03:53.904032+00:00'
+updated_at: '2026-07-08T19:09:28.933950+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-6a071846
   capability_uid: capability-f51bd589
