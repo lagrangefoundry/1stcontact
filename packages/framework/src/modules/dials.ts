@@ -254,3 +254,16 @@ export const CONTENT_INSET_DIAL = ['sm', 'md', 'lg'] as const
  * arbitrary-direction, multi-stop, palette-role-backed sweep.
  */
 export const HEADING_TREATMENT_DIAL = ['plain', 'accent', 'gold', 'gradient'] as const
+
+/**
+ * Heading colour treatment for the flat-content modules — text-block and
+ * services-grid (REQ-36). The colour-only subset of {@link HEADING_TREATMENT_DIAL}:
+ * `plain` inherits the surface/band text colour (the prior default — a section
+ * heading that omits the dial is unchanged); `accent` fills the heading with the
+ * solid site accent (the joyfulculinary gold section headings); `gold` applies
+ * the metallic-gold gradient. `gradient` is intentionally excluded — the
+ * arbitrary-direction structured gradient needs a `headingGradient` content
+ * field and stays a hero-only capability until a flat module actually needs it
+ * (rather than shipping a silently-inert dial value).
+ */
+export const HEADING_COLOR_DIAL = ['plain', 'accent', 'gold'] as const

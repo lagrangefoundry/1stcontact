@@ -38,6 +38,11 @@ const gap = dials.gap ?? 'normal'
 // radius/padding so cards read as plain text columns on the band; `default`
 // keeps the standard filled+bordered card.
 const cardSurface = dials.cardSurface ?? 'default'
+// Heading colour treatment (REQ-36) — colours the grid heading and card titles
+// together (`accent`/`gold`); `plain` (default) inherits the band colour. Lets
+// one grid read gold-on-dark (the Offerings grid) while another stays white
+// (the process grid).
+const headingTreatment = dials.headingTreatment ?? 'plain'
 // Card type scale (REQ-20): `md` preserves the prior scale; `lg`/`sm` step the
 // card heading/subhead/badge/checklist typography up/down one notch.
 const size = dials.size ?? 'md'
@@ -66,6 +71,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `variant-${variant}`,
     `surface-${surface}`,
     `card-surface-${cardSurface}`,
+    `treatment-${headingTreatment}`,
     `gap-${gap}`,
     `size-${size}`,
     `content-width-${contentWidth}`,
@@ -164,6 +170,20 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     font-weight: var(--font-weight-bold);
     font-size: var(--font-size-3xl);
     line-height: var(--line-height-tight);
+  }
+
+  /* Heading colour treatment (REQ-36) — colours the grid heading and the card
+     titles together, the same treatment vocabulary as the hero/text-block
+     heading. `accent` fills solid gold; `gold` is the clipped metallic gradient;
+     `plain` (no rule) inherits the band colour. */
+  .services-grid.treatment-accent .services-grid__heading,
+  .services-grid.treatment-accent .services-grid__card-title { color: var(--color-accent); }
+  .services-grid.treatment-gold .services-grid__heading,
+  .services-grid.treatment-gold .services-grid__card-title {
+    background-image: linear-gradient(180deg, #f7e4a8 0%, var(--color-accent) 48%, #b07d24 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
   .services-grid__subhead { color: var(--color-muted); max-width: 60ch; }
 

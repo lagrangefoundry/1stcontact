@@ -1,5 +1,12 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, CONTENT_WIDTH_DIAL, SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import {
+  ALIGN_DIAL,
+  CONTENT_WIDTH_DIAL,
+  HEADING_COLOR_DIAL,
+  SIZE_DIAL,
+  SPACING_DIAL,
+  SURFACE_DIAL,
+} from '../dials'
 
 /**
  * `text-block` — prose / manifesto section. The canonical graceful-degradation
@@ -21,6 +28,10 @@ export const textBlockMeta = {
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     textAlign: ALIGN_DIAL,
+    // Heading colour treatment (REQ-36) — `accent`/`gold` colour the section
+    // heading (the joyfulculinary gold headings); `plain` (default) inherits the
+    // band colour, so a section that omits the dial is unchanged.
+    headingTreatment: HEADING_COLOR_DIAL,
     // Constrained content column (REQ-45) — caps the content within the section
     // frame; the `align` dial then pins it left (default) or centres it. A
     // narrow left-pinned measure wraps prose like the reference, collapsing
