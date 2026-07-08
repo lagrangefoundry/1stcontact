@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: 1stcontact platform scaffold + framework Phase 0 (REQ-1/3/4/5/10)'
 created_by: xgd
 created_at: '2026-07-08T19:01:11.041341+00:00'
-updated_at: '2026-07-08T19:01:11.041341+00:00'
+updated_at: '2026-07-08T19:05:05.801689+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-6a071846
@@ -33,7 +33,7 @@ fields:
     justification: Capability matrix is empty — no story documents the monorepo scaffold,
       the two-Worker multi-tenant routing model, the CI/deploy workflows, or the version-bump
       tool. Commits 3463be, c06a5f, 287093 stand up these behaviors (REQ-1).
-    story_uid: null
+    story_uid: story-0ceaf24d
   - index: 2
     component: '@1stcontact/site-schema (site definition contract)'
     item_type: feature
