@@ -13,8 +13,9 @@
  * The AC ids below are the stable `except` match keys and the labels surfaced in
  * failure output — keep them stable across refactors (they are matrix-facing).
  */
+import { computeDiff, cropRaster, decodeImageBytes, type Raster } from '../cli'
 import type { PageDiagnostics } from '../cli'
-import type { ConformanceViolation } from './types'
+import type { ConformanceEngine, ConformanceViolation } from './types'
 
 /** Raw geometric signals returned by {@link SAFETY_PROBE} from page scope. */
 export interface SafetyProbe {
@@ -300,4 +301,203 @@ export function evaluateResponsive(
     flag('responsive.font-floor', `text below the ${MOBILE_FONT_FLOOR_PX}px mobile legibility floor: ${f}`)
 
   return violations
+}
+
+// ── REQ-42 cross-browser dimension ([[DOC-20]] AC-M3) ─────────────────────────
+//
+// Cross-browser is the **engine axis**: render the same one-module page in Blink
+// (Chromium), WebKit and Gecko (Firefox) and assert the layout is *equivalent*
+// within tolerance — NOT pixel-equal (engines antialias and hint fonts
+// differently, so pixel equality would be permanently red). The primary signal
+// is a **layout-box** comparison; a perceptual block-diff is the backstop for
+// movement no box in the list covers. Full tier only — regression-scoped.
+
+/** One element's geometry, measured **relative to its `offsetParent`**. */
+export interface XBrowserBox {
+  /** Document-order index — the cross-engine join key (same DOM in every engine). */
+  i: number
+  /** Lowercased tag name, checked for structural parity before boxes are compared. */
+  tag: string
+  /** Short human label surfaced in a shift violation. */
+  label: string
+  /** Left offset from the element's `offsetParent` (px). */
+  dx: number
+  /** Top offset from the element's `offsetParent` (px). */
+  dy: number
+  /** Border-box width (px). */
+  w: number
+  /** Border-box height (px). */
+  h: number
+}
+
+/** Raw layout-box list returned by {@link X_BROWSER_BOX_PROBE} from page scope. */
+export interface XBrowserProbe {
+  boxes: XBrowserBox[]
+}
+
+/** Per-axis tolerances (px) for the {@link evaluateXBrowser} box comparison. */
+export interface XBrowserTolerance {
+  /** Max cross-engine drift of an element's parent-relative position (default 6). */
+  posPx: number
+  /** Max cross-engine drift of an element's border-box size (default 12). */
+  sizePx: number
+}
+
+/**
+ * Default box tolerances, calibrated against the live faelan `%`-`top` bug: a
+ * layer child mispositioned by ~1 line (~20px) relative to its containing block.
+ * `posPx: 6` sits well above cross-engine sub-pixel/AA jitter (≲2px on a *local*
+ * parent-relative offset) yet well below that 20px shift, so it just-catches the
+ * bug without flaking. `sizePx: 12` absorbs the line-height rounding a text
+ * element's own height can accrue between engines.
+ */
+export const X_BROWSER_TOLERANCE: XBrowserTolerance = { posPx: 6, sizePx: 12 }
+
+/**
+ * A page-scope IIFE (evaluated as an expression by the driver) that walks the
+ * rendered body in document order and records each visible element's box
+ * **relative to its `offsetParent`**. Parent-relative geometry is deliberate:
+ * whole-page text reflow (cross-engine line-height rounding) accumulates down the
+ * page and would swamp an absolute-coordinate comparison, whereas a *local* shift
+ * — the faelan layer-child `%`-`top` bug — moves the child relative to its
+ * positioned containing block and stands out. The document-order index is the
+ * cross-engine join key: the served HTML is byte-identical in every engine, so
+ * the i-th element is the same element everywhere; only its layout differs.
+ */
+export const X_BROWSER_BOX_PROBE = `(() => {
+  const boxes = [];
+  const visible = (cs) => cs.display !== 'none' && cs.visibility !== 'hidden' && cs.visibility !== 'collapse';
+  const describe = (el) => {
+    const text = (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 30);
+    return el.tagName.toLowerCase() + (text ? ': "' + text + '"' : '');
+  };
+  const all = Array.from(document.body.querySelectorAll('*'));
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i];
+    const cs = getComputedStyle(el);
+    if (!visible(cs)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 && r.height < 1) continue;             // not laid out
+    const pe = el.offsetParent || el.parentElement || document.body;
+    const pr = pe.getBoundingClientRect();
+    boxes.push({
+      i,
+      tag: el.tagName.toLowerCase(),
+      label: describe(el),
+      dx: r.left - pr.left,
+      dy: r.top - pr.top,
+      w: r.width,
+      h: r.height,
+    });
+  }
+  return { boxes };
+})()`
+
+/**
+ * Compare the reference engine's layout boxes (Chromium == Blink) against another
+ * engine's, folding drifts beyond tolerance into AC-tagged violations for one
+ * fixture at one viewport. Structural parity is asserted first — a missing index
+ * or a tag mismatch means the engines produced *different DOM*, a stronger fault
+ * than a shift (`x-browser.structure`). Position and size are then compared per
+ * element against {@link XBrowserTolerance} (`x-browser.layout-shift`).
+ */
+export function evaluateXBrowser(
+  fixture: string,
+  viewport: string,
+  engine: ConformanceEngine,
+  reference: XBrowserBox[],
+  other: XBrowserBox[],
+  tol: XBrowserTolerance = X_BROWSER_TOLERANCE,
+): ConformanceViolation[] {
+  const violations: ConformanceViolation[] = []
+  const flag = (ac: string, message: string): void => {
+    violations.push({ fixture, viewport, ac, message })
+  }
+
+  const otherByIndex = new Map(other.map((b) => [b.i, b]))
+  for (const ref of reference) {
+    const cmp = otherByIndex.get(ref.i)
+    if (!cmp) {
+      flag(
+        'x-browser.structure',
+        `${engine} is missing element #${ref.i} (${ref.label}) that Chromium rendered`,
+      )
+      continue
+    }
+    if (cmp.tag !== ref.tag) {
+      flag(
+        'x-browser.structure',
+        `element #${ref.i} is <${ref.tag}> in Chromium but <${cmp.tag}> in ${engine}`,
+      )
+      continue
+    }
+    const dPos = Math.max(Math.abs(cmp.dx - ref.dx), Math.abs(cmp.dy - ref.dy))
+    const dSize = Math.max(Math.abs(cmp.w - ref.w), Math.abs(cmp.h - ref.h))
+    if (dPos > tol.posPx) {
+      flag(
+        'x-browser.layout-shift',
+        `${ref.label} shifts ${dPos.toFixed(1)}px in ${engine} (tol ${tol.posPx}px): ` +
+          `Δpos (${(cmp.dx - ref.dx).toFixed(1)}, ${(cmp.dy - ref.dy).toFixed(1)})`,
+      )
+    } else if (dSize > tol.sizePx) {
+      flag(
+        'x-browser.layout-shift',
+        `${ref.label} resizes ${dSize.toFixed(1)}px in ${engine} (tol ${tol.sizePx}px): ` +
+          `Δsize (${(cmp.w - ref.w).toFixed(1)}, ${(cmp.h - ref.h).toFixed(1)})`,
+      )
+    }
+  }
+  return violations
+}
+
+/**
+ * Backstop region-intensity threshold (0..255): a cross-engine block-diff region
+ * whose mean intensity meets this is a *localized* difference (a moved band, a
+ * mispainted layer), not the low, spatially-diffuse noise of differing font
+ * antialiasing. Looser than any same-engine fidelity gate on purpose — this only
+ * needs to catch gross movement the box list missed, not judge visual polish.
+ */
+export const X_BROWSER_BACKSTOP_THRESHOLD = 60
+
+/**
+ * Perceptual backstop: block-average diff (REQ-38 {@link computeDiff}) of the
+ * Chromium screenshot against another engine's, flagging `x-browser.perceptual`
+ * when a region's mean intensity crosses {@link X_BROWSER_BACKSTOP_THRESHOLD}.
+ * Screenshots are cropped to their common dimensions first (engines can differ in
+ * full-page height). Catches movement not covered by any element in the box list.
+ */
+export async function evaluateXBrowserBackstop(
+  fixture: string,
+  viewport: string,
+  engine: ConformanceEngine,
+  referenceShot: Uint8Array,
+  otherShot: Uint8Array,
+  threshold: number = X_BROWSER_BACKSTOP_THRESHOLD,
+): Promise<ConformanceViolation[]> {
+  const refRaster = await decodeImageBytes(referenceShot)
+  const otherRaster = await decodeImageBytes(otherShot)
+  const w = Math.min(refRaster.width, otherRaster.width)
+  const h = Math.min(refRaster.height, otherRaster.height)
+  const ref: Raster = cropRaster(refRaster, w, h)
+  const other: Raster = cropRaster(otherRaster, w, h)
+  // Higher blockThreshold than the default fidelity diff: only strongly-differing
+  // cells seed a region, so uniform AA noise never clusters into a false region.
+  const diff = computeDiff(ref, other, { blockThreshold: 48 })
+  const worst = diff.regions.reduce((m, r) => Math.max(m, r.meanDiff), 0)
+  if (worst >= threshold) {
+    const region = diff.regions.find((r) => r.meanDiff === worst)
+    return [
+      {
+        fixture,
+        viewport,
+        ac: 'x-browser.perceptual',
+        message:
+          `${engine} render diverges from Chromium in a region the box list did not ` +
+          `cover (mean intensity ${worst.toFixed(0)}/255 ≥ ${threshold}` +
+          (region ? `, at ${region.bbox.w}×${region.bbox.h}px near (${region.bbox.x},${region.bbox.y})` : '') +
+          ')',
+      },
+    ]
+  }
+  return []
 }

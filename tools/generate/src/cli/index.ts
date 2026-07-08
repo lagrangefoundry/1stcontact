@@ -49,6 +49,7 @@ export {
   computeDiff,
   deriveRegions,
   decodeImage,
+  decodeImageBytes,
   cropRaster,
   writeRasterPng,
   formatDiffReport,

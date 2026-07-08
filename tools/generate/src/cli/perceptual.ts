@@ -287,6 +287,23 @@ export async function decodeImage(file: string): Promise<Raster> {
   return { data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength), width: info.width, height: info.height, channels: info.channels }
 }
 
+/**
+ * Decode in-memory PNG bytes (e.g. a {@link BrowserDriver} screenshot) into a
+ * {@link Raster} without a temp-file round-trip. Used by the REQ-42 cross-browser
+ * perceptual backstop, which diffs engine screenshots it never writes to disk.
+ */
+export async function decodeImageBytes(bytes: Uint8Array): Promise<Raster> {
+  const { data, info } = await sharp(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength))
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  return {
+    data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    width: info.width,
+    height: info.height,
+    channels: info.channels,
+  }
+}
+
 /** Encode an RGB/RGBA raster to a PNG file (fixture + diagnostic helper). */
 export async function writeRasterPng(src: Raster, outFile: string): Promise<string> {
   const channels = src.channels as 1 | 2 | 3 | 4

@@ -18,6 +18,14 @@ export {
 } from './checks'
 export type { ResponsiveProbe } from './checks'
 export {
+  evaluateXBrowser,
+  evaluateXBrowserBackstop,
+  X_BROWSER_BOX_PROBE,
+  X_BROWSER_TOLERANCE,
+  X_BROWSER_BACKSTOP_THRESHOLD,
+} from './checks'
+export type { XBrowserProbe, XBrowserBox, XBrowserTolerance } from './checks'
+export {
   buildInjectionContent,
   buildBenignContent,
   buildSecurityFixtures,

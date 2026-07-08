@@ -21,7 +21,9 @@ import { ContentSafetyError } from '@1stcontact/framework'
 import {
   chromiumAvailable,
   cmdNew,
+  createEngineDriver,
   createPlaywrightDriver,
+  engineAvailable,
   startServe,
   type BrowserDriverFactory,
   type ServeHandle,
@@ -33,20 +35,35 @@ import {
   evaluateResponsive,
   evaluateSafety,
   evaluateSecurity,
+  evaluateXBrowser,
+  evaluateXBrowserBackstop,
   MOBILE_BAND_MAX_PX,
   RESPONSIVE_PROBE,
   SAFETY_PROBE,
   SECURITY_PROBE,
+  X_BROWSER_BACKSTOP_THRESHOLD,
+  X_BROWSER_BOX_PROBE,
+  X_BROWSER_TOLERANCE,
   type ResponsiveProbe,
   type SafetyProbe,
   type SecurityProbe,
+  type XBrowserProbe,
 } from './checks'
-import type { ConformanceFixture, ConformanceOptions, ConformanceViolation } from './types'
+import type {
+  ConformanceEngine,
+  ConformanceFixture,
+  ConformanceOptions,
+  ConformanceViolation,
+} from './types'
 
 /** Fast-tier default viewport widths: one desktop, one mobile (DOC-20). */
 const DEFAULT_WIDTHS = [1280, 375]
 /** Responsive-dimension default sweep: the full viewport ladder (REQ-41). */
 const RESPONSIVE_WIDTHS = [320, 375, 768, 1024, 1280, 1440]
+/** Cross-browser default widths — desktop + mobile; the engine axis is what matters. */
+const X_BROWSER_WIDTHS = [1280, 375]
+/** Cross-browser engine set: Edge == Blink, so three engines, not four (DOC-20 AC-M3). */
+const X_BROWSER_ENGINES: ConformanceEngine[] = ['chromium', 'webkit', 'firefox']
 /** Full-page height for the probe viewport; width is the deterministic axis. */
 const PROBE_HEIGHT = 900
 
@@ -155,18 +172,23 @@ export async function serveOneModulePage(
 /**
  * Assert every fixture of `slug` conforms to the fast-tier contract for the
  * requested {@link ConformanceOptions.dimension} — `safety` (default),
- * `security` (REQ-40: content-injection inert + no off-allowlist egress), or
+ * `security` (REQ-40: content-injection inert + no off-allowlist egress),
  * `responsive` (REQ-41: safety across the viewport ladder + mobile-band tap
- * target / font-floor checks). Throws {@link ConformanceError} on any
- * non-excepted violation. On a Chromium-
- * less runner (and only with the default driver) the check is advisory and
- * returns cleanly — the leaf is a no-op rather than a hard failure (DOC-20).
+ * target / font-floor checks), or `x-browser` (REQ-42: Blink/WebKit/Gecko
+ * layout equivalence — delegated to {@link assertXBrowserConforms}). Throws
+ * {@link ConformanceError} on any non-excepted violation. On a Chromium-less
+ * runner (and only with the default driver) the check is advisory and returns
+ * cleanly — the leaf is a no-op rather than a hard failure (DOC-20).
  */
 export async function assertModuleConforms(
   slug: string,
   fixtures: ConformanceFixture[],
   opts: ConformanceOptions = {},
 ): Promise<void> {
+  if (opts.dimension === 'x-browser') {
+    await assertXBrowserConforms(slug, fixtures, opts)
+    return
+  }
   const factory: BrowserDriverFactory = opts.driverFactory ?? createPlaywrightDriver
   if (!opts.driverFactory && !(await chromiumAvailable())) return
 
@@ -224,6 +246,130 @@ export async function assertModuleConforms(
           }
         } finally {
           await driver.close()
+        }
+      }
+    } finally {
+      const failed = fixtureViolations.some((v) => !except.includes(v.ac))
+      await served.dispose({ keepRoot: failed && keepOnFailure })
+    }
+    allViolations.push(...fixtureViolations)
+  }
+
+  const active = allViolations.filter((v) => !except.includes(v.ac))
+  if (active.length > 0) throw new ConformanceError(active)
+}
+
+/** One engine's rendering of the served page: layout boxes + (optional) screenshot. */
+interface EngineRender {
+  boxes: XBrowserProbe['boxes']
+  shot?: Uint8Array
+}
+
+/** Drive one engine over the served URL and read its layout boxes (+ screenshot). */
+async function renderInEngine(
+  engine: ConformanceEngine,
+  factoryFor: (engine: ConformanceEngine) => BrowserDriverFactory,
+  url: string,
+  viewport: Viewport,
+  withShot: boolean,
+): Promise<EngineRender> {
+  const driver = await factoryFor(engine)()
+  try {
+    await driver.navigate(url, viewport)
+    const probe = await driver.query<XBrowserProbe>(X_BROWSER_BOX_PROBE)
+    const shot = withShot ? await driver.screenshot(viewport) : undefined
+    return { boxes: probe.boxes, shot }
+  } finally {
+    await driver.close()
+  }
+}
+
+/**
+ * REQ-42 cross-browser dimension ([[DOC-20]] AC-M3). Render each fixture's
+ * one-module page in Blink (Chromium, the reference), WebKit and Gecko, and
+ * assert layout equivalence: a per-element parent-relative box comparison
+ * ({@link evaluateXBrowser}) plus a perceptual block-diff backstop
+ * ({@link evaluateXBrowserBackstop}). Full tier — regression-scoped.
+ *
+ * Engine resolution: with an injected {@link ConformanceOptions.driverFactoryFor}
+ * (the self-tests) the requested engines are used verbatim; otherwise each real
+ * engine is probed with {@link engineAvailable} and absent ones are dropped. The
+ * check needs Chromium (the reference) plus at least one other engine to compare;
+ * short of that it is an advisory no-op — the leaf passes rather than hard-fails
+ * on a runner without WebKit/Firefox binaries provisioned.
+ */
+async function assertXBrowserConforms(
+  slug: string,
+  fixtures: ConformanceFixture[],
+  opts: ConformanceOptions,
+): Promise<void> {
+  const injected = opts.driverFactoryFor
+  const requested = opts.engines ?? X_BROWSER_ENGINES
+  let engines: ConformanceEngine[]
+  let factoryFor: (engine: ConformanceEngine) => BrowserDriverFactory
+  if (injected) {
+    factoryFor = injected
+    engines = requested
+  } else {
+    factoryFor = createEngineDriver
+    engines = []
+    for (const engine of requested) if (await engineAvailable(engine)) engines.push(engine)
+  }
+  // Need the Blink reference + ≥1 other engine to have anything to compare.
+  if (!engines.includes('chromium') || engines.length < 2) return
+  const others = engines.filter((engine) => engine !== 'chromium')
+
+  const widths = opts.viewports ?? X_BROWSER_WIDTHS
+  const tol = opts.xBrowserTolerance ?? X_BROWSER_TOLERANCE
+  const runBackstop = opts.xBrowserBackstop !== false
+  const backstopThreshold = opts.xBrowserBackstopThreshold ?? X_BROWSER_BACKSTOP_THRESHOLD
+  const except = opts.except ?? []
+  const keepOnFailure = opts.keepSandboxOnFailure ?? true
+  const allViolations: ConformanceViolation[] = []
+
+  for (const fixture of fixtures) {
+    const served = await serveOneModulePage(slug, fixture, opts)
+    const fixtureViolations: ConformanceViolation[] = []
+    try {
+      for (const width of widths) {
+        const viewport: Viewport = { width, height: PROBE_HEIGHT }
+        const reference = await renderInEngine(
+          'chromium',
+          factoryFor,
+          served.handle.url,
+          viewport,
+          runBackstop,
+        )
+        for (const engine of others) {
+          const current = await renderInEngine(
+            engine,
+            factoryFor,
+            served.handle.url,
+            viewport,
+            runBackstop,
+          )
+          fixtureViolations.push(
+            ...evaluateXBrowser(
+              fixture.label,
+              String(width),
+              engine,
+              reference.boxes,
+              current.boxes,
+              tol,
+            ),
+          )
+          if (runBackstop && reference.shot && current.shot) {
+            fixtureViolations.push(
+              ...(await evaluateXBrowserBackstop(
+                fixture.label,
+                String(width),
+                engine,
+                reference.shot,
+                current.shot,
+                backstopThreshold,
+              )),
+            )
+          }
         }
       }
     } finally {

@@ -9,6 +9,7 @@
  */
 import type { BrowserDriverFactory } from '../cli'
 import type { ModuleResolver } from '../render'
+import type { XBrowserTolerance } from './checks'
 
 /** One rendered scenario for a module: a label + the module instance props. */
 export interface ConformanceFixture {
@@ -55,6 +56,20 @@ export interface ConformanceOptions {
   extraCss?: string
   /** Injectable driver factory; defaults to real Playwright/Chromium. */
   driverFactory?: BrowserDriverFactory
+  /**
+   * Per-engine driver factory for the `x-browser` dimension (default
+   * `createEngineDriver(engine)`). The self-tests inject this to feed each engine
+   * controlled geometry/screenshots, so the cross-engine discriminator is proven
+   * deterministically. When supplied, engine-availability probing is skipped —
+   * the requested {@link ConformanceOptions.engines} are used as-is.
+   */
+  driverFactoryFor?: (engine: ConformanceEngine) => BrowserDriverFactory
+  /** Box tolerances for the `x-browser` dimension (default {@link XBrowserTolerance}). */
+  xBrowserTolerance?: XBrowserTolerance
+  /** Region-intensity threshold for the `x-browser` perceptual backstop (0..255). */
+  xBrowserBackstopThreshold?: number
+  /** Run the `x-browser` perceptual backstop after the box comparison (default `true`). */
+  xBrowserBackstop?: boolean
   /** Module version to pin the one-module page to (default from props, else `1`). */
   version?: number
   /** Keep the temp sandbox on failure for debugging (default `true`). */
