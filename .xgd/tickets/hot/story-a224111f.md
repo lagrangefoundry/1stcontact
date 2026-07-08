@@ -5,10 +5,10 @@ type: story
 title: Token-driven theme CSS and a versioned chrome module catalog
 created_by: xgd
 created_at: '2026-07-08T19:19:53.002381+00:00'
-updated_at: '2026-07-08T19:19:53.002381+00:00'
+updated_at: '2026-07-08T19:26:22.801697+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-6a071846
   capability_uid: capability-4dbbfc15
