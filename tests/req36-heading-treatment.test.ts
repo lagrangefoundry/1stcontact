@@ -158,7 +158,7 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
     expect(withRule).toContain('hero__divider')
     expect(without).not.toContain('hero__divider')
     // The rule inherits the surface text colour (currentColor), not a hard-coded one.
-    expect(heroCss).toMatch(/\.hero__divider\s*\{[^}]*border-top:\s*1px solid currentColor/)
+    expect(heroCss).toMatch(/\.hero__divider\s*\{[^}]*border-top:\s*2px solid currentColor/)
   })
 
   it('test_UAT_FC_REQ-36_hero_content_column_left_drops_the_centring_margin', async () => {
@@ -235,5 +235,37 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
     expect(html).toContain('hs-md')
     expect(html).toContain('halign-left')
     expect(html).toContain('leading-relaxed')
+  })
+})
+
+describe('REQ-36 hero finish — scrim depth / heading weight / CTA shape / divider', () => {
+  it('test_UAT_FC_REQ-36_hero_scrim_heavy_darkens_beyond_strong', () => {
+    // `heavy` sits above `strong` (0.55) for a busy/bright photo the reference darkens further.
+    expect(heroCss).toMatch(/\.hero\.scrim-heavy\s+\.hero__scrim\s*\{[^}]*opacity:\s*0\.68/)
+  })
+
+  it('test_UAT_FC_REQ-36_hero_headingWeight_reaches_medium', async () => {
+    const html = await render(Hero, { variant: 'bg-color', dials: { headingWeight: 'medium' }, content: { heading: 'H', subhead: 'x' } })
+    expect(html).toContain('hw-medium')
+    expect(heroCss).toMatch(/\.hero__heading\.hw-medium\s*\{[^}]*font-weight:\s*var\(--font-weight-medium\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_hero_cta_square_removes_the_radius', async () => {
+    const square = await render(Hero, { variant: 'bg-color', dials: { ctaShape: 'square' }, content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
+    expect(square).toContain('cta-square')
+    expect(heroCss).toMatch(/\.hero__cta\.cta-square\s*\{[^}]*border-radius:\s*0/)
+    const dflt = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
+    expect(dflt).toContain('cta-round')
+  })
+
+  it('test_UAT_FC_REQ-36_hero_divider_is_a_solid_2px_rule', () => {
+    // A 1px hairline read thin/washed over the image; the rule is a solid 2px.
+    expect(heroCss).toMatch(/\.hero__divider\s*\{[^}]*border-top:\s*2px solid currentColor/)
+  })
+
+  it('test_UAT_FC_REQ-36_hero_finish_defaults_unchanged', async () => {
+    const html = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
+    expect(html).toContain('hw-bold')
+    expect(html).toContain('cta-round')
   })
 })

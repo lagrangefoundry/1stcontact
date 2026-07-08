@@ -27,6 +27,11 @@ const spacingBottom = dials.spacingBottom ?? 'lg'
 const headingTreatment = dials.headingTreatment ?? 'plain'
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
+// Heading font-weight (REQ-36) — `bold` (default) preserves the prior weight;
+// lighter steps reach a reference display heading (the hero is Oswald 500).
+const headingWeight = dials.headingWeight ?? 'bold'
+// CTA corner shape (REQ-36) — `round` (default) keeps the pill; `square` hard-corners.
+const ctaShape = dials.ctaShape ?? 'round'
 // Divider rule between heading and subhead (REQ-36) — `rule` draws the short
 // rule under the heading; `none` (default) omits the element entirely.
 const divider = dials.divider ?? 'none'
@@ -110,10 +115,10 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`]} style={headingGradient}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
+    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`, `hw-${headingWeight}`]} style={headingGradient}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
     {divider === 'rule' && <hr class="hero__divider" />}
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
-    {cta && <a class="hero__cta" href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
+    {cta && <a class:list={['hero__cta', `cta-${ctaShape}`]} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
 </section>
 
@@ -189,6 +194,9 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.scrim-light .hero__scrim { opacity: 0.2; }
   .hero.scrim-medium .hero__scrim { opacity: 0.35; }
   .hero.scrim-strong .hero__scrim { opacity: 0.55; }
+  /* `heavy` (REQ-36) — a deeper darkening for a busy/bright photo where `strong`
+     still reads too transparent (the joyfulculinary hero measured ~0.68). */
+  .hero.scrim-heavy .hero__scrim { opacity: 0.68; }
   .hero__inner {
     position: relative;
     z-index: 1;
@@ -218,12 +226,14 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
      and shrinks with the column on narrow viewports. Rendered only for
      `divider: rule`; the flex-column `gap` provides its vertical spacing. */
   .hero__divider {
-    width: 100%;
-    max-width: 32rem;
+    width: 32rem;
+    max-width: 100%;
     height: 0;
     margin: 0;
     border: 0;
-    border-top: 1px solid currentColor;
+    /* 2px crisp rule in the surface text colour — a 1px hairline reads thin and
+       washed over a bright image; the reference rule is a solid ~2px white. */
+    border-top: 2px solid currentColor;
   }
 
   .hero__eyebrow {
@@ -240,6 +250,13 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     font-weight: var(--font-weight-bold);
     line-height: var(--line-height-tight);
   }
+  /* Heading font-weight (REQ-36) — `bold` is the base above; lighter steps reach
+     a reference display heading (the joyfulculinary hero is Oswald medium 500). */
+  .hero__heading.hw-extralight { font-weight: var(--font-weight-extralight); }
+  .hero__heading.hw-light { font-weight: var(--font-weight-light); }
+  .hero__heading.hw-regular { font-weight: var(--font-weight-regular); }
+  .hero__heading.hw-medium { font-weight: var(--font-weight-medium); }
+  .hero__heading.hw-semibold { font-weight: var(--font-weight-semibold); }
   /* Heading letter-spacing (REQ-45): only the tighter steps emit an override;
      `normal` sets nothing, leaving the heading untracked (default fallback
      unchanged). Token-backed so no raw em value reaches the page. */
@@ -322,6 +339,9 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     font-weight: var(--font-weight-semibold);
     text-decoration: none;
   }
+  /* CTA corner shape (REQ-36) — `round` is the pill radius above; `square`
+     hard-corners the button (the reference's square "Learn More"). */
+  .hero__cta.cta-square { border-radius: 0; }
   /* The inner is a stretch flex column (so the heading/subhead fill the measure
      and wrap), which would stretch the CTA into a full-width bar. Pin it to the
      content-start edge so it hugs its label — left on a left hero (REQ-36),

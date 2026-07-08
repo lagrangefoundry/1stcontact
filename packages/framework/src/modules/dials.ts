@@ -209,7 +209,14 @@ export const GRADIENT_DIRECTION_DIAL = [
  * painted over the background image so overlaid text stays legible. `none`
  * (default) paints nothing; `light`/`medium`/`strong` step up the opacity.
  */
-export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong'] as const
+export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong', 'heavy'] as const
+
+/**
+ * Hero CTA corner shape (REQ-36). `round` (default) keeps the prior token-backed
+ * `--radius-md` pill; `square` removes the radius for a hard-cornered button (the
+ * joyfulculinary hero's square "Learn More"). Default-preserving.
+ */
+export const CTA_SHAPE_DIAL = ['round', 'square'] as const
 
 /**
  * Vertical anchor of a hero's content within a `fold`-height band (REQ-32).

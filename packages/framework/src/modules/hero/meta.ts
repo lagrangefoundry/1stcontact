@@ -6,8 +6,10 @@ import {
   CONTENT_INSET_DIAL,
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
+  CTA_SHAPE_DIAL,
   GRADIENT_DIRECTION_DIAL,
   HEADING_CASE_DIAL,
+  HEADING_WEIGHT_DIAL,
   HERO_DIVIDER_DIAL,
   HEADING_TREATMENT_DIAL,
   HEIGHT_DIAL,
@@ -43,6 +45,13 @@ export const heroMeta = {
     // time while the DOM text stays literal (the joyfulculinary hero types
     // mixed-case and uppercases via CSS).
     headingCase: HEADING_CASE_DIAL,
+    // Heading font-weight (REQ-36) — `bold` (default) preserves the prior weight;
+    // lighter steps reach a reference display heading (the joyfulculinary hero is
+    // Oswald `medium` 500, not our bold 700).
+    headingWeight: HEADING_WEIGHT_DIAL,
+    // CTA corner shape (REQ-36) — `round` (default) keeps the pill radius;
+    // `square` hard-corners the button (the reference's square "Learn More").
+    ctaShape: CTA_SHAPE_DIAL,
     // Divider rule between heading and subhead (REQ-36) — `rule` draws the
     // joyfulculinary hero's short rule under the heading; `none` (default) omits.
     divider: HERO_DIVIDER_DIAL,
