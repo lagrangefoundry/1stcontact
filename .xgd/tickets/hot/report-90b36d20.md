@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: 1stcontact platform scaffold + framework Phase 0 (REQ-1/3/4/5/10)'
 created_by: xgd
 created_at: '2026-07-08T19:01:11.041341+00:00'
-updated_at: '2026-07-08T19:05:05.801689+00:00'
+updated_at: '2026-07-08T19:13:55.025635+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -55,7 +55,7 @@ fields:
     justification: No existing story documents the site-definition schema, its validator,
       or the structure-vs-catalog validation boundary. Commit 7f2f18 implements this
       foundational contract (REQ-3).
-    story_uid: null
+    story_uid: story-6fc151b1
   - index: 3
     component: '@1stcontact/framework — theme tokens, CSS generator, module registry,
       chrome modules'
