@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: 1stcontact platform scaffold + framework Phase 0 (REQ-1/3/4/5/10)'
 created_by: xgd
 created_at: '2026-07-08T19:01:11.041341+00:00'
-updated_at: '2026-07-08T19:13:55.025635+00:00'
+updated_at: '2026-07-08T19:21:05.753847+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -80,7 +80,7 @@ fields:
       the module registry/getModule contract, or the header/hero/footer chrome modules.
       Commit 4a8a48 implements them and extends site-schema's ThemeTokens to the 55-token
       superset (REQ-4).
-    story_uid: null
+    story_uid: story-a224111f
   - index: 4
     component: '@1stcontact/framework — content modules (text-block, services-grid,
       contact-form)'
