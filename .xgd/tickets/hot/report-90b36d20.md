@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: 1stcontact platform scaffold + framework Phase 0 (REQ-1/3/4/5/10)'
 created_by: xgd
 created_at: '2026-07-08T19:01:11.041341+00:00'
-updated_at: '2026-07-08T19:21:05.753847+00:00'
+updated_at: '2026-07-08T19:30:14.721054+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -105,7 +105,7 @@ fields:
     justification: No existing story documents the content-module catalog (markdown
       rendering, list-of-content fields, no-JS-plus-progressive-enhancement form,
       content-schema list-bound validation). Commit 0b3638 implements them (REQ-5).
-    story_uid: null
+    story_uid: story-903e3e3a
 ---
 
 # Reconciliation Plan
