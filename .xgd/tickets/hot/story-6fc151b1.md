@@ -5,10 +5,10 @@ type: story
 title: Structural validation of site definitions
 created_by: xgd
 created_at: '2026-07-08T19:12:44.724841+00:00'
-updated_at: '2026-07-08T19:12:44.724841+00:00'
+updated_at: '2026-07-08T19:17:11.369915+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-6a071846
   capability_uid: capability-785f2608
