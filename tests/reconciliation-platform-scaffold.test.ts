@@ -30,6 +30,11 @@ describe('AC-416 public-site apex placeholder', () => {
   beforeAll(async () => {
     worker = await unstable_dev('apps/public-site/src/index.ts', {
       config: 'apps/public-site/wrangler.toml',
+      // Disable filesystem persistence: these placeholder workers have no
+      // storage bindings, and the default `.wrangler/state` dir is shared
+      // across parallel test files, causing SQLITE_BUSY contention on
+      // Miniflare's internal SQLite when workerd starts up.
+      persist: false,
       experimental: { disableExperimentalWarning: true },
     })
   })
@@ -54,6 +59,9 @@ describe('AC-417 control-app builder placeholder', () => {
   beforeAll(async () => {
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
+      // See AC-416 above: disable persistence to avoid SQLITE_BUSY contention
+      // on Miniflare's shared default state dir across parallel test files.
+      persist: false,
       experimental: { disableExperimentalWarning: true },
     })
   })

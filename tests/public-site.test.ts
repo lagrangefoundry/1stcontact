@@ -8,6 +8,11 @@ describe('public-site worker', () => {
   beforeAll(async () => {
     worker = await unstable_dev('apps/public-site/src/index.ts', {
       config: 'apps/public-site/wrangler.toml',
+      // Disable filesystem persistence: this placeholder worker has no storage
+      // bindings, and the default `.wrangler/state` dir is shared across
+      // parallel test files, causing SQLITE_BUSY contention on Miniflare's
+      // internal SQLite when workerd starts up.
+      persist: false,
       experimental: { disableExperimentalWarning: true },
     })
   })
