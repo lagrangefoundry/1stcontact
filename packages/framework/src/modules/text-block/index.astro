@@ -25,6 +25,8 @@ const contentWidth = dials.contentWidth ?? 'default'
 // colour; `accent`/`gold` colour the heading (the joyfulculinary gold section
 // headings). A section that omits the dial is unchanged.
 const headingTreatment = dials.headingTreatment ?? 'plain'
+// Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
+const headingCase = dials.headingCase ?? 'normal'
 const { heading } = content
 const bodyHtml = await renderMarkdown(content.body)
 ---
@@ -43,7 +45,7 @@ const bodyHtml = await renderMarkdown(content.body)
   ]}
 >
   <div class="text-block__inner">
-    {heading && <h2 class:list={['text-block__heading', `treatment-${headingTreatment}`]}>{heading}</h2>}
+    {heading && <h2 class:list={['text-block__heading', `treatment-${headingTreatment}`, `case-${headingCase}`]}>{heading}</h2>}
     <div class="text-block__body" set:html={bodyHtml} />
   </div>
 </section>
@@ -94,6 +96,7 @@ const bodyHtml = await renderMarkdown(content.body)
      the same treatment vocabulary as the hero heading. `plain` inherits the band
      colour (no rule); `accent` fills solid gold; `gold` is the metallic-gold
      gradient clipped to the text. */
+  .text-block__heading.case-upper { text-transform: uppercase; }
   .text-block__heading.treatment-accent { color: var(--color-accent); }
   .text-block__heading.treatment-gold {
     background-image: linear-gradient(180deg, #f7e4a8 0%, var(--color-accent) 48%, #b07d24 100%);

@@ -3,6 +3,7 @@ import {
   CARD_SURFACE_DIAL,
   CONTENT_WIDTH_DIAL,
   GAP_DIAL,
+  HEADING_CASE_DIAL,
   HEADING_COLOR_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
@@ -67,6 +68,9 @@ export const servicesGridMeta = {
     // Heading colour treatment (REQ-36) — colours the grid heading and card
     // titles (`accent`/`gold`); `plain` (default) inherits the band colour.
     headingTreatment: HEADING_COLOR_DIAL,
+    // Heading letter-case (REQ-36) — `upper` uppercases the grid heading + card
+    // titles while the DOM text stays literal.
+    headingCase: HEADING_CASE_DIAL,
     // Card type scale (REQ-20). `md` (default) preserves the prior scale; `lg`
     // steps the card heading/subhead/badge/checklist typography up one notch
     // (the gigabytealchemy reference runs its cards at a larger scale); `sm`

@@ -2,6 +2,7 @@ import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
   CONTENT_WIDTH_DIAL,
+  HEADING_CASE_DIAL,
   HEADING_COLOR_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
@@ -32,6 +33,9 @@ export const textBlockMeta = {
     // heading (the joyfulculinary gold headings); `plain` (default) inherits the
     // band colour, so a section that omits the dial is unchanged.
     headingTreatment: HEADING_COLOR_DIAL,
+    // Heading letter-case (REQ-36) — `upper` uppercases the rendered heading
+    // while the DOM text stays literal.
+    headingCase: HEADING_CASE_DIAL,
     // Constrained content column (REQ-45) — caps the content within the section
     // frame; the `align` dial then pins it left (default) or centres it. A
     // narrow left-pinned measure wraps prose like the reference, collapsing

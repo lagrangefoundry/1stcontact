@@ -43,6 +43,9 @@ const cardSurface = dials.cardSurface ?? 'default'
 // one grid read gold-on-dark (the Offerings grid) while another stays white
 // (the process grid).
 const headingTreatment = dials.headingTreatment ?? 'plain'
+// Heading letter-case (REQ-36) — `upper` uppercases the grid heading + card
+// titles at render; DOM text stays literal.
+const headingCase = dials.headingCase ?? 'normal'
 // Card type scale (REQ-20): `md` preserves the prior scale; `lg`/`sm` step the
 // card heading/subhead/badge/checklist typography up/down one notch.
 const size = dials.size ?? 'md'
@@ -72,6 +75,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `surface-${surface}`,
     `card-surface-${cardSurface}`,
     `treatment-${headingTreatment}`,
+    `case-${headingCase}`,
     `gap-${gap}`,
     `size-${size}`,
     `content-width-${contentWidth}`,
@@ -176,6 +180,8 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
      titles together, the same treatment vocabulary as the hero/text-block
      heading. `accent` fills solid gold; `gold` is the clipped metallic gradient;
      `plain` (no rule) inherits the band colour. */
+  .services-grid.case-upper .services-grid__heading,
+  .services-grid.case-upper .services-grid__card-title { text-transform: uppercase; }
   .services-grid.treatment-accent .services-grid__heading,
   .services-grid.treatment-accent .services-grid__card-title { color: var(--color-accent); }
   .services-grid.treatment-gold .services-grid__heading,

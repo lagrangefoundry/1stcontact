@@ -267,3 +267,14 @@ export const HEADING_TREATMENT_DIAL = ['plain', 'accent', 'gold', 'gradient'] as
  * (rather than shipping a silently-inert dial value).
  */
 export const HEADING_COLOR_DIAL = ['plain', 'accent', 'gold'] as const
+
+/**
+ * Heading letter-case treatment (REQ-36), shared by hero / text-block /
+ * services-grid. `normal` (default) renders the heading as authored; `upper`
+ * applies `text-transform: uppercase` at render time. The DOM text node is left
+ * **literal** — the author (and many captured sites) type mixed-case and let CSS
+ * uppercase it — so a faithful-repro `values-diff` still pairs on the literal
+ * text while the rendered result matches the uppercased reference. A heading
+ * whose source is already uppercase is unaffected (the transform is idempotent).
+ */
+export const HEADING_CASE_DIAL = ['normal', 'upper'] as const

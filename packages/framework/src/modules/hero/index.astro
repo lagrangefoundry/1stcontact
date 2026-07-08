@@ -25,6 +25,8 @@ const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 // Heading colour treatment (REQ-28), independent of the surface text colour.
 const headingTreatment = dials.headingTreatment ?? 'plain'
+// Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
+const headingCase = dials.headingCase ?? 'normal'
 // Band height: `fold` fills the viewport to the fold; `auto` sizes to content.
 const height = dials.height ?? 'auto'
 // Legibility scrim + content anchor (REQ-32).
@@ -96,7 +98,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`]} style={headingGradient}>{heading}</h1>
+    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`]} style={headingGradient}>{heading}</h1>
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
     {cta && <a class="hero__cta" href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
@@ -212,6 +214,10 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   /* Heading colour treatment (REQ-28) — overrides the inherited surface colour.
      `accent` is a solid accent fill; `gold` is the metallic-gold gradient
      clipped to the glyphs, matching the header wordmark (REQ-24). */
+  /* Heading letter-case (REQ-36) — uppercases the rendered heading; the DOM text
+     stays literal so a faithful-repro values-diff still pairs on the source text. */
+  .hero__heading.case-upper { text-transform: uppercase; }
+
   .hero__heading.treatment-accent { color: var(--color-accent); }
   .hero__heading.treatment-gold {
     background-image: linear-gradient(
@@ -282,4 +288,9 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     font-weight: var(--font-weight-semibold);
     text-decoration: none;
   }
+  /* The inner is a stretch flex column (so the heading/subhead fill the measure
+     and wrap), which would stretch the CTA into a full-width bar. Pin it to the
+     content-start edge so it hugs its label — left on a left hero (REQ-36),
+     centred on a centred hero (whose inner is already centre-aligned). */
+  .hero.align-left .hero__cta { align-self: flex-start; }
 </style>

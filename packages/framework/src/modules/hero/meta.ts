@@ -6,6 +6,7 @@ import {
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
   GRADIENT_DIRECTION_DIAL,
+  HEADING_CASE_DIAL,
   HEADING_TREATMENT_DIAL,
   HEIGHT_DIAL,
   LINE_HEIGHT_DIAL,
@@ -36,6 +37,10 @@ export const heroMeta = {
     // Heading colour treatment (REQ-28) — independent of the surface text
     // colour, so a hero can carry e.g. a gold heading over an inverse band.
     headingTreatment: HEADING_TREATMENT_DIAL,
+    // Heading letter-case (REQ-36) — `upper` uppercases the heading at render
+    // time while the DOM text stays literal (the joyfulculinary hero types
+    // mixed-case and uppercases via CSS).
+    headingCase: HEADING_CASE_DIAL,
     // Legibility scrim over the background image (REQ-32) — a dark-tint opacity
     // step so overlaid text stays readable on a busy image.
     scrim: SCRIM_DIAL,

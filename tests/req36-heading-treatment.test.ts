@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
+import Hero from '../packages/framework/src/modules/hero/index.astro'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 
@@ -15,6 +16,7 @@ function source(rel: string): string {
 }
 const textBlockCss = source('../packages/framework/src/modules/text-block/index.astro')
 const gridCss = source('../packages/framework/src/modules/services-grid/index.astro')
+const heroCss = source('../packages/framework/src/modules/hero/index.astro')
 
 /**
  * UATs for REQ-36 — the `headingTreatment` colour dial generalized from the hero
@@ -89,5 +91,34 @@ describe('REQ-36 heading treatment — services-grid', () => {
       expect(html).toContain('treatment-accent')
       expect(html).toContain('card-surface-bare')
     }
+  })
+})
+
+describe('REQ-36 heading letter-case (upper) — DOM stays literal', () => {
+  it('test_UAT_FC_REQ-36_hero_upper_transforms_render_but_keeps_literal_text', async () => {
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      dials: { headingCase: 'upper' },
+      content: { heading: 'Dreaming of healthier meals', subhead: 'x' },
+    })
+    // The uppercase is a render-time transform (class + CSS)…
+    expect(html).toContain('case-upper')
+    expect(heroCss).toMatch(/\.hero__heading\.case-upper\s*\{[^}]*text-transform:\s*uppercase/)
+    // …and the DOM text node is LEFT LITERAL (mixed case) — so a faithful-repro
+    // values-diff still pairs on the source text, not a synthesised uppercase.
+    expect(html).toContain('Dreaming of healthier meals')
+    expect(html).not.toContain('DREAMING OF HEALTHIER MEALS')
+  })
+
+  it('test_UAT_FC_REQ-36_case_default_is_normal', async () => {
+    const html = await render(TextBlock, { variant: 'prose', content: { heading: 'Our Offerings', body: 'x' } })
+    expect(html).toContain('case-normal')
+    expect(html).not.toContain('case-upper')
+  })
+
+  it('test_UAT_FC_REQ-36_left_hero_cta_hugs_content_not_full_width', () => {
+    // The left hero pins the CTA to the content-start edge (align-self) so it
+    // hugs its label rather than stretching into a full-width bar.
+    expect(heroCss).toMatch(/\.hero\.align-left\s+\.hero__cta\s*\{[^}]*align-self:\s*flex-start/)
   })
 })
