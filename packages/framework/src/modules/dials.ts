@@ -219,6 +219,14 @@ export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong', 'heavy'] as cons
 export const CTA_SHAPE_DIAL = ['round', 'square'] as const
 
 /**
+ * Header logo backdrop (REQ-36). `none` (default) renders the logo bare; `card`
+ * sets it on a padded, rounded, shadowed plate in the background colour — the
+ * joyfulculinary header floats its logo in a white card over the hero image, a
+ * common treatment for a logo that must stay legible over photography.
+ */
+export const LOGO_CARD_DIAL = ['none', 'card'] as const
+
+/**
  * Vertical anchor of a hero's content within a `fold`-height band (REQ-32).
  * `center` (default) matches the prior behaviour; `top`/`bottom` push the
  * content to the band's start/end — e.g. a hero whose copy sits low over the

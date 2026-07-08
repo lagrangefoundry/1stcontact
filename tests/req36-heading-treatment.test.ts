@@ -5,6 +5,7 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import Hero from '../packages/framework/src/modules/hero/index.astro'
+import Header from '../packages/framework/src/modules/header/index.astro'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens/index'
@@ -18,6 +19,7 @@ function source(rel: string): string {
 const textBlockCss = source('../packages/framework/src/modules/text-block/index.astro')
 const gridCss = source('../packages/framework/src/modules/services-grid/index.astro')
 const heroCss = source('../packages/framework/src/modules/hero/index.astro')
+const headerCss = source('../packages/framework/src/modules/header/index.astro')
 
 /**
  * UATs for REQ-36 — the `headingTreatment` colour dial generalized from the hero
@@ -267,5 +269,27 @@ describe('REQ-36 hero finish — scrim depth / heading weight / CTA shape / divi
     const html = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
     expect(html).toContain('hw-bold')
     expect(html).toContain('cta-round')
+  })
+})
+
+describe('REQ-36 header finish — image-logo size + logo card', () => {
+  const content = { logo: { id: 'l', src: 'assets/logo.png', alt: 'Logo' }, entries: [{ label: 'Home', target: '#' }] }
+
+  it('test_UAT_FC_REQ-36_logoSize_scales_an_image_logo', async () => {
+    const html = await render(Header, { variant: 'overlay', dials: { logoSize: 'lg' }, content })
+    expect(html).toContain('logo-size-lg')
+    expect(headerCss).toMatch(/\.header__logo\.logo-size-lg img\s*\{[^}]*height:\s*var\(--space-12\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_logoCard_sets_a_shadowed_plate', async () => {
+    const html = await render(Header, { variant: 'overlay', dials: { logoCard: 'card' }, content })
+    expect(html).toContain('logo-card-card')
+    expect(headerCss).toMatch(/\.header__logo\.logo-card-card\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_header_logo_defaults_unchanged', async () => {
+    const html = await render(Header, { variant: 'overlay', content })
+    expect(html).toContain('logo-size-md')
+    expect(html).toContain('logo-card-none')
   })
 })

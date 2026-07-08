@@ -2,6 +2,7 @@ import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
   GRADIENT_DIRECTION_DIAL,
+  LOGO_CARD_DIAL,
   LOGO_FONT_DIAL,
   LOGO_SIZE_DIAL,
   LOGO_TREATMENT_DIAL,
@@ -29,8 +30,13 @@ export const headerMeta = {
     // logo is a text wordmark, not an image.
     logoFont: LOGO_FONT_DIAL,
     logoTreatment: LOGO_TREATMENT_DIAL,
-    // Wordmark size (REQ-20 import) — `xl` reads at display/hero scale.
+    // Logo size (REQ-20 import; REQ-36 extends it to image logos) — `xl` reads at
+    // display/hero scale. Sizes the wordmark font *and* an image logo's height.
     logoSize: LOGO_SIZE_DIAL,
+    // Logo backdrop (REQ-36) — `card` sets the logo on a padded, rounded, shadowed
+    // plate (the joyfulculinary logo floats in a white card over the hero image);
+    // `none` (default) renders it bare, so a header that omits the dial is unchanged.
+    logoCard: LOGO_CARD_DIAL,
     // Wordmark letter-spacing (REQ-45) — `normal` (default) leaves the wordmark
     // untracked; `tight`/`tighter` pull the glyphs in for a display wordmark.
     tracking: TRACKING_DIAL,
