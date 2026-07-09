@@ -280,6 +280,35 @@ describe('REQ-36 services-grid card top-media', () => {
   })
 })
 
+describe('REQ-36 services-grid finish — card-title size, section CTA', () => {
+  it('test_UAT_FC_REQ-36_grid_size_lg_scales_card_title_to_3xl', () => {
+    expect(gridCss).toMatch(/\.services-grid\.size-lg\s+\.services-grid__card-title\s*\{[^}]*font-size:\s*var\(--font-size-3xl\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_grid_section_cta_renders_only_when_present', async () => {
+    const withCta = await render(ServicesGrid, {
+      variant: 'three-col',
+      content: { items: [{ title: 'T', body: 'b' }], cta: { label: 'Get Started', href: '#c' } },
+    })
+    expect(withCta).toContain('services-grid__cta')
+    expect(withCta).toContain('Get Started')
+    const without = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: 'T', body: 'b' }] } })
+    expect(without).not.toContain('services-grid__cta')
+  })
+})
+
+describe('REQ-36 header nav size', () => {
+  it('test_UAT_FC_REQ-36_header_navSize_lg_enlarges_nav_links', async () => {
+    const html = await render(Header, {
+      variant: 'overlay',
+      dials: { navSize: 'lg' },
+      content: { logo: 'X', entries: [{ label: 'Home', target: '#' }] },
+    })
+    expect(html).toContain('nav-size-lg')
+    expect(headerCss).toMatch(/\.header\.nav-size-lg\s+\.header__nav a\s*\{[^}]*font-size:\s*var\(--font-size-xl\)/)
+  })
+})
+
 describe('REQ-36 services-grid icon-font glyphs', () => {
   it('test_UAT_FC_REQ-36_services_grid_icon_font_renders_accent_glyph', async () => {
     const html = await render(ServicesGrid, {

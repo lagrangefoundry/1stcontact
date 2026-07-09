@@ -6,6 +6,7 @@ import {
   LOGO_FONT_DIAL,
   LOGO_SIZE_DIAL,
   LOGO_TREATMENT_DIAL,
+  SIZE_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
   TRACKING_DIAL,
@@ -37,6 +38,9 @@ export const headerMeta = {
     // plate (the joyfulculinary logo floats in a white card over the hero image);
     // `none` (default) renders it bare, so a header that omits the dial is unchanged.
     logoCard: LOGO_CARD_DIAL,
+    // Nav link size (REQ-36) — `md` (default) inherits the body size; `lg`/`sm`
+    // step the nav type (the reference nav runs larger than the default).
+    navSize: SIZE_DIAL,
     // Wordmark letter-spacing (REQ-45) — `normal` (default) leaves the wordmark
     // untracked; `tight`/`tighter` pull the glyphs in for a display wordmark.
     tracking: TRACKING_DIAL,

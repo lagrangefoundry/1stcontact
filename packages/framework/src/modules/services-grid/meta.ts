@@ -96,6 +96,8 @@ export const servicesGridMeta = {
   contentSchema: {
     heading: { type: 'string', required: false },
     subhead: { type: 'markdown', required: false },
+    // Section-level CTA button below the grid (REQ-36) — { label, href }.
+    cta: { type: 'object', required: false },
     items: {
       type: 'list',
       required: true,

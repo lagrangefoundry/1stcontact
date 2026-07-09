@@ -29,6 +29,9 @@ const logoSize = dials.logoSize ?? 'md'
 // Logo backdrop (REQ-36) — `card` floats the logo on a padded rounded shadowed
 // plate; `none` (default) renders it bare.
 const logoCard = dials.logoCard ?? 'none'
+// Nav link size (REQ-36) — `md` (default) inherits; `lg`/`sm` step the nav link
+// type (the reference nav runs at a larger scale than the body default).
+const navSize = dials.navSize ?? 'md'
 // Wordmark letter-spacing (REQ-45): `normal` leaves the wordmark untracked.
 const tracking = dials.tracking ?? 'normal'
 const entries = content.entries ?? []
@@ -48,6 +51,7 @@ const wordmarkGradient =
     `align-${align}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
+    `nav-size-${navSize}`,
   ]}
 >
   <div class="header__inner">
@@ -197,6 +201,10 @@ const wordmarkGradient =
 
   .header__nav { display: flex; gap: var(--space-6); }
   .header__nav a { color: inherit; text-decoration: none; font-weight: var(--font-weight-medium); }
+  /* Nav link size (REQ-36) — `md` (default) inherits; `sm`/`lg` step the nav type
+     (the reference nav runs larger than the body default). */
+  .header.nav-size-sm .header__nav a { font-size: var(--font-size-sm); }
+  .header.nav-size-lg .header__nav a { font-size: var(--font-size-xl); }
 
   /* Hamburger toggle: hidden on desktop, shown below the md breakpoint. */
   .header__toggle {
