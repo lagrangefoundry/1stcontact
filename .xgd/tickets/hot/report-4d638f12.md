@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T21:59:10.174127+00:00'
+updated_at: '2026-07-09T22:11:54.920552+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -135,7 +135,7 @@ fields:
       half-width forms + submit treatment, markdown callouts + verbatim rendering,
       and the generalized recursive content-contract validation those structured fields
       require.
-    story_uid: null
+    story_uid: story-903e3e3a
   - index: 3
     component: Framework section background (background + surface composition)
     item_type: upgrade
