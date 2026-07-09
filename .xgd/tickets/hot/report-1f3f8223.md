@@ -1,0 +1,92 @@
+---
+uid: report-1f3f8223
+id: REPORT-395
+type: report
+title: 'Report: batch_quality_check for report-84adbb17'
+created_by: xgd
+created_at: '2026-07-09T23:52:25.547846+00:00'
+updated_at: '2026-07-09T23:52:25.547846+00:00'
+completed_at: null
+last_field_updated: created_at
+result: pass
+fields:
+  report_kind: batch_quality_check
+  subject_uid: report-84adbb17
+  parent_report_uid: report-090ce6a8
+  batch_index: 0
+  quality_fix_cycle: 0
+---
+
+{
+  "timestamp": "2026-07-09T23:51:52.859263Z",
+  "lint": null,
+  "build": null,
+  "preflight": {
+    "status": "pass",
+    "violations": []
+  },
+  "suites": {
+    "javascript-vitest": {
+      "suite_name": "javascript-vitest",
+      "status": "success",
+      "exit_code": 0,
+      "duration_seconds": 10.66958866699133,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "total": 4,
+      "deselected": 378,
+      "test_filter": [
+        "test_UAT_AC458",
+        "test_UAT_AC448",
+        "test_UAT_AC433",
+        "test_UAT_AC434"
+      ],
+      "coverage": null,
+      "lines_covered": 0,
+      "lines_total": 0,
+      "files_covered": [],
+      "junit_xml_path": null,
+      "stdout": "Q-35 values-diff \u2014 strict mode restores exact matching\"],\"fullName\":\"REQ-35 values-diff \u2014 strict mode restores exact matching test_UAT_FC_REQ-35_strict_surfaces_suppressed_jitter\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_strict_surfaces_suppressed_jitter\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-35 values-diff \u2014 strict mode restores exact matching\"],\"fullName\":\"REQ-35 values-diff \u2014 strict mode restores exact matching test_UAT_FC_REQ-35_per_metric_override_widens_one_tolerance\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_per_metric_override_widens_one_tolerance\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-35 values-diff \u2014 perceptual colour tolerance\"],\"fullName\":\"REQ-35 values-diff \u2014 perceptual colour tolerance test_UAT_FC_REQ-35_color_distance_scale\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_color_distance_scale\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-35 values-diff \u2014 perceptual colour tolerance\"],\"fullName\":\"REQ-35 values-diff \u2014 perceptual colour tolerance test_UAT_FC_REQ-35_imperceptible_rounding_not_flagged\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_imperceptible_rounding_not_flagged\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-35 values-diff \u2014 perceptual colour tolerance\"],\"fullName\":\"REQ-35 values-diff \u2014 perceptual colour tolerance test_UAT_FC_REQ-35_near_neighbour_gold_still_flagged\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_near_neighbour_gold_still_flagged\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-35 values-diff \u2014 inferred reference colour is low-confidence\"],\"fullName\":\"REQ-35 values-diff \u2014 inferred reference colour is low-confidence test_UAT_FC_REQ-35_inferred_reference_colour_skipped\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_inferred_reference_colour_skipped\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-35 values-diff \u2014 inferred reference colour is low-confidence\"],\"fullName\":\"REQ-35 values-diff \u2014 inferred reference colour is low-confidence test_UAT_FC_REQ-35_confident_reference_colour_still_flagged\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_confident_reference_colour_still_flagged\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-35 capture flags inferred colours (real Chromium)\"],\"fullName\":\"REQ-35 capture flags inferred colours (real Chromium) test_UAT_FC_REQ-35_transparent_colour_flagged_inferred\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-35_transparent_colour_flagged_inferred\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1783641114083,\"endTime\":1783641114083,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/https___github.com_martinwesthead_1stcontact/reconcile-BUNDLE-3/tests/req35-values-diff-noise.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"1c launcher \u2014 HMR WebSocket disabled (REQ-37)\"],\"fullName\":\"1c launcher \u2014 HMR WebSocket disabled (REQ-37) test_UAT_FC_REQ-37_launcher_does_not_error_on_occupied_hmr_port\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-37_launcher_does_not_error_on_occupied_hmr_port\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1783641114083,\"endTime\":1783641114083,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/https___github.com_martinwesthead_1stcontact/reconcile-BUNDLE-3/tests/req37-launcher.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"REQ-38 perceptual-diff \u2014 headline metrics\"],\"fullName\":\"REQ-38 perceptual-diff \u2014 headline metrics test_UAT_FC_REQ-38_diff_reports_mean_and_bands\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-38_diff_reports_mean_and_bands\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-38 perceptual-diff \u2014 region derivation\"],\"fullName\":\"REQ-38 perceptual-diff \u2014 region derivation test_UAT_FC_REQ-38_regions_derived_by_connected_components\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-38_regions_derived_by_connected_components\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-38 perceptual-diff \u2014 region derivation\"],\"fullName\":\"REQ-38 perceptual-diff \u2014 region derivation test_UAT_FC_REQ-38_regions_ranked_by_score\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-38_regions_ranked_by_score\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-38 perceptual-diff \u2014 region derivation\"],\"fullName\":\"REQ-38 perceptual-diff \u2014 region derivation test_UAT_FC_REQ-38_block_averaging_reduces_registration_noise\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-38_block_averaging_reduces_registration_noise\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-38 perceptual-diff \u2014 crop primitive\"],\"fullName\":\"REQ-38 perceptual-diff \u2014 crop primitive test_UAT_FC_REQ-38_crop_extracts_box\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-38_crop_extracts_box\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-38 perceptual-diff \u2014 end-to-end diff emission\"],\"fullName\":\"REQ-38 perceptual-diff \u2014 end-to-end diff emission test_UAT_FC_REQ-38_diff_emits_region_crop_triptychs\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-38_diff_emits_region_crop_triptychs\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1783641114083,\"endTime\":1783641114083,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/https___github.com_martinwesthead_1stcontact/reconcile-BUNDLE-3/tests/req38-perceptual-diff.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"1c shot \u2014 page screenshot primitive (REQ-13)\"],\"fullName\":\"1c shot \u2014 page screenshot primitive (REQ-13) test_UAT_FC_REQ-13_shot_draft_assets_load\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-13_shot_draft_assets_load\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"1c shot \u2014 page screenshot primitive (REQ-13)\"],\"fullName\":\"1c shot \u2014 page screenshot primitive (REQ-13) test_UAT_FC_REQ-13_shot_url\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-13_shot_url\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"1c shot \u2014 page screenshot primitive (REQ-13)\"],\"fullName\":\"1c shot \u2014 page screenshot primitive (REQ-13) test_UAT_FC_REQ-13_deterministic_viewport\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-13_deterministic_viewport\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1783641114083,\"endTime\":1783641114083,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/https___github.com_martinwesthead_1stcontact/reconcile-BUNDLE-3/tests/shot.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_valid_minimal_site_validates\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_valid_minimal_site_validates\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_valid_full_site_validates\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_valid_full_site_validates\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_invalid_module_instance_shape_rejected\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_invalid_module_instance_shape_rejected\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_invalid_nav_pattern_rejected\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_invalid_nav_pattern_rejected\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_theme_tokens_missing_slot_rejected\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_theme_tokens_missing_slot_rejected\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_invalid_color_format_rejected\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_invalid_color_format_rejected\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_validator_returns_typed_site\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_validator_returns_typed_site\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_catalog_membership_not_validated\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_catalog_membership_not_validated\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_duplicate_page_slug_rejected\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_duplicate_page_slug_rejected\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-3_duplicate_module_id_within_page_rejected\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-3_duplicate_module_id_within_page_rejected\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-23_list_of_object_content_round_trips\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-23_list_of_object_content_round_trips\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"@1stcontact/site-schema validateSite\"],\"fullName\":\"@1stcontact/site-schema validateSite test_UAT_FC_REQ-23_asset_ref_content_still_validates\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-23_asset_ref_content_still_validates\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1783641114083,\"endTime\":1783641114083,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/https___github.com_martinwesthead_1stcontact/reconcile-BUNDLE-3/tests/site-schema.test.ts\"}]}",
+      "stderr": "",
+      "tests": [
+        {
+          "name": "reconciliation: content module catalog (story-903e3e3a) test_UAT_AC458_content_modules_resolvable_with_conforming_contract",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "reconciliation: content module catalog (story-903e3e3a) test_UAT_AC448_services_grid_renders_one_card_per_item",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a224111f \u2014 theme CSS generation test_UAT_AC433_declares_one_custom_property_per_token_slot_with_deterministic_names",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a224111f \u2014 theme CSS generation test_UAT_AC434_fills_omitted_slots_from_defaults_covering_the_full_surface",
+          "file": "",
+          "status": "passed"
+        }
+      ],
+      "hung_test": null,
+      "timeout_reason": null,
+      "partial_results": false,
+      "failures": []
+    }
+  },
+  "overall": {
+    "status": "success",
+    "issues": []
+  },
+  "validation": {
+    "anomalies": []
+  },
+  "blast_radius": {
+    "test_scope": "",
+    "files": []
+  }
+}
