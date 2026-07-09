@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-84adbb17'
 created_by: xgd
 created_at: '2026-07-09T23:31:36.403028+00:00'
-updated_at: '2026-07-09T23:31:36.403028+00:00'
+updated_at: '2026-07-09T23:36:07.734513+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-84adbb17
@@ -21,6 +21,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: test_UAT_AC458 or test_UAT_AC448 or test_UAT_AC433 or test_UAT_AC434
+  batches_pending: false
 ---
 
 {
