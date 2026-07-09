@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-2 (BUG-1 + REQ-12/13/14/15/16/22/23/24/25)'
 created_by: xgd
 created_at: '2026-07-09T20:08:08.630691+00:00'
-updated_at: '2026-07-09T21:02:08.411290+00:00'
+updated_at: '2026-07-09T21:10:16.680668+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -171,7 +171,7 @@ fields:
       and is a bug fix → upgrade. REQ-24 and REQ-25 extend theme-CSS emission and
       the header module in place (no @font-face or wordmark/overlay before), introducing
       no new capability bucket and no parallel stylesheet-generation or header implementation.
-    story_uid: null
+    story_uid: story-a224111f
     target_story_ids:
     - story-a224111f
     acceptance_criteria_changes:
