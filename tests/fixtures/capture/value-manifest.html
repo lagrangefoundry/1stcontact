@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-31 / REQ-35 per-element value manifest fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
+      section { padding: 48px; }
+      /* A hero band: a background image, a full-bleed translucent scrim (a
+         separate overlay div, bg-slate-950/45), and content anchored to the
+         bottom — the gigabytealchemy hero shape REQ-31/REQ-35 must capture. */
+      .hero {
+        position: relative;
+        min-height: 600px;
+        display: flex;
+        align-items: flex-end;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23334155'/%3E%3C/svg%3E");
+        background-size: cover;
+      }
+      .scrim { position: absolute; inset: 0; background: rgba(2, 6, 23, 0.45); }
+      .hero-content { position: relative; padding: 48px; }
+      .hero-title { margin: 0; color: #ffffff; font-size: 56px; font-weight: 700; }
+      /* A wordmark with a horizontal (90deg) text-fill gradient plus explicit
+         line-height and letter-spacing — the full per-element value manifest. */
+      .wordmark {
+        margin: 0;
+        font-size: 72px;
+        font-weight: 600;
+        line-height: 80px;
+        letter-spacing: 1px;
+        background-image: linear-gradient(90deg, #f6c453, #d98c30);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      /* A left-bar callout — border-l-4 border-emerald-400 pl-6 and kin, with an
+         explicit line-height and letter-spacing so both resolve to px. */
+      .callout {
+        margin: 0;
+        border-left: 4px solid #34d399;
+        padding-left: 24px;
+        line-height: 28px;
+        letter-spacing: 0.5px;
+        color: #334155;
+        font-size: 18px;
+      }
+      /* A decorative full-bleed band that paints only a solid colour — no text.
+         Its content vertical-anchor must be null (nothing to anchor). */
+      .divider { height: 160px; background: #111827; }
+    </style>
+  </head>
+  <body>
+    <div class="hero">
+      <div class="scrim"></div>
+      <div class="hero-content">
+        <h2 class="hero-title">Hero anchored low</h2>
+      </div>
+    </div>
+    <section>
+      <h1 class="wordmark">Gigabyte Alchemy</h1>
+      <p class="callout">A callout with an emerald left bar</p>
+    </section>
+    <div class="divider"></div>
+  </body>
+</html>
