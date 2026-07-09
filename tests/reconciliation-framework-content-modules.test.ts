@@ -48,13 +48,13 @@ describe('reconciliation: content module catalog (story-903e3e3a)', () => {
         content: ['heading', 'body'],
       },
       'services-grid': {
-        variants: ['three-col', 'two-col'],
-        dials: ['spacingTop', 'spacingBottom', 'surface', 'gap'],
+        variants: ['three-col', 'two-col', 'stacked'],
+        dials: ['spacingTop', 'spacingBottom', 'surface', 'gap', 'size'],
         content: ['heading', 'subhead', 'items'],
       },
       'contact-form': {
         variants: ['inline'],
-        dials: ['spacingTop', 'spacingBottom', 'surface', 'align'],
+        dials: ['spacingTop', 'spacingBottom', 'surface', 'align', 'width', 'submitTreatment'],
         content: ['heading', 'subhead', 'action', 'fields', 'submitLabel', 'successMessage'],
       },
     } as const
@@ -177,7 +177,9 @@ describe('reconciliation: content module catalog (story-903e3e3a)', () => {
       content: { heading: 'What we do', items: items(3) },
     })
     expect(three).toContain('variant-three-col')
-    expect(three.match(/class="services-grid__card"/g)?.length).toBe(3)
+    // Each card <li> opens with the block class followed by its per-card size
+    // class (`card-size-md` by default), so match the card-wrapper class prefix.
+    expect(three.match(/class="services-grid__card card-size-/g)?.length).toBe(3)
     for (const i of [1, 2, 3]) {
       expect(three).toContain(`Service ${i}`)
       expect(three).toContain(`Body ${i}`)
@@ -189,7 +191,7 @@ describe('reconciliation: content module catalog (story-903e3e3a)', () => {
       content: { items: items(2) },
     })
     expect(two).toContain('variant-two-col')
-    expect(two.match(/class="services-grid__card"/g)?.length).toBe(2)
+    expect(two.match(/class="services-grid__card card-size-/g)?.length).toBe(2)
   })
 
   // AC-449 — services-grid is single-column below md and multi-column from md up.
