@@ -40,6 +40,8 @@ const leading = dials.leading ?? 'relaxed'
 // Contained-panel treatment (REQ-36) — `none` (default) fills the band; a role
 // value makes the inner a padded, rounded, inset card in that palette role.
 const panel = dials.panel ?? 'none'
+// Body list marker (REQ-36) — `check` = accent ✓ markers; `bullet` (default).
+const listMarker = dials.listMarker ?? 'bullet'
 const { heading } = content
 const bodyHtml = await renderMarkdown(content.body)
 ---
@@ -55,6 +57,7 @@ const bodyHtml = await renderMarkdown(content.body)
     `content-width-${contentWidth}`,
     `leading-${leading}`,
     `panel-${panel}`,
+    `list-marker-${listMarker}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -116,6 +119,19 @@ const bodyHtml = await renderMarkdown(content.body)
   .text-block.panel-inverse .text-block__inner { background: var(--color-surface-inverse); color: var(--color-bg); }
   .text-block.panel-secondary .text-block__inner { background: var(--color-secondary); color: var(--color-bg); }
   .text-block.panel-accent .text-block__inner { background: var(--color-accent); color: var(--color-bg); }
+
+  /* Checklist markers (REQ-36) — replace the bullet with an accent ✓ (the "Who
+     Uses Our Services" list). The `ul` becomes inline-block so a centred band
+     centres the list while its items stay left-aligned under the ticks. */
+  .text-block.list-marker-check .text-block__body ul { list-style: none; padding-left: 0; display: inline-block; text-align: left; }
+  .text-block.list-marker-check .text-block__body li { position: relative; padding-left: 1.6em; }
+  .text-block.list-marker-check .text-block__body li::before {
+    content: "\2713";
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+    font-weight: var(--font-weight-bold);
+  }
 
   /* Constrained content column (REQ-45): the inner stays a full-width frame
      (its variant width) while these cap the *content* to a narrower measure.

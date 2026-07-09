@@ -7,6 +7,7 @@ import {
   HEADING_SIZE_DIAL,
   HEADING_WEIGHT_DIAL,
   LINE_HEIGHT_DIAL,
+  LIST_MARKER_DIAL,
   PANEL_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
@@ -59,6 +60,9 @@ export const textBlockMeta = {
     // value makes the inner a padded, rounded, inset card in that palette role
     // (the grey Holistic card, the grey-green testimonial panel).
     panel: PANEL_DIAL,
+    // Body list marker (REQ-36) — `check` replaces bullets with an accent ✓ (the
+    // "Who Uses Our Services" checklist); `bullet` (default) is unchanged.
+    listMarker: LIST_MARKER_DIAL,
     // Constrained content column (REQ-45) — caps the content within the section
     // frame; the `align` dial then pins it left (default) or centres it. A
     // narrow left-pinned measure wraps prose like the reference, collapsing

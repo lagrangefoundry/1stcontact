@@ -243,6 +243,15 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
     expect(html).toContain('panel-none')
   })
 
+  it('test_UAT_FC_REQ-36_textblock_listMarker_check_uses_accent_ticks', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { listMarker: 'check' }, content: { heading: 'H', body: '- one\n- two' } })
+    expect(html).toContain('list-marker-check')
+    expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*content:\s*"\\2713"/)
+    expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*color:\s*var\(--color-accent\)/)
+    const dflt = await render(TextBlock, { variant: 'prose', content: { heading: 'H', body: '- one' } })
+    expect(dflt).toContain('list-marker-bullet')
+  })
+
   it('test_UAT_FC_REQ-36_textblock_heading_finish_defaults_unchanged', async () => {
     const html = await render(TextBlock, { variant: 'prose', content })
     // Omitting the new dials preserves the prior heading (bold / 3xl / left) + relaxed body.

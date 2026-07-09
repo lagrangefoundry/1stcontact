@@ -256,6 +256,14 @@ export const LOGO_CARD_DIAL = ['none', 'card', 'shadow'] as const
 export const PANEL_DIAL = ['none', 'subtle', 'inverse', 'secondary', 'accent'] as const
 
 /**
+ * Text-block list marker (REQ-36). `bullet` (default) keeps the browser's list
+ * bullets; `check` replaces them with an accent-coloured ✓ (the joyfulculinary
+ * "Who Uses Our Services" list). A content-level treatment on the markdown list,
+ * so the body stays authored as a plain markdown list.
+ */
+export const LIST_MARKER_DIAL = ['bullet', 'check'] as const
+
+/**
  * Vertical anchor of a hero's content within a `fold`-height band (REQ-32).
  * `center` (default) matches the prior behaviour; `top`/`bottom` push the
  * content to the band's start/end — e.g. a hero whose copy sits low over the
