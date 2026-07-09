@@ -30,6 +30,10 @@ const headingCase = dials.headingCase ?? 'normal'
 // Heading font-weight (REQ-36) — `bold` (default) preserves the prior weight;
 // lighter steps reach a reference display heading (the hero is Oswald 500).
 const headingWeight = dials.headingWeight ?? 'bold'
+// Heading font-family (REQ-36) — `heading` (default) uses the heading face;
+// `body`/`display` render the heading in the body/display face (the quote hero
+// pull-quote is set in Karla body copy, not the condensed Oswald heading face).
+const headingFont = dials.headingFont ?? 'heading'
 // CTA corner shape (REQ-36) — `round` (default) keeps the pill; `square` hard-corners.
 const ctaShape = dials.ctaShape ?? 'round'
 // Subhead font-family (REQ-36) — `body` (default) inherits the body family; the
@@ -126,7 +130,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`, `hw-${headingWeight}`]} style={headingGradient}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
+    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`, `hw-${headingWeight}`, `heading-font-${headingFont}`]} style={headingGradient}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
     {divider === 'rule' && <hr class="hero__divider" />}
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
     {cta && <a class:list={['hero__cta', `cta-${ctaShape}`]} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
@@ -176,11 +180,15 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.spacing-top-md { padding-top: var(--space-8); }
   .hero.spacing-top-lg { padding-top: var(--space-16); }
   .hero.spacing-top-xl { padding-top: var(--space-24); }
+  .hero.spacing-top-2xl { padding-top: var(--space-32); }
+  .hero.spacing-top-3xl { padding-top: var(--space-48); }
   .hero.spacing-bottom-none { padding-bottom: var(--space-0); }
   .hero.spacing-bottom-sm { padding-bottom: var(--space-4); }
   .hero.spacing-bottom-md { padding-bottom: var(--space-8); }
   .hero.spacing-bottom-lg { padding-bottom: var(--space-16); }
   .hero.spacing-bottom-xl { padding-bottom: var(--space-24); }
+  .hero.spacing-bottom-2xl { padding-bottom: var(--space-32); }
+  .hero.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   .hero__bg {
     position: absolute;
@@ -307,6 +315,11 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.size-sm .hero__heading { font-size: clamp(var(--font-size-2xl), 4vw, var(--font-size-3xl)); }
   .hero.size-md .hero__heading { font-size: clamp(var(--font-size-3xl), 6vw, var(--font-size-4xl)); }
   .hero.size-lg .hero__heading { font-size: clamp(var(--font-size-4xl), 8vw, var(--font-size-5xl)); }
+  /* Heading font-family (REQ-36) — `heading` (default) via the base rule above;
+     `body`/`display` render the heading in the body/display face (the quote hero
+     pull-quote is Karla body copy, not the condensed Oswald heading face). */
+  .hero__heading.heading-font-body { font-family: var(--font-family-body); }
+  .hero__heading.heading-font-display { font-family: var(--font-family-display); }
 
   .hero__subhead { font-size: var(--font-size-lg); }
   /* Subhead font-family (REQ-36) — `body` (default) inherits; `display`/`heading`

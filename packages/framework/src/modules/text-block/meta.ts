@@ -2,6 +2,7 @@ import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
   CONTENT_WIDTH_DIAL,
+  CTA_SHAPE_DIAL,
   HEADING_CASE_DIAL,
   HEADING_COLOR_DIAL,
   HEADING_SIZE_DIAL,
@@ -73,9 +74,16 @@ export const textBlockMeta = {
     // narrow left-pinned measure wraps prose like the reference, collapsing
     // cumulative vertical drift. `default` leaves the variant width unchanged.
     contentWidth: CONTENT_WIDTH_DIAL,
+    // CTA button corner shape (REQ-36) — read only when `content.cta` is present;
+    // `round` (default) is a pill, `square` hard-corners (the offerings-intro
+    // "Learn More" button under the left copy column).
+    ctaShape: CTA_SHAPE_DIAL,
   },
   contentSchema: {
     heading: { type: 'string', required: false },
     body: { type: 'markdown', required: true },
+    // Optional CTA button below the body (REQ-36) — { label, href }. Renders the
+    // accent "Learn More" button that closes the offerings-intro column.
+    cta: { type: 'object', required: false },
   },
 } as const satisfies ModuleMeta

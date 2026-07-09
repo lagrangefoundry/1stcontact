@@ -9,6 +9,7 @@ import {
   CTA_SHAPE_DIAL,
   GRADIENT_DIRECTION_DIAL,
   HEADING_CASE_DIAL,
+  HEADING_FONT_DIAL,
   HEADING_WEIGHT_DIAL,
   HERO_DIVIDER_DIAL,
   SCRIM_GRADIENT_DIAL,
@@ -51,6 +52,10 @@ export const heroMeta = {
     // lighter steps reach a reference display heading (the joyfulculinary hero is
     // Oswald `medium` 500, not our bold 700).
     headingWeight: HEADING_WEIGHT_DIAL,
+    // Heading font-family (REQ-36) — `heading` (default) uses the heading face;
+    // `body`/`display` set the heading in the body/display face (the quote hero
+    // pull-quote is Karla body copy at medium weight, not condensed Oswald).
+    headingFont: HEADING_FONT_DIAL,
     // CTA corner shape (REQ-36) — `round` (default) keeps the pill radius;
     // `square` hard-corners the button (the reference's square "Learn More").
     ctaShape: CTA_SHAPE_DIAL,

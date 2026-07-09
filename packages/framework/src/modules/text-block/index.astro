@@ -1,5 +1,6 @@
 ---
 import { renderMarkdown } from '../markdown'
+import { assertSafeUrl } from '../safety'
 
 interface Props {
   variant?: string
@@ -7,6 +8,7 @@ interface Props {
   content: {
     heading?: string
     body: string
+    cta?: { label: string; href: string }
   }
 }
 
@@ -42,7 +44,10 @@ const leading = dials.leading ?? 'relaxed'
 const panel = dials.panel ?? 'none'
 // Body list marker (REQ-36) — `check` = accent ✓ markers; `bullet` (default).
 const listMarker = dials.listMarker ?? 'bullet'
-const { heading } = content
+// CTA corner shape (REQ-36) — `round` (default) keeps a pill; `square` hard-corners
+// (the offerings-intro "Learn More" button under the left copy column).
+const ctaShape = dials.ctaShape ?? 'round'
+const { heading, cta } = content
 const bodyHtml = await renderMarkdown(content.body)
 ---
 
@@ -65,6 +70,7 @@ const bodyHtml = await renderMarkdown(content.body)
   <div class="text-block__inner">
     {heading && <h2 class:list={['text-block__heading', `treatment-${headingTreatment}`, `case-${headingCase}`, `hw-${headingWeight}`, `hs-${headingSize}`, `halign-${headingAlign}`]}>{heading}</h2>}
     <div class="text-block__body" set:html={bodyHtml} />
+    {cta && <a class:list={['text-block__cta', `cta-${ctaShape}`]} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
   </div>
 </section>
 
@@ -79,11 +85,15 @@ const bodyHtml = await renderMarkdown(content.body)
   .text-block.spacing-top-md { padding-top: var(--space-8); }
   .text-block.spacing-top-lg { padding-top: var(--space-16); }
   .text-block.spacing-top-xl { padding-top: var(--space-24); }
+  .text-block.spacing-top-2xl { padding-top: var(--space-32); }
+  .text-block.spacing-top-3xl { padding-top: var(--space-48); }
   .text-block.spacing-bottom-none { padding-bottom: var(--space-0); }
   .text-block.spacing-bottom-sm { padding-bottom: var(--space-4); }
   .text-block.spacing-bottom-md { padding-bottom: var(--space-8); }
   .text-block.spacing-bottom-lg { padding-bottom: var(--space-16); }
   .text-block.spacing-bottom-xl { padding-bottom: var(--space-24); }
+  .text-block.spacing-bottom-2xl { padding-bottom: var(--space-32); }
+  .text-block.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   /* Container width is set by the variant, not a dial. */
   .text-block__inner {
@@ -213,4 +223,21 @@ const bodyHtml = await renderMarkdown(content.body)
     border-radius: var(--radius-md);
     background: var(--color-surface-subtle);
   }
+
+  /* Optional CTA button (REQ-36) — the accent "Learn More" that closes the
+     offerings-intro column. Pinned to the content-start edge so it hugs its
+     label rather than stretching the inner flex column. */
+  .text-block__cta {
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: var(--space-6);
+    background: var(--color-accent);
+    color: var(--color-bg);
+    padding: var(--space-3) var(--space-6);
+    border-radius: var(--radius-md);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+  .text-block.text-align-center .text-block__cta { align-self: center; }
+  .text-block__cta.cta-square { border-radius: 0; }
 </style>

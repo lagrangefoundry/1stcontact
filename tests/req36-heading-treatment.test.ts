@@ -416,3 +416,101 @@ describe('REQ-36 header finish — image-logo size + logo card', () => {
     expect(html).toContain('logo-card-none')
   })
 })
+
+/**
+ * UATs for the second-pass REQ-36 generalizations closing the joyfulculinary
+ * fidelity gaps: a full-bleed shared band behind a partial-width row (the
+ * Offerings white-gutter fix), the hero heading font-family dial (the Karla
+ * pull-quote), a text-block CTA button (the Offerings "Learn More"), and the
+ * extended spacing / gap scale (the airy "How It Works" band).
+ */
+describe('REQ-36 fc-band — shared surface behind a partial-width row', () => {
+  it('test_UAT_FC_REQ-36_row_shared_surface_paints_a_full_bleed_band', () => {
+    // Both columns declare surface `inverse` → a full-bleed band paints it so the
+    // inter-column gap + outer margins read as one continuous band, not page-white.
+    const html = composeRow([
+      { html: '<section>text</section>', width: 'third', surface: 'inverse' },
+      { html: '<section>grid</section>', width: 'two-thirds', surface: 'inverse' },
+    ])
+    expect(html).toContain('class="fc-band surface-inverse"')
+    expect(ROW_CSS).toMatch(/\.fc-band\.surface-inverse\s*\{[^}]*background:\s*var\(--color-surface-inverse\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_row_mixed_or_default_surfaces_get_no_band', () => {
+    // Columns that disagree (or default) earn no band — the row is unchanged.
+    const mixed = composeRow([
+      { html: '<section>a</section>', width: 'half', surface: 'inverse' },
+      { html: '<section>b</section>', width: 'half', surface: 'accent' },
+    ])
+    expect(mixed).not.toContain('fc-band')
+    const bare = composeRow([
+      { html: '<section>a</section>', width: 'half' },
+      { html: '<section>b</section>', width: 'half' },
+    ])
+    expect(bare).not.toContain('fc-band')
+  })
+})
+
+describe('REQ-36 hero heading font-family', () => {
+  it('test_UAT_FC_REQ-36_hero_headingFont_body_sets_the_body_face', async () => {
+    const html = await render(Hero, { variant: 'bg-color', dials: { headingFont: 'body' }, content: { heading: 'Quote', subhead: 'x' } })
+    expect(html).toContain('heading-font-body')
+    expect(heroCss).toMatch(/\.hero__heading\.heading-font-body\s*\{[^}]*font-family:\s*var\(--font-family-body\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_hero_headingFont_defaults_to_heading_face', async () => {
+    const html = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x' } })
+    expect(html).toContain('heading-font-heading')
+  })
+})
+
+describe('REQ-36 text-block CTA button', () => {
+  const content = { heading: 'Our Offerings', body: 'Prose.', cta: { label: 'Learn More', href: '#services' } }
+
+  it('test_UAT_FC_REQ-36_textblock_cta_renders_an_accent_button', async () => {
+    const html = await render(TextBlock, { variant: 'prose', content })
+    expect(html).toContain('text-block__cta')
+    expect(html).toContain('Learn More')
+    expect(html).toContain('href="#services"')
+    expect(textBlockCss).toMatch(/\.text-block__cta\s*\{[^}]*background:\s*var\(--color-accent\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_cta_square_removes_the_radius', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { ctaShape: 'square' }, content })
+    expect(html).toContain('cta-square')
+    expect(textBlockCss).toMatch(/\.text-block__cta\.cta-square\s*\{[^}]*border-radius:\s*0/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_without_cta_renders_no_button', async () => {
+    const html = await render(TextBlock, { variant: 'prose', content: { heading: 'H', body: 'b' } })
+    expect(html).not.toContain('text-block__cta')
+  })
+})
+
+describe('REQ-36 extended spacing + gap scale — airy sections', () => {
+  it('test_UAT_FC_REQ-36_spacing_2xl_3xl_step_past_xl', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { spacingTop: '3xl', spacingBottom: '2xl' }, content: { items: [{ title: 'X', body: 'b' }, { title: 'Y', body: 'b' }] } })
+    expect(html).toContain('spacing-top-3xl')
+    expect(html).toContain('spacing-bottom-2xl')
+    // The grid renders the two new steps past its own `xl` (`--space-24`).
+    expect(gridCss).toMatch(/\.services-grid\.spacing-top-2xl\s*\{[^}]*padding-top:\s*var\(--space-32\)/)
+    expect(gridCss).toMatch(/\.services-grid\.spacing-top-3xl\s*\{[^}]*padding-top:\s*var\(--space-48\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_every_spacing_module_renders_the_new_steps', () => {
+    // The dial is shared, so no module may silently drop `2xl`/`3xl` (a no-op
+    // spacing value would be a latent bug). Each spacing-bearing module renders both.
+    for (const css of [textBlockCss, gridCss, heroCss, headerCss]) {
+      expect(css).toMatch(/spacing-top-2xl\s*\{/)
+      expect(css).toMatch(/spacing-top-3xl\s*\{/)
+      expect(css).toMatch(/spacing-bottom-2xl\s*\{/)
+      expect(css).toMatch(/spacing-bottom-3xl\s*\{/)
+    }
+  })
+
+  it('test_UAT_FC_REQ-36_grid_gap_airy_widens_the_row_gap', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { gap: 'airy' }, content: { items: [{ title: 'X', body: 'b' }, { title: 'Y', body: 'b' }] } })
+    expect(html).toContain('gap-airy')
+    expect(gridCss).toMatch(/\.services-grid\.gap-airy\s+\.services-grid__cards\s*\{[^}]*gap:\s*var\(--space-16\)/)
+  })
+})

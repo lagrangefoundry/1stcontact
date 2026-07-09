@@ -5,8 +5,13 @@
  * the chrome modules don't drift from one another.
  */
 
-/** Vertical spacing dial values (spacingTop / spacingBottom). */
-export const SPACING_DIAL = ['none', 'sm', 'md', 'lg', 'xl'] as const
+/**
+ * Vertical spacing dial values (spacingTop / spacingBottom). `2xl`/`3xl` (REQ-36)
+ * extend each module's own scale one and two steps past `xl` for the airy section
+ * padding a reference like joyfulculinary's "How It Works" band uses (deep top
+ * padding, large gaps); every spacing-bearing module renders the two new steps.
+ */
+export const SPACING_DIAL = ['none', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'] as const
 
 /** Surface (background + text treatment) dial values. */
 export const SURFACE_DIAL = ['default', 'subtle', 'inverse', 'accent'] as const
@@ -42,7 +47,7 @@ export const ALIGN_DIAL = ['left', 'center'] as const
 export const FOOTER_LAYOUT_DIAL = ['center', 'spread'] as const
 
 /** Inter-card / inter-item gap dial values (services-grid). */
-export const GAP_DIAL = ['tight', 'normal', 'loose'] as const
+export const GAP_DIAL = ['tight', 'normal', 'loose', 'airy'] as const
 
 /**
  * Grid-wide card chrome for services-grid (REQ-36 / CAP-1). `default` draws the
@@ -225,6 +230,15 @@ export const CTA_SHAPE_DIAL = ['round', 'square'] as const
  * body copy, so the lead needs its own face without changing the body font.
  */
 export const SUBHEAD_FONT_DIAL = ['body', 'display', 'heading'] as const
+
+/**
+ * Hero heading font-family (REQ-36). `heading` (default) uses the site's heading
+ * face; `body`/`display` render the heading in the body or display face — the
+ * joyfulculinary pull-quote is set in Karla (the body font) at a medium weight,
+ * not the condensed Oswald heading face, so the quote hero needs its own heading
+ * face without changing the module's default.
+ */
+export const HEADING_FONT_DIAL = ['heading', 'body', 'display'] as const
 
 /**
  * Hero top-of-band gradient scrim (REQ-36). `none` (default) omits it; `top`

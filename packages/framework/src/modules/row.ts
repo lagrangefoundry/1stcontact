@@ -28,19 +28,44 @@ export const ROW_CSS = `/* partial-width band row (REQ-20 / REQ-36) */
 .fc-col--two-thirds { flex-grow: 2; }
 @media (max-width: 768px) {
   .fc-row { flex-direction: column; }
-}`
+}
+/* Full-bleed band behind a row whose columns share one surface (REQ-36). The
+   columns each fill only their own box; without this, page-white shows through
+   the inter-column gap and the outer margins where the reference is one
+   continuous band. The band paints the shared surface edge-to-edge; the columns'
+   own (same-colour) fills sit on top seamlessly. */
+.fc-band { width: 100%; }
+.fc-band.surface-subtle { background: var(--color-surface-subtle); }
+.fc-band.surface-inverse { background: var(--color-surface-inverse); }
+.fc-band.surface-accent { background: var(--color-accent); }
+.fc-band.surface-secondary { background: var(--color-secondary); }`
 
 /** A band paired with its partial width, for row composition. */
 export interface RowColumn {
   html: string
   width: string
+  /** The column module's `surface` dial, if any — used to paint a shared
+   *  full-bleed band behind the row when every column agrees. */
+  surface?: string
+}
+
+/** The surface every column shares, or `undefined` if they disagree (or none
+ *  declared one). Only a unanimous, non-default surface earns a full-bleed band. */
+function sharedSurface(columns: RowColumn[]): string | undefined {
+  const first = columns[0]?.surface
+  if (!first || first === 'default') return undefined
+  return columns.every((c) => c.surface === first) ? first : undefined
 }
 
 /** Wrap a run of consecutive partial-width bands into one row, each column's
- *  flex-grow encoding its width so a row can carry an asymmetric ratio. */
+ *  flex-grow encoding its width so a row can carry an asymmetric ratio. When the
+ *  columns share one surface, a full-bleed `fc-band` paints it behind the row so
+ *  the gap and margins read as one continuous band (not page-white). */
 export function composeRow(columns: RowColumn[]): string {
   const cols = columns
     .map((c) => `<div class="fc-col fc-col--${c.width}">${c.html}</div>`)
     .join('\n')
-  return `<div class="fc-row">${cols}</div>`
+  const row = `<div class="fc-row">${cols}</div>`
+  const surface = sharedSurface(columns)
+  return surface ? `<div class="fc-band surface-${surface}">${row}</div>` : row
 }

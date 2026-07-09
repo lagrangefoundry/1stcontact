@@ -163,11 +163,15 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.spacing-top-md { padding-top: var(--space-8); }
   .services-grid.spacing-top-lg { padding-top: var(--space-16); }
   .services-grid.spacing-top-xl { padding-top: var(--space-24); }
+  .services-grid.spacing-top-2xl { padding-top: var(--space-32); }
+  .services-grid.spacing-top-3xl { padding-top: var(--space-48); }
   .services-grid.spacing-bottom-none { padding-bottom: var(--space-0); }
   .services-grid.spacing-bottom-sm { padding-bottom: var(--space-4); }
   .services-grid.spacing-bottom-md { padding-bottom: var(--space-8); }
   .services-grid.spacing-bottom-lg { padding-bottom: var(--space-16); }
   .services-grid.spacing-bottom-xl { padding-bottom: var(--space-24); }
+  .services-grid.spacing-bottom-2xl { padding-bottom: var(--space-32); }
+  .services-grid.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   .services-grid__inner {
     max-width: var(--container-default);
@@ -223,6 +227,9 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.gap-tight .services-grid__cards { gap: var(--space-3); }
   .services-grid.gap-normal .services-grid__cards { gap: var(--space-6); }
   .services-grid.gap-loose .services-grid__cards { gap: var(--space-8); }
+  /* `airy` (REQ-36) — the wide row/column gap the reference "How It Works" grid
+     runs between its two rows of steps. */
+  .services-grid.gap-airy .services-grid__cards { gap: var(--space-16); }
 
   /* Mobile-first: single column by default, multi-column from md up. The
      `stacked` variant (REQ-30) opts out of the multi-column rules entirely, so
