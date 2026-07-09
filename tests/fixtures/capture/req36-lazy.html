@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>REQ-36 lazy/animated capture fixture</title>
+    <style>
+      * { margin: 0; box-sizing: border-box; }
+      body { font-family: system-ui, sans-serif; color: #0f172a; }
+      /* A tall lead so the block below is genuinely off the first viewport. */
+      .spacer { height: 2400px; padding: 48px; background: #ffffff; }
+      .below { padding: 64px; background: #eeeeee; }
+      .below h2 { font-size: 40px; }
+      .below p { margin-top: 16px; font-size: 20px; }
+      /* Elementor's pre-animation hidden state — invisible until the entrance
+         animation is triggered by its IntersectionObserver on scroll. */
+      .elementor-invisible { opacity: 0; visibility: hidden; }
+    </style>
+  </head>
+  <body>
+    <div class="spacer">Top of page</div>
+    <section class="below">
+      <div class="fadein elementor-invisible" data-anim="fadeIn">
+        <h2>How it works</h2>
+        <p>Weekly meals are prepared in your home and are personalized to your tastes.</p>
+      </div>
+      <img loading="lazy" alt="lazy chef photo" src="hero.png" />
+    </section>
+    <script>
+      // Mimic Elementor: reveal a block ONLY when it scrolls into view. Without a
+      // scroll during capture, this observer never fires and the block stays
+      // hidden — exactly the round-5 blind spot the settle step must defeat.
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.remove('elementor-invisible')
+            e.target.classList.add('animated')
+            io.unobserve(e.target)
+          }
+        })
+      })
+      document.querySelectorAll('[data-anim]').forEach(function (el) {
+        io.observe(el)
+      })
+    </script>
+  </body>
+</html>

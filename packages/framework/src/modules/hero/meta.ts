@@ -108,6 +108,10 @@ export const heroMeta = {
     // leading independently of the global relaxed default; `relaxed` (default)
     // preserves the prior value, `snug` (~1.33) is the intermediate step.
     subheadLeading: LINE_HEIGHT_DIAL,
+    // Foreground portrait shape (REQ-36) — when a `portrait` image is supplied,
+    // this crops it. `circle` (default) is a round avatar (the reference quote
+    // band's Chef Sarah Joy testimonial photo); `square` is an un-cropped box.
+    portraitShape: ['circle', 'square'],
   },
   contentSchema: {
     eyebrow: { type: 'string', required: false },
@@ -117,6 +121,10 @@ export const heroMeta = {
     cta: { type: 'object', required: false },
     // Required for the `bg-image` variant only (enforced by the variant branch).
     image: { type: 'asset-ref', required: false },
+    // Optional foreground portrait (REQ-36) — a testimonial/attribution avatar
+    // rendered above the subhead (e.g. the quote band's author photo). Distinct
+    // from `image`, which is the background. Rendered only when present.
+    portrait: { type: 'asset-ref', required: false },
     // Structured gradient for the `gradient` headingTreatment (REQ-32): a
     // direction plus ≥2 palette-role stops. Read only when the treatment
     // dial is `gradient`.

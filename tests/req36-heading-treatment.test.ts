@@ -166,6 +166,54 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
     expect(heroCss).toMatch(/\.hero__divider\s*\{[^}]*border-top:\s*2px solid currentColor/)
   })
 
+  it('test_UAT_FC_REQ-36_hero_portrait_renders_only_when_supplied', async () => {
+    // The quote band's attribution avatar: a foreground portrait rendered above
+    // the subhead. Present only when `content.portrait` is supplied — a hero
+    // without one (every prior hero) is unchanged.
+    const withPortrait = await render(Hero, {
+      variant: 'bg-image',
+      content: {
+        heading: 'H',
+        subhead: 'Chef Sarah Joy',
+        image: { src: 'assets/bg.jpg', alt: 'bg' },
+        portrait: { src: 'assets/chef.jpg', alt: 'Chef Sarah Joy' },
+      },
+    })
+    const without = await render(Hero, {
+      variant: 'bg-image',
+      content: { heading: 'H', subhead: 'x', image: { src: 'assets/bg.jpg', alt: 'bg' } },
+    })
+    expect(withPortrait).toContain('hero__portrait')
+    expect(withPortrait).toContain('assets/chef.jpg')
+    expect(without).not.toContain('hero__portrait')
+  })
+
+  it('test_UAT_FC_REQ-36_hero_portrait_shape_defaults_to_circle', async () => {
+    const dflt = await render(Hero, {
+      variant: 'bg-image',
+      content: {
+        heading: 'H',
+        subhead: 'x',
+        image: { src: 'assets/bg.jpg', alt: 'bg' },
+        portrait: { src: 'assets/chef.jpg', alt: 'c' },
+      },
+    })
+    const square = await render(Hero, {
+      variant: 'bg-image',
+      dials: { portraitShape: 'square' },
+      content: {
+        heading: 'H',
+        subhead: 'x',
+        image: { src: 'assets/bg.jpg', alt: 'bg' },
+        portrait: { src: 'assets/chef.jpg', alt: 'c' },
+      },
+    })
+    expect(dflt).toContain('portrait-circle')
+    expect(square).toContain('portrait-square')
+    // `circle` crops the avatar round; the default has an effect.
+    expect(heroCss).toMatch(/\.hero__portrait\.portrait-circle\s*\{[^}]*border-radius:\s*50%/)
+  })
+
   it('test_UAT_FC_REQ-36_hero_content_column_left_drops_the_centring_margin', async () => {
     const left = await render(Hero, {
       variant: 'bg-color',

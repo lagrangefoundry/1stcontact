@@ -13,6 +13,7 @@ interface Props {
     subhead?: string
     cta?: { label: string; href: string }
     image?: AssetRef
+    portrait?: AssetRef
     headingGradient?: GradientTreatment
   }
 }
@@ -83,7 +84,10 @@ const tracking = dials.tracking ?? 'normal'
 // Subhead line-height (REQ-45; `snug` REQ-49): `relaxed` preserves the prior leading.
 const subheadLeading = dials.subheadLeading ?? 'relaxed'
 
-const { eyebrow, heading, subhead, cta } = content
+const { eyebrow, heading, subhead, cta, portrait } = content
+// Foreground portrait (REQ-36) — an optional attribution/testimonial avatar
+// rendered above the subhead; `portraitShape` crops it (circle default).
+const portraitShape = dials.portraitShape ?? 'circle'
 // Explicit heading line breaks (REQ-36): a newline in the heading string renders
 // as a `<br>` so a display heading breaks exactly where the reference does (the
 // joyfulculinary hero hard-breaks after "meals"), without capping the measure.
@@ -132,6 +136,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
     <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`, `hw-${headingWeight}`, `heading-font-${headingFont}`]} style={headingGradient}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
     {divider === 'rule' && <hr class="hero__divider" />}
+    {portrait && <img class:list={['hero__portrait', `portrait-${portraitShape}`]} src={assertSafeUrl(portrait.src, 'hero portrait src')} alt={portrait.alt} />}
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
     {cta && <a class:list={['hero__cta', `cta-${ctaShape}`]} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
@@ -265,6 +270,21 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
        washed over a bright image; the reference rule is a solid ~2px white. */
     border-top: 2px solid currentColor;
   }
+
+  /* Foreground portrait (REQ-36) — an attribution/testimonial avatar above the
+     subhead. `circle` crops it round; a thin surface-colour ring lifts it off a
+     busy background image, matching the reference quote band's author photo. */
+  .hero__portrait {
+    display: block;
+    width: 7rem;
+    height: 7rem;
+    object-fit: cover;
+    margin: 0 0 var(--space-4);
+    border: 2px solid currentColor;
+  }
+  .hero__portrait.portrait-circle { border-radius: 50%; }
+  .hero__portrait.portrait-square { border-radius: var(--radius-md); }
+  .hero.align-center .hero__portrait { margin-inline: auto; }
 
   .hero__eyebrow {
     margin: 0;

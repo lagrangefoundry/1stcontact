@@ -93,6 +93,16 @@ class PlaywrightDriver implements BrowserDriver {
       .evaluate('document.fonts && document.fonts.ready ? document.fonts.ready.then(function(){return true}) : true')
       .catch(() => undefined)
 
+    // REQ-36 — reveal below-fold lazy/animated content before any screenshot or
+    // query. `reducedMotion` (above) freezes *motion* but not the *triggers*:
+    // Elementor lazy images and `fadeIn` blocks stay unrequested / `.elementor-
+    // invisible` (opacity 0) until their IntersectionObserver fires on scroll,
+    // and the page is never scrolled — so below-fold images and animated text
+    // were captured blank, the reference screenshot then silently omitted real
+    // content, and no pixel gate could flag the gap. Runs before the response
+    // drain so lazy subresources mirror into the offline bundle too.
+    await this.settlePage()
+
     for (const resp of pending) {
       try {
         const body = await resp.body()
@@ -106,6 +116,66 @@ class PlaywrightDriver implements BrowserDriver {
         // Redirects / 204s / already-freed bodies carry nothing to mirror.
       }
     }
+  }
+
+  /**
+   * REQ-36 — settle below-fold lazy/animated content so the next
+   * {@link screenshot} / {@link query} sees the whole page. Collapses entrance-
+   * animation timing to ~0 and reveals Elementor's pre-animation hidden state,
+   * scrolls the full height in viewport steps to trip lazy-load + animation
+   * IntersectionObservers, promotes any residual lazy images to eager, then
+   * awaits image decode + network idle. Best-effort throughout: a page without
+   * these patterns is unaffected, and any step that rejects must not fail the
+   * capture (the screenshot is still worth taking).
+   */
+  private async settlePage(): Promise<void> {
+    const page = this.requirePage()
+    // Land any triggered entrance animation on its final frame instantly, and
+    // reveal Elementor's `.elementor-invisible` pre-animation state, so a
+    // `fadeIn` block shows its content instead of opacity 0.
+    await page
+      .addStyleTag({
+        content:
+          '*,*::before,*::after{animation-delay:0s!important;animation-duration:0s!important;transition-delay:0s!important;transition-duration:0s!important;}.elementor-invisible{visibility:visible!important;opacity:1!important;}',
+      })
+      .catch(() => undefined)
+    // Scroll the full height in viewport steps to trip lazy-load / entrance
+    // observers, return to the top, and promote any residual lazy images.
+    await page
+      .evaluate(async () => {
+        const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+        const step = window.innerHeight || 800
+        for (let y = 0; y < document.body.scrollHeight; y += step) {
+          window.scrollTo(0, y)
+          await sleep(120)
+        }
+        window.scrollTo(0, 0)
+        for (const img of Array.from(document.images)) {
+          img.loading = 'eager'
+          const ds = img.getAttribute('data-src')
+          if (ds && !img.currentSrc) img.src = ds
+        }
+      })
+      .catch(() => undefined)
+    // Wait for every image to finish decoding — lazy ones were only requested
+    // just now, during the scroll.
+    await page
+      .evaluate(
+        () =>
+          Promise.all(
+            Array.from(document.images).map((img) =>
+              img.complete
+                ? Promise.resolve()
+                : new Promise<void>((res) => {
+                    img.addEventListener('load', () => res(), { once: true })
+                    img.addEventListener('error', () => res(), { once: true })
+                  }),
+            ),
+          ).then(() => undefined),
+      )
+      .catch(() => undefined)
+    // Let the newly-triggered subresource requests settle.
+    await page.waitForLoadState('networkidle').catch(() => undefined)
   }
 
   async screenshot(viewport?: Viewport): Promise<Uint8Array> {
