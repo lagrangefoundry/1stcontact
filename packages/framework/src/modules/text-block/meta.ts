@@ -12,6 +12,7 @@ import {
   SIZE_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
+  WIDTH_DIAL,
 } from '../dials'
 
 /**
@@ -63,6 +64,10 @@ export const textBlockMeta = {
     // Body list marker (REQ-36) — `check` replaces bullets with an accent ✓ (the
     // "Who Uses Our Services" checklist); `bullet` (default) is unchanged.
     listMarker: LIST_MARKER_DIAL,
+    // Partial-width row grouping (REQ-20; REQ-36 ratios) — `full` (default) is a
+    // normal band; `half`/`third`/`two-thirds` group with adjacent partial bands
+    // into one `fc-row` (the Offerings text column beside the card grid).
+    width: WIDTH_DIAL,
     // Constrained content column (REQ-45) — caps the content within the section
     // frame; the `align` dial then pins it left (default) or centres it. A
     // narrow left-pinned measure wraps prose like the reference, collapsing

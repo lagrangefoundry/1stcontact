@@ -8,6 +8,7 @@ import {
   SIZE_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
+  WIDTH_DIAL,
 } from '../dials'
 
 /**
@@ -61,6 +62,10 @@ export const servicesGridMeta = {
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     gap: GAP_DIAL,
+    // Partial-width row grouping (REQ-20; REQ-36 ratios) — `full` (default) is a
+    // normal band; `two-thirds` sits the grid beside a narrower `third` text
+    // column in one `fc-row` (the joyfulculinary Offerings layout).
+    width: WIDTH_DIAL,
     // Grid-wide card chrome (REQ-36 / CAP-1) — `bare` strips the card fill/
     // border/radius/padding so cards read as plain text columns on the band
     // (dark art-directed grids). `default` leaves cards unchanged.

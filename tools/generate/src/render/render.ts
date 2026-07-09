@@ -69,12 +69,15 @@ async function renderModules(
   // it is held here and floated over the following module's band so the two
   // share one continuous image band.
   let pendingOverlayHeader: string | null = null
-  // Consecutive `width: half` bands (REQ-20) are buffered and flushed into one
-  // shared `fc-row` so they render as two columns rather than stacking.
-  let rowBuffer: string[] = []
+  // Consecutive partial-width bands (REQ-20 `half`; REQ-36 `third`/`two-thirds`)
+  // are buffered and flushed into one shared `fc-row` so they render as columns
+  // rather than stacking; each keeps its width so the row can carry a ratio.
+  const isPartialWidth = (w: unknown): w is string =>
+    w === 'half' || w === 'third' || w === 'two-thirds'
+  let rowBuffer: { html: string; width: string }[] = []
   const flushRow = (): void => {
     if (rowBuffer.length === 0) return
-    parts.push(rowBuffer.length === 1 ? rowBuffer[0] : composeRow(rowBuffer))
+    parts.push(rowBuffer.length === 1 ? rowBuffer[0].html : composeRow(rowBuffer))
     rowBuffer = []
   }
 
@@ -106,8 +109,8 @@ async function renderModules(
       pendingOverlayHeader = null
       continue
     }
-    if (m.dials?.width === 'half') {
-      rowBuffer.push(band)
+    if (isPartialWidth(m.dials?.width)) {
+      rowBuffer.push({ html: band, width: m.dials!.width as string })
       continue
     }
     flushRow()

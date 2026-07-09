@@ -32,7 +32,7 @@ export const LOGO_SIZE_DIAL = ['sm', 'md', 'lg', 'xl'] as const
  * of two columns — consecutive `half` bands are grouped into a shared row by
  * the render pipeline, so e.g. a subscribe + contact form sit side by side.
  */
-export const WIDTH_DIAL = ['full', 'half'] as const
+export const WIDTH_DIAL = ['full', 'half', 'third', 'two-thirds'] as const
 
 /** Horizontal alignment dial values (block alignment + text-align share these). */
 export const ALIGN_DIAL = ['left', 'center'] as const

@@ -9,6 +9,7 @@ import Header from '../packages/framework/src/modules/header/index.astro'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens/index'
+import { composeRow, ROW_CSS } from '../packages/framework/src/modules/row'
 
 // Read a module's .astro source for CSS-rule assertions (Astro's container
 // rewrites scoped selectors with data-astro-cid hashes, so we assert the
@@ -259,6 +260,20 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
     expect(html).toContain('hs-md')
     expect(html).toContain('halign-left')
     expect(html).toContain('leading-relaxed')
+  })
+})
+
+describe('REQ-36 fc-row column ratio — asymmetric partial-width bands', () => {
+  it('test_UAT_FC_REQ-36_composeRow_wraps_columns_with_width_encoded_flex', () => {
+    const html = composeRow([
+      { html: '<section>text</section>', width: 'third' },
+      { html: '<section>grid</section>', width: 'two-thirds' },
+    ])
+    expect(html).toContain('class="fc-col fc-col--third"')
+    expect(html).toContain('class="fc-col fc-col--two-thirds"')
+    // `two-thirds` grows twice as fast → a ~33/67 split; the base column grows 1.
+    expect(ROW_CSS).toMatch(/\.fc-col\s*\{[^}]*flex:\s*1 1 0/)
+    expect(ROW_CSS).toMatch(/\.fc-col--two-thirds\s*\{[^}]*flex-grow:\s*2/)
   })
 })
 
