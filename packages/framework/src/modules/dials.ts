@@ -286,6 +286,13 @@ export const PANEL_DIAL = ['none', 'subtle', 'inverse', 'secondary', 'accent'] a
 export const LIST_MARKER_DIAL = ['bullet', 'check'] as const
 
 /**
+ * text-block contained-panel vertical padding (REQ-36). `md` (default) is the
+ * base 48px; `lg`/`xl` deepen it so a panel reads taller/airier (the reference
+ * testimonial panel is a tall band). Horizontal padding is unchanged.
+ */
+export const PANEL_PAD_DIAL = ['md', 'lg', 'xl'] as const
+
+/**
  * Services-grid icon rendering (REQ-36). `default` renders a string icon as plain
  * text (or an image icon as a small thumbnail); `icon-font` renders a string icon
  * as a glyph in a site-declared icon font (the joyfulculinary "How It Works" grid

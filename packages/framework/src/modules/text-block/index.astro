@@ -47,6 +47,9 @@ const listMarker = dials.listMarker ?? 'bullet'
 // CTA corner shape (REQ-36) — `round` (default) keeps a pill; `square` hard-corners
 // (the offerings-intro "Learn More" button under the left copy column).
 const ctaShape = dials.ctaShape ?? 'round'
+// Panel vertical padding (REQ-36) — `md` (default) base; `lg`/`xl` deepen a
+// contained panel so it reads taller (the reference testimonial panel).
+const panelPad = dials.panelPad ?? 'md'
 const { heading, cta } = content
 const bodyHtml = await renderMarkdown(content.body)
 ---
@@ -62,6 +65,7 @@ const bodyHtml = await renderMarkdown(content.body)
     `content-width-${contentWidth}`,
     `leading-${leading}`,
     `panel-${panel}`,
+    `panel-pad-${panelPad}`,
     `list-marker-${listMarker}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
@@ -119,6 +123,11 @@ const bodyHtml = await renderMarkdown(content.body)
     padding: var(--space-12) var(--space-8);
     border-radius: var(--radius-lg);
   }
+  /* Panel vertical padding (REQ-36) — `md` (default) is the base 48px; `lg`/`xl`
+     deepen it so a panel reads taller/airier (the reference testimonial panel is
+     a tall band). Horizontal padding is unchanged. */
+  .text-block.panel-pad-lg .text-block__inner { padding-block: var(--space-16); }
+  .text-block.panel-pad-xl .text-block__inner { padding-block: var(--space-24); }
   /* A contained panel sizes its box to `contentWidth` (so the card itself is the
      reference width, not just the text within it); `default` keeps the variant
      width. Scoped to an active panel via `:not(.panel-none)`. */

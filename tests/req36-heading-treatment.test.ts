@@ -633,3 +633,18 @@ describe('REQ-36 services-grid centered content column + footer muted gold', () 
     expect(footerCss).toMatch(/\.footer\.surface-accent-muted\s*\{[^}]*background:\s*var\(--color-accent-mid\)/)
   })
 })
+
+describe('REQ-36 text-block panel padding depth', () => {
+  const content = { heading: 'What people are saying', body: 'A testimonial.' }
+
+  it('test_UAT_FC_REQ-36_panel_pad_xl_deepens_the_panel', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary', panelPad: 'xl' }, content })
+    expect(html).toContain('panel-pad-xl')
+    expect(textBlockCss).toMatch(/\.text-block\.panel-pad-xl\s+\.text-block__inner\s*\{[^}]*padding-block:\s*var\(--space-24\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_panel_pad_defaults_md', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary' }, content })
+    expect(html).toContain('panel-pad-md')
+  })
+})

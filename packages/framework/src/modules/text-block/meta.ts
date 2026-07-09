@@ -10,6 +10,7 @@ import {
   LINE_HEIGHT_DIAL,
   LIST_MARKER_DIAL,
   PANEL_DIAL,
+  PANEL_PAD_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
@@ -62,6 +63,9 @@ export const textBlockMeta = {
     // value makes the inner a padded, rounded, inset card in that palette role
     // (the grey Holistic card, the grey-green testimonial panel).
     panel: PANEL_DIAL,
+    // Panel vertical padding (REQ-36) — `lg`/`xl` deepen a contained panel so it
+    // reads taller (the reference testimonial band); `md` (default) unchanged.
+    panelPad: PANEL_PAD_DIAL,
     // Body list marker (REQ-36) — `check` replaces bullets with an accent ✓ (the
     // "Who Uses Our Services" checklist); `bullet` (default) is unchanged.
     listMarker: LIST_MARKER_DIAL,
