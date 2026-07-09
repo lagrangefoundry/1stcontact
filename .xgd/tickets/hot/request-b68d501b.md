@@ -5,10 +5,10 @@ type: request
 title: 'values-diff noise reduction: per-metric tolerances + bad-capture handling'
 created_by: xgd
 created_at: '2026-07-03T17:59:56.532044+00:00'
-updated_at: '2026-07-03T18:58:57.944507+00:00'
+updated_at: '2026-07-08T18:58:52.938629+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: medium
   auto_merge_back: true

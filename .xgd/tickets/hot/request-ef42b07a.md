@@ -5,10 +5,10 @@ type: request
 title: Display-font slot + @font-face emission (Cinzel wordmark)
 created_by: xgd
 created_at: '2026-07-02T18:37:29.811477+00:00'
-updated_at: '2026-07-03T15:35:50.408301+00:00'
+updated_at: '2026-07-09T20:00:47.093180+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 3
@@ -17,6 +17,7 @@ fields:
   commits:
   - 492684e3de712b9477e37c63962a42eccdc3414f
   version: 0.0.16
+  bundled_in: bundle-f39884d2
 ---
 
 ## Scope — module capability

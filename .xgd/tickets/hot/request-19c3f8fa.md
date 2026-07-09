@@ -6,10 +6,10 @@ title: '1c capture page: rendered page capture via headless browser (Playwright 
   + bundle)'
 created_by: xgd
 created_at: '2026-07-01T00:44:32.759250+00:00'
-updated_at: '2026-07-03T15:35:45.600498+00:00'
+updated_at: '2026-07-09T20:00:46.696915+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   story_points: 5
   priority: medium
@@ -18,6 +18,7 @@ fields:
   commits:
   - 306c2108d2d5f5b94545a07277e7bb99b9a07846
   version: 0.0.9
+  bundled_in: bundle-f39884d2
 ---
 
 ## Scope

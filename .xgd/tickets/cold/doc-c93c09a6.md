@@ -5,15 +5,17 @@ type: doc
 title: Web Reference Fetching and the Design Brief
 created_by: xgd
 created_at: '2026-06-30T01:02:03.091774+00:00'
-updated_at: '2026-06-30T01:02:03.091774+00:00'
+updated_at: '2026-07-01T00:43:29.319175+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
 ---
 
 # Web Reference Fetching and the Design Brief
+
+> ⚠️ **Superseded (reference-fetching half):** the reference-fetching model below — static-first "Reference Digest", Layer A/B escalation, and the "one artifact, two audiences" convergence — is **withdrawn** and replaced by [[DOC-13]] (Reference Capture Model): rendered-only capture via a headless browser behind a CF-Browser-Rendering-shaped driver. The **Design Brief / per-site memory** concept in this doc is a separate, later concern and remains valid.
 
 ## 1. Purpose & Scope
 

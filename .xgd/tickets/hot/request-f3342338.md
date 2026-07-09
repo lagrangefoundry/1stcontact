@@ -6,10 +6,10 @@ title: Fresh diff-driven re-import of gigabytealchemy.ai (re-capture + values-di
   to zero deltas)
 created_by: xgd
 created_at: '2026-07-03T16:07:34.937608+00:00'
-updated_at: '2026-07-03T18:29:25.965536+00:00'
+updated_at: '2026-07-08T18:58:52.267935+00:00'
 completed_at: null
-last_field_updated: version
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true

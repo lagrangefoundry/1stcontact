@@ -6,10 +6,10 @@ title: 'Conformance harness: cross-browser dimension (full tier, Blink/WebKit/Ge
   layout-equivalence, regression-scoped)'
 created_by: xgd
 created_at: '2026-07-03T23:18:05.104730+00:00'
-updated_at: '2026-07-08T15:42:26.538887+00:00'
+updated_at: '2026-07-08T18:59:06.515084+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: medium
   auto_merge_back: true

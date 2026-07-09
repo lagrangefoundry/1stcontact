@@ -6,10 +6,10 @@ title: 'Fidelity verification loop: capture computed per-element values + mechan
   values-diff'
 created_by: xgd
 created_at: '2026-07-03T01:37:35.057755+00:00'
-updated_at: '2026-07-03T15:40:45.203785+00:00'
+updated_at: '2026-07-08T18:58:50.150963+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 5

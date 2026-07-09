@@ -5,10 +5,10 @@ type: request
 title: Consolidate site-data trees under storage/
 created_by: xgd
 created_at: '2026-07-02T16:36:13.154059+00:00'
-updated_at: '2026-07-03T15:35:48.850102+00:00'
+updated_at: '2026-07-09T20:00:46.978181+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   story_points: 2
   priority: medium
@@ -18,6 +18,7 @@ fields:
   - 6328691dec5a63ebf3213af201c92eef8a549346
   - 98569bf29a15ce8e66587d4f1d7119526506ea87
   version: 0.0.15
+  bundled_in: bundle-f39884d2
 ---
 
 ## Scope

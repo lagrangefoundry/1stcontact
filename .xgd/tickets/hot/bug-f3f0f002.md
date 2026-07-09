@@ -6,10 +6,10 @@ title: Rendered sites are unstyled — render pipeline emits theme tokens but dr
   module component CSS
 created_by: xgd
 created_at: '2026-07-01T01:39:48.982890+00:00'
-updated_at: '2026-07-03T15:35:44.863948+00:00'
+updated_at: '2026-07-09T20:00:46.641497+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -18,6 +18,7 @@ fields:
   - ffdd60c1be14c5b7d95490d4755e5204b5034d9c
   version: 0.0.8
   story_points: 2
+  bundled_in: bundle-f39884d2
 ---
 
 ## Symptom

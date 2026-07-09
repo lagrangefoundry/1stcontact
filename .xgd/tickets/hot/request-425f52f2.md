@@ -5,10 +5,10 @@ type: request
 title: 'Framework: content modules (text-block, services-grid, contact-form)'
 created_by: xgd
 created_at: '2026-06-30T16:28:38.445470+00:00'
-updated_at: '2026-07-02T02:03:47.240665+00:00'
-completed_at: null
-last_field_updated: commits
-status: bundled
+updated_at: '2026-07-09T19:58:13.057462+00:00'
+completed_at: '2026-07-09T19:58:13.057462+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false

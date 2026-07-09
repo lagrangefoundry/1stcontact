@@ -6,10 +6,10 @@ title: 'Perceptual-diff eye: 1c diff (screenshot diff + ranked regions.json + cr
   triptychs) + 1c crop'
 created_by: xgd
 created_at: '2026-07-03T21:21:55.753022+00:00'
-updated_at: '2026-07-03T21:43:51.729270+00:00'
+updated_at: '2026-07-08T18:58:54.608934+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true

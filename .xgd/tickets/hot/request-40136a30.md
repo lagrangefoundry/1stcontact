@@ -5,10 +5,10 @@ type: request
 title: 'Header-over-hero: composite header onto shared image band'
 created_by: xgd
 created_at: '2026-07-02T18:37:43.634669+00:00'
-updated_at: '2026-07-03T15:35:51.331648+00:00'
+updated_at: '2026-07-09T20:00:47.159464+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 3
@@ -17,6 +17,7 @@ fields:
   commits:
   - 94cd1ecfda62b31719175d2cf2079d41387983c3
   version: 0.0.17
+  bundled_in: bundle-f39884d2
 ---
 
 ## Scope — structural capability

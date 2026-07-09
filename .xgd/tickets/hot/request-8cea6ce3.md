@@ -6,10 +6,10 @@ title: 'Framework: section background capability (color | image | gradient + ove
   text-over)'
 created_by: xgd
 created_at: '2026-07-01T00:44:39.290601+00:00'
-updated_at: '2026-07-03T15:35:46.392931+00:00'
+updated_at: '2026-07-09T20:00:46.807623+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   story_points: 5
   priority: medium
@@ -18,6 +18,7 @@ fields:
   commits:
   - cf26a7d5bf037df6e3a3335e47cef96c920cf1ae
   version: 0.0.11
+  bundled_in: bundle-f39884d2
 ---
 
 ## Scope

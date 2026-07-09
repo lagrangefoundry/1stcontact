@@ -5,10 +5,10 @@ type: request
 title: 'Framework: structured motion primitive (entrance / scroll-reveal / hover)'
 created_by: xgd
 created_at: '2026-07-02T00:20:01.871249+00:00'
-updated_at: '2026-07-03T15:35:47.882682+00:00'
+updated_at: '2026-07-09T20:00:46.917203+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   story_points: 5
   priority: medium
@@ -17,6 +17,7 @@ fields:
   commits:
   - 60b2a71215d99b5a2daaeef119b1ab0186bed4ca
   version: 0.0.13
+  bundled_in: bundle-f39884d2
 ---
 
 ## Scope

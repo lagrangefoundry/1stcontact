@@ -5,10 +5,10 @@ type: request
 title: 'Framework: theme tokens, CSS generator, module registry, chrome modules (header/hero/footer)'
 created_by: xgd
 created_at: '2026-06-30T16:28:36.056631+00:00'
-updated_at: '2026-07-02T02:03:47.071784+00:00'
-completed_at: null
-last_field_updated: commits
-status: bundled
+updated_at: '2026-07-09T19:58:13.137676+00:00'
+completed_at: '2026-07-09T19:58:13.137676+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
