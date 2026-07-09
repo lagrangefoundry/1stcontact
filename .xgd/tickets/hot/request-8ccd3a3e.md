@@ -5,10 +5,10 @@ type: request
 title: 1c launcher script + quiet HMR-port collision
 created_by: xgd
 created_at: '2026-07-03T18:28:17.498615+00:00'
-updated_at: '2026-07-08T18:58:53.854351+00:00'
+updated_at: '2026-07-09T21:43:05.781921+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -16,6 +16,7 @@ fields:
   commits:
   - cf37056212f3f7908d463764b4db4a0db7747d48
   version: 0.0.33
+  bundled_in: bundle-adc60ee8
 ---
 
 ## Behavior

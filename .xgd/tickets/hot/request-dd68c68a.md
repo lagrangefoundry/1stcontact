@@ -6,10 +6,10 @@ title: 'Fidelity verification loop: capture computed per-element values + mechan
   values-diff'
 created_by: xgd
 created_at: '2026-07-03T01:37:35.057755+00:00'
-updated_at: '2026-07-08T18:58:50.150963+00:00'
+updated_at: '2026-07-09T21:43:05.541007+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 5
@@ -20,6 +20,7 @@ fields:
   - c7219d6510814c69a5ab03ed0b6833d522e38e6f
   - 6db30692825ac56aaa79ed05a0956d2310b4a6f4
   version: 0.0.26
+  bundled_in: bundle-adc60ee8
 ---
 
 ## Problem

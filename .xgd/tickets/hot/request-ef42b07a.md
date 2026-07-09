@@ -5,10 +5,10 @@ type: request
 title: Display-font slot + @font-face emission (Cinzel wordmark)
 created_by: xgd
 created_at: '2026-07-02T18:37:29.811477+00:00'
-updated_at: '2026-07-09T20:00:47.093180+00:00'
-completed_at: null
+updated_at: '2026-07-09T21:42:36.782396+00:00'
+completed_at: '2026-07-09T21:42:36.782396+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 3

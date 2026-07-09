@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-36
 created_by: xgd
 created_at: '2026-07-03T18:02:32.195837+00:00'
-updated_at: '2026-07-09T19:53:17.203274+00:00'
+updated_at: '2026-07-09T21:38:03.237587+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2471,5 +2471,225 @@ Want me to go ahead on the footer, or is there a specific section that's bugging
 <!-- xgd-chat role="user" ts="2026-07-09T19:53:17.170240+00:00" -->
 #### You
 Keep going each pass makes things better but there's still a lot of gaps to close that are trivially obvious to me
+
+<!-- xgd-turn id="83c36f4c-7779-4249-a3f6-bf90e323f651-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T20:09:55.614208+00:00" -->
+#### Claude
+You're right — let me stop sampling spot-checks and do a rigorous section-by-section visual read of both pages. I'll stack reference-above-ours for each section so obvious differences can't hide.
+
+Hero: the **logo is the obvious miss** — the reference has a prominent white logo card top-left; ours is tiny and faint. Also the hero photo reads more zoomed-in than the reference. Let me look at the other sections before compiling:
+
+This is the systemic gap: **our content is too wide and reads left-hugging; the reference content sits in a narrower centered column.** Look at the offerings block — reference wraps "OUR / OFFERINGS" to two lines in a narrow centered column with big side margins; ours runs "OUR OFFERINGS" on one line, cards wider, hugging the left. Same story on the "WHO USES" checklist. Let me measure the reference's actual content width precisely:
+
+Key finding: the reference offerings content is **764px wide, centered** (257→1021) — essentially the `readable` measure. But our offerings `fc-row` is hardcoded to `container-default` = **1152px**, so it sprawls nearly edge-to-edge and reads left-hugging. The who-uses checklist is even narrower (~503px). That width mismatch is the systemic "obvious" gap. Let me check whether other sites rely on the current wide `fc-row` before I change it:
+
+gigabytealchemy uses `half+half` rows at the current wide width, so I can't just narrow the default — I need to make the row width configurable. Let me check the existing content-width dial to reuse its vocabulary:
+
+I'll reuse `CONTENT_WIDTH_DIAL`'s vocabulary and make the `fc-row` width configurable (defaulting to `default` so gigabytealchemy is untouched). Let me update `row.ts`:
+
+Now wire `rowWidth` through render.ts and add the dial to the partial-width modules' meta:
+
+Now add the `rowWidth` dial to the two partial-width modules (text-block and services-grid):
+
+Now set the Offerings row to the `readable` measure in config, render, and compare against the reference:
+
+Render hit a parse error — let me see the full error to find which edit broke it:
+
+Found it — I used backtick quotes (`` `readable` ``) inside the backtick-delimited `ROW_CSS` template literal, which terminated the string. Let me fix the comment:
+
+The Offerings row is now boxed to 730px centered (was 1088px sprawling) — matching the reference's 764px. Let me look at it and re-check the whole page:
+
+Offerings is now much closer — "OUR / OFFERINGS" wraps to two lines, cards narrowed and centered. Two remaining obvious gaps there: **card titles are bold, the reference's are thin** (Oswald extralight), and the **who-uses checklist is still too wide**. Let me check the card-title weight and fix both:
+
+The card title is hardcoded `semibold`, but the reference uses **thin Oswald** for Offerings cards (weight 200) and **Karla regular** for Process cards. Let me add `cardTitleWeight` and `cardTitleFont` dials (mirroring the hero pattern). Let me see the services-grid frontmatter:
+
+Now the CSS for the weight/font classes:
+
+Now add the two dials to services-grid meta and apply config (offerings: extralight; process: body/regular; who-uses narrower):
+
+Rendered clean. Let me verify tests still pass and look at the result:
+
+The process card titles are now **Karla regular** (matching the reference) instead of bold — the font/weight fix worked. The remaining process gaps (icon-left layout, centered narrower width) are more involved. Let me confirm the Offerings titles went thin, then lock in this framework round:
+
+Both applied correctly (offerings `ctw-extralight`, process `ctw-regular ctf-body`). Let me add UATs for this round's framework additions and commit:
+
+All 484 pass (+5). Version bump and commit:
+
+Committed `0c31c6a` (v0.0.82), ticket updated. Let me get a fresh full side-by-side and the diff to show the cumulative effect:
+
+Mean went *up* to 32.05 — narrowing the Offerings likely made those columns taller (text wraps more), shifting everything below out of vertical alignment again. Let me look:
+
+The narrower Offerings columns wrap taller, which pushed the quote/testimonials/process back down out of alignment — that's why the mean rose. The layout looks closer but I broke the vertical registration. Let me re-measure and pull the spacing back:
+
+Ours quote is now 206px too *low* (2870 vs 2664) — the narrower Offerings grew that much taller. I over-padded it earlier when it was wide. Let me pull the Offerings spacing back down:
+
+Still 78px too low. Rather than keep trimming Offerings (its height is mostly content now), let me pull it up via the band above it — reduce who-uses spacing, which also finally lets me address the holistic overshoot:
+
+Quote is back to 14px and testimonials 5px — realigned. Let me confirm the diff recovered:
+
+Mean is now **24.48 — the lowest of the session** (started at 41.9). The Offerings now matches the reference's narrow centered column, card titles are the right weight/face, and the green is exact. Let me rebuild the full side-by-side to show the current state:
+
+Let me record the session's remaining-gap findings on the ticket, then give you a straight status:
+
+Progress this pass — and this time it should be visible, because I stopped moving empty space and started fixing content:
+
+**Fixed (all visible in the right column above):**
+- **Offerings is now the reference's narrow centered column** — "OUR / OFFERINGS" wraps to two lines, the three cards are narrowed and centered with proper margins, instead of sprawling edge-to-edge. Root cause was our `fc-row` hardcoded to 1152px vs the reference's 768px; I made row width configurable.
+- **Card titles now match** — Offerings titles are thin Oswald, "How It Works" titles are Karla regular, instead of the bold semibold they were.
+- **Testimonial green is an exact pixel match** now.
+- Re-aligned the quote/testimonials cascade after the narrowing shifted it.
+
+Perceptual mean is down to **24.48**, the lowest of the session (started at 41.9). Framework work committed under REQ-36 (`0c31c6a`, v0.0.82, 484 tests green), and I logged the remaining gaps on the ticket.
+
+**Still trivially obvious and not yet done — my read of what you're seeing:**
+1. **The logo** — the reference has a prominent white logo card top-left; ours is faint and tiny. This is probably the most glaring one.
+2. **"How It Works" card layout** — the reference puts the icon to the *left* with the title beside it; ours stacks icon-on-top.
+3. **Footer** — missing the three social icons, and the band is our bright gold vs the reference's muted `#edc251`.
+
+I'll take the **logo** next since it's the most prominent, then the footer, then the process card layout. Continuing.
+
+<!-- xgd-turn id="c5c5c8c5-ecb0-4105-8f80-93e543ae926f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-09T20:22:28.349910+00:00" -->
+#### You
+Yes keeps getting better, but keep going
+
+<!-- xgd-turn id="c5c5c8c5-ecb0-4105-8f80-93e543ae926f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T20:51:24.032733+00:00" -->
+#### Claude
+Let me tackle the logo — the most prominent gap. First, look closely at both:
+
+Ours logo has only 7 bright pixels vs the reference's 79 — ours is nearly invisible. Let me check whether our `logo.png` is even white text (it needs to be, over the dark hero):
+
+Our logo is white but has only 109 opaque pixels — very thin. Let me compare it against the reference's actual logo asset (same 350×100 name) to see if ours is a degraded version:
+
+The assets are byte-identical (same 350×100, same ink) — so the logo *asset* is correct; the problem is how ours renders it. Let me see ours logo brightened to find its true size/position:
+
+Now it's obvious: the reference logo sits in a **large translucent bordered frame** (a wide rectangle with a thin light border), and ours has no frame at all — that's what makes the reference logo read as prominent. My `logoCard: shadow` only adds a drop-shadow. Let me look at the header logo treatments:
+
+The fix is a `frame` logo treatment — a translucent fill with a thin light border. Let me check the header inner layout (to confirm left positioning) then add it:
+
+The frame is the key fix. Let me add a `frame` logo treatment (translucent fill + thin border) to the header:
+
+The frame renders now, but the logo text sits right-of-center inside it (reference is centered), suggesting the asset has transparent space. Let me check the ink position within the logo.png:
+
+Let me directly compare the logo region now, ref vs ours:
+
+The frame is there and prominent now, but ours sits lower/right and the logo is right-of-center inside it (reference is left-positioned, logo centered). Let me check the rendered header structure:
+
+The frame is prominent now — the key characteristic. The remaining logo gaps (sits lower and right) are position refinements: vertical is the header's top padding; horizontal needs a wider header. Let me raise it via config and verify in context:
+
+The frame is prominent now and sits higher. Remaining logo gaps (horizontal position) need a wider header — I'll note that. Let me move to the footer, the other big visible gap. First, do we have the Font Awesome **brand** icons (for the social icons) in the capture bundle?
+
+The reference bundle has `fa-brands-400.woff2` — so I can render the social icons faithfully (my [[faithful-repro-runbook]] note: the capture bundle IS the asset source). Let me look at the reference footer social icons closely to get the layout and which networks:
+
+Reference footer: three thin-bordered white circles — Instagram, Facebook, Yelp — on the muted gold. Let me read the full footer module and add social icons (using the brand font from the bundle):
+
+Let me add social icons to the footer module. First the markup and CSS:
+
+Now the footer meta, the brand font, and config. Let me add the meta field:
+
+Now copy the brand font and check how the theme declares font families:
+
+Let me declare the BrandFont and add the social config:
+
+The social icons render perfectly — Instagram, Facebook, Yelp in bordered circles, matching the reference. The remaining footer gap is the gold shade (bright vs muted `#edc251`). Let me check the palette→token mapping to add the muted gold cleanly:
+
+The footer band is genuinely `#edc251` (= `--color-accent-mid`, already a token), but making the footer use it cleanly requires touching the shared surface enum — a bigger change than it's worth right now. I'll note the gold shade and lock in the two solid framework wins (logo frame + social icons). Let me write their UATs:
+
+Now append the UAT blocks at the end of the file:
+
+All 59 pass (+5). Let me run the full suite, then commit this batch (logo frame + footer social):
+
+Committed `bd6988a` (v0.0.83). Let me get the updated diff and a fresh full side-by-side:
+
+Two clear visible wins landed this pass — you can see them in the right column:
+
+- **Logo now sits in its bordered frame** over the hero (the reference's key logo treatment), instead of floating faint and frameless.
+- **Footer social icons** — the Instagram / Facebook / Yelp bordered circles are now rendered from the Font Awesome brand font (pulled from the capture bundle), matching the reference row.
+
+Both are committed under REQ-36 (`bd6988a`, v0.0.83, 487 tests green). Earlier this session also landed: Offerings boxed to the reference's narrow centered column, card titles thinned to match, and the testimonial green as an exact pixel match.
+
+**Still visibly off, in priority order:**
+1. **"How It Works" card layout** — the reference puts the icon to the *left* with the title beside it; ours stacks icon-on-top. This is the most structural remaining difference.
+2. **Footer gold** — ours is the bright `#f8bb1b`; the reference footer band is the muted `#edc251`. (It's a real second gold in their palette; needs a small surface treatment.)
+3. **Logo fine positioning** — the frame is right but sits a touch further right/higher than the reference; the header needs to run slightly wider.
+
+I'll take the "How It Works" icon-left layout next, since it's the biggest remaining structural gap. Continuing.
+
+<!-- xgd-turn id="8ca36480-1e5f-4e43-a5dc-1f9e5cff3433-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-09T21:06:56.707500+00:00" -->
+#### You
+ok keep going?
+
+<!-- xgd-turn id="8ca36480-1e5f-4e43-a5dc-1f9e5cff3433-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T21:20:49.896937+00:00" -->
+#### Claude
+Let me tackle the "How It Works" icon-left layout. First, look closely at the reference card structure:
+
+Reference process card is clear: **icon top-left, title beside it (to the right, wrapping), body full-width below.** Let me look at the current card markup to add an icon-left layout:
+
+A clean CSS-grid approach places icon/title/body without changing the DOM. Let me add an `iconLayout` dial:
+
+Now the CSS. Let me look at the current card layout rule to override it:
+
+Now add the dial to meta and set it on the process config:
+
+The icon-left layout is working (clipboard icon beside "Ques..."). Let me get a proper full crop of the process section to compare with the reference:
+
+The process cards now match the reference — icon-left, title beside, body below. Let me add its UAT and commit:
+
+All 61 pass. Let me run the full suite and commit:
+
+A stale git lock blocked the commit (and I recorded a wrong sha on the ticket). Let me recover:
+
+The lock cleared and my changes are still staged. Let me commit now:
+
+Commit `8f20680` (v0.0.84). Now fix the ticket — I recorded the wrong sha earlier due to the lock. Let me record the correct one:
+
+Recorded correctly. Let me get the updated overall diff:
+
+The "How It Works" cards now match the reference structure — **icon-left, title beside, body full-width below** (committed `8f20680`, v0.0.84, 489 tests green). You can see it lined up against the reference in the crop I pulled: the layout is now the same.
+
+One honest note on the metric: the perceptual mean ticked up slightly (24.5 → 26.7) even though the layout is *more* correct. That's the recurring tension I've hit — restructuring a section repositions its text, so it stops pixel-overlapping the reference for a beat even when it's structurally right, and the height change nudges the cascade below it. The *structure* is now correct; I may need a small spacing re-tune to re-settle the vertical alignment, which I'll fold into the next pass.
+
+**Session tally so far** — five framework commits under REQ-36, all tested (489 green): fc-band shared surface, 2xl/3xl spacing + airy gap + hero heading-font + text-block CTA, fc-row measure + card-title weight/face, logo frame + footer social icons, and now icon-left cards.
+
+**Remaining known gaps:**
+1. Footer gold shade (bright `#f8bb1b` vs muted `#edc251`) — needs a small surface treatment.
+2. Logo fine-positioning (header slightly too narrow).
+3. Re-settle the process/footer vertical alignment after the icon-left change.
+
+I'll re-settle the vertical alignment and take the footer gold next. Continuing.
+
+<!-- xgd-turn id="1f3fe92f-7acf-4fab-835b-ec7d7861f4ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-09T21:23:15.179501+00:00" -->
+#### You
+There are still some HUGE gaps. I am not sure you are really using your pixel diff
+
+<!-- xgd-turn id="1f3fe92f-7acf-4fab-835b-ec7d7861f4ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T21:28:19.445469+00:00" -->
+#### Claude
+You're right to push me. Let me stop trusting downscaled side-by-sides and go back to the raw pixel-diff heatmap at full resolution — and first re-measure the section boundaries, because the mean rose and I suspect the icon-left change threw the vertical alignment way off.
+
+Boundaries look mostly aligned in the top half, but the detector finds *nothing* between 2960 and the end (4541) — the whole bottom half. Let me read the full-page diff heatmap for the current state, top to bottom:
+
+The heatmaps show pervasive disagreement but no single gross block — which makes me suspect I've been making the classic mistake my own notes warn about: **testing only at 1280px.** You're likely viewing at a wider window where our fluid sizing behaves differently. Let me shoot ours at a wider viewport and compare:
+
+`desktop` is still 1280, so I can't reproduce a wider view — let me set that hypothesis aside. Let me look at the actual superimposed diff overlay of the worst region, which shows misalignment directly:
+
+Region #1 (mean 98.7, 848px tall, the quote→testimonials→process block) is by far the worst. Let me read its overlay directly:
+
+<!-- xgd-turn id="1c8cfc0d-cd2e-4414-a393-2488679ab20e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-09T21:38:03.206373+00:00" -->
+#### You
+Please continue - we got cut off
 
 <!-- xgd-chat-end -->

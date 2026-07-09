@@ -6,10 +6,10 @@ title: Framework fidelity primitives surfaced by import (gradient direction, cal
   left-bar, hero scrim/anchor, cool-neutral role)
 created_by: xgd
 created_at: '2026-07-03T01:37:59.346134+00:00'
-updated_at: '2026-07-08T18:58:50.987891+00:00'
+updated_at: '2026-07-09T21:43:05.597624+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 5
@@ -23,6 +23,7 @@ fields:
   - 5e6dcd6d2e8276decad5c5d1c5c8d797b251deaa
   - d4fd3f7d1b5a7c9d0db9beef0cbc55b7828016af
   version: 0.0.39
+  bundled_in: bundle-adc60ee8
 ---
 
 ## Scope

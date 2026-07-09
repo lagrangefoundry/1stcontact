@@ -5,10 +5,10 @@ type: request
 title: 'services-grid card treatments: accent border, status badge, ✓ checklist'
 created_by: xgd
 created_at: '2026-07-02T18:37:59.320519+00:00'
-updated_at: '2026-07-03T15:35:52.198844+00:00'
+updated_at: '2026-07-09T21:43:05.310956+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 5
@@ -17,6 +17,7 @@ fields:
   commits:
   - 686fbd608595d9d99a40a1ff0a78364b577d77f8
   version: 0.0.18
+  bundled_in: bundle-adc60ee8
 ---
 
 ## Scope — module capability (services-grid)

@@ -5,10 +5,10 @@ type: request
 title: Section background rendered inert when surface dial is set
 created_by: xgd
 created_at: '2026-07-02T21:52:26.172199+00:00'
-updated_at: '2026-07-02T22:41:13.507339+00:00'
+updated_at: '2026-07-09T21:43:05.368500+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -17,6 +17,7 @@ fields:
   commits:
   - b2cef0786277e18bc8dec1a93f6f320d431f9e4f
   version: 0.0.19
+  bundled_in: bundle-adc60ee8
 ---
 
 ## Scope — framework rendering bug/capability

@@ -5,7 +5,7 @@ type: request
 title: Faithful reproduction of joyfulculinarycreations.com (personal-chef site)
 created_by: xgd
 created_at: '2026-07-03T18:00:22.857118+00:00'
-updated_at: '2026-07-09T19:31:57.325485+00:00'
+updated_at: '2026-07-09T21:37:57.577967+00:00'
 completed_at: null
 last_field_updated: commits
 status: draft
@@ -31,6 +31,11 @@ fields:
   - c671bb5
   - ca92c52
   - 21ccb60
+  - 0c31c6a
+  - bd6988a
+  - 1b560de
+  - 8f20680
+  - 2b4b823
 ---
 
 ## Goal
@@ -240,3 +245,17 @@ images) from this round. DOC-19 pass-4 records 'the capture bundle IS the asset 
 
 **Assessment: at the faithful-reproduction ceiling for this page.** Remaining deltas are
 sub-visual / dynamic / manifest-exact-px over-fitting.
+
+
+
+## Session progress (2026-07-09, v0.0.82)
+Perceptual mean 41.9 → 24.48. Committed framework generalizations: fc-band shared-surface (21ccb60), 2xl/3xl spacing + airy gap + hero headingFont + text-block CTA (21ccb60), fc-row rowWidth measure + services-grid cardTitleWeight/cardTitleFont (0c31c6a). Config/theme (exempt): green panel #7a957d exact match, Offerings boxed to readable+centred, card titles thinned, cascade re-aligned.
+
+### Remaining visible gaps (next passes)
+- Hero logo: reference shows a prominent white logo card top-left; ours renders faint/small.
+- Process 'How It Works' card layout: reference is icon-left / title-beside; ours icon-on-top. Also process content wider than reference's ~768 centred.
+- Footer: missing 3 social icons; footer band uses bright #f8bb1b vs reference muted #edc251.
+- Holistic panel ~57px too tall (region #3) — currently absorbed by downstream spacing.
+- Content measure readable(768) vs reference ~700 — minor line-wrap drift.
+
+Note: commit 1b560de recorded above was a stale-lock misfire (points to a ticket commit, not code); the actual icon-left layout commit is 8f20680.
