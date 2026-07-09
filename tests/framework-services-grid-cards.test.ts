@@ -238,4 +238,15 @@ describe('REQ-36 services-grid bare cards — CAP-1', () => {
       expect(html).toContain('Personal Chef Services')
     }
   })
+
+  // Grid tracks default to min-width:auto, so a card holding a long unbreakable
+  // word forces its `1fr` track wider and starves its neighbours — uneven columns
+  // and word-by-word title wrapping in the icon-left "How It Works" layout. The
+  // fix pins every card track to a true equal fraction.
+  it('test_UAT_FC_REQ-36_card_track_pins_min_width_zero_for_even_columns', () => {
+    const css = moduleSource()
+    expect(css).toMatch(/\.services-grid__card\s*\{\s*min-width:\s*0/)
+    // The icon-left title also releases its min-width so it wraps within its track.
+    expect(css).toMatch(/icon-layout-left\s+\.services-grid__card-title\s*\{[^}]*min-width:\s*0/)
+  })
 })

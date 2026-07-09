@@ -295,8 +295,13 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     align-items: start;
   }
   .services-grid.icon-layout-left .services-grid__icon { grid-column: 1; grid-row: 1; margin: 0; }
-  .services-grid.icon-layout-left .services-grid__card-title { grid-column: 2; grid-row: 1; align-self: center; }
+  .services-grid.icon-layout-left .services-grid__card-title { grid-column: 2; grid-row: 1; align-self: center; min-width: 0; }
   .services-grid.icon-layout-left .services-grid__card-body { grid-column: 1 / -1; }
+  /* Grid tracks default to min-width:auto, so a card containing a long unbreakable
+     word (e.g. "Questionnaire") forces its `1fr` track wider and starves its
+     neighbours — producing uneven columns and word-by-word title wrapping. Pin
+     min-width:0 so every card track stays a true equal fraction. */
+  .services-grid__card { min-width: 0; }
   .services-grid.card-surface-bare .services-grid__badge { display: none; }
 
   /* Accent left border (REQ-26) — a thicker rule keyed to a semantic token. */
