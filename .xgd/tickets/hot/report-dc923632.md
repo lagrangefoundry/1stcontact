@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-2 (BUG-1 + REQ-12/13/14/15/16/22/23/24/25)'
 created_by: xgd
 created_at: '2026-07-09T20:08:08.630691+00:00'
-updated_at: '2026-07-09T20:52:55.613641+00:00'
+updated_at: '2026-07-09T21:02:08.411290+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -129,7 +129,7 @@ fields:
       content validation). No new capability bucket, no parallel validator: contentValueSchema
       is widened, not replaced. Prefer upgrade because STORY-54 already documents
       the content-value contract but currently omits object/number/boolean forms.'
-    story_uid: null
+    story_uid: story-6fc151b1
     target_story_ids:
     - story-6fc151b1
     acceptance_criteria_changes:
