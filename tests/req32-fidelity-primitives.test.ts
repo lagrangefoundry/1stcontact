@@ -125,7 +125,8 @@ describe('REQ-32 primitive 2 — callout / left-bar treatment', () => {
 
 describe('REQ-32 primitive 3 — hero scrim + content anchor', () => {
   it('test_UAT_FC_REQ-32_meta_exposes_scrim_and_anchor_dials', () => {
-    expect(heroMeta.dials.scrim).toEqual(['none', 'light', 'medium', 'strong'])
+    // REQ-36 appended `heavy` (0.68) for a busy photo `strong` reads too light over.
+    expect(heroMeta.dials.scrim).toEqual(['none', 'light', 'medium', 'strong', 'heavy'])
     expect(heroMeta.dials.contentAnchor).toEqual(['top', 'center', 'bottom'])
   })
 
