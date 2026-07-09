@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-2 (BUG-1 + REQ-12/13/14/15/16/22/23/24/25)'
 created_by: xgd
 created_at: '2026-07-09T20:08:08.630691+00:00'
-updated_at: '2026-07-09T20:43:37.016147+00:00'
+updated_at: '2026-07-09T20:52:55.613641+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -110,7 +110,7 @@ fields:
       (structured entrance/scroll-reveal/hover). Structured-only (named easing enum,
       no raw CSS) and content-safe under reduced motion; distinct from the background
       and layer primitives.
-    story_uid: null
+    story_uid: story-b13e15c5
   - index: 6
     component: Site Definition Schema & Validation
     item_type: upgrade
