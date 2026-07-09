@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T22:28:21.642940+00:00'
+updated_at: '2026-07-09T22:37:16.060875+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -223,7 +223,7 @@ fields:
       to documenting token-backed typography, multi-line titled blocks, image shadow/border/feather
       treatments, and the transform-origin/sizing/mask geometry corrections that make
       art-directed montages reproduce faithfully.
-    story_uid: null
+    story_uid: story-4f50c054
   - index: 5
     component: Reference capture — per-element computed values + section scrim/anchor
     item_type: upgrade
