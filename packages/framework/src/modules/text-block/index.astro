@@ -37,6 +37,9 @@ const headingAlign = dials.headingAlign ?? 'left'
 // Body line-height (REQ-36) — `relaxed` (default) preserves the prior leading;
 // tighter steps match a denser reference body and collapse vertical drift.
 const leading = dials.leading ?? 'relaxed'
+// Contained-panel treatment (REQ-36) — `none` (default) fills the band; a role
+// value makes the inner a padded, rounded, inset card in that palette role.
+const panel = dials.panel ?? 'none'
 const { heading } = content
 const bodyHtml = await renderMarkdown(content.body)
 ---
@@ -51,6 +54,7 @@ const bodyHtml = await renderMarkdown(content.body)
     `text-align-${textAlign}`,
     `content-width-${contentWidth}`,
     `leading-${leading}`,
+    `panel-${panel}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -91,6 +95,21 @@ const bodyHtml = await renderMarkdown(content.body)
 
   .text-block.align-center .text-block__inner { align-items: center; }
   .text-block.text-align-center .text-block__inner { text-align: center; }
+
+  /* Contained-panel treatment (REQ-36) — the inner content column becomes a
+     padded, rounded card in a palette role, floating (via its variant max-width +
+     auto margins) on the band background. `none` (default) adds nothing. */
+  .text-block.panel-subtle .text-block__inner,
+  .text-block.panel-inverse .text-block__inner,
+  .text-block.panel-secondary .text-block__inner,
+  .text-block.panel-accent .text-block__inner {
+    padding: var(--space-12) var(--space-8);
+    border-radius: var(--radius-lg);
+  }
+  .text-block.panel-subtle .text-block__inner { background: var(--color-surface-subtle); }
+  .text-block.panel-inverse .text-block__inner { background: var(--color-surface-inverse); color: var(--color-bg); }
+  .text-block.panel-secondary .text-block__inner { background: var(--color-secondary); color: var(--color-bg); }
+  .text-block.panel-accent .text-block__inner { background: var(--color-accent); color: var(--color-bg); }
 
   /* Constrained content column (REQ-45): the inner stays a full-width frame
      (its variant width) while these cap the *content* to a narrower measure.

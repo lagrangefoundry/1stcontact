@@ -230,6 +230,19 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
     expect(textBlockCss).toMatch(/\.text-block\.leading-snug\s+\.text-block__body\s*\{[^}]*line-height:\s*var\(--line-height-snug\)/)
   })
 
+  it('test_UAT_FC_REQ-36_textblock_panel_card_insets_a_filled_rounded_box', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'subtle' }, content })
+    expect(html).toContain('panel-subtle')
+    expect(textBlockCss).toMatch(/\.text-block\.panel-subtle\s+\.text-block__inner\s*\{[^}]*background:\s*var\(--color-surface-subtle\)/)
+    // The card is padded + rounded (grouped rule covering the panel roles).
+    expect(textBlockCss).toMatch(/\.text-block\.panel-subtle\s+\.text-block__inner,[\s\S]*?\{[^}]*border-radius:\s*var\(--radius-lg\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_panel_default_none_fills_the_band', async () => {
+    const html = await render(TextBlock, { variant: 'prose', content })
+    expect(html).toContain('panel-none')
+  })
+
   it('test_UAT_FC_REQ-36_textblock_heading_finish_defaults_unchanged', async () => {
     const html = await render(TextBlock, { variant: 'prose', content })
     // Omitting the new dials preserves the prior heading (bold / 3xl / left) + relaxed body.

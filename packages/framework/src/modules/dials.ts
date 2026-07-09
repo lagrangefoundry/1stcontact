@@ -227,6 +227,17 @@ export const CTA_SHAPE_DIAL = ['round', 'square'] as const
 export const LOGO_CARD_DIAL = ['none', 'card'] as const
 
 /**
+ * Text-block contained-panel treatment (REQ-36). `none` (default) fills the whole
+ * band (the prior behaviour). A role value turns the inner content column into a
+ * contained *card* — a padded, rounded, inset panel filled with that palette role,
+ * floating on the band background: `subtle` (the joyfulculinary grey Holistic
+ * card), `inverse`, `secondary` (the grey-green testimonial panel, when the theme
+ * sets `secondary` to it), `accent`. The band's own `surface` dial still sets the
+ * background *behind* the card.
+ */
+export const PANEL_DIAL = ['none', 'subtle', 'inverse', 'secondary', 'accent'] as const
+
+/**
  * Vertical anchor of a hero's content within a `fold`-height band (REQ-32).
  * `center` (default) matches the prior behaviour; `top`/`bottom` push the
  * content to the band's start/end — e.g. a hero whose copy sits low over the
