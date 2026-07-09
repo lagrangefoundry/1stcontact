@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-2 (BUG-1 + REQ-12/13/14/15/16/22/23/24/25)'
 created_by: xgd
 created_at: '2026-07-09T20:08:08.630691+00:00'
-updated_at: '2026-07-09T20:13:28.956634+00:00'
+updated_at: '2026-07-09T20:20:27.302366+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -50,7 +50,7 @@ fields:
       command with distinct value (screenshot own/any rendered output) versus REQ-12's
       capture bundle. Depends on the BrowserDriver seam introduced by item 1 but is
       a separate capability, not a flag of capture.
-    story_uid: null
+    story_uid: story-3ae5b34e
   - index: 3
     component: 'Framework: art-direction language'
     item_type: feature
