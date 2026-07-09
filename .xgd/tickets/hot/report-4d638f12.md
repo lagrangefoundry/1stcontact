@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T22:59:55.595756+00:00'
+updated_at: '2026-07-09T23:11:05.005889+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -320,7 +320,7 @@ fields:
       (item 6) is structurally blind to composition/geometry. `1c diff`/`1c crop`
       are new commands surfacing a class of delta nothing else can see, so they are
       a feature.
-    story_uid: null
+    story_uid: story-1570884a
   - index: 8
     component: 1c launcher + quiet SSR server
     item_type: feature
