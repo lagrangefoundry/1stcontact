@@ -256,7 +256,7 @@ export const SCRIM_GRADIENT_DIAL = ['none', 'top'] as const
  * applies a drop-shadow to the logo glyphs themselves (no plate) — for a knockout
  * (single-colour) logo over an image where a plate would hide it.
  */
-export const LOGO_CARD_DIAL = ['none', 'card', 'shadow'] as const
+export const LOGO_CARD_DIAL = ['none', 'card', 'shadow', 'frame'] as const
 
 /**
  * Text-block contained-panel treatment (REQ-36). `none` (default) fills the whole

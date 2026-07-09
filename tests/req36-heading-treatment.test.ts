@@ -6,6 +6,7 @@ import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import Hero from '../packages/framework/src/modules/hero/index.astro'
 import Header from '../packages/framework/src/modules/header/index.astro'
+import Footer from '../packages/framework/src/modules/footer/index.astro'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens/index'
@@ -21,6 +22,7 @@ const textBlockCss = source('../packages/framework/src/modules/text-block/index.
 const gridCss = source('../packages/framework/src/modules/services-grid/index.astro')
 const heroCss = source('../packages/framework/src/modules/hero/index.astro')
 const headerCss = source('../packages/framework/src/modules/header/index.astro')
+const footerCss = source('../packages/framework/src/modules/footer/index.astro')
 
 /**
  * UATs for REQ-36 — the `headingTreatment` colour dial generalized from the hero
@@ -557,5 +559,37 @@ describe('REQ-36 services-grid card title weight + face', () => {
     const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
     expect(html).toContain('ctw-semibold')
     expect(html).toContain('ctf-heading')
+  })
+})
+
+describe('REQ-36 header logo frame', () => {
+  const content = { logo: { src: 'assets/logo.png', alt: 'Logo' }, entries: [{ label: 'A', target: '#a' }] }
+
+  it('test_UAT_FC_REQ-36_logoCard_frame_draws_a_bordered_plate', async () => {
+    const html = await render(Header, { variant: 'overlay', dials: { logoCard: 'frame' }, content })
+    expect(html).toContain('logo-card-frame')
+    // A thin light border + faint fill lift the logo off the hero image.
+    expect(headerCss).toMatch(/\.header__logo\.logo-card-frame\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.35\)/)
+    expect(headerCss).toMatch(/\.header__logo\.logo-card-frame\s*\{[^}]*background:\s*rgba\(255, 255, 255, 0\.07\)/)
+  })
+})
+
+describe('REQ-36 footer social icons', () => {
+  const base = { copyrightHolder: 'Acme', tagline: 'Follow us' }
+
+  it('test_UAT_FC_REQ-36_footer_renders_bordered_social_circles', async () => {
+    const social = [{ icon: '', href: 'https://instagram.com', label: 'Instagram' }]
+    const html = await render(Footer, { variant: 'minimal', content: { ...base, social } })
+    expect(html).toContain('footer__social-link')
+    expect(html).toContain('aria-label="Instagram"')
+    // Bordered ring set in the brand icon font.
+    expect(footerCss).toMatch(/\.footer__social-link\s*\{[^}]*border:\s*2px solid currentColor/)
+    expect(footerCss).toMatch(/\.footer__social-link\s*\{[^}]*border-radius:\s*var\(--radius-full\)/)
+    expect(footerCss).toMatch(/\.footer__social-link span\s*\{[^}]*font-family:\s*'BrandFont'/)
+  })
+
+  it('test_UAT_FC_REQ-36_footer_without_social_renders_no_circles', async () => {
+    const html = await render(Footer, { variant: 'minimal', content: base })
+    expect(html).not.toContain('footer__social')
   })
 })

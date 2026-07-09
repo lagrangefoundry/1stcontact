@@ -12,6 +12,9 @@ interface Props {
     tagline?: string
     copyrightHolder: string
     links?: NavEntry[]
+    /** Social links (REQ-36) — rendered as bordered icon circles. Each `icon` is
+     *  a glyph in the site's declared brand icon font (Font Awesome brands). */
+    social?: { icon: string; href: string; label: string }[]
   }
 }
 
@@ -25,6 +28,7 @@ const layout = dials.layout ?? 'center'
 
 const { tagline, copyrightHolder } = content
 const links = content.links ?? []
+const social = content.social ?? []
 const logo = content.logo
 const logoIsImage = typeof logo === 'object' && logo !== null
 // Build-time constant — keeps output deterministic across rebuilds.
@@ -47,6 +51,16 @@ const year = BUILD_YEAR
       </div>
     )}
     {tagline && <p class="footer__tagline">{tagline}</p>}
+
+    {social.length > 0 && (
+      <div class="footer__social">
+        {social.map((s) => (
+          <a class="footer__social-link" href={assertSafeUrl(s.href, 'footer social href')} aria-label={s.label}>
+            <span aria-hidden="true">{s.icon}</span>
+          </a>
+        ))}
+      </div>
+    )}
 
     {links.length > 0 && (
       <nav class="footer__links" aria-label="Footer">
@@ -110,4 +124,26 @@ const year = BUILD_YEAR
   .footer__links { display: flex; flex-wrap: wrap; gap: var(--space-4); justify-content: center; }
   .footer__links a { color: inherit; text-decoration: none; font-size: var(--font-size-sm); }
   .footer__copyright { margin: 0; font-size: var(--font-size-sm); opacity: 0.7; }
+
+  /* Social icon circles (REQ-36) — thin bordered rings with a brand glyph, the
+     reference's Instagram / Facebook / Yelp row. The glyph is set in the site's
+     declared brand icon font (Font Awesome brands). */
+  .footer__social { display: flex; gap: var(--space-4); justify-content: center; }
+  .footer__social-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--space-12);
+    height: var(--space-12);
+    border: 2px solid currentColor;
+    border-radius: var(--radius-full);
+    color: inherit;
+    text-decoration: none;
+  }
+  .footer__social-link span {
+    font-family: 'BrandFont';
+    font-weight: 400;
+    font-size: var(--font-size-lg);
+    line-height: 1;
+  }
 </style>

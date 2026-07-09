@@ -156,6 +156,16 @@ const wordmarkGradient =
   /* `shadow` (REQ-36) — a drop-shadow on the logo glyphs (no plate), giving a
      knockout logo depth over an image where a solid card would hide it. */
   .header__logo.logo-card-shadow img { filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55)); }
+  /* `frame` (REQ-36) — a wide translucent plate with a thin light border around
+     the logo (the joyfulculinary logo sits in a bordered box over the hero
+     image). Generous horizontal padding so a wordmark logo reads centred in a
+     prominent frame; the faint fill lifts it off busy photography. */
+  .header__logo.logo-card-frame {
+    padding: var(--space-4) var(--space-12);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .header__logo.logo-card-frame img { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45)); }
 
   /* Wordmark font-family selection (REQ-24). Default heading family; `display`
      picks the site's bespoke display face, `body` the body family. */

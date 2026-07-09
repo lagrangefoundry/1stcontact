@@ -19,5 +19,8 @@ export const footerMeta = {
     copyrightHolder: { type: 'string', required: true },
     // List of NavEntry ({ label, target }).
     links: { type: 'list', required: false },
+    // Social links (REQ-36) — { icon, href, label } rendered as bordered icon
+    // circles; `icon` is a glyph in the site's brand icon font.
+    social: { type: 'list', required: false },
   },
 } as const satisfies ModuleMeta
