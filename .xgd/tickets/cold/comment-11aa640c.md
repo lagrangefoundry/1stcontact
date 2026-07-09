@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-21
 created_by: xgd
 created_at: '2026-07-03T19:12:14.241977+00:00'
-updated_at: '2026-07-03T23:38:31.933093+00:00'
+updated_at: '2026-07-07T22:07:22.340668+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -965,5 +965,45 @@ Constant 8px everywhere (was 8 → 44 before). At the reference viewport `1c dif
 - All framework work free-coded under **REQ-32 cap 5** (now 6 commits, **v0.0.39**, 243 tests green). REQ-21 updated.
 
 Remaining known deltas are all non-montage and low-amplitude: the about-band hero heading→subhead rhythm (~11px, shared module) and the footer build-year. Want me to take a run at the about-band rhythm, or call faelan done here?
+
+<!-- xgd-turn id="b32111ac-4314-4608-ac72-88a26a210a21-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-07T22:04:49.108499+00:00" -->
+#### You
+please move this to free coded
+
+<!-- xgd-turn id="b32111ac-4314-4608-ac72-88a26a210a21-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-07T22:07:22.308484+00:00" -->
+#### Claude
+I'll investigate the current state before doing anything — I need to see which commits belong to REQ-21 versus REQ-32, and what the ticket looks like now.
+
+I have the full picture now. Let me verify the gate behavior before reporting — attempting the gate is validation-first (it won't change status unless it passes):
+
+The gate rejected it (status unchanged — still `draft`). Let me check whether there's any test evidence tied to REQ-21 before I recommend a path:
+
+Done the legwork. Here's the honest state — and there's a real blocker that's worth a decision rather than me forcing it.
+
+## Why `move-to-free-coded` can't cleanly run on REQ-21
+
+REQ-21's *substantive* code — the whole `layer` art-direction primitive (typography, shadow/border, feather, geometry/transform-origin, mask, shadow presets, titled-block) — is **already `free_coded` under REQ-32** (6 commits, v0.0.39). Those SHAs can't be reused: the gate enforces SHA-uniqueness across tickets.
+
+What's left that's *only* REQ-21's is two commits:
+- `0c08c33` — faelan mobile montage + hover states
+- `7598eec` — crisp photo corners (`shape: rounded`)
+
+Both are **pure `storage/sites/faelan/` config** (site definitions). They have **no version bump** and **no UAT tests** — and the gate rejects them for exactly that (`version '0.0.63' not found in any of the provided commits`). Status is untouched — still `draft`.
+
+That's not an accident: per FREE-CODING.md, **site-def/config changes are exempt from the free-coding process** precisely because pushing them through free_coded → reconcile "produces phantom ACs with no executable evidence to attach to them." Reconciling REQ-21 would find zero `test_UAT_FC_REQ-21_*` tests, so it'd generate empty matrix work.
+
+## My recommendation
+
+**Don't gate REQ-21 as free-coded.** It's a benchmark/milestone ticket — the capability-matrix coverage for the primitives it exercised is carried by **REQ-32's** reconcile, and faelan's config rides along as a co-traveler. The right resting state for REQ-21 is a tracking/milestone status (or closed as "faelan met; gigabytealchemy tracked under REQ-20"), not `free_coded`.
+
+## If you'd rather force it through
+
+I can bump `package.json` (0.0.63 → 0.0.64) in a fresh commit and attach `[0c08c33, 7598eec, <bump>]` to satisfy the gate mechanically. It'll go `free_coded`, but reconcile will have no test evidence to work from — the documented anti-pattern.
+
+Which do you want — treat REQ-21 as a milestone (my rec), or force the gate with a version bump?
 
 <!-- xgd-chat-end -->
