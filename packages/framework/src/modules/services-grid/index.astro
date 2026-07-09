@@ -65,6 +65,10 @@ const contentWidth = dials.contentWidth ?? 'default'
 // leave a grid that omits the dials unchanged.
 const cardTitleWeight = dials.cardTitleWeight ?? 'semibold'
 const cardTitleFont = dials.cardTitleFont ?? 'heading'
+// Card icon layout (REQ-36) — `top` (default) stacks icon over the title; `left`
+// sets the icon beside the title on a header row with the body spanning full
+// width below (the reference "How It Works" step cards).
+const iconLayout = dials.iconLayout ?? 'top'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 
@@ -91,6 +95,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `treatment-${headingTreatment}`,
     `case-${headingCase}`,
     `icon-font-${iconFont}`,
+    `icon-layout-${iconLayout}`,
     `gap-${gap}`,
     `size-${size}`,
     `content-width-${contentWidth}`,
@@ -268,6 +273,20 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     border-radius: 0;
     padding: 0;
   }
+
+  /* Icon-left card layout (REQ-36) — the icon sits beside the title on a header
+     row (via explicit grid placement, no DOM change) with the body spanning the
+     full width below (the reference "How It Works" step cards). */
+  .services-grid.icon-layout-left .services-grid__card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--space-4);
+    row-gap: var(--space-3);
+    align-items: start;
+  }
+  .services-grid.icon-layout-left .services-grid__icon { grid-column: 1; grid-row: 1; margin: 0; }
+  .services-grid.icon-layout-left .services-grid__card-title { grid-column: 2; grid-row: 1; align-self: center; }
+  .services-grid.icon-layout-left .services-grid__card-body { grid-column: 1 / -1; }
   .services-grid.card-surface-bare .services-grid__badge { display: none; }
 
   /* Accent left border (REQ-26) — a thicker rule keyed to a semantic token. */

@@ -8,6 +8,7 @@ import {
   HEADING_FONT_DIAL,
   HEADING_WEIGHT_DIAL,
   ICON_FONT_DIAL,
+  ICON_LAYOUT_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
@@ -92,6 +93,9 @@ export const servicesGridMeta = {
     // in the site's declared `IconFont` (Font Awesome), accent-coloured and sized
     // up (the "How It Works" grid); `default` renders it as plain text.
     iconFont: ICON_FONT_DIAL,
+    // Card icon layout (REQ-36) — `left` sets the icon beside the title with the
+    // body full-width below (the "How It Works" steps); `top` (default) stacks.
+    iconLayout: ICON_LAYOUT_DIAL,
     // Card type scale (REQ-20). `md` (default) preserves the prior scale; `lg`
     // steps the card heading/subhead/badge/checklist typography up one notch
     // (the gigabytealchemy reference runs its cards at a larger scale); `sm`

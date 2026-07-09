@@ -593,3 +593,22 @@ describe('REQ-36 footer social icons', () => {
     expect(html).not.toContain('footer__social')
   })
 })
+
+describe('REQ-36 services-grid icon-left card layout', () => {
+  const items = [{ title: 'Visit our FAQ page', body: 'Have a question?', icon: '' }, { title: 'Questionnaire', body: 'x', icon: '' }]
+
+  it('test_UAT_FC_REQ-36_icon_layout_left_places_icon_beside_title', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { iconLayout: 'left' }, content: { items } })
+    expect(html).toContain('icon-layout-left')
+    // Explicit grid placement: icon col1/row1, title col2/row1, body spans full width.
+    expect(gridCss).toMatch(/\.services-grid\.icon-layout-left\s+\.services-grid__card\s*\{[^}]*display:\s*grid/)
+    expect(gridCss).toMatch(/\.services-grid\.icon-layout-left\s+\.services-grid__icon\s*\{[^}]*grid-column:\s*1/)
+    expect(gridCss).toMatch(/\.services-grid\.icon-layout-left\s+\.services-grid__card-title\s*\{[^}]*grid-column:\s*2/)
+    expect(gridCss).toMatch(/\.services-grid\.icon-layout-left\s+\.services-grid__card-body\s*\{[^}]*grid-column:\s*1 \/ -1/)
+  })
+
+  it('test_UAT_FC_REQ-36_icon_layout_defaults_to_top', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
+    expect(html).toContain('icon-layout-top')
+  })
+})

@@ -288,6 +288,13 @@ export const LIST_MARKER_DIAL = ['bullet', 'check'] as const
 export const ICON_FONT_DIAL = ['default', 'icon-font'] as const
 
 /**
+ * services-grid card icon layout (REQ-36). `top` (default) stacks the icon above
+ * the title; `left` sets the icon beside the title on a header row with the body
+ * spanning full width below — the reference "How It Works" step-card layout.
+ */
+export const ICON_LAYOUT_DIAL = ['top', 'left'] as const
+
+/**
  * Vertical anchor of a hero's content within a `fold`-height band (REQ-32).
  * `center` (default) matches the prior behaviour; `top`/`bottom` push the
  * content to the band's start/end — e.g. a hero whose copy sits low over the
