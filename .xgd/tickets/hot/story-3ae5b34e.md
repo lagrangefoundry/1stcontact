@@ -5,10 +5,10 @@ type: story
 title: Page screenshot primitive (1c shot) — AI eyes over own output or any URL
 created_by: xgd
 created_at: '2026-07-09T20:19:30.608022+00:00'
-updated_at: '2026-07-09T20:19:30.608022+00:00'
+updated_at: '2026-07-09T20:31:23.897491+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-f39884d2
   capability_uid: capability-4dd2cf78
