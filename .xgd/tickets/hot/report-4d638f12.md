@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T22:45:49.521009+00:00'
+updated_at: '2026-07-09T22:59:55.595756+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -295,7 +295,7 @@ fields:
       new command and capability (the anti-recurrence mechanism REQ-31/REQ-35), so
       it is a feature, not an extension of an existing story. Depends on item 5 because
       the diff compares the per-element/section values that capture must record.
-    story_uid: null
+    story_uid: story-f826e5ca
   - index: 7
     component: Perceptual-diff eye (1c diff + 1c crop)
     item_type: feature
