@@ -5,10 +5,10 @@ type: story
 title: Freely-positioned layers with z-compositing over a section or module
 created_by: xgd
 created_at: '2026-07-09T20:42:28.172099+00:00'
-updated_at: '2026-07-09T20:42:28.172099+00:00'
+updated_at: '2026-07-09T20:49:23.361258+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-f39884d2
   capability_uid: capability-5fcda566
