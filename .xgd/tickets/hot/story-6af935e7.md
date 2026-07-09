@@ -5,10 +5,10 @@ type: story
 title: 'Section-level background: color, image, or gradient with legibility overlay'
 created_by: xgd
 created_at: '2026-07-09T20:33:54.072667+00:00'
-updated_at: '2026-07-09T22:27:37.332776+00:00'
+updated_at: '2026-07-09T22:28:21.446402+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: reconciling
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-f39884d2
   capability_uid: capability-5fcda566
