@@ -98,6 +98,8 @@ export const servicesGridMeta = {
       maxItems: 6,
       itemSchema: {
         icon: { type: 'asset-ref', required: false },
+        // Card top-media image (REQ-36) — a full-width photo atop the card.
+        image: { type: 'asset-ref', required: false },
         title: { type: 'string', required: true },
         body: { type: 'markdown', required: true },
         // Per-card type scale (REQ-20) — `lg` is a featured card (larger title /

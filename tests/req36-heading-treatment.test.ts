@@ -263,6 +263,23 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
   })
 })
 
+describe('REQ-36 services-grid card top-media', () => {
+  it('test_UAT_FC_REQ-36_services_grid_renders_card_image_as_top_media', async () => {
+    const html = await render(ServicesGrid, {
+      variant: 'three-col',
+      content: { items: [{ title: 'Personal Chef', body: 'b', image: { id: 'c', src: 'assets/card.jpg', alt: 'chef' } }] },
+    })
+    expect(html).toContain('services-grid__media')
+    expect(html).toContain('assets/card.jpg')
+    // Full-width square cover image atop the card.
+    expect(gridCss).toMatch(/\.services-grid__media\s*\{[^}]*aspect-ratio:\s*1 \/ 1/)
+    expect(gridCss).toMatch(/\.services-grid__media\s*\{[^}]*object-fit:\s*cover/)
+    // A card without an image renders no media element.
+    const noImg = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: 'X', body: 'b' }] } })
+    expect(noImg).not.toContain('services-grid__media')
+  })
+})
+
 describe('REQ-36 fc-row column ratio — asymmetric partial-width bands', () => {
   it('test_UAT_FC_REQ-36_composeRow_wraps_columns_with_width_encoded_flex', () => {
     const html = composeRow([
