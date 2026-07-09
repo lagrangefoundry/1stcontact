@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { FOOTER_LAYOUT_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { FOOTER_LAYOUT_DIAL, FOOTER_SURFACE_DIAL, SPACING_DIAL } from '../dials'
 
 /** `footer` — minimal site footer. */
 export const footerMeta = {
@@ -7,7 +7,7 @@ export const footerMeta = {
   version: 1,
   variants: ['minimal'],
   dials: {
-    surface: SURFACE_DIAL,
+    surface: FOOTER_SURFACE_DIAL,
     // `spread` justifies copyright / links to opposite ends (vs centred stack).
     layout: FOOTER_LAYOUT_DIAL,
     spacingTop: SPACING_DIAL,

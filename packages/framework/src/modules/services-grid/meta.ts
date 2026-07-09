@@ -1,5 +1,6 @@
 import type { ModuleMeta } from '../types'
 import {
+  ALIGN_DIAL,
   CARD_SURFACE_DIAL,
   CONTENT_WIDTH_DIAL,
   GAP_DIAL,
@@ -107,6 +108,9 @@ export const servicesGridMeta = {
     // than a wide centred one. `default` leaves the content filling the frame,
     // so a grid that omits the dial is unchanged.
     contentWidth: CONTENT_WIDTH_DIAL,
+    // Constrained-column alignment (REQ-36) — `center` centres a capped
+    // `contentWidth` column in the band; `left` (default) keeps the REQ-45 pin.
+    contentAlign: ALIGN_DIAL,
   },
   contentSchema: {
     heading: { type: 'string', required: false },

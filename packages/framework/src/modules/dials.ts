@@ -46,6 +46,14 @@ export const ALIGN_DIAL = ['left', 'center'] as const
  * copyright and links on opposite ends of one row (justified, left/right). */
 export const FOOTER_LAYOUT_DIAL = ['center', 'spread'] as const
 
+/**
+ * Footer band surface (REQ-36). Extends the shared surface set with
+ * `accent-muted` — a softer, less-saturated accent gold the reference footer uses,
+ * distinct from the bright accent applied to headings/buttons. Footer-scoped so
+ * the shared {@link SURFACE_DIAL} stays lean.
+ */
+export const FOOTER_SURFACE_DIAL = ['default', 'subtle', 'inverse', 'accent', 'accent-muted'] as const
+
 /** Inter-card / inter-item gap dial values (services-grid). */
 export const GAP_DIAL = ['tight', 'normal', 'loose', 'airy'] as const
 

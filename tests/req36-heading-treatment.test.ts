@@ -612,3 +612,24 @@ describe('REQ-36 services-grid icon-left card layout', () => {
     expect(html).toContain('icon-layout-top')
   })
 })
+
+describe('REQ-36 services-grid centered content column + footer muted gold', () => {
+  const items = [{ title: 'A', body: 'x' }, { title: 'B', body: 'y' }]
+
+  it('test_UAT_FC_REQ-36_grid_content_align_center_centres_the_capped_column', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { contentWidth: 'readable', contentAlign: 'center' }, content: { items } })
+    expect(html).toContain('content-align-center')
+    expect(gridCss).toMatch(/\.services-grid\.content-align-center\s+\.services-grid__inner\s*\{[^}]*align-items:\s*center/)
+  })
+
+  it('test_UAT_FC_REQ-36_grid_content_align_defaults_left', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
+    expect(html).toContain('content-align-left')
+  })
+
+  it('test_UAT_FC_REQ-36_footer_accent_muted_uses_the_mid_gold', async () => {
+    const html = await render(Footer, { variant: 'minimal', dials: { surface: 'accent-muted' }, content: { copyrightHolder: 'Acme' } })
+    expect(html).toContain('surface-accent-muted')
+    expect(footerCss).toMatch(/\.footer\.surface-accent-muted\s*\{[^}]*background:\s*var\(--color-accent-mid\)/)
+  })
+})

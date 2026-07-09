@@ -69,6 +69,10 @@ const cardTitleFont = dials.cardTitleFont ?? 'heading'
 // sets the icon beside the title on a header row with the body spanning full
 // width below (the reference "How It Works" step cards).
 const iconLayout = dials.iconLayout ?? 'top'
+// Constrained-column alignment (REQ-36) — with a capped `contentWidth`, `left`
+// (default) pins the column to the frame's left gutter (REQ-45); `center` centres
+// it in the band (the reference "How It Works" grid is a centred narrow column).
+const contentAlign = dials.contentAlign ?? 'left'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 
@@ -99,6 +103,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `gap-${gap}`,
     `size-${size}`,
     `content-width-${contentWidth}`,
+    `content-align-${contentAlign}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -202,6 +207,11 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.content-width-narrow .services-grid__inner > * { max-width: var(--container-narrow); width: 100%; }
   .services-grid.content-width-readable .services-grid__inner > * { max-width: var(--container-readable); width: 100%; }
   .services-grid.content-width-wide .services-grid__inner > * { max-width: var(--container-wide); width: 100%; }
+  /* Constrained-column alignment (REQ-36) — `center` centres the capped column in
+     the band (the reference centred narrow "How It Works" grid); `left` (default)
+     keeps the REQ-45 left-gutter pin. */
+  .services-grid.content-align-center .services-grid__inner { align-items: center; }
+  .services-grid.content-align-center .services-grid__inner > * { margin-inline: auto; }
 
   .services-grid__heading {
     margin: 0;
