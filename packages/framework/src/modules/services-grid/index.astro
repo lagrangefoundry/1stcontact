@@ -59,6 +59,12 @@ const size = dials.size ?? 'md'
 // Constrained content column (REQ-45): `default` fills the frame; a capped
 // column pins to the frame's left gutter (the section flex default).
 const contentWidth = dials.contentWidth ?? 'default'
+// Card title weight + face (REQ-36) — the reference's Offerings card titles are
+// thin Oswald (`extralight`) and its "How It Works" titles are Karla `body`
+// regular, not the default semibold heading face. `semibold`/`heading` (defaults)
+// leave a grid that omits the dials unchanged.
+const cardTitleWeight = dials.cardTitleWeight ?? 'semibold'
+const cardTitleFont = dials.cardTitleFont ?? 'heading'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 
@@ -128,7 +134,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
                 : <span aria-hidden="true">{item.icon}</span>}
             </div>
           )}
-          <h3 class="services-grid__card-title">{item.title}</h3>
+          <h3 class:list={['services-grid__card-title', `ctw-${cardTitleWeight}`, `ctf-${cardTitleFont}`]}>{item.title}</h3>
           <div class="services-grid__card-body" set:html={bodyHtml} />
           {item.checklist && item.checklist.length > 0 && (
             <ul class="services-grid__checklist">
@@ -379,6 +385,17 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     font-family: var(--font-family-heading);
     font-weight: var(--font-weight-semibold);
   }
+  /* Card title weight (REQ-36) — thin Oswald Offerings titles / regular process
+     titles override the default semibold. */
+  .services-grid__card-title.ctw-extralight { font-weight: var(--font-weight-extralight); }
+  .services-grid__card-title.ctw-light { font-weight: var(--font-weight-light); }
+  .services-grid__card-title.ctw-regular { font-weight: var(--font-weight-regular); }
+  .services-grid__card-title.ctw-medium { font-weight: var(--font-weight-medium); }
+  .services-grid__card-title.ctw-bold { font-weight: var(--font-weight-bold); }
+  /* Card title face (REQ-36) — the process titles are set in the body face (Karla),
+     not the condensed heading face. */
+  .services-grid__card-title.ctf-body { font-family: var(--font-family-body); }
+  .services-grid__card-title.ctf-display { font-family: var(--font-family-display); }
 
   /* Grid intro scale (REQ-20 grid `size` dial) — sizes the grid's own subhead
      (the intro line under the heading). `md` (default) preserves the prior

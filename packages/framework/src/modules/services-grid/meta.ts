@@ -5,6 +5,8 @@ import {
   GAP_DIAL,
   HEADING_CASE_DIAL,
   HEADING_COLOR_DIAL,
+  HEADING_FONT_DIAL,
+  HEADING_WEIGHT_DIAL,
   ICON_FONT_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
@@ -67,6 +69,10 @@ export const servicesGridMeta = {
     // normal band; `two-thirds` sits the grid beside a narrower `third` text
     // column in one `fc-row` (the joyfulculinary Offerings layout).
     width: WIDTH_DIAL,
+    // Row content measure (REQ-36) — when this grid joins a partial-width row,
+    // `readable`/`narrow`/`wide` box the whole row to that centred measure (the
+    // Offerings row is ~768px `readable`); `default` fills the frame (unchanged).
+    rowWidth: CONTENT_WIDTH_DIAL,
     // Grid-wide card chrome (REQ-36 / CAP-1) — `bare` strips the card fill/
     // border/radius/padding so cards read as plain text columns on the band
     // (dark art-directed grids). `default` leaves cards unchanged.
@@ -77,6 +83,11 @@ export const servicesGridMeta = {
     // Heading letter-case (REQ-36) — `upper` uppercases the grid heading + card
     // titles while the DOM text stays literal.
     headingCase: HEADING_CASE_DIAL,
+    // Card title weight + face (REQ-36) — the reference's Offerings card titles
+    // are thin Oswald (`extralight`); its "How It Works" titles are Karla `body`
+    // regular. `semibold`/`heading` (defaults) leave an omitting grid unchanged.
+    cardTitleWeight: HEADING_WEIGHT_DIAL,
+    cardTitleFont: HEADING_FONT_DIAL,
     // Icon rendering (REQ-36) — `icon-font` renders a string card icon as a glyph
     // in the site's declared `IconFont` (Font Awesome), accent-coloured and sized
     // up (the "How It Works" grid); `default` renders it as plain text.

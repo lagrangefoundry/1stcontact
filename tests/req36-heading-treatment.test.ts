@@ -514,3 +514,48 @@ describe('REQ-36 extended spacing + gap scale — airy sections', () => {
     expect(gridCss).toMatch(/\.services-grid\.gap-airy\s+\.services-grid__cards\s*\{[^}]*gap:\s*var\(--space-16\)/)
   })
 })
+
+describe('REQ-36 fc-row content measure — boxing a partial-width row', () => {
+  it('test_UAT_FC_REQ-36_row_boxes_to_a_shared_rowWidth', () => {
+    // A shared `readable` rowWidth boxes the whole row to the centred reading
+    // measure (the ~768px Offerings row) instead of the full-bleed default.
+    const html = composeRow([
+      { html: '<section>text</section>', width: 'third', surface: 'inverse', rowWidth: 'readable' },
+      { html: '<section>grid</section>', width: 'two-thirds', surface: 'inverse', rowWidth: 'readable' },
+    ])
+    expect(html).toContain('class="fc-row w-readable"')
+    expect(ROW_CSS).toMatch(/\.fc-row\.w-readable\s*\{[^}]*max-width:\s*var\(--container-readable\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_row_defaults_to_full_bleed', () => {
+    // No rowWidth (or `default`) → the prior full-bleed row, unchanged.
+    const html = composeRow([
+      { html: '<section>a</section>', width: 'half' },
+      { html: '<section>b</section>', width: 'half' },
+    ])
+    expect(html).toMatch(/class="fc-row"/)
+    expect(html).not.toContain('w-readable')
+  })
+})
+
+describe('REQ-36 services-grid card title weight + face', () => {
+  const items = [{ title: 'Personal Chef Services', body: 'b' }, { title: 'Y', body: 'b' }]
+
+  it('test_UAT_FC_REQ-36_card_title_extralight_thins_the_title', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { cardTitleWeight: 'extralight' }, content: { items } })
+    expect(html).toContain('ctw-extralight')
+    expect(gridCss).toMatch(/\.services-grid__card-title\.ctw-extralight\s*\{[^}]*font-weight:\s*var\(--font-weight-extralight\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_card_title_body_face_uses_the_body_font', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { cardTitleFont: 'body', cardTitleWeight: 'regular' }, content: { items } })
+    expect(html).toContain('ctf-body')
+    expect(gridCss).toMatch(/\.services-grid__card-title\.ctf-body\s*\{[^}]*font-family:\s*var\(--font-family-body\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_card_title_defaults_semibold_heading', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
+    expect(html).toContain('ctw-semibold')
+    expect(html).toContain('ctf-heading')
+  })
+})

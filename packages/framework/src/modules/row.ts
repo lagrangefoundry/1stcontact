@@ -26,9 +26,9 @@ export const ROW_CSS = `/* partial-width band row (REQ-20 / REQ-36) */
 }
 .fc-col { flex: 1 1 0; min-width: 0; }
 .fc-col--two-thirds { flex-grow: 2; }
-/* Row content measure (REQ-36) — `default` (1152px) is the prior full-bleed row;
+/* Row content measure (REQ-36) — default (1152px) is the prior full-bleed row;
    narrower steps box the row to a reference's centred content column (the
-   joyfulculinary Offerings row is ~768px `readable`, centred with wide margins,
+   joyfulculinary Offerings row is ~768px readable, centred with wide margins,
    not sprawling edge-to-edge). Reuses the shared container tokens. */
 .fc-row.w-narrow { max-width: var(--container-narrow); }
 .fc-row.w-readable { max-width: var(--container-readable); }
