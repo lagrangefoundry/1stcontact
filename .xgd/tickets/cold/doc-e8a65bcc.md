@@ -5,7 +5,7 @@ type: doc
 title: 'How-To: Faithful Founder-Site Reproduction (successor runbook)'
 created_by: xgd
 created_at: '2026-07-03T01:39:12.471124+00:00'
-updated_at: '2026-07-03T21:57:46.977631+00:00'
+updated_at: '2026-07-07T22:05:48.122042+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,3 +131,84 @@ When a repro needs a capability the framework lacks, **generalize an existing mo
 ## Transcribe literal text verbatim — including casing
 
 Copy text content exactly as captured; do **not** normalize it (uppercase, title-case, trim punctuation). Casing can carry design: gigabytealchemy's wordmark is the mixed-case string `Gigabyte Alchemy` rendered in **Cinzel**, whose lowercase glyphs are small capitals — so the real capitals `G`/`A` read larger and the rest as small caps. Uppercasing it to `GIGABYTE ALCHEMY` flattens both the content *and* the typographic intent. This was the third repeat of the transcribe-don't-reconstruct failure — the first two were value-level (gold subhead rendered white, wordmark size/gradient); this one is content-level. The values-diff now flags it as a `text` delta, but the rule stands: **the literal text node is a captured value too.**
+
+
+---
+
+## Update (2026-07-07): read the diff *overlay*, measure geometry, hero-first
+
+Hard-won additions from the gigabytealchemy hero pass. The through-line: **the perceptual gate only works if you open the overlay images and measure — quoting its mean and ranked-region *scores* is not reading it.**
+
+### The overlay is the gate — not side-by-side crops, not the mean
+
+`1c diff` writes, per region, a **triptych** into `<bundle>/_diff/`: `region-N-ref.png`, `region-N-ours.png`, `region-N-diff.png`. **Open the `-diff` overlay and read it.** Two failure modes this closes:
+
+- **Side-by-side crops lie.** Placing `ref` and `ours` next to each other lets your eye *snap* misaligned things into "matches." The **overlay** renders misregistration as **doubled/embossed ghosts** you cannot un-see. On this pass, eyeballing crops called the hero "fixed ✓" while it was 14px high with a mis-wrapped body (band mean 25.3 vs page 16.25). Do not judge a region from its `ref`/`ours` crops; judge it from its `diff`.
+- **The aggregate mean under-weights anything over imagery.** Hero text sits over a dark photo, so its deltas barely move the page mean — the one place the number is *least* trustworthy. Read the **per-region list and the 16-band profile**, not just `mean /255`. A low page mean can hide a visibly-wrong front door. (This is the [[REQ-47]]/[[REQ-48]] lesson made concrete; memory [[repro-gate-on-diff-overlay]].)
+
+**Overlay signatures** (extends the watch-list above): *doubled text, one copy offset* = a position offset (measure it); *doubled with the copies diverging down a paragraph* = a **wrap-width** mismatch (the column widths differ, so line breaks drift and the error accumulates); *two different-size ghosts* = a scale/size delta; *a filled colour wash with no doubled edges* = a colour/gradient delta (rare — usually secondary and masked by geometry).
+
+### Measure computed geometry — don't infer px from ghosts
+
+Once the overlay says "position/width/size," turn it into numbers **before** touching config. Drive a headless measurement of the real DOM rather than guessing:
+
+```
+cd tools/generate            # playwright resolves here, not repo root (pnpm layout)
+node -e '<playwright script>' # chromium.launch → page.goto(file://…/storage/dist/<slug>/index.html)
+                              # getBoundingClientRect + getComputedStyle on .hero__inner / h1 / p
+```
+
+Read `top`, `left`, `width`, `fontSize`, `fontWeight`, `lineHeight`, `maxWidth`. For the reference, the same values live in `raw.html` as Tailwind classes — translate them (`pt-80`→320px, `max-w-3xl`→768px, `md:text-4xl`→36px, `font-light`→300). Diff the two tables. This is how the hero deltas were pinned exactly (body column **679 vs 768px**, heading top **306 vs 320px**, subhead weight **400 vs 300**, leading **36 vs 32px**) instead of eyeballed — the difference between a guess and a ticket.
+
+**Offline band diff** to isolate one section: crop the same box from both sides and diff the crops directly, no browser —
+```
+1c crop <ref.png>  --box 0,<y>,1280,<h> --out /tmp/band_ref.png
+1c crop <ours.png> --box 0,<y>,1280,<h> --out /tmp/band_ours.png
+1c diff --ref /tmp/band_ref.png --actual /tmp/band_ours.png --out /tmp/band_diff
+```
+The band's own mean tells you whether a section is above or below the page average (the hero band was 25.3 vs page 16.25 — a red flag the page mean buried).
+
+### Hero is the front door — spend the fidelity budget there
+
+Operator rule ([[hero-fidelity-front-door]]): **every hero decision — content position, column width, weight, leading, gradient — was deliberate; reproduce the hero exactly.** Lower down the page absolute position / font-width / leading matter much less — sub-visual band-stack drift is acceptable and not worth chasing. When triaging gaps, **rank hero deltas above equal-magnitude band-stack deltas**, and don't propose "accept" on a hero delta the way you might for a mid-page block. The hero deltas above each drove framework work ([[REQ-49]]); the analogous mid-page rhythm drift did not.
+
+### Watch-list additions
+
+- **`@font-face` faux-bold.** A mirrored single face with no `font-weight` descriptor declares as 400; a wordmark asking `600` then gets **synthesised faux-bold** — a heavier, distorted glyph. Fix (config): add `weight` to the site-def font declaration so `@font-face` emits `font-weight: 600` and the browser renders the real face with no synthesis. Confirmed on the Cinzel wordmark this pass.
+- **Hero `contentAnchor` is coarse for over-image heroes.** The 3-value enum (top/center/bottom) + the spacing scale cannot express a deliberate large fixed top inset (the reference's `pt-80` = 320px); `center` lands close but ~14px off and cannot be dialed. Tracked as a hero fixed-top-offset primitive in [[REQ-49]] (with subhead content-width, weight, and a finer leading step). Check REQ-49 before assuming these hero knobs exist.
+
+### Process reminder (added)
+
+**Drive from the overlay and the measurement, not the crop and the mean.** The order is: read the region `-diff` overlay → measure computed geometry on both sides → set config to the measured target → re-diff and re-read the overlay. Grading your own change by eye against a number you can influence is self-certification ([[REQ-48]] Tier 4); the overlay + the measured px are the independent check.
+
+
+## Update (2026-07-07, pass 2): fluid-vs-fixed sizing & the single-viewport blind spot
+
+Hard-won from the second gigabytealchemy hero pass. The hero geometry matched at the capture width, `values-diff` was clean on the hero, and the overlay looked fixed — yet the operator's side-by-side (two equal-width browser windows) caught the **headline** and **wordmark** at the wrong size. Both mechanical gates had passed them. Why, and the lessons:
+
+### The single-viewport gates cannot see a fluid-vs-fixed size mismatch
+
+- **Our type scales are fluid (`clamp(min, Nvw, max)`); the captured references use fixed breakpoint steps (`text-4xl` / `md:text-7xl`).** A fluid curve and a step curve **coincide at only one or two widths and diverge everywhere else** — so an element that is pixel-identical at the diff width (1280) is visibly larger or smaller at the operator's window width, and *which* flips with width. Measured wordmark (ours `clamp(48,6vw,72)` vs ref steps 36/48/72): `<640px` ours **bigger**, `~700px` equal, `768–1200` ref bigger, `≥1280` equal.
+- **`1c diff` runs at ONE width; `1c values-diff` reads one computed number per element at one viewport.** Neither can see a size delta that only exists at *other* widths. **"Matched at 1280" ≠ matched across the viewport range.** For any element whose size is fluid, **measure at ≥3 widths (~820 / ~1024 / ~1440), not just the capture width.** (This is precisely the multi-viewport axis in [[REQ-48]]; until it runs by default, do it by hand — extends the older "Match the viewport, or everything lies" note, which only covered matching the *capture's single* viewport.)
+- **The operator eyeballing at a real window width is a valid complementary gate — reconcile the observation, don't defer to the green gate.** Reproduce *their* viewport and measure there before concluding "matched."
+
+### `values-diff` blind spots reconfirmed (computed-value ≠ visual match)
+
+One computed value per element, one viewport. It silently "matched" all of:
+- **responsive behavior** (fluid vs fixed — above);
+- **rendered glyph width** — a `72px` faux-bold or fallback-serif wordmark still computes `fontSize: 72px` while rendering visibly wider than the real face;
+- **within-tolerance accumulation** — the hero body `line-height` (31.5 vs captured 29) passed the jitter-tolerant gate but **doubled visibly in the overlay** down the paragraph. **Clean values-diff ≠ clean overlay — read the overlay even when the numbers pass.**
+
+### Overlay signature refinement (extends the watch-list)
+
+- **A whole block doubled at a *constant* offset = a position delta.** Here: hero inter-element vertical rhythm — the reference's per-element `mb-6` (24px) / `mb-8` (32px) vs our uniform `.hero__inner` `gap` (16px), riding the body ~24px high. Fix the spacing, not the glyphs.
+- **Doubling that *diverges* down a paragraph = line-height OR wrap-width.** Disambiguate by measuring the column width: same width + diverging ⇒ **line-height**; different width ⇒ **wrap**. This pass it was line-height (the 768px column already matched).
+
+### Measurement gotchas (reinforce "drive the DOM")
+
+- **Don't pixel-threshold text extent over a photographic background.** Measuring a gold headline/wordmark by colour-thresholding caught candlelight/brass warm pixels and reported false widths (heading "482px", wordmark sub-regions). Measure geometry from the DOM (`getBoundingClientRect`), never a threshold over imagery.
+- **Verify a webfont actually rendered with `document.fonts.check('600 72px Cinzel')` / `document.fonts` status — not `getComputedStyle().fontFamily`,** which reports the *declared* family ("Cinzel, serif") even when the face failed to load and fell back to a wider serif (the exact "wordmark too wide" symptom). Confirm `loaded` before blaming size/tracking. This pass Cinzel *was* loaded (600) — which is how we ruled font-load out and landed on fluid-vs-fixed.
+
+### Hero fidelity axes — add to the transcription pass
+
+Beyond colour / size / weight / leading / position, the hero also carries **inter-element vertical rhythm** (gaps between headline / sub-line / body) and **responsive sizing behavior** (fixed steps vs our fluid `clamp`). Both are deliberate author choices, both were invisible to the single-width gates, and both need a framework knob to close (tracked on [[REQ-49]]). Check them explicitly — don't declare the front door done on a single-width overlay.
