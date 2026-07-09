@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T23:11:05.005889+00:00'
+updated_at: '2026-07-09T23:21:56.719693+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -338,7 +338,7 @@ fields:
       configuration. This is distinct tooling/ergonomics (launcher + port-collision
       fix), not a behavior of capture, shot, or any framework module, so it is a small
       standalone feature.
-    story_uid: null
+    story_uid: story-5c2f2faa
 ---
 
 # Reconciliation Plan — BUNDLE-3 (bundle-adc60ee8)
