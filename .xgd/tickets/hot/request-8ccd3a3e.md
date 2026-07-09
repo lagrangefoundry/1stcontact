@@ -5,10 +5,10 @@ type: request
 title: 1c launcher script + quiet HMR-port collision
 created_by: xgd
 created_at: '2026-07-03T18:28:17.498615+00:00'
-updated_at: '2026-07-09T21:43:05.781921+00:00'
-completed_at: null
+updated_at: '2026-07-09T23:59:12.098190+00:00'
+completed_at: '2026-07-09T23:59:12.098190+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false

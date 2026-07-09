@@ -5,10 +5,10 @@ type: request
 title: Section background rendered inert when surface dial is set
 created_by: xgd
 created_at: '2026-07-02T21:52:26.172199+00:00'
-updated_at: '2026-07-09T21:43:05.368500+00:00'
-completed_at: null
+updated_at: '2026-07-09T23:59:12.659494+00:00'
+completed_at: '2026-07-09T23:59:12.659494+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3

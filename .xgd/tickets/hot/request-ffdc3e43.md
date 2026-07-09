@@ -5,10 +5,10 @@ type: request
 title: 'services-grid card treatments: accent border, status badge, ✓ checklist'
 created_by: xgd
 created_at: '2026-07-02T18:37:59.320519+00:00'
-updated_at: '2026-07-09T21:43:05.310956+00:00'
-completed_at: null
+updated_at: '2026-07-09T23:59:12.747184+00:00'
+completed_at: '2026-07-09T23:59:12.747184+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 5

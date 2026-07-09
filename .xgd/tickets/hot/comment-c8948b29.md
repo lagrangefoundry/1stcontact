@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-36
 created_by: xgd
 created_at: '2026-07-03T18:02:32.195837+00:00'
-updated_at: '2026-07-09T21:38:03.237587+00:00'
+updated_at: '2026-07-09T23:41:29.688589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2691,5 +2691,476 @@ Region #1 (mean 98.7, 848px tall, the quote→testimonials→process block) is b
 <!-- xgd-chat role="user" ts="2026-07-09T21:38:03.206373+00:00" -->
 #### You
 Please continue - we got cut off
+
+<!-- xgd-turn id="1c8cfc0d-cd2e-4414-a393-2488679ab20e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T22:01:03.544142+00:00" -->
+#### Claude
+You're right to keep pushing. Let me actually read the worst-region overlay at full resolution instead of trusting the mean. Let me get current state and the diff.
+
+I'll read the worst region (#1 — the quote→testimonials→process block, mean 98.7) as ref/ours side by side.
+
+Both are close in this region but I can see real differences: our testimonial panel is **shorter** (missing the carousel dots row + bottom padding), "Owner" renders white not gold, and there's cumulative vertical offset. But the highest-*mean* regions are #2 (footer, 106) and #3 (Holistic/Who-Uses boundary, 115). Let me read those — high mean on a narrow band means something is grossly wrong there.
+
+Region #2 shows the real defect clearly: **our footer starts ~185px lower than the reference's** — the process/footer boundary is badly offset (ref footer gold fills this crop; ours still has grey process band + "Get Started" button until ~185px down). This is the cumulative vertical drift the user keeps seeing. Let me stop whack-a-mole and measure *every* section boundary in both, top-down.
+
+The temp dir was cleaned and sharp needs to resolve from the project. Let me shoot a stable PNG and put the script where sharp resolves.
+
+REF boundaries captured (very useful). The `shot` command is broken (stale `site-schema/dist/types` build artifact) but `diff` screenshots ours internally. Let me find where diff writes the actual PNG so I can measure ours.
+
+Now I have both band tables. Key findings:
+
+| Section | REF | OURS | Issue |
+|---|---|---|---|
+| Hero | 0–799 (800) | 0–799 (800) | ✓ |
+| Holistic (white) | 800–1335 (**536**) | 800–1392 (**593**) | **+57px too tall** (drift injector) |
+| Who-Uses+Offerings (grey) | 1336–2667 | 1393–2682 | starts +57 late |
+| Quote (dark) | 2668–2934 | 2683–2964 | |
+| Testimonials surround | 2935–3489 (**white**) | part of grey run (**grey**) | **wrong band color** |
+| Process (grey) | 3490–4439 (950) | ~984 | ~ok |
+| Footer (gold) | 4441–4742 (**302**) | 4504–4738 (**235**) | **67px too short** |
+
+Total height nearly identical (4744 vs 4739) — so it's *internal distribution*, not overall. Let me view both full pages at matched scale to catch what's "trivially obvious" to the eye.Now ours:At 1280 the two pages are structurally close — which is exactly why the "HUGE gaps" you see may not be showing in my 1280 diff. My strongest hypothesis: **you're viewing at a wider browser window**, where our *fluid* `clamp()` type and container widths diverge hard from the reference's fixed 1280 breakpoints (a catalogued blind spot — my gates only test 1280). Let me verify by shooting ours at a wider viewport.
+
+Only 3 presets (max 1280). Let me serve and screenshot at 1440 with playwright directly to check whether our fluid layout blows up at a wider width than the gate tests.
+
+Good data — our type is *fixed* (65px heading, 768px body) at all widths, so it does **not** blow up fluidly. Let me view ours at 1440 (likely close to the user's window) to see what reads as "huge gaps" there.At 1440 our page holds up (fixed widths, no fluid blow-up) — good. Now I can see the genuinely-off items clearly. Let me crop "How It Works" from both at native resolution — the title wrapping there looks the most visually broken — and read the current config.
+
+Now the "How It Works" defect is crystal clear and it's genuinely bad: **our card titles wrap word-by-word into a narrow column** ("Visit / our / FAQ / page" = 4 lines) because the icon-left grid gives the title too little width, while the reference title sits in a wide column wrapping to 2 clean lines. That's the most visually broken thing on the page. Let me read the icon-left CSS.
+
+The icon-left grid is `auto 1fr` — that *should* give the title room. But the cards are rendering **unequal widths** (card 1 narrow, card 2 wide) — a classic CSS-grid `min-width: auto` overflow: a long unbreakable body word ("Questionnaire") forces its track wider, starving card 1's title. Let me confirm no `min-width: 0` guard exists.
+
+Confirmed — no `min-width: 0` guard, so grid tracks size by content and columns go uneven. This is a real framework bug. Let me set up the fix properly. First, the scope ticket — read REQ-36's current body to preserve it.
+
+Let me make the framework fix (the `min-width: 0` guard) and add supporting tweaks to the icon-left layout.
+
+Now render and verify the process cards are even:
+
+The `min-width: 0` fix worked — columns are now even and titles wrap cleanly ("Visit our / FAQ page" = 2 lines, matching the reference). That was a real framework bug. Now let me batch the config fixes. Let me read the current config.
+
+Columns are even now — real fix. Now the config batch (site-def, exempt from ceremony). Let me read the testimonials/quote/footer modules to edit precisely.
+
+Testimonials surround is white in the ref but grey in ours — but I can't just flip the band surface, because the text-block surface also controls the text color that the green panel inherits (white on green). The panel should own its text color. Let me check the panel CSS.
+
+The panel already forces its own text color (`panel-secondary` sets `color: var(--color-bg)` on line 139) — so flipping the band surface to white is safe. Let me apply the config batch: testimonials surround → white, footer tagline title-case, and check the process titles.
+
+Only "Visit our FAQ page" needs title-casing. Let me apply the config batch.
+
+Testimonials now sits on white with the green panel floating — matching the reference. Let me run the full diff and full test suite, then commit the framework fix.
+
+Mean dropped **24.86 → 18.01** — the testimonials-white fix and min-width fix were big. Now the top regions are the drift injectors: #3 (Holistic +57px too tall) and #2/#5 (footer offset, which cascades from Holistic). Fixing Holistic height clears #3 and shifts the footer up 57px. Let me find the Holistic excess.
+
+Panel padding is fixed at 48px — the Holistic +57 is likely body wrapping/heading. That's thin-sliver drift (region #3, 64px), not strongly visible — I'll defer it. The min-width fix and testimonials-white are the real visible wins. Let me commit the framework fix properly. First the UAT — find the REQ-36 test file.
+
+Tests live in `./tests/`. Let me look at the services-grid card test to add the min-width UAT in the established style.
+
+Let me see the `moduleSource` helper, then add the min-width UAT.
+
+Now let me add the min-width UAT:
+
+15 passed. Let me run the full suite to confirm no regressions.
+
+All 495 pass. Now the free-coding ceremony — version bump and commit.
+
+The version bump edited root `package.json`. Let me clean up my scratch helpers and commit the right files.
+
+Now record the commit on REQ-36 and refresh the body. Let me read the current commits list first.
+
+Committed and recorded. Let me get a fresh full view at 1440 (your likely viewport) to reprioritize the remaining visible gaps.The page is now much more faithful — the process cards are even (min-width fix), testimonials floats on white, footer is title-case. Offerings cramping is actually faithful to the ref (same 768px measure). The one clearly-weaker spot is the **hero logo** — ref shows a clear logo, ours is a faint frame. Let me compare both closely.
+
+Now I see the real logo problem clearly: the **reference logo is DARK script on a LIGHT translucent card**, but ours is a WHITE logo on a DARK frame, and mis-positioned (centered vs left). Let me re-check the capture bundle for a dark logo variant — my earlier "only white exists" conclusion may have been another under-import.
+
+Only one logo asset exists (5344 bytes, same as ours). Let me actually inspect what color it is — view it composited on both dark and light backgrounds.
+
+The logo is pure white with only 341 opaque pixels — suspiciously sparse for a full script wordmark. Let me view it composited on dark and the ref logo region magnified to resolve the contradiction (ref shows dark ink).
+
+On dark, our white logo reads perfectly. So the ref must present it differently. Let me magnify the ref logo region precisely to see its true card background and ink color.
+
+Resolved: the ref logo is also **white ink on a dark translucent card** — ours matches in concept. The real difference is **position** (ours sits center-left, ref is flush-left) and ours has a visible border. Let me check why our logo isn't flush-left.
+
+Our logo sits at x80 (inside the centered 1152 container) vs the ref's ~x30 (nearer the page edge) — a ~50px polish gap, minor. This round's real, visible fixes are landed. Let me record a progress note on REQ-36 (preserving the body) and confirm the server.
+
+Progress recorded. Server is live for you to review.
+
+## 🔗 http://localhost:8799/ (view at ~1280–1440 to match the capture)
+
+This pass I went back to reading the **worst-region diff overlays at full resolution** — not the aggregate mean — and it surfaced two genuinely-broken things I'd walked past:
+
+**1. "How It Works" cards were uneven-width (the ugly one).** A card holding a long unbreakable word ("Questionnaire") forced its `1fr` grid track wider and starved its neighbours — so "Visit our FAQ page" wrapped **word-by-word into 4 lines**. Root cause: CSS grid children default to `min-width: auto`. Fixed with `min-width: 0` on the card track (framework, commit `33ef30e`, v0.0.87, UAT added, 495 tests green). Columns are now even and titles wrap to 2 clean lines like the reference.
+
+**2. Testimonial band surround was grey; the reference is white** — the green panel should float on white. Flipped that band's surface (the green panel already forces its own white text, so it stays green+white). Large-area fix.
+
+Plus footer tagline and process titles → title case.
+
+**Perceptual mean dropped 24.86 → 18.01.** I also did the thing you've rightly pushed on — measured every section boundary in both:
+
+| | REF | OURS |
+|---|---|---|
+| Hero | 800 | 800 ✓ |
+| Holistic | 536 | 593 (**+57 too tall** — drift injector) |
+| Testimonials surround | white | now white ✓ |
+| Footer | 302 | 235 (67 short, starts +63 late from the Holistic cascade) |
+
+**Honest remaining gaps (all minor/polish now):**
+- Holistic panel +57px too tall — cascades the footer offset; thin sliver in the diff.
+- Hero logo ~50px right of the ref (ours is pinned to the centered container). The concept matches — I confirmed the ref logo is *also* white script on a dark translucent card, not the dark-on-light I'd assumed.
+- Quote-band "Owner" renders white; reference is gold.
+
+I'm **not** calling it nailed — take a look and tell me which of the remaining items (or anything I'm still not seeing) bothers your eye most.
+
+<!-- xgd-turn id="a06a08f2-4a0f-475d-b804-c7bc9b1ea0ac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-09T22:05:20.978205+00:00" -->
+#### You
+I'm sorry but it is far from nailed. I am really troubled at your inability to see the gaps there are 3 massive gaps:
+- Wrong image used in one place
+- Missing image in another
+- Entire text box missing
+
+Can you find those issues?
+
+<!-- xgd-turn id="a06a08f2-4a0f-475d-b804-c7bc9b1ea0ac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T22:27:19.589862+00:00" -->
+#### Claude
+You're right, and I've been too focused on pixel-level finish while missing whole-element structural gaps. Let me stop theorizing and look — reference and my render side by side, plus the reference's full content inventory to catch missing images/text boxes.
+
+Let me render fresh and get both full-page images, plus the reference content inventory.
+
+Let me read the reference content inventory to enumerate every image and text block it contains, then compare to my config.
+
+The capture flattened to one section. Let me enumerate every actual image in the reference DOM and where it sits, then compare with what my config uses.
+
+Now — where does each `<img>` sit in the DOM? Let me find the context around each, especially `IMG_8708` (chef portrait), which I may have skipped.
+
+Strong finding from DOM order. Let me actually view the images to confirm content, and check what my config currently maps.
+
+Let me view the reference card images and my downscaled copies to confirm the mapping.
+
+Clear: `10`=baby feet, `9`=kids cooking, `13`=woman portrait, `IMG_8708`=**chef plating food** (never used in my render). Now let me crop the reference's Offerings region to see the real card mapping and where IMG_8708 sits.
+
+The three service columns are text-only in this crop — the images must be above. Let me crop higher to see the tops of the columns and the "Our Offerings" intro.
+
+The reference cards have image slots (blank grey here — lazy-load, BUG-3). Let me read my current Offerings grid config to see exactly which title maps to which image.
+
+My current mapping puts the **woman portrait (13.png) on Personal Chef Services**. Let me definitively resolve the true DOM grouping by parsing the Elementor widget structure between the images.
+
+Definitive — Elementor image-boxes put image first, then heading:
+- **Personal Chef Services → IMG_8708** (chef plating) — I wrongly used 13.png (woman portrait)
+- **Postpartum → 10.jpg** (baby feet) ✓ mine correct
+- **Cooking → 9.jpg** (kids) ✓ mine correct
+- **13.png (woman portrait) belongs elsewhere** — not the cards
+
+Let me find where 13.png actually sits and check the testimonials/quote region for the missing text box.
+
+13.png sits in the **quote band** (between "eating your veggies" and "What people are saying") — it's Chef Sarah Joy's portrait beside the quote. Let me view the reference quote band to confirm.
+
+The quote band's chef portrait (13.png) also didn't load in the capture (blank). Now let me see MY current render at these regions to compare what I actually produced. Let me screenshot my dist.
+
+Confirmed **GAP 1**: my Personal Chef card shows the woman portrait (13.png) — should be the chef-plating photo (IMG_8708). Postpartum (baby feet) and Cooking (kids) are correct. Now let me compare my quote band against the reference to find the missing image and text box.
+
+My quote band + testimonials match closely (both show no chef photo — 13.png lazy-loaded blank in the capture; on the live site it appears). Now the **missing text box** — the capture inventory had 4 extra ITEM bodies ("plant-based-centric…", "serve San Francisco…Bay Area"). Let me check where those sit and whether my render has them.
+
+The four ITEM texts sit at offset ~51930–52535. Let me place them relative to section headings and find them in the reference screenshot.
+
+The four ITEMs are actually the **body of THE HOLISTIC APPROACH** (heading @51571, this text @51930, next heading @53979). Let me check what my Holistic section currently contains.
+
+My Holistic body is present and correct. So no whole section is missing — the missing text box is *within* a section. Let me compare the top region (hero → Holistic → Who-Uses) between reference and mine.
+
+Holistic matches. Let me get a full-page side-by-side to spot the missing text box structurally — this is the most reliable way to catch a whole missing block.
+
+Structurally very close. For the missing text box, let me do a definitive text diff — extract all text from the reference's rendered DOM vs my render and find what's present in the reference but absent in mine.
+
+Two real finds: **"How it works"** and **"Weekly meals are prepared in your home…"** are in the reference but absent from mine. Let me place them — they're likely a heading + intro text box on the process section.
+
+Confirmed — the process section in the reference has a **"How it works" heading + a "Weekly meals are prepared…" intro text box** before the 6 cards; mine has neither. Let me get the full intro text and view that region in the reference.
+
+Found all three. Let me confirm the mechanism for the quote-band image before I report, so my fix plan is accurate.
+
+Yes — I found all three, and I now understand why I kept missing them: **all three are invisible in the capture screenshot I'd been gating on.** Reading the DOM (not the screenshot) makes them obvious.
+
+## The three gaps
+
+**1. Wrong image — Personal Chef Services card**
+My card shows the **woman portrait** (`13.png`). The DOM proves that image belongs elsewhere. Elementor image-boxes put the image *before* the heading, and the order is:
+- `IMG_8708` (chef **plating food**) → **Personal Chef Services**
+- `10.jpg` (baby feet) → Postpartum ✓ (mine correct)
+- `9.jpg` (kids cooking) → Cooking ✓ (mine correct)
+
+So my Personal Chef card should show **IMG_8708 (chef at work)**, not the woman portrait.
+
+**2. Missing image — the quote band**
+`13.png` (Chef Sarah Joy's portrait) is a **testimonial-image** inside the "It's not just about eating your veggies" band (`elementor-testimonial-image`, alt="Chef Sarah Joy"). On the live site her photo sits beside "Chef Sarah Joy / Owner." My quote band has **no photo at all** — I'd wrongly consumed `13.png` on the Personal Chef card.
+
+**3. Missing text box — the "How It Works" section**
+The reference process section opens with a **"How it works" heading + an intro paragraph**:
+> "Weekly meals are prepared in your home and are personalized to your tastes and dietary requirements. Meals are packaged and placed in the refrigerator with reheating instructions; Along with Chef Sarah Joy, you will decide on the number of days and servings of meals to prepare."
+
+My process section has **neither** — it jumps straight to the six step-cards.
+
+## Why I kept missing them (the real lesson)
+Every one of these is **blank in `screenshot.full.png`**:
+- The three card images and the quote portrait are **lazy-loaded** → captured blank (BUG-3).
+- The "How it works" heading + intro use a **`fadeIn` animation with delay** → captured at opacity 0, invisible.
+
+So the perceptual diff and side-by-side literally *can't* see them — the reference itself is blank there. They're only visible by reading `raw.html`/`rendered.html`, which is exactly what DOC-19 says ("transcribe from the DOM, not the screenshot") — and I hadn't applied that to images and animated text. That's a genuine process gap, and it's the same root cause as BUG-3.
+
+Let me fix all three now. First, confirm whether `services-grid` can carry a heading+intro (gap 3) or if I add a text-block, and import IMG_8708.
+
+`services-grid` already supports `heading` + `subhead` — so **gap 3 is pure config**. Gap 1 is config (swap the image). Gap 2 (portrait in the quote band, a `hero`) will need a hero foreground-image capability. Let me apply the two config fixes first.
+
+Now gap 3 — add the "How it works" heading + intro to the process grid. Let me read its config block.
+
+Gaps 1 & 3 config-fixed. Let me render and verify both before tackling gap 2.
+
+Height grew to 5072 (the intro text box added height). Let me crop from the right directory.
+
+**Gap 1 fixed** — Personal Chef card now shows the chef plating food. Now gap 3:
+
+**Gap 3 fixed** — "HOW IT WORKS" heading + intro now render above the cards. Both config gaps done.
+
+Now **gap 2** — the quote band (a `hero`) needs Chef Sarah Joy's portrait. Hero has no foreground-image support, so this is a framework generalization → free-coding. Let me scope it on REQ-36 first, then read the hero module.
+
+Hero only uses `content.image` for the background. I'll add an optional foreground **portrait** (circular avatar) — a clean hero generalization. Let me read the exact render + subhead area and the meta contentSchema.
+
+Now let me implement the hero portrait capability. First the meta — add a `portraitShape` dial and `portrait` content field:
+
+Now the render — destructure `portrait`, read the dial, render the avatar above the subhead, and add CSS.
+
+Now render the avatar between the divider and the subhead:
+
+Now the CSS. Let me find the `.hero__divider` rule to place the portrait styles nearby.
+
+Now import the portrait asset and wire it into the quote-band config:
+
+Now render and verify the quote band portrait:
+
+The shot ran (height 5216); the crop failed on cwd. Let me crop from repo root.
+
+**All three gaps fixed.** Gap 2 — the quote band now shows Chef Sarah Joy's circular portrait. Now the free-coding ceremony for the hero-portrait framework change. Let me find the test file and add a UAT.
+
+I'll add a UAT block for the hero portrait, matching the established pattern:
+
+68 pass (2 new). Let me run the full suite to confirm no regressions.
+
+All 497 pass. Now the free-coding ceremony — version bump and commit the hero-portrait framework change (config/asset edits ride along, exempt).
+
+Version lives in `package.json` for this JS project. Let me stage it and commit.
+
+Now record the commit on REQ-36 and add a progress note. Let me read the current ticket state first.
+
+Let me append a progress note documenting this round (preserving the body).
+
+All three fixed and the framework change is committed and recorded. Let me record the process lesson (DOC-19 + memory) and restart the server for review.
+
+Let me append the lesson to DOC-19 (the runbook future sessions read), then summarize.
+
+All three gaps found, fixed, and verified. Here's the summary.
+
+## The three gaps — found and fixed
+
+| # | Gap | Root cause | Fix |
+|---|-----|-----------|-----|
+| 1 | **Wrong image** — Personal Chef card showed the woman portrait (`13.png`) | DOM image-box order (image *before* heading) proves Personal Chef → `IMG_8708` (chef plating) | **config**: imported `chef-plating.jpg` onto the card |
+| 2 | **Missing image** — quote band had no photo | `13.png` is an `elementor-testimonial-image` (Chef Sarah Joy) in the quote band; I'd wrongly consumed it on the card | **framework**: new hero `portrait` capability → circular avatar now sits above "Chef Sarah Joy / Owner" |
+| 3 | **Missing text box** — process section jumped straight to cards | Reference opens with a `How it works` heading + intro paragraph | **config**: `services-grid` already supports `heading`/`subhead` — added both |
+
+Verified each region visually: Personal Chef card now shows the chef plating food, the quote band shows her circular portrait, and "HOW IT WORKS" + the intro paragraph render above the six steps.
+
+## Why I kept missing them — the real lesson
+
+**All three are blank in `screenshot.full.png`.** The images are `loading="lazy"` (below-fold, never triggered — same as BUG-3), and the "How it works" heading+intro use an Elementor `fadeIn` animation captured at opacity 0. So the reference itself shows nothing there — `1c diff` and side-by-side crops **structurally cannot** flag them. They're only visible by reading `raw.html`/`rendered.html`.
+
+DOC-19 already says "transcribe from the DOM, not the screenshot" — but I'd applied that to text *values*, never to the **inventory** of images and animated text. I've now recorded that as a process fix (DOC-19 + memory): per section, enumerate every `<img>` and its DOM position, and diff all reference text nodes against the render — don't trust the pixel gate for lazy/animated content. I also mis-mapped a card image earlier by guessing from image *content*; DOM adjacency is the authority.
+
+## Bookkeeping
+- Hero portrait is free-coded: `08478c2` `[FREE-CODED]`, v0.0.88, 2 UATs, **full suite 497 green**, sha recorded on REQ-36.
+- Gaps 1 & 3 are config/asset (exempt). Ticket body updated with a round-5 note.
+- **Server live: http://localhost:8799/**
+
+Take a look — and if there are more gaps like these hiding in the lazy/animated layer, tell me which section and I'll enumerate its DOM directly rather than trusting the diff.
+
+<!-- xgd-turn id="c91502e4-2d17-4f09-bc7a-98fe11ea8dbe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-09T22:27:54.609972+00:00" -->
+#### You
+**All three are blank in **`screenshot.full.png`**.** The images are `loading="lazy"` (below-fold, never triggered — same as BUG-3), and the "How it works" heading+intro use an Elementor `fadeIn` animation captured at opacity 0. So the reference itself shows nothing there — `1c diff` and side-by-side crops **structurally cannot** flag them. They're only visible by reading `raw.html`/`rendered.html`. <-- can we force loading. We're going to see this all the time the render has to include everything on the page
+
+<!-- xgd-turn id="c91502e4-2d17-4f09-bc7a-98fe11ea8dbe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T22:39:10.255858+00:00" -->
+#### Claude
+You're right — this isn't a per-site patch, it's a capture-pipeline gap. If the reference screenshot doesn't include lazy/animated content, **every** repro will silently drift there and no gate will catch it. Let me fix the capture itself: force lazy images to load and settle animations to their end-state before the screenshot. First, let me find the capture code.
+
+The reference capture driver is `capture/playwright-driver.ts`. Let me read it.
+
+The `open()` never scrolls (to trigger lazy-load/IntersectionObserver animations) and never settles animations. Let me check whether our own `shot.ts` shares this driver before deciding scope.
+
+Both `1c shot` (our render) and `1c capture` (reference) share this one `PlaywrightDriver.open()` — so fixing it here fixes everything. Let me read the top of `open()` to see response collection before I insert the settle step.
+
+Key insight: line 62 already sets `reducedMotion: 'reduce'` — that freezes *motion* but not the *triggers*. Elementor's below-fold lazy images and `fadeIn` blocks stay unrequested / `.elementor-invisible` until their IntersectionObserver fires **on scroll** — and the page is never scrolled. That's the real root cause. Let me check how existing tests exercise this driver (real browser vs fake).
+
+Good — there's an established `chromiumAvailable()` gate for real-browser tests. Let me look at req47's pattern (it navigates the real driver to a fixture).
+
+Clean pipeline-level pattern via `cmdCapturePage` against a served fixture. Let me check the fixtures dir, `serveDir`, and what the capture result exposes.
+
+Let me scope this on REQ-36 first (protocol), then implement.
+
+Now implement `settlePage()` and wire it into `open()`:
+
+Now add the `settlePage()` method (before the `screenshot()` method):
+
+Now the fixture and UAT. Let me look at the existing fixture structure and `serveDir`.
+
+Let me create the fixture reproducing the exact blind spot — a below-fold `.elementor-invisible` fadeIn block (revealed only by IntersectionObserver) plus a lazy image.
+
+All 4 pass including the real-Chromium capture tests. Let me confirm Chromium actually ran (not a silent skip) so I know the end-to-end assertion is real.
+
+Let me prove the test has teeth — temporarily disable the settle call and confirm the below-fold assertion fails, then restore.
+
+The proof worked — the below-fold assertion fails without the fix. But `git checkout` also reverted my uncommitted `settlePage` edits. Let me re-apply both.
+
+Fix restored. Let me re-verify the capture test passes, then run the full suite.
+
+All 501 green (+4 new). Let me version-bump and commit the capture fix.
+
+Let me verify what the hero-portrait commit actually contains before committing again.
+
+Important catch — commit 08478c2 only captured the version bump and a scratch-file deletion; the hero-portrait **code and its UAT were never committed** (my earlier `git add` aborted silently on a non-existent `xgd_source/__init__.py` pathspec). The hero code is on disk and working, just uncommitted. Let me commit all the real REQ-36 code now — hero portrait + capture settle + their UATs — in one honest `[FREE-CODED]` commit.
+
+Now record the new sha on REQ-36 and note the correction (hero code actually landed in `8680a48`, not `08478c2`).
+
+Let me verify the ledger and working tree are clean.
+
+Done — and yes, this is exactly the right instinct: it's fixed at the **capture pipeline**, not per-site.
+
+## What changed
+
+`PlaywrightDriver.open()` — the single seam behind **both** `1c capture` (the reference) and `1c shot` (our render) — now runs `settlePage()` before any screenshot or query:
+
+1. **Collapses** entrance-animation/transition timing to ~0 and forces Elementor's `.elementor-invisible` visible → `fadeIn` blocks show their end frame, not opacity 0.
+2. **Scrolls the full height** in viewport steps → trips the IntersectionObservers that drive lazy-image loading *and* entrance animations, then returns to top.
+3. **Promotes** any residual lazy `<img>` to `eager` and **waits** for every image to decode, then `networkidle`.
+
+It runs before the response-drain loop, so lazy subresources also mirror into the offline bundle. Best-effort throughout — a page without these patterns is unaffected.
+
+## Root cause, precisely
+Line 62 already set `reducedMotion: 'reduce'` — that froze *motion* but not the *triggers*. Below-fold lazy images and `fadeIn` text stay unrequested / hidden until their observer fires **on scroll**, and nothing ever scrolled. So `screenshot.full.png` silently omitted real content and no pixel gate could see the gap.
+
+## Proven with teeth
+New real-Chromium UAT (`test_UAT_FC_REQ-36_capture_*`) captures a fixture reproducing the exact Elementor pattern (below-fold `.elementor-invisible` fadeIn block + lazy image). I confirmed it **fails without the fix** (the block never enters the projection) and **passes with it**. Full suite **501 green**.
+
+## One correction I have to flag
+While committing, I caught that my *earlier* hero-portrait commit `08478c2` contained only the version bump — its `git add` had aborted silently on a bad pathspec, so the hero code + its UAT never actually landed. I've committed the real code (hero portrait **and** the capture fix, with both UATs) in **`8680a48`** `[FREE-CODED]` v0.0.89, and corrected the ticket's commit ledger. Nothing was lost — the code was on disk and working the whole time — but the commit didn't match its message, and I'd rather tell you than leave it.
+
+## One thing I did *not* do
+I haven't re-captured the live joyfulculinary reference — that would overwrite the stored baseline bundle (`screenshot.full.png` + `capture.json`) that the whole repro is gated against. If you want, I can re-capture it so the reference itself shows the now-loaded content — just confirm, since it mutates the baseline.
+
+<!-- xgd-turn id="72ca0cd4-c0ee-45c4-8f87-71bb049a0632-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-09T23:35:39.181098+00:00" -->
+#### You
+Ok I'd like to try an exercise, can we go element by element lets start with text elements and I would like you to validate, for example:
+- font family
+- font size and weight
+- font color
+- text alignment
+- text box shading color, size and position
+- text box corner type
+
+Lets start with the navigation bar
+Then the hero heading, subtitle and CTA
+
+<!-- xgd-turn id="72ca0cd4-c0ee-45c4-8f87-71bb049a0632-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-09T23:41:29.653166+00:00" -->
+#### Claude
+Good exercise — this is exactly how to catch the subtler drift. Before any fixes, let me pull the **computed** styles for each element from both sides: the reference's `capture.json` (values extracted at capture time) and my live render (via the browser). Let me first see what per-element style fields the reference actually stored.
+
+`capture.json` stores authoritative typography (family/size/weight/color/leading/tracking) but **not** alignment, box background, geometry, or corner radius. For those I need full computed styles. Let me check whether I can serve the local reference bundle (so I query the real reference styles without touching the baseline or the network).
+
+The bundle has all CSS locally but `rendered.html` references them by absolute URL. Let me check whether `capture.json`'s `assets` maps URLs → local files (so I can serve the reference faithfully offline).
+
+The manifest maps each absolute URL → local asset. I can serve the reference faithfully offline. But first, let me check if the live reference is reachable — read-only queries against it are ground-truth and simplest (no baseline mutation).
+
+Live is reachable, but the **captured baseline** (not today's live site) is the authoritative reference. Let me serve the offline bundle faithfully by rewriting `rendered.html`'s absolute URLs to the local mirrored assets. First, the URL→local map.
+
+The manifest gives `src` → `localPath`. Let me build a validation harness that serves the offline reference bundle (rewritten to local assets) and my render, then extracts computed styles element-by-element. Starting with the nav bar and hero.
+
+The offline reference rendered unstyled (my URL rewrite missed the CSS wiring — "Times/16px" = browser defaults). Rather than fight that, I'll use the **authoritative source per attribute**: `capture.json` for the reference's typography (extracted from the live site at capture time), and a **read-only live-site query** for the attributes capture.json lacks (alignment, box background, corners). Let me pull the reference typography from `capture.json` first.
+
+Authoritative reference typography captured. Now the remaining attributes (alignment, box shading/size/position, corners) — let me query them from the **live** reference (read-only) and from my render, and cross-check the live typography against `capture.json`.
+
+Here's the element-by-element validation. **Reference typography is from `capture.json`** (the authoritative captured baseline); **alignment / box / corners are from a live read-only query**. Mine is from the current render. One caveat surfaced: the *live* nav has been restyled since capture (live shows Lato 16/600) — for the repro, the captured baseline governs, so I validate against that.
+
+## 1. Nav bar — link ("Meet the Chef")
+
+| Attribute | Reference (baseline) | Mine | |
+|---|---|---|---|
+| font family | **Oswald** | Karla | ❌ |
+| font size | 22px | 22px | ✅ |
+| font weight | **300** (light) | 500 | ❌ |
+| color | #ffffff | #ffffff | ✅ |
+| line-height | 26px | ~26px (normal) | ✅ |
+| text-align | left/start | start | ✅ |
+| bar shading | transparent overlay on hero | transparent overlay | ✅ |
+| corners | 0px | 0px | ✅ |
+
+**Miss:** wrong family (Karla → should be **Oswald**) and weight (500 → **300**).
+
+## 2. Hero heading ("Dreaming of healthier meals / on your dinner table?")
+
+| Attribute | Reference | Mine | |
+|---|---|---|---|
+| font family | Oswald | Oswald | ✅ |
+| font size | 65px | 65px | ✅ |
+| font weight | 500 | 500 | ✅ |
+| color | #ffffff | #ffffff | ✅ |
+| line-height | 75px | 74.75px | ✅ |
+| text-align | left | left | ✅ |
+| box / corners | transparent, none | transparent, none | ✅ |
+
+**Clean** — all match.
+
+## 3. Hero subtitle ("Holistic In-Home Personal Chef Services for the busy family")
+
+| Attribute | Reference | Mine | |
+|---|---|---|---|
+| font family | Lato | Lato | ✅ |
+| font size | 28px | 28px | ✅ |
+| font weight | 300 | 300 | ✅ |
+| color | #ffffff | #ffffff | ✅ |
+| letter-spacing | **−1px** | normal (0) | ❌ |
+| line-height | 42px (1.5) | 40.6px (1.45) | ⚠️ minor |
+| text-align | left | left | ✅ |
+| box / corners | transparent, none | transparent, none | ✅ |
+
+**Miss:** letter-spacing (0 → should be **−1px**); leading a hair tight (1.45 → **1.5**).
+
+## 4. Hero CTA ("Learn More")
+
+| Attribute | Reference | Mine | |
+|---|---|---|---|
+| font family | **Raleway** | Karla | ❌ |
+| font size | **13px** | 16px | ❌ |
+| font weight | **500** | 600 | ❌ |
+| color | #ffffff | #ffffff | ✅ |
+| text-align | center | start | ❌ (minor, single line) |
+| button shading | gold `rgb(248,187,27)` | gold `rgb(248,187,27)` | ✅ |
+| **corner radius** | **2px** | 0px | ❌ |
+| padding | 10×20px | 12×24px | ⚠️ |
+| button size | 115×39 | 131×43 | ⚠️ (follows font/padding) |
+
+**Misses:** wrong family (Karla → **Raleway**), size (16 → **13px**), weight (600 → **500**), square corners (0 → **2px** rounded), text not centered; button runs larger as a result.
+
+---
+
+## Summary of drift found
+- **Nav link:** Oswald/300, not Karla/500.
+- **Hero heading:** ✅ pixel-faithful.
+- **Hero subtitle:** needs −1px tracking and 1.5 leading.
+- **Hero CTA:** the biggest miss — should be small **Raleway 13px/500, centered, 2px rounded**; mine is Karla 16px/600 square.
+
+These all look like **config/dial** corrections (header nav font+weight, hero subhead tracking+leading, CTA font/size/weight/align/radius) rather than framework gaps — though I should confirm the CTA supports a `13px`-class size, a `2px` radius, and Raleway before I promise that. Want me to (a) verify those dials exist and apply the fixes now under REQ-36, or (b) keep validating more elements first and batch the fixes after?
 
 <!-- xgd-chat-end -->

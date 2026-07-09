@@ -5,10 +5,10 @@ type: request
 title: 'Renderer hardening: fail loud on dangerous content (unsafe URL schemes / injection)'
 created_by: xgd
 created_at: '2026-07-06T18:48:44.667679+00:00'
-updated_at: '2026-07-08T18:58:57.451037+00:00'
+updated_at: '2026-07-09T23:59:26.869239+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
@@ -18,6 +18,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.47
+  bundled_in: bundle-df065afc
 ---
 
 ## Goal

@@ -6,10 +6,10 @@ title: 'Fidelity-diff: severity-ranked structural diff over a richer rendered pr
   (geometry/containment/arrangement), not pixel area'
 created_by: xgd
 created_at: '2026-07-06T22:10:21.251471+00:00'
-updated_at: '2026-07-08T18:59:02.020061+00:00'
+updated_at: '2026-07-09T23:59:26.996647+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 8
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.48
+  bundled_in: bundle-df065afc
 ---
 
 ## Scope

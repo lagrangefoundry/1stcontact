@@ -6,10 +6,10 @@ title: Small module dials for gigabytealchemy import (hero heading / header alig
   / stacked grid)
 created_by: xgd
 created_at: '2026-07-02T21:52:37.086720+00:00'
-updated_at: '2026-07-09T21:43:05.425914+00:00'
-completed_at: null
+updated_at: '2026-07-09T23:59:12.575340+00:00'
+completed_at: '2026-07-09T23:59:12.575340+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 2

@@ -5,9 +5,9 @@ type: request
 title: Faithful reproduction of joyfulculinarycreations.com (personal-chef site)
 created_by: xgd
 created_at: '2026-07-03T18:00:22.857118+00:00'
-updated_at: '2026-07-09T21:37:57.577967+00:00'
+updated_at: '2026-07-09T22:38:32.182048+00:00'
 completed_at: null
-last_field_updated: commits
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -36,6 +36,9 @@ fields:
   - 1b560de
   - 8f20680
   - 2b4b823
+  - 33ef30e
+  - 08478c2
+  - 8680a48
 ---
 
 ## Goal
@@ -259,3 +262,25 @@ Perceptual mean 41.9 → 24.48. Committed framework generalizations: fc-band sha
 - Content measure readable(768) vs reference ~700 — minor line-wrap drift.
 
 Note: commit 1b560de recorded above was a stale-lock misfire (points to a ticket commit, not code); the actual icon-left layout commit is 8f20680.
+
+
+## Round 5 (2026-07-09) — three DOM-only gaps the screenshot gates hid
+
+Operator flagged three "massive" gaps the perceptual/side-by-side gates missed. Root cause: **all three are blank in `screenshot.full.png`** (lazy-loaded images + `fadeIn`-animated text captured at opacity 0), so no pixel gate could see them — they are visible only by reading `raw.html`/`rendered.html`. Same class as [[BUG-3]]; the `fadeIn`-invisible-text case is a new capture blind spot worth a follow-up.
+
+1. **Wrong image — Personal Chef card.** Used `13.png` (woman portrait); DOM image-box order proves Personal Chef → `IMG_8708` (chef plating), Postpartum → `10.jpg`, Cooking → `9.jpg`. Fixed (config): imported `chef-plating.jpg`.
+2. **Missing image — quote band.** `13.png` is an `elementor-testimonial-image` (Chef Sarah Joy) inside the quote band; mine had no photo. Fixed via new **hero `portrait` capability** (free-coded, commit 08478c2, v0.0.88): optional foreground avatar + `portraitShape` dial (circle default), rendered above the subhead. `chef-portrait.jpg` wired into the quote band.
+3. **Missing text box — How It Works.** Reference process section opens with a `How it works` heading + intro ("Weekly meals are prepared in your home…"). `services-grid` already supports `heading`/`subhead` — fixed (config).
+
+Gaps 1 & 3 are config/asset (exempt). Gap 2 is the only framework change. Full suite 497 green. Process lesson recorded for DOC-19: **enumerate images + animated text from the DOM, not the screenshot** — pixel gates are blind to lazy/animated content.
+
+
+## Round 6 (2026-07-09) — capture settles lazy/animated content before the screenshot (systemic fix)
+
+Behavior: the shared `PlaywrightDriver.open()` (backing both `1c capture` of the reference and `1c shot` of our render) now **settles below-fold lazy/animated content before any screenshot or query**, so `screenshot.full.png` and every downstream pixel gate actually include the whole page. Root cause of the round-5 blind spots: `reducedMotion:'reduce'` (line 62) freezes *motion* but not the *triggers* — Elementor lazy images and `fadeIn` blocks stay unrequested / `.elementor-invisible` (opacity/visibility 0) until their IntersectionObserver fires on scroll, and the page was never scrolled.
+
+Fix (`settlePage()`): (1) inject CSS collapsing animation/transition duration+delay to ~0 and forcing `.elementor-invisible` visible; (2) scroll the full height in viewport steps to trip lazy-load + entrance observers, return to top, promote residual lazy imgs to eager; (3) await all images decoded; (4) await `networkidle`. Runs before the response drain so lazy subresources also mirror into the offline bundle. Best-effort throughout — a page without these patterns is unaffected. UAT: `test_UAT_FC_REQ-36_capture_*`. Relates to BUG-3 (lazy imgs) and the DOC-19 round-5 note.
+
+
+### Correction (round 6): commit ledger
+Commit `08478c2` (recorded round 5 for the hero portrait) contains only the version bump + a scratch-file deletion — its `git add` aborted silently on a non-existent pathspec, so the hero module code + `test_UAT_FC_REQ-36_hero_portrait_*` never landed there. The actual hero-portrait code AND the capture `settlePage()` code + `test_UAT_FC_REQ-36_capture_*` both land in **`8680a48`** (v0.0.89, `[FREE-CODED]`). Full suite 501 green; the capture UAT was proven to fail without the fix (below-fold fadeIn block absent from the projection) and pass with it.

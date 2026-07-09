@@ -6,10 +6,10 @@ title: 'Conformance harness core: assertModuleConforms + one-module isolation + 
   safety checks + negative-fixture self-tests (Chromium)'
 created_by: xgd
 created_at: '2026-07-03T23:16:47.175283+00:00'
-updated_at: '2026-07-06T18:13:57.867789+00:00'
+updated_at: '2026-07-09T23:59:26.601085+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
@@ -19,6 +19,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.43
+  bundled_in: bundle-df065afc
 ---
 
 ## Goal

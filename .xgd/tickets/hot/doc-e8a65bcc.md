@@ -5,7 +5,7 @@ type: doc
 title: 'How-To: Faithful Founder-Site Reproduction (successor runbook)'
 created_by: xgd
 created_at: '2026-07-03T01:39:12.471124+00:00'
-updated_at: '2026-07-09T17:49:41.097722+00:00'
+updated_at: '2026-07-09T22:26:56.294641+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -285,3 +285,13 @@ capture's CSS** (`lato.css` etc.). Specifically:
 - `1c shot` does **not** trigger lazy-loaded below-fold images — they capture blank, so the
   perceptual gate can't see them (I had to eager-load the card media to gate it). The shot should
   scroll/await lazy images before capturing. Another gate blind spot, kin to the pass-3 list.
+
+
+## Update (2026-07-09, REQ-36 round 5): enumerate images + animated text from the DOM — the pixel gates are blind to them
+
+Three "massive" gaps (wrong card image, missing quote-band portrait, missing "How It Works" heading+intro) survived many diff passes because **all three render blank in `screenshot.full.png`**: the card/portrait images are `loading="lazy"` (below-fold, never triggered — same as BUG-3), and the "How it works" heading+intro use an Elementor `fadeIn` animation captured at opacity 0. The reference itself is blank there, so `1c diff` and side-by-side crops **cannot** flag them — they were only found by reading `raw.html`/`rendered.html`.
+
+The "transcribe from the DOM" rule must extend beyond text *values* to the **inventory** of images and animated content. Per section, before declaring done:
+- **Images:** list every `<img>` src and its DOM position. Elementor image-boxes emit the image *before* the heading — use adjacency to map card photos to their card, never guess by image content (a chef-plating photo vs a chef portrait were mis-mapped by "content fit"; DOM order was correct).
+- **Text boxes:** diff all reference text nodes vs your render to catch an entirely missing block — a `fadeIn` heading is invisible in the shot but present in the DOM.
+- Capture blind spot worth closing in `1c capture`/`1c shot`: trigger lazy images (scroll) AND force animation end-state before the screenshot, so the gate can see them.
