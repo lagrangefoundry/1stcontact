@@ -5,10 +5,10 @@ type: story
 title: 1c launcher (bin/1c) + collision-free SSR server
 created_by: xgd
 created_at: '2026-07-09T23:21:15.025789+00:00'
-updated_at: '2026-07-09T23:21:15.025789+00:00'
+updated_at: '2026-07-09T23:30:43.878489+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-adc60ee8
   capability_uid: CAP-52
