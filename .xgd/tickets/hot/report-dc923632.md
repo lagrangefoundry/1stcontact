@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-2 (BUG-1 + REQ-12/13/14/15/16/22/23/24/25)'
 created_by: xgd
 created_at: '2026-07-09T20:08:08.630691+00:00'
-updated_at: '2026-07-09T20:20:27.302366+00:00'
+updated_at: '2026-07-09T20:35:07.962814+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -69,7 +69,7 @@ fields:
       capability bucket (the biggest reproduction gap from the capture design: text
       over background images). Not an extension of an existing chrome/content module;
       it is a cross-cutting section primitive spanning schema + render pipeline.'
-    story_uid: null
+    story_uid: story-6af935e7
   - index: 4
     component: 'Framework: art-direction language'
     item_type: feature
