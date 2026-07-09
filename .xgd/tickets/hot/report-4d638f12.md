@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T22:37:16.060875+00:00'
+updated_at: '2026-07-09T22:45:49.521009+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -265,7 +265,7 @@ fields:
       computed styling (line-height, letter-spacing, text-fill gradient, left-bar,
       padding), section-level scrim/anchor, and a colorInferred sentinel — the reference
       data a mechanical values-diff consumes.
-    story_uid: null
+    story_uid: story-8f33f14c
   - index: 6
     component: Mechanical values-diff (1c values-diff)
     item_type: feature
