@@ -52,6 +52,7 @@ describe('story-a224111f — theme CSS generation', () => {
       '--color-surface-subtle', // palette role, kebab-cased
       '--color-text', // palette role (text, not fg)
       '--font-family-heading',
+      '--font-family-display', // display face, falls back to heading (REQ-24)
       '--font-size-5xl', // 9-step scale
       '--font-weight-bold',
       '--line-height-normal',
@@ -64,8 +65,8 @@ describe('story-a224111f — theme CSS generation', () => {
       expect(css, `missing ${name}`).toContain(`${name}:`)
     }
 
-    // Exactly one declaration per slot across the full 55-token surface.
-    expect(declCount(rootBlock(css))).toBe(55)
+    // Exactly one declaration per slot across the full 56-token surface.
+    expect(declCount(rootBlock(css))).toBe(56)
 
     // Deterministic: the same input always yields byte-identical output.
     expect(generateThemeCss(defaultTokens)).toBe(css)
@@ -89,8 +90,8 @@ describe('story-a224111f — theme CSS generation', () => {
     expect(css).toContain('--font-size-base: 1rem;') // default type-scale step
     expect(css).toContain('--container-default: 72rem;') // default container
 
-    // The output is never missing a slot: still the full 55-token surface.
-    expect(declCount(rootBlock(css))).toBe(55)
+    // The output is never missing a slot: still the full 56-token surface.
+    expect(declCount(rootBlock(css))).toBe(56)
   })
 
   it('test_UAT_AC435_emits_dark_mode_block_only_for_supplied_dark_roles', () => {
@@ -143,7 +144,7 @@ describe('story-a224111f — module catalog', () => {
 
   it('test_UAT_AC438_each_chrome_module_exposes_a_conforming_contract', () => {
     const expected: Record<string, string[]> = {
-      header: ['top-nav'],
+      header: ['top-nav', 'overlay'],
       hero: ['bg-color', 'bg-image'],
       footer: ['minimal'],
     }
