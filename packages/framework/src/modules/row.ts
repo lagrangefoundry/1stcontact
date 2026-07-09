@@ -26,6 +26,13 @@ export const ROW_CSS = `/* partial-width band row (REQ-20 / REQ-36) */
 }
 .fc-col { flex: 1 1 0; min-width: 0; }
 .fc-col--two-thirds { flex-grow: 2; }
+/* Row content measure (REQ-36) — `default` (1152px) is the prior full-bleed row;
+   narrower steps box the row to a reference's centred content column (the
+   joyfulculinary Offerings row is ~768px `readable`, centred with wide margins,
+   not sprawling edge-to-edge). Reuses the shared container tokens. */
+.fc-row.w-narrow { max-width: var(--container-narrow); }
+.fc-row.w-readable { max-width: var(--container-readable); }
+.fc-row.w-wide { max-width: var(--container-wide); }
 @media (max-width: 768px) {
   .fc-row { flex-direction: column; }
 }
@@ -47,6 +54,9 @@ export interface RowColumn {
   /** The column module's `surface` dial, if any — used to paint a shared
    *  full-bleed band behind the row when every column agrees. */
   surface?: string
+  /** The column module's `rowWidth` dial, if any — boxes the whole row to a
+   *  narrower centred content measure (first column to declare one wins). */
+  rowWidth?: string
 }
 
 /** The surface every column shares, or `undefined` if they disagree (or none
@@ -57,15 +67,25 @@ function sharedSurface(columns: RowColumn[]): string | undefined {
   return columns.every((c) => c.surface === first) ? first : undefined
 }
 
+/** The row's content measure — the first column to declare a non-default
+ *  `rowWidth`, else `undefined` (the full-bleed default). */
+function rowMeasure(columns: RowColumn[]): string | undefined {
+  const w = columns.map((c) => c.rowWidth).find((v) => v && v !== 'default')
+  return w
+}
+
 /** Wrap a run of consecutive partial-width bands into one row, each column's
  *  flex-grow encoding its width so a row can carry an asymmetric ratio. When the
  *  columns share one surface, a full-bleed `fc-band` paints it behind the row so
- *  the gap and margins read as one continuous band (not page-white). */
+ *  the gap and margins read as one continuous band (not page-white). A shared
+ *  `rowWidth` boxes the row to a narrower centred measure. */
 export function composeRow(columns: RowColumn[]): string {
   const cols = columns
     .map((c) => `<div class="fc-col fc-col--${c.width}">${c.html}</div>`)
     .join('\n')
-  const row = `<div class="fc-row">${cols}</div>`
+  const measure = rowMeasure(columns)
+  const rowClass = measure ? `fc-row w-${measure}` : 'fc-row'
+  const row = `<div class="${rowClass}">${cols}</div>`
   const surface = sharedSurface(columns)
   return surface ? `<div class="fc-band surface-${surface}">${row}</div>` : row
 }

@@ -65,7 +65,8 @@
         "subheadSize": "lg",
         "contentAnchor": "top",
         "contentOffsetTop": "xl",
-        "contentWidth": "narrow",
+        "contentWidth": "readable",
+        "contentInset": "md",
         "subheadWeight": "light",
         "tracking": "tight",
         "subheadLeading": "snug"

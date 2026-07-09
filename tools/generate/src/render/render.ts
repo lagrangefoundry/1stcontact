@@ -74,7 +74,7 @@ async function renderModules(
   // rather than stacking; each keeps its width so the row can carry a ratio.
   const isPartialWidth = (w: unknown): w is string =>
     w === 'half' || w === 'third' || w === 'two-thirds'
-  let rowBuffer: { html: string; width: string; surface?: string }[] = []
+  let rowBuffer: { html: string; width: string; surface?: string; rowWidth?: string }[] = []
   const flushRow = (): void => {
     if (rowBuffer.length === 0) return
     parts.push(rowBuffer.length === 1 ? rowBuffer[0].html : composeRow(rowBuffer))
@@ -114,6 +114,7 @@ async function renderModules(
         html: band,
         width: m.dials!.width as string,
         surface: m.dials?.surface as string | undefined,
+        rowWidth: m.dials?.rowWidth as string | undefined,
       })
       continue
     }

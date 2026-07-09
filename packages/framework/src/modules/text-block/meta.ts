@@ -69,6 +69,10 @@ export const textBlockMeta = {
     // normal band; `half`/`third`/`two-thirds` group with adjacent partial bands
     // into one `fc-row` (the Offerings text column beside the card grid).
     width: WIDTH_DIAL,
+    // Row content measure (REQ-36) — when this module opens a partial-width row,
+    // `readable`/`narrow`/`wide` box the whole row to that centred measure (the
+    // Offerings row is ~768px `readable`); `default` fills the frame (unchanged).
+    rowWidth: CONTENT_WIDTH_DIAL,
     // Constrained content column (REQ-45) — caps the content within the section
     // frame; the `align` dial then pins it left (default) or centres it. A
     // narrow left-pinned measure wraps prose like the reference, collapsing
