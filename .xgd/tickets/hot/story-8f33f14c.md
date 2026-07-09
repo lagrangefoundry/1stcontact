@@ -5,9 +5,9 @@ type: story
 title: Rendered-only reference capture via headless browser (1c capture page)
 created_by: xgd
 created_at: '2026-07-09T20:11:20.209996+00:00'
-updated_at: '2026-07-09T22:44:27.401725+00:00'
+updated_at: '2026-07-09T22:45:00.378881+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: body
 status: reconciling
 fields:
   intent_uid: bundle-f39884d2
@@ -46,7 +46,6 @@ A run whose painted colour is unresolvable (transparent/unpainted) is flagged `c
 
 ## Technical Context
 - Design authority is DOC-13 (Reference Capture Model). The intent (REQ-12) is a construction of a model fully specified there; it supersedes first-contact's earlier static-first extractor. The per-element value manifest, section scrim/anchor, and `colorInferred` sentinel are the REQ-31/REQ-35 extension of that captured essence — the *reference half* of the fidelity loop; the diff that reads them is a separate capability.
-- Design authority is DOC-13 (Reference Capture Model). The intent (REQ-12) is a construction of a model fully specified there; it supersedes first-contact's earlier static-first extractor.
 - Depends conceptually on the `1c` CLI harness (REQ-9) and the toolchain (REQ-10, which adds Playwright as a runtime dependency). It is catalog-agnostic — it does not depend on the module catalog.
 - The BrowserDriver interface deliberately mirrors the Cloudflare Browser Rendering / `@cloudflare/puppeteer` surface (navigate / screenshot / query / responses / content / close) and deliberately exposes **no** `setContent()`, because pre-fetching a shell would re-create the static blindness this capability exists to defeat (DOC-13 §2.3). The driver is supplied via an injectable factory so tests can inject a fake.
 - There is intentionally **no** static-extraction fallback: on browser failure the pipeline retries and, if all attempts fail, errors — it never silently degrades to a blind static path.
