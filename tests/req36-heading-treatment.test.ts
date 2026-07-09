@@ -317,6 +317,12 @@ describe('REQ-36 header finish — image-logo size + logo card', () => {
     expect(headerCss).toMatch(/\.header__logo\.logo-card-card\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/)
   })
 
+  it('test_UAT_FC_REQ-36_logoCard_shadow_drops_a_glyph_shadow', async () => {
+    const html = await render(Header, { variant: 'overlay', dials: { logoCard: 'shadow' }, content })
+    expect(html).toContain('logo-card-shadow')
+    expect(headerCss).toMatch(/\.header__logo\.logo-card-shadow img\s*\{[^}]*filter:\s*drop-shadow/)
+  })
+
   it('test_UAT_FC_REQ-36_header_logo_defaults_unchanged', async () => {
     const html = await render(Header, { variant: 'overlay', content })
     expect(html).toContain('logo-size-md')

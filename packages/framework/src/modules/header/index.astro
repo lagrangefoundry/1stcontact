@@ -145,6 +145,9 @@ const wordmarkGradient =
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
   }
+  /* `shadow` (REQ-36) — a drop-shadow on the logo glyphs (no plate), giving a
+     knockout logo depth over an image where a solid card would hide it. */
+  .header__logo.logo-card-shadow img { filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55)); }
 
   /* Wordmark font-family selection (REQ-24). Default heading family; `display`
      picks the site's bespoke display face, `body` the body family. */

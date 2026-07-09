@@ -238,9 +238,11 @@ export const SCRIM_GRADIENT_DIAL = ['none', 'top'] as const
  * Header logo backdrop (REQ-36). `none` (default) renders the logo bare; `card`
  * sets it on a padded, rounded, shadowed plate in the background colour — the
  * joyfulculinary header floats its logo in a white card over the hero image, a
- * common treatment for a logo that must stay legible over photography.
+ * common treatment for a logo that must stay legible over photography. `shadow`
+ * applies a drop-shadow to the logo glyphs themselves (no plate) — for a knockout
+ * (single-colour) logo over an image where a plate would hide it.
  */
-export const LOGO_CARD_DIAL = ['none', 'card'] as const
+export const LOGO_CARD_DIAL = ['none', 'card', 'shadow'] as const
 
 /**
  * Text-block contained-panel treatment (REQ-36). `none` (default) fills the whole
