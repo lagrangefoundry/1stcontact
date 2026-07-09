@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T21:51:41.494402+00:00'
+updated_at: '2026-07-09T21:59:10.174127+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-adc60ee8
@@ -68,7 +68,7 @@ fields:
       to also documenting the per-instance art-direction dials on hero/header/footer,
       a generalized multi-stop/any-direction gradient text treatment, and the expanded
       palette-role set — all structured, token-backed, backward-compatible.
-    story_uid: null
+    story_uid: story-a224111f
   - index: 2
     component: Framework content modules (services-grid / contact-form / text-block
       markdown) + module content-contract validation
