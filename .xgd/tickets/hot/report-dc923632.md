@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-2 (BUG-1 + REQ-12/13/14/15/16/22/23/24/25)'
 created_by: xgd
 created_at: '2026-07-09T20:08:08.630691+00:00'
-updated_at: '2026-07-09T20:08:08.630691+00:00'
+updated_at: '2026-07-09T20:13:28.956634+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-f39884d2
@@ -33,7 +33,7 @@ fields:
       new capability bucket (a headless-browser capture subsystem). Prior stories
       (53-56) cover the platform scaffold, schema validation, and the framework module
       catalog only; none touch capture, the BrowserDriver seam, or the capture bundle.
-    story_uid: null
+    story_uid: story-8f33f14c
   - index: 2
     component: Capture / headless-browser vision
     item_type: feature
