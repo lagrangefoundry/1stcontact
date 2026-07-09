@@ -11,6 +11,8 @@ import {
   HEADING_CASE_DIAL,
   HEADING_WEIGHT_DIAL,
   HERO_DIVIDER_DIAL,
+  SCRIM_GRADIENT_DIAL,
+  SUBHEAD_FONT_DIAL,
   HEADING_TREATMENT_DIAL,
   HEIGHT_DIAL,
   LINE_HEIGHT_DIAL,
@@ -52,6 +54,12 @@ export const heroMeta = {
     // CTA corner shape (REQ-36) — `round` (default) keeps the pill radius;
     // `square` hard-corners the button (the reference's square "Learn More").
     ctaShape: CTA_SHAPE_DIAL,
+    // Subhead font-family (REQ-36) — `body` (default) inherits; `display`/`heading`
+    // set the lead in the display/heading face (the reference lead is Lato).
+    subheadFont: SUBHEAD_FONT_DIAL,
+    // Top-of-band gradient scrim (REQ-36) — `top` darkens the band's top edge
+    // (behind the nav) for legibility; `none` (default) omits it.
+    scrimGradient: SCRIM_GRADIENT_DIAL,
     // Divider rule between heading and subhead (REQ-36) — `rule` draws the
     // joyfulculinary hero's short rule under the heading; `none` (default) omits.
     divider: HERO_DIVIDER_DIAL,

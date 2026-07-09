@@ -278,10 +278,27 @@ describe('REQ-36 hero finish — scrim depth / heading weight / CTA shape / divi
     expect(heroCss).toMatch(/\.hero__divider\s*\{[^}]*border-top:\s*2px solid currentColor/)
   })
 
+  it('test_UAT_FC_REQ-36_hero_subheadFont_sets_the_lead_face', async () => {
+    const html = await render(Hero, { variant: 'bg-color', dials: { subheadFont: 'display' }, content: { heading: 'H', subhead: 'x' } })
+    expect(html).toContain('subhead-font-display')
+    expect(heroCss).toMatch(/\.hero\.subhead-font-display\s+\.hero__subhead\s*\{[^}]*font-family:\s*var\(--font-family-display\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_hero_scrimGradient_top_darkens_the_band_top', async () => {
+    const html = await render(Hero, { variant: 'bg-image', dials: { scrimGradient: 'top' }, content: { heading: 'H', subhead: 'x', image: { id: 'i', src: 'a.jpg', alt: 'a' } } })
+    expect(html).toContain('hero__scrim-top')
+    expect(heroCss).toMatch(/\.hero__scrim-top\s*\{[^}]*linear-gradient\(to bottom, var\(--color-scrim\)/)
+    // Omitting the dial renders no top-gradient element.
+    const without = await render(Hero, { variant: 'bg-image', content: { heading: 'H', subhead: 'x', image: { id: 'i', src: 'a.jpg', alt: 'a' } } })
+    expect(without).not.toContain('hero__scrim-top')
+  })
+
   it('test_UAT_FC_REQ-36_hero_finish_defaults_unchanged', async () => {
     const html = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
     expect(html).toContain('hw-bold')
     expect(html).toContain('cta-round')
+    expect(html).toContain('subhead-font-body')
+    expect(html).toContain('scrim-gradient-none')
   })
 })
 

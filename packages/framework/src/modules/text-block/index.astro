@@ -106,6 +106,12 @@ const bodyHtml = await renderMarkdown(content.body)
     padding: var(--space-12) var(--space-8);
     border-radius: var(--radius-lg);
   }
+  /* A contained panel sizes its box to `contentWidth` (so the card itself is the
+     reference width, not just the text within it); `default` keeps the variant
+     width. Scoped to an active panel via `:not(.panel-none)`. */
+  .text-block:not(.panel-none).content-width-narrow .text-block__inner { max-width: var(--container-narrow); }
+  .text-block:not(.panel-none).content-width-readable .text-block__inner { max-width: var(--container-readable); }
+  .text-block:not(.panel-none).content-width-wide .text-block__inner { max-width: var(--container-wide); }
   .text-block.panel-subtle .text-block__inner { background: var(--color-surface-subtle); }
   .text-block.panel-inverse .text-block__inner { background: var(--color-surface-inverse); color: var(--color-bg); }
   .text-block.panel-secondary .text-block__inner { background: var(--color-secondary); color: var(--color-bg); }

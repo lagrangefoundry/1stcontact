@@ -219,6 +219,22 @@ export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong', 'heavy'] as cons
 export const CTA_SHAPE_DIAL = ['round', 'square'] as const
 
 /**
+ * Hero subhead font-family (REQ-36). `body` (default) inherits the body family;
+ * `display`/`heading` set the lead in the site's display/heading face — the
+ * joyfulculinary hero lead is Lato (the display font), distinct from the Karla
+ * body copy, so the lead needs its own face without changing the body font.
+ */
+export const SUBHEAD_FONT_DIAL = ['body', 'display', 'heading'] as const
+
+/**
+ * Hero top-of-band gradient scrim (REQ-36). `none` (default) omits it; `top`
+ * layers a downward dark gradient (keyed to `--color-scrim`) over the flat scrim,
+ * darkening the top edge behind the nav for legibility and fading out ~40% down —
+ * the reference's top vignette, distinct from the uniform `scrim` fill.
+ */
+export const SCRIM_GRADIENT_DIAL = ['none', 'top'] as const
+
+/**
  * Header logo backdrop (REQ-36). `none` (default) renders the logo bare; `card`
  * sets it on a padded, rounded, shadowed plate in the background colour — the
  * joyfulculinary header floats its logo in a white card over the hero image, a

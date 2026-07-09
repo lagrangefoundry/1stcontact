@@ -32,6 +32,14 @@ const headingCase = dials.headingCase ?? 'normal'
 const headingWeight = dials.headingWeight ?? 'bold'
 // CTA corner shape (REQ-36) — `round` (default) keeps the pill; `square` hard-corners.
 const ctaShape = dials.ctaShape ?? 'round'
+// Subhead font-family (REQ-36) — `body` (default) inherits the body family; the
+// reference sets the hero lead in a distinct face (Lato = the site display font)
+// while section body copy stays the body family (Karla).
+const subheadFont = dials.subheadFont ?? 'body'
+// Top-of-band gradient scrim (REQ-36) — `top` darkens the band's top edge (behind
+// the nav) with a downward gradient for legibility, over the flat `scrim`; `none`
+// (default) omits it, so a hero that omits the dial is unchanged.
+const scrimGradient = dials.scrimGradient ?? 'none'
 // Divider rule between heading and subhead (REQ-36) — `rule` draws the short
 // rule under the heading; `none` (default) omits the element entirely.
 const divider = dials.divider ?? 'none'
@@ -106,12 +114,15 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     `content-column-${contentColumn}`,
     `subhead-weight-${subheadWeight}`,
     `subhead-leading-${subheadLeading}`,
+    `subhead-font-${subheadFont}`,
+    `scrim-gradient-${scrimGradient}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
 >
   {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
+  {bgImage && scrimGradient !== 'none' && <div class="hero__scrim-top" aria-hidden="true"></div>}
 
   <div class="hero__inner">
     {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
@@ -197,6 +208,17 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   /* `heavy` (REQ-36) — a deeper darkening for a busy/bright photo where `strong`
      still reads too transparent (the joyfulculinary hero measured ~0.68). */
   .hero.scrim-heavy .hero__scrim { opacity: 0.68; }
+  /* Top-of-band gradient scrim (REQ-36): a downward dark gradient over the flat
+     scrim, darkening the top edge (behind the nav) for legibility and fading out
+     by ~40% down — the reference's top vignette. Keyed to `--color-scrim`; the
+     element opacity sets the top strength. */
+  .hero__scrim-top {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: linear-gradient(to bottom, var(--color-scrim), transparent 38%);
+  }
+  .hero.scrim-gradient-top .hero__scrim-top { opacity: 0.5; }
   .hero__inner {
     position: relative;
     z-index: 1;
@@ -287,6 +309,11 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.size-lg .hero__heading { font-size: clamp(var(--font-size-4xl), 8vw, var(--font-size-5xl)); }
 
   .hero__subhead { font-size: var(--font-size-lg); }
+  /* Subhead font-family (REQ-36) — `body` (default) inherits; `display`/`heading`
+     set the lead in the site's display/heading face (the reference lead is Lato,
+     the display font, distinct from the Karla body copy). */
+  .hero.subhead-font-display .hero__subhead { font-family: var(--font-family-display); }
+  .hero.subhead-font-heading .hero__subhead { font-family: var(--font-family-heading); }
   /* Subhead/body content-column width (REQ-49): caps the lead/body measure so it
      can match a reference's column (e.g. 768px). `content-width-default` sets no
      cap — the subhead fills the inner frame — replacing the prior hardcoded
