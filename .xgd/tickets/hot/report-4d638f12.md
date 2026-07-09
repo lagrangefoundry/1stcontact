@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-3 (REQ-26/27/28/20/31/32/33/35/37/38 — imp
   primitives + vision tooling)'
 created_by: xgd
 created_at: '2026-07-09T21:51:41.494402+00:00'
-updated_at: '2026-07-09T22:11:54.920552+00:00'
+updated_at: '2026-07-09T22:28:21.642940+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -172,7 +172,7 @@ fields:
     intent_delta_summary: 'STORY-59 gains the background+surface composition contract:
       the two compose deterministically via a SECTION_CSS precedence rule rather than
       surface silently painting over the background.'
-    story_uid: null
+    story_uid: story-6af935e7
   - index: 4
     component: Framework layer primitive — art-direction treatments (typography, image
       shadow/border, feather, geometry, titled-block)
