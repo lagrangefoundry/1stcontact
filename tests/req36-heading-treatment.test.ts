@@ -280,6 +280,23 @@ describe('REQ-36 services-grid card top-media', () => {
   })
 })
 
+describe('REQ-36 services-grid icon-font glyphs', () => {
+  it('test_UAT_FC_REQ-36_services_grid_icon_font_renders_accent_glyph', async () => {
+    const html = await render(ServicesGrid, {
+      variant: 'three-col',
+      dials: { iconFont: 'icon-font' },
+      content: { items: [{ title: 'FAQ', body: 'b', icon: '' }] },
+    })
+    expect(html).toContain('icon-font-icon-font')
+    // The string icon renders in the site IconFont, accent-coloured and sized up.
+    expect(gridCss).toMatch(/\.icon-font-icon-font\s+\.services-grid__icon span\s*\{[^}]*font-family:\s*'IconFont'/)
+    expect(gridCss).toMatch(/\.icon-font-icon-font\s+\.services-grid__icon span\s*\{[^}]*color:\s*var\(--color-accent\)/)
+    // Default (no dial) leaves a string icon as plain text.
+    const dflt = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: 'X', body: 'b', icon: '' }] } })
+    expect(dflt).toContain('icon-font-default')
+  })
+})
+
 describe('REQ-36 fc-row column ratio — asymmetric partial-width bands', () => {
   it('test_UAT_FC_REQ-36_composeRow_wraps_columns_with_width_encoded_flex', () => {
     const html = composeRow([

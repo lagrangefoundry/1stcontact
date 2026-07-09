@@ -264,6 +264,16 @@ export const PANEL_DIAL = ['none', 'subtle', 'inverse', 'secondary', 'accent'] a
 export const LIST_MARKER_DIAL = ['bullet', 'check'] as const
 
 /**
+ * Services-grid icon rendering (REQ-36). `default` renders a string icon as plain
+ * text (or an image icon as a small thumbnail); `icon-font` renders a string icon
+ * as a glyph in a site-declared icon font (the joyfulculinary "How It Works" grid
+ * uses Font Awesome glyphs), coloured with the accent and sized up. The icon
+ * string then carries the font's codepoint character; the font is declared in the
+ * site's `fonts` under the family `IconFont`.
+ */
+export const ICON_FONT_DIAL = ['default', 'icon-font'] as const
+
+/**
  * Vertical anchor of a hero's content within a `fold`-height band (REQ-32).
  * `center` (default) matches the prior behaviour; `top`/`bottom` push the
  * content to the band's start/end — e.g. a hero whose copy sits low over the

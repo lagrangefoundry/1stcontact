@@ -5,6 +5,7 @@ import {
   GAP_DIAL,
   HEADING_CASE_DIAL,
   HEADING_COLOR_DIAL,
+  ICON_FONT_DIAL,
   SIZE_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
@@ -76,6 +77,10 @@ export const servicesGridMeta = {
     // Heading letter-case (REQ-36) — `upper` uppercases the grid heading + card
     // titles while the DOM text stays literal.
     headingCase: HEADING_CASE_DIAL,
+    // Icon rendering (REQ-36) — `icon-font` renders a string card icon as a glyph
+    // in the site's declared `IconFont` (Font Awesome), accent-coloured and sized
+    // up (the "How It Works" grid); `default` renders it as plain text.
+    iconFont: ICON_FONT_DIAL,
     // Card type scale (REQ-20). `md` (default) preserves the prior scale; `lg`
     // steps the card heading/subhead/badge/checklist typography up one notch
     // (the gigabytealchemy reference runs its cards at a larger scale); `sm`
