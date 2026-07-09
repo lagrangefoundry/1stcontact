@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-2 (BUG-1 + REQ-12/13/14/15/16/22/23/24/25)'
 created_by: xgd
 created_at: '2026-07-09T20:08:08.630691+00:00'
-updated_at: '2026-07-09T20:35:07.962814+00:00'
+updated_at: '2026-07-09T20:43:37.016147+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -90,7 +90,7 @@ fields:
       a new capability bucket (the first 'grow the language' art-direction primitive).
       Reuses the REQ-14 wrap pattern and depends on the overlay mechanism (item 3)
       but is a distinct positioning capability, not an extension of an existing module.
-    story_uid: null
+    story_uid: story-4f50c054
   - index: 5
     component: 'Framework: art-direction language'
     item_type: feature
