@@ -161,7 +161,7 @@ describe('REQ-15 — Layer rendering', () => {
       overlay: { color: '#000000', opacity: 0.45 },
     }
     const heroHtml = await container.renderToString(Hero, {
-      props: { variant: 'bg-color', dials: {}, content: { heading: 'Host' } },
+      props: { variant: 'bg-color', dials: {}, content: { heading: { text: 'Host' } } },
     })
     const wrapped = await wrapWithLayer(heroHtml, layer as any)
 

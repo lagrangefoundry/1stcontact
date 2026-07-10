@@ -139,9 +139,11 @@ function identicalShots(): Record<ConformanceEngine, Uint8Array> {
 const cleanFixture: ConformanceFixture = {
   label: 'clean-text-block',
   props: {
+    version: 2,
     variant: 'prose',
     content: {
-      heading: 'A Cross-Engine Heading',
+      // REQ-50 — the discrete heading slot is a flat styled run.
+      heading: { text: 'A Cross-Engine Heading' },
       body: 'A well-formed paragraph that lays out equivalently in Blink, WebKit and Gecko.',
     },
   },

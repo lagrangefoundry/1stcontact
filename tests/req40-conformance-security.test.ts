@@ -11,7 +11,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const textBlockMeta = getModule('text-block', 1).meta
+const textBlockMeta = getModule('text-block', 2).meta
 import XssUrl from './fixtures/conformance/xss-url.astro'
 import XssHandler from './fixtures/conformance/xss-handler.astro'
 import CssBreakout from './fixtures/conformance/css-breakout.astro'
@@ -122,7 +122,7 @@ describe('Conformance harness security dimension (REQ-40)', () => {
     // security violation — the detector does not false-positive.
     const benign: ConformanceFixture = {
       label: 'text-block-benign',
-      props: { variant: textBlockMeta.variants[0], content: buildBenignContent(textBlockMeta) },
+      props: { version: 2, variant: textBlockMeta.variants[0], content: buildBenignContent(textBlockMeta) },
     }
     await expect(assertModuleConforms('text-block', [benign], SECURITY)).resolves.toBeUndefined()
   }, 120000)

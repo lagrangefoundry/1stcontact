@@ -8,7 +8,17 @@ import type { AstroComponentFactory } from 'astro/runtime/server/index.js'
  * free-form strings/numbers are forbidden (DOC-7 §3.2 rule 1).
  */
 
-/** Content-field kinds (DOC-7 §3.2). Structured fields use `object` / `list`. */
+/**
+ * Content-field kinds (DOC-7 §3.2). Structured fields use `object` / `list`.
+ *
+ * `styled-text` (REQ-50) is a flat styled *run* whose fields are the fidelity
+ * report's own `ValueElement` names/units (`fontSizePx`, `fontWeight`, `color`,
+ * `gradient`, …) — see {@link ../text-style#TextRun}. Its style fields relax
+ * DOC-7 §3.2 rule 1 (finite enumerations): each accepts either a literal in the
+ * report's unit (a captured value pasted verbatim) or a known theme alias.
+ * {@link validateModuleContent} enforces literal-or-known-alias and rejects an
+ * unknown alias.
+ */
 export type ContentFieldType =
   | 'string'
   | 'markdown'
@@ -17,6 +27,7 @@ export type ContentFieldType =
   | 'enum'
   | 'list'
   | 'object'
+  | 'styled-text'
 
 /** One content field's contract. */
 export interface ContentFieldSpec {

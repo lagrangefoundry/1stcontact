@@ -10,58 +10,57 @@
     {
       "id": "header",
       "type": "header",
-      "version": 1,
+      "version": 2,
       "variant": "top-nav",
       "dials": {
         "surface": "default"
       },
       "content": {
-        "logo": "1st Contact",
+        "wordmark": { "text": "1st Contact" },
         "entries": []
       }
     },
     {
       "id": "hero",
       "type": "hero",
-      "version": 1,
+      "version": 2,
       "variant": "bg-color",
       "dials": {
-        "size": "lg",
         "align": "center",
         "surface": "accent",
         "spacingTop": "xl",
         "spacingBottom": "xl"
       },
       "content": {
-        "eyebrow": "For small businesses",
-        "heading": "Make a great first contact",
-        "subhead": "On-brand sites that load instantly and update in seconds."
+        "eyebrow": { "text": "For small businesses" },
+        "heading": { "text": "Make a great first contact", "fontSizePx": "5xl" },
+        "subhead": { "text": "On-brand sites that load instantly and update in seconds." }
       }
     },
     {
       "id": "intro",
       "type": "text-block",
-      "version": 1,
+      "version": 2,
       "variant": "prose",
       "dials": {
-        "size": "lg",
         "textAlign": "center"
       },
       "content": {
-        "heading": "Built for the people you serve",
-        "body": "Your customers meet you online first. **1st Contact** turns that moment into a booking — with pages that are quick to load, easy to read, and effortless to keep current."
+        "heading": { "text": "Built for the people you serve" },
+        "body": "Your customers meet you online first. **1st Contact** turns that moment into a booking — with pages that are quick to load, easy to read, and effortless to keep current.",
+        "bodyStyle": { "fontSizePx": "lg" }
       }
     },
     {
       "id": "how",
       "type": "text-block",
-      "version": 1,
+      "version": 2,
       "variant": "landing",
       "dials": {
         "surface": "subtle"
       },
       "content": {
-        "heading": "How it works",
+        "heading": { "text": "How it works" },
         "body": "1. Pick a starting point.\n2. Drop in your words and pictures.\n3. Publish. Every version is kept, so you can always roll back."
       }
     },

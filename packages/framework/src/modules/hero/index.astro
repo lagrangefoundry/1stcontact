@@ -1,133 +1,81 @@
 ---
 import type { AssetRef } from '@1stcontact/site-schema'
-import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { gradientTextStyle, type GradientTreatment } from '../gradient'
+import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
   variant?: string
   dials?: Record<string, string>
   content: {
-    eyebrow?: string
-    heading: string
-    subhead?: string
-    cta?: { label: string; href: string }
+    eyebrow?: TextRun
+    heading: TextRun
+    subhead?: TextRun
+    cta?: TextRun
     image?: AssetRef
     portrait?: AssetRef
-    headingGradient?: GradientTreatment
   }
 }
 
 const { variant = 'bg-color', dials = {}, content } = Astro.props as Props
-const size = dials.size ?? 'md'
 const align = dials.align ?? 'left'
 const surface = dials.surface ?? 'default'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
-// Heading colour treatment (REQ-28), independent of the surface text colour.
-const headingTreatment = dials.headingTreatment ?? 'plain'
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
-// Heading font-weight (REQ-36) — `bold` (default) preserves the prior weight;
-// lighter steps reach a reference display heading (the hero is Oswald 500).
-const headingWeight = dials.headingWeight ?? 'bold'
-// Heading font-family (REQ-36) — `heading` (default) uses the heading face;
-// `body`/`display` render the heading in the body/display face (the quote hero
-// pull-quote is set in Karla body copy, not the condensed Oswald heading face).
-const headingFont = dials.headingFont ?? 'heading'
-// CTA corner shape (REQ-36) — `round` (default) keeps the pill; `square` hard-corners.
+// CTA corner shape (REQ-36) — `round` (default) pill; `square`/`soft` variants.
 const ctaShape = dials.ctaShape ?? 'round'
-// CTA label typography (REQ-36) — font role / size / weight, defaulting to the
-// inherited body face so an omitting hero is unchanged.
-const ctaFont = dials.ctaFont ?? 'body'
-const ctaSize = dials.ctaSize ?? 'base'
-const ctaWeight = dials.ctaWeight ?? 'semibold'
-// Subhead font-family (REQ-36) — `body` (default) inherits the body family; the
-// reference sets the hero lead in a distinct face (Lato = the site display font)
-// while section body copy stays the body family (Karla).
-const subheadFont = dials.subheadFont ?? 'body'
-// Top-of-band gradient scrim (REQ-36) — `top` darkens the band's top edge (behind
-// the nav) with a downward gradient for legibility, over the flat `scrim`; `none`
-// (default) omits it, so a hero that omits the dial is unchanged.
+// Top-of-band gradient scrim (REQ-36) — `top` darkens the band's top edge.
 const scrimGradient = dials.scrimGradient ?? 'none'
-// Divider rule between heading and subhead (REQ-36) — `rule` draws the short
-// rule under the heading; `none` (default) omits the element entirely.
+// Divider rule between heading and subhead (REQ-36) — `rule` draws the rule.
 const divider = dials.divider ?? 'none'
-// Content-column horizontal placement (REQ-36) — `left` hugs the band's left
-// gutter; `center` (default) keeps the prior centred column.
+// Content-column horizontal placement (REQ-36) — `left` hugs the left gutter.
 const contentColumn = dials.contentColumn ?? 'center'
 // Band height: `fold` fills the viewport to the fold; `auto` sizes to content.
 const height = dials.height ?? 'auto'
 // Legibility scrim + content anchor (REQ-32).
 const scrim = dials.scrim ?? 'none'
 const contentAnchor = dials.contentAnchor ?? 'center'
-// Fixed top inset for content within a `fold` band (REQ-49): `none` (default)
-// applies no inset; `sm`..`xl` step a token-backed distance from the band top,
-// a separate axis from the flex `contentAnchor`.
+// Fixed top inset for content within a `fold` band (REQ-49).
 const contentOffsetTop = dials.contentOffsetTop ?? 'none'
-// Subhead/body colour (REQ-33): `inherit` keeps the surface colour; any palette
-// role tints the whole subhead block. Framework-computed inline style (a closed
-// role set), never instance-supplied raw CSS — mirrors the gradient treatment.
-const subheadColor = dials.subheadColor ?? 'inherit'
-const subheadStyle =
-  subheadColor !== 'inherit' ? `color: var(--color-${subheadColor});` : undefined
-// Subhead/body scale (REQ-33), independent of the heading `size`.
-const subheadSize = dials.subheadSize ?? 'md'
-// Subhead/body content-column width (REQ-49): `default` fills the inner frame
-// (the prior hardcoded 60ch cap is removed); `narrow`/`readable`/`wide` cap the
-// measure to the matching container token so the lead/body can match a reference
-// column (`readable` ~768px, decoupled from the `narrow` token).
+// Subhead/body content-column width (REQ-49).
 const contentWidth = dials.contentWidth ?? 'default'
-// Content horizontal inset / gutter (REQ-49 cap 5): `sm` (default) is the prior
-// 16px `padding-inline`; `md`/`lg` widen the gutter to align the front-door edge.
+// Content horizontal inset / gutter (REQ-49 cap 5).
 const contentInset = dials.contentInset ?? 'sm'
-// Subhead/body font-weight (REQ-49): `regular` (default) keeps the inherited
-// body weight; `light`/`medium`/`semibold` set the lead/body weight.
-const subheadWeight = dials.subheadWeight ?? 'regular'
-// Heading letter-spacing (REQ-45): `normal` leaves the heading untracked.
-const tracking = dials.tracking ?? 'normal'
-// Subhead line-height (REQ-45; `snug` REQ-49): `relaxed` preserves the prior leading.
-const subheadLeading = dials.subheadLeading ?? 'relaxed'
 
 const { eyebrow, heading, subhead, cta, portrait } = content
 // Foreground portrait (REQ-36) — an optional attribution/testimonial avatar
 // rendered above the subhead; `portraitShape` crops it (circle default).
 const portraitShape = dials.portraitShape ?? 'circle'
-// Explicit heading line breaks (REQ-36): a newline in the heading string renders
-// as a `<br>` so a display heading breaks exactly where the reference does (the
-// joyfulculinary hero hard-breaks after "meals"), without capping the measure.
-// Each segment stays an escaped text node — no raw HTML is interpolated.
-const headingLines = heading.split('\n')
+// Explicit heading line breaks (REQ-36): a newline in the heading text renders
+// as a `<br>` so a display heading breaks exactly where the reference does,
+// without capping the measure. Each segment stays an escaped text node.
+const headingLines = (heading?.text ?? '').split('\n')
 // The background image is rendered for the bg-image variant only.
 const bgImage = variant === 'bg-image' ? content.image : undefined
-// Structured gradient heading (REQ-32): framework-computed clipped gradient,
-// used only when the treatment dial selects it.
-const headingGradient =
-  headingTreatment === 'gradient' ? gradientTextStyle(content.headingGradient) : undefined
-// Subhead is markdown (schema type `markdown`): render it so multi-paragraph
-// copy keeps its structure (a subhead line + body paragraphs) rather than
-// collapsing into one run-on string.
-const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
+
+// REQ-50 — resolve each styled run to an inline `style` declaration. A run's
+// literal values emit verbatim in the report's units; its aliases resolve to
+// the `var(--…)` theme custom properties. An absent run yields ''.
+const eyebrowStyle = resolveTextStyle(eyebrow)
+const headingStyle = resolveTextStyle(heading)
+const subheadStyle = resolveTextStyle(subhead)
+const ctaStyle = resolveTextStyle(cta)
 ---
 
 <section
   class:list={[
     'hero',
     `variant-${variant}`,
-    `size-${size}`,
     `align-${align}`,
     `surface-${surface}`,
     `height-${height}`,
     `scrim-${scrim}`,
     `anchor-${contentAnchor}`,
     `content-offset-top-${contentOffsetTop}`,
-    `subhead-size-${subheadSize}`,
     `content-width-${contentWidth}`,
     `content-inset-${contentInset}`,
     `content-column-${contentColumn}`,
-    `subhead-weight-${subheadWeight}`,
-    `subhead-leading-${subheadLeading}`,
-    `subhead-font-${subheadFont}`,
     `scrim-gradient-${scrimGradient}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
@@ -138,12 +86,12 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   {bgImage && scrimGradient !== 'none' && <div class="hero__scrim-top" aria-hidden="true"></div>}
 
   <div class="hero__inner">
-    {eyebrow && <p class="hero__eyebrow">{eyebrow}</p>}
-    <h1 class:list={['hero__heading', `treatment-${headingTreatment}`, `tracking-${tracking}`, `case-${headingCase}`, `hw-${headingWeight}`, `heading-font-${headingFont}`]} style={headingGradient}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
+    {eyebrow?.text && <p class="hero__eyebrow" style={eyebrowStyle}>{eyebrow.text}</p>}
+    <h1 class:list={['hero__heading', `case-${headingCase}`]} style={headingStyle}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
     {divider === 'rule' && <hr class="hero__divider" />}
     {portrait && <img class:list={['hero__portrait', `portrait-${portraitShape}`]} src={assertSafeUrl(portrait.src, 'hero portrait src')} alt={portrait.alt} />}
-    {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
-    {cta && <a class:list={['hero__cta', `cta-${ctaShape}`, `cta-font-${ctaFont}`, `cta-size-${ctaSize}`, `cta-weight-${ctaWeight}`]} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
+    {subhead?.text && <p class="hero__subhead" style={subheadStyle}>{subhead.text}</p>}
+    {cta?.label && cta.href && <a class:list={['hero__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
 </section>
 
@@ -154,32 +102,24 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.surface-accent { background: var(--color-accent); color: var(--color-bg); }
 
   /* Height dial: `fold` fills the viewport to the fold and centres the content
-     vertically, so a bg-image hero (and any header composited over it) fills the
-     screen. `box-sizing: border-box` (base reset) keeps the padding inside the
-     100vh, so the band is exactly the fold. */
+     vertically. `box-sizing: border-box` (base reset) keeps the padding inside
+     the 100vh, so the band is exactly the fold. */
   .hero.height-fold {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
-  /* As a flex item the inner would shrink to its content and the auto margins
-     would centre that narrow block; `width: 100%` keeps it spanning the
-     container so the content stays left-aligned with the bands below. */
+  /* As a flex item the inner would shrink to its content; `width: 100%` keeps it
+     spanning the container so the content stays left-aligned with bands below. */
   .hero.height-fold .hero__inner { width: 100%; }
 
-  /* Content anchor (REQ-32): where the content sits within a `fold` band.
-     `center` is the default height-fold behaviour; `top`/`bottom` push the
-     content to the band's start/end. No effect on an `auto`-height band. */
+  /* Content anchor (REQ-32): where the content sits within a `fold` band. */
   .hero.height-fold.anchor-top { justify-content: flex-start; }
   .hero.height-fold.anchor-bottom { justify-content: flex-end; }
 
-  /* Fixed top inset for a `fold` hero's content (REQ-49): a deliberate
-     token-backed distance from the band top, independent of the flex anchor —
-     paired with `anchor-top` it pins the content N px from the top (the
-     reference's `pt-80` = 320px). `none` (default) sets nothing, so a hero that
-     omits the dial is unchanged. Token-backed via the extended `--space-*`
-     scale; no effect on an `auto`-height band. */
+  /* Fixed top inset for a `fold` hero's content (REQ-49): a token-backed distance
+     from the band top, independent of the flex anchor. */
   .hero.height-fold.content-offset-top-sm .hero__inner { margin-top: var(--space-16); }
   .hero.height-fold.content-offset-top-md .hero__inner { margin-top: var(--space-32); }
   .hero.height-fold.content-offset-top-lg .hero__inner { margin-top: var(--space-48); }
@@ -208,12 +148,8 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     object-fit: cover;
     z-index: 0;
   }
-  /* Legibility scrim (REQ-32; REQ-36): a dark tint painted over the image (z 0,
-     above the bg, below the content at z 1) at a strength set by the scrim dial.
-     Keyed to `--color-scrim` (a near-black by default), NOT `--color-surface-inverse`
-     — a scrim exists to darken an image for text contrast, so it must not track a
-     theme's inverse-band colour when that is a mid neutral (which greys, not
-     darkens). Themes override `--color-scrim` for a tinted scrim. */
+  /* Legibility scrim (REQ-32; REQ-36): a dark tint painted over the image at a
+     strength set by the scrim dial. Keyed to `--color-scrim`. */
   .hero__scrim {
     position: absolute;
     inset: 0;
@@ -223,13 +159,9 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero.scrim-light .hero__scrim { opacity: 0.2; }
   .hero.scrim-medium .hero__scrim { opacity: 0.35; }
   .hero.scrim-strong .hero__scrim { opacity: 0.55; }
-  /* `heavy` (REQ-36) — a deeper darkening for a busy/bright photo where `strong`
-     still reads too transparent (the joyfulculinary hero measured ~0.68). */
   .hero.scrim-heavy .hero__scrim { opacity: 0.68; }
   /* Top-of-band gradient scrim (REQ-36): a downward dark gradient over the flat
-     scrim, darkening the top edge (behind the nav) for legibility and fading out
-     by ~40% down — the reference's top vignette. Keyed to `--color-scrim`; the
-     element opacity sets the top strength. */
+     scrim, darkening the top edge (behind the nav) and fading out ~40% down. */
   .hero__scrim-top {
     position: absolute;
     inset: 0;
@@ -248,37 +180,28 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     gap: var(--space-4);
   }
   /* Content horizontal inset / gutter (REQ-49 cap 5): the `padding-inline` as a
-     token step, so the front-door left edge can align to a reference's gutter.
-     `sm` is the base 16px above (so a hero that omits the dial is unchanged);
-     `md`/`lg` widen it. Token-backed via `--space-*`. */
+     token step, so the front-door left edge can align to a reference's gutter. */
   .hero.content-inset-md .hero__inner { padding-inline: var(--space-6); }
   .hero.content-inset-lg .hero__inner { padding-inline: var(--space-8); }
   .hero.align-center .hero__inner { align-items: center; text-align: center; }
   /* Content-column placement (REQ-36): `left` drops the auto start-margin so the
-     capped column hugs the band's left gutter instead of centring in the band —
-     the reference bleeds its front-door content to the left edge. `center`
-     (default) keeps the `margin-inline: auto` above, so an omitting hero is
-     unchanged. */
+     capped column hugs the band's left gutter. */
   .hero.content-column-left .hero__inner { margin-inline: 0 auto; }
 
   /* Divider rule (REQ-36): a thin rule between heading and subhead inheriting the
-     surface text colour. Caps to a short measure (the reference's ~505px rule)
-     and shrinks with the column on narrow viewports. Rendered only for
-     `divider: rule`; the flex-column `gap` provides its vertical spacing. */
+     surface text colour, capped to a short measure. */
   .hero__divider {
     width: 32rem;
     max-width: 100%;
     height: 0;
     margin: 0;
     border: 0;
-    /* 2px crisp rule in the surface text colour — a 1px hairline reads thin and
-       washed over a bright image; the reference rule is a solid ~2px white. */
     border-top: 2px solid currentColor;
   }
 
   /* Foreground portrait (REQ-36) — an attribution/testimonial avatar above the
      subhead. `circle` crops it round; a thin surface-colour ring lifts it off a
-     busy background image, matching the reference quote band's author photo. */
+     busy background image. */
   .hero__portrait {
     display: block;
     width: 7rem;
@@ -291,6 +214,10 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
   .hero__portrait.portrait-square { border-radius: var(--radius-md); }
   .hero.align-center .hero__portrait { margin-inline: auto; }
 
+  /* REQ-50 — base slot styling supplies the *defaults* an omitting run inherits;
+     any axis a styled run sets is emitted as an inline `style` and overrides the
+     base. Intrinsic typography (family/size/weight/colour/tracking/leading/
+     gradient) now lives on the run, not on a dial. */
   .hero__eyebrow {
     margin: 0;
     text-transform: uppercase;
@@ -304,96 +231,20 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     font-family: var(--font-family-heading);
     font-weight: var(--font-weight-bold);
     line-height: var(--line-height-tight);
+    /* Default responsive size when the run omits `fontSizePx`; a literal px on
+       the run replaces this with a fixed size (REQ-50 agreed fork). */
+    font-size: clamp(var(--font-size-3xl), 6vw, var(--font-size-4xl));
   }
-  /* Heading font-weight (REQ-36) — `bold` is the base above; lighter steps reach
-     a reference display heading (the joyfulculinary hero is Oswald medium 500). */
-  .hero__heading.hw-extralight { font-weight: var(--font-weight-extralight); }
-  .hero__heading.hw-light { font-weight: var(--font-weight-light); }
-  .hero__heading.hw-regular { font-weight: var(--font-weight-regular); }
-  .hero__heading.hw-medium { font-weight: var(--font-weight-medium); }
-  .hero__heading.hw-semibold { font-weight: var(--font-weight-semibold); }
-  /* Heading letter-spacing (REQ-45): only the tighter steps emit an override;
-     `normal` sets nothing, leaving the heading untracked (default fallback
-     unchanged). Token-backed so no raw em value reaches the page. */
-  .hero__heading.tracking-tight { letter-spacing: var(--tracking-tight); }
-  .hero__heading.tracking-tighter { letter-spacing: var(--tracking-tighter); }
-  /* Heading colour treatment (REQ-28) — overrides the inherited surface colour.
-     `accent` is a solid accent fill; `gold` is the metallic-gold gradient
-     clipped to the glyphs, matching the header wordmark (REQ-24). */
-  /* Heading letter-case (REQ-36) — uppercases the rendered heading; the DOM text
-     stays literal so a faithful-repro values-diff still pairs on the source text. */
+  /* Heading letter-case (REQ-36) — uppercases the rendered heading; DOM literal. */
   .hero__heading.case-upper { text-transform: uppercase; }
 
-  .hero__heading.treatment-accent { color: var(--color-accent); }
-  .hero__heading.treatment-gold {
-    background-image: linear-gradient(
-      180deg,
-      #f7e4a8 0%,
-      var(--color-accent) 48%,
-      #b07d24 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  /* Responsive type: clamp between scale steps per size dial. */
-  .hero.size-sm .hero__heading { font-size: clamp(var(--font-size-2xl), 4vw, var(--font-size-3xl)); }
-  .hero.size-md .hero__heading { font-size: clamp(var(--font-size-3xl), 6vw, var(--font-size-4xl)); }
-  .hero.size-lg .hero__heading { font-size: clamp(var(--font-size-4xl), 8vw, var(--font-size-5xl)); }
-  /* Heading font-family (REQ-36) — `heading` (default) via the base rule above;
-     `body`/`display` render the heading in the body/display face (the quote hero
-     pull-quote is Karla body copy, not the condensed Oswald heading face). */
-  .hero__heading.heading-font-body { font-family: var(--font-family-body); }
-  .hero__heading.heading-font-display { font-family: var(--font-family-display); }
-
-  .hero__subhead { font-size: var(--font-size-lg); }
-  /* Subhead font-family (REQ-36) — `body` (default) inherits; `display`/`heading`
-     set the lead in the site's display/heading face (the reference lead is Lato,
-     the display font, distinct from the Karla body copy). */
-  .hero.subhead-font-display .hero__subhead { font-family: var(--font-family-display); }
-  .hero.subhead-font-heading .hero__subhead { font-family: var(--font-family-heading); }
-  /* Subhead/body content-column width (REQ-49): caps the lead/body measure so it
-     can match a reference's column (e.g. 768px). `content-width-default` sets no
-     cap — the subhead fills the inner frame — replacing the prior hardcoded
-     `max-width: 60ch`; `narrow`/`wide` use the matching container tokens. The
-     `align` dial then places the capped column (left gutter or centred).
-     Token-backed, no raw measure. */
+  .hero__subhead { margin: 0; font-size: var(--font-size-xl); }
+  .hero.align-center .hero__subhead { margin-inline: auto; }
+  /* Subhead/body content-column width (REQ-49): caps the measure so it can match
+     a reference's column; `default` sets no cap (fills the inner frame). */
   .hero.content-width-narrow .hero__subhead { max-width: var(--container-narrow); }
   .hero.content-width-readable .hero__subhead { max-width: var(--container-readable); }
   .hero.content-width-wide .hero__subhead { max-width: var(--container-wide); }
-  /* Subhead font-weight + line-height (REQ-45/49): applied to the LEAD paragraph
-     only (`p:first-child`), so a delicate light + snug lead does not leak onto
-     the smaller body copy below it — the reference splits a `font-light`/snug
-     lead from a `font-normal`/relaxed body (REQ-49 residual 3). `regular`/
-     `relaxed` (defaults) emit no lead override, so the lead keeps the inherited
-     weight and the prior relaxed leading; a hero that omits the dials is
-     unchanged. The body (`p + p`) is governed by its own deterministic defaults
-     below (regular weight, relaxed leading), never by these dials. */
-  .hero.subhead-weight-light .hero__subhead p:first-child { font-weight: var(--font-weight-light); }
-  .hero.subhead-weight-medium .hero__subhead p:first-child { font-weight: var(--font-weight-medium); }
-  .hero.subhead-weight-semibold .hero__subhead p:first-child { font-weight: var(--font-weight-semibold); }
-  .hero.subhead-leading-relaxed .hero__subhead p:first-child { line-height: var(--line-height-relaxed); }
-  .hero.subhead-leading-normal .hero__subhead p:first-child { line-height: var(--line-height-normal); }
-  .hero.subhead-leading-snug .hero__subhead p:first-child { line-height: var(--line-height-snug); }
-  .hero.subhead-leading-tight .hero__subhead p:first-child { line-height: var(--line-height-tight); }
-  .hero.align-center .hero__subhead { margin-inline: auto; }
-  /* Markdown subhead: the lead paragraph reads as a prominent subhead line;
-     any following paragraphs are the smaller body copy. The subhead-size dial
-     (REQ-33) steps the lead/body pair together; `md` preserves the prior scale.
-     The body copy holds readable defaults (regular weight, relaxed leading)
-     independent of the lead's weight/leading dials (REQ-49 residual 3). */
-  .hero__subhead p { margin: 0; }
-  .hero__subhead p + p {
-    margin-top: var(--space-4);
-    font-weight: var(--font-weight-regular);
-    line-height: var(--line-height-relaxed);
-  }
-  .hero.subhead-size-sm .hero__subhead p:first-child { font-size: var(--font-size-lg); }
-  .hero.subhead-size-sm .hero__subhead p + p { font-size: var(--font-size-sm); }
-  .hero.subhead-size-md .hero__subhead p:first-child { font-size: var(--font-size-xl); }
-  .hero.subhead-size-md .hero__subhead p + p { font-size: var(--font-size-base); }
-  .hero.subhead-size-lg .hero__subhead p:first-child { font-size: var(--font-size-2xl); }
-  .hero.subhead-size-lg .hero__subhead p + p { font-size: var(--font-size-lg); }
 
   .hero__cta {
     display: inline-block;
@@ -409,21 +260,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
      hard-corners; `soft` is the reference's barely-rounded 2px button. */
   .hero__cta.cta-square { border-radius: 0; }
   .hero__cta.cta-soft { border-radius: 2px; }
-  /* CTA label typography (REQ-36) — font role / size / weight. Defaults
-     (`body` / `base` / `semibold`) leave an omitting hero's button unchanged. */
-  .hero__cta.cta-font-label { font-family: var(--font-family-label); }
-  .hero__cta.cta-font-heading { font-family: var(--font-family-heading); }
-  .hero__cta.cta-font-display { font-family: var(--font-family-display); }
-  .hero__cta.cta-size-xs { font-size: var(--font-size-xs); }
-  .hero__cta.cta-size-sm { font-size: var(--font-size-sm); }
-  .hero__cta.cta-size-md { font-size: var(--font-size-md, var(--font-size-lg)); }
-  .hero__cta.cta-size-lg { font-size: var(--font-size-lg); }
-  .hero__cta.cta-weight-light { font-weight: var(--font-weight-light); }
-  .hero__cta.cta-weight-regular { font-weight: var(--font-weight-regular); }
-  .hero__cta.cta-weight-medium { font-weight: var(--font-weight-medium); }
-  /* The inner is a stretch flex column (so the heading/subhead fill the measure
-     and wrap), which would stretch the CTA into a full-width bar. Pin it to the
-     content-start edge so it hugs its label — left on a left hero (REQ-36),
-     centred on a centred hero (whose inner is already centre-aligned). */
+  /* The inner is a stretch flex column, which would stretch the CTA into a
+     full-width bar. Pin it to the content-start edge so it hugs its label. */
   .hero.align-left .hero__cta { align-self: flex-start; }
 </style>

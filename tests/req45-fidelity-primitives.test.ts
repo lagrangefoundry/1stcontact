@@ -11,28 +11,24 @@ import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens'
-import {
-  CONTENT_WIDTH_DIAL,
-  LINE_HEIGHT_DIAL,
-  SUBHEAD_SIZE_DIAL,
-  TRACKING_DIAL,
-} from '../packages/framework/src/modules/dials'
+import { CONTENT_WIDTH_DIAL } from '../packages/framework/src/modules/dials'
 
 /**
  * UATs for REQ-45 — the last-mile fidelity primitives the gigabytealchemy
- * perceptual diff surfaced but the framework could not yet express. Each is a
- * generalization of an existing module (no new modules), token-backed, with the
- * default value preserving the prior behaviour so a site that omits the dial is
- * unchanged:
+ * perceptual diff surfaced but the framework could not yet express. Post-REQ-50,
+ * the intrinsic-typography axes (tracking, leading, subhead/caption size, submit
+ * foreground) are no longer dials: they live on the text slots as styled runs
+ * (`letterSpacingPx`/`lineHeightPx`/`fontSizePx`/`color`), resolved to an inline
+ * `style`. Only the structural `contentWidth` capability remains a dial:
  *
  *   1. start-aligned constrained content column (`contentWidth` on text-block +
  *      services-grid) — a narrow measure pinned to the left gutter, collapsing
  *      the cumulative vertical drift that dominated the perceptual heat.
- *   2. tracking (`tracking`) on the hero heading + header wordmark.
- *   3. hero subhead line-height (`subheadLeading`).
- *   4. contact-form submit-label foreground (`submitForeground`).
- *   5. contact-form subhead / caption size (`subheadSize` / `captionSize` + a
- *      `caption` slot).
+ *   2. tracking — now `run.letterSpacingPx` on the hero heading + header wordmark.
+ *   3. hero subhead line-height — now the subhead run's `lineHeightPx`.
+ *   4. contact-form submit-label foreground — now the `submitLabel` run's `color`.
+ *   5. contact-form subhead / caption size — now the subhead/caption style run's
+ *      `fontSizePx` (with a `caption` markdown slot).
  */
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
@@ -54,22 +50,27 @@ describe('REQ-45 fidelity primitives — meta surfaces the dials', () => {
     expect(servicesGridMeta.dials.contentWidth).toEqual(CONTENT_WIDTH_DIAL)
   })
 
-  it('test_UAT_FC_REQ-45_hero_meta_exposes_tracking_and_subhead_leading', () => {
-    expect(heroMeta.dials.tracking).toEqual(TRACKING_DIAL)
-    expect(heroMeta.dials.subheadLeading).toEqual(LINE_HEIGHT_DIAL)
+  it('test_UAT_FC_REQ-45_hero_heading_and_subhead_are_styled_runs', () => {
+    // REQ-50: the former `tracking` + `subheadLeading` dials are gone; their
+    // axes are `letterSpacingPx` / `lineHeightPx` on the heading / subhead runs.
+    expect(heroMeta.contentSchema.heading).toEqual({ type: 'styled-text', required: true })
+    expect(heroMeta.contentSchema.subhead).toEqual({ type: 'styled-text', required: false })
   })
 
-  it('test_UAT_FC_REQ-45_header_meta_exposes_tracking_dial', () => {
-    expect(headerMeta.dials.tracking).toEqual(TRACKING_DIAL)
+  it('test_UAT_FC_REQ-45_header_wordmark_is_a_styled_run', () => {
+    // REQ-50: the former header `tracking` dial is gone; the wordmark's tracking
+    // is `letterSpacingPx` on its styled run.
+    expect(headerMeta.contentSchema.wordmark).toEqual({ type: 'styled-text', required: false })
   })
 
-  it('test_UAT_FC_REQ-45_contact_form_meta_exposes_foreground_and_size_dials', () => {
-    // `auto` plus the palette roles (incl. `bg` for a white on-primary label).
-    expect(contactFormMeta.dials.submitForeground).toContain('auto')
-    expect(contactFormMeta.dials.submitForeground).toContain('bg')
-    expect(contactFormMeta.dials.subheadSize).toEqual(SUBHEAD_SIZE_DIAL)
-    expect(contactFormMeta.dials.captionSize).toEqual(SUBHEAD_SIZE_DIAL)
-    // The caption slot is a content field, not a dial.
+  it('test_UAT_FC_REQ-45_contact_form_slots_carry_style_via_runs', () => {
+    // REQ-50: `submitForeground`/`subheadSize`/`captionSize` dials are gone. The
+    // submit label is a styled run (its `color` paints the label); the markdown
+    // subhead/caption take their size from style-only style runs.
+    expect(contactFormMeta.contentSchema.submitLabel).toEqual({ type: 'styled-text', required: false })
+    expect(contactFormMeta.contentSchema.subheadStyle).toEqual({ type: 'styled-text', required: false })
+    expect(contactFormMeta.contentSchema.captionStyle).toEqual({ type: 'styled-text', required: false })
+    // The caption slot itself is a markdown content field.
     expect(contactFormMeta.contentSchema.caption).toEqual({ type: 'markdown', required: false })
   })
 })
@@ -79,7 +80,7 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
     const html = await render(TextBlock, {
       variant: 'landing',
       dials: { contentWidth: 'narrow' },
-      content: { heading: 'A Different Approach', body: 'Body copy.' },
+      content: { heading: { text: 'A Different Approach' }, body: 'Body copy.' },
     })
     expect(html).toContain('content-width-narrow')
   })
@@ -101,8 +102,8 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
       content: {
         subhead: 'Intro.',
         items: [
-          { title: 'A', body: 'x' },
-          { title: 'B', body: 'y' },
+          { title: { text: 'A' }, body: 'x' },
+          { title: { text: 'B' }, body: 'y' },
         ],
       },
     })
@@ -114,8 +115,8 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
       variant: 'three-col',
       content: {
         items: [
-          { title: 'A', body: 'x' },
-          { title: 'B', body: 'y' },
+          { title: { text: 'A' }, body: 'x' },
+          { title: { text: 'B' }, body: 'y' },
         ],
       },
     })
@@ -125,67 +126,80 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
 })
 
 describe('REQ-45 capability 2 — tracking on hero heading + header wordmark', () => {
-  it('test_UAT_FC_REQ-45_hero_heading_carries_tracking_class', async () => {
+  it('test_UAT_FC_REQ-45_hero_heading_carries_tracking_style', async () => {
+    // REQ-50: tracking is the heading run's `letterSpacingPx` (a `tight` alias →
+    // the tracking token), emitted as an inline `style` on the h1.
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { tracking: 'tight' },
-      content: { heading: 'Intentional Software', subhead: 'Body.' },
+      content: {
+        heading: { text: 'Intentional Software', letterSpacingPx: 'tight' },
+        subhead: { text: 'Body.' },
+      },
     })
-    expect(html).toMatch(/hero__heading[^"]*tracking-tight/)
+    expect(html).toMatch(
+      /hero__heading[^>]*style="[^"]*letter-spacing: var\(--tracking-tight\)/,
+    )
   })
 
   it('test_UAT_FC_REQ-45_hero_heading_defaults_to_untracked', async () => {
+    // A heading run that omits `letterSpacingPx` emits no letter-spacing at all.
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Acme', subhead: 'Body.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body.' } },
     })
-    // Default marker present, tighter overrides absent (heading stays untracked).
-    expect(html).toContain('tracking-normal')
-    expect(html).not.toContain('tracking-tight')
+    expect(html).not.toContain('letter-spacing')
   })
 
-  it('test_UAT_FC_REQ-45_header_wordmark_carries_tracking_class', async () => {
+  it('test_UAT_FC_REQ-45_header_wordmark_carries_tracking_style', async () => {
+    // REQ-50: the wordmark's tracking is `letterSpacingPx` on its styled run.
     const html = await render(Header, {
       variant: 'top-nav',
-      dials: { tracking: 'tighter' },
-      content: { logo: 'GigabyteAlchemy', entries: [] },
+      content: { wordmark: { text: 'GigabyteAlchemy', letterSpacingPx: 'tighter' }, entries: [] },
     })
-    expect(html).toMatch(/header__wordmark--tracking-tighter/)
+    expect(html).toMatch(
+      /header__wordmark[^>]*style="[^"]*letter-spacing: var\(--tracking-tighter\)/,
+    )
   })
 })
 
 describe('REQ-45 capability 3 — hero subhead line-height', () => {
-  it('test_UAT_FC_REQ-45_hero_subhead_carries_leading_class', async () => {
+  it('test_UAT_FC_REQ-45_hero_subhead_carries_leading_style', async () => {
+    // REQ-50: leading is the subhead run's `lineHeightPx` (a `normal` alias →
+    // the line-height token), emitted as an inline `style` on the subhead.
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { subheadLeading: 'normal' },
-      content: { heading: 'Acme', subhead: 'Body.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body.', lineHeightPx: 'normal' } },
     })
-    expect(html).toContain('subhead-leading-normal')
+    expect(html).toMatch(
+      /hero__subhead[^>]*style="[^"]*line-height: var\(--line-height-normal\)/,
+    )
   })
 
-  it('test_UAT_FC_REQ-45_hero_subhead_defaults_to_relaxed_leading', async () => {
+  it('test_UAT_FC_REQ-45_hero_subhead_defaults_to_no_leading_override', async () => {
+    // A subhead run that omits `lineHeightPx` inherits the base leading — no
+    // inline line-height is emitted.
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Acme', subhead: 'Body.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body.' } },
     })
-    expect(html).toContain('subhead-leading-relaxed')
-    expect(html).not.toContain('subhead-leading-normal')
+    expect(html).not.toContain('line-height')
   })
 })
 
 describe('REQ-45 capability 4 — contact-form submit-label foreground', () => {
   it('test_UAT_FC_REQ-45_submit_label_paints_role_foreground', async () => {
+    // REQ-50: the label colour is the `submitLabel` run's `color` (a `bg` role →
+    // `var(--color-bg)`), painted as an inline `style` on the submit button.
     const html = await render(ContactForm, {
       variant: 'inline',
-      dials: { submitTreatment: 'neutral', submitForeground: 'bg' },
+      dials: { submitTreatment: 'neutral' },
       content: {
         action: '/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
-        submitLabel: 'Send message',
+        submitLabel: { label: 'Send message', color: 'bg' },
       },
     })
-    // A legible white on-primary label — the framework computes the role fill.
+    // A legible white on-primary label — the run's role colour resolves to a var.
     expect(html).toMatch(/contact-form__submit[^>]*style="[^"]*color: var\(--color-bg\)/)
   })
 
@@ -204,18 +218,26 @@ describe('REQ-45 capability 4 — contact-form submit-label foreground', () => {
 
 describe('REQ-45 capability 5 — contact-form subhead / caption size', () => {
   it('test_UAT_FC_REQ-45_contact_form_sizes_subhead_and_renders_caption', async () => {
+    // REQ-50: the markdown subhead/caption take their size from style-only
+    // `subheadStyle`/`captionStyle` runs (`fontSizePx` aliases → font-size vars),
+    // applied as inline `style` on the prose containers.
     const html = await render(ContactForm, {
       variant: 'inline',
-      dials: { subheadSize: 'lg', captionSize: 'sm' },
       content: {
         subhead: 'Join our mailing list.',
+        subheadStyle: { fontSizePx: 'lg' },
         caption: 'More to come.',
+        captionStyle: { fontSizePx: 'sm' },
         action: '/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
     })
-    expect(html).toContain('subhead-size-lg')
-    expect(html).toContain('caption-size-sm')
+    expect(html).toMatch(
+      /contact-form__subhead[^>]*style="[^"]*font-size: var\(--font-size-lg\)/,
+    )
+    expect(html).toMatch(
+      /contact-form__caption[^>]*style="[^"]*font-size: var\(--font-size-sm\)/,
+    )
     // The caption slot renders its markdown.
     expect(html).toContain('contact-form__caption')
     expect(html).toContain('More to come.')
@@ -229,9 +251,8 @@ describe('REQ-45 capability 5 — contact-form subhead / caption size', () => {
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
     })
-    // Default fallback: no caption node, and the prior `md` sizes.
+    // Default fallback: no caption node at all.
     expect(html).not.toContain('contact-form__caption')
-    expect(html).toContain('subhead-size-md')
   })
 })
 

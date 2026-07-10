@@ -1,87 +1,71 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
+import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
   variant?: string
   dials?: Record<string, string>
   content: {
-    heading?: string
+    heading?: TextRun
     body: string
-    cta?: { label: string; href: string }
+    bodyStyle?: TextRun
+    cta?: TextRun
   }
 }
 
 const { variant = 'prose', dials = {}, content } = Astro.props as Props
-const size = dials.size ?? 'md'
 const align = dials.align ?? 'left'
 const surface = dials.surface ?? 'default'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 const textAlign = dials.textAlign ?? 'left'
-// Constrained content column (REQ-45): `default` leaves the variant width; the
-// `align` dial governs where a capped column sits (left gutter / centred).
+// Constrained content column (REQ-45).
 const contentWidth = dials.contentWidth ?? 'default'
-
-// Heading colour treatment (REQ-36) — `plain` (default) inherits the band text
-// colour; `accent`/`gold` colour the heading (the joyfulculinary gold section
-// headings). A section that omits the dial is unchanged.
-const headingTreatment = dials.headingTreatment ?? 'plain'
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
-// Heading typography (REQ-36) — weight/size/alignment independent of the body:
-// `bold`/`md`/`left` preserve the prior heading, so an omitting section is
-// unchanged. Lighter weights + a larger size reach the reference's extralight
-// section headings; `headingAlign` centres the heading over a left-aligned body.
-const headingWeight = dials.headingWeight ?? 'bold'
-const headingSize = dials.headingSize ?? 'md'
+// Heading text-alignment (REQ-36), independent of the block/body align.
 const headingAlign = dials.headingAlign ?? 'left'
-// Body line-height (REQ-36) — `relaxed` (default) preserves the prior leading;
-// tighter steps match a denser reference body and collapse vertical drift.
-const leading = dials.leading ?? 'relaxed'
-// Contained-panel treatment (REQ-36) — `none` (default) fills the band; a role
-// value makes the inner a padded, rounded, inset card in that palette role.
+// Contained-panel treatment (REQ-36).
 const panel = dials.panel ?? 'none'
-// Body list marker (REQ-36) — `check` = accent ✓ markers; `bullet` (default).
+// Body list marker (REQ-36) — `check` = accent ✓; `bullet` (default).
 const listMarker = dials.listMarker ?? 'bullet'
-// CTA corner shape (REQ-36) — `round` (default) keeps a pill; `square` hard-corners
-// (the offerings-intro "Learn More" button under the left copy column).
+// CTA corner shape (REQ-36).
 const ctaShape = dials.ctaShape ?? 'round'
-// Panel vertical padding (REQ-36) — `md` (default) base; `lg`/`xl` deepen a
-// contained panel so it reads taller (the reference testimonial panel).
+// Panel vertical padding + corner shape (REQ-36).
 const panelPad = dials.panelPad ?? 'md'
-// Panel corner shape (REQ-36) — `rounded` (default) soft radius; `square` = 0
-// (the reference Holistic card is a square Elementor inner-section).
 const panelCorner = dials.panelCorner ?? 'rounded'
-// Body copy weight (REQ-36) — `regular` (default) inherits; `light` etc. step it.
-const bodyWeight = dials.bodyWeight ?? 'regular'
 const { heading, cta } = content
 const bodyHtml = await renderMarkdown(content.body)
+
+// REQ-50 — styled runs → inline `style`. `bodyStyle` is a style-only run whose
+// resolved declaration is applied to the prose container so the whole markdown
+// block inherits its family/size/weight/colour/leading.
+const headingStyle = resolveTextStyle(heading)
+const bodyStyle = resolveTextStyle(content.bodyStyle)
+const ctaStyle = resolveTextStyle(cta)
 ---
 
 <section
   class:list={[
     'text-block',
     `variant-${variant}`,
-    `size-${size}`,
     `align-${align}`,
     `surface-${surface}`,
     `text-align-${textAlign}`,
     `content-width-${contentWidth}`,
-    `leading-${leading}`,
     `panel-${panel}`,
     `panel-corner-${panelCorner}`,
     `panel-pad-${panelPad}`,
-    `body-weight-${bodyWeight}`,
     `list-marker-${listMarker}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
 >
   <div class="text-block__inner">
-    {heading && <h2 class:list={['text-block__heading', `treatment-${headingTreatment}`, `case-${headingCase}`, `hw-${headingWeight}`, `hs-${headingSize}`, `halign-${headingAlign}`]}>{heading}</h2>}
-    <div class="text-block__body" set:html={bodyHtml} />
-    {cta && <a class:list={['text-block__cta', `cta-${ctaShape}`]} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
+    {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
+    <div class="text-block__body" style={bodyStyle} set:html={bodyHtml} />
+    {cta?.label && cta.href && <a class:list={['text-block__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
   </div>
 </section>
 
@@ -121,8 +105,7 @@ const bodyHtml = await renderMarkdown(content.body)
   .text-block.text-align-center .text-block__inner { text-align: center; }
 
   /* Contained-panel treatment (REQ-36) — the inner content column becomes a
-     padded, rounded card in a palette role, floating (via its variant max-width +
-     auto margins) on the band background. `none` (default) adds nothing. */
+     padded, rounded card in a palette role, floating on the band background. */
   .text-block.panel-subtle .text-block__inner,
   .text-block.panel-inverse .text-block__inner,
   .text-block.panel-secondary .text-block__inner,
@@ -130,24 +113,9 @@ const bodyHtml = await renderMarkdown(content.body)
     padding: var(--space-12) var(--space-8);
     border-radius: var(--radius-lg);
   }
-  /* Panel corner shape (REQ-36) — `square` hard-corners the panel (the reference
-     Holistic card is a square Elementor inner-section, not a rounded card). */
   .text-block.panel-corner-square .text-block__inner { border-radius: 0; }
-
-  /* Body copy weight (REQ-36) — steps the body face independently of the heading;
-     `regular` (default) inherits, so an omitting block is unchanged. */
-  .text-block.body-weight-light .text-block__body { font-weight: var(--font-weight-light); }
-  .text-block.body-weight-medium .text-block__body { font-weight: var(--font-weight-medium); }
-  .text-block.body-weight-semibold .text-block__body { font-weight: var(--font-weight-semibold); }
-  .text-block.body-weight-bold .text-block__body { font-weight: var(--font-weight-bold); }
-  /* Panel vertical padding (REQ-36) — `md` (default) is the base 48px; `lg`/`xl`
-     deepen it so a panel reads taller/airier (the reference testimonial panel is
-     a tall band). Horizontal padding is unchanged. */
   .text-block.panel-pad-lg .text-block__inner { padding-block: var(--space-16); }
   .text-block.panel-pad-xl .text-block__inner { padding-block: var(--space-24); }
-  /* A contained panel sizes its box to `contentWidth` (so the card itself is the
-     reference width, not just the text within it); `default` keeps the variant
-     width. Scoped to an active panel via `:not(.panel-none)`. */
   .text-block:not(.panel-none).content-width-xnarrow .text-block__inner { max-width: var(--container-xnarrow); }
   .text-block:not(.panel-none).content-width-narrow .text-block__inner { max-width: var(--container-narrow); }
   .text-block:not(.panel-none).content-width-readable .text-block__inner { max-width: var(--container-readable); }
@@ -157,15 +125,10 @@ const bodyHtml = await renderMarkdown(content.body)
   .text-block.panel-secondary .text-block__inner { background: var(--color-secondary); color: var(--color-bg); }
   .text-block.panel-accent .text-block__inner { background: var(--color-accent); color: var(--color-bg); }
 
-  /* Checklist markers (REQ-36) — replace the bullet with an accent ✓ (the "Who
-     Uses Our Services" list). The `ul` becomes inline-block so a centred band
-     centres the list while its items stay left-aligned under the ticks. */
+  /* Checklist markers (REQ-36) — replace the bullet with an accent ✓. */
   .text-block.list-marker-check .text-block__body ul { list-style: none; padding-left: 0; display: inline-block; text-align: left; }
   .text-block.list-marker-check .text-block__body li { position: relative; padding-left: 1.6em; }
   .text-block.list-marker-check .text-block__body li::before {
-    /* FontAwesome `fa-check` (U+F00C) rendered in the icon font, matching the
-       reference's Elementor icon-list ticks — a heavier, geometric check than the
-       thin Unicode ✓ (U+2713). The glyph ships in the site's IconFont subset. */
     content: "\f00c";
     font-family: 'IconFont';
     position: absolute;
@@ -175,31 +138,14 @@ const bodyHtml = await renderMarkdown(content.body)
     color: var(--color-accent);
   }
 
-  /* Constrained content column (REQ-45): the inner stays a full-width frame
-     (its variant width) while these cap the *content* to a narrower measure.
-     The `align` dial then places it — `left` (default) leaves the capped items
-     at the flex cross-start, pinned to the frame's left gutter (the header/hero
-     content edge); `align-center` (align-items: center, above) centres them.
-     `content-width-default` sets no cap, so the content fills the frame and a
-     section that omits the dial is unchanged. Token-backed widths, no raw CSS. */
+  /* Constrained content column (REQ-45). */
   .text-block.content-width-xnarrow .text-block__inner > * { max-width: var(--container-xnarrow); width: 100%; }
   .text-block.content-width-narrow .text-block__inner > * { max-width: var(--container-narrow); width: 100%; }
   .text-block.content-width-readable .text-block__inner > * { max-width: var(--container-readable); width: 100%; }
   .text-block.content-width-wide .text-block__inner > * { max-width: var(--container-wide); width: 100%; }
 
-  /* Heading colour treatment (REQ-36), independent of the surface text colour —
-     the same treatment vocabulary as the hero heading. `plain` inherits the band
-     colour (no rule); `accent` fills solid gold; `gold` is the metallic-gold
-     gradient clipped to the text. */
-  .text-block__heading.case-upper { text-transform: uppercase; }
-  .text-block__heading.treatment-accent { color: var(--color-accent); }
-  .text-block__heading.treatment-gold {
-    background-image: linear-gradient(180deg, #f7e4a8 0%, var(--color-accent) 48%, #b07d24 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
+  /* REQ-50 — base slot styling supplies the defaults an omitting run inherits;
+     any axis the styled run sets overrides via inline `style`. */
   .text-block__heading {
     margin: 0;
     font-family: var(--font-family-heading);
@@ -207,34 +153,13 @@ const bodyHtml = await renderMarkdown(content.body)
     line-height: var(--line-height-tight);
     font-size: var(--font-size-3xl);
   }
-  /* Heading font-weight (REQ-36) — `bold` is the base above; the lighter steps
-     reach the reference's extralight/light section headings. */
-  .text-block__heading.hw-extralight { font-weight: var(--font-weight-extralight); }
-  .text-block__heading.hw-light { font-weight: var(--font-weight-light); }
-  .text-block__heading.hw-regular { font-weight: var(--font-weight-regular); }
-  .text-block__heading.hw-medium { font-weight: var(--font-weight-medium); }
-  .text-block__heading.hw-semibold { font-weight: var(--font-weight-semibold); }
-  /* Heading font-size step (REQ-36) — `hs-md` = the `3xl` base above; the rest
-     step the heading independently of the body `size` dial. */
-  .text-block__heading.hs-sm { font-size: var(--font-size-2xl); }
-  .text-block__heading.hs-lg { font-size: var(--font-size-4xl); }
-  .text-block__heading.hs-xl { font-size: var(--font-size-5xl); }
-  /* Heading text-alignment (REQ-36) — independent of the block/body align, so a
-     centred heading can sit over a left-aligned body (the reference). */
+  .text-block__heading.case-upper { text-transform: uppercase; }
   .text-block__heading.halign-left { text-align: left; }
   .text-block__heading.halign-center { text-align: center; }
 
-  /* The body type scale follows the size dial (DOC-7 §4.1). */
-  .text-block__body { line-height: var(--line-height-relaxed); }
-  /* Body line-height (REQ-36) — `relaxed` is the base above; tighter steps match
-     a denser reference body and collapse the drift a loose default injects. */
-  .text-block.leading-tight .text-block__body { line-height: var(--line-height-tight); }
-  .text-block.leading-snug .text-block__body { line-height: var(--line-height-snug); }
-  .text-block.leading-normal .text-block__body { line-height: var(--line-height-normal); }
-  .text-block.size-sm .text-block__body { font-size: var(--font-size-sm); }
-  .text-block.size-md .text-block__body { font-size: var(--font-size-base); }
-  .text-block.size-lg .text-block__body { font-size: var(--font-size-lg); }
-
+  /* Prose body: base size + leading; a `bodyStyle` run overrides via inline
+     `style`, and its inner element rules (headings, links, quotes) stay. */
+  .text-block__body { font-size: var(--font-size-base); line-height: var(--line-height-relaxed); }
   .text-block__body :global(h1),
   .text-block__body :global(h2),
   .text-block__body :global(h3) {
@@ -257,9 +182,7 @@ const bodyHtml = await renderMarkdown(content.body)
     background: var(--color-surface-subtle);
   }
 
-  /* Optional CTA button (REQ-36) — the accent "Learn More" that closes the
-     offerings-intro column. Pinned to the content-start edge so it hugs its
-     label rather than stretching the inner flex column. */
+  /* Optional CTA button (REQ-36). */
   .text-block__cta {
     display: inline-block;
     align-self: flex-start;

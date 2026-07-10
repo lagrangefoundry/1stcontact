@@ -10,43 +10,42 @@
     {
       "id": "header",
       "type": "header",
-      "version": 1,
+      "version": 2,
       "variant": "top-nav",
       "dials": {
         "surface": "default"
       },
       "content": {
-        "logo": "Harbor Café",
+        "wordmark": { "text": "Harbor Café" },
         "entries": []
       }
     },
     {
       "id": "hero",
       "type": "hero",
-      "version": 1,
+      "version": 2,
       "variant": "bg-color",
       "dials": {
-        "size": "lg",
         "align": "left",
         "spacingTop": "xl",
         "spacingBottom": "lg"
       },
       "content": {
-        "eyebrow": "On the waterfront",
-        "heading": "Slow mornings, good coffee",
-        "subhead": "Brunch, pastries, and a window seat over the harbour."
+        "eyebrow": { "text": "On the waterfront" },
+        "heading": { "text": "Slow mornings, good coffee", "fontSizePx": "5xl" },
+        "subhead": { "text": "Brunch, pastries, and a window seat over the harbour." }
       }
     },
     {
       "id": "menu",
       "type": "text-block",
-      "version": 1,
+      "version": 2,
       "variant": "landing",
       "dials": {
         "surface": "subtle"
       },
       "content": {
-        "heading": "This week",
+        "heading": { "text": "This week" },
         "body": "Single-origin pour-overs, sourdough crumpets, and a rotating brunch special. **Open daily, 8am–4pm.**"
       }
     },

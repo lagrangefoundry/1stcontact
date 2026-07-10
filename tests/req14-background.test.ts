@@ -162,7 +162,7 @@ describe('REQ-14 — Background rendering', () => {
 
   it('test_UAT_FC_REQ-14_renders_text_over_image', async () => {
     const heroHtml = await container.renderToString(Hero, {
-      props: { variant: 'bg-color', dials: {}, content: { heading: 'Over the image' } },
+      props: { variant: 'bg-color', dials: {}, content: { heading: { text: 'Over the image' } } },
     })
     const wrapped = wrapWithBackground(heroHtml, {
       type: 'image',

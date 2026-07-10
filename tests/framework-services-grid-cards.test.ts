@@ -31,7 +31,7 @@ function moduleSource(): string {
 
 /** A minimal valid card (title + body only) plus any structured treatments. */
 function card(extra: Record<string, unknown> = {}) {
-  return { title: 'Sanctum Voice', body: 'A voice-first app.', ...extra }
+  return { title: { text: 'Sanctum Voice' }, body: 'A voice-first app.', ...extra }
 }
 
 describe('REQ-26 services-grid card treatments — schema (AC1)', () => {
@@ -43,7 +43,7 @@ describe('REQ-26 services-grid card treatments — schema (AC1)', () => {
           badge: { label: 'In development', variant: 'primary' },
           checklist: ['On-device', 'Private'],
         }),
-        card({ title: 'XGD', body: 'A methodology.', accent: 'primary' }),
+        card({ title: { text: 'XGD' }, body: 'A methodology.', accent: 'primary' }),
       ],
     })
     expect(errors).toEqual([])
@@ -88,7 +88,7 @@ describe('REQ-26 services-grid card treatments — rendering (AC2)', () => {
       variant: 'two-col',
       dials: {},
       content: {
-        items: [card({ accent: 'accent' }), card({ title: 'XGD', body: 'x', accent: 'primary' })],
+        items: [card({ accent: 'accent' }), card({ title: { text: 'XGD' }, body: 'x', accent: 'primary' })],
       },
     })
     expect(html).toContain('has-accent accent-accent')
@@ -158,10 +158,10 @@ describe('REQ-26 services-grid card treatments — gigabytealchemy fidelity (AC3
       variant: 'two-col',
       dials: { gap: 'normal' },
       content: {
-        heading: "What We're Building",
+        heading: { text: "What We're Building" },
         items: [
           {
-            title: 'Sanctum Voice',
+            title: { text: 'Sanctum Voice' },
             body: '**Your private space to think out loud**',
             accent: 'accent',
             badge: { label: 'In development', variant: 'primary' },
@@ -172,7 +172,7 @@ describe('REQ-26 services-grid card treatments — gigabytealchemy fidelity (AC3
             ],
           },
           {
-            title: 'XGD (Extreme Generative Development)',
+            title: { text: 'XGD (Extreme Generative Development)' },
             body: '**AI-powered development methodology and tools**',
             accent: 'primary',
             badge: { label: 'Coming soon', variant: 'neutral' },
@@ -204,9 +204,10 @@ describe('REQ-26 services-grid card treatments — gigabytealchemy fidelity (AC3
  * white card breaks the composition). Effect + default-unchanged + composability.
  */
 describe('REQ-36 services-grid bare cards — CAP-1', () => {
+  // REQ-50: card titles are now styled runs.
   const twoCards = [
-    { title: 'Personal Chef Services', body: 'Weekly, bi-weekly or monthly.' },
-    { title: 'Cooking Classes', body: 'For small groups.' },
+    { title: { text: 'Personal Chef Services' }, body: 'Weekly, bi-weekly or monthly.' },
+    { title: { text: 'Cooking Classes' }, body: 'For small groups.' },
   ]
 
   it('test_UAT_FC_REQ-36_bare_applies_grid_class_and_strips_chrome_css', async () => {

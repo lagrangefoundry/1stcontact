@@ -85,9 +85,9 @@ describe('@1stcontact/framework theme tokens', () => {
 
 describe('@1stcontact/framework module registry', () => {
   it('test_UAT_FC_REQ-4_registry_resolves_known_module', () => {
-    const def = getModule('hero', 1)
+    const def = getModule('hero', 2)
     expect(def.meta.id).toBe('hero')
-    expect(def.meta.version).toBe(1)
+    expect(def.meta.version).toBe(2)
     expect(def.Component).toBeTypeOf('function')
   })
 

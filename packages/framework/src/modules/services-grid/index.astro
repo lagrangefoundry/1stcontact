@@ -2,17 +2,16 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
+import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface ServiceItem {
   icon?: AssetRef | string
   /** Card top-media image (REQ-36) — a full-width photo atop the card. */
   image?: AssetRef
-  title: string
+  title: TextRun
   body: string
-  /** Per-card type scale (REQ-20) — `lg` marks a featured card (larger title,
-   *  body, badge); `md` (default) is the standard scale. */
-  size?: 'sm' | 'md' | 'lg'
-  cta?: { label: string; href: string }
+  bodyStyle?: TextRun
+  cta?: TextRun
   /** Accent left-border colour (REQ-26) — a palette-role name, not a raw colour. */
   accent?: 'primary' | 'accent' | 'muted' | 'secondary' | 'neutral-cool'
   /** Card fill (REQ-20, REQ-32) — `muted`/`neutral-cool` are filled panels. */
@@ -27,51 +26,29 @@ interface Props {
   variant?: string
   dials?: Record<string, string>
   content: {
-    heading?: string
+    heading?: TextRun
     subhead?: string
+    subheadStyle?: TextRun
     items: ServiceItem[]
     /** Section-level CTA button rendered below the grid (REQ-36). */
-    cta?: { label: string; href: string }
+    cta?: TextRun
   }
 }
 
 const { variant = 'three-col', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const gap = dials.gap ?? 'normal'
-// Grid-wide card chrome (REQ-36 / CAP-1): `bare` strips the card fill/border/
-// radius/padding so cards read as plain text columns on the band; `default`
-// keeps the standard filled+bordered card.
+// Grid-wide card chrome (REQ-36 / CAP-1).
 const cardSurface = dials.cardSurface ?? 'default'
-// Heading colour treatment (REQ-36) — colours the grid heading and card titles
-// together (`accent`/`gold`); `plain` (default) inherits the band colour. Lets
-// one grid read gold-on-dark (the Offerings grid) while another stays white
-// (the process grid).
-const headingTreatment = dials.headingTreatment ?? 'plain'
-// Heading letter-case (REQ-36) — `upper` uppercases the grid heading + card
-// titles at render; DOM text stays literal.
+// Heading letter-case (REQ-36) — uppercases the grid heading + card titles.
 const headingCase = dials.headingCase ?? 'normal'
-// Icon rendering (REQ-36) — `icon-font` renders a string card icon as a glyph in
-// the site's `IconFont` (Font Awesome), accent-coloured; `default` = plain text.
+// Icon rendering (REQ-36).
 const iconFont = dials.iconFont ?? 'default'
-// Card type scale (REQ-20): `md` preserves the prior scale; `lg`/`sm` step the
-// card heading/subhead/badge/checklist typography up/down one notch.
-const size = dials.size ?? 'md'
-// Constrained content column (REQ-45): `default` fills the frame; a capped
-// column pins to the frame's left gutter (the section flex default).
+// Constrained content column (REQ-45).
 const contentWidth = dials.contentWidth ?? 'default'
-// Card title weight + face (REQ-36) — the reference's Offerings card titles are
-// thin Oswald (`extralight`) and its "How It Works" titles are Karla `body`
-// regular, not the default semibold heading face. `semibold`/`heading` (defaults)
-// leave a grid that omits the dials unchanged.
-const cardTitleWeight = dials.cardTitleWeight ?? 'semibold'
-const cardTitleFont = dials.cardTitleFont ?? 'heading'
-// Card icon layout (REQ-36) — `top` (default) stacks icon over the title; `left`
-// sets the icon beside the title on a header row with the body spanning full
-// width below (the reference "How It Works" step cards).
+// Card icon layout (REQ-36).
 const iconLayout = dials.iconLayout ?? 'top'
-// Constrained-column alignment (REQ-36) — with a capped `contentWidth`, `left`
-// (default) pins the column to the frame's left gutter (REQ-45); `center` centres
-// it in the band (the reference "How It Works" grid is a centred narrow column).
+// Constrained-column alignment (REQ-36).
 const contentAlign = dials.contentAlign ?? 'left'
 const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
@@ -80,10 +57,21 @@ const { heading } = content
 const sectionCta = content.cta
 const items = content.items ?? []
 const subheadHtml = content.subhead ? await renderMarkdown(content.subhead) : undefined
-// Pre-render each card's markdown body in the frontmatter (async).
+// Pre-render each card's markdown body + resolve its styled runs (async body).
 const cards = await Promise.all(
-  items.map(async (item) => ({ item, bodyHtml: await renderMarkdown(item.body) })),
+  items.map(async (item) => ({
+    item,
+    bodyHtml: await renderMarkdown(item.body),
+    titleStyle: resolveTextStyle(item.title),
+    bodyStyle: resolveTextStyle(item.bodyStyle),
+    ctaStyle: resolveTextStyle(item.cta),
+  })),
 )
+
+// REQ-50 — section-level styled runs → inline `style`.
+const headingStyle = resolveTextStyle(heading)
+const subheadStyle = resolveTextStyle(content.subheadStyle)
+const sectionCtaStyle = resolveTextStyle(sectionCta)
 
 function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   return typeof icon === 'object' && icon !== null
@@ -96,12 +84,10 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `variant-${variant}`,
     `surface-${surface}`,
     `card-surface-${cardSurface}`,
-    `treatment-${headingTreatment}`,
     `case-${headingCase}`,
     `icon-font-${iconFont}`,
     `icon-layout-${iconLayout}`,
     `gap-${gap}`,
-    `size-${size}`,
     `content-width-${contentWidth}`,
     `content-align-${contentAlign}`,
     `spacing-top-${spacingTop}`,
@@ -109,15 +95,14 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   ]}
 >
   <div class="services-grid__inner">
-    {heading && <h2 class="services-grid__heading">{heading}</h2>}
-    {subheadHtml && <div class="services-grid__subhead" set:html={subheadHtml} />}
+    {heading?.text && <h2 class="services-grid__heading" style={headingStyle}>{heading.text}</h2>}
+    {subheadHtml && <div class="services-grid__subhead" style={subheadStyle} set:html={subheadHtml} />}
 
     <ul class="services-grid__cards">
-      {cards.map(({ item, bodyHtml }) => (
+      {cards.map(({ item, bodyHtml, titleStyle, bodyStyle, ctaStyle }) => (
         <li
           class:list={[
             'services-grid__card',
-            `card-size-${item.size ?? 'md'}`,
             item.accent && `has-accent accent-${item.accent}`,
             item.surface && item.surface !== 'default' && `surface-${item.surface}`,
             // The ✓ checklist ticks take the badge variant's colour.
@@ -144,8 +129,8 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
                 : <span aria-hidden="true">{item.icon}</span>}
             </div>
           )}
-          <h3 class:list={['services-grid__card-title', `ctw-${cardTitleWeight}`, `ctf-${cardTitleFont}`]}>{item.title}</h3>
-          <div class="services-grid__card-body" set:html={bodyHtml} />
+          <h3 class="services-grid__card-title" style={titleStyle}>{item.title?.text}</h3>
+          <div class="services-grid__card-body" style={bodyStyle} set:html={bodyHtml} />
           {item.checklist && item.checklist.length > 0 && (
             <ul class="services-grid__checklist">
               {item.checklist.map((line) => (
@@ -156,14 +141,14 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
               ))}
             </ul>
           )}
-          {item.cta && (
-            <a class="services-grid__card-cta" href={assertSafeUrl(item.cta.href, 'services-grid cta href')}>{item.cta.label}</a>
+          {item.cta?.label && item.cta.href && (
+            <a class="services-grid__card-cta" style={ctaStyle} href={assertSafeUrl(item.cta.href, 'services-grid cta href')}>{item.cta.label}</a>
           )}
         </li>
       ))}
     </ul>
-    {sectionCta && (
-      <a class="services-grid__cta" href={assertSafeUrl(sectionCta.href, 'services-grid section cta href')}>{sectionCta.label}</a>
+    {sectionCta?.label && sectionCta.href && (
+      <a class="services-grid__cta" style={sectionCtaStyle} href={assertSafeUrl(sectionCta.href, 'services-grid section cta href')}>{sectionCta.label}</a>
     )}
   </div>
 </section>
@@ -197,22 +182,15 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     flex-direction: column;
     gap: var(--space-6);
   }
-  /* Constrained content column (REQ-45): the inner stays a full-width frame
-     while these cap the content (heading, intro, cards) to a narrower measure.
-     The inner is a flex column at its default cross-start, so a capped child
-     pins to the frame's left gutter — the same edge as the header/hero content
-     — reading as a narrow left-aligned column. `content-width-default` sets no
-     cap, so a grid that omits the dial fills the frame and is unchanged.
-     Token-backed widths, no raw CSS. */
+  /* Constrained content column (REQ-45). */
   .services-grid.content-width-narrow .services-grid__inner > * { max-width: var(--container-narrow); width: 100%; }
   .services-grid.content-width-readable .services-grid__inner > * { max-width: var(--container-readable); width: 100%; }
   .services-grid.content-width-wide .services-grid__inner > * { max-width: var(--container-wide); width: 100%; }
-  /* Constrained-column alignment (REQ-36) — `center` centres the capped column in
-     the band (the reference centred narrow "How It Works" grid); `left` (default)
-     keeps the REQ-45 left-gutter pin. */
   .services-grid.content-align-center .services-grid__inner { align-items: center; }
   .services-grid.content-align-center .services-grid__inner > * { margin-inline: auto; }
 
+  /* REQ-50 — base slot styling supplies the defaults an omitting run inherits;
+     any axis the styled run sets overrides via inline `style`. */
   .services-grid__heading {
     margin: 0;
     font-family: var(--font-family-heading);
@@ -220,22 +198,10 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     font-size: var(--font-size-3xl);
     line-height: var(--line-height-tight);
   }
-
-  /* Heading colour treatment (REQ-36) — colours the grid heading and the card
-     titles together, the same treatment vocabulary as the hero/text-block
-     heading. `accent` fills solid gold; `gold` is the clipped metallic gradient;
-     `plain` (no rule) inherits the band colour. */
+  /* Heading letter-case (REQ-36) — uppercases the grid heading + card titles;
+     the DOM text stays literal (a treatment, not a report field). */
   .services-grid.case-upper .services-grid__heading,
   .services-grid.case-upper .services-grid__card-title { text-transform: uppercase; }
-  .services-grid.treatment-accent .services-grid__heading,
-  .services-grid.treatment-accent .services-grid__card-title { color: var(--color-accent); }
-  .services-grid.treatment-gold .services-grid__heading,
-  .services-grid.treatment-gold .services-grid__card-title {
-    background-image: linear-gradient(180deg, #f7e4a8 0%, var(--color-accent) 48%, #b07d24 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
   .services-grid__subhead { color: var(--color-muted); max-width: 60ch; }
 
   .services-grid__cards {
@@ -248,13 +214,9 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.gap-tight .services-grid__cards { gap: var(--space-3); }
   .services-grid.gap-normal .services-grid__cards { gap: var(--space-6); }
   .services-grid.gap-loose .services-grid__cards { gap: var(--space-8); }
-  /* `airy` (REQ-36) — the wide row/column gap the reference "How It Works" grid
-     runs between its two rows of steps. */
   .services-grid.gap-airy .services-grid__cards { gap: var(--space-16); }
 
-  /* Mobile-first: single column by default, multi-column from md up. The
-     `stacked` variant (REQ-30) opts out of the multi-column rules entirely, so
-     each card stays full-width in one column at every breakpoint. */
+  /* Mobile-first: single column by default, multi-column from md up. */
   @media (min-width: 768px) {
     .services-grid.variant-three-col .services-grid__cards { grid-template-columns: repeat(3, 1fr); }
     .services-grid.variant-two-col .services-grid__cards { grid-template-columns: repeat(2, 1fr); }
@@ -272,11 +234,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     border: 1px solid var(--color-border);
   }
 
-  /* Bare cards (REQ-36 / CAP-1): strip the fill/border/radius/padding so cards
-     read as plain text columns composited on the band. Title and body inherit
-     the band's text colour (white on an inverse band). Chrome — the status
-     badge and accent left-border — is suppressed, so `bare` is a clean,
-     chrome-less treatment orthogonal to `variant`. */
+  /* Bare cards (REQ-36 / CAP-1): strip the fill/border/radius/padding. */
   .services-grid.card-surface-bare .services-grid__card {
     background: transparent;
     border: none;
@@ -284,9 +242,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     padding: 0;
   }
 
-  /* Icon-left card layout (REQ-36) — the icon sits beside the title on a header
-     row (via explicit grid placement, no DOM change) with the body spanning the
-     full width below (the reference "How It Works" step cards). */
+  /* Icon-left card layout (REQ-36). */
   .services-grid.icon-layout-left .services-grid__card {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -297,10 +253,6 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.icon-layout-left .services-grid__icon { grid-column: 1; grid-row: 1; margin: 0; }
   .services-grid.icon-layout-left .services-grid__card-title { grid-column: 2; grid-row: 1; align-self: center; min-width: 0; }
   .services-grid.icon-layout-left .services-grid__card-body { grid-column: 1 / -1; }
-  /* Grid tracks default to min-width:auto, so a card containing a long unbreakable
-     word (e.g. "Questionnaire") forces its `1fr` track wider and starves its
-     neighbours — producing uneven columns and word-by-word title wrapping. Pin
-     min-width:0 so every card track stays a true equal fraction. */
   .services-grid__card { min-width: 0; }
   .services-grid.card-surface-bare .services-grid__badge { display: none; }
 
@@ -312,9 +264,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid__card.accent-secondary { border-left-color: var(--color-secondary); }
   .services-grid__card.accent-neutral-cool { border-left-color: var(--color-neutral-cool); }
 
-  /* Filled panel card (REQ-20, REQ-32) — a subtle neutral tint distinguishing it
-     from the standard surface cards (the "What We're Exploring" panel).
-     `neutral-cool` keys the same tint to the cool-neutral role for a slate panel. */
+  /* Filled panel card (REQ-20, REQ-32). */
   .services-grid__card.surface-muted {
     background: color-mix(in srgb, var(--color-muted) 8%, #ffffff);
   }
@@ -334,8 +284,6 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     line-height: var(--line-height-tight);
     white-space: nowrap;
   }
-  /* Soft pills (REQ-20): a light tint of the role behind the role-coloured
-     label, matching the captured badges (e.g. `bg-blue-100 text-blue-700`). */
   .services-grid__badge.badge-neutral { background: var(--color-surface-subtle); color: var(--color-muted); }
   .services-grid__badge.badge-primary {
     background: color-mix(in srgb, var(--color-primary) 16%, #ffffff);
@@ -350,7 +298,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     color: var(--color-secondary);
   }
 
-  /* Checklist (REQ-26) — green ✓ items keyed to the theme primary. */
+  /* Checklist (REQ-26) — ✓ items; the tick is a real leading text run. */
   .services-grid__checklist {
     list-style: none;
     margin: 0;
@@ -359,10 +307,6 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     flex-direction: column;
     gap: var(--space-2);
   }
-  /* The ✓ is a real leading text run (a `<span>`), not a `::before` pseudo —
-     a pseudo-element's glyph is absent from the DOM / accessibility tree and
-     from rendered-text extraction, so a faithful-repro capture can't see it.
-     The mark is `flex: none` so wrapped body text stays aligned past it. */
   .services-grid__check {
     display: flex;
     gap: var(--space-2);
@@ -371,19 +315,15 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid__check-mark {
     flex: none;
     color: var(--color-primary);
-    /* Regular weight (REQ-20): the captured ✓ is a normal-weight glyph; a bold
-       tick reads heavier than the reference. Colour still carries the emphasis. */
     font-weight: var(--font-weight-regular);
   }
-  /* Tick colour follows the card's badge variant (REQ-20): a card marked
-     "coming soon" (secondary/blue) gets blue ticks, matching the reference. */
+  /* Tick colour follows the card's badge variant (REQ-20). */
   .services-grid__card.status-accent .services-grid__check-mark { color: var(--color-accent); }
   .services-grid__card.status-secondary .services-grid__check-mark { color: var(--color-secondary); }
   .services-grid__card.status-neutral .services-grid__check-mark { color: var(--color-muted); }
 
   .services-grid__icon img { display: block; height: var(--space-12); width: auto; }
-  /* Card top-media (REQ-36) — a full-width image atop the card (the joyfulculinary
-     Offerings cards lead with a square photo). Square by default, cover-fit. */
+  /* Card top-media (REQ-36) — a full-width square photo atop the card. */
   .services-grid__media {
     display: block;
     width: 100%;
@@ -392,8 +332,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     border-radius: var(--radius-md);
     margin-bottom: var(--space-4);
   }
-  /* Section-level CTA (REQ-36) — a centred accent button below the grid (the
-     "How It Works" Get Started button); rendered only when `content.cta` is set. */
+  /* Section-level CTA (REQ-36) — a centred accent button below the grid. */
   .services-grid__cta {
     display: block;
     width: fit-content;
@@ -405,75 +344,22 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     text-decoration: none;
   }
   .services-grid__icon span { font-size: var(--font-size-3xl); line-height: 1; }
-  /* Icon-font glyphs (REQ-36) — a string icon rendered in the site's declared
-     `IconFont` (Font Awesome), accent-coloured and sized up (the "How It Works"
-     grid). The icon string carries the font's codepoint character. */
+  /* Icon-font glyphs (REQ-36). */
   .services-grid.icon-font-icon-font .services-grid__icon span {
     font-family: 'IconFont';
     font-weight: 900;
     color: var(--color-accent);
     font-size: var(--font-size-4xl);
   }
+  /* Card title base (REQ-50) — family/weight/size defaults an omitting `title`
+     run inherits; the run overrides via inline `style`. */
   .services-grid__card-title {
     margin: 0;
     font-family: var(--font-family-heading);
     font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-xl);
   }
-  /* Card title weight (REQ-36) — thin Oswald Offerings titles / regular process
-     titles override the default semibold. */
-  .services-grid__card-title.ctw-extralight { font-weight: var(--font-weight-extralight); }
-  .services-grid__card-title.ctw-light { font-weight: var(--font-weight-light); }
-  .services-grid__card-title.ctw-regular { font-weight: var(--font-weight-regular); }
-  .services-grid__card-title.ctw-medium { font-weight: var(--font-weight-medium); }
-  .services-grid__card-title.ctw-bold { font-weight: var(--font-weight-bold); }
-  /* Card title face (REQ-36) — the process titles are set in the body face (Karla),
-     not the condensed heading face. */
-  .services-grid__card-title.ctf-body { font-family: var(--font-family-body); }
-  .services-grid__card-title.ctf-display { font-family: var(--font-family-display); }
-
-  /* Grid intro scale (REQ-20 grid `size` dial) — sizes the grid's own subhead
-     (the intro line under the heading). `md` (default) preserves the prior
-     scale so sites that don't set the dial are unchanged; `lg`/`sm` step it
-     up/down. Card typography is a *separate*, per-card axis (below) because a
-     reference grid mixes standard and featured cards under one intro. */
-  .services-grid.size-sm .services-grid__subhead { font-size: var(--font-size-sm); }
-  .services-grid.size-md .services-grid__subhead { font-size: var(--font-size-base); }
-  .services-grid.size-lg .services-grid__subhead { font-size: var(--font-size-lg); }
-
-  /* Per-card type scale (REQ-20 per-card `size` field) — a featured card
-     (`lg`) reads larger than the standard cards beside it: bigger title, body,
-     badge, and a tighter checklist rhythm. `md` (default / absent) is the prior
-     fixed scale, so cards that don't set `size` are unchanged. This is what lets
-     one grid carry both headline offerings and a quiet companion panel, exactly
-     as the gigabytealchemy "What We're Building" grid does. */
-  .services-grid__card.card-size-sm .services-grid__card-title { font-size: var(--font-size-lg); }
-  .services-grid__card.card-size-md .services-grid__card-title { font-size: var(--font-size-xl); }
-  .services-grid__card.card-size-lg .services-grid__card-title { font-size: var(--font-size-2xl); }
-  /* Grid-level `size` scales the card title too (REQ-36) — the per-item card-size
-     tops out at 2xl, but a reference runs its card titles larger (3xl); `size-lg`
-     on the grid reaches it. Placed after the per-item rules to win the tie. */
-  .services-grid.size-sm .services-grid__card-title { font-size: var(--font-size-xl); }
-  .services-grid.size-lg .services-grid__card-title { font-size: var(--font-size-3xl); }
-
-  .services-grid__card.card-size-sm .services-grid__card-body { font-size: var(--font-size-sm); }
-  /* A featured card's body reads as a lead line + description, mirroring the
-     hero subhead: the first paragraph is the larger lead, following paragraphs
-     the smaller body copy — so a headline offering's opening line stands out. */
-  .services-grid__card.card-size-lg .services-grid__card-body p:first-child {
-    font-size: var(--font-size-lg);
-    line-height: var(--line-height-normal);
-  }
-  .services-grid__card.card-size-lg .services-grid__card-body p + p {
-    font-size: var(--font-size-base);
-    line-height: var(--line-height-normal);
-  }
-
-  .services-grid__card.card-size-lg .services-grid__badge {
-    font-size: var(--font-size-sm);
-    line-height: var(--line-height-normal);
-  }
-  .services-grid__card.card-size-lg .services-grid__check { line-height: var(--line-height-normal); }
-  .services-grid__card-body { line-height: var(--line-height-relaxed); color: inherit; }
+  .services-grid__card-body { font-size: var(--font-size-base); line-height: var(--line-height-relaxed); color: inherit; }
   .services-grid__card-cta {
     margin-top: auto;
     align-self: flex-start;

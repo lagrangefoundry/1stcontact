@@ -54,9 +54,11 @@ const resolveBroken: ModuleResolver = (type) => {
 const cleanFixture: ConformanceFixture = {
   label: 'clean-text-block',
   props: {
+    version: 2,
     variant: 'prose',
     content: {
-      heading: 'Isolation Marker Heading',
+      // REQ-50 — the discrete heading slot is a flat styled run.
+      heading: { text: 'Isolation Marker Heading' },
       body: 'A well-formed paragraph of prose that renders cleanly and stays within the viewport.',
     },
   },

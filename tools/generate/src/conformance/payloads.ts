@@ -26,7 +26,7 @@ const HANDLER_HTML = `<img src=x onerror="window.${XSS_SENTINEL}=true">`
 
 /** A field is worth filling if it is required or can carry a URL/injection vector. */
 function shouldFill(spec: ContentFieldSpec): boolean {
-  return spec.required || spec.type === 'url' || spec.type === 'object'
+  return spec.required || spec.type === 'url' || spec.type === 'object' || spec.type === 'styled-text'
 }
 
 /** Build one field's value for the chosen posture (hostile vs benign). */
@@ -34,6 +34,14 @@ function valueFor(spec: ContentFieldSpec, hostile: boolean): unknown {
   switch (spec.type) {
     case 'string':
       return hostile ? HANDLER_HTML : 'Safe heading text'
+    case 'styled-text':
+      // A styled run (REQ-50): content-bearing `text`/`label`/`href`, no style
+      // axes (style fields are literal-or-alias, not injection sinks). The `href`
+      // is the run's URL vector — a CTA run reaches an `assertSafeUrl` sink, so a
+      // hostile scheme here is what the URL-scheme check / REQ-46 rejection sees.
+      return hostile
+        ? { text: 'x', label: 'Tap', href: JS_URL }
+        : { text: 'Safe heading text', label: 'Tap', href: '/safe' }
     case 'markdown':
       // A markdown link is the live vector: it reaches `set:html` unfiltered.
       return hostile ? `Lead copy with a [tap here](${JS_URL}) link.` : 'A safe paragraph of prose.'

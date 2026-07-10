@@ -4,7 +4,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Header from '../packages/framework/src/modules/header/index.astro'
-import { headerMeta } from '../packages/framework/src/modules/header/meta'
 import { defaultTokens, generateThemeCss } from '../packages/framework/src/tokens/index'
 import { validateSite } from '../packages/site-schema/src/validate'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
@@ -16,10 +15,16 @@ import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
  *   1. The framework emits a valid `@font-face` (into the per-site stylesheet)
  *      for a site-declared display font, referencing the mirrored asset — with
  *      the declaration itself living in the structured theme, never raw CSS.
- *   2. `header` selects the display family via a dial (`logoFont`), and any
- *      module can reach the family through the `--font-family-display` property.
+ *   2. Any module can reach the display family through the `--font-family-display`
+ *      custom property; a text wordmark expresses it via the `wordmark` run's
+ *      `fontFamily: 'display'` (REQ-50 styled-run vocabulary).
  *   3. A site declaring a Cinzel display font renders its header wordmark in
- *      Cinzel with the gold treatment, end-to-end through the render pipeline.
+ *      Cinzel, end-to-end through the render pipeline.
+ *
+ * REQ-50 migration: `logoFont`/`logoTreatment` dials removed; wordmark family
+ * and colour/gradient are expressed on the `wordmark` styled run. Tests checking
+ * the old CSS hook classes (`header__wordmark--font-display`, `--gold`) are
+ * rewritten to assert the resolved inline `style` instead.
  */
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
@@ -53,10 +58,18 @@ function siteWithFont(): unknown {
           {
             id: 'header',
             type: 'header',
-            version: 1,
+            version: 2,
             variant: 'top-nav',
-            dials: { logoFont: 'display', logoTreatment: 'gold' },
-            content: { logo: 'GIGABYTE ALCHEMY', entries: [] },
+            dials: {},
+            // REQ-50: wordmark run carries the display family + gold gradient.
+            content: {
+              wordmark: {
+                text: 'GIGABYTE ALCHEMY',
+                fontFamily: 'display',
+                gradient: { angleDeg: 90, stops: ['#f5e6a3', '#fbba72'] },
+              },
+              entries: [],
+            },
           },
         ],
       },
@@ -128,37 +141,46 @@ describe('REQ-24 display fonts — theme CSS generation', () => {
 })
 
 describe('REQ-24 display fonts — header wordmark', () => {
-  it('test_UAT_FC_REQ-24_header_meta_exposes_logo_font_and_treatment_dials', () => {
-    expect(headerMeta.dials.logoFont).toContain('display')
-    expect(headerMeta.dials.logoFont).toContain('heading')
-    expect(headerMeta.dials.logoTreatment).toContain('gold')
-    expect(headerMeta.dials.logoTreatment).toContain('plain')
-  })
+  // REQ-50: logoFont/logoTreatment dials removed; the wordmark run's `fontFamily`
+  // and `color`/`gradient` fields carry what those dials formerly expressed.
+  // Assertions rewritten to check the resolved inline `style` on the wordmark span.
 
-  it('test_UAT_FC_REQ-24_header_renders_wordmark_in_display_font_with_gold_treatment', async () => {
-    const html = await render({
-      variant: 'top-nav',
-      dials: { logoFont: 'display', logoTreatment: 'gold' },
-      content: { logo: 'GIGABYTE ALCHEMY', entries: [] },
-    })
-    // The wordmark text renders inside a span carrying the display-font and gold
-    // treatment classes — the hooks the theme CSS binds --font-family-display and
-    // the gold gradient to.
-    expect(html).toMatch(
-      /<span[^>]*class="[^"]*header__wordmark[^"]*"[^>]*>\s*GIGABYTE ALCHEMY\s*<\/span>/,
-    )
-    expect(html).toContain('header__wordmark--font-display')
-    expect(html).toContain('header__wordmark--gold')
-  })
-
-  it('test_UAT_FC_REQ-24_header_wordmark_defaults_to_heading_font_plain', async () => {
+  it('test_UAT_FC_REQ-24_header_renders_wordmark_in_display_font_with_gold_gradient', async () => {
     const html = await render({
       variant: 'top-nav',
       dials: {},
-      content: { logo: 'Acme Co', entries: [] },
+      // `fontFamily: 'display'` → resolves to `font-family: var(--font-family-display)`.
+      // `gradient` with two stops → resolves to `background-clip: text; color: transparent`.
+      content: {
+        wordmark: {
+          text: 'GIGABYTE ALCHEMY',
+          fontFamily: 'display',
+          gradient: { angleDeg: 90, stops: ['#f5e6a3', '#fbba72'] },
+        },
+        entries: [],
+      },
     })
-    expect(html).toContain('header__wordmark--font-heading')
-    expect(html).toContain('header__wordmark--plain')
+    // The wordmark span renders with the resolved inline style (REQ-50).
+    expect(html).toContain('GIGABYTE ALCHEMY')
+    expect(html).toContain('font-family: var(--font-family-display)')
+    expect(html).toContain('background-clip: text')
+    expect(html).toContain('color: transparent')
+  })
+
+  it('test_UAT_FC_REQ-24_header_wordmark_with_display_family_alias_emits_css_var', async () => {
+    // A wordmark run with only `fontFamily: 'display'` (no gradient) resolves the
+    // family alias to the custom property; no gradient-clip classes involved.
+    const html = await render({
+      variant: 'top-nav',
+      dials: {},
+      content: {
+        wordmark: { text: 'Acme Co', fontFamily: 'display' },
+        entries: [],
+      },
+    })
+    expect(html).toContain('font-family: var(--font-family-display)')
+    // No gradient → no clip
+    expect(html).not.toContain('background-clip: text')
   })
 })
 
@@ -182,11 +204,27 @@ describe('REQ-24 display fonts — render pipeline', () => {
     writeFileSync(path.join(draft, 'site.json'), JSON.stringify(site))
     writeFileSync(path.join(draft, 'assets', 'cinzel.woff2'), 'stub-font-bytes')
 
-    // Point the header at the display font with the gold treatment.
+    // Replace the scaffold header (v1, string logo) with a v2 wordmark run
+    // carrying the display family and a gold gradient (REQ-50).
     const home = JSON.parse(readFileSync(path.join(draft, 'pages', 'home.json'), 'utf8'))
     const header = home.modules.find((m: { type: string }) => m.type === 'header')
-    header.dials = { ...header.dials, logoFont: 'display', logoTreatment: 'gold' }
-    header.content.logo = 'GIGABYTE ALCHEMY'
+    header.version = 2
+    header.dials = {}
+    header.content = {
+      wordmark: {
+        text: 'GIGABYTE ALCHEMY',
+        fontFamily: 'display',
+        gradient: { angleDeg: 90, stops: ['#f5e6a3', '#fbba72'] },
+      },
+      entries: [],
+    }
+    // Update the hero to v2 styled-run shape (REQ-50).
+    const hero = home.modules.find((m: { type: string }) => m.type === 'hero')
+    hero.version = 2
+    hero.dials = { align: 'center' }
+    hero.content = {
+      heading: { text: 'Welcome to acme' },
+    }
     writeFileSync(path.join(draft, 'pages', 'home.json'), JSON.stringify(home))
 
     const { outDir } = await cmdRender('acme', { cwd })
@@ -197,15 +235,14 @@ describe('REQ-24 display fonts — render pipeline', () => {
     expect(themeCss).toContain('font-family: "Cinzel";')
     expect(themeCss).toContain('src: url("assets/cinzel.woff2") format("woff2");')
     expect(themeCss).toContain('--font-family-display: "Cinzel", serif;')
-    // The wordmark CSS binds the display class to the display family + the gold gradient.
-    expect(themeCss).toContain('.header__wordmark--font-display')
-    expect(themeCss).toMatch(/\.header__wordmark--gold\s*\{[\s\S]*background-clip: text/)
 
-    // The rendered page shows the wordmark with both hook classes.
+    // The rendered page shows the wordmark text and the resolved inline style
+    // carries the display family var and gradient clip (REQ-50 styled-run output).
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     expect(html).toContain('GIGABYTE ALCHEMY')
-    expect(html).toContain('header__wordmark--font-display')
-    expect(html).toContain('header__wordmark--gold')
+    expect(html).toContain('font-family: var(--font-family-display)')
+    expect(html).toContain('background-clip: text')
+    expect(html).toContain('color: transparent')
 
     // The font asset was copied through so the @font-face url resolves.
     expect(readFileSync(path.join(outDir, 'assets', 'cinzel.woff2'), 'utf8')).toBe('stub-font-bytes')

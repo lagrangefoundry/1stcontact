@@ -66,7 +66,7 @@ describe('text-block module', () => {
     const withHeading = await render(TextBlock, {
       variant: 'prose',
       dials: {},
-      content: { heading: 'A Title', body: 'x' },
+      content: { heading: { text: 'A Title' }, body: 'x' },
     })
     expect(withHeading).toContain('text-block__heading')
     expect(withHeading).toContain('A Title')
@@ -78,19 +78,18 @@ describe('text-block module', () => {
 
 describe('services-grid module', () => {
   const items = (n: number) =>
-    Array.from({ length: n }, (_, i) => ({ title: `Service ${i + 1}`, body: `Body ${i + 1}` }))
+    Array.from({ length: n }, (_, i) => ({ title: { text: `Service ${i + 1}` }, body: `Body ${i + 1}` }))
 
   it('test_UAT_FC_REQ-5_services_grid_three_col_renders_three_cards', async () => {
     const html = await render(ServicesGrid, {
       variant: 'three-col',
       dials: {},
-      content: { heading: 'What we do', items: items(3) },
+      content: { heading: { text: 'What we do' }, items: items(3) },
     })
     expect(html).toContain('variant-three-col')
-    // Each card's class list leads with `services-grid__card` followed by its
-    // per-card `card-size-*` scale class (REQ-20), so match the leading token
-    // rather than an exact class attribute.
-    expect(html.match(/class="services-grid__card /g)?.length).toBe(3)
+    // Each card's class attribute starts with `services-grid__card` followed
+    // either by a space+extra classes or the closing quote; match either.
+    expect(html.match(/class="services-grid__card[" ]/g)?.length).toBe(3)
     expect(html).toContain('Service 1')
     expect(html).toContain('Service 3')
   })
@@ -103,7 +102,7 @@ describe('services-grid module', () => {
     })
     expect(html).toContain('variant-two-col')
     // Leading `services-grid__card` token — see the three-col case above.
-    expect(html.match(/class="services-grid__card /g)?.length).toBe(2)
+    expect(html.match(/class="services-grid__card[" ]/g)?.length).toBe(2)
   })
 
   it('test_UAT_FC_REQ-5_services_grid_collapses_to_single_column_below_md', async () => {
@@ -117,16 +116,16 @@ describe('services-grid module', () => {
 
   it('test_UAT_FC_REQ-5_services_grid_rejects_item_count_outside_2_to_6', () => {
     // Validation lives at the content-schema level (DOC-7 §6.5).
-    const tooFew = validateModuleContent(servicesGridMeta, { items: [{ title: 't', body: 'b' }] })
+    const tooFew = validateModuleContent(servicesGridMeta, { items: [{ title: { text: 't' }, body: 'b' }] })
     expect(tooFew.some((e) => e.field === 'items' && /at least 2/.test(e.message))).toBe(true)
 
     const tooMany = validateModuleContent(servicesGridMeta, {
-      items: Array.from({ length: 7 }, () => ({ title: 't', body: 'b' })),
+      items: Array.from({ length: 7 }, () => ({ title: { text: 't' }, body: 'b' })),
     })
     expect(tooMany.some((e) => e.field === 'items' && /at most 6/.test(e.message))).toBe(true)
 
     const justRight = validateModuleContent(servicesGridMeta, {
-      items: Array.from({ length: 3 }, () => ({ title: 't', body: 'b' })),
+      items: Array.from({ length: 3 }, () => ({ title: { text: 't' }, body: 'b' })),
     })
     expect(justRight).toHaveLength(0)
   })
@@ -208,8 +207,17 @@ describe('contact-form module', () => {
 
 describe('module registry — full Phase 0 catalog', () => {
   it('test_UAT_FC_REQ-5_registry_includes_all_six_phase0_modules', () => {
-    for (const id of ['header', 'hero', 'footer', 'text-block', 'services-grid', 'contact-form']) {
-      const def = getModule(id, 1)
+    // footer remains v1; header, hero, text-block, services-grid, contact-form bumped to v2 (REQ-50).
+    const catalog: Array<[string, number]> = [
+      ['header', 2],
+      ['hero', 2],
+      ['footer', 1],
+      ['text-block', 2],
+      ['services-grid', 2],
+      ['contact-form', 2],
+    ]
+    for (const [id, version] of catalog) {
+      const def = getModule(id, version)
       expect(def.meta.id).toBe(id)
       expect(def.Component).toBeTypeOf('function')
     }

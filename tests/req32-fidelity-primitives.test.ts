@@ -40,24 +40,23 @@ async function render(Component: unknown, props: unknown): Promise<string> {
 }
 
 describe('REQ-32 primitive 1 — gradient text treatment', () => {
-  it('test_UAT_FC_REQ-32_meta_exposes_gradient_treatments', () => {
-    expect(headerMeta.dials.logoTreatment).toContain('gradient')
-    expect(heroMeta.dials.headingTreatment).toContain('gradient')
-    expect(Object.keys(headerMeta.contentSchema)).toContain('logoGradient')
-    expect(Object.keys(heroMeta.contentSchema)).toContain('headingGradient')
+  it('test_UAT_FC_REQ-32_meta_exposes_styled_text_slots', () => {
+    // REQ-50 — a gradient text fill is no longer a treatment dial; it lives on
+    // the text slot itself as a styled run (`wordmark`/`heading`) whose
+    // `gradient` field carries the sweep. The slots are `styled-text`.
+    expect(headerMeta.contentSchema.wordmark?.type).toBe('styled-text')
+    expect(heroMeta.contentSchema.heading?.type).toBe('styled-text')
   })
 
   it('test_UAT_FC_REQ-32_header_wordmark_renders_directional_multi_stop_gradient', async () => {
     const html = await render(Header, {
       variant: 'top-nav',
-      dials: { logoTreatment: 'gradient' },
       content: {
-        logo: 'ACME',
-        entries: [],
-        logoGradient: {
-          direction: 'to-right',
-          stops: [{ role: 'accent' }, { role: 'secondary' }],
+        wordmark: {
+          text: 'ACME',
+          gradient: { angleDeg: 'to-right', stops: ['accent', 'secondary'] },
         },
+        entries: [],
       },
     })
     // Framework-computed: a horizontal sweep between two palette-role tokens,
@@ -71,14 +70,12 @@ describe('REQ-32 primitive 1 — gradient text treatment', () => {
   it('test_UAT_FC_REQ-32_hero_heading_renders_gradient_from_structured_field', async () => {
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { headingTreatment: 'gradient' },
       content: {
-        heading: 'Intentional',
-        subhead: 'Body.',
-        headingGradient: {
-          direction: 'to-br',
-          stops: [{ role: 'primary' }, { role: 'accent' }, { role: 'secondary' }],
+        heading: {
+          text: 'Intentional',
+          gradient: { angleDeg: 'to-br', stops: ['primary', 'accent', 'secondary'] },
         },
+        subhead: { text: 'Body.' },
       },
     })
     // Three-stop, diagonal — even-spaced positions when none are supplied.
@@ -88,12 +85,11 @@ describe('REQ-32 primitive 1 — gradient text treatment', () => {
   })
 
   it('test_UAT_FC_REQ-32_gradient_absent_falls_back_to_inherited_colour', async () => {
-    // Dial selects gradient but no structured field supplied → no inline style,
-    // so the glyphs keep the inherited colour rather than turning transparent.
+    // A wordmark run with no gradient → no inline clip style, so the glyphs keep
+    // the inherited colour rather than turning transparent.
     const html = await render(Header, {
       variant: 'top-nav',
-      dials: { logoTreatment: 'gradient' },
-      content: { logo: 'ACME', entries: [] },
+      content: { wordmark: { text: 'ACME' }, entries: [] },
     })
     expect(html).not.toContain('background-clip: text')
   })
@@ -202,18 +198,20 @@ describe('REQ-32 primitives — render pipeline', () => {
 
     const home = JSON.parse(readFileSync(path.join(draft, 'pages', 'home.json'), 'utf8'))
     const header = home.modules.find((m: { type: string }) => m.type === 'header')
-    header.dials = { ...header.dials, logoTreatment: 'gradient' }
     header.content = {
       ...header.content,
-      logo: 'ACME',
-      logoGradient: { direction: 'to-right', stops: [{ role: 'accent' }, { role: 'secondary' }] },
+      logo: undefined,
+      wordmark: {
+        text: 'ACME',
+        gradient: { angleDeg: 'to-right', stops: ['accent', 'secondary'] },
+      },
     }
     const hero = home.modules.find((m: { type: string }) => m.type === 'hero')
     hero.dials = { ...hero.dials, scrim: 'medium', contentAnchor: 'bottom' }
     home.modules.push({
       id: 'callout',
       type: 'text-block',
-      version: 1,
+      version: 2,
       variant: 'landing',
       dials: {},
       content: { body: '> [!accent] A foundation, not a feature.' },

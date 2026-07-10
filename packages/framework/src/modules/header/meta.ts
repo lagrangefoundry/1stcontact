@@ -1,22 +1,18 @@
 import type { ModuleMeta } from '../types'
-import {
-  ALIGN_DIAL,
-  GRADIENT_DIRECTION_DIAL,
-  LOGO_CARD_DIAL,
-  LOGO_FONT_DIAL,
-  LOGO_SIZE_DIAL,
-  LOGO_TREATMENT_DIAL,
-  SIZE_DIAL,
-  SPACING_DIAL,
-  SURFACE_DIAL,
-  TRACKING_DIAL,
-  TREATMENT_ROLE_DIAL,
-} from '../dials'
+import { ALIGN_DIAL, LOGO_CARD_DIAL, LOGO_SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
-/** `header` — top navigation chrome (DOC-7 §5 `top-tabs`-style nav). */
+/**
+ * `header` — top navigation chrome (DOC-7 §5 `top-tabs`-style nav).
+ *
+ * REQ-50: a text wordmark is a flat styled run (`wordmark`) — its family/size/
+ * weight/colour/tracking/gradient (the old gold/gradient treatments) collapse
+ * onto the run's `color`/`gradient`. An image logo stays an `asset-ref` (`logo`);
+ * `logoSize` sizes that image only. The nav links share one style-only `navStyle`
+ * run. Only structural dials remain.
+ */
 export const headerMeta = {
   id: 'header',
-  version: 1,
+  version: 2,
   // `overlay` (REQ-25) renders transparent chrome the render pipeline floats
   // over the following section's band, so header + hero share one image band.
   variants: ['top-nav', 'overlay'],
@@ -25,47 +21,23 @@ export const headerMeta = {
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     // Horizontal placement of the wordmark/nav within the header band (REQ-29).
-    // `center` groups the content centrally (e.g. a centered wordmark).
     align: ALIGN_DIAL,
-    // Wordmark font-family + colour treatment (REQ-24). Apply only when the
-    // logo is a text wordmark, not an image.
-    logoFont: LOGO_FONT_DIAL,
-    logoTreatment: LOGO_TREATMENT_DIAL,
-    // Logo size (REQ-20 import; REQ-36 extends it to image logos) — `xl` reads at
-    // display/hero scale. Sizes the wordmark font *and* an image logo's height.
+    // Image-logo height (REQ-20 import; REQ-36) — sizes an `asset-ref` logo only;
+    // a text wordmark's size lives on the `wordmark` run's `fontSizePx`.
     logoSize: LOGO_SIZE_DIAL,
-    // Logo backdrop (REQ-36) — `card` sets the logo on a padded, rounded, shadowed
-    // plate (the joyfulculinary logo floats in a white card over the hero image);
-    // `none` (default) renders it bare, so a header that omits the dial is unchanged.
+    // Logo backdrop (REQ-36) — `card`/`shadow`/`frame` set the logo on a plate /
+    // drop-shadow / bordered frame; `none` (default) renders it bare.
     logoCard: LOGO_CARD_DIAL,
-    // Nav link size (REQ-36) — `md` (default) inherits the body size; `lg`/`sm`
-    // step the nav type (the reference nav runs larger than the default).
-    navSize: SIZE_DIAL,
-    // Wordmark letter-spacing (REQ-45) — `normal` (default) leaves the wordmark
-    // untracked; `tight`/`tighter` pull the glyphs in for a display wordmark.
-    tracking: TRACKING_DIAL,
   },
   contentSchema: {
-    // AssetRef for an image logo, or a plain string for a wordmark.
+    // Image logo (REQ-50) — an AssetRef. Rendered when present.
     logo: { type: 'asset-ref', required: false },
+    // Text wordmark (REQ-50) — a styled run; its `color`/`gradient` express the
+    // former gold/gradient treatments. Rendered when `logo` is absent.
+    wordmark: { type: 'styled-text', required: false },
     // List of NavEntry ({ label, target }).
     entries: { type: 'list', required: true },
-    // Structured gradient for the `gradient` logoTreatment (REQ-32): a direction
-    // plus ≥2 palette-role stops. Read only when `logoTreatment` is `gradient`.
-    logoGradient: {
-      type: 'object',
-      required: false,
-      itemSchema: {
-        direction: { type: 'enum', required: true, values: GRADIENT_DIRECTION_DIAL },
-        stops: {
-          type: 'list',
-          required: true,
-          minItems: 2,
-          itemSchema: {
-            role: { type: 'enum', required: true, values: TREATMENT_ROLE_DIAL },
-          },
-        },
-      },
-    },
+    // Shared style-only run (REQ-50) applied to every nav link.
+    navStyle: { type: 'styled-text', required: false },
   },
 } as const satisfies ModuleMeta

@@ -6,73 +6,43 @@ import {
   CONTENT_INSET_DIAL,
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
-  CTA_FONT_DIAL,
   CTA_SHAPE_DIAL,
-  CTA_SIZE_DIAL,
-  GRADIENT_DIRECTION_DIAL,
   HEADING_CASE_DIAL,
-  HEADING_FONT_DIAL,
-  HEADING_WEIGHT_DIAL,
   HERO_DIVIDER_DIAL,
-  SCRIM_GRADIENT_DIAL,
-  SUBHEAD_FONT_DIAL,
-  HEADING_TREATMENT_DIAL,
   HEIGHT_DIAL,
-  LINE_HEIGHT_DIAL,
   SCRIM_DIAL,
-  SIZE_DIAL,
+  SCRIM_GRADIENT_DIAL,
   SPACING_DIAL,
-  SUBHEAD_COLOR_DIAL,
-  SUBHEAD_SIZE_DIAL,
-  SUBHEAD_WEIGHT_DIAL,
   SURFACE_DIAL,
-  TRACKING_DIAL,
-  TREATMENT_ROLE_DIAL,
 } from '../dials'
 
-/** `hero` — primary above-the-fold section. */
+/**
+ * `hero` — primary above-the-fold section.
+ *
+ * REQ-50: every intrinsic typography/colour axis (family, size, weight, colour,
+ * tracking, leading, gradient) is now carried on the text slots themselves as
+ * flat *styled runs* (`eyebrow`/`heading`/`subhead`/`cta`), named after the
+ * fidelity report's `ValueElement` fields. Only *structural* dials remain — band
+ * layout, height, scrim, shape, letter-case, column/width/inset positioning.
+ */
 export const heroMeta = {
   id: 'hero',
-  version: 1,
+  version: 2,
   variants: ['bg-color', 'bg-image'],
   dials: {
-    size: SIZE_DIAL,
     align: ALIGN_DIAL,
     // Band height (`auto`/`fold`) — `fold` fills the viewport to the fold.
     height: HEIGHT_DIAL,
     spacingTop: SPACING_DIAL,
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
-    // Heading colour treatment (REQ-28) — independent of the surface text
-    // colour, so a hero can carry e.g. a gold heading over an inverse band.
-    headingTreatment: HEADING_TREATMENT_DIAL,
     // Heading letter-case (REQ-36) — `upper` uppercases the heading at render
-    // time while the DOM text stays literal (the joyfulculinary hero types
-    // mixed-case and uppercases via CSS).
+    // time while the DOM text stays literal (text-transform is not a report
+    // field, so it stays a treatment and the verbatim-text check stays clean).
     headingCase: HEADING_CASE_DIAL,
-    // Heading font-weight (REQ-36) — `bold` (default) preserves the prior weight;
-    // lighter steps reach a reference display heading (the joyfulculinary hero is
-    // Oswald `medium` 500, not our bold 700).
-    headingWeight: HEADING_WEIGHT_DIAL,
-    // Heading font-family (REQ-36) — `heading` (default) uses the heading face;
-    // `body`/`display` set the heading in the body/display face (the quote hero
-    // pull-quote is Karla body copy at medium weight, not condensed Oswald).
-    headingFont: HEADING_FONT_DIAL,
-    // CTA corner shape (REQ-36) — `round` (default) keeps the pill radius;
-    // `square` hard-corners; `soft` is the reference's barely-rounded 2px button.
+    // CTA corner shape (REQ-36) — `round` (default) pill, `square` hard-corner,
+    // `soft` the reference's barely-rounded 2px button. Shape, not typography.
     ctaShape: CTA_SHAPE_DIAL,
-    // CTA label font-family (REQ-36) — `body` (default) inherits; `label` reaches
-    // the dedicated button face (the reference's Raleway "Learn More").
-    ctaFont: CTA_FONT_DIAL,
-    // CTA label font-size (REQ-36) — `base` (default) unchanged; `xs` reaches the
-    // reference's small 13px button label.
-    ctaSize: CTA_SIZE_DIAL,
-    // CTA label font-weight (REQ-36) — reuses the subhead weight steps; the
-    // reference button label is `medium` (500).
-    ctaWeight: SUBHEAD_WEIGHT_DIAL,
-    // Subhead font-family (REQ-36) — `body` (default) inherits; `display`/`heading`
-    // set the lead in the display/heading face (the reference lead is Lato).
-    subheadFont: SUBHEAD_FONT_DIAL,
     // Top-of-band gradient scrim (REQ-36) — `top` darkens the band's top edge
     // (behind the nav) for legibility; `none` (default) omits it.
     scrimGradient: SCRIM_GRADIENT_DIAL,
@@ -80,79 +50,41 @@ export const heroMeta = {
     // joyfulculinary hero's short rule under the heading; `none` (default) omits.
     divider: HERO_DIVIDER_DIAL,
     // Content-column horizontal placement (REQ-36) — `left` hugs the band's left
-    // gutter (the joyfulculinary front door); `center` (default) keeps the prior
-    // centred column. Distinct from `align`, which sets text alignment within it.
+    // gutter; `center` (default) keeps the centred column. Distinct from `align`,
+    // which sets text alignment within the column.
     contentColumn: CONTENT_COLUMN_DIAL,
     // Legibility scrim over the background image (REQ-32) — a dark-tint opacity
     // step so overlaid text stays readable on a busy image.
     scrim: SCRIM_DIAL,
     // Vertical anchor of the content within a `fold` band (REQ-32).
     contentAnchor: CONTENT_ANCHOR_DIAL,
-    // Fixed top inset for the content within a `fold` band (REQ-49) — pins the
-    // content a deliberate token-backed distance from the band top (the
-    // reference `pt-80`), a separate axis from the flex `contentAnchor`. `none`
-    // (default) applies no inset.
+    // Fixed top inset for the content within a `fold` band (REQ-49).
     contentOffsetTop: CONTENT_OFFSET_TOP_DIAL,
-    // Subhead/body colour (REQ-33) — tints the whole subhead block a palette
-    // role (e.g. a gold lead paragraph), independent of the surface text colour.
-    subheadColor: SUBHEAD_COLOR_DIAL,
-    // Subhead/body scale (REQ-33) — sizes the lead + body copy independently of
-    // the heading `size`, for a prominent lead subtitle under a modest heading.
-    subheadSize: SUBHEAD_SIZE_DIAL,
     // Subhead/body content-column width (REQ-49) — caps the lead/body measure
-    // (reusing the shared `contentWidth` container scale, incl. the `readable`
-    // 768px step) so it can match a reference's column; `default` fills the inner
-    // frame (prior behaviour was a hardcoded 60ch — now removed).
+    // (container scale, incl. the `readable` 768px step); `default` fills the
+    // inner frame.
     contentWidth: CONTENT_WIDTH_DIAL,
     // Content horizontal inset / gutter (REQ-49 cap 5) — the `.hero__inner`
-    // padding-inline as a token step; `sm` (default) is the prior 16px, `md`
-    // 24px (the reference `px-6`), `lg` 32px. Aligns the front-door left edge.
+    // padding-inline as a token step; aligns the front-door left edge.
     contentInset: CONTENT_INSET_DIAL,
-    // Subhead/body font-weight (REQ-49) — sets the lead/body weight independently
-    // of the heading; `regular` (default) keeps the inherited body weight,
-    // `light` gives a delicate lead (e.g. gigabytealchemy's `font-light`).
-    subheadWeight: SUBHEAD_WEIGHT_DIAL,
-    // Heading letter-spacing (REQ-45) — `normal` (default) leaves the heading
-    // untracked; `tight`/`tighter` pull a large display heading's glyphs in.
-    tracking: TRACKING_DIAL,
-    // Subhead line-height (REQ-45; `snug` added REQ-49) — set the lead/body
-    // leading independently of the global relaxed default; `relaxed` (default)
-    // preserves the prior value, `snug` (~1.33) is the intermediate step.
-    subheadLeading: LINE_HEIGHT_DIAL,
-    // Foreground portrait shape (REQ-36) — when a `portrait` image is supplied,
-    // this crops it. `circle` (default) is a round avatar (the reference quote
-    // band's Chef Sarah Joy testimonial photo); `square` is an un-cropped box.
+    // Foreground portrait shape (REQ-36) — crops a supplied `portrait` image.
     portraitShape: ['circle', 'square'],
   },
   contentSchema: {
-    eyebrow: { type: 'string', required: false },
-    heading: { type: 'string', required: true },
-    subhead: { type: 'markdown', required: true },
-    // { label, href } — rendered only when present.
-    cta: { type: 'object', required: false },
+    // Styled runs (REQ-50) — each carries its own text + intrinsic style
+    // (fontFamily/fontSizePx/fontWeight/color/letterSpacingPx/lineHeightPx/
+    // gradient), a literal in the report's unit or a theme alias per axis.
+    eyebrow: { type: 'styled-text', required: false },
+    heading: { type: 'styled-text', required: true },
+    // One styled run — hero prose no longer splits lead/body; multi-paragraph
+    // copy is authored as a `text-block` (REQ-50).
+    subhead: { type: 'styled-text', required: false },
+    // Styled run carrying `label` + `href` + the button's own intrinsic style.
+    cta: { type: 'styled-text', required: false },
     // Required for the `bg-image` variant only (enforced by the variant branch).
     image: { type: 'asset-ref', required: false },
     // Optional foreground portrait (REQ-36) — a testimonial/attribution avatar
-    // rendered above the subhead (e.g. the quote band's author photo). Distinct
-    // from `image`, which is the background. Rendered only when present.
+    // rendered above the subhead.
     portrait: { type: 'asset-ref', required: false },
-    // Structured gradient for the `gradient` headingTreatment (REQ-32): a
-    // direction plus ≥2 palette-role stops. Read only when the treatment
-    // dial is `gradient`.
-    headingGradient: {
-      type: 'object',
-      required: false,
-      itemSchema: {
-        direction: { type: 'enum', required: true, values: GRADIENT_DIRECTION_DIAL },
-        stops: {
-          type: 'list',
-          required: true,
-          minItems: 2,
-          itemSchema: {
-            role: { type: 'enum', required: true, values: TREATMENT_ROLE_DIAL },
-          },
-        },
-      },
-    },
   },
 } as const satisfies ModuleMeta

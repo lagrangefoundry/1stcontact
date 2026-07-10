@@ -14,8 +14,8 @@ import { footerMeta } from '../packages/framework/src/modules/footer/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens'
-import { gradientTextStyle } from '../packages/framework/src/modules/gradient'
-import { SIZE_DIAL, TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
+import { resolveTextStyle } from '../packages/framework/src/modules/text-style'
+import { TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 
 /**
@@ -65,12 +65,16 @@ describe('REQ-20 fidelity dials — meta', () => {
   })
 })
 
-describe('REQ-20 hero fold height + markdown subhead', () => {
+describe('REQ-20 hero fold height + single-run subhead', () => {
   it('test_UAT_FC_REQ-20_hero_renders_fold_height', async () => {
     const html = await render(Hero, {
       variant: 'bg-image',
       dials: { height: 'fold' },
-      content: { heading: 'Intentional Software', subhead: 'Body.', image: { src: 'a.png', alt: 'x' } },
+      content: {
+        heading: { text: 'Intentional Software' },
+        subhead: { text: 'Body.' },
+        image: { src: 'a.png', alt: 'x' },
+      },
     })
     expect(html).toContain('height-fold')
   })
@@ -79,47 +83,56 @@ describe('REQ-20 hero fold height + markdown subhead', () => {
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: {},
-      content: { heading: 'Acme', subhead: 'Body.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body.' } },
     })
     expect(html).toContain('height-auto')
     expect(html).not.toContain('height-fold')
   })
 
-  it('test_UAT_FC_REQ-20_hero_subhead_renders_markdown_paragraphs', async () => {
+  it('test_UAT_FC_REQ-20_hero_subhead_renders_single_run_verbatim', async () => {
+    // REQ-50: the hero subhead is ONE styled run — no markdown, no lead/body
+    // split. Its verbatim text renders in a single `.hero__subhead` paragraph;
+    // multi-paragraph copy is authored as a `text-block` instead.
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: {},
       content: {
-        heading: 'Intentional Software',
-        // Two markdown paragraphs: a subhead line then the body copy.
-        subhead: 'Tools for clarity, presence, and positive connection\n\nWe build tools differently.',
+        heading: { text: 'Intentional Software' },
+        subhead: { text: 'Tools for clarity, presence, and positive connection' },
       },
     })
-    // Both paragraphs survive as distinct <p> — not collapsed into one run-on
-    // string the way a raw {subhead} interpolation would render them.
-    expect(html).toMatch(
-      /hero__subhead[\s\S]*<p>[\s\S]*positive connection[\s\S]*<\/p>[\s\S]*<p>[\s\S]*tools differently\.<\/p>/,
-    )
+    expect(html).toMatch(/class="hero__subhead"[^>]*>Tools for clarity, presence, and positive connection</)
+    expect((html.match(/class="hero__subhead"/g) ?? []).length).toBe(1)
   })
 })
 
 describe('REQ-20 header wordmark size', () => {
-  it('test_UAT_FC_REQ-20_header_renders_requested_logo_size', async () => {
+  it('test_UAT_FC_REQ-20_header_wordmark_size_is_a_run_font_size', async () => {
+    // REQ-50: a text wordmark's family + size live on its styled run
+    // (`fontFamily`/`fontSizePx`), emitted as inline `style`; the `logoSize` dial
+    // now sizes an image logo only.
     const html = await render(Header, {
       variant: 'overlay',
-      dials: { logoFont: 'display', logoSize: 'lg' },
-      content: { logo: 'GIGABYTE ALCHEMY', entries: [] },
+      content: {
+        wordmark: { text: 'GIGABYTE ALCHEMY', fontFamily: 'display', fontSizePx: '5xl' },
+        entries: [],
+      },
     })
-    expect(html).toContain('header__wordmark--size-lg')
+    expect(html).toMatch(
+      /header__wordmark[^>]*style="[^"]*font-family: var\(--font-family-display\)[^"]*font-size: var\(--font-size-5xl\)/,
+    )
   })
 
-  it('test_UAT_FC_REQ-20_header_logo_size_defaults_to_md', async () => {
+  it('test_UAT_FC_REQ-20_header_wordmark_defaults_to_no_size_override', async () => {
+    // A wordmark run that omits `fontSizePx` inherits the base wordmark size — no
+    // inline font-size is emitted.
     const html = await render(Header, {
       variant: 'top-nav',
       dials: {},
-      content: { logo: 'Acme', entries: [] },
+      content: { wordmark: { text: 'Acme' }, entries: [] },
     })
-    expect(html).toContain('header__wordmark--size-md')
+    expect(html).toContain('header__wordmark')
+    expect(html).not.toContain('font-size')
   })
 })
 
@@ -183,13 +196,13 @@ describe('REQ-20 secondary palette role + card treatments', () => {
       content: {
         items: [
           {
-            title: 'XGD',
+            title: { text: 'XGD' },
             body: 'A methodology.',
             accent: 'secondary',
             badge: { label: 'Coming soon', variant: 'secondary' },
             checklist: ['Open source'],
           },
-          { title: 'Filler', body: 'x' },
+          { title: { text: 'Filler' }, body: 'x' },
         ],
       },
     })
@@ -205,8 +218,8 @@ describe('REQ-20 secondary palette role + card treatments', () => {
       dials: {},
       content: {
         items: [
-          { title: 'What We’re Exploring', body: 'Body.', accent: 'muted', surface: 'muted' },
-          { title: 'Filler', body: 'x' },
+          { title: { text: 'What We’re Exploring' }, body: 'Body.', accent: 'muted', surface: 'muted' },
+          { title: { text: 'Filler' }, body: 'x' },
         ],
       },
     })
@@ -217,7 +230,7 @@ describe('REQ-20 secondary palette role + card treatments', () => {
     const html = await render(ServicesGrid, {
       variant: 'stacked',
       dials: {},
-      content: { items: [{ title: 'One', body: 'x' }, { title: 'Two', body: 'y' }] },
+      content: { items: [{ title: { text: 'One' }, body: 'x' }, { title: { text: 'Two' }, body: 'y' }] },
     })
     expect(html).not.toContain('surface-muted')
     expect(html).not.toContain('status-')
@@ -243,26 +256,26 @@ describe('REQ-20 render pipeline — half-width row grouping', () => {
       {
         id: 'subscribe',
         type: 'contact-form',
-        version: 1,
+        version: 2,
         variant: 'inline',
         dials: { width: 'half' },
         content: {
-          heading: 'Get in touch',
+          heading: { text: 'Get in touch' },
           action: '/subscribe',
           fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
-          submitLabel: 'Subscribe',
+          submitLabel: { label: 'Subscribe' },
         },
       },
       {
         id: 'contact',
         type: 'contact-form',
-        version: 1,
+        version: 2,
         variant: 'inline',
         dials: { width: 'half' },
         content: {
           action: '/contact',
           fields: [{ name: 'name', label: 'Name', type: 'text', required: true }],
-          submitLabel: 'Send',
+          submitLabel: { label: 'Send' },
         },
       },
     )
@@ -289,87 +302,33 @@ describe('REQ-20 render pipeline — half-width row grouping', () => {
 })
 
 /**
- * REQ-20 eyes pass #3 — closing the type-scale + warm-gradient fidelity gaps the
- * values-diff surfaced on the gigabytealchemy re-import:
- *
- *   1. services-grid grid `size` dial — scales the grid's intro subhead.
- *   2. services-grid per-card `size` field — a featured card reads larger than
- *      the standard cards beside it (title / body lead+description / badge), so
- *      one grid can mix headline offerings and a quiet companion panel.
- *   3. regular-weight checklist ✓ — the captured tick is a normal-weight glyph.
- *   4. `accent-mid` palette role — a warm gradient can carry a third mid-stop
- *      hue (the wordmark's lighter orange) as a role, never a raw colour.
+ * REQ-20 eyes pass #3 — the warm-gradient fidelity gap the values-diff surfaced
+ * on the gigabytealchemy re-import. Post-REQ-50 the per-card / grid type scale is
+ * no longer a `size` dial — a card's intrinsic size lives on its title/body runs'
+ * `fontSizePx` — so those size-dial tests are retired. What remains structural is
+ * the `accent-mid` palette role: a warm text-fill gradient can carry a third
+ * mid-stop hue as a role (never a raw colour), now expressed as a `gradient` on a
+ * styled run and resolved by `resolveTextStyle`.
  */
-describe('REQ-20 fidelity — services-grid type scale + accent-mid role', () => {
-  it('test_UAT_FC_REQ-20_services_grid_meta_exposes_size_dial', () => {
-    expect(servicesGridMeta.dials.size).toEqual(SIZE_DIAL)
-  })
-
-  it('test_UAT_FC_REQ-20_services_grid_card_exposes_size_field', () => {
-    const item = servicesGridMeta.contentSchema.items.itemSchema as Record<
-      string,
-      { values?: readonly string[] }
-    >
-    expect(item.size?.values).toEqual(SIZE_DIAL)
-  })
-
-  it('test_UAT_FC_REQ-20_featured_card_carries_lg_scale_class', async () => {
-    // The behavioural contract: a card declaring `size: lg` is rendered as a
-    // featured card (its `card-size-lg` class drives the larger title / body /
-    // badge scale in the module's scoped CSS), while a card that omits `size`
-    // falls back to the standard `card-size-md` scale — so one grid mixes a
-    // headline offering and a quiet companion. The section also carries the
-    // grid-level `size-lg` class that scales its intro subhead.
-    const html = await render(ServicesGrid, {
-      variant: 'stacked',
-      dials: { size: 'lg' },
-      content: {
-        subhead: 'Intro line under the heading.',
-        items: [
-          {
-            title: 'Featured',
-            size: 'lg',
-            body: 'Lead line\n\nBody paragraph.',
-            badge: { label: 'New', variant: 'primary' },
-          },
-          { title: 'Standard', body: 'Just a card.' },
-        ],
-      },
-    })
-    expect(html).toContain('size-lg') // grid intro scale
-    expect(html).toMatch(/services-grid__card card-size-lg/) // featured card
-    expect(html).toMatch(/services-grid__card card-size-md/) // standard card
-  })
-
-  it('test_UAT_FC_REQ-20_card_defaults_to_md_scale_when_size_absent', async () => {
-    // A grid with no per-card sizes renders every card at the prior `md` scale,
-    // so existing sites are unchanged by the new dial.
-    const html = await render(ServicesGrid, {
-      variant: 'three-col',
-      content: {
-        items: [
-          { title: 'A', body: 'x' },
-          { title: 'B', body: 'y' },
-        ],
-      },
-    })
-    expect(html).not.toContain('card-size-lg')
-    expect((html.match(/card-size-md/g) ?? []).length).toBe(2)
-  })
-
+describe('REQ-20 fidelity — accent-mid gradient role', () => {
   it('test_UAT_FC_REQ-20_accent_mid_role_resolves_in_gradient', () => {
     // The warm gradient can carry a third mid-stop hue as a palette role…
     expect(TREATMENT_ROLE_DIAL).toContain('accent-mid')
-    // …which the framework clips to the run as the site's --color-accent-mid.
-    const style = gradientTextStyle({
-      direction: 'to-right',
-      stops: [
-        { role: 'accent-light', position: 0 },
-        { role: 'accent-mid', position: 90 },
-        { role: 'accent-deep', position: 100 },
-      ],
+    // …which `resolveTextStyle` clips to the run's glyphs as --color-accent-mid.
+    const style = resolveTextStyle({
+      gradient: {
+        angleDeg: 'to-right',
+        stops: [
+          { color: 'accent-light', position: 0 },
+          { color: 'accent-mid', position: 90 },
+          { color: 'accent-deep', position: 100 },
+        ],
+      },
     })
     expect(style).toContain('var(--color-accent-mid)')
+    // A text-fill gradient clips to the glyphs and forces transparent text.
+    expect(style).toContain('background-clip: text')
+    expect(style).toContain('color: transparent')
   })
 
   it('test_UAT_FC_REQ-20_theme_emits_accent_mid_custom_property', () => {

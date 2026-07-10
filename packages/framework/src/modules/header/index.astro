@@ -2,15 +2,16 @@
 import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
 import { navHref } from '../nav'
 import { assertSafeUrl } from '../safety'
-import { gradientTextStyle, type GradientTreatment } from '../gradient'
+import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
   variant?: string
   dials?: Record<string, string>
   content: {
-    logo?: AssetRef | string
+    logo?: AssetRef
+    wordmark?: TextRun
     entries: NavEntry[]
-    logoGradient?: GradientTreatment
+    navStyle?: TextRun
   }
 }
 
@@ -20,27 +21,17 @@ const spacingTop = dials.spacingTop ?? 'md'
 const spacingBottom = dials.spacingBottom ?? 'md'
 // Horizontal placement of the header content (REQ-29).
 const align = dials.align ?? 'left'
-// Wordmark font-family + colour treatment (REQ-24), applied to a text logo only.
-const logoFont = dials.logoFont ?? 'heading'
-const logoTreatment = dials.logoTreatment ?? 'plain'
-// Logo size, independent of font/treatment; `xl` reads at display scale. Sizes
-// the wordmark font and (REQ-36) an image logo's height.
+// Image-logo height (REQ-36).
 const logoSize = dials.logoSize ?? 'md'
-// Logo backdrop (REQ-36) — `card` floats the logo on a padded rounded shadowed
-// plate; `none` (default) renders it bare.
+// Logo backdrop (REQ-36) — `card`/`shadow`/`frame`; `none` (default) bare.
 const logoCard = dials.logoCard ?? 'none'
-// Nav link size (REQ-36) — `md` (default) inherits; `lg`/`sm` step the nav link
-// type (the reference nav runs at a larger scale than the body default).
-const navSize = dials.navSize ?? 'md'
-// Wordmark letter-spacing (REQ-45): `normal` leaves the wordmark untracked.
-const tracking = dials.tracking ?? 'normal'
 const entries = content.entries ?? []
-const logo = content.logo
-const logoIsImage = typeof logo === 'object' && logo !== null
-// Structured gradient wordmark (REQ-32): the framework computes the clipped
-// gradient from the `logoGradient` field when the treatment dial selects it.
-const wordmarkGradient =
-  logoTreatment === 'gradient' ? gradientTextStyle(content.logoGradient) : undefined
+const { logo, wordmark } = content
+
+// REQ-50 — the wordmark's intrinsic style (incl. the former gold/gradient
+// treatments via `color`/`gradient`) and the shared nav-link style.
+const wordmarkStyle = resolveTextStyle(wordmark)
+const navStyle = resolveTextStyle(content.navStyle)
 ---
 
 <header
@@ -51,24 +42,14 @@ const wordmarkGradient =
     `align-${align}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
-    `nav-size-${navSize}`,
   ]}
 >
   <div class="header__inner">
     <a class:list={['header__logo', `logo-size-${logoSize}`, `logo-card-${logoCard}`]} href="/">
-      {logoIsImage ? (
-        <img src={assertSafeUrl((logo as AssetRef).src, 'header logo src')} alt={(logo as AssetRef).alt} />
+      {logo ? (
+        <img src={assertSafeUrl(logo.src, 'header logo src')} alt={logo.alt} />
       ) : (
-        <span
-          class:list={[
-            'header__wordmark',
-            `header__wordmark--font-${logoFont}`,
-            `header__wordmark--${logoTreatment}`,
-            `header__wordmark--size-${logoSize}`,
-            `header__wordmark--tracking-${tracking}`,
-          ]}
-          style={wordmarkGradient}
-        >{logo}</span>
+        wordmark?.text && <span class="header__wordmark" style={wordmarkStyle}>{wordmark.text}</span>
       )}
     </a>
 
@@ -85,7 +66,7 @@ const wordmarkGradient =
     </button>
 
     <nav class="header__nav" aria-label="Primary">
-      {entries.map((entry) => <a href={navHref(entry.target)}>{entry.label}</a>)}
+      {entries.map((entry) => <a href={navHref(entry.target)} style={navStyle}>{entry.label}</a>)}
     </nav>
   </div>
 </header>
@@ -103,18 +84,14 @@ const wordmarkGradient =
   .header.surface-accent { background: var(--color-accent); color: var(--color-bg); }
 
   /* Overlay variant (REQ-25): transparent chrome the render pipeline floats over
-     the following section's band so the two share one image band. Declared after
-     the surface rules so its transparent fill wins the specificity tie — a
-     `surface` dial still selects the text colour (e.g. `inverse` for light text
-     over a dark image) while the fill stays clear. */
+     the following section's band. A `surface` dial still selects the text colour
+     while the fill stays clear. */
   .header.variant-overlay { background: transparent; border-bottom: none; }
 
   .header.spacing-top-none { padding-top: var(--space-0); }
   .header.spacing-top-sm { padding-top: var(--space-2); }
   .header.spacing-top-md { padding-top: var(--space-4); }
   .header.spacing-top-lg { padding-top: var(--space-8); }
-  /* `xl` gives a hero-scale overlay wordmark generous top breathing room — the
-     reference floats the wordmark well below the top edge, not flush to it. */
   .header.spacing-top-xl { padding-top: var(--space-16); }
   .header.spacing-top-2xl { padding-top: var(--space-24); }
   .header.spacing-top-3xl { padding-top: var(--space-32); }
@@ -135,31 +112,24 @@ const wordmarkGradient =
     justify-content: space-between;
     gap: var(--space-4);
   }
-  /* Content alignment (REQ-29): `center` groups the wordmark/nav centrally
-     rather than spreading them edge-to-edge. */
+  /* Content alignment (REQ-29): `center` groups the wordmark/nav centrally. */
   .header.align-center .header__inner { justify-content: center; }
   .header__logo { font-weight: var(--font-weight-bold); color: inherit; text-decoration: none; }
   .header__logo img { display: block; height: var(--space-8); width: auto; }
-  /* Image-logo height responds to `logoSize` (REQ-36) — `md` is the prior 2rem;
-     `lg`/`xl` scale an image logo up (the reference logo is ~3rem tall). */
+  /* Image-logo height responds to `logoSize` (REQ-36). */
   .header__logo.logo-size-sm img { height: var(--space-6); }
   .header__logo.logo-size-lg img { height: var(--space-12); }
   .header__logo.logo-size-xl img { height: var(--space-16); }
-  /* Logo card backdrop (REQ-36) — a padded, rounded, shadowed plate in the
-     background colour so an image logo stays legible over photography. */
+  /* Logo card backdrop (REQ-36) — a padded, rounded, shadowed plate. */
   .header__logo.logo-card-card {
     background: var(--color-bg);
     padding: var(--space-3) var(--space-6);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
   }
-  /* `shadow` (REQ-36) — a drop-shadow on the logo glyphs (no plate), giving a
-     knockout logo depth over an image where a solid card would hide it. */
+  /* `shadow` — a drop-shadow on the logo glyphs (no plate). */
   .header__logo.logo-card-shadow img { filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55)); }
-  /* `frame` (REQ-36) — a wide translucent plate with a thin light border around
-     the logo (the joyfulculinary logo sits in a bordered box over the hero
-     image). Generous horizontal padding so a wordmark logo reads centred in a
-     prominent frame; the faint fill lifts it off busy photography. */
+  /* `frame` — a wide translucent plate with a thin light border. */
   .header__logo.logo-card-frame {
     padding: var(--space-4) var(--space-12);
     border: 1px solid rgba(255, 255, 255, 0.35);
@@ -167,58 +137,15 @@ const wordmarkGradient =
   }
   .header__logo.logo-card-frame img { filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45)); }
 
-  /* Wordmark font-family selection (REQ-24). Default heading family; `display`
-     picks the site's bespoke display face, `body` the body family. */
-  .header__wordmark { font-family: var(--font-family-heading); }
-  .header__wordmark--font-heading { font-family: var(--font-family-heading); }
-  .header__wordmark--font-body { font-family: var(--font-family-body); }
-  .header__wordmark--font-display {
-    font-family: var(--font-family-display);
-    /* Tight tracking for a large display wordmark — a positive value spreads the
-       glyphs unnaturally at hero scale. */
-    letter-spacing: -0.025em;
-    /* Render the display face's own semibold rather than inheriting the header
-       logo's `bold` (700). When the face ships only a 600 weight, forcing 700
-       makes the browser synthesise faux-bold — a heavier, distorted wordmark. */
-    font-weight: var(--font-weight-semibold);
-  }
-
-  /* Wordmark size (independent of font/treatment). Default `md` preserves the
-     prior 2xl scale; `xl` reads at display scale for a hero wordmark. */
-  .header__wordmark--size-sm { font-size: var(--font-size-xl); }
-  .header__wordmark--size-md { font-size: var(--font-size-2xl); }
-  .header__wordmark--size-lg { font-size: var(--font-size-4xl); }
-  .header__wordmark--size-xl { font-size: clamp(var(--font-size-4xl), 6vw, var(--font-size-5xl)); }
-
-  /* Wordmark letter-spacing (REQ-45), independent of font/size/treatment. Only
-     the tighter steps emit an override; `normal` sets nothing so a display
-     wordmark keeps the font face's built-in tracking (default fallback
-     unchanged). Declared after the font rules so an explicit tracking dial wins
-     over that built-in tracking. Token-backed — no raw em value reaches the
-     page. */
-  .header__wordmark--tracking-tight { letter-spacing: var(--tracking-tight); }
-  .header__wordmark--tracking-tighter { letter-spacing: var(--tracking-tighter); }
-
-  /* Gold wordmark treatment (REQ-24): a metallic-gold gradient clipped to the
-     glyphs, keyed to the site accent. `plain` inherits the header text colour. */
-  .header__wordmark--gold {
-    background-image: linear-gradient(
-      180deg,
-      #f7e4a8 0%,
-      var(--color-accent) 48%,
-      #b07d24 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
+  /* REQ-50 — the wordmark's family/size/weight/colour/tracking/gradient come
+     from the `wordmark` run's inline `style`; the base keeps the heading family
+     as the default an omitting run inherits. */
+  .header__wordmark { font-family: var(--font-family-heading); font-size: var(--font-size-2xl); }
 
   .header__nav { display: flex; gap: var(--space-6); }
+  /* Nav-link size/weight/colour come from the shared `navStyle` run; the base
+     supplies the default weight an omitting run inherits. */
   .header__nav a { color: inherit; text-decoration: none; font-weight: var(--font-weight-medium); }
-  /* Nav link size (REQ-36) — `md` (default) inherits; `sm`/`lg` step the nav type
-     (the reference nav runs larger than the body default). */
-  .header.nav-size-sm .header__nav a { font-size: var(--font-size-sm); }
-  .header.nav-size-lg .header__nav a { font-size: var(--font-size-xl); }
 
   /* Hamburger toggle: hidden on desktop, shown below the md breakpoint. */
   .header__toggle {

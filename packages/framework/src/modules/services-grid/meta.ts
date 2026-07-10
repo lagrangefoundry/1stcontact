@@ -5,12 +5,8 @@ import {
   CONTENT_WIDTH_DIAL,
   GAP_DIAL,
   HEADING_CASE_DIAL,
-  HEADING_COLOR_DIAL,
-  HEADING_FONT_DIAL,
-  HEADING_WEIGHT_DIAL,
   ICON_FONT_DIAL,
   ICON_LAYOUT_DIAL,
-  SIZE_DIAL,
   SPACING_DIAL,
   SURFACE_DIAL,
   WIDTH_DIAL,
@@ -18,105 +14,70 @@ import {
 
 /**
  * Card accent-border colour (REQ-26). A closed set of palette-role names, not a
- * raw colour — each resolves to a semantic token in the module's scoped CSS
- * (`accent` → `--color-accent`, `primary` → `--color-primary`, `muted` →
- * `--color-muted`). `none` (the absence of the field) draws no accent bar.
+ * raw colour — each resolves to a semantic token in the module's scoped CSS.
  */
 export const CARD_ACCENT = ['primary', 'accent', 'muted', 'secondary', 'neutral-cool'] as const
 
 /**
  * Status-badge colour variant (REQ-26). Semantic, token-backed — never a raw
- * colour. `primary`/`accent`/`secondary` key off the brand tokens; `neutral`
- * uses the muted pair for a low-emphasis pill. All variants render as a soft
- * pill (a light tint of the role behind the role-coloured label), matching the
- * captured gigabytealchemy badges. The card's checklist ✓ ticks follow the
- * badge variant's colour.
+ * colour. All variants render as a soft pill; the card's checklist ✓ ticks
+ * follow the badge variant's colour.
  */
 export const BADGE_VARIANT = ['neutral', 'primary', 'accent', 'secondary'] as const
 
 /**
- * Card fill (REQ-20, REQ-32). `default` is the standard surface card; `muted` is
- * a filled neutral panel (a subtle warm-grey tint); `neutral-cool` is the same
- * treatment keyed to the cool-neutral role, so a panel can read cool (slate)
- * rather than warm. Token-backed, never a raw colour.
+ * Card fill (REQ-20, REQ-32). `default` is the standard surface card; `muted`/
+ * `neutral-cool` are filled neutral panels. Token-backed, never a raw colour.
  */
 export const CARD_SURFACE = ['default', 'muted', 'neutral-cool'] as const
 
 /**
- * `services-grid` — a grid of service / offering cards. Both variants collapse
- * to a single column below the `md` breakpoint (DOC-7 §4.2 mobile-first).
+ * `services-grid` — a grid of service / offering cards. Both multi-col variants
+ * collapse to a single column below the `md` breakpoint (DOC-7 §4.2).
  *
- * The `items` list is bounded 2..6: a single card is not a grid, and beyond six
- * the layout stops reading as a scannable grid. The bound is enforced at the
- * content-schema level via {@link validateModuleContent}.
- *
- * Each card's structured fields (REQ-26) carry the "expensive" card treatments
- * seen in the gigabytealchemy import — an accent left border, a status badge,
- * and a green ✓ checklist — as closed, validated values rather than markdown
- * italics and plain bullets. All three are optional; a card declaring none
- * renders exactly as before.
+ * REQ-50: the grid `heading`, each card `title`, and the CTAs are flat styled
+ * runs (the former `headingTreatment`/`cardTitleWeight`/`cardTitleFont`/`size`
+ * dials collapse onto each run's own `color`/`fontWeight`/`fontFamily`/
+ * `fontSizePx`). Prose (`subhead`, card `body`) stays markdown and takes its
+ * typography from a style-only run. The card *chrome* — accent border, status
+ * badge, checklist ticks, icon — stays structural (closed, token-backed dials).
  */
 export const servicesGridMeta = {
   id: 'services-grid',
-  version: 1,
-  // `stacked` (REQ-30) keeps each card full-width in a single column at every
-  // breakpoint (the multi-col variants only spread from `md` up).
+  version: 2,
   variants: ['three-col', 'two-col', 'stacked'],
   dials: {
     spacingTop: SPACING_DIAL,
     spacingBottom: SPACING_DIAL,
     surface: SURFACE_DIAL,
     gap: GAP_DIAL,
-    // Partial-width row grouping (REQ-20; REQ-36 ratios) — `full` (default) is a
-    // normal band; `two-thirds` sits the grid beside a narrower `third` text
-    // column in one `fc-row` (the joyfulculinary Offerings layout).
+    // Partial-width row grouping (REQ-20; REQ-36 ratios).
     width: WIDTH_DIAL,
-    // Row content measure (REQ-36) — when this grid joins a partial-width row,
-    // `readable`/`narrow`/`wide` box the whole row to that centred measure (the
-    // Offerings row is ~768px `readable`); `default` fills the frame (unchanged).
+    // Row content measure (REQ-36).
     rowWidth: CONTENT_WIDTH_DIAL,
     // Grid-wide card chrome (REQ-36 / CAP-1) — `bare` strips the card fill/
-    // border/radius/padding so cards read as plain text columns on the band
-    // (dark art-directed grids). `default` leaves cards unchanged.
+    // border/radius/padding; `default` leaves cards unchanged.
     cardSurface: CARD_SURFACE_DIAL,
-    // Heading colour treatment (REQ-36) — colours the grid heading and card
-    // titles (`accent`/`gold`); `plain` (default) inherits the band colour.
-    headingTreatment: HEADING_COLOR_DIAL,
     // Heading letter-case (REQ-36) — `upper` uppercases the grid heading + card
     // titles while the DOM text stays literal.
     headingCase: HEADING_CASE_DIAL,
-    // Card title weight + face (REQ-36) — the reference's Offerings card titles
-    // are thin Oswald (`extralight`); its "How It Works" titles are Karla `body`
-    // regular. `semibold`/`heading` (defaults) leave an omitting grid unchanged.
-    cardTitleWeight: HEADING_WEIGHT_DIAL,
-    cardTitleFont: HEADING_FONT_DIAL,
-    // Icon rendering (REQ-36) — `icon-font` renders a string card icon as a glyph
-    // in the site's declared `IconFont` (Font Awesome), accent-coloured and sized
-    // up (the "How It Works" grid); `default` renders it as plain text.
+    // Icon rendering (REQ-36) — `icon-font` renders a string card icon as a glyph.
     iconFont: ICON_FONT_DIAL,
-    // Card icon layout (REQ-36) — `left` sets the icon beside the title with the
-    // body full-width below (the "How It Works" steps); `top` (default) stacks.
+    // Card icon layout (REQ-36) — `left` sets the icon beside the title.
     iconLayout: ICON_LAYOUT_DIAL,
-    // Card type scale (REQ-20). `md` (default) preserves the prior scale; `lg`
-    // steps the card heading/subhead/badge/checklist typography up one notch
-    // (the gigabytealchemy reference runs its cards at a larger scale); `sm`
-    // steps down. Consistent with the `size` dial on hero / text-block.
-    size: SIZE_DIAL,
-    // Constrained content column (REQ-45) — caps the grid's content within the
-    // section frame, pinned to the left gutter, so the intro copy and cards
-    // read as a narrow left-aligned measure (collapsing vertical drift) rather
-    // than a wide centred one. `default` leaves the content filling the frame,
-    // so a grid that omits the dial is unchanged.
+    // Constrained content column (REQ-45).
     contentWidth: CONTENT_WIDTH_DIAL,
-    // Constrained-column alignment (REQ-36) — `center` centres a capped
-    // `contentWidth` column in the band; `left` (default) keeps the REQ-45 pin.
+    // Constrained-column alignment (REQ-36).
     contentAlign: ALIGN_DIAL,
   },
   contentSchema: {
-    heading: { type: 'string', required: false },
+    // Discrete styled run (REQ-50).
+    heading: { type: 'styled-text', required: false },
+    // Prose intro (REQ-50) — markdown + a style-only style run.
     subhead: { type: 'markdown', required: false },
-    // Section-level CTA button below the grid (REQ-36) — { label, href }.
-    cta: { type: 'object', required: false },
+    subheadStyle: { type: 'styled-text', required: false },
+    // Section-level CTA button below the grid (REQ-36) — a styled run.
+    cta: { type: 'styled-text', required: false },
     items: {
       type: 'list',
       required: true,
@@ -124,18 +85,17 @@ export const servicesGridMeta = {
       maxItems: 6,
       itemSchema: {
         icon: { type: 'asset-ref', required: false },
-        // Card top-media image (REQ-36) — a full-width photo atop the card.
+        // Card top-media image (REQ-36).
         image: { type: 'asset-ref', required: false },
-        title: { type: 'string', required: true },
+        // Card title (REQ-50) — a styled run carrying its own weight/face/size/colour.
+        title: { type: 'styled-text', required: true },
+        // Card body prose (REQ-50) — markdown + a style-only style run.
         body: { type: 'markdown', required: true },
-        // Per-card type scale (REQ-20) — `lg` is a featured card (larger title /
-        // body / badge), `md` (default) the standard scale. Lets one grid mix
-        // headline offerings and a quieter companion panel.
-        size: { type: 'enum', required: false, values: SIZE_DIAL },
-        cta: { type: 'object', required: false },
-        // REQ-26 card treatments — structured, closed-value, token-backed.
+        bodyStyle: { type: 'styled-text', required: false },
+        // Card CTA link (REQ-36) — a styled run.
+        cta: { type: 'styled-text', required: false },
+        // REQ-26 card chrome — structured, closed-value, token-backed.
         accent: { type: 'enum', required: false, values: CARD_ACCENT },
-        // Card fill (REQ-20) — `muted` renders a filled neutral panel.
         surface: { type: 'enum', required: false, values: CARD_SURFACE },
         badge: {
           type: 'object',

@@ -1,4 +1,10 @@
 import type { ContentFieldSpec, ModuleMeta } from './types'
+import {
+  GRADIENT_DIRECTION_ALIASES,
+  TEXT_STYLE_ALIASES,
+  isColorLiteral,
+  isPaletteRole,
+} from './text-style'
 
 /**
  * Module-content validation (DOC-7 §6.5 layer 1, the framework half).
@@ -21,6 +27,107 @@ export interface ContentValidationError {
 
 function isEmpty(value: unknown): boolean {
   return value === undefined || value === null || value === ''
+}
+
+/**
+ * REQ-50 — the numeric style fields of a styled run, each with its alias step-set.
+ * Every one accepts a literal in the report's unit (a `number`) OR one of these
+ * named token aliases (a `string`); any other string is an unknown alias.
+ */
+const NUMERIC_ALIAS_FIELDS: Record<string, readonly string[]> = {
+  fontSizePx: TEXT_STYLE_ALIASES.fontSizePx,
+  fontWeight: TEXT_STYLE_ALIASES.fontWeight,
+  letterSpacingPx: TEXT_STYLE_ALIASES.letterSpacingPx,
+  lineHeightPx: TEXT_STYLE_ALIASES.lineHeightPx,
+}
+
+/** The content-bearing (non-style) fields of a styled run — validated as plain strings. */
+const RUN_TEXT_FIELDS = ['text', 'label', 'href'] as const
+
+/** Validate one styled run's fields are each literal-or-known-alias (REQ-50). */
+function validateTextRun(
+  path: string,
+  run: Record<string, unknown>,
+  errors: ContentValidationError[],
+): void {
+  for (const field of RUN_TEXT_FIELDS) {
+    const v = run[field]
+    if (v !== undefined && typeof v !== 'string') {
+      errors.push({ field: `${path}.${field}`, message: `styled-text field '${path}.${field}' must be a string` })
+    }
+  }
+
+  // A numeric field: a `number` literal (report unit) or a known step alias.
+  for (const [field, aliases] of Object.entries(NUMERIC_ALIAS_FIELDS)) {
+    const v = run[field]
+    if (v === undefined) continue
+    if (typeof v === 'number') continue
+    if (typeof v === 'string' && aliases.includes(v)) continue
+    errors.push({
+      field: `${path}.${field}`,
+      message: `styled-text field '${path}.${field}' must be a number or one of [${aliases.join(', ')}], got '${String(v)}'`,
+    })
+  }
+
+  // `paddingLeftPx` is always a measured length — a literal number, no alias.
+  if (run.paddingLeftPx !== undefined && typeof run.paddingLeftPx !== 'number') {
+    errors.push({
+      field: `${path}.paddingLeftPx`,
+      message: `styled-text field '${path}.paddingLeftPx' must be a number`,
+    })
+  }
+
+  // `fontFamily` is a real family name (literal) or a family-role alias — either
+  // way a string; a non-string is the only error.
+  if (run.fontFamily !== undefined && typeof run.fontFamily !== 'string') {
+    errors.push({
+      field: `${path}.fontFamily`,
+      message: `styled-text field '${path}.fontFamily' must be a string (family name or role)`,
+    })
+  }
+
+  // `color` is a `#hex` literal (report unit) or a known palette-role alias.
+  if (run.color !== undefined) validateColor(`${path}.color`, run.color, errors)
+
+  // `gradient` mirrors the report's TextGradient: an angle + colour stops.
+  if (run.gradient !== undefined) validateGradient(`${path}.gradient`, run.gradient, errors)
+}
+
+/** A `color` value: a `#hex` literal or a known palette-role alias, else an error. */
+function validateColor(path: string, value: unknown, errors: ContentValidationError[]): void {
+  if (typeof value === 'string' && (isColorLiteral(value) || isPaletteRole(value))) return
+  errors.push({
+    field: path,
+    message: `styled-text field '${path}' must be a #hex colour or a palette-role alias, got '${String(value)}'`,
+  })
+}
+
+/** A gradient treatment: `angleDeg` (degrees literal or direction alias) + ≥1 colour stops. */
+function validateGradient(path: string, value: unknown, errors: ContentValidationError[]): void {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    errors.push({ field: path, message: `styled-text field '${path}' must be a gradient object` })
+    return
+  }
+  const g = value as Record<string, unknown>
+  const angle = g.angleDeg
+  const angleOk =
+    typeof angle === 'number' ||
+    (typeof angle === 'string' && (GRADIENT_DIRECTION_ALIASES as readonly string[]).includes(angle))
+  if (!angleOk) {
+    errors.push({
+      field: `${path}.angleDeg`,
+      message: `gradient '${path}.angleDeg' must be a degrees number or one of [${GRADIENT_DIRECTION_ALIASES.join(', ')}], got '${String(angle)}'`,
+    })
+  }
+  if (!Array.isArray(g.stops)) {
+    errors.push({ field: `${path}.stops`, message: `gradient '${path}.stops' must be a list of colour stops` })
+    return
+  }
+  g.stops.forEach((stop, i) => {
+    // A stop is a bare colour string (hex/role) or `{ color, position? }`.
+    const color = typeof stop === 'string' ? stop : (stop as Record<string, unknown>)?.color
+    validateColor(`${path}.stops[${i}].color`, color, errors)
+  })
 }
 
 /**
@@ -49,6 +156,15 @@ function validateField(
         message: `content field '${path}' must be one of [${spec.values.join(', ')}], got '${String(value)}'`,
       })
     }
+    return
+  }
+
+  if (spec.type === 'styled-text') {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      errors.push({ field: path, message: `content field '${path}' must be a styled-text run` })
+      return
+    }
+    validateTextRun(path, value as Record<string, unknown>, errors)
     return
   }
 

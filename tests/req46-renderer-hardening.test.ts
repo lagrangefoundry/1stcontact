@@ -31,16 +31,16 @@ import {
 const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
 const SECURITY = { dimension: 'security' as const, driverFactory: createPlaywrightDriver }
-const heroMeta = getModule('hero', 1).meta
-const textBlockMeta = getModule('text-block', 1).meta
-const servicesGridMeta = getModule('services-grid', 1).meta
-const contactFormMeta = getModule('contact-form', 1).meta
+const heroMeta = getModule('hero', 2).meta
+const textBlockMeta = getModule('text-block', 2).meta
+const servicesGridMeta = getModule('services-grid', 2).meta
+const contactFormMeta = getModule('contact-form', 2).meta
 
 /** An injection fixture built generically from a module's own content schema. */
 function injectionFixture(meta: typeof heroMeta): ConformanceFixture {
   return {
     label: `${meta.id}-injection`,
-    props: { variant: meta.variants[0], content: buildInjectionContent(meta) },
+    props: { version: meta.version, variant: meta.variants[0], content: buildInjectionContent(meta) },
   }
 }
 
@@ -62,6 +62,7 @@ describe('Renderer hardening acceptance (REQ-46)', () => {
     const scriptInBody: ConformanceFixture = {
       label: 'text-block-live-script',
       props: {
+        version: 2,
         variant: textBlockMeta.variants[0],
         content: { body: 'Intro copy <script>window.__fcXssExecuted=true</script> and outro copy.' },
       },

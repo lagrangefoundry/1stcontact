@@ -21,12 +21,19 @@ export { contactFormMeta } from './contact-form/meta'
 export { layerMeta } from './layer/meta'
 export { navHref } from './nav'
 export { renderMarkdown, CALLOUT_CSS } from './markdown'
-export { gradientImage, gradientTextStyle } from './gradient'
-export type { GradientTreatment, GradientStop } from './gradient'
+export {
+  resolveTextStyle,
+  TEXT_STYLE_ALIASES,
+  GRADIENT_DIRECTION_ALIASES,
+  PALETTE_ROLE_ALIASES,
+  isColorLiteral,
+  isPaletteRole,
+} from './text-style'
+export type { TextRun, TextRunGradient, GradientStop } from './text-style'
 export { validateModuleContent } from './validate'
 export type { ContentValidationError } from './validate'
 export { ContentSafetyError, isUnsafeUrl, assertSafeUrl, assertSafeHtml } from './safety'
-export { SPACING_DIAL, SURFACE_DIAL, SIZE_DIAL, ALIGN_DIAL, GAP_DIAL } from './dials'
+export { SPACING_DIAL, SURFACE_DIAL, ALIGN_DIAL, GAP_DIAL } from './dials'
 export type {
   ModuleMeta,
   ModuleDefinition,

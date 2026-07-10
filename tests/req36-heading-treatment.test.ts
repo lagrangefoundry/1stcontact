@@ -7,7 +7,6 @@ import ServicesGrid from '../packages/framework/src/modules/services-grid/index.
 import Hero from '../packages/framework/src/modules/hero/index.astro'
 import Header from '../packages/framework/src/modules/header/index.astro'
 import Footer from '../packages/framework/src/modules/footer/index.astro'
-import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens/index'
 import { composeRow, ROW_CSS } from '../packages/framework/src/modules/row'
@@ -40,61 +39,86 @@ async function render(Comp: unknown, props: Record<string, unknown>) {
 }
 
 describe('REQ-36 heading treatment — text-block', () => {
-  const content = { heading: 'THE HOLISTIC APPROACH', body: 'Prose.' }
+  // REQ-50 — the heading treatment is no longer a `headingTreatment` dial; the
+  // former `accent` fill and `gold`/`gradient` fill live on the `heading` run's
+  // own `color`/`gradient`, resolved to an inline `style` on the heading.
+  const body = 'Prose.'
 
   it('test_UAT_FC_REQ-36_textblock_accent_colours_the_heading', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: { headingTreatment: 'accent' }, content })
-    expect(html).toContain('text-block__heading treatment-accent')
-    // The scoped CSS fills the heading with the accent token (the effect).
-    expect(textBlockCss).toMatch(/\.text-block__heading\.treatment-accent\s*\{[^}]*color:\s*var\(--color-accent\)/)
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      content: { heading: { text: 'THE HOLISTIC APPROACH', color: 'accent' }, body },
+    })
+    // The run fills the heading with the accent token (the effect).
+    expect(html).toMatch(/text-block__heading[^>]*style="[^"]*color: var\(--color-accent\)/)
   })
 
   it('test_UAT_FC_REQ-36_textblock_default_is_plain_unchanged', async () => {
-    const html = await render(TextBlock, { variant: 'prose', content })
-    expect(html).toContain('treatment-plain')
-    expect(html).not.toContain('treatment-accent')
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      content: { heading: { text: 'THE HOLISTIC APPROACH' }, body },
+    })
+    // A heading run with no `color`/`gradient` inherits the band colour — no
+    // inline colour override on the heading.
+    expect(html).not.toMatch(/text-block__heading[^>]*style="[^"]*color:/)
   })
 
-  it('test_UAT_FC_REQ-36_textblock_gradient_value_is_not_a_dial_option', () => {
-    // `gradient` needs a headingGradient content field — excluded from the flat
-    // module's dial so it can never be a silently-inert value.
-    expect(textBlockMeta.dials.headingTreatment).toEqual(['plain', 'accent', 'gold'])
+  it('test_UAT_FC_REQ-36_textblock_gold_heading_is_a_metallic_gradient', async () => {
+    // The former `gold`/`gradient` treatment = a `gradient` on the heading run.
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      content: {
+        heading: {
+          text: 'THE HOLISTIC APPROACH',
+          gradient: { angleDeg: 180, stops: ['#f7e4a8', 'accent', '#b07d24'] },
+        },
+        body,
+      },
+    })
+    expect(html).toMatch(/text-block__heading[^>]*style="[^"]*background-clip: text/)
+    expect(html).toMatch(/text-block__heading[^>]*style="[^"]*color: transparent/)
   })
 })
 
 describe('REQ-36 heading treatment — services-grid', () => {
-  const items = [
-    { title: 'Personal Chef Services', body: 'Weekly.' },
-    { title: 'Cooking Classes', body: 'Small groups.' },
+  // REQ-50 — the accent treatment is no longer a grid-wide `headingTreatment`
+  // dial; the grid `heading` and each card `title` carry their own `color`
+  // (`accent`) run, resolved to an inline `style` on each. So one grid can read
+  // gold while another stays on the band colour — the same effect, per-run.
+  const accentItems = [
+    { title: { text: 'Personal Chef Services', color: 'accent' }, body: 'Weekly.' },
+    { title: { text: 'Cooking Classes', color: 'accent' }, body: 'Small groups.' },
+  ]
+  const plainItems = [
+    { title: { text: 'Personal Chef Services' }, body: 'Weekly.' },
+    { title: { text: 'Cooking Classes' }, body: 'Small groups.' },
   ]
 
   it('test_UAT_FC_REQ-36_grid_accent_colours_heading_and_card_titles', async () => {
     const html = await render(ServicesGrid, {
       variant: 'three-col',
-      dials: { headingTreatment: 'accent' },
-      content: { heading: 'Our Offerings', items },
+      content: { heading: { text: 'Our Offerings', color: 'accent' }, items: accentItems },
     })
-    expect(html).toContain('treatment-accent')
-    // Effect: the rule targets BOTH the grid heading and the card titles.
-    expect(gridCss).toMatch(/\.services-grid\.treatment-accent\s+\.services-grid__heading/)
-    expect(gridCss).toMatch(/\.services-grid\.treatment-accent\s+\.services-grid__card-title\s*\{[^}]*color:\s*var\(--color-accent\)/)
+    // Effect: the accent token fills BOTH the grid heading and the card titles.
+    expect(html).toMatch(/services-grid__heading[^>]*style="[^"]*color: var\(--color-accent\)/)
+    expect(html).toMatch(/services-grid__card-title[^>]*style="[^"]*color: var\(--color-accent\)/)
   })
 
   it('test_UAT_FC_REQ-36_grid_default_plain_keeps_titles_on_band_colour', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
-    expect(html).toContain('treatment-plain')
-    expect(html).not.toContain('treatment-accent')
+    const html = await render(ServicesGrid, { variant: 'three-col', content: { items: plainItems } })
+    // No inline colour on heading or titles — they inherit the band colour.
+    expect(html).not.toMatch(/services-grid__card-title[^>]*style="[^"]*color:/)
   })
 
   it('test_UAT_FC_REQ-36_grid_treatment_composes_with_bare_and_variant', async () => {
     for (const variant of servicesGridMeta.variants) {
       const html = await render(ServicesGrid, {
         variant,
-        dials: { headingTreatment: 'accent', cardSurface: 'bare' },
-        content: { items },
+        dials: { cardSurface: 'bare' },
+        content: { heading: { text: 'Our Offerings', color: 'accent' }, items: accentItems },
       })
       expect(html).toContain(`variant-${variant}`)
-      expect(html).toContain('treatment-accent')
+      expect(html).toMatch(/services-grid__card-title[^>]*style="[^"]*color: var\(--color-accent\)/)
       expect(html).toContain('card-surface-bare')
     }
   })
@@ -105,7 +129,7 @@ describe('REQ-36 heading letter-case (upper) — DOM stays literal', () => {
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: { headingCase: 'upper' },
-      content: { heading: 'Dreaming of healthier meals', subhead: 'x' },
+      content: { heading: { text: 'Dreaming of healthier meals' }, subhead: { text: 'x' } },
     })
     // The uppercase is a render-time transform (class + CSS)…
     expect(html).toContain('case-upper')
@@ -117,7 +141,7 @@ describe('REQ-36 heading letter-case (upper) — DOM stays literal', () => {
   })
 
   it('test_UAT_FC_REQ-36_case_default_is_normal', async () => {
-    const html = await render(TextBlock, { variant: 'prose', content: { heading: 'Our Offerings', body: 'x' } })
+    const html = await render(TextBlock, { variant: 'prose', content: { heading: { text: 'Our Offerings' }, body: 'x' } })
     expect(html).toContain('case-normal')
     expect(html).not.toContain('case-upper')
   })
@@ -133,7 +157,7 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
   it('test_UAT_FC_REQ-36_hero_heading_newline_renders_as_br_segments', async () => {
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Dreaming of healthier meals\non your dinner table?', subhead: 'x' },
+      content: { heading: { text: 'Dreaming of healthier meals\non your dinner table?' }, subhead: { text: 'x' } },
     })
     // The newline becomes a hard <br> so the heading breaks exactly where the
     // reference does — without capping the measure.
@@ -143,7 +167,7 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
   it('test_UAT_FC_REQ-36_hero_heading_without_newline_has_no_br', async () => {
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Dreaming of healthier meals', subhead: 'x' },
+      content: { heading: { text: 'Dreaming of healthier meals' }, subhead: { text: 'x' } },
     })
     // A single-line heading is unchanged (no injected break).
     expect(html).toContain('Dreaming of healthier meals')
@@ -154,11 +178,11 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
     const withRule = await render(Hero, {
       variant: 'bg-color',
       dials: { divider: 'rule' },
-      content: { heading: 'H', subhead: 'x' },
+      content: { heading: { text: 'H' }, subhead: { text: 'x' } },
     })
     const without = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'H', subhead: 'x' },
+      content: { heading: { text: 'H' }, subhead: { text: 'x' } },
     })
     expect(withRule).toContain('hero__divider')
     expect(without).not.toContain('hero__divider')
@@ -173,15 +197,15 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
     const withPortrait = await render(Hero, {
       variant: 'bg-image',
       content: {
-        heading: 'H',
-        subhead: 'Chef Sarah Joy',
+        heading: { text: 'H' },
+        subhead: { text: 'Chef Sarah Joy' },
         image: { src: 'assets/bg.jpg', alt: 'bg' },
         portrait: { src: 'assets/chef.jpg', alt: 'Chef Sarah Joy' },
       },
     })
     const without = await render(Hero, {
       variant: 'bg-image',
-      content: { heading: 'H', subhead: 'x', image: { src: 'assets/bg.jpg', alt: 'bg' } },
+      content: { heading: { text: 'H' }, subhead: { text: 'x' }, image: { src: 'assets/bg.jpg', alt: 'bg' } },
     })
     expect(withPortrait).toContain('hero__portrait')
     expect(withPortrait).toContain('assets/chef.jpg')
@@ -192,8 +216,8 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
     const dflt = await render(Hero, {
       variant: 'bg-image',
       content: {
-        heading: 'H',
-        subhead: 'x',
+        heading: { text: 'H' },
+        subhead: { text: 'x' },
         image: { src: 'assets/bg.jpg', alt: 'bg' },
         portrait: { src: 'assets/chef.jpg', alt: 'c' },
       },
@@ -202,8 +226,8 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
       variant: 'bg-image',
       dials: { portraitShape: 'square' },
       content: {
-        heading: 'H',
-        subhead: 'x',
+        heading: { text: 'H' },
+        subhead: { text: 'x' },
         image: { src: 'assets/bg.jpg', alt: 'bg' },
         portrait: { src: 'assets/chef.jpg', alt: 'c' },
       },
@@ -218,12 +242,12 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
     const left = await render(Hero, {
       variant: 'bg-color',
       dials: { contentColumn: 'left' },
-      content: { heading: 'H', subhead: 'x' },
+      content: { heading: { text: 'H' }, subhead: { text: 'x' } },
     })
     expect(left).toContain('content-column-left')
     // `left` pins the column to the gutter (start margin 0); `center` is default.
     expect(heroCss).toMatch(/\.hero\.content-column-left\s+\.hero__inner\s*\{[^}]*margin-inline:\s*0 auto/)
-    const dflt = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x' } })
+    const dflt = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'H' }, subhead: { text: 'x' } } })
     expect(dflt).toContain('content-column-center')
   })
 
@@ -249,12 +273,20 @@ describe('REQ-36 hero front-door geometry — line breaks, divider, column pin',
 })
 
 describe('REQ-36 text-block heading finish — weight / size / align / leading', () => {
-  const content = { heading: 'THE HOLISTIC APPROACH', body: 'Prose paragraph.' }
+  // REQ-50 — heading weight/size and body leading are no longer `headingWeight`/
+  // `headingSize`/`leading` dials; they live on the `heading` run's
+  // `fontWeight`/`fontSizePx` and the `bodyStyle` run's `lineHeightPx`, resolved
+  // to inline `style`. `headingAlign` and the `panel` treatment stay dials.
+  const heading = { text: 'THE HOLISTIC APPROACH' }
+  const body = 'Prose paragraph.'
+  const content = { heading, body }
 
   it('test_UAT_FC_REQ-36_textblock_headingWeight_reaches_extralight', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: { headingWeight: 'extralight' }, content })
-    expect(html).toContain('hw-extralight')
-    expect(textBlockCss).toMatch(/\.text-block__heading\.hw-extralight\s*\{[^}]*font-weight:\s*var\(--font-weight-extralight\)/)
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      content: { heading: { ...heading, fontWeight: 'extralight' }, body },
+    })
+    expect(html).toMatch(/text-block__heading[^>]*style="[^"]*font-weight: var\(--font-weight-extralight\)/)
   })
 
   it('test_UAT_FC_REQ-36_extralight_weight_token_emitted_as_200', () => {
@@ -263,10 +295,15 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
   })
 
   it('test_UAT_FC_REQ-36_textblock_headingSize_steps_the_heading_independently_of_body', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: { headingSize: 'lg', size: 'sm' }, content })
-    expect(html).toContain('hs-lg')
-    // `lg` heading = 4xl, independent of the body `size` dial (which stays sm).
-    expect(textBlockCss).toMatch(/\.text-block__heading\.hs-lg\s*\{[^}]*font-size:\s*var\(--font-size-4xl\)/)
+    // The `4xl` scale step on the heading run — independent of the body prose,
+    // which takes its own size from `bodyStyle` (here omitted → base slot).
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      content: { heading: { ...heading, fontSizePx: '4xl' }, body },
+    })
+    expect(html).toMatch(/text-block__heading[^>]*style="[^"]*font-size: var\(--font-size-4xl\)/)
+    // The body prose carries no inline size — it stays on its base slot.
+    expect(html).not.toMatch(/text-block__body[^>]*style="[^"]*font-size:/)
   })
 
   it('test_UAT_FC_REQ-36_textblock_headingAlign_centres_heading_over_left_body', async () => {
@@ -276,9 +313,13 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
   })
 
   it('test_UAT_FC_REQ-36_textblock_body_leading_tightens', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: { leading: 'snug' }, content })
-    expect(html).toContain('leading-snug')
-    expect(textBlockCss).toMatch(/\.text-block\.leading-snug\s+\.text-block__body\s*\{[^}]*line-height:\s*var\(--line-height-snug\)/)
+    // Body leading is the `bodyStyle` run's `lineHeightPx` (a `snug` alias),
+    // resolved to an inline `style` on the prose container.
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      content: { heading, body, bodyStyle: { lineHeightPx: 'snug' } },
+    })
+    expect(html).toMatch(/text-block__body[^>]*style="[^"]*line-height: var\(--line-height-snug\)/)
   })
 
   it('test_UAT_FC_REQ-36_textblock_panel_card_insets_a_filled_rounded_box', async () => {
@@ -295,7 +336,7 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
   })
 
   it('test_UAT_FC_REQ-36_textblock_listMarker_check_uses_accent_ticks', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: { listMarker: 'check' }, content: { heading: 'H', body: '- one\n- two' } })
+    const html = await render(TextBlock, { variant: 'prose', dials: { listMarker: 'check' }, content: { heading: { text: 'H' }, body: '- one\n- two' } })
     expect(html).toContain('list-marker-check')
     // The tick is FontAwesome `fa-check` (U+F00C) rendered in the IconFont — the
     // heavier geometric check the reference's Elementor icon-list uses, not the
@@ -303,17 +344,19 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
     expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*content:\s*"\\f00c"/)
     expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*font-family:\s*'IconFont'/)
     expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*color:\s*var\(--color-accent\)/)
-    const dflt = await render(TextBlock, { variant: 'prose', content: { heading: 'H', body: '- one' } })
+    const dflt = await render(TextBlock, { variant: 'prose', content: { heading: { text: 'H' }, body: '- one' } })
     expect(dflt).toContain('list-marker-bullet')
   })
 
   it('test_UAT_FC_REQ-36_textblock_heading_finish_defaults_unchanged', async () => {
     const html = await render(TextBlock, { variant: 'prose', content })
-    // Omitting the new dials preserves the prior heading (bold / 3xl / left) + relaxed body.
-    expect(html).toContain('hw-bold')
-    expect(html).toContain('hs-md')
+    // REQ-50 — a heading run with no style fields emits no inline weight/size and
+    // the body no inline leading; the base slot CSS supplies the prior defaults
+    // (bold / 3xl heading, relaxed body). `headingAlign` stays a dial (left default).
     expect(html).toContain('halign-left')
-    expect(html).toContain('leading-relaxed')
+    expect(html).not.toMatch(/text-block__heading[^>]*style="[^"]*font-weight:/)
+    expect(html).not.toMatch(/text-block__heading[^>]*style="[^"]*font-size:/)
+    expect(html).not.toMatch(/text-block__body[^>]*style="[^"]*line-height:/)
   })
 })
 
@@ -321,7 +364,7 @@ describe('REQ-36 services-grid card top-media', () => {
   it('test_UAT_FC_REQ-36_services_grid_renders_card_image_as_top_media', async () => {
     const html = await render(ServicesGrid, {
       variant: 'three-col',
-      content: { items: [{ title: 'Personal Chef', body: 'b', image: { id: 'c', src: 'assets/card.jpg', alt: 'chef' } }] },
+      content: { items: [{ title: { text: 'Personal Chef' }, body: 'b', image: { id: 'c', src: 'assets/card.jpg', alt: 'chef' } }] },
     })
     expect(html).toContain('services-grid__media')
     expect(html).toContain('assets/card.jpg')
@@ -329,37 +372,49 @@ describe('REQ-36 services-grid card top-media', () => {
     expect(gridCss).toMatch(/\.services-grid__media\s*\{[^}]*aspect-ratio:\s*1 \/ 1/)
     expect(gridCss).toMatch(/\.services-grid__media\s*\{[^}]*object-fit:\s*cover/)
     // A card without an image renders no media element.
-    const noImg = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: 'X', body: 'b' }] } })
+    const noImg = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: { text: 'X' }, body: 'b' }] } })
     expect(noImg).not.toContain('services-grid__media')
   })
 })
 
 describe('REQ-36 services-grid finish — card-title size, section CTA', () => {
-  it('test_UAT_FC_REQ-36_grid_size_lg_scales_card_title_to_3xl', () => {
-    expect(gridCss).toMatch(/\.services-grid\.size-lg\s+\.services-grid__card-title\s*\{[^}]*font-size:\s*var\(--font-size-3xl\)/)
+  it('test_UAT_FC_REQ-36_card_title_size_scales_on_the_run', async () => {
+    // REQ-50 — card-title size is no longer a grid-wide `size` dial; it's each
+    // card `title` run's own `fontSizePx` (the `3xl` scale step), resolved to an
+    // inline `style` on the title.
+    const html = await render(ServicesGrid, {
+      variant: 'three-col',
+      content: { items: [{ title: { text: 'T', fontSizePx: '3xl' }, body: 'b' }] },
+    })
+    expect(html).toMatch(/services-grid__card-title[^>]*style="[^"]*font-size: var\(--font-size-3xl\)/)
   })
 
   it('test_UAT_FC_REQ-36_grid_section_cta_renders_only_when_present', async () => {
     const withCta = await render(ServicesGrid, {
       variant: 'three-col',
-      content: { items: [{ title: 'T', body: 'b' }], cta: { label: 'Get Started', href: '#c' } },
+      content: { items: [{ title: { text: 'T' }, body: 'b' }], cta: { label: 'Get Started', href: '#c' } },
     })
     expect(withCta).toContain('services-grid__cta')
     expect(withCta).toContain('Get Started')
-    const without = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: 'T', body: 'b' }] } })
+    const without = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: { text: 'T' }, body: 'b' }] } })
     expect(without).not.toContain('services-grid__cta')
   })
 })
 
 describe('REQ-36 header nav size', () => {
   it('test_UAT_FC_REQ-36_header_navSize_lg_enlarges_nav_links', async () => {
+    // REQ-50 — nav-link size is no longer a `navSize` dial; it's the shared
+    // `navStyle` run's `fontSizePx` (the `xl` scale step), resolved to an inline
+    // `style` applied to every nav link.
     const html = await render(Header, {
       variant: 'overlay',
-      dials: { navSize: 'lg' },
-      content: { logo: 'X', entries: [{ label: 'Home', target: '#' }] },
+      content: {
+        wordmark: { text: 'X' },
+        entries: [{ label: 'Home', target: '#' }],
+        navStyle: { fontSizePx: 'xl' },
+      },
     })
-    expect(html).toContain('nav-size-lg')
-    expect(headerCss).toMatch(/\.header\.nav-size-lg\s+\.header__nav a\s*\{[^}]*font-size:\s*var\(--font-size-xl\)/)
+    expect(html).toMatch(/header__nav[\s\S]*?<a[^>]*style="[^"]*font-size: var\(--font-size-xl\)/)
   })
 })
 
@@ -368,14 +423,14 @@ describe('REQ-36 services-grid icon-font glyphs', () => {
     const html = await render(ServicesGrid, {
       variant: 'three-col',
       dials: { iconFont: 'icon-font' },
-      content: { items: [{ title: 'FAQ', body: 'b', icon: '' }] },
+      content: { items: [{ title: { text: 'FAQ' }, body: 'b', icon: '' }] },
     })
     expect(html).toContain('icon-font-icon-font')
     // The string icon renders in the site IconFont, accent-coloured and sized up.
     expect(gridCss).toMatch(/\.icon-font-icon-font\s+\.services-grid__icon span\s*\{[^}]*font-family:\s*'IconFont'/)
     expect(gridCss).toMatch(/\.icon-font-icon-font\s+\.services-grid__icon span\s*\{[^}]*color:\s*var\(--color-accent\)/)
     // Default (no dial) leaves a string icon as plain text.
-    const dflt = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: 'X', body: 'b', icon: '' }] } })
+    const dflt = await render(ServicesGrid, { variant: 'three-col', content: { items: [{ title: { text: 'X' }, body: 'b', icon: '' }] } })
     expect(dflt).toContain('icon-font-default')
   })
 })
@@ -401,16 +456,17 @@ describe('REQ-36 hero finish — scrim depth / heading weight / CTA shape / divi
   })
 
   it('test_UAT_FC_REQ-36_hero_headingWeight_reaches_medium', async () => {
-    const html = await render(Hero, { variant: 'bg-color', dials: { headingWeight: 'medium' }, content: { heading: 'H', subhead: 'x' } })
-    expect(html).toContain('hw-medium')
-    expect(heroCss).toMatch(/\.hero__heading\.hw-medium\s*\{[^}]*font-weight:\s*var\(--font-weight-medium\)/)
+    // REQ-50 — heading weight is the `heading` run's own `fontWeight` (the
+    // `medium` step), resolved to an inline `style` on the heading.
+    const html = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'H', fontWeight: 'medium' }, subhead: { text: 'x' } } })
+    expect(html).toMatch(/hero__heading[^>]*style="[^"]*font-weight: var\(--font-weight-medium\)/)
   })
 
   it('test_UAT_FC_REQ-36_hero_cta_square_removes_the_radius', async () => {
-    const square = await render(Hero, { variant: 'bg-color', dials: { ctaShape: 'square' }, content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
+    const square = await render(Hero, { variant: 'bg-color', dials: { ctaShape: 'square' }, content: { heading: { text: 'H' }, subhead: { text: 'x' }, cta: { label: 'Go', href: '#' } } })
     expect(square).toContain('cta-square')
     expect(heroCss).toMatch(/\.hero__cta\.cta-square\s*\{[^}]*border-radius:\s*0/)
-    const dflt = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
+    const dflt = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'H' }, subhead: { text: 'x' }, cta: { label: 'Go', href: '#' } } })
     expect(dflt).toContain('cta-round')
   })
 
@@ -420,25 +476,29 @@ describe('REQ-36 hero finish — scrim depth / heading weight / CTA shape / divi
   })
 
   it('test_UAT_FC_REQ-36_hero_subheadFont_sets_the_lead_face', async () => {
-    const html = await render(Hero, { variant: 'bg-color', dials: { subheadFont: 'display' }, content: { heading: 'H', subhead: 'x' } })
-    expect(html).toContain('subhead-font-display')
-    expect(heroCss).toMatch(/\.hero\.subhead-font-display\s+\.hero__subhead\s*\{[^}]*font-family:\s*var\(--font-family-display\)/)
+    // REQ-50 — the lead face is the `subhead` run's own `fontFamily` (the
+    // `display` family role), resolved to an inline `style` on the subhead.
+    const html = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'H' }, subhead: { text: 'x', fontFamily: 'display' } } })
+    expect(html).toMatch(/hero__subhead[^>]*style="[^"]*font-family: var\(--font-family-display\)/)
   })
 
   it('test_UAT_FC_REQ-36_hero_scrimGradient_top_darkens_the_band_top', async () => {
-    const html = await render(Hero, { variant: 'bg-image', dials: { scrimGradient: 'top' }, content: { heading: 'H', subhead: 'x', image: { id: 'i', src: 'a.jpg', alt: 'a' } } })
+    const html = await render(Hero, { variant: 'bg-image', dials: { scrimGradient: 'top' }, content: { heading: { text: 'H' }, subhead: { text: 'x' }, image: { id: 'i', src: 'a.jpg', alt: 'a' } } })
     expect(html).toContain('hero__scrim-top')
     expect(heroCss).toMatch(/\.hero__scrim-top\s*\{[^}]*linear-gradient\(to bottom, var\(--color-scrim\)/)
     // Omitting the dial renders no top-gradient element.
-    const without = await render(Hero, { variant: 'bg-image', content: { heading: 'H', subhead: 'x', image: { id: 'i', src: 'a.jpg', alt: 'a' } } })
+    const without = await render(Hero, { variant: 'bg-image', content: { heading: { text: 'H' }, subhead: { text: 'x' }, image: { id: 'i', src: 'a.jpg', alt: 'a' } } })
     expect(without).not.toContain('hero__scrim-top')
   })
 
   it('test_UAT_FC_REQ-36_hero_finish_defaults_unchanged', async () => {
-    const html = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x', cta: { label: 'Go', href: '#' } } })
-    expect(html).toContain('hw-bold')
+    const html = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'H' }, subhead: { text: 'x' }, cta: { label: 'Go', href: '#' } } })
+    // REQ-50 — heading weight and subhead face default from the base slots, so a
+    // run with no style fields emits no inline weight/family; the structural
+    // shape/scrim dials still default (round CTA, no top-gradient).
+    expect(html).not.toMatch(/hero__heading[^>]*style="[^"]*font-weight:/)
+    expect(html).not.toMatch(/hero__subhead[^>]*style="[^"]*font-family:/)
     expect(html).toContain('cta-round')
-    expect(html).toContain('subhead-font-body')
     expect(html).toContain('scrim-gradient-none')
   })
 })
@@ -507,19 +567,22 @@ describe('REQ-36 fc-band — shared surface behind a partial-width row', () => {
 
 describe('REQ-36 hero heading font-family', () => {
   it('test_UAT_FC_REQ-36_hero_headingFont_body_sets_the_body_face', async () => {
-    const html = await render(Hero, { variant: 'bg-color', dials: { headingFont: 'body' }, content: { heading: 'Quote', subhead: 'x' } })
-    expect(html).toContain('heading-font-body')
-    expect(heroCss).toMatch(/\.hero__heading\.heading-font-body\s*\{[^}]*font-family:\s*var\(--font-family-body\)/)
+    // REQ-50 — the heading face (the Karla pull-quote) is the `heading` run's own
+    // `fontFamily` (the `body` family role), resolved to an inline `style`.
+    const html = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'Quote', fontFamily: 'body' }, subhead: { text: 'x' } } })
+    expect(html).toMatch(/hero__heading[^>]*style="[^"]*font-family: var\(--font-family-body\)/)
   })
 
   it('test_UAT_FC_REQ-36_hero_headingFont_defaults_to_heading_face', async () => {
-    const html = await render(Hero, { variant: 'bg-color', content: { heading: 'H', subhead: 'x' } })
-    expect(html).toContain('heading-font-heading')
+    // A heading run with no `fontFamily` inherits the base slot's heading face —
+    // no inline family override.
+    const html = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'H' }, subhead: { text: 'x' } } })
+    expect(html).not.toMatch(/hero__heading[^>]*style="[^"]*font-family:/)
   })
 })
 
 describe('REQ-36 text-block CTA button', () => {
-  const content = { heading: 'Our Offerings', body: 'Prose.', cta: { label: 'Learn More', href: '#services' } }
+  const content = { heading: { text: 'Our Offerings' }, body: 'Prose.', cta: { label: 'Learn More', href: '#services' } }
 
   it('test_UAT_FC_REQ-36_textblock_cta_renders_an_accent_button', async () => {
     const html = await render(TextBlock, { variant: 'prose', content })
@@ -536,14 +599,14 @@ describe('REQ-36 text-block CTA button', () => {
   })
 
   it('test_UAT_FC_REQ-36_textblock_without_cta_renders_no_button', async () => {
-    const html = await render(TextBlock, { variant: 'prose', content: { heading: 'H', body: 'b' } })
+    const html = await render(TextBlock, { variant: 'prose', content: { heading: { text: 'H' }, body: 'b' } })
     expect(html).not.toContain('text-block__cta')
   })
 })
 
 describe('REQ-36 extended spacing + gap scale — airy sections', () => {
   it('test_UAT_FC_REQ-36_spacing_2xl_3xl_step_past_xl', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', dials: { spacingTop: '3xl', spacingBottom: '2xl' }, content: { items: [{ title: 'X', body: 'b' }, { title: 'Y', body: 'b' }] } })
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { spacingTop: '3xl', spacingBottom: '2xl' }, content: { items: [{ title: { text: 'X' }, body: 'b' }, { title: { text: 'Y' }, body: 'b' }] } })
     expect(html).toContain('spacing-top-3xl')
     expect(html).toContain('spacing-bottom-2xl')
     // The grid renders the two new steps past its own `xl` (`--space-24`).
@@ -563,7 +626,7 @@ describe('REQ-36 extended spacing + gap scale — airy sections', () => {
   })
 
   it('test_UAT_FC_REQ-36_grid_gap_airy_widens_the_row_gap', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', dials: { gap: 'airy' }, content: { items: [{ title: 'X', body: 'b' }, { title: 'Y', body: 'b' }] } })
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { gap: 'airy' }, content: { items: [{ title: { text: 'X' }, body: 'b' }, { title: { text: 'Y' }, body: 'b' }] } })
     expect(html).toContain('gap-airy')
     expect(gridCss).toMatch(/\.services-grid\.gap-airy\s+\.services-grid__cards\s*\{[^}]*gap:\s*var\(--space-16\)/)
   })
@@ -593,24 +656,35 @@ describe('REQ-36 fc-row content measure — boxing a partial-width row', () => {
 })
 
 describe('REQ-36 services-grid card title weight + face', () => {
-  const items = [{ title: 'Personal Chef Services', body: 'b' }, { title: 'Y', body: 'b' }]
+  // REQ-50 — card-title weight/face are no longer grid-wide `cardTitleWeight`/
+  // `cardTitleFont` dials; they live on each card `title` run's own
+  // `fontWeight`/`fontFamily`, resolved to an inline `style` on each title.
+  const plainItems = [{ title: { text: 'Personal Chef Services' }, body: 'b' }, { title: { text: 'Y' }, body: 'b' }]
 
   it('test_UAT_FC_REQ-36_card_title_extralight_thins_the_title', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', dials: { cardTitleWeight: 'extralight' }, content: { items } })
-    expect(html).toContain('ctw-extralight')
-    expect(gridCss).toMatch(/\.services-grid__card-title\.ctw-extralight\s*\{[^}]*font-weight:\s*var\(--font-weight-extralight\)/)
+    const items = [
+      { title: { text: 'Personal Chef Services', fontWeight: 'extralight' }, body: 'b' },
+      { title: { text: 'Y', fontWeight: 'extralight' }, body: 'b' },
+    ]
+    const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
+    expect(html).toMatch(/services-grid__card-title[^>]*style="[^"]*font-weight: var\(--font-weight-extralight\)/)
   })
 
   it('test_UAT_FC_REQ-36_card_title_body_face_uses_the_body_font', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', dials: { cardTitleFont: 'body', cardTitleWeight: 'regular' }, content: { items } })
-    expect(html).toContain('ctf-body')
-    expect(gridCss).toMatch(/\.services-grid__card-title\.ctf-body\s*\{[^}]*font-family:\s*var\(--font-family-body\)/)
+    const items = [
+      { title: { text: 'Personal Chef Services', fontFamily: 'body', fontWeight: 'regular' }, body: 'b' },
+      { title: { text: 'Y', fontFamily: 'body', fontWeight: 'regular' }, body: 'b' },
+    ]
+    const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
+    expect(html).toMatch(/services-grid__card-title[^>]*style="[^"]*font-family: var\(--font-family-body\)/)
   })
 
   it('test_UAT_FC_REQ-36_card_title_defaults_semibold_heading', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', content: { items } })
-    expect(html).toContain('ctw-semibold')
-    expect(html).toContain('ctf-heading')
+    // A title run with no style fields inherits the base slot (semibold heading
+    // face) — no inline weight/family override.
+    const html = await render(ServicesGrid, { variant: 'three-col', content: { items: plainItems } })
+    expect(html).not.toMatch(/services-grid__card-title[^>]*style="[^"]*font-weight:/)
+    expect(html).not.toMatch(/services-grid__card-title[^>]*style="[^"]*font-family:/)
   })
 })
 
@@ -647,7 +721,7 @@ describe('REQ-36 footer social icons', () => {
 })
 
 describe('REQ-36 services-grid icon-left card layout', () => {
-  const items = [{ title: 'Visit our FAQ page', body: 'Have a question?', icon: '' }, { title: 'Questionnaire', body: 'x', icon: '' }]
+  const items = [{ title: { text: 'Visit our FAQ page' }, body: 'Have a question?', icon: '' }, { title: { text: 'Questionnaire' }, body: 'x', icon: '' }]
 
   it('test_UAT_FC_REQ-36_icon_layout_left_places_icon_beside_title', async () => {
     const html = await render(ServicesGrid, { variant: 'three-col', dials: { iconLayout: 'left' }, content: { items } })
@@ -666,7 +740,7 @@ describe('REQ-36 services-grid icon-left card layout', () => {
 })
 
 describe('REQ-36 services-grid centered content column + footer muted gold', () => {
-  const items = [{ title: 'A', body: 'x' }, { title: 'B', body: 'y' }]
+  const items = [{ title: { text: 'A' }, body: 'x' }, { title: { text: 'B' }, body: 'y' }]
 
   it('test_UAT_FC_REQ-36_grid_content_align_center_centres_the_capped_column', async () => {
     const html = await render(ServicesGrid, { variant: 'three-col', dials: { contentWidth: 'readable', contentAlign: 'center' }, content: { items } })
@@ -687,7 +761,7 @@ describe('REQ-36 services-grid centered content column + footer muted gold', () 
 })
 
 describe('REQ-36 text-block panel padding depth', () => {
-  const content = { heading: 'What people are saying', body: 'A testimonial.' }
+  const content = { heading: { text: 'What people are saying' }, body: 'A testimonial.' }
 
   it('test_UAT_FC_REQ-36_panel_pad_xl_deepens_the_panel', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary', panelPad: 'xl' }, content })
@@ -709,30 +783,40 @@ describe('REQ-36 text-block panel padding depth', () => {
  * token the CTA `label` font role resolves. Every dial is default-preserving.
  */
 describe('REQ-36 element fidelity — CTA typography, panel corner, body weight, label font', () => {
-  const heroCta = { heading: 'H', subhead: 'x', cta: { label: 'Learn More', href: '#' } }
+  const heroCta = { heading: { text: 'H' }, subhead: { text: 'x' }, cta: { label: 'Learn More', href: '#' } }
 
+  // REQ-50 — the CTA's face/size/weight are no longer `ctaFont`/`ctaSize`/
+  // `ctaWeight` dials; they live on the `cta` run's own `fontFamily`/
+  // `fontSizePx`/`fontWeight`, resolved to an inline `style` on the button.
   it('test_UAT_FC_REQ-36_hero_cta_font_reaches_the_label_face', async () => {
-    const html = await render(Hero, { variant: 'bg-color', dials: { ctaFont: 'label' }, content: heroCta })
-    expect(html).toContain('cta-font-label')
-    expect(heroCss).toMatch(/\.hero__cta\.cta-font-label\s*\{[^}]*font-family:\s*var\(--font-family-label\)/)
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      content: { ...heroCta, cta: { label: 'Learn More', href: '#', fontFamily: 'label' } },
+    })
+    expect(html).toMatch(/hero__cta[^>]*style="[^"]*font-family: var\(--font-family-label\)/)
+    // Default (run omits `fontFamily`) → the base slot face, no inline family.
     const dflt = await render(Hero, { variant: 'bg-color', content: heroCta })
-    expect(dflt).toContain('cta-font-body')
+    expect(dflt).not.toMatch(/hero__cta[^>]*style="[^"]*font-family:/)
   })
 
   it('test_UAT_FC_REQ-36_hero_cta_size_reaches_xs', async () => {
-    const html = await render(Hero, { variant: 'bg-color', dials: { ctaSize: 'xs' }, content: heroCta })
-    expect(html).toContain('cta-size-xs')
-    expect(heroCss).toMatch(/\.hero__cta\.cta-size-xs\s*\{[^}]*font-size:\s*var\(--font-size-xs\)/)
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      content: { ...heroCta, cta: { label: 'Learn More', href: '#', fontSizePx: 'xs' } },
+    })
+    expect(html).toMatch(/hero__cta[^>]*style="[^"]*font-size: var\(--font-size-xs\)/)
     const dflt = await render(Hero, { variant: 'bg-color', content: heroCta })
-    expect(dflt).toContain('cta-size-base')
+    expect(dflt).not.toMatch(/hero__cta[^>]*style="[^"]*font-size:/)
   })
 
   it('test_UAT_FC_REQ-36_hero_cta_weight_reaches_medium', async () => {
-    const html = await render(Hero, { variant: 'bg-color', dials: { ctaWeight: 'medium' }, content: heroCta })
-    expect(html).toContain('cta-weight-medium')
-    expect(heroCss).toMatch(/\.hero__cta\.cta-weight-medium\s*\{[^}]*font-weight:\s*var\(--font-weight-medium\)/)
+    const html = await render(Hero, {
+      variant: 'bg-color',
+      content: { ...heroCta, cta: { label: 'Learn More', href: '#', fontWeight: 'medium' } },
+    })
+    expect(html).toMatch(/hero__cta[^>]*style="[^"]*font-weight: var\(--font-weight-medium\)/)
     const dflt = await render(Hero, { variant: 'bg-color', content: heroCta })
-    expect(dflt).toContain('cta-weight-semibold')
+    expect(dflt).not.toMatch(/hero__cta[^>]*style="[^"]*font-weight:/)
   })
 
   it('test_UAT_FC_REQ-36_hero_cta_soft_is_a_2px_corner', async () => {
@@ -742,19 +826,23 @@ describe('REQ-36 element fidelity — CTA typography, panel corner, body weight,
   })
 
   it('test_UAT_FC_REQ-36_textblock_panelCorner_square_hard_corners_the_panel', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary', panelCorner: 'square' }, content: { heading: 'H', body: 'b' } })
+    const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary', panelCorner: 'square' }, content: { heading: { text: 'H' }, body: 'b' } })
     expect(html).toContain('panel-corner-square')
     expect(textBlockCss).toMatch(/\.text-block\.panel-corner-square\s+\.text-block__inner\s*\{[^}]*border-radius:\s*0/)
-    const dflt = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary' }, content: { heading: 'H', body: 'b' } })
+    const dflt = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary' }, content: { heading: { text: 'H' }, body: 'b' } })
     expect(dflt).toContain('panel-corner-rounded')
   })
 
   it('test_UAT_FC_REQ-36_textblock_bodyWeight_light_steps_the_body', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: { bodyWeight: 'light' }, content: { heading: 'H', body: 'b' } })
-    expect(html).toContain('body-weight-light')
-    expect(textBlockCss).toMatch(/\.text-block\.body-weight-light\s+\.text-block__body\s*\{[^}]*font-weight:\s*var\(--font-weight-light\)/)
-    const dflt = await render(TextBlock, { variant: 'prose', content: { heading: 'H', body: 'b' } })
-    expect(dflt).toContain('body-weight-regular')
+    // REQ-50 — body weight is the `bodyStyle` run's own `fontWeight` (the `light`
+    // step), resolved to an inline `style` on the prose container.
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      content: { heading: { text: 'H' }, body: 'b', bodyStyle: { fontWeight: 'light' } },
+    })
+    expect(html).toMatch(/text-block__body[^>]*style="[^"]*font-weight: var\(--font-weight-light\)/)
+    const dflt = await render(TextBlock, { variant: 'prose', content: { heading: { text: 'H' }, body: 'b' } })
+    expect(dflt).not.toMatch(/text-block__body[^>]*style="[^"]*font-weight:/)
   })
 
   it('test_UAT_FC_REQ-36_theme_emits_font_family_label_from_the_label_role', () => {
@@ -769,7 +857,7 @@ describe('REQ-36 element fidelity — CTA typography, panel corner, body weight,
     // `xnarrow` is a tighter column than `narrow` — the "Who Uses" checklist reads
     // in a ~32rem centred box, not the full section width, so its items wrap like
     // the reference. Caps the inner content to `--container-xnarrow`.
-    const html = await render(TextBlock, { variant: 'prose', dials: { contentWidth: 'xnarrow', align: 'center' }, content: { heading: 'H', body: '- one\n- two' } })
+    const html = await render(TextBlock, { variant: 'prose', dials: { contentWidth: 'xnarrow', align: 'center' }, content: { heading: { text: 'H' }, body: '- one\n- two' } })
     expect(html).toContain('content-width-xnarrow')
     expect(textBlockCss).toMatch(/\.text-block\.content-width-xnarrow \.text-block__inner > \*\s*\{[^}]*max-width:\s*var\(--container-xnarrow\)/)
   })

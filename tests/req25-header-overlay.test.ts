@@ -22,6 +22,9 @@ import { loadSite } from '../tools/generate/src/store'
  * band. Nothing is mocked — module HTML is produced through the same Astro
  * container path `tools/generate` uses, and the end-to-end assertions render a
  * real site through the `1c` CLI.
+ *
+ * REQ-50 migration: `logo: string` removed from header content; string wordmarks
+ * are now `wordmark: TextRun`. All render() calls and page JSON fixtures updated.
  */
 
 describe('REQ-25 — overlay header variant (structured, no raw CSS)', () => {
@@ -39,7 +42,8 @@ describe('REQ-25 — overlay header variant (structured, no raw CSS)', () => {
         variant: 'overlay',
         // A `surface` dial still selects the text colour over the shared image.
         dials: { surface: 'inverse' },
-        content: { logo: 'Acme', entries: [] },
+        // REQ-50: string logo replaced by wordmark run.
+        content: { wordmark: { text: 'Acme' }, entries: [] },
       },
     })
     // The variant reaches the markup as a class the framework CSS keys off.
@@ -92,12 +96,20 @@ describe('REQ-25 — pipeline composites overlay header over the next band (1c r
     const pagePath = path.join(cwd, 'storage', 'sites', 'acme', 'draft', 'pages', 'home.json')
     const page = JSON.parse(readFileSync(pagePath, 'utf8'))
     const header = page.modules.find((m: { type: string }) => m.type === 'header')
+    // REQ-50: upgrade to v2, replace string logo with wordmark run.
+    header.version = 2
     header.variant = 'overlay'
     header.dials = { surface: 'inverse' }
+    header.content = { wordmark: { text: 'acme' }, entries: [] }
     const hero = page.modules.find((m: { type: string }) => m.type === 'hero')
+    // REQ-50: upgrade to v2, use styled runs for content.
+    hero.version = 2
     hero.variant = 'bg-image'
-    hero.dials = { size: 'lg', align: 'left', surface: 'inverse', spacingTop: 'xl' }
-    hero.content.image = { id: 'band', src: 'assets/band.jpg', alt: 'Shared band' }
+    hero.dials = { align: 'left', surface: 'inverse', spacingTop: 'xl' }
+    hero.content = {
+      heading: { text: 'Welcome to acme' },
+      image: { id: 'band', src: 'assets/band.jpg', alt: 'Shared band' },
+    }
     writeFileSync(pagePath, JSON.stringify(page, null, 2))
 
     // The edited draft still validates through the public contract.
@@ -129,6 +141,18 @@ describe('REQ-25 — pipeline composites overlay header over the next band (1c r
     // The default `top-nav` header is unchanged — no compositing, no band
     // wrapper — so the capability is opt-in via the variant only.
     cmdNew('acme', { cwd })
+    // Update scaffold modules to v2 so the render pipeline accepts them.
+    const pagePath = path.join(cwd, 'storage', 'sites', 'acme', 'draft', 'pages', 'home.json')
+    const page = JSON.parse(readFileSync(pagePath, 'utf8'))
+    const header = page.modules.find((m: { type: string }) => m.type === 'header')
+    header.version = 2
+    header.content = { wordmark: { text: 'acme' }, entries: [] }
+    const hero = page.modules.find((m: { type: string }) => m.type === 'hero')
+    hero.version = 2
+    hero.dials = { align: 'center' }
+    hero.content = { heading: { text: 'Welcome to acme' } }
+    writeFileSync(pagePath, JSON.stringify(page, null, 2))
+
     const { outDir } = await cmdRender('acme', { cwd })
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     expect(html).not.toContain('fc-overlay-band')

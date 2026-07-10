@@ -83,6 +83,46 @@ export const contentValueSchema: z.ZodType<ContentValueT> = z.lazy(() =>
   ]),
 )
 
+/**
+ * A styled text *run* (REQ-50): the flat shape a module's `styled-text` content
+ * field carries, named field-for-field after the fidelity report's `ValueElement`
+ * so a captured value drops straight in. Structural typing only — the *literal-
+ * or-known-alias* rule per field (a `fontWeight` is a number or a weight step, a
+ * `color` is a `#hex` or a palette role) is enforced at the framework layer by
+ * `validateModuleContent`, per this file's structural-only scope. Numeric axes
+ * are `number | string` (a literal in the report's unit, or a named token alias);
+ * `.strict()` rejects a smuggled raw-CSS field.
+ */
+const styleAxis = z.union([z.number(), z.string()])
+export const textRunGradientSchema = z
+  .object({
+    /** Literal degrees (report unit) or a principal-direction alias. */
+    angleDeg: styleAxis,
+    /** Ordered colour stops: a bare `#hex`/role string, or `{ color, position? }`. */
+    stops: z.array(
+      z.union([
+        z.string(),
+        z.object({ color: z.string(), position: z.number().optional() }).strict(),
+      ]),
+    ),
+  })
+  .strict()
+export const textRunSchema = z
+  .object({
+    text: z.string().optional(),
+    label: z.string().optional(),
+    href: z.string().optional(),
+    fontFamily: z.string().optional(),
+    fontSizePx: styleAxis.optional(),
+    fontWeight: styleAxis.optional(),
+    color: z.string().optional(),
+    letterSpacingPx: styleAxis.optional(),
+    lineHeightPx: styleAxis.optional(),
+    paddingLeftPx: z.number().optional(),
+    gradient: textRunGradientSchema.optional(),
+  })
+  .strict()
+
 /** SEO metadata for a page. */
 export const seoMetaSchema = z.object({
   title: z.string(),

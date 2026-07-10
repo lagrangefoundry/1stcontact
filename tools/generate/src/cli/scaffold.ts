@@ -32,21 +32,21 @@ export function starterHomePage(slug: string): Record<string, unknown> {
       {
         id: 'header',
         type: 'header',
-        version: 1,
+        version: 2,
         variant: 'top-nav',
         dials: {},
-        content: { logo: slug, entries: [] },
+        content: { wordmark: { text: slug }, entries: [] },
       },
       {
         id: 'hero',
         type: 'hero',
-        version: 1,
+        version: 2,
         variant: 'bg-color',
-        dials: { size: 'lg', align: 'center' },
+        dials: { align: 'center' },
         content: {
-          eyebrow: 'New site',
-          heading: `Welcome to ${slug}`,
-          subhead: 'Edit `draft/` and run `1c render` to preview.',
+          eyebrow: { text: 'New site' },
+          heading: { text: `Welcome to ${slug}` },
+          subhead: { text: 'Edit `draft/` and run `1c render` to preview.' },
         },
       },
       {

@@ -68,9 +68,11 @@ async function conformanceErrorOf(
 const cleanTextBlock: ConformanceFixture = {
   label: 'clean-text-block',
   props: {
+    version: 2,
     variant: 'prose',
     content: {
-      heading: 'A Responsive Heading',
+      // REQ-50 — the discrete heading slot is a flat styled run.
+      heading: { text: 'A Responsive Heading' },
       body: 'A well-formed paragraph of prose that reflows within the viewport at every width from 320px up.',
     },
   },

@@ -25,7 +25,7 @@ describe('header module', () => {
       variant: 'top-nav',
       dials: {},
       content: {
-        logo: 'Acme Co',
+        wordmark: { text: 'Acme Co' },
         entries: [
           { label: 'Home', target: { kind: 'page', pageId: 'home' } },
           { label: 'Menu', target: { kind: 'anchor', pageId: 'home', moduleId: 'menu' } },
@@ -44,7 +44,7 @@ describe('header module', () => {
     const html = await render(Header, {
       variant: 'top-nav',
       dials: {},
-      content: { logo: 'Acme', entries: [] },
+      content: { wordmark: { text: 'Acme' }, entries: [] },
     })
     // The responsive hamburger toggle markup is always present (CSS hides it on desktop).
     expect(html).toContain('data-nav-toggle')
@@ -57,7 +57,7 @@ describe('hero module', () => {
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: { size: 'lg', align: 'center' },
-      content: { heading: 'Welcome', subhead: 'We do great work' },
+      content: { heading: { text: 'Welcome' }, subhead: { text: 'We do great work' } },
     })
     expect(html).toContain('Welcome')
     // The colour variant has no background image element.
@@ -69,8 +69,8 @@ describe('hero module', () => {
       variant: 'bg-image',
       dials: {},
       content: {
-        heading: 'Welcome',
-        subhead: 'sub',
+        heading: { text: 'Welcome' },
+        subhead: { text: 'sub' },
         image: { id: 'bg1', src: '/assets/hero-bg.jpg', alt: 'Catering spread' },
       },
     })
@@ -83,7 +83,7 @@ describe('hero module', () => {
     const withCta = await render(Hero, {
       variant: 'bg-color',
       dials: {},
-      content: { heading: 'H', subhead: 's', cta: { label: 'Book now', href: '/book' } },
+      content: { heading: { text: 'H' }, subhead: { text: 's' }, cta: { label: 'Book now', href: '/book' } },
     })
     expect(withCta).toContain('hero__cta')
     expect(withCta).toContain('Book now')
@@ -91,7 +91,7 @@ describe('hero module', () => {
     const withoutCta = await render(Hero, {
       variant: 'bg-color',
       dials: {},
-      content: { heading: 'H', subhead: 's' },
+      content: { heading: { text: 'H' }, subhead: { text: 's' } },
     })
     expect(withoutCta).not.toContain('hero__cta')
   })

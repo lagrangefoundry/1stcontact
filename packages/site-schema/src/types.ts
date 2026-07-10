@@ -34,6 +34,8 @@ import type {
   radiusTokensSchema,
   seoMetaSchema,
   shadowTokensSchema,
+  textRunSchema,
+  textRunGradientSchema,
   siteConfigSchema,
   siteSchema,
   spacingTokensSchema,
@@ -90,6 +92,8 @@ export type MotionType = z.infer<typeof motionTypeSchema>
 export type MotionTrigger = z.infer<typeof motionTriggerSchema>
 export type MotionEasing = z.infer<typeof motionEasingSchema>
 export type SeoMeta = z.infer<typeof seoMetaSchema>
+export type TextRun = z.infer<typeof textRunSchema>
+export type TextRunGradient = z.infer<typeof textRunGradientSchema>
 
 /**
  * Compile-time brands for the string-shaped content kinds DOC-7 distinguishes.

@@ -10,35 +10,34 @@
     {
       "id": "header",
       "type": "header",
-      "version": 1,
+      "version": 2,
       "variant": "top-nav",
       "dials": {
         "surface": "default"
       },
       "content": {
-        "logo": "1st Contact",
+        "wordmark": { "text": "1st Contact" },
         "entries": []
       }
     },
     {
       "id": "svc-hero",
       "type": "hero",
-      "version": 1,
+      "version": 2,
       "variant": "bg-color",
       "dials": {
-        "size": "md",
         "align": "left"
       },
       "content": {
-        "eyebrow": "Services",
-        "heading": "Everything your first page needs",
-        "subhead": "Design, copy, and a publishing workflow that keeps up with you."
+        "eyebrow": { "text": "Services" },
+        "heading": { "text": "Everything your first page needs" },
+        "subhead": { "text": "Design, copy, and a publishing workflow that keeps up with you." }
       }
     },
     {
       "id": "svc-body",
       "type": "text-block",
-      "version": 1,
+      "version": 2,
       "variant": "prose",
       "dials": {},
       "content": {

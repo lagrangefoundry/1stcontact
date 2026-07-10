@@ -7,28 +7,24 @@ import {
   CONTENT_INSET_DIAL,
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
-  LINE_HEIGHT_DIAL,
-  SUBHEAD_WEIGHT_DIAL,
 } from '../packages/framework/src/modules/dials'
 
 /**
  * UATs for REQ-49 — the hero front-door fidelity primitives the gigabytealchemy
- * perceptual diff surfaced after config was exhausted. Each generalizes the hero
- * module (no new module), is token-backed, and — except the deliberate
- * content-width change below — preserves prior behaviour when the dial is
- * omitted:
+ * perceptual diff surfaced after config was exhausted. Post-REQ-50 the intrinsic
+ * subhead typography (weight, leading) is no longer a dial: it lives on the
+ * subhead run (`fontWeight`/`lineHeightPx`), resolved to an inline `style`. The
+ * structural placement primitives stay dials:
  *
  *   1. hero subhead/body content-column width (`contentWidth`, reusing the
- *      shared container scale) — replaces the hardcoded `max-width: 60ch` so the
- *      lead/body can match a reference's measure (768px). NB: the `default`
- *      value now fills the frame (no cap); the raw 60ch is removed.
+ *      shared container scale) — a structural cap kept as a dial. NB: `default`
+ *      fills the frame (no cap).
  *   2. fixed-top content offset for a `fold` hero (`contentOffsetTop`) — pins the
  *      content a token-backed distance from the band top (the reference `pt-80` =
  *      320px), reachable via the extended `--space-*` scale.
- *   3. hero subhead font-weight (`subheadWeight`) — a delicate lead weight
- *      (`light` = 300) independent of the heading.
- *   4. finer subhead leading (`snug` ~1.33) — an intermediate `subheadLeading`
- *      step between `tight` and `normal`.
+ *   3. hero subhead font-weight — now the subhead run's `fontWeight` (`light`).
+ *   4. finer subhead leading (`snug` ~1.33) — now the subhead run's `lineHeightPx`.
+ *      The hero subhead is a single run (no lead/body split, REQ-50).
  */
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
@@ -42,16 +38,16 @@ async function render(Component: unknown, props: unknown): Promise<string> {
 }
 
 describe('REQ-49 fidelity primitives — meta surfaces the dials', () => {
-  it('test_UAT_FC_REQ-49_hero_meta_exposes_content_width_offset_and_weight_dials', () => {
+  it('test_UAT_FC_REQ-49_hero_meta_exposes_content_width_and_offset_dials', () => {
     expect(heroMeta.dials.contentWidth).toEqual(CONTENT_WIDTH_DIAL)
     expect(heroMeta.dials.contentOffsetTop).toEqual(CONTENT_OFFSET_TOP_DIAL)
-    expect(heroMeta.dials.subheadWeight).toEqual(SUBHEAD_WEIGHT_DIAL)
   })
 
-  it('test_UAT_FC_REQ-49_subhead_leading_dial_carries_intermediate_snug_step', () => {
-    // The `subheadLeading` dial gains a `snug` step between `tight` and `normal`.
-    expect(heroMeta.dials.subheadLeading).toEqual(LINE_HEIGHT_DIAL)
-    expect(LINE_HEIGHT_DIAL).toContain('snug')
+  it('test_UAT_FC_REQ-49_subhead_is_a_single_styled_run', () => {
+    // REQ-50: the `subheadWeight`/`subheadLeading` dials are gone — the subhead is
+    // ONE styled run whose `fontWeight`/`lineHeightPx` (incl. the `snug` alias)
+    // carry those axes; multi-paragraph copy is authored as a text-block instead.
+    expect(heroMeta.contentSchema.subhead).toEqual({ type: 'styled-text', required: false })
   })
 
   it('test_UAT_FC_REQ-49_hero_meta_exposes_content_inset_dial', () => {
@@ -71,7 +67,7 @@ describe('REQ-49 capability 1 — hero subhead/body content-column width', () =>
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: { contentWidth: 'wide' },
-      content: { heading: 'Intentional Software', subhead: 'Body copy.' },
+      content: { heading: { text: 'Intentional Software' }, subhead: { text: 'Body copy.' } },
     })
     expect(html).toContain('content-width-wide')
   })
@@ -79,7 +75,7 @@ describe('REQ-49 capability 1 — hero subhead/body content-column width', () =>
   it('test_UAT_FC_REQ-49_hero_content_width_defaults_to_full_frame', async () => {
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
     // Default fills the frame (no cap) — never the narrow/wide caps.
     expect(html).toContain('content-width-default')
@@ -94,8 +90,8 @@ describe('REQ-49 capability 2 — fixed-top content offset for a `fold` hero', (
       variant: 'bg-image',
       dials: { height: 'fold', contentAnchor: 'top', contentOffsetTop: 'xl' },
       content: {
-        heading: 'Intentional Software',
-        subhead: 'Body copy.',
+        heading: { text: 'Intentional Software' },
+        subhead: { text: 'Body copy.' },
         image: { src: '/hero.jpg', alt: 'hero' },
       },
     })
@@ -106,7 +102,7 @@ describe('REQ-49 capability 2 — fixed-top content offset for a `fold` hero', (
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: { height: 'fold' },
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
     expect(html).toContain('content-offset-top-none')
     expect(html).not.toContain('content-offset-top-xl')
@@ -114,44 +110,50 @@ describe('REQ-49 capability 2 — fixed-top content offset for a `fold` hero', (
 })
 
 describe('REQ-49 capability 3 — hero subhead font-weight', () => {
-  it('test_UAT_FC_REQ-49_hero_subhead_carries_weight_class', async () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_carries_weight_style', async () => {
+    // REQ-50: the delicate lead weight is the subhead run's `fontWeight` (a
+    // `light` alias → the weight token), emitted as inline `style` on the subhead.
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { subheadWeight: 'light' },
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.', fontWeight: 'light' } },
     })
-    expect(html).toContain('subhead-weight-light')
+    expect(html).toMatch(
+      /hero__subhead[^>]*style="[^"]*font-weight: var\(--font-weight-light\)/,
+    )
   })
 
-  it('test_UAT_FC_REQ-49_hero_subhead_weight_defaults_to_regular', async () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_weight_defaults_to_inherited', async () => {
+    // A subhead run that omits `fontWeight` inherits the body weight — no inline
+    // font-weight override is emitted.
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
-    // Default keeps the inherited body weight (no light/medium/semibold override).
-    expect(html).toContain('subhead-weight-regular')
-    expect(html).not.toContain('subhead-weight-light')
+    expect(html).not.toContain('font-weight')
   })
 })
 
 describe('REQ-49 capability 4 — finer subhead leading (`snug`)', () => {
-  it('test_UAT_FC_REQ-49_hero_subhead_carries_snug_leading_class', async () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_carries_snug_leading_style', async () => {
+    // REQ-50: the `snug` leading is the subhead run's `lineHeightPx` alias →
+    // the intermediate line-height token, emitted as inline `style`.
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { subheadLeading: 'snug' },
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.', lineHeightPx: 'snug' } },
     })
-    expect(html).toContain('subhead-leading-snug')
+    expect(html).toMatch(
+      /hero__subhead[^>]*style="[^"]*line-height: var\(--line-height-snug\)/,
+    )
   })
 
-  it('test_UAT_FC_REQ-49_hero_subhead_leading_still_defaults_to_relaxed', async () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_leading_defaults_to_no_override', async () => {
+    // A subhead run that omits `lineHeightPx` inherits the base leading — no
+    // inline line-height is emitted.
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
-    // Adding `snug` does not disturb the prior default.
-    expect(html).toContain('subhead-leading-relaxed')
-    expect(html).not.toContain('subhead-leading-snug')
+    expect(html).not.toContain('line-height')
   })
 })
 
@@ -160,7 +162,7 @@ describe('REQ-49 capability 5 — hero content horizontal inset', () => {
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: { contentInset: 'md' },
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
     expect(html).toContain('content-inset-md')
   })
@@ -168,7 +170,7 @@ describe('REQ-49 capability 5 — hero content horizontal inset', () => {
   it('test_UAT_FC_REQ-49_hero_content_inset_defaults_to_sm', async () => {
     const html = await render(Hero, {
       variant: 'bg-color',
-      content: { heading: 'Acme', subhead: 'Body copy.' },
+      content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
     // Default `sm` = the prior 16px padding-inline; never a widened gutter.
     expect(html).toContain('content-inset-sm')
@@ -181,27 +183,31 @@ describe('REQ-49 residual 1 — readable (768px) content-width, decoupled from n
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: { contentWidth: 'readable' },
-      content: { heading: 'Intentional Software', subhead: 'Body copy.' },
+      content: { heading: { text: 'Intentional Software' }, subhead: { text: 'Body copy.' } },
     })
     expect(html).toContain('content-width-readable')
   })
 })
 
-describe('REQ-49 residual 3 — lead/body split for weight + leading', () => {
-  it('test_UAT_FC_REQ-49_hero_renders_lead_and_body_as_separate_paragraphs', async () => {
-    // The lead-only weight/leading dials key on `p:first-child`; a multi-paragraph
-    // subhead must render a distinct lead + body paragraph for that split to hold.
+describe('REQ-49 residual 3 — subhead weight + leading on a single run', () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_is_one_run_carrying_both_axes', async () => {
+    // REQ-50: the hero subhead no longer splits into a lead + body pair — it is
+    // ONE styled run. The former lead-only weight + leading dials collapse onto
+    // that single run's `fontWeight` + `lineHeightPx`, both emitted together as
+    // inline `style`. (Multi-paragraph copy is now authored as a text-block.)
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { subheadWeight: 'light', subheadLeading: 'snug' },
-      content: { heading: 'Acme', subhead: 'Delicate lead.\n\nHeavier body copy.' },
+      content: {
+        heading: { text: 'Acme' },
+        subhead: { text: 'A delicate lead line.', fontWeight: 'light', lineHeightPx: 'snug' },
+      },
     })
-    // Both paragraphs present, and the lead dials still applied at section level.
-    expect(html).toContain('Delicate lead.')
-    expect(html).toContain('Heavier body copy.')
-    expect(html).toContain('subhead-weight-light')
-    expect(html).toContain('subhead-leading-snug')
-    expect((html.match(/<p>/g) ?? []).length).toBeGreaterThanOrEqual(2)
+    expect(html).toContain('A delicate lead line.')
+    expect(html).toMatch(
+      /hero__subhead[^>]*style="[^"]*font-weight: var\(--font-weight-light\)[^"]*line-height: var\(--line-height-snug\)/,
+    )
+    // The subhead renders as a single paragraph, not a lead/body split.
+    expect((html.match(/class="hero__subhead"/g) ?? []).length).toBe(1)
   })
 })
 

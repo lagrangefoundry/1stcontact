@@ -1,6 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
+import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface FormField {
   name: string
@@ -13,13 +14,15 @@ interface Props {
   variant?: string
   dials?: Record<string, string>
   content: {
-    heading?: string
+    heading?: TextRun
     subhead?: string
+    subheadStyle?: TextRun
     action: string
     fields: FormField[]
-    submitLabel?: string
+    submitLabel?: TextRun
     successMessage?: string
     caption?: string
+    captionStyle?: TextRun
   }
 }
 
@@ -30,21 +33,12 @@ const spacingTop = dials.spacingTop ?? 'lg'
 const spacingBottom = dials.spacingBottom ?? 'lg'
 // `half` flexes the band into a shared two-column row (grouped by the pipeline).
 const width = dials.width ?? 'full'
-// Submit-button colour treatment (REQ-33): `primary` (brand) or dark `neutral`.
+// Submit-button *fill* treatment (REQ-33): `primary` (brand) or dark `neutral`.
 const submitTreatment = dials.submitTreatment ?? 'primary'
-// Submit-label foreground (REQ-45): `auto` keeps the treatment's derived label
-// colour; any palette role paints the label a framework-computed `var(--color-
-// <role>)` (a closed role set, never instance-supplied raw CSS).
-const submitForeground = dials.submitForeground ?? 'auto'
-const submitStyle =
-  submitForeground !== 'auto' ? `color: var(--color-${submitForeground});` : undefined
-// Subhead / caption size (REQ-45).
-const subheadSize = dials.subheadSize ?? 'md'
-const captionSize = dials.captionSize ?? 'md'
 
 const { heading, action } = content
 const fields = content.fields ?? []
-const submitLabel = content.submitLabel ?? 'Send'
+const submitLabelText = content.submitLabel?.text ?? 'Send'
 const subheadHtml = content.subhead ? await renderMarkdown(content.subhead) : undefined
 const captionHtml = content.caption ? await renderMarkdown(content.caption) : undefined
 const successHtml = content.successMessage
@@ -53,6 +47,14 @@ const successHtml = content.successMessage
 // Honeypot: hidden from humans, tempting to bots. The server rejects any
 // submission where this is filled (wired in REQ-7).
 const honeypotName = 'hp_company_url'
+
+// REQ-50 — styled runs → inline `style`. `subheadStyle`/`captionStyle` are
+// style-only runs applied to the prose containers; `submitLabel.color` paints
+// the button label (superseding the treatment's derived label colour).
+const headingStyle = resolveTextStyle(heading)
+const subheadStyle = resolveTextStyle(content.subheadStyle)
+const captionStyle = resolveTextStyle(content.captionStyle)
+const submitStyle = resolveTextStyle(content.submitLabel)
 ---
 
 <section
@@ -61,15 +63,13 @@ const honeypotName = 'hp_company_url'
     `surface-${surface}`,
     `align-${align}`,
     `width-${width}`,
-    `subhead-size-${subheadSize}`,
-    `caption-size-${captionSize}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
 >
   <div class="contact-form__inner" data-contact-form-root>
-    {heading && <h2 class="contact-form__heading">{heading}</h2>}
-    {subheadHtml && <div class="contact-form__subhead" set:html={subheadHtml} />}
+    {heading?.text && <h2 class="contact-form__heading" style={headingStyle}>{heading.text}</h2>}
+    {subheadHtml && <div class="contact-form__subhead" style={subheadStyle} set:html={subheadHtml} />}
 
     <form class="contact-form__form" data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
       {fields.map((field) => (
@@ -93,10 +93,10 @@ const honeypotName = 'hp_company_url'
       <div data-turnstile-target></div>
 
       <p class="contact-form__error" data-contact-error hidden></p>
-      <button class:list={['contact-form__submit', `submit-${submitTreatment}`]} type="submit" style={submitStyle}>{submitLabel}</button>
+      <button class:list={['contact-form__submit', `submit-${submitTreatment}`]} type="submit" style={submitStyle}>{submitLabelText}</button>
     </form>
 
-    {captionHtml && <div class="contact-form__caption" set:html={captionHtml} />}
+    {captionHtml && <div class="contact-form__caption" style={captionStyle} set:html={captionHtml} />}
 
     {/* Client enhancement swaps the form for this on a successful submit. */}
     <template data-contact-success set:html={successHtml}></template>
@@ -153,19 +153,11 @@ const honeypotName = 'hp_company_url'
     font-size: var(--font-size-3xl);
     line-height: var(--line-height-tight);
   }
+  /* Subhead / caption prose (REQ-50) — the base colour/size are the defaults an
+     omitting `subheadStyle`/`captionStyle` run inherits; a run overrides via
+     inline `style`. */
   .contact-form__subhead { color: var(--color-muted); }
-  /* Subhead size (REQ-45): `md` preserves the prior inherited size, so a form
-     that omits the dial is unchanged; `sm`/`lg` step it down/up. */
-  .contact-form.subhead-size-sm .contact-form__subhead { font-size: var(--font-size-sm); }
-  .contact-form.subhead-size-md .contact-form__subhead { font-size: var(--font-size-base); }
-  .contact-form.subhead-size-lg .contact-form__subhead { font-size: var(--font-size-lg); }
-
-  /* Small caption below the form (REQ-45) — fine print, sized by its own dial so
-     it can read smaller than the subhead. */
   .contact-form__caption { color: var(--color-muted); }
-  .contact-form.caption-size-sm .contact-form__caption { font-size: var(--font-size-sm); }
-  .contact-form.caption-size-md .contact-form__caption { font-size: var(--font-size-base); }
-  .contact-form.caption-size-lg .contact-form__caption { font-size: var(--font-size-lg); }
 
   .contact-form__form { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
   .contact-form.align-center .contact-form__form { text-align: left; }

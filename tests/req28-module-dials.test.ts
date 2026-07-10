@@ -15,16 +15,20 @@ import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
  * UATs for REQ-28 — three small module dials driven by the gigabytealchemy
  * import (REQ-20), consolidated into one ticket (subsumes REQ-29, REQ-30):
  *
- *   1. `hero` heading colour treatment (REQ-28) — a `headingTreatment` dial
- *      (`plain`/`accent`/`gold`) that sets the heading colour independently of
- *      the surface text colour, so an inverse-surface hero can carry a gold
- *      heading rather than the default white.
+ *   1. `hero` heading colour treatment (REQ-28) — heading colour is now expressed
+ *      on the `heading` styled run's `color`/`gradient` (REQ-50). The former
+ *      `headingTreatment` dial (`plain`/`accent`/`gold`) is removed; the tests
+ *      are rewritten to assert the resolved inline `style` on the heading element.
  *   2. `header` content alignment (REQ-29) — an `align` dial (`left`/`center`)
  *      that groups the wordmark/nav centrally.
  *   3. `services-grid` stacked variant (REQ-30) — a full-width single-column
  *      layout at every breakpoint.
  *
- * All three are structured dials/variants; no raw CSS enters the site def.
+ * All three are structural dials/variants; no raw CSS enters the site def.
+ *
+ * REQ-50 migration: `headingTreatment` dial and its CSS classes (`treatment-gold`
+ * etc.) removed from hero. Hero heading colour is now a styled run. `logo: string`
+ * removed from header; string wordmarks are now `wordmark: TextRun`.
  */
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
@@ -38,11 +42,8 @@ async function render(Component: unknown, props: unknown): Promise<string> {
 }
 
 describe('REQ-28 module dials — meta', () => {
-  it('test_UAT_FC_REQ-28_hero_meta_exposes_heading_treatment_dial', () => {
-    expect(heroMeta.dials.headingTreatment).toContain('plain')
-    expect(heroMeta.dials.headingTreatment).toContain('accent')
-    expect(heroMeta.dials.headingTreatment).toContain('gold')
-  })
+  // REQ-50: headingTreatment dial removed from hero — heading colour lives on the
+  // `heading` styled run. The old meta assertion is deleted; structural dials remain.
 
   it('test_UAT_FC_REQ-28_header_meta_exposes_align_dial', () => {
     expect(headerMeta.dials.align).toContain('left')
@@ -52,30 +53,55 @@ describe('REQ-28 module dials — meta', () => {
   it('test_UAT_FC_REQ-28_services_grid_meta_exposes_stacked_variant', () => {
     expect(servicesGridMeta.variants).toContain('stacked')
   })
+
+  it('test_UAT_FC_REQ-28_hero_meta_exposes_structural_heading_dials', () => {
+    // Structural dials kept post-REQ-50: headingCase (letter-case) + align are
+    // the remaining structural heading-level controls.
+    expect(heroMeta.dials.headingCase).toContain('normal')
+    expect(heroMeta.dials.headingCase).toContain('upper')
+    // headingTreatment no longer exists on the meta.
+    expect('headingTreatment' in heroMeta.dials).toBe(false)
+  })
 })
 
-describe('REQ-28 hero heading treatment', () => {
-  it('test_UAT_FC_REQ-28_hero_renders_gold_heading_treatment_over_inverse_surface', async () => {
+describe('REQ-28 hero heading colour (REQ-50 styled run)', () => {
+  // REQ-50: gold heading is now a gradient on the `heading` run, not a dial class.
+  // The heading run's `gradient` resolves to `background-clip: text; color: transparent`.
+
+  it('test_UAT_FC_REQ-28_hero_renders_gold_gradient_on_heading_run', async () => {
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { surface: 'inverse', headingTreatment: 'gold' },
-      content: { heading: 'Gigabyte Alchemy', subhead: 'Intentional software.' },
+      dials: { surface: 'inverse' },
+      content: {
+        // Gold gradient heading — same stops as the gigabytealchemy wordmark.
+        heading: {
+          text: 'Gigabyte Alchemy',
+          gradient: { angleDeg: 90, stops: ['#f5e6a3', '#fbba72'] },
+        },
+      },
     })
-    // The heading carries the gold treatment hook the scoped CSS clips the
-    // metallic gradient to — independent of the inverse surface's text colour.
-    expect(html).toMatch(
-      /<h1[^>]*class="[^"]*hero__heading[^"]*treatment-gold[^"]*"[^>]*>\s*Gigabyte Alchemy\s*<\/h1>/,
-    )
+    // The heading renders with the resolved gradient inline style.
+    expect(html).toContain('Gigabyte Alchemy')
+    expect(html).toContain('background-clip: text')
+    expect(html).toContain('color: transparent')
+    // The gradient image carries the two gold stops.
+    expect(html).toContain('#f5e6a3')
+    expect(html).toContain('#fbba72')
   })
 
-  it('test_UAT_FC_REQ-28_hero_heading_defaults_to_plain_treatment', async () => {
+  it('test_UAT_FC_REQ-28_hero_heading_without_run_style_has_no_gradient', async () => {
+    // A plain heading run (text only, no colour/gradient) renders the heading
+    // without any inline gradient — the surface text colour applies from CSS.
     const html = await render(Hero, {
       variant: 'bg-color',
       dials: {},
-      content: { heading: 'Acme', subhead: 'Body.' },
+      content: { heading: { text: 'Acme' } },
     })
-    expect(html).toContain('treatment-plain')
-    expect(html).not.toContain('treatment-gold')
+    expect(html).toContain('Acme')
+    expect(html).not.toContain('background-clip: text')
+    expect(html).not.toContain('color: transparent')
+    // No treatment-* CSS class emitted (REQ-50: removed mechanism).
+    expect(html).not.toContain('treatment-')
   })
 })
 
@@ -84,7 +110,8 @@ describe('REQ-28 header alignment', () => {
     const html = await render(Header, {
       variant: 'top-nav',
       dials: { align: 'center' },
-      content: { logo: 'GIGABYTE ALCHEMY', entries: [] },
+      // REQ-50: string logo replaced by wordmark run.
+      content: { wordmark: { text: 'GIGABYTE ALCHEMY' }, entries: [] },
     })
     expect(html).toContain('align-center')
   })
@@ -93,7 +120,7 @@ describe('REQ-28 header alignment', () => {
     const html = await render(Header, {
       variant: 'top-nav',
       dials: {},
-      content: { logo: 'Acme', entries: [] },
+      content: { wordmark: { text: 'Acme' }, entries: [] },
     })
     expect(html).toContain('align-left')
   })
@@ -106,8 +133,8 @@ describe('REQ-28 services-grid stacked variant', () => {
       dials: {},
       content: {
         items: [
-          { title: 'One', body: 'First.' },
-          { title: 'Two', body: 'Second.' },
+          { title: { text: 'One' }, body: 'First.' },
+          { title: { text: 'Two' }, body: 'Second.' },
         ],
       },
     })
@@ -128,24 +155,36 @@ describe('REQ-28 module dials — render pipeline', () => {
     cmdNew('acme', { cwd })
     const draft = path.join(cwd, 'storage', 'sites', 'acme', 'draft')
 
-    // Wire the three dials onto the scaffold: gold hero heading, centered header,
-    // and a stacked services-grid appended to the page.
+    // Wire the three capabilities onto the scaffold: gold-gradient hero heading
+    // (via run.gradient, REQ-50), centered header, and a stacked services-grid.
     const home = JSON.parse(readFileSync(path.join(draft, 'pages', 'home.json'), 'utf8'))
     const header = home.modules.find((m: { type: string }) => m.type === 'header')
-    header.dials = { ...header.dials, align: 'center' }
+    // REQ-50: upgrade header to v2, replace string logo with wordmark run.
+    header.version = 2
+    header.dials = { align: 'center' }
+    header.content = { wordmark: { text: 'acme' }, entries: [] }
+
     const hero = home.modules.find((m: { type: string }) => m.type === 'hero')
-    hero.dials = { ...hero.dials, surface: 'inverse', headingTreatment: 'gold' }
+    // REQ-50: upgrade hero to v2, use styled runs; gold via heading.gradient.
+    hero.version = 2
+    hero.dials = { surface: 'inverse' }
+    hero.content = {
+      heading: {
+        text: 'Gigabyte Alchemy',
+        gradient: { angleDeg: 90, stops: ['#f5e6a3', '#fbba72'] },
+      },
+    }
+
     home.modules.push({
       id: 'building',
       type: 'services-grid',
-      version: 1,
+      version: 2,
       variant: 'stacked',
       dials: {},
       content: {
-        heading: 'Building',
         items: [
-          { title: 'Alpha', body: 'First card.' },
-          { title: 'Beta', body: 'Second card.' },
+          { title: { text: 'Alpha' }, body: 'First card.' },
+          { title: { text: 'Beta' }, body: 'Second card.' },
         ],
       },
     })
@@ -154,15 +193,18 @@ describe('REQ-28 module dials — render pipeline', () => {
     const { outDir } = await cmdRender('acme', { cwd })
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
 
-    // All three dials reach the rendered markup.
-    expect(html).toContain('treatment-gold')
+    // Gold gradient heading: REQ-50 emits inline style, not treatment CSS class.
+    expect(html).toContain('background-clip: text')
+    expect(html).toContain('color: transparent')
+    // The gold stop colours are present in the gradient declaration.
+    expect(html).toContain('#f5e6a3')
+
+    // Header align-center and services-grid variant-stacked reach the markup.
     expect(html).toContain('align-center')
     expect(html).toContain('variant-stacked')
 
-    // The scoped CSS backing each dial is emitted: the gold gradient clip for the
-    // hero heading, and the single-column rule for the stacked grid.
+    // The scoped CSS for the stacked grid single-column rule is emitted.
     const themeCss = readFileSync(path.join(outDir, 'theme.css'), 'utf8')
-    expect(themeCss).toMatch(/\.hero__heading\.treatment-gold\s*\{[\s\S]*background-clip: text/)
     expect(themeCss).toMatch(
       /\.services-grid\.variant-stacked\s+\.services-grid__cards\s*\{\s*grid-template-columns: 1fr/,
     )
