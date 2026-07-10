@@ -5,9 +5,9 @@ type: story
 title: Rendered-only reference capture via headless browser (1c capture page)
 created_by: xgd
 created_at: '2026-07-09T20:11:20.209996+00:00'
-updated_at: '2026-07-10T01:24:10.930116+00:00'
+updated_at: '2026-07-10T01:24:11.025337+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-f39884d2
@@ -16,6 +16,7 @@ fields:
   story_points: 3
   updated_by:
   - bundle-adc60ee8
+  - bundle-df065afc
 ---
 
 ## Story
