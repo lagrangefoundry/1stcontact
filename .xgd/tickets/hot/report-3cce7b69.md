@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-4 (REQ-45/39/40/46/47/48)'
 created_by: xgd
 created_at: '2026-07-10T00:10:31.463615+00:00'
-updated_at: '2026-07-10T01:24:11.113200+00:00'
+updated_at: '2026-07-10T01:48:06.179050+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -288,7 +288,7 @@ fields:
       colour distance and systemic aggregation, the dynamic-content ignore-masks,
       and the anti-self-grading calibration oracle. Prior values-diff intent (noise
       controls, existing orderings) preserved.
-    story_uid: null
+    story_uid: story-f826e5ca
 ---
 
 # Reconciliation Plan — BUNDLE-4 (bundle-df065afc)
