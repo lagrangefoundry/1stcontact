@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-4 (REQ-45/39/40/46/47/48)'
 created_by: xgd
 created_at: '2026-07-10T00:10:31.463615+00:00'
-updated_at: '2026-07-10T00:10:31.463615+00:00'
+updated_at: '2026-07-10T00:16:09.560054+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-df065afc
@@ -46,7 +46,7 @@ fields:
       of the same single assertModuleConforms seam, so they are ACs of one coarse
       story rather than two — combined per parsimony. Likely seeds a new capability
       downstream.
-    story_uid: null
+    story_uid: story-a6962b23
   - index: 2
     component: Framework Render-Path Content Safety
     item_type: feature
