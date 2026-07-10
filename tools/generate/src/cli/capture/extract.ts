@@ -241,7 +241,7 @@ export const EXTRACT_SCRIPT = `(() => {
   function transformOf(s) {
     var t = s.transform;
     if (!t || t === 'none') return { rotate: 0, scale: 1 };
-    var m = t.match(/matrix\\(([^)]+)\\)/);
+    var m = t.match(/matrix\(([^)]+)\)/);
     if (!m) return { rotate: 0, scale: 1 };
     var p = m[1].split(',');
     var a = parseFloat(p[0]), b = parseFloat(p[1]);
