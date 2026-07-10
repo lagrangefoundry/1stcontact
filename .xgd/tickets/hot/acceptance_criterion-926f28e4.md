@@ -2,12 +2,13 @@
 uid: acceptance_criterion-926f28e4
 id: AC-446
 type: acceptance_criterion
-title: text-block content width is fixed by its variant, not a dial
+title: text-block content-frame width is set by its variant; contentWidth dial caps
+  the column within it
 created_by: xgd
 created_at: '2026-07-08T19:28:52.017183+00:00'
-updated_at: '2026-07-10T01:11:52.872039+00:00'
+updated_at: '2026-07-10T01:12:31.244035+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: pending
 fields:
   story_uid: story-903e3e3a
