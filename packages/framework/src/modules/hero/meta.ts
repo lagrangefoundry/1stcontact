@@ -6,7 +6,9 @@ import {
   CONTENT_INSET_DIAL,
   CONTENT_OFFSET_TOP_DIAL,
   CONTENT_WIDTH_DIAL,
+  CTA_FONT_DIAL,
   CTA_SHAPE_DIAL,
+  CTA_SIZE_DIAL,
   GRADIENT_DIRECTION_DIAL,
   HEADING_CASE_DIAL,
   HEADING_FONT_DIAL,
@@ -57,8 +59,17 @@ export const heroMeta = {
     // pull-quote is Karla body copy at medium weight, not condensed Oswald).
     headingFont: HEADING_FONT_DIAL,
     // CTA corner shape (REQ-36) — `round` (default) keeps the pill radius;
-    // `square` hard-corners the button (the reference's square "Learn More").
+    // `square` hard-corners; `soft` is the reference's barely-rounded 2px button.
     ctaShape: CTA_SHAPE_DIAL,
+    // CTA label font-family (REQ-36) — `body` (default) inherits; `label` reaches
+    // the dedicated button face (the reference's Raleway "Learn More").
+    ctaFont: CTA_FONT_DIAL,
+    // CTA label font-size (REQ-36) — `base` (default) unchanged; `xs` reaches the
+    // reference's small 13px button label.
+    ctaSize: CTA_SIZE_DIAL,
+    // CTA label font-weight (REQ-36) — reuses the subhead weight steps; the
+    // reference button label is `medium` (500).
+    ctaWeight: SUBHEAD_WEIGHT_DIAL,
     // Subhead font-family (REQ-36) — `body` (default) inherits; `display`/`heading`
     // set the lead in the display/heading face (the reference lead is Lato).
     subheadFont: SUBHEAD_FONT_DIAL,

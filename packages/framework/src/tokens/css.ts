@@ -21,12 +21,17 @@ export function generateThemeCss(
   // declares no bespoke display face, so `--font-family-display` is always safe
   // to reference from a module.
   const displayFamily = t.typography.family.display ?? t.typography.family.heading
+  // The label family (REQ-36) is the button/label face (the reference's Raleway
+  // "Learn More"); it falls back to the body family when a site declares none, so
+  // `--font-family-label` is always safe to reference from a module.
+  const labelFamily = t.typography.family.label ?? t.typography.family.body
 
   const vars: string[] = [
     ...paletteVars(t.palette),
     `--font-family-heading: ${t.typography.family.heading};`,
     `--font-family-body: ${t.typography.family.body};`,
     `--font-family-display: ${displayFamily};`,
+    `--font-family-label: ${labelFamily};`,
     ...mapVars('--font-size-', t.typography.scale),
     ...mapVars('--font-weight-', t.typography.weights),
     ...mapVars('--line-height-', t.typography.lineHeights),

@@ -229,7 +229,21 @@ export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong', 'heavy'] as cons
  * `--radius-md` pill; `square` removes the radius for a hard-cornered button (the
  * joyfulculinary hero's square "Learn More"). Default-preserving.
  */
-export const CTA_SHAPE_DIAL = ['round', 'square'] as const
+export const CTA_SHAPE_DIAL = ['round', 'square', 'soft'] as const
+
+/**
+ * CTA label font-family (REQ-36) — the button label face. `body` (default) keeps
+ * the inherited body font; `label` reaches the dedicated button face (the
+ * reference's Raleway "Learn More"), `heading`/`display` the other roles.
+ */
+export const CTA_FONT_DIAL = ['body', 'label', 'heading', 'display'] as const
+
+/**
+ * CTA label font-size (REQ-36) — steps the button label off the inherited size.
+ * `base` (default) leaves it unchanged; `xs`/`sm` reach the reference's small
+ * 13px (`xs`) button label.
+ */
+export const CTA_SIZE_DIAL = ['xs', 'sm', 'base', 'md', 'lg'] as const
 
 /**
  * Hero subhead font-family (REQ-36). `body` (default) inherits the body family;
@@ -387,6 +401,21 @@ export const HEADING_CASE_DIAL = ['normal', 'upper'] as const
  * never a raw weight); `extralight` was added to the default weight scale for it.
  */
 export const HEADING_WEIGHT_DIAL = ['extralight', 'light', 'regular', 'medium', 'semibold', 'bold'] as const
+
+/**
+ * Body copy font-weight (REQ-36) — steps the body text weight independently of
+ * the heading. `regular` (default) preserves the inherited body face weight; a
+ * lighter value reaches e.g. the reference "Who Uses Our Services" list (Karla
+ * 300 on the grey band). Maps to the `--font-weight-*` scale.
+ */
+export const BODY_WEIGHT_DIAL = ['light', 'regular', 'medium', 'semibold', 'bold'] as const
+
+/**
+ * Contained-panel corner shape (REQ-36) — `rounded` (default) keeps the panel's
+ * soft radius; `square` hard-corners it (the reference's Holistic card is a
+ * square-cornered Elementor inner-section, not a rounded card).
+ */
+export const PANEL_CORNER_DIAL = ['rounded', 'square'] as const
 
 /**
  * Heading font-size step (REQ-36), independent of the body `size` dial — the

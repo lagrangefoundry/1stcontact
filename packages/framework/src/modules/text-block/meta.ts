@@ -1,6 +1,7 @@
 import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
+  BODY_WEIGHT_DIAL,
   CONTENT_WIDTH_DIAL,
   CTA_SHAPE_DIAL,
   HEADING_CASE_DIAL,
@@ -9,6 +10,7 @@ import {
   HEADING_WEIGHT_DIAL,
   LINE_HEIGHT_DIAL,
   LIST_MARKER_DIAL,
+  PANEL_CORNER_DIAL,
   PANEL_DIAL,
   PANEL_PAD_DIAL,
   SIZE_DIAL,
@@ -63,9 +65,15 @@ export const textBlockMeta = {
     // value makes the inner a padded, rounded, inset card in that palette role
     // (the grey Holistic card, the grey-green testimonial panel).
     panel: PANEL_DIAL,
+    // Panel corner shape (REQ-36) — `rounded` (default) keeps the soft radius;
+    // `square` hard-corners the panel (the reference Holistic card is square).
+    panelCorner: PANEL_CORNER_DIAL,
     // Panel vertical padding (REQ-36) — `lg`/`xl` deepen a contained panel so it
     // reads taller (the reference testimonial band); `md` (default) unchanged.
     panelPad: PANEL_PAD_DIAL,
+    // Body copy font-weight (REQ-36) — `regular` (default) preserves the inherited
+    // body weight; `light` reaches the reference's Karla-300 checklist body.
+    bodyWeight: BODY_WEIGHT_DIAL,
     // Body list marker (REQ-36) — `check` replaces bullets with an accent ✓ (the
     // "Who Uses Our Services" checklist); `bullet` (default) is unchanged.
     listMarker: LIST_MARKER_DIAL,

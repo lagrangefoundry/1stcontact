@@ -297,7 +297,11 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
   it('test_UAT_FC_REQ-36_textblock_listMarker_check_uses_accent_ticks', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: { listMarker: 'check' }, content: { heading: 'H', body: '- one\n- two' } })
     expect(html).toContain('list-marker-check')
-    expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*content:\s*"\\2713"/)
+    // The tick is FontAwesome `fa-check` (U+F00C) rendered in the IconFont — the
+    // heavier geometric check the reference's Elementor icon-list uses, not the
+    // thin Unicode ✓ (U+2713).
+    expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*content:\s*"\\f00c"/)
+    expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*font-family:\s*'IconFont'/)
     expect(textBlockCss).toMatch(/\.list-marker-check\s+\.text-block__body li::before\s*\{[^}]*color:\s*var\(--color-accent\)/)
     const dflt = await render(TextBlock, { variant: 'prose', content: { heading: 'H', body: '- one' } })
     expect(dflt).toContain('list-marker-bullet')
@@ -694,5 +698,70 @@ describe('REQ-36 text-block panel padding depth', () => {
   it('test_UAT_FC_REQ-36_panel_pad_defaults_md', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary' }, content })
     expect(html).toContain('panel-pad-md')
+  })
+})
+
+/**
+ * UATs for the element-fidelity batch (REQ-36) — the hero CTA label typography
+ * (font / size / weight / `soft` 2px corner, for the reference's small Raleway
+ * "Learn More"), the text-block `panelCorner` (the square Holistic card) and
+ * `bodyWeight` (the light "Who Uses" checklist body), and the `--font-family-label`
+ * token the CTA `label` font role resolves. Every dial is default-preserving.
+ */
+describe('REQ-36 element fidelity — CTA typography, panel corner, body weight, label font', () => {
+  const heroCta = { heading: 'H', subhead: 'x', cta: { label: 'Learn More', href: '#' } }
+
+  it('test_UAT_FC_REQ-36_hero_cta_font_reaches_the_label_face', async () => {
+    const html = await render(Hero, { variant: 'bg-color', dials: { ctaFont: 'label' }, content: heroCta })
+    expect(html).toContain('cta-font-label')
+    expect(heroCss).toMatch(/\.hero__cta\.cta-font-label\s*\{[^}]*font-family:\s*var\(--font-family-label\)/)
+    const dflt = await render(Hero, { variant: 'bg-color', content: heroCta })
+    expect(dflt).toContain('cta-font-body')
+  })
+
+  it('test_UAT_FC_REQ-36_hero_cta_size_reaches_xs', async () => {
+    const html = await render(Hero, { variant: 'bg-color', dials: { ctaSize: 'xs' }, content: heroCta })
+    expect(html).toContain('cta-size-xs')
+    expect(heroCss).toMatch(/\.hero__cta\.cta-size-xs\s*\{[^}]*font-size:\s*var\(--font-size-xs\)/)
+    const dflt = await render(Hero, { variant: 'bg-color', content: heroCta })
+    expect(dflt).toContain('cta-size-base')
+  })
+
+  it('test_UAT_FC_REQ-36_hero_cta_weight_reaches_medium', async () => {
+    const html = await render(Hero, { variant: 'bg-color', dials: { ctaWeight: 'medium' }, content: heroCta })
+    expect(html).toContain('cta-weight-medium')
+    expect(heroCss).toMatch(/\.hero__cta\.cta-weight-medium\s*\{[^}]*font-weight:\s*var\(--font-weight-medium\)/)
+    const dflt = await render(Hero, { variant: 'bg-color', content: heroCta })
+    expect(dflt).toContain('cta-weight-semibold')
+  })
+
+  it('test_UAT_FC_REQ-36_hero_cta_soft_is_a_2px_corner', async () => {
+    const html = await render(Hero, { variant: 'bg-color', dials: { ctaShape: 'soft' }, content: heroCta })
+    expect(html).toContain('cta-soft')
+    expect(heroCss).toMatch(/\.hero__cta\.cta-soft\s*\{[^}]*border-radius:\s*2px/)
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_panelCorner_square_hard_corners_the_panel', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary', panelCorner: 'square' }, content: { heading: 'H', body: 'b' } })
+    expect(html).toContain('panel-corner-square')
+    expect(textBlockCss).toMatch(/\.text-block\.panel-corner-square\s+\.text-block__inner\s*\{[^}]*border-radius:\s*0/)
+    const dflt = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary' }, content: { heading: 'H', body: 'b' } })
+    expect(dflt).toContain('panel-corner-rounded')
+  })
+
+  it('test_UAT_FC_REQ-36_textblock_bodyWeight_light_steps_the_body', async () => {
+    const html = await render(TextBlock, { variant: 'prose', dials: { bodyWeight: 'light' }, content: { heading: 'H', body: 'b' } })
+    expect(html).toContain('body-weight-light')
+    expect(textBlockCss).toMatch(/\.text-block\.body-weight-light\s+\.text-block__body\s*\{[^}]*font-weight:\s*var\(--font-weight-light\)/)
+    const dflt = await render(TextBlock, { variant: 'prose', content: { heading: 'H', body: 'b' } })
+    expect(dflt).toContain('body-weight-regular')
+  })
+
+  it('test_UAT_FC_REQ-36_theme_emits_font_family_label_from_the_label_role', () => {
+    const withLabel = generateThemeCss({ typography: { family: { heading: 'Oswald', body: 'Karla', label: 'Raleway' } } })
+    expect(withLabel).toMatch(/--font-family-label:\s*Raleway/)
+    // Omitting the role falls back to the body family, so an existing theme is unchanged.
+    const without = generateThemeCss({ typography: { family: { heading: 'Oswald', body: 'Karla' } } })
+    expect(without).toMatch(/--font-family-label:\s*Karla/)
   })
 })

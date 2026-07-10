@@ -37,6 +37,11 @@ const headingWeight = dials.headingWeight ?? 'bold'
 const headingFont = dials.headingFont ?? 'heading'
 // CTA corner shape (REQ-36) — `round` (default) keeps the pill; `square` hard-corners.
 const ctaShape = dials.ctaShape ?? 'round'
+// CTA label typography (REQ-36) — font role / size / weight, defaulting to the
+// inherited body face so an omitting hero is unchanged.
+const ctaFont = dials.ctaFont ?? 'body'
+const ctaSize = dials.ctaSize ?? 'base'
+const ctaWeight = dials.ctaWeight ?? 'semibold'
 // Subhead font-family (REQ-36) — `body` (default) inherits the body family; the
 // reference sets the hero lead in a distinct face (Lato = the site display font)
 // while section body copy stays the body family (Karla).
@@ -138,7 +143,7 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     {divider === 'rule' && <hr class="hero__divider" />}
     {portrait && <img class:list={['hero__portrait', `portrait-${portraitShape}`]} src={assertSafeUrl(portrait.src, 'hero portrait src')} alt={portrait.alt} />}
     {subheadHtml && <div class="hero__subhead" style={subheadStyle} set:html={subheadHtml} />}
-    {cta && <a class:list={['hero__cta', `cta-${ctaShape}`]} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
+    {cta && <a class:list={['hero__cta', `cta-${ctaShape}`, `cta-font-${ctaFont}`, `cta-size-${ctaSize}`, `cta-weight-${ctaWeight}`]} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
 </section>
 
@@ -397,11 +402,25 @@ const subheadHtml = subhead ? await renderMarkdown(subhead) : undefined
     padding: var(--space-3) var(--space-6);
     border-radius: var(--radius-md);
     font-weight: var(--font-weight-semibold);
+    text-align: center;
     text-decoration: none;
   }
   /* CTA corner shape (REQ-36) — `round` is the pill radius above; `square`
-     hard-corners the button (the reference's square "Learn More"). */
+     hard-corners; `soft` is the reference's barely-rounded 2px button. */
   .hero__cta.cta-square { border-radius: 0; }
+  .hero__cta.cta-soft { border-radius: 2px; }
+  /* CTA label typography (REQ-36) — font role / size / weight. Defaults
+     (`body` / `base` / `semibold`) leave an omitting hero's button unchanged. */
+  .hero__cta.cta-font-label { font-family: var(--font-family-label); }
+  .hero__cta.cta-font-heading { font-family: var(--font-family-heading); }
+  .hero__cta.cta-font-display { font-family: var(--font-family-display); }
+  .hero__cta.cta-size-xs { font-size: var(--font-size-xs); }
+  .hero__cta.cta-size-sm { font-size: var(--font-size-sm); }
+  .hero__cta.cta-size-md { font-size: var(--font-size-md, var(--font-size-lg)); }
+  .hero__cta.cta-size-lg { font-size: var(--font-size-lg); }
+  .hero__cta.cta-weight-light { font-weight: var(--font-weight-light); }
+  .hero__cta.cta-weight-regular { font-weight: var(--font-weight-regular); }
+  .hero__cta.cta-weight-medium { font-weight: var(--font-weight-medium); }
   /* The inner is a stretch flex column (so the heading/subhead fill the measure
      and wrap), which would stretch the CTA into a full-width bar. Pin it to the
      content-start edge so it hugs its label — left on a left hero (REQ-36),

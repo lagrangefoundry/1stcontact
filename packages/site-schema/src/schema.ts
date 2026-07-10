@@ -530,12 +530,17 @@ export const fontFaceSchema = z.object({
  * display/wordmark face (e.g. a gold Cinzel wordmark), distinct from the
  * `heading`/`body` families. Omitted → the CSS generator falls back to
  * `heading` for `--font-family-display`.
+ *
+ * `family.label` (REQ-36) is an optional fourth slot for a button/label face
+ * (e.g. the reference's Raleway "Learn More"). Omitted → the CSS generator
+ * falls back to `body` for `--font-family-label`.
  */
 export const typographyTokensSchema = z.object({
   family: z.object({
     heading: z.string(),
     body: z.string(),
     display: z.string().optional(),
+    label: z.string().optional(),
   }),
   scale: z.object({
     xs: cssValue,

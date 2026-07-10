@@ -50,6 +50,11 @@ const ctaShape = dials.ctaShape ?? 'round'
 // Panel vertical padding (REQ-36) — `md` (default) base; `lg`/`xl` deepen a
 // contained panel so it reads taller (the reference testimonial panel).
 const panelPad = dials.panelPad ?? 'md'
+// Panel corner shape (REQ-36) — `rounded` (default) soft radius; `square` = 0
+// (the reference Holistic card is a square Elementor inner-section).
+const panelCorner = dials.panelCorner ?? 'rounded'
+// Body copy weight (REQ-36) — `regular` (default) inherits; `light` etc. step it.
+const bodyWeight = dials.bodyWeight ?? 'regular'
 const { heading, cta } = content
 const bodyHtml = await renderMarkdown(content.body)
 ---
@@ -65,7 +70,9 @@ const bodyHtml = await renderMarkdown(content.body)
     `content-width-${contentWidth}`,
     `leading-${leading}`,
     `panel-${panel}`,
+    `panel-corner-${panelCorner}`,
     `panel-pad-${panelPad}`,
+    `body-weight-${bodyWeight}`,
     `list-marker-${listMarker}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
@@ -123,6 +130,16 @@ const bodyHtml = await renderMarkdown(content.body)
     padding: var(--space-12) var(--space-8);
     border-radius: var(--radius-lg);
   }
+  /* Panel corner shape (REQ-36) — `square` hard-corners the panel (the reference
+     Holistic card is a square Elementor inner-section, not a rounded card). */
+  .text-block.panel-corner-square .text-block__inner { border-radius: 0; }
+
+  /* Body copy weight (REQ-36) — steps the body face independently of the heading;
+     `regular` (default) inherits, so an omitting block is unchanged. */
+  .text-block.body-weight-light .text-block__body { font-weight: var(--font-weight-light); }
+  .text-block.body-weight-medium .text-block__body { font-weight: var(--font-weight-medium); }
+  .text-block.body-weight-semibold .text-block__body { font-weight: var(--font-weight-semibold); }
+  .text-block.body-weight-bold .text-block__body { font-weight: var(--font-weight-bold); }
   /* Panel vertical padding (REQ-36) — `md` (default) is the base 48px; `lg`/`xl`
      deepen it so a panel reads taller/airier (the reference testimonial panel is
      a tall band). Horizontal padding is unchanged. */
@@ -145,11 +162,16 @@ const bodyHtml = await renderMarkdown(content.body)
   .text-block.list-marker-check .text-block__body ul { list-style: none; padding-left: 0; display: inline-block; text-align: left; }
   .text-block.list-marker-check .text-block__body li { position: relative; padding-left: 1.6em; }
   .text-block.list-marker-check .text-block__body li::before {
-    content: "\2713";
+    /* FontAwesome `fa-check` (U+F00C) rendered in the icon font, matching the
+       reference's Elementor icon-list ticks — a heavier, geometric check than the
+       thin Unicode ✓ (U+2713). The glyph ships in the site's IconFont subset. */
+    content: "\f00c";
+    font-family: 'IconFont';
     position: absolute;
     left: 0;
+    top: 0.15em;
+    font-size: 0.85em;
     color: var(--color-accent);
-    font-weight: var(--font-weight-bold);
   }
 
   /* Constrained content column (REQ-45): the inner stays a full-width frame
