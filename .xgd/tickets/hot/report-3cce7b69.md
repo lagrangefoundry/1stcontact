@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-4 (REQ-45/39/40/46/47/48)'
 created_by: xgd
 created_at: '2026-07-10T00:10:31.463615+00:00'
-updated_at: '2026-07-10T00:16:09.560054+00:00'
+updated_at: '2026-07-10T00:34:17.909315+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -77,7 +77,7 @@ fields:
       story (STORY-55/56 document module composition/dials, not a safety boundary).
       It is a genuinely new capability (the product thesis: the module is the sanitization
       boundary for untrusted content), so feature, not upgrade.'
-    story_uid: null
+    story_uid: story-38de5800
   - index: 3
     component: 'Chrome Catalog: Hero/Header Typography Fidelity Dials'
     item_type: upgrade
