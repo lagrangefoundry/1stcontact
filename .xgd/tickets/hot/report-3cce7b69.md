@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-4 (REQ-45/39/40/46/47/48)'
 created_by: xgd
 created_at: '2026-07-10T00:10:31.463615+00:00'
-updated_at: '2026-07-10T01:12:49.244168+00:00'
+updated_at: '2026-07-10T01:24:11.113200+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -218,7 +218,7 @@ fields:
       treatments, media, transform, motion, font-load), the freeze/font preconditions,
       and the multi-viewport/cross-engine/multi-state capture orchestration. Prior
       capture intent preserved.'
-    story_uid: null
+    story_uid: story-8f33f14c
   - index: 6
     component: 'Values-Diff: Severity-Ranked Structural Diff, New-Axis Deltas & Trust'
     item_type: upgrade
