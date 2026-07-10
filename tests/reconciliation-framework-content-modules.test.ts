@@ -44,18 +44,18 @@ describe('reconciliation: content module catalog (story-903e3e3a)', () => {
     const expected = {
       'text-block': {
         variants: ['prose', 'landing'],
-        dials: ['size', 'align', 'spacingTop', 'spacingBottom', 'surface', 'textAlign'],
+        dials: ['size', 'align', 'spacingTop', 'spacingBottom', 'surface', 'textAlign', 'contentWidth'],
         content: ['heading', 'body'],
       },
       'services-grid': {
         variants: ['three-col', 'two-col', 'stacked'],
-        dials: ['spacingTop', 'spacingBottom', 'surface', 'gap', 'size'],
+        dials: ['spacingTop', 'spacingBottom', 'surface', 'gap', 'size', 'contentWidth'],
         content: ['heading', 'subhead', 'items'],
       },
       'contact-form': {
         variants: ['inline'],
-        dials: ['spacingTop', 'spacingBottom', 'surface', 'align', 'width', 'submitTreatment'],
-        content: ['heading', 'subhead', 'action', 'fields', 'submitLabel', 'successMessage'],
+        dials: ['spacingTop', 'spacingBottom', 'surface', 'align', 'width', 'submitTreatment', 'submitForeground', 'subheadSize', 'captionSize'],
+        content: ['heading', 'subhead', 'action', 'fields', 'submitLabel', 'successMessage', 'caption'],
       },
     } as const
 

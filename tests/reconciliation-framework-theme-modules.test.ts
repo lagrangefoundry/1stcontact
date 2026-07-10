@@ -65,8 +65,8 @@ describe('story-a224111f — theme CSS generation', () => {
       expect(css, `missing ${name}`).toContain(`${name}:`)
     }
 
-    // Exactly one declaration per slot across the full 61-token surface.
-    expect(declCount(rootBlock(css))).toBe(61)
+    // Exactly one declaration per slot across the full 64-token surface.
+    expect(declCount(rootBlock(css))).toBe(64)
 
     // Deterministic: the same input always yields byte-identical output.
     expect(generateThemeCss(defaultTokens)).toBe(css)
@@ -90,8 +90,8 @@ describe('story-a224111f — theme CSS generation', () => {
     expect(css).toContain('--font-size-base: 1rem;') // default type-scale step
     expect(css).toContain('--container-default: 72rem;') // default container
 
-    // The output is never missing a slot: still the full 61-token surface.
-    expect(declCount(rootBlock(css))).toBe(61)
+    // The output is never missing a slot: still the full 64-token surface.
+    expect(declCount(rootBlock(css))).toBe(64)
   })
 
   it('test_UAT_AC435_emits_dark_mode_block_only_for_supplied_dark_roles', () => {

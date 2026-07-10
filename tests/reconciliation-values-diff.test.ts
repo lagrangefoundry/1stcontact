@@ -134,8 +134,9 @@ describe('story-f826e5ca — 1c values-diff (reconciliation UATs)', () => {
       expect(d.expected).toBeDefined()
       expect(d.actual).toBeDefined()
     }
-    // Ranked most-severe first: colour (90) precedes font size (70).
-    expect(report.deltas.map((d) => d.property)).toEqual(['color', 'fontSizePx'])
+    // Ranked most-severe first: font size (HIGH tier) precedes colour (LOW tier)
+    // under the REQ-47/REQ-48 severity taxonomy.
+    expect(report.deltas.map((d) => d.property)).toEqual(['fontSizePx', 'color'])
     expect(report.deltas[0].text).toBe('Sub')
     expect(report.deltas[0].role).toBe('body')
   })
@@ -376,8 +377,8 @@ describe('story-f826e5ca — 1c values-diff (reconciliation UATs)', () => {
     const human = await runCli(['values-diff', '--ref', dir, '--actual', buggy])
     expect(human.stdout).toMatch(/2 delta\(s\)/)
     expect(human.stdout).toContain('[color]')
-    expect(human.stdout).toContain('[fontSizePx]')
-    expect(human.stdout.indexOf('[color]')).toBeLessThan(human.stdout.indexOf('[fontSizePx]'))
+    expect(human.stdout).toContain('[fontSize]')
+    expect(human.stdout.indexOf('[fontSize]')).toBeLessThan(human.stdout.indexOf('[color]'))
     expect(human.exitCode).toBe(1)
 
     // --json: parseable full report.
