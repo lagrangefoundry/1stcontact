@@ -6,10 +6,10 @@ title: Render path fails loud on dangerous content (unsafe URL schemes + injecta
   HTML)
 created_by: xgd
 created_at: '2026-07-10T00:33:10.136121+00:00'
-updated_at: '2026-07-10T00:33:10.136121+00:00'
+updated_at: '2026-07-10T00:47:51.191350+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-df065afc
   capability_uid: capability-4c6800c5
