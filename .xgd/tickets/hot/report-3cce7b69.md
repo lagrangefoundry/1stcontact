@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-4 (REQ-45/39/40/46/47/48)'
 created_by: xgd
 created_at: '2026-07-10T00:10:31.463615+00:00'
-updated_at: '2026-07-10T00:52:34.347319+00:00'
+updated_at: '2026-07-10T01:12:49.244168+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -159,7 +159,7 @@ fields:
     intent_delta_summary: STORY-56 gains ACs documenting the REQ-45 content-fidelity
       dials (contentWidth on text-block/services-grid; submitForeground, subheadSize,
       captionSize and caption slot on contact-form); prior content-module intent preserved.
-    story_uid: null
+    story_uid: story-903e3e3a
   - index: 5
     component: 'Reference Capture: Richer & Multi-State Rendered Projection'
     item_type: upgrade
