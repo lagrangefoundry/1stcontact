@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>REQ-47 structural projection fixture</title>
+    <style>
+      * { margin: 0; box-sizing: border-box; }
+      body { font-family: system-ui, sans-serif; color: #0f172a; background: #fff; }
+      .hero { background: #0b1220; color: #e2e8f0; min-height: 300px; padding: 48px 64px; }
+      .hero h1 { font-size: 56px; font-weight: 700; }
+      /* The tagline is stacked BELOW the heading — arrangement 'stack' from geometry. */
+      .hero p { margin-top: 16px; font-size: 20px; color: #94a3b8; }
+      .content { background: #f8fafc; padding: 48px 64px; }
+      /* The subscribe controls render side-by-side (a row); the Subscribe button
+         sits to the RIGHT of the email input — arrangement 'row' from geometry. */
+      .row { display: flex; gap: 12px; align-items: center; }
+      .row label { font-size: 14px; color: #334155; }
+      .row input {
+        border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 16px;
+        font-size: 16px; width: 240px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+      }
+      .row button {
+        border: 0; border-radius: 8px; padding: 12px 24px; font-size: 16px;
+        background: #2563eb; color: #fff;
+      }
+      /* A real divider — a text-free separator element. */
+      hr { border: 0; height: 4px; background: #cbd5e1; margin: 32px 0; }
+      /* A montage of photos. Distinct classes so it is NOT a repeated item group:
+         each <img> child is a text-free element captured as a field (capture must
+         descend into the montage rather than dropping the photos). */
+      .montage { display: flex; gap: 16px; }
+      .montage img { width: 120px; height: 120px; object-fit: cover; }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Intentional Software</h1>
+      <p>Tools for clarity, presence, and positive connection.</p>
+    </section>
+    <section class="content">
+      <form class="row" action="#">
+        <!-- Name is rendered OUTSIDE the box via an associated <label> → nameSource 'label'. -->
+        <label for="fullname">Full name</label>
+        <input id="fullname" type="text" />
+        <!-- Name is rendered INSIDE the box via a placeholder → nameSource 'placeholder'. -->
+        <input type="email" placeholder="Your email address" />
+        <button type="submit">Subscribe</button>
+      </form>
+      <hr />
+      <div class="montage">
+        <img class="shot-a" src="/hero.png" alt="Harbor at dusk" />
+        <img class="shot-b" src="/logo.png" alt="Studio mark" />
+      </div>
+    </section>
+  </body>
+</html>
