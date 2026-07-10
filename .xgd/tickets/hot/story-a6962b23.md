@@ -6,10 +6,10 @@ title: 'Module conformance harness: isolated per-module render with proven safet
   + security discrimination'
 created_by: xgd
 created_at: '2026-07-10T00:14:31.656797+00:00'
-updated_at: '2026-07-10T00:14:31.656797+00:00'
+updated_at: '2026-07-10T00:30:38.104123+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-df065afc
   capability_uid: capability-5d657ee3
