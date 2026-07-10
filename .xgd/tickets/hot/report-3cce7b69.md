@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-4 (REQ-45/39/40/46/47/48)'
 created_by: xgd
 created_at: '2026-07-10T00:10:31.463615+00:00'
-updated_at: '2026-07-10T00:34:17.909315+00:00'
+updated_at: '2026-07-10T00:52:34.347319+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -116,7 +116,7 @@ fields:
     intent_delta_summary: STORY-55 gains three ACs documenting the REQ-45 typography-fidelity
       dials (hero/header tracking, hero subhead leading) and the new --tracking-*
       token slots; all prior chrome/token intent preserved.
-    story_uid: null
+    story_uid: story-a224111f
   - index: 4
     component: 'Content Catalog: Column-Width & Contact-Form Fidelity Dials'
     item_type: upgrade
