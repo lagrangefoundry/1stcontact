@@ -178,7 +178,7 @@ export const SUBMIT_FOREGROUND_DIAL = ['auto', ...TREATMENT_ROLE_DIAL, 'bg'] as 
  * that reused `narrow` overshot 768 by 128px; `readable` gives the hero its own
  * measure, decoupled from the text-block `narrow`.
  */
-export const CONTENT_WIDTH_DIAL = ['default', 'narrow', 'readable', 'wide'] as const
+export const CONTENT_WIDTH_DIAL = ['default', 'xnarrow', 'narrow', 'readable', 'wide'] as const
 
 /**
  * Letter-spacing (tracking) treatment for display type (REQ-45) — hero heading +

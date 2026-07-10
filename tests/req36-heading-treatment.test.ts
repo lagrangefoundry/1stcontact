@@ -764,4 +764,21 @@ describe('REQ-36 element fidelity — CTA typography, panel corner, body weight,
     const without = generateThemeCss({ typography: { family: { heading: 'Oswald', body: 'Karla' } } })
     expect(without).toMatch(/--font-family-label:\s*Karla/)
   })
+
+  it('test_UAT_FC_REQ-36_textblock_contentWidth_xnarrow_caps_the_column', async () => {
+    // `xnarrow` is a tighter column than `narrow` — the "Who Uses" checklist reads
+    // in a ~32rem centred box, not the full section width, so its items wrap like
+    // the reference. Caps the inner content to `--container-xnarrow`.
+    const html = await render(TextBlock, { variant: 'prose', dials: { contentWidth: 'xnarrow', align: 'center' }, content: { heading: 'H', body: '- one\n- two' } })
+    expect(html).toContain('content-width-xnarrow')
+    expect(textBlockCss).toMatch(/\.text-block\.content-width-xnarrow \.text-block__inner > \*\s*\{[^}]*max-width:\s*var\(--container-xnarrow\)/)
+  })
+
+  it('test_UAT_FC_REQ-36_theme_emits_container_xnarrow_below_narrow', () => {
+    // The token is a default-filled optional slot, so every theme emits it (~32rem,
+    // below --container-narrow), and an existing theme is unchanged.
+    const css = generateThemeCss({})
+    expect(css).toMatch(/--container-xnarrow:\s*32rem/)
+    expect(css).toMatch(/--container-narrow:\s*40rem/)
+  })
 })

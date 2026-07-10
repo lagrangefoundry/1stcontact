@@ -148,6 +148,7 @@ const bodyHtml = await renderMarkdown(content.body)
   /* A contained panel sizes its box to `contentWidth` (so the card itself is the
      reference width, not just the text within it); `default` keeps the variant
      width. Scoped to an active panel via `:not(.panel-none)`. */
+  .text-block:not(.panel-none).content-width-xnarrow .text-block__inner { max-width: var(--container-xnarrow); }
   .text-block:not(.panel-none).content-width-narrow .text-block__inner { max-width: var(--container-narrow); }
   .text-block:not(.panel-none).content-width-readable .text-block__inner { max-width: var(--container-readable); }
   .text-block:not(.panel-none).content-width-wide .text-block__inner { max-width: var(--container-wide); }
@@ -181,6 +182,7 @@ const bodyHtml = await renderMarkdown(content.body)
      content edge); `align-center` (align-items: center, above) centres them.
      `content-width-default` sets no cap, so the content fills the frame and a
      section that omits the dial is unchanged. Token-backed widths, no raw CSS. */
+  .text-block.content-width-xnarrow .text-block__inner > * { max-width: var(--container-xnarrow); width: 100%; }
   .text-block.content-width-narrow .text-block__inner > * { max-width: var(--container-narrow); width: 100%; }
   .text-block.content-width-readable .text-block__inner > * { max-width: var(--container-readable); width: 100%; }
   .text-block.content-width-wide .text-block__inner > * { max-width: var(--container-wide); width: 100%; }

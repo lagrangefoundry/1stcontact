@@ -639,6 +639,10 @@ export const shadowTokensSchema = z.object({
  * unchanged — `defaultTokens` fills it, so `--container-readable` is always
  * emitted (cf. `shadow.xl`). */
 export const containerTokensSchema = z.object({
+  // `xnarrow` (REQ-36, ~32rem/512px tight column below `narrow`) is optional so
+  // existing themes validate unchanged — `defaultTokens` fills it, so
+  // `--container-xnarrow` is always emitted (cf. `readable`).
+  xnarrow: cssValue.optional(),
   narrow: cssValue,
   readable: cssValue.optional(),
   default: cssValue,

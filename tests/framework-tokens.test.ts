@@ -55,9 +55,10 @@ describe('@1stcontact/framework theme tokens', () => {
     // --tracking-* steps; REQ-49 added --font-weight-light, --line-height-snug,
     // the four large spacing steps --space-32/48/64/80, and --container-readable;
     // REQ-36 added --color-scrim (hero scrim tint) and --font-weight-extralight (200, section-heading weight),
-    // and --font-family-label (the button/label face, e.g. Raleway).
+    // --font-family-label (the button/label face, e.g. Raleway), and --container-xnarrow
+    // (a ~32rem tight column below --container-narrow, for the "Who Uses" checklist).
     const declCount = (rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length
-    expect(declCount).toBe(74)
+    expect(declCount).toBe(75)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_substitutes_defaults_for_missing_slots', () => {
@@ -66,7 +67,7 @@ describe('@1stcontact/framework theme tokens', () => {
     expect(css).toContain('--color-primary: #ff0000;') // the override
     expect(css).toContain('--color-bg: #ffffff;') // default-filled palette slot
     expect(css).toContain('--space-4: 1rem;') // default-filled non-palette slot
-    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(74)
+    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(75)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_emits_dark_mode_block_when_dark_palette_provided', () => {

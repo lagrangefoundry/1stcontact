@@ -112,6 +112,11 @@ export const defaultTokens: ThemeTokens = {
     xl: '0 15px 50px rgba(0,0,0,0.55), 0 0 30px rgba(255,255,255,0.12)',
   },
   container: {
+    // `xnarrow` (REQ-36) — a tight column below `narrow` (32rem/512px) for a
+    // centred content block that reads narrower than the section band (the
+    // reference "Who Uses Our Services" checklist wraps in a ~505px column, not
+    // the 700px section width).
+    xnarrow: '32rem',
     narrow: '40rem',
     // `readable` (REQ-49) — a reading measure (48rem/768px, Tailwind `max-w-3xl`)
     // between `narrow` and `default`, so a constrained column (e.g. the hero
