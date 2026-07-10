@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-f8091c08'
 created_by: xgd
 created_at: '2026-07-10T02:00:48.545324+00:00'
-updated_at: '2026-07-10T02:00:48.545324+00:00'
+updated_at: '2026-07-10T02:09:12.432633+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-f8091c08
@@ -25,6 +25,7 @@ fields:
     instructions: ''
     test_scope: test_UAT_AC568 or test_UAT_AC458 or test_UAT_AC433 or test_UAT_AC434
       or test_UAT_AC525 or test_UAT_AC535
+  batches_pending: false
 ---
 
 {
