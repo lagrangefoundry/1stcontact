@@ -29,6 +29,8 @@ import {
   flattenCapture,
   flattenSignals,
   type DiffOptions,
+  type ObjectCard,
+  type ValueDelta,
   type ValueManifest,
   type ValuesDiffReport,
 } from './capture/values-diff'
@@ -98,19 +100,108 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
   return report
 }
 
+/** Truncate a display label so a card heading / row stays one terminal line. */
+function trunc(s: string, max = 48): string {
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s
+}
+
 /**
- * One-line-per-delta human rendering, most-severe first. Each row leads with the
- * severity **tier** (REQ-47) — the report leads with the severity-ranked delta
- * list, not the aggregate fidelity mean, which reads like "≈98% done" while the
- * most obvious structural defects sit unflagged.
+ * A delta that is NOT tied to a reference object card: a section treatment
+ * (`§n`), a document-level precondition (viewport), a render-only unilateral
+ * check (overflow / font-load, read off *our* side), or a synthetic systemic
+ * aggregate. These have no reference object to hang under, so they render in a
+ * dedicated tail — everything the flat list held is still surfaced, nothing
+ * vanishes into a count.
+ */
+function isNonObjectDelta(d: ValueDelta): boolean {
+  return (
+    d.systemic === true ||
+    d.role === 'section' ||
+    d.role === 'document' ||
+    d.role === 'aggregate' ||
+    d.property === 'overflow' ||
+    d.property === 'fontLoad'
+  )
+}
+
+/** Render one object card as a padded reference-vs-repro parameter table. */
+function renderCard(o: ObjectCard): string {
+  const badge = o.worstTier ? `  [${o.worstTier}]` : ''
+  const head = `  ▸ ${o.kind} · "${trunc(o.label)}" (${o.role})${badge}`
+  const nameW = Math.max(4, ...o.params.map((p) => p.name.length))
+  const expW = Math.max(8, ...o.params.map((p) => p.expected.length))
+  const actW = Math.max(8, ...o.params.map((p) => p.actual.length))
+  const rows = o.params.map((p) => {
+    const flag = p.mismatch ? '✗' : '✓'
+    return `      ${p.name.padEnd(nameW)}  ${p.expected.padEnd(expW)}  ${p.actual.padEnd(actW)}  ${flag}`
+  })
+  return [head, ...rows].join('\n')
+}
+
+/**
+ * Object-grouped human rendering (REQ-51) — the primary read in the fidelity
+ * loop, ahead of the perceptual pixel-mean (which reads "≈98% done" while
+ * structural defects sit unflagged). Instead of one flat severity-sorted stream
+ * that scatters an object's deltas across a long list, this groups by object:
+ * unpaired objects up top (loud, both directions), then a per-object parameter
+ * card for each reference object that differs — every param reference-vs-repro,
+ * `box` position first-class, mismatches flagged inline — worst object first.
+ * The `expected` column prints the value to transcribe, so a flagged row is a
+ * paste-able edit. Clean objects collapse to a count; non-object deltas (section
+ * treatments, viewport, overflow, font-load, systemic) render in a tail.
  */
 export function formatReport(report: ValuesDiffReport): string {
   const masked = report.suppressed > 0 ? `, ${report.suppressed} masked` : ''
-  const head = `values-diff: ${report.expectedSource} ⇄ ${report.actualSource}\n  ${report.matched} matched, ${report.unmatched} unmatched, ${report.deltas.length} delta(s)${masked}`
-  if (report.deltas.length === 0) return `${head}\n  ✓ no value deltas`
-  const rows = report.deltas.map(
-    (d) =>
-      `  ${d.tier.padEnd(8)} [${d.kind}] "${d.text}" (${d.role}): expected ${d.expected} · actual ${d.actual}`,
-  )
-  return `${head}\n${rows.join('\n')}`
+  const lines: string[] = [
+    `values-diff: ${report.expectedSource} ⇄ ${report.actualSource}`,
+    `  ${report.matched} matched, ${report.unmatched} unmatched, ${report.deltas.length} delta(s)${masked}`,
+  ]
+
+  // Loud unpaired reporting (item 3) — up top, never folded into a count.
+  const unpairedRef = report.objects.filter((o) => !o.paired)
+  const unpairedAct = report.unpairedActual
+  if (unpairedRef.length > 0 || unpairedAct.length > 0) {
+    lines.push('')
+    lines.push(
+      `  ⚠ UNPAIRED  ${unpairedRef.length} reference object(s) had no repro match · ${unpairedAct.length} repro object(s) matched nothing`,
+    )
+    for (const o of unpairedRef) lines.push(`      ref only    ${o.kind} "${trunc(o.label)}" (${o.role})`)
+    for (const o of unpairedAct) lines.push(`      repro only  ${o.kind} "${trunc(o.label)}" (${o.role})`)
+  }
+
+  // Per-object cards, worst first. Clean paired objects collapse to a count.
+  const dirty = report.objects
+    .filter((o) => o.paired && o.deltaCount > 0)
+    .sort((a, b) => b.worstSeverity - a.worstSeverity)
+  const clean = report.objects.filter((o) => o.paired && o.deltaCount === 0)
+
+  if (dirty.length > 0) {
+    lines.push('')
+    lines.push('  objects with deltas (expected column = value to transcribe):')
+    for (const o of dirty) {
+      lines.push('')
+      lines.push(renderCard(o))
+    }
+  }
+  if (clean.length > 0) {
+    lines.push('')
+    lines.push(`  ✓ ${clean.length} object(s) reproduced clean`)
+  }
+
+  // Non-object deltas — section / document / render-only / systemic — in a tail.
+  const other = report.deltas.filter(isNonObjectDelta)
+  if (other.length > 0) {
+    lines.push('')
+    lines.push('  section / render-only checks:')
+    for (const d of other) {
+      lines.push(
+        `      ${d.tier.padEnd(8)} [${d.property}] "${trunc(d.text)}" (${d.role}): expected ${d.expected} · actual ${d.actual}`,
+      )
+    }
+  }
+
+  if (dirty.length === 0 && unpairedRef.length === 0 && unpairedAct.length === 0 && other.length === 0) {
+    lines.push('  ✓ no value deltas')
+  }
+  return lines.join('\n')
 }

@@ -312,6 +312,74 @@ export interface ValuesDiffReport {
   deltas: ValueDelta[]
   /** REQ-48 (item 9) — count of deltas suppressed by an ignore-mask this run. */
   suppressed: number
+  /**
+   * REQ-51 — the object-grouped projection over the same pairing. One card per
+   * *reference* object (text run, image, control, divider), in document order,
+   * carrying its full parameter table (reference vs repro, incl. `box` position)
+   * with each param flagged matched/mismatched. This is the primary human read:
+   * an operator thinks in objects ("the hero heading is wrong on 4 axes"), so the
+   * flat severity-sorted {@link deltas} list — which scatters one object's deltas
+   * across the whole stream — is the machine index, not the read.
+   */
+  objects: ObjectCard[]
+  /**
+   * REQ-51 — repro objects that paired with *no* reference object ("M repro
+   * objects matched nothing"). Surfaced loudly rather than folded into a count:
+   * an extra object in the reproduction is a defect the flat list never named.
+   */
+  unpairedActual: UnpairedObject[]
+}
+
+/** REQ-51 — the object kinds the grouped view buckets by, for the card heading. */
+export type ObjectKind = 'text' | 'image' | 'control' | 'divider'
+
+/** REQ-51 — one row of an {@link ObjectCard}: a parameter, both sides, its verdict. */
+export interface ObjectParam {
+  /**
+   * Parameter name in the spec's *own* vocabulary/units — `fontSizePx`, `color`,
+   * `box`, … — so a mismatched row's {@link expected} value is a paste-able edit
+   * (REQ-51 item 4; unified fully by the sibling spec-vocabulary ticket).
+   */
+  name: string
+  /** Reference (expected) value, formatted — the value to transcribe. */
+  expected: string
+  /** Reproduction (actual) value, formatted; `—` when the object is unpaired. */
+  actual: string
+  /** True when this param differs beyond tolerance (drives the inline flag). */
+  mismatch: boolean
+}
+
+/**
+ * REQ-51 — one reference object's full parameter table, reference vs repro. The
+ * fixed table is kind-specific (a text run's typography+box; an image's fit/
+ * aspect/box; a control's name/name-source/box; a divider's box); any *other*
+ * flagged delta for the object (a dropped gradient, a squared corner, a
+ * beside-vs-below arrangement) is appended so no delta vanishes from the object
+ * view. `box` is always present — position is the residual iteration converges,
+ * so it is a first-class column, not a buried delta (REQ-51 item 2).
+ */
+export interface ObjectCard {
+  /** The object's display identity — its text, or `(role)` for a textless object. */
+  label: string
+  role: string
+  kind: ObjectKind
+  /** False when this reference object had no repro match (loud-unpaired). */
+  paired: boolean
+  /** Fixed param table (kind-specific) plus any non-fixed deltas for this object. */
+  params: ObjectParam[]
+  /** Number of mismatched params (0 → the object reproduced clean). */
+  deltaCount: number
+  /** Max delta severity on this object; orders the cards worst-first. 0 when clean. */
+  worstSeverity: number
+  /** Tier of the highest-severity delta (the card badge), or null when clean. */
+  worstTier: SeverityTier | null
+}
+
+/** REQ-51 — a repro object with no reference counterpart (matched nothing). */
+export interface UnpairedObject {
+  label: string
+  role: string
+  kind: ObjectKind
 }
 
 // ── gradient normalization ───────────────────────────────────────────────────
@@ -968,6 +1036,140 @@ function compileIgnore(sources: string[] | undefined): RegExp[] {
   return out
 }
 
+// ── REQ-51 object-grouped projection ─────────────────────────────────────────
+
+/** `{x, y w×h}` box label — the per-object position+size column. */
+function boxLabel(box: Box | undefined): string {
+  if (!box) return '—'
+  return `(${Math.round(box.x)}, ${Math.round(box.y)}) ${Math.round(box.width)}×${Math.round(box.height)}`
+}
+
+/** Bucket a projected element into its object kind (for the card heading). */
+function objectKindOf(el: ValueElement): ObjectKind {
+  if (!el.textless) return 'text'
+  if (el.a11yRole === 'img') return 'image'
+  if (el.a11yRole === 'separator') return 'divider'
+  return 'control'
+}
+
+/**
+ * REQ-51 — the fixed parameter table per object kind. A text run shows its
+ * typography + box; an image its fit/aspect/box; a control its name + where the
+ * name renders + box; a divider just its box. `box` closes every table so
+ * position is always visible (item 2).
+ */
+const KIND_PARAMS: Record<ObjectKind, string[]> = {
+  text: ['fontFamily', 'fontSizePx', 'fontWeight', 'color', 'letterSpacingPx', 'lineHeightPx', 'box'],
+  image: ['name', 'objectFit', 'aspect', 'box'],
+  control: ['name', 'nameSource', 'box'],
+  divider: ['box'],
+}
+
+/**
+ * Which {@link DeltaProperty}(ies) a fixed param's verdict reads. A param with a
+ * mapped property is flagged iff that property fired a delta (so the diff's
+ * tolerances stay authoritative — `72` vs `72.4` within tolerance is not a
+ * mismatch). A param with no mapped property (`name`) falls back to a direct
+ * string compare, so accessible-name drift the diff doesn't model still shows.
+ */
+const PARAM_PROPS: Record<string, DeltaProperty[]> = {
+  fontFamily: ['fontFamily'],
+  fontSizePx: ['fontSizePx'],
+  fontWeight: ['fontWeight'],
+  color: ['color'],
+  letterSpacingPx: ['letterSpacingPx'],
+  lineHeightPx: ['lineHeightPx'],
+  box: ['position', 'size'],
+  nameSource: ['containment'],
+  objectFit: ['objectFit'],
+  aspect: ['aspect'],
+  name: [],
+}
+
+/** Format a fixed param's value off an element (`—` when absent/unpaired). */
+function paramValue(name: string, el: ValueElement | undefined): string {
+  if (!el) return '—'
+  switch (name) {
+    case 'fontFamily':
+      return el.fontFamily || '—'
+    case 'fontSizePx':
+      return `${el.fontSizePx}`
+    case 'fontWeight':
+      return `${el.fontWeight}`
+    case 'color':
+      return el.color || '—'
+    case 'letterSpacingPx':
+      return el.letterSpacingPx !== undefined ? `${el.letterSpacingPx}` : '—'
+    case 'lineHeightPx':
+      return el.lineHeightPx !== undefined ? `${el.lineHeightPx}` : '—'
+    case 'box':
+      return boxLabel(el.box)
+    case 'name':
+      return el.accessibleName || '—'
+    case 'nameSource':
+      return nameSourceLabel(el.nameSource)
+    case 'objectFit':
+      return el.objectFit ?? '—'
+    case 'aspect':
+      return el.intrinsicAspect != null ? `${el.intrinsicAspect.toFixed(2)}:1` : '—'
+    default:
+      return '—'
+  }
+}
+
+/**
+ * Build one reference object's card from its paired repro element (or undefined
+ * when unpaired) and the deltas the diff already flagged for it. The fixed
+ * kind-table comes first; any *other* flagged delta (gradient, borderLeft, shape,
+ * arrangement, casing, …) is appended so the object view loses nothing the flat
+ * list holds.
+ */
+function buildObjectCard(
+  exp: ValueElement,
+  act: ValueElement | undefined,
+  elementDeltas: ValueDelta[],
+): ObjectCard {
+  const kind = objectKindOf(exp)
+  const props = new Set<DeltaProperty>(elementDeltas.map((d) => d.property))
+  const fixedNames = KIND_PARAMS[kind]
+  const params: ObjectParam[] = fixedNames.map((name) => {
+    const expected = paramValue(name, exp)
+    const actual = paramValue(name, act)
+    const mapped = PARAM_PROPS[name] ?? []
+    const mismatch = !act
+      ? true
+      : mapped.length > 0
+        ? mapped.some((p) => props.has(p))
+        : expected !== actual
+    return { name, expected, actual, mismatch }
+  })
+  // Append deltas not represented by a fixed param, so nothing the flat list
+  // flagged disappears from the object view.
+  const covered = new Set<DeltaProperty>()
+  for (const n of fixedNames) for (const p of PARAM_PROPS[n] ?? []) covered.add(p)
+  for (const d of elementDeltas) {
+    if (covered.has(d.property)) continue
+    params.push({ name: d.property, expected: d.expected, actual: d.actual, mismatch: true })
+  }
+  let worst: ValueDelta | undefined
+  for (const d of elementDeltas) if (!worst || d.severity > worst.severity) worst = d
+  return {
+    label: exp.text,
+    role: exp.role,
+    kind,
+    paired: !!act,
+    params,
+    deltaCount: params.filter((p) => p.mismatch).length,
+    worstSeverity: worst?.severity ?? 0,
+    worstTier: worst?.tier ?? null,
+  }
+}
+
+/** Project a leftover (unpaired) repro element to its {@link UnpairedObject} note. */
+function toUnpaired(el: ValueElement): UnpairedObject {
+  return { label: el.text, role: el.role, kind: objectKindOf(el) }
+}
+
 /**
  * Diff an actual manifest against an expected one, field by field, aligning
  * text elements by case-folded text and section-level values (scrim, vertical
@@ -1031,6 +1233,20 @@ export function diffManifests(
   const deltas: ValueDelta[] = []
   let matched = 0
   let unmatched = 0
+
+  // REQ-51 — object cards accumulate as we pair; `ignore` is hoisted above the
+  // loops (from its original post-loop position) so a card's per-object delta
+  // slice can be filtered through the same suppression mask, keeping the card's
+  // verdicts consistent with the flat list.
+  const cards: ObjectCard[] = []
+  const ignore = compileIgnore(opts.ignore)
+  const isIgnored = (d: ValueDelta): boolean =>
+    ignore.some((re) => re.test(d.text) || re.test(d.expected) || re.test(d.actual))
+  /** This object's deltas, minus any the ignore-mask suppresses (REQ-51 + REQ-48 item 9). */
+  const objectDeltas = (start: number): ValueDelta[] => {
+    const slice = deltas.slice(start)
+    return ignore.length > 0 ? slice.filter((d) => !isIgnored(d)) : slice
+  }
 
   const record = (
     text: string,
@@ -1162,11 +1378,13 @@ export function diffManifests(
   // ── text-free fields (REQ-47): pair by a11yRole + document order ─────────────
   for (const exp of expected.elements) {
     if (!exp.textless) continue
+    const start = deltas.length
     const q = fieldQueues.get(exp.a11yRole ?? exp.role)
     const act = q && q.length > 0 ? q.shift() : undefined
     if (!act) {
       unmatched++
       push(exp, 'missing', 'present', 'absent')
+      cards.push(buildObjectCard(exp, undefined, objectDeltas(start)))
       continue
     }
     matched++
@@ -1177,15 +1395,18 @@ export function diffManifests(
       push(exp, 'containment', nameSourceLabel(exp.nameSource), nameSourceLabel(act.nameSource))
     }
     compareGeometry(exp, act)
+    cards.push(buildObjectCard(exp, act, objectDeltas(start)))
   }
 
   for (const exp of expected.elements) {
     if (exp.textless) continue
+    const start = deltas.length
     const q = queues.get(joinKey(exp.text))
     const act = q && q.length > 0 ? q.shift() : undefined
     if (!act) {
       unmatched++
       push(exp, 'missing', 'present', 'absent')
+      cards.push(buildObjectCard(exp, undefined, objectDeltas(start)))
       continue
     }
     matched++
@@ -1254,7 +1475,15 @@ export function diffManifests(
     // REQ-47 — a text run also carries geometry: the hero heading 195px out of
     // position, a mis-sized box, a squared-off corner, a stacked-vs-inline button.
     compareGeometry(exp, act)
+    cards.push(buildObjectCard(exp, act, objectDeltas(start)))
   }
+
+  // REQ-51 — repro objects left in the pairing queues matched no reference
+  // object ("M repro objects matched nothing"). Collected before the year mask /
+  // systemic passes below add non-object deltas, so this stays object-only.
+  const unpairedActual: UnpairedObject[] = []
+  for (const q of queues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
+  for (const q of fieldQueues.values()) for (const el of q) unpairedActual.push(toUnpaired(el))
 
   // Section-level values (scrim, vertical anchor) — no text to join on, so
   // aligned by ordinal index. Extra sections on either side (a segmentation
@@ -1321,10 +1550,8 @@ export function diffManifests(
   // calendar-year case is handled structurally above, at the join key + text
   // compare, so it never reaches here.) Filtering happens *after* recording — so
   // `suppressed` is an honest count — and *before* the sort, so a masked row can
-  // never rank.
-  const ignore = compileIgnore(opts.ignore)
-  const isIgnored = (d: ValueDelta): boolean =>
-    ignore.some((re) => re.test(d.text) || re.test(d.expected) || re.test(d.actual))
+  // never rank. `ignore`/`isIgnored` are compiled once at the top of the function
+  // (the object cards filter through the same mask); reused here for the flat list.
   const kept = ignore.length > 0 ? deltas.filter((d) => !isIgnored(d)) : deltas
   const suppressed = deltas.length - kept.length
 
@@ -1376,6 +1603,8 @@ export function diffManifests(
     unmatched,
     deltas: kept,
     suppressed,
+    objects: cards,
+    unpairedActual,
   }
 }
 
