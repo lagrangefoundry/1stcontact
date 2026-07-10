@@ -5,10 +5,10 @@ type: story
 title: Rendered-only reference capture via headless browser (1c capture page)
 created_by: xgd
 created_at: '2026-07-09T20:11:20.209996+00:00'
-updated_at: '2026-07-10T01:22:36.802327+00:00'
+updated_at: '2026-07-10T01:24:10.930116+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: reconciling
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-f39884d2
   capability_uid: capability-4dd2cf78
