@@ -5,10 +5,10 @@ type: story
 title: 'Content module catalog: prose, services grid, and no-JS contact form'
 created_by: xgd
 created_at: '2026-07-08T19:28:31.921362+00:00'
-updated_at: '2026-07-10T01:12:49.155836+00:00'
+updated_at: '2026-07-10T01:18:34.288236+00:00'
 completed_at: null
-last_field_updated: updated_by
-status: updated
+last_field_updated: status
+status: reconciling
 fields:
   intent_uid: bundle-6a071846
   capability_uid: capability-4dbbfc15
