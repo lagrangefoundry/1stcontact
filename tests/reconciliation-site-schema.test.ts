@@ -45,6 +45,7 @@ function fullTheme() {
       },
       weights: { regular: '400', medium: '500', semibold: '600', bold: '700', black: '900' },
       lineHeights: { tight: '1.1', normal: '1.5', relaxed: '1.75' },
+      tracking: { normal: '0em', tight: '-0.025em', tighter: '-0.05em' },
     },
     spacing: {
       '0': '0',
