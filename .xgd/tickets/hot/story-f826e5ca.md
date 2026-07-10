@@ -5,10 +5,10 @@ type: story
 title: Mechanical value-level fidelity diff (1c values-diff)
 created_by: xgd
 created_at: '2026-07-09T22:57:54.868394+00:00'
-updated_at: '2026-07-10T01:46:18.243208+00:00'
+updated_at: '2026-07-10T01:48:06.006071+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: reconciling
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-adc60ee8
   capability_uid: capability-4dd2cf78
