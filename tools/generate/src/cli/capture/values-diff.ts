@@ -1136,11 +1136,20 @@ function buildObjectCard(
     const expected = paramValue(name, exp)
     const actual = paramValue(name, act)
     const mapped = PARAM_PROPS[name] ?? []
+    // Geometry present on exactly one side is NOT a match — it means the two
+    // sides can't be compared, most often a stale reference captured before
+    // per-element geometry existed (REQ-47). The delta engine emits no
+    // position/size delta in that case, so without this the box row would render
+    // `— → (x,y…) ✓` and silently pass geometry it never actually checked.
+    const geometrySkew =
+      name === 'box' && !!act && (expected === '—') !== (actual === '—')
     const mismatch = !act
       ? true
-      : mapped.length > 0
-        ? mapped.some((p) => props.has(p))
-        : expected !== actual
+      : geometrySkew
+        ? true
+        : mapped.length > 0
+          ? mapped.some((p) => props.has(p))
+          : expected !== actual
     return { name, expected, actual, mismatch }
   })
   // Append deltas not represented by a fixed param, so nothing the flat list

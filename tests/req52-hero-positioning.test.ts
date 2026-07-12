@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Hero from '../packages/framework/src/modules/hero/index.astro'
 import Header from '../packages/framework/src/modules/header/index.astro'
+import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import { OVERLAY_BAND_CSS } from '../packages/framework/src/modules/overlay'
 import { positionVars } from '../packages/framework/src/modules/layer'
+import { diffManifests, type ValueElement, type ValueManifest } from '../tools/generate/src/cli'
 
 /**
  * UATs for REQ-52 — full positional control of the hero-segment objects.
@@ -147,5 +151,91 @@ describe('REQ-52 — the overlay wordmark shares the hero coordinate space', () 
     expect(html).not.toContain('header__logo--positioned')
     expect(html).not.toContain('--fc-')
     expect(html).toContain('Acme')
+  })
+})
+
+/**
+ * UATs for REQ-52 session 2 — text-block prose default matches services-grid,
+ * and the value-diff can no longer silently pass a reference that carries no box
+ * geometry (the stale-bundle blind spot that hid the ADA full-width defect).
+ */
+describe('REQ-52 — text-block prose reproduces services-grid geometry', () => {
+  const textBlockCss = readFileSync(
+    fileURLToPath(new URL('../packages/framework/src/modules/text-block/index.astro', import.meta.url)),
+    'utf8',
+  )
+
+  it('test_UAT_FC_REQ-52_prose_inner_column_is_container_default_not_narrow', async () => {
+    // A plain panel-none prose block (the ADA / The-Alchemy case) must render at
+    // the standard content container — full width, centred at the gutter — the
+    // SAME geometry as services-grid ("What We're Building"), not a narrow
+    // off-centre column. The base width lives in the module's scoped CSS.
+    const html = await render(TextBlock, { variant: 'prose', dials: {}, content: { body: 'hi' } })
+    expect(html).toContain('variant-prose')
+    expect(html).toContain('panel-none')
+    expect(textBlockCss).toMatch(/\.variant-prose[^{]*\{[^}]*--container-default/)
+    // The old narrow hard-cap that centred the column is gone.
+    expect(textBlockCss).not.toMatch(/\.variant-prose[^{]*\{[^}]*--container-narrow/)
+  })
+
+  it('test_UAT_FC_REQ-52_contentWidth_dial_is_live_on_panel_none_block', async () => {
+    // Flexibility retained: an author can still opt a panel-none prose block into
+    // a narrower measure. The child-cap dial rule applies WITHOUT requiring a
+    // panel (no `:not(.panel-none)` guard on the child-cap selector), so it is no
+    // longer inert on the default block.
+    const html = await render(TextBlock, {
+      variant: 'prose',
+      dials: { contentWidth: 'narrow' },
+      content: { body: 'hi' },
+    })
+    expect(html).toContain('content-width-narrow')
+    expect(textBlockCss).toMatch(
+      /\.text-block\.content-width-narrow \.text-block__inner > \*\s*\{[^}]*--container-narrow/,
+    )
+  })
+})
+
+describe('REQ-52 — value-diff flags a reference with no box geometry', () => {
+  const el = (over: Partial<ValueElement>): ValueElement => ({
+    text: 'A Different Approach',
+    role: 'heading',
+    color: '#000000',
+    fontFamily: 'ui-sans-serif',
+    fontSizePx: 36,
+    fontWeight: 700,
+    ...over,
+  })
+  const manifest = (source: string, element: ValueElement): ValueManifest => ({
+    source,
+    elements: [element],
+    sections: [],
+  })
+  const boxCard = (report: ReturnType<typeof diffManifests>) =>
+    report.objects[0]?.params.find((p) => p.name === 'box')
+
+  it('test_UAT_FC_REQ-52_missing_reference_box_is_flagged_not_passed', () => {
+    // Stale-bundle case: reference (expected) predates per-element geometry so it
+    // has NO box, but the repro (actual) does. Before the fix the box row read
+    // `— → (x,y…) ✓`, silently passing geometry it never compared. Now it must
+    // flag — the two sides cannot be compared.
+    const report = diffManifests(
+      manifest('ref:stale', el({})),
+      manifest('draft:x', el({ box: { x: 108, y: 800, width: 900, height: 43 } })),
+    )
+    const box = boxCard(report)
+    expect(box?.expected).toBe('—')
+    expect(box?.actual).not.toBe('—')
+    expect(box?.mismatch).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-52_matching_boxes_do_not_false_flag', () => {
+    // Guard against over-flagging: when BOTH sides carry geometry within tolerance
+    // the box row stays a match — the fix only fires on one-sided (skewed) boxes.
+    const box = { x: 108, y: 800, width: 900, height: 43 }
+    const report = diffManifests(
+      manifest('ref:fresh', el({ box })),
+      manifest('draft:x', el({ box: { ...box } })),
+    )
+    expect(boxCard(report)?.mismatch).toBe(false)
   })
 })

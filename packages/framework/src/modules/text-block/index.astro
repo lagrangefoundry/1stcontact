@@ -90,7 +90,11 @@ const ctaStyle = resolveTextStyle(cta)
   .text-block.spacing-bottom-2xl { padding-bottom: var(--space-32); }
   .text-block.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
-  /* Container width is set by the variant, not a dial. */
+  /* Container width is set by the variant, not a dial. Both variants default to
+     the standard content container (matching services-grid geometry: full
+     container width, margin-inline:auto = left-pinned at the gutter on desktop).
+     A narrower reading measure is opt-in via the `contentWidth` child-cap dial
+     below — never the base, so a plain prose block is not off-centre and narrow. */
   .text-block__inner {
     margin-inline: auto;
     padding-inline: var(--space-4);
@@ -98,7 +102,7 @@ const ctaStyle = resolveTextStyle(cta)
     flex-direction: column;
     gap: var(--space-4);
   }
-  .text-block.variant-prose .text-block__inner { max-width: var(--container-narrow); }
+  .text-block.variant-prose .text-block__inner { max-width: var(--container-default); }
   .text-block.variant-landing .text-block__inner { max-width: var(--container-default); }
 
   .text-block.align-center .text-block__inner { align-items: center; }

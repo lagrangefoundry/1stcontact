@@ -35,14 +35,17 @@ function moduleSource(rel: string): string {
 describe('text-block module', () => {
   const body = '# Heading\n\n- one\n- two\n\n![pic](/p.jpg)\n\n[link](https://e.test)'
 
-  it('test_UAT_FC_REQ-5_text_block_prose_variant_uses_narrow_container', async () => {
+  it('test_UAT_FC_REQ-52_text_block_prose_variant_uses_default_container', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: {}, content: { body: 'hi' } })
-    // The narrow container is selected by the `variant-prose` hook, not a dial.
+    // A plain prose block defaults to the standard content container (matching
+    // services-grid geometry — full container width, centred at the gutter), NOT
+    // a narrow off-centre column. A narrower measure is opt-in via `contentWidth`.
     expect(html).toContain('variant-prose')
     expect(html).not.toContain('variant-landing')
-    // The variant → container-width mapping lives in the module's scoped CSS.
     const css = moduleSource('text-block/index.astro')
-    expect(css).toMatch(/\.variant-prose[^{]*\{[^}]*--container-narrow/)
+    expect(css).toMatch(/\.variant-prose[^{]*\{[^}]*--container-default/)
+    // The old hard-coded narrow base is gone — prose is no longer capped narrow.
+    expect(css).not.toMatch(/\.variant-prose[^{]*\{[^}]*--container-narrow/)
   })
 
   it('test_UAT_FC_REQ-5_text_block_landing_variant_uses_default_container', async () => {

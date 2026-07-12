@@ -169,6 +169,23 @@ export function formatReport(report: ValuesDiffReport): string {
     for (const o of unpairedAct) lines.push(`      repro only  ${o.kind} "${trunc(o.label)}" (${o.role})`)
   }
 
+  // Stale-reference warning — reference objects paired with a repro that HAS box
+  // geometry while the reference itself has none. That means the bundle predates
+  // per-element geometry (REQ-47): position/width is not being verified for these
+  // objects at all, so a re-capture is required before any geometry claim holds.
+  const staleGeometry = report.objects.filter(
+    (o) =>
+      o.paired &&
+      o.params.some((p) => p.name === 'box' && p.expected === '—' && p.actual !== '—'),
+  )
+  if (staleGeometry.length > 0) {
+    lines.push('')
+    lines.push(
+      `  ⚠ STALE REFERENCE  ${staleGeometry.length} reference object(s) carry no box geometry — ` +
+        `re-capture the bundle; position/width is NOT being verified for them.`,
+    )
+  }
+
   // Per-object cards, worst first. Clean paired objects collapse to a count.
   const dirty = report.objects
     .filter((o) => o.paired && o.deltaCount > 0)

@@ -118,7 +118,6 @@
         "textAlign": "left",
         "headingAlign": "left",
         "surface": "default",
-        "contentWidth": "xnarrow",
         "spacingTop": "md",
         "spacingBottom": "md"
       },
@@ -372,7 +371,6 @@
         "textAlign": "left",
         "headingAlign": "left",
         "surface": "subtle",
-        "contentWidth": "xnarrow",
         "spacingTop": "sm",
         "spacingBottom": "sm"
       },
