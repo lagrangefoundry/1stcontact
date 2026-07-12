@@ -1,6 +1,7 @@
 ---
 import type { AssetRef } from '@1stcontact/site-schema'
 import { assertSafeUrl } from '../safety'
+import { positionVars } from '../layer'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -61,6 +62,23 @@ const eyebrowStyle = resolveTextStyle(eyebrow)
 const headingStyle = resolveTextStyle(heading)
 const subheadStyle = resolveTextStyle(subhead)
 const ctaStyle = resolveTextStyle(cta)
+
+// REQ-52 — free per-object positioning. A slot whose styled run carries a
+// `position` is lifted out of the normal `.hero__inner` flow into the absolute
+// `.hero__stack` (which spans the full band, `inset:0`), and placed by the
+// framework's `--fc-*` coordinate model — the same one layer children use, so no
+// instance CSS reaches the page. Slots without a `position` flow exactly as
+// before, so every existing hero is unchanged. This makes the whole hero segment
+// (with the overlaid wordmark) one art-direction canvas.
+const withPos = (base: string, run?: TextRun): string => {
+  if (!run?.position) return base
+  const vars = positionVars(run.position)
+  // `resolveTextStyle` yields a declaration string with no trailing `;`, so join
+  // with one — otherwise the first `--fc-*` fuses onto the last declaration and
+  // is dropped as invalid.
+  return base ? `${base.replace(/\s*;?\s*$/, '')}; ${vars}` : vars
+}
+const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
 ---
 
 <section
@@ -86,13 +104,22 @@ const ctaStyle = resolveTextStyle(cta)
   {bgImage && scrimGradient !== 'none' && <div class="hero__scrim-top" aria-hidden="true"></div>}
 
   <div class="hero__inner">
-    {eyebrow?.text && <p class="hero__eyebrow" style={eyebrowStyle}>{eyebrow.text}</p>}
-    <h1 class:list={['hero__heading', `case-${headingCase}`]} style={headingStyle}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>
+    {eyebrow?.text && !eyebrow.position && <p class="hero__eyebrow" style={eyebrowStyle}>{eyebrow.text}</p>}
+    {!heading.position && <h1 class:list={['hero__heading', `case-${headingCase}`]} style={headingStyle}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>}
     {divider === 'rule' && <hr class="hero__divider" />}
     {portrait && <img class:list={['hero__portrait', `portrait-${portraitShape}`]} src={assertSafeUrl(portrait.src, 'hero portrait src')} alt={portrait.alt} />}
-    {subhead?.text && <p class="hero__subhead" style={subheadStyle}>{subhead.text}</p>}
-    {cta?.label && cta.href && <a class:list={['hero__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
+    {subhead?.text && !subhead.position && <p class="hero__subhead" style={subheadStyle}>{subhead.text}</p>}
+    {cta?.label && cta.href && !cta.position && <a class:list={['hero__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
+
+  {anyPositioned && (
+    <div class="hero__stack">
+      {eyebrow?.text && eyebrow.position && <p class="hero__eyebrow hero__slot--positioned" style={withPos(eyebrowStyle, eyebrow)}>{eyebrow.text}</p>}
+      {heading.position && <h1 class:list={['hero__heading', `case-${headingCase}`, 'hero__slot--positioned']} style={withPos(headingStyle, heading)}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>}
+      {subhead?.text && subhead.position && <p class="hero__subhead hero__slot--positioned" style={withPos(subheadStyle, subhead)}>{subhead.text}</p>}
+      {cta?.label && cta.href && cta.position && <a class:list={['hero__cta', `cta-${ctaShape}`, 'hero__slot--positioned']} style={withPos(ctaStyle, cta)} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
+    </div>
+  )}
 </section>
 
 <style>
@@ -169,6 +196,22 @@ const ctaStyle = resolveTextStyle(cta)
     background-image: linear-gradient(to bottom, var(--color-scrim), transparent 38%);
   }
   .hero.scrim-gradient-top .hero__scrim-top { opacity: 0.5; }
+  /* Positioned-object canvas (REQ-52): a full-band absolute stack (mirrors
+     `.fc-layer__stack`) holding the slots that carry a `position`. Each slot is
+     placed by the framework `--fc-*` custom properties written onto its inline
+     style; `x`/`y`/`w` are band percentages. The stack sits at the same z-level
+     as the flow inner, above the background/scrim. */
+  .hero__stack { position: absolute; inset: 0; z-index: 1; }
+  .hero__slot--positioned {
+    position: absolute;
+    left: var(--fc-x, 0%);
+    top: var(--fc-y, 0%);
+    width: var(--fc-w, auto);
+    z-index: var(--fc-z, 1);
+    transform: rotate(var(--fc-rotate, 0deg));
+    margin: 0;
+    max-width: none;
+  }
   .hero__inner {
     position: relative;
     z-index: 1;
@@ -218,10 +261,13 @@ const ctaStyle = resolveTextStyle(cta)
      any axis a styled run sets is emitted as an inline `style` and overrides the
      base. Intrinsic typography (family/size/weight/colour/tracking/leading/
      gradient) now lives on the run, not on a dial. */
+  /* REQ-50: the eyebrow renders as authored — its family/size/weight/colour/
+     tracking come from the styled run, and the literal DOM text (incl. its case)
+     is preserved. Un-styled eyebrows fall back to a small semibold muted kicker.
+     (Previously this slot force-uppercased its text, which contradicted REQ-50's
+     run-controlled style and the headingCase literal-text rule.) */
   .hero__eyebrow {
     margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
     color: var(--color-muted);
@@ -242,6 +288,7 @@ const ctaStyle = resolveTextStyle(cta)
   .hero.align-center .hero__subhead { margin-inline: auto; }
   /* Subhead/body content-column width (REQ-49): caps the measure so it can match
      a reference's column; `default` sets no cap (fills the inner frame). */
+  .hero.content-width-xnarrow .hero__subhead { max-width: var(--container-xnarrow); }
   .hero.content-width-narrow .hero__subhead { max-width: var(--container-narrow); }
   .hero.content-width-readable .hero__subhead { max-width: var(--container-readable); }
   .hero.content-width-wide .hero__subhead { max-width: var(--container-wide); }

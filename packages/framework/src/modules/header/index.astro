@@ -2,6 +2,7 @@
 import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
 import { navHref } from '../nav'
 import { assertSafeUrl } from '../safety'
+import { positionVars } from '../layer'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -32,6 +33,21 @@ const { logo, wordmark } = content
 // treatments via `color`/`gradient`) and the shared nav-link style.
 const wordmarkStyle = resolveTextStyle(wordmark)
 const navStyle = resolveTextStyle(content.navStyle)
+
+// REQ-52 — a text wordmark carrying a `position` is lifted out of the flow row
+// and placed by the framework's `--fc-*` coordinate model within the band. In an
+// `overlay` header the chrome spans the full band, so the wordmark shares the
+// hero's coordinate space (e.g. drop the wordmark to the lower-left while the nav
+// stays at the top-right). No position → the flow-row wordmark, exactly as before.
+const wordmarkPositioned = !logo && !!wordmark?.position
+// Join the run's resolved style (no trailing `;`) to the position vars with a
+// separating `;`, else the first `--fc-*` fuses onto the last declaration and is
+// dropped as invalid.
+const wordmarkPosStyle = wordmark?.position
+  ? wordmarkStyle
+    ? `${wordmarkStyle.replace(/\s*;?\s*$/, '')}; ${positionVars(wordmark.position)}`
+    : positionVars(wordmark.position)
+  : ''
 ---
 
 <header
@@ -44,14 +60,21 @@ const navStyle = resolveTextStyle(content.navStyle)
     `spacing-bottom-${spacingBottom}`,
   ]}
 >
-  <div class="header__inner">
-    <a class:list={['header__logo', `logo-size-${logoSize}`, `logo-card-${logoCard}`]} href="/">
-      {logo ? (
-        <img src={assertSafeUrl(logo.src, 'header logo src')} alt={logo.alt} />
-      ) : (
-        wordmark?.text && <span class="header__wordmark" style={wordmarkStyle}>{wordmark.text}</span>
-      )}
+  {wordmarkPositioned && wordmark?.text && (
+    <a class="header__logo header__logo--positioned" href="/" style={wordmarkPosStyle}>
+      <span class="header__wordmark" style={wordmarkStyle}>{wordmark.text}</span>
     </a>
+  )}
+  <div class="header__inner">
+    {!wordmarkPositioned && (
+      <a class:list={['header__logo', `logo-size-${logoSize}`, `logo-card-${logoCard}`]} href="/">
+        {logo ? (
+          <img src={assertSafeUrl(logo.src, 'header logo src')} alt={logo.alt} />
+        ) : (
+          wordmark?.text && <span class="header__wordmark" style={wordmarkStyle}>{wordmark.text}</span>
+        )}
+      </a>
+    )}
 
     <button
       class="header__toggle"
@@ -115,6 +138,18 @@ const navStyle = resolveTextStyle(content.navStyle)
   /* Content alignment (REQ-29): `center` groups the wordmark/nav centrally. */
   .header.align-center .header__inner { justify-content: center; }
   .header__logo { font-weight: var(--font-weight-bold); color: inherit; text-decoration: none; }
+  /* Positioned wordmark (REQ-52): in an overlay header the chrome spans the full
+     band, so the wordmark places against it by the framework `--fc-*` model —
+     the same coordinate space as the hero's own objects. Scoped to `overlay` so
+     a `top-nav` header (its own band, no chrome) is never absolutely placed. */
+  .header.variant-overlay .header__logo--positioned {
+    position: absolute;
+    left: var(--fc-x, 0%);
+    top: var(--fc-y, 0%);
+    width: var(--fc-w, auto);
+    z-index: var(--fc-z, 3);
+    transform: rotate(var(--fc-rotate, 0deg));
+  }
   .header__logo img { display: block; height: var(--space-8); width: auto; }
   /* Image-logo height responds to `logoSize` (REQ-36). */
   .header__logo.logo-size-sm img { height: var(--space-6); }

@@ -120,6 +120,14 @@ export const textRunSchema = z
     lineHeightPx: styleAxis.optional(),
     paddingLeftPx: z.number().optional(),
     gradient: textRunGradientSchema.optional(),
+    /**
+     * Optional free position within the host band (REQ-52). Present → the run is
+     * lifted out of normal flow and placed by the framework's `--fc-*` coordinate
+     * model (the same one layer children use); absent → normal flow. Consumed by
+     * the hero slots and the overlay-header wordmark. `z.lazy` forward-refs
+     * `positionSchema`, declared below.
+     */
+    position: z.lazy(() => positionSchema).optional(),
   })
   .strict()
 

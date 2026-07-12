@@ -160,8 +160,16 @@ function varName(field: string, bp?: string): string {
   return bp ? `--fc-${key}-${bp}` : `--fc-${key}`
 }
 
-/** Emit the `--fc-*` declarations (base + per-breakpoint) for a position. */
-function positionVars(position: Position): string {
+/**
+ * Emit the `--fc-*` declarations (base + per-breakpoint) for a position.
+ *
+ * Exported so the hero and overlay-header modules can reuse the *same*
+ * framework-computed coordinate model when placing their named objects (REQ-52):
+ * a positioned hero slot / wordmark carries these custom properties and the
+ * module's own positioning CSS reads them, exactly as `.fc-layer__child` does.
+ * `x`/`y`/`w` are band percentages, `z` unitless, `rotate` degrees.
+ */
+export function positionVars(position: Position): string {
   const decls: string[] = []
   const base: Record<string, number | undefined> = {
     x: position.x,

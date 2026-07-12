@@ -21,12 +21,23 @@
 /** Structural CSS for the overlay band. Static; identical for every site. */
 export const OVERLAY_BAND_CSS = `/* header-over-hero overlay band (REQ-25) */
 .fc-overlay-band { position: relative; }
+/* The chrome spans the full band (REQ-52) so it is the positioning context for a
+   header whose wordmark carries a free position — a wordmark at top: N% then maps
+   to N% of the shared band, the same coordinate space as the hero's own objects.
+   The header bar itself still renders at the band top (normal block flow inside
+   the chrome), so every existing overlay site is visually unchanged. The chrome
+   is pointer-transparent (it now covers the whole band); its interactive
+   descendants re-enable pointer events so nav/links still work and the hero
+   content below stays clickable. */
 .fc-overlay-band__chrome {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  inset: 0;
   z-index: 3;
+  pointer-events: none;
+}
+.fc-overlay-band__chrome a,
+.fc-overlay-band__chrome button {
+  pointer-events: auto;
 }`
 
 /**

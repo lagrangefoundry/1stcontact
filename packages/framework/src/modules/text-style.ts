@@ -16,6 +16,7 @@
  * receives only `variant`/`dials`/`content`, never the theme) can resolve a run
  * with no theme in hand. A literal is emitted verbatim in its diff unit.
  */
+import type { Position } from '@1stcontact/site-schema'
 
 /** The finite alias step-sets, mirroring the token contract (site-schema). */
 const FAMILY_ROLES = ['heading', 'body', 'display', 'label'] as const
@@ -150,6 +151,14 @@ export interface TextRun {
    * (a `gradient` value, not a flat colour).
    */
   gradient?: TextRunGradient
+  /**
+   * Optional free position within the host band (REQ-52). When present the run
+   * is placed by the framework's `--fc-*` coordinate model (shared with layer
+   * children) instead of flowing normally — used to art-direct the hero segment
+   * (the overlay wordmark + eyebrow/heading/subhead/cta). `x`/`y`/`w` are band
+   * percentages, `z` unitless, `rotate` degrees.
+   */
+  position?: Position
 }
 
 /** camelCase palette role → kebab CSS-var segment (`surfaceInverse` → `surface-inverse`). */
