@@ -20,15 +20,19 @@ import {
 } from '../tools/generate/src/cli'
 
 /**
- * UATs for REQ-35 — values-diff noise reduction. The values-diff (REQ-31)
- * mechanically flags every field-level delta, but on a real re-import ~84 of the
- * deltas were *noise*: sub-step typography jitter (line-height rounds by font
- * metric, weights snap to the nearest loaded face, ±1px size clamp) and bad
- * reference data (a colour the capture had to infer as #000/#fff). These UATs
- * prove the jitter is suppressed by default, that a genuine off-by-one-step
- * error still flags, that `--strict` restores exact matching, and that an
- * inferred reference colour never produces a hard delta — while the flagship
- * near-neighbour colour precision (gold-vs-gold) is preserved.
+ * UATs for the REQ-35 behaviours that SURVIVE the REQ-53 exact-by-default flip.
+ *
+ * REQ-35 originally made the measurement axes jitter-tolerant *by default*; that
+ * default is superseded by REQ-53 (exact match is the default, `--tolerant` is
+ * the opt-out). The tolerance policy itself — jitter caught by default, loose
+ * matching only under the explicit opt-out / per-metric override — is asserted in
+ * `req53-values-diff-exact.test.ts`.
+ *
+ * What remains REQ-35's own, and is orthogonal to the tolerance default, lives
+ * here: the perceptual OKLab colour-distance metric, and the low-confidence
+ * treatment of a reference colour the capture had to *infer* (fallback #000/#fff)
+ * — never a hard delta regardless of the tolerance mode, because it is bad
+ * reference data, not a real target.
  */
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
@@ -91,102 +95,35 @@ function writeActualManifest(dir: string, elements: ValueElement[]): string {
 const hasDelta = (deltas: { text: string; property: string }[], textSub: string, property: string): boolean =>
   deltas.some((d) => d.text.includes(textSub) && d.property === property)
 
-// ── sub-step typography jitter is suppressed by default ──────────────────────
+// ── the OKLab ΔEOK colour-distance metric (pure, tolerance-independent) ───────
 
-describe('REQ-35 values-diff — typography jitter suppressed by default', () => {
-  it('test_UAT_FC_REQ-35_font_size_1px_jitter_not_flagged', () => {
-    // ±1px viewport-clamp rounding is noise; a 2px+ step is a real delta.
-    const ref = mani('ref', [el('Body', { fontSizePx: 24 })])
-    expect(diffManifests(ref, mani('a', [el('Body', { fontSizePx: 25 })])).deltas).toEqual([])
-    expect(hasDelta(diffManifests(ref, mani('a', [el('Body', { fontSizePx: 27 })])).deltas, 'Body', 'fontSizePx')).toBe(true)
-  })
-
-  it('test_UAT_FC_REQ-35_line_height_metric_jitter_not_flagged', () => {
-    // Line-height rounds by font metric; a small drift on a 28px line-height is
-    // noise, a large one is a real delta. Tolerance scales with the value.
-    const ref = mani('ref', [el('Body', { lineHeightPx: 28 })])
-    expect(diffManifests(ref, mani('a', [el('Body', { lineHeightPx: 30 })])).deltas).toEqual([])
-    expect(hasDelta(diffManifests(ref, mani('a', [el('Body', { lineHeightPx: 40 })])).deltas, 'Body', 'lineHeightPx')).toBe(true)
-  })
-
-  it('test_UAT_FC_REQ-35_line_height_tolerance_is_proportional', () => {
-    // The same 3px drift is noise on a 40px heading line-height (7.5%) but a
-    // real delta on a 14px caption line-height (21%) — an absolute px tolerance
-    // could not tell them apart.
-    const heading = diffManifests(mani('ref', [el('H', { lineHeightPx: 40 })]), mani('a', [el('H', { lineHeightPx: 43 })]))
-    expect(heading.deltas).toEqual([])
-    const caption = diffManifests(mani('ref', [el('C', { lineHeightPx: 14 })]), mani('a', [el('C', { lineHeightPx: 17 })]))
-    expect(hasDelta(caption.deltas, 'C', 'lineHeightPx')).toBe(true)
-  })
-
-  it('test_UAT_FC_REQ-35_letter_spacing_subpixel_jitter_not_flagged', () => {
-    const ref = mani('ref', [el('Body', { letterSpacingPx: 0.5 })])
-    expect(diffManifests(ref, mani('a', [el('Body', { letterSpacingPx: 0.8 })])).deltas).toEqual([])
-    expect(hasDelta(diffManifests(ref, mani('a', [el('Body', { letterSpacingPx: 2 })])).deltas, 'Body', 'letterSpacingPx')).toBe(true)
-  })
-
-  it('test_UAT_FC_REQ-35_nearest_loaded_weight_not_flagged', () => {
-    // A single-step weight snap (400↔500, the nearest loaded face) is noise; a
-    // two-step gap (400↔600) is a real weight choice.
-    const ref = mani('ref', [el('Body', { fontWeight: 400 })])
-    expect(diffManifests(ref, mani('a', [el('Body', { fontWeight: 500 })])).deltas).toEqual([])
-    expect(hasDelta(diffManifests(ref, mani('a', [el('Body', { fontWeight: 600 })])).deltas, 'Body', 'fontWeight')).toBe(true)
-  })
-})
-
-// ── --strict restores exact matching (the opt-out) ───────────────────────────
-
-describe('REQ-35 values-diff — strict mode restores exact matching', () => {
-  it('test_UAT_FC_REQ-35_strict_surfaces_suppressed_jitter', () => {
-    const ref = mani('ref', [el('Body', { fontSizePx: 24, lineHeightPx: 28, fontWeight: 400 })])
-    const actual = mani('a', [el('Body', { fontSizePx: 25, lineHeightPx: 30, fontWeight: 500 })])
-    // Default: all three are within tolerance → clean.
-    expect(diffManifests(ref, actual).deltas).toEqual([])
-    // Strict: every jitter tolerance collapses to exact → all three flagged.
-    const strict = diffManifests(ref, actual, { strict: true })
-    expect(hasDelta(strict.deltas, 'Body', 'fontSizePx')).toBe(true)
-    expect(hasDelta(strict.deltas, 'Body', 'lineHeightPx')).toBe(true)
-    expect(hasDelta(strict.deltas, 'Body', 'fontWeight')).toBe(true)
-  })
-
-  it('test_UAT_FC_REQ-35_per_metric_override_widens_one_tolerance', () => {
-    // A caller can loosen a single metric without touching the others.
-    const ref = mani('ref', [el('Body', { fontSizePx: 24 })])
-    const actual = mani('a', [el('Body', { fontSizePx: 27 })]) // Δ3
-    expect(hasDelta(diffManifests(ref, actual).deltas, 'Body', 'fontSizePx')).toBe(true)
-    expect(diffManifests(ref, actual, { fontSizeTolerancePx: 4 }).deltas).toEqual([])
-  })
-})
-
-// ── colour precision preserved: ΔE kills rounding, not near-neighbours ────────
-
-describe('REQ-35 values-diff — perceptual colour tolerance', () => {
+describe('REQ-35 values-diff — perceptual colour distance metric', () => {
   it('test_UAT_FC_REQ-35_color_distance_scale', () => {
-    // REQ-48 item 8b: distance is now ΔEOK (OKLab), scale 0..~1 not 0..~765.
+    // REQ-48 item 8b: distance is ΔEOK (OKLab), scale 0..~1 not 0..~765.
     expect(colorDistance('#000000', '#000000')).toBe(0)
     expect(colorDistance('#000000', '#ffffff')).toBeGreaterThan(0.9)
-    // A single-channel ±1 rounding step is ≈0.0015 ΔEOK — sub-threshold.
+    // A single-channel ±1 rounding step is ≈0.0015 ΔEOK — below the JND band a
+    // `tolerant` colour pass uses (0.02), though exact-by-default now flags it.
     expect(colorDistance('#808080', '#818080')).toBeLessThan(0.01)
-    // The flagship near-neighbour golds are ≈0.105 ΔEOK apart — above tolerance.
+    // The flagship near-neighbour golds are ≈0.105 ΔEOK apart — the reason the
+    // tool exists; above even the tolerant band.
     expect(colorDistance('#f5e6a3', '#fbba72')).toBeGreaterThan(0.05)
     // Unparseable input is never silently treated as a match.
     expect(colorDistance('#f5e6a3', 'not-a-colour')).toBe(Infinity)
   })
 
-  it('test_UAT_FC_REQ-35_imperceptible_rounding_not_flagged', () => {
-    const ref = mani('ref', [el('Body', { color: '#808080' })])
-    expect(diffManifests(ref, mani('a', [el('Body', { color: '#818080' })])).deltas).toEqual([])
-  })
-
   it('test_UAT_FC_REQ-35_near_neighbour_gold_still_flagged', () => {
-    // The whole reason the tool exists — gold-vs-gold must survive the tolerance.
+    // Gold-vs-gold must survive every mode — flagged under the exact default…
     const ref = mani('ref', [el('Subhead', { color: '#f5e6a3' })])
     const report = diffManifests(ref, mani('a', [el('Subhead', { color: '#fbba72' })]))
     expect(hasDelta(report.deltas, 'Subhead', 'color')).toBe(true)
+    // …and still flagged even under the loose `tolerant` opt-out (0.105 > 0.02).
+    const loose = diffManifests(ref, mani('a', [el('Subhead', { color: '#fbba72' })]), { tolerant: true })
+    expect(hasDelta(loose.deltas, 'Subhead', 'color')).toBe(true)
   })
 })
 
-// ── inferred reference colours do not produce hard deltas ────────────────────
+// ── inferred reference colours do not produce hard deltas (any mode) ──────────
 
 describe('REQ-35 values-diff — inferred reference colour is low-confidence', () => {
   it('test_UAT_FC_REQ-35_inferred_reference_colour_skipped', async () => {

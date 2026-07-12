@@ -191,6 +191,8 @@ describe('REQ-48 item 8b — perceptual OKLab colour distance', () => {
   it('test_UAT_FC_REQ-48_oklab_jitter_passes_but_near_neighbour_flags', () => {
     // Sub-JND rounding on one run is clean; a near-neighbour gold shift on
     // another is a real colour delta — one perceptual threshold separates them.
+    // REQ-53 — colour is exact by default, so the JND (0.02) band this metric
+    // property lives on is asserted under the `tolerant` opt-out.
     const expected = mani('ref', [
       el('caption', { color: '#808080' }),
       el('brand', { color: '#f5e6a3' }),
@@ -199,7 +201,7 @@ describe('REQ-48 item 8b — perceptual OKLab colour distance', () => {
       el('caption', { color: '#818080' }),
       el('brand', { color: '#fbba72' }),
     ])
-    const report = diffManifests(expected, actual)
+    const report = diffManifests(expected, actual, { tolerant: true })
     const colorDeltas = report.deltas.filter((d) => d.kind === 'color' && !d.systemic)
     expect(colorDeltas).toHaveLength(1)
     expect(colorDeltas[0].text).toBe('brand')
@@ -525,9 +527,12 @@ describe('REQ-48 item 6 — cross-engine', () => {
   it('test_UAT_FC_REQ-48_cross_engine_subpixel_layout_tolerated', () => {
     // Diffs across engines are layout-box equivalence, not pixel-equality: a few
     // px of AA / font-hinting drift between Blink and WebKit must not flag.
+    // REQ-53 — that drift is NOT an authored value (it is the other engine's
+    // rendering), so geometry is exact by default and a cross-engine comparison
+    // must opt into loose matching explicitly via `tolerant`.
     const expected = mani('ref', [el('Heading', { box: box(0, 0, 300, 40) })])
     const actual = mani('draft', [el('Heading', { box: box(2, 2, 302, 41) })])
-    const report = diffManifests(expected, actual)
+    const report = diffManifests(expected, actual, { tolerant: true })
     expect(report.deltas.some((d) => d.kind === 'position' || d.kind === 'size')).toBe(false)
   })
 

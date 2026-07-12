@@ -196,9 +196,12 @@ describe('REQ-47 severity comparator — tier over magnitude', () => {
 
 describe('REQ-47 over-emit and pairing', () => {
   it('test_UAT_FC_REQ-47_position_within_tolerance_is_not_flagged', () => {
+    // REQ-53 — position is exact by default; the loose smoke-detector band this
+    // over-emit behaviour relies on now lives behind the `tolerant` opt-out.
     const { deltas } = diffManifests(
       mani([textEl('x', { box: box(0, 0, 40, 40) })]),
-      mani([textEl('x', { box: box(0, 12, 40, 40) })]), // 12px < 24px default
+      mani([textEl('x', { box: box(0, 12, 40, 40) })]), // 12px < 24px tolerant band
+      { tolerant: true },
     )
     expect(deltas).toEqual([])
   })

@@ -863,16 +863,34 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
 }
 
 /**
- * Diff tolerances (REQ-35). The measurement fields carry jitter-tolerant
- * defaults so a "clean" diff reflects real fidelity gaps, not sub-pixel /
- * sub-step measurement noise — line-height rounds by font metric, weights snap
- * to the nearest *loaded* face, sizes ±1px viewport-clamp. Each is tight enough
- * to still catch a genuine off-by-one-step design error. `strict` zeroes every
- * measurement tolerance for an exact-match pass (colour → exact hex).
+ * Diff tolerances (REQ-53, superseding REQ-35). Exact match is the DEFAULT for
+ * every axis we author directly and the browser renders verbatim — a value we
+ * set is a value the diff must see reproduced. Tolerance is retained only where
+ * the rendered value is genuinely *not* authored:
+ *
+ *   • Group A — directly-authored scalars (colour, font-size/weight, line-height,
+ *     letter-spacing, padding, border-width, corner-radius): default 0 (exact).
+ *   • Group B — deterministic layout (element position, box width): default 0
+ *     with a ±1px allowance for integer rounding of the captured box.
+ *   • Group C — genuinely emergent, tolerance kept: box *height* (text wrapping ×
+ *     font metrics), gradient angle, overlay opacity, content anchor.
+ *
+ * REQ-35 made these axes jitter-tolerant by default; but tolerance and a
+ * real-gap-we-ignore are indistinguishable from the outside (a 24px position
+ * tolerance silently hid an 8px hero-margin error — REQ-52). So the default is
+ * inverted: fuzzy only where we cannot reproduce what we see. `tolerant` restores
+ * the old loose REQ-35 defaults wholesale — the single opt-out for the rare
+ * unavoidable font-substitution case. Per-metric overrides below win over both
+ * the exact default and `tolerant`, so one axis can be loosened without
+ * abandoning exactness everywhere else.
  */
 export interface DiffOptions {
-  /** Exact-match mode: zero every measurement tolerance below. Overrides them. */
-  strict?: boolean
+  /**
+   * Restore loose matching: every measurement axis falls back to its pre-REQ-53
+   * jitter-tolerant default instead of exact. The escape hatch for a genuine
+   * font-substitution gap; per-metric overrides still win over it.
+   */
+  tolerant?: boolean
   /**
    * REQ-48 (item 9) — ignore-masks for legitimately-dynamic content. Each entry
    * is a regular-expression *source* string; a delta is suppressed when the
@@ -898,47 +916,63 @@ export interface DiffOptions {
    * disable aggregation.
    */
   systemicThreshold?: number
-  /** Perceptual colour distance (OKLab ΔEOK) under which a colour pair matches (default 0.02, the JND band). */
+  /** Perceptual colour distance (OKLab ΔEOK) under which a colour pair matches (default 0 exact; `tolerant` 0.02, the JND band). */
   colorTolerance?: number
-  /** Font-size px tolerance (default 1). */
+  /** Font-size px tolerance (default 0 exact; `tolerant` 1). */
   fontSizeTolerancePx?: number
   /**
-   * Line-height px floor tolerance (default 2). Line-height is proportional to
-   * font size, so the effective tolerance is `max(floor, ratio × expected)` —
-   * this floor only dominates on small text. See {@link lineHeightToleranceRatio}.
+   * Line-height px floor tolerance (default 0 exact; `tolerant` 2). Under
+   * `tolerant`, line-height is proportional to font size, so the effective
+   * tolerance is `max(floor, ratio × expected)` — the floor only dominates on
+   * small text. See {@link lineHeightToleranceRatio}.
    */
   lineHeightTolerancePx?: number
   /**
    * Line-height relative tolerance as a fraction of the expected line-height
-   * (default 0.12). The dominant jitter bucket is font-metric line-height drift,
-   * which scales with the value; a relative band tracks it where an absolute px
-   * floor cannot (4px is noise on a 72px heading, a real delta on a 14px caption).
+   * (default 0 exact; `tolerant` 0.12). The dominant jitter bucket is font-metric
+   * line-height drift, which scales with the value; under `tolerant` a relative
+   * band tracks it where an absolute px floor cannot.
    */
   lineHeightToleranceRatio?: number
-  /** Letter-spacing px tolerance (default 0.5). */
+  /** Letter-spacing px tolerance (default 0 exact; `tolerant` 0.5). */
   letterSpacingTolerancePx?: number
-  /** Left-padding px tolerance (default 1). */
+  /** Left-padding px tolerance (default 0 exact; `tolerant` 1). */
   paddingTolerancePx?: number
-  /** Left-bar width px tolerance (default 1). */
+  /** Left-bar width px tolerance (default 0 exact; `tolerant` 1). */
   borderWidthTolerancePx?: number
-  /** Font-weight tolerance — suppresses nearest-loaded-weight snap (default 100). */
+  /** Font-weight tolerance (default 0 exact; `tolerant` 100 suppresses nearest-loaded-weight snap). */
   fontWeightTolerance?: number
-  /** Gradient direction tolerance in degrees (default 20). */
+  /** Gradient direction tolerance in degrees (default 20 — art-directed, Group C, always kept). */
   gradientAngleToleranceDeg?: number
-  /** Overlay (scrim) opacity tolerance, 0–1 (default 0.1). */
+  /** Overlay (scrim) opacity tolerance, 0–1 (default 0.1 — art-directed, Group C, always kept). */
   overlayOpacityTolerance?: number
-  /** Vertical-anchor tolerance as a fraction of box height (default 0.15). */
+  /** Vertical-anchor tolerance as a fraction of box height (default 0.15 — art-directed, Group C, always kept). */
   anchorTolerance?: number
   /**
-   * REQ-47 — element position tolerance in px (default 24). A rendered box whose
-   * x or y differs by more than this emits a `position` delta. Loose by design:
-   * the tool is a smoke detector, and a false positive costs one glance while a
-   * false negative is the hero-block-200px-out miss this ticket exists to catch.
+   * REQ-47/REQ-53 — element position tolerance in px (default 1, an integer-
+   * rounding allowance for the captured box; `tolerant` 24). Position is
+   * deterministic layout (Group B): a rendered box whose x or y differs by more
+   * than the allowance emits a `position` delta. REQ-52 showed the old loose 24px
+   * default silently hid an 8px hero-margin error, so exact-with-rounding is the
+   * default and the loose smoke-detector band is behind `tolerant`.
    */
   positionTolerancePx?: number
-  /** REQ-47 — element size (width/height) tolerance in px (default 16). */
-  sizeTolerancePx?: number
-  /** REQ-47 — corner-radius tolerance in px (default 4); rounded-vs-square pops. */
+  /**
+   * REQ-53 — box width tolerance in px (default 1, an integer-rounding allowance;
+   * `tolerant` 16). Width is container-determined deterministic layout (Group B),
+   * so it is exact by default — split off from the combined `size` axis so a real
+   * width gap can't hide behind the wrapping allowance height legitimately needs.
+   */
+  widthTolerancePx?: number
+  /**
+   * REQ-53 — box height tolerance in px (default 8; `tolerant` 16). Height emerges
+   * from text wrapping × font metrics (Group C) — only exact when the font itself
+   * is reproduced — so a small tolerance is retained. The 8px band absorbs
+   * per-line metric rounding while still catching a whole extra wrapped line
+   * (≥ one line-height, typically ≥16px).
+   */
+  heightTolerancePx?: number
+  /** REQ-47/REQ-53 — corner-radius tolerance in px (default 0 exact; `tolerant` 4). */
   borderRadiusTolerancePx?: number
 }
 
@@ -1193,27 +1227,35 @@ export function diffManifests(
   actual: ValueManifest,
   opts: DiffOptions = {},
 ): ValuesDiffReport {
-  const strict = opts.strict ?? false
-  // `strict` collapses every measurement tolerance to exact; otherwise each
-  // falls back to its jitter-tolerant default.
-  const tol = (v: number | undefined, def: number): number => (strict ? 0 : (v ?? def))
-  const colorTol = tol(opts.colorTolerance, 0.02)
-  const fontSizeTol = tol(opts.fontSizeTolerancePx, 1)
-  const lineHeightFloor = tol(opts.lineHeightTolerancePx, 2)
-  const lineHeightRatio = tol(opts.lineHeightToleranceRatio, 0.12)
-  const letterSpacingTol = tol(opts.letterSpacingTolerancePx, 0.5)
-  const paddingTol = tol(opts.paddingTolerancePx, 1)
-  const borderWidthTol = tol(opts.borderWidthTolerancePx, 1)
-  const weightTol = tol(opts.fontWeightTolerance, 100)
-  // Structural tolerances (direction bucket, scrim opacity, vertical anchor) are
-  // not sub-step measurement jitter, so `strict` leaves them at their defaults.
+  const tolerant = opts.tolerant ?? false
+  // REQ-53 — exact match is the default. A per-metric override wins over both the
+  // exact default and `tolerant`; absent an override, `tolerant` restores the
+  // pre-REQ-53 jitter-tolerant default (the escape hatch for a genuine
+  // font-substitution gap we cannot author away).
+  const tol = (v: number | undefined, exact: number, loose: number): number =>
+    v ?? (tolerant ? loose : exact)
+  const colorTol = tol(opts.colorTolerance, 0, 0.02)
+  const fontSizeTol = tol(opts.fontSizeTolerancePx, 0, 1)
+  const lineHeightFloor = tol(opts.lineHeightTolerancePx, 0, 2)
+  const lineHeightRatio = tol(opts.lineHeightToleranceRatio, 0, 0.12)
+  const letterSpacingTol = tol(opts.letterSpacingTolerancePx, 0, 0.5)
+  const paddingTol = tol(opts.paddingTolerancePx, 0, 1)
+  const borderWidthTol = tol(opts.borderWidthTolerancePx, 0, 1)
+  const weightTol = tol(opts.fontWeightTolerance, 0, 100)
+  // Art-directed tolerances (direction bucket, scrim opacity, vertical anchor)
+  // are measured perceptually, never authored precisely — REQ-53 Group C, kept
+  // tolerant always, independent of `tolerant`.
   const angleTol = opts.gradientAngleToleranceDeg ?? 20
   const opacityTol = opts.overlayOpacityTolerance ?? 0.1
   const anchorTol = opts.anchorTolerance ?? 0.15
-  // REQ-47 geometry tolerances — loose (smoke detector, biased to over-emit).
-  const positionTol = tol(opts.positionTolerancePx, 24)
-  const sizeTol = tol(opts.sizeTolerancePx, 16)
-  const radiusTol = tol(opts.borderRadiusTolerancePx, 4)
+  // REQ-53 geometry: position + width are deterministic layout (Group B) → exact
+  // with a ±1px integer-rounding allowance. Height emerges from text wrapping ×
+  // font metrics (Group C) → a small documented tolerance. `tolerant` restores
+  // the old loose smoke-detector bands.
+  const positionTol = tol(opts.positionTolerancePx, 1, 24)
+  const widthTol = tol(opts.widthTolerancePx, 1, 16)
+  const heightTol = tol(opts.heightTolerancePx, 8, 16)
+  const radiusTol = tol(opts.borderRadiusTolerancePx, 0, 4)
 
   // REQ-48 (item 9) — the calendar-year mask folds every 4-digit year in the
   // *join key* and the verbatim-text comparison, so a footer that differs only by
@@ -1293,11 +1335,14 @@ export function diffManifests(
     if (exp.box && act.box) {
       const dpos = Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y))
       if (dpos > positionTol) push(exp, 'position', posLabel(exp.box), posLabel(act.box), dpos)
-      const dsize = Math.max(
-        Math.abs(exp.box.width - act.box.width),
-        Math.abs(exp.box.height - act.box.height),
-      )
-      if (dsize > sizeTol) push(exp, 'size', sizeLabel(exp.box), sizeLabel(act.box), dsize)
+      // REQ-53 — width is container-determined (exact, Group B); height emerges
+      // from text wrapping × font metrics (tolerant, Group C). Split the axis so
+      // a real width gap can't hide behind the wrapping allowance height needs.
+      const dw = Math.abs(exp.box.width - act.box.width)
+      const dh = Math.abs(exp.box.height - act.box.height)
+      if (dw > widthTol || dh > heightTol) {
+        push(exp, 'size', sizeLabel(exp.box), sizeLabel(act.box), Math.max(dw, dh))
+      }
     }
     if (exp.borderRadiusPx !== undefined && act.borderRadiusPx !== undefined) {
       const dr = Math.abs(exp.borderRadiusPx - act.borderRadiusPx)

@@ -87,9 +87,10 @@ Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
 Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json] [--sandbox]
   1c values-diff --ref <captureBundleDir> --actual <manifest.json> [--out <file>] [--json]
-  Noise controls (REQ-35): tolerances default to jitter-tolerant; --strict = exact match.
-    [--strict] [--color-tol <ΔE>] [--font-size-tol <px>] [--line-height-tol <px>]
+  Tolerance controls (REQ-53): axes we author are EXACT by default; --tolerant restores loose matching.
+    [--tolerant] [--color-tol <ΔE>] [--font-size-tol <px>] [--line-height-tol <px>]
     [--letter-spacing-tol <px>] [--padding-tol <px>] [--border-tol <px>] [--weight-tol <n>]
+    [--position-tol <px>] [--width-tol <px>] [--height-tol <px>] [--radius-tol <px>]
   Ignore-masks (REQ-48): [--ignore <regex,regex,…>] suppress dynamic content; [--compare-years] disable the built-in © year mask.
 
 Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regions + crop triptychs:
@@ -269,8 +270,9 @@ export async function run(argv: string[]): Promise<void> {
       const actualPath = typeof flags.actual === 'string' ? flags.actual : undefined
       const slug = actualPath ? undefined : requireSlug(rest[0])
       const source: RenderChannel = flags.source === 'published' ? 'published' : 'draft'
-      // REQ-35 tolerance flags: `--strict` for an exact pass, or per-metric
-      // numeric overrides (`--color-tol`, `--line-height-tol`, …).
+      // REQ-53 tolerance flags: axes we author are exact by default; `--tolerant`
+      // restores loose matching, or per-metric numeric overrides (`--color-tol`,
+      // `--line-height-tol`, `--position-tol`, …) loosen a single axis.
       const numFlag = (name: string): number | undefined => {
         const v = flags[name]
         if (typeof v !== 'string') return undefined
@@ -288,7 +290,7 @@ export async function run(argv: string[]): Promise<void> {
               .filter(Boolean)
           : undefined
       const diffOptions = {
-        strict: flags.strict === true,
+        tolerant: flags.tolerant === true,
         ignore,
         ignoreDynamicYear: flags['compare-years'] === true ? false : undefined,
         colorTolerance: numFlag('color-tol'),
@@ -298,6 +300,10 @@ export async function run(argv: string[]): Promise<void> {
         paddingTolerancePx: numFlag('padding-tol'),
         borderWidthTolerancePx: numFlag('border-tol'),
         fontWeightTolerance: numFlag('weight-tol'),
+        positionTolerancePx: numFlag('position-tol'),
+        widthTolerancePx: numFlag('width-tol'),
+        heightTolerancePx: numFlag('height-tol'),
+        borderRadiusTolerancePx: numFlag('radius-tol'),
       }
       const report = await cmdValuesDiff({
         ...global,

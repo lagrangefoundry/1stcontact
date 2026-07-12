@@ -47,7 +47,7 @@ export interface ValuesDiffOptions extends GlobalOptions {
   actualManifestPath?: string
   /** Write the full report JSON here in addition to returning it. */
   out?: string
-  /** Diff tolerances / strict mode (REQ-35); defaults are jitter-tolerant. */
+  /** Diff tolerances (REQ-53); axes we author are exact by default, `tolerant` restores loose matching. */
   diffOptions?: DiffOptions
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */
   driverFactory?: BrowserDriverFactory
