@@ -118,8 +118,8 @@
         "textAlign": "left",
         "headingAlign": "left",
         "surface": "default",
-        "spacingTop": "md",
-        "spacingBottom": "md"
+        "spacingTop": "xl",
+        "spacingBottom": "2xl"
       },
       "content": {
         "heading": {
@@ -371,8 +371,8 @@
         "textAlign": "left",
         "headingAlign": "left",
         "surface": "subtle",
-        "spacingTop": "sm",
-        "spacingBottom": "sm"
+        "spacingTop": "xl",
+        "spacingBottom": "2xl"
       },
       "content": {
         "heading": {
