@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-52 oklch-colour fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
+      section { padding: 48px; }
+      /* Tailwind v4 emits modern oklch() colours. The old rgb()-only capture
+         regex could not parse these, so every such run was mis-flagged
+         colorInferred and fell back to the #000000 sentinel (REQ-52). */
+      /* Tailwind blue-500 ≈ #3b82f6 — a clearly blue-dominant colour. */
+      .oklch-blue { color: oklch(62.3% 0.214 259.8); font-size: 20px; }
+      /* The real gigabytealchemy body colour — a dark slate, NOT pure black. */
+      .oklch-slate { color: oklch(37.2% 0.044 257.287); font-size: 20px; }
+      /* Regression guard: a genuinely transparent fill must STILL be inferred. */
+      .ghost { color: transparent; font-size: 20px; }
+    </style>
+  </head>
+  <body>
+    <section>
+      <p class="oklch-blue">OKLCH blue run</p>
+      <p class="oklch-slate">OKLCH slate run</p>
+      <p class="ghost">Transparent ghost run</p>
+    </section>
+  </body>
+</html>

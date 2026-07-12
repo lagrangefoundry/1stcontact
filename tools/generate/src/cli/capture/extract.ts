@@ -141,14 +141,53 @@ export const EXTRACT_SCRIPT = `(() => {
   var DOC = document.documentElement;
   var docW = DOC.scrollWidth, docH = DOC.scrollHeight;
 
+  // REQ-52: resolve ANY browser-understood CSS colour (rgb/rgba/hsl/named and
+  // modern oklch/lab/lch/color()) to #rrggbb. getComputedStyle on a Tailwind v4
+  // site returns oklch(...) for text/borders; the old rgb()-only regex could not
+  // parse it, so every such run fell back to an inferred #000000. Painting the
+  // colour onto a 1x1 canvas and reading the pixel converts whatever the browser
+  // accepts into real sRGB bytes. A two-sentinel probe preserves the previous
+  // "unparseable → null" contract, and a zero alpha still returns null (unpainted
+  // / fully transparent, e.g. background-clip:text fills). Where no 2d canvas is
+  // available (e.g. the jsdom-based unit tests), fall back to the legacy
+  // rgb()/rgba() regex parse so those environments still resolve plain colours.
+  function h2(n) { return ('0' + Math.round(n).toString(16)).slice(-2); }
+  var __colorCtx, __colorCtxTried = false;
+  function colorCtx() {
+    if (!__colorCtxTried) {
+      __colorCtxTried = true;
+      try {
+        var cv = document.createElement('canvas');
+        cv.width = cv.height = 1;
+        __colorCtx = cv.getContext('2d', { willReadFrequently: true }) || null;
+      } catch (e) { __colorCtx = null; }
+    }
+    return __colorCtx;
+  }
   function rgbToHex(str) {
     if (!str) return null;
+    var ctx = colorCtx();
+    if (ctx) {
+      try {
+        ctx.fillStyle = '#000000';
+        ctx.fillStyle = str;
+        var probe = ctx.fillStyle;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = str;
+        if (ctx.fillStyle !== probe) return null; // str is not a valid colour
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = str;
+        ctx.fillRect(0, 0, 1, 1);
+        var d = ctx.getImageData(0, 0, 1, 1).data;
+        if (d[3] === 0) return null; // fully transparent
+        return '#' + h2(d[0]) + h2(d[1]) + h2(d[2]);
+      } catch (e) { /* fall through to the regex path below */ }
+    }
     var m = str.match(/rgba?\\(([^)]+)\\)/);
     if (!m) return null;
     var p = m[1].split(',').map(function (s) { return parseFloat(s.trim()); });
     if (p.length >= 4 && p[3] === 0) return null; // fully transparent
-    function h(n) { return ('0' + Math.round(n).toString(16)).slice(-2); }
-    return '#' + h(p[0]) + h(p[1]) + h(p[2]);
+    return '#' + h2(p[0]) + h2(p[1]) + h2(p[2]);
   }
   function luminance(hex) {
     var r = parseInt(hex.slice(1, 3), 16) / 255;
