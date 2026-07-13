@@ -69,6 +69,9 @@ export interface RawRun extends RawGeometry {
   /** Left border colour `#rrggbb` when a left border is painted, else null. */
   borderLeftColor: string | null
   paddingLeftPx: number
+  /** REQ-58 (T1) — tight bounds around the rendered text (Range-measured glyph
+   *  extent, padding-excluded); null when unmeasurable. */
+  renderedTextBox?: { x: number; y: number; width: number; height: number } | null
 }
 
 /**
@@ -229,6 +232,21 @@ export const EXTRACT_SCRIPT = `(() => {
   function absBox(el) {
     var r = el.getBoundingClientRect();
     return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+  }
+  // REQ-58 (T1) — tight bounds around the element's *rendered text*, via a Range
+  // over its contents. Unlike the element box (which includes padding and, for a
+  // block, the full container width), this is the actual painted glyph extent, so
+  // a rendered size / tracking / weight-fallback difference is measurable even when
+  // computed fontSizePx matches. DOM-measured — robust where pixel-thresholding a
+  // glyph over a photographic background is not (DOC-19).
+  function renderedTextBox(el) {
+    try {
+      var range = el.ownerDocument.createRange();
+      range.selectNodeContents(el);
+      var r = range.getBoundingClientRect();
+      if (!r || r.width <= 0 || r.height <= 0) return null;
+      return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+    } catch (e) { return null; }
   }
   function roleOf(el) {
     var t = el.tagName.toLowerCase();
@@ -487,6 +505,8 @@ export const EXTRACT_SCRIPT = `(() => {
         paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
         // REQ-47 per-element geometry / shape / structure (arrangement filled later).
         box: absBox(el),
+        // REQ-58 (T1) — tight rendered-text bounds (glyph extent, padding-excluded).
+        renderedTextBox: renderedTextBox(el),
         borderRadiusPx: borderRadiusOf(s),
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),

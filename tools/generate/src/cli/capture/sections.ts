@@ -87,6 +87,8 @@ function toContentRun(r: RawRun): ContentRun {
   if (r.fontLoaded === false) run.fontLoaded = false
   // REQ-47 — rendered geometry / shape / structure (always captured live).
   run.box = r.box
+  // REQ-58 (T1) — tight rendered-text bounds (null when unmeasurable).
+  if (r.renderedTextBox) run.renderedTextBox = r.renderedTextBox
   run.borderRadiusPx = r.borderRadiusPx
   run.boxShadow = r.boxShadow
   run.a11yRole = r.a11yRole

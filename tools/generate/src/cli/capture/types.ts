@@ -349,6 +349,14 @@ export interface ContentRun extends ElementGeometry {
   /** Computed left padding/indent in px. */
   paddingLeftPx?: number
   /**
+   * REQ-58 (T1) — tight bounds around the *rendered text* (Range-measured glyph
+   * extent, padding-excluded), distinct from {@link box} (element rect incl.
+   * padding, and the full container width for a block). Surfaces a real rendered
+   * size / tracking / weight-fallback difference the computed `fontSizePx` misses.
+   * Optional so pre-T1 bundles still parse.
+   */
+  renderedTextBox?: Box | null
+  /**
    * REQ-35 — true when {@link color} could not be resolved from computed styles
    * and fell back to the `#000000`/`#ffffff` sentinel (a transparent/unpainted
    * text colour). Marks the value as low-confidence so the values-diff does not

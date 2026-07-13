@@ -71,6 +71,10 @@ export interface ValueElement {
   // ── REQ-47 rendered geometry / shape / structure ─────────────────────────
   /** `getBoundingClientRect()` box in full-page document coords. */
   box?: Box
+  /** REQ-58 (T1) — tight rendered-text bounds (Range-measured glyph extent,
+   *  padding-excluded). Catches a rendered size / tracking / weight-fallback
+   *  difference the computed `fontSizePx` misses. Optional for pre-T1 manifests. */
+  renderedTextBox?: Box | null
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx?: number
   /** Computed `box-shadow` when a shadow is painted, else null. */
@@ -218,6 +222,8 @@ export type DeltaProperty =
   // ── REQ-47 structural properties ─────────────────────────────────────────
   | 'position'
   | 'size'
+  // ── REQ-58 (T1) tight rendered-text extent ───────────────────────────────
+  | 'renderedTextBox'
   | 'shape'
   | 'arrangement'
   | 'containment'
@@ -534,6 +540,7 @@ function copyGeometry(
   el: ValueElement,
   src: {
     box?: Box
+    renderedTextBox?: Box | null
     borderRadiusPx?: number
     boxShadow?: string | null
     a11yRole?: string
@@ -548,6 +555,7 @@ function copyGeometry(
   },
 ): void {
   if (src.box !== undefined) el.box = src.box
+  if (src.renderedTextBox != null) el.renderedTextBox = src.renderedTextBox
   if (src.borderRadiusPx !== undefined) el.borderRadiusPx = src.borderRadiusPx
   if (src.boxShadow !== undefined) el.boxShadow = src.boxShadow
   if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
@@ -903,6 +911,9 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   paddingLeftPx: 'padding',
   position: 'position',
   size: 'size',
+  // REQ-58 (T1) — rendered-text extent is a size fact; reuses the `size` kind's
+  // HIGH tier / ranking (a rendered size difference is a genuine visual defect).
+  renderedTextBox: 'size',
   shape: 'shape',
   arrangement: 'arrangement',
   containment: 'containment',
@@ -1034,6 +1045,15 @@ export interface DiffOptions {
    * (≥ one line-height, typically ≥16px).
    */
   heightTolerancePx?: number
+  /**
+   * REQ-58 (T1) — tight rendered-text-box tolerance as a RATIO of the glyph extent
+   * (default 0.012 = 1.2%; `tolerant` 0.03). The tight extent (Range-measured) is
+   * font-metric-determined: identical font + engine → identical glyphs, so the
+   * default is near-exact and a real rendered size / tracking / weight-fallback
+   * difference (invisible to computed `fontSizePx`) surfaces as a `renderedTextBox`
+   * delta. Relative because the extent scales with text length.
+   */
+  renderedTextBoxToleranceRatio?: number
   /** REQ-47/REQ-53 — corner-radius tolerance in px (default 0 exact; `tolerant` 4). */
   borderRadiusTolerancePx?: number
 }
@@ -1066,6 +1086,11 @@ function posLabel(box: Box): string {
 /** `w×h` size label. */
 function sizeLabel(box: Box): string {
   return `${Math.round(box.width)}×${Math.round(box.height)}`
+}
+
+/** REQ-58 (T1) — tight rendered-text `w×h` label (glyph extent). */
+function textBoxLabel(box: Box): string {
+  return `text ${Math.round(box.width)}×${Math.round(box.height)}`
 }
 
 /** Rendered-shape label — radius + shadow presence. */
@@ -1155,7 +1180,7 @@ function objectKindOf(el: ValueElement): ObjectKind {
  * position is always visible (item 2).
  */
 const KIND_PARAMS: Record<ObjectKind, string[]> = {
-  text: ['fontFamily', 'fontSizePx', 'fontWeight', 'color', 'letterSpacingPx', 'lineHeightPx', 'box'],
+  text: ['fontFamily', 'fontSizePx', 'fontWeight', 'color', 'letterSpacingPx', 'lineHeightPx', 'renderedTextBox', 'box'],
   image: ['name', 'objectFit', 'aspect', 'box'],
   control: ['name', 'nameSource', 'box'],
   divider: ['box'],
@@ -1175,6 +1200,7 @@ const PARAM_PROPS: Record<string, DeltaProperty[]> = {
   color: ['color'],
   letterSpacingPx: ['letterSpacingPx'],
   lineHeightPx: ['lineHeightPx'],
+  renderedTextBox: ['renderedTextBox'],
   box: ['position', 'size'],
   nameSource: ['containment'],
   objectFit: ['objectFit'],
@@ -1198,6 +1224,8 @@ function paramValue(name: string, el: ValueElement | undefined): string {
       return el.letterSpacingPx !== undefined ? `${el.letterSpacingPx}` : '—'
     case 'lineHeightPx':
       return el.lineHeightPx !== undefined ? `${el.lineHeightPx}` : '—'
+    case 'renderedTextBox':
+      return el.renderedTextBox ? textBoxLabel(el.renderedTextBox) : '—'
     case 'box':
       return boxLabel(el.box)
     case 'name':
@@ -1386,6 +1414,11 @@ export function diffManifests(
   const positionTol = tol(opts.positionTolerancePx, 1, 24)
   const widthTol = tol(opts.widthTolerancePx, 1, 16)
   const heightTol = tol(opts.heightTolerancePx, 8, 16)
+  // REQ-58 (T1) — tight rendered-text bounds, as a RATIO of the glyph extent. Same
+  // font+engine renders identical glyphs, so this is ~0 when the values match; the
+  // small ratio band absorbs sub-pixel Range rounding while still catching a real
+  // rendered size / tracking / weight-fallback gap (7% on a heading, 2% on a label).
+  const renderedTextBoxTol = tol(opts.renderedTextBoxToleranceRatio, 0.012, 0.03)
   const radiusTol = tol(opts.borderRadiusTolerancePx, 0, 4)
 
   // REQ-48 (item 9) — the calendar-year mask folds every 4-digit year in the
@@ -1473,6 +1506,36 @@ export function diffManifests(
       const dh = Math.abs(exp.box.height - act.box.height)
       if (dw > widthTol || dh > heightTol) {
         push(exp, 'size', sizeLabel(exp.box), sizeLabel(act.box), Math.max(dw, dh))
+      }
+    }
+    // REQ-58 (T1) — tight rendered-text bounds. Distinct from box: box.width is the
+    // container (Group B) and box.height the wrapped block (Group C); this is the
+    // actual painted glyph extent, so a rendered size / tracking / weight-fallback
+    // difference surfaces even when fontSizePx / fontWeight / letterSpacing all
+    // match. DOM-measured — robust where pixel-thresholding a glyph over a
+    // photographic background is not (DOC-19). A single-line run gives a pure size
+    // signal; a multi-line run's width is its widest line and height its wrapped
+    // block (wrapping-confounded, like box), so the same integer-rounding tolerance
+    // applies.
+    if (exp.renderedTextBox && act.renderedTextBox) {
+      const dtw = Math.abs(exp.renderedTextBox.width - act.renderedTextBox.width)
+      const dth = Math.abs(exp.renderedTextBox.height - act.renderedTextBox.height)
+      // Relative, not absolute: the glyph extent scales with text length, so a
+      // fixed-px band would flag a 0.4% sub-pixel difference on a long line while
+      // missing a 2% one on a short label. Ratio-of-extent separates them cleanly.
+      // Width is the glyph-advance signal (tracking / size / weight-fallback);
+      // height is cap-to-descender, noisy at ±1px line-box rounding, so it also
+      // needs an absolute floor before a ratio can fire.
+      const relW = dtw / Math.max(1, exp.renderedTextBox.width)
+      const relH = dth / Math.max(1, exp.renderedTextBox.height)
+      if (relW > renderedTextBoxTol || (dth >= 3 && relH > renderedTextBoxTol)) {
+        push(
+          exp,
+          'renderedTextBox',
+          textBoxLabel(exp.renderedTextBox),
+          textBoxLabel(act.renderedTextBox),
+          Math.max(dtw, dth),
+        )
       }
     }
     if (exp.borderRadiusPx !== undefined && act.borderRadiusPx !== undefined) {
