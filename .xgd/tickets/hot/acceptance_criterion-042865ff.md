@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Every object card shows the object's box position as a first-class parameter
 created_by: xgd
 created_at: '2026-07-13T19:51:21.406763+00:00'
-updated_at: '2026-07-13T19:51:21.406763+00:00'
+updated_at: '2026-07-13T19:57:11.695981+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-74050e88
   kind: behavior
