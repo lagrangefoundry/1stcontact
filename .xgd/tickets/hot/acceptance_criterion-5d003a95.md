@@ -6,10 +6,10 @@ title: Comparison output groups deltas into one card per reference object, worst
   first
 created_by: xgd
 created_at: '2026-07-13T19:51:18.675527+00:00'
-updated_at: '2026-07-13T19:51:18.675527+00:00'
+updated_at: '2026-07-13T19:57:11.790494+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-74050e88
   kind: behavior
