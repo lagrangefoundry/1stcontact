@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Directly-authored axes require an exact match by default
 created_by: xgd
 created_at: '2026-07-13T20:00:27.666856+00:00'
-updated_at: '2026-07-13T20:00:27.666856+00:00'
+updated_at: '2026-07-13T20:09:23.689022+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-dadb8475
   kind: behavior
