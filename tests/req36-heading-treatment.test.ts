@@ -634,24 +634,25 @@ describe('REQ-36 extended spacing + gap scale — airy sections', () => {
 
 describe('REQ-36 fc-row content measure — boxing a partial-width row', () => {
   it('test_UAT_FC_REQ-36_row_boxes_to_a_shared_rowWidth', () => {
-    // A shared `readable` rowWidth boxes the whole row to the centred reading
-    // measure (the ~768px Offerings row) instead of the full-bleed default.
+    // A shared `3xl` rowWidth boxes the whole row to the centred reading measure
+    // (the ~768px Offerings row) instead of the full-bleed default. REQ-55: the
+    // measure is set inline as `--fc-row-width` (the named-step token), not a class.
     const html = composeRow([
-      { html: '<section>text</section>', width: 'third', surface: 'inverse', rowWidth: 'readable' },
-      { html: '<section>grid</section>', width: 'two-thirds', surface: 'inverse', rowWidth: 'readable' },
+      { html: '<section>text</section>', width: 'third', surface: 'inverse', rowWidth: '3xl' },
+      { html: '<section>grid</section>', width: 'two-thirds', surface: 'inverse', rowWidth: '3xl' },
     ])
-    expect(html).toContain('class="fc-row w-readable"')
-    expect(ROW_CSS).toMatch(/\.fc-row\.w-readable\s*\{[^}]*max-width:\s*var\(--container-readable\)/)
+    expect(html).toContain('style="--fc-row-width: var(--container-3xl)"')
+    expect(ROW_CSS).toMatch(/\.fc-row\s*\{[^}]*max-width:\s*var\(--fc-row-width, var\(--container-6xl\)\)/)
   })
 
   it('test_UAT_FC_REQ-36_row_defaults_to_full_bleed', () => {
-    // No rowWidth (or `default`) → the prior full-bleed row, unchanged.
+    // No rowWidth (or `bleed`) → the prior full-bleed row, no inline measure.
     const html = composeRow([
       { html: '<section>a</section>', width: 'half' },
       { html: '<section>b</section>', width: 'half' },
     ])
-    expect(html).toMatch(/class="fc-row"/)
-    expect(html).not.toContain('w-readable')
+    expect(html).toMatch(/<div class="fc-row">/)
+    expect(html).not.toContain('--fc-row-width')
   })
 })
 
@@ -743,7 +744,7 @@ describe('REQ-36 services-grid centered content column + footer muted gold', () 
   const items = [{ title: { text: 'A' }, body: 'x' }, { title: { text: 'B' }, body: 'y' }]
 
   it('test_UAT_FC_REQ-36_grid_content_align_center_centres_the_capped_column', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', dials: { contentWidth: 'readable', contentAlign: 'center' }, content: { items } })
+    const html = await render(ServicesGrid, { variant: 'three-col', dials: { contentWidth: '3xl', contentAlign: 'center' }, content: { items } })
     expect(html).toContain('content-align-center')
     expect(gridCss).toMatch(/\.services-grid\.content-align-center\s+\.services-grid__inner\s*\{[^}]*align-items:\s*center/)
   })
@@ -853,20 +854,22 @@ describe('REQ-36 element fidelity — CTA typography, panel corner, body weight,
     expect(without).toMatch(/--font-family-label:\s*Karla/)
   })
 
-  it('test_UAT_FC_REQ-36_textblock_contentWidth_xnarrow_caps_the_column', async () => {
-    // `xnarrow` is a tighter column than `narrow` — the "Who Uses" checklist reads
-    // in a ~32rem centred box, not the full section width, so its items wrap like
-    // the reference. Caps the inner content to `--container-xnarrow`.
-    const html = await render(TextBlock, { variant: 'prose', dials: { contentWidth: 'xnarrow', align: 'center' }, content: { heading: { text: 'H' }, body: '- one\n- two' } })
-    expect(html).toContain('content-width-xnarrow')
-    expect(textBlockCss).toMatch(/\.text-block\.content-width-xnarrow \.text-block__inner > \*\s*\{[^}]*max-width:\s*var\(--container-xnarrow\)/)
+  it('test_UAT_FC_REQ-36_textblock_contentWidth_lg_caps_the_column', async () => {
+    // `lg` (32rem/512px) is the tight column the "Who Uses" checklist reads in — a
+    // centred box, not the full section width, so its items wrap like the reference.
+    // REQ-55: caps the content children to `--fc-content-width` (a named-step token),
+    // set inline; the section carries `has-content-width` instead of a per-name class.
+    const html = await render(TextBlock, { variant: 'prose', dials: { contentWidth: 'lg', align: 'center' }, content: { heading: { text: 'H' }, body: '- one\n- two' } })
+    expect(html).toContain('has-content-width')
+    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
+    expect(textBlockCss).toMatch(/\.text-block\.has-content-width \.text-block__inner > \*\s*\{[^}]*max-width:\s*var\(--fc-content-width\)/)
   })
 
-  it('test_UAT_FC_REQ-36_theme_emits_container_xnarrow_below_narrow', () => {
-    // The token is a default-filled optional slot, so every theme emits it (~32rem,
-    // below --container-narrow), and an existing theme is unchanged.
+  it('test_UAT_FC_REQ-36_theme_emits_tailwind_container_scale', () => {
+    // REQ-55: the container scale is Tailwind's `max-w` steps; each is a
+    // default-filled optional slot, so every theme emits the whole scale.
     const css = generateThemeCss({})
-    expect(css).toMatch(/--container-xnarrow:\s*32rem/)
-    expect(css).toMatch(/--container-narrow:\s*40rem/)
+    expect(css).toMatch(/--container-lg:\s*32rem/)
+    expect(css).toMatch(/--container-4xl:\s*56rem/)
   })
 })

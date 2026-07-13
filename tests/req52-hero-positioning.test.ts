@@ -173,24 +173,25 @@ describe('REQ-52 — text-block prose reproduces services-grid geometry', () => 
     const html = await render(TextBlock, { variant: 'prose', dials: {}, content: { body: 'hi' } })
     expect(html).toContain('variant-prose')
     expect(html).toContain('panel-none')
-    expect(textBlockCss).toMatch(/\.variant-prose[^{]*\{[^}]*--container-default/)
+    expect(textBlockCss).toMatch(/\.variant-prose[^{]*\{[^}]*--container-6xl/)
     // The old narrow hard-cap that centred the column is gone.
-    expect(textBlockCss).not.toMatch(/\.variant-prose[^{]*\{[^}]*--container-narrow/)
+    expect(textBlockCss).not.toMatch(/\.variant-prose[^{]*\{[^}]*--container-lg/)
   })
 
   it('test_UAT_FC_REQ-52_contentWidth_dial_is_live_on_panel_none_block', async () => {
     // Flexibility retained: an author can still opt a panel-none prose block into
-    // a narrower measure. The child-cap dial rule applies WITHOUT requiring a
-    // panel (no `:not(.panel-none)` guard on the child-cap selector), so it is no
-    // longer inert on the default block.
+    // a narrower measure. The child-cap rule applies WITHOUT requiring a panel (no
+    // `:not(.panel-none)` guard on the child-cap selector), so it is not inert on
+    // the default block. REQ-55: the cap is `--fc-content-width`, set inline.
     const html = await render(TextBlock, {
       variant: 'prose',
-      dials: { contentWidth: 'narrow' },
+      dials: { contentWidth: 'lg' },
       content: { body: 'hi' },
     })
-    expect(html).toContain('content-width-narrow')
+    expect(html).toContain('has-content-width')
+    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
     expect(textBlockCss).toMatch(
-      /\.text-block\.content-width-narrow \.text-block__inner > \*\s*\{[^}]*--container-narrow/,
+      /\.text-block\.has-content-width \.text-block__inner > \*\s*\{[^}]*--fc-content-width/,
     )
   })
 })

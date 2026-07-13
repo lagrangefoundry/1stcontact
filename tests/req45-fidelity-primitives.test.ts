@@ -76,13 +76,16 @@ describe('REQ-45 fidelity primitives — meta surfaces the dials', () => {
 })
 
 describe('REQ-45 capability 1 — start-aligned constrained content column', () => {
-  it('test_UAT_FC_REQ-45_text_block_emits_narrow_content_width_class', async () => {
+  it('test_UAT_FC_REQ-45_text_block_emits_constrained_content_width', async () => {
+    // REQ-55: a constrained column is `has-content-width` + an inline
+    // `--fc-content-width` (a named-step token), not a per-name class.
     const html = await render(TextBlock, {
       variant: 'landing',
-      dials: { contentWidth: 'narrow' },
+      dials: { contentWidth: 'lg' },
       content: { heading: { text: 'A Different Approach' }, body: 'Body copy.' },
     })
-    expect(html).toContain('content-width-narrow')
+    expect(html).toContain('has-content-width')
+    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
   })
 
   it('test_UAT_FC_REQ-45_text_block_defaults_to_full_frame_content_width', async () => {
@@ -90,15 +93,15 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
       variant: 'landing',
       content: { body: 'Body copy.' },
     })
-    // Default fallback: the frame-filling `default`, never the narrow cap.
-    expect(html).toContain('content-width-default')
-    expect(html).not.toContain('content-width-narrow')
+    // Default fills the frame — no content-width marker or inline measure.
+    expect(html).not.toContain('has-content-width')
+    expect(html).not.toContain('--fc-content-width')
   })
 
-  it('test_UAT_FC_REQ-45_services_grid_emits_narrow_content_width_class', async () => {
+  it('test_UAT_FC_REQ-45_services_grid_emits_constrained_content_width', async () => {
     const html = await render(ServicesGrid, {
       variant: 'stacked',
-      dials: { contentWidth: 'narrow' },
+      dials: { contentWidth: 'lg' },
       content: {
         subhead: 'Intro.',
         items: [
@@ -107,7 +110,8 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
         ],
       },
     })
-    expect(html).toContain('content-width-narrow')
+    expect(html).toContain('has-content-width')
+    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
   })
 
   it('test_UAT_FC_REQ-45_services_grid_defaults_to_full_frame_content_width', async () => {
@@ -120,8 +124,8 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
         ],
       },
     })
-    expect(html).toContain('content-width-default')
-    expect(html).not.toContain('content-width-narrow')
+    expect(html).not.toContain('has-content-width')
+    expect(html).not.toContain('--fc-content-width')
   })
 })
 

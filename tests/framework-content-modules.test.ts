@@ -43,9 +43,10 @@ describe('text-block module', () => {
     expect(html).toContain('variant-prose')
     expect(html).not.toContain('variant-landing')
     const css = moduleSource('text-block/index.astro')
-    expect(css).toMatch(/\.variant-prose[^{]*\{[^}]*--container-default/)
+    // The standard content container is 6xl (1152px, REQ-55) — matches services-grid.
+    expect(css).toMatch(/\.variant-prose[^{]*\{[^}]*--container-6xl/)
     // The old hard-coded narrow base is gone — prose is no longer capped narrow.
-    expect(css).not.toMatch(/\.variant-prose[^{]*\{[^}]*--container-narrow/)
+    expect(css).not.toMatch(/\.variant-prose[^{]*\{[^}]*--container-lg/)
   })
 
   it('test_UAT_FC_REQ-5_text_block_landing_variant_uses_default_container', async () => {
@@ -53,7 +54,7 @@ describe('text-block module', () => {
     expect(html).toContain('variant-landing')
     expect(html).not.toContain('variant-prose')
     const css = moduleSource('text-block/index.astro')
-    expect(css).toMatch(/\.variant-landing[^{]*\{[^}]*--container-default/)
+    expect(css).toMatch(/\.variant-landing[^{]*\{[^}]*--container-6xl/)
   })
 
   it('test_UAT_FC_REQ-5_text_block_renders_markdown_with_image_and_list', async () => {

@@ -55,21 +55,24 @@ describe('REQ-49 fidelity primitives — meta surfaces the dials', () => {
     expect(heroMeta.dials.contentInset).toEqual(CONTENT_INSET_DIAL)
   })
 
-  it('test_UAT_FC_REQ-49_content_width_dial_carries_readable_step', () => {
-    // Residual 1 — a `readable` (768px) step decoupled from the `narrow` token.
+  it('test_UAT_FC_REQ-49_content_width_dial_carries_768px_step', () => {
+    // Residual 1 — the 768px reading measure, now `3xl` on the Tailwind scale (REQ-55).
     expect(heroMeta.dials.contentWidth).toEqual(CONTENT_WIDTH_DIAL)
-    expect(CONTENT_WIDTH_DIAL).toContain('readable')
+    expect(CONTENT_WIDTH_DIAL).toContain('3xl')
   })
 })
 
 describe('REQ-49 capability 1 — hero subhead/body content-column width', () => {
-  it('test_UAT_FC_REQ-49_hero_subhead_carries_content_width_class', async () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_carries_content_width', async () => {
+    // REQ-55: the cap is `--fc-content-width` (a named-step token), set inline; the
+    // section carries `has-content-width` rather than a per-name class.
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { contentWidth: 'wide' },
+      dials: { contentWidth: '7xl' },
       content: { heading: { text: 'Intentional Software' }, subhead: { text: 'Body copy.' } },
     })
-    expect(html).toContain('content-width-wide')
+    expect(html).toContain('has-content-width')
+    expect(html).toContain('style="--fc-content-width: var(--container-7xl)"')
   })
 
   it('test_UAT_FC_REQ-49_hero_content_width_defaults_to_full_frame', async () => {
@@ -77,10 +80,9 @@ describe('REQ-49 capability 1 — hero subhead/body content-column width', () =>
       variant: 'bg-color',
       content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
-    // Default fills the frame (no cap) — never the narrow/wide caps.
-    expect(html).toContain('content-width-default')
-    expect(html).not.toContain('content-width-narrow')
-    expect(html).not.toContain('content-width-wide')
+    // Default fills the frame (no cap) — no content-width marker or inline measure.
+    expect(html).not.toContain('has-content-width')
+    expect(html).not.toContain('--fc-content-width')
   })
 })
 
@@ -178,14 +180,15 @@ describe('REQ-49 capability 5 — hero content horizontal inset', () => {
   })
 })
 
-describe('REQ-49 residual 1 — readable (768px) content-width, decoupled from narrow', () => {
-  it('test_UAT_FC_REQ-49_hero_subhead_carries_readable_content_width_class', async () => {
+describe('REQ-49 residual 1 — 768px content-width (Tailwind `3xl`, REQ-55)', () => {
+  it('test_UAT_FC_REQ-49_hero_subhead_carries_768px_content_width', async () => {
     const html = await render(Hero, {
       variant: 'bg-color',
-      dials: { contentWidth: 'readable' },
+      dials: { contentWidth: '3xl' },
       content: { heading: { text: 'Intentional Software' }, subhead: { text: 'Body copy.' } },
     })
-    expect(html).toContain('content-width-readable')
+    expect(html).toContain('has-content-width')
+    expect(html).toContain('style="--fc-content-width: var(--container-3xl)"')
   })
 })
 
@@ -218,9 +221,9 @@ describe('REQ-49 token surface — extended scale backs the dials', () => {
     expect(css).toContain('--font-weight-light: 300;')
   })
 
-  it('test_UAT_FC_REQ-49_theme_emits_readable_container_measure', () => {
-    // Residual 1 — the 768px reading measure backing the hero `readable` width.
-    expect(generateThemeCss()).toContain('--container-readable: 48rem;')
+  it('test_UAT_FC_REQ-49_theme_emits_768px_container_measure', () => {
+    // Residual 1 — the 768px reading measure, now `--container-3xl` (REQ-55).
+    expect(generateThemeCss()).toContain('--container-3xl: 48rem;')
   })
 
   it('test_UAT_FC_REQ-49_theme_emits_large_spacing_steps_for_content_offset', () => {

@@ -438,7 +438,10 @@ export const moduleInstanceSchema = z
     type: z.string(),
     version: z.number().int().positive(),
     variant: z.string(),
-    dials: z.record(z.string(), z.string()),
+    // A dial value is a string (named step / treatment) OR a number literal —
+    // the latter lets a dial carry a measured render value directly (REQ-55, e.g.
+    // `contentWidth: 896` for an off-scale px width).
+    dials: z.record(z.string(), z.union([z.string(), z.number()])),
     content: z.record(z.string(), contentValueSchema),
     /** Optional section-level background painted behind this module (REQ-14). */
     background: backgroundSchema.optional(),
@@ -687,14 +690,20 @@ export const shadowTokensSchema = z.object({
  * unchanged — `defaultTokens` fills it, so `--container-readable` is always
  * emitted (cf. `shadow.xl`). */
 export const containerTokensSchema = z.object({
-  // `xnarrow` (REQ-36, ~32rem/512px tight column below `narrow`) is optional so
-  // existing themes validate unchanged — `defaultTokens` fills it, so
-  // `--container-xnarrow` is always emitted (cf. `readable`).
-  xnarrow: cssValue.optional(),
-  narrow: cssValue,
-  readable: cssValue.optional(),
-  default: cssValue,
-  wide: cssValue,
+  // Content-column width scale (REQ-55) — aligned to Tailwind's `max-w` steps.
+  // Every named step is optional so a theme need only override the widths it
+  // tunes; `defaultTokens` fills the rest, so `--container-<step>` is always
+  // emitted for the whole scale.
+  sm: cssValue.optional(),
+  md: cssValue.optional(),
+  lg: cssValue.optional(),
+  xl: cssValue.optional(),
+  '2xl': cssValue.optional(),
+  '3xl': cssValue.optional(),
+  '4xl': cssValue.optional(),
+  '5xl': cssValue.optional(),
+  '6xl': cssValue.optional(),
+  '7xl': cssValue.optional(),
   bleed: cssValue,
 })
 

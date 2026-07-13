@@ -2,6 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
+import { resolveContainerWidth } from '../dials'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface ServiceItem {
@@ -44,8 +45,9 @@ const cardSurface = dials.cardSurface ?? 'default'
 const headingCase = dials.headingCase ?? 'normal'
 // Icon rendering (REQ-36).
 const iconFont = dials.iconFont ?? 'default'
-// Constrained content column (REQ-45).
-const contentWidth = dials.contentWidth ?? 'default'
+// Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
+// to a max-width length applied via `--fc-content-width`, or null (fills frame).
+const contentWidthCss = resolveContainerWidth(dials.contentWidth)
 // Card icon layout (REQ-36).
 const iconLayout = dials.iconLayout ?? 'top'
 // Constrained-column alignment (REQ-36).
@@ -88,11 +90,12 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `icon-font-${iconFont}`,
     `icon-layout-${iconLayout}`,
     `gap-${gap}`,
-    `content-width-${contentWidth}`,
+    { 'has-content-width': contentWidthCss !== null },
     `content-align-${contentAlign}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
+  style={contentWidthCss ? `--fc-content-width: ${contentWidthCss}` : undefined}
 >
   <div class="services-grid__inner">
     {heading?.text && <h2 class="services-grid__heading" style={headingStyle}>{heading.text}</h2>}
@@ -175,17 +178,16 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   .services-grid__inner {
-    max-width: var(--container-default);
+    max-width: var(--container-6xl);
     margin-inline: auto;
     padding-inline: var(--space-4);
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
-  /* Constrained content column (REQ-45). */
-  .services-grid.content-width-narrow .services-grid__inner > * { max-width: var(--container-narrow); width: 100%; }
-  .services-grid.content-width-readable .services-grid__inner > * { max-width: var(--container-readable); width: 100%; }
-  .services-grid.content-width-wide .services-grid__inner > * { max-width: var(--container-wide); width: 100%; }
+  /* Constrained content column (REQ-45 capability, REQ-55 mechanism): caps the
+     content children to `--fc-content-width` (a named-step token or a literal). */
+  .services-grid.has-content-width .services-grid__inner > * { max-width: var(--fc-content-width); width: 100%; }
   .services-grid.content-align-center .services-grid__inner { align-items: center; }
   .services-grid.content-align-center .services-grid__inner > * { margin-inline: auto; }
 

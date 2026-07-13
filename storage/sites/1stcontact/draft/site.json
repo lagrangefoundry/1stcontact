@@ -74,9 +74,6 @@
       "lg": "0 10px 15px rgba(0,0,0,0.1)"
     },
     "container": {
-      "narrow": "40rem",
-      "default": "72rem",
-      "wide": "90rem",
       "bleed": "100%"
     },
     "breakpoints": {

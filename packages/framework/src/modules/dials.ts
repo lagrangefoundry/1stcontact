@@ -98,14 +98,61 @@ export const TREATMENT_ROLE_DIAL = [
 export const SUBMIT_TREATMENT_DIAL = ['primary', 'neutral'] as const
 
 /**
- * Constrained content-column width (REQ-45). Sizes the content column *within*
- * the section's full-width frame, so the existing `align` dial governs where that
- * column sits. `default` (dial default) fills the frame; `xnarrow`/`narrow`/
- * `readable`/`wide` cap the column to the matching `--container-*` token.
- * `readable` (REQ-49, ~48rem/768px) is a reading measure between `narrow` and
- * `default`.
+ * Named content-column width steps (REQ-55) — the `--container-*` token keys,
+ * aligned 1:1 to Tailwind's `max-w` scale (rem → px @ root-16). The map is the
+ * authority for both the dial's named layer and the resolver below.
  */
-export const CONTENT_WIDTH_DIAL = ['default', 'xnarrow', 'narrow', 'readable', 'wide'] as const
+export const CONTAINER_STEPS = {
+  sm: '24rem', // 384
+  md: '28rem', // 448
+  lg: '32rem', // 512
+  xl: '36rem', // 576
+  '2xl': '42rem', // 672
+  '3xl': '48rem', // 768
+  '4xl': '56rem', // 896
+  '5xl': '64rem', // 1024
+  '6xl': '72rem', // 1152
+  '7xl': '80rem', // 1280
+  bleed: '100%',
+} as const
+
+/**
+ * Constrained content-column width (REQ-45 capability, REQ-55 scale). Sizes the
+ * content column *within* the section's full-width frame, so the existing `align`
+ * dial governs where that column sits. `bleed` (the default) fills the frame; a
+ * named step caps the column to the matching `--container-*` token. Off-scale
+ * widths use the literal escape hatch (a `px` number or a CSS length string) —
+ * see {@link resolveContainerWidth}.
+ */
+export const CONTENT_WIDTH_DIAL = [
+  'bleed',
+  'sm',
+  'md',
+  'lg',
+  'xl',
+  '2xl',
+  '3xl',
+  '4xl',
+  '5xl',
+  '6xl',
+  '7xl',
+] as const
+
+/**
+ * Resolve a `contentWidth`/`rowWidth` dial value to a CSS max-width length, or
+ * `null` when it means "no cap / fill the frame" (`bleed`, or absent). The
+ * named-layer + literal-escape-hatch pattern (REQ-55, cf. styled-text markup):
+ *
+ *   - a named step  → the themeable `var(--container-<step>)`
+ *   - a `number`    → `<n>px` (matches captured render values, which are px)
+ *   - any other string → a literal CSS length (`"56rem"`, `"896px"`)
+ */
+export function resolveContainerWidth(value: string | number | undefined | null): string | null {
+  if (value === undefined || value === null || value === '' || value === 'bleed') return null
+  if (typeof value === 'number') return `${value}px`
+  if (value in CONTAINER_STEPS) return `var(--container-${value})`
+  return value
+}
 
 /**
  * Hero legibility scrim (REQ-32) — an opacity step of a dark neutral tint

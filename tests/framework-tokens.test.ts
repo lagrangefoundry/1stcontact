@@ -43,22 +43,21 @@ describe('@1stcontact/framework theme tokens', () => {
       '--space-24',
       '--radius-md',
       '--shadow-lg',
-      '--container-default',
+      '--container-6xl',
       '--breakpoint-md',
     ]) {
       expect(css, `missing ${name}`).toContain(`${name}:`)
     }
-    // The full token surface is 73 custom properties (REQ-24 added
-    // --font-family-display; REQ-20 added --color-secondary; REQ-32 added
-    // --color-neutral-cool and, in cap 5, --shadow-xl; REQ-33 added
-    // --color-accent-light + --color-accent-deep; REQ-45 added the three
-    // --tracking-* steps; REQ-49 added --font-weight-light, --line-height-snug,
-    // the four large spacing steps --space-32/48/64/80, and --container-readable;
-    // REQ-36 added --color-scrim (hero scrim tint) and --font-weight-extralight (200, section-heading weight),
-    // --font-family-label (the button/label face, e.g. Raleway), and --container-xnarrow
-    // (a ~32rem tight column below --container-narrow, for the "Who Uses" checklist).
+    // The full token surface is 80 custom properties. Prior additions: REQ-24
+    // --font-family-display; REQ-20 --color-secondary; REQ-32 --color-neutral-cool
+    // + (cap 5) --shadow-xl; REQ-33 --color-accent-light + --color-accent-deep;
+    // REQ-45 the three --tracking-* steps; REQ-49 --font-weight-light,
+    // --line-height-snug, --space-32/48/64/80; REQ-36 --color-scrim,
+    // --font-weight-extralight, --font-family-label. REQ-55 replaced the six
+    // idiosyncratic --container-* keys (xnarrow/narrow/readable/default/wide/bleed)
+    // with the eleven-step Tailwind max-w scale (sm..7xl + bleed): a net +5.
     const declCount = (rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length
-    expect(declCount).toBe(75)
+    expect(declCount).toBe(80)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_substitutes_defaults_for_missing_slots', () => {
@@ -67,7 +66,7 @@ describe('@1stcontact/framework theme tokens', () => {
     expect(css).toContain('--color-primary: #ff0000;') // the override
     expect(css).toContain('--color-bg: #ffffff;') // default-filled palette slot
     expect(css).toContain('--space-4: 1rem;') // default-filled non-palette slot
-    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(75)
+    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(80)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_emits_dark_mode_block_when_dark_palette_provided', () => {

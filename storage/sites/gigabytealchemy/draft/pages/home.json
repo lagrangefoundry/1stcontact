@@ -53,7 +53,7 @@
         "align": "left",
         "height": "fold",
         "contentAnchor": "center",
-        "contentWidth": "readable",
+        "contentWidth": "3xl",
         "scrim": "none",
         "contentOffsetTop": "sm",
         "contentColumn": "center"
@@ -119,7 +119,8 @@
         "headingAlign": "left",
         "surface": "default",
         "spacingTop": "xl",
-        "spacingBottom": "2xl"
+        "spacingBottom": "2xl",
+        "contentWidth": "4xl"
       },
       "content": {
         "heading": {
@@ -240,7 +241,7 @@
         "surface": "subtle",
         "spacingTop": "none",
         "spacingBottom": "md",
-        "contentWidth": "xnarrow"
+        "contentWidth": "md"
       },
       "content": {
         "body": "> These aren't just features—they're foundations. Every tool we build starts with these principles.",

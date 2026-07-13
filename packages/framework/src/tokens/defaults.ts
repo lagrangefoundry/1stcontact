@@ -112,18 +112,21 @@ export const defaultTokens: ThemeTokens = {
     xl: '0 15px 50px rgba(0,0,0,0.55), 0 0 30px rgba(255,255,255,0.12)',
   },
   container: {
-    // `xnarrow` (REQ-36) — a tight column below `narrow` (32rem/512px) for a
-    // centred content block that reads narrower than the section band (the
-    // reference "Who Uses Our Services" checklist wraps in a ~505px column, not
-    // the 700px section width).
-    xnarrow: '32rem',
-    narrow: '40rem',
-    // `readable` (REQ-49) — a reading measure (48rem/768px, Tailwind `max-w-3xl`)
-    // between `narrow` and `default`, so a constrained column (e.g. the hero
-    // body) can size independently of the `narrow` token.
-    readable: '48rem',
-    default: '72rem',
-    wide: '90rem',
+    // Content-column width scale (REQ-55) — aligned 1:1 to Tailwind's `max-w`
+    // scale so a real site lands on a named step. rem @ root-16 → px: sm 384 ·
+    // md 448 · lg 512 · xl 576 · 2xl 672 · 3xl 768 · 4xl 896 · 5xl 1024 ·
+    // 6xl 1152 · 7xl 1280. `bleed` (100%) fills the frame. A width off the scale
+    // is a literal on the `contentWidth`/`rowWidth` dial, not a token.
+    sm: '24rem',
+    md: '28rem',
+    lg: '32rem',
+    xl: '36rem',
+    '2xl': '42rem',
+    '3xl': '48rem',
+    '4xl': '56rem',
+    '5xl': '64rem',
+    '6xl': '72rem',
+    '7xl': '80rem',
     bleed: '100%',
   },
   breakpoints: {

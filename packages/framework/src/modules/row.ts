@@ -14,10 +14,16 @@
  * per-site-identical structural block — no instance-supplied CSS reaches the page.
  */
 
+import { resolveContainerWidth } from './dials'
+
 /** Structural CSS for the partial-width band row. Static for every site. */
 export const ROW_CSS = `/* partial-width band row (REQ-20 / REQ-36) */
 .fc-row {
-  max-width: var(--container-default);
+  /* Row content measure (REQ-36 capability, REQ-55 mechanism) — a shared rowWidth
+     dial boxes the row to --fc-row-width (a named-step token or a literal, set
+     inline by composeRow); absent, the row fills the default 6xl (1152px) content
+     frame, as it did before. */
+  max-width: var(--fc-row-width, var(--container-6xl));
   margin-inline: auto;
   padding-inline: var(--space-4);
   display: flex;
@@ -26,13 +32,6 @@ export const ROW_CSS = `/* partial-width band row (REQ-20 / REQ-36) */
 }
 .fc-col { flex: 1 1 0; min-width: 0; }
 .fc-col--two-thirds { flex-grow: 2; }
-/* Row content measure (REQ-36) — default (1152px) is the prior full-bleed row;
-   narrower steps box the row to a reference's centred content column (the
-   joyfulculinary Offerings row is ~768px readable, centred with wide margins,
-   not sprawling edge-to-edge). Reuses the shared container tokens. */
-.fc-row.w-narrow { max-width: var(--container-narrow); }
-.fc-row.w-readable { max-width: var(--container-readable); }
-.fc-row.w-wide { max-width: var(--container-wide); }
 @media (max-width: 768px) {
   .fc-row { flex-direction: column; }
 }
@@ -55,8 +54,9 @@ export interface RowColumn {
    *  full-bleed band behind the row when every column agrees. */
   surface?: string
   /** The column module's `rowWidth` dial, if any — boxes the whole row to a
-   *  narrower centred content measure (first column to declare one wins). */
-  rowWidth?: string
+   *  narrower centred content measure (first column to declare one wins). A
+   *  named step, or a literal (`px` number / CSS length string) — REQ-55. */
+  rowWidth?: string | number
 }
 
 /** The surface every column shares, or `undefined` if they disagree (or none
@@ -67,11 +67,10 @@ function sharedSurface(columns: RowColumn[]): string | undefined {
   return columns.every((c) => c.surface === first) ? first : undefined
 }
 
-/** The row's content measure — the first column to declare a non-default
+/** The row's content measure — the first column to declare a non-`bleed`
  *  `rowWidth`, else `undefined` (the full-bleed default). */
-function rowMeasure(columns: RowColumn[]): string | undefined {
-  const w = columns.map((c) => c.rowWidth).find((v) => v && v !== 'default')
-  return w
+function rowMeasure(columns: RowColumn[]): string | number | undefined {
+  return columns.map((c) => c.rowWidth).find((v) => v !== undefined && v !== '' && v !== 'bleed')
 }
 
 /** Wrap a run of consecutive partial-width bands into one row, each column's
@@ -83,9 +82,9 @@ export function composeRow(columns: RowColumn[]): string {
   const cols = columns
     .map((c) => `<div class="fc-col fc-col--${c.width}">${c.html}</div>`)
     .join('\n')
-  const measure = rowMeasure(columns)
-  const rowClass = measure ? `fc-row w-${measure}` : 'fc-row'
-  const row = `<div class="${rowClass}">${cols}</div>`
+  const measureCss = resolveContainerWidth(rowMeasure(columns))
+  const rowStyle = measureCss ? ` style="--fc-row-width: ${measureCss}"` : ''
+  const row = `<div class="fc-row"${rowStyle}>${cols}</div>`
   const surface = sharedSurface(columns)
   return surface ? `<div class="fc-band surface-${surface}">${row}</div>` : row
 }

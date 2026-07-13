@@ -2,6 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { assertSafeUrl } from '../safety'
 import { positionVars } from '../layer'
+import { resolveContainerWidth } from '../dials'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -40,7 +41,10 @@ const contentAnchor = dials.contentAnchor ?? 'center'
 // Fixed top inset for content within a `fold` band (REQ-49).
 const contentOffsetTop = dials.contentOffsetTop ?? 'none'
 // Subhead/body content-column width (REQ-49).
-const contentWidth = dials.contentWidth ?? 'default'
+// Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
+// to a max-width length applied via the `--fc-content-width` custom property, or
+// null (`bleed`/absent → fills the frame).
+const contentWidthCss = resolveContainerWidth(dials.contentWidth)
 // Content horizontal inset / gutter (REQ-49 cap 5).
 const contentInset = dials.contentInset ?? 'sm'
 
@@ -91,13 +95,14 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     `scrim-${scrim}`,
     `anchor-${contentAnchor}`,
     `content-offset-top-${contentOffsetTop}`,
-    `content-width-${contentWidth}`,
+    { 'has-content-width': contentWidthCss !== null },
     `content-inset-${contentInset}`,
     `content-column-${contentColumn}`,
     `scrim-gradient-${scrimGradient}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
+  style={contentWidthCss ? `--fc-content-width: ${contentWidthCss}` : undefined}
 >
   {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
@@ -215,7 +220,7 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
   .hero__inner {
     position: relative;
     z-index: 1;
-    max-width: var(--container-default);
+    max-width: var(--container-6xl);
     margin-inline: auto;
     padding-inline: var(--space-4);
     display: flex;
@@ -286,12 +291,10 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
 
   .hero__subhead { margin: 0; font-size: var(--font-size-xl); }
   .hero.align-center .hero__subhead { margin-inline: auto; }
-  /* Subhead/body content-column width (REQ-49): caps the measure so it can match
-     a reference's column; `default` sets no cap (fills the inner frame). */
-  .hero.content-width-xnarrow .hero__subhead { max-width: var(--container-xnarrow); }
-  .hero.content-width-narrow .hero__subhead { max-width: var(--container-narrow); }
-  .hero.content-width-readable .hero__subhead { max-width: var(--container-readable); }
-  .hero.content-width-wide .hero__subhead { max-width: var(--container-wide); }
+  /* Subhead/body content-column width (REQ-49 capability, REQ-55 mechanism): caps
+     the measure to `--fc-content-width` (a named-step token or a literal), set as
+     an inline custom property; `bleed`/absent leaves the column uncapped. */
+  .hero.has-content-width .hero__subhead { max-width: var(--fc-content-width); }
 
   .hero__cta {
     display: inline-block;
