@@ -55,6 +55,9 @@ fields:
     main_sha: null
   auto_merge_back: true
   priority: medium
+  orphan_commits:
+  - old_sha: 6be4c339333ce1895501115cbebb13c1853c7d5a
+    new_sha: 3777fc0c7c8d37f3ec86123c66b688fb6f02d5a9
 ---
 
 # Bundle
