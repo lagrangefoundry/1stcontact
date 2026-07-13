@@ -6,10 +6,10 @@ title: Richer text block kinds — tables, code, rich/nested blockquotes, headin
   nested list items
 created_by: xgd
 created_at: '2026-07-13T15:53:30.219724+00:00'
-updated_at: '2026-07-13T18:05:08.043355+00:00'
-completed_at: null
+updated_at: '2026-07-13T22:06:43.165051+00:00'
+completed_at: '2026-07-13T22:06:43.165051+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
