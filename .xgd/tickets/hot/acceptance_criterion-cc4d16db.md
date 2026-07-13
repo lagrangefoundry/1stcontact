@@ -6,10 +6,10 @@ title: Report prints a loud STALE-REFERENCE warning counting reference objects w
   no box geometry
 created_by: xgd
 created_at: '2026-07-13T20:13:41.774210+00:00'
-updated_at: '2026-07-13T20:13:41.774210+00:00'
+updated_at: '2026-07-13T20:20:48.075566+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-79e068e5
   kind: behavior
