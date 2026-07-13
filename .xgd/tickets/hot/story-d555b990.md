@@ -5,10 +5,10 @@ type: story
 title: Tailwind-aligned content-width scale with literal escape hatch
 created_by: xgd
 created_at: '2026-07-13T20:37:33.706963+00:00'
-updated_at: '2026-07-13T20:37:33.706963+00:00'
+updated_at: '2026-07-13T20:44:28.154771+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-d9c2e655
   capability_uid: capability-1a67c2a0
