@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Capture reads component subscales from a reference page's own semantics
 created_by: xgd
 created_at: '2026-07-13T20:49:19.974546+00:00'
-updated_at: '2026-07-13T20:49:19.974546+00:00'
+updated_at: '2026-07-13T20:57:03.537239+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-bb049a62
   kind: behavior
