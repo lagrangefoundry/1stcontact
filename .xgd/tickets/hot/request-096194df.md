@@ -7,10 +7,10 @@ title: Framework last-mile fidelity primitives surfaced by the gigabytealchemy p
   submit-label foreground, form subhead/caption size)
 created_by: xgd
 created_at: '2026-07-04T17:25:37.620345+00:00'
-updated_at: '2026-07-09T23:59:26.440789+00:00'
-completed_at: null
+updated_at: '2026-07-10T02:31:56.355371+00:00'
+completed_at: '2026-07-10T02:31:56.355371+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 5

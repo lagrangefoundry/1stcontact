@@ -5,7 +5,7 @@ type: request
 title: Faithful reproduction of joyfulculinarycreations.com (personal-chef site)
 created_by: xgd
 created_at: '2026-07-03T18:00:22.857118+00:00'
-updated_at: '2026-07-09T22:38:32.182048+00:00'
+updated_at: '2026-07-10T02:56:26.538106+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -39,6 +39,8 @@ fields:
   - 33ef30e
   - 08478c2
   - 8680a48
+  - 192768e2
+  - c21c8dc3
 ---
 
 ## Goal
@@ -284,3 +286,44 @@ Fix (`settlePage()`): (1) inject CSS collapsing animation/transition duration+de
 
 ### Correction (round 6): commit ledger
 Commit `08478c2` (recorded round 5 for the hero portrait) contains only the version bump + a scratch-file deletion — its `git add` aborted silently on a non-existent pathspec, so the hero module code + `test_UAT_FC_REQ-36_hero_portrait_*` never landed there. The actual hero-portrait code AND the capture `settlePage()` code + `test_UAT_FC_REQ-36_capture_*` both land in **`8680a48`** (v0.0.89, `[FREE-CODED]`). Full suite 501 green; the capture UAT was proven to fail without the fix (below-fold fadeIn block absent from the projection) and pass with it.
+
+
+## Round 7 (2026-07-09) — element-by-element text fidelity pass
+Validating text elements against the captured baseline (`capture.json` for typography; live read-only for align/box/corners) and fixing as we go. Confirmed drift so far: nav link (Karla/500 → Oswald/300), hero subtitle (tracking 0 → −1px, leading 1.45 → 1.5), hero CTA (Karla 16/600 square → Raleway 13/500, centered, 2px radius). Now fixing CTA, then The Holistic Approach + Who Uses Our Services (incl. the checklist check-mark glyph). All expected to be config/dial + possibly a CTA size/shape dial.
+
+
+### Round 7 landed — CTA / Holistic / Who-Uses element fidelity (commit 192768e2, v0.0.90)
+Free-coded framework generalizations (all default-preserving), UAT'd, full suite **508 green**:
+
+- **hero CTA typography** — `ctaFont` (`label`/`heading`/`display` role), `ctaSize`
+  (`xs`..`lg`), `ctaWeight` (subhead-weight steps), and `ctaShape: soft` (2px). Reaches
+  the reference's small **Raleway 13/500, centered, 2px** "Learn More" (was Karla 16/600 square).
+- **text-block `panelCorner: square`** — hard-corners the contained panel (the reference
+  Holistic card is a square Elementor inner-section, not a rounded card).
+- **text-block `bodyWeight`** — steps body copy independently of the heading; `light`
+  reaches the reference's Karla-300 "Who Uses" checklist body.
+- **`listMarker: check` glyph** — now the FontAwesome `fa-check` (U+F00C) in the IconFont
+  (the reference's heavier Elementor tick), not the thin Unicode ✓ (U+2713).
+- **`--font-family-label` token** — site-schema `typography.family.label` role (falls back
+  to `body`); the CTA `label` font role resolves through it.
+
+Config (exempt): hero CTA → Raleway 13/500/soft; Holistic panel → square; Who-Uses body →
+light + `fa-check` ticks. Remaining element-fidelity targets: nav link face (Karla/500 →
+Oswald/300) and hero subtitle tracking/leading (−1px / 1.5) — next pass.
+
+
+### Round 7 follow-up — Who-Uses checklist box width (commit c21c8dc3, v0.0.91)
+The user flagged the "Who Uses Our Services" bulleted-list **box** as the wrong size. Measured
+against the reference crop: the reference checklist reads in a **~505px centred column** (its
+items wrap: "Busy families…in the / household."), but mine filled the section's **44rem/704px**
+content width so the list under-wrapped and sat left of centre.
+
+Fix (framework, default-preserving): a **tighter content-width step below `narrow`** —
+- token **`--container-xnarrow`** (32rem/512px), default-filled optional slot in site-schema
+  `container` (cf. `readable`); auto-emitted via `mapVars`.
+- **`xnarrow`** value on `CONTENT_WIDTH_DIAL`; text-block caps the panel box + content children
+  to it. UATs added; token count 74 → 75; full suite **510 green**.
+
+Config (exempt): who-uses `contentWidth: narrow → xnarrow` + `align: center` (the capped column
+was pinning to flex cross-start). Verified by shot — the checklist now wraps and centres exactly
+like the reference (ticks at x≈385, centred on the band).

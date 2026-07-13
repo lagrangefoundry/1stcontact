@@ -5,7 +5,7 @@ type: doc
 title: 'How-To: Faithful Founder-Site Reproduction (successor runbook)'
 created_by: xgd
 created_at: '2026-07-03T01:39:12.471124+00:00'
-updated_at: '2026-07-09T22:26:56.294641+00:00'
+updated_at: '2026-07-10T20:43:01.888054+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -295,3 +295,110 @@ The "transcribe from the DOM" rule must extend beyond text *values* to the **inv
 - **Images:** list every `<img>` src and its DOM position. Elementor image-boxes emit the image *before* the heading — use adjacency to map card photos to their card, never guess by image content (a chef-plating photo vs a chef portrait were mis-mapped by "content fit"; DOM order was correct).
 - **Text boxes:** diff all reference text nodes vs your render to catch an entirely missing block — a `fadeIn` heading is invisible in the shot but present in the DOM.
 - Capture blind spot worth closing in `1c capture`/`1c shot`: trigger lazy images (scroll) AND force animation end-state before the screenshot, so the gate can see them.
+
+
+
+## Update (2026-07-10, CHAT-7): object-by-object transcription — one vocabulary, spec == diff
+
+The tooling changes in [[REQ-50]] (spec speaks the diff's field names/units, literals
+allowed) and [[REQ-51]] (inspection/comparison grouped **by object**, incl. position)
+change *how* you transcribe. The loop is no longer "hand-author a config and spot-check";
+it is **object by object**:
+
+1. **Read** the object-grouped inspection: for each object (text run, image, control,
+   divider) it lists the exact params — `fontFamily · fontSizePx · fontWeight · color ·
+   letterSpacingPx · lineHeightPx · box {x,y,w,h}` — reference vs your render, side by side.
+2. **Create** the precisely corresponding spec object. Because the spec now uses the diff's
+   own identifiers and units (no enum indirection, no rem↔px translation), the diff's
+   `expected` column drops straight into the field — a delta row is a **paste-able edit**.
+3. **Render** and re-inspect. **Iterate only on the objects that still differ.**
+
+### What must be right on the FIRST iteration (transcription, not guesswork)
+Text content, `color`, `fontFamily`, `fontSizePx`, `fontWeight`, `letterSpacingPx`,
+`lineHeightPx`. These are captured verbatim and now copied verbatim — a miss here is a
+transcription error, not a fidelity gap. **Font size included** (it is directly set, unlike
+position). If any of these is wrong on iteration 1, stop and fix the copy, don't "tune."
+
+### The honest exception — emergent geometry
+`box {x, y, width, height}` is a function of layout, container width, wrapping, and every
+object stacked above it. It will NOT be exact first time; it is the residual that iteration
+converges. The win is that it is now a **visible, per-object** residual (position is a
+first-class column), not an invisible one — so convergence is directed, not thrashing.
+
+### Three setup caveats that keep "100%" honest (fix these before iterating, not during)
+- **The font face must be loaded.** An unregistered family silently falls back and `fontFamily`
+  diverges; the capture's `fontLoaded:false` flag catches it. (Cf. the pass-4 lesson: web-font
+  weights are separate static files — import the weight you need.)
+- **Transcribe from the DOM, not the screenshot** (the one rule; the round-5 lazy/animated
+  lesson). Read the object inventory + values from `raw.html`/`rendered.html` / `capture.json`
+  content runs, never the pixels.
+- **`colorInferred` sentinels** (`#000`/`#fff` fallbacks) are low-confidence — the capture was
+  guessing; don't hard-diff them.
+
+### Still true
+This does not retire the perceptual gate or the per-section checklist — it front-loads the
+value/inventory transcription so those gates are left to judge *finish* and *geometry*, the
+things a manifest genuinely can't encode. Object-grouped inspection is the primary read;
+the pixel mean stays a "finish" gate, never a "≈98% done" pass.
+
+
+### The format you read (concrete — [[REQ-51]] landed)
+
+`1c values-diff <slug> --ref <bundle>` now prints **object-grouped**, not a flat
+severity list. This is the exact shape (`formatReport`), and how to read it:
+
+```
+values-diff: gigabytealchemy.ai/ ⇄ draft:gigabytealchemy
+  2 matched, 1 unmatched, 5 delta(s)
+
+  ⚠ UNPAIRED  1 reference object(s) had no repro match · 1 repro object(s) matched nothing
+      ref only    text "Removed callout" (callout)
+      repro only  text "Unexpected extra" (note)
+
+  objects with deltas (expected column = value to transcribe):
+
+  ▸ text · "Gigabyte Alchemy" (wordmark)  [CRITICAL]
+      fontFamily       Cinzel            Cinzel            ✓
+      fontSizePx       72                48                ✗
+      fontWeight       600               600               ✓
+      color            #f5e6a3           #f5e6a3           ✓
+      letterSpacingPx  2                 2                 ✓
+      lineHeightPx     80                56                ✗
+      box              (120, 40) 640×72  (120, 40) 300×48  ✗
+      text             Gigabyte Alchemy  GIGABYTE ALCHEMY  ✗
+
+  ✓ 1 object(s) reproduced clean
+```
+
+**How to read it, top to bottom:**
+
+1. **`⚠ UNPAIRED` first, always.** Two directions, both loud: *ref only* = a
+   reference object you have not built yet (create it); *repro only* = an object
+   in your render with no reference (delete it, or it is a wrongly-split run).
+   An unpaired object is a structural gap — fix these before tuning any card. If
+   the section is absent, every object paired.
+2. **One card per differing object, worst-first**, badged with its top tier
+   (`[CRITICAL]`/`[HIGH]`/…). Three columns: **param name · reference · your
+   render**, then `✓`/`✗`. Every card ends with **`box (x, y) w×h`** — position is
+   a first-class row, the residual iteration converges (it will not match first
+   time; see "the honest exception" above). Non-fixed deltas (here `text` casing;
+   elsewhere `gradient`, `borderLeft`, `shape`, `arrangement`) append below the
+   fixed table so nothing the old flat list held is lost.
+3. **The `expected` column is the value to transcribe** — printed in the spec's
+   own field name and units, so a `✗` row is a paste-able edit: read `fontSizePx
+   72`, write `72` into the object's spec field, re-diff. Intrinsic axes
+   (`fontFamily`, `color`, `fontWeight`, `letterSpacingPx`, `text`, `fontSizePx`)
+   must go `✓` on iteration 1 — a `✗` there is a transcription error, not a
+   fidelity gap. Stop and fix the copy; do not "tune."
+4. **`✓ N object(s) reproduced clean`** collapses the fully-matching objects to a
+   count — confirmation the intrinsic axes landed, without the noise of listing
+   them.
+5. A **`section / render-only checks:`** tail (when present) carries the deltas
+   that hang on no reference object: section treatments (`§n` scrim/anchor), the
+   `viewport` precondition, unilateral `overflow` / `fontLoad` read off *your*
+   render, and systemic aggregates. Read it, but the object cards are the gate.
+
+**`--json`** emits the same projection structurally: `report.objects[]` (each with
+`params[] {name, expected, actual, mismatch}`, `box` included, `paired`,
+`worstTier`) and `report.unpairedActual[]`. The flat `report.deltas[]` is still
+there as the machine index — but the object cards are the read.

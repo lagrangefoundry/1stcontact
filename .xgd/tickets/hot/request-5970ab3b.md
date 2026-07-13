@@ -5,10 +5,10 @@ type: request
 title: 'Conformance harness: security dimension (content-injection inert + no egress)'
 created_by: xgd
 created_at: '2026-07-03T23:18:00.598522+00:00'
-updated_at: '2026-07-09T23:59:26.737844+00:00'
-completed_at: null
+updated_at: '2026-07-10T02:31:56.170291+00:00'
+completed_at: '2026-07-10T02:31:56.170291+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
