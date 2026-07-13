@@ -5,10 +5,10 @@ type: story
 title: Exact-match-by-default fidelity comparison tolerances
 created_by: xgd
 created_at: '2026-07-13T20:00:16.443995+00:00'
-updated_at: '2026-07-13T20:00:16.443995+00:00'
+updated_at: '2026-07-13T20:09:23.042875+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-d9c2e655
   capability_uid: capability-7c7e5ec4
