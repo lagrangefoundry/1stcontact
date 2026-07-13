@@ -30,6 +30,8 @@ export {
   isPaletteRole,
 } from './text-style'
 export type { TextRun, TextRunGradient, GradientStop } from './text-style'
+export { parseStyledText, serializeStyledText, normalizeRuns } from './text-markup'
+export type { StyledText, StyledRun, StyleOverride, Emphasis } from './text-markup'
 export { validateModuleContent } from './validate'
 export type { ContentValidationError } from './validate'
 export { ContentSafetyError, isUnsafeUrl, assertSafeUrl, assertSafeHtml } from './safety'

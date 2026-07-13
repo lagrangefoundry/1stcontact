@@ -51,6 +51,9 @@ export {
   renderMarkdown,
   CALLOUT_CSS,
   resolveTextStyle,
+  parseStyledText,
+  serializeStyledText,
+  normalizeRuns,
   TEXT_STYLE_ALIASES,
   GRADIENT_DIRECTION_ALIASES,
   PALETTE_ROLE_ALIASES,
@@ -71,6 +74,10 @@ export type {
   TextRun,
   TextRunGradient,
   GradientStop,
+  StyledText,
+  StyledRun,
+  StyleOverride,
+  Emphasis,
 } from './modules'
 
 export { BUILD_YEAR } from './buildInfo'
