@@ -58,6 +58,8 @@ fields:
   orphan_commits:
   - old_sha: 6be4c339333ce1895501115cbebb13c1853c7d5a
     new_sha: 3777fc0c7c8d37f3ec86123c66b688fb6f02d5a9
+  skipped_commits:
+  - 3efd3be2a87da87aac12bda66b42dcf69658ad6e
 ---
 
 # Bundle
