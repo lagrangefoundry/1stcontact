@@ -21,19 +21,25 @@ import {
   createPlaywrightDriver,
   EXTRACT_SCRIPT,
   readCapture,
+  readMultiState,
+  runMultiStateCapture,
   type BrowserDriverFactory,
   type RawSignals,
 } from './capture'
 import {
   diffManifests,
+  diffMultiState,
   flattenCapture,
   flattenSignals,
   type DiffOptions,
   type ObjectCard,
+  type StateDiff,
+  type StateProjection,
   type ValueDelta,
   type ValueManifest,
   type ValuesDiffReport,
 } from './capture/values-diff'
+import type { Viewport } from './capture/types'
 import type { RenderChannel, SiteSource } from '../store'
 
 export interface ValuesDiffOptions extends GlobalOptions {
@@ -98,6 +104,100 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
   const report = diffManifests(expected, actual, opts.diffOptions)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
   return report
+}
+
+/**
+ * The distinct viewport widths a reference carries, in first-seen order, each with
+ * its captured height. The repro is projected across *this* ladder (not a fixed
+ * default) so every reference cell has a repro cell to pair against — a mismatched
+ * ladder would read as phantom coverage gaps.
+ */
+function referenceViewports(projections: StateProjection[]): Viewport[] {
+  const byWidth = new Map<number, Viewport>()
+  for (const p of projections) if (!byWidth.has(p.viewport.width)) byWidth.set(p.viewport.width, p.viewport)
+  return [...byWidth.values()]
+}
+
+/**
+ * REQ-58 (T2) — the multi-viewport fidelity loop. A single-width diff is blind to
+ * a %-vs-fixed reflow: a wordmark that tracks the hero text at 1280 but drifts on
+ * a narrow phone reads clean at the one width every other gate checks. This reads
+ * the reference's persisted viewport ladder (`multistate.json`), projects our
+ * served draft across that *same* ladder, and diffs cell-for-cell — so a mobile
+ * reflow fires in the mobile cell while desktop stays clean.
+ *
+ * A bundle without `multistate.json` is a STALE REFERENCE (it predates T2): the
+ * loop terminal-fails with a re-capture instruction rather than silently passing a
+ * comparison it cannot make.
+ */
+export async function cmdValuesDiffMultiViewport(opts: ValuesDiffOptions): Promise<StateDiff[]> {
+  const reference = readMultiState(opts.refBundleDir)
+  if (!reference || reference.projections.length === 0) {
+    throw new Error(
+      `values-diff --multi-viewport needs a multi-viewport reference, but '${opts.refBundleDir}' has no ` +
+        `multistate.json (or it is empty). Re-capture with '1c capture page <url>' to project the reference ` +
+        `across the viewport ladder, then re-run.`,
+    )
+  }
+  if (!opts.slug) {
+    throw new Error('values-diff --multi-viewport needs a <slug> for the repro side.')
+  }
+
+  const source = opts.source ?? 'draft'
+  const renderSource: SiteSource = source === 'published' ? 'latest' : 'draft'
+  await cmdRender(opts.slug, { ...opts, source: renderSource, out: undefined })
+
+  const handle = await startServe(opts.slug, { ...opts, source, port: opts.port })
+  let repro
+  try {
+    repro = await runMultiStateCapture(handle.url, {
+      viewports: referenceViewports(reference.projections),
+      states: ['rest'],
+      // Route an injected fake through the per-engine seam and force it available;
+      // production falls through to the real per-engine Playwright factory + probe.
+      driverFactoryFor: opts.driverFactory ? () => opts.driverFactory! : undefined,
+      isEngineAvailable: opts.driverFactory ? async () => true : undefined,
+    })
+  } finally {
+    await new Promise<void>((resolve) => handle.server.close(() => resolve()))
+  }
+
+  const cells = diffMultiState(reference, repro, opts.diffOptions)
+  if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(cells, null, 2))
+  return cells
+}
+
+/**
+ * Human rendering of a multi-viewport diff — worst cell first (a missing cell,
+ * then by top-delta severity), the same ranking `diffMultiState` returns. A missing
+ * cell is loud (the repro never projected a width the reference has); a clean cell
+ * collapses to one ✓ line; a failing cell prints its top deltas reference→repro.
+ */
+export function formatMultiViewportReport(cells: StateDiff[]): string {
+  const totalDeltas = cells.reduce((n, c) => n + (c.report?.deltas.length ?? 0), 0)
+  const missing = cells.filter((c) => c.missing).length
+  const lines: string[] = [
+    `values-diff --multi-viewport: ${cells.length} cell(s) across the viewport ladder`,
+    `  ${totalDeltas} delta(s), ${missing} missing cell(s) — worst cell first`,
+  ]
+  for (const c of cells) {
+    const tag = `@${c.viewportWidth} ${c.engine}:${c.state}`
+    if (c.missing) {
+      lines.push(`  ⚠ ${tag}  MISSING — reference has this width, repro never projected it`)
+      continue
+    }
+    const deltas = c.report?.deltas ?? []
+    if (deltas.length === 0) {
+      lines.push(`  ✓ ${tag}  clean`)
+      continue
+    }
+    const top = deltas[0]
+    lines.push(`  ✗ ${tag}  ${deltas.length} delta(s) — worst [${top.tier}] ${top.property} "${trunc(top.text)}"`)
+    for (const d of deltas.slice(0, 6)) {
+      lines.push(`      ${d.property.padEnd(16)} ${trunc(d.expected, 24).padEnd(24)} → ${trunc(d.actual, 24)}`)
+    }
+  }
+  return lines.join('\n')
 }
 
 /** Truncate a display label so a card heading / row stays one terminal line. */

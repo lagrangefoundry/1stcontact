@@ -28,7 +28,7 @@ import { cmdCapturePage } from './capture'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
-import { cmdValuesDiff, formatReport } from './fidelity'
+import { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
 import type { RenderChannel } from '../store'
 
@@ -41,7 +41,7 @@ export { startServe } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
-export { cmdValuesDiff, formatReport } from './fidelity'
+export { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
 export type { ValuesDiffOptions } from './fidelity'
 export {
   cmdDiff,
@@ -87,6 +87,9 @@ Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
 Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json] [--sandbox]
   1c values-diff --ref <captureBundleDir> --actual <manifest.json> [--out <file>] [--json]
+  1c values-diff <slug> --ref <captureBundleDir> --multi-viewport [--source …] [--out <file>] [--json]
+    (REQ-58 T2) pair the draft against the reference's persisted viewport ladder, cell-for-cell — catches
+    a %-vs-fixed reflow (a wordmark that drifts on resize) invisible at the single default width.
   Tolerance controls (REQ-53): axes we author are EXACT by default; --tolerant restores loose matching.
     [--tolerant] [--color-tol <ΔE>] [--font-size-tol <px>] [--line-height-tol <px>]
     [--letter-spacing-tol <px>] [--padding-tol <px>] [--border-tol <px>] [--weight-tol <n>]
@@ -305,6 +308,28 @@ export async function run(argv: string[]): Promise<void> {
         heightTolerancePx: numFlag('height-tol'),
         borderRadiusTolerancePx: numFlag('radius-tol'),
       }
+      // REQ-58 (T2) — multi-viewport mode: pair the served draft against the
+      // reference's persisted viewport ladder, cell-for-cell, so a %-vs-fixed
+      // reflow invisible at the single default width is surfaced in its cell.
+      if (flags['multi-viewport'] === true) {
+        const cells = await cmdValuesDiffMultiViewport({
+          ...global,
+          slug,
+          source,
+          refBundleDir: ref,
+          out: typeof flags.out === 'string' ? flags.out : undefined,
+          diffOptions,
+        })
+        if (flags.json === true) {
+          console.log(JSON.stringify(cells, null, 2))
+        } else {
+          console.log(formatMultiViewportReport(cells))
+        }
+        // A missing cell or any per-cell delta is a fidelity failure to clear.
+        if (cells.some((c) => c.missing || (c.report?.deltas.length ?? 0) > 0)) process.exitCode = 1
+        return
+      }
+
       const report = await cmdValuesDiff({
         ...global,
         slug,

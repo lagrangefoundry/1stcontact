@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>repro</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: sans-serif; }
+      /* The wordmark is positioned as a PERCENTAGE of the viewport, so it drifts
+         horizontally on resize: 20% = 256px at 1280 (matches the reference) but
+         only 75px at 375 (a mobile reflow the single-width diff can't see). */
+      .wordmark { margin-left: 20%; font-size: 24px; font-weight: 700; color: #111111; }
+    </style>
+  </head>
+  <body>
+    <h1 class="wordmark">ACME</h1>
+  </body>
+</html>
