@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A per-axis tolerance override loosens one axis and overrides both modes
 created_by: xgd
 created_at: '2026-07-13T20:01:02.652355+00:00'
-updated_at: '2026-07-13T20:01:02.652355+00:00'
+updated_at: '2026-07-13T20:09:23.220907+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-dadb8475
   kind: behavior
