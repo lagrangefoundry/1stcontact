@@ -74,6 +74,16 @@ export const defaultTokens: ThemeTokens = {
       tight: '-0.025em',
       tighter: '-0.05em',
     },
+    // Component-owned sub-element type ramps (REQ-56), in the render's px
+    // vocabulary. Defaults encode the services-grid module's previously
+    // hard-coded values so behaviour is unchanged: badge = xs/semibold/tight
+    // (12px / 600 / 13px leading), checklist item = base/regular/relaxed
+    // (16px / 400 / 28px leading). Fixing a subscale here corrects every badge
+    // / checklist instance; a per-instance `labelStyle`/`itemStyle` overrides one.
+    subScales: {
+      badge: { fontSizePx: 12, fontWeight: 600, lineHeightPx: 13, letterSpacingPx: 0 },
+      checklist: { fontSizePx: 16, fontWeight: 400, lineHeightPx: 28, letterSpacingPx: 0 },
+    },
   },
   spacing: {
     '0': '0',

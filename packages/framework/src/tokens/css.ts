@@ -36,6 +36,7 @@ export function generateThemeCss(
     ...mapVars('--font-weight-', t.typography.weights),
     ...mapVars('--line-height-', t.typography.lineHeights),
     ...mapVars('--tracking-', t.typography.tracking),
+    ...subScaleVars(t.typography.subScales),
     ...mapVars('--space-', t.spacing),
     ...mapVars('--radius-', t.radius),
     ...mapVars('--shadow-', t.shadow),
@@ -108,6 +109,49 @@ function paletteVars(palette: Partial<Record<string, string>>): string[] {
 /** Flat record → `<prefix><key>: <value>;` declarations, keys used verbatim. */
 function mapVars(prefix: string, group: Record<string, string>): string[] {
   return Object.entries(group).map(([key, value]) => `${prefix}${key}: ${value};`)
+}
+
+/** A px length axis: a number → `<n>px`; a string is passed through verbatim
+ * (already a length, a `var(--…)` alias, or a keyword). Mirrors the TextRun
+ * length handling so subscale values and per-instance overrides read alike. */
+function pxAxis(v: number | string): string {
+  return typeof v === 'number' ? `${v}px` : v
+}
+
+/**
+ * Component-owned subscales (REQ-56) → `--subscale-<name>-<axis>` declarations,
+ * in the render's px vocabulary. Only the axes a subscale sets are emitted;
+ * length axes (`fontSizePx`/`lineHeightPx`/`letterSpacingPx`) become px via
+ * {@link pxAxis}, while `fontWeight`/`fontFamily`/`color` are verbatim.
+ */
+function subScaleVars(
+  subScales?: Partial<
+    Record<
+      string,
+      Partial<{
+        fontFamily: string
+        fontSizePx: number | string
+        fontWeight: number | string
+        color: string
+        letterSpacingPx: number | string
+        lineHeightPx: number | string
+      }>
+    >
+  >,
+): string[] {
+  if (!subScales) return []
+  const out: string[] = []
+  for (const [name, scale] of Object.entries(subScales)) {
+    if (!scale) continue
+    if (scale.fontFamily !== undefined) out.push(`--subscale-${name}-font-family: ${scale.fontFamily};`)
+    if (scale.fontSizePx !== undefined) out.push(`--subscale-${name}-font-size: ${pxAxis(scale.fontSizePx)};`)
+    if (scale.fontWeight !== undefined) out.push(`--subscale-${name}-font-weight: ${scale.fontWeight};`)
+    if (scale.color !== undefined) out.push(`--subscale-${name}-color: ${scale.color};`)
+    if (scale.letterSpacingPx !== undefined)
+      out.push(`--subscale-${name}-letter-spacing: ${pxAxis(scale.letterSpacingPx)};`)
+    if (scale.lineHeightPx !== undefined) out.push(`--subscale-${name}-line-height: ${pxAxis(scale.lineHeightPx)};`)
+  }
+  return out
 }
 
 /** camelCase → kebab-case (`surfaceSubtle` → `surface-subtle`). */

@@ -56,8 +56,11 @@ describe('@1stcontact/framework theme tokens', () => {
     // --font-weight-extralight, --font-family-label. REQ-55 replaced the six
     // idiosyncratic --container-* keys (xnarrow/narrow/readable/default/wide/bleed)
     // with the eleven-step Tailwind max-w scale (sm..7xl + bleed): a net +5.
+    // REQ-56 added the component subscale surface: --subscale-badge-* and
+    // --subscale-checklist-* (font-size/font-weight/line-height/letter-spacing
+    // each), a net +8.
     const declCount = (rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length
-    expect(declCount).toBe(80)
+    expect(declCount).toBe(88)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_substitutes_defaults_for_missing_slots', () => {
@@ -66,7 +69,7 @@ describe('@1stcontact/framework theme tokens', () => {
     expect(css).toContain('--color-primary: #ff0000;') // the override
     expect(css).toContain('--color-bg: #ffffff;') // default-filled palette slot
     expect(css).toContain('--space-4: 1rem;') // default-filled non-palette slot
-    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(80)
+    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(88)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_emits_dark_mode_block_when_dark_palette_provided', () => {

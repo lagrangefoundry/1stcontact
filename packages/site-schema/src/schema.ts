@@ -586,6 +586,27 @@ export const fontFaceSchema = z.object({
  * (e.g. the reference's Raleway "Learn More"). Omitted → the CSS generator
  * falls back to `body` for `--font-family-label`.
  */
+
+/**
+ * One component-owned sub-element type ramp (REQ-56) — badge label, checklist
+ * item, etc. The fields are the *style* axes of {@link textRunSchema} (no
+ * content/position), i.e. the exact six render axes the capture reads
+ * (`fontSizePx`/`fontWeight`/`lineHeightPx`/`letterSpacingPx`/`fontFamily`/
+ * `color`). Same px vocabulary end-to-end: a captured render value drops
+ * straight in and the per-instance `…Style` escape hatch reuses these fields.
+ * Every field is optional so a subscale carries only the axes it fixes.
+ */
+export const subScaleSchema = z
+  .object({
+    fontFamily: z.string().optional(),
+    fontSizePx: styleAxis.optional(),
+    fontWeight: styleAxis.optional(),
+    color: z.string().optional(),
+    letterSpacingPx: styleAxis.optional(),
+    lineHeightPx: styleAxis.optional(),
+  })
+  .strict()
+
 export const typographyTokensSchema = z.object({
   family: z.object({
     heading: z.string(),
@@ -640,6 +661,19 @@ export const typographyTokensSchema = z.object({
       tighter: cssValue,
     })
     .default({ normal: '0em', tight: '-0.025em', tighter: '-0.05em' }),
+  // Component-owned sub-element type ramps (REQ-56) — badge label / checklist
+  // item / … typography as theme-level subscales, so a systemic gap is fixed
+  // once here rather than per instance. `.optional()` (existing themes omit it)
+  // with `.partial()` inner (a site may override only `badge`); `defaultTokens`
+  // fills both, so the `--subscale-*` custom properties are always emitted (cf.
+  // `shadow.xl`). Extend by adding a named slot — never a per-instance default.
+  subScales: z
+    .object({
+      badge: subScaleSchema,
+      checklist: subScaleSchema,
+    })
+    .partial()
+    .optional(),
 })
 
 /**
