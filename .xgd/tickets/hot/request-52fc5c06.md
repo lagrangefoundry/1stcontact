@@ -5,10 +5,10 @@ type: request
 title: 'values-diff: exact match by default for reproducible axes (supersedes REQ-35)'
 created_by: xgd
 created_at: '2026-07-12T23:16:00.331931+00:00'
-updated_at: '2026-07-13T18:05:07.818399+00:00'
-completed_at: null
+updated_at: '2026-07-13T22:06:43.584838+00:00'
+completed_at: '2026-07-13T22:06:43.584838+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
