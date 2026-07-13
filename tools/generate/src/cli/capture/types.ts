@@ -348,6 +348,10 @@ export interface ContentRun extends ElementGeometry {
   borderLeft?: BorderTreatment | null
   /** Computed left padding/indent in px. */
   paddingLeftPx?: number
+  /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (nearest painted
+   *  ancestor background), null on the band. Surfaces a slightly-off panel colour
+   *  the text-colour comparison misses. Optional so pre-fill bundles still parse. */
+  surfaceFill?: string | null
   /**
    * REQ-58 (T1) — tight bounds around the *rendered text* (Range-measured glyph
    * extent, padding-excluded), distinct from {@link box} (element rect incl.

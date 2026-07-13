@@ -69,6 +69,9 @@ export interface RawRun extends RawGeometry {
   /** Left border colour `#rrggbb` when a left border is painted, else null. */
   borderLeftColor: string | null
   paddingLeftPx: number
+  /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (the nearest
+   *  painted ancestor background), null when the run sits on the section band. */
+  surfaceFill?: string | null
   /** REQ-58 (T1) — tight bounds around the rendered text (Range-measured glyph
    *  extent, padding-excluded); null when unmeasurable. */
   renderedTextBox?: { x: number; y: number; width: number; height: number } | null
@@ -272,6 +275,39 @@ export const EXTRACT_SCRIPT = `(() => {
   function boxShadowOf(s) {
     var bs = s.boxShadow;
     return (bs && bs !== 'none') ? bs : null;
+  }
+  // REQ-58 (item 4) — a left-edge accent bar (a border-l-4 border-emerald-400
+  // callout) is usually painted on a WRAPPER of the text, not the text run's own
+  // element. Reading border-left off the run alone captured none, and the missing
+  // bar was invisible to the diff. Walk a few ancestors so the treatment is found
+  // where the reference actually paints it.
+  function accentBarOf(el) {
+    var node = el;
+    for (var i = 0; i < 4 && node && node !== document.body; i++) {
+      var cs = getComputedStyle(node);
+      var w = Math.round(parseFloat(cs.borderLeftWidth)) || 0;
+      var st = cs.borderLeftStyle;
+      if (w > 0 && st && st !== 'none') {
+        var c = rgbToHex(cs.borderLeftColor);
+        if (c) return { width: w, color: c };
+      }
+      node = node.parentElement;
+    }
+    return { width: 0, color: null };
+  }
+  // REQ-58 (item 3b) — the card / panel fill behind a text run: the nearest
+  // ancestor painting a non-transparent background (the card surface), distinct
+  // from the section band the diff already records separately. A per-run value so
+  // a slightly-off panel colour (Presence/Positivity/Connection) becomes a
+  // comparable, visible delta instead of only the text colour being checked.
+  function surfaceFillOf(el) {
+    var node = el;
+    for (var i = 0; i < 5 && node && node !== document.body; i++) {
+      var c = rgbToHex(getComputedStyle(node).backgroundColor);
+      if (c) return c;
+      node = node.parentElement;
+    }
+    return null;
   }
   // REQ-48 (item 2) -- effective paint order. z-index:auto (the default, and the
   // common case) resolves to 0; an explicit integer is the rendered stacking
@@ -479,10 +515,11 @@ export const EXTRACT_SCRIPT = `(() => {
       var clip = s.webkitBackgroundClip || s.backgroundClip || '';
       var bgImg = s.backgroundImage || 'none';
       var gradientCss = (clip === 'text' && /gradient\\(/.test(bgImg)) ? bgImg : null;
-      // A painted left-edge accent bar (border-l-4 border-emerald-400 and kin).
-      var blW = Math.round(parseFloat(s.borderLeftWidth)) || 0;
-      var blStyle = s.borderLeftStyle;
-      var blColor = (blW > 0 && blStyle && blStyle !== 'none') ? rgbToHex(s.borderLeftColor) : null;
+      // A painted left-edge accent bar (border-l-4 border-emerald-400 and kin) —
+      // read off the run OR a wrapping ancestor (REQ-58 item 4).
+      var accent = accentBarOf(el);
+      var blW = accent.width;
+      var blColor = accent.color;
       var lh = parseFloat(s.lineHeight); // NaN for 'normal'
       // REQ-35: when the painted colour is unresolvable (transparent / not
       // painted), rgbToHex returns null and we fall back to a sentinel — flag it
@@ -502,6 +539,8 @@ export const EXTRACT_SCRIPT = `(() => {
         gradientCss: gradientCss,
         borderLeftWidthPx: blW,
         borderLeftColor: blColor,
+        // REQ-58 (item 3b) — card/panel fill behind the run (null when on the band).
+        surfaceFill: surfaceFillOf(el),
         paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
         // REQ-47 per-element geometry / shape / structure (arrangement filled later).
         box: absBox(el),

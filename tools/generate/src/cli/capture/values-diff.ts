@@ -58,6 +58,9 @@ export interface ValueElement {
   gradient?: TextGradient | null
   borderLeft?: BorderTreatment | null
   paddingLeftPx?: number
+  /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (null on the
+   *  band). Compared like `color` (ΔE) so a slightly-off panel colour surfaces. */
+  surfaceFill?: string | null
   /**
    * REQ-35 — true when this run's colour could not be resolved from computed
    * styles and fell back to the `#000000`/`#ffffff` sentinel. The capture was
@@ -209,6 +212,8 @@ export type DeltaProperty =
   | 'missing'
   | 'text'
   | 'color'
+  // ── REQ-58 (item 3b) card / panel fill behind the run ────────────────────
+  | 'surfaceFill'
   | 'gradient'
   | 'overlay'
   | 'borderLeft'
@@ -584,6 +589,7 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.gradient !== undefined) el.gradient = run.gradient
   if (run.borderLeft !== undefined) el.borderLeft = run.borderLeft
   if (run.paddingLeftPx !== undefined) el.paddingLeftPx = run.paddingLeftPx
+  if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
   if (run.colorInferred) el.colorInferred = true
   if (run.fontLoaded === false) el.fontLoaded = false
   copyGeometry(el, run)
@@ -635,6 +641,7 @@ export function rawRunToElement(run: RawRun): ValueElement {
     paddingLeftPx: run.paddingLeftPx,
   }
   if (run.lineHeightPx !== null) el.lineHeightPx = run.lineHeightPx
+  if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
   if (run.colorInferred) el.colorInferred = true
   if (run.fontLoaded === false) el.fontLoaded = false
   copyGeometry(el, run)
@@ -899,6 +906,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   fontLoad: 'fontLoad',
   text: 'text',
   color: 'color',
+  // REQ-58 (item 3b) — a panel fill difference is a colour defect; reuse `color`.
+  surfaceFill: 'color',
   gradient: 'gradient',
   overlay: 'overlay',
   borderLeft: 'borderLeft',
@@ -1679,6 +1688,14 @@ export function diffManifests(
     if (!exp.colorInferred) {
       const dE = colorDistance(exp.color, act.color)
       if (dE > colorTol) push(exp, 'color', exp.color, act.color, dE)
+    }
+    // REQ-58 (item 3b) — card/panel fill behind the run, compared like `color`
+    // (ΔE). The card background is not its own object, so without this a
+    // slightly-off panel colour (Presence/Positivity/Connection) is invisible —
+    // only the text colour is checked. Compared only when both sides carry it.
+    if (exp.surfaceFill && act.surfaceFill) {
+      const dEfill = colorDistance(exp.surfaceFill, act.surfaceFill)
+      if (dEfill > colorTol) push(exp, 'surfaceFill', exp.surfaceFill, act.surfaceFill, dEfill)
     }
     if (Math.abs(exp.fontSizePx - act.fontSizePx) > fontSizeTol) {
       push(exp, 'fontSizePx', `${exp.fontSizePx}`, `${act.fontSizePx}`, Math.abs(exp.fontSizePx - act.fontSizePx))

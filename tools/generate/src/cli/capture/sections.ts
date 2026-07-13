@@ -89,6 +89,8 @@ function toContentRun(r: RawRun): ContentRun {
   run.box = r.box
   // REQ-58 (T1) — tight rendered-text bounds (null when unmeasurable).
   if (r.renderedTextBox) run.renderedTextBox = r.renderedTextBox
+  // REQ-58 (item 3b) — card/panel fill behind the run (null on the band).
+  if (r.surfaceFill) run.surfaceFill = r.surfaceFill
   run.borderRadiusPx = r.borderRadiusPx
   run.boxShadow = r.boxShadow
   run.a11yRole = r.a11yRole
