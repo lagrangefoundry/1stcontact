@@ -6,10 +6,10 @@ title: 'Fully transparent or unpaintable colour falls back to the #000000 sentin
   and is flagged inferred'
 created_by: xgd
 created_at: '2026-07-13T20:13:21.539907+00:00'
-updated_at: '2026-07-13T20:13:21.539907+00:00'
+updated_at: '2026-07-13T20:20:48.337597+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-79e068e5
   kind: behavior
