@@ -77,9 +77,6 @@
       "xl": "0 15px 50px rgba(0,0,0,0.6), 0 0 30px rgba(255,255,255,0.15)"
     },
     "container": {
-      "narrow": "40rem",
-      "default": "72rem",
-      "wide": "90rem",
       "bleed": "100%"
     },
     "breakpoints": {
