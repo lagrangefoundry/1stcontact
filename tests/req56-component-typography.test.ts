@@ -9,6 +9,9 @@ import { generateThemeCss, defaultTokens } from '../packages/framework/src/token
 import { typographyTokensSchema } from '../packages/site-schema/src/schema'
 import { buildTheme } from '../tools/generate/src/cli/capture/theme'
 import type { RawRun, RawSignals } from '../tools/generate/src/cli/capture/extract'
+import { diffManifests } from '../tools/generate/src/cli/capture/values-diff'
+import type { ValueElement, ValueManifest } from '../tools/generate/src/cli/capture/values-diff'
+import type { ThemeSubScales } from '../tools/generate/src/cli/capture/types'
 
 /** A RawRun with sensible geometry defaults; override only what the case needs. */
 function run(over: Partial<RawRun>): RawRun {
@@ -322,5 +325,97 @@ describe('REQ-56 component-owned typography — per-instance escape hatch', () =
       ],
     })
     expect(errors).toEqual([])
+  })
+})
+
+/**
+ * Phase 5 (values-diff attribution) — a systemic subscale gap surfaces as ONE
+ * theme-level finding; the per-element badge/checklist rows it explains are
+ * rolled up by default, and restored under the `keepSubscaleDeltas` opt-out
+ * (option C). Setting our subscale to the reference closes the gap systemically.
+ */
+describe('REQ-56 component-owned typography — values-diff subscale attribution', () => {
+  /** A ValueElement with defaults; override only what the case needs. */
+  function el(over: Partial<ValueElement>): ValueElement {
+    return {
+      text: 'x',
+      role: 'body',
+      color: '#000000',
+      fontFamily: 'Inter',
+      fontSizePx: 16,
+      fontWeight: 400,
+      lineHeightPx: 24,
+      letterSpacingPx: 0,
+      ...over,
+    }
+  }
+  /** A badge (pill) element carrying its type. */
+  const badgeEl = (text: string, fontSizePx: number, lineHeightPx: number): ValueElement =>
+    el({ text, role: 'body', fontSizePx, lineHeightPx, borderRadiusPx: 10, box: { x: 0, y: 0, width: 40, height: 20 } })
+  const checkEl = (text: string, lineHeightPx: number): ValueElement =>
+    el({ text, role: 'listitem', fontSizePx: 16, lineHeightPx })
+
+  function manifest(elements: ValueElement[], subScales: ThemeSubScales): ValueManifest {
+    return { source: 's', elements, sections: [], viewport: { width: 1200, height: 800 }, subScales }
+  }
+
+  const refSubs: ThemeSubScales = {
+    badge: { fontSizePx: 14, fontWeight: 600, lineHeightPx: 20, letterSpacingPx: 0, count: 2 },
+    checklist: { fontSizePx: 16, fontWeight: 400, lineHeightPx: 24, letterSpacingPx: 0, count: 2 },
+  }
+  // Our render: badge 12/13 and checklist leading 28 — the REQ-52 systemic gaps.
+  const ourSubs: ThemeSubScales = {
+    badge: { fontSizePx: 12, fontWeight: 600, lineHeightPx: 13, letterSpacingPx: 0, count: 2 },
+    checklist: { fontSizePx: 16, fontWeight: 400, lineHeightPx: 28, letterSpacingPx: 0, count: 2 },
+  }
+  const expected = () =>
+    manifest(
+      [badgeEl('New', 14, 20), badgeEl('Beta', 14, 20), checkEl('One thing', 24), checkEl('Two thing', 24)],
+      refSubs,
+    )
+  const ours = () =>
+    manifest(
+      [badgeEl('New', 12, 13), badgeEl('Beta', 12, 13), checkEl('One thing', 28), checkEl('Two thing', 28)],
+      ourSubs,
+    )
+
+  it('test_UAT_FC_REQ-56_systemic_gap_is_one_theme_finding', () => {
+    const report = diffManifests(expected(), ours())
+    const subscaleRows = report.deltas.filter((d) => d.role === 'subscale')
+    // One finding per differing subscale (badge + checklist), not N per-element.
+    expect(subscaleRows.map((d) => d.text).sort()).toEqual(['⟨badge subscale ×2⟩', '⟨checklist subscale ×2⟩'])
+    const badgeRow = subscaleRows.find((d) => d.text.includes('badge'))!
+    expect(badgeRow.expected).toContain('size 14')
+    expect(badgeRow.expected).toContain('leading 20')
+    expect(badgeRow.actual).toContain('size 12')
+    // The per-element badge/checklist type rows are rolled up (suppressed).
+    const perElement = report.deltas.filter(
+      (d) => !d.systemic && (d.property === 'fontSizePx' || d.property === 'lineHeightPx'),
+    )
+    expect(perElement).toEqual([])
+    expect(report.suppressed).toBeGreaterThanOrEqual(4)
+  })
+
+  it('test_UAT_FC_REQ-56_keep_subscale_deltas_opt_out', () => {
+    const report = diffManifests(expected(), ours(), { keepSubscaleDeltas: true })
+    // The theme finding is still emitted …
+    expect(report.deltas.some((d) => d.role === 'subscale')).toBe(true)
+    // … and the per-element rows survive for debugging.
+    const perElement = report.deltas.filter(
+      (d) => !d.systemic && (d.property === 'fontSizePx' || d.property === 'lineHeightPx'),
+    )
+    expect(perElement.length).toBeGreaterThan(0)
+  })
+
+  it('test_UAT_FC_REQ-56_gigabytealchemy_badges_close_via_theme', () => {
+    // Set our subscale to the reference → badges/checklist match; the systemic
+    // gap closes with no subscale finding and no per-element type deltas.
+    const closed = manifest(
+      [badgeEl('New', 14, 20), badgeEl('Beta', 14, 20), checkEl('One thing', 24), checkEl('Two thing', 24)],
+      refSubs,
+    )
+    const report = diffManifests(expected(), closed)
+    expect(report.deltas.filter((d) => d.role === 'subscale')).toEqual([])
+    expect(report.deltas.filter((d) => d.property === 'fontSizePx' || d.property === 'lineHeightPx')).toEqual([])
   })
 })

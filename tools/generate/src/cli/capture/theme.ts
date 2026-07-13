@@ -70,7 +70,7 @@ function aggregateSubScale(cohort: RawRun[]): ThemeSubScale | undefined {
  *  - `badge`     ← small, short-text, strongly-rounded `body` runs (pills).
  * Interactive pills (buttons / links) are excluded — those are CTAs, not badges.
  */
-function buildSubScales(runs: RawRun[]): ThemeSubScales {
+export function buildSubScales(runs: RawRun[]): ThemeSubScales {
   const checklist = runs.filter((r) => r.role === 'listitem')
   const badges = runs.filter((r) => r.role === 'body' && isPill(r) && wordCount(r.text) <= 3)
   const subScales: ThemeSubScales = {}
@@ -79,6 +79,15 @@ function buildSubScales(runs: RawRun[]): ThemeSubScales {
   if (badge) subScales.badge = badge
   if (list) subScales.checklist = list
   return subScales
+}
+
+/**
+ * Component subscales from a live extraction (our reproduction) — the same
+ * cohort logic {@link buildTheme} applies to the reference, so both sides of the
+ * values-diff speak one vocabulary (REQ-56). Exported for the diff's actual side.
+ */
+export function subScalesFromSignals(signals: RawSignals): ThemeSubScales {
+  return buildSubScales(allRuns(signals))
 }
 
 export function buildTheme(

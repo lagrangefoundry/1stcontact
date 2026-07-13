@@ -35,9 +35,12 @@ import type {
   NameSource,
   RenderEngine,
   TextGradient,
+  ThemeSubScale,
+  ThemeSubScales,
   Viewport,
 } from './types'
 import type { RawRun, RawSignals } from './extract'
+import { subScalesFromSignals } from './theme'
 
 // ── manifest model ───────────────────────────────────────────────────────────
 
@@ -153,6 +156,13 @@ export interface ValueManifest {
    * hover-scale is diffed hover↔hover and cannot be masked by the resting frame.
    */
   state?: InteractionState
+  /**
+   * REQ-56 — component-owned sub-element type ramps (badge / checklist), read as
+   * one theme-level ramp per cohort. The diff compares these ramp-to-ramp and
+   * attributes a systemic gap to the ramp (one finding), rolling up the
+   * per-element rows it explains. Optional so pre-REQ-56 manifests parse.
+   */
+  subScales?: ThemeSubScales
 }
 
 /**
@@ -639,7 +649,13 @@ export function flattenCapture(capture: Capture): ValueManifest {
     // REQ-47 — text-free elements (guarded: pre-REQ-47 bundles carry no `fields`).
     for (const field of section.fields ?? []) elements.push(fieldToElement(field))
   }
-  return { source: `${capture.host}${capture.path}`, elements, sections, viewport: capture.viewport }
+  return {
+    source: `${capture.host}${capture.path}`,
+    elements,
+    sections,
+    viewport: capture.viewport,
+    subScales: capture.theme.subScales,
+  }
 }
 
 /**
@@ -663,7 +679,13 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
     // REQ-47 — text-free elements (form controls, dividers).
     for (const field of band.fields ?? []) elements.push(fieldToElement(field))
   }
-  return { source, elements, sections, viewport: signals.viewport }
+  return {
+    source,
+    elements,
+    sections,
+    viewport: signals.viewport,
+    subScales: subScalesFromSignals(signals),
+  }
 }
 
 /**
@@ -829,6 +851,38 @@ function escalateTier(base: SeverityTier, count: number, threshold: number): Sev
   return TIER_ORDER[capped]
 }
 
+/**
+ * REQ-56 — the subscale axes, each mapped to its delta {@link DeltaProperty} and
+ * a short human label. A subscale carries these four px-vocabulary axes; the diff
+ * compares them ramp-to-ramp and rolls up the matching per-element properties.
+ */
+const SUBSCALE_AXES: ReadonlyArray<{
+  prop: DeltaProperty & keyof ThemeSubScale
+  label: string
+}> = [
+  { prop: 'fontSizePx', label: 'size' },
+  { prop: 'fontWeight', label: 'weight' },
+  { prop: 'lineHeightPx', label: 'leading' },
+  { prop: 'letterSpacingPx', label: 'tracking' },
+]
+
+/**
+ * A rounded-pill element (badge shape): the corner radius reaches (near) half the
+ * painted height. Mirrors the capture-side `isPill` (REQ-56) at the diff's
+ * {@link ValueElement} granularity, used to scope badge-subscale rollup to actual
+ * badges rather than all body runs.
+ */
+function isPillElement(el: ValueElement): boolean {
+  const h = el.box?.height ?? 0
+  return h > 0 && (el.borderRadiusPx ?? 0) * 2 >= h - 1
+}
+
+/** A badge-cohort element: a small, short-text, strongly-rounded body run. */
+function isBadgeElement(el: ValueElement): boolean {
+  const words = el.text.trim() === '' ? 0 : el.text.trim().split(/\s+/).length
+  return el.role === 'body' && words <= 3 && isPillElement(el)
+}
+
 /** The kind a fine-grained {@link DeltaProperty} belongs to (for the tier table). */
 const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   missing: 'presence',
@@ -916,6 +970,14 @@ export interface DiffOptions {
    * disable aggregation.
    */
   systemicThreshold?: number
+  /**
+   * REQ-56 — when a component subscale (badge / checklist) differs systemically,
+   * the diff emits one theme-level finding and **rolls up** (suppresses) the
+   * per-element badge/checklist rows that finding explains. Set true to keep
+   * those per-element rows alongside the theme finding (the debugging opt-out).
+   * Default false (rollup on).
+   */
+  keepSubscaleDeltas?: boolean
   /** Perceptual colour distance (OKLab ΔEOK) under which a colour pair matches (default 0 exact; `tolerant` 0.02, the JND band). */
   colorTolerance?: number
   /** Font-size px tolerance (default 0 exact; `tolerant` 1). */
@@ -1222,6 +1284,75 @@ function toUnpaired(el: ValueElement): UnpairedObject {
  * (the captured reference) is authoritative about what must be reproduced.
  * Returns deltas ranked most-severe first.
  */
+/**
+ * REQ-56 — attribute a systemic component-subscale gap to the theme. For each
+ * named subscale present on both sides, emit ONE synthetic theme-level delta
+ * naming the differing axes, and (unless `keep`) roll up the per-element
+ * badge/checklist rows those axes explain — the wall of identical per-element
+ * failures exact-match (REQ-53) would otherwise produce. Returns the synthetic
+ * rows, the deltas surviving the rollup, and how many were rolled up.
+ */
+function attributeSubScales(
+  expected: ValueManifest,
+  actual: ValueManifest,
+  deltas: ValueDelta[],
+  joinKey: (t: string) => string,
+  escThreshold: number,
+  keep: boolean,
+): { rows: ValueDelta[]; kept: ValueDelta[]; rolledUp: number } {
+  const rows: ValueDelta[] = []
+  const exp = expected.subScales
+  const act = actual.subScales
+  if (!exp || !act) return { rows, kept: deltas, rolledUp: 0 }
+
+  // Badge deltas carry no geometry, so recognise them by pairing delta text
+  // against the reference's badge (pill) elements; checklist rows self-identify
+  // by the a11y `listitem` role.
+  const badgeTexts = new Set(expected.elements.filter(isBadgeElement).map((e) => joinKey(e.text)))
+  const rollup: Array<(d: ValueDelta) => boolean> = []
+
+  const names: Array<keyof ThemeSubScales> = ['badge', 'checklist']
+  for (const name of names) {
+    const e = exp[name]
+    const a = act[name]
+    if (!e || !a) continue
+    const diffAxes = SUBSCALE_AXES.filter((ax) => {
+      const ev = e[ax.prop]
+      const av = a[ax.prop]
+      return ev != null && av != null && ev !== av
+    })
+    if (diffAxes.length === 0) continue
+
+    const props = new Set<DeltaProperty>(diffAxes.map((ax) => ax.prop))
+    const count = e.count
+    const kind = PROPERTY_KIND[diffAxes[0].prop]
+    const tier = escalateTier(KIND_TIER[kind], count, escThreshold)
+    rows.push({
+      text: `⟨${name} subscale ×${count}⟩`,
+      role: 'subscale',
+      property: diffAxes[0].prop,
+      expected: diffAxes.map((ax) => `${ax.label} ${e[ax.prop]}`).join(', '),
+      actual: diffAxes.map((ax) => `${ax.label} ${a[ax.prop]}`).join(', '),
+      kind,
+      tier,
+      magnitude: count,
+      severity: severityForTier(tier, kind, count),
+      systemic: true,
+      count,
+    })
+
+    if (name === 'checklist') {
+      rollup.push((d) => d.role === 'listitem' && props.has(d.property))
+    } else {
+      rollup.push((d) => badgeTexts.has(joinKey(d.text)) && props.has(d.property))
+    }
+  }
+
+  if (keep || rollup.length === 0) return { rows, kept: deltas, rolledUp: 0 }
+  const kept = deltas.filter((d) => !rollup.some((r) => r(d)))
+  return { rows, kept, rolledUp: deltas.length - kept.length }
+}
+
 export function diffManifests(
   expected: ValueManifest,
   actual: ValueManifest,
@@ -1606,8 +1737,27 @@ export function diffManifests(
   // `suppressed` is an honest count — and *before* the sort, so a masked row can
   // never rank. `ignore`/`isIgnored` are compiled once at the top of the function
   // (the object cards filter through the same mask); reused here for the flat list.
-  const kept = ignore.length > 0 ? deltas.filter((d) => !isIgnored(d)) : deltas
-  const suppressed = deltas.length - kept.length
+  let kept = ignore.length > 0 ? deltas.filter((d) => !isIgnored(d)) : deltas
+  let suppressed = deltas.length - kept.length
+
+  // REQ-56 — component-subscale attribution. When a badge / checklist subscale
+  // differs systemically, emit one theme-level finding and (option C default)
+  // roll up the per-element rows it explains, so exact-match (REQ-53) doesn't
+  // present a systemic theme gap as a wall of identical per-element failures.
+  // `keepSubscaleDeltas` is the debugging opt-out that keeps those rows. This
+  // runs before the generic aggregation below, which skips these `systemic` rows.
+  const escThreshold = Math.max(1, opts.systemicThreshold ?? 5)
+  const sub = attributeSubScales(
+    expected,
+    actual,
+    kept,
+    joinKey,
+    escThreshold,
+    opts.keepSubscaleDeltas ?? false,
+  )
+  kept = sub.kept
+  suppressed += sub.rolledUp
+  kept.push(...sub.rows)
 
   // REQ-48 (item 8a) — systemic sub-threshold aggregation. A LOW/MEDIUM delta
   // that repeats across many elements is individually quiet but collectively
