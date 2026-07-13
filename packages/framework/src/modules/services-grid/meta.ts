@@ -103,9 +103,16 @@ export const servicesGridMeta = {
           itemSchema: {
             label: { type: 'string', required: true },
             variant: { type: 'enum', required: false, values: BADGE_VARIANT },
+            // Per-instance escape hatch (REQ-56) — a style-only run overriding the
+            // theme `badge` subscale for this one badge (last resort; prefer the
+            // subscale). Reuses the REQ-54 run-override style axes.
+            labelStyle: { type: 'styled-text', required: false },
           },
         },
         checklist: { type: 'list', required: false, maxItems: 8 },
+        // Per-instance escape hatch (REQ-56) — a style-only run overriding the
+        // theme `checklist` subscale for this card's checklist items.
+        checklistStyle: { type: 'styled-text', required: false },
       },
     },
   },

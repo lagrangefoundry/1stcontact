@@ -17,10 +17,18 @@ interface ServiceItem {
   accent?: 'primary' | 'accent' | 'muted' | 'secondary' | 'neutral-cool'
   /** Card fill (REQ-20, REQ-32) — `muted`/`neutral-cool` are filled panels. */
   surface?: 'default' | 'muted' | 'neutral-cool'
-  /** Status pill shown top-right (REQ-26). */
-  badge?: { label: string; variant?: 'neutral' | 'primary' | 'accent' | 'secondary' }
+  /** Status pill shown top-right (REQ-26). `labelStyle` is the REQ-56 per-instance
+   *  escape hatch — a style-only run overriding the theme `badge` subscale here. */
+  badge?: {
+    label: string
+    variant?: 'neutral' | 'primary' | 'accent' | 'secondary'
+    labelStyle?: TextRun
+  }
   /** Body items rendered as ✓ checks (REQ-26); tick colour follows the badge. */
   checklist?: string[]
+  /** REQ-56 per-instance escape hatch — a style-only run overriding the theme
+   *  `checklist` subscale for this card's checklist items. */
+  checklistStyle?: TextRun
 }
 
 interface Props {
@@ -67,6 +75,9 @@ const cards = await Promise.all(
     titleStyle: resolveTextStyle(item.title),
     bodyStyle: resolveTextStyle(item.bodyStyle),
     ctaStyle: resolveTextStyle(item.cta),
+    // REQ-56 per-instance escape hatches → inline style (beats the subscale rule).
+    badgeLabelStyle: resolveTextStyle(item.badge?.labelStyle),
+    checklistStyle: resolveTextStyle(item.checklistStyle),
   })),
 )
 
@@ -102,7 +113,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     {subheadHtml && <div class="services-grid__subhead" style={subheadStyle} set:html={subheadHtml} />}
 
     <ul class="services-grid__cards">
-      {cards.map(({ item, bodyHtml, titleStyle, bodyStyle, ctaStyle }) => (
+      {cards.map(({ item, bodyHtml, titleStyle, bodyStyle, ctaStyle, badgeLabelStyle, checklistStyle }) => (
         <li
           class:list={[
             'services-grid__card',
@@ -121,7 +132,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
             />
           )}
           {item.badge && (
-            <span class:list={['services-grid__badge', `badge-${item.badge.variant ?? 'neutral'}`]}>
+            <span class:list={['services-grid__badge', `badge-${item.badge.variant ?? 'neutral'}`]} style={badgeLabelStyle}>
               {item.badge.label}
             </span>
           )}
@@ -137,7 +148,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
           {item.checklist && item.checklist.length > 0 && (
             <ul class="services-grid__checklist">
               {item.checklist.map((line) => (
-                <li class="services-grid__check">
+                <li class="services-grid__check" style={checklistStyle}>
                   <span class="services-grid__check-mark">✓</span>
                   <span class="services-grid__check-text">{line}</span>
                 </li>
