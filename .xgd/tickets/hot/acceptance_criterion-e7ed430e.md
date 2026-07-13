@@ -6,10 +6,10 @@ title: A systemic subscale gap is reported as one theme finding, rolling up its 
   rows
 created_by: xgd
 created_at: '2026-07-13T20:49:22.538612+00:00'
-updated_at: '2026-07-13T20:49:22.538612+00:00'
+updated_at: '2026-07-13T20:57:03.439413+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-bb049a62
   kind: behavior
