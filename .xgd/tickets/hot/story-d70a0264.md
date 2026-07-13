@@ -5,10 +5,10 @@ type: story
 title: Free-position named hero-segment objects
 created_by: xgd
 created_at: '2026-07-13T20:22:42.719570+00:00'
-updated_at: '2026-07-13T20:22:42.719570+00:00'
+updated_at: '2026-07-13T20:29:23.022889+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-d9c2e655
   capability_uid: capability-8fc6e284
