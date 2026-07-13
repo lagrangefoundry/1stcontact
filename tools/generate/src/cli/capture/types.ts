@@ -152,6 +152,32 @@ export interface ThemeFont {
   files: string[]
 }
 
+/**
+ * One component-owned sub-element type ramp read from the rendered reference
+ * (REQ-56), in the render's px vocabulary — the same six axes a framework
+ * `typography.subScales` entry carries, so a captured value maps straight across
+ * with no translation. Each axis is the *modal* (most frequent) value across the
+ * cohort, so a single outlier doesn't skew the systemic ramp. `count` is the
+ * cohort size (its systemic weight — how many elements share this type).
+ */
+export interface ThemeSubScale {
+  fontSizePx: number
+  fontWeight: number
+  lineHeightPx: number | null
+  letterSpacingPx: number
+  count: number
+}
+
+/**
+ * Component-owned subscales read from the page (REQ-56): `checklist` from a11y
+ * `listitem` runs, `badge` from small strongly-rounded pill runs. A slot is
+ * present only when its cohort has ≥2 members (a systemic ramp, not a one-off).
+ */
+export interface ThemeSubScales {
+  badge?: ThemeSubScale
+  checklist?: ThemeSubScale
+}
+
 export interface Theme {
   colors: ThemeColor[]
   fonts: ThemeFont[]
@@ -161,6 +187,8 @@ export interface Theme {
   spacingScalePx: number[]
   /** Measured content container width (px), or null if unbounded. */
   containerMaxWidthPx: number | null
+  /** Component-owned sub-element type ramps (REQ-56). */
+  subScales: ThemeSubScales
 }
 
 export type BackgroundKind = 'color' | 'image' | 'gradient'

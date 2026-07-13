@@ -7,6 +7,73 @@ import { servicesGridMeta } from '../packages/framework/src/modules/services-gri
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens/index'
 import { typographyTokensSchema } from '../packages/site-schema/src/schema'
+import { buildTheme } from '../tools/generate/src/cli/capture/theme'
+import type { RawRun, RawSignals } from '../tools/generate/src/cli/capture/extract'
+
+/** A RawRun with sensible geometry defaults; override only what the case needs. */
+function run(over: Partial<RawRun>): RawRun {
+  return {
+    role: 'body',
+    text: 'x',
+    color: '#000000',
+    fontFamily: 'Inter',
+    fontSizePx: 16,
+    fontWeight: 400,
+    lineHeightPx: 24,
+    letterSpacingPx: 0,
+    gradientCss: null,
+    borderLeftWidthPx: 0,
+    borderLeftColor: null,
+    paddingLeftPx: 0,
+    box: { x: 0, y: 0, width: 100, height: 24 },
+    borderRadiusPx: 0,
+    boxShadow: null,
+    a11yRole: '',
+    arrangement: null,
+    zIndex: 0,
+    filter: null,
+    textShadow: null,
+    maskEdge: null,
+    transformRotateDeg: 0,
+    transformScale: 1,
+    motion: null,
+    ...over,
+  }
+}
+
+/** A one-band RawSignals carrying the given content runs. */
+function signalsWith(content: RawRun[]): RawSignals {
+  return {
+    viewport: { width: 1200, height: 800 },
+    bands: [
+      {
+        box: { x: 0, y: 0, width: 1200, height: 800 },
+        backgroundColor: null,
+        backgroundImage: 'none',
+        colorScheme: 'light',
+        fontFamily: 'Inter',
+        textAlign: 'left',
+        paddingTopPx: 0,
+        paddingBottomPx: 0,
+        overlay: null,
+        contentAnchorRatio: null,
+        content,
+        items: [],
+        fields: [],
+      },
+    ],
+    colorUsage: [],
+    fontFaces: [],
+    typeScale: [14, 16],
+    spacingScalePx: [],
+    containerMaxWidthPx: null,
+    images: [],
+  }
+}
+
+/** A pill (badge-shaped) run: strongly rounded, short text, small. */
+const pill = (over: Partial<RawRun>) =>
+  run({ borderRadiusPx: 10, box: { x: 0, y: 0, width: 40, height: 20 }, ...over })
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 let container: Container
@@ -174,6 +241,71 @@ describe('REQ-56 component-owned typography — per-instance escape hatch', () =
     )
     const check = html.slice(html.indexOf('services-grid__check'))
     expect(check).toContain('line-height: 22px')
+  })
+
+  it('test_UAT_FC_REQ-56_capture_reads_label_scale', () => {
+    // A page whose badges (pills) and checklist (listitems) each use one ramp →
+    // buildTheme reads each as a theme-level subscale, in the render's px
+    // vocabulary. Badges: 14/20; checklist: 16/24 (the REQ-52 reference values).
+    const theme = buildTheme(
+      signalsWith([
+        pill({ role: 'body', text: 'New', fontSizePx: 14, lineHeightPx: 20 }),
+        pill({ role: 'body', text: 'Beta', fontSizePx: 14, lineHeightPx: 20 }),
+        pill({ role: 'body', text: 'Live', fontSizePx: 14, lineHeightPx: 20 }),
+        run({ role: 'listitem', text: 'One thing', fontSizePx: 16, lineHeightPx: 24 }),
+        run({ role: 'listitem', text: 'Two thing', fontSizePx: 16, lineHeightPx: 24 }),
+        run({ role: 'listitem', text: 'Three now', fontSizePx: 16, lineHeightPx: 24 }),
+        // Body prose — neither a pill nor a listitem — must be ignored.
+        run({ role: 'body', text: 'This is ordinary body prose to ignore', fontSizePx: 16 }),
+      ]),
+      new Map(),
+    )
+    expect(theme.subScales.badge).toEqual({
+      fontSizePx: 14,
+      fontWeight: 400,
+      lineHeightPx: 20,
+      letterSpacingPx: 0,
+      count: 3,
+    })
+    expect(theme.subScales.checklist).toEqual({
+      fontSizePx: 16,
+      fontWeight: 400,
+      lineHeightPx: 24,
+      letterSpacingPx: 0,
+      count: 3,
+    })
+
+    // Zero translation: the captured subscale (minus `count`) is a valid
+    // framework subscale — it drops straight into typography.subScales.
+    const { count: _c, ...badgeAxes } = theme.subScales.badge!
+    expect(() =>
+      typographyTokensSchema.parse({
+        family: { heading: 'X', body: 'Y' },
+        scale: {
+          xs: '0.75rem',
+          sm: '0.875rem',
+          base: '1rem',
+          lg: '1.125rem',
+          xl: '1.25rem',
+          '2xl': '1.5rem',
+          '3xl': '1.875rem',
+          '4xl': '2.25rem',
+          '5xl': '3rem',
+        },
+        weights: { regular: '400', medium: '500', semibold: '600', bold: '700', black: '900' },
+        lineHeights: { tight: '1.1', normal: '1.5', relaxed: '1.75' },
+        subScales: { badge: badgeAxes },
+      }),
+    ).not.toThrow()
+  })
+
+  it('test_UAT_FC_REQ-56_capture_ignores_one_off_pill', () => {
+    // A subscale is a *systemic* ramp — a lone badge/listitem is not aggregated.
+    const theme = buildTheme(
+      signalsWith([pill({ role: 'body', text: 'Solo', fontSizePx: 14, lineHeightPx: 20 })]),
+      new Map(),
+    )
+    expect(theme.subScales.badge).toBeUndefined()
   })
 
   it('test_UAT_FC_REQ-56_labelStyle_is_valid_content', () => {
