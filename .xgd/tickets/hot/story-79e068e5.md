@@ -6,10 +6,10 @@ title: 'Fidelity capture/diff blind-spot fixes: modern-CSS colour resolution and
   geometry flagging'
 created_by: xgd
 created_at: '2026-07-13T20:12:58.838322+00:00'
-updated_at: '2026-07-13T20:12:58.838322+00:00'
+updated_at: '2026-07-13T20:20:47.985684+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-d9c2e655
   capability_uid: capability-3aac6f84
