@@ -758,6 +758,11 @@ describe('REQ-36 services-grid centered content column + footer muted gold', () 
     const html = await render(Footer, { variant: 'minimal', dials: { surface: 'accent-muted' }, content: { copyrightHolder: 'Acme' } })
     expect(html).toContain('surface-accent-muted')
     expect(footerCss).toMatch(/\.footer\.surface-accent-muted\s*\{[^}]*background:\s*var\(--color-accent-mid\)/)
+    // The referenced var must actually resolve out-of-the-box: the default palette
+    // declares `--color-accent-mid` in :root even when a site omits accentMid, so
+    // the accent-muted surface never renders with an undefined background.
+    const css = generateThemeCss({})
+    expect(css).toMatch(/:root\s*\{[^}]*--color-accent-mid:/)
   })
 })
 

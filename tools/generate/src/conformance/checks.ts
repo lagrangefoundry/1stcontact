@@ -240,7 +240,6 @@ export interface ResponsiveProbe {
 export const RESPONSIVE_PROBE = `(() => {
   const MIN_TAP = ${MIN_TAP_TARGET_PX};
   const FONT_FLOOR = ${MOBILE_FONT_FLOOR_PX};
-  const innerWidth = window.innerWidth;
   const smallTapTargets = [];
   const smallFonts = [];
   const describe = (el) => {
