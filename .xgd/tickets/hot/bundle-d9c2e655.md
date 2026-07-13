@@ -86,6 +86,8 @@ fields:
     new_sha: 60efd25b5235673acb4e5d522dc3d72715129c16
   - old_sha: fdd1a239c8773d7a74f7b8000e70b1e8d63bd359
     new_sha: 88e85d671cc6ac0793c094d99e341c4333e4a08e
+  - old_sha: bdd9d02477e5d87c465c125658b3bcc0dc8f19da
+    new_sha: 88fbc2884efd12b447a30d30d6a984bb37166fb5
   skipped_commits:
   - 3efd3be2a87da87aac12bda66b42dcf69658ad6e
   - 10541724fa8d48d58a6dac584f6cd76f0edd58bf
