@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Positioned hero object is placed by band coordinates
 created_by: xgd
 created_at: '2026-07-13T20:23:12.577363+00:00'
-updated_at: '2026-07-13T20:23:12.577363+00:00'
+updated_at: '2026-07-13T20:29:23.661044+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d70a0264
   kind: behavior
