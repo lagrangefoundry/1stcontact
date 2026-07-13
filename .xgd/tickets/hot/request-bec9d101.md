@@ -5,10 +5,10 @@ type: request
 title: 'gigabytealchemy.ai: re-import with object-grouped fidelity tooling'
 created_by: xgd
 created_at: '2026-07-11T00:41:50.707205+00:00'
-updated_at: '2026-07-13T22:06:43.687388+00:00'
-completed_at: '2026-07-13T22:06:43.687388+00:00'
+updated_at: '2026-07-13T18:05:07.762299+00:00'
+completed_at: null
 last_field_updated: status
-status: free_and_reconciled
+status: bundled
 fields:
   priority: high
   auto_merge_back: true

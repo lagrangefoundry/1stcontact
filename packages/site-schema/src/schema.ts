@@ -719,11 +719,10 @@ export const shadowTokensSchema = z.object({
   xl: cssValue.optional(),
 })
 
-/** Container widths (REQ-55) — the content-column width scale aligned 1:1 to
- * Tailwind's `max-w` steps (`sm`..`7xl`), plus `bleed` (`100%`, no cap). The
- * retired pre-REQ-55 vocabulary (`xnarrow`/`narrow`/`readable`/`default`/`wide`)
- * is gone; each named step is optional so `defaultTokens` fills any a theme
- * omits, so `--container-<step>` is always emitted for the whole scale. */
+/** Container widths; `default` is the canonical body container. `readable`
+ * (REQ-49, ~48rem/768px reading measure) is optional so existing themes validate
+ * unchanged — `defaultTokens` fills it, so `--container-readable` is always
+ * emitted (cf. `shadow.xl`). */
 export const containerTokensSchema = z.object({
   // Content-column width scale (REQ-55) — aligned to Tailwind's `max-w` steps.
   // Every named step is optional so a theme need only override the widths it

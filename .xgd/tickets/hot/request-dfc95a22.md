@@ -5,10 +5,10 @@ type: request
 title: Styled-run text content model + markup (implements DOC-22)
 created_by: xgd
 created_at: '2026-07-12T23:37:43.237932+00:00'
-updated_at: '2026-07-13T22:06:43.480722+00:00'
-completed_at: '2026-07-13T22:06:43.480722+00:00'
+updated_at: '2026-07-13T18:05:07.874619+00:00'
+completed_at: null
 last_field_updated: status
-status: free_and_reconciled
+status: bundled
 fields:
   priority: high
   auto_merge_back: true

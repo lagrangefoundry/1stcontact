@@ -1,524 +1,548 @@
 {
-  "id": "home",
-  "slug": "home",
-  "title": "Home",
-  "seoMeta": {
-    "title": "Gigabyte Alchemy — Intentional Software",
-    "description": "Tools for clarity, presence, and positive connection."
+ "id": "home",
+ "slug": "home",
+ "title": "Home",
+ "seoMeta": {
+  "title": "Gigabyte Alchemy — Intentional Software",
+  "description": "Tools for clarity, presence, and positive connection."
+ },
+ "modules": [
+  {
+   "id": "header",
+   "type": "header",
+   "version": 2,
+   "variant": "overlay",
+   "dials": {
+    "align": "left",
+    "spacingTop": "none",
+    "spacingBottom": "none"
+   },
+   "content": {
+    "wordmark": {
+     "text": "Gigabyte Alchemy",
+     "fontFamily": "Cinzel",
+     "fontSizePx": 72,
+     "fontWeight": 600,
+     "letterSpacingPx": -1.8,
+     "lineHeightPx": 90,
+     "color": "#f5e6a3",
+     "gradient": {
+      "angleDeg": 90,
+      "stops": [
+       {
+        "color": "#f5e6a3",
+        "position": 0
+       },
+       {
+        "color": "#f5e6a3",
+        "position": 60
+       },
+       {
+        "color": "#ff8c42",
+        "position": 90
+       },
+       {
+        "color": "#ff6b35",
+        "position": 100
+       }
+      ]
+     },
+     "position": {
+      "x": 6.9,
+      "y": 10,
+      "z": 3
+     }
+    },
+    "entries": []
+   }
   },
-  "modules": [
-    {
-      "id": "header",
-      "type": "header",
-      "version": 2,
-      "variant": "overlay",
-      "dials": {
-        "align": "left",
-        "spacingTop": "none",
-        "spacingBottom": "none"
-      },
-      "content": {
-        "wordmark": {
-          "text": "Gigabyte Alchemy",
-          "fontFamily": "Cinzel",
-          "fontSizePx": 72,
-          "fontWeight": 600,
-          "letterSpacingPx": -1.8,
-          "lineHeightPx": 90,
-          "color": "#f5e6a3",
-          "gradient": {
-            "angleDeg": 90,
-            "stops": [
-              "#f5e6a3",
-              "#f5e6a3",
-              "#ff8c42",
-              "#ff6b35"
-            ]
-          },
-          "position": {
-            "x": 6.9,
-            "y": 10,
-            "z": 3
-          }
-        },
-        "entries": []
-      }
+  {
+   "id": "hero",
+   "type": "hero",
+   "version": 2,
+   "variant": "bg-image",
+   "dials": {
+    "align": "left",
+    "height": "fold",
+    "contentAnchor": "top",
+    "contentWidth": "3xl",
+    "scrim": "none",
+    "contentOffsetTop": "xl",
+    "contentColumn": "center",
+    "contentInset": "md",
+    "spacingTop": "none"
+   },
+   "content": {
+    "eyebrow": {
+     "text": "Intentional Software",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 36,
+     "fontWeight": 700,
+     "letterSpacingPx": -0.9,
+     "lineHeightPx": 40,
+     "color": "#fbba72"
     },
-    {
-      "id": "hero",
-      "type": "hero",
-      "version": 2,
-      "variant": "bg-image",
-      "dials": {
-        "align": "left",
-        "height": "fold",
-        "contentAnchor": "center",
-        "contentWidth": "3xl",
-        "scrim": "none",
-        "contentOffsetTop": "sm",
-        "contentColumn": "center"
-      },
-      "content": {
-        "eyebrow": {
-          "text": "Intentional Software",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 36,
-          "fontWeight": 700,
-          "letterSpacingPx": -0.9,
-          "lineHeightPx": 40,
-          "color": "#fbba72",
-          "position": {
-            "x": 6.25,
-            "y": 41,
-            "z": 1
-          }
-        },
-        "heading": {
-          "text": "Tools for clarity, presence, and positive connection",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 24,
-          "fontWeight": 300,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 32,
-          "color": "#f5e6a3",
-          "position": {
-            "x": 6.25,
-            "y": 48.5,
-            "z": 1
-          }
-        },
-        "subhead": {
-          "text": "We're a software studio building technology to elevate—not just engage. Tools that help you access your wisdom, create inner space, and cultivate positive connection—with yourself and others.",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 18,
-          "fontWeight": 400,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 29,
-          "color": "#f5e6a3",
-          "position": {
-            "x": 6.25,
-            "y": 56.25,
-            "z": 1,
-            "width": 60
-          }
-        },
-        "image": {
-          "src": "assets/AlchemistLabWithTech.png",
-          "alt": "An alchemist's candlelit study"
-        }
-      }
+    "heading": {
+     "text": "Tools for clarity, presence, and positive connection",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 24,
+     "fontWeight": 300,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 32,
+     "color": "#f5e6a3"
     },
-    {
-      "id": "different-approach",
-      "type": "text-block",
-      "version": 2,
-      "variant": "prose",
-      "dials": {
-        "align": "left",
-        "textAlign": "left",
-        "headingAlign": "left",
-        "surface": "default",
-        "spacingTop": "xl",
-        "spacingBottom": "2xl",
-        "contentWidth": "4xl"
-      },
-      "content": {
-        "heading": {
-          "text": "A Different Approach",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 36,
-          "fontWeight": 700,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 40,
-          "color": "#000000"
-        },
-        "body": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.\n\nThrough privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.\n\n*We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.*",
-        "bodyStyle": {
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 18,
-          "fontWeight": 400,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 29,
-          "color": "#000000"
-        }
-      }
+    "subhead": {
+     "text": "We're a software studio building technology to elevate—not just engage. Tools that help you access your wisdom, create inner space, and cultivate positive connection—with yourself and others.",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 18,
+     "fontWeight": 400,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 29,
+     "color": "#f5e6a3"
     },
-    {
-      "id": "our-mission",
-      "type": "services-grid",
-      "version": 2,
-      "variant": "three-col",
-      "dials": {
-        "surface": "subtle",
-        "spacingBottom": "none",
-        "contentAlign": "left"
-      },
-      "content": {
-        "heading": {
-          "text": "Our Mission",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 36,
-          "fontWeight": 700,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 40,
-          "color": "#000000"
-        },
-        "subhead": "Our work is guided by a simple belief: the world needs more presence, positivity, and human connection.",
-        "subheadStyle": {
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 18,
-          "fontWeight": 400,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 29,
-          "color": "#000000"
-        },
-        "items": [
-          {
-            "title": {
-              "text": "Presence",
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 20,
-              "fontWeight": 600,
-              "lineHeightPx": 28,
-              "color": "#000000"
-            },
-            "body": "Technology that creates inner space for clarity and insight, helping you access what you know but can't easily reach",
-            "bodyStyle": {
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 16,
-              "fontWeight": 400,
-              "lineHeightPx": 26,
-              "color": "#000000"
-            }
-          },
-          {
-            "title": {
-              "text": "Positivity",
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 20,
-              "fontWeight": 600,
-              "lineHeightPx": 28,
-              "color": "#000000"
-            },
-            "body": "Tools that elevate mood and perspective, supporting gratitude, joy, and emotional well-being",
-            "bodyStyle": {
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 16,
-              "fontWeight": 400,
-              "lineHeightPx": 26,
-              "color": "#000000"
-            }
-          },
-          {
-            "title": {
-              "text": "Connection",
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 20,
-              "fontWeight": 600,
-              "lineHeightPx": 28,
-              "color": "#000000"
-            },
-            "body": "Technology that brings people together to create positive experiences and meaningful interactions",
-            "bodyStyle": {
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 16,
-              "fontWeight": 400,
-              "lineHeightPx": 26,
-              "color": "#000000"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "id": "mission-callout",
-      "type": "text-block",
-      "version": 2,
-      "variant": "prose",
-      "dials": {
-        "align": "left",
-        "textAlign": "left",
-        "surface": "subtle",
-        "spacingTop": "none",
-        "spacingBottom": "md",
-        "contentWidth": "md"
-      },
-      "content": {
-        "body": "> These aren't just features—they're foundations. Every tool we build starts with these principles.",
-        "bodyStyle": {
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 18,
-          "fontWeight": 500,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 29,
-          "color": "#000000"
-        }
-      }
-    },
-    {
-      "id": "what-were-building",
-      "type": "services-grid",
-      "version": 2,
-      "variant": "stacked",
-      "dials": {
-        "surface": "default",
-        "contentAlign": "left"
-      },
-      "content": {
-        "heading": {
-          "text": "What We're Building",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 36,
-          "fontWeight": 700,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 40,
-          "color": "#000000"
-        },
-        "subhead": "From personal reflection tools to developer platforms, our work spans the spectrum of human experience.",
-        "subheadStyle": {
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 18,
-          "fontWeight": 400,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 29,
-          "color": "#000000"
-        },
-        "items": [
-          {
-            "title": {
-              "text": "Sanctum Voice",
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 24,
-              "fontWeight": 700,
-              "lineHeightPx": 32,
-              "color": "#000000"
-            },
-            "badge": {
-              "label": "In development",
-              "variant": "primary"
-            },
-            "accent": "accent",
-            "body": "*Your private space to think out loud*\n\nA voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
-            "bodyStyle": {
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 16,
-              "fontWeight": 400,
-              "lineHeightPx": 26,
-              "color": "#000000"
-            },
-            "checklist": [
-              "Completely on-device—your thoughts never leave your phone",
-              "Creates space for deeper reflection and insight",
-              "Optional modules for journaling, dreams, gratitude, and personal growth"
-            ]
-          },
-          {
-            "title": {
-              "text": "XGD (Extreme Generative Development)",
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 24,
-              "fontWeight": 700,
-              "lineHeightPx": 32,
-              "color": "#000000"
-            },
-            "badge": {
-              "label": "Coming soon",
-              "variant": "secondary"
-            },
-            "accent": "secondary",
-            "body": "*AI-powered development methodology and tools*\n\nAn open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
-            "bodyStyle": {
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 16,
-              "fontWeight": 400,
-              "lineHeightPx": 26,
-              "color": "#000000"
-            },
-            "checklist": [
-              "Designed for developers building AI-enhanced workflows",
-              "Open source and community-driven",
-              "Practical tools for modern software development"
-            ]
-          },
-          {
-            "title": {
-              "text": "What We're Exploring",
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 20,
-              "fontWeight": 700,
-              "lineHeightPx": 28,
-              "color": "#000000"
-            },
-            "surface": "neutral-cool",
-            "body": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*",
-            "bodyStyle": {
-              "fontFamily": "ui-sans-serif",
-              "fontSizePx": 16,
-              "fontWeight": 400,
-              "lineHeightPx": 26,
-              "color": "#000000"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "id": "the-alchemy",
-      "type": "text-block",
-      "version": 2,
-      "variant": "prose",
-      "dials": {
-        "align": "left",
-        "textAlign": "left",
-        "headingAlign": "left",
-        "surface": "subtle",
-        "spacingTop": "xl",
-        "spacingBottom": "2xl"
-      },
-      "content": {
-        "heading": {
-          "text": "The Alchemy",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 36,
-          "fontWeight": 700,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 40,
-          "color": "#000000"
-        },
-        "body": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.\n\nBut the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.\n\nThat's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.\n\n> We're not trying to change you. We're creating space for you to discover what's already there.",
-        "bodyStyle": {
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 18,
-          "fontWeight": 400,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 29,
-          "color": "#000000"
-        }
-      }
-    },
-    {
-      "id": "subscribe",
-      "type": "contact-form",
-      "version": 2,
-      "variant": "inline",
-      "dials": {
-        "surface": "default",
-        "width": "half",
-        "align": "left",
-        "submitTreatment": "primary"
-      },
-      "content": {
-        "heading": {
-          "text": "Get in touch",
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 36,
-          "fontWeight": 700,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 40,
-          "color": "#000000"
-        },
-        "subhead": "Join our mailing list for updates on our work.",
-        "subheadStyle": {
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 18,
-          "fontWeight": 400,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 28,
-          "color": "#000000"
-        },
-        "action": "/api/subscribe",
-        "fields": [
-          {
-            "name": "email",
-            "label": "Your email address",
-            "type": "email",
-            "required": true
-          }
-        ],
-        "submitLabel": {
-          "text": "Subscribe",
-          "color": "#ffffff",
-          "fontSizePx": 16,
-          "fontWeight": 500,
-          "lineHeightPx": 24
-        }
-      }
-    },
-    {
-      "id": "contact",
-      "type": "contact-form",
-      "version": 2,
-      "variant": "inline",
-      "dials": {
-        "surface": "default",
-        "width": "half",
-        "align": "left",
-        "submitTreatment": "neutral"
-      },
-      "content": {
-        "action": "/api/contact",
-        "fields": [
-          {
-            "name": "name",
-            "label": "Your name",
-            "type": "text",
-            "required": true
-          },
-          {
-            "name": "email",
-            "label": "Your email",
-            "type": "email",
-            "required": true
-          },
-          {
-            "name": "message",
-            "label": "Your message",
-            "type": "textarea",
-            "required": true
-          }
-        ],
-        "submitLabel": {
-          "text": "Send message",
-          "color": "#ffffff",
-          "fontSizePx": 16,
-          "fontWeight": 500,
-          "lineHeightPx": 24
-        },
-        "caption": "Protected by Cloudflare Turnstile.",
-        "captionStyle": {
-          "fontFamily": "ui-sans-serif",
-          "fontSizePx": 12,
-          "fontWeight": 400,
-          "letterSpacingPx": 0,
-          "lineHeightPx": 16,
-          "color": "#000000"
-        }
-      }
-    },
-    {
-      "id": "footer",
-      "type": "footer",
-      "version": 1,
-      "variant": "minimal",
-      "dials": {
-        "surface": "inverse",
-        "layout": "spread",
-        "spacingTop": "xl",
-        "spacingBottom": "xl"
-      },
-      "content": {
-        "copyrightHolder": "Gigabyte Alchemy",
-        "links": [
-          {
-            "label": "LinkedIn",
-            "target": "#"
-          },
-          {
-            "label": "GitHub",
-            "target": "#"
-          }
-        ]
-      }
+    "image": {
+     "src": "assets/AlchemistLabWithTech.png",
+     "alt": "An alchemist's candlelit study"
     }
-  ]
+   }
+  },
+  {
+   "id": "different-approach",
+   "type": "text-block",
+   "version": 2,
+   "variant": "prose",
+   "dials": {
+    "align": "left",
+    "textAlign": "left",
+    "headingAlign": "left",
+    "surface": "default",
+    "spacingTop": "xl",
+    "spacingBottom": "2xl",
+    "contentWidth": "4xl"
+   },
+   "content": {
+    "heading": {
+     "text": "A Different Approach",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 36,
+     "fontWeight": 700,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 40,
+     "color": "#000000"
+    },
+    "body": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.\n\nThrough privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.\n\n*We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.*",
+    "bodyStyle": {
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 18,
+     "fontWeight": 400,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 29,
+     "color": "#314158"
+    }
+   }
+  },
+  {
+   "id": "our-mission",
+   "type": "services-grid",
+   "version": 2,
+   "variant": "three-col",
+   "dials": {
+    "surface": "subtle",
+    "spacingBottom": "none",
+    "contentAlign": "left"
+   },
+   "content": {
+    "heading": {
+     "text": "Our Mission",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 36,
+     "fontWeight": 700,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 40,
+     "color": "#000000"
+    },
+    "subhead": "Our work is guided by a simple belief: the world needs more presence, positivity, and human connection.",
+    "subheadStyle": {
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 18,
+     "fontWeight": 400,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 29,
+     "color": "#314158"
+    },
+    "items": [
+     {
+      "title": {
+       "text": "Presence",
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 20,
+       "fontWeight": 600,
+       "lineHeightPx": 28,
+       "color": "#1d293d"
+      },
+      "body": "Technology that creates inner space for clarity and insight, helping you access what you know but can't easily reach",
+      "bodyStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 26,
+       "color": "#314158"
+      }
+     },
+     {
+      "title": {
+       "text": "Positivity",
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 20,
+       "fontWeight": 600,
+       "lineHeightPx": 28,
+       "color": "#1d293d"
+      },
+      "body": "Tools that elevate mood and perspective, supporting gratitude, joy, and emotional well-being",
+      "bodyStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 26,
+       "color": "#314158"
+      }
+     },
+     {
+      "title": {
+       "text": "Connection",
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 20,
+       "fontWeight": 600,
+       "lineHeightPx": 28,
+       "color": "#1d293d"
+      },
+      "body": "Technology that brings people together to create positive experiences and meaningful interactions",
+      "bodyStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 26,
+       "color": "#314158"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "mission-callout",
+   "type": "text-block",
+   "version": 2,
+   "variant": "prose",
+   "dials": {
+    "align": "left",
+    "textAlign": "left",
+    "surface": "subtle",
+    "spacingTop": "none",
+    "spacingBottom": "md",
+    "contentWidth": "md"
+   },
+   "content": {
+    "body": "> These aren't just features—they're foundations. Every tool we build starts with these principles.",
+    "bodyStyle": {
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 18,
+     "fontWeight": 500,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 29,
+     "color": "#314158"
+    }
+   }
+  },
+  {
+   "id": "what-were-building",
+   "type": "services-grid",
+   "version": 2,
+   "variant": "stacked",
+   "dials": {
+    "surface": "default",
+    "contentAlign": "left"
+   },
+   "content": {
+    "heading": {
+     "text": "What We're Building",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 36,
+     "fontWeight": 700,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 40,
+     "color": "#000000"
+    },
+    "subhead": "From personal reflection tools to developer platforms, our work spans the spectrum of human experience.",
+    "subheadStyle": {
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 18,
+     "fontWeight": 400,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 29,
+     "color": "#314158"
+    },
+    "items": [
+     {
+      "title": {
+       "text": "Sanctum Voice",
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 24,
+       "fontWeight": 700,
+       "lineHeightPx": 32,
+       "color": "#1d293d"
+      },
+      "badge": {
+       "label": "In development",
+       "variant": "primary",
+       "labelStyle": {
+        "fontSizePx": 14,
+        "fontWeight": 500,
+        "lineHeightPx": 20,
+        "color": "#007a55"
+       }
+      },
+      "accent": "accent",
+      "body": "*Your private space to think out loud*\n\nA voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
+      "bodyStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 26,
+       "color": "#314158"
+      },
+      "checklist": [
+       "Completely on-device—your thoughts never leave your phone",
+       "Creates space for deeper reflection and insight",
+       "Optional modules for journaling, dreams, gratitude, and personal growth"
+      ],
+      "checklistStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 24,
+       "color": "#314158"
+      }
+     },
+     {
+      "title": {
+       "text": "XGD (Extreme Generative Development)",
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 24,
+       "fontWeight": 700,
+       "lineHeightPx": 32,
+       "color": "#1d293d"
+      },
+      "badge": {
+       "label": "Coming soon",
+       "variant": "secondary",
+       "labelStyle": {
+        "fontSizePx": 14,
+        "fontWeight": 500,
+        "lineHeightPx": 20,
+        "color": "#1447e6"
+       }
+      },
+      "accent": "secondary",
+      "body": "*AI-powered development methodology and tools*\n\nAn open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
+      "bodyStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 26,
+       "color": "#314158"
+      },
+      "checklist": [
+       "Designed for developers building AI-enhanced workflows",
+       "Open source and community-driven",
+       "Practical tools for modern software development"
+      ],
+      "checklistStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 24,
+       "color": "#314158"
+      }
+     },
+     {
+      "title": {
+       "text": "What We're Exploring",
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 20,
+       "fontWeight": 700,
+       "lineHeightPx": 28,
+       "color": "#1d293d"
+      },
+      "surface": "neutral-cool",
+      "body": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*",
+      "bodyStyle": {
+       "fontFamily": "ui-sans-serif",
+       "fontSizePx": 16,
+       "fontWeight": 400,
+       "lineHeightPx": 26,
+       "color": "#314158"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "id": "the-alchemy",
+   "type": "text-block",
+   "version": 2,
+   "variant": "prose",
+   "dials": {
+    "align": "left",
+    "textAlign": "left",
+    "headingAlign": "left",
+    "surface": "subtle",
+    "spacingTop": "xl",
+    "spacingBottom": "2xl"
+   },
+   "content": {
+    "heading": {
+     "text": "The Alchemy",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 36,
+     "fontWeight": 700,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 40,
+     "color": "#000000"
+    },
+    "body": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.\n\nBut the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.\n\nThat's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.\n\n> We're not trying to change you. We're creating space for you to discover what's already there.",
+    "bodyStyle": {
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 18,
+     "fontWeight": 400,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 29,
+     "color": "#314158"
+    }
+   }
+  },
+  {
+   "id": "subscribe",
+   "type": "contact-form",
+   "version": 2,
+   "variant": "inline",
+   "dials": {
+    "surface": "default",
+    "width": "half",
+    "align": "left",
+    "submitTreatment": "primary"
+   },
+   "content": {
+    "heading": {
+     "text": "Get in touch",
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 36,
+     "fontWeight": 700,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 40,
+     "color": "#000000"
+    },
+    "subhead": "Join our mailing list for updates on our work.",
+    "subheadStyle": {
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 18,
+     "fontWeight": 400,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 28,
+     "color": "#314158"
+    },
+    "action": "/api/subscribe",
+    "fields": [
+     {
+      "name": "email",
+      "label": "Your email address",
+      "type": "email",
+      "required": true
+     }
+    ],
+    "submitLabel": {
+     "text": "Subscribe",
+     "color": "#ffffff",
+     "fontSizePx": 16,
+     "fontWeight": 500,
+     "lineHeightPx": 24
+    }
+   }
+  },
+  {
+   "id": "contact",
+   "type": "contact-form",
+   "version": 2,
+   "variant": "inline",
+   "dials": {
+    "surface": "default",
+    "width": "half",
+    "align": "left",
+    "submitTreatment": "neutral"
+   },
+   "content": {
+    "action": "/api/contact",
+    "fields": [
+     {
+      "name": "name",
+      "label": "Your name",
+      "type": "text",
+      "required": true
+     },
+     {
+      "name": "email",
+      "label": "Your email",
+      "type": "email",
+      "required": true
+     },
+     {
+      "name": "message",
+      "label": "Your message",
+      "type": "textarea",
+      "required": true
+     }
+    ],
+    "submitLabel": {
+     "text": "Send message",
+     "color": "#ffffff",
+     "fontSizePx": 16,
+     "fontWeight": 500,
+     "lineHeightPx": 24
+    },
+    "caption": "Protected by Cloudflare Turnstile.",
+    "captionStyle": {
+     "fontFamily": "ui-sans-serif",
+     "fontSizePx": 12,
+     "fontWeight": 400,
+     "letterSpacingPx": 0,
+     "lineHeightPx": 16,
+     "color": "#62748e"
+    }
+   }
+  },
+  {
+   "id": "footer",
+   "type": "footer",
+   "version": 1,
+   "variant": "minimal",
+   "dials": {
+    "surface": "inverse",
+    "layout": "spread",
+    "spacingTop": "xl",
+    "spacingBottom": "xl"
+   },
+   "content": {
+    "copyrightHolder": "Gigabyte Alchemy",
+    "links": [
+     {
+      "label": "LinkedIn",
+      "target": "#"
+     },
+     {
+      "label": "GitHub",
+      "target": "#"
+     }
+    ]
+   }
+  }
+ ]
 }

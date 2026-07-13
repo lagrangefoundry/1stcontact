@@ -186,15 +186,11 @@ function resolveColor(value: string): string {
   return value.startsWith('#') ? value : `var(--color-${kebab(value)})`
 }
 
-/** Family role alias → `var(--font-family-<role>)`, else a literal family name.
- * A literal name is quoted with its `\` and `"` escaped, so a stray quote can
- * never break out of the CSS string (defense-in-depth against untrusted input). */
+/** Family role alias → `var(--font-family-<role>)`, else a literal family name. */
 function resolveFamily(value: string): string {
-  if ((FAMILY_ROLES as readonly string[]).includes(value)) {
-    return `var(--font-family-${value})`
-  }
-  const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-  return `"${escaped}", sans-serif`
+  return (FAMILY_ROLES as readonly string[]).includes(value)
+    ? `var(--font-family-${value})`
+    : `"${value}", sans-serif`
 }
 
 /** A gradient sweep direction: a literal degrees number → `<n>deg`, else a direction alias keyword. */

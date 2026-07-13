@@ -23,12 +23,6 @@ export const defaultTokens: ThemeTokens = {
     // declared even when a site omits them.
     accentLight: '#fcd34d',
     accentDeep: '#b45309',
-    // `accentMid` (REQ-20/REQ-36) — a muted, less-saturated gold sitting between
-    // `accent` (#f59e0b) and `accentDeep` (#b45309). Declared here for the same
-    // reason as accentLight/accentDeep: so `--color-accent-mid` always resolves
-    // even when a site omits it. Backs the footer `accent-muted` surface dial and
-    // the mid stop of a warm brand gradient; a site overrides for its exact gold.
-    accentMid: '#d98324',
     // Hero legibility scrim (REQ-36) — a near-black so the `scrim` dial darkens a
     // background image for text contrast, independent of `surfaceInverse` (which
     // a theme may set to a mid neutral). A site can override for a tinted scrim.

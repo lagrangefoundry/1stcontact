@@ -105,7 +105,17 @@
         "weight": "600",
         "display": "swap"
       }
-    ]
+    ],
+    "badge": {
+      "fontSizePx": 14,
+      "fontWeight": 500,
+      "lineHeightPx": 20
+    },
+    "checklist": {
+      "fontSizePx": 16,
+      "lineHeightPx": 24,
+      "color": "#314158"
+    }
   },
   "nav": {
     "pattern": "top-tabs",
