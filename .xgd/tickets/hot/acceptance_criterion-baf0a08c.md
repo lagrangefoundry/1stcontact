@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Prose block is not narrowed unless contentWidth is set
 created_by: xgd
 created_at: '2026-07-13T20:31:57.573542+00:00'
-updated_at: '2026-07-13T20:31:57.573542+00:00'
+updated_at: '2026-07-13T20:35:20.650214+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8a42499e
   kind: behavior
