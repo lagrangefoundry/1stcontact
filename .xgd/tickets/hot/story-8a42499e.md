@@ -6,10 +6,10 @@ title: Prose text block fills the content container by default with an opt-in na
   measure
 created_by: xgd
 created_at: '2026-07-13T20:31:37.512159+00:00'
-updated_at: '2026-07-13T20:31:37.512159+00:00'
+updated_at: '2026-07-13T20:35:20.554241+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-d9c2e655
   capability_uid: capability-19bef07f
