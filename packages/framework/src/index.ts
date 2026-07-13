@@ -54,6 +54,7 @@ export {
   parseStyledText,
   serializeStyledText,
   normalizeRuns,
+  normalizeStyledText,
   TEXT_STYLE_ALIASES,
   GRADIENT_DIRECTION_ALIASES,
   PALETTE_ROLE_ALIASES,
@@ -78,6 +79,10 @@ export type {
   StyledRun,
   StyleOverride,
   Emphasis,
+  Block,
+  ParagraphBlock,
+  ListBlock,
+  ListItem,
 } from './modules'
 
 export { BUILD_YEAR } from './buildInfo'
