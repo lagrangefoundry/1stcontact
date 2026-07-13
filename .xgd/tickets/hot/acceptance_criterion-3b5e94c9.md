@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: The tolerant opt-out restores loose matching on every default-exact axis
 created_by: xgd
 created_at: '2026-07-13T20:00:57.911731+00:00'
-updated_at: '2026-07-13T20:00:57.911731+00:00'
+updated_at: '2026-07-13T20:09:23.309922+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-dadb8475
   kind: behavior
