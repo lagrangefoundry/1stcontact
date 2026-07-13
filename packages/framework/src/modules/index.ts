@@ -41,10 +41,16 @@ export type {
   StyledRun,
   StyleOverride,
   Emphasis,
+  HeadingLevel,
   Block,
   ParagraphBlock,
+  HeadingBlock,
+  CodeBlock,
   ListBlock,
   ListItem,
+  BlockquoteBlock,
+  TableBlock,
+  TableCell,
 } from './text-markup'
 export { validateModuleContent } from './validate'
 export type { ContentValidationError } from './validate'

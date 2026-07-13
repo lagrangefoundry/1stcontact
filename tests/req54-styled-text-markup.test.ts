@@ -81,10 +81,10 @@ function makeContent(seed: number): StyledText {
   for (let b = 0; b < blockCount; b++) {
     const roll = rng()
     if (roll < 0.3) {
-      // A list — bullet or ordered, 1..3 items.
+      // A list — bullet or ordered, 1..3 items (each a single paragraph block).
       const ordered = rng() < 0.5
       const items = Array.from({ length: 1 + Math.floor(rng() * 3) }, () => ({
-        runs: makeRuns(rng, seedIndex),
+        blocks: [{ kind: 'paragraph', runs: makeRuns(rng, seedIndex) } as Block],
       }))
       if (ordered && rng() < 0.4) {
         blocks.push({ kind: 'list', ordered, start: 2 + Math.floor(rng() * 5), items })
@@ -92,7 +92,7 @@ function makeContent(seed: number): StyledText {
         blocks.push({ kind: 'list', ordered, items })
       }
     } else if (roll < 0.45) {
-      blocks.push({ kind: 'paragraph', blockquote: true, runs: makeRuns(rng, seedIndex) })
+      blocks.push({ kind: 'blockquote', blocks: [{ kind: 'paragraph', runs: makeRuns(rng, seedIndex) }] })
     } else {
       blocks.push({ kind: 'paragraph', runs: makeRuns(rng, seedIndex) })
     }
@@ -172,9 +172,8 @@ describe('REQ-54 styled-text markup — block structure (DOC-22 §3)', () => {
       runs: [{ text: 'x', href: 'https://a.co' }],
     })
     expect(parseStyledText('> quiet line').blocks[0]).toEqual({
-      kind: 'paragraph',
-      blockquote: true,
-      runs: [{ text: 'quiet line' }],
+      kind: 'blockquote',
+      blocks: [{ kind: 'paragraph', runs: [{ text: 'quiet line' }] }],
     })
   })
 })
@@ -193,9 +192,13 @@ describe('REQ-54 styled-text markup — lists (DOC-22 §3, 1stcontact)', () => {
           kind: 'list',
           ordered: true,
           items: [
-            { runs: [{ text: 'Pick a starting point.' }] },
-            { runs: [{ text: 'Drop in your words and pictures.' }] },
-            { runs: [{ text: 'Publish. Every version is kept, so you can always roll back.' }] },
+            { blocks: [{ kind: 'paragraph', runs: [{ text: 'Pick a starting point.' }] }] },
+            { blocks: [{ kind: 'paragraph', runs: [{ text: 'Drop in your words and pictures.' }] }] },
+            {
+              blocks: [
+                { kind: 'paragraph', runs: [{ text: 'Publish. Every version is kept, so you can always roll back.' }] },
+              ],
+            },
           ],
         },
       ],
@@ -212,9 +215,9 @@ describe('REQ-54 styled-text markup — lists (DOC-22 §3, 1stcontact)', () => {
           kind: 'list',
           ordered: false,
           items: [
-            { runs: [{ text: 'plain item' }] },
-            { runs: [{ text: 'bold bit', emphasis: 'bold' }, { text: ' then plain' }] },
-            { runs: [{ text: 'sized', fontSizePx: 18 }] },
+            { blocks: [{ kind: 'paragraph', runs: [{ text: 'plain item' }] }] },
+            { blocks: [{ kind: 'paragraph', runs: [{ text: 'bold bit', emphasis: 'bold' }, { text: ' then plain' }] }] },
+            { blocks: [{ kind: 'paragraph', runs: [{ text: 'sized', fontSizePx: 18 }] }] },
           ],
         },
       ],
@@ -229,7 +232,15 @@ describe('REQ-54 styled-text markup — lists (DOC-22 §3, 1stcontact)', () => {
     // the item ordinals are positional (start + index).
     const content: StyledText = {
       blocks: [
-        { kind: 'list', ordered: true, start: 3, items: [{ runs: [{ text: 'third' }] }, { runs: [{ text: 'fourth' }] }] },
+        {
+          kind: 'list',
+          ordered: true,
+          start: 3,
+          items: [
+            { blocks: [{ kind: 'paragraph', runs: [{ text: 'third' }] }] },
+            { blocks: [{ kind: 'paragraph', runs: [{ text: 'fourth' }] }] },
+          ],
+        },
       ],
     }
     expect(serializeStyledText(content)).toBe('3. third\n4. fourth')

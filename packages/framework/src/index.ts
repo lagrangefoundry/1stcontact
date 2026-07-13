@@ -79,10 +79,16 @@ export type {
   StyledRun,
   StyleOverride,
   Emphasis,
+  HeadingLevel,
   Block,
   ParagraphBlock,
+  HeadingBlock,
+  CodeBlock,
   ListBlock,
   ListItem,
+  BlockquoteBlock,
+  TableBlock,
+  TableCell,
 } from './modules'
 
 export { BUILD_YEAR } from './buildInfo'
