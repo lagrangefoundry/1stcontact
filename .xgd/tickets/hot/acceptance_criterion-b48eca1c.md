@@ -6,10 +6,10 @@ title: Bullet and ordered lists round-trip as one list kind with positional ordi
   and start offset
 created_by: xgd
 created_at: '2026-07-13T21:00:41.355239+00:00'
-updated_at: '2026-07-13T21:00:41.355239+00:00'
+updated_at: '2026-07-13T21:05:59.503457+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8b5ebbf7
   kind: behavior
