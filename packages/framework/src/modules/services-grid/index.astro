@@ -281,9 +281,14 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     right: var(--space-4);
     padding: var(--space-1) var(--space-3);
     border-radius: var(--radius-full);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    line-height: var(--line-height-tight);
+    /* Badge label type from the theme `badge` subscale (REQ-56) — fixing the
+       subscale corrects every badge instance; a per-instance `badge.labelStyle`
+       overrides one. Family defaults to inherit when the subscale sets none. */
+    font-family: var(--subscale-badge-font-family, inherit);
+    font-size: var(--subscale-badge-font-size);
+    font-weight: var(--subscale-badge-font-weight);
+    line-height: var(--subscale-badge-line-height);
+    letter-spacing: var(--subscale-badge-letter-spacing);
     white-space: nowrap;
   }
   .services-grid__badge.badge-neutral { background: var(--color-surface-subtle); color: var(--color-muted); }
@@ -312,7 +317,13 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid__check {
     display: flex;
     gap: var(--space-2);
-    line-height: var(--line-height-relaxed);
+    /* Checklist item type from the theme `checklist` subscale (REQ-56); a
+       per-instance `checklist.itemStyle` overrides one. */
+    font-family: var(--subscale-checklist-font-family, inherit);
+    font-size: var(--subscale-checklist-font-size);
+    font-weight: var(--subscale-checklist-font-weight);
+    line-height: var(--subscale-checklist-line-height);
+    letter-spacing: var(--subscale-checklist-letter-spacing);
   }
   .services-grid__check-mark {
     flex: none;

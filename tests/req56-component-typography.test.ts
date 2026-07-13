@@ -1,6 +1,18 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens/index'
 import { typographyTokensSchema } from '../packages/site-schema/src/schema'
+
+/** Raw services-grid module source — its `<style>` block owns badge/checklist type. */
+function servicesGridSource(): string {
+  return readFileSync(
+    fileURLToPath(
+      new URL('../packages/framework/src/modules/services-grid/index.astro', import.meta.url),
+    ),
+    'utf8',
+  )
+}
 
 /**
  * REQ-56 — component-owned typography as theme subscales.
@@ -87,5 +99,36 @@ describe('REQ-56 component-owned typography — theme subscales', () => {
         subScales: { badge: { text: 'nope' } },
       }),
     ).toThrow()
+  })
+})
+
+/**
+ * Phase 2 (module repoint) — the services-grid badge label and checklist item
+ * draw their type from the theme subscale vars, not hard-coded scale tokens, so
+ * the theme drives every instance.
+ */
+describe('REQ-56 component-owned typography — services-grid consumes subscales', () => {
+  it('test_UAT_FC_REQ-56_badge_consumes_theme_subscale', () => {
+    const src = servicesGridSource()
+    const badge = src.slice(src.indexOf('.services-grid__badge {'))
+    // Badge type now references the theme subscale …
+    expect(badge).toContain('font-size: var(--subscale-badge-font-size)')
+    expect(badge).toContain('font-weight: var(--subscale-badge-font-weight)')
+    expect(badge).toContain('line-height: var(--subscale-badge-line-height)')
+    // … and no longer the hard-coded general scale tokens it used before.
+    const badgeRule = badge.slice(0, badge.indexOf('}'))
+    expect(badgeRule).not.toContain('var(--font-size-xs)')
+    expect(badgeRule).not.toContain('var(--font-weight-semibold)')
+    expect(badgeRule).not.toContain('var(--line-height-tight)')
+  })
+
+  it('test_UAT_FC_REQ-56_checklist_consumes_theme_subscale', () => {
+    const src = servicesGridSource()
+    const check = src.slice(src.indexOf('.services-grid__check {'))
+    const checkRule = check.slice(0, check.indexOf('}'))
+    expect(checkRule).toContain('line-height: var(--subscale-checklist-line-height)')
+    expect(checkRule).toContain('font-size: var(--subscale-checklist-font-size)')
+    // The previous relaxed leading is gone from the item rule.
+    expect(checkRule).not.toContain('var(--line-height-relaxed)')
   })
 })
