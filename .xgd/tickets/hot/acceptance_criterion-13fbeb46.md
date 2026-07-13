@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Image and control objects carry their own kind-appropriate parameter tables
 created_by: xgd
 created_at: '2026-07-13T19:51:29.342482+00:00'
-updated_at: '2026-07-13T19:51:29.342482+00:00'
+updated_at: '2026-07-13T19:57:11.437358+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-74050e88
   kind: behavior
