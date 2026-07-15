@@ -13,6 +13,7 @@ import {
   formatMultiViewportReport,
   parseArgs,
   readMultiState,
+  withCleanStdout,
   runMultiStateCapture,
   type MultiStateCapture,
   type StateDiff,
@@ -106,6 +107,58 @@ describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', 
     expect(after.flags['multi-viewport']).toBe(true)
     expect(after.positionals).toEqual(['values-diff', 'gigabytealchemy'])
     expect(after.flags.ref).toBe('bundle/dir')
+  })
+})
+
+// ── pure: --json stays a clean document even when render chatters ────────────
+
+describe('REQ-58 T2 — withCleanStdout keeps render chatter off stdout', () => {
+  it('test_UAT_FC_REQ-58_multiviewport_json_stdout_clean', async () => {
+    // The Astro/Vite render writes diagnostics ("Re-optimizing dependencies",
+    // "Missing pages directory") to stdout. In --json mode that corrupts the
+    // single JSON document. withCleanStdout must divert those writes to stderr
+    // for the duration of the compute, then restore stdout so the CLI's own
+    // JSON print lands cleanly — and it must restore even if the body throws.
+    const origOut = process.stdout.write.bind(process.stdout)
+    const origErr = process.stderr.write.bind(process.stderr)
+    const outSeen: string[] = []
+    const errSeen: string[] = []
+    process.stdout.write = ((c: unknown) => (outSeen.push(String(c)), true)) as typeof process.stdout.write
+    process.stderr.write = ((c: unknown) => (errSeen.push(String(c)), true)) as typeof process.stderr.write
+    try {
+      const result = await withCleanStdout(async () => {
+        process.stdout.write('[vite] Re-optimizing dependencies\n')
+        process.stdout.write('[WARN] Missing pages directory: src/pages\n')
+        return 42
+      })
+      // The wrapped body's return value passes straight through.
+      expect(result).toBe(42)
+      // Nothing the body wrote to stdout leaked to stdout…
+      expect(outSeen.join('')).toBe('')
+      // …it was diverted to stderr instead.
+      expect(errSeen.join('')).toContain('Re-optimizing dependencies')
+      expect(errSeen.join('')).toContain('Missing pages directory')
+      // stdout is restored: a write after the helper lands on stdout again.
+      process.stdout.write('{"clean":true}\n')
+      expect(outSeen.join('')).toBe('{"clean":true}\n')
+    } finally {
+      process.stdout.write = origOut
+      process.stderr.write = origErr
+    }
+
+    // The restore must survive a throwing body too.
+    process.stdout.write = ((c: unknown) => (outSeen.push(String(c)), true)) as typeof process.stdout.write
+    try {
+      await expect(
+        withCleanStdout(async () => {
+          throw new Error('boom')
+        }),
+      ).rejects.toThrow('boom')
+    } finally {
+      process.stdout.write = origOut
+    }
+    // After a throw, stdout.write is the real one again (not still aliased to stderr).
+    expect(process.stdout.write).toBe(origOut)
   })
 })
 

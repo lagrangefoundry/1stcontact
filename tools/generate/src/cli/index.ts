@@ -1,4 +1,5 @@
 import { parseArgs } from './args'
+import { withCleanStdout } from './stdio'
 import {
   cmdCheckout,
   cmdList,
@@ -65,6 +66,7 @@ export type {
   CropOptions,
 } from './perceptual'
 export { parseArgs } from './args'
+export { withCleanStdout } from './stdio'
 
 const USAGE = `1c — file-backed site storage, versioning & server-side render (REQ-9)
 
@@ -312,14 +314,17 @@ export async function run(argv: string[]): Promise<void> {
       // reference's persisted viewport ladder, cell-for-cell, so a %-vs-fixed
       // reflow invisible at the single default width is surfaced in its cell.
       if (flags['multi-viewport'] === true) {
-        const cells = await cmdValuesDiffMultiViewport({
-          ...global,
-          slug,
-          source,
-          refBundleDir: ref,
-          out: typeof flags.out === 'string' ? flags.out : undefined,
-          diffOptions,
-        })
+        // Keep render/Vite chatter off stdout so `--json` is a clean document.
+        const cells = await withCleanStdout(() =>
+          cmdValuesDiffMultiViewport({
+            ...global,
+            slug,
+            source,
+            refBundleDir: ref,
+            out: typeof flags.out === 'string' ? flags.out : undefined,
+            diffOptions,
+          }),
+        )
         if (flags.json === true) {
           console.log(JSON.stringify(cells, null, 2))
         } else {
@@ -330,15 +335,17 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
 
-      const report = await cmdValuesDiff({
-        ...global,
-        slug,
-        source,
-        refBundleDir: ref,
-        actualManifestPath: actualPath,
-        out: typeof flags.out === 'string' ? flags.out : undefined,
-        diffOptions,
-      })
+      const report = await withCleanStdout(() =>
+        cmdValuesDiff({
+          ...global,
+          slug,
+          source,
+          refBundleDir: ref,
+          actualManifestPath: actualPath,
+          out: typeof flags.out === 'string' ? flags.out : undefined,
+          diffOptions,
+        }),
+      )
       if (flags.json === true) {
         console.log(JSON.stringify(report, null, 2))
       } else {
