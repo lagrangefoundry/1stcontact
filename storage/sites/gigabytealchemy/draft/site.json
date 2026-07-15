@@ -7,14 +7,14 @@
   "theme": {
     "palette": {
       "bg": "#e8dfd3",
-      "surface": "#ece4d6",
+      "surface": "#ffffff",
       "surfaceSubtle": "#d9ccba",
       "surfaceInverse": "#0f172b",
       "text": "#000000",
       "muted": "#4b5563",
-      "primary": "#10b981",
-      "accent": "#f59e0b",
-      "secondary": "#3b82f6",
+      "primary": "#00d492",
+      "accent": "#ffb900",
+      "secondary": "#50a2ff",
       "neutralCool": "#64748b",
       "accentLight": "#f5e6a3",
       "accentDeep": "#b45309",

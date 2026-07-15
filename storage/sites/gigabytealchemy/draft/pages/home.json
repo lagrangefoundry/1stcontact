@@ -239,7 +239,8 @@
     "surface": "subtle",
     "spacingTop": "none",
     "spacingBottom": "md",
-    "contentWidth": "md"
+    "contentWidth": "4xl",
+    "accent": "primary"
    },
    "content": {
     "body": "> These aren't just features—they're foundations. Every tool we build starts with these principles.",
@@ -397,7 +398,8 @@
     "headingAlign": "left",
     "surface": "subtle",
     "spacingTop": "xl",
-    "spacingBottom": "2xl"
+    "spacingBottom": "2xl",
+    "contentWidth": "4xl"
    },
    "content": {
     "heading": {
@@ -429,7 +431,8 @@
     "surface": "default",
     "width": "half",
     "align": "left",
-    "submitTreatment": "primary"
+    "submitTreatment": "primary",
+    "fieldLabels": "placeholder"
    },
    "content": {
     "heading": {
@@ -477,7 +480,8 @@
     "surface": "default",
     "width": "half",
     "align": "left",
-    "submitTreatment": "neutral"
+    "submitTreatment": "neutral",
+    "fieldLabels": "placeholder"
    },
    "content": {
     "action": "/api/contact",
