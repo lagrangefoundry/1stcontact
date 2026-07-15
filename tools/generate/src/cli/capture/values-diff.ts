@@ -31,6 +31,7 @@ import type {
   Capture,
   ContentRun,
   Field,
+  GradientStop,
   InteractionState,
   NameSource,
   RenderEngine,
@@ -506,12 +507,15 @@ export function colorDistance(a: string, b: string): number {
 export function normalizeGradient(css: string | null | undefined): TextGradient | null {
   if (!css || !/gradient\(/.test(css)) return null
 
-  const stops: string[] = []
-  const colorRe = /(#[0-9a-fA-F]{3,6}|rgba?\([^)]*\))/g
+  const stops: GradientStop[] = []
+  // Each stop is a colour optionally followed by its offset (`… 60%`). The
+  // offset is captured (REQ-59) so position drift is a comparable delta; a stop
+  // with no explicit offset records `position: null`.
+  const stopRe = /(#[0-9a-fA-F]{3,8}|rgba?\([^)]*\))(?:\s+(-?\d+(?:\.\d+)?)%)?/g
   let m: RegExpExecArray | null
-  while ((m = colorRe.exec(css))) {
+  while ((m = stopRe.exec(css))) {
     const hex = colorToHex(m[1])
-    if (hex) stops.push(hex)
+    if (hex) stops.push({ color: hex, position: m[2] !== undefined ? parseFloat(m[2]) : null })
   }
 
   if (!/linear-gradient\(/.test(css)) return { angleDeg: null, stops }
@@ -1026,6 +1030,8 @@ export interface DiffOptions {
   fontWeightTolerance?: number
   /** Gradient direction tolerance in degrees (default 20 — art-directed, Group C, always kept). */
   gradientAngleToleranceDeg?: number
+  /** Gradient stop-position tolerance as a 0..100 percentage (default 2, REQ-59). */
+  gradientPositionTolerancePct?: number
   /** Overlay (scrim) opacity tolerance, 0–1 (default 0.1 — art-directed, Group C, always kept). */
   overlayOpacityTolerance?: number
   /** Vertical-anchor tolerance as a fraction of box height (default 0.15 — art-directed, Group C, always kept). */
@@ -1070,7 +1076,8 @@ export interface DiffOptions {
 function gradientLabel(g: TextGradient | null | undefined): string {
   if (!g) return 'none'
   const dir = g.angleDeg === null ? '?°' : `${g.angleDeg}°`
-  return `${dir} [${g.stops.join(', ')}]`
+  const stops = g.stops.map((s) => (s.position === null ? s.color : `${s.color} ${s.position}%`)).join(', ')
+  return `${dir} [${stops}]`
 }
 
 function borderLabel(b: BorderTreatment | null | undefined): string {
@@ -1130,14 +1137,28 @@ function nameContained(src: NameSource | null | undefined): boolean {
   return src === 'placeholder'
 }
 
-/** True when both gradients agree on direction (within tolerance) and stop colours. */
-function gradientsMatch(a: TextGradient, b: TextGradient, tolDeg: number): boolean {
-  const stopsEqual = a.stops.length === b.stops.length && a.stops.every((s, i) => s === b.stops[i])
-  if (!stopsEqual) return false
+/**
+ * True when both gradients agree on direction (within `tolDeg`), stop colours,
+ * and stop *positions* (within `posTolPct`, REQ-59). A position is compared only
+ * when both stops captured one; a positionless stop (no explicit offset) falls
+ * back to colour-only so it never fabricates a delta.
+ */
+function gradientsMatch(a: TextGradient, b: TextGradient, tolDeg: number, posTolPct: number): boolean {
+  if (a.stops.length !== b.stops.length) return false
+  for (let i = 0; i < a.stops.length; i++) {
+    if (!stopsMatch(a.stops[i], b.stops[i], posTolPct)) return false
+  }
   if (a.angleDeg === null || b.angleDeg === null) return a.angleDeg === b.angleDeg
   let d = Math.abs(a.angleDeg - b.angleDeg) % 360
   if (d > 180) d = 360 - d
   return d <= tolDeg
+}
+
+/** True when two stops share a colour and (when both captured one) an offset within tolerance. */
+function stopsMatch(a: GradientStop, b: GradientStop, posTolPct: number): boolean {
+  if (a.color !== b.color) return false
+  if (a.position !== null && b.position !== null && Math.abs(a.position - b.position) > posTolPct) return false
+  return true
 }
 
 /**
@@ -1414,6 +1435,7 @@ export function diffManifests(
   // are measured perceptually, never authored precisely — REQ-53 Group C, kept
   // tolerant always, independent of `tolerant`.
   const angleTol = opts.gradientAngleToleranceDeg ?? 20
+  const gradientPosTol = opts.gradientPositionTolerancePct ?? 2
   const opacityTol = opts.overlayOpacityTolerance ?? 0.1
   const anchorTol = opts.anchorTolerance ?? 0.15
   // REQ-53 geometry: position + width are deterministic layout (Group B) → exact
@@ -1709,7 +1731,7 @@ export function diffManifests(
     if (exp.gradient !== undefined) {
       const e = exp.gradient
       const a = act.gradient ?? null
-      const ok = (!e && !a) || (!!e && !!a && gradientsMatch(e, a, angleTol))
+      const ok = (!e && !a) || (!!e && !!a && gradientsMatch(e, a, angleTol, gradientPosTol))
       if (!ok) push(exp, 'gradient', gradientLabel(e), gradientLabel(a))
     }
     if (exp.borderLeft !== undefined) {

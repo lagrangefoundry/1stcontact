@@ -98,8 +98,8 @@ describe('REQ-53 values-diff — art-directed axes remain tolerant by default', 
   it('test_UAT_FC_REQ-53_art_directed_still_tolerant', () => {
     // Gradient direction within ±20° (measured perceptually, never authored to
     // the degree) does not flag.
-    const gradRef = mani('ref', [el('Wordmark', { gradient: { angleDeg: 90, stops: ['#aaaaaa', '#bbbbbb'] } })])
-    const gradAct = mani('a', [el('Wordmark', { gradient: { angleDeg: 100, stops: ['#aaaaaa', '#bbbbbb'] } })])
+    const gradRef = mani('ref', [el('Wordmark', { gradient: { angleDeg: 90, stops: [{ color: '#aaaaaa', position: null }, { color: '#bbbbbb', position: null }] } })])
+    const gradAct = mani('a', [el('Wordmark', { gradient: { angleDeg: 100, stops: [{ color: '#aaaaaa', position: null }, { color: '#bbbbbb', position: null }] } })])
     expect(hasProp(diffManifests(gradRef, gradAct).deltas, 'gradient')).toBe(false)
 
     // Hero scrim opacity within ±0.1 and vertical anchor within ±0.15 (both

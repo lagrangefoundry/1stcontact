@@ -224,17 +224,31 @@ export interface Layout {
 }
 
 /**
+ * One painted gradient colour-stop. `color` is a `#rrggbb` literal; `position`
+ * is the captured offset as a 0..100 percentage, or `null` when the stop had no
+ * explicit offset in the computed `background-image` (evenly distributed). The
+ * shape mirrors the framework's render-side `GradientStop`, so a reproduction
+ * pastes `{ color, position }` straight into a `TextRunGradient` stop (REQ-59).
+ */
+export interface GradientStop {
+  color: string
+  position: number | null
+}
+
+/**
  * A text-fill gradient, normalized from the computed `background-image` of an
  * element painted with `background-clip: text` (REQ-31). Direction is captured
  * as a concrete angle so a horizontal (90°) vs vertical (180°) sweep — the
  * gigabytealchemy wordmark delta — is a mechanically-comparable field, not a
- * judgement call left to the eye.
+ * judgement call left to the eye. Stop *positions* are captured too (REQ-59) so
+ * two gradients with identical colours but different offsets (cream holding to
+ * 60% vs spread evenly) diff as a real delta rather than passing clean.
  */
 export interface TextGradient {
   /** CSS angle in degrees (0 = to-top, 90 = to-right, 180 = to-bottom), or null if unparseable. */
   angleDeg: number | null
-  /** Painted colour stops in order, each `#rrggbb`. */
-  stops: string[]
+  /** Painted colour stops in order, each a colour + optional 0..100 offset. */
+  stops: GradientStop[]
 }
 
 /** A left-edge accent bar (REQ-31): `border-l-4 border-emerald-400` and kin. */

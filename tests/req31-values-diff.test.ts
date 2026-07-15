@@ -104,7 +104,7 @@ function writeActualManifest(dir: string, elements: ValueElement[]): string {
 }
 
 // The six known gigabytealchemy value-deltas, as (correct reference | buggy repro).
-const GOLD = { angleDeg: 90 as number | null, stops: ['#f6c453', '#d98c30'] }
+const GOLD = { angleDeg: 90 as number | null, stops: [{ color: '#f6c453', position: null }, { color: '#d98c30', position: null }] }
 const EMERALD = { widthPx: 4, color: '#34d399' }
 const AMBER = { widthPx: 4, color: '#f59e0b' }
 
@@ -121,7 +121,7 @@ const REF_ITEMS: ContentRun[][] = [
 /** The buggy reproduction: white subhead, shrunken vertical-gradient wordmark,
  *  missing left-bars, cream footer — every delta the eye missed. */
 const BUGGY_ACTUAL: ValueElement[] = [
-  el('Gigabyte Alchemy', { role: 'heading', fontSizePx: 48, fontWeight: 600, gradient: { angleDeg: 180, stops: ['#f6c453', '#d98c30'] } }),
+  el('Gigabyte Alchemy', { role: 'heading', fontSizePx: 48, fontWeight: 600, gradient: { angleDeg: 180, stops: [{ color: '#f6c453', position: null }, { color: '#d98c30', position: null }] } }),
   el('Tools for clarity, presence, and positive connection', { color: '#ffffff', fontSizePx: 24 }),
   el('© Gigabyte Alchemy', { color: '#e8dfd3', fontSizePx: 14 }),
   el('Callout one', { borderLeft: null, paddingLeftPx: 24 }),
@@ -345,7 +345,7 @@ describe('REQ-31 gradient normalization', () => {
   it('test_UAT_FC_REQ-31_normalize_gradient_direction_and_stops', () => {
     const horiz = normalizeGradient('linear-gradient(90deg, rgb(246, 196, 83), rgb(217, 140, 48))')
     expect(horiz?.angleDeg).toBe(90)
-    expect(horiz?.stops).toEqual(['#f6c453', '#d98c30'])
+    expect(horiz?.stops).toEqual([{ color: '#f6c453', position: null }, { color: '#d98c30', position: null }])
     // `to right` is the keyword form of 90deg.
     expect(normalizeGradient('linear-gradient(to right, #fff, #000)')?.angleDeg).toBe(90)
     // A bare colour-first gradient defaults to `to bottom` (180deg).
@@ -358,11 +358,11 @@ describe('REQ-31 gradient normalization', () => {
     // Same stops, different direction → a gradient delta (the wordmark bug).
     const expected: ValueManifest = {
       source: 'ref',
-      elements: [el('WM', { gradient: { angleDeg: 90, stops: ['#f6c453', '#d98c30'] } })],
+      elements: [el('WM', { gradient: { angleDeg: 90, stops: [{ color: '#f6c453', position: null }, { color: '#d98c30', position: null }] } })],
     }
     const actual: ValueManifest = {
       source: 'draft',
-      elements: [el('WM', { gradient: { angleDeg: 180, stops: ['#f6c453', '#d98c30'] } })],
+      elements: [el('WM', { gradient: { angleDeg: 180, stops: [{ color: '#f6c453', position: null }, { color: '#d98c30', position: null }] } })],
     }
     expect(hasDelta(diffManifests(expected, actual).deltas, 'WM', 'gradient')).toBe(true)
   })
@@ -395,7 +395,7 @@ describe('REQ-31 capture records per-element values (real Chromium)', () => {
     expect(wm, 'wordmark run present').toBeDefined()
     // The horizontal 90deg text-fill gradient is read out of the DOM, not lost.
     expect(wm?.gradient?.angleDeg).toBe(90)
-    expect(wm?.gradient?.stops).toEqual(['#f6c453', '#d98c30'])
+    expect(wm?.gradient?.stops).toEqual([{ color: '#f6c453', position: null }, { color: '#d98c30', position: null }])
   })
 
   itB('test_UAT_FC_REQ-31_capture_records_left_bar_treatment', () => {
