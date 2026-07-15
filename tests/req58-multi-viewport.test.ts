@@ -11,6 +11,7 @@ import {
   cmdValuesDiffMultiViewport,
   diffMultiState,
   formatMultiViewportReport,
+  parseArgs,
   readMultiState,
   runMultiStateCapture,
   type MultiStateCapture,
@@ -85,6 +86,26 @@ describe('REQ-58 T2 — multi-viewport terminal-fails on a reference with no lad
     } finally {
       rmSync(emptyBundle, { recursive: true, force: true })
     }
+  })
+})
+
+// ── pure: --multi-viewport is a boolean flag, not a value-taking one ─────────
+
+describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', () => {
+  it('test_UAT_FC_REQ-58_multiviewport_flag_is_boolean', () => {
+    // `values-diff --multi-viewport <slug> --ref <dir>`: unless the parser knows
+    // --multi-viewport is boolean it consumes <slug> as the flag's value, leaving
+    // no positional and failing with "Missing required <slug>". The slug must
+    // survive as a positional regardless of whether it precedes or follows the flag.
+    const before = parseArgs(['values-diff', '--multi-viewport', 'gigabytealchemy', '--ref', 'bundle/dir'])
+    expect(before.flags['multi-viewport']).toBe(true)
+    expect(before.positionals).toEqual(['values-diff', 'gigabytealchemy'])
+    expect(before.flags.ref).toBe('bundle/dir')
+
+    const after = parseArgs(['values-diff', 'gigabytealchemy', '--ref', 'bundle/dir', '--multi-viewport'])
+    expect(after.flags['multi-viewport']).toBe(true)
+    expect(after.positionals).toEqual(['values-diff', 'gigabytealchemy'])
+    expect(after.flags.ref).toBe('bundle/dir')
   })
 })
 
