@@ -35,6 +35,10 @@ const spacingBottom = dials.spacingBottom ?? 'lg'
 const width = dials.width ?? 'full'
 // Submit-button *fill* treatment (REQ-33): `primary` (brand) or dark `neutral`.
 const submitTreatment = dials.submitTreatment ?? 'primary'
+// Field labelling (REQ-58): `above` (default) shows a stacked <label>;
+// `placeholder` moves the label into the input placeholder + hides the label.
+const fieldLabels = dials.fieldLabels ?? 'above'
+const placeholderLabels = fieldLabels === 'placeholder'
 
 const { heading, action } = content
 const fields = content.fields ?? []
@@ -74,11 +78,11 @@ const submitStyle = resolveTextStyle(content.submitLabel)
     <form class="contact-form__form" data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
       {fields.map((field) => (
         <div class="contact-form__field">
-          <label for={`cf-${field.name}`}>{field.label}</label>
+          <label for={`cf-${field.name}`} class:list={[{ 'visually-hidden': placeholderLabels }]}>{field.label}</label>
           {field.type === 'textarea' ? (
-            <textarea id={`cf-${field.name}`} name={field.name} required={field.required} rows="5"></textarea>
+            <textarea id={`cf-${field.name}`} name={field.name} required={field.required} rows="5" placeholder={placeholderLabels ? field.label : undefined}></textarea>
           ) : (
-            <input id={`cf-${field.name}`} name={field.name} type={field.type} required={field.required} />
+            <input id={`cf-${field.name}`} name={field.name} type={field.type} required={field.required} placeholder={placeholderLabels ? field.label : undefined} />
           )}
         </div>
       ))}
@@ -165,6 +169,16 @@ const submitStyle = resolveTextStyle(content.submitLabel)
   .contact-form.align-center .contact-form__form { text-align: left; }
   .contact-form__field { display: flex; flex-direction: column; gap: var(--space-2); }
   .contact-form__field label { font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
+  /* Placeholder-label mode (REQ-58) — the <label> stays in the a11y tree but is
+     removed from the visual layout; the field's placeholder carries the text. */
+  .contact-form__field label.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
   .contact-form__field input,
   .contact-form__field textarea {
     font: inherit;

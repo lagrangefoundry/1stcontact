@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, SPACING_DIAL, SUBMIT_TREATMENT_DIAL, SURFACE_DIAL, WIDTH_DIAL } from '../dials'
+import { ALIGN_DIAL, FIELD_LABELS_DIAL, SPACING_DIAL, SUBMIT_TREATMENT_DIAL, SURFACE_DIAL, WIDTH_DIAL } from '../dials'
 
 /**
  * `contact-form` — lead-capture form. Server-rendered and fully functional
@@ -26,6 +26,10 @@ export const contactFormMeta = {
     // Submit-button *fill* treatment (REQ-33) — `primary` (brand) or dark
     // `neutral`. The button surface, not a text axis, so it stays a dial.
     submitTreatment: SUBMIT_TREATMENT_DIAL,
+    // Field labelling (REQ-58) — `above` (default) stacks a visible <label>;
+    // `placeholder` moves the label into the input placeholder and visually
+    // hides the <label> (kept for a11y). The compact single-column form motif.
+    fieldLabels: FIELD_LABELS_DIAL,
   },
   contentSchema: {
     // Discrete styled run (REQ-50).
