@@ -23,6 +23,7 @@ export { navHref } from './nav'
 export { renderMarkdown, CALLOUT_CSS } from './markdown'
 export {
   resolveTextStyle,
+  resolveColor,
   TEXT_STYLE_ALIASES,
   GRADIENT_DIRECTION_ALIASES,
   PALETTE_ROLE_ALIASES,

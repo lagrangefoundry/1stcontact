@@ -159,6 +159,13 @@ function validateField(
     return
   }
 
+  if (spec.type === 'color') {
+    // Absolute value (#hex) or a palette-role alias (the overlay). Reuses the
+    // same literal-or-role rule as styled-text `color`.
+    validateColor(path, value, errors)
+    return
+  }
+
   if (spec.type === 'styled-text') {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       errors.push({ field: path, message: `content field '${path}' must be a styled-text run` })

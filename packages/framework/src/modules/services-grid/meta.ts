@@ -15,12 +15,6 @@ import {
 } from '../dials'
 
 /**
- * Card accent-border colour (REQ-26). A closed set of palette-role names, not a
- * raw colour — each resolves to a semantic token in the module's scoped CSS.
- */
-export const CARD_ACCENT = ['primary', 'accent', 'muted', 'secondary', 'neutral-cool'] as const
-
-/**
  * Status-badge colour variant (REQ-26). Semantic, token-backed — never a raw
  * colour. All variants render as a soft pill; the card's checklist ✓ ticks
  * follow the badge variant's colour.
@@ -102,7 +96,7 @@ export const servicesGridMeta = {
         // Card CTA link (REQ-36) — a styled run.
         cta: { type: 'styled-text', required: false },
         // REQ-26 card chrome — structured, closed-value, token-backed.
-        accent: { type: 'enum', required: false, values: CARD_ACCENT },
+        accent: { type: 'color', required: false },
         surface: { type: 'enum', required: false, values: CARD_SURFACE },
         badge: {
           type: 'object',
@@ -117,6 +111,8 @@ export const servicesGridMeta = {
           },
         },
         checklist: { type: 'list', required: false, maxItems: 8 },
+        // Checklist tick colour (REQ-58) — absolute #hex OR palette role.
+        checkColor: { type: 'color', required: false },
         // Per-instance escape hatch (REQ-56) — a style-only run overriding the
         // theme `checklist` subscale for this card's checklist items.
         checklistStyle: { type: 'styled-text', required: false },

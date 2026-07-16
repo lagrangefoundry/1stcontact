@@ -3,7 +3,7 @@ import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
 import { resolveContainerWidth } from '../dials'
-import { resolveTextStyle, type TextRun } from '../text-style'
+import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface ServiceItem {
   icon?: AssetRef | string
@@ -13,8 +13,9 @@ interface ServiceItem {
   body: string
   bodyStyle?: TextRun
   cta?: TextRun
-  /** Accent left-border colour (REQ-26) — a palette-role name, not a raw colour. */
-  accent?: 'primary' | 'accent' | 'muted' | 'secondary' | 'neutral-cool'
+  /** Accent left-border colour (REQ-26 / REQ-58) — an absolute `#hex` value OR a
+   *  palette-role alias (the overlay). Resolved via `resolveColor`. */
+  accent?: string
   /** Card fill (REQ-20, REQ-32) — `muted`/`neutral-cool` are filled panels. */
   surface?: 'default' | 'muted' | 'neutral-cool'
   /** Status pill shown top-right (REQ-26). `labelStyle` is the REQ-56 per-instance
@@ -24,8 +25,12 @@ interface ServiceItem {
     variant?: 'neutral' | 'primary' | 'accent' | 'secondary'
     labelStyle?: TextRun
   }
-  /** Body items rendered as ✓ checks (REQ-26); tick colour follows the badge. */
+  /** Body items rendered as ✓ checks (REQ-26); tick colour follows the badge,
+   *  unless `checkColor` overrides it. */
   checklist?: string[]
+  /** Checklist tick colour (REQ-58) — an absolute `#hex` OR a palette role,
+   *  overriding the badge/status default. */
+  checkColor?: string
   /** REQ-56 per-instance escape hatch — a style-only run overriding the theme
    *  `checklist` subscale for this card's checklist items. */
   checklistStyle?: TextRun
@@ -124,11 +129,17 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
         <li
           class:list={[
             'services-grid__card',
-            item.accent && `has-accent accent-${item.accent}`,
+            item.accent && 'has-accent',
             item.surface && item.surface !== 'default' && `surface-${item.surface}`,
-            // The ✓ checklist ticks take the badge variant's colour.
+            // The ✓ checklist ticks take the badge variant's colour by default.
             item.badge && `status-${item.badge.variant ?? 'neutral'}`,
           ]}
+          style={[
+            // Accent bar + tick colour resolve a #hex literal OR a palette role
+            // (REQ-58 absolute-or-overlay) to a per-card CSS var.
+            item.accent && `--fc-accent: ${resolveColor(item.accent)}`,
+            item.checkColor && `--fc-check: ${resolveColor(item.checkColor)}`,
+          ].filter(Boolean).join('; ') || undefined}
         >
           {item.image && (
             <img
@@ -293,13 +304,9 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid__card { min-width: 0; }
   .services-grid.card-surface-bare .services-grid__badge { display: none; }
 
-  /* Accent left border (REQ-26) — a thicker rule keyed to a semantic token. */
-  .services-grid__card.has-accent { border-left-width: var(--space-1); }
-  .services-grid__card.accent-primary { border-left-color: var(--color-primary); }
-  .services-grid__card.accent-accent { border-left-color: var(--color-accent); }
-  .services-grid__card.accent-muted { border-left-color: var(--color-muted); }
-  .services-grid__card.accent-secondary { border-left-color: var(--color-secondary); }
-  .services-grid__card.accent-neutral-cool { border-left-color: var(--color-neutral-cool); }
+  /* Accent left border (REQ-26 / REQ-58) — a thicker rule in `--fc-accent`, the
+     per-card colour resolved from a #hex literal OR a palette role. */
+  .services-grid__card.has-accent { border-left-width: var(--space-1); border-left-color: var(--fc-accent); }
 
   /* Filled panel card (REQ-20, REQ-32). */
   .services-grid__card.surface-muted {
@@ -360,15 +367,17 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     line-height: var(--subscale-checklist-line-height);
     letter-spacing: var(--subscale-checklist-letter-spacing);
   }
+  /* Tick colour (REQ-20 / REQ-58): `--fc-check` — a per-card #hex literal OR role
+     — wins; absent, it falls back to the card's badge/status role (design
+     default), else primary. */
   .services-grid__check-mark {
     flex: none;
-    color: var(--color-primary);
+    color: var(--fc-check, var(--color-primary));
     font-weight: var(--font-weight-regular);
   }
-  /* Tick colour follows the card's badge variant (REQ-20). */
-  .services-grid__card.status-accent .services-grid__check-mark { color: var(--color-accent); }
-  .services-grid__card.status-secondary .services-grid__check-mark { color: var(--color-secondary); }
-  .services-grid__card.status-neutral .services-grid__check-mark { color: var(--color-muted); }
+  .services-grid__card.status-accent .services-grid__check-mark { color: var(--fc-check, var(--color-accent)); }
+  .services-grid__card.status-secondary .services-grid__check-mark { color: var(--fc-check, var(--color-secondary)); }
+  .services-grid__card.status-neutral .services-grid__check-mark { color: var(--fc-check, var(--color-muted)); }
 
   .services-grid__icon img { display: block; height: var(--space-12); width: auto; }
   /* Card top-media (REQ-36) — a full-width square photo atop the card. */

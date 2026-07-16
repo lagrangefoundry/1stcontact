@@ -28,6 +28,10 @@ export type ContentFieldType =
   | 'list'
   | 'object'
   | 'styled-text'
+  // A colour VALUE: a `#hex` absolute value OR a palette-role alias (the overlay
+  // of constants). The absolute-or-overlay seam — lets a colour dial be
+  // reproduced with an exact value, not just the restricted role vocabulary.
+  | 'color'
 
 /** One content field's contract. */
 export interface ContentFieldSpec {

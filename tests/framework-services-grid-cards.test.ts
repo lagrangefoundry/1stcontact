@@ -49,14 +49,20 @@ describe('REQ-26 services-grid card treatments — schema (AC1)', () => {
     expect(errors).toEqual([])
   })
 
-  it('test_UAT_FC_REQ-26_rejects_accent_outside_closed_set', () => {
+  it('test_UAT_FC_REQ-26_rejects_accent_that_is_neither_hex_nor_role', () => {
+    // REQ-58: accent is a colour VALUE — a #hex absolute OR a palette-role alias.
+    // A CSS keyword like `lime` is neither, so it is refused (it would resolve to
+    // an undefined `var(--color-lime)`); a #hex or a role is accepted below.
     const errors = validateModuleContent(servicesGridMeta, {
       items: [card({ accent: 'lime' }), card()],
     })
-    // Raw / out-of-set colours are refused — accent is a closed palette-role set.
     expect(errors).toHaveLength(1)
     expect(errors[0].field).toBe('items[0].accent')
-    expect(errors[0].message).toContain('primary, accent, muted')
+    expect(errors[0].message).toMatch(/#hex colour or a palette-role alias/)
+    // A literal absolute value and a role both validate clean.
+    expect(
+      validateModuleContent(servicesGridMeta, { items: [card({ accent: '#90a1b9' }), card({ accent: 'secondary' })] }),
+    ).toHaveLength(0)
   })
 
   it('test_UAT_FC_REQ-26_rejects_badge_variant_outside_closed_set', () => {
@@ -83,20 +89,22 @@ describe('REQ-26 services-grid card treatments — schema (AC1)', () => {
 })
 
 describe('REQ-26 services-grid card treatments — rendering (AC2)', () => {
-  it('test_UAT_FC_REQ-26_emits_accent_border_class_and_semantic_token', async () => {
+  it('test_UAT_FC_REQ-26_emits_accent_border_from_resolved_colour', async () => {
+    // REQ-58: the accent bar is `has-accent` + a per-card `--fc-accent` var that
+    // resolves a role → var(--color-role) OR a #hex literal as-is. A role and a
+    // literal on two cards both flow to the inline var; the CSS binds the border.
     const html = await render({
       variant: 'two-col',
       dials: {},
       content: {
-        items: [card({ accent: 'accent' }), card({ title: { text: 'XGD' }, body: 'x', accent: 'primary' })],
+        items: [card({ accent: 'accent' }), card({ title: { text: 'XGD' }, body: 'x', accent: '#90a1b9' })],
       },
     })
-    expect(html).toContain('has-accent accent-accent')
-    expect(html).toContain('has-accent accent-primary')
-    // The accent colour comes from a semantic token, never a raw colour.
+    expect(html).toContain('has-accent')
+    expect(html).toContain('--fc-accent: var(--color-accent)') // role → overlay
+    expect(html).toContain('--fc-accent: #90a1b9') // absolute value, as-is
     const css = moduleSource()
-    expect(css).toMatch(/\.accent-accent[^{]*\{[^}]*border-left-color:\s*var\(--color-accent\)/)
-    expect(css).toMatch(/\.accent-primary[^{]*\{[^}]*border-left-color:\s*var\(--color-primary\)/)
+    expect(css).toMatch(/\.has-accent[^{]*\{[^}]*border-left-color:\s*var\(--fc-accent\)/)
   })
 
   it('test_UAT_FC_REQ-26_emits_status_badge_pill_with_label_and_variant', async () => {
@@ -185,9 +193,10 @@ describe('REQ-26 services-grid card treatments — gigabytealchemy fidelity (AC3
         ],
       },
     })
-    // Two cards, each with a per-card accent border.
-    expect(html).toContain('has-accent accent-accent')
-    expect(html).toContain('has-accent accent-primary')
+    // Two cards, each with a per-card accent border resolved to `--fc-accent`.
+    expect(html).toContain('has-accent')
+    expect(html).toContain('--fc-accent: var(--color-accent)')
+    expect(html).toContain('--fc-accent: var(--color-primary)')
     // Two status badges.
     expect(html.match(/class="services-grid__badge/g)?.length).toBe(2)
     expect(html).toContain('In development')

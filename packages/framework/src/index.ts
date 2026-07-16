@@ -51,6 +51,7 @@ export {
   renderMarkdown,
   CALLOUT_CSS,
   resolveTextStyle,
+  resolveColor,
   parseStyledText,
   serializeStyledText,
   normalizeRuns,

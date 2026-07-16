@@ -71,6 +71,24 @@ describe('REQ-58 T6 — services-grid translucent card veil', () => {
     expect(css).toMatch(/card-veil-70[^}]*rgba\(255, ?255, ?255, ?0\.7\)/)
   })
 
+  it('test_UAT_FC_REQ-58_servicesgrid_accent_and_check_take_absolute_colour', async () => {
+    // The absolute-or-overlay principle: a card accent + checklist tick accept a
+    // #hex absolute value (for reproduction) as readily as a palette role. The
+    // literal flows through resolveColor unchanged into the per-card CSS vars.
+    const html = await render(ServicesGrid, {
+      variant: 'stacked',
+      content: {
+        items: [
+          { title: { text: 'A' }, body: 'x', accent: '#90a1b9', checkColor: '#00bc7d', checklist: ['one'] },
+          { title: { text: 'B' }, body: 'y', accent: 'secondary' },
+        ],
+      },
+    })
+    expect(html).toContain('--fc-accent: #90a1b9') // absolute value, as-is
+    expect(html).toContain('--fc-check: #00bc7d') // absolute tick colour
+    expect(html).toContain('--fc-accent: var(--color-secondary)') // role → overlay
+  })
+
   it('test_UAT_FC_REQ-58_servicesgrid_card_border_none_drops_hairline_keeps_accent', async () => {
     // `cardBorder: none` tags the grid; the scoped CSS zeroes the base border
     // width but re-asserts the accent bar's left width, so a frosted card loses

@@ -181,8 +181,15 @@ function numberOrVar(value: number | string, varPrefix: string): string {
   return typeof value === 'number' ? `${value}` : `var(--${varPrefix}-${value})`
 }
 
-/** `#rrggbb` literal, else a palette-role alias → `var(--color-<kebab(role)>)`. */
-function resolveColor(value: string): string {
+/**
+ * Resolve a colour VALUE to CSS: a `#rrggbb` literal (an absolute value) is used
+ * as-is; anything else is a palette-role alias (the overlay of constants) →
+ * `var(--color-<kebab(role)>)`. This is the absolute-or-overlay seam every colour
+ * dial should route through, so a site can be reproduced with exact absolute
+ * values, not just the restricted role vocabulary. Exported for reuse by any
+ * module's colour dial (card accent, checklist tick, footer link, …).
+ */
+export function resolveColor(value: string): string {
   return value.startsWith('#') ? value : `var(--color-${kebab(value)})`
 }
 
