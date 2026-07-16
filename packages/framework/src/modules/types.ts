@@ -32,6 +32,9 @@ export type ContentFieldType =
   // of constants). The absolute-or-overlay seam — lets a colour dial be
   // reproduced with an exact value, not just the restricted role vocabulary.
   | 'color'
+  // A length VALUE (the size analogue): an absolute px, a named token, a relative
+  // proportion (%/vw/em/ch), or a content keyword (fit-content). See classifyLength.
+  | 'length'
 
 /** One content field's contract. */
 export interface ContentFieldSpec {

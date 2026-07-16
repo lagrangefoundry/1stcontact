@@ -5,6 +5,7 @@ import {
   isColorLiteral,
   isPaletteRole,
 } from './text-style'
+import { isLength } from './dials'
 
 /**
  * Module-content validation (DOC-7 §6.5 layer 1, the framework half).
@@ -163,6 +164,19 @@ function validateField(
     // Absolute value (#hex) or a palette-role alias (the overlay). Reuses the
     // same literal-or-role rule as styled-text `color`.
     validateColor(path, value, errors)
+    return
+  }
+
+  if (spec.type === 'length') {
+    // A length VALUE — absolute px / token / relative (%/vw/em/ch) / content
+    // keyword. A malformed length (typo, unknown unit) fails loudly instead of
+    // silently passing through to broken CSS.
+    if (!isLength(value)) {
+      errors.push({
+        field: path,
+        message: `content field '${path}' must be a length: a px value, a container token, a relative unit (%/vw/em/ch), or fit-content — got '${String(value)}'`,
+      })
+    }
     return
   }
 

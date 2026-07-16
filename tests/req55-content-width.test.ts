@@ -9,7 +9,11 @@ import {
   CONTAINER_STEPS,
   CONTENT_WIDTH_DIAL,
   resolveContainerWidth,
+  classifyLength,
+  isLength,
 } from '../packages/framework/src/modules/dials'
+import { validateModuleContent } from '../packages/framework/src/modules/validate'
+import type { ModuleMeta } from '../packages/framework/src/modules/types'
 import { generateThemeCss } from '../packages/framework/src/tokens'
 
 /**
@@ -21,6 +25,51 @@ import { generateThemeCss } from '../packages/framework/src/tokens'
  * is applied via an inline `--fc-content-width` custom property, replacing the
  * former per-name CSS classes.
  */
+
+// ── REQ-58 length value model (absolute / token / relative / content) ────────
+describe('REQ-58 length value model', () => {
+  it('test_UAT_FC_REQ-58_classify_length_kinds', () => {
+    // Absolute: bare number, px, and physical units (CSS defines them as fixed px
+    // multiples, so on screen they are absolute — no separate inches/cm needed).
+    expect(classifyLength(896)).toBe('absolute')
+    expect(classifyLength('896px')).toBe('absolute')
+    expect(classifyLength('1in')).toBe('absolute')
+    // Token: the design overlay of constants.
+    expect(classifyLength('4xl')).toBe('token')
+    // Relative: container / viewport / font references — the responsive kinds.
+    expect(classifyLength('50%')).toBe('relative')
+    expect(classifyLength('50vw')).toBe('relative')
+    expect(classifyLength('60ch')).toBe('relative')
+    expect(classifyLength('20rem')).toBe('relative')
+    // Content: sized to content (the shrink-to-content grid titles).
+    expect(classifyLength('fit-content')).toBe('content')
+    expect(classifyLength('max-content')).toBe('content')
+    expect(classifyLength('bleed')).toBe('bleed')
+    // Malformed → null (a typo fails loudly, not silent broken CSS).
+    expect(classifyLength('fit-contnet')).toBeNull()
+    expect(classifyLength('50xz')).toBeNull()
+    expect(isLength('50%')).toBe(true)
+    expect(isLength('nonsense')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-58_length_field_validates_full_vocabulary', () => {
+    // A `type: 'length'` content field accepts every kind and rejects a malformed
+    // one — the size analogue of `type: 'color'`.
+    const meta = {
+      id: 'x',
+      version: 1,
+      variants: ['default'],
+      dials: {},
+      contentSchema: { width: { type: 'length', required: false } },
+    } as unknown as ModuleMeta
+    for (const ok of [896, '896px', '4xl', '50%', '50vw', 'fit-content', 'bleed']) {
+      expect(validateModuleContent(meta, { width: ok })).toHaveLength(0)
+    }
+    const bad = validateModuleContent(meta, { width: 'fit-contnet' })
+    expect(bad).toHaveLength(1)
+    expect(bad[0].message).toMatch(/must be a length/)
+  })
+})
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 let container: Container

@@ -155,6 +155,50 @@ export function resolveContainerWidth(value: string | number | undefined | null)
 }
 
 /**
+ * The length value model (REQ-58). A length is one of these KINDS — the size
+ * analogue of the colour absolute-or-overlay seam. Reproduction authors in
+ * `absolute`/`relative`/`content`; `token` is the design overlay of constants.
+ *
+ *   - `absolute` — a `#px` value (or a bare number, or a physical unit which CSS
+ *     defines as a fixed px multiple: 1in=96px — so on screen it is absolute px).
+ *   - `token`    — a named constant (`4xl`) resolving to `var(--container-4xl)`.
+ *   - `relative` — a proportion of a reference: container `%`/`cqw`, viewport
+ *     `vw/vh`, or font `em/rem/ch`. Carries the responsive behaviour an absolute
+ *     px snapshot cannot (why the multi-viewport ladder exists).
+ *   - `content`  — sized to the content: `fit-content`/`min-content`/`max-content`.
+ *   - `bleed`    — full-bleed (no cap).
+ *
+ * (The relationship a captured px actually IS can only be inferred by measuring
+ * across the viewport ladder — deferred. This models the *language*; a site def
+ * can declare a relative/content length directly today.)
+ */
+export type LengthKind = 'absolute' | 'token' | 'relative' | 'content' | 'bleed'
+
+const CONTENT_KEYWORDS = new Set(['fit-content', 'min-content', 'max-content'])
+// A signed decimal followed by a *relative* unit (of container / viewport / font).
+const RELATIVE_LENGTH_RE = /^-?\d*\.?\d+(%|vw|vh|vmin|vmax|cqw|cqh|cqi|cqb|em|rem|ch|ex)$/
+// A bare number, or a decimal followed by an *absolute* unit (px + CSS physical,
+// which are fixed px multiples on screen).
+const ABSOLUTE_LENGTH_RE = /^-?\d*\.?\d+(px|pt|pc|in|cm|mm|q)?$/
+
+/** Classify a length value into its {@link LengthKind}, or null when malformed. */
+export function classifyLength(value: string | number): LengthKind | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? 'absolute' : null
+  const v = value.trim()
+  if (v === 'bleed') return 'bleed'
+  if (v in CONTAINER_STEPS) return 'token'
+  if (CONTENT_KEYWORDS.has(v)) return 'content'
+  if (RELATIVE_LENGTH_RE.test(v)) return 'relative'
+  if (ABSOLUTE_LENGTH_RE.test(v)) return 'absolute'
+  return null
+}
+
+/** True when `value` is a well-formed length in the model (any kind). */
+export function isLength(value: unknown): boolean {
+  return (typeof value === 'number' || typeof value === 'string') && classifyLength(value) !== null
+}
+
+/**
  * Hero legibility scrim (REQ-32) — an opacity step of a dark neutral tint
  * painted over the background image so overlaid text stays legible. `none`
  * (default) paints nothing; `light`/`medium`/`strong`/`heavy` step up the opacity.
