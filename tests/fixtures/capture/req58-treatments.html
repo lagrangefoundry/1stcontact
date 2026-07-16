@@ -10,12 +10,16 @@
       .callout { border-left: 4px solid #00d492; padding-left: 24px; }
       /* A card with its own fill distinct from the band. */
       .card { background: #ffffff; padding: 24px; }
+      /* A TRANSLUCENT white card over the tinted band — renders pale beige but
+         its declared backgroundColor is #ffffff (the alpha-compositing case). */
+      .card-translucent { background: rgba(255, 255, 255, 0.5); padding: 24px; }
     </style>
   </head>
   <body>
     <section>
       <div class="callout"><p>These aren't just features</p></div>
       <div class="card"><h3>Presence</h3><p>Card body copy</p></div>
+      <div class="card-translucent"><h3>Translucent</h3><p>Translucent card copy</p></div>
       <p>Plain band paragraph</p>
     </section>
   </body>

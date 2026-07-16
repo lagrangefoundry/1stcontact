@@ -67,6 +67,23 @@ describe('REQ-58 items 3b/4 — wrapper accent bar + card fill (real Chromium)',
     expect(cardTitle?.surfaceFill).toBe('#ffffff')
     expect(bandRun?.surfaceFill).toBe('#d9ccba')
   })
+
+  itB('test_UAT_FC_REQ-58_surface_fill_composites_translucent_over_band', () => {
+    // The gigabytealchemy failure class: a card with rgba(255,255,255,0.5) reads
+    // #ffffff from backgroundColor but RENDERS as a pale beige (white 50% over the
+    // #d9ccba band). The extractor must report the composited colour, not the raw
+    // white channel — otherwise a beige card matches a white repro at 0 diffs.
+    const els = flattenCapture(capture).elements
+    const run = els.find((e) => e.text === 'Translucent')
+    // white(255) 0.5 over #d9ccba(217,204,186) → ~(236, 230, 221).
+    const expected = [Math.round((255 + 217) / 2), Math.round((255 + 204) / 2), Math.round((255 + 186) / 2)]
+    const hex = run?.surfaceFill
+    expect(hex).toBeTruthy()
+    expect(hex).not.toBe('#ffffff') // the bug: raw channel, alpha dropped
+    const rgb = [1, 3, 5].map((i) => parseInt(hex!.slice(i, i + 2), 16))
+    // Composited within a few units per channel (canvas alpha is 127/255 ≈ 0.498).
+    rgb.forEach((c, i) => expect(Math.abs(c - expected[i])).toBeLessThanOrEqual(4))
+  })
 })
 
 describe('REQ-58 item 3b — values-diff flags an off panel colour', () => {

@@ -170,7 +170,10 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     return __colorCtx;
   }
-  function rgbToHex(str) {
+  // Parse ANY browser-understood colour to [r,g,b,a] (a in 0..1), or null when
+  // unparseable. Alpha is PRESERVED here (unlike rgbToHex) so a translucent fill
+  // can be composited over what it sits on (REQ-58 capture accuracy).
+  function rgbaOf(str) {
     if (!str) return null;
     var ctx = colorCtx();
     if (ctx) {
@@ -185,15 +188,34 @@ export const EXTRACT_SCRIPT = `(() => {
         ctx.fillStyle = str;
         ctx.fillRect(0, 0, 1, 1);
         var d = ctx.getImageData(0, 0, 1, 1).data;
-        if (d[3] === 0) return null; // fully transparent
-        return '#' + h2(d[0]) + h2(d[1]) + h2(d[2]);
+        return [d[0], d[1], d[2], d[3] / 255];
       } catch (e) { /* fall through to the regex path below */ }
     }
     var m = str.match(/rgba?\\(([^)]+)\\)/);
     if (!m) return null;
     var p = m[1].split(',').map(function (s) { return parseFloat(s.trim()); });
-    if (p.length >= 4 && p[3] === 0) return null; // fully transparent
-    return '#' + h2(p[0]) + h2(p[1]) + h2(p[2]);
+    return [p[0] || 0, p[1] || 0, p[2] || 0, p.length >= 4 ? p[3] : 1];
+  }
+  // #rrggbb for a painted colour, or null when fully transparent (unpainted, e.g.
+  // a background-clip:text fill). Alpha is intentionally dropped: callers that
+  // care about translucency use rgbaOf + composite() instead. Contract preserved
+  // for every existing caller (text/border colour resolution).
+  function rgbToHex(str) {
+    var c = rgbaOf(str);
+    if (!c || c[3] === 0) return null;
+    return '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
+  }
+  // Porter-Duff 'source over': src painted on top of dst, each [r,g,b,a].
+  function composite(src, dst) {
+    var sa = src[3], da = dst[3];
+    var oa = sa + da * (1 - sa);
+    if (oa <= 0) return [0, 0, 0, 0];
+    return [
+      (src[0] * sa + dst[0] * da * (1 - sa)) / oa,
+      (src[1] * sa + dst[1] * da * (1 - sa)) / oa,
+      (src[2] * sa + dst[2] * da * (1 - sa)) / oa,
+      oa,
+    ];
   }
   function luminance(hex) {
     var r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -301,13 +323,23 @@ export const EXTRACT_SCRIPT = `(() => {
   // a slightly-off panel colour (Presence/Positivity/Connection) becomes a
   // comparable, visible delta instead of only the text colour being checked.
   function surfaceFillOf(el) {
+    // REQ-58 capture accuracy: report the *rendered* fill a run sits on, not the
+    // raw declared channel. A translucent card (rgba white over a tinted band)
+    // renders as a pale tint, yet its backgroundColor reads #ffffff — so
+    // composite each ancestor's fill under the accumulated colour until it turns
+    // opaque (or the html/body backstop is reached).
+    var acc = null; // [r,g,b,a], top layer first
     var node = el;
-    for (var i = 0; i < 5 && node && node !== document.body; i++) {
-      var c = rgbToHex(getComputedStyle(node).backgroundColor);
-      if (c) return c;
+    for (var i = 0; i < 12 && node && node.nodeType === 1; i++) {
+      var c = rgbaOf(getComputedStyle(node).backgroundColor);
+      if (c && c[3] > 0) {
+        acc = acc ? composite(acc, c) : c;
+        if (acc[3] >= 0.999) break; // opaque — nothing behind shows through
+      }
       node = node.parentElement;
     }
-    return null;
+    if (!acc || acc[3] <= 0) return null;
+    return '#' + h2(acc[0]) + h2(acc[1]) + h2(acc[2]);
   }
   // REQ-48 (item 2) -- effective paint order. z-index:auto (the default, and the
   // common case) resolves to 0; an explicit integer is the rendered stacking
