@@ -306,6 +306,7 @@
        }
       },
       "accent": "accent",
+      "checkColor": "#00bc7d",
       "body": "*Your private space to think out loud*\n\nA voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
       "bodyStyle": {
        "fontFamily": "ui-sans-serif",
@@ -346,7 +347,8 @@
         "color": "#1447e6"
        }
       },
-      "accent": "secondary",
+      "accent": "#50a2ff",
+      "checkColor": "#2b7fff",
       "body": "*AI-powered development methodology and tools*\n\nAn open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
       "bodyStyle": {
        "fontFamily": "ui-sans-serif",
@@ -378,6 +380,7 @@
        "color": "#1d293d"
       },
       "surface": "neutral-cool",
+      "accent": "#90a1b9",
       "body": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*",
       "bodyStyle": {
        "fontFamily": "ui-sans-serif",
