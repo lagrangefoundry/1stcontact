@@ -1704,11 +1704,38 @@ export function diffManifests(
     cards.push(buildObjectCard(exp, act, objectDeltas(start)))
   }
 
+  // When a text bucket holds several candidates — repeated text like "✓", "Read
+  // more", "→", a duplicated nav label — pair by NEAREST rendered position rather
+  // than document-order FIFO, so an occurrence in one card can't cross-pair with
+  // an identical one in another (the checkmark swap was one instance of this;
+  // the fix is general to all duplicate text). A single candidate (unique text)
+  // is taken as-is — order is irrelevant then, and boxes may legitimately differ.
+  const takeMatch = (q: ValueElement[] | undefined, exp: ValueElement): ValueElement | undefined => {
+    if (!q || q.length === 0) return undefined
+    if (q.length === 1 || !exp.box) return q.shift()
+    const ex = exp.box.x + exp.box.width / 2
+    const ey = exp.box.y + exp.box.height / 2
+    let bestI = 0
+    let bestD = Infinity
+    for (let i = 0; i < q.length; i++) {
+      const b = q[i].box
+      if (!b) continue
+      const dx = b.x + b.width / 2 - ex
+      const dy = b.y + b.height / 2 - ey
+      const d = dx * dx + dy * dy
+      if (d < bestD) {
+        bestD = d
+        bestI = i
+      }
+    }
+    return q.splice(bestI, 1)[0]
+  }
+
   for (const exp of expected.elements) {
     if (exp.textless) continue
     const start = deltas.length
     const q = queues.get(joinKey(exp.text))
-    const act = q && q.length > 0 ? q.shift() : undefined
+    const act = takeMatch(q, exp)
     if (!act) {
       unmatched++
       push(exp, 'missing', 'present', 'absent')

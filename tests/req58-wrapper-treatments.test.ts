@@ -127,6 +127,33 @@ describe('REQ-58 item 3b — values-diff flags an off panel colour', () => {
     expect(deltas.some((d) => d.text === 'Your name' && d.property === 'border')).toBe(true)
   })
 
+  it('test_UAT_FC_REQ-58_duplicate_text_pairs_by_nearest_position', () => {
+    // General fix (checkmarks were one instance): two identical 'Learn more' CTAs
+    // in two cards, positioned top + bottom. The actual side lists them in
+    // REVERSED document order but at the SAME positions. Old FIFO pairing would
+    // cross them (green↔blue colour swap = two false deltas); nearest-position
+    // pairing matches each by box, so no false delta. Applies to any repeated
+    // text (glyphs, CTAs, duplicated nav labels), not just '✓'.
+    const top = { box: { x: 0, y: 0, width: 100, height: 20 } }
+    const bot = { box: { x: 0, y: 400, width: 100, height: 20 } }
+    const ref = mani('ref', [
+      el('Learn more', { color: '#00bc7d', ...top }),
+      el('Learn more', { color: '#2b7fff', ...bot }),
+    ])
+    const actual = mani('a', [
+      el('Learn more', { color: '#2b7fff', ...bot }),
+      el('Learn more', { color: '#00bc7d', ...top }),
+    ])
+    // Nearest pairs top↔top and bottom↔bottom: colours match, no false swap.
+    expect(diffManifests(ref, actual).deltas.some((d) => d.property === 'color')).toBe(false)
+    // Sanity: a genuine colour change on the top CTA still surfaces (not silenced).
+    const changed = mani('a', [
+      el('Learn more', { color: '#2b7fff', ...bot }),
+      el('Learn more', { color: '#111111', ...top }),
+    ])
+    expect(diffManifests(ref, changed).deltas.some((d) => d.property === 'color')).toBe(true)
+  })
+
   it('test_UAT_FC_REQ-58_border_no_delta_when_matching_or_absent', () => {
     // Matching borders (and the no-border case) must never produce a false delta.
     const bordered = { border: { widthPx: 1, color: '#334155' } }
