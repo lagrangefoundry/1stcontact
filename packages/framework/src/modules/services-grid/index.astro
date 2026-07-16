@@ -52,6 +52,8 @@ const cardSurface = dials.cardSurface ?? 'default'
 // Frosted card veil (REQ-58) — `none` keeps the solid surface; a percentage
 // paints a translucent white fill the browser composites over the band.
 const cardVeil = dials.cardVeil ?? 'none'
+// Card border (REQ-58) — `none` drops the 1px hairline (frosted-card look).
+const cardBorder = dials.cardBorder ?? 'default'
 // Heading letter-case (REQ-36) — uppercases the grid heading + card titles.
 const headingCase = dials.headingCase ?? 'normal'
 // Icon rendering (REQ-36).
@@ -101,6 +103,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `surface-${surface}`,
     `card-surface-${cardSurface}`,
     `card-veil-${cardVeil}`,
+    `card-border-${cardBorder}`,
     `case-${headingCase}`,
     `icon-font-${iconFont}`,
     `icon-layout-${iconLayout}`,
@@ -261,6 +264,12 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid.card-veil-70 .services-grid__card { background: rgba(255, 255, 255, 0.7); }
   .services-grid.card-veil-80 .services-grid__card { background: rgba(255, 255, 255, 0.8); }
   .services-grid.card-veil-90 .services-grid__card { background: rgba(255, 255, 255, 0.9); }
+
+  /* Card border (REQ-58) — `none` drops the 1px hairline for the frosted look but
+     keeps any accent bar. border-width:0 (not border:none) preserves the solid
+     border-style, so a `has-accent` card re-asserts just its 4px left bar. */
+  .services-grid.card-border-none .services-grid__card { border-width: 0; }
+  .services-grid.card-border-none .services-grid__card.has-accent { border-left-width: var(--space-1); }
 
   /* Bare cards (REQ-36 / CAP-1): strip the fill/border/radius/padding. */
   .services-grid.card-surface-bare .services-grid__card {

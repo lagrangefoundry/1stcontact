@@ -70,6 +70,22 @@ describe('REQ-58 T6 — services-grid translucent card veil', () => {
     expect(css).toMatch(/card-veil-50[^}]*rgba\(255, ?255, ?255, ?0\.5\)/)
     expect(css).toMatch(/card-veil-70[^}]*rgba\(255, ?255, ?255, ?0\.7\)/)
   })
+
+  it('test_UAT_FC_REQ-58_servicesgrid_card_border_none_drops_hairline_keeps_accent', async () => {
+    // `cardBorder: none` tags the grid; the scoped CSS zeroes the base border
+    // width but re-asserts the accent bar's left width, so a frosted card loses
+    // its hairline while a has-accent card keeps only its 4px left bar.
+    expect(servicesGridMeta.dials.cardBorder).toEqual(['default', 'none'])
+    const html = await render(ServicesGrid, {
+      variant: 'stacked',
+      dials: { cardBorder: 'none' },
+      content: gridContent,
+    })
+    expect(html).toContain('card-border-none')
+    const css = getModuleCss()
+    expect(css).toMatch(/card-border-none[^}]*border-width: ?0/)
+    expect(css).toMatch(/card-border-none[^}]*has-accent[^}]*border-left-width/)
+  })
 })
 
 // ── contact-form placeholder-only fields ─────────────────────────────────────

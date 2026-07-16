@@ -217,6 +217,14 @@ export const FIELD_LABELS_DIAL = ['above', 'placeholder'] as const
 export const CARD_VEIL_DIAL = ['none', '40', '50', '60', '70', '80', '90'] as const
 
 /**
+ * Services-grid card border (REQ-58). `default` keeps the 1px hairline; `none`
+ * drops it — the frosted-card look (gigabytealchemy's cards are `bg-white/NN
+ * rounded-lg` with no border, only an optional `border-l-4` accent). Distinct
+ * from `card-surface-bare`, which also strips the fill/radius/padding.
+ */
+export const CARD_BORDER_DIAL = ['default', 'none'] as const
+
+/**
  * text-block contained-panel vertical padding (REQ-36). `md` (default) is the
  * base 48px; `lg`/`xl` deepen it so a panel reads taller/airier.
  */
