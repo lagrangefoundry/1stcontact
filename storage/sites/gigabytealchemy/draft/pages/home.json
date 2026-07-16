@@ -150,7 +150,8 @@
     "surface": "subtle",
     "spacingBottom": "none",
     "contentAlign": "left",
-    "cardVeil": "50"
+    "cardVeil": "50",
+    "cardBorder": "none"
    },
    "content": {
     "heading": {
@@ -262,7 +263,8 @@
    "dials": {
     "surface": "default",
     "contentAlign": "left",
-    "cardVeil": "70"
+    "cardVeil": "70",
+    "cardBorder": "none"
    },
    "content": {
     "heading": {
