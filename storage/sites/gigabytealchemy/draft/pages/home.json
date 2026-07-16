@@ -149,7 +149,8 @@
    "dials": {
     "surface": "subtle",
     "spacingBottom": "none",
-    "contentAlign": "left"
+    "contentAlign": "left",
+    "cardVeil": "50"
    },
    "content": {
     "heading": {
@@ -261,7 +262,8 @@
    "variant": "stacked",
    "dials": {
     "surface": "default",
-    "contentAlign": "left"
+    "contentAlign": "left",
+    "cardVeil": "70"
    },
    "content": {
     "heading": {
