@@ -151,7 +151,8 @@
     "spacingBottom": "none",
     "contentAlign": "left",
     "cardVeil": "50",
-    "cardBorder": "none"
+    "cardBorder": "none",
+    "contentWidth": "3xl"
    },
    "content": {
     "heading": {
@@ -264,7 +265,8 @@
     "surface": "default",
     "contentAlign": "left",
     "cardVeil": "70",
-    "cardBorder": "none"
+    "cardBorder": "none",
+    "contentWidth": "4xl"
    },
    "content": {
     "heading": {
