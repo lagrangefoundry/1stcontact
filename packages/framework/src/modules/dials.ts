@@ -198,15 +198,6 @@ export const PANEL_DIAL = ['none', 'subtle', 'inverse', 'secondary', 'accent'] a
 export const LIST_MARKER_DIAL = ['bullet', 'check'] as const
 
 /**
- * Left-accent rule (REQ-58). A vertical bar down the inline-start edge of a
- * block's content column, painted in a palette role — the manifesto/quote motif
- * gigabytealchemy runs down its text blocks (`4px #00d492`). `none` (default)
- * omits it. Generalises the `services-grid` card accent-border (same palette
- * roles) into a treatment any prose block can carry, rather than a new module.
- */
-export const ACCENT_RULE_DIAL = ['none', 'primary', 'accent', 'muted', 'secondary', 'neutral-cool'] as const
-
-/**
  * Contact-form field labelling (REQ-58). `above` (default) renders a visible
  * `<label>` stacked over each input; `placeholder` moves the label text into the
  * field's `placeholder` and visually hides the `<label>` (kept for a11y / the

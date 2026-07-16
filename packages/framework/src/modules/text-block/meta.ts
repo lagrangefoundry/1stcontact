@@ -1,6 +1,5 @@
 import type { ModuleMeta } from '../types'
 import {
-  ACCENT_RULE_DIAL,
   ALIGN_DIAL,
   CONTENT_WIDTH_DIAL,
   CTA_SHAPE_DIAL,
@@ -51,10 +50,6 @@ export const textBlockMeta = {
     // Body list marker (REQ-36) — `check` = accent ✓; `bullet` (default). A
     // treatment, not a report field, so it stays a dial (like `headingCase`).
     listMarker: LIST_MARKER_DIAL,
-    // Left-accent rule (REQ-58) — a vertical palette-role bar down the content
-    // column's inline-start edge; `none` (default) omits it. Generalises the
-    // services-grid card accent-border into a text-block treatment.
-    accent: ACCENT_RULE_DIAL,
     // Partial-width row grouping (REQ-20; REQ-36 ratios).
     width: WIDTH_DIAL,
     // Row content measure (REQ-36) — boxes a partial-width row to a centred measure.

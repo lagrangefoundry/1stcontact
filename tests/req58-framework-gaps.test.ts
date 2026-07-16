@@ -1,25 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
-import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { getModuleCss } from '../packages/framework/src/modules/styles'
 
 /**
- * UATs for REQ-58 — two framework capability gaps the gigabytealchemy re-import
+ * UATs for REQ-58 — framework capability gaps the gigabytealchemy re-import
  * forced (surfaced by the multi-viewport values-diff, T2):
  *
- *   1. `text-block` left-accent rule — the reference runs a 4px palette-role bar
- *      down the inline-start edge of its manifesto text blocks. The capability
- *      existed only on services-grid cards; T3/A generalises it into a
- *      `text-block` `accent` dial (no new module) — see [[REQ-32]] guidance.
- *   2. `contact-form` placeholder-only fields — the reference form labels each
- *      field with an in-field placeholder, not a stacked <label>. T3/B adds a
- *      `fieldLabels` dial (`above` default | `placeholder`) that moves the label
- *      into the placeholder and visually hides the <label> (kept for a11y).
+ *   • `contact-form` placeholder-only fields — the reference form labels each
+ *     field with an in-field placeholder, not a stacked <label>. A `fieldLabels`
+ *     dial (`above` default | `placeholder`) moves the label into the placeholder
+ *     and visually hides the <label> (kept for a11y).
+ *   • `services-grid` translucent card veil — frosted cards are `bg-white/NN` over
+ *     the band; a `cardVeil` opacity dial composites over it.
+ *
+ * (The manifesto left-bar callout is NOT a text-block dial — it is authored with
+ * the existing `> [!role] …` markdown callout syntax, which renders a blockquote
+ * `fc-callout--role`; the earlier `accent` dial was redundant and removed.)
  *
  * Module-render UATs (DOC-7 §7): render the .astro to string and assert the
  * chrome the dial produces, plus a meta assertion pinning the dial surface.
@@ -35,42 +35,7 @@ async function render(Component: unknown, props: unknown): Promise<string> {
   )
 }
 
-// ── Gap 1: text-block left-accent rule ───────────────────────────────────────
-
-describe('REQ-58 T3 — text-block left-accent rule', () => {
-  it('test_UAT_FC_REQ-58_textblock_meta_exposes_accent_dial', () => {
-    // The dial is a closed palette-role set with `none` as the default (off).
-    expect(textBlockMeta.dials.accent).toContain('none')
-    expect(textBlockMeta.dials.accent).toContain('primary')
-    expect(textBlockMeta.dials.accent).toContain('accent')
-  })
-
-  it('test_UAT_FC_REQ-58_textblock_accent_none_paints_no_rule', async () => {
-    // Default: no accent class variant beyond `accent-rule-none`, and the CSS
-    // that paints a bar is gated on :not(.accent-rule-none) — so a plain block
-    // carries no inline-start border.
-    const html = await render(TextBlock, {
-      variant: 'prose',
-      content: { body: 'Plain manifesto copy.' },
-    })
-    expect(html).toContain('accent-rule-none')
-    expect(html).not.toContain('accent-rule-primary')
-  })
-
-  it('test_UAT_FC_REQ-58_textblock_accent_primary_paints_rule', async () => {
-    // A role value tags the section so the scoped CSS paints a left bar in that
-    // palette role down the content column.
-    const html = await render(TextBlock, {
-      variant: 'prose',
-      dials: { accent: 'primary' },
-      content: { body: "These aren't just features." },
-    })
-    expect(html).toContain('accent-rule-primary')
-    expect(html).not.toContain('accent-rule-none')
-  })
-})
-
-// ── Gap 3: services-grid frosted card veil ───────────────────────────────────
+// ── services-grid frosted card veil ──────────────────────────────────────────
 
 describe('REQ-58 T6 — services-grid translucent card veil', () => {
   const gridContent = {
@@ -107,7 +72,7 @@ describe('REQ-58 T6 — services-grid translucent card veil', () => {
   })
 })
 
-// ── Gap 2: contact-form placeholder-only fields ──────────────────────────────
+// ── contact-form placeholder-only fields ─────────────────────────────────────
 
 describe('REQ-58 T3 — contact-form placeholder-only field labels', () => {
   const baseContent = {

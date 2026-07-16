@@ -32,9 +32,6 @@ const headingAlign = dials.headingAlign ?? 'left'
 const panel = dials.panel ?? 'none'
 // Body list marker (REQ-36) — `check` = accent ✓; `bullet` (default).
 const listMarker = dials.listMarker ?? 'bullet'
-// Left-accent rule (REQ-58) — `none` (default); a role paints a vertical bar
-// down the content column's inline-start edge (the manifesto/quote motif).
-const accent = dials.accent ?? 'none'
 // CTA corner shape (REQ-36).
 const ctaShape = dials.ctaShape ?? 'round'
 // Panel vertical padding + corner shape (REQ-36).
@@ -63,7 +60,6 @@ const ctaStyle = resolveTextStyle(cta)
     `panel-corner-${panelCorner}`,
     `panel-pad-${panelPad}`,
     `list-marker-${listMarker}`,
-    `accent-rule-${accent}`,
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
@@ -146,19 +142,6 @@ const ctaStyle = resolveTextStyle(cta)
     font-size: 0.85em;
     color: var(--color-accent);
   }
-
-  /* Left-accent rule (REQ-58) — a vertical palette-role bar down the content
-     column's inline-start edge, with room so the prose clears the bar. Mirrors
-     the services-grid card accent (4px = --space-1). `none` paints nothing. */
-  .text-block:not(.accent-rule-none) .text-block__inner {
-    border-inline-start: var(--space-1) solid var(--color-border);
-    padding-inline-start: var(--space-6);
-  }
-  .text-block.accent-rule-primary .text-block__inner { border-inline-start-color: var(--color-primary); }
-  .text-block.accent-rule-accent .text-block__inner { border-inline-start-color: var(--color-accent); }
-  .text-block.accent-rule-muted .text-block__inner { border-inline-start-color: var(--color-muted); }
-  .text-block.accent-rule-secondary .text-block__inner { border-inline-start-color: var(--color-secondary); }
-  .text-block.accent-rule-neutral-cool .text-block__inner { border-inline-start-color: var(--color-neutral-cool); }
 
   /* Constrained content column (REQ-45 capability, REQ-55 mechanism): caps the
      content children to `--fc-content-width` (a named-step token or a literal). */
