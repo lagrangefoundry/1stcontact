@@ -2,6 +2,7 @@ import type { ModuleMeta } from '../types'
 import {
   ALIGN_DIAL,
   CARD_SURFACE_DIAL,
+  CARD_VEIL_DIAL,
   CONTENT_WIDTH_DIAL,
   GAP_DIAL,
   HEADING_CASE_DIAL,
@@ -58,6 +59,9 @@ export const servicesGridMeta = {
     // Grid-wide card chrome (REQ-36 / CAP-1) — `bare` strips the card fill/
     // border/radius/padding; `default` leaves cards unchanged.
     cardSurface: CARD_SURFACE_DIAL,
+    // Frosted card fill (REQ-58) — a translucent white veil over the band at the
+    // given opacity, instead of the solid `--color-surface`. `none` (default) off.
+    cardVeil: CARD_VEIL_DIAL,
     // Heading letter-case (REQ-36) — `upper` uppercases the grid heading + card
     // titles while the DOM text stays literal.
     headingCase: HEADING_CASE_DIAL,

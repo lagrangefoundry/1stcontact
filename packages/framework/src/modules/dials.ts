@@ -215,6 +215,17 @@ export const ACCENT_RULE_DIAL = ['none', 'primary', 'accent', 'muted', 'secondar
 export const FIELD_LABELS_DIAL = ['above', 'placeholder'] as const
 
 /**
+ * Services-grid card veil (REQ-58). A frosted card is a translucent WHITE fill
+ * over the band, not a solid surface — gigabytealchemy's cards are `bg-white/50`
+ * (Mission, over the subtle band) and `bg-white/70` (Building, over the default
+ * band), each compositing to a different rendered tint. `none` (default) keeps
+ * the solid `--color-surface`; a percentage paints `rgba(255,255,255,.NN)` so the
+ * browser composites it over whatever band the grid sits on — and the capture's
+ * alpha compositing makes both sides agree at the same value.
+ */
+export const CARD_VEIL_DIAL = ['none', '40', '50', '60', '70', '80', '90'] as const
+
+/**
  * text-block contained-panel vertical padding (REQ-36). `md` (default) is the
  * base 48px; `lg`/`xl` deepen it so a panel reads taller/airier.
  */

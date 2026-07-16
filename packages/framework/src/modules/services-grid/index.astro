@@ -49,6 +49,9 @@ const surface = dials.surface ?? 'default'
 const gap = dials.gap ?? 'normal'
 // Grid-wide card chrome (REQ-36 / CAP-1).
 const cardSurface = dials.cardSurface ?? 'default'
+// Frosted card veil (REQ-58) — `none` keeps the solid surface; a percentage
+// paints a translucent white fill the browser composites over the band.
+const cardVeil = dials.cardVeil ?? 'none'
 // Heading letter-case (REQ-36) — uppercases the grid heading + card titles.
 const headingCase = dials.headingCase ?? 'normal'
 // Icon rendering (REQ-36).
@@ -97,6 +100,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `variant-${variant}`,
     `surface-${surface}`,
     `card-surface-${cardSurface}`,
+    `card-veil-${cardVeil}`,
     `case-${headingCase}`,
     `icon-font-${iconFont}`,
     `icon-layout-${iconLayout}`,
@@ -246,6 +250,17 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
   }
+
+  /* Frosted card veil (REQ-58): a translucent white fill over the band, instead
+     of the solid surface. The browser composites it over the section background,
+     so the same veil yields a different tint on each band — matching a reference
+     that uses `bg-white/50` (over the subtle band) vs `bg-white/70` (default). */
+  .services-grid.card-veil-40 .services-grid__card { background: rgba(255, 255, 255, 0.4); }
+  .services-grid.card-veil-50 .services-grid__card { background: rgba(255, 255, 255, 0.5); }
+  .services-grid.card-veil-60 .services-grid__card { background: rgba(255, 255, 255, 0.6); }
+  .services-grid.card-veil-70 .services-grid__card { background: rgba(255, 255, 255, 0.7); }
+  .services-grid.card-veil-80 .services-grid__card { background: rgba(255, 255, 255, 0.8); }
+  .services-grid.card-veil-90 .services-grid__card { background: rgba(255, 255, 255, 0.9); }
 
   /* Bare cards (REQ-36 / CAP-1): strip the fill/border/radius/padding. */
   .services-grid.card-surface-bare .services-grid__card {

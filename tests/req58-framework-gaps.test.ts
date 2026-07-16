@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
+import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
+import { getModuleCss } from '../packages/framework/src/modules/styles'
 
 /**
  * UATs for REQ-58 — two framework capability gaps the gigabytealchemy re-import
@@ -64,6 +67,43 @@ describe('REQ-58 T3 — text-block left-accent rule', () => {
     })
     expect(html).toContain('accent-rule-primary')
     expect(html).not.toContain('accent-rule-none')
+  })
+})
+
+// ── Gap 3: services-grid frosted card veil ───────────────────────────────────
+
+describe('REQ-58 T6 — services-grid translucent card veil', () => {
+  const gridContent = {
+    heading: { text: 'Our Mission' },
+    items: [{ title: { text: 'Presence' }, body: 'Inner space.' }],
+  }
+
+  it('test_UAT_FC_REQ-58_servicesgrid_meta_exposes_card_veil_dial', () => {
+    expect(servicesGridMeta.dials.cardVeil).toContain('none')
+    expect(servicesGridMeta.dials.cardVeil).toContain('50')
+    expect(servicesGridMeta.dials.cardVeil).toContain('70')
+  })
+
+  it('test_UAT_FC_REQ-58_servicesgrid_veil_none_keeps_solid_surface', async () => {
+    const html = await render(ServicesGrid, { variant: 'three-col', content: gridContent })
+    expect(html).toContain('card-veil-none')
+    expect(html).not.toContain('card-veil-50')
+  })
+
+  it('test_UAT_FC_REQ-58_servicesgrid_veil_paints_translucent_white', async () => {
+    // The veil tags the grid so the scoped CSS paints rgba(255,255,255,.NN) on the
+    // card — a translucent fill the browser composites over the band, not a solid.
+    const html = await render(ServicesGrid, {
+      variant: 'three-col',
+      dials: { cardVeil: '50' },
+      content: gridContent,
+    })
+    expect(html).toContain('card-veil-50')
+    // The scoped CSS (aggregated into the site's theme.css) maps the class to a
+    // translucent white fill the browser composites over the band.
+    const css = getModuleCss()
+    expect(css).toMatch(/card-veil-50[^}]*rgba\(255, ?255, ?255, ?0\.5\)/)
+    expect(css).toMatch(/card-veil-70[^}]*rgba\(255, ?255, ?255, ?0\.7\)/)
   })
 })
 
