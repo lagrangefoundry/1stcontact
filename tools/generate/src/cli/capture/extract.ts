@@ -20,6 +20,10 @@ export interface RawGeometry {
   box: { x: number; y: number; width: number; height: number }
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx: number
+  /** Uniform box-border width in px (0 when none painted). */
+  borderWidthPx?: number
+  /** Box-border colour `#rrggbb` when a border is painted, else null. */
+  borderColor?: string | null
   /** Raw computed `box-shadow` when a shadow is painted, else null. */
   boxShadow: string | null
   /** ARIA role — the browser's framework-agnostic semantic label for this element. */
@@ -314,6 +318,20 @@ export const EXTRACT_SCRIPT = `(() => {
         if (c) return { width: w, color: c };
       }
       node = node.parentElement;
+    }
+    return { width: 0, color: null };
+  }
+  // REQ-58 (blind spot) — the element's own uniform BOX border (all four sides),
+  // read off the top edge as representative. Distinct from accentBarOf (an
+  // asymmetric left-only accent bar): a form field's outline / a card's hairline
+  // are box borders whose colour + width were never captured, so a darker input
+  // outline or a wrong card border was invisible to the gate.
+  function boxBorderOf(s) {
+    var w = Math.round(parseFloat(s.borderTopWidth)) || 0;
+    var st = s.borderTopStyle;
+    if (w > 0 && st && st !== 'none') {
+      var c = rgbToHex(s.borderTopColor);
+      if (c) return { width: w, color: c };
     }
     return { width: 0, color: null };
   }
@@ -616,9 +634,12 @@ export const EXTRACT_SCRIPT = `(() => {
       var intrinsicAspect = (isImg && el.naturalHeight > 0)
         ? Math.round((el.naturalWidth / el.naturalHeight) * 100) / 100
         : null;
+      var fieldBorder = boxBorderOf(s);
       out.push({
         box: absBox(el),
         borderRadiusPx: borderRadiusOf(s),
+        borderWidthPx: fieldBorder.width,
+        borderColor: fieldBorder.color,
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
         arrangement: null,

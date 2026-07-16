@@ -116,6 +116,31 @@ describe('REQ-58 item 3b — values-diff flags an off panel colour', () => {
     const actual = mani('a', [el('Line')])
     expect(diffManifests(ref, actual).deltas.some((d) => d.property === 'surfaceFill')).toBe(false)
   })
+
+  it('test_UAT_FC_REQ-58_border_delta_when_input_outline_differs', () => {
+    // The gigabytealchemy input class: reference `border` is a dark currentColor
+    // outline; ours is a pale token border. Same width, different colour — only
+    // `borderRadiusPx`/`shape` was captured before, so the outline was invisible.
+    const ref = mani('ref', [el('Your name', { border: { widthPx: 1, color: '#334155' } })])
+    const actual = mani('a', [el('Your name', { border: { widthPx: 1, color: '#cbbfad' } })])
+    const { deltas } = diffManifests(ref, actual)
+    expect(deltas.some((d) => d.text === 'Your name' && d.property === 'border')).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-58_border_no_delta_when_matching_or_absent', () => {
+    // Matching borders (and the no-border case) must never produce a false delta.
+    const bordered = { border: { widthPx: 1, color: '#334155' } }
+    expect(
+      diffManifests(mani('ref', [el('A', bordered)]), mani('a', [el('A', bordered)])).deltas.some(
+        (d) => d.property === 'border',
+      ),
+    ).toBe(false)
+    expect(
+      diffManifests(mani('ref', [el('B', { border: null })]), mani('a', [el('B', { border: null })])).deltas.some(
+        (d) => d.property === 'border',
+      ),
+    ).toBe(false)
+  })
 })
 
 async function serveDir(dir: string): Promise<{ origin: string; close: () => Promise<void> }> {

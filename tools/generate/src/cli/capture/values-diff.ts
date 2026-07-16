@@ -81,6 +81,10 @@ export interface ValueElement {
   renderedTextBox?: Box | null
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx?: number
+  /** Uniform box border (all-sides) — width + colour, or null when none painted.
+   *  Distinct from `borderLeft` (an asymmetric accent bar): a form field's outline
+   *  or a card hairline. Optional for pre-blind-spot manifests. */
+  border?: BorderTreatment | null
   /** Computed `box-shadow` when a shadow is painted, else null. */
   boxShadow?: string | null
   /** ARIA role — the browser's framework-agnostic semantic label. */
@@ -218,6 +222,7 @@ export type DeltaProperty =
   | 'gradient'
   | 'overlay'
   | 'borderLeft'
+  | 'border'
   | 'fontSizePx'
   | 'contentAnchor'
   | 'fontWeight'
@@ -279,6 +284,7 @@ export type DeltaKind =
   | 'motion'
   | 'treatment'
   | 'borderLeft'
+  | 'border'
   | 'gradient'
   | 'fontWeight'
   | 'color'
@@ -551,6 +557,8 @@ function copyGeometry(
     box?: Box
     renderedTextBox?: Box | null
     borderRadiusPx?: number
+    borderWidthPx?: number
+    borderColor?: string | null
     boxShadow?: string | null
     a11yRole?: string
     arrangement?: Arrangement | null
@@ -566,6 +574,11 @@ function copyGeometry(
   if (src.box !== undefined) el.box = src.box
   if (src.renderedTextBox != null) el.renderedTextBox = src.renderedTextBox
   if (src.borderRadiusPx !== undefined) el.borderRadiusPx = src.borderRadiusPx
+  // Uniform box border → BorderTreatment (or null when unpainted). Present only
+  // once the capture records it (fields); pre-blind-spot manifests omit it.
+  if (src.borderWidthPx !== undefined) {
+    el.border = src.borderWidthPx > 0 && src.borderColor ? { widthPx: src.borderWidthPx, color: src.borderColor } : null
+  }
   if (src.boxShadow !== undefined) el.boxShadow = src.boxShadow
   if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
   if (src.arrangement !== undefined) el.arrangement = src.arrangement
@@ -779,6 +792,7 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   motion: 'MEDIUM',
   treatment: 'MEDIUM',
   borderLeft: 'MEDIUM',
+  border: 'MEDIUM',
   gradient: 'MEDIUM',
   fontWeight: 'MEDIUM',
   color: 'LOW',
@@ -823,6 +837,7 @@ const KIND_RANK: Record<DeltaKind, number> = {
   motion: 5,
   treatment: 4,
   borderLeft: 3,
+  border: 3,
   gradient: 2,
   fontWeight: 1,
   // LOW band
@@ -915,6 +930,7 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   gradient: 'gradient',
   overlay: 'overlay',
   borderLeft: 'borderLeft',
+  border: 'border',
   fontSizePx: 'fontSize',
   contentAnchor: 'contentAnchor',
   fontWeight: 'fontWeight',
@@ -1581,6 +1597,17 @@ export function diffManifests(
           dr,
         )
       }
+    }
+    // Uniform box border (blind spot) — a form field's outline / a card hairline.
+    // Compare presence + width + colour, like borderLeft. Only when both sides
+    // record the field (pre-blind-spot manifests omit `border`, so skip then).
+    if (exp.border !== undefined && act.border !== undefined) {
+      const e = exp.border
+      const a = act.border ?? null
+      const ok =
+        (!e && !a) ||
+        (!!e && !!a && Math.abs(e.widthPx - a.widthPx) <= borderWidthTol && colorDistance(e.color, a.color) <= colorTol)
+      if (!ok) push(exp, 'border', borderLabel(e), borderLabel(a))
     }
     if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
       push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))

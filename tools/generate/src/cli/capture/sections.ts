@@ -113,6 +113,8 @@ function toField(f: RawField): Field {
     a11yRole: f.a11yRole,
     box: f.box,
     borderRadiusPx: f.borderRadiusPx,
+    borderWidthPx: f.borderWidthPx,
+    borderColor: f.borderColor,
     boxShadow: f.boxShadow,
     arrangement: f.arrangement,
     zIndex: f.zIndex,

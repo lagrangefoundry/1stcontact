@@ -275,6 +275,10 @@ export interface ElementGeometry {
   box?: Box
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx?: number
+  /** Uniform box-border width in px (0 when none painted). */
+  borderWidthPx?: number
+  /** Box-border colour `#rrggbb` when a border is painted, else null. */
+  borderColor?: string | null
   /** Computed `box-shadow` when a shadow is painted, else null. */
   boxShadow?: string | null
   /** ARIA role — the browser's framework-agnostic semantic label. */
