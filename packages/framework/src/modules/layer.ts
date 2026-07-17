@@ -7,6 +7,7 @@ import type {
 } from '@1stcontact/site-schema'
 import { renderMarkdown } from './markdown'
 import { wrapWithMotion } from './motion'
+import { BREAKPOINTS, BREAKPOINT_PX, overrideChain } from './breakpoints'
 
 /**
  * Layer rendering (REQ-15, DOC-7 §6, DOC-14, DOC-15 design log).
@@ -30,31 +31,12 @@ import { wrapWithMotion } from './motion'
  * always sits above the host content.
  */
 
-/** Ascending breakpoint token names — the per-breakpoint override cascade. */
-const BREAKPOINTS = ['sm', 'md', 'lg', 'xl'] as const
-/** Standard pixel widths for the breakpoint tokens (mirrors token defaults). */
-const BREAKPOINT_PX: Record<(typeof BREAKPOINTS)[number], number> = {
-  sm: 640,
-  md: 768,
-  lg: 1024,
-  xl: 1280,
-}
+// Breakpoint vocabulary + the override-and-up chain are shared with the dial
+// model (REQ-61) — see ./breakpoints. `BREAKPOINTS`, `BREAKPOINT_PX`, and
+// `overrideChain` are imported above so the position and dial models never drift.
 
 /** The `--fc-*` custom-property suffixes for each structured position field. */
 const POSITION_VARS = ['x', 'y', 'z', 'w', 'h', 'rotate'] as const
-
-/**
- * Build the `var(--fc-<field>-<bp>, … , var(--fc-<field>))` fallback chain for
- * one field at one breakpoint: a larger breakpoint falls back through every
- * smaller override to the base value, giving "override and up" semantics.
- */
-function overrideChain(field: string, upTo: number): string {
-  let chain = `var(--fc-${field})`
-  for (let i = 0; i <= upTo; i += 1) {
-    chain = `var(--fc-${field}-${BREAKPOINTS[i]}, ${chain})`
-  }
-  return chain
-}
 
 /** Per-breakpoint media blocks that re-point each `fc-layer__child` field. */
 function breakpointRules(): string {

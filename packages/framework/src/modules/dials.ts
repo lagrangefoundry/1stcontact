@@ -11,6 +11,7 @@
  * band layout, height, width, spacing, scrim, shape, letter-case, positioning,
  * and closed chrome treatments (badge/panel/icon/card fills).
  */
+import { BREAKPOINTS, type Breakpoint } from './breakpoints'
 
 /**
  * Vertical spacing dial values (spacingTop / spacingBottom). `2xl`/`3xl` (REQ-36)
@@ -233,6 +234,44 @@ export function resolveStep(
   if (v in steps) return steps[v]
   if (classifyLength(v)) return v // an absolute px / literal length — verbatim
   return steps[fallback] ?? fallback
+}
+
+/**
+ * REQ-61 — a length dial value that may vary by breakpoint: a scalar (base only,
+ * as today) OR a base plus per-breakpoint overrides `{ base, sm?, md?, lg?, xl? }`.
+ * Each value is itself a scalar length (absolute px OR a named step overlay), so
+ * the absolute-or-overlay mandate (REQ-58) now spans the breakpoint dimension.
+ */
+export type ResponsiveValue<T> = T | ({ base: T } & Partial<Record<Breakpoint, T>>)
+
+/** True for the per-breakpoint object form (carries a `base`), not a scalar. */
+export function isResponsiveValue(
+  v: unknown,
+): v is { base: string | number } & Partial<Record<Breakpoint, string | number>> {
+  return typeof v === 'object' && v !== null && 'base' in (v as Record<string, unknown>)
+}
+
+/**
+ * Emit the inline `--fc-<key>` (base) + `--fc-<key>-<bp>` (override) declarations
+ * for a length dial that may be per-breakpoint, resolving every value through
+ * {@link resolveStep} (named step overlay OR absolute px/length verbatim). A
+ * scalar value emits just the base var — byte-identical to today, so the scalar
+ * path is untouched. Pair with `responsivePropertyRules(selector, cssProp, key)`
+ * (see ./breakpoints) so the consumed property re-points at each breakpoint.
+ */
+export function responsiveStepVars(
+  key: string,
+  value: ResponsiveValue<string | number> | undefined | null,
+  steps: Record<string, string>,
+  fallback: string,
+): string {
+  if (!isResponsiveValue(value)) return `--fc-${key}: ${resolveStep(value ?? undefined, steps, fallback)}`
+  const decls = [`--fc-${key}: ${resolveStep(value.base, steps, fallback)}`]
+  for (const bp of BREAKPOINTS) {
+    const v = value[bp]
+    if (v !== undefined) decls.push(`--fc-${key}-${bp}: ${resolveStep(v, steps, fallback)}`)
+  }
+  return decls.join('; ')
 }
 
 /**

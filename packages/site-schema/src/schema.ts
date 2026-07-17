@@ -226,6 +226,24 @@ export const positionSchema = z
   .strict()
 
 /**
+ * A per-breakpoint length-dial value (REQ-61): a required `base` plus optional
+ * `sm`/`md`/`lg`/`xl` overrides, each a scalar length (an absolute px number or a
+ * named-step / literal-length string). Shares the position model's breakpoint
+ * vocabulary; the framework applies the same "override and up" cascade. `.strict()`
+ * so a stray key never silently drops.
+ */
+const lengthScalar = z.union([z.number(), z.string()])
+export const responsiveDialValueSchema = z
+  .object({
+    base: lengthScalar,
+    sm: lengthScalar.optional(),
+    md: lengthScalar.optional(),
+    lg: lengthScalar.optional(),
+    xl: lengthScalar.optional(),
+  })
+  .strict()
+
+/**
  * Palette-role names selectable as a layer treatment colour (REQ-32 cap 5). The
  * closed set of theme palette roles in kebab-case — each resolves to
  * `var(--color-<role>)`, so a border/text colour is always token-backed and no
@@ -440,8 +458,11 @@ export const moduleInstanceSchema = z
     variant: z.string(),
     // A dial value is a string (named step / treatment) OR a number literal —
     // the latter lets a dial carry a measured render value directly (REQ-55, e.g.
-    // `contentWidth: 896` for an off-scale px width).
-    dials: z.record(z.string(), z.union([z.string(), z.number()])),
+    // `contentWidth: 896` for an off-scale px width) — OR, for a length dial, a
+    // per-breakpoint object `{ base, sm?, md?, lg?, xl? }` (REQ-61), each entry a
+    // scalar length. The framework layer decides which dials honour the object
+    // form; the schema only accepts its shape.
+    dials: z.record(z.string(), z.union([z.string(), z.number(), responsiveDialValueSchema])),
     content: z.record(z.string(), contentValueSchema),
     /** Optional section-level background painted behind this module (REQ-14). */
     background: backgroundSchema.optional(),

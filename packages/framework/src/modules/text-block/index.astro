@@ -1,7 +1,8 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveContainerWidth, resolveStep, SPACING_STEPS, CTA_RADIUS_STEPS, PANEL_CORNER_STEPS } from '../dials'
+import { resolveContainerWidth, resolveStep, responsiveStepVars, SPACING_STEPS, CTA_RADIUS_STEPS, PANEL_CORNER_STEPS } from '../dials'
+import { responsivePropertyRules } from '../breakpoints'
 import { resolveTextStyle, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
 
 interface Props {
@@ -19,10 +20,11 @@ interface Props {
 const { variant = 'prose', dials = {}, content } = Astro.props as Props
 const align = dials.align ?? 'left'
 const surface = dials.surface ?? 'default'
-// Vertical spacing (REQ-58 absolute-or-overlay) — a named step OR an absolute px
-// length, resolved to an inline `--fc-pt`/`--fc-pb` var.
-const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
-const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
+// Vertical spacing (REQ-58 absolute-or-overlay, REQ-61 per-breakpoint) — a named
+// step OR an absolute px length OR a per-breakpoint `{ base, sm?… }` object,
+// emitted as inline `--fc-pt`/`--fc-pb` (+ `-<bp>` override) vars.
+const padTopVars = responsiveStepVars('pt', dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEPS, 'lg')
 const textAlign = dials.textAlign ?? 'left'
 // Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
 // to a max-width length applied via `--fc-content-width`, or null (fills frame).
@@ -68,7 +70,7 @@ const ctaStyle = resolveTextStyle(cta)
     `panel-${panel}`,
     `list-marker-${listMarker}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, padTopVars, padBottomVars, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`].filter(Boolean).join('; ')}
 >
   <div class="text-block__inner" style={[panelGradientCss, `--fc-panel-pad: ${panelPadCss}`].filter(Boolean).join('; ') || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
@@ -81,6 +83,15 @@ const ctaStyle = resolveTextStyle(cta)
   /* Vertical spacing resolves to inline `--fc-pt`/`--fc-pb` (a step token OR an
      absolute px), replacing the former per-step classes (REQ-58). */
   .text-block { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
+  /* REQ-61 — per-breakpoint override chain ("override and up"): a per-breakpoint
+     `{ base, sm?… }` spacing dial emits `--fc-pt-<bp>` vars that re-point the
+     padding here. Static (matches ./breakpoints responsivePropertyRules); scoped
+     alongside the base rule so the override wins inside each media block. A scalar
+     dial sets no `-<bp>` var, so every chain falls through to the base. */
+  @media (min-width: 640px) { .text-block { padding-top: var(--fc-pt-sm, var(--fc-pt)); padding-bottom: var(--fc-pb-sm, var(--fc-pb)); } }
+  @media (min-width: 768px) { .text-block { padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))); padding-bottom: var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))); } }
+  @media (min-width: 1024px) { .text-block { padding-top: var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))); padding-bottom: var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))); } }
+  @media (min-width: 1280px) { .text-block { padding-top: var(--fc-pt-xl, var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))))); padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))))); } }
   .text-block.surface-subtle { background: var(--color-surface-subtle); }
   .text-block.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .text-block.surface-accent { background: var(--color-accent); color: var(--color-bg); }
