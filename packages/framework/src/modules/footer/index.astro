@@ -29,8 +29,11 @@ const spacingBottom = dials.spacingBottom ?? 'lg'
 // Content layout: `center` stacks centred (default); `spread` justifies the
 // copyright and links to opposite ends of one row.
 const layout = dials.layout ?? 'center'
-// Footer link colour (REQ-58) — an absolute #hex OR a palette role; `null` keeps
-// the inherited surface text colour.
+// Footer text colour (REQ-58) — the muted footer body/copyright colour, an
+// absolute #hex OR a palette role; `null` keeps the surface default (`--color-bg`).
+const textColorCss = dials.textColor ? resolveColor(dials.textColor) : null
+// Footer link colour (REQ-58) — an absolute #hex OR a palette role; `null` inherits
+// the footer text colour.
 const linkColorCss = dials.linkColor ? resolveColor(dials.linkColor) : null
 
 const { tagline, copyrightHolder } = content
@@ -50,6 +53,7 @@ const year = BUILD_YEAR
     `spacing-top-${spacingTop}`,
     `spacing-bottom-${spacingBottom}`,
   ]}
+  style={textColorCss ? `--fc-text: ${textColorCss}` : undefined}
 >
   <div class="footer__inner">
     {logo && (
@@ -82,7 +86,7 @@ const year = BUILD_YEAR
 <style>
   .footer {
     background: var(--color-surface-inverse);
-    color: var(--color-bg);
+    color: var(--fc-text, var(--color-bg));
     padding-top: var(--space-8);
     padding-bottom: var(--space-8);
   }

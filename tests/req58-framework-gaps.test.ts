@@ -127,7 +127,7 @@ describe('REQ-58 — submit colour + inline, footer copyright + link colour', ()
     // A verbatim copyright (absolute value) overrides the generated line; linkColor
     // is an absolute #hex OR role routed through resolveColor to --fc-link.
     const html = await render(Footer, {
-      dials: { linkColor: '#90a1b9' },
+      dials: { textColor: '#90a1b9', linkColor: '#90a1b9' },
       content: {
         copyrightHolder: 'Gigabyte Alchemy',
         copyright: '© Gigabyte Alchemy 2025',
@@ -136,6 +136,8 @@ describe('REQ-58 — submit colour + inline, footer copyright + link colour', ()
     })
     expect(html).toContain('© Gigabyte Alchemy 2025')
     expect(html).not.toMatch(/©\s*20\d\d\s+Gigabyte/) // not the generated year-first form
+    // textColor paints the whole footer (copyright); linkColor paints the links.
+    expect(html).toContain('--fc-text: #90a1b9')
     expect(html).toContain('--fc-link: #90a1b9')
   })
 })

@@ -544,7 +544,7 @@
     "layout": "spread",
     "spacingTop": "xl",
     "spacingBottom": "xl",
-    "linkColor": "#90a1b9"
+    "textColor": "#90a1b9"
    },
    "content": {
     "copyrightHolder": "Gigabyte Alchemy",
