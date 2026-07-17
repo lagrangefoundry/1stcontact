@@ -59,6 +59,13 @@ export interface ValueElement {
   gradient?: TextGradient | null
   borderLeft?: BorderTreatment | null
   paddingLeftPx?: number
+  /** REQ-64 — the other three padding sides + normalized text-align. Type-A
+   *  (authored) axes that were invisible: a wrong card top/right/bottom pad or a
+   *  centred-vs-left run only showed up indirectly as `size`/`position` drift. */
+  paddingTopPx?: number
+  paddingRightPx?: number
+  paddingBottomPx?: number
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (null on the
    *  band). Compared like `color` (ΔE) so a slightly-off panel colour surfaces. */
   surfaceFill?: string | null
@@ -169,6 +176,13 @@ export interface SectionValues {
   overlay: { color: string; opacity: number } | null
   /** Vertical content anchor (0 = top … 1 = bottom), or null when the section is textless. */
   contentAnchorRatio: number | null
+  /** REQ-64 — section band vertical padding (Type-A). Captured on the band all
+   *  along but never compared; a taller section (a bigger top/bottom pad) only
+   *  showed up as downstream `position` drift. Optional so pre-REQ-64 manifests parse. */
+  paddingTopPx?: number
+  paddingBottomPx?: number
+  /** REQ-64 — section band text-align (Type-A). */
+  textAlign?: 'left' | 'center' | 'right'
 }
 
 /** A flat, structured value manifest — the single artifact the diff and a human both read. */
@@ -275,6 +289,11 @@ export type DeltaProperty =
   | 'lineHeightPx'
   | 'letterSpacingPx'
   | 'paddingLeftPx'
+  // ── REQ-64 — the other three padding sides + text-align (Type-A visibility) ──
+  | 'paddingTopPx'
+  | 'paddingRightPx'
+  | 'paddingBottomPx'
+  | 'textAlign'
   // ── REQ-47 structural properties ─────────────────────────────────────────
   | 'position'
   | 'size'
@@ -625,8 +644,18 @@ function copyGeometry(
     transformRotateDeg?: number
     transformScale?: number
     motion?: 'animation' | 'transition' | 'both' | null
+    // REQ-64 — Type-A padding sides + text-align (present on runs; absent on
+    // text-free fields and pre-REQ-64 bundles, so each is guarded below).
+    paddingTopPx?: number
+    paddingRightPx?: number
+    paddingBottomPx?: number
+    textAlign?: 'left' | 'center' | 'right' | 'justify'
   },
 ): void {
+  if (src.paddingTopPx !== undefined) el.paddingTopPx = src.paddingTopPx
+  if (src.paddingRightPx !== undefined) el.paddingRightPx = src.paddingRightPx
+  if (src.paddingBottomPx !== undefined) el.paddingBottomPx = src.paddingBottomPx
+  if (src.textAlign !== undefined) el.textAlign = src.textAlign
   if (src.box !== undefined) el.box = src.box
   if (src.renderedTextBox != null) el.renderedTextBox = src.renderedTextBox
   if (src.borderRadiusPx !== undefined) el.borderRadiusPx = src.borderRadiusPx
@@ -766,6 +795,9 @@ export function flattenCapture(capture: Capture): ValueManifest {
     index,
     overlay: section.background.overlay ?? null,
     contentAnchorRatio: section.layout.contentAnchorRatio ?? null,
+    // REQ-64 — the single-width bundle records `contentAlign` (not per-side padding),
+    // so text-align is comparable here; section padding stays undefined (ladder only).
+    textAlign: section.layout.contentAlign,
   }))
   for (const section of capture.sections) {
     for (const run of section.content) elements.push(contentRunToElement(run))
@@ -796,6 +828,11 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
     index,
     overlay: band.overlay ?? null,
     contentAnchorRatio: band.contentAnchorRatio ?? null,
+    // REQ-64 — band vertical padding + text-align were captured all along (RawBand)
+    // but never projected/compared; a taller or re-aligned section is now direct.
+    paddingTopPx: band.paddingTopPx,
+    paddingBottomPx: band.paddingBottomPx,
+    textAlign: band.textAlign,
   }))
   for (const band of signals.bands) {
     for (const run of band.content) elements.push(rawRunToElement(run))
@@ -1060,6 +1097,13 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   lineHeightPx: 'lineHeight',
   letterSpacingPx: 'letterSpacing',
   paddingLeftPx: 'padding',
+  // REQ-64 — the three other padding sides share the `padding` kind (LOW, like
+  // paddingLeft); text-align is a text-treatment defect (MEDIUM) — a centred vs
+  // left-aligned run reads like the other treatment axes.
+  paddingTopPx: 'padding',
+  paddingRightPx: 'padding',
+  paddingBottomPx: 'padding',
+  textAlign: 'textTreatment',
   position: 'position',
   size: 'size',
   // REQ-58 (T1) — rendered-text extent is a size fact; reuses the `size` kind's
@@ -2001,6 +2045,34 @@ export function diffManifests(
         push(exp, 'paddingLeftPx', `${exp.paddingLeftPx}`, `${act.paddingLeftPx}`)
       }
     }
+    // REQ-64 — the other three padding sides (Type-A). Only paddingLeft was
+    // compared, so a card's internal top/right/bottom pad (a box that reads
+    // narrower/taller) was invisible. Same integer-px tolerance as paddingLeft.
+    const comparePadSide = (
+      prop: 'paddingTopPx' | 'paddingRightPx' | 'paddingBottomPx',
+      e?: number,
+      a?: number,
+    ): void => {
+      if (e !== undefined && a !== undefined && Math.abs(e - a) > paddingTol) {
+        push(exp, prop, `${e}`, `${a}`, Math.abs(e - a))
+      }
+    }
+    comparePadSide('paddingTopPx', exp.paddingTopPx, act.paddingTopPx)
+    comparePadSide('paddingRightPx', exp.paddingRightPx, act.paddingRightPx)
+    comparePadSide('paddingBottomPx', exp.paddingBottomPx, act.paddingBottomPx)
+    // REQ-64 — text-align (Type-A). A centred-vs-left run was only visible
+    // indirectly as a position/box shift; compare the authored value directly.
+    if (exp.textAlign !== undefined && act.textAlign !== undefined && exp.textAlign !== act.textAlign) {
+      push(exp, 'textAlign', exp.textAlign, act.textAlign)
+    }
+    // REQ-64 — font fallback, reverse direction. The unilateral `fontLoad` pass
+    // (below, on the whole manifest) fires when OUR render falls back; this catches
+    // the mirror — the REFERENCE shows a fallback but ours resolved the intended
+    // face, still a difference from the target. `fontLoaded` is false only when a
+    // fallback rendered; absent ⇒ loaded.
+    if (exp.fontLoaded === false && act.fontLoaded !== false) {
+      push(exp, 'fontLoad', 'fallback', 'intended face')
+    }
 
     // REQ-47 — a text run also carries geometry: the hero heading 195px out of
     // position, a mis-sized box, a squared-off corner, a stacked-vs-inline button.
@@ -2039,6 +2111,19 @@ export function diffManifests(
       if (Math.abs(es.contentAnchorRatio - as.contentAnchorRatio) > anchorTol) {
         record(label, 'section', 'contentAnchor', anchorLabel(es.contentAnchorRatio), anchorLabel(as.contentAnchorRatio))
       }
+    }
+    // REQ-64 — section band vertical padding (Type-A). A section that renders
+    // taller/shorter (a bigger top/bottom pad) previously showed only as the
+    // downstream `position` drift of everything below it; name the cause directly.
+    if (es.paddingTopPx !== undefined && as.paddingTopPx !== undefined && Math.abs(es.paddingTopPx - as.paddingTopPx) > paddingTol) {
+      record(label, 'section', 'paddingTopPx', `${es.paddingTopPx}`, `${as.paddingTopPx}`, Math.abs(es.paddingTopPx - as.paddingTopPx))
+    }
+    if (es.paddingBottomPx !== undefined && as.paddingBottomPx !== undefined && Math.abs(es.paddingBottomPx - as.paddingBottomPx) > paddingTol) {
+      record(label, 'section', 'paddingBottomPx', `${es.paddingBottomPx}`, `${as.paddingBottomPx}`, Math.abs(es.paddingBottomPx - as.paddingBottomPx))
+    }
+    // REQ-64 — section band text-align (Type-A).
+    if (es.textAlign !== undefined && as.textAlign !== undefined && es.textAlign !== as.textAlign) {
+      record(label, 'section', 'textAlign', es.textAlign, as.textAlign)
     }
   }
 

@@ -236,3 +236,86 @@ describe('REQ-63 in-page extraction (EXTRACT_SCRIPT under jsdom)', () => {
     expect(run.borderStyle).toBe('dashed')
   })
 })
+
+// ── REQ-64 — Type-A axes that were captured/half-compared but had no delta ────
+
+/**
+ * REQ-64 coverage additions: the values-diff already saw *most* author-set
+ * (Type-A) values; these close the last gaps so every Type-A value is directly
+ * visible (a difference to COPY), not just its emergent shadow. Each is additive
+ * (optional field) — a matching or absent axis must never fabricate a delta.
+ */
+describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align, font fallback)', () => {
+  const sectMani = (source: string, sections: ValueManifest['sections']): ValueManifest => ({
+    source,
+    elements: [],
+    sections,
+  })
+
+  it('test_UAT_FC_REQ-64_padding_sides_top_right_bottom_delta', () => {
+    // Only paddingLeft was compared; a card's internal top/right/bottom pad (a box
+    // that reads narrower/taller) was invisible.
+    const d = diffManifests(
+      mani('ref', [el('Card', { paddingTopPx: 8, paddingRightPx: 8, paddingBottomPx: 8 })]),
+      mani('a', [el('Card', { paddingTopPx: 24, paddingRightPx: 24, paddingBottomPx: 24 })]),
+    )
+    expect(hasDelta(d.deltas, 'Card', 'paddingTopPx')).toBe(true)
+    expect(hasDelta(d.deltas, 'Card', 'paddingRightPx')).toBe(true)
+    expect(hasDelta(d.deltas, 'Card', 'paddingBottomPx')).toBe(true)
+    // Matching padding → no delta.
+    const same = diffManifests(
+      mani('ref', [el('Card', { paddingTopPx: 8, paddingRightPx: 8, paddingBottomPx: 8 })]),
+      mani('a', [el('Card', { paddingTopPx: 8, paddingRightPx: 8, paddingBottomPx: 8 })]),
+    )
+    expect(hasProp(same.deltas, 'paddingTopPx')).toBe(false)
+    expect(hasProp(same.deltas, 'paddingRightPx')).toBe(false)
+    expect(hasProp(same.deltas, 'paddingBottomPx')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-64_text_align_delta', () => {
+    // A centred-vs-left run was only visible indirectly as a position/box shift.
+    const d = diffManifests(
+      mani('ref', [el('Heading', { textAlign: 'center' })]),
+      mani('a', [el('Heading', { textAlign: 'left' })]),
+    )
+    expect(hasDelta(d.deltas, 'Heading', 'textAlign')).toBe(true)
+    const same = diffManifests(
+      mani('ref', [el('Heading', { textAlign: 'center' })]),
+      mani('a', [el('Heading', { textAlign: 'center' })]),
+    )
+    expect(hasProp(same.deltas, 'textAlign')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-64_section_band_padding_delta', () => {
+    // A section that renders taller (a bigger band top/bottom pad) previously showed
+    // ONLY as the downstream position drift of everything below it. Name the cause.
+    const d = diffManifests(
+      sectMani('ref', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 0, paddingBottomPx: 0 }]),
+      sectMani('a', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 96, paddingBottomPx: 128 }]),
+    )
+    expect(hasDelta(d.deltas, '§0', 'paddingTopPx')).toBe(true)
+    expect(hasDelta(d.deltas, '§0', 'paddingBottomPx')).toBe(true)
+    // Matching band padding → no delta.
+    const same = diffManifests(
+      sectMani('ref', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 64, paddingBottomPx: 64 }]),
+      sectMani('a', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 64, paddingBottomPx: 64 }]),
+    )
+    expect(hasProp(same.deltas, 'paddingTopPx')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-64_font_fallback_reverse_direction', () => {
+    // The unilateral fontLoad pass fires when OUR render falls back; this catches
+    // the mirror — the reference shows a fallback but ours resolved the intended face.
+    const d = diffManifests(
+      mani('ref', [el('Wordmark', { fontLoaded: false })]),
+      mani('a', [el('Wordmark', { fontLoaded: true })]),
+    )
+    expect(hasDelta(d.deltas, 'Wordmark', 'fontLoad')).toBe(true)
+    // Both resolved → no delta.
+    const same = diffManifests(
+      mani('ref', [el('Wordmark', { fontLoaded: true })]),
+      mani('a', [el('Wordmark', { fontLoaded: true })]),
+    )
+    expect(hasProp(same.deltas, 'fontLoad')).toBe(false)
+  })
+})

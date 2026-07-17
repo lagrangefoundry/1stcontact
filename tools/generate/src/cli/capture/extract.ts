@@ -97,6 +97,14 @@ export interface RawRun extends RawGeometry {
   /** Left border colour `#rrggbb` when a left border is painted, else null. */
   borderLeftColor: string | null
   paddingLeftPx: number
+  /** REQ-64 — the other three padding sides (Type-A, authored). Only `paddingLeft`
+   *  was captured before, so a wrong card/section top/right/bottom pad was invisible. */
+  paddingTopPx: number
+  paddingRightPx: number
+  paddingBottomPx: number
+  /** REQ-64 — computed `text-align`, normalized start→left / end→right. Type-A: a
+   *  centred vs left-aligned run was only visible indirectly as a `position` delta. */
+  textAlign: 'left' | 'center' | 'right' | 'justify'
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (the nearest
    *  painted ancestor background), null when the run sits on the section band. */
   surfaceFill?: string | null
@@ -715,6 +723,14 @@ export const EXTRACT_SCRIPT = `(() => {
         // is a solid or the run sits on the band). Distinct from surfaceFill.
         surfaceGradientCss: surfaceGradientOf(el),
         paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
+        // REQ-64 — the other three padding sides + normalized text-align (Type-A).
+        paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
+        paddingRightPx: Math.round(parseFloat(s.paddingRight)) || 0,
+        paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
+        textAlign: s.textAlign === 'center' ? 'center'
+          : (s.textAlign === 'right' || s.textAlign === 'end') ? 'right'
+          : s.textAlign === 'justify' ? 'justify'
+          : 'left',
         // REQ-47 per-element geometry / shape / structure (arrangement filled later).
         box: absBox(el),
         // REQ-58 (T1) — tight rendered-text bounds (glyph extent, padding-excluded).
