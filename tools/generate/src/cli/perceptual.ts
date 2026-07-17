@@ -21,8 +21,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import sharp from 'sharp'
 import type { GlobalOptions } from './commands'
-import { cmdShot } from './shot'
-import type { BrowserDriverFactory } from './capture'
+import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
+import { readLadderScreenshotPath, type BrowserDriverFactory } from './capture'
 import type { RenderChannel } from '../store'
 
 // ── geometry ─────────────────────────────────────────────────────────────────
@@ -384,6 +384,14 @@ export interface DiffOptions extends GlobalOptions {
   ref: string
   /** Pre-shot actual PNG — short-circuits the browser (offline re-diff). */
   actualImagePath?: string
+  /**
+   * REQ-61 — diff at a named viewport size (`mobile` | `tablet` | `desktop`). The
+   * actual side is shot at that viewport and, for a bundle ref, the same-width
+   * reference screenshot (`screenshot-<width>.png`) is used — so our tablet render
+   * is compared against a tablet reference, not the desktop shot. Absent → the
+   * default `screenshot.full.png` (desktop) path.
+   */
+  size?: ViewportName
   /** Output directory for diff.png / diff-blocks.png / regions.json / crops. */
   out?: string
   /** Diff tuning knobs. */
@@ -406,9 +414,26 @@ export interface PerceptualDiffReport {
   regions: (DiffRegion & { crops: { ref: string; actual: string; diff: string } })[]
 }
 
-/** Resolve `--ref` to an image path: a bundle dir → its screenshot.full.png. */
-function resolveRefImage(ref: string): string {
+/**
+ * Resolve `--ref` to a reference image path. A bundle dir → its
+ * `screenshot.full.png` (default) or, under REQ-61 `--size`, the same-width
+ * `screenshot-<width>.png` — failing loudly if the bundle predates per-viewport
+ * screenshots rather than comparing our sized render against the desktop shot. A
+ * direct PNG path is used verbatim (the caller owns matching it to the size).
+ */
+function resolveRefImage(ref: string, size?: ViewportName): string {
   if (existsSync(ref) && statSync(ref).isDirectory()) {
+    if (size) {
+      const width = VIEWPORTS[size].width
+      const shot = readLadderScreenshotPath(ref, width)
+      if (!shot) {
+        throw new Error(
+          `diff --size ${size}: bundle '${ref}' has no screenshot-${width}.png. Re-capture with ` +
+            `'1c capture page <url>' to persist per-viewport reference screenshots, then re-run.`,
+        )
+      }
+      return shot
+    }
     const shot = path.join(ref, 'screenshot.full.png')
     if (!existsSync(shot)) throw new Error(`diff: ref bundle has no screenshot.full.png: ${ref}`)
     return shot
@@ -423,10 +448,10 @@ function resolveRefImage(ref: string): string {
  * and per-region ref/ours/diff crop triptychs.
  */
 export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> {
-  const refImage = resolveRefImage(opts.ref)
+  const refImage = resolveRefImage(opts.ref, opts.size)
 
   // Resolve the actual side. A pre-shot PNG skips the browser entirely; else we
-  // reuse the eyes seam (render→serve→shoot) to a scratch PNG.
+  // reuse the eyes seam (render→serve→shoot) to a scratch PNG at the chosen size.
   let actualImage = opts.actualImagePath
   let scratch: string | undefined
   if (!actualImage) {
@@ -439,6 +464,7 @@ export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> 
       ...opts,
       slug: opts.slug,
       source: opts.source ?? 'draft',
+      viewport: opts.size,
       out: shotOut,
       driverFactory: opts.driverFactory,
       port: opts.port,

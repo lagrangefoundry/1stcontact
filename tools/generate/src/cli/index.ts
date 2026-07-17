@@ -102,9 +102,10 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   Ignore-masks (REQ-48): [--ignore <regex,regex,…>] suppress dynamic content; [--compare-years] disable the built-in © year mask.
 
 Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regions + crop triptychs:
-  1c diff <slug> --ref <bundleDir|refPng> [--source draft|published] [--out <dir>] [--json] [--sandbox]
+  1c diff <slug> --ref <bundleDir|refPng> [--source draft|published] [--size mobile|tablet|desktop] [--out <dir>] [--json] [--sandbox]
   1c diff --ref <bundleDir|refPng> --actual <png> [--out <dir>] [--json]
     Tuning: [--block <px>] [--threshold <0-255>] [--block-threshold <0-255>] [--bands <n>] [--top <n>] [--pad <px>]
+    (REQ-61) --size shoots the actual at that viewport and pairs it against the bundle's screenshot-<width>.png.
   1c crop <image> --box <x,y,w,h> [--out <png>]
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
@@ -389,6 +390,8 @@ export async function run(argv: string[]): Promise<void> {
         topN: numFlag('top'),
         padPx: numFlag('pad'),
       }
+      // REQ-61 — `--size` shoots the actual at that viewport and pairs it against
+      // the same-width reference screenshot from the bundle.
       const report = await cmdDiff({
         ...global,
         slug,
@@ -397,6 +400,7 @@ export async function run(argv: string[]): Promise<void> {
         actualImagePath,
         out: typeof flags.out === 'string' ? flags.out : undefined,
         tuning,
+        size: parseSize(flags.size),
       })
       if (flags.json === true) {
         console.log(JSON.stringify(report, null, 2))
