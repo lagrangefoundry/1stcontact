@@ -24,8 +24,10 @@ import {
   readMultiState,
   runMultiStateCapture,
   type BrowserDriverFactory,
+  type MultiStateCapture,
   type RawSignals,
 } from './capture'
+import { VIEWPORTS, type ViewportName } from './shot'
 import {
   diffManifests,
   diffMultiState,
@@ -49,6 +51,14 @@ export interface ValuesDiffOptions extends GlobalOptions {
   source?: RenderChannel
   /** Capture bundle directory — the *expected* side. */
   refBundleDir: string
+  /**
+   * REQ-61 — diff at a named viewport size (`mobile` | `tablet` | `desktop`).
+   * The reference side is taken from the persisted viewport ladder
+   * (`multistate.json`) at that width, and the actual side is rendered at that
+   * viewport — so a %-vs-fixed reflow that only shows on a narrow phone is
+   * compared phone↔phone. Absent → the single-width default path (≈ desktop).
+   */
+  size?: ViewportName
   /** Pre-extracted actual manifest JSON path; when set, no browser is launched. */
   actualManifestPath?: string
   /** Write the full report JSON here in addition to returning it. */
@@ -61,12 +71,17 @@ export interface ValuesDiffOptions extends GlobalOptions {
   port?: number
 }
 
-/** Render the draft, serve it over loopback, read its computed value manifest. */
+/**
+ * Render the draft, serve it over loopback, read its computed value manifest.
+ * An optional `viewport` sizes the page before load (REQ-61 size-aware diff) so
+ * responsive layout resolves at that width; absent → the driver's default.
+ */
 async function extractDraftManifest(
   slug: string,
   source: RenderChannel,
   factory: BrowserDriverFactory,
   opts: ValuesDiffOptions,
+  viewport?: Viewport,
 ): Promise<ValueManifest> {
   const renderSource: SiteSource = source === 'published' ? 'latest' : 'draft'
   await cmdRender(slug, { ...opts, source: renderSource, out: undefined })
@@ -74,7 +89,7 @@ async function extractDraftManifest(
   const handle = await startServe(slug, { ...opts, source, port: opts.port })
   const driver = await factory()
   try {
-    await driver.navigate(handle.url)
+    await driver.navigate(handle.url, viewport)
     const signals = await driver.query<RawSignals>(EXTRACT_SCRIPT)
     return flattenSignals(signals, `draft:${slug}`)
   } finally {
@@ -86,8 +101,14 @@ async function extractDraftManifest(
 /**
  * Compute a values-diff report. Exactly one actual source is used: an injected
  * `--actual` manifest if given, else the live rendered draft for `slug`.
+ *
+ * REQ-61 — `--size` routes through {@link valuesDiffAtSize}: the reference side
+ * comes from the persisted viewport ladder at that width and the actual side is
+ * rendered at that viewport. Absent → the single-width default below.
  */
 export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiffReport> {
+  if (opts.size) return valuesDiffAtSize(opts, opts.size)
+
   const expected = flattenCapture(readCapture(opts.refBundleDir))
 
   let actual: ValueManifest
@@ -99,6 +120,66 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
     }
     const factory = opts.driverFactory ?? createPlaywrightDriver
     actual = await extractDraftManifest(opts.slug, opts.source ?? 'draft', factory, opts)
+  }
+
+  const report = diffManifests(expected, actual, opts.diffOptions)
+  if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
+  return report
+}
+
+/**
+ * Pick the reference projection to diff against at a given viewport width. The
+ * diff pairs on a single {engine, state} to stay deterministic: prefer Chromium
+ * at rest (the capture's primary cell), then any engine at rest, then whatever
+ * exists at that width. Returns undefined when the ladder never reached it.
+ */
+function selectProjectionAtWidth(reference: MultiStateCapture, width: number): StateProjection | undefined {
+  const atWidth = reference.projections.filter((p) => p.viewport.width === width)
+  if (atWidth.length === 0) return undefined
+  return (
+    atWidth.find((p) => p.engine === 'chromium' && p.state === 'rest') ??
+    atWidth.find((p) => p.state === 'rest') ??
+    atWidth[0]
+  )
+}
+
+/**
+ * REQ-61 — the size-aware single-cell diff. The reference at `size`'s width is
+ * read from `multistate.json` (the ladder persisted by capture), and the actual
+ * side is rendered at that viewport. A bundle without a ladder is a STALE
+ * REFERENCE — terminal-fail with a re-capture instruction rather than silently
+ * fall back to a desktop comparison the caller did not ask for; a ladder that
+ * never reached this width fails loudly with the widths it does carry.
+ */
+async function valuesDiffAtSize(opts: ValuesDiffOptions, size: ViewportName): Promise<ValuesDiffReport> {
+  const viewport = VIEWPORTS[size]
+  const reference = readMultiState(opts.refBundleDir)
+  if (!reference || reference.projections.length === 0) {
+    throw new Error(
+      `values-diff --size needs a multi-viewport reference, but '${opts.refBundleDir}' has no multistate.json ` +
+        `(or it is empty). Re-capture with '1c capture page <url>' to persist the reference across the viewport ` +
+        `ladder, then re-run.`,
+    )
+  }
+  const projection = selectProjectionAtWidth(reference, viewport.width)
+  if (!projection) {
+    const widths = [...new Set(reference.projections.map((p) => p.viewport.width))].sort((a, b) => a - b)
+    throw new Error(
+      `values-diff --size ${size}: reference has no projection at width ${viewport.width}px ` +
+        `(ladder carries ${widths.join(', ')}). Re-capture to include ${viewport.width}px, then re-run.`,
+    )
+  }
+  const expected = projection.manifest
+
+  let actual: ValueManifest
+  if (opts.actualManifestPath) {
+    actual = JSON.parse(readFileSync(opts.actualManifestPath, 'utf8')) as ValueManifest
+  } else {
+    if (!opts.slug) {
+      throw new Error('values-diff --size needs a <slug> (or --actual <manifest.json>) for the actual side.')
+    }
+    const factory = opts.driverFactory ?? createPlaywrightDriver
+    actual = await extractDraftManifest(opts.slug, opts.source ?? 'draft', factory, opts, viewport)
   }
 
   const report = diffManifests(expected, actual, opts.diffOptions)

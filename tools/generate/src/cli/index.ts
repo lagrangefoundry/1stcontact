@@ -92,6 +92,9 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   1c values-diff <slug> --ref <captureBundleDir> --multi-viewport [--source …] [--out <file>] [--json]
     (REQ-58 T2) pair the draft against the reference's persisted viewport ladder, cell-for-cell — catches
     a %-vs-fixed reflow (a wordmark that drifts on resize) invisible at the single default width.
+  1c values-diff <slug> --ref <captureBundleDir> --size mobile|tablet|desktop [--out <file>] [--json]
+    (REQ-61) diff at ONE named size: reference read from the persisted ladder at that width, actual rendered
+    there. Default (no --size) is the single-width path (≈ desktop).
   Tolerance controls (REQ-53): axes we author are EXACT by default; --tolerant restores loose matching.
     [--tolerant] [--color-tol <ΔE>] [--font-size-tol <px>] [--line-height-tol <px>]
     [--letter-spacing-tol <px>] [--padding-tol <px>] [--border-tol <px>] [--weight-tol <n>]
@@ -335,6 +338,10 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
 
+      // REQ-61 — `--size mobile|tablet|desktop` diffs at that viewport: the
+      // reference is read from the persisted ladder at that width and the actual
+      // is rendered there. Absent → the single-width default path.
+      const size = parseSize(flags.size)
       const report = await withCleanStdout(() =>
         cmdValuesDiff({
           ...global,
@@ -344,6 +351,7 @@ export async function run(argv: string[]): Promise<void> {
           actualManifestPath: actualPath,
           out: typeof flags.out === 'string' ? flags.out : undefined,
           diffOptions,
+          size,
         }),
       )
       if (flags.json === true) {
@@ -532,6 +540,19 @@ function parseViewport(val: string | boolean | undefined): ViewportName {
   if (typeof val !== 'string') return 'desktop'
   if (!(val in VIEWPORTS)) {
     throw new Error(`Invalid --viewport '${val}'. Use ${Object.keys(VIEWPORTS).join('|')}.`)
+  }
+  return val as ViewportName
+}
+
+/**
+ * REQ-61 — validate a `--size` flag (the diff commands' viewport selector). Same
+ * preset vocabulary as `--viewport`, but returns `undefined` when absent so the
+ * caller keeps its default (single-width) path rather than forcing a ladder read.
+ */
+function parseSize(val: string | boolean | undefined): ViewportName | undefined {
+  if (val === undefined) return undefined
+  if (typeof val !== 'string' || !(val in VIEWPORTS)) {
+    throw new Error(`Invalid --size '${String(val)}'. Use ${Object.keys(VIEWPORTS).join('|')}.`)
   }
   return val as ViewportName
 }
