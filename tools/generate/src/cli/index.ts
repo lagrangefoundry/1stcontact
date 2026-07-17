@@ -31,6 +31,7 @@ import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
+import { cmdResponsiveDiff, formatResponsiveTable } from './responsive-diff'
 import type { RenderChannel } from '../store'
 
 export * from './commands'
@@ -43,6 +44,15 @@ export type { ServeOptions, ServeHandle } from './serve'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
+export { cmdResponsiveDiff, buildResponsiveTable, formatResponsiveTable } from './responsive-diff'
+export type {
+  ResponsiveDiffOptions,
+  ResponsiveTable,
+  ResponsiveRow,
+  ResponsiveCell,
+  ResponsiveSize,
+  LabelledProjection,
+} from './responsive-diff'
 export type { ValuesDiffOptions } from './fidelity'
 export {
   cmdDiff,
@@ -107,6 +117,11 @@ Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regio
     Tuning: [--block <px>] [--threshold <0-255>] [--block-threshold <0-255>] [--bands <n>] [--top <n>] [--pad <px>]
     (REQ-61) --size shoots the actual at that viewport and pairs it against the bundle's screenshot-<width>.png.
   1c crop <image> --box <x,y,w,h> [--out <png>]
+
+Responsive-diff (REQ-61) — analyse ONE captured site across sizes (not a repro comparison):
+  1c responsive-diff --ref <captureBundleDir> [--sizes mobile,tablet,desktop] [--out <file>] [--json]
+    Line up the persisted ladder's per-width manifests into an N-way per-node table — one row per node,
+    one column per size — so a font step, a reflow, or a component that departs on mobile reads left-to-right.
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -412,6 +427,29 @@ export async function run(argv: string[]): Promise<void> {
       return
     }
 
+    case 'responsive-diff': {
+      // REQ-61 — analyse one captured site across sizes: line up the persisted
+      // ladder's per-width manifests into an N-way per-node table.
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('responsive-diff requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const sizes = parseSizes(flags.sizes)
+      const table = cmdResponsiveDiff({
+        refBundleDir: ref,
+        sizes,
+        out: typeof flags.out === 'string' ? flags.out : undefined,
+      })
+      if (flags.json === true) {
+        console.log(JSON.stringify(table, null, 2))
+      } else {
+        console.log(formatResponsiveTable(table))
+      }
+      return
+    }
+
     case 'crop': {
       const input = requireSlug(rest[0])
       const box = parseBox(flags.box)
@@ -559,6 +597,25 @@ function parseSize(val: string | boolean | undefined): ViewportName | undefined 
     throw new Error(`Invalid --size '${String(val)}'. Use ${Object.keys(VIEWPORTS).join('|')}.`)
   }
   return val as ViewportName
+}
+
+/**
+ * REQ-61 — parse `--sizes a,b,c` for `responsive-diff` (the table's columns, in
+ * order). Absent → undefined so the command applies its default (mobile, tablet,
+ * desktop). Each name must be a known preset.
+ */
+function parseSizes(val: string | boolean | undefined): ViewportName[] | undefined {
+  if (val === undefined) return undefined
+  if (typeof val !== 'string') {
+    throw new Error(`Invalid --sizes. Use a comma list of ${Object.keys(VIEWPORTS).join('|')}.`)
+  }
+  const names = val.split(',').map((s) => s.trim()).filter(Boolean)
+  for (const name of names) {
+    if (!(name in VIEWPORTS)) {
+      throw new Error(`Invalid --sizes entry '${name}'. Use ${Object.keys(VIEWPORTS).join('|')}.`)
+    }
+  }
+  return names as ViewportName[]
 }
 
 function requireSlug(slug: string | undefined): string {

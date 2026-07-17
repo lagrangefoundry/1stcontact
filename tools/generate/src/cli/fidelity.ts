@@ -23,8 +23,8 @@ import {
   readCapture,
   readMultiState,
   runMultiStateCapture,
+  selectProjectionAtWidth,
   type BrowserDriverFactory,
-  type MultiStateCapture,
   type RawSignals,
 } from './capture'
 import { VIEWPORTS, type ViewportName } from './shot'
@@ -125,22 +125,6 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
   const report = diffManifests(expected, actual, opts.diffOptions)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(report, null, 2))
   return report
-}
-
-/**
- * Pick the reference projection to diff against at a given viewport width. The
- * diff pairs on a single {engine, state} to stay deterministic: prefer Chromium
- * at rest (the capture's primary cell), then any engine at rest, then whatever
- * exists at that width. Returns undefined when the ladder never reached it.
- */
-function selectProjectionAtWidth(reference: MultiStateCapture, width: number): StateProjection | undefined {
-  const atWidth = reference.projections.filter((p) => p.viewport.width === width)
-  if (atWidth.length === 0) return undefined
-  return (
-    atWidth.find((p) => p.engine === 'chromium' && p.state === 'rest') ??
-    atWidth.find((p) => p.state === 'rest') ??
-    atWidth[0]
-  )
 }
 
 /**

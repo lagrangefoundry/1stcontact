@@ -1995,6 +1995,25 @@ function projectionKey(engine: RenderEngine, viewportWidth: number, state: Inter
 }
 
 /**
+ * Pick the single projection to represent a viewport width. The diff and the
+ * responsive table both need one deterministic cell per width, so prefer Chromium
+ * at rest (the capture's primary cell), then any engine at rest, then whatever
+ * exists at that width. Returns undefined when the ladder never reached it.
+ */
+export function selectProjectionAtWidth(
+  reference: MultiStateCapture,
+  width: number,
+): StateProjection | undefined {
+  const atWidth = reference.projections.filter((p) => p.viewport.width === width)
+  if (atWidth.length === 0) return undefined
+  return (
+    atWidth.find((p) => p.engine === 'chromium' && p.state === 'rest') ??
+    atWidth.find((p) => p.state === 'rest') ??
+    atWidth[0]
+  )
+}
+
+/**
  * REQ-48 (items 1, 5, 6) — diff a reproduction against a reference across the
  * whole multi-state matrix. Each reference projection is paired with the repro
  * projection shot in the *same* `{engine, viewport-width, state}` cell and diffed

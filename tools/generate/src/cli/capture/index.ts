@@ -33,6 +33,7 @@ export {
   flattenSignals,
   diffManifests,
   diffMultiState,
+  selectProjectionAtWidth,
   normalizeGradient,
   colorToHex,
   colorDistance,
