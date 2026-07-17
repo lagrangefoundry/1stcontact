@@ -370,6 +370,12 @@ export interface ContentRun extends ElementGeometry {
    *  ancestor background), null on the band. Surfaces a slightly-off panel colour
    *  the text-colour comparison misses. Optional so pre-fill bundles still parse. */
   surfaceFill?: string | null
+  /** REQ-62 — card/panel GRADIENT fill behind the run (normalized angle + stops),
+   *  null when the surface is a solid or the run is on the band. Distinct from
+   *  {@link surfaceFill} (the composited solid): a gradient panel is a
+   *  `background-image` the solid composite skips past. Optional so pre-REQ-62
+   *  bundles still parse. */
+  surfaceGradient?: TextGradient | null
   /**
    * REQ-58 (T1) — tight bounds around the *rendered text* (Range-measured glyph
    * extent, padding-excluded), distinct from {@link box} (element rect incl.

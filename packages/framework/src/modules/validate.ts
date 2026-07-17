@@ -106,7 +106,7 @@ function validateColor(path: string, value: unknown, errors: ContentValidationEr
 /** A gradient treatment: `angleDeg` (degrees literal or direction alias) + ≥1 colour stops. */
 function validateGradient(path: string, value: unknown, errors: ContentValidationError[]): void {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    errors.push({ field: path, message: `styled-text field '${path}' must be a gradient object` })
+    errors.push({ field: path, message: `gradient field '${path}' must be a gradient object` })
     return
   }
   const g = value as Record<string, unknown>
@@ -186,6 +186,13 @@ function validateField(
       return
     }
     validateTextRun(path, value as Record<string, unknown>, errors)
+    return
+  }
+
+  if (spec.type === 'gradient') {
+    // REQ-62 — a standalone panel/card gradient fill: `{ angleDeg, stops }`,
+    // reusing the same shape/rules already validated inside a styled-text run.
+    validateGradient(path, value, errors)
     return
   }
 

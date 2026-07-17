@@ -52,6 +52,7 @@ export {
   CALLOUT_CSS,
   resolveTextStyle,
   resolveColor,
+  resolveSurfaceGradient,
   parseStyledText,
   serializeStyledText,
   normalizeRuns,

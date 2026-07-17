@@ -71,5 +71,10 @@ export const textBlockMeta = {
     // Optional CTA button below the body (REQ-36) — a styled run carrying
     // `label` + `href` + its own intrinsic style.
     cta: { type: 'styled-text', required: false },
+    // Gradient panel fill (REQ-62) — a `{ angleDeg, stops }` gradient painted as
+    // the contained panel's background (the gradient analogue of the solid `panel`
+    // dial). When present it makes the inner a padded, rounded panel with a
+    // gradient surface, reproducing a captured `surfaceGradient`.
+    panelGradient: { type: 'gradient', required: false },
   },
 } as const satisfies ModuleMeta

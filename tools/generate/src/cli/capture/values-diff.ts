@@ -62,6 +62,11 @@ export interface ValueElement {
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (null on the
    *  band). Compared like `color` (ΔE) so a slightly-off panel colour surfaces. */
   surfaceFill?: string | null
+  /** REQ-62 — card/panel GRADIENT fill behind the run (null when the surface is a
+   *  solid or the run is on the band). Distinct from `surfaceFill` (the composited
+   *  solid): a gradient panel is a `background-image` the solid composite skips
+   *  past. Compared like the text-fill `gradient` axis (stops + direction). */
+  surfaceGradient?: TextGradient | null
   /**
    * REQ-35 — true when this run's colour could not be resolved from computed
    * styles and fell back to the `#000000`/`#ffffff` sentinel. The capture was
@@ -220,6 +225,8 @@ export type DeltaProperty =
   // ── REQ-58 (item 3b) card / panel fill behind the run ────────────────────
   | 'surfaceFill'
   | 'gradient'
+  // ── REQ-62 card / panel gradient fill behind the run ─────────────────────
+  | 'surfaceGradient'
   | 'overlay'
   | 'borderLeft'
   | 'border'
@@ -607,6 +614,7 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.borderLeft !== undefined) el.borderLeft = run.borderLeft
   if (run.paddingLeftPx !== undefined) el.paddingLeftPx = run.paddingLeftPx
   if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
+  if (run.surfaceGradient !== undefined) el.surfaceGradient = run.surfaceGradient
   if (run.colorInferred) el.colorInferred = true
   if (run.fontLoaded === false) el.fontLoaded = false
   copyGeometry(el, run)
@@ -654,6 +662,7 @@ export function rawRunToElement(run: RawRun): ValueElement {
     fontWeight: run.fontWeight,
     letterSpacingPx: run.letterSpacingPx,
     gradient: normalizeGradient(run.gradientCss),
+    surfaceGradient: normalizeGradient(run.surfaceGradientCss),
     borderLeft: border,
     paddingLeftPx: run.paddingLeftPx,
   }
@@ -928,6 +937,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   // REQ-58 (item 3b) — a panel fill difference is a colour defect; reuse `color`.
   surfaceFill: 'color',
   gradient: 'gradient',
+  // REQ-62 — a panel gradient is a gradient defect; reuse the `gradient` kind.
+  surfaceGradient: 'gradient',
   overlay: 'overlay',
   borderLeft: 'borderLeft',
   border: 'border',
@@ -1787,6 +1798,16 @@ export function diffManifests(
       const a = act.gradient ?? null
       const ok = (!e && !a) || (!!e && !!a && gradientsMatch(e, a, angleTol, gradientPosTol))
       if (!ok) push(exp, 'gradient', gradientLabel(e), gradientLabel(a))
+    }
+    // REQ-62 — panel/card gradient fill behind the run, compared like the text-fill
+    // `gradient` axis (stops + direction). Catches the false match a render-only fix
+    // would produce: without a captured surface gradient, a missing panel gradient
+    // reads identically to a present one (both composite through to the band).
+    if (exp.surfaceGradient !== undefined) {
+      const e = exp.surfaceGradient
+      const a = act.surfaceGradient ?? null
+      const ok = (!e && !a) || (!!e && !!a && gradientsMatch(e, a, angleTol, gradientPosTol))
+      if (!ok) push(exp, 'surfaceGradient', gradientLabel(e), gradientLabel(a))
     }
     if (exp.borderLeft !== undefined) {
       const e = exp.borderLeft

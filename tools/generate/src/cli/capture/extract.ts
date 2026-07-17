@@ -76,6 +76,13 @@ export interface RawRun extends RawGeometry {
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (the nearest
    *  painted ancestor background), null when the run sits on the section band. */
   surfaceFill?: string | null
+  /** REQ-62 — raw computed `background-image` of the nearest painting ancestor
+   *  when that ancestor's panel/card fill is a gradient (not a text-fill), null
+   *  otherwise. Distinct from `surfaceFill` (the composited *solid* the run sits
+   *  on): a gradient panel is a `background-image` over a transparent
+   *  background-color, so `surfaceFill` composites past it to the band — this
+   *  field is the only capture of the gradient itself. Normalized TS-side. */
+  surfaceGradientCss?: string | null
   /** REQ-58 (T1) — tight bounds around the rendered text (Range-measured glyph
    *  extent, padding-excluded); null when unmeasurable. */
   renderedTextBox?: { x: number; y: number; width: number; height: number } | null
@@ -359,6 +366,28 @@ export const EXTRACT_SCRIPT = `(() => {
     if (!acc || acc[3] <= 0) return null;
     return '#' + h2(acc[0]) + h2(acc[1]) + h2(acc[2]);
   }
+  // REQ-62 -- the panel/card GRADIENT fill behind a run, the sibling to the
+  // composited solid surfaceFillOf. A gradient panel (bg-gradient-to-br from-…)
+  // is a background-IMAGE over a transparent background-color, so surfaceFillOf
+  // composites straight past it and records the band. Walk the same ancestor
+  // chain and return the first painting ancestor's raw gradient CSS (normalized
+  // TS-side), skipping a text-fill gradient (background-clip:text -- that is the
+  // run's own text paint, captured by gradientCss, not a surface). Stop at the
+  // first OPAQUE solid fill: a gradient hidden behind it never shows through, so
+  // it is not the rendered surface.
+  function surfaceGradientOf(el) {
+    var node = el;
+    for (var i = 0; i < 12 && node && node.nodeType === 1; i++) {
+      var gs = getComputedStyle(node);
+      var img = gs.backgroundImage || 'none';
+      var clip = gs.webkitBackgroundClip || gs.backgroundClip || '';
+      if (/gradient\\(/.test(img) && clip !== 'text') return img;
+      var c = rgbaOf(gs.backgroundColor);
+      if (c && c[3] >= 0.999) return null; // opaque solid — nothing behind shows
+      node = node.parentElement;
+    }
+    return null;
+  }
   // REQ-48 (item 2) -- effective paint order. z-index:auto (the default, and the
   // common case) resolves to 0; an explicit integer is the rendered stacking
   // value. This is the only field that separates a correctly-placed-but-wrongly-
@@ -591,6 +620,9 @@ export const EXTRACT_SCRIPT = `(() => {
         borderLeftColor: blColor,
         // REQ-58 (item 3b) — card/panel fill behind the run (null when on the band).
         surfaceFill: surfaceFillOf(el),
+        // REQ-62 — panel/card GRADIENT fill behind the run (null when the surface
+        // is a solid or the run sits on the band). Distinct from surfaceFill.
+        surfaceGradientCss: surfaceGradientOf(el),
         paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
         // REQ-47 per-element geometry / shape / structure (arrangement filled later).
         box: absBox(el),

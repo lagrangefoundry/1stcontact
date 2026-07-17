@@ -35,6 +35,12 @@ export type ContentFieldType =
   // A length VALUE (the size analogue): an absolute px, a named token, a relative
   // proportion (%/vw/em/ch), or a content keyword (fit-content). See classifyLength.
   | 'length'
+  // A gradient VALUE (REQ-62): `{ angleDeg, stops }` mirroring the fidelity
+  // report's `TextGradient` — a degrees literal or direction alias + colour stops
+  // (each `#hex` absolute or palette-role alias). Promotes the gradient shape
+  // already validated inside `styled-text` runs to a standalone field, so a
+  // module's panel/card surface can take a gradient fill.
+  | 'gradient'
 
 /** One content field's contract. */
 export interface ContentFieldSpec {

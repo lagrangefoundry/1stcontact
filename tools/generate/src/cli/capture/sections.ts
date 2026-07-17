@@ -91,6 +91,10 @@ function toContentRun(r: RawRun): ContentRun {
   if (r.renderedTextBox) run.renderedTextBox = r.renderedTextBox
   // REQ-58 (item 3b) — card/panel fill behind the run (null on the band).
   if (r.surfaceFill) run.surfaceFill = r.surfaceFill
+  // REQ-62 — card/panel gradient fill behind the run. Set whenever the raw field
+  // is present (even when it normalizes to null) so the diff's `surfaceGradient`
+  // axis is active for fresh captures and catches a missing panel gradient.
+  if (r.surfaceGradientCss !== undefined) run.surfaceGradient = normalizeGradient(r.surfaceGradientCss)
   run.borderRadiusPx = r.borderRadiusPx
   run.boxShadow = r.boxShadow
   run.a11yRole = r.a11yRole

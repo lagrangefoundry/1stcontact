@@ -2,7 +2,7 @@
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
 import { resolveContainerWidth } from '../dials'
-import { resolveTextStyle, type TextRun } from '../text-style'
+import { resolveTextStyle, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
 
 interface Props {
   variant?: string
@@ -12,6 +12,7 @@ interface Props {
     body: string
     bodyStyle?: TextRun
     cta?: TextRun
+    panelGradient?: TextRunGradient
   }
 }
 
@@ -28,8 +29,11 @@ const contentWidthCss = resolveContainerWidth(dials.contentWidth)
 const headingCase = dials.headingCase ?? 'normal'
 // Heading text-alignment (REQ-36), independent of the block/body align.
 const headingAlign = dials.headingAlign ?? 'left'
-// Contained-panel treatment (REQ-36).
-const panel = dials.panel ?? 'none'
+// Contained-panel treatment (REQ-36). A gradient panel fill (REQ-62) supersedes
+// the solid `panel` dial: it forces the `gradient` panel class (so the inner gets
+// the padded/rounded/inset panel box) and paints its background-image inline.
+const panelGradientCss = content.panelGradient ? resolveSurfaceGradient(content.panelGradient) : ''
+const panel = panelGradientCss ? 'gradient' : (dials.panel ?? 'none')
 // Body list marker (REQ-36) — `check` = accent ✓; `bullet` (default).
 const listMarker = dials.listMarker ?? 'bullet'
 // CTA corner shape (REQ-36).
@@ -65,7 +69,7 @@ const ctaStyle = resolveTextStyle(cta)
   ]}
   style={contentWidthCss ? `--fc-content-width: ${contentWidthCss}` : undefined}
 >
-  <div class="text-block__inner">
+  <div class="text-block__inner" style={panelGradientCss || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
     <div class="text-block__body" style={bodyStyle} set:html={bodyHtml} />
     {cta?.label && cta.href && <a class:list={['text-block__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
@@ -116,7 +120,8 @@ const ctaStyle = resolveTextStyle(cta)
   .text-block.panel-subtle .text-block__inner,
   .text-block.panel-inverse .text-block__inner,
   .text-block.panel-secondary .text-block__inner,
-  .text-block.panel-accent .text-block__inner {
+  .text-block.panel-accent .text-block__inner,
+  .text-block.panel-gradient .text-block__inner {
     padding: var(--space-12) var(--space-8);
     border-radius: var(--radius-lg);
   }

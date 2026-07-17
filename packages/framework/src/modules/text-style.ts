@@ -213,7 +213,7 @@ function resolveDirection(angleDeg: number | string): string {
  * colour resolves literal-or-alias exactly like `color`; positions are emitted
  * verbatim, else evenly distributed across 0..100 so the sweep spans the run.
  */
-function resolveGradient(gradient: TextRunGradient): string {
+function gradientImage(gradient: TextRunGradient): string {
   const stops = gradient.stops
   if (stops.length < 2) return ''
   const last = stops.length - 1
@@ -225,8 +225,26 @@ function resolveGradient(gradient: TextRunGradient): string {
       return `${resolveColor(color)} ${pct}%`
     })
     .join(', ')
-  const image = `linear-gradient(${resolveDirection(gradient.angleDeg)}, ${rendered})`
+  return `linear-gradient(${resolveDirection(gradient.angleDeg)}, ${rendered})`
+}
+
+function resolveGradient(gradient: TextRunGradient): string {
+  const image = gradientImage(gradient)
+  if (!image) return ''
   return `background-image: ${image}; -webkit-background-clip: text; background-clip: text; color: transparent`
+}
+
+/**
+ * Resolve a {@link TextRunGradient} to a panel/card `background-image` declaration
+ * (REQ-62) — the SAME `angleDeg` + literal-or-alias stops as the text-fill
+ * gradient, but painted as the element's *surface* (no `background-clip: text`, no
+ * forced transparent text). `''` when under-specified (fewer than two stops), so
+ * the caller keeps its solid fill. Exported so any module with a panel/card
+ * surface can take a gradient fill, reproduced from a captured `surfaceGradient`.
+ */
+export function resolveSurfaceGradient(gradient: TextRunGradient): string {
+  const image = gradientImage(gradient)
+  return image ? `background-image: ${image}` : ''
 }
 
 /**

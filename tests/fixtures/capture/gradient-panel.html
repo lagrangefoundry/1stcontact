@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Gradient panel fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
+      /* An opaque section band the panel floats on. surfaceFillOf composites
+         solid background-COLORs, so a run inside the panel should still record
+         this band as its composited solid surfaceFill (REQ-62 captures BOTH). */
+      .band { background: #e8dfd3; padding: 64px; }
+      /* The "What We're Exploring" panel: a diagonal gradient painted as a
+         background-IMAGE over a transparent background-color. surfaceFillOf skips
+         straight past it to the band; surfaceGradientOf is the only capture of the
+         gradient itself (REQ-62). */
+      .panel {
+        background-image: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        border-radius: 12px;
+        padding: 40px;
+      }
+      .panel p { margin: 0; color: #334155; font-size: 20px; }
+      /* Control: a text-FILL gradient (background-clip: text). It must NOT be read
+         as a surface gradient — it is the run's own glyph paint (captured by
+         gradientCss), so surfaceGradient stays null for it. */
+      .wordmark {
+        margin: 48px 64px 0;
+        font-size: 56px;
+        font-weight: 700;
+        background-image: linear-gradient(90deg, #ff8c42 0%, #ff6b35 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="band">
+      <div class="panel">
+        <p>What We're Exploring</p>
+      </div>
+    </section>
+    <h1 class="wordmark">Gigabyte Alchemy</h1>
+  </body>
+</html>

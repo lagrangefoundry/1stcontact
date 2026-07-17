@@ -24,6 +24,7 @@ export { renderMarkdown, CALLOUT_CSS } from './markdown'
 export {
   resolveTextStyle,
   resolveColor,
+  resolveSurfaceGradient,
   TEXT_STYLE_ALIASES,
   GRADIENT_DIRECTION_ALIASES,
   PALETTE_ROLE_ALIASES,
