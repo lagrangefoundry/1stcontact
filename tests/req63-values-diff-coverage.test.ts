@@ -303,6 +303,21 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     expect(hasProp(same.deltas, 'paddingTopPx')).toBe(false)
   })
 
+  it('test_UAT_FC_REQ-64_deltas_tagged_A_or_B_repair_class', () => {
+    // Every delta carries its repair class: A = an author-set value to COPY,
+    // B = emergent geometry (a measure of how far off, fixed by getting A right).
+    const d = diffManifests(
+      mani('ref', [el('Run', { color: '#111111', box: box(0, 0, 100, 20) })]),
+      mani('a', [el('Run', { color: '#eeeeee', box: box(80, 0, 100, 20) })]),
+    )
+    const color = d.deltas.find((x) => x.property === 'color')!
+    const position = d.deltas.find((x) => x.property === 'position')!
+    expect(color.valueType).toBe('A') // colour is author-set → copy it
+    expect(position.valueType).toBe('B') // position emerges from layout → residual
+    // Every delta is classified (no delta lacks a repair class).
+    expect(d.deltas.every((x) => x.valueType === 'A' || x.valueType === 'B')).toBe(true)
+  })
+
   it('test_UAT_FC_REQ-64_font_fallback_reverse_direction', () => {
     // The unilateral fontLoad pass fires when OUR render falls back; this catches
     // the mirror — the reference shows a fallback but ours resolved the intended face.

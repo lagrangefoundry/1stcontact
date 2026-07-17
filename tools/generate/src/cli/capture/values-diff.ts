@@ -396,6 +396,16 @@ export interface ValueDelta {
   systemic?: boolean
   /** REQ-48 (item 8a) — on a {@link systemic} row, how many elements share the drift. */
   count?: number
+  /**
+   * REQ-64 — which repair class this delta belongs to, so the fix order is
+   * unambiguous: **A** = an author-set value (colour, font, border, padding,
+   * text-align…) — a difference to COPY into place; **B** = emergent from layout
+   * / rendering (position, box size, wrapping, arrangement) — not directly
+   * settable, so it is a *measure* of how far off we are, fixed only by getting
+   * its Type-A inputs + structure right. Repair order: Type-A flat → Type-A
+   * structural (responsive ladders, padding-vs-margin) → then read Type-B.
+   */
+  valueType: 'A' | 'B'
 }
 
 export interface ValuesDiffReport {
@@ -1059,6 +1069,68 @@ function isBadgeElement(el: ValueElement): boolean {
   return el.role === 'body' && words <= 3 && isPillElement(el)
 }
 
+/**
+ * REQ-64 — the repair class of each axis. **A** = an author-set value we can copy
+ * (colour, font metrics, border, padding, text-align, effects); **B** = emergent
+ * geometry/structure (position, box size, wrapping, arrangement, containment) that
+ * is not directly settable — it is the *residual* that shrinks once the Type-A
+ * inputs match. `listMarker`/`contentAnchor` sit in B: their deltas are computed
+ * artefacts / emergent anchors, not values one edits. The fix order the report
+ * prints is A-flat → A-structural → B.
+ */
+const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
+  // ── Type A — authored values (copy the reference value into place) ──
+  text: 'A',
+  color: 'A',
+  surfaceFill: 'A',
+  gradient: 'A',
+  surfaceGradient: 'A',
+  overlay: 'A',
+  borderLeft: 'A',
+  border: 'A',
+  fontSizePx: 'A',
+  fontWeight: 'A',
+  fontFamily: 'A',
+  fontStyle: 'A',
+  textDecoration: 'A',
+  textTransform: 'A',
+  fontVariant: 'A',
+  backdropFilter: 'A',
+  blendMode: 'A',
+  opacity: 'A',
+  outline: 'A',
+  pseudo: 'A',
+  objectPosition: 'A',
+  objectFit: 'A',
+  lineHeightPx: 'A',
+  letterSpacingPx: 'A',
+  paddingLeftPx: 'A',
+  paddingTopPx: 'A',
+  paddingRightPx: 'A',
+  paddingBottomPx: 'A',
+  textAlign: 'A',
+  shape: 'A',
+  zIndex: 'A',
+  filter: 'A',
+  textShadow: 'A',
+  mask: 'A',
+  fontLoad: 'A',
+  transform: 'A',
+  motion: 'A',
+  // ── Type B — emergent geometry / structure (measure, don't copy) ──
+  missing: 'B',
+  position: 'B',
+  size: 'B',
+  renderedTextBox: 'B',
+  arrangement: 'B',
+  containment: 'B',
+  contentAnchor: 'B',
+  listMarker: 'B',
+  aspect: 'B',
+  overflow: 'B',
+  viewport: 'B',
+}
+
 /** The kind a fine-grained {@link DeltaProperty} belongs to (for the tier table). */
 const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   missing: 'presence',
@@ -1581,6 +1653,7 @@ function attributeSubScales(
       severity: severityForTier(tier, kind, count),
       systemic: true,
       count,
+      valueType: VALUE_TYPE[diffAxes[0].prop],
     })
 
     if (name === 'checklist') {
@@ -1701,6 +1774,7 @@ export function diffManifests(
       tier: KIND_TIER[kind],
       magnitude,
       severity: severityOf(kind, magnitude),
+      valueType: VALUE_TYPE[property],
     })
   }
   const push = (
@@ -2222,6 +2296,7 @@ export function diffManifests(
         severity: severityForTier(tier, kind, count),
         systemic: true,
         count,
+        valueType: sample.valueType,
       })
     }
   }

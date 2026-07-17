@@ -244,6 +244,7 @@ export function formatMultiViewportReport(cells: StateDiff[]): string {
   const lines: string[] = [
     `values-diff --multi-viewport: ${cells.length} cell(s) across the viewport ladder`,
     `  ${totalDeltas} delta(s), ${missing} missing cell(s) — worst cell first`,
+    ...repairPlanLines(cells),
   ]
   for (const c of cells) {
     const tag = `@${c.viewportWidth} ${c.engine}:${c.state}`
@@ -257,12 +258,57 @@ export function formatMultiViewportReport(cells: StateDiff[]): string {
       continue
     }
     const top = deltas[0]
-    lines.push(`  ✗ ${tag}  ${deltas.length} delta(s) — worst [${top.tier}] ${top.property} "${trunc(top.text)}"`)
+    lines.push(`  ✗ ${tag}  ${deltas.length} delta(s) — worst [${top.tier}] ${top.valueType} ${top.property} "${trunc(top.text)}"`)
     for (const d of deltas.slice(0, 6)) {
-      lines.push(`      ${d.property.padEnd(16)} ${trunc(d.expected, 24).padEnd(24)} → ${trunc(d.actual, 24)}`)
+      // `[A]` = copy the reference value; `[B]` = emergent residual (fix its inputs).
+      lines.push(`      [${d.valueType}] ${d.property.padEnd(16)} ${trunc(d.expected, 22).padEnd(22)} → ${trunc(d.actual, 22)}`)
     }
   }
   return lines.join('\n')
+}
+
+/**
+ * REQ-64 — the repair-order summary. Every delta is Type A (an author-set value to
+ * COPY) or Type B (emergent geometry — a *measure* of how far off we are). Within
+ * A, a value whose reference differs across the viewport ladder is *structural*
+ * (needs a responsive ladder, not a scalar) — as is a section band padding delta
+ * (spacing is padding-vs-margin, not a lone copy). The fix order is fixed:
+ *
+ *   1. Type-A flat        → copy the literal into place (kills the delta outright)
+ *   2. Type-A structural  → author the responsive ladder / spacing model
+ *   3. Type-B             → re-measure; what remains is the true residual
+ *
+ * Deduped across the ladder so the counts are per-defect, not per-cell.
+ */
+function repairPlanLines(cells: StateDiff[]): string[] {
+  // Group every delta by (text, property); a group is one defect across widths.
+  const groups = new Map<string, { valueType: 'A' | 'B'; text: string; property: string; refs: Set<string> }>()
+  for (const c of cells) {
+    for (const d of c.report?.deltas ?? []) {
+      const key = `${d.text} ${d.property}`
+      let g = groups.get(key)
+      if (!g) {
+        g = { valueType: d.valueType, text: d.text, property: d.property, refs: new Set() }
+        groups.set(key, g)
+      }
+      g.refs.add(d.expected)
+    }
+  }
+  const isStructural = (g: { text: string; property: string; refs: Set<string> }): boolean =>
+    g.refs.size > 1 || // reference value varies across the ladder → responsive
+    (g.text.startsWith('§') && g.property.startsWith('padding')) // section spacing (padding-vs-margin)
+  let aFlat = 0
+  let aStructural = 0
+  let b = 0
+  for (const g of groups.values()) {
+    if (g.valueType === 'B') b++
+    else if (isStructural(g)) aStructural++
+    else aFlat++
+  }
+  return [
+    `  repair order (REQ-64): A-flat ${aFlat} → A-structural ${aStructural} → B ${b}  (${groups.size} defects deduped across the ladder)`,
+    `    ① copy the ${aFlat} Type-A flat value(s); ② author the ${aStructural} Type-A structural (responsive/spacing); ③ then read the ${b} Type-B as the residual`,
+  ]
 }
 
 /** Truncate a display label so a card heading / row stays one terminal line. */
@@ -317,9 +363,15 @@ function renderCard(o: ObjectCard): string {
  */
 export function formatReport(report: ValuesDiffReport): string {
   const masked = report.suppressed > 0 ? `, ${report.suppressed} masked` : ''
+  const a = report.deltas.filter((d) => d.valueType === 'A').length
+  const b = report.deltas.filter((d) => d.valueType === 'B').length
   const lines: string[] = [
     `values-diff: ${report.expectedSource} ⇄ ${report.actualSource}`,
     `  ${report.matched} matched, ${report.unmatched} unmatched, ${report.deltas.length} delta(s)${masked}`,
+    // REQ-64 — repair order: copy the Type-A author-set values first (the `expected`
+    // column is the paste-able target), then read Type-B as the emergent residual.
+    // (Flat-vs-structural needs the ladder; run --multi-viewport for that split.)
+    `  repair order (REQ-64): A ${a} (copy the reference value) → B ${b} (emergent residual — fix A first, then re-measure)`,
   ]
 
   // Loud unpaired reporting (item 3) — up top, never folded into a count.
