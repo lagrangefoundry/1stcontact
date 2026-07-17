@@ -282,21 +282,29 @@ export function formatMultiViewportReport(cells: StateDiff[]): string {
  */
 function repairPlanLines(cells: StateDiff[]): string[] {
   // Group every delta by (text, property); a group is one defect across widths.
-  const groups = new Map<string, { valueType: 'A' | 'B'; text: string; property: string; refs: Set<string> }>()
+  const present = cells.filter((c) => !c.missing).length
+  const groups = new Map<string, { valueType: 'A' | 'B'; text: string; property: string; refs: Set<string>; cells: number }>()
   for (const c of cells) {
     for (const d of c.report?.deltas ?? []) {
       const key = `${d.text} ${d.property}`
       let g = groups.get(key)
       if (!g) {
-        g = { valueType: d.valueType, text: d.text, property: d.property, refs: new Set() }
+        g = { valueType: d.valueType, text: d.text, property: d.property, refs: new Set(), cells: 0 }
         groups.set(key, g)
       }
       g.refs.add(d.expected)
+      g.cells++
     }
   }
-  const isStructural = (g: { text: string; property: string; refs: Set<string> }): boolean =>
-    g.refs.size > 1 || // reference value varies across the ladder → responsive
-    (g.text.startsWith('§') && g.property.startsWith('padding')) // section spacing (padding-vs-margin)
+  // Structural = the reference is NOT a single scalar to copy. It varies across the
+  // ladder (responsive), OR the delta fires at only SOME widths — meaning the ref
+  // MATCHES our (fixed) value at the others, i.e. it is fluid and we are fixed (the
+  // wordmark 36-vs-72 case a raw ref-value check misses, since it only deltas where it
+  // differs). Section band padding is structural too (padding-vs-margin as a system).
+  const isStructural = (g: { text: string; property: string; refs: Set<string>; cells: number }): boolean =>
+    g.refs.size > 1 ||
+    (present > 1 && g.cells < present) ||
+    (g.text.startsWith('§') && g.property.startsWith('padding'))
   let aFlat = 0
   let aStructural = 0
   let b = 0
