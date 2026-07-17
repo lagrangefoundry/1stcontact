@@ -77,10 +77,11 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     expect(themeCss).toContain('.footer__inner')
 
     // Every module class the render emits on the starter page must have a
-    // matching rule in theme.css — otherwise the page renders unstyled. The
-    // starter hero uses spacing-top-lg; its dial rule must be present.
-    expect(html).toMatch(/class="[^"]*\bhero\b[^"]*\bspacing-top-lg\b/)
-    expect(themeCss).toContain('.hero.spacing-top-lg')
+    // matching rule in theme.css — otherwise the page renders unstyled. Spacing
+    // now resolves to an inline --fc-pt/--fc-pb var (REQ-58), so the hero carries
+    // the var and theme.css binds the padding to it.
+    expect(html).toContain('--fc-pt:')
+    expect(themeCss).toMatch(/\.hero \{[^}]*padding-top:\s*var\(--fc-pt\)/)
     // And the surface-dial rules that make surfaces visible.
     expect(themeCss).toContain('.hero.surface-accent')
   })

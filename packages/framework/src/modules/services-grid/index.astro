@@ -2,7 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveContainerWidth } from '../dials'
+import { resolveContainerWidth, resolveStep, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface ServiceItem {
@@ -70,8 +70,9 @@ const contentWidthCss = resolveContainerWidth(dials.contentWidth)
 const iconLayout = dials.iconLayout ?? 'top'
 // Constrained-column alignment (REQ-36).
 const contentAlign = dials.contentAlign ?? 'left'
-const spacingTop = dials.spacingTop ?? 'lg'
-const spacingBottom = dials.spacingBottom ?? 'lg'
+// Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
+const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
 
 const { heading } = content
 const sectionCta = content.cta
@@ -115,10 +116,8 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `gap-${gap}`,
     { 'has-content-width': contentWidthCss !== null },
     `content-align-${contentAlign}`,
-    `spacing-top-${spacingTop}`,
-    `spacing-bottom-${spacingBottom}`,
   ]}
-  style={contentWidthCss ? `--fc-content-width: ${contentWidthCss}` : undefined}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
 >
   <div class="services-grid__inner">
     {heading?.text && <h2 class="services-grid__heading" style={headingStyle}>{heading.text}</h2>}
@@ -186,25 +185,12 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
 </section>
 
 <style>
-  .services-grid { background: var(--color-bg); color: var(--color-text); }
+  /* Vertical spacing → inline `--fc-pt`/`--fc-pb` (step token OR absolute px). */
+  .services-grid { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
   .services-grid.surface-subtle { background: var(--color-surface-subtle); }
   .services-grid.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .services-grid.surface-accent { background: var(--color-accent); color: var(--color-bg); }
 
-  .services-grid.spacing-top-none { padding-top: var(--space-0); }
-  .services-grid.spacing-top-sm { padding-top: var(--space-4); }
-  .services-grid.spacing-top-md { padding-top: var(--space-8); }
-  .services-grid.spacing-top-lg { padding-top: var(--space-16); }
-  .services-grid.spacing-top-xl { padding-top: var(--space-24); }
-  .services-grid.spacing-top-2xl { padding-top: var(--space-32); }
-  .services-grid.spacing-top-3xl { padding-top: var(--space-48); }
-  .services-grid.spacing-bottom-none { padding-bottom: var(--space-0); }
-  .services-grid.spacing-bottom-sm { padding-bottom: var(--space-4); }
-  .services-grid.spacing-bottom-md { padding-bottom: var(--space-8); }
-  .services-grid.spacing-bottom-lg { padding-bottom: var(--space-16); }
-  .services-grid.spacing-bottom-xl { padding-bottom: var(--space-24); }
-  .services-grid.spacing-bottom-2xl { padding-bottom: var(--space-32); }
-  .services-grid.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   .services-grid__inner {
     max-width: var(--container-6xl);

@@ -1,7 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveContainerWidth } from '../dials'
+import { resolveContainerWidth, resolveStep, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
 
 interface Props {
@@ -19,8 +19,10 @@ interface Props {
 const { variant = 'prose', dials = {}, content } = Astro.props as Props
 const align = dials.align ?? 'left'
 const surface = dials.surface ?? 'default'
-const spacingTop = dials.spacingTop ?? 'lg'
-const spacingBottom = dials.spacingBottom ?? 'lg'
+// Vertical spacing (REQ-58 absolute-or-overlay) — a named step OR an absolute px
+// length, resolved to an inline `--fc-pt`/`--fc-pb` var.
+const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
 const textAlign = dials.textAlign ?? 'left'
 // Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
 // to a max-width length applied via `--fc-content-width`, or null (fills frame).
@@ -64,10 +66,8 @@ const ctaStyle = resolveTextStyle(cta)
     `panel-corner-${panelCorner}`,
     `panel-pad-${panelPad}`,
     `list-marker-${listMarker}`,
-    `spacing-top-${spacingTop}`,
-    `spacing-bottom-${spacingBottom}`,
   ]}
-  style={contentWidthCss ? `--fc-content-width: ${contentWidthCss}` : undefined}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
 >
   <div class="text-block__inner" style={panelGradientCss || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
@@ -77,25 +77,12 @@ const ctaStyle = resolveTextStyle(cta)
 </section>
 
 <style>
-  .text-block { background: var(--color-bg); color: var(--color-text); }
+  /* Vertical spacing resolves to inline `--fc-pt`/`--fc-pb` (a step token OR an
+     absolute px), replacing the former per-step classes (REQ-58). */
+  .text-block { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
   .text-block.surface-subtle { background: var(--color-surface-subtle); }
   .text-block.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .text-block.surface-accent { background: var(--color-accent); color: var(--color-bg); }
-
-  .text-block.spacing-top-none { padding-top: var(--space-0); }
-  .text-block.spacing-top-sm { padding-top: var(--space-4); }
-  .text-block.spacing-top-md { padding-top: var(--space-8); }
-  .text-block.spacing-top-lg { padding-top: var(--space-16); }
-  .text-block.spacing-top-xl { padding-top: var(--space-24); }
-  .text-block.spacing-top-2xl { padding-top: var(--space-32); }
-  .text-block.spacing-top-3xl { padding-top: var(--space-48); }
-  .text-block.spacing-bottom-none { padding-bottom: var(--space-0); }
-  .text-block.spacing-bottom-sm { padding-bottom: var(--space-4); }
-  .text-block.spacing-bottom-md { padding-bottom: var(--space-8); }
-  .text-block.spacing-bottom-lg { padding-bottom: var(--space-16); }
-  .text-block.spacing-bottom-xl { padding-bottom: var(--space-24); }
-  .text-block.spacing-bottom-2xl { padding-bottom: var(--space-32); }
-  .text-block.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   /* Container width is set by the variant, not a dial. Both variants default to
      the standard content container (matching services-grid geometry: full

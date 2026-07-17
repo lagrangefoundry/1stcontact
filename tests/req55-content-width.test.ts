@@ -90,7 +90,7 @@ describe('REQ-55 named layer — Tailwind `max-w` scale', () => {
       content: { body: 'Most apps.' },
     })
     expect(html).toContain('has-content-width')
-    expect(html).toContain('style="--fc-content-width: var(--container-4xl)"')
+    expect(html).toContain('--fc-content-width: var(--container-4xl)')
     // 56rem @ root-16 = 896px.
     expect(CONTAINER_STEPS['4xl']).toBe('56rem')
     expect(generateThemeCss()).toContain('--container-4xl: 56rem;')
@@ -139,7 +139,7 @@ describe('REQ-55 literal escape hatch', () => {
       content: { items: [{ title: { text: 'A' }, body: 'x' }] },
     })
     expect(numeric).toContain('has-content-width')
-    expect(numeric).toContain('style="--fc-content-width: 896px"')
+    expect(numeric).toContain('--fc-content-width: 896px')
 
     // A rem string is passed straight through — `"56rem"` is the same 896px.
     const rem = await render(ServicesGrid, {
@@ -147,7 +147,7 @@ describe('REQ-55 literal escape hatch', () => {
       dials: { contentWidth: '56rem' },
       content: { items: [{ title: { text: 'A' }, body: 'x' }] },
     })
-    expect(rem).toContain('style="--fc-content-width: 56rem"')
+    expect(rem).toContain('--fc-content-width: 56rem')
 
     expect(resolveContainerWidth(896)).toBe('896px')
     expect(resolveContainerWidth('56rem')).toBe('56rem')
@@ -190,7 +190,7 @@ describe('REQ-55 gigabytealchemy "Most apps" block', () => {
       dials: block.dials,
       content: block.content,
     })
-    expect(html).toContain('style="--fc-content-width: var(--container-4xl)"')
+    expect(html).toContain('--fc-content-width: var(--container-4xl)')
     // The token backing `4xl` is 56rem = 896px — the reference width, exactly.
     expect(parseFloat(CONTAINER_STEPS['4xl']) * 16).toBe(896)
   })

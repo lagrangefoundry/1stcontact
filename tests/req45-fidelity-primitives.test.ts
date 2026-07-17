@@ -85,7 +85,7 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
       content: { heading: { text: 'A Different Approach' }, body: 'Body copy.' },
     })
     expect(html).toContain('has-content-width')
-    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
+    expect(html).toContain('--fc-content-width: var(--container-lg)')
   })
 
   it('test_UAT_FC_REQ-45_text_block_defaults_to_full_frame_content_width', async () => {
@@ -111,7 +111,7 @@ describe('REQ-45 capability 1 — start-aligned constrained content column', () 
       },
     })
     expect(html).toContain('has-content-width')
-    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
+    expect(html).toContain('--fc-content-width: var(--container-lg)')
   })
 
   it('test_UAT_FC_REQ-45_services_grid_defaults_to_full_frame_content_width', async () => {

@@ -20,6 +20,22 @@
  */
 export const SPACING_DIAL = ['none', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'] as const
 
+/**
+ * Standard vertical-spacing step overlay — the named steps → space tokens shared
+ * by the content modules (text-block, services-grid, contact-form, hero). Passed
+ * to {@link resolveStep}; header/footer carry their own compressed overlays. A
+ * literal px (or any length) bypasses the overlay entirely (absolute-or-overlay).
+ */
+export const SPACING_STEPS: Record<string, string> = {
+  none: 'var(--space-0)',
+  sm: 'var(--space-4)',
+  md: 'var(--space-8)',
+  lg: 'var(--space-16)',
+  xl: 'var(--space-24)',
+  '2xl': 'var(--space-32)',
+  '3xl': 'var(--space-48)',
+}
+
 /** Surface (background + text treatment) dial values. */
 export const SURFACE_DIAL = ['default', 'subtle', 'inverse', 'accent'] as const
 
@@ -196,6 +212,27 @@ export function classifyLength(value: string | number): LengthKind | null {
 /** True when `value` is a well-formed length in the model (any kind). */
 export function isLength(value: unknown): boolean {
   return (typeof value === 'number' || typeof value === 'string') && classifyLength(value) !== null
+}
+
+/**
+ * Resolve a step-or-absolute LENGTH dial to CSS — the absolute-or-overlay seam for
+ * every spacing/size dial (spacing, gap, logo size, offset, inset, panel pad). A
+ * named step (`lg`) maps through the module's `steps` overlay to its token
+ * (`var(--space-16)`); an ABSOLUTE value (a px number, or any length literal —
+ * `80px`, `5rem`, `fit-content`) passes straight through, so a reproduction lands
+ * the exact captured value instead of snapping to the nearest step. `fallback` is
+ * used when the value is absent. Unknown/malformed → the fallback's resolution.
+ */
+export function resolveStep(
+  value: string | number | undefined | null,
+  steps: Record<string, string>,
+  fallback: string,
+): string {
+  const v = value ?? fallback
+  if (typeof v === 'number') return `${v}px`
+  if (v in steps) return steps[v]
+  if (classifyLength(v)) return v // an absolute px / literal length — verbatim
+  return steps[fallback] ?? fallback
 }
 
 /**

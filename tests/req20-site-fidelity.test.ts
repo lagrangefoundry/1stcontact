@@ -178,7 +178,7 @@ describe('REQ-20 secondary palette role + card treatments', () => {
   })
 
   it('test_UAT_FC_REQ-20_services_grid_meta_extends_accent_badge_and_adds_surface', () => {
-    expect(servicesGridMeta.contentSchema.items.itemSchema.accent.values).toContain('secondary')
+    expect(servicesGridMeta.contentSchema.items.itemSchema.accent.type).toBe('color') // REQ-58: absolute #hex OR role
     expect(servicesGridMeta.contentSchema.items.itemSchema.badge.itemSchema.variant.values).toContain(
       'secondary',
     )
@@ -206,7 +206,7 @@ describe('REQ-20 secondary palette role + card treatments', () => {
         ],
       },
     })
-    expect(html).toContain('accent-secondary')
+    expect(html).toContain('--fc-accent: var(--color-secondary)')
     expect(html).toContain('badge-secondary')
     // The status hook recolours the ✓ ticks to match the badge (blue here).
     expect(html).toContain('status-secondary')

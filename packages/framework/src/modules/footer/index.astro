@@ -3,6 +3,7 @@ import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
 import { navHref } from '../nav'
 import { assertSafeUrl } from '../safety'
 import { resolveColor } from '../text-style'
+import { resolveStep } from '../dials'
 import { BUILD_YEAR } from '../../buildInfo'
 
 interface Props {
@@ -24,8 +25,10 @@ interface Props {
 
 const { dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'inverse'
-const spacingTop = dials.spacingTop ?? 'lg'
-const spacingBottom = dials.spacingBottom ?? 'lg'
+// Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
+const FOOTER_SPACING_STEPS = { none: 'var(--space-0)', sm: 'var(--space-2)', md: 'var(--space-4)', lg: 'var(--space-8)', xl: 'var(--space-12)', '2xl': 'var(--space-16)', '3xl': 'var(--space-24)' }
+const padTopCss = resolveStep(dials.spacingTop, FOOTER_SPACING_STEPS, 'lg')
+const padBottomCss = resolveStep(dials.spacingBottom, FOOTER_SPACING_STEPS, 'lg')
 // Content layout: `center` stacks centred (default); `spread` justifies the
 // copyright and links to opposite ends of one row.
 const layout = dials.layout ?? 'center'
@@ -50,10 +53,8 @@ const year = BUILD_YEAR
     'footer',
     `surface-${surface}`,
     `layout-${layout}`,
-    `spacing-top-${spacingTop}`,
-    `spacing-bottom-${spacingBottom}`,
   ]}
-  style={textColorCss ? `--fc-text: ${textColorCss}` : undefined}
+  style={[textColorCss && `--fc-text: ${textColorCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
 >
   <div class="footer__inner">
     {logo && (
@@ -87,8 +88,8 @@ const year = BUILD_YEAR
   .footer {
     background: var(--color-surface-inverse);
     color: var(--fc-text, var(--color-bg));
-    padding-top: var(--space-8);
-    padding-bottom: var(--space-8);
+    padding-top: var(--fc-pt);
+    padding-bottom: var(--fc-pb);
   }
   .footer.surface-default { background: var(--color-bg); color: var(--color-text); border-top: 1px solid var(--color-border); }
   .footer.surface-subtle { background: var(--color-surface-subtle); color: var(--color-text); }
@@ -97,20 +98,6 @@ const year = BUILD_YEAR
      footer uses a muted gold distinct from the bright accent used for headings). */
   .footer.surface-accent-muted { background: var(--color-accent-mid); color: var(--color-bg); }
 
-  .footer.spacing-top-none { padding-top: var(--space-0); }
-  .footer.spacing-top-sm { padding-top: var(--space-2); }
-  .footer.spacing-top-md { padding-top: var(--space-4); }
-  .footer.spacing-top-lg { padding-top: var(--space-8); }
-  .footer.spacing-top-xl { padding-top: var(--space-12); }
-  .footer.spacing-top-2xl { padding-top: var(--space-16); }
-  .footer.spacing-top-3xl { padding-top: var(--space-24); }
-  .footer.spacing-bottom-none { padding-bottom: var(--space-0); }
-  .footer.spacing-bottom-sm { padding-bottom: var(--space-2); }
-  .footer.spacing-bottom-md { padding-bottom: var(--space-4); }
-  .footer.spacing-bottom-lg { padding-bottom: var(--space-8); }
-  .footer.spacing-bottom-xl { padding-bottom: var(--space-12); }
-  .footer.spacing-bottom-2xl { padding-bottom: var(--space-16); }
-  .footer.spacing-bottom-3xl { padding-bottom: var(--space-24); }
 
   .footer__inner {
     max-width: var(--container-6xl);

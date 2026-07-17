@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
+import { SPACING_STEPS } from '../packages/framework/src/modules/dials'
 import Hero from '../packages/framework/src/modules/hero/index.astro'
 import Header from '../packages/framework/src/modules/header/index.astro'
 import Footer from '../packages/framework/src/modules/footer/index.astro'
@@ -606,23 +607,23 @@ describe('REQ-36 text-block CTA button', () => {
 
 describe('REQ-36 extended spacing + gap scale — airy sections', () => {
   it('test_UAT_FC_REQ-36_spacing_2xl_3xl_step_past_xl', async () => {
+    // REQ-58: spacing resolves (step OR absolute px) to an inline --fc-pt/--fc-pb
+    // var, replacing the per-step classes. The two steps past `xl` still resolve.
     const html = await render(ServicesGrid, { variant: 'three-col', dials: { spacingTop: '3xl', spacingBottom: '2xl' }, content: { items: [{ title: { text: 'X' }, body: 'b' }, { title: { text: 'Y' }, body: 'b' }] } })
-    expect(html).toContain('spacing-top-3xl')
-    expect(html).toContain('spacing-bottom-2xl')
-    // The grid renders the two new steps past its own `xl` (`--space-24`).
-    expect(gridCss).toMatch(/\.services-grid\.spacing-top-2xl\s*\{[^}]*padding-top:\s*var\(--space-32\)/)
-    expect(gridCss).toMatch(/\.services-grid\.spacing-top-3xl\s*\{[^}]*padding-top:\s*var\(--space-48\)/)
+    expect(html).toContain('--fc-pt: var(--space-48)') // 3xl
+    expect(html).toContain('--fc-pb: var(--space-32)') // 2xl
   })
 
-  it('test_UAT_FC_REQ-36_every_spacing_module_renders_the_new_steps', () => {
-    // The dial is shared, so no module may silently drop `2xl`/`3xl` (a no-op
-    // spacing value would be a latent bug). Each spacing-bearing module renders both.
-    for (const css of [textBlockCss, gridCss, heroCss, headerCss]) {
-      expect(css).toMatch(/spacing-top-2xl\s*\{/)
-      expect(css).toMatch(/spacing-top-3xl\s*\{/)
-      expect(css).toMatch(/spacing-bottom-2xl\s*\{/)
-      expect(css).toMatch(/spacing-bottom-3xl\s*\{/)
-    }
+  it('test_UAT_FC_REQ-36_every_spacing_module_renders_the_new_steps', async () => {
+    // The shared overlay carries 2xl/3xl, and no spacing-bearing module may drop
+    // the inline var. An ABSOLUTE px must also bypass the overlay (REQ-58).
+    expect(SPACING_STEPS['2xl']).toBe('var(--space-32)')
+    expect(SPACING_STEPS['3xl']).toBe('var(--space-48)')
+    const items = [{ title: { text: 'X' }, body: 'b' }, { title: { text: 'Y' }, body: 'b' }]
+    const step = await render(ServicesGrid, { variant: 'three-col', dials: { spacingTop: '3xl' }, content: { items } })
+    expect(step).toContain('--fc-pt: var(--space-48)') // step → overlay token
+    const abs = await render(ServicesGrid, { variant: 'three-col', dials: { spacingTop: '80px' }, content: { items } })
+    expect(abs).toContain('--fc-pt: 80px') // absolute value → verbatim
   })
 
   it('test_UAT_FC_REQ-36_grid_gap_airy_widens_the_row_gap', async () => {
@@ -861,7 +862,7 @@ describe('REQ-36 element fidelity — CTA typography, panel corner, body weight,
     // set inline; the section carries `has-content-width` instead of a per-name class.
     const html = await render(TextBlock, { variant: 'prose', dials: { contentWidth: 'lg', align: 'center' }, content: { heading: { text: 'H' }, body: '- one\n- two' } })
     expect(html).toContain('has-content-width')
-    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
+    expect(html).toContain('--fc-content-width: var(--container-lg)')
     expect(textBlockCss).toMatch(/\.text-block\.has-content-width \.text-block__inner > \*\s*\{[^}]*max-width:\s*var\(--fc-content-width\)/)
   })
 

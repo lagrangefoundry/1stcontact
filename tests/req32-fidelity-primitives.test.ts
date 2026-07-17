@@ -166,7 +166,7 @@ describe('REQ-32 primitive 4 — cool-neutral palette role', () => {
   })
 
   it('test_UAT_FC_REQ-32_services_grid_can_select_cool_neutral_panel', async () => {
-    expect(servicesGridMeta.contentSchema.items.itemSchema?.accent.values).toContain('neutral-cool')
+    expect(servicesGridMeta.contentSchema.items.itemSchema?.accent.type).toBe('color') // REQ-58: #hex OR role
     expect(servicesGridMeta.contentSchema.items.itemSchema?.surface.values).toContain('neutral-cool')
     const html = await render(ServicesGrid, {
       variant: 'stacked',
@@ -178,7 +178,7 @@ describe('REQ-32 primitive 4 — cool-neutral palette role', () => {
         ],
       },
     })
-    expect(html).toContain('accent-neutral-cool')
+    expect(html).toContain('--fc-accent: var(--color-neutral-cool)')
     expect(html).toContain('surface-neutral-cool')
   })
 })

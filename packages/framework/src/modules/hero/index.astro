@@ -2,7 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { assertSafeUrl } from '../safety'
 import { positionVars } from '../layer'
-import { resolveContainerWidth } from '../dials'
+import { resolveContainerWidth, resolveStep, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -21,8 +21,9 @@ interface Props {
 const { variant = 'bg-color', dials = {}, content } = Astro.props as Props
 const align = dials.align ?? 'left'
 const surface = dials.surface ?? 'default'
-const spacingTop = dials.spacingTop ?? 'lg'
-const spacingBottom = dials.spacingBottom ?? 'lg'
+// Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
+const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
 // CTA corner shape (REQ-36) — `round` (default) pill; `square`/`soft` variants.
@@ -99,10 +100,8 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     `content-inset-${contentInset}`,
     `content-column-${contentColumn}`,
     `scrim-gradient-${scrimGradient}`,
-    `spacing-top-${spacingTop}`,
-    `spacing-bottom-${spacingBottom}`,
   ]}
-  style={contentWidthCss ? `--fc-content-width: ${contentWidthCss}` : undefined}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
 >
   {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
@@ -128,7 +127,7 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
 </section>
 
 <style>
-  .hero { position: relative; background: var(--color-bg); color: var(--color-text); overflow: hidden; }
+  .hero { position: relative; background: var(--color-bg); color: var(--color-text); overflow: hidden; padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
   .hero.surface-subtle { background: var(--color-surface-subtle); }
   .hero.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .hero.surface-accent { background: var(--color-accent); color: var(--color-bg); }
@@ -157,20 +156,6 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
   .hero.height-fold.content-offset-top-lg .hero__inner { margin-top: var(--space-48); }
   .hero.height-fold.content-offset-top-xl .hero__inner { margin-top: var(--space-80); }
 
-  .hero.spacing-top-none { padding-top: var(--space-0); }
-  .hero.spacing-top-sm { padding-top: var(--space-4); }
-  .hero.spacing-top-md { padding-top: var(--space-8); }
-  .hero.spacing-top-lg { padding-top: var(--space-16); }
-  .hero.spacing-top-xl { padding-top: var(--space-24); }
-  .hero.spacing-top-2xl { padding-top: var(--space-32); }
-  .hero.spacing-top-3xl { padding-top: var(--space-48); }
-  .hero.spacing-bottom-none { padding-bottom: var(--space-0); }
-  .hero.spacing-bottom-sm { padding-bottom: var(--space-4); }
-  .hero.spacing-bottom-md { padding-bottom: var(--space-8); }
-  .hero.spacing-bottom-lg { padding-bottom: var(--space-16); }
-  .hero.spacing-bottom-xl { padding-bottom: var(--space-24); }
-  .hero.spacing-bottom-2xl { padding-bottom: var(--space-32); }
-  .hero.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   .hero__bg {
     position: absolute;

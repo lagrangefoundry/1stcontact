@@ -1,6 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
+import { resolveStep, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface FormField {
@@ -29,8 +30,9 @@ interface Props {
 const { dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const align = dials.align ?? 'left'
-const spacingTop = dials.spacingTop ?? 'lg'
-const spacingBottom = dials.spacingBottom ?? 'lg'
+// Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
+const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
 // `half` flexes the band into a shared two-column row (grouped by the pipeline).
 const width = dials.width ?? 'full'
 // Submit-button *fill* treatment (REQ-33): `primary` (brand) or dark `neutral`.
@@ -73,9 +75,8 @@ const submitStyle = resolveTextStyle(content.submitLabel)
     `surface-${surface}`,
     `align-${align}`,
     `width-${width}`,
-    `spacing-top-${spacingTop}`,
-    `spacing-bottom-${spacingBottom}`,
   ]}
+  style={`--fc-pt: ${padTopCss}; --fc-pb: ${padBottomCss}`}
 >
   <div class="contact-form__inner" data-contact-form-root>
     {heading?.text && <h2 class="contact-form__heading" style={headingStyle}>{heading.text}</h2>}
@@ -119,25 +120,12 @@ const submitStyle = resolveTextStyle(content.submitLabel)
 </script>
 
 <style>
-  .contact-form { background: var(--color-bg); color: var(--color-text); }
+  /* Vertical spacing → inline --fc-pt/--fc-pb (step token OR absolute px). */
+  .contact-form { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
   .contact-form.surface-subtle { background: var(--color-surface-subtle); }
   .contact-form.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .contact-form.surface-accent { background: var(--color-accent); color: var(--color-bg); }
 
-  .contact-form.spacing-top-none { padding-top: var(--space-0); }
-  .contact-form.spacing-top-sm { padding-top: var(--space-4); }
-  .contact-form.spacing-top-md { padding-top: var(--space-8); }
-  .contact-form.spacing-top-lg { padding-top: var(--space-16); }
-  .contact-form.spacing-top-xl { padding-top: var(--space-24); }
-  .contact-form.spacing-top-2xl { padding-top: var(--space-32); }
-  .contact-form.spacing-top-3xl { padding-top: var(--space-48); }
-  .contact-form.spacing-bottom-none { padding-bottom: var(--space-0); }
-  .contact-form.spacing-bottom-sm { padding-bottom: var(--space-4); }
-  .contact-form.spacing-bottom-md { padding-bottom: var(--space-8); }
-  .contact-form.spacing-bottom-lg { padding-bottom: var(--space-16); }
-  .contact-form.spacing-bottom-xl { padding-bottom: var(--space-24); }
-  .contact-form.spacing-bottom-2xl { padding-bottom: var(--space-32); }
-  .contact-form.spacing-bottom-3xl { padding-bottom: var(--space-48); }
 
   .contact-form__inner {
     /* Fixed form measure (REQ-55): the old `narrow` token was 40rem/640px — a

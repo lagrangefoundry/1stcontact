@@ -88,7 +88,7 @@ describe('REQ-52 — hero objects are freely positionable', () => {
     })
     expect(html).not.toContain('hero__stack')
     expect(html).not.toContain('hero__slot--positioned')
-    expect(html).not.toContain('--fc-')
+    expect(html).not.toMatch(/--fc-(x|y|z|w|rotate):/)
     expect(html).toContain('hero__heading')
   })
 
@@ -149,7 +149,7 @@ describe('REQ-52 — the overlay wordmark shares the hero coordinate space', () 
       content: { wordmark: { text: 'Acme' }, entries: [] },
     })
     expect(html).not.toContain('header__logo--positioned')
-    expect(html).not.toContain('--fc-')
+    expect(html).not.toMatch(/--fc-(x|y|z|w|rotate):/)
     expect(html).toContain('Acme')
   })
 })
@@ -189,7 +189,7 @@ describe('REQ-52 — text-block prose reproduces services-grid geometry', () => 
       content: { body: 'hi' },
     })
     expect(html).toContain('has-content-width')
-    expect(html).toContain('style="--fc-content-width: var(--container-lg)"')
+    expect(html).toContain('--fc-content-width: var(--container-lg)')
     expect(textBlockCss).toMatch(
       /\.text-block\.has-content-width \.text-block__inner > \*\s*\{[^}]*--fc-content-width/,
     )
