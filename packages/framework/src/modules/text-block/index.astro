@@ -1,7 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveContainerWidth, resolveStep, SPACING_STEPS } from '../dials'
+import { resolveContainerWidth, resolveStep, SPACING_STEPS, CTA_RADIUS_STEPS, PANEL_CORNER_STEPS } from '../dials'
 import { resolveTextStyle, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
 
 interface Props {
@@ -39,12 +39,13 @@ const panel = panelGradientCss ? 'gradient' : (dials.panel ?? 'none')
 // Body list marker (REQ-36) — `check` = accent ✓; `bullet` (default).
 const listMarker = dials.listMarker ?? 'bullet'
 // CTA corner shape (REQ-36).
-const ctaShape = dials.ctaShape ?? 'round'
+// CTA + panel corner radius (REQ-58 absolute-or-overlay) — shape OR px.
+const ctaRadiusCss = resolveStep(dials.ctaShape, CTA_RADIUS_STEPS, 'round')
 // Panel vertical padding + corner shape (REQ-36).
 // Panel padding (REQ-58 absolute-or-overlay) — named step OR absolute px.
 const PANEL_PAD_STEPS = { md: 'var(--space-12)', lg: 'var(--space-16)', xl: 'var(--space-24)' }
 const panelPadCss = resolveStep(dials.panelPad, PANEL_PAD_STEPS, 'md')
-const panelCorner = dials.panelCorner ?? 'rounded'
+const panelRadiusCss = resolveStep(dials.panelCorner, PANEL_CORNER_STEPS, 'rounded')
 const { heading, cta } = content
 const bodyHtml = await renderMarkdown(content.body)
 
@@ -65,15 +66,14 @@ const ctaStyle = resolveTextStyle(cta)
     `text-align-${textAlign}`,
     { 'has-content-width': contentWidthCss !== null },
     `panel-${panel}`,
-    `panel-corner-${panelCorner}`,
     `list-marker-${listMarker}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`].filter(Boolean).join('; ')}
 >
   <div class="text-block__inner" style={[panelGradientCss, `--fc-panel-pad: ${panelPadCss}`].filter(Boolean).join('; ') || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
     <div class="text-block__body" style={bodyStyle} set:html={bodyHtml} />
-    {cta?.label && cta.href && <a class:list={['text-block__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
+    {cta?.label && cta.href && <a class:list={['text-block__cta']} style={ctaStyle} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
   </div>
 </section>
 
@@ -111,9 +111,8 @@ const ctaStyle = resolveTextStyle(cta)
   .text-block.panel-accent .text-block__inner,
   .text-block.panel-gradient .text-block__inner {
     padding: var(--fc-panel-pad, var(--space-12)) var(--space-8);
-    border-radius: var(--radius-lg);
+    border-radius: var(--fc-panel-radius, var(--radius-lg));
   }
-  .text-block.panel-corner-square .text-block__inner { border-radius: 0; }
   /* Contained panel: the constrained width caps the panel (inner) itself (REQ-55). */
   .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width); }
   .text-block.panel-subtle .text-block__inner { background: var(--color-surface-subtle); }
@@ -184,10 +183,9 @@ const ctaStyle = resolveTextStyle(cta)
     background: var(--color-accent);
     color: var(--color-bg);
     padding: var(--space-3) var(--space-6);
-    border-radius: var(--radius-md);
+    border-radius: var(--fc-cta-radius, var(--radius-md));
     font-weight: var(--font-weight-semibold);
     text-decoration: none;
   }
   .text-block.text-align-center .text-block__cta { align-self: center; }
-  .text-block__cta.cta-square { border-radius: 0; }
 </style>

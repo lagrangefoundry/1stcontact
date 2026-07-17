@@ -250,6 +250,21 @@ export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong', 'heavy'] as cons
 export const CTA_SHAPE_DIAL = ['round', 'square', 'soft'] as const
 
 /**
+ * CTA / panel corner RADIUS overlays (REQ-58) — the named shape steps map to a
+ * radius token; an absolute px (`8px`) bypasses them (absolute-or-overlay, via
+ * {@link resolveStep}). Completes the value-type audit: colour, length, radius.
+ */
+export const CTA_RADIUS_STEPS: Record<string, string> = {
+  round: 'var(--radius-md)',
+  square: '0',
+  soft: '2px',
+}
+export const PANEL_CORNER_STEPS: Record<string, string> = {
+  rounded: 'var(--radius-lg)',
+  square: '0',
+}
+
+/**
  * Hero top-of-band gradient scrim (REQ-36). `none` (default) omits it; `top`
  * layers a downward dark gradient (keyed to `--color-scrim`) over the flat scrim,
  * darkening the top edge behind the nav for legibility and fading out ~40% down.

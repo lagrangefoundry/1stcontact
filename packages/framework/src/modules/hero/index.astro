@@ -2,7 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { assertSafeUrl } from '../safety'
 import { positionVars } from '../layer'
-import { resolveContainerWidth, resolveStep, SPACING_STEPS } from '../dials'
+import { resolveContainerWidth, resolveStep, SPACING_STEPS, CTA_RADIUS_STEPS } from '../dials'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -27,7 +27,8 @@ const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
 // CTA corner shape (REQ-36) — `round` (default) pill; `square`/`soft` variants.
-const ctaShape = dials.ctaShape ?? 'round'
+// CTA corner radius (REQ-58 absolute-or-overlay) — named shape OR absolute px.
+const ctaRadiusCss = resolveStep(dials.ctaShape, CTA_RADIUS_STEPS, 'round')
 // Top-of-band gradient scrim (REQ-36) — `top` darkens the band's top edge.
 const scrimGradient = dials.scrimGradient ?? 'none'
 // Divider rule between heading and subhead (REQ-36) — `rule` draws the rule.
@@ -102,7 +103,7 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     `content-column-${contentColumn}`,
     `scrim-gradient-${scrimGradient}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-offset-top: ${offsetTopCss}`, `--fc-inset: ${insetCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-offset-top: ${offsetTopCss}`, `--fc-inset: ${insetCss}`, `--fc-cta-radius: ${ctaRadiusCss}`].filter(Boolean).join('; ')}
 >
   {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
@@ -114,7 +115,7 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     {divider === 'rule' && <hr class="hero__divider" />}
     {portrait && <img class:list={['hero__portrait', `portrait-${portraitShape}`]} src={assertSafeUrl(portrait.src, 'hero portrait src')} alt={portrait.alt} />}
     {subhead?.text && !subhead.position && <p class="hero__subhead" style={subheadStyle}>{subhead.text}</p>}
-    {cta?.label && cta.href && !cta.position && <a class:list={['hero__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
+    {cta?.label && cta.href && !cta.position && <a class:list={['hero__cta']} style={ctaStyle} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
   </div>
 
   {anyPositioned && (
@@ -122,7 +123,7 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
       {eyebrow?.text && eyebrow.position && <p class="hero__eyebrow hero__slot--positioned" style={withPos(eyebrowStyle, eyebrow)}>{eyebrow.text}</p>}
       {heading.position && <h1 class:list={['hero__heading', `case-${headingCase}`, 'hero__slot--positioned']} style={withPos(headingStyle, heading)}>{headingLines.map((line, i) => <Fragment>{i > 0 && <br />}{line}</Fragment>)}</h1>}
       {subhead?.text && subhead.position && <p class="hero__subhead hero__slot--positioned" style={withPos(subheadStyle, subhead)}>{subhead.text}</p>}
-      {cta?.label && cta.href && cta.position && <a class:list={['hero__cta', `cta-${ctaShape}`, 'hero__slot--positioned']} style={withPos(ctaStyle, cta)} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
+      {cta?.label && cta.href && cta.position && <a class:list={['hero__cta', 'hero__slot--positioned']} style={withPos(ctaStyle, cta)} href={assertSafeUrl(cta.href, 'hero cta href')}>{cta.label}</a>}
     </div>
   )}
 </section>
@@ -281,15 +282,13 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     background: var(--color-primary);
     color: var(--color-bg);
     padding: var(--space-3) var(--space-6);
-    border-radius: var(--radius-md);
+    border-radius: var(--fc-cta-radius, var(--radius-md));
     font-weight: var(--font-weight-semibold);
     text-align: center;
     text-decoration: none;
   }
   /* CTA corner shape (REQ-36) — `round` is the pill radius above; `square`
      hard-corners; `soft` is the reference's barely-rounded 2px button. */
-  .hero__cta.cta-square { border-radius: 0; }
-  .hero__cta.cta-soft { border-radius: 2px; }
   /* The inner is a stretch flex column, which would stretch the CTA into a
      full-width bar. Pin it to the content-start edge so it hugs its label. */
   .hero.align-left .hero__cta { align-self: flex-start; }

@@ -328,7 +328,7 @@ describe('REQ-36 text-block heading finish — weight / size / align / leading',
     expect(html).toContain('panel-subtle')
     expect(textBlockCss).toMatch(/\.text-block\.panel-subtle\s+\.text-block__inner\s*\{[^}]*background:\s*var\(--color-surface-subtle\)/)
     // The card is padded + rounded (grouped rule covering the panel roles).
-    expect(textBlockCss).toMatch(/\.text-block\.panel-subtle\s+\.text-block__inner,[\s\S]*?\{[^}]*border-radius:\s*var\(--radius-lg\)/)
+    expect(textBlockCss).toMatch(/\.text-block\.panel-subtle\s+\.text-block__inner,[\s\S]*?\{[^}]*border-radius:\s*var\(--fc-panel-radius/)
   })
 
   it('test_UAT_FC_REQ-36_textblock_panel_default_none_fills_the_band', async () => {
@@ -465,10 +465,10 @@ describe('REQ-36 hero finish — scrim depth / heading weight / CTA shape / divi
 
   it('test_UAT_FC_REQ-36_hero_cta_square_removes_the_radius', async () => {
     const square = await render(Hero, { variant: 'bg-color', dials: { ctaShape: 'square' }, content: { heading: { text: 'H' }, subhead: { text: 'x' }, cta: { label: 'Go', href: '#' } } })
-    expect(square).toContain('cta-square')
-    expect(heroCss).toMatch(/\.hero__cta\.cta-square\s*\{[^}]*border-radius:\s*0/)
+    expect(square).toContain('--fc-cta-radius: 0')
+    expect(heroCss).toMatch(/\.hero__cta\s*\{[^}]*border-radius:\s*var\(--fc-cta-radius/)
     const dflt = await render(Hero, { variant: 'bg-color', content: { heading: { text: 'H' }, subhead: { text: 'x' }, cta: { label: 'Go', href: '#' } } })
-    expect(dflt).toContain('cta-round')
+    expect(dflt).toContain('--fc-cta-radius: var(--radius-md)')
   })
 
   it('test_UAT_FC_REQ-36_hero_divider_is_a_solid_2px_rule', () => {
@@ -499,7 +499,7 @@ describe('REQ-36 hero finish — scrim depth / heading weight / CTA shape / divi
     // shape/scrim dials still default (round CTA, no top-gradient).
     expect(html).not.toMatch(/hero__heading[^>]*style="[^"]*font-weight:/)
     expect(html).not.toMatch(/hero__subhead[^>]*style="[^"]*font-family:/)
-    expect(html).toContain('cta-round')
+    expect(html).toContain('--fc-cta-radius: var(--radius-md)')
     expect(html).toContain('scrim-gradient-none')
   })
 })
@@ -595,8 +595,8 @@ describe('REQ-36 text-block CTA button', () => {
 
   it('test_UAT_FC_REQ-36_textblock_cta_square_removes_the_radius', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: { ctaShape: 'square' }, content })
-    expect(html).toContain('cta-square')
-    expect(textBlockCss).toMatch(/\.text-block__cta\.cta-square\s*\{[^}]*border-radius:\s*0/)
+    expect(html).toContain('--fc-cta-radius: 0')
+    expect(textBlockCss).toMatch(/\.text-block__cta\s*\{[^}]*border-radius:\s*var\(--fc-cta-radius/)
   })
 
   it('test_UAT_FC_REQ-36_textblock_without_cta_renders_no_button', async () => {
@@ -827,16 +827,16 @@ describe('REQ-36 element fidelity — CTA typography, panel corner, body weight,
 
   it('test_UAT_FC_REQ-36_hero_cta_soft_is_a_2px_corner', async () => {
     const html = await render(Hero, { variant: 'bg-color', dials: { ctaShape: 'soft' }, content: heroCta })
-    expect(html).toContain('cta-soft')
-    expect(heroCss).toMatch(/\.hero__cta\.cta-soft\s*\{[^}]*border-radius:\s*2px/)
+    expect(html).toContain('--fc-cta-radius: 2px')
+    expect(heroCss).toMatch(/border-radius:\s*var\(--fc-cta-radius/)
   })
 
   it('test_UAT_FC_REQ-36_textblock_panelCorner_square_hard_corners_the_panel', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary', panelCorner: 'square' }, content: { heading: { text: 'H' }, body: 'b' } })
-    expect(html).toContain('panel-corner-square')
-    expect(textBlockCss).toMatch(/\.text-block\.panel-corner-square\s+\.text-block__inner\s*\{[^}]*border-radius:\s*0/)
+    expect(html).toContain('--fc-panel-radius: 0')
+    expect(textBlockCss).toMatch(/border-radius:\s*var\(--fc-panel-radius/)
     const dflt = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary' }, content: { heading: { text: 'H' }, body: 'b' } })
-    expect(dflt).toContain('panel-corner-rounded')
+    expect(dflt).toContain('--fc-panel-radius: var(--radius-lg)')
   })
 
   it('test_UAT_FC_REQ-36_textblock_bodyWeight_light_steps_the_body', async () => {
