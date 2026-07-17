@@ -87,6 +87,7 @@ function propertySignature(el: ValueElement): string {
     `fw=${el.fontWeight}`,
     `color=${el.color}`,
     `box=${box}`,
+    `arr=${el.arrangement ?? '—'}`,
   ].join('|')
 }
 
@@ -195,6 +196,112 @@ export function cmdResponsiveDiff(opts: ResponsiveDiffOptions): ResponsiveTable 
   const table = buildResponsiveTable(projections)
   if (opts.out) writeFileSync(path.resolve(opts.out), JSON.stringify(table, null, 2))
   return table
+}
+
+// ── Phase 2 — the change classifier ───────────────────────────────────────────
+
+/**
+ * How a node changes across sizes (REQ-61 Phase 2). Each maps to a distinct
+ * reproduction move:
+ *   - `value-step`    → a per-breakpoint value override (font 48→32, padding shrinks)
+ *   - `presence-flip` → per-breakpoint visibility (a node departs / appears)
+ *   - `layout-swap`   → module-internal responsive behaviour (row→stack, nav→hamburger)
+ */
+export type ResponsiveChangeKind = 'value-step' | 'presence-flip' | 'layout-swap'
+
+/** One changed node classified, with the properties that drove the call. */
+export interface RowClassification {
+  row: ResponsiveRow
+  kind: ResponsiveChangeKind
+  /** The signals behind the classification (`presence`, `arrangement`, `fontSizePx`…). */
+  signals: string[]
+}
+
+/** The classifier's output — only the rows that change, each labelled. */
+export interface ClassifiedTable {
+  sizes: ResponsiveSize[]
+  classifications: RowClassification[]
+}
+
+/**
+ * The scalar properties whose variation across sizes is a value-step. Geometry is
+ * rounded so sub-pixel jitter never reads as a step; `arrangement` is handled
+ * separately (it is the layout-swap signal, not a value).
+ */
+const VALUE_PROPS: { name: string; of: (el: ValueElement) => string }[] = [
+  { name: 'fontSizePx', of: (el) => String(el.fontSizePx) },
+  { name: 'fontWeight', of: (el) => String(el.fontWeight) },
+  { name: 'color', of: (el) => el.color },
+  { name: 'paddingLeftPx', of: (el) => String(el.paddingLeftPx ?? '—') },
+  { name: 'lineHeightPx', of: (el) => String(el.lineHeightPx ?? '—') },
+  { name: 'letterSpacingPx', of: (el) => String(el.letterSpacingPx ?? '—') },
+  {
+    name: 'box',
+    of: (el) => (el.box ? `${Math.round(el.box.x)},${Math.round(el.box.y)},${Math.round(el.box.width)},${Math.round(el.box.height)}` : '—'),
+  },
+]
+
+/** The properties (of {@link VALUE_PROPS} plus `arrangement`) that vary across the
+ * columns a node is present in. */
+function changedProperties(row: ResponsiveRow): string[] {
+  const present = row.cells.map((c) => c.element).filter((e): e is ValueElement => !!e)
+  if (present.length < 2) return []
+  const changed: string[] = []
+  for (const prop of VALUE_PROPS) {
+    if (new Set(present.map(prop.of)).size > 1) changed.push(prop.name)
+  }
+  if (new Set(present.map((el) => el.arrangement ?? '—')).size > 1) changed.push('arrangement')
+  return changed
+}
+
+/**
+ * Classify each changed node into its reproduction move. Precedence follows how
+ * structural the change is: a node that appears/departs is a `presence-flip`
+ * (per-breakpoint visibility) regardless of what else differs; among nodes present
+ * everywhere, an `arrangement` flip (row↔stack) is a `layout-swap` (module-internal
+ * behaviour); anything else is a `value-step` (a per-breakpoint value override).
+ * Steady nodes are omitted — the classifier reports only what the operator must act on.
+ */
+export function classifyResponsiveTable(table: ResponsiveTable): ClassifiedTable {
+  const classifications: RowClassification[] = []
+  for (const row of table.rows) {
+    if (!row.changed) continue
+    const props = changedProperties(row)
+    if (row.presenceFlips) {
+      classifications.push({ row, kind: 'presence-flip', signals: ['presence', ...props] })
+    } else if (props.includes('arrangement')) {
+      classifications.push({ row, kind: 'layout-swap', signals: props })
+    } else {
+      classifications.push({ row, kind: 'value-step', signals: props })
+    }
+  }
+  return { sizes: table.sizes, classifications }
+}
+
+/**
+ * Human rendering of the classifier — grouped by kind (presence flips and layout
+ * swaps first, the structural moves; value steps last), each node with the signals
+ * that drove its call. A clean site collapses to a single ✓ line.
+ */
+export function formatClassifiedTable(classified: ClassifiedTable): string {
+  const order: ResponsiveChangeKind[] = ['presence-flip', 'layout-swap', 'value-step']
+  const lines: string[] = [
+    `responsive-diff classify: ${classified.classifications.length} changed node(s) across ${classified.sizes.length} size(s)`,
+  ]
+  if (classified.classifications.length === 0) {
+    lines.push('  ✓ every node holds steady across all sizes')
+    return lines.join('\n')
+  }
+  for (const kind of order) {
+    const rows = classified.classifications.filter((c) => c.kind === kind)
+    if (rows.length === 0) continue
+    lines.push('')
+    lines.push(`  ${kind} (${rows.length}):`)
+    for (const c of rows) {
+      lines.push(`    ${trunc(c.row.label).padEnd(32)} [${c.signals.join(', ')}]`)
+    }
+  }
+  return lines.join('\n')
 }
 
 /** Truncate a label so a row stays one terminal line. */

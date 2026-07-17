@@ -31,7 +31,7 @@ import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
-import { cmdResponsiveDiff, formatResponsiveTable } from './responsive-diff'
+import { cmdResponsiveDiff, classifyResponsiveTable, formatResponsiveTable, formatClassifiedTable } from './responsive-diff'
 import type { RenderChannel } from '../store'
 
 export * from './commands'
@@ -44,7 +44,13 @@ export type { ServeOptions, ServeHandle } from './serve'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
-export { cmdResponsiveDiff, buildResponsiveTable, formatResponsiveTable } from './responsive-diff'
+export {
+  cmdResponsiveDiff,
+  buildResponsiveTable,
+  formatResponsiveTable,
+  classifyResponsiveTable,
+  formatClassifiedTable,
+} from './responsive-diff'
 export type {
   ResponsiveDiffOptions,
   ResponsiveTable,
@@ -52,6 +58,9 @@ export type {
   ResponsiveCell,
   ResponsiveSize,
   LabelledProjection,
+  ResponsiveChangeKind,
+  RowClassification,
+  ClassifiedTable,
 } from './responsive-diff'
 export type { ValuesDiffOptions } from './fidelity'
 export {
@@ -119,9 +128,10 @@ Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regio
   1c crop <image> --box <x,y,w,h> [--out <png>]
 
 Responsive-diff (REQ-61) — analyse ONE captured site across sizes (not a repro comparison):
-  1c responsive-diff --ref <captureBundleDir> [--sizes mobile,tablet,desktop] [--out <file>] [--json]
+  1c responsive-diff --ref <captureBundleDir> [--sizes mobile,tablet,desktop] [--classify] [--out <file>] [--json]
     Line up the persisted ladder's per-width manifests into an N-way per-node table — one row per node,
     one column per size — so a font step, a reflow, or a component that departs on mobile reads left-to-right.
+    --classify labels each changed node value-step / presence-flip / layout-swap (the reproduction move).
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -442,7 +452,12 @@ export async function run(argv: string[]): Promise<void> {
         sizes,
         out: typeof flags.out === 'string' ? flags.out : undefined,
       })
-      if (flags.json === true) {
+      // REQ-61 Phase 2 — `--classify` labels each changed node value-step /
+      // presence-flip / layout-swap; without it, print the raw N-way table.
+      if (flags.classify === true) {
+        const classified = classifyResponsiveTable(table)
+        console.log(flags.json === true ? JSON.stringify(classified, null, 2) : formatClassifiedTable(classified))
+      } else if (flags.json === true) {
         console.log(JSON.stringify(table, null, 2))
       } else {
         console.log(formatResponsiveTable(table))

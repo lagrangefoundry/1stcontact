@@ -8,7 +8,7 @@ export interface ParsedArgs {
   flags: Record<string, string | boolean>
 }
 
-const BOOLEAN_FLAGS = new Set(['sandbox', 'force', 'json', 'tolerant', 'compare-years', 'multi-viewport'])
+const BOOLEAN_FLAGS = new Set(['sandbox', 'force', 'json', 'tolerant', 'compare-years', 'multi-viewport', 'classify'])
 const ALIASES: Record<string, string> = { m: 'message' }
 
 export function parseArgs(argv: string[]): ParsedArgs {
