@@ -275,6 +275,33 @@ export function responsiveStepVars(
 }
 
 /**
+ * REQ-61 — the per-breakpoint sibling of {@link resolveContainerWidth} for the
+ * `contentWidth` dial (max-width cap). Unlike {@link responsiveStepVars}, a value
+ * can mean "no cap" (`bleed`/absent → null), so this returns both the `--fc-content-width`
+ * (+ `-<bp>`) declarations AND whether a base cap exists — the module gates its
+ * `has-content-width` class on `hasCap`. A per-breakpoint cap requires a base cap
+ * (the gating class, and thus every override rule, hangs off it); a `bleed`/absent
+ * override emits no var, so that breakpoint falls through the chain to the base.
+ */
+export function responsiveContainerWidthVars(
+  value: ResponsiveValue<string | number> | undefined | null,
+): { decls: string; hasCap: boolean } {
+  if (!isResponsiveValue(value)) {
+    const css = resolveContainerWidth(value ?? undefined)
+    return { decls: css ? `--fc-content-width: ${css}` : '', hasCap: css !== null }
+  }
+  const baseCss = resolveContainerWidth(value.base)
+  const parts: string[] = []
+  if (baseCss) parts.push(`--fc-content-width: ${baseCss}`)
+  for (const bp of BREAKPOINTS) {
+    if (value[bp] === undefined) continue
+    const css = resolveContainerWidth(value[bp])
+    if (css) parts.push(`--fc-content-width-${bp}: ${css}`)
+  }
+  return { decls: parts.join('; '), hasCap: baseCss !== null }
+}
+
+/**
  * Hero legibility scrim (REQ-32) — an opacity step of a dark neutral tint
  * painted over the background image so overlaid text stays legible. `none`
  * (default) paints nothing; `light`/`medium`/`strong`/`heavy` step up the opacity.

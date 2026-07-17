@@ -2,7 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveContainerWidth, resolveStep, responsiveStepVars, SPACING_STEPS } from '../dials'
+import { responsiveContainerWidthVars, resolveStep, responsiveStepVars, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface ServiceItem {
@@ -67,7 +67,7 @@ const headingCase = dials.headingCase ?? 'normal'
 const iconFont = dials.iconFont ?? 'default'
 // Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
 // to a max-width length applied via `--fc-content-width`, or null (fills frame).
-const contentWidthCss = resolveContainerWidth(dials.contentWidth)
+const { decls: contentWidthDecls, hasCap: hasContentWidth } = responsiveContainerWidthVars(dials.contentWidth)
 // Card icon layout (REQ-36).
 const iconLayout = dials.iconLayout ?? 'top'
 // Constrained-column alignment (REQ-36).
@@ -115,10 +115,10 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `case-${headingCase}`,
     `icon-font-${iconFont}`,
     `icon-layout-${iconLayout}`,
-    { 'has-content-width': contentWidthCss !== null },
+    { 'has-content-width': hasContentWidth },
     `content-align-${contentAlign}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, padTopVars, padBottomVars, gapVars].filter(Boolean).join('; ')}
+  style={[contentWidthDecls, padTopVars, padBottomVars, gapVars].filter(Boolean).join('; ')}
 >
   <div class="services-grid__inner">
     {heading?.text && <h2 class="services-grid__heading" style={headingStyle}>{heading.text}</h2>}
@@ -209,6 +209,11 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   /* Constrained content column (REQ-45 capability, REQ-55 mechanism): caps the
      content children to `--fc-content-width` (a named-step token or a literal). */
   .services-grid.has-content-width .services-grid__inner > * { max-width: var(--fc-content-width); width: 100%; }
+  /* REQ-61 — per-breakpoint content-width cap override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .services-grid.has-content-width .services-grid__inner > * { max-width: var(--fc-content-width-sm, var(--fc-content-width)); } }
+  @media (min-width: 768px) { .services-grid.has-content-width .services-grid__inner > * { max-width: var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))); } }
+  @media (min-width: 1024px) { .services-grid.has-content-width .services-grid__inner > * { max-width: var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width)))); } }
+  @media (min-width: 1280px) { .services-grid.has-content-width .services-grid__inner > * { max-width: var(--fc-content-width-xl, var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))))); } }
   .services-grid.content-align-center .services-grid__inner { align-items: center; }
   .services-grid.content-align-center .services-grid__inner > * { margin-inline: auto; }
 

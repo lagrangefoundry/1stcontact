@@ -1,7 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveContainerWidth, resolveStep, responsiveStepVars, SPACING_STEPS, CTA_RADIUS_STEPS, PANEL_CORNER_STEPS } from '../dials'
+import { responsiveContainerWidthVars, resolveStep, responsiveStepVars, SPACING_STEPS, CTA_RADIUS_STEPS, PANEL_CORNER_STEPS } from '../dials'
 import { responsivePropertyRules } from '../breakpoints'
 import { resolveTextStyle, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
 
@@ -28,7 +28,7 @@ const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEP
 const textAlign = dials.textAlign ?? 'left'
 // Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
 // to a max-width length applied via `--fc-content-width`, or null (fills frame).
-const contentWidthCss = resolveContainerWidth(dials.contentWidth)
+const { decls: contentWidthDecls, hasCap: hasContentWidth } = responsiveContainerWidthVars(dials.contentWidth)
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
 // Heading text-alignment (REQ-36), independent of the block/body align.
@@ -66,11 +66,11 @@ const ctaStyle = resolveTextStyle(cta)
     `align-${align}`,
     `surface-${surface}`,
     `text-align-${textAlign}`,
-    { 'has-content-width': contentWidthCss !== null },
+    { 'has-content-width': hasContentWidth },
     `panel-${panel}`,
     `list-marker-${listMarker}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, padTopVars, padBottomVars, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthDecls, padTopVars, padBottomVars, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`].filter(Boolean).join('; ')}
 >
   <div class="text-block__inner" style={[panelGradientCss, panelPadVars].filter(Boolean).join('; ') || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
@@ -131,6 +131,11 @@ const ctaStyle = resolveTextStyle(cta)
   @media (min-width: 1280px) { .text-block.panel-secondary .text-block__inner, .text-block.panel-accent .text-block__inner, .text-block.panel-gradient .text-block__inner { padding: var(--fc-panel-pad-xl, var(--fc-panel-pad-lg, var(--fc-panel-pad-md, var(--fc-panel-pad-sm, var(--fc-panel-pad))))) var(--space-8); } }
   /* Contained panel: the constrained width caps the panel (inner) itself (REQ-55). */
   .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width); }
+  /* REQ-61 — per-breakpoint content-width cap override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width-sm, var(--fc-content-width)); } }
+  @media (min-width: 768px) { .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))); } }
+  @media (min-width: 1024px) { .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width)))); } }
+  @media (min-width: 1280px) { .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width-xl, var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))))); } }
   .text-block.panel-subtle .text-block__inner { background: var(--color-surface-subtle); }
   .text-block.panel-inverse .text-block__inner { background: var(--color-surface-inverse); color: var(--color-bg); }
   .text-block.panel-secondary .text-block__inner { background: var(--color-secondary); color: var(--color-bg); }
@@ -152,6 +157,11 @@ const ctaStyle = resolveTextStyle(cta)
   /* Constrained content column (REQ-45 capability, REQ-55 mechanism): caps the
      content children to `--fc-content-width` (a named-step token or a literal). */
   .text-block.has-content-width .text-block__inner > * { max-width: var(--fc-content-width); width: 100%; }
+  /* REQ-61 — per-breakpoint content-width cap override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .text-block.has-content-width .text-block__inner > * { max-width: var(--fc-content-width-sm, var(--fc-content-width)); } }
+  @media (min-width: 768px) { .text-block.has-content-width .text-block__inner > * { max-width: var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))); } }
+  @media (min-width: 1024px) { .text-block.has-content-width .text-block__inner > * { max-width: var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width)))); } }
+  @media (min-width: 1280px) { .text-block.has-content-width .text-block__inner > * { max-width: var(--fc-content-width-xl, var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))))); } }
 
   /* REQ-50 — base slot styling supplies the defaults an omitting run inherits;
      any axis the styled run sets overrides via inline `style`. */

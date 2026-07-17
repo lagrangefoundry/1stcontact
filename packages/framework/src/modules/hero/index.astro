@@ -2,7 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { assertSafeUrl } from '../safety'
 import { positionVars } from '../layer'
-import { resolveContainerWidth, resolveStep, responsiveStepVars, SPACING_STEPS, CTA_RADIUS_STEPS } from '../dials'
+import { responsiveContainerWidthVars, resolveStep, responsiveStepVars, SPACING_STEPS, CTA_RADIUS_STEPS } from '../dials'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -48,7 +48,7 @@ const offsetTopVars = responsiveStepVars('offset-top', dials.contentOffsetTop, O
 // Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
 // to a max-width length applied via the `--fc-content-width` custom property, or
 // null (`bleed`/absent → fills the frame).
-const contentWidthCss = resolveContainerWidth(dials.contentWidth)
+const { decls: contentWidthDecls, hasCap: hasContentWidth } = responsiveContainerWidthVars(dials.contentWidth)
 // Content horizontal inset / gutter (REQ-49 cap 5).
 const INSET_STEPS = { sm: 'var(--space-4)', md: 'var(--space-6)', lg: 'var(--space-8)' }
 const insetVars = responsiveStepVars('inset', dials.contentInset, INSET_STEPS, 'sm')
@@ -99,11 +99,11 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     `height-${height}`,
     `scrim-${scrim}`,
     `anchor-${contentAnchor}`,
-    { 'has-content-width': contentWidthCss !== null },
+    { 'has-content-width': hasContentWidth },
     `content-column-${contentColumn}`,
     `scrim-gradient-${scrimGradient}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, padTopVars, padBottomVars, offsetTopVars, insetVars, `--fc-cta-radius: ${ctaRadiusCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthDecls, padTopVars, padBottomVars, offsetTopVars, insetVars, `--fc-cta-radius: ${ctaRadiusCss}`].filter(Boolean).join('; ')}
 >
   {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
@@ -291,6 +291,11 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
      the measure to `--fc-content-width` (a named-step token or a literal), set as
      an inline custom property; `bleed`/absent leaves the column uncapped. */
   .hero.has-content-width .hero__subhead { max-width: var(--fc-content-width); }
+  /* REQ-61 — per-breakpoint content-width cap override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .hero.has-content-width .hero__subhead { max-width: var(--fc-content-width-sm, var(--fc-content-width)); } }
+  @media (min-width: 768px) { .hero.has-content-width .hero__subhead { max-width: var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))); } }
+  @media (min-width: 1024px) { .hero.has-content-width .hero__subhead { max-width: var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width)))); } }
+  @media (min-width: 1280px) { .hero.has-content-width .hero__subhead { max-width: var(--fc-content-width-xl, var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))))); } }
 
   .hero__cta {
     display: inline-block;
