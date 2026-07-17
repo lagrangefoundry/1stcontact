@@ -1,7 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveTextStyle, type TextRun } from '../text-style'
+import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface FormField {
   name: string
@@ -39,6 +39,12 @@ const submitTreatment = dials.submitTreatment ?? 'primary'
 // `placeholder` moves the label into the input placeholder + hides the label.
 const fieldLabels = dials.fieldLabels ?? 'above'
 const placeholderLabels = fieldLabels === 'placeholder'
+// Submit-button fill colour (REQ-58) — an absolute #hex OR a palette role,
+// overriding the `submitTreatment` default. The absolute-or-overlay escape hatch.
+const submitColorCss = dials.submitColor ? resolveColor(dials.submitColor) : null
+// Inline submit (REQ-58) — a single-field capture form lays the field + button on
+// one row (`bg-white/… flex` subscribe strip), instead of stacking the button below.
+const submitInline = dials.submitInline === 'true'
 
 const { heading, action } = content
 const fields = content.fields ?? []
@@ -75,7 +81,7 @@ const submitStyle = resolveTextStyle(content.submitLabel)
     {heading?.text && <h2 class="contact-form__heading" style={headingStyle}>{heading.text}</h2>}
     {subheadHtml && <div class="contact-form__subhead" style={subheadStyle} set:html={subheadHtml} />}
 
-    <form class="contact-form__form" data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
+    <form class:list={['contact-form__form', { 'submit-inline': submitInline }]} data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
       {fields.map((field) => (
         <div class="contact-form__field">
           <label for={`cf-${field.name}`} class:list={[{ 'visually-hidden': placeholderLabels }]}>{field.label}</label>
@@ -97,7 +103,7 @@ const submitStyle = resolveTextStyle(content.submitLabel)
       <div data-turnstile-target></div>
 
       <p class="contact-form__error" data-contact-error hidden></p>
-      <button class:list={['contact-form__submit', `submit-${submitTreatment}`]} type="submit" style={submitStyle}>{submitLabelText}</button>
+      <button class:list={['contact-form__submit', `submit-${submitTreatment}`]} type="submit" style={[submitStyle, submitColorCss && `background: ${submitColorCss}`].filter(Boolean).join('; ') || undefined}>{submitLabelText}</button>
     </form>
 
     {captionHtml && <div class="contact-form__caption" style={captionStyle} set:html={captionHtml} />}
@@ -167,6 +173,11 @@ const submitStyle = resolveTextStyle(content.submitLabel)
 
   .contact-form__form { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
   .contact-form.align-center .contact-form__form { text-align: left; }
+  /* Inline submit (REQ-58) — a single-field capture strip: field grows, button
+     sits beside it on one row (the reference subscribe form). */
+  .contact-form__form.submit-inline { flex-direction: row; align-items: flex-start; gap: var(--space-2); }
+  .contact-form__form.submit-inline .contact-form__field { flex: 1; }
+  .contact-form__form.submit-inline .contact-form__submit { align-self: stretch; margin: 0; white-space: nowrap; }
   .contact-form__field { display: flex; flex-direction: column; gap: var(--space-2); }
   .contact-form__field label { font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
   /* Placeholder-label mode (REQ-58) — the <label> stays in the a11y tree but is

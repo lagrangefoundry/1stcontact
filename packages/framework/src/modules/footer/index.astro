@@ -2,6 +2,7 @@
 import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
 import { navHref } from '../nav'
 import { assertSafeUrl } from '../safety'
+import { resolveColor } from '../text-style'
 import { BUILD_YEAR } from '../../buildInfo'
 
 interface Props {
@@ -11,6 +12,9 @@ interface Props {
     logo?: AssetRef | string
     tagline?: string
     copyrightHolder: string
+    /** Verbatim copyright line (REQ-58) — an absolute value overriding the
+     *  generated `© {year} {holder}` when a site's format/year differs. */
+    copyright?: string
     links?: NavEntry[]
     /** Social links (REQ-36) — rendered as bordered icon circles. Each `icon` is
      *  a glyph in the site's declared brand icon font (Font Awesome brands). */
@@ -25,6 +29,9 @@ const spacingBottom = dials.spacingBottom ?? 'lg'
 // Content layout: `center` stacks centred (default); `spread` justifies the
 // copyright and links to opposite ends of one row.
 const layout = dials.layout ?? 'center'
+// Footer link colour (REQ-58) — an absolute #hex OR a palette role; `null` keeps
+// the inherited surface text colour.
+const linkColorCss = dials.linkColor ? resolveColor(dials.linkColor) : null
 
 const { tagline, copyrightHolder } = content
 const links = content.links ?? []
@@ -63,12 +70,12 @@ const year = BUILD_YEAR
     )}
 
     {links.length > 0 && (
-      <nav class="footer__links" aria-label="Footer">
+      <nav class="footer__links" aria-label="Footer" style={linkColorCss ? `--fc-link: ${linkColorCss}` : undefined}>
         {links.map((entry) => <a href={navHref(entry.target)}>{entry.label}</a>)}
       </nav>
     )}
 
-    <p class="footer__copyright">© {year} {copyrightHolder}</p>
+    <p class="footer__copyright">{content.copyright ?? `© ${year} ${copyrightHolder}`}</p>
   </div>
 </footer>
 
@@ -125,7 +132,7 @@ const year = BUILD_YEAR
   .footer__logo span { font-weight: var(--font-weight-bold); }
   .footer__tagline { margin: 0; color: inherit; opacity: 0.85; }
   .footer__links { display: flex; flex-wrap: wrap; gap: var(--space-4); justify-content: center; }
-  .footer__links a { color: inherit; text-decoration: none; font-size: var(--font-size-sm); }
+  .footer__links a { color: var(--fc-link, inherit); text-decoration: none; font-size: var(--font-size-sm); }
   .footer__copyright { margin: 0; font-size: var(--font-size-sm); opacity: 0.7; }
 
   /* Social icon circles (REQ-36) — thin bordered rings with a brand glyph, the

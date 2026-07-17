@@ -440,6 +440,8 @@
     "width": "half",
     "align": "left",
     "submitTreatment": "primary",
+    "submitColor": "#009966",
+    "submitInline": "true",
     "fieldLabels": "placeholder"
    },
    "content": {
@@ -489,6 +491,7 @@
     "width": "half",
     "align": "left",
     "submitTreatment": "neutral",
+    "submitColor": "#0f172b",
     "fieldLabels": "placeholder"
    },
    "content": {
@@ -540,10 +543,12 @@
     "surface": "inverse",
     "layout": "spread",
     "spacingTop": "xl",
-    "spacingBottom": "xl"
+    "spacingBottom": "xl",
+    "linkColor": "#90a1b9"
    },
    "content": {
     "copyrightHolder": "Gigabyte Alchemy",
+    "copyright": "© Gigabyte Alchemy 2025",
     "links": [
      {
       "label": "LinkedIn",

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
+import Footer from '../packages/framework/src/modules/footer/index.astro'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { getModuleCss } from '../packages/framework/src/modules/styles'
@@ -103,6 +104,39 @@ describe('REQ-58 T6 — services-grid translucent card veil', () => {
     const css = getModuleCss()
     expect(css).toMatch(/card-border-none[^}]*border-width: ?0/)
     expect(css).toMatch(/card-border-none[^}]*has-accent[^}]*border-left-width/)
+  })
+})
+
+// ── gap-fix escape hatches: submit colour/inline, footer copyright/link colour ──
+
+describe('REQ-58 — submit colour + inline, footer copyright + link colour', () => {
+  const formContent = { action: 'https://x.com/s', fields: [{ name: 'email', label: 'Your email', type: 'email', required: true }] }
+
+  it('test_UAT_FC_REQ-58_contactform_submit_colour_and_inline', async () => {
+    // submitColor is an absolute-or-overlay button fill; submitInline lays the
+    // single field + button on one row (the reference subscribe strip).
+    const html = await render(ContactForm, {
+      dials: { submitColor: '#009966', submitInline: 'true' },
+      content: formContent,
+    })
+    expect(html).toContain('background: #009966') // absolute button fill
+    expect(html).toContain('submit-inline') // field + button on one row
+  })
+
+  it('test_UAT_FC_REQ-58_footer_copyright_verbatim_and_link_colour', async () => {
+    // A verbatim copyright (absolute value) overrides the generated line; linkColor
+    // is an absolute #hex OR role routed through resolveColor to --fc-link.
+    const html = await render(Footer, {
+      dials: { linkColor: '#90a1b9' },
+      content: {
+        copyrightHolder: 'Gigabyte Alchemy',
+        copyright: '© Gigabyte Alchemy 2025',
+        links: [{ label: 'GitHub', target: '#' }],
+      },
+    })
+    expect(html).toContain('© Gigabyte Alchemy 2025')
+    expect(html).not.toMatch(/©\s*20\d\d\s+Gigabyte/) // not the generated year-first form
+    expect(html).toContain('--fc-link: #90a1b9')
   })
 })
 
