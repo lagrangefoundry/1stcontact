@@ -40,14 +40,17 @@ const height = dials.height ?? 'auto'
 const scrim = dials.scrim ?? 'none'
 const contentAnchor = dials.contentAnchor ?? 'center'
 // Fixed top inset for content within a `fold` band (REQ-49).
-const contentOffsetTop = dials.contentOffsetTop ?? 'none'
+// Content offset / inset (REQ-58 absolute-or-overlay) — named step OR absolute px.
+const OFFSET_STEPS = { none: '0', sm: 'var(--space-16)', md: 'var(--space-32)', lg: 'var(--space-48)', xl: 'var(--space-80)' }
+const offsetTopCss = resolveStep(dials.contentOffsetTop, OFFSET_STEPS, 'none')
 // Subhead/body content-column width (REQ-49).
 // Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
 // to a max-width length applied via the `--fc-content-width` custom property, or
 // null (`bleed`/absent → fills the frame).
 const contentWidthCss = resolveContainerWidth(dials.contentWidth)
 // Content horizontal inset / gutter (REQ-49 cap 5).
-const contentInset = dials.contentInset ?? 'sm'
+const INSET_STEPS = { sm: 'var(--space-4)', md: 'var(--space-6)', lg: 'var(--space-8)' }
+const insetCss = resolveStep(dials.contentInset, INSET_STEPS, 'sm')
 
 const { eyebrow, heading, subhead, cta, portrait } = content
 // Foreground portrait (REQ-36) — an optional attribution/testimonial avatar
@@ -95,13 +98,11 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     `height-${height}`,
     `scrim-${scrim}`,
     `anchor-${contentAnchor}`,
-    `content-offset-top-${contentOffsetTop}`,
     { 'has-content-width': contentWidthCss !== null },
-    `content-inset-${contentInset}`,
     `content-column-${contentColumn}`,
     `scrim-gradient-${scrimGradient}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-offset-top: ${offsetTopCss}`, `--fc-inset: ${insetCss}`].filter(Boolean).join('; ')}
 >
   {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
@@ -143,7 +144,7 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
   }
   /* As a flex item the inner would shrink to its content; `width: 100%` keeps it
      spanning the container so the content stays left-aligned with bands below. */
-  .hero.height-fold .hero__inner { width: 100%; }
+  .hero.height-fold .hero__inner { width: 100%; margin-top: var(--fc-offset-top); }
 
   /* Content anchor (REQ-32): where the content sits within a `fold` band. */
   .hero.height-fold.anchor-top { justify-content: flex-start; }
@@ -151,10 +152,6 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
 
   /* Fixed top inset for a `fold` hero's content (REQ-49): a token-backed distance
      from the band top, independent of the flex anchor. */
-  .hero.height-fold.content-offset-top-sm .hero__inner { margin-top: var(--space-16); }
-  .hero.height-fold.content-offset-top-md .hero__inner { margin-top: var(--space-32); }
-  .hero.height-fold.content-offset-top-lg .hero__inner { margin-top: var(--space-48); }
-  .hero.height-fold.content-offset-top-xl .hero__inner { margin-top: var(--space-80); }
 
 
   .hero__bg {
@@ -207,15 +204,13 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     z-index: 1;
     max-width: var(--container-6xl);
     margin-inline: auto;
-    padding-inline: var(--space-4);
+    padding-inline: var(--fc-inset);
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
   }
   /* Content horizontal inset / gutter (REQ-49 cap 5): the `padding-inline` as a
      token step, so the front-door left edge can align to a reference's gutter. */
-  .hero.content-inset-md .hero__inner { padding-inline: var(--space-6); }
-  .hero.content-inset-lg .hero__inner { padding-inline: var(--space-8); }
   .hero.align-center .hero__inner { align-items: center; text-align: center; }
   /* Content-column placement (REQ-36): `left` drops the auto start-margin so the
      capped column hugs the band's left gutter. */

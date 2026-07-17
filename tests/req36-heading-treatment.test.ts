@@ -509,8 +509,8 @@ describe('REQ-36 header finish — image-logo size + logo card', () => {
 
   it('test_UAT_FC_REQ-36_logoSize_scales_an_image_logo', async () => {
     const html = await render(Header, { variant: 'overlay', dials: { logoSize: 'lg' }, content })
-    expect(html).toContain('logo-size-lg')
-    expect(headerCss).toMatch(/\.header__logo\.logo-size-lg img\s*\{[^}]*height:\s*var\(--space-12\)/)
+    expect(html).toContain('--fc-logo: var(--space-12)')
+    expect(headerCss).toMatch(/\.header__logo img\s*\{[^}]*height:\s*var\(--fc-logo/)
   })
 
   it('test_UAT_FC_REQ-36_logoCard_sets_a_shadowed_plate', async () => {
@@ -527,7 +527,7 @@ describe('REQ-36 header finish — image-logo size + logo card', () => {
 
   it('test_UAT_FC_REQ-36_header_logo_defaults_unchanged', async () => {
     const html = await render(Header, { variant: 'overlay', content })
-    expect(html).toContain('logo-size-md')
+    expect(html).toContain('--fc-logo: var(--space-8)')
     expect(html).toContain('logo-card-none')
   })
 })
@@ -627,9 +627,13 @@ describe('REQ-36 extended spacing + gap scale — airy sections', () => {
   })
 
   it('test_UAT_FC_REQ-36_grid_gap_airy_widens_the_row_gap', async () => {
-    const html = await render(ServicesGrid, { variant: 'three-col', dials: { gap: 'airy' }, content: { items: [{ title: { text: 'X' }, body: 'b' }, { title: { text: 'Y' }, body: 'b' }] } })
-    expect(html).toContain('gap-airy')
-    expect(gridCss).toMatch(/\.services-grid\.gap-airy\s+\.services-grid__cards\s*\{[^}]*gap:\s*var\(--space-16\)/)
+    // REQ-58: gap resolves (step OR absolute px) to an inline --fc-gap var.
+    const items = [{ title: { text: 'X' }, body: 'b' }, { title: { text: 'Y' }, body: 'b' }]
+    const airy = await render(ServicesGrid, { variant: 'three-col', dials: { gap: 'airy' }, content: { items } })
+    expect(airy).toContain('--fc-gap: var(--space-16)') // airy step → token
+    expect(gridCss).toMatch(/\.services-grid__cards\s*\{[^}]*gap:\s*var\(--fc-gap\)/)
+    const abs = await render(ServicesGrid, { variant: 'three-col', dials: { gap: '40px' }, content: { items } })
+    expect(abs).toContain('--fc-gap: 40px') // absolute value → verbatim
   })
 })
 
@@ -767,13 +771,13 @@ describe('REQ-36 text-block panel padding depth', () => {
 
   it('test_UAT_FC_REQ-36_panel_pad_xl_deepens_the_panel', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary', panelPad: 'xl' }, content })
-    expect(html).toContain('panel-pad-xl')
-    expect(textBlockCss).toMatch(/\.text-block\.panel-pad-xl\s+\.text-block__inner\s*\{[^}]*padding-block:\s*var\(--space-24\)/)
+    expect(html).toContain('--fc-panel-pad: var(--space-24)')
+    expect(textBlockCss).toMatch(/\.text-block__inner\s*\{[^}]*padding:\s*var\(--fc-panel-pad/)
   })
 
   it('test_UAT_FC_REQ-36_panel_pad_defaults_md', async () => {
     const html = await render(TextBlock, { variant: 'prose', dials: { panel: 'secondary' }, content })
-    expect(html).toContain('panel-pad-md')
+    expect(html).toContain('--fc-panel-pad: var(--space-12)')
   })
 })
 

@@ -41,7 +41,9 @@ const listMarker = dials.listMarker ?? 'bullet'
 // CTA corner shape (REQ-36).
 const ctaShape = dials.ctaShape ?? 'round'
 // Panel vertical padding + corner shape (REQ-36).
-const panelPad = dials.panelPad ?? 'md'
+// Panel padding (REQ-58 absolute-or-overlay) — named step OR absolute px.
+const PANEL_PAD_STEPS = { md: 'var(--space-12)', lg: 'var(--space-16)', xl: 'var(--space-24)' }
+const panelPadCss = resolveStep(dials.panelPad, PANEL_PAD_STEPS, 'md')
 const panelCorner = dials.panelCorner ?? 'rounded'
 const { heading, cta } = content
 const bodyHtml = await renderMarkdown(content.body)
@@ -64,12 +66,11 @@ const ctaStyle = resolveTextStyle(cta)
     { 'has-content-width': contentWidthCss !== null },
     `panel-${panel}`,
     `panel-corner-${panelCorner}`,
-    `panel-pad-${panelPad}`,
     `list-marker-${listMarker}`,
   ]}
   style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
 >
-  <div class="text-block__inner" style={panelGradientCss || undefined}>
+  <div class="text-block__inner" style={[panelGradientCss, `--fc-panel-pad: ${panelPadCss}`].filter(Boolean).join('; ') || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
     <div class="text-block__body" style={bodyStyle} set:html={bodyHtml} />
     {cta?.label && cta.href && <a class:list={['text-block__cta', `cta-${ctaShape}`]} style={ctaStyle} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
@@ -109,12 +110,10 @@ const ctaStyle = resolveTextStyle(cta)
   .text-block.panel-secondary .text-block__inner,
   .text-block.panel-accent .text-block__inner,
   .text-block.panel-gradient .text-block__inner {
-    padding: var(--space-12) var(--space-8);
+    padding: var(--fc-panel-pad, var(--space-12)) var(--space-8);
     border-radius: var(--radius-lg);
   }
   .text-block.panel-corner-square .text-block__inner { border-radius: 0; }
-  .text-block.panel-pad-lg .text-block__inner { padding-block: var(--space-16); }
-  .text-block.panel-pad-xl .text-block__inner { padding-block: var(--space-24); }
   /* Contained panel: the constrained width caps the panel (inner) itself (REQ-55). */
   .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width); }
   .text-block.panel-subtle .text-block__inner { background: var(--color-surface-subtle); }

@@ -72,7 +72,7 @@ describe('REQ-49 capability 1 — hero subhead/body content-column width', () =>
       content: { heading: { text: 'Intentional Software' }, subhead: { text: 'Body copy.' } },
     })
     expect(html).toContain('has-content-width')
-    expect(html).toContain('style="--fc-content-width: var(--container-7xl)"')
+    expect(html).toContain('--fc-content-width: var(--container-7xl)')
   })
 
   it('test_UAT_FC_REQ-49_hero_content_width_defaults_to_full_frame', async () => {
@@ -97,7 +97,7 @@ describe('REQ-49 capability 2 — fixed-top content offset for a `fold` hero', (
         image: { src: '/hero.jpg', alt: 'hero' },
       },
     })
-    expect(html).toContain('content-offset-top-xl')
+    expect(html).toContain('--fc-offset-top: var(--space-80)')
   })
 
   it('test_UAT_FC_REQ-49_hero_content_offset_defaults_to_none', async () => {
@@ -106,8 +106,8 @@ describe('REQ-49 capability 2 — fixed-top content offset for a `fold` hero', (
       dials: { height: 'fold' },
       content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
-    expect(html).toContain('content-offset-top-none')
-    expect(html).not.toContain('content-offset-top-xl')
+    expect(html).toContain('--fc-offset-top: 0')
+    expect(html).not.toContain('var(--space-80)')
   })
 })
 
@@ -166,7 +166,7 @@ describe('REQ-49 capability 5 — hero content horizontal inset', () => {
       dials: { contentInset: 'md' },
       content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
-    expect(html).toContain('content-inset-md')
+    expect(html).toContain('--fc-inset: var(--space-6)')
   })
 
   it('test_UAT_FC_REQ-49_hero_content_inset_defaults_to_sm', async () => {
@@ -175,8 +175,8 @@ describe('REQ-49 capability 5 — hero content horizontal inset', () => {
       content: { heading: { text: 'Acme' }, subhead: { text: 'Body copy.' } },
     })
     // Default `sm` = the prior 16px padding-inline; never a widened gutter.
-    expect(html).toContain('content-inset-sm')
-    expect(html).not.toContain('content-inset-md')
+    expect(html).toContain('--fc-inset: var(--space-4)')
+    expect(html).not.toContain('--fc-inset: var(--space-6)')
   })
 })
 
@@ -188,7 +188,7 @@ describe('REQ-49 residual 1 — 768px content-width (Tailwind `3xl`, REQ-55)', (
       content: { heading: { text: 'Intentional Software' }, subhead: { text: 'Body copy.' } },
     })
     expect(html).toContain('has-content-width')
-    expect(html).toContain('style="--fc-content-width: var(--container-3xl)"')
+    expect(html).toContain('--fc-content-width: var(--container-3xl)')
   })
 })
 

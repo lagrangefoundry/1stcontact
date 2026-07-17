@@ -51,7 +51,9 @@ interface Props {
 
 const { variant = 'three-col', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
-const gap = dials.gap ?? 'normal'
+// Card gap (REQ-58 absolute-or-overlay) — named step OR absolute px.
+const GAP_STEPS = { tight: 'var(--space-3)', normal: 'var(--space-6)', loose: 'var(--space-8)', airy: 'var(--space-16)' }
+const gapCss = resolveStep(dials.gap, GAP_STEPS, 'normal')
 // Grid-wide card chrome (REQ-36 / CAP-1).
 const cardSurface = dials.cardSurface ?? 'default'
 // Frosted card veil (REQ-58) — `none` keeps the solid surface; a percentage
@@ -113,11 +115,10 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     `case-${headingCase}`,
     `icon-font-${iconFont}`,
     `icon-layout-${iconLayout}`,
-    `gap-${gap}`,
     { 'has-content-width': contentWidthCss !== null },
     `content-align-${contentAlign}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-gap: ${gapCss}`].filter(Boolean).join('; ')}
 >
   <div class="services-grid__inner">
     {heading?.text && <h2 class="services-grid__heading" style={headingStyle}>{heading.text}</h2>}
@@ -222,16 +223,13 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
   .services-grid__subhead { color: var(--color-muted); max-width: 60ch; }
 
   .services-grid__cards {
+    gap: var(--fc-gap);
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
     grid-template-columns: 1fr;
   }
-  .services-grid.gap-tight .services-grid__cards { gap: var(--space-3); }
-  .services-grid.gap-normal .services-grid__cards { gap: var(--space-6); }
-  .services-grid.gap-loose .services-grid__cards { gap: var(--space-8); }
-  .services-grid.gap-airy .services-grid__cards { gap: var(--space-16); }
 
   /* Mobile-first: single column by default, multi-column from md up. */
   @media (min-width: 768px) {

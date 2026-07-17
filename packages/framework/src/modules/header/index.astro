@@ -26,7 +26,9 @@ const padBottomCss = resolveStep(dials.spacingBottom, HEADER_SPACING_STEPS, 'md'
 // Horizontal placement of the header content (REQ-29).
 const align = dials.align ?? 'left'
 // Image-logo height (REQ-36).
-const logoSize = dials.logoSize ?? 'md'
+// Logo size (REQ-58 absolute-or-overlay) — named step OR absolute px.
+const LOGO_STEPS = { sm: 'var(--space-6)', md: 'var(--space-8)', lg: 'var(--space-12)', xl: 'var(--space-16)' }
+const logoSizeCss = resolveStep(dials.logoSize, LOGO_STEPS, 'md')
 // Logo backdrop (REQ-36) — `card`/`shadow`/`frame`; `none` (default) bare.
 const logoCard = dials.logoCard ?? 'none'
 const entries = content.entries ?? []
@@ -69,7 +71,7 @@ const wordmarkPosStyle = wordmark?.position
   )}
   <div class="header__inner">
     {!wordmarkPositioned && (
-      <a class:list={['header__logo', `logo-size-${logoSize}`, `logo-card-${logoCard}`]} href="/">
+      <a class:list={['header__logo', `logo-card-${logoCard}`]} href="/" style={`--fc-logo: ${logoSizeCss}`}>
         {logo ? (
           <img src={assertSafeUrl(logo.src, 'header logo src')} alt={logo.alt} />
         ) : (
@@ -138,11 +140,8 @@ const wordmarkPosStyle = wordmark?.position
     z-index: var(--fc-z, 3);
     transform: rotate(var(--fc-rotate, 0deg));
   }
-  .header__logo img { display: block; height: var(--space-8); width: auto; }
+  .header__logo img { display: block; height: var(--fc-logo, var(--space-8)); width: auto; }
   /* Image-logo height responds to `logoSize` (REQ-36). */
-  .header__logo.logo-size-sm img { height: var(--space-6); }
-  .header__logo.logo-size-lg img { height: var(--space-12); }
-  .header__logo.logo-size-xl img { height: var(--space-16); }
   /* Logo card backdrop (REQ-36) — a padded, rounded, shadowed plate. */
   .header__logo.logo-card-card {
     background: var(--color-bg);
