@@ -2,7 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { assertSafeUrl } from '../safety'
 import { positionVars } from '../layer'
-import { resolveContainerWidth, resolveStep, SPACING_STEPS, CTA_RADIUS_STEPS } from '../dials'
+import { resolveContainerWidth, resolveStep, responsiveStepVars, SPACING_STEPS, CTA_RADIUS_STEPS } from '../dials'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -22,8 +22,8 @@ const { variant = 'bg-color', dials = {}, content } = Astro.props as Props
 const align = dials.align ?? 'left'
 const surface = dials.surface ?? 'default'
 // Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
-const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
-const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
+const padTopVars = responsiveStepVars('pt', dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEPS, 'lg')
 // Heading letter-case (REQ-36) — `upper` uppercases at render; DOM text literal.
 const headingCase = dials.headingCase ?? 'normal'
 // CTA corner shape (REQ-36) — `round` (default) pill; `square`/`soft` variants.
@@ -43,7 +43,7 @@ const contentAnchor = dials.contentAnchor ?? 'center'
 // Fixed top inset for content within a `fold` band (REQ-49).
 // Content offset / inset (REQ-58 absolute-or-overlay) — named step OR absolute px.
 const OFFSET_STEPS = { none: '0', sm: 'var(--space-16)', md: 'var(--space-32)', lg: 'var(--space-48)', xl: 'var(--space-80)' }
-const offsetTopCss = resolveStep(dials.contentOffsetTop, OFFSET_STEPS, 'none')
+const offsetTopVars = responsiveStepVars('offset-top', dials.contentOffsetTop, OFFSET_STEPS, 'none')
 // Subhead/body content-column width (REQ-49).
 // Constrained content column (REQ-45 capability, REQ-55 scale + literal). Resolves
 // to a max-width length applied via the `--fc-content-width` custom property, or
@@ -51,7 +51,7 @@ const offsetTopCss = resolveStep(dials.contentOffsetTop, OFFSET_STEPS, 'none')
 const contentWidthCss = resolveContainerWidth(dials.contentWidth)
 // Content horizontal inset / gutter (REQ-49 cap 5).
 const INSET_STEPS = { sm: 'var(--space-4)', md: 'var(--space-6)', lg: 'var(--space-8)' }
-const insetCss = resolveStep(dials.contentInset, INSET_STEPS, 'sm')
+const insetVars = responsiveStepVars('inset', dials.contentInset, INSET_STEPS, 'sm')
 
 const { eyebrow, heading, subhead, cta, portrait } = content
 // Foreground portrait (REQ-36) — an optional attribution/testimonial avatar
@@ -103,7 +103,7 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     `content-column-${contentColumn}`,
     `scrim-gradient-${scrimGradient}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-offset-top: ${offsetTopCss}`, `--fc-inset: ${insetCss}`, `--fc-cta-radius: ${ctaRadiusCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, padTopVars, padBottomVars, offsetTopVars, insetVars, `--fc-cta-radius: ${ctaRadiusCss}`].filter(Boolean).join('; ')}
 >
   {bgImage && <img class="hero__bg" src={assertSafeUrl(bgImage.src, 'hero image src')} alt={bgImage.alt} />}
   {bgImage && scrim !== 'none' && <div class="hero__scrim" aria-hidden="true"></div>}
@@ -130,6 +130,11 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
 
 <style>
   .hero { position: relative; background: var(--color-bg); color: var(--color-text); overflow: hidden; padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
+  /* REQ-61 — per-breakpoint spacing override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .hero { padding-top: var(--fc-pt-sm, var(--fc-pt)); padding-bottom: var(--fc-pb-sm, var(--fc-pb)); } }
+  @media (min-width: 768px) { .hero { padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))); padding-bottom: var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))); } }
+  @media (min-width: 1024px) { .hero { padding-top: var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))); padding-bottom: var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))); } }
+  @media (min-width: 1280px) { .hero { padding-top: var(--fc-pt-xl, var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))))); padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))))); } }
   .hero.surface-subtle { background: var(--color-surface-subtle); }
   .hero.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .hero.surface-accent { background: var(--color-accent); color: var(--color-bg); }
@@ -146,6 +151,11 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
   /* As a flex item the inner would shrink to its content; `width: 100%` keeps it
      spanning the container so the content stays left-aligned with bands below. */
   .hero.height-fold .hero__inner { width: 100%; margin-top: var(--fc-offset-top); }
+  /* REQ-61 — per-breakpoint content-offset override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .hero.height-fold .hero__inner { margin-top: var(--fc-offset-top-sm, var(--fc-offset-top)); } }
+  @media (min-width: 768px) { .hero.height-fold .hero__inner { margin-top: var(--fc-offset-top-md, var(--fc-offset-top-sm, var(--fc-offset-top))); } }
+  @media (min-width: 1024px) { .hero.height-fold .hero__inner { margin-top: var(--fc-offset-top-lg, var(--fc-offset-top-md, var(--fc-offset-top-sm, var(--fc-offset-top)))); } }
+  @media (min-width: 1280px) { .hero.height-fold .hero__inner { margin-top: var(--fc-offset-top-xl, var(--fc-offset-top-lg, var(--fc-offset-top-md, var(--fc-offset-top-sm, var(--fc-offset-top))))); } }
 
   /* Content anchor (REQ-32): where the content sits within a `fold` band. */
   .hero.height-fold.anchor-top { justify-content: flex-start; }
@@ -210,6 +220,11 @@ const anyPositioned = [eyebrow, heading, subhead, cta].some((r) => r?.position)
     flex-direction: column;
     gap: var(--space-4);
   }
+  /* REQ-61 — per-breakpoint content-inset (gutter) override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .hero__inner { padding-inline: var(--fc-inset-sm, var(--fc-inset)); } }
+  @media (min-width: 768px) { .hero__inner { padding-inline: var(--fc-inset-md, var(--fc-inset-sm, var(--fc-inset))); } }
+  @media (min-width: 1024px) { .hero__inner { padding-inline: var(--fc-inset-lg, var(--fc-inset-md, var(--fc-inset-sm, var(--fc-inset)))); } }
+  @media (min-width: 1280px) { .hero__inner { padding-inline: var(--fc-inset-xl, var(--fc-inset-lg, var(--fc-inset-md, var(--fc-inset-sm, var(--fc-inset))))); } }
   /* Content horizontal inset / gutter (REQ-49 cap 5): the `padding-inline` as a
      token step, so the front-door left edge can align to a reference's gutter. */
   .hero.align-center .hero__inner { align-items: center; text-align: center; }

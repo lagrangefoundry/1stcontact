@@ -3,7 +3,7 @@ import type { AssetRef, NavEntry } from '@1stcontact/site-schema'
 import { navHref } from '../nav'
 import { assertSafeUrl } from '../safety'
 import { positionVars } from '../layer'
-import { resolveStep } from '../dials'
+import { resolveStep, responsiveStepVars } from '../dials'
 import { resolveTextStyle, type TextRun } from '../text-style'
 
 interface Props {
@@ -21,14 +21,14 @@ const { variant = 'top-nav', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 // Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
 const HEADER_SPACING_STEPS = { none: 'var(--space-0)', sm: 'var(--space-2)', md: 'var(--space-4)', lg: 'var(--space-8)', xl: 'var(--space-16)', '2xl': 'var(--space-24)', '3xl': 'var(--space-32)' }
-const padTopCss = resolveStep(dials.spacingTop, HEADER_SPACING_STEPS, 'md')
-const padBottomCss = resolveStep(dials.spacingBottom, HEADER_SPACING_STEPS, 'md')
+const padTopVars = responsiveStepVars('pt', dials.spacingTop, HEADER_SPACING_STEPS, 'md')
+const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, HEADER_SPACING_STEPS, 'md')
 // Horizontal placement of the header content (REQ-29).
 const align = dials.align ?? 'left'
 // Image-logo height (REQ-36).
 // Logo size (REQ-58 absolute-or-overlay) — named step OR absolute px.
 const LOGO_STEPS = { sm: 'var(--space-6)', md: 'var(--space-8)', lg: 'var(--space-12)', xl: 'var(--space-16)' }
-const logoSizeCss = resolveStep(dials.logoSize, LOGO_STEPS, 'md')
+const logoSizeVars = responsiveStepVars('logo', dials.logoSize, LOGO_STEPS, 'md')
 // Logo backdrop (REQ-36) — `card`/`shadow`/`frame`; `none` (default) bare.
 const logoCard = dials.logoCard ?? 'none'
 const entries = content.entries ?? []
@@ -62,7 +62,7 @@ const wordmarkPosStyle = wordmark?.position
     `surface-${surface}`,
     `align-${align}`,
   ]}
-  style={`--fc-pt: ${padTopCss}; --fc-pb: ${padBottomCss}`}
+  style={[padTopVars, padBottomVars].join('; ')}
 >
   {wordmarkPositioned && wordmark?.text && (
     <a class="header__logo header__logo--positioned" href="/" style={wordmarkPosStyle}>
@@ -71,7 +71,7 @@ const wordmarkPosStyle = wordmark?.position
   )}
   <div class="header__inner">
     {!wordmarkPositioned && (
-      <a class:list={['header__logo', `logo-card-${logoCard}`]} href="/" style={`--fc-logo: ${logoSizeCss}`}>
+      <a class:list={['header__logo', `logo-card-${logoCard}`]} href="/" style={logoSizeVars}>
         {logo ? (
           <img src={assertSafeUrl(logo.src, 'header logo src')} alt={logo.alt} />
         ) : (
@@ -106,6 +106,11 @@ const wordmarkPosStyle = wordmark?.position
     padding-top: var(--space-4);
     padding-bottom: var(--space-4);
   padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
+  /* REQ-61 — per-breakpoint spacing override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .header { padding-top: var(--fc-pt-sm, var(--fc-pt)); padding-bottom: var(--fc-pb-sm, var(--fc-pb)); } }
+  @media (min-width: 768px) { .header { padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))); padding-bottom: var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))); } }
+  @media (min-width: 1024px) { .header { padding-top: var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))); padding-bottom: var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))); } }
+  @media (min-width: 1280px) { .header { padding-top: var(--fc-pt-xl, var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))))); padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))))); } }
   .header.surface-subtle { background: var(--color-surface-subtle); }
   .header.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .header.surface-accent { background: var(--color-accent); color: var(--color-bg); }
@@ -141,6 +146,11 @@ const wordmarkPosStyle = wordmark?.position
     transform: rotate(var(--fc-rotate, 0deg));
   }
   .header__logo img { display: block; height: var(--fc-logo, var(--space-8)); width: auto; }
+  /* REQ-61 — per-breakpoint logo-height override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .header__logo img { height: var(--fc-logo-sm, var(--fc-logo)); } }
+  @media (min-width: 768px) { .header__logo img { height: var(--fc-logo-md, var(--fc-logo-sm, var(--fc-logo))); } }
+  @media (min-width: 1024px) { .header__logo img { height: var(--fc-logo-lg, var(--fc-logo-md, var(--fc-logo-sm, var(--fc-logo)))); } }
+  @media (min-width: 1280px) { .header__logo img { height: var(--fc-logo-xl, var(--fc-logo-lg, var(--fc-logo-md, var(--fc-logo-sm, var(--fc-logo))))); } }
   /* Image-logo height responds to `logoSize` (REQ-36). */
   /* Logo card backdrop (REQ-36) — a padded, rounded, shadowed plate. */
   .header__logo.logo-card-card {

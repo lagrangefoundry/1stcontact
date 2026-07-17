@@ -1,7 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveStep, SPACING_STEPS } from '../dials'
+import { resolveStep, responsiveStepVars, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface FormField {
@@ -31,8 +31,8 @@ const { dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 const align = dials.align ?? 'left'
 // Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
-const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
-const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
+const padTopVars = responsiveStepVars('pt', dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEPS, 'lg')
 // `half` flexes the band into a shared two-column row (grouped by the pipeline).
 const width = dials.width ?? 'full'
 // Submit-button *fill* treatment (REQ-33): `primary` (brand) or dark `neutral`.
@@ -76,7 +76,7 @@ const submitStyle = resolveTextStyle(content.submitLabel)
     `align-${align}`,
     `width-${width}`,
   ]}
-  style={`--fc-pt: ${padTopCss}; --fc-pb: ${padBottomCss}`}
+  style={[padTopVars, padBottomVars].join('; ')}
 >
   <div class="contact-form__inner" data-contact-form-root>
     {heading?.text && <h2 class="contact-form__heading" style={headingStyle}>{heading.text}</h2>}
@@ -122,6 +122,11 @@ const submitStyle = resolveTextStyle(content.submitLabel)
 <style>
   /* Vertical spacing → inline --fc-pt/--fc-pb (step token OR absolute px). */
   .contact-form { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
+  /* REQ-61 — per-breakpoint spacing override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .contact-form { padding-top: var(--fc-pt-sm, var(--fc-pt)); padding-bottom: var(--fc-pb-sm, var(--fc-pb)); } }
+  @media (min-width: 768px) { .contact-form { padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))); padding-bottom: var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))); } }
+  @media (min-width: 1024px) { .contact-form { padding-top: var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))); padding-bottom: var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))); } }
+  @media (min-width: 1280px) { .contact-form { padding-top: var(--fc-pt-xl, var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))))); padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))))); } }
   .contact-form.surface-subtle { background: var(--color-surface-subtle); }
   .contact-form.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .contact-form.surface-accent { background: var(--color-accent); color: var(--color-bg); }

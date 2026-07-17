@@ -2,7 +2,7 @@
 import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveContainerWidth, resolveStep, SPACING_STEPS } from '../dials'
+import { resolveContainerWidth, resolveStep, responsiveStepVars, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface ServiceItem {
@@ -53,7 +53,7 @@ const { variant = 'three-col', dials = {}, content } = Astro.props as Props
 const surface = dials.surface ?? 'default'
 // Card gap (REQ-58 absolute-or-overlay) — named step OR absolute px.
 const GAP_STEPS = { tight: 'var(--space-3)', normal: 'var(--space-6)', loose: 'var(--space-8)', airy: 'var(--space-16)' }
-const gapCss = resolveStep(dials.gap, GAP_STEPS, 'normal')
+const gapVars = responsiveStepVars('gap', dials.gap, GAP_STEPS, 'normal')
 // Grid-wide card chrome (REQ-36 / CAP-1).
 const cardSurface = dials.cardSurface ?? 'default'
 // Frosted card veil (REQ-58) — `none` keeps the solid surface; a percentage
@@ -73,8 +73,8 @@ const iconLayout = dials.iconLayout ?? 'top'
 // Constrained-column alignment (REQ-36).
 const contentAlign = dials.contentAlign ?? 'left'
 // Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
-const padTopCss = resolveStep(dials.spacingTop, SPACING_STEPS, 'lg')
-const padBottomCss = resolveStep(dials.spacingBottom, SPACING_STEPS, 'lg')
+const padTopVars = responsiveStepVars('pt', dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEPS, 'lg')
 
 const { heading } = content
 const sectionCta = content.cta
@@ -118,7 +118,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     { 'has-content-width': contentWidthCss !== null },
     `content-align-${contentAlign}`,
   ]}
-  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, `--fc-pt: ${padTopCss}`, `--fc-pb: ${padBottomCss}`, `--fc-gap: ${gapCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, padTopVars, padBottomVars, gapVars].filter(Boolean).join('; ')}
 >
   <div class="services-grid__inner">
     {heading?.text && <h2 class="services-grid__heading" style={headingStyle}>{heading.text}</h2>}
@@ -188,6 +188,11 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
 <style>
   /* Vertical spacing → inline `--fc-pt`/`--fc-pb` (step token OR absolute px). */
   .services-grid { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
+  /* REQ-61 — per-breakpoint spacing override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .services-grid { padding-top: var(--fc-pt-sm, var(--fc-pt)); padding-bottom: var(--fc-pb-sm, var(--fc-pb)); } }
+  @media (min-width: 768px) { .services-grid { padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))); padding-bottom: var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))); } }
+  @media (min-width: 1024px) { .services-grid { padding-top: var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))); padding-bottom: var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))); } }
+  @media (min-width: 1280px) { .services-grid { padding-top: var(--fc-pt-xl, var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))))); padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))))); } }
   .services-grid.surface-subtle { background: var(--color-surface-subtle); }
   .services-grid.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
   .services-grid.surface-accent { background: var(--color-accent); color: var(--color-bg); }
@@ -230,6 +235,11 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     display: grid;
     grid-template-columns: 1fr;
   }
+  /* REQ-61 — per-breakpoint card gap override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .services-grid__cards { gap: var(--fc-gap-sm, var(--fc-gap)); } }
+  @media (min-width: 768px) { .services-grid__cards { gap: var(--fc-gap-md, var(--fc-gap-sm, var(--fc-gap))); } }
+  @media (min-width: 1024px) { .services-grid__cards { gap: var(--fc-gap-lg, var(--fc-gap-md, var(--fc-gap-sm, var(--fc-gap)))); } }
+  @media (min-width: 1280px) { .services-grid__cards { gap: var(--fc-gap-xl, var(--fc-gap-lg, var(--fc-gap-md, var(--fc-gap-sm, var(--fc-gap))))); } }
 
   /* Mobile-first: single column by default, multi-column from md up. */
   @media (min-width: 768px) {

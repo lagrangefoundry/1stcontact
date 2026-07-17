@@ -46,7 +46,7 @@ const ctaRadiusCss = resolveStep(dials.ctaShape, CTA_RADIUS_STEPS, 'round')
 // Panel vertical padding + corner shape (REQ-36).
 // Panel padding (REQ-58 absolute-or-overlay) — named step OR absolute px.
 const PANEL_PAD_STEPS = { md: 'var(--space-12)', lg: 'var(--space-16)', xl: 'var(--space-24)' }
-const panelPadCss = resolveStep(dials.panelPad, PANEL_PAD_STEPS, 'md')
+const panelPadVars = responsiveStepVars('panel-pad', dials.panelPad, PANEL_PAD_STEPS, 'md')
 const panelRadiusCss = resolveStep(dials.panelCorner, PANEL_CORNER_STEPS, 'rounded')
 const { heading, cta } = content
 const bodyHtml = await renderMarkdown(content.body)
@@ -72,7 +72,7 @@ const ctaStyle = resolveTextStyle(cta)
   ]}
   style={[contentWidthCss && `--fc-content-width: ${contentWidthCss}`, padTopVars, padBottomVars, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`].filter(Boolean).join('; ')}
 >
-  <div class="text-block__inner" style={[panelGradientCss, `--fc-panel-pad: ${panelPadCss}`].filter(Boolean).join('; ') || undefined}>
+  <div class="text-block__inner" style={[panelGradientCss, panelPadVars].filter(Boolean).join('; ') || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}
     <div class="text-block__body" style={bodyStyle} set:html={bodyHtml} />
     {cta?.label && cta.href && <a class:list={['text-block__cta']} style={ctaStyle} href={assertSafeUrl(cta.href, 'text-block cta href')}>{cta.label}</a>}
@@ -124,6 +124,11 @@ const ctaStyle = resolveTextStyle(cta)
     padding: var(--fc-panel-pad, var(--space-12)) var(--space-8);
     border-radius: var(--fc-panel-radius, var(--radius-lg));
   }
+  /* REQ-61 — per-breakpoint panel-pad override chain (see ./breakpoints). */
+  @media (min-width: 640px) { .text-block.panel-secondary .text-block__inner, .text-block.panel-accent .text-block__inner, .text-block.panel-gradient .text-block__inner { padding: var(--fc-panel-pad-sm, var(--fc-panel-pad)) var(--space-8); } }
+  @media (min-width: 768px) { .text-block.panel-secondary .text-block__inner, .text-block.panel-accent .text-block__inner, .text-block.panel-gradient .text-block__inner { padding: var(--fc-panel-pad-md, var(--fc-panel-pad-sm, var(--fc-panel-pad))) var(--space-8); } }
+  @media (min-width: 1024px) { .text-block.panel-secondary .text-block__inner, .text-block.panel-accent .text-block__inner, .text-block.panel-gradient .text-block__inner { padding: var(--fc-panel-pad-lg, var(--fc-panel-pad-md, var(--fc-panel-pad-sm, var(--fc-panel-pad)))) var(--space-8); } }
+  @media (min-width: 1280px) { .text-block.panel-secondary .text-block__inner, .text-block.panel-accent .text-block__inner, .text-block.panel-gradient .text-block__inner { padding: var(--fc-panel-pad-xl, var(--fc-panel-pad-lg, var(--fc-panel-pad-md, var(--fc-panel-pad-sm, var(--fc-panel-pad))))) var(--space-8); } }
   /* Contained panel: the constrained width caps the panel (inner) itself (REQ-55). */
   .text-block:not(.panel-none).has-content-width .text-block__inner { max-width: var(--fc-content-width); }
   .text-block.panel-subtle .text-block__inner { background: var(--color-surface-subtle); }
