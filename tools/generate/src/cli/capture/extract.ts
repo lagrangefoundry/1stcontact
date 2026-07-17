@@ -20,12 +20,25 @@ export interface RawGeometry {
   box: { x: number; y: number; width: number; height: number }
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx: number
-  /** Uniform box-border width in px (0 when none painted). */
+  /** Uniform box-border width in px (0 when none painted) — the thickest painted side. */
   borderWidthPx?: number
   /** Box-border colour `#rrggbb` when a border is painted, else null. */
   borderColor?: string | null
+  /** REQ-63 — box-border line style (`solid`/`dashed`/`dotted`/…) of the painted side, else null. */
+  borderStyle?: string | null
   /** Raw computed `box-shadow` when a shadow is painted, else null. */
   boxShadow: string | null
+  /** REQ-63 — computed `backdrop-filter` when painted (frosted-glass blur behind the element), else null. */
+  backdropFilter: string | null
+  /** REQ-63 — computed `mix-blend-mode` when non-`normal` (multiply/screen/overlay), else null. */
+  blendMode: string | null
+  /** REQ-63 — computed element `opacity` in 0..1 (1 when fully opaque); a partial value ghosts the element. */
+  opacity: number
+  /** REQ-63 — painted `outline` (focus ring / offset outline) as a `w px style #color`
+   *  string, distinct from the box border; null when none. Compared as presence. */
+  outline: string | null
+  /** REQ-63 — `::before`/`::after` injected content presence (`before`/`after`/`both`), else null. */
+  pseudo: 'before' | 'after' | 'both' | null
   /** ARIA role — the browser's framework-agnostic semantic label for this element. */
   a11yRole: string
   /**
@@ -63,6 +76,17 @@ export interface RawRun extends RawGeometry {
   fontLoaded?: boolean
   fontSizePx: number
   fontWeight: number
+  // ── REQ-63 typography treatment axes (raw computed; `null` when the no-op default) ──
+  /** `font-style` when italic/oblique, else null. */
+  fontStyle: string | null
+  /** `text-decoration-line` when underline/line-through/overline, else null. */
+  textDecoration: string | null
+  /** `text-transform` when uppercase/lowercase/capitalize, else null. */
+  textTransform: string | null
+  /** `font-variant`/`font-variant-caps` when small-caps and kin, else null. */
+  fontVariant: string | null
+  /** `list-style-type` when a marker is painted (disc/decimal/…), else null. */
+  listMarker: string | null
   // ── REQ-31 per-element value fields (raw; normalized in sections.ts) ───────
   lineHeightPx: number | null
   letterSpacingPx: number
@@ -104,6 +128,8 @@ export interface RawField extends RawGeometry {
   nameSource: 'placeholder' | 'label' | 'aria' | 'text' | 'alt' | null
   /** REQ-48 (item 4) — computed `object-fit` for a media element (`img`), else null. */
   objectFit?: string | null
+  /** REQ-63 — computed `object-position` for a media element (`img`) — how it crops within its box, else null. */
+  objectPosition?: string | null
   /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
   intrinsicAspect?: number | null
 }
@@ -328,19 +354,67 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     return { width: 0, color: null };
   }
-  // REQ-58 (blind spot) — the element's own uniform BOX border (all four sides),
-  // read off the top edge as representative. Distinct from accentBarOf (an
-  // asymmetric left-only accent bar): a form field's outline / a card's hairline
-  // are box borders whose colour + width were never captured, so a darker input
-  // outline or a wrong card border was invisible to the gate.
+  // REQ-58 / REQ-63 — the element's own painted BOX border. Distinct from
+  // accentBarOf (an asymmetric left-only accent bar): a form field's outline / a
+  // card's hairline are box borders whose colour + width + style were never fully
+  // captured. REQ-63 walks all four sides and reports the THICKEST painted one
+  // (with its line style), so a bottom-only rule or a single-side border — not
+  // just the top edge — becomes a comparable value.
   function boxBorderOf(s) {
-    var w = Math.round(parseFloat(s.borderTopWidth)) || 0;
-    var st = s.borderTopStyle;
-    if (w > 0 && st && st !== 'none') {
-      var c = rgbToHex(s.borderTopColor);
-      if (c) return { width: w, color: c };
+    var sides = ['Top', 'Right', 'Bottom', 'Left'];
+    var best = null;
+    for (var i = 0; i < sides.length; i++) {
+      var w = Math.round(parseFloat(s['border' + sides[i] + 'Width'])) || 0;
+      var st = s['border' + sides[i] + 'Style'];
+      if (w > 0 && st && st !== 'none' && (!best || w > best.width)) {
+        var c = rgbToHex(s['border' + sides[i] + 'Color']);
+        if (c) best = { width: w, color: c, style: st };
+      }
     }
-    return { width: 0, color: null };
+    return best || { width: 0, color: null, style: null };
+  }
+  // REQ-63 — a painted outline (focus ring / offset outline), read like the box
+  // border but from the outline-* longhands. Distinct from the box border: an
+  // outline sits outside the box and is a common focus/hairline treatment whose
+  // presence + colour + style were never captured.
+  function outlineOf(s) {
+    var w = Math.round(parseFloat(s.outlineWidth)) || 0;
+    var st = s.outlineStyle;
+    if (w > 0 && st && st !== 'none') {
+      return w + 'px ' + st + ' ' + (rgbToHex(s.outlineColor) || '');
+    }
+    return null;
+  }
+  // REQ-63 — element opacity in 0..1 (1 = fully opaque). A partial value ghosts
+  // the element (faded text / dimmed panel) — a rendered fact no colour or box
+  // field holds. NaN (never expected) folds to opaque.
+  function opacityOf(s) {
+    var o = parseFloat(s.opacity);
+    return isNaN(o) ? 1 : Math.round(o * 100) / 100;
+  }
+  // REQ-63 — is a CSS-generated ::before / ::after actually painting content? A
+  // reset's empty content and the none/normal defaults are not painted; any
+  // other value (an icon glyph, a "→", an image) is. Presence is what the eye
+  // reads — the injected mark exists or it doesn't.
+  function pseudoContentPainted(el, sel) {
+    try {
+      var c = getComputedStyle(el, sel).content;
+      if (!c || c === 'none' || c === 'normal') return false;
+      var unq = c.replace(/^['"]|['"]$/g, '');
+      return unq.trim() !== '';
+    } catch (e) { return false; }
+  }
+  function pseudoOf(el) {
+    var b = pseudoContentPainted(el, '::before');
+    var a = pseudoContentPainted(el, '::after');
+    return b && a ? 'both' : b ? 'before' : a ? 'after' : null;
+  }
+  // REQ-63 — a painted list marker (disc / decimal / …), else null. none (the
+  // common reset) is not painted; any other type paints a bullet/number the eye
+  // reads but no text run captures (the marker is not a text node).
+  function listMarkerOf(s) {
+    var t = s.listStyleType;
+    return t && t !== 'none' ? t : null;
   }
   // REQ-58 (item 3b) — the card / panel fill behind a text run: the nearest
   // ancestor painting a non-transparent background (the card surface), distinct
@@ -400,6 +474,14 @@ export const EXTRACT_SCRIPT = `(() => {
   // no-op default. Normalises the several spellings of "nothing" to one null.
   function paintedOrNull(v) {
     return (v && v !== 'none' && v !== 'normal') ? v : null;
+  }
+  // REQ-63 — the painted text-decoration LINE (underline / line-through /
+  // overline), stripped of the shorthand's style/colour, or null when none. The
+  // computed longhand is preferred; the shorthand's first token is the fallback
+  // (jsdom populates only the shorthand).
+  function textDecorationOf(s) {
+    var line = ('' + (s.textDecorationLine || s.textDecoration || '')).split(' ')[0];
+    return (line && line !== 'none') ? line : null;
   }
   // REQ-48 (item 3) -- the element's masked/clipped edge (feather halo or shaped
   // clip). Either mechanism collapses to one field; presence is what the eye reads.
@@ -604,6 +686,9 @@ export const EXTRACT_SCRIPT = `(() => {
       // painted), rgbToHex returns null and we fall back to a sentinel — flag it
       // low-confidence so the values-diff won't hold a re-render to a guess.
       var resolvedColor = rgbToHex(s.color);
+      // REQ-63 — the run's own painted box border (was fields-only). A card /
+      // heading hairline or bottom rule is now a comparable value on text runs.
+      var runBorder = boxBorderOf(s);
       out.push({
         role: roleOf(el),
         text: text,
@@ -613,6 +698,12 @@ export const EXTRACT_SCRIPT = `(() => {
         fontLoaded: fontLoadedOf(s, primaryFamily(s.fontFamily)),
         fontSizePx: Math.round(parseFloat(s.fontSize)),
         fontWeight: parseInt(s.fontWeight, 10) || 400,
+        // REQ-63 typography treatment axes (null when the no-op default).
+        fontStyle: paintedOrNull(s.fontStyle),
+        textDecoration: textDecorationOf(s),
+        textTransform: paintedOrNull(s.textTransform),
+        fontVariant: paintedOrNull(s.fontVariantCaps || s.fontVariant),
+        listMarker: listMarkerOf(s),
         lineHeightPx: isNaN(lh) ? null : Math.round(lh),
         letterSpacingPx: (s.letterSpacing === 'normal') ? 0 : (Math.round(parseFloat(s.letterSpacing) * 100) / 100 || 0),
         gradientCss: gradientCss,
@@ -629,6 +720,10 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-58 (T1) — tight rendered-text bounds (glyph extent, padding-excluded).
         renderedTextBox: renderedTextBox(el),
         borderRadiusPx: borderRadiusOf(s),
+        // REQ-63 — box border on text runs (thickest painted side + style).
+        borderWidthPx: runBorder.width,
+        borderColor: runBorder.color,
+        borderStyle: runBorder.style,
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
         arrangement: null,
@@ -636,6 +731,12 @@ export const EXTRACT_SCRIPT = `(() => {
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s),
+        // REQ-63 — effects: frosted-glass, blend, opacity, outline, pseudo-content.
+        backdropFilter: paintedOrNull(s.backdropFilter || s.webkitBackdropFilter),
+        blendMode: paintedOrNull(s.mixBlendMode),
+        opacity: opacityOf(s),
+        outline: outlineOf(s),
+        pseudo: pseudoOf(el),
         transformRotateDeg: transformOf(s).rotate,
         transformScale: transformOf(s).scale,
         motion: motionOf(s),
@@ -672,6 +773,7 @@ export const EXTRACT_SCRIPT = `(() => {
         borderRadiusPx: borderRadiusOf(s),
         borderWidthPx: fieldBorder.width,
         borderColor: fieldBorder.color,
+        borderStyle: fieldBorder.style,
         boxShadow: boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
         arrangement: null,
@@ -679,10 +781,18 @@ export const EXTRACT_SCRIPT = `(() => {
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s),
+        // REQ-63 — effects: frosted-glass, blend, opacity, outline, pseudo-content.
+        backdropFilter: paintedOrNull(s.backdropFilter || s.webkitBackdropFilter),
+        blendMode: paintedOrNull(s.mixBlendMode),
+        opacity: opacityOf(s),
+        outline: outlineOf(s),
+        pseudo: pseudoOf(el),
         transformRotateDeg: transformOf(s).rotate,
         transformScale: transformOf(s).scale,
         motion: motionOf(s),
         objectFit: isImg ? (s.objectFit || 'fill') : null,
+        // REQ-63 — how the image crops within its box (default '50% 50%').
+        objectPosition: isImg ? (s.objectPosition || '50% 50%') : null,
         intrinsicAspect: intrinsicAspect,
         accessibleName: an.name,
         nameSource: an.source,

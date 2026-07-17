@@ -85,6 +85,21 @@ function toContentRun(r: RawRun): ContentRun {
   if (r.lineHeightPx !== null) run.lineHeightPx = r.lineHeightPx
   if (r.colorInferred) run.colorInferred = true
   if (r.fontLoaded === false) run.fontLoaded = false
+  // REQ-63 — typography treatment axes + list marker (null when the no-op default).
+  run.fontStyle = r.fontStyle
+  run.textDecoration = r.textDecoration
+  run.textTransform = r.textTransform
+  run.fontVariant = r.fontVariant
+  run.listMarker = r.listMarker
+  // REQ-63 — box border on the run (thickest painted side + style), effects.
+  run.borderWidthPx = r.borderWidthPx
+  run.borderColor = r.borderColor
+  run.borderStyle = r.borderStyle
+  run.backdropFilter = r.backdropFilter
+  run.blendMode = r.blendMode
+  run.opacity = r.opacity
+  run.outline = r.outline
+  run.pseudo = r.pseudo
   // REQ-47 — rendered geometry / shape / structure (always captured live).
   run.box = r.box
   // REQ-58 (T1) — tight rendered-text bounds (null when unmeasurable).
@@ -119,6 +134,13 @@ function toField(f: RawField): Field {
     borderRadiusPx: f.borderRadiusPx,
     borderWidthPx: f.borderWidthPx,
     borderColor: f.borderColor,
+    // REQ-63 — box-border style + effects (frosted-glass, blend, opacity, outline, pseudo).
+    borderStyle: f.borderStyle,
+    backdropFilter: f.backdropFilter,
+    blendMode: f.blendMode,
+    opacity: f.opacity,
+    outline: f.outline,
+    pseudo: f.pseudo,
     boxShadow: f.boxShadow,
     arrangement: f.arrangement,
     zIndex: f.zIndex,
@@ -129,6 +151,8 @@ function toField(f: RawField): Field {
     transformScale: f.transformScale,
     motion: f.motion,
     objectFit: f.objectFit,
+    // REQ-63 — how the image crops within its box.
+    objectPosition: f.objectPosition,
     intrinsicAspect: f.intrinsicAspect,
     accessibleName: f.accessibleName,
     nameSource: f.nameSource,

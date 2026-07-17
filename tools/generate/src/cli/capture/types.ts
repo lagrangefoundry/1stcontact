@@ -251,10 +251,17 @@ export interface TextGradient {
   stops: GradientStop[]
 }
 
-/** A left-edge accent bar (REQ-31): `border-l-4 border-emerald-400` and kin. */
+/**
+ * A painted border edge (REQ-31): a left-edge accent bar (`border-l-4
+ * border-emerald-400`), a box hairline, or an outline. `style` (REQ-63) is the
+ * line style (`solid`/`dashed`/`dotted`/…), optional so pre-REQ-63 bundles and
+ * the accent-bar path (which never captured a style) still parse.
+ */
 export interface BorderTreatment {
   widthPx: number
   color: string
+  /** REQ-63 — line style (`solid`/`dashed`/`dotted`/…); absent when not captured. */
+  style?: string
 }
 
 /** REQ-47 — how an element sits relative to the previous element in its section. */
@@ -275,12 +282,25 @@ export interface ElementGeometry {
   box?: Box
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx?: number
-  /** Uniform box-border width in px (0 when none painted). */
+  /** Uniform box-border width in px (0 when none painted) — the thickest painted side. */
   borderWidthPx?: number
   /** Box-border colour `#rrggbb` when a border is painted, else null. */
   borderColor?: string | null
+  /** REQ-63 — box-border line style (`solid`/`dashed`/`dotted`/…) of the painted side, else null. */
+  borderStyle?: string | null
   /** Computed `box-shadow` when a shadow is painted, else null. */
   boxShadow?: string | null
+  /** REQ-63 — computed `backdrop-filter` (frosted-glass blur behind the element) when painted, else null. */
+  backdropFilter?: string | null
+  /** REQ-63 — computed `mix-blend-mode` when non-`normal`, else null. */
+  blendMode?: string | null
+  /** REQ-63 — element `opacity` in 0..1 (1 when fully opaque); a partial value ghosts the element. */
+  opacity?: number
+  /** REQ-63 — painted `outline` (focus ring / offset outline) as a `w px style #color`
+   *  string, distinct from the box border; null when none. Compared as presence. */
+  outline?: string | null
+  /** REQ-63 — `::before`/`::after` injected content presence, else null. */
+  pseudo?: 'before' | 'after' | 'both' | null
   /** ARIA role — the browser's framework-agnostic semantic label. */
   a11yRole?: string
   /** Rendered arrangement relative to the previous element in the section. */
@@ -339,6 +359,8 @@ export interface Field extends ElementGeometry {
   nameSource: NameSource | null
   /** REQ-48 (item 4) — computed `object-fit` for a media element (`img`), else null. */
   objectFit?: string | null
+  /** REQ-63 — computed `object-position` for a media element (`img`), else null. */
+  objectPosition?: string | null
   /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
   intrinsicAspect?: number | null
 }
@@ -353,6 +375,17 @@ export interface ContentRun extends ElementGeometry {
   fontLoaded?: boolean
   fontSizePx: number
   fontWeight: number
+  // ── REQ-63 typography treatment axes (null when the no-op default) ────────
+  /** `font-style` when italic/oblique, else null. */
+  fontStyle?: string | null
+  /** `text-decoration-line` when underline/line-through/overline, else null. */
+  textDecoration?: string | null
+  /** `text-transform` when uppercase/lowercase/capitalize, else null. */
+  textTransform?: string | null
+  /** `font-variant`/`font-variant-caps` when small-caps and kin, else null. */
+  fontVariant?: string | null
+  /** `list-style-type` when a marker is painted (disc/decimal/…), else null. */
+  listMarker?: string | null
   // ── REQ-31 per-element value manifest fields ─────────────────────────────
   // Optional so pre-REQ-31 capture.json bundles still parse; the values-diff
   // only compares fields that are present on the expected side.

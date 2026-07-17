@@ -77,6 +77,31 @@ export interface ValueElement {
   colorInferred?: boolean
   /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
   fontLoaded?: boolean
+  // ── REQ-63 typography treatment axes (null / absent when the no-op default) ──
+  /** `font-style` when italic/oblique, else null. Compared exactly (presence + value). */
+  fontStyle?: string | null
+  /** `text-decoration-line` when underline/line-through/overline, else null. */
+  textDecoration?: string | null
+  /** `text-transform` when uppercase/lowercase/capitalize, else null. */
+  textTransform?: string | null
+  /** `font-variant`/`font-variant-caps` when small-caps and kin, else null. */
+  fontVariant?: string | null
+  /** `list-style-type` when a marker is painted (disc/decimal/…), else null. */
+  listMarker?: string | null
+  // ── REQ-63 effects (per element; compared as presence, like filter) ──────
+  /** REQ-63 — computed `backdrop-filter` (frosted-glass blur) when painted, else null. */
+  backdropFilter?: string | null
+  /** REQ-63 — computed `mix-blend-mode` when non-`normal`, else null. */
+  blendMode?: string | null
+  /** REQ-63 — element `opacity` in 0..1 (1 opaque); a partial value ghosts the element. */
+  opacity?: number
+  /** REQ-63 — painted `outline` (focus ring / offset outline) as a presence string,
+   *  distinct from `border`; null when none. Compared as presence, like `filter`. */
+  outline?: string | null
+  /** REQ-63 — `::before`/`::after` injected content presence, else null. */
+  pseudo?: 'before' | 'after' | 'both' | null
+  /** REQ-63 — computed `object-position` (image crop within its box), else null. */
+  objectPosition?: string | null
   // ── REQ-47 rendered geometry / shape / structure ─────────────────────────
   /** `getBoundingClientRect()` box in full-page document coords. */
   box?: Box
@@ -234,6 +259,19 @@ export type DeltaProperty =
   | 'contentAnchor'
   | 'fontWeight'
   | 'fontFamily'
+  // ── REQ-63 typography treatment axes ──────────────────────────────────────
+  | 'fontStyle'
+  | 'textDecoration'
+  | 'textTransform'
+  | 'fontVariant'
+  | 'listMarker'
+  // ── REQ-63 effects ────────────────────────────────────────────────────────
+  | 'backdropFilter'
+  | 'blendMode'
+  | 'opacity'
+  | 'outline'
+  | 'pseudo'
+  | 'objectPosition'
   | 'lineHeightPx'
   | 'letterSpacingPx'
   | 'paddingLeftPx'
@@ -293,6 +331,9 @@ export type DeltaKind =
   | 'borderLeft'
   | 'border'
   | 'gradient'
+  // ── REQ-63 — typography treatment (italic/underline/uppercase/small-caps) & list marker ──
+  | 'textTreatment'
+  | 'marker'
   | 'fontWeight'
   | 'color'
   | 'overlay'
@@ -300,6 +341,8 @@ export type DeltaKind =
   | 'lineHeight'
   | 'padding'
   | 'letterSpacing'
+  // ── REQ-63 — partial element opacity (tonal) ──────────────────────────────
+  | 'opacity'
 
 /** A single field-level disagreement between expected and actual. */
 export interface ValueDelta {
@@ -566,6 +609,7 @@ function copyGeometry(
     borderRadiusPx?: number
     borderWidthPx?: number
     borderColor?: string | null
+    borderStyle?: string | null
     boxShadow?: string | null
     a11yRole?: string
     arrangement?: Arrangement | null
@@ -573,6 +617,11 @@ function copyGeometry(
     filter?: string | null
     textShadow?: string | null
     maskEdge?: string | null
+    backdropFilter?: string | null
+    blendMode?: string | null
+    opacity?: number
+    outline?: string | null
+    pseudo?: 'before' | 'after' | 'both' | null
     transformRotateDeg?: number
     transformScale?: number
     motion?: 'animation' | 'transition' | 'both' | null
@@ -582,9 +631,13 @@ function copyGeometry(
   if (src.renderedTextBox != null) el.renderedTextBox = src.renderedTextBox
   if (src.borderRadiusPx !== undefined) el.borderRadiusPx = src.borderRadiusPx
   // Uniform box border → BorderTreatment (or null when unpainted). Present only
-  // once the capture records it (fields); pre-blind-spot manifests omit it.
+  // once the capture records it; pre-blind-spot manifests omit it. REQ-63 folds
+  // the captured line style (dashed/solid) into the treatment so it is comparable.
   if (src.borderWidthPx !== undefined) {
-    el.border = src.borderWidthPx > 0 && src.borderColor ? { widthPx: src.borderWidthPx, color: src.borderColor } : null
+    el.border =
+      src.borderWidthPx > 0 && src.borderColor
+        ? { widthPx: src.borderWidthPx, color: src.borderColor, ...(src.borderStyle ? { style: src.borderStyle } : {}) }
+        : null
   }
   if (src.boxShadow !== undefined) el.boxShadow = src.boxShadow
   if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
@@ -593,9 +646,38 @@ function copyGeometry(
   if (src.filter !== undefined) el.filter = src.filter
   if (src.textShadow !== undefined) el.textShadow = src.textShadow
   if (src.maskEdge !== undefined) el.maskEdge = src.maskEdge
+  // REQ-63 — effects (frosted-glass, blend, opacity, outline, pseudo-content).
+  if (src.backdropFilter !== undefined) el.backdropFilter = src.backdropFilter
+  if (src.blendMode !== undefined) el.blendMode = src.blendMode
+  if (src.opacity !== undefined) el.opacity = src.opacity
+  if (src.outline !== undefined) el.outline = src.outline
+  if (src.pseudo !== undefined) el.pseudo = src.pseudo
   if (src.transformRotateDeg !== undefined) el.transformRotateDeg = src.transformRotateDeg
   if (src.transformScale !== undefined) el.transformScale = src.transformScale
   if (src.motion !== undefined) el.motion = src.motion
+}
+
+/**
+ * REQ-63 — copy the typography treatment axes + list marker present on a run
+ * (shared by the bundle and raw projections; both carry identical field names).
+ * Each is set only when the capture recorded a painted value, so a pre-REQ-63
+ * bundle (fields absent) stays inert and never fabricates a delta.
+ */
+function copyTypography(
+  el: ValueElement,
+  run: {
+    fontStyle?: string | null
+    textDecoration?: string | null
+    textTransform?: string | null
+    fontVariant?: string | null
+    listMarker?: string | null
+  },
+): void {
+  if (run.fontStyle !== undefined) el.fontStyle = run.fontStyle
+  if (run.textDecoration !== undefined) el.textDecoration = run.textDecoration
+  if (run.textTransform !== undefined) el.textTransform = run.textTransform
+  if (run.fontVariant !== undefined) el.fontVariant = run.fontVariant
+  if (run.listMarker !== undefined) el.listMarker = run.listMarker
 }
 
 /** Project a {@link ContentRun} (from a capture bundle) to a {@link ValueElement}. */
@@ -617,6 +699,7 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.surfaceGradient !== undefined) el.surfaceGradient = run.surfaceGradient
   if (run.colorInferred) el.colorInferred = true
   if (run.fontLoaded === false) el.fontLoaded = false
+  copyTypography(el, run)
   copyGeometry(el, run)
   return el
 }
@@ -643,6 +726,7 @@ export function fieldToElement(field: Field): ValueElement {
   copyGeometry(el, field)
   el.a11yRole = field.a11yRole
   if (field.objectFit !== undefined) el.objectFit = field.objectFit
+  if (field.objectPosition !== undefined) el.objectPosition = field.objectPosition
   if (field.intrinsicAspect !== undefined) el.intrinsicAspect = field.intrinsicAspect
   return el
 }
@@ -670,6 +754,7 @@ export function rawRunToElement(run: RawRun): ValueElement {
   if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
   if (run.colorInferred) el.colorInferred = true
   if (run.fontLoaded === false) el.fontLoaded = false
+  copyTypography(el, run)
   copyGeometry(el, run)
   return el
 }
@@ -803,6 +888,10 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   borderLeft: 'MEDIUM',
   border: 'MEDIUM',
   gradient: 'MEDIUM',
+  // REQ-63 — a wrong italic/underline/uppercase/small-caps or list marker is a
+  // treatment defect, same tier as the other treatment axes.
+  textTreatment: 'MEDIUM',
+  marker: 'MEDIUM',
   fontWeight: 'MEDIUM',
   color: 'LOW',
   overlay: 'LOW',
@@ -810,6 +899,8 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   lineHeight: 'LOW',
   padding: 'LOW',
   letterSpacing: 'LOW',
+  // REQ-63 — a partial-opacity (ghosted) element is tonal, like colour.
+  opacity: 'LOW',
 }
 
 const TIER_RANK: Record<SeverityTier, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
@@ -848,6 +939,9 @@ const KIND_RANK: Record<DeltaKind, number> = {
   borderLeft: 3,
   border: 3,
   gradient: 2,
+  // REQ-63 — treatment-tier typography / marker axes (coarse tiebreak only).
+  textTreatment: 4,
+  marker: 3,
   fontWeight: 1,
   // LOW band
   color: 6,
@@ -856,6 +950,8 @@ const KIND_RANK: Record<DeltaKind, number> = {
   lineHeight: 3,
   padding: 2,
   letterSpacing: 1,
+  // REQ-63 — tonal opacity ranks alongside colour within LOW.
+  opacity: 4,
 }
 
 /**
@@ -946,6 +1042,21 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   contentAnchor: 'contentAnchor',
   fontWeight: 'fontWeight',
   fontFamily: 'fontFamily',
+  // REQ-63 — the four typography treatment axes share one treatment kind; the
+  // `property` still distinguishes them in the delta row.
+  fontStyle: 'textTreatment',
+  textDecoration: 'textTreatment',
+  textTransform: 'textTreatment',
+  fontVariant: 'textTreatment',
+  listMarker: 'marker',
+  // REQ-63 — effects. Frosted-glass / blend / pseudo are presence treatments;
+  // an outline is border-like; opacity is tonal; object-position is media.
+  backdropFilter: 'treatment',
+  blendMode: 'treatment',
+  pseudo: 'treatment',
+  outline: 'treatment',
+  opacity: 'opacity',
+  objectPosition: 'media',
   lineHeightPx: 'lineHeight',
   letterSpacingPx: 'letterSpacing',
   paddingLeftPx: 'padding',
@@ -1098,6 +1209,8 @@ export interface DiffOptions {
   renderedTextBoxToleranceRatio?: number
   /** REQ-47/REQ-53 — corner-radius tolerance in px (default 0 exact; `tolerant` 4). */
   borderRadiusTolerancePx?: number
+  /** REQ-63 — element opacity tolerance, 0–1 (default 0 exact; `tolerant` 0.02). */
+  opacityValueTolerance?: number
 }
 
 function gradientLabel(g: TextGradient | null | undefined): string {
@@ -1108,7 +1221,7 @@ function gradientLabel(g: TextGradient | null | undefined): string {
 }
 
 function borderLabel(b: BorderTreatment | null | undefined): string {
-  return b ? `${b.widthPx}px ${b.color}` : 'none'
+  return b ? `${b.widthPx}px ${b.style ? `${b.style} ` : ''}${b.color}` : 'none'
 }
 
 function overlayLabel(o: { color: string; opacity: number } | null): string {
@@ -1478,6 +1591,10 @@ export function diffManifests(
   // rendered size / tracking / weight-fallback gap (7% on a heading, 2% on a label).
   const renderedTextBoxTol = tol(opts.renderedTextBoxToleranceRatio, 0.012, 0.03)
   const radiusTol = tol(opts.borderRadiusTolerancePx, 0, 4)
+  // REQ-63 — element opacity is authored (Group A), so exact by default; a small
+  // rounding band under `tolerant`. A ghosted (partial-opacity) element vs a solid
+  // one exceeds it, while `0.5`↔`0.5` re-render rounding does not.
+  const opacityValueTol = tol(opts.opacityValueTolerance, 0, 0.02)
 
   // REQ-48 (item 9) — the calendar-year mask folds every 4-digit year in the
   // *join key* and the verbatim-text comparison, so a footer that differs only by
@@ -1615,9 +1732,17 @@ export function diffManifests(
     if (exp.border !== undefined && act.border !== undefined) {
       const e = exp.border
       const a = act.border ?? null
+      // REQ-63 — line style (dashed/dotted/solid) joins width + colour, but only
+      // when BOTH sides captured one (a pre-REQ-63 side omits it) so it never
+      // fabricates a delta against a bundle that never recorded the style.
+      const styleOk = !e || !a || !e.style || !a.style || e.style === a.style
       const ok =
         (!e && !a) ||
-        (!!e && !!a && Math.abs(e.widthPx - a.widthPx) <= borderWidthTol && colorDistance(e.color, a.color) <= colorTol)
+        (!!e &&
+          !!a &&
+          Math.abs(e.widthPx - a.widthPx) <= borderWidthTol &&
+          colorDistance(e.color, a.color) <= colorTol &&
+          styleOk)
       if (!ok) push(exp, 'border', borderLabel(e), borderLabel(a))
     }
     if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
@@ -1636,6 +1761,19 @@ export function diffManifests(
     compareTreatment(exp, act, 'filter', exp.filter, act.filter)
     compareTreatment(exp, act, 'textShadow', exp.textShadow, act.textShadow)
     compareTreatment(exp, act, 'mask', exp.maskEdge, act.maskEdge)
+    // REQ-63 — effects beyond REQ-48's set. Frosted-glass (backdrop-filter) and an
+    // outline are presence signals (value strings drift across engines); blend mode
+    // and injected pseudo-content carry a meaningful discrete value, so compare it.
+    compareTreatment(exp, act, 'backdropFilter', exp.backdropFilter, act.backdropFilter)
+    compareTreatment(exp, act, 'outline', exp.outline, act.outline)
+    compareValueField(exp, act, 'blendMode', exp.blendMode, act.blendMode)
+    compareValueField(exp, act, 'pseudo', exp.pseudo, act.pseudo)
+    // REQ-63 — element opacity. A ghosted (partial-opacity) element vs a solid one
+    // is a tonal defect no colour field holds; a small tolerance absorbs rounding.
+    if (exp.opacity !== undefined && act.opacity !== undefined) {
+      const dOp = Math.abs(exp.opacity - act.opacity)
+      if (dOp > opacityValueTol) push(exp, 'opacity', `${exp.opacity}`, `${act.opacity}`, dOp)
+    }
     compareMedia(exp, act)
     // REQ-48 (item 1) — transform: a mis-rotated collage layer or a wrong scale.
     // Rotation ±2° / scale ±0.05 tolerances absorb sub-degree matrix rounding.
@@ -1668,6 +1806,9 @@ export function diffManifests(
     if (exp.objectFit != null && act.objectFit != null && exp.objectFit !== act.objectFit) {
       push(exp, 'objectFit', exp.objectFit, act.objectFit)
     }
+    // REQ-63 — how the image crops within its box. A `top`/`bottom` shift vs a
+    // centred crop reframes the photo at the same box + fit; compared exactly.
+    compareValueField(exp, act, 'objectPosition', exp.objectPosition, act.objectPosition)
     if (exp.box && act.box && exp.box.height > 0 && act.box.height > 0) {
       const ea = exp.box.width / exp.box.height
       const aa = act.box.width / act.box.height
@@ -1690,6 +1831,24 @@ export function diffManifests(
   ): void => {
     if (e === undefined || a === undefined) return
     if (!!e !== !!a) push(exp, property, e ? 'present' : 'none', a ? 'present' : 'none')
+  }
+
+  // REQ-63 — emit a delta when a treatment's discrete VALUE differs (not just its
+  // presence): italic vs oblique, underline vs line-through, uppercase vs
+  // capitalize, `top` vs `center` crop. Null-normalised and case-folded, so a
+  // painted value vs its absence is a delta while `normal`↔absent is not. Guarded
+  // on both sides carrying the field, so a pre-REQ-63 reference stays inert.
+  const compareValueField = (
+    exp: ValueElement,
+    act: ValueElement,
+    property: DeltaProperty,
+    e: string | null | undefined,
+    a: string | null | undefined,
+  ): void => {
+    if (e === undefined || a === undefined) return
+    const eStr = (e ?? '').toLowerCase()
+    const aStr = (a ?? '').toLowerCase()
+    if (eStr !== aStr) push(exp, property, e ?? 'none', a ?? 'none')
   }
 
   // ── text-free fields (REQ-47): pair by a11yRole + document order ─────────────
@@ -1793,6 +1952,15 @@ export function diffManifests(
     if (exp.fontFamily.toLowerCase() !== act.fontFamily.toLowerCase()) {
       push(exp, 'fontFamily', exp.fontFamily, act.fontFamily)
     }
+    // REQ-63 — typography treatment axes. Each was a whole property the diff never
+    // saw: an italic vs roman, a dropped underline, a CSS `uppercase` vs a literal
+    // one, a small-caps wordmark, a bullet vs a numbered marker. Value-compared
+    // (null-normalised), guarded on both sides carrying the field.
+    compareValueField(exp, act, 'fontStyle', exp.fontStyle, act.fontStyle)
+    compareValueField(exp, act, 'textDecoration', exp.textDecoration, act.textDecoration)
+    compareValueField(exp, act, 'textTransform', exp.textTransform, act.textTransform)
+    compareValueField(exp, act, 'fontVariant', exp.fontVariant, act.fontVariant)
+    compareValueField(exp, act, 'listMarker', exp.listMarker, act.listMarker)
     if (exp.gradient !== undefined) {
       const e = exp.gradient
       const a = act.gradient ?? null
