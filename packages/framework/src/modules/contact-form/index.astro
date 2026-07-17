@@ -167,11 +167,18 @@ const submitStyle = resolveTextStyle(content.submitLabel)
 
   .contact-form__form { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
   .contact-form.align-center .contact-form__form { text-align: left; }
-  /* Inline submit (REQ-58) — a single-field capture strip: field grows, button
-     sits beside it on one row (the reference subscribe form). */
-  .contact-form__form.submit-inline { flex-direction: row; align-items: flex-start; gap: var(--space-2); }
-  .contact-form__form.submit-inline .contact-form__field { flex: 1; }
+  /* Inline submit (REQ-58, responsive REQ-64) — a single-field capture strip
+     modelling the reference's `flex-col sm:flex-row` subscribe form: STACKED on
+     mobile (field over a full-width button), field + button BESIDE each other
+     from the `sm` (640px) breakpoint up. The base form is already
+     `flex-direction: column`, so the mobile strip only needs the button to fill
+     the row; the row layout is asserted from `sm` up. */
+  .contact-form__form.submit-inline { gap: var(--space-3); }
   .contact-form__form.submit-inline .contact-form__submit { align-self: stretch; margin: 0; white-space: nowrap; }
+  @media (min-width: 640px) {
+    .contact-form__form.submit-inline { flex-direction: row; align-items: flex-start; gap: var(--space-2); }
+    .contact-form__form.submit-inline .contact-form__field { flex: 1; }
+  }
   .contact-form__field { display: flex; flex-direction: column; gap: var(--space-2); }
   .contact-form__field label { font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
   /* Placeholder-label mode (REQ-58) — the <label> stays in the a11y tree but is

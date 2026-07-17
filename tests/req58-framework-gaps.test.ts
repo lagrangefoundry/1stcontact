@@ -123,6 +123,31 @@ describe('REQ-58 — submit colour + inline, footer copyright + link colour', ()
     expect(html).toContain('submit-inline') // field + button on one row
   })
 
+  it('test_UAT_FC_REQ-64_contactform_submit_inline_stacks_on_mobile_rows_from_sm', async () => {
+    // The reference subscribe form is `flex-col sm:flex-row`: STACKED on mobile
+    // (field over a full-width button), field + button BESIDE each other from the
+    // sm (640px) breakpoint up. submit-inline must model that responsively — a flat
+    // `flex-direction: row` squishes the strip on mobile (the real repro defect).
+    const html = await render(ContactForm, {
+      dials: { submitInline: 'true' },
+      content: formContent,
+    })
+    expect(html).toContain('submit-inline')
+    const css = getModuleCss()
+    // The row layout is asserted only inside a min-width:640px block; the base
+    // strip inherits the form's `flex-direction: column` (stacked) and gives the
+    // button `align-self: stretch` so it fills the row on mobile.
+    const inlineRow = css.match(/@media \(min-width: ?640px\)[^@]*submit-inline[^@]*flex-direction: ?row/)
+    expect(inlineRow).not.toBeNull()
+    // The base (mobile) rule must NOT force a row — no `submit-inline … flex-direction: row`
+    // outside a media query.
+    const base = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '')
+    expect(base).not.toMatch(/submit-inline[^}]*flex-direction: ?row/)
+    // Mobile: the submit button stretches to full width (matches the reference's
+    // full-width "Subscribe" on a narrow screen).
+    expect(css).toMatch(/submit-inline[^@]*contact-form__submit[^}]*align-self: ?stretch/)
+  })
+
   it('test_UAT_FC_REQ-58_footer_copyright_verbatim_and_link_colour', async () => {
     // A verbatim copyright (absolute value) overrides the generated line; linkColor
     // is an absolute #hex OR role routed through resolveColor to --fc-link.
