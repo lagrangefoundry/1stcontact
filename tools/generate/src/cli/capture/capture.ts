@@ -2,8 +2,8 @@
  * `1c capture page <url>` orchestrator (DOC-13). Runs the rendered-only capture
  * pipeline and writes the self-contained bundle to `references/<host>/<path>/`.
  */
-import { runCapturePipeline, runMultiStateCapture } from './pipeline'
-import { writeBundle, writeMultiState, type BundleLocation } from './bundle'
+import { captureLadderScreenshots, runCapturePipeline, runMultiStateCapture } from './pipeline'
+import { writeBundle, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
 import type { BrowserDriverFactory, Capture, RenderEngine } from './types'
 import type { MultiStateCapture } from './values-diff'
 
@@ -41,6 +41,12 @@ export async function cmdCapturePage(url: string, opts: CapturePageOptions = {})
     isEngineAvailable: opts.isEngineAvailable,
   })
   writeMultiState(location.bundleDir, multiState)
+
+  // REQ-61 — the image sibling of the ladder: a full-page reference screenshot at
+  // each width, so `1c diff --size` compares our reproduction against a same-width
+  // reference rather than the single desktop shot.
+  const ladderShots = await captureLadderScreenshots(url, { driverFactory: opts.driverFactory })
+  writeLadderScreenshots(location.bundleDir, ladderShots)
 
   return { ...location, capture: result.capture, multiState }
 }

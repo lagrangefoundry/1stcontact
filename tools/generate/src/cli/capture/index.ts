@@ -5,8 +5,8 @@
  */
 export { cmdCapturePage } from './capture'
 export type { CapturePageOptions, CapturePageResult } from './capture'
-export { runCapturePipeline, runMultiStateCapture } from './pipeline'
-export type { CapturePipelineOptions, MultiStateCaptureOptions } from './pipeline'
+export { runCapturePipeline, runMultiStateCapture, captureLadderScreenshots } from './pipeline'
+export type { CapturePipelineOptions, MultiStateCaptureOptions, LadderScreenshot, LadderScreenshotOptions } from './pipeline'
 export {
   createPlaywrightDriver,
   createEngineDriver,
@@ -15,7 +15,16 @@ export {
 } from './playwright-driver'
 export type { RenderEngine } from './playwright-driver'
 export { reextractFromBundle } from './reextract'
-export { writeBundle, readCapture, bundleDirFor, writeMultiState, readMultiState } from './bundle'
+export {
+  writeBundle,
+  readCapture,
+  bundleDirFor,
+  writeMultiState,
+  readMultiState,
+  writeLadderScreenshots,
+  readLadderScreenshotPath,
+  ladderScreenshotPath,
+} from './bundle'
 export type { BundleLocation } from './bundle'
 export { EXTRACT_SCRIPT } from './extract'
 export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'

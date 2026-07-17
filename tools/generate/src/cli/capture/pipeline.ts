@@ -226,6 +226,52 @@ export async function runMultiStateCapture(
   return { url, projections, notes }
 }
 
+// ── REQ-61 — per-viewport reference screenshots ───────────────────────────────
+
+/** One full-page reference screenshot tagged with the viewport it was shot at. */
+export interface LadderScreenshot {
+  viewport: Viewport
+  bytes: Uint8Array
+}
+
+export interface LadderScreenshotOptions {
+  /** Viewport ladder to shoot (default {@link RESPONSIVE_VIEWPORTS}). */
+  viewports?: readonly Viewport[]
+  /** Engine to shoot on (default `chromium` — the perceptual reference engine). */
+  engine?: RenderEngine
+  /** Injectable driver factory (tests supply a fake); defaults to the engine driver. */
+  driverFactory?: BrowserDriverFactory
+}
+
+/**
+ * REQ-61 — full-page screenshots across the viewport ladder, so the perceptual
+ * `1c diff --size` has a reference shot at each width to compare against. The
+ * multi-state pass ({@link runMultiStateCapture}) records per-width *manifests*
+ * but no images; this is the image sibling. Kept as a separate pass (one open
+ * page per width, screenshot, close) so the JSON matrix stays free of raw bytes —
+ * screenshots land as sibling PNGs in the bundle, not inside `multistate.json`.
+ */
+export async function captureLadderScreenshots(
+  url: string,
+  opts: LadderScreenshotOptions = {},
+): Promise<LadderScreenshot[]> {
+  const viewports = opts.viewports ?? RESPONSIVE_VIEWPORTS
+  const engine = opts.engine ?? 'chromium'
+  const factory = opts.driverFactory ?? createEngineDriver(engine)
+  const shots: LadderScreenshot[] = []
+  for (const viewport of viewports) {
+    const driver = await factory()
+    try {
+      await driver.navigate(url, viewport)
+      const bytes = await driver.screenshot(viewport)
+      shots.push({ viewport, bytes })
+    } finally {
+      await driver.close()
+    }
+  }
+  return shots
+}
+
 /**
  * The states this driver can honestly project at this viewport: every requested
  * state when the driver actuates for real, otherwise only `rest` (with a note, so

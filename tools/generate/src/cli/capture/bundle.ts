@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { MultiStateCapture } from './values-diff'
+import type { LadderScreenshot } from './pipeline'
 import type { Capture, CaptureResult } from './types'
 
 export interface BundleLocation {
@@ -77,4 +78,35 @@ export function readMultiState(bundleDir: string): MultiStateCapture | null {
   const src = path.join(bundleDir, MULTISTATE_FILE)
   if (!existsSync(src)) return null
   return JSON.parse(readFileSync(src, 'utf8')) as MultiStateCapture
+}
+
+/** REQ-61 — the per-width reference screenshot filename (`screenshot-<width>.png`). */
+export function ladderScreenshotPath(bundleDir: string, width: number): string {
+  return path.join(bundleDir, `screenshot-${width}.png`)
+}
+
+/**
+ * REQ-61 — persist one full-page reference screenshot per viewport width, so
+ * `1c diff --size` has a same-width reference to compare our reproduction against.
+ * These sit beside `screenshot.full.png` (the default desktop shot) as sibling
+ * PNGs; the JSON matrix stays byte-free.
+ */
+export function writeLadderScreenshots(bundleDir: string, shots: readonly LadderScreenshot[]): string[] {
+  mkdirSync(bundleDir, { recursive: true })
+  return shots.map((shot) => {
+    const dest = ladderScreenshotPath(bundleDir, shot.viewport.width)
+    writeFileSync(dest, shot.bytes)
+    return dest
+  })
+}
+
+/**
+ * REQ-61 — resolve the reference screenshot for a viewport width: the per-width
+ * `screenshot-<width>.png` when the bundle carries one, else null. The caller
+ * decides how to handle a miss (a size-aware pixel diff must fail loudly rather
+ * than silently compare against the desktop shot).
+ */
+export function readLadderScreenshotPath(bundleDir: string, width: number): string | null {
+  const src = ladderScreenshotPath(bundleDir, width)
+  return existsSync(src) ? src : null
 }
