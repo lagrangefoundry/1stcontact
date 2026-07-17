@@ -31,6 +31,12 @@ const LOGO_STEPS = { sm: 'var(--space-6)', md: 'var(--space-8)', lg: 'var(--spac
 const logoSizeVars = responsiveStepVars('logo', dials.logoSize, LOGO_STEPS, 'md')
 // Logo backdrop (REQ-36) — `card`/`shadow`/`frame`; `none` (default) bare.
 const logoCard = dials.logoCard ?? 'none'
+// REQ-61 — configurable nav collapse: the breakpoint below which the nav folds to
+// a hamburger (`sm`/`md`/`lg`/`xl`), or `none` to never collapse. Media-query
+// thresholds cannot be CSS custom properties, so this is a named-breakpoint
+// overlay (a mode), not an absolute px — the one length the absolute-value mandate
+// can't express. Default `md`, matching the former hardcoded 768px.
+const navCollapse = dials.navCollapse ?? 'md'
 const entries = content.entries ?? []
 const { logo, wordmark } = content
 
@@ -61,6 +67,7 @@ const wordmarkPosStyle = wordmark?.position
     `variant-${variant}`,
     `surface-${surface}`,
     `align-${align}`,
+    `nav-collapse-${navCollapse}`,
   ]}
   style={[padTopVars, padBottomVars].join('; ')}
 >
@@ -191,8 +198,12 @@ const wordmarkPosStyle = wordmark?.position
   }
   .header__toggle-bar { display: block; width: 22px; height: 2px; background: currentColor; }
 
-  @media (max-width: 768px) {
-    .header__toggle { display: flex; }
-    .header__nav { display: none; }
-  }
+  /* REQ-61 — collapse to a hamburger below the configured breakpoint. The
+     `nav-collapse-<bp>` class (default md) selects the threshold; `nav-collapse-none`
+     matches no rule, so the nav never collapses. Media-query thresholds can't read
+     a custom property, so the breakpoint is a named overlay, not an absolute px. */
+  @media (max-width: 640px) { .header.nav-collapse-sm .header__toggle { display: flex; } .header.nav-collapse-sm .header__nav { display: none; } }
+  @media (max-width: 768px) { .header.nav-collapse-md .header__toggle { display: flex; } .header.nav-collapse-md .header__nav { display: none; } }
+  @media (max-width: 1024px) { .header.nav-collapse-lg .header__toggle { display: flex; } .header.nav-collapse-lg .header__nav { display: none; } }
+  @media (max-width: 1280px) { .header.nav-collapse-xl .header__toggle { display: flex; } .header.nav-collapse-xl .header__nav { display: none; } }
 </style>
