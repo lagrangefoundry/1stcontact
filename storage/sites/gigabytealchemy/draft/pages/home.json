@@ -438,6 +438,19 @@
        "lineHeightPx": 26,
        "color": "#314158"
       },
+      "surfaceGradient": {
+       "angleDeg": 135,
+       "stops": [
+        {
+         "color": "#f1f5f9",
+         "position": 0
+        },
+        {
+         "color": "#e2e8f0",
+         "position": 100
+        }
+       ]
+      },
       "surfaceFill": "#e8dfd3"
      }
     ]
