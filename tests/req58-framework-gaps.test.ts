@@ -105,6 +105,29 @@ describe('REQ-58 T6 — services-grid translucent card veil', () => {
     expect(css).toMatch(/card-border-none[^}]*border-width: ?0/)
     expect(css).toMatch(/card-border-none[^}]*has-accent[^}]*border-left-width/)
   })
+
+  it('test_UAT_FC_REQ-69_card_raw_fill_gradient_and_badge_fill', async () => {
+    // Cards were limited to a 3-value `surface` enum and badges to variant tokens;
+    // a card can now author a raw fill or gradient, and a badge a raw fill.
+    const html = await render(ServicesGrid, {
+      variant: 'stacked',
+      content: {
+        items: [
+          { title: { text: 'A' }, body: 'x', surfaceFill: '#e8dfd3', badge: { label: 'Coming soon', variant: 'secondary', fill: '#dbeafe' } },
+          { title: { text: 'B' }, body: 'y', surfaceGradient: { angleDeg: 135, stops: [{ color: '#e8dfd3', position: 0 }, { color: '#d9ccba', position: 100 }] } },
+        ],
+      },
+    })
+    expect(html).toContain('background: #e8dfd3') // raw card fill (inline, over the veil)
+    expect(html).toContain('background: #dbeafe') // raw badge fill (over the variant)
+    expect(html).toMatch(/background:[^;"]*gradient/i) // gradient card panel
+    // A card with a role still resolves through the overlay.
+    const role = await render(ServicesGrid, {
+      variant: 'stacked',
+      content: { items: [{ title: { text: 'C' }, body: 'z', surfaceFill: 'secondary' }] },
+    })
+    expect(role).toContain('background: var(--color-secondary)')
+  })
 })
 
 // ── gap-fix escape hatches: submit colour/inline, footer copyright/link colour ──
@@ -183,6 +206,21 @@ describe('REQ-58 — submit colour + inline, footer copyright + link colour', ()
     // textColor paints the whole footer (copyright); linkColor paints the links.
     expect(html).toContain('--fc-text: #90a1b9')
     expect(html).toContain('--fc-link: #90a1b9')
+  })
+
+  it('test_UAT_FC_REQ-68_footer_copyright_opacity_dial', async () => {
+    // The copyright is muted to opacity 0.7 by default; the dial overrides it (a site
+    // whose copyright colour already carries the mute wants full opacity).
+    const html = await render(Footer, {
+      dials: { copyrightOpacity: '1' },
+      content: { copyrightHolder: 'Gigabyte Alchemy', links: [{ label: 'GitHub', target: '#' }] },
+    })
+    expect(html).toContain('--fc-copyright-opacity: 1')
+    // Omitted → no var; the CSS keeps the 0.7 fallback (unchanged).
+    const bare = await render(Footer, {
+      content: { copyrightHolder: 'X', links: [{ label: 'G', target: '#' }] },
+    })
+    expect(bare).not.toContain('--fc-copyright-opacity')
   })
 })
 

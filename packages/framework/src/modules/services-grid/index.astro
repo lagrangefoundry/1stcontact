@@ -3,7 +3,7 @@ import type { AssetRef } from '@1stcontact/site-schema'
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
 import { responsiveContainerWidthVars, responsiveStepVars, SPACING_STEPS } from '../dials'
-import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
+import { resolveTextStyle, resolveColor, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
 
 interface ServiceItem {
   icon?: AssetRef | string
@@ -18,12 +18,19 @@ interface ServiceItem {
   accent?: string
   /** Card fill (REQ-20, REQ-32) — `muted`/`neutral-cool` are filled panels. */
   surface?: 'default' | 'muted' | 'neutral-cool'
+  /** REQ-69 — raw card fill (absolute `#hex` OR palette role), overriding the veil /
+   *  `surface` enum when a preset does not match the reference. resolveColor. */
+  surfaceFill?: string
+  /** REQ-69 — raw card GRADIENT panel; takes precedence over `surfaceFill`. */
+  surfaceGradient?: TextRunGradient
   /** Status pill shown top-right (REQ-26). `labelStyle` is the REQ-56 per-instance
    *  escape hatch — a style-only run overriding the theme `badge` subscale here. */
   badge?: {
     label: string
     variant?: 'neutral' | 'primary' | 'accent' | 'secondary'
     labelStyle?: TextRun
+    /** REQ-69 — raw badge fill (absolute `#hex` OR role), over the variant token. */
+    fill?: string
   }
   /** Body items rendered as ✓ checks (REQ-26); tick colour follows the badge,
    *  unless `checkColor` overrides it. */
@@ -139,6 +146,11 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
             // (REQ-58 absolute-or-overlay) to a per-card CSS var.
             item.accent && `--fc-accent: ${resolveColor(item.accent)}`,
             item.checkColor && `--fc-check: ${resolveColor(item.checkColor)}`,
+            // REQ-69 — raw card fill/gradient as an inline background, overriding the
+            // veil/surface class. Gradient takes precedence over the solid fill.
+            item.surfaceGradient
+              ? `background: ${resolveSurfaceGradient(item.surfaceGradient)}`
+              : item.surfaceFill && `background: ${resolveColor(item.surfaceFill)}`,
           ].filter(Boolean).join('; ') || undefined}
         >
           {item.image && (
@@ -150,7 +162,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
             />
           )}
           {item.badge && (
-            <span class:list={['services-grid__badge', `badge-${item.badge.variant ?? 'neutral'}`]} style={badgeLabelStyle}>
+            <span class:list={['services-grid__badge', `badge-${item.badge.variant ?? 'neutral'}`]} style={[badgeLabelStyle, item.badge.fill && `background: ${resolveColor(item.badge.fill)}`].filter(Boolean).join('; ') || undefined}>
               {item.badge.label}
             </span>
           )}

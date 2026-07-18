@@ -38,6 +38,9 @@ const textColorCss = dials.textColor ? resolveColor(dials.textColor) : null
 // Footer link colour (REQ-58) — an absolute #hex OR a palette role; `null` inherits
 // the footer text colour.
 const linkColorCss = dials.linkColor ? resolveColor(dials.linkColor) : null
+// REQ-68 — copyright opacity (absolute 0..1). The copyright line is muted to 0.7 by
+// default; a site whose copyright colour already carries the mute wants full opacity.
+const copyrightOpacity = dials.copyrightOpacity ?? null
 
 const { tagline, copyrightHolder } = content
 const links = content.links ?? []
@@ -54,7 +57,12 @@ const year = BUILD_YEAR
     `surface-${surface}`,
     `layout-${layout}`,
   ]}
-  style={[textColorCss && `--fc-text: ${textColorCss}`, padTopVars, padBottomVars].filter(Boolean).join('; ')}
+  style={[
+    textColorCss && `--fc-text: ${textColorCss}`,
+    copyrightOpacity !== null && `--fc-copyright-opacity: ${copyrightOpacity}`,
+    padTopVars,
+    padBottomVars,
+  ].filter(Boolean).join('; ')}
 >
   <div class="footer__inner">
     {logo && (
@@ -129,7 +137,7 @@ const year = BUILD_YEAR
   .footer__tagline { margin: 0; color: inherit; opacity: 0.85; }
   .footer__links { display: flex; flex-wrap: wrap; gap: var(--space-4); justify-content: center; }
   .footer__links a { color: var(--fc-link, inherit); text-decoration: none; font-size: var(--font-size-sm); }
-  .footer__copyright { margin: 0; font-size: var(--font-size-sm); opacity: 0.7; }
+  .footer__copyright { margin: 0; font-size: var(--font-size-sm); opacity: var(--fc-copyright-opacity, 0.7); }
 
   /* Social icon circles (REQ-36) — thin bordered rings with a brand glyph, the
      reference's Instagram / Facebook / Yelp row. The glyph is set in the site's
