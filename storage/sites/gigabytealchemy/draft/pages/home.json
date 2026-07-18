@@ -160,7 +160,7 @@
      },
      "color": "#000000"
     },
-    "body": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.\n\nThrough privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.\n\n*We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.*",
+    "body": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.\n\nThrough privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.\n\n[We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.]{emphasis=italic color=#45556c}",
     "bodyStyle": {
      "fontFamily": "ui-sans-serif",
      "fontSizePx": 18,
@@ -352,7 +352,7 @@
       },
       "accent": "accent",
       "checkColor": "#00bc7d",
-      "body": "*Your private space to think out loud*\n\nA voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
+      "body": "[Your private space to think out loud]{emphasis=italic color=#45556c fontSizePx=18 lineHeightPx=28}\n\nA voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
       "bodyStyle": {
        "fontFamily": "ui-sans-serif",
        "fontSizePx": 16,
@@ -395,7 +395,7 @@
       },
       "accent": "#50a2ff",
       "checkColor": "#2b7fff",
-      "body": "*AI-powered development methodology and tools*\n\nAn open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
+      "body": "[AI-powered development methodology and tools]{emphasis=italic color=#45556c fontSizePx=18 lineHeightPx=28}\n\nAn open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
       "bodyStyle": {
        "fontFamily": "ui-sans-serif",
        "fontSizePx": 16,
@@ -427,7 +427,7 @@
       },
       "surface": "neutral-cool",
       "accent": "#90a1b9",
-      "body": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n*More to come as these ideas take shape.*",
+      "body": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.\n\n[More to come as these ideas take shape.]{emphasis=italic color=#45556c fontSizePx=14 lineHeightPx=20}",
       "bodyStyle": {
        "fontFamily": "ui-sans-serif",
        "fontSizePx": 16,
@@ -470,7 +470,7 @@
      },
      "color": "#000000"
     },
-    "body": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.\n\nBut the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.\n\nThat's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.\n\n> [!accent] We're not trying to change you. We're creating space for you to discover what's already there.",
+    "body": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.\n\nBut the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.\n\nThat's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.\n\n> [!accent] [We're not trying to change you. We're creating space for you to discover what's already there.]{emphasis=italic color=#1d293d}",
     "bodyStyle": {
      "fontFamily": "ui-sans-serif",
      "fontSizePx": 18,
