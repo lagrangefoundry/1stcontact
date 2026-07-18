@@ -140,8 +140,8 @@
     "textAlign": "left",
     "headingAlign": "left",
     "surface": "default",
-    "spacingTop": "none",
-    "spacingBottom": "none",
+    "spacingTop": "xl",
+    "spacingBottom": "2xl",
     "contentWidth": "4xl"
    },
    "content": {
@@ -182,8 +182,7 @@
     "contentAlign": "left",
     "cardVeil": "50",
     "cardBorder": "none",
-    "contentWidth": "3xl",
-    "spacingTop": "none"
+    "contentWidth": "4xl"
    },
    "content": {
     "heading": {
@@ -277,8 +276,8 @@
     "align": "left",
     "textAlign": "left",
     "surface": "subtle",
-    "spacingTop": "xl",
-    "spacingBottom": "xl",
+    "spacingTop": "none",
+    "spacingBottom": "md",
     "contentWidth": "4xl"
    },
    "content": {
@@ -303,9 +302,7 @@
     "contentAlign": "left",
     "cardVeil": "70",
     "cardBorder": "none",
-    "contentWidth": "880px",
-    "spacingTop": "xl",
-    "spacingBottom": "xl"
+    "contentWidth": "880px"
    },
    "content": {
     "heading": {
@@ -467,7 +464,7 @@
     "headingAlign": "left",
     "surface": "subtle",
     "spacingTop": "xl",
-    "spacingBottom": "xl",
+    "spacingBottom": "2xl",
     "contentWidth": "4xl"
    },
    "content": {
