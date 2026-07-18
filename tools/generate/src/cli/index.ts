@@ -30,7 +30,14 @@ import { cmdCapturePage } from './capture'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
-import { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
+import {
+  cmdValuesDiff,
+  cmdValuesDiffMultiViewport,
+  formatReport,
+  formatMultiViewportReport,
+  formatCollapsedReport,
+  collapseMultiViewport,
+} from './fidelity'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
 import { cmdResponsiveDiff, classifyResponsiveTable, formatResponsiveTable, formatClassifiedTable } from './responsive-diff'
 import type { RenderChannel } from '../store'
@@ -45,6 +52,7 @@ export type { ServeOptions, ServeHandle } from './serve'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
+export { collapseMultiViewport, formatCollapsedReport, type CollapsedDefect } from './fidelity'
 export {
   cmdResponsiveDiff,
   buildResponsiveTable,
@@ -110,6 +118,8 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   1c values-diff <slug> --ref <captureBundleDir> [--source draft|published] [--out <file>] [--json] [--sandbox]
   1c values-diff --ref <captureBundleDir> --actual <manifest.json> [--out <file>] [--json]
   1c values-diff <slug> --ref <captureBundleDir> --multi-viewport [--source …] [--out <file>] [--json]
+    (REQ-64) add --collapse to dedup to one row per DEFECT (x-viewport multiplier removed), grouped in
+    repair order: Type-A flat (copy) -> Type-A structural (author) -> Type-B (emergent residual).
     (REQ-58 T2) pair the draft against the reference's persisted viewport ladder, cell-for-cell — catches
     a %-vs-fixed reflow (a wordmark that drifts on resize) invisible at the single default width.
   1c values-diff <slug> --ref <captureBundleDir> --size mobile|tablet|desktop [--out <file>] [--json]
@@ -361,10 +371,13 @@ export async function run(argv: string[]): Promise<void> {
             diffOptions,
           }),
         )
+        // REQ-64 — `--collapse` dedups the per-cell deltas to one row per DEFECT
+        // (the x-viewport multiplier removed), grouped in repair order.
+        const collapse = flags.collapse === true
         if (flags.json === true) {
-          console.log(JSON.stringify(cells, null, 2))
+          console.log(JSON.stringify(collapse ? collapseMultiViewport(cells) : cells, null, 2))
         } else {
-          console.log(formatMultiViewportReport(cells))
+          console.log(collapse ? formatCollapsedReport(cells) : formatMultiViewportReport(cells))
         }
         // A missing cell or any per-cell delta is a fidelity failure to clear.
         if (cells.some((c) => c.missing || (c.report?.deltas.length ?? 0) > 0)) process.exitCode = 1

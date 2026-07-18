@@ -280,6 +280,128 @@ export function formatMultiViewportReport(cells: StateDiff[]): string {
  *
  * Deduped across the ladder so the counts are per-defect, not per-cell.
  */
+/** REQ-64 - one row per DEFECT (a value wrong at N widths is ONE defect). */
+export interface CollapsedDefect {
+  text: string
+  property: ValueDelta['property']
+  valueType: 'A' | 'B'
+  /** Type-A: `flat` (a scalar to copy) or `structural` (a responsive ramp / section
+   *  spacing to author). Type-B is `emergent` (the residual, not a value to set). */
+  repairClass: 'flat' | 'structural' | 'emergent'
+  /** The viewport widths at which this defect fires. */
+  widths: number[]
+  /** Reference value - a single scalar when constant, else `a .. b` across the ladder. */
+  expected: string
+  /** Our value, same convention. */
+  actual: string
+  /** Worst tier this defect reached across the widths. */
+  tier: ValueDelta['tier']
+}
+
+const TIER_RANK: Record<ValueDelta['tier'], number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+
+/**
+ * REQ-64 - collapse the per-cell multi-viewport deltas to one row per DEFECT. The
+ * x-viewport multiplier (the same value flagged at every width) is the biggest
+ * single inflator of the raw count; dedup by (text, property) so the count is
+ * defects, not cells, and record the widths each fires at. `structural` = the
+ * reference value varies across the ladder, OR the delta fires at only SOME widths
+ * (fluid reference vs our fixed value - the wordmark 36->72 case), OR it is section
+ * band padding (padding-vs-margin). The synthetic `systemic` rollups are skipped
+ * (their own cross-element view, not per-defect rows).
+ */
+export function collapseMultiViewport(cells: StateDiff[]): CollapsedDefect[] {
+  const present = cells.filter((c) => !c.missing).length
+  interface G {
+    text: string
+    property: ValueDelta['property']
+    valueType: 'A' | 'B'
+    widths: Set<number>
+    refs: string[]
+    acts: string[]
+    tier: ValueDelta['tier']
+  }
+  const groups = new Map<string, G>()
+  for (const c of cells) {
+    for (const d of c.report?.deltas ?? []) {
+      if (d.systemic) continue
+      const key = `${d.text} ${d.property}`
+      let g = groups.get(key)
+      if (!g) {
+        g = { text: d.text, property: d.property, valueType: d.valueType, widths: new Set(), refs: [], acts: [], tier: d.tier }
+        groups.set(key, g)
+      }
+      g.widths.add(c.viewportWidth)
+      g.refs.push(d.expected)
+      g.acts.push(d.actual)
+      if (TIER_RANK[d.tier] < TIER_RANK[g.tier]) g.tier = d.tier
+    }
+  }
+  const range = (vals: string[]): string => {
+    const u = [...new Set(vals)]
+    return u.length === 1 ? u[0] : `${u[0]} .. ${u[u.length - 1]}`
+  }
+  const CLASS_ORDER = { flat: 0, structural: 1, emergent: 2 }
+  const out: CollapsedDefect[] = [...groups.values()].map((g) => {
+    const structural =
+      new Set(g.refs).size > 1 ||
+      (present > 1 && g.widths.size < present) ||
+      (g.text.startsWith('§') && g.property.startsWith('padding'))
+    const repairClass: CollapsedDefect['repairClass'] = g.valueType === 'B' ? 'emergent' : structural ? 'structural' : 'flat'
+    return {
+      text: g.text,
+      property: g.property,
+      valueType: g.valueType,
+      repairClass,
+      widths: [...g.widths].sort((a, b) => a - b),
+      expected: range(g.refs),
+      actual: range(g.acts),
+      tier: g.tier,
+    }
+  })
+  out.sort(
+    (a, b) =>
+      CLASS_ORDER[a.repairClass] - CLASS_ORDER[b.repairClass] ||
+      TIER_RANK[a.tier] - TIER_RANK[b.tier] ||
+      a.property.localeCompare(b.property) ||
+      a.text.localeCompare(b.text),
+  )
+  return out
+}
+
+/**
+ * REQ-64 - the `--collapse` human report: the deduped per-defect list, grouped by
+ * repair class in fix order (Type-A flat -> structural -> Type-B), each row carrying
+ * the reference value to transcribe and the widths it fires at.
+ */
+export function formatCollapsedReport(cells: StateDiff[]): string {
+  const defects = collapseMultiViewport(cells)
+  const widths = cells.filter((c) => !c.missing).map((c) => c.viewportWidth)
+  const rawTotal = cells.reduce((s, c) => s + (c.report?.deltas.filter((d) => !d.systemic).length ?? 0), 0)
+  const byClass = (cls: CollapsedDefect['repairClass']): CollapsedDefect[] => defects.filter((d) => d.repairClass === cls)
+  const HEAD: Record<CollapsedDefect['repairClass'], string> = {
+    flat: 'Type-A flat - copy the reference value (the `expected` column)',
+    structural: 'Type-A structural - author the responsive ladder / section spacing',
+    emergent: 'Type-B - emergent residual (shrinks once Type-A is right; do not set directly)',
+  }
+  const lines: string[] = [
+    `values-diff --multi-viewport --collapse: ${defects.length} unique defect(s) - from ${rawTotal} raw deltas across ${widths.length} width(s)`,
+    `  A-flat ${byClass('flat').length} -> A-structural ${byClass('structural').length} -> B ${byClass('emergent').length}   (fix in that order)`,
+  ]
+  for (const cls of ['flat', 'structural', 'emergent'] as const) {
+    const group = byClass(cls)
+    if (group.length === 0) continue
+    lines.push('', `  -- ${HEAD[cls]} -- ${group.length}`)
+    const cap = cls === 'emergent' ? 60 : 200
+    for (const d of group.slice(0, cap)) {
+      const w = d.widths.length === widths.length ? 'all' : d.widths.join(',')
+      lines.push(`     [${d.tier[0]}] ${d.property.padEnd(16)} "${trunc(d.text, 26)}"  ${trunc(d.expected, 20).padEnd(20)} -> ${trunc(d.actual, 20)}  @${w}`)
+    }
+    if (group.length > cap) lines.push(`     ... +${group.length - cap} more`)
+  }
+  return lines.join('\n')
+}
+
 function repairPlanLines(cells: StateDiff[]): string[] {
   // Group every delta by (text, property); a group is one defect across widths.
   const present = cells.filter((c) => !c.missing).length

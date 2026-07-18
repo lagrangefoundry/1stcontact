@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { JSDOM } from 'jsdom'
 import {
   diffManifests,
+  collapseMultiViewport,
   EXTRACT_SCRIPT,
   type RawSignals,
+  type StateDiff,
   type ValueElement,
   type ValueManifest,
 } from '../tools/generate/src/cli'
@@ -301,6 +303,46 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
       sectMani('a', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 64, paddingBottomPx: 64 }]),
     )
     expect(hasProp(same.deltas, 'paddingTopPx')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-64_collapse_dedups_ladder_to_one_row_per_defect', () => {
+    // The same colour wrong at two widths is ONE defect, not two — collapsed to a
+    // single row carrying both widths. It is flat (ref constant, fires at all cells).
+    const cell = (width: number): StateDiff => ({
+      engine: 'chromium',
+      viewportWidth: width,
+      state: 'rest',
+      missing: false,
+      report: diffManifests(mani('ref', [el('Run', { color: '#111111' })]), mani('a', [el('Run', { color: '#222222' })])),
+    })
+    const defects = collapseMultiViewport([cell(375), cell(1280)])
+    const colour = defects.filter((d) => d.property === 'color')
+    expect(colour).toHaveLength(1) // deduped across the two widths
+    expect(colour[0].widths).toEqual([375, 1280])
+    expect(colour[0].repairClass).toBe('flat')
+  })
+
+  it('test_UAT_FC_REQ-64_collapse_marks_fluid_value_structural', () => {
+    // A value that deltas at only SOME widths (matches our fixed value at the others)
+    // is fluid → structural, even though each firing cell shows a single ref value.
+    const bad: StateDiff = {
+      engine: 'chromium',
+      viewportWidth: 375,
+      state: 'rest',
+      missing: false,
+      report: diffManifests(mani('ref', [el('H', { fontSizePx: 30 })]), mani('a', [el('H', { fontSizePx: 72 })])),
+    }
+    const clean: StateDiff = {
+      engine: 'chromium',
+      viewportWidth: 1280,
+      state: 'rest',
+      missing: false,
+      report: diffManifests(mani('ref', [el('H', { fontSizePx: 72 })]), mani('a', [el('H', { fontSizePx: 72 })])),
+    }
+    const defects = collapseMultiViewport([bad, clean])
+    const fs = defects.find((d) => d.property === 'fontSizePx')!
+    expect(fs.repairClass).toBe('structural') // fires at 375 only ⇒ fluid vs our fixed 72
+    expect(fs.widths).toEqual([375])
   })
 
   it('test_UAT_FC_REQ-64_deltas_tagged_A_or_B_repair_class', () => {
