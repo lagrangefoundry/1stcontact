@@ -21,10 +21,19 @@
     "wordmark": {
      "text": "Gigabyte Alchemy",
      "fontFamily": "Cinzel",
-     "fontSizePx": 72,
+     "fontSizePx": {
+      "base": 36,
+      "md": 72
+     },
      "fontWeight": 600,
-     "letterSpacingPx": -1.8,
-     "lineHeightPx": 90,
+     "letterSpacingPx": {
+      "base": -0.9,
+      "md": -1.8
+     },
+     "lineHeightPx": {
+      "base": 45,
+      "md": 90
+     },
      "color": "#f5e6a3",
      "gradient": {
       "angleDeg": 90,
@@ -76,19 +85,34 @@
     "eyebrow": {
      "text": "Intentional Software",
      "fontFamily": "ui-sans-serif",
-     "fontSizePx": 36,
+     "fontSizePx": {
+      "base": 30,
+      "md": 36
+     },
      "fontWeight": 700,
-     "letterSpacingPx": -0.9,
-     "lineHeightPx": 40,
+     "letterSpacingPx": {
+      "base": -0.75,
+      "md": -0.9
+     },
+     "lineHeightPx": {
+      "base": 36,
+      "md": 40
+     },
      "color": "#fbba72"
     },
     "heading": {
      "text": "Tools for clarity, presence, and positive connection",
      "fontFamily": "ui-sans-serif",
-     "fontSizePx": 24,
+     "fontSizePx": {
+      "base": 20,
+      "md": 24
+     },
      "fontWeight": 300,
      "letterSpacingPx": 0,
-     "lineHeightPx": 32,
+     "lineHeightPx": {
+      "base": 28,
+      "md": 32
+     },
      "color": "#f5e6a3"
     },
     "subhead": {
@@ -124,10 +148,16 @@
     "heading": {
      "text": "A Different Approach",
      "fontFamily": "ui-sans-serif",
-     "fontSizePx": 36,
+     "fontSizePx": {
+      "base": 30,
+      "md": 36
+     },
      "fontWeight": 700,
      "letterSpacingPx": 0,
-     "lineHeightPx": 40,
+     "lineHeightPx": {
+      "base": 36,
+      "md": 40
+     },
      "color": "#000000"
     },
     "body": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.\n\nThrough privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.\n\n*We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.*",
@@ -158,10 +188,16 @@
     "heading": {
      "text": "Our Mission",
      "fontFamily": "ui-sans-serif",
-     "fontSizePx": 36,
+     "fontSizePx": {
+      "base": 30,
+      "md": 36
+     },
      "fontWeight": 700,
      "letterSpacingPx": 0,
-     "lineHeightPx": 40,
+     "lineHeightPx": {
+      "base": 36,
+      "md": 40
+     },
      "color": "#000000"
     },
     "subhead": "Our work is guided by a simple belief: the world needs more presence, positivity, and human connection.",
@@ -272,10 +308,16 @@
     "heading": {
      "text": "What We're Building",
      "fontFamily": "ui-sans-serif",
-     "fontSizePx": 36,
+     "fontSizePx": {
+      "base": 30,
+      "md": 36
+     },
      "fontWeight": 700,
      "letterSpacingPx": 0,
-     "lineHeightPx": 40,
+     "lineHeightPx": {
+      "base": 36,
+      "md": 40
+     },
      "color": "#000000"
     },
     "subhead": "From personal reflection tools to developer platforms, our work spans the spectrum of human experience.",
@@ -416,10 +458,16 @@
     "heading": {
      "text": "The Alchemy",
      "fontFamily": "ui-sans-serif",
-     "fontSizePx": 36,
+     "fontSizePx": {
+      "base": 30,
+      "md": 36
+     },
      "fontWeight": 700,
      "letterSpacingPx": 0,
-     "lineHeightPx": 40,
+     "lineHeightPx": {
+      "base": 36,
+      "md": 40
+     },
      "color": "#000000"
     },
     "body": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.\n\nBut the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.\n\nThat's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.\n\n> [!accent] We're not trying to change you. We're creating space for you to discover what's already there.",
@@ -453,10 +501,16 @@
     "heading": {
      "text": "Get in touch",
      "fontFamily": "ui-sans-serif",
-     "fontSizePx": 36,
+     "fontSizePx": {
+      "base": 30,
+      "md": 36
+     },
      "fontWeight": 700,
      "letterSpacingPx": 0,
-     "lineHeightPx": 40,
+     "lineHeightPx": {
+      "base": 36,
+      "md": 40
+     },
      "color": "#000000"
     },
     "subhead": "Join our mailing list for updates on our work.",
