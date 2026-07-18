@@ -302,7 +302,8 @@
         "cardVeil": "70",
         "cardBorder": "none",
         "contentWidth": "880px",
-        "spacingTop": "110px"
+        "spacingTop": "110px",
+        "gap": "96px"
       },
       "content": {
         "heading": {
