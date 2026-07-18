@@ -305,7 +305,8 @@
         "fontWeight": 500,
         "lineHeightPx": 20,
         "color": "#007a55"
-       }
+       },
+       "fill": "#d0fae5"
       },
       "accent": "accent",
       "checkColor": "#00bc7d",
@@ -347,7 +348,8 @@
         "fontWeight": 500,
         "lineHeightPx": 20,
         "color": "#1447e6"
-       }
+       },
+       "fill": "#dbeafe"
       },
       "accent": "#50a2ff",
       "checkColor": "#2b7fff",
@@ -390,7 +392,8 @@
        "fontWeight": 400,
        "lineHeightPx": 26,
        "color": "#314158"
-      }
+      },
+      "surfaceFill": "#e8dfd3"
      }
     ]
    }
@@ -549,7 +552,8 @@
     "layout": "spread",
     "spacingTop": "xl",
     "spacingBottom": "xl",
-    "textColor": "#90a1b9"
+    "textColor": "#90a1b9",
+    "copyrightOpacity": "1"
    },
    "content": {
     "copyrightHolder": "Gigabyte Alchemy",
