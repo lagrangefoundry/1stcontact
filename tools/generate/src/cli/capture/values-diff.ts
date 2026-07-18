@@ -1821,13 +1821,24 @@ export function diffManifests(
     if (exp.box && act.box) {
       const dpos = Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y))
       if (dpos > positionTol) push(exp, 'position', posLabel(exp.box), posLabel(act.box), dpos)
-      // REQ-53 — width is container-determined (exact, Group B); height emerges
-      // from text wrapping × font metrics (tolerant, Group C). Split the axis so
-      // a real width gap can't hide behind the wrapping allowance height needs.
-      const dw = Math.abs(exp.box.width - act.box.width)
-      const dh = Math.abs(exp.box.height - act.box.height)
-      if (dw > widthTol || dh > heightTol) {
-        push(exp, 'size', sizeLabel(exp.box), sizeLabel(act.box), Math.max(dw, dh))
+      // REQ-64 — for a TEXT RUN the layout box is NOT the visible geometry: a
+      // left-aligned heading looks identical whether its (transparent) box is
+      // block-full-width or shrink-to-fit, so a `size` delta there is a false
+      // positive (measured on gigabyte: ref fit-content 320px vs our block 1104px,
+      // same glyphs, same position). The faithful text signals are `renderedTextBox`
+      // (glyph extent — carries the real wrapping/line-count difference via height)
+      // and `position`, both compared below/above. So box-`size` is compared only
+      // for NON-text elements (fields, images, surface panels) whose box IS painted.
+      const isTextRun = exp.renderedTextBox != null && act.renderedTextBox != null
+      if (!isTextRun) {
+        // REQ-53 — width is container-determined (exact, Group B); height emerges
+        // from text wrapping × font metrics (tolerant, Group C). Split the axis so
+        // a real width gap can't hide behind the wrapping allowance height needs.
+        const dw = Math.abs(exp.box.width - act.box.width)
+        const dh = Math.abs(exp.box.height - act.box.height)
+        if (dw > widthTol || dh > heightTol) {
+          push(exp, 'size', sizeLabel(exp.box), sizeLabel(act.box), Math.max(dw, dh))
+        }
       }
     }
     // REQ-58 (T1) — tight rendered-text bounds. Distinct from box: box.width is the

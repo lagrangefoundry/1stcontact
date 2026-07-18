@@ -356,6 +356,30 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     expect(report).toContain('Derived (cumulative position drift')
   })
 
+  it('test_UAT_FC_REQ-64_text_run_box_size_is_not_a_defect_glyph_extent_is', () => {
+    // A left-aligned heading whose layout box is block-full-width (1104) vs the
+    // reference's shrink-to-fit (320) is VISUALLY identical — same glyphs, same
+    // position — so a `size` delta there is a false positive. The faithful text
+    // signal is `renderedTextBox` (glyph extent), compared separately.
+    const rtb = { x: 0, y: 0, width: 320, height: 40 }
+    const text = diffManifests(
+      mani('ref', [el('Heading', { box: box(0, 0, 320, 40), renderedTextBox: rtb })]),
+      mani('a', [el('Heading', { box: box(0, 0, 1104, 40), renderedTextBox: rtb })]),
+    )
+    expect(hasProp(text.deltas, 'size')).toBe(false) // the 784px box difference is not reported
+    // A real wrapping difference still surfaces — via renderedTextBox (glyph height),
+    // not box size — so the visible signal is never lost.
+    const wrapped = diffManifests(
+      mani('ref', [el('Body', { box: box(0, 0, 200, 90), renderedTextBox: { x: 0, y: 0, width: 200, height: 90 } })]),
+      mani('a', [el('Body', { box: box(0, 0, 320, 44), renderedTextBox: { x: 0, y: 0, width: 300, height: 44 } })]),
+    )
+    expect(hasProp(wrapped.deltas, 'renderedTextBox')).toBe(true)
+    expect(hasProp(wrapped.deltas, 'size')).toBe(false)
+    // A NON-text element (image/field — its box IS painted) still reports box size.
+    const img = diffManifests(mani('ref', [imgEl({ box: box(0, 0, 320, 40) })]), mani('a', [imgEl({ box: box(0, 0, 1104, 40) })]))
+    expect(hasProp(img.deltas, 'size')).toBe(true)
+  })
+
   it('test_UAT_FC_REQ-73_gap_axis_measures_relative_spacing_and_reports_the_correction', () => {
     // Two stacked rows; the gap between them differs (ref 40 vs ours 80). Reported as a
     // single `gap` delta whose expected→actual IS the correction (drift-free, relative).
