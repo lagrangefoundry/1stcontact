@@ -141,7 +141,7 @@
     "headingAlign": "left",
     "surface": "default",
     "spacingTop": "xl",
-    "spacingBottom": "2xl",
+    "spacingBottom": "xl",
     "contentWidth": "4xl"
    },
    "content": {
@@ -276,7 +276,7 @@
     "align": "left",
     "textAlign": "left",
     "surface": "subtle",
-    "spacingTop": "none",
+    "spacingTop": "lg",
     "spacingBottom": "md",
     "contentWidth": "4xl"
    },
