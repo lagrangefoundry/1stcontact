@@ -250,6 +250,25 @@ export const EXTRACT_SCRIPT = `(() => {
     if (!c || c[3] === 0) return null;
     return '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
   }
+  // REQ-72 — resolve a gradient's colour tokens to #rrggbb so normalizeGradient can
+  // parse the stops. A gradient authored with Tailwind classes computes to a modern
+  // colour space (oklch/oklab/color()) the TS-side stop regex can't read; a probe
+  // element + getComputedStyle resolves ANY format the browser understands to rgb,
+  // which rgbToHex then hexes. Positions/keywords/direction are left untouched.
+  function hexifyGradient(css) {
+    if (!css || !/gradient\\(/.test(css)) return css;
+    var probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+    var out = css.replace(/(oklab|oklch|lab|lch|hwb|color|rgba?|hsla?)\\([^()]*\\)|#[0-9a-fA-F]{3,8}/g, function (tok) {
+      probe.style.color = 'rgba(0,0,0,0)';
+      probe.style.color = tok;
+      var hex = rgbToHex(getComputedStyle(probe).color);
+      return hex || tok;
+    });
+    probe.remove();
+    return out;
+  }
   // Porter-Duff 'source over': src painted on top of dst, each [r,g,b,a].
   function composite(src, dst) {
     var sa = src[3], da = dst[3];
@@ -463,7 +482,7 @@ export const EXTRACT_SCRIPT = `(() => {
       var gs = getComputedStyle(node);
       var img = gs.backgroundImage || 'none';
       var clip = gs.webkitBackgroundClip || gs.backgroundClip || '';
-      if (/gradient\\(/.test(img) && clip !== 'text') return img;
+      if (/gradient\\(/.test(img) && clip !== 'text') return hexifyGradient(img);
       var c = rgbaOf(gs.backgroundColor);
       if (c && c[3] >= 0.999) return null; // opaque solid — nothing behind shows
       node = node.parentElement;
@@ -683,7 +702,7 @@ export const EXTRACT_SCRIPT = `(() => {
       // normalization; ignore non-clipped backgrounds (those are band fills).
       var clip = s.webkitBackgroundClip || s.backgroundClip || '';
       var bgImg = s.backgroundImage || 'none';
-      var gradientCss = (clip === 'text' && /gradient\\(/.test(bgImg)) ? bgImg : null;
+      var gradientCss = (clip === 'text' && /gradient\\(/.test(bgImg)) ? hexifyGradient(bgImg) : null;
       // A painted left-edge accent bar (border-l-4 border-emerald-400 and kin) —
       // read off the run OR a wrapping ancestor (REQ-58 item 4).
       var accent = accentBarOf(el);

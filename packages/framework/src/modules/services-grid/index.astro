@@ -146,11 +146,14 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
             // (REQ-58 absolute-or-overlay) to a per-card CSS var.
             item.accent && `--fc-accent: ${resolveColor(item.accent)}`,
             item.checkColor && `--fc-check: ${resolveColor(item.checkColor)}`,
-            // REQ-69 — raw card fill/gradient as an inline background, overriding the
-            // veil/surface class. Gradient takes precedence over the solid fill.
-            item.surfaceGradient
-              ? `background: ${resolveSurfaceGradient(item.surfaceGradient)}`
-              : item.surfaceFill && `background: ${resolveColor(item.surfaceFill)}`,
+            // REQ-69/REQ-72 — raw card fill/gradient as inline backgrounds, overriding
+            // the veil/surface class. `surfaceFill` is the solid `background-color`, the
+            // `surfaceGradient` the `background-image` painted OVER it — the two compose
+            // (a translucent/opaque gradient over a solid band), matching how the capture
+            // reads them as separate axes rather than one `background` shorthand.
+            item.surfaceFill && `background-color: ${resolveColor(item.surfaceFill)}`,
+            // resolveSurfaceGradient returns the full `background-image: linear-gradient(…)` declaration.
+            item.surfaceGradient && resolveSurfaceGradient(item.surfaceGradient),
           ].filter(Boolean).join('; ') || undefined}
         >
           {item.image && (

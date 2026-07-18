@@ -118,15 +118,15 @@ describe('REQ-58 T6 — services-grid translucent card veil', () => {
         ],
       },
     })
-    expect(html).toContain('background: #e8dfd3') // raw card fill (inline, over the veil)
+    expect(html).toContain('background-color: #e8dfd3') // raw card fill (solid, under any gradient)
     expect(html).toContain('background: #dbeafe') // raw badge fill (over the variant)
-    expect(html).toMatch(/background:[^;"]*gradient/i) // gradient card panel
+    expect(html).toMatch(/background-image:\s*linear-gradient\([^"]*#e8dfd3/i) // gradient panel over the solid
     // A card with a role still resolves through the overlay.
     const role = await render(ServicesGrid, {
       variant: 'stacked',
       content: { items: [{ title: { text: 'C' }, body: 'z', surfaceFill: 'secondary' }] },
     })
-    expect(role).toContain('background: var(--color-secondary)')
+    expect(role).toContain('background-color: var(--color-secondary)')
   })
 })
 
