@@ -94,6 +94,23 @@ export const contentValueSchema: z.ZodType<ContentValueT> = z.lazy(() =>
  * `.strict()` rejects a smuggled raw-CSS field.
  */
 const styleAxis = z.union([z.number(), z.string()])
+/**
+ * REQ-70 — a typography style axis that may vary by breakpoint: a scalar (base only,
+ * as today) OR `{ base, sm?, md?, lg?, xl? }`, each a scalar in the axis's unit. Mirrors
+ * the dials' `responsiveDialValueSchema` so a TextRun heading scales like a dial does.
+ */
+const responsiveStyleAxis = z.union([
+  styleAxis,
+  z
+    .object({
+      base: styleAxis,
+      sm: styleAxis.optional(),
+      md: styleAxis.optional(),
+      lg: styleAxis.optional(),
+      xl: styleAxis.optional(),
+    })
+    .strict(),
+])
 export const textRunGradientSchema = z
   .object({
     /** Literal degrees (report unit) or a principal-direction alias. */
@@ -113,11 +130,11 @@ export const textRunSchema = z
     label: z.string().optional(),
     href: z.string().optional(),
     fontFamily: z.string().optional(),
-    fontSizePx: styleAxis.optional(),
+    fontSizePx: responsiveStyleAxis.optional(),
     fontWeight: styleAxis.optional(),
     color: z.string().optional(),
-    letterSpacingPx: styleAxis.optional(),
-    lineHeightPx: styleAxis.optional(),
+    letterSpacingPx: responsiveStyleAxis.optional(),
+    lineHeightPx: responsiveStyleAxis.optional(),
     paddingLeftPx: z.number().optional(),
     gradient: textRunGradientSchema.optional(),
     /**
@@ -620,11 +637,11 @@ export const fontFaceSchema = z.object({
 export const subScaleSchema = z
   .object({
     fontFamily: z.string().optional(),
-    fontSizePx: styleAxis.optional(),
+    fontSizePx: responsiveStyleAxis.optional(),
     fontWeight: styleAxis.optional(),
     color: z.string().optional(),
-    letterSpacingPx: styleAxis.optional(),
-    lineHeightPx: styleAxis.optional(),
+    letterSpacingPx: responsiveStyleAxis.optional(),
+    lineHeightPx: responsiveStyleAxis.optional(),
   })
   .strict()
 

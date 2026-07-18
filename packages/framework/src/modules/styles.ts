@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registry } from './registry'
+import { responsiveTextCss } from './text-style'
 
 /**
  * Module component CSS, aggregated into one string (BUG-1).
@@ -53,6 +54,10 @@ export function getModuleCss(): string {
     const css = extractStyleBlocks(src)
     if (css) parts.push(`/* module: ${meta.id} */\n${css}`)
   }
+  // REQ-70 — the global responsive-typography rules (once per page): media queries that
+  // re-point font-size/line-height/letter-spacing at a run's per-breakpoint `--fc-rt-*`
+  // vars. Inert for any run that authors only scalar typography.
+  parts.push(`/* responsive TextRun typography (REQ-70) */\n${responsiveTextCss()}`)
   cache = parts.join('\n\n')
   return cache
 }

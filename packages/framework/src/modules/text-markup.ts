@@ -59,16 +59,14 @@ import type { TextRun } from './text-style'
  * Each value is a diff-unit literal or a theme alias, exactly as `TextRun` holds
  * it, so a captured value serializes and re-parses unchanged.
  */
-export type StyleOverride = Pick<
-  TextRun,
-  | 'fontFamily'
-  | 'fontSizePx'
-  | 'fontWeight'
-  | 'color'
-  | 'letterSpacingPx'
-  | 'lineHeightPx'
-  | 'paddingLeftPx'
->
+// REQ-70 — the responsive `{ base, sm?… }` axis form is only for discrete TextRuns
+// (headings that scale); an inline prose run is a single size, so re-narrow those axes
+// to scalar here rather than inherit TextRun's responsive union.
+export type StyleOverride = Pick<TextRun, 'fontFamily' | 'fontWeight' | 'color' | 'paddingLeftPx'> & {
+  fontSizePx?: number | string
+  letterSpacingPx?: number | string
+  lineHeightPx?: number | string
+}
 
 /** Inline emphasis marker — the markdown shorthands `*` / `**` / `***` map here. */
 export type Emphasis = 'italic' | 'bold' | 'bold-italic'

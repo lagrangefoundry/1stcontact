@@ -17,6 +17,13 @@
  * with no theme in hand. A literal is emitted verbatim in its diff unit.
  */
 import type { Position } from '@1stcontact/site-schema'
+import { BREAKPOINTS, BREAKPOINT_PX, overrideChain, type Breakpoint } from './breakpoints'
+
+/** REQ-70 — a typography axis that may vary by breakpoint: a scalar OR `{ base, sm?… }`. */
+export type ResponsiveAxis = { base: number | string } & Partial<Record<Breakpoint, number | string>>
+function isResponsiveAxis(v: unknown): v is ResponsiveAxis {
+  return typeof v === 'object' && v !== null && 'base' in (v as Record<string, unknown>)
+}
 
 /** The finite alias step-sets, mirroring the token contract (site-schema). */
 const FAMILY_ROLES = ['heading', 'body', 'display', 'label'] as const
@@ -132,16 +139,17 @@ export interface TextRun {
   href?: string
   /** Real family name (`"Oswald"`) or a family role alias (`heading`/`body`/`display`/`label`). */
   fontFamily?: string
-  /** Literal px (`65`) or a scale step alias (`"5xl"`). */
-  fontSizePx?: number | string
+  /** Literal px (`65`) or a scale step alias (`"5xl"`); REQ-70 — OR a per-breakpoint
+   *  `{ base, sm?, md?, lg?, xl? }` for a heading that scales (fluid type). */
+  fontSizePx?: number | string | ResponsiveAxis
   /** Literal weight (`500`) or a weight step alias (`"medium"`). */
   fontWeight?: number | string
   /** `#rrggbb` literal or a palette-role alias (`"primary"`). */
   color?: string
-  /** Literal px (`0`) or a tracking step alias (`"tight"`). */
-  letterSpacingPx?: number | string
-  /** Literal px (`75`) or a line-height step alias (`"snug"`). */
-  lineHeightPx?: number | string
+  /** Literal px (`0`) or a tracking step alias (`"tight"`); REQ-70 — OR per-breakpoint. */
+  letterSpacingPx?: number | string | ResponsiveAxis
+  /** Literal px (`75`) or a line-height step alias (`"snug"`); REQ-70 — OR per-breakpoint. */
+  lineHeightPx?: number | string | ResponsiveAxis
   /** Literal px indent (`0`). No alias — indent is always a measured length. */
   paddingLeftPx?: number | string
   /**
@@ -262,7 +270,7 @@ export function resolveTextStyle(run: TextRun | undefined | null): string {
   if (!run) return ''
   const decls: string[] = []
   if (run.fontFamily !== undefined) decls.push(`font-family: ${resolveFamily(run.fontFamily)}`)
-  if (run.fontSizePx !== undefined) decls.push(`font-size: ${lengthOrVar(run.fontSizePx, 'font-size')}`)
+  if (run.fontSizePx !== undefined) decls.push(...axisDecls(run.fontSizePx, 'font-size', 'fs', 'font-size'))
   if (run.fontWeight !== undefined) decls.push(`font-weight: ${numberOrVar(run.fontWeight, 'font-weight')}`)
   // A gradient fill paints the glyphs and forces `color: transparent`, so it
   // supersedes a flat `color` on the same run (the run keeps `color` only when
@@ -271,9 +279,57 @@ export function resolveTextStyle(run: TextRun | undefined | null): string {
   if (gradientDecl) decls.push(gradientDecl)
   else if (run.color !== undefined) decls.push(`color: ${resolveColor(run.color)}`)
   if (run.letterSpacingPx !== undefined)
-    decls.push(`letter-spacing: ${lengthOrVar(run.letterSpacingPx, 'tracking')}`)
+    decls.push(...axisDecls(run.letterSpacingPx, 'letter-spacing', 'ls', 'tracking'))
   if (run.lineHeightPx !== undefined)
-    decls.push(`line-height: ${lengthOrVar(run.lineHeightPx, 'line-height')}`)
+    decls.push(...axisDecls(run.lineHeightPx, 'line-height', 'lh', 'line-height'))
   if (run.paddingLeftPx !== undefined) decls.push(`padding-left: ${px(run.paddingLeftPx)}`)
   return decls.join('; ')
+}
+
+/**
+ * REQ-70 — the inline declarations for one typography axis. A scalar sets the property
+ * directly (byte-identical to before); a per-breakpoint value emits the base property
+ * pointing at an inline `--fc-rt-<key>` var plus the per-breakpoint override vars. The
+ * media-query re-point lives in {@link responsiveTextCss} (a global attribute-selector
+ * rule), so a TextRun renders responsively inline — no class or call-site change.
+ */
+function axisDecls(
+  value: number | string | ResponsiveAxis,
+  cssProp: string,
+  rtKey: 'fs' | 'lh' | 'ls',
+  varPrefix: string,
+): string[] {
+  if (isResponsiveAxis(value)) {
+    const decls = [`${cssProp}: var(--fc-rt-${rtKey})`, `--fc-rt-${rtKey}: ${lengthOrVar(value.base, varPrefix)}`]
+    for (const bp of BREAKPOINTS) {
+      const v = value[bp]
+      if (v !== undefined) decls.push(`--fc-rt-${rtKey}-${bp}: ${lengthOrVar(v, varPrefix)}`)
+    }
+    return decls
+  }
+  return [`${cssProp}: ${lengthOrVar(value, varPrefix)}`]
+}
+
+/**
+ * REQ-70 — the once-per-page global rules that drive responsive TextRun typography. A
+ * run with a per-breakpoint axis emits `--fc-rt-<fs|lh|ls>` vars inline (base + overrides);
+ * these attribute-selector media queries re-point the property at each breakpoint through
+ * the `overrideChain` fallback ("override and up"). `!important` beats the run's own inline
+ * base declaration; a run WITHOUT the base var never matches, so the scalar path is inert.
+ */
+export function responsiveTextCss(): string {
+  const axes: [key: 'fs' | 'lh' | 'ls', cssProp: string][] = [
+    ['fs', 'font-size'],
+    ['lh', 'line-height'],
+    ['ls', 'letter-spacing'],
+  ]
+  const rules: string[] = []
+  for (const [key, prop] of axes) {
+    BREAKPOINTS.forEach((bp, i) => {
+      rules.push(
+        `@media (min-width: ${BREAKPOINT_PX[bp]}px) { [style*="--fc-rt-${key}:"] { ${prop}: ${overrideChain(`rt-${key}`, i)} !important; } }`,
+      )
+    })
+  }
+  return rules.join('\n')
 }

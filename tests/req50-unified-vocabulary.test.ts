@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveTextStyle } from '../packages/framework/src/modules/text-style'
+import { resolveTextStyle, responsiveTextCss } from '../packages/framework/src/modules/text-style'
 
 /**
  * UATs for REQ-50 — the spec and the fidelity diff speak ONE vocabulary for
@@ -114,5 +114,33 @@ describe('REQ-50 unified vocabulary — text-fill gradient (mirrors report TextG
     expect(
       resolveTextStyle({ color: '#111111', gradient: { angleDeg: 90, stops: ['#f5e6a3'] } }),
     ).toBe('color: #111111')
+  })
+})
+
+describe('REQ-70 responsive TextRun typography — per-breakpoint fontSize/lineHeight/letterSpacing', () => {
+  it('test_UAT_FC_REQ-70_responsive_fontsize_emits_base_and_breakpoint_vars', () => {
+    // A per-breakpoint fontSize points the property at an inline --fc-rt-fs var and emits
+    // the base + override vars; the global CSS re-points it at each breakpoint.
+    const style = resolveTextStyle({ fontSizePx: { base: 30, md: 36 }, lineHeightPx: { base: 36, md: 40 } })
+    expect(style).toContain('font-size: var(--fc-rt-fs)')
+    expect(style).toContain('--fc-rt-fs: 30px')
+    expect(style).toContain('--fc-rt-fs-md: 36px')
+    expect(style).toContain('line-height: var(--fc-rt-lh)')
+    expect(style).toContain('--fc-rt-lh-md: 40px')
+  })
+
+  it('test_UAT_FC_REQ-70_scalar_axis_is_byte_identical', () => {
+    // The scalar path is untouched — no --fc-rt vars, just the direct property.
+    expect(resolveTextStyle({ fontSizePx: 36 })).toBe('font-size: 36px')
+    expect(resolveTextStyle({ letterSpacingPx: -0.9 })).toBe('letter-spacing: -0.9px')
+  })
+
+  it('test_UAT_FC_REQ-70_global_css_repoints_at_breakpoints_with_fallback_chain', () => {
+    const css = responsiveTextCss()
+    // md re-point of font-size, through the override-and-up fallback, !important to beat
+    // the run's own inline base declaration.
+    expect(css).toMatch(/@media \(min-width: 768px\) \{ \[style\*="--fc-rt-fs:"\] \{ font-size: var\(--fc-rt-fs-md, var\(--fc-rt-fs-sm, var\(--fc-rt-fs\)\)\) !important; \} \}/)
+    expect(css).toContain('letter-spacing: var(--fc-rt-ls')
+    expect(css).toContain('line-height: var(--fc-rt-lh')
   })
 })
