@@ -248,11 +248,6 @@ describe('REQ-63 in-page extraction (EXTRACT_SCRIPT under jsdom)', () => {
  * (optional field) — a matching or absent axis must never fabricate a delta.
  */
 describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align, font fallback)', () => {
-  const sectMani = (source: string, sections: ValueManifest['sections']): ValueManifest => ({
-    source,
-    elements: [],
-    sections,
-  })
 
   it('test_UAT_FC_REQ-64_padding_sides_top_right_bottom_delta', () => {
     // Only paddingLeft was compared; a card's internal top/right/bottom pad (a box
@@ -286,23 +281,6 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
       mani('a', [el('Heading', { textAlign: 'center' })]),
     )
     expect(hasProp(same.deltas, 'textAlign')).toBe(false)
-  })
-
-  it('test_UAT_FC_REQ-64_section_band_padding_delta', () => {
-    // A section that renders taller (a bigger band top/bottom pad) previously showed
-    // ONLY as the downstream position drift of everything below it. Name the cause.
-    const d = diffManifests(
-      sectMani('ref', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 0, paddingBottomPx: 0 }]),
-      sectMani('a', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 96, paddingBottomPx: 128 }]),
-    )
-    expect(hasDelta(d.deltas, '§0', 'paddingTopPx')).toBe(true)
-    expect(hasDelta(d.deltas, '§0', 'paddingBottomPx')).toBe(true)
-    // Matching band padding → no delta.
-    const same = diffManifests(
-      sectMani('ref', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 64, paddingBottomPx: 64 }]),
-      sectMani('a', [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: 64, paddingBottomPx: 64 }]),
-    )
-    expect(hasProp(same.deltas, 'paddingTopPx')).toBe(false)
   })
 
   it('test_UAT_FC_REQ-64_collapse_dedups_ladder_to_one_row_per_defect', () => {
@@ -343,6 +321,46 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     const fs = defects.find((d) => d.property === 'fontSizePx')!
     expect(fs.repairClass).toBe('structural') // fires at 375 only ⇒ fluid vs our fixed 72
     expect(fs.widths).toEqual([375])
+  })
+
+  it('test_UAT_FC_REQ-73_gap_axis_measures_relative_spacing_and_reports_the_correction', () => {
+    // Two stacked rows; the gap between them differs (ref 40 vs ours 80). Reported as a
+    // single `gap` delta whose expected→actual IS the correction (drift-free, relative).
+    const d = diffManifests(
+      mani('ref', [el('A', { box: box(0, 0, 200, 20) }), el('B', { box: box(0, 60, 200, 20) })]),
+      mani('a', [el('A', { box: box(0, 0, 200, 20) }), el('B', { box: box(0, 100, 200, 20) })]),
+    )
+    const g = d.deltas.find((x) => x.property === 'gap')!
+    expect(g).toBeTruthy()
+    expect(g.expected).toBe('40px') // reference gap
+    expect(g.actual).toBe('80px') // ours — 40px too big, the exact knob correction
+  })
+
+  it('test_UAT_FC_REQ-73_matching_gap_and_side_by_side_row_emit_no_gap_delta', () => {
+    // A matching gap → no delta. And two elements on the SAME row (side by side) are one
+    // visual row, so no spurious horizontal "gap".
+    const same = diffManifests(
+      mani('ref', [el('A', { box: box(0, 0, 200, 20) }), el('B', { box: box(0, 60, 200, 20) })]),
+      mani('a', [el('A', { box: box(0, 0, 200, 20) }), el('B', { box: box(0, 60, 200, 20) })]),
+    )
+    expect(same.deltas.some((x) => x.property === 'gap')).toBe(false)
+    const row = diffManifests(
+      mani('ref', [el('L', { box: box(0, 0, 100, 20) }), el('R', { box: box(120, 0, 100, 20) })]),
+      mani('a', [el('L', { box: box(0, 0, 100, 20) }), el('R', { box: box(120, 0, 100, 20) })]),
+    )
+    expect(row.deltas.some((x) => x.property === 'gap')).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-73_section_band_padding_no_longer_compared', () => {
+    // The section paddingTop/Bottom axis is dropped (a padding-vs-margin component the
+    // gap axis supersedes) — a section padding mismatch must NOT fabricate a delta.
+    const sect = (top: number, bot: number): ValueManifest => ({
+      source: 's',
+      elements: [],
+      sections: [{ index: 0, overlay: null, contentAnchorRatio: null, paddingTopPx: top, paddingBottomPx: bot }],
+    })
+    const d = diffManifests(sect(0, 0), sect(96, 128))
+    expect(d.deltas.some((x) => x.property === 'paddingTopPx' || x.property === 'paddingBottomPx')).toBe(false)
   })
 
   it('test_UAT_FC_REQ-64_deltas_tagged_A_or_B_repair_class', () => {

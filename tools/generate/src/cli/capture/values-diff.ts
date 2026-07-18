@@ -296,6 +296,8 @@ export type DeltaProperty =
   | 'textAlign'
   // ── REQ-47 structural properties ─────────────────────────────────────────
   | 'position'
+  // ── REQ-73 — relative vertical spacing (the gap between adjacent rows) ────
+  | 'gap'
   | 'size'
   // ── REQ-58 (T1) tight rendered-text extent ───────────────────────────────
   | 'renderedTextBox'
@@ -335,6 +337,7 @@ export type DeltaKind =
   | 'containment'
   | 'arrangement'
   | 'position'
+  | 'gap'
   | 'text'
   | 'overflow'
   | 'fontLoad'
@@ -920,6 +923,9 @@ const KIND_TIER: Record<DeltaKind, SeverityTier> = {
   containment: 'CRITICAL',
   arrangement: 'CRITICAL',
   position: 'CRITICAL',
+  // REQ-73 — a wrong inter-row gap is visible spacing but not structure-breaking, and
+  // it is directly fixable via one spacing knob; HIGH so it ranks above tonal drift.
+  gap: 'HIGH',
   text: 'CRITICAL',
   overflow: 'HIGH',
   fontLoad: 'HIGH',
@@ -971,6 +977,7 @@ const KIND_RANK: Record<DeltaKind, number> = {
   position: 3,
   text: 2,
   // HIGH band
+  gap: 9,
   overflow: 8,
   fontLoad: 7,
   transform: 6,
@@ -1120,6 +1127,9 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   // ── Type B — emergent geometry / structure (measure, don't copy) ──
   missing: 'B',
   position: 'B',
+  // REQ-73 — a gap is emergent (a sum), but LINEAR in one spacing knob: its
+  // expected→actual is the exact correction. Emergent, so Type B, but actionable.
+  gap: 'B',
   size: 'B',
   renderedTextBox: 'B',
   arrangement: 'B',
@@ -1169,6 +1179,7 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   lineHeightPx: 'lineHeight',
   letterSpacingPx: 'letterSpacing',
   paddingLeftPx: 'padding',
+  gap: 'gap',
   // REQ-64 — the three other padding sides share the `padding` kind (LOW, like
   // paddingLeft); text-align is a text-treatment defect (MEDIUM) — a centred vs
   // left-aligned run reads like the other treatment axes.
@@ -1290,6 +1301,8 @@ export interface DiffOptions {
   overlayOpacityTolerance?: number
   /** Vertical-anchor tolerance as a fraction of box height (default 0.15 — art-directed, Group C, always kept). */
   anchorTolerance?: number
+  /** REQ-73 — inter-row vertical gap tolerance in px (default 6; `tolerant` → 16). */
+  gapTolerancePx?: number
   /**
    * REQ-47/REQ-53 — element position tolerance in px (default 1, an integer-
    * rounding allowance for the captured box; `tolerant` 24). Position is
@@ -1695,6 +1708,9 @@ export function diffManifests(
   const gradientPosTol = opts.gradientPositionTolerancePct ?? 2
   const opacityTol = opts.overlayOpacityTolerance ?? 0.1
   const anchorTol = opts.anchorTolerance ?? 0.15
+  // REQ-73 — a vertical inter-row gap this many px off is a real spacing difference.
+  // Looser than position (a few px of line-box rounding accumulate across a row).
+  const gapTol = tol(opts.gapTolerancePx, 6, 16)
   // REQ-53 geometry: position + width are deterministic layout (Group B) → exact
   // with a ±1px integer-rounding allowance. Height emerges from text wrapping ×
   // font metrics (Group C) → a small documented tolerance. `tolerant` restores
@@ -1969,6 +1985,9 @@ export function diffManifests(
     if (eStr !== aStr) push(exp, property, e ?? 'none', a ?? 'none')
   }
 
+  // REQ-73 — every paired element with a box, for the adjacent-gap axis below.
+  const gapPairs: Array<{ exp: ValueElement; act: ValueElement }> = []
+
   // ── text-free fields (REQ-47): pair by a11yRole + document order ─────────────
   for (const exp of expected.elements) {
     if (!exp.textless) continue
@@ -1989,6 +2008,7 @@ export function diffManifests(
       push(exp, 'containment', nameSourceLabel(exp.nameSource), nameSourceLabel(act.nameSource))
     }
     compareGeometry(exp, act)
+    if (exp.box && act.box) gapPairs.push({ exp, act })
     cards.push(buildObjectCard(exp, act, objectDeltas(start)))
   }
 
@@ -2151,7 +2171,58 @@ export function diffManifests(
     // REQ-47 — a text run also carries geometry: the hero heading 195px out of
     // position, a mis-sized box, a squared-off corner, a stacked-vs-inline button.
     compareGeometry(exp, act)
+    if (exp.box && act.box) gapPairs.push({ exp, act })
     cards.push(buildObjectCard(exp, act, objectDeltas(start)))
+  }
+
+  // REQ-73 — the adjacent-GAP axis: vertical spacing in the coordinate that matters
+  // (the relative gap between stacked rows), not the band-padding component or the
+  // absolute position that accumulates drift. Group paired elements into visual ROWS
+  // by reference y-overlap (so a row of cards is one row, measured at its max bottom),
+  // then compare the gap between consecutive rows. `expected - actual` IS the linear
+  // correction: how many px to add/remove from the one spacing knob (`gap = base + pad`).
+  {
+    interface Row { refTop: number; refBot: number; ourTop: number; ourBot: number; label: string }
+    const items = gapPairs
+      .map((p) => ({
+        rt: p.exp.box!.y,
+        rb: p.exp.box!.y + p.exp.box!.height,
+        at: p.act.box!.y,
+        ab: p.act.box!.y + p.act.box!.height,
+        text: p.exp.text,
+      }))
+      .sort((a, b) => a.rt - b.rt)
+    const rows: Row[] = []
+    for (const it of items) {
+      const last = rows[rows.length - 1]
+      // Same visual row when it starts before the current row's reference bottom.
+      if (last && it.rt < last.refBot - 2) {
+        last.refBot = Math.max(last.refBot, it.rb)
+        last.ourBot = Math.max(last.ourBot, it.ab)
+        if (it.rt < last.refTop) last.refTop = it.rt
+        if (it.at < last.ourTop) last.ourTop = it.at
+      } else {
+        rows.push({ refTop: it.rt, refBot: it.rb, ourTop: it.at, ourBot: it.ab, label: it.text })
+      }
+    }
+    for (let i = 0; i + 1 < rows.length; i++) {
+      const refGap = rows[i + 1].refTop - rows[i].refBot
+      const ourGap = rows[i + 1].ourTop - rows[i].ourBot
+      // Only real vertical separations (both rows genuinely stacked, not overlapping).
+      if (refGap < -2 || ourGap < -2) continue
+      const d = Math.abs(refGap - ourGap)
+      if (d > gapTol) {
+        const short = (s: string): string => (s.length > 22 ? `${s.slice(0, 21)}…` : s)
+        record(
+          `${short(rows[i].label)} → ${short(rows[i + 1].label)}`,
+          'gap',
+          'gap',
+          `${Math.round(refGap)}px`,
+          `${Math.round(ourGap)}px`,
+          d,
+        )
+      }
+    }
   }
 
   // REQ-51 — repro objects left in the pairing queues matched no reference
@@ -2186,15 +2257,11 @@ export function diffManifests(
         record(label, 'section', 'contentAnchor', anchorLabel(es.contentAnchorRatio), anchorLabel(as.contentAnchorRatio))
       }
     }
-    // REQ-64 — section band vertical padding (Type-A). A section that renders
-    // taller/shorter (a bigger top/bottom pad) previously showed only as the
-    // downstream `position` drift of everything below it; name the cause directly.
-    if (es.paddingTopPx !== undefined && as.paddingTopPx !== undefined && Math.abs(es.paddingTopPx - as.paddingTopPx) > paddingTol) {
-      record(label, 'section', 'paddingTopPx', `${es.paddingTopPx}`, `${as.paddingTopPx}`, Math.abs(es.paddingTopPx - as.paddingTopPx))
-    }
-    if (es.paddingBottomPx !== undefined && as.paddingBottomPx !== undefined && Math.abs(es.paddingBottomPx - as.paddingBottomPx) > paddingTol) {
-      record(label, 'section', 'paddingBottomPx', `${es.paddingBottomPx}`, `${as.paddingBottomPx}`, Math.abs(es.paddingBottomPx - as.paddingBottomPx))
-    }
+    // REQ-73 — section band vertical padding is NOT compared: it is one COMPONENT of
+    // the emergent gap (`gap = base + padding`), and the reference distributes the same
+    // visual gap differently (margins vs our padding), so matching the band-padding
+    // number is padding-vs-margin noise that fights the visual. The `gap` axis (below)
+    // measures the sum that actually matters.
     // REQ-64 — section band text-align (Type-A).
     if (es.textAlign !== undefined && as.textAlign !== undefined && es.textAlign !== as.textAlign) {
       record(label, 'section', 'textAlign', es.textAlign, as.textAlign)
