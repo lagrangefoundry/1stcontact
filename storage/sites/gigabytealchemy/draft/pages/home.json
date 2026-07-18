@@ -276,7 +276,7 @@
     "align": "left",
     "textAlign": "left",
     "surface": "subtle",
-    "spacingTop": "lg",
+    "spacingTop": "none",
     "spacingBottom": "md",
     "contentWidth": "4xl"
    },
