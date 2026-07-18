@@ -123,13 +123,32 @@ describe('REQ-58 — submit colour + inline, footer copyright + link colour', ()
     expect(html).toContain('submit-inline') // field + button on one row
   })
 
+  it('test_UAT_FC_REQ-67_field_styling_dials_emit_override_vars', async () => {
+    // The field border colour, control radius, and submit horizontal padding were
+    // hard-wired to shared theme tokens; the dials emit inline --fc-* overrides.
+    const html = await render(ContactForm, {
+      dials: { fieldBorderColor: '#000000', fieldRadius: '8px', submitPaddingX: '32px' },
+      content: formContent,
+    })
+    expect(html).toContain('--fc-field-border: #000000') // absolute border colour
+    expect(html).toContain('--fc-field-radius: 8px') // absolute control radius
+    expect(html).toContain('--fc-submit-px: 32px') // absolute submit padding
+    // A named radius token resolves through the overlay (absolute-or-overlay).
+    const token = await render(ContactForm, { dials: { fieldRadius: 'lg' }, content: formContent })
+    expect(token).toContain('--fc-field-radius: var(--radius-lg)')
+    // Omitted → no override var; the CSS keeps the theme-token fallback (unchanged).
+    const bare = await render(ContactForm, { content: formContent })
+    expect(bare).not.toContain('--fc-field-border')
+    expect(bare).not.toContain('--fc-submit-px')
+  })
+
   it('test_UAT_FC_REQ-64_contactform_submit_inline_stacks_on_mobile_rows_from_sm', async () => {
     // The reference subscribe form is `flex-col sm:flex-row`: STACKED on mobile
     // (field over a full-width button), field + button BESIDE each other from the
     // sm (640px) breakpoint up. submit-inline must model that responsively — a flat
     // `flex-direction: row` squishes the strip on mobile (the real repro defect).
     const html = await render(ContactForm, {
-      dials: { submitInline: 'true' },
+      dials: { submitInline: 'inline' },
       content: formContent,
     })
     expect(html).toContain('submit-inline')

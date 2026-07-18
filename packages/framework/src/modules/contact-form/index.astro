@@ -1,7 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { responsiveStepVars, SPACING_STEPS } from '../dials'
+import { resolveStep, responsiveStepVars, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface FormField {
@@ -48,6 +48,15 @@ const submitColorCss = dials.submitColor ? resolveColor(dials.submitColor) : nul
 // button on one row (`bg-white/… flex` subscribe strip); `stacked` (default)
 // stacks the button below the fields.
 const submitInline = dials.submitInline === 'inline'
+// REQ-67 — field styling escape hatches (absolute-or-overlay): the field border
+// colour, form control radius, and submit horizontal padding were hard-wired to
+// shared theme tokens (so a theme change perturbed every module). Each dial emits an
+// inline `--fc-*` var the scoped CSS consumes with the current token as its fallback,
+// so an omitted dial is byte-identical to today.
+const RADIUS_STEPS = { none: 'var(--radius-none)', sm: 'var(--radius-sm)', md: 'var(--radius-md)', lg: 'var(--radius-lg)', full: 'var(--radius-full)' }
+const fieldBorderCss = dials.fieldBorderColor ? resolveColor(dials.fieldBorderColor) : null
+const fieldRadiusCss = dials.fieldRadius ? resolveStep(dials.fieldRadius, RADIUS_STEPS, 'md') : null
+const submitPaddingXCss = dials.submitPaddingX ? resolveStep(dials.submitPaddingX, SPACING_STEPS, 'lg') : null
 
 const { heading, action } = content
 const fields = content.fields ?? []
@@ -77,7 +86,13 @@ const submitStyle = resolveTextStyle(content.submitLabel)
     `align-${align}`,
     `width-${width}`,
   ]}
-  style={[padTopVars, padBottomVars].join('; ')}
+  style={[
+    padTopVars,
+    padBottomVars,
+    fieldBorderCss && `--fc-field-border: ${fieldBorderCss}`,
+    fieldRadiusCss && `--fc-field-radius: ${fieldRadiusCss}`,
+    submitPaddingXCss && `--fc-submit-px: ${submitPaddingXCss}`,
+  ].filter(Boolean).join('; ')}
 >
   <div class="contact-form__inner" data-contact-form-root>
     {heading?.text && <h2 class="contact-form__heading" style={headingStyle}>{heading.text}</h2>}
@@ -195,8 +210,10 @@ const submitStyle = resolveTextStyle(content.submitLabel)
   .contact-form__field textarea {
     font: inherit;
     padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    /* REQ-67 — field border colour + control radius default to the theme token, but
+       an inline --fc-field-border / --fc-field-radius (from a dial) overrides them. */
+    border: 1px solid var(--fc-field-border, var(--color-border));
+    border-radius: var(--fc-field-radius, var(--radius-md));
     background: var(--color-bg);
     color: var(--color-text);
   }
@@ -221,9 +238,11 @@ const submitStyle = resolveTextStyle(content.submitLabel)
        to the UA default (Arial 13px), diverging from the site's type. Weight is
        set explicitly below so the label still reads as an action. */
     font: inherit;
-    padding: var(--space-3) var(--space-6);
+    /* REQ-67 — horizontal padding + control radius are dial-overridable (--fc-submit-px
+       / --fc-field-radius), the submit sharing the form's control radius. */
+    padding: var(--space-3) var(--fc-submit-px, var(--space-6));
     border: 0;
-    border-radius: var(--radius-md);
+    border-radius: var(--fc-field-radius, var(--radius-md));
     font-weight: var(--font-weight-semibold);
     cursor: pointer;
   }
