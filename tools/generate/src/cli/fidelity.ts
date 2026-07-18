@@ -426,6 +426,110 @@ export function formatCollapsedReport(cells: StateDiff[]): string {
   return lines.join('\n')
 }
 
+/**
+ * REQ-76 — a CAUSE the counted defects roll up to, with a disposition. The point
+ * of noise management: a 112-row diff is really ~7 causes, each a single decision.
+ */
+export interface DefectCause {
+  /** Human cause label (several properties can share one cause). */
+  cause: string
+  /** What to do: `fix` (a real, closeable gap), `review` (judge per case, often
+   *  structural), `accept` (a capture artifact / sub-visual residual to sign off). */
+  disposition: 'fix' | 'review' | 'accept'
+  /** Number of counted defects rolling up to this cause. */
+  count: number
+  /** Worst tier reached. */
+  tier: ValueDelta['tier']
+  /** Union of the widths its members fire at (viewport-awareness: a cause that
+   *  fires only at narrow widths is a different animal from an all-width one). */
+  widths: number[]
+  /** A few representative element labels. */
+  examples: string[]
+}
+
+/**
+ * REQ-76 — map a fine-grained delta property to the CAUSE it evidences and the
+ * default disposition. Several properties share a cause (arrangement+containment =
+ * layout structure; shape+border+outline = control styling), so the count collapses
+ * further than the property list. `fontLoad` is a capture artifact (the reference
+ * froze a webfont FOUT), so it defaults to `accept`.
+ */
+const CAUSE_MAP: Record<string, { cause: string; disposition: DefectCause['disposition'] }> = {
+  renderedTextBox: { cause: 'text extent / wrapping', disposition: 'review' },
+  gap: { cause: 'vertical spacing', disposition: 'fix' },
+  listMarker: { cause: 'list-marker treatment', disposition: 'fix' },
+  arrangement: { cause: 'layout structure', disposition: 'review' },
+  containment: { cause: 'layout structure', disposition: 'review' },
+  shape: { cause: 'control styling', disposition: 'fix' },
+  border: { cause: 'control styling', disposition: 'fix' },
+  outline: { cause: 'control styling', disposition: 'fix' },
+  size: { cause: 'box dimensions (non-text)', disposition: 'fix' },
+  fontLoad: { cause: 'capture artifact (webfont FOUT)', disposition: 'accept' },
+  color: { cause: 'colour', disposition: 'fix' },
+  contentAnchor: { cause: 'content anchor', disposition: 'review' },
+  overflow: { cause: 'overflow', disposition: 'review' },
+}
+
+/**
+ * REQ-76 — roll the counted (non-derived) defects up into ranked CAUSES. This is
+ * the noise-management view: instead of 112 rows the operator sees ~7 causes, each
+ * tagged fix / review / accept, so "do I care about Type-B" becomes a per-cause call.
+ */
+export function clusterDefects(defects: CollapsedDefect[]): DefectCause[] {
+  interface G {
+    cause: string
+    disposition: DefectCause['disposition']
+    count: number
+    tier: ValueDelta['tier']
+    widths: Set<number>
+    examples: string[]
+  }
+  const groups = new Map<string, G>()
+  for (const d of defects) {
+    if (d.derived) continue // derived axes (position) are not counted defects
+    const { cause, disposition } = CAUSE_MAP[d.property] ?? { cause: d.property, disposition: 'review' as const }
+    let g = groups.get(cause)
+    if (!g) {
+      g = { cause, disposition, count: 0, tier: d.tier, widths: new Set(), examples: [] }
+      groups.set(cause, g)
+    }
+    g.count++
+    for (const w of d.widths) g.widths.add(w)
+    if (TIER_RANK[d.tier] < TIER_RANK[g.tier]) g.tier = d.tier
+    if (g.examples.length < 3 && !g.examples.includes(d.text)) g.examples.push(d.text)
+  }
+  return [...groups.values()]
+    .map((g) => ({ ...g, widths: [...g.widths].sort((a, b) => a - b) }))
+    .sort((a, b) => b.count - a.count || TIER_RANK[a.tier] - TIER_RANK[b.tier])
+}
+
+/**
+ * REQ-76 — the `--clusters` report: ranked causes with dispositions, plus a
+ * one-line "N causes: X fix / Y review / Z accept" summary. Width-scope is shown so
+ * a cause that fires only at narrow widths (a phantom of the viewport-merged view)
+ * is not mistaken for an all-width one.
+ */
+export function formatClusterReport(cells: StateDiff[]): string {
+  const all = collapseMultiViewport(cells)
+  const counted = all.filter((d) => !d.derived)
+  const causes = clusterDefects(all)
+  const widths = [...new Set(cells.filter((c) => !c.missing).map((c) => c.viewportWidth))].sort((a, b) => a - b)
+  const byDisp = (dsp: DefectCause['disposition']): number =>
+    causes.filter((c) => c.disposition === dsp).reduce((s, c) => s + c.count, 0)
+  const lines: string[] = [
+    `values-diff --clusters: ${counted.length} counted defect(s) roll up to ${causes.length} cause(s)`,
+    `  fix ${byDisp('fix')} · review ${byDisp('review')} · accept ${byDisp('accept')}   (counted defects, by disposition)`,
+    '',
+  ]
+  const MARK: Record<DefectCause['disposition'], string> = { fix: 'FIX  ', review: 'REVIEW', accept: 'ACCEPT' }
+  for (const c of causes) {
+    const scope = c.widths.length === widths.length ? '@all' : `@${c.widths.join(',')}`
+    lines.push(`  [${MARK[c.disposition]}] ${String(c.count).padStart(3)} × ${c.cause.padEnd(30)} ${scope}`)
+    lines.push(`             e.g. ${c.examples.map((e) => `"${trunc(e, 22)}"`).join(', ')}`)
+  }
+  return lines.join('\n')
+}
+
 function repairPlanLines(cells: StateDiff[]): string[] {
   // Group every delta by (text, property); a group is one defect across widths.
   const present = cells.filter((c) => !c.missing).length

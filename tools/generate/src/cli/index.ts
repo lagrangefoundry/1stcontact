@@ -38,6 +38,8 @@ import {
   formatMultiViewportReport,
   formatCollapsedReport,
   collapseMultiViewport,
+  clusterDefects,
+  formatClusterReport,
 } from './fidelity'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
 import { cmdResponsiveDiff, classifyResponsiveTable, formatResponsiveTable, formatClassifiedTable } from './responsive-diff'
@@ -54,6 +56,7 @@ export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
 export { collapseMultiViewport, formatCollapsedReport, type CollapsedDefect } from './fidelity'
+export { clusterDefects, formatClusterReport, type DefectCause } from './fidelity'
 export {
   cmdResponsiveDiff,
   buildResponsiveTable,
@@ -121,6 +124,7 @@ Fidelity values-diff (REQ-31) — mechanical per-element value comparison:
   1c values-diff <slug> --ref <captureBundleDir> --multi-viewport [--source …] [--out <file>] [--json]
     (REQ-64) add --collapse to dedup to one row per DEFECT (x-viewport multiplier removed), grouped in
     repair order: Type-A flat (copy) -> Type-A structural (author) -> Type-B (emergent residual).
+    (REQ-76) add --clusters to roll the counted defects up into ranked CAUSES, each tagged fix/review/accept.
     (REQ-58 T2) pair the draft against the reference's persisted viewport ladder, cell-for-cell — catches
     a %-vs-fixed reflow (a wordmark that drifts on resize) invisible at the single default width.
   1c values-diff <slug> --ref <captureBundleDir> --size mobile|tablet|desktop [--out <file>] [--json]
@@ -379,11 +383,17 @@ export async function run(argv: string[]): Promise<void> {
         )
         // REQ-64 — `--collapse` dedups the per-cell deltas to one row per DEFECT
         // (the x-viewport multiplier removed), grouped in repair order.
+        // REQ-76 — `--clusters` rolls those defects up into ranked CAUSES with a
+        // fix/review/accept disposition (the noise-management view).
         const collapse = flags.collapse === true
+        const clusters = flags.clusters === true
         if (flags.json === true) {
-          console.log(JSON.stringify(collapse ? collapseMultiViewport(cells) : cells, null, 2))
+          const payload = clusters ? clusterDefects(collapseMultiViewport(cells)) : collapse ? collapseMultiViewport(cells) : cells
+          console.log(JSON.stringify(payload, null, 2))
         } else {
-          console.log(collapse ? formatCollapsedReport(cells) : formatMultiViewportReport(cells))
+          console.log(
+            clusters ? formatClusterReport(cells) : collapse ? formatCollapsedReport(cells) : formatMultiViewportReport(cells),
+          )
         }
         // A missing cell or any per-cell delta is a fidelity failure to clear.
         if (cells.some((c) => c.missing || (c.report?.deltas.length ?? 0) > 0)) process.exitCode = 1

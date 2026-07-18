@@ -4,7 +4,9 @@ import {
   diffManifests,
   collapseMultiViewport,
   formatCollapsedReport,
+  clusterDefects,
   EXTRACT_SCRIPT,
+  type CollapsedDefect,
   type RawSignals,
   type StateDiff,
   type ValueElement,
@@ -378,6 +380,33 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     // A NON-text element (image/field — its box IS painted) still reports box size.
     const img = diffManifests(mani('ref', [imgEl({ box: box(0, 0, 320, 40) })]), mani('a', [imgEl({ box: box(0, 0, 1104, 40) })]))
     expect(hasProp(img.deltas, 'size')).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-76_defects_roll_up_into_causes_with_dispositions', () => {
+    // REQ-76 — the noise-management view: counted defects group into ranked CAUSES,
+    // each tagged fix/review/accept. Several properties share a cause (arrangement +
+    // containment = layout structure), fontLoad is a capture artifact (accept), and
+    // derived axes (position) never enter the cause list.
+    const cd = (over: Partial<CollapsedDefect>): CollapsedDefect => ({
+      text: 'x', property: 'gap', valueType: 'B', repairClass: 'emergent', widths: [1280], expected: 'a', actual: 'b', tier: 'HIGH', derived: false, ...over,
+    })
+    const causes = clusterDefects([
+      cd({ property: 'gap', text: 'g1' }),
+      cd({ property: 'gap', text: 'g2' }),
+      cd({ property: 'arrangement', text: 'a1', tier: 'CRITICAL' }),
+      cd({ property: 'containment', text: 'c1' }), // merges with arrangement → layout structure
+      cd({ property: 'fontLoad', text: 'Wordmark' }),
+      cd({ property: 'position', text: 'p1', derived: true }), // derived → excluded
+      cd({ property: 'listMarker', text: 'm1', widths: [320, 375] }), // narrow-only
+    ])
+    const byCause = Object.fromEntries(causes.map((c) => [c.cause, c]))
+    expect(byCause['vertical spacing'].count).toBe(2)
+    expect(byCause['vertical spacing'].disposition).toBe('fix')
+    expect(byCause['layout structure'].count).toBe(2) // arrangement + containment collapsed
+    expect(byCause['layout structure'].tier).toBe('CRITICAL') // worst tier of members
+    expect(byCause['capture artifact (webfont FOUT)'].disposition).toBe('accept')
+    expect(byCause['list-marker treatment'].widths).toEqual([320, 375]) // viewport-aware
+    expect(causes.some((c) => c.cause === 'position')).toBe(false) // derived never a cause
   })
 
   it('test_UAT_FC_REQ-73_gap_axis_measures_relative_spacing_and_reports_the_correction', () => {
