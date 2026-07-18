@@ -239,6 +239,20 @@ export const positionSchema = z
     ...positionFields,
     /** Per-breakpoint overrides, keyed by breakpoint token name. */
     breakpoints: positionBreakpointsSchema.optional(),
+    /**
+     * REQ-75 — horizontal anchoring frame. `band` (default): `x` is a percentage
+     * of the host band (viewport-width) — the free-float coordinate model. `column`:
+     * the element's left edge anchors to the centered content column, so it tracks
+     * container-relative content (the hero) across widths instead of drifting on
+     * viewport width. `x` is ignored under `column`; the offset comes from `inset`.
+     */
+    anchor: z.enum(['band', 'column']).optional(),
+    /**
+     * REQ-75 — the content-column gutter (a spacing step sm/md/lg → the hero's
+     * INSET_STEPS: space-4/6/8) applied when `anchor: 'column'`. Lock it to the
+     * section's `contentInset` so the element shares the exact same left edge.
+     */
+    inset: z.enum(['sm', 'md', 'lg']).optional(),
   })
   .strict()
 

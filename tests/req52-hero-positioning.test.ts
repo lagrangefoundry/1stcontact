@@ -140,6 +140,44 @@ describe('REQ-52 — the overlay wordmark shares the hero coordinate space', () 
     expect(OVERLAY_BAND_CSS).toMatch(/pointer-events:\s*auto/)
   })
 
+  it('test_UAT_FC_REQ-75_column_anchored_wordmark_tracks_the_content_gutter', async () => {
+    // REQ-75 — a wordmark with `anchor: 'column'` locks its LEFT edge to the centered
+    // content column (the hero's 6xl column + inset), so it tracks the hero across
+    // widths instead of drifting on the viewport-% `--fc-x`. It must carry the
+    // anchor-column marker and emit `--fc-inset` from the inset token (md → space-6),
+    // and the scoped CSS must place `left` at half-the-gutter + that inset.
+    const html = await render(Header, {
+      variant: 'overlay',
+      dials: {},
+      content: {
+        wordmark: { text: 'Gigabyte Alchemy', fontSizePx: 72, position: { x: 0, y: 10, z: 3, anchor: 'column', inset: 'md' } },
+        entries: [],
+      },
+    })
+    expect(html).toMatch(/header__logo--positioned[^"]*header__logo--anchor-column/)
+    expect(html).toContain('--fc-inset: var(--space-6);')
+    // The scoped `<style>` isn't inlined by the container render, so assert the CSS
+    // rule from source: `left` = half-the-gutter + the content inset.
+    const headerSrc = readFileSync(
+      fileURLToPath(new URL('../packages/framework/src/modules/header/index.astro', import.meta.url)),
+      'utf8',
+    )
+    expect(headerSrc).toContain('calc(max(0px, (100% - var(--container-6xl)) / 2) + var(--fc-inset, var(--space-6)))')
+  })
+
+  it('test_UAT_FC_REQ-75_band_anchored_wordmark_is_unchanged_default', async () => {
+    // Regression: the default (no `anchor`, or `anchor: 'band'`) keeps the free
+    // viewport-% `--fc-x` model — no anchor-column marker, no `--fc-inset`.
+    const html = await render(Header, {
+      variant: 'overlay',
+      dials: {},
+      content: { wordmark: { text: 'Acme', position: { x: 6, y: 62, z: 3 } }, entries: [] },
+    })
+    expect(html).not.toContain('header__logo--anchor-column')
+    expect(html).not.toContain('--fc-inset:')
+    expect(html).toMatch(/--fc-x: 6%;/)
+  })
+
   it('test_UAT_FC_REQ-52_unpositioned_wordmark_stays_in_flow_row', async () => {
     // Regression guard: a wordmark with no position renders in the flow row, no
     // positioned marker, no `--fc-*`.

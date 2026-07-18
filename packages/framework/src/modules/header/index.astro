@@ -51,13 +51,22 @@ const navStyle = resolveTextStyle(content.navStyle)
 // hero's coordinate space (e.g. drop the wordmark to the lower-left while the nav
 // stays at the top-right). No position → the flow-row wordmark, exactly as before.
 const wordmarkPositioned = !logo && !!wordmark?.position
+// REQ-75 — a positioned wordmark can anchor its LEFT edge to the centered content
+// column (so it tracks the hero across widths) instead of floating on a viewport-%
+// `--fc-x`. `inset` reuses the hero's INSET_STEPS token scale so the two share the
+// exact gutter. Vertical (`--fc-y`) / z stay band-relative.
+const INSET_STEPS = { sm: 'var(--space-4)', md: 'var(--space-6)', lg: 'var(--space-8)' }
+const wordmarkAnchorColumn = wordmark?.position?.anchor === 'column'
+const wordmarkInsetVar = wordmarkAnchorColumn
+  ? `--fc-inset: ${INSET_STEPS[wordmark?.position?.inset ?? 'md']};`
+  : ''
 // Join the run's resolved style (no trailing `;`) to the position vars with a
 // separating `;`, else the first `--fc-*` fuses onto the last declaration and is
 // dropped as invalid.
 const wordmarkPosStyle = wordmark?.position
-  ? wordmarkStyle
-    ? `${wordmarkStyle.replace(/\s*;?\s*$/, '')}; ${positionVars(wordmark.position)}`
-    : positionVars(wordmark.position)
+  ? [wordmarkStyle ? wordmarkStyle.replace(/\s*;?\s*$/, '') : '', positionVars(wordmark.position), wordmarkInsetVar]
+      .filter(Boolean)
+      .join('; ')
   : ''
 ---
 
@@ -72,7 +81,11 @@ const wordmarkPosStyle = wordmark?.position
   style={[padTopVars, padBottomVars].join('; ')}
 >
   {wordmarkPositioned && wordmark?.text && (
-    <a class="header__logo header__logo--positioned" href="/" style={wordmarkPosStyle}>
+    <a
+      class:list={['header__logo', 'header__logo--positioned', wordmarkAnchorColumn && 'header__logo--anchor-column']}
+      href="/"
+      style={wordmarkPosStyle}
+    >
       <span class="header__wordmark" style={wordmarkStyle}>{wordmark.text}</span>
     </a>
   )}
@@ -151,6 +164,13 @@ const wordmarkPosStyle = wordmark?.position
     width: var(--fc-w, auto);
     z-index: var(--fc-z, 3);
     transform: rotate(var(--fc-rotate, 0deg));
+  }
+  /* REQ-75 — anchor the wordmark's LEFT edge to the centered content column so it
+     tracks the hero (same 6xl column + gutter) across widths, instead of drifting
+     on the viewport-% `--fc-x`. Reproduces the section content's left edge exactly:
+     max(0, half the side gutter) + the content inset. Vertical/z stay band-relative. */
+  .header.variant-overlay .header__logo--positioned.header__logo--anchor-column {
+    left: calc(max(0px, (100% - var(--container-6xl)) / 2) + var(--fc-inset, var(--space-6)));
   }
   .header__logo img { display: block; height: var(--fc-logo, var(--space-8)); width: auto; }
   /* REQ-61 — per-breakpoint logo-height override chain (see ./breakpoints). */
