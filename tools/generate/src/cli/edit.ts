@@ -16,6 +16,7 @@ import {
   writeJson,
 } from '../store'
 import type { GlobalOptions } from './commands'
+import { readMultiState, type StateProjection, type ValueElement } from './capture'
 import { CommandError } from './errors'
 
 /**
@@ -568,4 +569,191 @@ export function editStatus(slug: string, opts: GlobalOptions = {}): EditOutput {
   for (const rel of changes.removed) lines.push(`D  ${rel}`)
   if (total === 0) lines.push('(no pending changes)')
   return { data: { baseRevision: live, ...changes }, human: lines.join('\n') }
+}
+
+// ── adopt-values (REQ-66) ────────────────────────────────────────────────────
+
+/**
+ * REQ-66 — the "copy" half of the REQ-64 repair order. Mechanically adopt the
+ * reference's **flat Type-A** values into the matching **styled content objects**
+ * of the draft: match a styled object to a reference node by normalized text, then
+ * for each authored axis whose reference value is CONSTANT across the viewport
+ * ladder, snap it to the reference value. Dual of `values-diff` — the gate reports
+ * `[A]` deltas; this repairs the mechanically-fixable subset. What it cannot touch
+ * (dial/theme-derived, prose per-run) the diff keeps flagging: a focused authoring
+ * list.
+ */
+const ADOPT_FLAT_AXES = ['color', 'fontSizePx', 'fontWeight', 'lineHeightPx', 'letterSpacingPx', 'fontStyle'] as const
+type AdoptAxis = (typeof ADOPT_FLAT_AXES)[number]
+
+export interface AdoptValuesOptions extends GlobalOptions {
+  /** Reference capture bundle whose persisted ladder (multistate.json) supplies the values. */
+  refBundleDir: string
+  /** Write the draft (default: dry-run — report only). */
+  apply?: boolean
+  /** Restrict to these axes (default: all flat axes). */
+  axes?: string[]
+  /** `styled-objects` (default) or `prose` (also single-run body/subhead blocks). */
+  scope?: 'styled-objects' | 'prose'
+}
+
+export interface AdoptChange {
+  page: string
+  text: string
+  axis: string
+  from: unknown
+  to: unknown
+}
+
+/**
+ * Pure core of adopt-values (REQ-66): given the reference's ladder projections and
+ * a set of named page objects, MUTATE the pages in place by snapping each styled
+ * object's flat Type-A axes to the reference value, and return the change list.
+ * No file I/O — the shell reads/validates/writes. `flat` = the reference value is
+ * identical everywhere it appears across the ladder (a value that varies is
+ * structural — a responsive ramp — and is never adopted). Guards: `color` is
+ * skipped on gradient / inferred-colour nodes (the solid colour is the transparent
+ * base, not the paint); an axis the target style does not already author is never
+ * introduced.
+ */
+export function adoptFlatValues(
+  projections: StateProjection[],
+  pages: { name: string; page: Record<string, unknown> }[],
+  opts: { axes?: string[]; scope?: 'styled-objects' | 'prose' } = {},
+): AdoptChange[] {
+  const refVals = new Map<string, Map<AdoptAxis, unknown[]>>()
+  const gradientNodes = new Set<string>()
+  const inferredNodes = new Set<string>()
+  for (const proj of projections) {
+    for (const el of proj.manifest.elements as ValueElement[]) {
+      const t = (el.text ?? '').trim()
+      if (!t) continue
+      const k = t.toLowerCase()
+      if (el.gradient) gradientNodes.add(k)
+      if (el.colorInferred) inferredNodes.add(k)
+      let m = refVals.get(k)
+      if (!m) {
+        m = new Map()
+        refVals.set(k, m)
+      }
+      for (const ax of ADOPT_FLAT_AXES) {
+        const v = (el as unknown as Record<string, unknown>)[ax]
+        if (v !== undefined && v !== null) {
+          const arr = m.get(ax) ?? []
+          arr.push(v)
+          m.set(ax, arr)
+        }
+      }
+    }
+  }
+  const flatRef = (k: string, ax: AdoptAxis): { ok: boolean; value?: unknown } => {
+    const arr = refVals.get(k)?.get(ax)
+    if (!arr || arr.length === 0) return { ok: false }
+    return new Set(arr.map((v) => JSON.stringify(v))).size === 1 ? { ok: true, value: arr[0] } : { ok: false }
+  }
+
+  const wanted = opts.axes?.length ? opts.axes : [...ADOPT_FLAT_AXES]
+  const axes = wanted.filter((a): a is AdoptAxis => (ADOPT_FLAT_AXES as readonly string[]).includes(a))
+  const includeProse = opts.scope === 'prose'
+
+  const isStyleObj = (o: Record<string, unknown>): boolean =>
+    typeof o.text === 'string' && (ADOPT_FLAT_AXES as readonly string[]).some((k) => k in o)
+  const collect = (node: unknown, out: { text: string; style: Record<string, unknown> }[]): void => {
+    if (Array.isArray(node)) {
+      for (const v of node) collect(v, out)
+      return
+    }
+    if (node && typeof node === 'object') {
+      const o = node as Record<string, unknown>
+      if (isStyleObj(o)) out.push({ text: o.text as string, style: o })
+      for (const b of includeProse ? ['subhead', 'body'] : ['subhead']) {
+        const s = o[b]
+        const st = o[`${b}Style`]
+        if (typeof s === 'string' && st && typeof st === 'object' && !s.includes('\n\n') && !s.trimStart().startsWith('>')) {
+          out.push({ text: s, style: st as Record<string, unknown> })
+        }
+      }
+      for (const v of Object.values(o)) collect(v, out)
+    }
+  }
+
+  const changes: AdoptChange[] = []
+  for (const { name, page } of pages) {
+    const pairs: { text: string; style: Record<string, unknown> }[] = []
+    collect(page, pairs)
+    for (const { text, style } of pairs) {
+      const k = text.trim().toLowerCase()
+      if (!refVals.has(k)) continue
+      for (const ax of axes) {
+        if (ax === 'color' && (gradientNodes.has(k) || inferredNodes.has(k))) continue
+        if (ax === 'fontStyle') {
+          // Ref never painting a style (no `fontStyle` recorded) means roman.
+          const hasStyle = refVals.get(k)!.has('fontStyle')
+          const res = hasStyle ? flatRef(k, 'fontStyle') : { ok: true, value: null as unknown }
+          if (!res.ok) continue
+          const cur = style.fontStyle
+          if ((res.value === null || res.value === undefined) && 'fontStyle' in style) {
+            changes.push({ page: name, text, axis: ax, from: cur, to: null })
+            delete style.fontStyle
+          } else if (res.value != null && cur !== res.value) {
+            changes.push({ page: name, text, axis: ax, from: cur, to: res.value })
+            style.fontStyle = res.value
+          }
+          continue
+        }
+        // Only adopt an axis the target style already authors (never introduce one).
+        if (!(ax in style)) continue
+        const { ok, value } = flatRef(k, ax)
+        if (ok && style[ax] !== value) {
+          changes.push({ page: name, text, axis: ax, from: style[ax], to: value })
+          style[ax] = value
+        }
+      }
+    }
+  }
+  return changes
+}
+
+export function cmdAdoptValues(slug: string, opts: AdoptValuesOptions): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug) // requireDraft inside
+
+  const ladder = readMultiState(opts.refBundleDir)
+  if (!ladder || ladder.projections.length === 0) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `--ref '${opts.refBundleDir}' has no multi-viewport ladder (multistate.json); adopt-values needs it to tell flat from structural.`,
+      path: opts.refBundleDir,
+      hint: `Re-capture with '1c capture page <url>' so the reference carries its viewport ladder.`,
+    })
+  }
+
+  const files = readPageFiles(ctx, slug)
+  const changes = adoptFlatValues(
+    ladder.projections,
+    files.map((f) => ({ name: f.rel, page: f.page })),
+    { axes: opts.axes, scope: opts.scope },
+  )
+  const changedPages = new Set(changes.map((c) => c.page))
+
+  // Validate the mutated site as a whole BEFORE any write; on failure the draft on
+  // disk is untouched (we only mutated in-memory clones of the page objects).
+  validateOrThrow(base, files.map((f) => f.page))
+
+  const apply = opts.apply === true
+  if (apply && changedPages.size > 0) {
+    for (const file of files) if (changedPages.has(file.rel)) writeJson(file.abs, file.page)
+  }
+
+  const head = apply
+    ? changedPages.size > 0
+      ? `adopt-values: adopted ${changes.length} flat Type-A value(s) across ${changedPages.size} page(s)`
+      : `adopt-values: 0 flat Type-A value(s) to adopt — the styled objects already match the reference`
+    : `adopt-values (dry-run): ${changes.length} flat Type-A value(s) to adopt across ${changedPages.size} page(s); pass --apply to write`
+  const human = [
+    head,
+    ...changes.slice(0, 50).map((c) => `   ${c.page}  "${c.text.slice(0, 34)}"  ${c.axis}: ${JSON.stringify(c.from)} -> ${JSON.stringify(c.to)}`),
+  ].join('\n')
+
+  return { data: { changes, applied: apply && changedPages.size > 0, pages: [...changedPages] }, human }
 }

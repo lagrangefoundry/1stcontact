@@ -23,6 +23,7 @@ import {
   editPageRm,
   editPageUpdate,
   editStatus,
+  cmdAdoptValues,
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
@@ -132,6 +133,12 @@ Responsive-diff (REQ-61) — analyse ONE captured site across sizes (not a repro
     Line up the persisted ladder's per-width manifests into an N-way per-node table — one row per node,
     one column per size — so a font step, a reflow, or a component that departs on mobile reads left-to-right.
     --classify labels each changed node value-step / presence-flip / layout-swap (the reproduction move).
+
+Adopt-values (REQ-66) — the "copy" half of the repair order; snap the draft's styled objects to the reference:
+  1c adopt-values <slug> --ref <captureBundleDir> [--apply] [--axes color,fontWeight,…] [--scope styled-objects|prose] [--json] [--sandbox]
+    Mechanically COPY the reference's FLAT Type-A values (constant across the ladder) into matching styled
+    text objects. Dry-run by default (report only); --apply writes. Skips structural (responsive) values,
+    gradient/inferred colours, and axes the target style does not already author. Dual of values-diff.
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -474,6 +481,41 @@ export async function run(argv: string[]): Promise<void> {
         out: typeof flags.out === 'string' ? flags.out : undefined,
       })
       console.log(`Cropped ${input} @ ${applied.x},${applied.y} ${applied.w}×${applied.h} → ${outFile}`)
+      return
+    }
+
+    case 'adopt-values': {
+      // REQ-66 — mechanically copy the reference's flat Type-A values into the
+      // draft's styled objects. Dual of values-diff; dry-run by default.
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('adopt-values requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const slug = requireSlug(rest[0])
+      const json = flags.json === true
+      const axes =
+        typeof flags.axes === 'string'
+          ? flags.axes
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : undefined
+      try {
+        emit(
+          cmdAdoptValues(slug, {
+            ...global,
+            refBundleDir: ref,
+            apply: flags.apply === true,
+            axes,
+            scope: flags.scope === 'prose' ? 'prose' : 'styled-objects',
+          }),
+          json,
+        )
+      } catch (err) {
+        fail(err, json)
+      }
       return
     }
 
