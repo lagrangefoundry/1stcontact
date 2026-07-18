@@ -242,3 +242,38 @@ describe('REQ-33 contact-form submitTreatment dial (AC6)', () => {
     expect(html).toMatch(/class="contact-form__submit submit-primary"/)
   })
 })
+
+describe('REQ-71 styled inline runs in markdown body prose', () => {
+  it('test_UAT_FC_REQ-71_span_carries_colour_size_and_emphasis', async () => {
+    const html = await renderMarkdown('[We work at the intersection]{emphasis=italic color=#45556c fontSizePx=18 lineHeightPx=28}')
+    expect(html).toContain('<span style="')
+    expect(html).toContain('color: #45556c')
+    expect(html).toContain('font-size: 18px')
+    expect(html).toContain('line-height: 28px')
+    expect(html).toContain('font-style: italic')
+    expect(html).toContain('>We work at the intersection</span>')
+    // The literal bracket/brace markup must NOT survive.
+    expect(html).not.toContain('{emphasis=italic')
+  })
+
+  it('test_UAT_FC_REQ-71_colour_role_and_bold_emphasis', async () => {
+    const html = await renderMarkdown('[key phrase]{color=primary emphasis=bold}')
+    expect(html).toContain('color: var(--color-primary)')
+    expect(html).toContain('font-weight: 700')
+  })
+
+  it('test_UAT_FC_REQ-71_unknown_key_is_left_literal', async () => {
+    // A raw-CSS smuggle / unknown key must not become a span (no silent mis-style).
+    const html = await renderMarkdown('[x]{background=red}')
+    expect(html).not.toContain('<span')
+    expect(html).toContain('{background=red}')
+  })
+
+  it('test_UAT_FC_REQ-71_span_inside_a_callout', async () => {
+    const html = await renderMarkdown("> [!accent] [We're not trying to change you.]{emphasis=italic color=#1d293d}")
+    expect(html).toContain('fc-callout--accent')
+    expect(html).toContain('<span style="')
+    expect(html).toContain('color: #1d293d')
+    expect(html).toContain('font-style: italic')
+  })
+})

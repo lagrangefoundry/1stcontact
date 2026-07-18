@@ -1,6 +1,7 @@
 import { createMarkdownProcessor, type MarkdownRenderer } from '@astrojs/markdown-remark'
 import { TREATMENT_ROLE_DIAL } from './dials'
 import { assertSafeHtml } from './safety'
+import { resolveTextStyle, type TextRun } from './text-style'
 
 /**
  * Callout / left-bar treatment (REQ-32).
@@ -89,6 +90,43 @@ function getProcessor(): Promise<MarkdownRenderer> {
   return processor
 }
 
+/**
+ * Styled inline run (REQ-71) — `[text]{key=value …}` inside body prose. A bare
+ * `[text]` is not a markdown link, so the syntax survives rendering as literal text;
+ * this rewrites it to a `<span style="…">`. Distinct from the callout marker (a whole
+ * blockquote): this styles a run *within* a paragraph — the only way to colour/size an
+ * emphasised phrase, which discrete TextRuns can do but body markdown could not.
+ */
+const STYLED_SPAN = /\[([^\][]+)\]\{([^}]+)\}/g
+/** The style axes a span may set — the TextRun typography keys (no raw CSS). */
+const SPAN_STYLE_KEYS = new Set(['color', 'fontFamily', 'fontSizePx', 'fontWeight', 'letterSpacingPx', 'lineHeightPx'])
+
+function transformStyledSpans(html: string): string {
+  return html.replace(STYLED_SPAN, (match, text: string, attrStr: string) => {
+    const run: Record<string, unknown> = {}
+    let emphasis: string | undefined
+    for (const pair of attrStr.trim().split(/\s+/)) {
+      const eq = pair.indexOf('=')
+      if (eq < 1) return match // malformed attr → leave literal
+      const key = pair.slice(0, eq)
+      const value = pair.slice(eq + 1)
+      if (key === 'emphasis') {
+        emphasis = value
+        continue
+      }
+      if (!SPAN_STYLE_KEYS.has(key)) return match // unknown key → no silent mis-style
+      // Colour/family are strings (a #hex/role or a family name); the metric axes are a
+      // literal px number when numeric, else a token alias string.
+      run[key] = key === 'color' || key === 'fontFamily' || Number.isNaN(Number(value)) ? value : Number(value)
+    }
+    const parts = [resolveTextStyle(run as TextRun)].filter(Boolean)
+    if (emphasis === 'italic' || emphasis === 'bold-italic') parts.push('font-style: italic')
+    if (emphasis === 'bold' || emphasis === 'bold-italic') parts.push('font-weight: 700')
+    if (parts.length === 0) return match
+    return `<span style="${parts.join('; ')}">${text}</span>`
+  })
+}
+
 /** `<img>` without an explicit `loading` attribute, so we can default it lazy. */
 const BARE_IMG = /<img(?![^>]*\bloading=)([^>]*)>/g
 
@@ -103,7 +141,9 @@ const BARE_IMG = /<img(?![^>]*\bloading=)([^>]*)>/g
 export async function renderMarkdown(md: string): Promise<string> {
   const { code } = await (await getProcessor()).render(md)
   const withImgs = code.replace(BARE_IMG, '<img loading="lazy" decoding="async"$1>')
-  const html = transformCallouts(withImgs)
+  // Callouts first (whole blockquote), then styled inline runs (a run within a
+  // paragraph — including inside a callout's text).
+  const html = transformStyledSpans(transformCallouts(withImgs))
   // Fail loud (REQ-46): a `<script>`, inline handler or `javascript:` link in a
   // markdown content field is rejected here, before it can reach `set:html`.
   return assertSafeHtml(html, 'markdown content')
