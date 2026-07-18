@@ -442,7 +442,9 @@
     "submitTreatment": "primary",
     "submitColor": "#009966",
     "submitInline": "inline",
-    "fieldLabels": "placeholder"
+    "fieldLabels": "placeholder",
+    "fieldBorderColor": "#000000",
+    "fieldRadius": "8px"
    },
    "content": {
     "heading": {
@@ -492,7 +494,10 @@
     "align": "left",
     "submitTreatment": "neutral",
     "submitColor": "#0f172b",
-    "fieldLabels": "placeholder"
+    "fieldLabels": "placeholder",
+    "fieldBorderColor": "#000000",
+    "fieldRadius": "8px",
+    "submitPaddingX": "32px"
    },
    "content": {
     "action": "/api/contact",
