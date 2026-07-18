@@ -1141,6 +1141,19 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   viewport: 'B',
 }
 
+/**
+ * REQ-64 — *derived* axes: computed and reported, but NOT counted as headline
+ * defects. `position` (an element's absolute x,y) is the cumulative integral of
+ * the `gap`/`size` deltas above it — it carries no information those don't. One
+ * upstream spacing cause drifts every element below it, so counting `position`
+ * double-counts the cause as dozens of downstream shadows and buries the real
+ * list. REQ-73 already replaced it as the vertical-spacing signal (the `gap`
+ * axis); this finishes that decision by demoting it from a counted defect to a
+ * drill-down diagnostic. `size`/`renderedTextBox` are NOT derived — they measure
+ * *dimensions* (container width, glyph extent), which are independent signal.
+ */
+export const DERIVED_PROPERTIES: ReadonlySet<DeltaProperty> = new Set<DeltaProperty>(['position'])
+
 /** The kind a fine-grained {@link DeltaProperty} belongs to (for the tier table). */
 const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   missing: 'presence',

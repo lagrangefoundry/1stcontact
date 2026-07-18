@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom'
 import {
   diffManifests,
   collapseMultiViewport,
+  formatCollapsedReport,
   EXTRACT_SCRIPT,
   type RawSignals,
   type StateDiff,
@@ -321,6 +322,38 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     const fs = defects.find((d) => d.property === 'fontSizePx')!
     expect(fs.repairClass).toBe('structural') // fires at 375 only ⇒ fluid vs our fixed 72
     expect(fs.widths).toEqual([375])
+  })
+
+  it('test_UAT_FC_REQ-64_position_is_derived_and_excluded_from_the_headline_count', () => {
+    // A real cause (colour) plus a downstream position shadow: the second element
+    // sits 120px lower — the cumulative integral of some gap above it, carrying no
+    // information the gap/size axes don't. It must be reported (drill-down) but kept
+    // OUT of the headline count, so one cause doesn't read as two.
+    const cell: StateDiff = {
+      engine: 'chromium',
+      viewportWidth: 1280,
+      state: 'rest',
+      missing: false,
+      report: diffManifests(
+        mani('ref', [el('Cause', { color: '#111111', box: box(0, 0, 200, 40) }), el('Shadow', { box: box(0, 500, 200, 40) })]),
+        mani('a', [el('Cause', { color: '#222222', box: box(0, 0, 200, 40) }), el('Shadow', { box: box(0, 620, 200, 40) })]),
+      ),
+    }
+    // The 120px shift produces BOTH a `gap` delta (the real cause — the inter-row
+    // spacing grew) and a `position` delta (its shadow). The gap is counted; the
+    // position is derived. That is the whole point: count the cause, not the echo.
+    const defects = collapseMultiViewport([cell])
+    const pos = defects.find((d) => d.property === 'position')!
+    const gap = defects.find((d) => d.property === 'gap')!
+    const colour = defects.find((d) => d.property === 'color')!
+    expect(pos.derived).toBe(true) // the shadow is derived (uncounted)
+    expect(gap.derived).toBe(false) // the cause is a real, counted defect
+    expect(colour.derived).toBe(false)
+    // Headline counts the causes (colour + gap = 2); the position shadow surfaces as
+    // a "+1 derived" note and its own uncounted section — never inflating the number.
+    const report = formatCollapsedReport([cell])
+    expect(report).toMatch(/2 unique defect\(s\) \(\+1 derived position drift, not counted\)/)
+    expect(report).toContain('Derived (cumulative position drift')
   })
 
   it('test_UAT_FC_REQ-73_gap_axis_measures_relative_spacing_and_reports_the_correction', () => {

@@ -29,6 +29,7 @@ import {
 } from './capture'
 import { VIEWPORTS, type ViewportName } from './shot'
 import {
+  DERIVED_PROPERTIES,
   diffManifests,
   diffMultiState,
   flattenCapture,
@@ -296,6 +297,10 @@ export interface CollapsedDefect {
   actual: string
   /** Worst tier this defect reached across the widths. */
   tier: ValueDelta['tier']
+  /** REQ-64 — a derived axis (absolute `position`): the cumulative shadow of the
+   *  `gap`/`size` causes, reported for drill-down but excluded from the headline
+   *  count so a handful of real causes aren't buried under their downstream echoes. */
+  derived: boolean
 }
 
 const TIER_RANK: Record<ValueDelta['tier'], number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
@@ -357,6 +362,7 @@ export function collapseMultiViewport(cells: StateDiff[]): CollapsedDefect[] {
       expected: range(g.refs),
       actual: range(g.acts),
       tier: g.tier,
+      derived: DERIVED_PROPERTIES.has(g.property),
     }
   })
   out.sort(
@@ -375,7 +381,12 @@ export function collapseMultiViewport(cells: StateDiff[]): CollapsedDefect[] {
  * the reference value to transcribe and the widths it fires at.
  */
 export function formatCollapsedReport(cells: StateDiff[]): string {
-  const defects = collapseMultiViewport(cells)
+  const all = collapseMultiViewport(cells)
+  // REQ-64 — derived axes (absolute `position`) are the cumulative shadow of the
+  // gap/size causes; report them for drill-down but keep them OUT of the headline
+  // count and the repair classes, so the count is real causes, not their echoes.
+  const defects = all.filter((d) => !d.derived)
+  const derived = all.filter((d) => d.derived)
   const widths = cells.filter((c) => !c.missing).map((c) => c.viewportWidth)
   const rawTotal = cells.reduce((s, c) => s + (c.report?.deltas.filter((d) => !d.systemic).length ?? 0), 0)
   const byClass = (cls: CollapsedDefect['repairClass']): CollapsedDefect[] => defects.filter((d) => d.repairClass === cls)
@@ -384,8 +395,9 @@ export function formatCollapsedReport(cells: StateDiff[]): string {
     structural: 'Type-A structural - author the responsive ladder / section spacing',
     emergent: 'Type-B - emergent residual (shrinks once Type-A is right; do not set directly)',
   }
+  const derivedNote = derived.length > 0 ? ` (+${derived.length} derived position drift, not counted)` : ''
   const lines: string[] = [
-    `values-diff --multi-viewport --collapse: ${defects.length} unique defect(s) - from ${rawTotal} raw deltas across ${widths.length} width(s)`,
+    `values-diff --multi-viewport --collapse: ${defects.length} unique defect(s)${derivedNote} - from ${rawTotal} raw deltas across ${widths.length} width(s)`,
     `  A-flat ${byClass('flat').length} -> A-structural ${byClass('structural').length} -> B ${byClass('emergent').length}   (fix in that order)`,
   ]
   for (const cls of ['flat', 'structural', 'emergent'] as const) {
@@ -398,6 +410,18 @@ export function formatCollapsedReport(cells: StateDiff[]): string {
       lines.push(`     [${d.tier[0]}] ${d.property.padEnd(16)} "${trunc(d.text, 26)}"  ${trunc(d.expected, 20).padEnd(20)} -> ${trunc(d.actual, 20)}  @${w}`)
     }
     if (group.length > cap) lines.push(`     ... +${group.length - cap} more`)
+  }
+  if (derived.length > 0) {
+    lines.push(
+      '',
+      `  -- Derived (cumulative position drift - the integral of the gap/size deltas above; NOT counted) -- ${derived.length}`,
+    )
+    const cap = 20
+    for (const d of derived.slice(0, cap)) {
+      const w = d.widths.length === widths.length ? 'all' : d.widths.join(',')
+      lines.push(`     [~] ${d.property.padEnd(16)} "${trunc(d.text, 26)}"  ${trunc(d.expected, 20).padEnd(20)} -> ${trunc(d.actual, 20)}  @${w}`)
+    }
+    if (derived.length > cap) lines.push(`     ... +${derived.length - cap} more`)
   }
   return lines.join('\n')
 }
