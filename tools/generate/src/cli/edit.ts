@@ -757,3 +757,143 @@ export function cmdAdoptValues(slug: string, opts: AdoptValuesOptions): EditOutp
 
   return { data: { changes, applied: apply && changedPages.size > 0, pages: [...changedPages] }, human }
 }
+
+// ── gap inversion (REQ-74) ───────────────────────────────────────────────────
+
+/** REQ-74 — spacing token → px (mirrors SPACING_STEPS); content modules default `lg`. */
+const SPACING_PX: Record<string, number> = { none: 0, sm: 16, md: 32, lg: 64, xl: 96, '2xl': 128, '3xl': 192 }
+const DEFAULT_SPACING_TOP_PX = 64 // the text-block / services-grid / hero / contact-form default (lg)
+
+export interface GapFix {
+  moduleId: string
+  boundary: string
+  from: string
+  to: string
+  note?: string
+}
+
+/** The first rendered text of a module — in render order (wordmark/eyebrow BEFORE the
+ *  heading), so a gap whose B is a module's heading but not its first row (e.g. the
+ *  hero's eyebrow→heading gap) does NOT mis-attribute to that module's top boundary. */
+function moduleFirstText(m: Record<string, unknown>): string | undefined {
+  const c = m.content as Record<string, unknown> | undefined
+  if (!c) return undefined
+  const wm = c.wordmark as Record<string, unknown> | undefined
+  if (typeof wm?.text === 'string') return wm.text
+  const eb = c.eyebrow as Record<string, unknown> | undefined
+  if (typeof eb?.text === 'string') return eb.text
+  const h = c.heading as Record<string, unknown> | undefined
+  if (typeof h?.text === 'string') return h.text
+  if (typeof c.body === 'string') {
+    const first = c.body
+      .split('\n\n')[0]
+      .replace(/^>\s*\[![^\]]*\]\s*/, '')
+      .replace(/[[\]*_#>]/g, '')
+      .trim()
+    if (first) return first
+  }
+  if (typeof c.subhead === 'string') return c.subhead
+  return undefined
+}
+
+const px = (v: string): number | null => {
+  const n = parseFloat(v)
+  return Number.isNaN(n) ? null : n
+}
+
+/**
+ * REQ-74 — the gap inversion. A gap is linear in one spacing knob (∂gap/∂spacingTop = 1),
+ * so to close a `gap` delta on a module's TOP boundary: `new spacingTop = current +
+ * (ref_gap − our_gap)`. Match each gap's B-fragment (the row *below* the gap) to the
+ * module whose first rendered text it is, read that module's current `spacingTop`
+ * (token→px, or the module default), and set it (nearest token, else a literal px). A
+ * negative target means the base already exceeds the reference gap — not closeable via
+ * `spacingTop`; reported as a note (reduce the previous section's spacingBottom / a margin).
+ * Mutates the page objects in place; returns the fix list.
+ */
+export function planGapFixes(
+  gaps: Array<{ text: string; expected: string; actual: string }>,
+  pages: Array<{ page: Record<string, unknown> }>,
+): GapFix[] {
+  const modules: Record<string, unknown>[] = []
+  for (const pf of pages) {
+    const ms = pf.page.modules
+    if (Array.isArray(ms)) for (const m of ms) modules.push(m as Record<string, unknown>)
+  }
+  const fixes: GapFix[] = []
+  for (const g of gaps) {
+    // Skip responsive/varying gaps (`197px .. 142px`) — section spacing is not per-breakpoint.
+    if (g.expected.includes('..') || g.actual.includes('..')) continue
+    const refGap = px(g.expected)
+    const ourGap = px(g.actual)
+    if (refGap === null || ourGap === null) continue
+    const bFrag = (g.text.split('→').pop() ?? '').trim().replace(/…$/, '')
+    if (!bFrag) continue
+    // Match the module whose first text is (or starts with) the B-fragment.
+    const m = modules.find((mm) => {
+      const ft = moduleFirstText(mm)
+      return !!ft && (ft === bFrag || ft.startsWith(bFrag))
+    })
+    if (!m) continue
+    const dials = (m.dials ?? (m.dials = {})) as Record<string, unknown>
+    const id = String(m.id ?? '?')
+    const readPx = (v: unknown, dflt: number): number =>
+      typeof v === 'string' ? (SPACING_PX[v] ?? px(v) ?? dflt) : dflt
+    const snap = (n: number): string => Object.entries(SPACING_PX).find(([, v]) => v === n)?.[0] ?? `${n}px`
+    const curTop = readPx(dials.spacingTop, DEFAULT_SPACING_TOP_PX)
+    const fromTop = typeof dials.spacingTop === 'string' ? dials.spacingTop : `${curTop}px (default)`
+    const next = Math.round(curTop + (refGap - ourGap))
+    if (next >= 0) {
+      dials.spacingTop = snap(next)
+      fixes.push({ moduleId: id, boundary: bFrag, from: fromTop, to: dials.spacingTop as string })
+      continue
+    }
+    // spacingTop bottoms out at 0; take the rest from the PREVIOUS section's spacingBottom
+    // (the reference makes this gap tighter than our base allows via the top knob alone).
+    dials.spacingTop = 'none'
+    const remaining = -next
+    const prev = modules[modules.indexOf(m) - 1]
+    if (prev) {
+      const pd = (prev.dials ?? (prev.dials = {})) as Record<string, unknown>
+      const curBot = readPx(pd.spacingBottom, DEFAULT_SPACING_TOP_PX)
+      const fromBot = typeof pd.spacingBottom === 'string' ? pd.spacingBottom : `${curBot}px (default)`
+      const nextBot = Math.round(curBot - remaining)
+      pd.spacingBottom = snap(Math.max(0, nextBot))
+      fixes.push({
+        moduleId: id,
+        boundary: bFrag,
+        from: fromTop,
+        to: 'none',
+        note: `tight gap — also ${String(prev.id ?? '?')} spacingBottom ${fromBot} → ${pd.spacingBottom}${nextBot < 0 ? ` (base still ${-nextBot}px over — reduce a margin)` : ''}`,
+      })
+    } else {
+      fixes.push({ moduleId: id, boundary: bFrag, from: fromTop, to: 'none', note: `base ${remaining}px over ref gap — reduce a margin` })
+    }
+  }
+  return fixes
+}
+
+export function cmdApplyGapFixes(
+  slug: string,
+  gaps: Array<{ text: string; expected: string; actual: string }>,
+  opts: GlobalOptions & { apply?: boolean },
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const files = readPageFiles(ctx, slug)
+  const fixes = planGapFixes(
+    gaps,
+    files.map((f) => ({ page: f.page })),
+  )
+  validateOrThrow(base, files.map((f) => f.page))
+  const apply = opts.apply === true
+  if (apply && fixes.length > 0) for (const file of files) writeJson(file.abs, file.page)
+  const head = apply
+    ? `adopt-gaps: adjusted spacing on ${fixes.length} boundary(ies)`
+    : `adopt-gaps (dry-run): ${fixes.length} spacing change(s) to close section gaps; pass --apply to write`
+  const lines = [
+    head,
+    ...fixes.map((f) => `   ${f.moduleId}: spacingTop ${f.from} -> ${f.to}   (below "${f.boundary}")${f.note ? `  ⚠ ${f.note}` : ''}`),
+  ]
+  return { data: { fixes, applied: apply && fixes.length > 0 }, human: lines.join('\n') }
+}
