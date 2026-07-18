@@ -148,7 +148,7 @@ Responsive-diff (REQ-61) — analyse ONE captured site across sizes (not a repro
 Adopt-gaps (REQ-74) — close section-boundary vertical GAP deltas by inverting to spacingTop:
   1c adopt-gaps <slug> --ref <captureBundleDir> [--apply] [--json] [--sandbox]
     A gap is linear in one knob: new spacingTop = current + (ref_gap - our_gap); a too-tight gap also
-    reduces the previous section's spacingBottom. Dry-run by default. Pairs with the REQ-73 `gap` axis.
+    reduces the previous section's spacingBottom. Dry-run by default. Pairs with the REQ-73 gap axis.
 
 Adopt-values (REQ-66) — the "copy" half of the repair order; snap the draft's styled objects to the reference:
   1c adopt-values <slug> --ref <captureBundleDir> [--apply] [--axes color,fontWeight,…] [--scope styled-objects|prose] [--json] [--sandbox]
