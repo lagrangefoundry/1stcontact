@@ -140,8 +140,6 @@
     "textAlign": "left",
     "headingAlign": "left",
     "surface": "default",
-    "spacingTop": "xl",
-    "spacingBottom": "xl",
     "contentWidth": "4xl"
    },
    "content": {
@@ -178,7 +176,6 @@
    "variant": "three-col",
    "dials": {
     "surface": "subtle",
-    "spacingBottom": "none",
     "contentAlign": "left",
     "cardVeil": "50",
     "cardBorder": "none",
@@ -276,8 +273,6 @@
     "align": "left",
     "textAlign": "left",
     "surface": "subtle",
-    "spacingTop": "none",
-    "spacingBottom": "md",
     "contentWidth": "4xl"
    },
    "content": {
@@ -463,8 +458,6 @@
     "textAlign": "left",
     "headingAlign": "left",
     "surface": "subtle",
-    "spacingTop": "xl",
-    "spacingBottom": "2xl",
     "contentWidth": "4xl"
    },
    "content": {
