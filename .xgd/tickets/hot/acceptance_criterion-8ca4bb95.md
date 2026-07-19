@@ -6,10 +6,10 @@ title: An unrecognized --size value is rejected with an error naming the accepte
   vocabulary
 created_by: xgd
 created_at: '2026-07-19T02:37:46.081665+00:00'
-updated_at: '2026-07-19T02:37:46.081665+00:00'
+updated_at: '2026-07-19T02:48:19.372328+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-16f2793c
   kind: behavior
