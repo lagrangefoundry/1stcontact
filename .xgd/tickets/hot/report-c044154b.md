@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T02:29:08.258228+00:00'
+updated_at: '2026-07-19T02:38:10.213709+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -79,7 +79,7 @@ fields:
     justification: No existing story covers this behavior. Commits c74a0fcb (--size
       values-diff), 32ae6eef (ladder screenshots), b01970c3 (--size pixel diff) add
       a user-facing size dimension to both diff commands with no matrix entry.
-    story_uid: null
+    story_uid: story-16f2793c
   - index: 4
     component: 1c responsive-diff — N-way cross-size analysis + change classifier
     item_type: feature
