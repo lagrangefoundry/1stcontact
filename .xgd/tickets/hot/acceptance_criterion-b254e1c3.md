@@ -6,10 +6,10 @@ title: Duplicate text is paired by nearest rendered position, avoiding false swa
   while preserving genuine deltas
 created_by: xgd
 created_at: '2026-07-19T02:18:31.760590+00:00'
-updated_at: '2026-07-19T02:18:31.760590+00:00'
+updated_at: '2026-07-19T02:25:29.139097+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5de22a5
   kind: behavior
