@@ -6,10 +6,10 @@ title: 'Gradient panel fill: capture + render + diff a background gradient (not 
   text fills)'
 created_by: xgd
 created_at: '2026-07-16T23:12:09.335239+00:00'
-updated_at: '2026-07-17T19:16:14.078787+00:00'
-completed_at: null
+updated_at: '2026-07-19T04:53:19.311672+00:00'
+completed_at: '2026-07-19T04:53:19.311672+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
