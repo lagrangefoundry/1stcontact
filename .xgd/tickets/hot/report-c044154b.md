@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T03:21:38.362275+00:00'
+updated_at: '2026-07-19T03:35:25.769151+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -190,7 +190,7 @@ fields:
       the accent half later removed by 49e03566), b80a92e4 (cardVeil), 366119fc (cardBorder),
       a5c295c4 (submitColor/submitInline + footer overrides), 80c4adb6 (footer textColor)
       add user-authorable module treatments with no matrix entry.
-    story_uid: null
+    story_uid: story-46e3b3c7
 ---
 
 # Reconciliation Plan
