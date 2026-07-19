@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Omitting --size preserves the single-width (desktop) path on both diff commands
 created_by: xgd
 created_at: '2026-07-19T02:37:07.977604+00:00'
-updated_at: '2026-07-19T02:37:07.977604+00:00'
+updated_at: '2026-07-19T02:48:20.004800+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-16f2793c
   kind: behavior
