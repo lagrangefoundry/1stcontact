@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T02:38:10.213709+00:00'
+updated_at: '2026-07-19T02:51:54.322037+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -100,7 +100,7 @@ fields:
     justification: No existing story covers this behavior. Commits b92a5cbe (N-way
       table, Phase 1) and cb388975 (classifier, Phase 2) introduce a genuinely new
       CLI command with no matrix entry.
-    story_uid: null
+    story_uid: story-2c7069fe
   - index: 5
     component: 1c CLI — flag parsing & --json stdout hygiene
     item_type: feature
