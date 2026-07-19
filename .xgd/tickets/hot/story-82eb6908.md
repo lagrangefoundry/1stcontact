@@ -6,10 +6,10 @@ title: 'Gradients as a first-class value: stop positions and panel surface gradi
   — captured, authored, and diffed'
 created_by: xgd
 created_at: '2026-07-19T02:28:13.696712+00:00'
-updated_at: '2026-07-19T02:28:13.696712+00:00'
+updated_at: '2026-07-19T02:33:47.838617+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-36dd68c5
