@@ -259,4 +259,17 @@ describe('REQ-36 services-grid bare cards — CAP-1', () => {
     // The icon-left title also releases its min-width so it wraps within its track.
     expect(css).toMatch(/icon-layout-left\s+\.services-grid__card-title\s*\{[^}]*min-width:\s*0/)
   })
+
+  // REQ-77 — the card body is rendered markdown (<p>); its default block margin sits
+  // inside the body flex item and ADDS to the card's flex gap, doubling the title->body
+  // spacing (ref 12px, ours 28px). Zero the body paragraphs' outer margins so the flex
+  // gap is the sole spacer. Plain selector, NOT :global() — the framework collects raw
+  // <style> text (no Astro scoper), so :global() would emit literally and be a dead rule.
+  it('test_UAT_FC_REQ-77_card_body_paragraph_outer_margins_are_zeroed', () => {
+    const css = moduleSource()
+    expect(css).toMatch(/\.services-grid__card-body\s+p:first-of-type\s*\{\s*margin-top:\s*0/)
+    expect(css).toMatch(/\.services-grid__card-body\s+p:last-of-type\s*\{\s*margin-bottom:\s*0/)
+    // Guard against regressing to the broken :global() form (emitted literally → dead).
+    expect(css).not.toMatch(/\.services-grid__card-body\s+:global\(p/)
+  })
 })

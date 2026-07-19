@@ -431,6 +431,13 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     font-size: var(--font-size-xl);
   }
   .services-grid__card-body { font-size: var(--font-size-base); line-height: var(--line-height-relaxed); color: inherit; }
+  /* REQ-77 — the body is rendered markdown (a <p>); its default block margin sits
+     INSIDE the body flex item (flex items don't margin-collapse) and ADDS to the
+     card's flex `gap`, doubling the title->body spacing (ref 12px, ours 28px). Zero
+     the body paragraphs' OUTER margins so the flex gap is the sole spacer; inter-
+     paragraph margins in a multi-paragraph body are preserved (first/last-of-type). */
+  .services-grid__card-body p:first-of-type { margin-top: 0; }
+  .services-grid__card-body p:last-of-type { margin-bottom: 0; }
   .services-grid__card-cta {
     margin-top: auto;
     align-self: flex-start;
