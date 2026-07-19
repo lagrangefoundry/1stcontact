@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T03:02:08.644642+00:00'
+updated_at: '2026-07-19T03:10:42.576123+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -141,7 +141,7 @@ fields:
       escape hatch), 02ccf386 (length value model), b8c4d642 (spacing), 8d9ce579 (remaining
       length dials), 58be1d98 (radius dials) deliver one coherent value-model capability
       with no matrix entry.
-    story_uid: null
+    story_uid: story-c490f1cf
   - index: 7
     component: Framework — per-breakpoint length dials + configurable nav collapse
     item_type: feature
