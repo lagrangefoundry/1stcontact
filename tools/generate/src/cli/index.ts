@@ -41,7 +41,9 @@ import {
   clusterDefects,
   formatClusterReport,
 } from './fidelity'
+import path from 'node:path'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
+import { cmdAlignedCrops } from './aligned-crops'
 import { cmdResponsiveDiff, classifyResponsiveTable, formatResponsiveTable, formatClassifiedTable } from './responsive-diff'
 import type { RenderChannel } from '../store'
 
@@ -54,6 +56,17 @@ export { startServe } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
+export {
+  cmdAlignedCrops,
+  pickAnchors,
+  alignedAreas,
+  refAnchorsAt,
+  normText,
+  areaSlug,
+  type AlignedArea,
+  type AnchorEl,
+  type Box as AlignedBox,
+} from './aligned-crops'
 export { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
 export { collapseMultiViewport, formatCollapsedReport, type CollapsedDefect } from './fidelity'
 export { clusterDefects, formatClusterReport, type DefectCause } from './fidelity'
@@ -142,6 +155,10 @@ Perceptual-diff eye (REQ-38) — screenshot-to-screenshot fidelity; ranked regio
     Tuning: [--block <px>] [--threshold <0-255>] [--block-threshold <0-255>] [--bands <n>] [--top <n>] [--pad <px>]
     (REQ-61) --size shoots the actual at that viewport and pairs it against the bundle's screenshot-<width>.png.
   1c crop <image> --box <x,y,w,h> [--out <png>]
+  1c aligned-crops <slug> --ref <bundleDir> [--size mobile|tablet|desktop] [--areas <text,…>] [--out <dir>]
+    (REQ-78) drift-aligned ref/ours crop pairs per section anchor + index.md — the AI perceptual judge's
+    eyes. Each element is cropped at its OWN position in both renders, so cumulative drift never makes
+    the diff compare a heading against a field. View the pairs and rule perceptible / not.
 
 Responsive-diff (REQ-61) — analyse ONE captured site across sizes (not a repro comparison):
   1c responsive-diff --ref <captureBundleDir> [--sizes mobile,tablet,desktop] [--classify] [--out <file>] [--json]
@@ -510,6 +527,38 @@ export async function run(argv: string[]): Promise<void> {
         out: typeof flags.out === 'string' ? flags.out : undefined,
       })
       console.log(`Cropped ${input} @ ${applied.x},${applied.y} ${applied.w}×${applied.h} → ${outFile}`)
+      return
+    }
+
+    case 'aligned-crops': {
+      // REQ-78 — the AI perceptual judge's eyes: drift-aligned ref/ours crop pairs
+      // per section anchor, so like is compared with like (no whole-page pixel diff
+      // corrupted by cumulative vertical drift). Emits crops + index.md to --out.
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('aligned-crops requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const slug = requireSlug(rest[0])
+      const size = parseSize(flags.size) ?? 'desktop'
+      const viewportWidth = VIEWPORTS[size].width
+      const areas = typeof flags.areas === 'string' ? flags.areas.split(',').map((s) => s.trim()).filter(Boolean) : undefined
+      const outDir = typeof flags.out === 'string' ? flags.out : path.join('storage', 'tmp', `aligned-crops-${slug}`)
+      const { areas: written, indexPath } = await withCleanStdout(() =>
+        cmdAlignedCrops({
+          ...global,
+          slug,
+          source: flags.source === 'published' ? 'published' : 'draft',
+          refBundleDir: ref,
+          viewportWidth,
+          areas,
+          outDir,
+        }),
+      )
+      console.log(`aligned-crops: ${written.length} area(s) @ ${viewportWidth}px → ${outDir}`)
+      for (const a of written) console.log(`  ${a.anchor}  (drift ${a.drift >= 0 ? '+' : ''}${a.drift}px)`)
+      console.log(`  index: ${indexPath}`)
       return
     }
 
