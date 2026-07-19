@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T02:51:54.322037+00:00'
+updated_at: '2026-07-19T03:02:08.644642+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -117,7 +117,7 @@ fields:
     justification: No existing story covers this behavior. Commits 4f681c73 (boolean
       flag) and a4323720 (--json stdout hygiene) fix user-observable CLI behavior
       (arg parsing correctness, scriptable JSON output) with no matrix entry.
-    story_uid: null
+    story_uid: story-e15a19ef
   - index: 6
     component: Framework — absolute-or-overlay value system (colour / length / radius)
     item_type: feature
