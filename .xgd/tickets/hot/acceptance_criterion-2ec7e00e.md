@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: footer copyright override renders a verbatim line replacing the generated copyright
 created_by: xgd
 created_at: '2026-07-19T03:35:02.401895+00:00'
-updated_at: '2026-07-19T03:35:02.401895+00:00'
+updated_at: '2026-07-19T03:40:00.414554+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-46e3b3c7
   kind: behavior
