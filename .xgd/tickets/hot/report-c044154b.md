@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T02:14:24.621932+00:00'
+updated_at: '2026-07-19T02:18:43.327398+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-ab9e0cb6
@@ -35,7 +35,7 @@ fields:
       is empty. Commits 80f356ab (rendered-text-box axis), 7588aa9a (alpha compositing),
       fe875baa (box-border axis), 6543bc60 (duplicate-text pairing) each add a user-observable
       diff axis or fix a diff-correctness bug with no matrix entry.
-    story_uid: null
+    story_uid: story-d5de22a5
   - index: 2
     component: 1c gradient fidelity — capture, author & diff gradients
     item_type: feature
