@@ -5,10 +5,10 @@ type: report
 title: 'Code Review: bundle-ab9e0cb6'
 created_by: xgd
 created_at: '2026-07-19T04:14:34.846525+00:00'
-updated_at: '2026-07-19T04:14:34.846525+00:00'
+updated_at: '2026-07-19T04:17:59.828796+00:00'
 completed_at: null
-last_field_updated: created_at
-result: pass
+last_field_updated: result
+result: fail
 fields:
   report_kind: code_review
   subject_uid: bundle-ab9e0cb6
