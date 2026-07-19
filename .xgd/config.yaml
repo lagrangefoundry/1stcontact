@@ -119,3 +119,6 @@ watchdog:
 workflow:
   memory_poll_interval_s: 30
   min_free_ram_mb: 500
+matrix_refactor:
+  min_uats_per_capability: 20
+  max_uats_per_capability: 200

@@ -5,7 +5,7 @@ type: doc
 title: 'How-To: Faithful Founder-Site Reproduction (successor runbook)'
 created_by: xgd
 created_at: '2026-07-03T01:39:12.471124+00:00'
-updated_at: '2026-07-10T20:43:01.888054+00:00'
+updated_at: '2026-07-19T00:38:39.859383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -28,7 +28,7 @@ Every fidelity miss in the gigabytealchemy pass came from building the page from
 ## Sources of truth (ranked)
 
 1. **`storage/references/<site>/<page>/raw.html`** — the rendered DOM. Inline `style="..."` and utility classes carry the *exact* values (colours as hex, gradients with direction+stops, `text-7xl`, `border-l-4 border-emerald-400`). **This is the ground truth.** For an art-directed montage this includes the **mirrored CSS asset** (`assets/*.css`): per-photo `position`/`rotate`/`width`/`border-radius`/`mask-image` live there, *not* in `capture.json` (see the perceptual gate below).
-2. **`capture.json`** — structured, and as of [[REQ-31]] it now records the per-element **value manifest** (resolved colour, font-size/weight, line-height, letter-spacing, text-fill **gradient** with direction+stops, **left-bar** treatment, padding, plus section-level **scrim** and **content vertical anchor**). Tailwind/`var()` are already resolved to concrete values. **Caveat:** a bundle captured *before* REQ-31 (anything older than 2026-07-02) lacks these fields — **re-capture it** (`1c capture page <url>`) before trusting the diff, or it will silently not flag gradient/scrim/anchor. When in doubt, verify against `raw.html`.
+2. **`capture.json`** — structured, and since [[REQ-31]] it records a per-element **value manifest**: resolved colour, font-size/weight, line-height, letter-spacing, text-fill **gradient** (direction+stops), **left-bar** treatment, padding, uniform **border** (colour+width), the composited **`surfaceFill`** (the panel/card fill behind a run) and its **`surfaceGradient`** ([[REQ-62]]), the rendered **box** (position + size), plus section-level **scrim** and **content vertical anchor**. Tailwind/`var()` are already resolved to concrete values. **Caveat — re-capture stale bundles:** capture accuracy has moved since — most importantly the [[REQ-58]] **alpha-compositing** fix, which records a translucent fill's *rendered* tint (a `bg-white/50` card as its pale-beige composite) instead of the raw `#ffffff` channel. A bundle predating that fix carries wrong surface colours, so a repro can diff **0 against a wrong reference** — the most dangerous failure. **Re-capture** (`1c capture page <url>`) any bundle older than the REQ-58 pass before trusting the diff. When in doubt, verify against `raw.html`.
 3. **`screenshot.full.png`** — for **judgment only** (and as the reference image for the perceptual gate `1c diff`). Vision is good at structure/composition and *bad* at the exact things listed below. Never read a value off the screenshot.
 
 ## What the screenshot hides (so you know to go to the DOM)
@@ -51,9 +51,10 @@ This is the anti-recurrence mechanism. It renders our draft, reads *its* compute
 1c values-diff <slug> --ref storage/references/<site>/<page> [--source draft|published] [--sandbox] [--json]
 ```
 
-- It emits a **severity-ranked delta list** `(element/section, property, expected, actual)` and **exits non-zero while any delta remains**. Clear every delta before judging by eye.
-- Properties it compares, most-severe first: `missing` (element absent), `text` (verbatim content incl. **casing**), `color`, `gradient` (angle+stops), `overlay` (**hero scrim** colour+opacity), `borderLeft` (**callout bar**), `fontSizePx`, `contentAnchor` (**vertical anchor**, section-level), `fontWeight`, `fontFamily`, `lineHeightPx`, `paddingLeftPx`, `letterSpacingPx`.
-- Text elements pair by case-folded, whitespace-collapsed text; section-level values (scrim, anchor) pair by ordinal index (the hero is `§0`).
+- It emits an **object-grouped** report ([[REQ-51]] — one card per differing object, badged with its worst severity tier; the exact shape is under "The format you read" below, NOT a flat severity list) and **exits non-zero while any delta remains**. Clear every delta before judging by eye.
+- Properties it compares (the current `DeltaProperty` set — verify against `values-diff.ts` before assuming absence): text content (incl. **casing**), `color`, `surfaceFill` (**composited panel/card fill**), `surfaceGradient` ([[REQ-62]]), `gradient` (text-fill angle+stops), `overlay` (**hero scrim**), `borderLeft` (**callout bar**), `border` (**uniform box border** — field outlines, card hairlines), `fontSizePx`, `contentAnchor` (**vertical anchor**, section-level), `fontWeight`, `fontFamily`, `lineHeightPx`, `letterSpacingPx`, `paddingLeftPx`, plus structural axes `position`, `size`, `renderedTextBox`, `shape`, `arrangement`, `containment`, `zIndex`, and treatment/media axes `filter`, `textShadow`, `mask`, `objectFit`, `aspect`, `transform`, `motion`, and the render preconditions `viewport`, `overflow`, `fontLoad`. Presence (`missing`) is the most severe.
+- Text elements pair by normalised text, and a bucket with several identical runs (`✓`, "Read more") pairs by **nearest rendered box** ([[REQ-58]]), not document-order FIFO; section-level values (scrim, anchor) pair by ordinal index (the hero is `§0`).
+- Run **`--multi-viewport`** ([[REQ-58]]) to diff the draft against the capture's viewport ladder (mobile / tablet / desktop) cell-for-cell — a single-width diff is blind to a `%`-vs-fixed reflow. Gate at ≥3 widths.
 - `--actual <manifest.json>` re-diffs an offline manifest without a browser (CI without Chromium).
 - **What it does NOT catch:** the entire **art-directed layer** — freely-positioned photos, their rotation/scale/position, shape (circle/rounded), masks, borders, shadows — and fine-grained *relative* position of one element within a section. A captured montage records its text runs and section anchor, but its image children come through as `items: []`, so a photo collage can pass values-diff "clean" while every photo is visibly wrong. **This is exactly what the perceptual gate `1c diff` is for** (below; the SSIM-backstop idea once parked in [[REQ-31]]/[[DOC-17]], now landed as [[REQ-38]]). Run both.
 
@@ -95,7 +96,7 @@ The value-diff reads *computed styles*; `1c diff` reads *pixels*. It is the sibl
 
 ## Procedure (layered — each layer independently verifiable)
 
-0. **Capture (or re-capture) the reference.** `1c capture page https://<site>/` → writes `storage/references/<host>/<page>/` (capture.json + raw.html + rendered.html + screenshot.full.png + mirrored assets). Re-capture if the existing bundle predates REQ-31.
+0. **Capture (or re-capture) the reference.** `1c capture page https://<site>/` → writes `storage/references/<host>/<page>/` (capture.json + raw.html + rendered.html + screenshot.full.png + mirrored assets). Re-capture if the existing bundle predates the [[REQ-58]] alpha-compositing fix (see the `capture.json` caveat above) — an older bundle records wrong surface colours.
 1. **Read the capture.** Open `raw.html` and `capture.json`. Skim the section structure. For an art-directed page, also open the mirrored CSS asset — per-photo geometry/treatments live there.
 2. **Structure pass.** Map each captured `<section>` to a module + variant. Reconcile section count first.
 3. **Values pass — per element, transcribe:** colour (resolved hex), font-size, weight, line-height, letter-spacing, gradient (**note direction + stops**), border/left-bar, padding/indent, opacity/scrim, and the section's vertical anchor. Translate Tailwind tokens to concrete values (`text-7xl`→4.5rem; `emerald-400`→#34d399; `slate-400`→#94a3b8) — or grep the mirrored CSS asset. Set them in the module config / theme palette. **Copy literal text verbatim, including casing** (see below).
@@ -108,10 +109,10 @@ The value-diff reads *computed styles*; `1c diff` reads *pixels*. It is the sibl
 
 - **hero**: `height: fold` (fills viewport), `headingTreatment: gold|accent`, `align`, `size`, **`scrim`** (overlay darkening) and **`contentAnchor: top|center|bottom`** ([[REQ-32]]); subhead renders **markdown** (multi-paragraph).
 - **header**: `logoFont: display`, `logoTreatment: gold`, `logoSize: sm|md|lg|xl`, `align`; `overlay` variant composites the header over the next band (shared image), via the render pipeline.
-- **footer**: `layout: center|spread` (justified copyright/links).
-- **contact-form**: `width: full|half` — consecutive `half` bands auto-group into one `fc-row` (side-by-side forms).
-- **services-grid**: card `accent` (incl. `secondary`), `badge` (soft pills), `surface: default|muted` (panel card), `checklist` (ticks follow badge variant), `stacked` variant.
-- **text-block**: **callout / left-bar** treatment ([[REQ-32]]).
+- **footer**: `layout: center|spread` (justified copyright/links); `textColor`/`linkColor` (absolute-or-overlay) and a verbatim `copyright` override (fixed-year / reordered line) ([[REQ-58]]).
+- **contact-form**: `width: full|half` — consecutive `half` bands auto-group into one `fc-row` (side-by-side forms); `fieldLabels: placeholder` (label into the input), `submitColor` (absolute button fill), `submitInline` (field + button on one row) ([[REQ-58]]).
+- **services-grid**: card `accent` (incl. `secondary`; per-card absolute `#hex` or role), per-card `checkColor`, `badge` (soft pills), `surface: default|muted` (panel card), `checklist` (ticks follow badge variant), `stacked` variant; `cardVeil` (translucent card fill, e.g. `bg-white/50`), `cardBorder: none|default` (drop the hairline), `gap` ([[REQ-58]]).
+- **text-block**: **callout / left-bar** treatment — authored in **markdown** (`> [!primary] …` / `> [!accent italic] …` → a `blockquote.fc-callout--role` sized to the quote), NOT a dial. (The short-lived text-block `accent` dial barred the whole column and was removed — do not reintroduce it. [[REQ-58]].) Also `contentWidth`, `spacingTop/Bottom`, `panelPad`, `ctaShape`/`panelCorner`, and `panelGradient` ([[REQ-62]]) — each absolute-or-overlay.
 - **palette**: 10 roles incl. optional `secondary` (a second functional accent) and a **cool-neutral (slate)** role ([[REQ-32]]).
 - **wordmark**: multi-hue **horizontal gradient** direction ([[REQ-32]]).
 - **background/overlay** ([[REQ-14]]), **layer** free-positioning ([[REQ-15]]), **motion** ([[REQ-16]]).
@@ -240,8 +241,8 @@ Context: the joyfulculinary hero passed my own eyeball review as "strong." The o
 ### Lesson 5 — never grade your own artifact by eye
 **Why:** I built the hero divider and signed it off by eye as "present, matches." Measured, it was 1px (ref ~2px), faint (a `currentColor` hairline washing over a bright area vs the ref's crisp white), and over-long (my `max-width` cap was not holding). **Measure the thing you just made against the reference — thickness, length, brightness — exactly as a config value.** Authoring something is the strongest source of confirmation bias; the overlay + a measurement is the independent check ([[REQ-48]] Tier 4 self-certification).
 
-### Capture gap (real — the highest-value tooling follow-up)
-`capture.json` records `fontWeight / fontSizePx / color / lineHeightPx / letterSpacingPx / padding / border` — **but not `borderRadius`, `boxShadow`, or `opacity`.** So `values-diff` cannot *auto*-flag button radius, logo/card shadow, or scrim/divider transparency; today those are caught only by the per-section pixel-diff read (Lesson 2). **Extending the capture manifest + values-diff to record these three converts a whole class of finish defects from "careful eye" into "mechanical gate."** Until then, the section diff read *is* the gate for them.
+### Capture gap (was real — largely closed since)
+*As of this dated pass* `capture.json` recorded `fontWeight / fontSizePx / color / lineHeightPx / letterSpacingPx / padding / border` but **not** `borderRadius`, `boxShadow`, or `opacity`, so `values-diff` could not auto-flag button radius, card shadow, or scrim transparency. **This has since largely closed:** the capture now records `borderRadiusPx`, `boxShadow`, and `textShadow` ([[REQ-48]]), and the diff carries `shape`, `filter`, `textShadow`, `mask`, and `overlay` (scrim colour+opacity) axes — verify against `values-diff.ts` for the current set. Any residual finish axis the manifest still misses is caught by the per-section pixel-diff read (Lesson 2). The lesson stands: **when a finish defect is invisible to the value gate, add the axis to the capture + diff rather than leaving it to the eye.**
 
 ### Type finish is a first-class transcription axis
 The reference's section headings are Oswald **200–300** (extralight/light) at 40–44px; ours rendered **bold 700** at 32px — a different-typeface impression. Heading **weight** and **size** are deliberate and both were in the capture manifest the whole time. Our modules hard-code heading weight (hero semibold, text-block bold) with no dial to reach 200–300 — a real capability gap surfaced by this pass (heading-weight control), alongside button-radius/square and a logo card+shadow treatment. Transcribe weight and size per heading; do not accept "gold + big = done."
@@ -402,3 +403,218 @@ values-diff: gigabytealchemy.ai/ ⇄ draft:gigabytealchemy
 `params[] {name, expected, actual, mismatch}`, `box` included, `paired`,
 `worstTier`) and `report.unpairedActual[]`. The flat `report.deltas[]` is still
 there as the machine index — but the object cards are the read.
+
+
+
+---
+
+## Update (2026-07-16): gradient panel fill — capture + author + diff ([[REQ-62]])
+
+A **panel/card background gradient** (gigabytealchemy's "What We're Exploring", `bg-gradient-to-br from-slate-100 to-slate-200`) is now a first-class captured, authorable, and diffable value — no longer invisible to the pipeline.
+
+- **Why it was a blind spot:** `surfaceFill` composites solid background-*colors*; a panel gradient is a `background-image` over a *transparent* background-color, so the composite skipped past it to the band. A missing panel gradient read identically to a present one — a false match (the same failure class as the pre-fix alpha compositing).
+- **What's captured now (BOTH):** `surfaceGradient` (the gradient itself — angle + stops) **and** `surfaceFill` (the composited solid the run sits on, i.e. the band showing through). They are distinct fields; a gradient panel records both.
+- **New values-diff axis:** `surfaceGradient` — reuses the text-fill gradient comparison (stops + direction), `gradient` severity tier. Add it to the mental list of panel axes alongside `surfaceFill` (panel colour, [[REQ-58]]).
+- **Screenshot hides it too:** a gradient panel reads as a flat pale fill — a from-slate-100→to-slate-200 diagonal sweep vs a solid #ececec is invisible to the eye. Go to `raw.html` / `capture.json`.
+
+### Framework capability (don't reinvent)
+
+**text-block** now takes a **`panelGradient`** content field (a standalone `gradient` type: `{ angleDeg, stops }`, degrees-literal-or-direction-alias + absolute-or-overlay stops). When present it makes the inner a padded/rounded/inset panel with a gradient surface — the gradient analogue of the solid `panel` dial. Reproduce a captured `surfaceGradient` by pasting its angle + stops into `panelGradient`. The new `gradient` content-field type is reusable by any module whose surface needs a gradient fill (generalized from the shape already validated inside `styled-text` runs — zero new modules).
+
+
+---
+
+# Update — REQ-58 (gigabytealchemy pass-3): the value model + current tooling
+
+*Everything below reflects the tooling as of REQ-58 and SUPERSEDES older claims it
+contradicts. The procedure above still holds; this sharpens the value model and
+lists the axes/accuracy the diff gained.*
+
+## The value model — absolute values, constants as an overlay (the core principle)
+
+**Absolute values are the base layer. A palette (colour roles) or a step-set
+(spacing/size/radius steps) is an *overlay of constants* on those absolutes.** The
+overlay is invaluable when **designing** (change one token, it propagates
+everywhere) and an **impediment to reproduction** (it forces every value through a
+small restricted vocabulary, so a site using an arbitrary shade or an off-step
+padding cannot be matched).
+
+So **every value input accepts an absolute value OR a role/step** that resolves to
+one. Reproduction authors in absolutes (transcribed from the capture); design
+authors in roles. Both are first-class — this is the *absolute-or-overlay* seam.
+
+- **Colour** — a field is `type: 'color'`: a `#hex` absolute OR a palette-role
+  alias, resolved by `resolveColor` (`#hex` verbatim, else `var(--color-<role>)`).
+  Applied to card `accent`, per-card `checkColor`, footer `textColor`/`linkColor`,
+  contact-form `submitColor`. (Surface *treatments* — `surface`/`panel` — stay
+  enums: they pair a background AND a text colour, not a single value.)
+- **Length** — `type: 'length'` + `resolveStep`/`resolveContainerWidth`: a named
+  step (`4xl`, `lg`) → its token, OR an absolute length (`896px`, `2rem`, `50%`,
+  `fit-content`) verbatim. The value MODEL (`classifyLength`) tags each as
+  absolute / token / relative (%/vw/em/ch) / content (fit-content) / bleed — a
+  malformed length fails loudly. Applied to `contentWidth`, `spacingTop/Bottom`,
+  `gap`, `logoSize`, `contentOffsetTop`, `contentInset`, `panelPad`.
+- **Radius** — `ctaShape`/`panelCorner`: a named shape (`round`/`square`/`soft`,
+  `rounded`) → a radius token, OR an absolute px (`8px`) verbatim.
+- **Genuine modes stay enums** (`align`, `height: auto|fold`, `layout`,
+  `fieldLabels`, `iconLayout`, `headingCase`, …) — these are behaviours, not points
+  on a continuum.
+
+**Why this is the goal:** we are building a *reproduction system*; reproducing any
+one site is the test case, not the goal. A restricted role vocabulary is a design
+affordance, never a capability ceiling — if a value can't be expressed absolutely,
+that's a bug in the system.
+
+The system has three legs, and reproduction is trustworthy only with all three:
+1. **Expression** (done, REQ-58) — every value *authorable* as absolute-or-overlay.
+2. **Coverage** ([[REQ-63]]) — every rendered CSS axis *captured + compared* (no
+   false negatives / blind spots).
+3. **Noise** ([[REQ-64]]) — every reported delta a *real visible difference* (no
+   false positives). Criticality/tolerance is a per-run overlay ON TOP of complete
+   capture — never a reason to drop an axis.
+
+Only with coverage + noise does **"0 value-diffs ⟺ pixel-faithful"** hold, and the
+operator's eye stops being the QA layer.
+
+## Diff / capture state as of REQ-58
+
+- **Multi-viewport gate** — `1c values-diff --multi-viewport <slug> --ref <bundle>`
+  pairs the draft against the capture's persisted viewport ladder (mobile / tablet
+  / desktop + intermediates), cell-for-cell. A single-width diff is BLIND to a
+  `%`-vs-fixed reflow (a wordmark that tracks the hero text on desktop but drifts on
+  a phone). **Gate at ≥3 widths, not one.**
+- **Capture accuracy — alpha compositing.** `surfaceFill` now composites a
+  translucent fill over its ancestors (Porter-Duff), so a `bg-white/50` card reads
+  its *rendered* pale-beige tint, not the raw `#ffffff` channel. A wrong capture is
+  the most dangerous failure (0 diffs against a wrong reference is still wrong) —
+  **re-capture** any bundle predating this. Measure the RENDERED fact, not the
+  declared one.
+- **New axes** — `border` (a uniform box border's colour/width, distinct from the
+  `borderLeft` accent bar — form-field outlines, card hairlines); `surfaceFill`
+  (the panel fill behind a run); `surfaceGradient` ([[REQ-62]], a panel's gradient
+  background). Plus `cardBorder` and the callout bar geometry.
+- **Duplicate-text pairing by nearest position.** Text runs bucket by normalised
+  text; a bucket with several candidates (`✓`, `→`, "Read more", a duplicated nav
+  label) pairs by NEAREST rendered box, NOT document-order FIFO — so an occurrence
+  in one card can't cross-pair with an identical one in another (which reported
+  false swaps). General to all repeated text.
+
+## Framework capability corrections (supersede the list above)
+
+- **Left-bar callouts are authored in markdown, not a dial.** Write
+  `> [!primary] …` / `> [!accent italic] …` in a `text-block` body → a
+  `blockquote.fc-callout--role` sized to the quote (not the whole column) at
+  weight-500. (The short-lived text-block `accent` dial was WRONG — it barred the
+  whole column — and was removed. Do not reintroduce it.)
+- **Frosted cards** — `services-grid` `cardVeil` (a translucent white veil over the
+  band, e.g. `bg-white/50` vs `bg-white/70`, each compositing to its own tint) +
+  `cardBorder: none` (drop the hairline). Per-card `accent`/`checkColor` take an
+  absolute `#hex` or a role.
+- **Forms** — `contact-form` `fieldLabels: placeholder` (label into the field),
+  `submitColor` (absolute button fill), `submitInline` (field + button on one row).
+- **Footer** — `textColor`/`linkColor` (absolute-or-overlay) + a verbatim
+  `copyright` override (for a fixed-year / reordered line).
+
+## Meta-lesson (the loop that actually works)
+
+**Render and LOOK — a matched values-diff axis is not proof of fidelity.** A
+width+colour match hid a bar rendered at 2× the correct height; font-style (italic)
+and glyph shape are captured by *no* axis today. When a region looks off, measure
+it (`getComputedStyle`, `boundingBox`) — the pixels say *where*, the numbers say
+*what*. Discovering blind spots reactively, by eye, is the wrong loop: close them
+systematically ([[REQ-63]]) so the gate becomes complete.
+
+
+## Update (2026-07-17, pass 4): fix Type-A flat → Type-A structural → then read Type-B
+
+Hard-won from the gigabytealchemy noise/coverage pass ([[REQ-64]]). Every values-diff
+delta is now one of two **repair classes**, and the fix order is fixed. The report
+prints it for you — don't invent your own order.
+
+### The two classes
+
+- **Type A — an author-set value.** Colour, `surfaceFill`, font size/weight/family/
+  style, `lineHeight`, `letterSpacing`, border, radius/`shape`, `opacity`, gradient,
+  **padding (all four sides)**, **text-align**, effects. We set these directly, so a
+  Type-A delta is a value to **COPY**: read the `expected` column (the reference's
+  value) and paste it into the site JSON. Copying kills the delta outright — no
+  tolerance, no threshold, "0" becomes literally true. **Never "tolerate" a Type-A
+  near-miss; correct it.**
+- **Type B — emergent geometry/structure.** `position`, box `size`, `renderedTextBox`,
+  `arrangement`, `containment`, `contentAnchor`, `overflow`, `listMarker`. We do NOT
+  set these; they fall out of layout + rendering. A Type-B delta is a **measure of how
+  far off we are**, not a thing to edit. You fix it *indirectly* by getting its Type-A
+  inputs (font metrics, padding, container width) and the structure right — then it
+  shrinks on its own. Much of Type B is the *shadow* of Type-A errors.
+
+### The repair order (do NOT reorder)
+
+1. **Type-A flat** — copy the literal. A flat value is the same across the viewport
+   ladder. This is pure win: each copy removes a real delta and can only help the
+   Type-B residual that depends on it.
+2. **Type-A structural** — author the ladder / spacing model. A value is *structural*
+   when its reference **differs across the ladder** (a fluid/responsive font: `Gigabyte
+   Alchemy` is 36px at 375 and 72px at 1280 — that's not a scalar, it's a responsive
+   ramp), or when it is **section band padding** (spacing is a padding-vs-margin
+   *system* — copying `padding→0` in isolation collapses the layout unless the margin
+   is added too). These need structural authoring, not a paste.
+3. **Type-B** — only now read it. Re-run the diff; whatever Type-B remains after A is
+   correct is the **true residual** — either a genuine structural difference worth
+   fixing or irreducible sub-pixel/engine noise. Judging "how faithful are we?" before
+   A is done is meaningless, because most Type-B is just A's shadow.
+
+### The tool prints all of this ([[REQ-64]])
+
+- Every delta row is tagged `[A]` / `[B]`; each `ValueDelta` carries a `valueType`.
+- `1c values-diff --multi-viewport` prints a **repair-order header**:
+  `repair order (REQ-64): A-flat N → A-structural M → B K (… defects deduped across the
+  ladder)`. The dedup is per-defect (a value wrong at 6 widths is ONE defect, not six)
+  — see the noise decomposition in [[REQ-64]] (the ×viewport multiplier is the biggest
+  single inflator of the raw count).
+- Single-width `1c values-diff` prints `A N → B M` (flat-vs-structural needs the ladder,
+  so run `--multi-viewport` for the split).
+- The `expected` column is the paste-able Type-A target (already noted for the object
+  cards; it now applies axis-by-axis).
+
+### Why this matters
+
+Before the split, a real, user-visible fix (the responsive subscribe form) moved the
+raw count by −5 out of 1318, because the count was dominated by Type-B shadow and
+×viewport duplication — the operator learns to ignore the number. Classifying by repair
+class makes the number *actionable*: copy the ~50-odd Type-A flat values, author the
+handful of Type-A structural ones, and only then ask how far off Type-B still is. See
+the A/B/copy-not-tolerate framing in [[absolute-values-palette-is-overlay]].
+
+
+### `1c adopt-values` now implements repair-step 1 (REQ-66)
+
+`1c adopt-values <slug> --ref <bundle> [--apply]` mechanically copies the reference's **flat Type-A** values into matching styled objects (dry-run by default). Run it after authoring structure and before hand-tuning: `capture → author → adopt-values --apply → values-diff --multi-viewport`. It skips structural (responsive) values, gradient/inferred colours, and axes the style does not already author — so what it leaves is the focused dial/markup/structural authoring list. On a hand-faithful draft it copies 0 (a clean bill of health for the styled objects).
+
+
+## Update (2026-07-18, pass 3): the gate is PERCEPTUAL + AI-judged on drift-ALIGNED crops
+
+**"Good enough" is a perceptual judgment made by the AI, not a value-delta count and not a
+whole-page pixel diff.** Target users are non-technical; there is NO human-in-the-loop accept step.
+The AI renders, LOOKS at aligned crops, and rules per element.
+
+### Two gates
+1. **Structural (automatic):** `values-diff` CRITICAL findings = 0 — every element present, correct
+   text, correct arrangement (beside/below), correct containment. These always matter.
+2. **Perceptual (AI judgment, per drift-ALIGNED element):** crop the SAME element in ref and ours,
+   each at its OWN position (drift removed), and ask **"would a user viewing the COPY ALONE — not
+   side-by-side — notice or care?"** Good-enough = nothing ruled perceptible-and-care-worthy. The
+   standard is NOT pixel-identity.
+
+### Why aligned, and the tool
+- A whole-page pixel diff is corrupted by **cumulative vertical drift**: a few px of accumulated
+  spacing shifts everything below, so a fixed-y window compares a heading against a text field
+  (gigabyte perceptual regions #1/#4 were pure drift artefacts, not defects). ALWAYS align by element.
+- **`1c aligned-crops <slug> --ref <bundleDir> [--size …] [--areas …] [--out <dir>]` (REQ-78)** does
+  this: section anchors paired by text, `<name>-ref.png` ⇄ `<name>-ours.png` cropped at each side's
+  own top, plus `index.md` with per-area drift. View the pairs and rule. This is the AI's eyes.
+
+### Type-B is worth chasing ONLY when perceptible
+Perception, not A-vs-B, is the discriminator. Manual aligned pass on gigabyte: 6 areas, only the card
+title→body gap was perceptible (fixed, REQ-77); hero/section/form residuals were sub-visual vertical
+rhythm — correctly left alone. Perceptibility is context-dependent (a 16px gap doubling in a compact
+card reads "loose" and matters; the same in a hero is invisible) — so the AI LOOKS, no fixed px rule.
