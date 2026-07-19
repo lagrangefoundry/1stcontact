@@ -56,6 +56,22 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/**
+ * Stamp the builder's edit hook onto a module instance's root element (CHAT-9 M1).
+ * The Weber editor's preview overlay maps a hovered/clicked region in the iframe
+ * back to the module instance to edit via `data-fc-module`; without it there is no
+ * bridge from a rendered element to its structured content. The attributes go on
+ * the module's own root tag (the first opening tag of its markup) so they survive
+ * the background/layer/motion wrappers that later close *around* the markup. The
+ * hook is inert to layout and to the production site — it is plain data-* metadata.
+ */
+function stampEditHook(html: string, id: string, type: string): string {
+  return html.replace(
+    /<([a-zA-Z][\w-]*)/,
+    `<$1 data-fc-module="${escapeHtml(id)}" data-fc-type="${escapeHtml(type)}"`,
+  )
+}
+
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 
 /** Render every module instance on a page, in order, to one HTML fragment. */
@@ -88,9 +104,12 @@ async function renderModules(
 
   for (const m of page.modules) {
     const { Component } = resolveModule(m.type, m.version)
-    const html = await container.renderToString(Component, {
+    const rendered = await container.renderToString(Component, {
       props: { variant: m.variant, dials: m.dials, content: m.content },
     })
+    // Stamp the builder edit hook onto the module root before the section
+    // wrappers close around it, so the Weber preview can target this instance.
+    const html = stampEditHook(rendered, m.id, m.type)
     // A section-level background (REQ-14) wraps the module's markup in stacked
     // background/overlay/content layers; a layer (REQ-15) then composites its
     // freely-positioned children over that; motion (REQ-16) wraps outermost so
