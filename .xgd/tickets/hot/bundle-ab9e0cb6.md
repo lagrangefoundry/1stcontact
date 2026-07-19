@@ -100,6 +100,8 @@ fields:
     main_sha: null
   auto_merge_back: true
   priority: medium
+  skipped_commits:
+  - 80f356ab97acccda82fc9490026e71e8e50d30f7
 ---
 
 # Bundle
