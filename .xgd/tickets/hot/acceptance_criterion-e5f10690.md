@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Per-breakpoint content-width cap varies per width and can drop the cap
 created_by: xgd
 created_at: '2026-07-19T03:21:05.590738+00:00'
-updated_at: '2026-07-19T03:21:05.590738+00:00'
+updated_at: '2026-07-19T03:31:26.897361+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3569e1a4
   kind: behavior
