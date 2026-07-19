@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T02:18:43.327398+00:00'
+updated_at: '2026-07-19T02:29:08.258228+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -58,7 +58,7 @@ fields:
     justification: No existing story covers this behavior. Commits 064ee3a (REQ-59
       stop positions) and 3c5d60d (REQ-62 gradient panel capture+author+diff) deliver
       a coherent gradient-as-value capability bucket with no matrix entry.
-    story_uid: null
+    story_uid: story-82eb6908
   - index: 3
     component: 1c diff — size-aware diffing across the viewport ladder
     item_type: feature
