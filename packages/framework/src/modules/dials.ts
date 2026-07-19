@@ -115,6 +115,22 @@ export const TREATMENT_ROLE_DIAL = [
 export const SUBMIT_TREATMENT_DIAL = ['primary', 'neutral'] as const
 
 /**
+ * Contact-form submit layout (REQ-58). `stacked` (default) lays the button below
+ * the fields; `inline` lays a single-field capture form's field + button on one
+ * row (the reference subscribe strip). A structural mode (a closed set), not a
+ * boolean flag.
+ */
+export const SUBMIT_INLINE_DIAL = ['stacked', 'inline'] as const
+
+/**
+ * Nav collapse breakpoint (REQ-61) — the width below which the header nav folds
+ * to a hamburger. `sm`/`md`/`lg`/`xl` pick the threshold; `none` never collapses.
+ * A named-breakpoint overlay (a mode), not an absolute px: media-query thresholds
+ * cannot read a CSS custom property. Default `md` (the former hardcoded 768px).
+ */
+export const NAV_COLLAPSE_DIAL = ['none', 'sm', 'md', 'lg', 'xl'] as const
+
+/**
  * Named content-column width steps (REQ-55) — the `--container-*` token keys,
  * aligned 1:1 to Tailwind's `max-w` scale (rem → px @ root-16). The map is the
  * authority for both the dial's named layer and the resolver below.

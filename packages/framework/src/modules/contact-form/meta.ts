@@ -1,5 +1,14 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, FIELD_LABELS_DIAL, SPACING_DIAL, SUBMIT_TREATMENT_DIAL, SURFACE_DIAL, WIDTH_DIAL } from '../dials'
+import {
+  ALIGN_DIAL,
+  FIELD_LABELS_DIAL,
+  SPACING_DIAL,
+  SUBMIT_INLINE_DIAL,
+  SUBMIT_TREATMENT_DIAL,
+  SURFACE_DIAL,
+  TREATMENT_ROLE_DIAL,
+  WIDTH_DIAL,
+} from '../dials'
 
 /**
  * `contact-form` — lead-capture form. Server-rendered and fully functional
@@ -26,6 +35,12 @@ export const contactFormMeta = {
     // Submit-button *fill* treatment (REQ-33) — `primary` (brand) or dark
     // `neutral`. The button surface, not a text axis, so it stays a dial.
     submitTreatment: SUBMIT_TREATMENT_DIAL,
+    // Submit-button fill colour (REQ-58) — the absolute-or-overlay escape hatch
+    // over `submitTreatment`: a palette role (listed here) OR an absolute #hex.
+    submitColor: TREATMENT_ROLE_DIAL,
+    // Submit layout (REQ-58) — `inline` lays a single field + button on one row;
+    // `stacked` (default) stacks the button below the fields.
+    submitInline: SUBMIT_INLINE_DIAL,
     // Field labelling (REQ-58) — `above` (default) stacks a visible <label>;
     // `placeholder` moves the label into the input placeholder and visually
     // hides the <label> (kept for a11y). The compact single-column form motif.

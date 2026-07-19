@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { ALIGN_DIAL, LOGO_CARD_DIAL, LOGO_SIZE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
+import { ALIGN_DIAL, LOGO_CARD_DIAL, LOGO_SIZE_DIAL, NAV_COLLAPSE_DIAL, SPACING_DIAL, SURFACE_DIAL } from '../dials'
 
 /**
  * `header` — top navigation chrome (DOC-7 §5 `top-tabs`-style nav).
@@ -28,6 +28,9 @@ export const headerMeta = {
     // Logo backdrop (REQ-36) — `card`/`shadow`/`frame` set the logo on a plate /
     // drop-shadow / bordered frame; `none` (default) renders it bare.
     logoCard: LOGO_CARD_DIAL,
+    // Nav collapse breakpoint (REQ-61) — the width below which the nav folds to a
+    // hamburger (`sm`/`md`/`lg`/`xl`), or `none` to never collapse. Default `md`.
+    navCollapse: NAV_COLLAPSE_DIAL,
   },
   contentSchema: {
     // Image logo (REQ-50) — an AssetRef. Rendered when present.

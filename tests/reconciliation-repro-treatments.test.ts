@@ -134,7 +134,7 @@ describe('story-46e3b3c7 — contact-form treatments', () => {
     // Inline: the form carries the submit-inline treatment class; the scoped CSS
     // lays that form as a single row (field grows, button beside it).
     const inline = await render(ContactForm, {
-      dials: { submitInline: 'true' },
+      dials: { submitInline: 'inline' },
       content: oneField,
     })
     expect(inline).toContain('submit-inline')

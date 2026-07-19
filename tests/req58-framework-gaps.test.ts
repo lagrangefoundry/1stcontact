@@ -116,7 +116,7 @@ describe('REQ-58 — submit colour + inline, footer copyright + link colour', ()
     // submitColor is an absolute-or-overlay button fill; submitInline lays the
     // single field + button on one row (the reference subscribe strip).
     const html = await render(ContactForm, {
-      dials: { submitColor: '#009966', submitInline: 'true' },
+      dials: { submitColor: '#009966', submitInline: 'inline' },
       content: formContent,
     })
     expect(html).toContain('background: #009966') // absolute button fill

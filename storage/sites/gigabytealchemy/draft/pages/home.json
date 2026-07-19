@@ -441,7 +441,7 @@
     "align": "left",
     "submitTreatment": "primary",
     "submitColor": "#009966",
-    "submitInline": "true",
+    "submitInline": "inline",
     "fieldLabels": "placeholder"
    },
    "content": {

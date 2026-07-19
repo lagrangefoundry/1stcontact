@@ -1,7 +1,7 @@
 ---
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
-import { resolveStep, responsiveStepVars, SPACING_STEPS } from '../dials'
+import { responsiveStepVars, SPACING_STEPS } from '../dials'
 import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
 interface FormField {
@@ -44,9 +44,10 @@ const placeholderLabels = fieldLabels === 'placeholder'
 // Submit-button fill colour (REQ-58) — an absolute #hex OR a palette role,
 // overriding the `submitTreatment` default. The absolute-or-overlay escape hatch.
 const submitColorCss = dials.submitColor ? resolveColor(dials.submitColor) : null
-// Inline submit (REQ-58) — a single-field capture form lays the field + button on
-// one row (`bg-white/… flex` subscribe strip), instead of stacking the button below.
-const submitInline = dials.submitInline === 'true'
+// Inline submit (REQ-58) — `inline` lays a single-field capture form's field +
+// button on one row (`bg-white/… flex` subscribe strip); `stacked` (default)
+// stacks the button below the fields.
+const submitInline = dials.submitInline === 'inline'
 
 const { heading, action } = content
 const fields = content.fields ?? []
