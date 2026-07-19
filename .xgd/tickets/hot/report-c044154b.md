@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: gigabytealchemy repro capabilities (REQ-58/59/61/62)'
 created_by: xgd
 created_at: '2026-07-19T02:14:24.621932+00:00'
-updated_at: '2026-07-19T03:10:42.576123+00:00'
+updated_at: '2026-07-19T03:21:38.362275+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -166,7 +166,7 @@ fields:
       breakpoint primitive + resolver), 687a0cfd (rollout to all length dials), a92e9022
       (per-breakpoint contentWidth), 7e1649b6 (nav collapse) deliver the per-breakpoint
       value capability with no matrix entry.
-    story_uid: null
+    story_uid: story-3569e1a4
   - index: 8
     component: Framework — reproduction treatments (services-grid / contact-form /
       footer)
