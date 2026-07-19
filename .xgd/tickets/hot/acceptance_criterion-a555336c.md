@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Gradient stops without an explicit offset are compared on colour only
 created_by: xgd
 created_at: '2026-07-19T02:28:30.769512+00:00'
-updated_at: '2026-07-19T02:28:30.769512+00:00'
+updated_at: '2026-07-19T02:33:48.329267+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-82eb6908
   kind: behavior
