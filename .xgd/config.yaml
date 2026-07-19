@@ -53,6 +53,10 @@ notifications:
     choice_point: true
     workflow_failed: true
     workflow_success: false
+    process_dispatched: false
+    process_completed: false
+    process_failed: true
+    process_error: true
   macos:
     sound: true
   ntfy:
