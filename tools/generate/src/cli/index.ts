@@ -58,12 +58,14 @@ export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export {
   cmdAlignedCrops,
+  subRenderOptions,
   pickAnchors,
   alignedAreas,
   refAnchorsAt,
   normText,
   areaSlug,
   type AlignedArea,
+  type AlignedCropsOptions,
   type AnchorEl,
   type Box as AlignedBox,
 } from './aligned-crops'

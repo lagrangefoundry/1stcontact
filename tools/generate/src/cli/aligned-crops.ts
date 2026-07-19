@@ -154,6 +154,17 @@ export interface AlignedCropsOptions extends GlobalOptions {
 }
 
 /**
+ * The options aligned-crops hands to its sub-commands (render + serve). It MUST
+ * forward the store tree — `sandbox` and `cwd` — so a `--sandbox` reproduction is
+ * rendered and served from `sandbox/`, not silently from `sites/` (which would render
+ * a stale/absent site and diff against the wrong pixels). Pure + pinned so the routing
+ * is verifiable without a browser.
+ */
+export function subRenderOptions(opts: AlignedCropsOptions): { source: 'draft' | 'published'; sandbox?: boolean; cwd?: string } {
+  return { source: opts.source ?? 'draft', sandbox: opts.sandbox, cwd: opts.cwd }
+}
+
+/**
  * Render our draft, screenshot it full-page, and emit drift-aligned ref/ours crop
  * pairs + an index for each section anchor. Returns the areas written.
  */
@@ -163,8 +174,9 @@ export async function cmdAlignedCrops(opts: AlignedCropsOptions): Promise<{ area
   const anchors = pickAnchors(refEls, opts.areas)
   if (anchors.length === 0) throw new Error('aligned-crops: no anchors found (no heading roles / --areas matched)')
 
-  await cmdRender(slug, { source: opts.source ?? 'draft' })
-  const serve = await startServe(slug, { source: opts.source ?? 'draft' })
+  const sub = subRenderOptions(opts)
+  await cmdRender(slug, sub)
+  const serve = await startServe(slug, sub)
   const browser = await playwright.chromium.launch()
   let oursPng: Buffer
   const oursBoxByText = new Map<string, Box>()

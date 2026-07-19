@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { pickAnchors, alignedAreas, normText, areaSlug, type AnchorEl, type AlignedBox } from '../tools/generate/src/cli'
+import {
+  pickAnchors,
+  alignedAreas,
+  normText,
+  areaSlug,
+  subRenderOptions,
+  type AnchorEl,
+  type AlignedBox,
+  type AlignedCropsOptions,
+} from '../tools/generate/src/cli'
 
 /**
  * UATs for REQ-78 — `1c aligned-crops`. The IO (render, screenshot, sharp) is an
@@ -73,5 +82,32 @@ describe('REQ-78 aligned-crops — drift-aligned crop windows', () => {
     expect(normText('  Our   Mission ')).toBe('our mission')
     expect(normText('© Gigabyte Alchemy 2025')).toBe('© gigabyte alchemy ####') // year masked
     expect(areaSlug("What We're Building")).toBe('what-we-re-building')
+  })
+})
+
+describe('REQ-79 aligned-crops — sandbox store routing', () => {
+  const baseOpts = (over: Partial<AlignedCropsOptions>): AlignedCropsOptions => ({
+    slug: 'joyfulculinary',
+    refBundleDir: '/tmp/ref',
+    viewportWidth: 1280,
+    outDir: '/tmp/out',
+    ...over,
+  })
+
+  it('test_UAT_FC_REQ-79_sandbox_flag_forwarded_to_render_and_serve', () => {
+    // The regression: aligned-crops rendered/served from sites/ even under --sandbox,
+    // diffing an absent/stale site against the reference. The sub-command options MUST
+    // carry sandbox through so both render and serve target sandbox/.
+    const sub = subRenderOptions(baseOpts({ sandbox: true, cwd: '/work' }))
+    expect(sub.sandbox).toBe(true)
+    expect(sub.cwd).toBe('/work')
+    expect(sub.source).toBe('draft') // default source
+  })
+
+  it('test_UAT_FC_REQ-79_sites_tree_is_default_when_sandbox_unset', () => {
+    const sub = subRenderOptions(baseOpts({ source: 'published' }))
+    // No sandbox flag → falls through to the sites/ tree (sandbox undefined), source preserved.
+    expect(sub.sandbox).toBeUndefined()
+    expect(sub.source).toBe('published')
   })
 })
