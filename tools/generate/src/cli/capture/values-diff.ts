@@ -2183,14 +2183,14 @@ export function diffManifests(
     if (exp.textAlign !== undefined && act.textAlign !== undefined && exp.textAlign !== act.textAlign) {
       push(exp, 'textAlign', exp.textAlign, act.textAlign)
     }
-    // REQ-64 — font fallback, reverse direction. The unilateral `fontLoad` pass
-    // (below, on the whole manifest) fires when OUR render falls back; this catches
-    // the mirror — the REFERENCE shows a fallback but ours resolved the intended
-    // face, still a difference from the target. `fontLoaded` is false only when a
-    // fallback rendered; absent ⇒ loaded.
-    if (exp.fontLoaded === false && act.fontLoaded !== false) {
-      push(exp, 'fontLoad', 'fallback', 'intended face')
-    }
+    // REQ-79 — the reverse fontLoad direction (reference showed a FOUT fallback but
+    // OUR render resolved the intended face) is intentionally NOT a delta. A reference
+    // `fontLoaded:false` is dominated by capture-side FOUT artifacts, not design intent
+    // (the live site renders the real face — the screenshot and the matching
+    // family/size/weight prove it). Flagging our CORRECT render as a HIGH defect
+    // inverts the reproduction goal and drowns real deltas (30 phantom CRITICALs on the
+    // joyful import). Only the forward direction — OUR render fell back — is a defect,
+    // caught by the unilateral `unresolvedFonts(actual)` pass below.
 
     // REQ-47 — a text run also carries geometry: the hero heading 195px out of
     // position, a mis-sized box, a squared-off corner, a stacked-vs-inline button.

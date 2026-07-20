@@ -462,6 +462,23 @@ export const CONTENT_INSET_DIAL = ['sm', 'md', 'lg'] as const
 export const HEADING_CASE_DIAL = ['normal', 'upper'] as const
 
 /**
+ * Carousel slides-per-view layout (REQ-79). `single` shows one slide per view
+ * (the testimonial pattern); `peek` shows one main slide with its neighbours
+ * peeking in at the edges; `multi` shows several slides per view (a gallery /
+ * logo strip), collapsing to one below the `md` breakpoint. The track is a pure
+ * CSS scroll-snap row — genuinely swipeable, no client JS (DOC-7 SSR-only).
+ */
+export const CAROUSEL_VIEW_DIAL = ['single', 'peek', 'multi'] as const
+
+/**
+ * Carousel pagination affordance (REQ-79). `none` renders the bare scroll-snap
+ * track; `dots` adds a decorative row of position indicators below it (the first
+ * marked active). The dots are `aria-hidden` presentation — the real affordance
+ * is the swipeable/scrollable track, so no client JS is needed.
+ */
+export const CAROUSEL_CONTROLS_DIAL = ['none', 'dots'] as const
+
+/**
  * Hero divider rule (REQ-36) — a thin horizontal rule between the heading and
  * subhead. `none` (default) renders nothing; `rule` draws a short rule inheriting
  * the surface text colour.

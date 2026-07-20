@@ -19,6 +19,7 @@ export { textBlockMeta } from './text-block/meta'
 export { servicesGridMeta } from './services-grid/meta'
 export { contactFormMeta } from './contact-form/meta'
 export { layerMeta } from './layer/meta'
+export { carouselMeta } from './carousel/meta'
 export { navHref } from './nav'
 export { renderMarkdown, CALLOUT_CSS } from './markdown'
 export {

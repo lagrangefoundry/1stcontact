@@ -53,6 +53,9 @@ interface Props {
     items: ServiceItem[]
     /** Section-level CTA button rendered below the grid (REQ-36). */
     cta?: TextRun
+    /** Section band fill (REQ-79) — absolute `#hex` OR palette role, overriding just
+     *  the `surface` class's background-color (the class still sets the text colour). */
+    surfaceFill?: string
   }
 }
 
@@ -82,6 +85,10 @@ const contentAlign = dials.contentAlign ?? 'left'
 // Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
 const padTopVars = responsiveStepVars('pt', dials.spacingTop, SPACING_STEPS, 'lg')
 const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEPS, 'lg')
+// Section band fill (REQ-79) — absolute `#hex` OR palette role → an inline
+// `background-color` that overrides the `.surface-*` class background (which still
+// sets the band's text colour). For a captured band colour the enum does not cover.
+const sectionFill = content.surfaceFill ? `background-color: ${resolveColor(content.surfaceFill)}` : undefined
 
 const { heading } = content
 const sectionCta = content.cta
@@ -125,7 +132,7 @@ function iconIsImage(icon: ServiceItem['icon']): icon is AssetRef {
     { 'has-content-width': hasContentWidth },
     `content-align-${contentAlign}`,
   ]}
-  style={[contentWidthDecls, padTopVars, padBottomVars, gapVars].filter(Boolean).join('; ')}
+  style={[contentWidthDecls, padTopVars, padBottomVars, gapVars, sectionFill].filter(Boolean).join('; ')}
 >
   <div class="services-grid__inner">
     {heading?.text && <h2 class="services-grid__heading" style={headingStyle}>{heading.text}</h2>}

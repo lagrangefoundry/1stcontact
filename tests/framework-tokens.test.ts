@@ -112,8 +112,8 @@ describe('@1stcontact/framework module registry', () => {
     expectTypeOf(layerMeta).toMatchTypeOf<ModuleMeta>()
 
     // Runtime: every registered module exposes the full contract shape.
-    // 7 modules: the REQ-4/5 six plus REQ-15's `layer` host.
-    expect(registry.size).toBe(7)
+    // 8 modules: the REQ-4/5 six, REQ-15's `layer` host, and REQ-79's `carousel`.
+    expect(registry.size).toBe(8)
     for (const def of registry.values()) {
       const meta = def.meta
       expect(typeof meta.id).toBe('string')

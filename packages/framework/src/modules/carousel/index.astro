@@ -1,0 +1,285 @@
+---
+import type { AssetRef } from '@1stcontact/site-schema'
+import { renderMarkdown } from '../markdown'
+import { assertSafeUrl } from '../safety'
+import { responsiveContainerWidthVars, responsiveStepVars, SPACING_STEPS } from '../dials'
+import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
+
+/** One carousel slide — the same styled-run vocabulary as a services-grid card. */
+interface Slide {
+  image?: AssetRef
+  title?: TextRun
+  subtitle?: TextRun
+  body?: string
+  bodyStyle?: TextRun
+  cta?: TextRun
+  /** Accent left-border colour — absolute `#hex` OR palette role. */
+  accent?: string
+  /** Raw slide fill — absolute `#hex` OR palette role, over the card surface. */
+  surfaceFill?: string
+}
+
+interface Props {
+  variant?: string
+  dials?: Record<string, string>
+  content: {
+    heading?: TextRun
+    subhead?: string
+    subheadStyle?: TextRun
+    cta?: TextRun
+    items: Slide[]
+    /** Section band fill (REQ-79) — absolute `#hex` OR palette role, overriding just
+     *  the `surface` class's background-color (the class still sets the text colour). */
+    surfaceFill?: string
+  }
+}
+
+const { dials = {}, content } = Astro.props as Props
+const surface = dials.surface ?? 'default'
+const view = dials.view ?? 'single'
+const cardSurface = dials.cardSurface ?? 'default'
+const controls = dials.controls ?? 'none'
+const headingCase = dials.headingCase ?? 'normal'
+const contentAlign = dials.contentAlign ?? 'left'
+const align = dials.align ?? 'left'
+
+// Slide gap (REQ-58 absolute-or-overlay) — named step OR absolute px.
+const GAP_STEPS = { tight: 'var(--space-3)', normal: 'var(--space-6)', loose: 'var(--space-8)', airy: 'var(--space-16)' }
+const gapVars = responsiveStepVars('gap', dials.gap, GAP_STEPS, 'normal')
+// Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
+const padTopVars = responsiveStepVars('pt', dials.spacingTop, SPACING_STEPS, 'lg')
+const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEPS, 'lg')
+// Constrained content column (REQ-45 capability, REQ-55 mechanism).
+const { decls: contentWidthDecls, hasCap: hasContentWidth } = responsiveContainerWidthVars(dials.contentWidth)
+// Section band fill (REQ-79) — absolute `#hex` OR palette role → inline background,
+// overriding the `.surface-*` class background while the class keeps the text colour.
+const sectionFill = content.surfaceFill ? `background-color: ${resolveColor(content.surfaceFill)}` : undefined
+
+const { heading } = content
+const sectionCta = content.cta
+const items = content.items ?? []
+const subheadHtml = content.subhead ? await renderMarkdown(content.subhead) : undefined
+
+// Pre-render each slide's markdown body + resolve its styled runs (async body).
+const slides = await Promise.all(
+  items.map(async (item) => ({
+    item,
+    bodyHtml: item.body ? await renderMarkdown(item.body) : undefined,
+    titleStyle: resolveTextStyle(item.title),
+    subtitleStyle: resolveTextStyle(item.subtitle),
+    bodyStyle: resolveTextStyle(item.bodyStyle),
+    ctaStyle: resolveTextStyle(item.cta),
+  })),
+)
+
+const headingStyle = resolveTextStyle(heading)
+const subheadStyle = resolveTextStyle(content.subheadStyle)
+const sectionCtaStyle = resolveTextStyle(sectionCta)
+---
+
+<section
+  class:list={[
+    'carousel',
+    `surface-${surface}`,
+    `view-${view}`,
+    `card-surface-${cardSurface}`,
+    `controls-${controls}`,
+    `case-${headingCase}`,
+    `align-${align}`,
+    { 'has-content-width': hasContentWidth },
+    `content-align-${contentAlign}`,
+  ]}
+  style={[contentWidthDecls, padTopVars, padBottomVars, gapVars, sectionFill].filter(Boolean).join('; ')}
+>
+  <div class="carousel__inner">
+    {heading?.text && <h2 class="carousel__heading" style={headingStyle}>{heading.text}</h2>}
+    {subheadHtml && <div class="carousel__subhead" style={subheadStyle} set:html={subheadHtml} />}
+
+    <ul class="carousel__track">
+      {slides.map(({ item, bodyHtml, titleStyle, subtitleStyle, bodyStyle, ctaStyle }) => (
+        <li
+          class:list={['carousel__slide', item.accent && 'has-accent']}
+          style={[
+            item.accent && `--fc-accent: ${resolveColor(item.accent)}`,
+            item.surfaceFill && `background-color: ${resolveColor(item.surfaceFill)}`,
+          ].filter(Boolean).join('; ') || undefined}
+        >
+          {item.image && (
+            <img
+              class="carousel__media"
+              src={assertSafeUrl(item.image.src, 'carousel media src')}
+              alt={item.image.alt}
+              loading="lazy"
+              decoding="async"
+            />
+          )}
+          {bodyHtml && <div class="carousel__body" style={bodyStyle} set:html={bodyHtml} />}
+          {item.title?.text && <p class="carousel__title" style={titleStyle}>{item.title.text}</p>}
+          {item.subtitle?.text && <p class="carousel__subtitle" style={subtitleStyle}>{item.subtitle.text}</p>}
+          {item.cta?.label && item.cta.href && (
+            <a class="carousel__slide-cta" style={ctaStyle} href={assertSafeUrl(item.cta.href, 'carousel slide cta href')}>{item.cta.label}</a>
+          )}
+        </li>
+      ))}
+    </ul>
+
+    {controls === 'dots' && items.length > 1 && (
+      <div class="carousel__dots" aria-hidden="true">
+        {items.map((_, i) => (
+          <span class:list={['carousel__dot', i === 0 && 'is-active']} />
+        ))}
+      </div>
+    )}
+
+    {sectionCta?.label && sectionCta.href && (
+      <a class="carousel__cta" style={sectionCtaStyle} href={assertSafeUrl(sectionCta.href, 'carousel section cta href')}>{sectionCta.label}</a>
+    )}
+  </div>
+</section>
+
+<style>
+  /* Vertical spacing → inline `--fc-pt`/`--fc-pb` (step token OR absolute px). */
+  .carousel { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
+  /* REQ-61 — per-breakpoint spacing override chain (see ../breakpoints). */
+  @media (min-width: 640px) { .carousel { padding-top: var(--fc-pt-sm, var(--fc-pt)); padding-bottom: var(--fc-pb-sm, var(--fc-pb)); } }
+  @media (min-width: 768px) { .carousel { padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))); padding-bottom: var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))); } }
+  @media (min-width: 1024px) { .carousel { padding-top: var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))); padding-bottom: var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))); } }
+  @media (min-width: 1280px) { .carousel { padding-top: var(--fc-pt-xl, var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))))); padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))))); } }
+  .carousel.surface-subtle { background: var(--color-surface-subtle); }
+  .carousel.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
+  .carousel.surface-accent { background: var(--color-accent); color: var(--color-bg); }
+
+  .carousel__inner {
+    max-width: var(--container-6xl);
+    margin-inline: auto;
+    padding-inline: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+  /* Constrained content column (REQ-45 / REQ-55). */
+  .carousel.has-content-width .carousel__inner > * { max-width: var(--fc-content-width); width: 100%; }
+  @media (min-width: 640px) { .carousel.has-content-width .carousel__inner > * { max-width: var(--fc-content-width-sm, var(--fc-content-width)); } }
+  @media (min-width: 768px) { .carousel.has-content-width .carousel__inner > * { max-width: var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))); } }
+  @media (min-width: 1024px) { .carousel.has-content-width .carousel__inner > * { max-width: var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width)))); } }
+  @media (min-width: 1280px) { .carousel.has-content-width .carousel__inner > * { max-width: var(--fc-content-width-xl, var(--fc-content-width-lg, var(--fc-content-width-md, var(--fc-content-width-sm, var(--fc-content-width))))); } }
+  .carousel.content-align-center .carousel__inner { align-items: center; }
+  .carousel.content-align-center .carousel__inner > * { margin-inline: auto; }
+
+  .carousel__heading {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-3xl);
+    line-height: var(--line-height-tight);
+  }
+  .carousel.case-upper .carousel__heading { text-transform: uppercase; }
+  .carousel__subhead { color: var(--color-muted); max-width: 60ch; }
+
+  /* The track — a pure CSS scroll-snap row: genuinely swipeable/scrollable, no JS. */
+  .carousel__track {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: var(--fc-gap);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    /* Full-bleed track edges within the padded inner. */
+    width: 100%;
+    scrollbar-width: none;
+  }
+  .carousel__track::-webkit-scrollbar { display: none; }
+  @media (min-width: 640px) { .carousel__track { gap: var(--fc-gap-sm, var(--fc-gap)); } }
+  @media (min-width: 768px) { .carousel__track { gap: var(--fc-gap-md, var(--fc-gap-sm, var(--fc-gap))); } }
+  @media (min-width: 1024px) { .carousel__track { gap: var(--fc-gap-lg, var(--fc-gap-md, var(--fc-gap-sm, var(--fc-gap)))); } }
+  @media (min-width: 1280px) { .carousel__track { gap: var(--fc-gap-xl, var(--fc-gap-lg, var(--fc-gap-md, var(--fc-gap-sm, var(--fc-gap))))); } }
+
+  .carousel__slide {
+    scroll-snap-align: center;
+    flex: 0 0 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-8);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+  /* Slides-per-view (REQ-79) — `single` fills the view; `peek` leaves neighbours
+     visible at the edges; `multi` fits several per view (one below md). */
+  .carousel.view-single .carousel__slide { flex-basis: 100%; }
+  .carousel.view-peek .carousel__slide { flex-basis: 85%; }
+  .carousel.view-multi .carousel__slide { flex-basis: 100%; }
+  @media (min-width: 768px) {
+    .carousel.view-peek .carousel__slide { flex-basis: 60%; }
+    .carousel.view-multi .carousel__slide { flex-basis: calc((100% - 2 * var(--fc-gap)) / 3); }
+  }
+
+  /* Bare slides — strip the card fill/border/radius/padding (a naked quote/logo). */
+  .carousel.card-surface-bare .carousel__slide {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  /* Text alignment within slides. */
+  .carousel.align-center .carousel__slide { text-align: center; align-items: center; }
+
+  /* Accent left border — a per-slide colour resolved from a #hex literal OR role. */
+  .carousel__slide.has-accent { border-left-width: var(--space-1); border-left-color: var(--fc-accent); }
+
+  .carousel__media {
+    display: block;
+    width: var(--space-16);
+    height: var(--space-16);
+    object-fit: cover;
+    border-radius: var(--radius-full);
+    margin-bottom: var(--space-2);
+  }
+  .carousel__body { font-size: var(--font-size-lg); line-height: var(--line-height-relaxed); color: inherit; }
+  .carousel__body p:first-of-type { margin-top: 0; }
+  .carousel__body p:last-of-type { margin-bottom: 0; }
+  .carousel__title {
+    margin: 0;
+    font-family: var(--font-family-heading);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-lg);
+  }
+  .carousel__subtitle { margin: 0; color: var(--color-muted); font-size: var(--font-size-sm); }
+  .carousel__slide-cta {
+    margin-top: auto;
+    align-self: flex-start;
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+  .carousel.align-center .carousel__slide-cta { align-self: center; }
+
+  /* Decorative pagination dots (REQ-79) — aria-hidden position indicator; the
+     scrollable track is the real affordance. */
+  .carousel__dots { display: flex; gap: var(--space-2); justify-content: center; }
+  .carousel__dot {
+    width: var(--space-2);
+    height: var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+  }
+  .carousel__dot.is-active { background: var(--color-accent); }
+
+  /* Section-level CTA — a centred accent button below the track. */
+  .carousel__cta {
+    display: block;
+    width: fit-content;
+    margin: var(--space-6) auto 0;
+    background: var(--color-accent);
+    color: var(--color-bg);
+    padding: var(--space-3) var(--space-6);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+  }
+</style>

@@ -13,6 +13,8 @@ import ContactForm from './contact-form/index.astro'
 import { contactFormMeta } from './contact-form/meta'
 import LayerHost from './layer/index.astro'
 import { layerMeta } from './layer/meta'
+import Carousel from './carousel/index.astro'
+import { carouselMeta } from './carousel/meta'
 
 /**
  * The module catalog. `tools/generate` (REQ-6) discovers modules through this
@@ -27,6 +29,7 @@ const MODULES: ModuleDefinition[] = [
   { meta: servicesGridMeta, Component: ServicesGrid },
   { meta: contactFormMeta, Component: ContactForm },
   { meta: layerMeta, Component: LayerHost },
+  { meta: carouselMeta, Component: Carousel },
 ]
 
 /** Catalog keyed by `"<id>@<version>"`. */

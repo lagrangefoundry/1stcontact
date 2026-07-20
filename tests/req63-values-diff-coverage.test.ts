@@ -464,14 +464,23 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     expect(d.deltas.every((x) => x.valueType === 'A' || x.valueType === 'B')).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-64_font_fallback_reverse_direction', () => {
-    // The unilateral fontLoad pass fires when OUR render falls back; this catches
-    // the mirror — the reference shows a fallback but ours resolved the intended face.
-    const d = diffManifests(
+  it('test_UAT_FC_REQ-79_reference_fout_does_not_flag_correct_render', () => {
+    // REQ-79 supersedes the REQ-64 reverse direction: when the REFERENCE recorded a
+    // FOUT fallback but OUR render resolved the intended face, that is our render being
+    // CORRECT — a capture artifact on the reference side, never a reproduction defect.
+    // It must NOT produce a fontLoad delta (else correct output reads as 30 phantom
+    // CRITICALs, drowning real deltas — the joyful import bug).
+    const correct = diffManifests(
       mani('ref', [el('Wordmark', { fontLoaded: false })]),
       mani('a', [el('Wordmark', { fontLoaded: true })]),
     )
-    expect(hasDelta(d.deltas, 'Wordmark', 'fontLoad')).toBe(true)
+    expect(hasProp(correct.deltas, 'fontLoad')).toBe(false)
+    // Forward direction still fires: OUR render fell back off the intended face.
+    const ourFallback = diffManifests(
+      mani('ref', [el('Wordmark', { fontLoaded: true })]),
+      mani('a', [el('Wordmark', { fontLoaded: false })]),
+    )
+    expect(hasDelta(ourFallback.deltas, 'Wordmark', 'fontLoad')).toBe(true)
     // Both resolved → no delta.
     const same = diffManifests(
       mani('ref', [el('Wordmark', { fontLoaded: true })]),

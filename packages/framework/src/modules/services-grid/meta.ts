@@ -77,6 +77,11 @@ export const servicesGridMeta = {
     // Prose intro (REQ-50) — markdown + a style-only style run.
     subhead: { type: 'markdown', required: false },
     subheadStyle: { type: 'styled-text', required: false },
+    // Section band fill (REQ-79) — an absolute `#hex` value OR a palette role, over
+    // the closed `surface` enum. The section analogue of the card-level `surfaceFill`,
+    // for a band colour (e.g. a mid-grey) the four-value enum does not cover. The
+    // absolute-or-overlay seam: a captured band colour reproduces exactly.
+    surfaceFill: { type: 'color', required: false },
     // Section-level CTA button below the grid (REQ-36) — a styled run.
     cta: { type: 'styled-text', required: false },
     items: {
