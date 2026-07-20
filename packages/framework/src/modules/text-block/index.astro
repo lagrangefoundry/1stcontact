@@ -2,7 +2,7 @@
 import { renderMarkdown } from '../markdown'
 import { assertSafeUrl } from '../safety'
 import { responsiveContainerWidthVars, resolveStep, responsiveStepVars, SPACING_STEPS, CTA_RADIUS_STEPS, PANEL_CORNER_STEPS } from '../dials'
-import { resolveTextStyle, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
+import { resolveTextStyle, resolveColor, resolveSurfaceGradient, type TextRun, type TextRunGradient } from '../text-style'
 
 interface Props {
   variant?: string
@@ -13,6 +13,9 @@ interface Props {
     bodyStyle?: TextRun
     cta?: TextRun
     panelGradient?: TextRunGradient
+    /** Section band fill (REQ-79) — absolute `#hex` OR palette role, overriding just
+     *  the `surface` class's background-color (the class still sets the text colour). */
+    surfaceFill?: string
   }
 }
 
@@ -56,6 +59,9 @@ const bodyHtml = await renderMarkdown(content.body)
 const headingStyle = resolveTextStyle(heading)
 const bodyStyle = resolveTextStyle(content.bodyStyle)
 const ctaStyle = resolveTextStyle(cta)
+// Section band fill (REQ-79) — absolute `#hex` OR palette role → inline background,
+// overriding the `.surface-*` class background while the class keeps the text colour.
+const sectionFill = content.surfaceFill ? `background-color: ${resolveColor(content.surfaceFill)}` : undefined
 ---
 
 <section
@@ -69,7 +75,7 @@ const ctaStyle = resolveTextStyle(cta)
     `panel-${panel}`,
     `list-marker-${listMarker}`,
   ]}
-  style={[contentWidthDecls, padTopVars, padBottomVars, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`].filter(Boolean).join('; ')}
+  style={[contentWidthDecls, padTopVars, padBottomVars, `--fc-cta-radius: ${ctaRadiusCss}`, `--fc-panel-radius: ${panelRadiusCss}`, sectionFill].filter(Boolean).join('; ')}
 >
   <div class="text-block__inner" style={[panelGradientCss, panelPadVars].filter(Boolean).join('; ') || undefined}>
     {heading?.text && <h2 class:list={['text-block__heading', `case-${headingCase}`, `halign-${headingAlign}`]} style={headingStyle}>{heading.text}</h2>}

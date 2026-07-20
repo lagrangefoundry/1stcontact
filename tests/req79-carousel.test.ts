@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
+import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
+import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
 import { getModule } from '../packages/framework/src/modules/registry'
 
@@ -135,5 +137,25 @@ describe('REQ-79 services-grid section surfaceFill', () => {
     const html = await renderGrid({ dials: { surface: 'subtle' }, content: { items } })
     expect(html).not.toMatch(/background-color:/)
     expect(validateModuleContent(servicesGridMeta, { items })).toEqual([])
+  })
+})
+
+async function renderTextBlock(props: unknown) {
+  container ??= await AstroContainer.create()
+  return container.renderToString(TextBlock, { props: props as Record<string, unknown> })
+}
+
+describe('REQ-79 text-block section surfaceFill', () => {
+  it('test_UAT_FC_REQ-79_text_block_surfaceFill_paints_grey_band_with_gold_checks', async () => {
+    // The "WHO USES OUR SERVICES" band: a mid-grey the `surface` enum can't express,
+    // with a gold accent ✓ checklist (listMarker: check) — the exact reproduction shape.
+    const html = await renderTextBlock({
+      dials: { surface: 'inverse', listMarker: 'check' },
+      content: { heading: { text: 'WHO USES OUR SERVICES' }, body: '- Busy families\n- Postpartum families', surfaceFill: 'muted' },
+    })
+    expect(html).toMatch(/background-color:\s*var\(--color-muted\)/)
+    expect(html).toMatch(/surface-inverse/) // white text preserved
+    expect(html).toMatch(/list-marker-check/) // accent ✓ marker
+    expect(validateModuleContent(textBlockMeta, { body: 'x', surfaceFill: 'muted' })).toEqual([])
   })
 })

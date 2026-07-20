@@ -76,5 +76,11 @@ export const textBlockMeta = {
     // dial). When present it makes the inner a padded, rounded panel with a
     // gradient surface, reproducing a captured `surfaceGradient`.
     panelGradient: { type: 'gradient', required: false },
+    // Section band fill (REQ-79) — an absolute `#hex` value OR a palette role, over
+    // the closed `surface` enum. The section analogue of the card-level `surfaceFill`
+    // (services-grid/carousel), for a band colour (e.g. a mid-grey) the four-value
+    // enum does not cover. Overrides only the background-color; the `surface` class
+    // still sets the text colour.
+    surfaceFill: { type: 'color', required: false },
   },
 } as const satisfies ModuleMeta
