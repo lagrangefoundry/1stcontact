@@ -10,3 +10,5 @@ export {
   type L1Serve,
   type L1CaptureOptions,
 } from './roundtrip'
+// Capture → L1 fold (REQ-83) — the multi-viewport ladder folded into one document.
+export { foldToL1, type FoldOptions } from './fold'

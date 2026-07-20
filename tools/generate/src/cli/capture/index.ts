@@ -5,8 +5,16 @@
  */
 export { cmdCapturePage } from './capture'
 export type { CapturePageOptions, CapturePageResult } from './capture'
-export { runCapturePipeline, runMultiStateCapture, captureLadderScreenshots } from './pipeline'
-export type { CapturePipelineOptions, MultiStateCaptureOptions, LadderScreenshot, LadderScreenshotOptions } from './pipeline'
+export { runCapturePipeline, runMultiStateCapture, captureLadderScreenshots, captureStructuralHints } from './pipeline'
+export type {
+  CapturePipelineOptions,
+  MultiStateCaptureOptions,
+  LadderScreenshot,
+  LadderScreenshotOptions,
+  StructuralHintsOptions,
+} from './pipeline'
+export { HINTS_SCRIPT, extractHints } from './hints'
+export type { StructuralHints, HintNode, ParentLayout, SizingUnit, HintDriver } from './hints'
 export {
   createPlaywrightDriver,
   createEngineDriver,
@@ -24,6 +32,10 @@ export {
   writeLadderScreenshots,
   readLadderScreenshotPath,
   ladderScreenshotPath,
+  writeL1,
+  readL1,
+  writeHints,
+  readHints,
 } from './bundle'
 export type { BundleLocation } from './bundle'
 export { EXTRACT_SCRIPT } from './extract'

@@ -2,8 +2,11 @@
  * `1c capture page <url>` orchestrator (DOC-13). Runs the rendered-only capture
  * pipeline and writes the self-contained bundle to `references/<host>/<path>/`.
  */
-import { captureLadderScreenshots, runCapturePipeline, runMultiStateCapture } from './pipeline'
-import { writeBundle, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
+import type { L1Document } from '@1stcontact/site-schema'
+import { captureLadderScreenshots, captureStructuralHints, runCapturePipeline, runMultiStateCapture } from './pipeline'
+import { writeBundle, writeHints, writeL1, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
+import { foldToL1 } from '../../l1/fold'
+import type { StructuralHints } from './hints'
 import type { BrowserDriverFactory, Capture, RenderEngine } from './types'
 import type { MultiStateCapture } from './values-diff'
 
@@ -22,6 +25,10 @@ export interface CapturePageResult extends BundleLocation {
   capture: Capture
   /** REQ-58 (T2) — the reference projected across the viewport ladder, persisted as `multistate.json`. */
   multiState: MultiStateCapture
+  /** REQ-83 — the multi-viewport capture folded into one L1 document (`l1.json`). */
+  l1: L1Document
+  /** REQ-83 — the advisory structural-hint sidecar (`hints.json`). */
+  hints: StructuralHints
 }
 
 export async function cmdCapturePage(url: string, opts: CapturePageOptions = {}): Promise<CapturePageResult> {
@@ -48,5 +55,15 @@ export async function cmdCapturePage(url: string, opts: CapturePageOptions = {})
   const ladderShots = await captureLadderScreenshots(url, { driverFactory: opts.driverFactory })
   writeLadderScreenshots(location.bundleDir, ladderShots)
 
-  return { ...location, capture: result.capture, multiState }
+  // REQ-83 — fold the retained ladder into ONE L1 document (the reproduction
+  // artifact), and read the advisory structural hints. `multistate.json` stays as
+  // the acceptance oracle the folded doc renders and gates against.
+  const l1 = foldToL1(multiState)
+  writeL1(location.bundleDir, l1)
+  const hints = await captureStructuralHints(url, {
+    driverFactory: opts.driverFactory,
+  })
+  writeHints(location.bundleDir, hints)
+
+  return { ...location, capture: result.capture, multiState, l1, hints }
 }

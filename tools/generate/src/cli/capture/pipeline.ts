@@ -5,6 +5,7 @@
  * static fallback (DOC-13 §2.1, §3).
  */
 import { EXTRACT_SCRIPT, type RawSignals } from './extract'
+import { HINTS_SCRIPT, type StructuralHints } from './hints'
 import { createEngineDriver, createPlaywrightDriver, engineAvailable } from './playwright-driver'
 import { buildSections } from './sections'
 import { buildTheme } from './theme'
@@ -270,6 +271,41 @@ export async function captureLadderScreenshots(
     }
   }
   return shots
+}
+
+// ── REQ-83 — structural-hint extraction ───────────────────────────────────────
+
+export interface StructuralHintsOptions {
+  /** Viewport to read hints at (default desktop 1280 — the front-door layout). */
+  viewport?: Viewport
+  /** Engine to read on (default `chromium`). */
+  engine?: RenderEngine
+  /** Injectable driver factory (tests supply a fake); defaults to the engine driver. */
+  driverFactory?: BrowserDriverFactory
+}
+
+/**
+ * REQ-83 — the advisory structural-hint pass. Navigate once at a desktop width and
+ * evaluate {@link HINTS_SCRIPT}, projecting the CSS-mechanism relationships the
+ * fold omits (parent layout, sizing unit, position mode, `@media` breakpoints,
+ * ancestry, repetition). Read for DIRECTION only; nothing in the render path
+ * consumes it. Kept a separate pass from the values extraction so the heavily-
+ * tested {@link EXTRACT_SCRIPT} stays untouched.
+ */
+export async function captureStructuralHints(
+  url: string,
+  opts: StructuralHintsOptions = {},
+): Promise<StructuralHints> {
+  const viewport = opts.viewport ?? { width: 1280, height: 800 }
+  const engine = opts.engine ?? 'chromium'
+  const factory = opts.driverFactory ?? createEngineDriver(engine)
+  const driver = await factory()
+  try {
+    await driver.navigate(url, viewport)
+    return await driver.query<StructuralHints>(HINTS_SCRIPT)
+  } finally {
+    await driver.close()
+  }
 }
 
 /**

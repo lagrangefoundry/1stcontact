@@ -126,8 +126,12 @@ Usage:
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
 
-Reference capture (REQ-12) — rendered-only headless-browser capture:
+Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
   1c capture page <url>
+    Writes the bundle (capture.json, screenshots, raw/rendered html, assets) plus the multi-viewport
+    ladder (multistate.json — the acceptance oracle), the ladder folded into ONE L1 document
+    (l1.json: geometry keyframes + interpolate/snap + visibility), and advisory structural hints
+    (hints.json: parent layout, sizing unit, position mode, @media breakpoints — read for direction, never executed).
 
 Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
   1c shot <slug> [--source draft|published] [--viewport mobile|tablet|desktop] [--out <file>] [--sandbox]
@@ -316,9 +320,13 @@ export async function run(argv: string[]): Promise<void> {
         return
       }
       const url = requireSlug(rest[1])
-      const { bundleDir, capture } = await cmdCapturePage(url, global)
+      const { bundleDir, capture, l1, hints } = await cmdCapturePage(url, global)
+      const l1Nodes = (l1.root.kind === 'box' || l1.root.kind === 'container' ? l1.root.children?.length : 0) ?? 0
       console.log(
-        `Captured ${url} → ${bundleDir}\n  ${capture.sections.length} section(s), ${capture.assets.length} asset(s)`,
+        `Captured ${url} → ${bundleDir}\n` +
+          `  ${capture.sections.length} section(s), ${capture.assets.length} asset(s)\n` +
+          `  l1.json: ${l1Nodes} node(s) across ${l1.widths.length} width(s); ` +
+          `hints.json: ${hints.nodes.length} node(s), ${hints.mediaBreakpoints.length} @media breakpoint(s)`,
       )
       return
     }

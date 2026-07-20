@@ -13,8 +13,10 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import type { L1Document } from '@1stcontact/site-schema'
 import type { MultiStateCapture } from './values-diff'
 import type { LadderScreenshot } from './pipeline'
+import type { StructuralHints } from './hints'
 import type { Capture, CaptureResult } from './types'
 
 export interface BundleLocation {
@@ -78,6 +80,46 @@ export function readMultiState(bundleDir: string): MultiStateCapture | null {
   const src = path.join(bundleDir, MULTISTATE_FILE)
   if (!existsSync(src)) return null
   return JSON.parse(readFileSync(src, 'utf8')) as MultiStateCapture
+}
+
+/** REQ-83 — the folded L1 document filename within a bundle. */
+const L1_FILE = 'l1.json'
+/** REQ-83 — the advisory structural-hint sidecar filename within a bundle. */
+const HINTS_FILE = 'hints.json'
+
+/**
+ * REQ-83 — persist the folded L1 document alongside `capture.json`. The
+ * multi-viewport capture (`multistate.json`) is retained as the acceptance
+ * oracle; this is the single-document fold the reproduction flow renders and
+ * gates against it.
+ */
+export function writeL1(bundleDir: string, doc: L1Document): string {
+  mkdirSync(bundleDir, { recursive: true })
+  const dest = path.join(bundleDir, L1_FILE)
+  writeFileSync(dest, JSON.stringify(doc, null, 2))
+  return dest
+}
+
+/** Read a bundle's `l1.json`, or null when the bundle predates the fold. */
+export function readL1(bundleDir: string): L1Document | null {
+  const src = path.join(bundleDir, L1_FILE)
+  if (!existsSync(src)) return null
+  return JSON.parse(readFileSync(src, 'utf8')) as L1Document
+}
+
+/** REQ-83 — persist the advisory structural-hint sidecar alongside `capture.json`. */
+export function writeHints(bundleDir: string, hints: StructuralHints): string {
+  mkdirSync(bundleDir, { recursive: true })
+  const dest = path.join(bundleDir, HINTS_FILE)
+  writeFileSync(dest, JSON.stringify(hints, null, 2))
+  return dest
+}
+
+/** Read a bundle's `hints.json`, or null when the bundle predates the hint pass. */
+export function readHints(bundleDir: string): StructuralHints | null {
+  const src = path.join(bundleDir, HINTS_FILE)
+  if (!existsSync(src)) return null
+  return JSON.parse(readFileSync(src, 'utf8')) as StructuralHints
 }
 
 /** REQ-61 — the per-width reference screenshot filename (`screenshot-<width>.png`). */
