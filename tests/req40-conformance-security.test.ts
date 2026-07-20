@@ -11,7 +11,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const textBlockMeta = getModule('text-block', 2).meta
+const carouselMeta = getModule('carousel', 1).meta
 import XssUrl from './fixtures/conformance/xss-url.astro'
 import XssHandler from './fixtures/conformance/xss-handler.astro'
 import CssBreakout from './fixtures/conformance/css-breakout.astro'
@@ -121,10 +121,10 @@ describe('Conformance harness security dimension (REQ-40)', () => {
     // Ordinary, schema-derived benign content on a real module passes with no
     // security violation — the detector does not false-positive.
     const benign: ConformanceFixture = {
-      label: 'text-block-benign',
-      props: { version: 2, variant: textBlockMeta.variants[0], content: buildBenignContent(textBlockMeta) },
+      label: 'carousel-benign',
+      props: { version: 1, variant: carouselMeta.variants[0], content: buildBenignContent(carouselMeta) },
     }
-    await expect(assertModuleConforms('text-block', [benign], SECURITY)).resolves.toBeUndefined()
+    await expect(assertModuleConforms('carousel', [benign], SECURITY)).resolves.toBeUndefined()
   }, 120000)
 
   // The gap this detector surfaces — real modules rendering injected payloads

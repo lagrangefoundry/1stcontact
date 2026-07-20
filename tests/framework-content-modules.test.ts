@@ -1,21 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
-import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
-import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
+import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
 import { getModule } from '../packages/framework/src/modules/registry'
 
 /**
- * UATs for REQ-5 — the three content modules (text-block, services-grid,
- * contact-form). Each module is rendered through Astro's container API (the
- * same SSR path tools/generate uses) and asserted on the produced markup.
- * Container rendering excludes the island `<script>`, so this output is also
- * the no-JS baseline the contact form degrades to.
+ * UATs for REQ-5 — content-schema validation and SSR of the surviving capability
+ * modules (contact-form, carousel). Each module is rendered through Astro's
+ * container API (the same SSR path tools/generate uses) and asserted on the
+ * produced markup. Container rendering excludes the island `<script>`, so this
+ * output is also the no-JS baseline the contact form degrades to.
  */
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
@@ -25,110 +21,18 @@ async function render(Component: Parameters<Container['renderToString']>[0], pro
   return container.renderToString(Component, { props: props as Record<string, unknown> })
 }
 
-function moduleSource(rel: string): string {
-  return readFileSync(
-    fileURLToPath(new URL(`../packages/framework/src/modules/${rel}`, import.meta.url)),
-    'utf8',
-  )
-}
-
-describe('text-block module', () => {
-  const body = '# Heading\n\n- one\n- two\n\n![pic](/p.jpg)\n\n[link](https://e.test)'
-
-  it('test_UAT_FC_REQ-52_text_block_prose_variant_uses_default_container', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: {}, content: { body: 'hi' } })
-    // A plain prose block defaults to the standard content container (matching
-    // services-grid geometry — full container width, centred at the gutter), NOT
-    // a narrow off-centre column. A narrower measure is opt-in via `contentWidth`.
-    expect(html).toContain('variant-prose')
-    expect(html).not.toContain('variant-landing')
-    const css = moduleSource('text-block/index.astro')
-    // The standard content container is 6xl (1152px, REQ-55) — matches services-grid.
-    expect(css).toMatch(/\.variant-prose[^{]*\{[^}]*--container-6xl/)
-    // The old hard-coded narrow base is gone — prose is no longer capped narrow.
-    expect(css).not.toMatch(/\.variant-prose[^{]*\{[^}]*--container-lg/)
-  })
-
-  it('test_UAT_FC_REQ-5_text_block_landing_variant_uses_default_container', async () => {
-    const html = await render(TextBlock, { variant: 'landing', dials: {}, content: { body: 'hi' } })
-    expect(html).toContain('variant-landing')
-    expect(html).not.toContain('variant-prose')
-    const css = moduleSource('text-block/index.astro')
-    expect(css).toMatch(/\.variant-landing[^{]*\{[^}]*--container-6xl/)
-  })
-
-  it('test_UAT_FC_REQ-5_text_block_renders_markdown_with_image_and_list', async () => {
-    const html = await render(TextBlock, { variant: 'prose', dials: {}, content: { body } })
-    expect(html).toContain('<ul>')
-    expect(html).toMatch(/<li>\s*one\s*<\/li>/)
-    // Images render lazily (DOC-7 mobile-first default).
-    expect(html).toMatch(/<img[^>]*loading="lazy"[^>]*src="\/p\.jpg"/)
-    expect(html).toMatch(/<a[^>]+href="https:\/\/e\.test"/)
-  })
-
-  it('test_UAT_FC_REQ-5_text_block_omits_heading_when_not_provided', async () => {
-    const withHeading = await render(TextBlock, {
-      variant: 'prose',
-      dials: {},
-      content: { heading: { text: 'A Title' }, body: 'x' },
-    })
-    expect(withHeading).toContain('text-block__heading')
-    expect(withHeading).toContain('A Title')
-
-    const without = await render(TextBlock, { variant: 'prose', dials: {}, content: { body: 'x' } })
-    expect(without).not.toContain('text-block__heading')
-  })
-})
-
-describe('services-grid module', () => {
-  const items = (n: number) =>
-    Array.from({ length: n }, (_, i) => ({ title: { text: `Service ${i + 1}` }, body: `Body ${i + 1}` }))
-
-  it('test_UAT_FC_REQ-5_services_grid_three_col_renders_three_cards', async () => {
-    const html = await render(ServicesGrid, {
-      variant: 'three-col',
-      dials: {},
-      content: { heading: { text: 'What we do' }, items: items(3) },
-    })
-    expect(html).toContain('variant-three-col')
-    // Each card's class attribute starts with `services-grid__card` followed
-    // either by a space+extra classes or the closing quote; match either.
-    expect(html.match(/class="services-grid__card[" ]/g)?.length).toBe(3)
-    expect(html).toContain('Service 1')
-    expect(html).toContain('Service 3')
-  })
-
-  it('test_UAT_FC_REQ-5_services_grid_two_col_renders_two_cards', async () => {
-    const html = await render(ServicesGrid, {
-      variant: 'two-col',
-      dials: {},
-      content: { items: items(2) },
-    })
-    expect(html).toContain('variant-two-col')
-    // Leading `services-grid__card` token — see the three-col case above.
-    expect(html.match(/class="services-grid__card[" ]/g)?.length).toBe(2)
-  })
-
-  it('test_UAT_FC_REQ-5_services_grid_collapses_to_single_column_below_md', async () => {
-    const css = moduleSource('services-grid/index.astro')
-    // Mobile-first: the cards grid is single-column by default…
-    expect(css).toMatch(/\.services-grid__cards\s*\{[^}]*grid-template-columns:\s*1fr/)
-    // …and only becomes multi-column from the md breakpoint up.
-    expect(css).toMatch(/@media \(min-width: 768px\)/)
-    expect(css).toMatch(/variant-three-col[^{]*\{[^}]*repeat\(3/)
-  })
-
-  it('test_UAT_FC_REQ-5_services_grid_rejects_item_count_outside_2_to_6', () => {
+describe('carousel module — content-schema validation', () => {
+  it('test_UAT_FC_REQ-5_carousel_rejects_item_count_outside_1_to_20', () => {
     // Validation lives at the content-schema level (DOC-7 §6.5).
-    const tooFew = validateModuleContent(servicesGridMeta, { items: [{ title: { text: 't' }, body: 'b' }] })
-    expect(tooFew.some((e) => e.field === 'items' && /at least 2/.test(e.message))).toBe(true)
+    const tooFew = validateModuleContent(carouselMeta, { items: [] })
+    expect(tooFew.some((e) => e.field === 'items' && /at least 1/.test(e.message))).toBe(true)
 
-    const tooMany = validateModuleContent(servicesGridMeta, {
-      items: Array.from({ length: 7 }, () => ({ title: { text: 't' }, body: 'b' })),
+    const tooMany = validateModuleContent(carouselMeta, {
+      items: Array.from({ length: 21 }, () => ({ title: { text: 't' } })),
     })
-    expect(tooMany.some((e) => e.field === 'items' && /at most 6/.test(e.message))).toBe(true)
+    expect(tooMany.some((e) => e.field === 'items' && /at most 20/.test(e.message))).toBe(true)
 
-    const justRight = validateModuleContent(servicesGridMeta, {
+    const justRight = validateModuleContent(carouselMeta, {
       items: Array.from({ length: 3 }, () => ({ title: { text: 't' }, body: 'b' })),
     })
     expect(justRight).toHaveLength(0)
@@ -209,16 +113,13 @@ describe('contact-form module', () => {
   })
 })
 
-describe('module registry — full Phase 0 catalog', () => {
-  it('test_UAT_FC_REQ-5_registry_includes_all_six_phase0_modules', () => {
-    // footer remains v1; header, hero, text-block, services-grid, contact-form bumped to v2 (REQ-50).
+describe('module registry — surviving capability catalog', () => {
+  it('test_UAT_FC_REQ-5_registry_includes_the_surviving_capability_modules', () => {
+    // Post-pivot (REQ-84) layout is owned by the L1 substrate; the catalog holds
+    // only the two vetted capability modules: contact-form v2 and carousel v1.
     const catalog: Array<[string, number]> = [
-      ['header', 2],
-      ['hero', 2],
-      ['footer', 1],
-      ['text-block', 2],
-      ['services-grid', 2],
       ['contact-form', 2],
+      ['carousel', 1],
     ]
     for (const [id, version] of catalog) {
       const def = getModule(id, version)

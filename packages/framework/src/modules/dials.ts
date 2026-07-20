@@ -1,15 +1,16 @@
 /**
- * Shared per-instance dial enumerations (DOC-7 §4.1). Dial values are semantic
- * names; each module's scoped CSS maps them to concrete token references (e.g.
- * the `spacingTop` value `md` resolves to `var(--space-8)`). Centralised here so
- * the chrome modules don't drift from one another.
+ * Shared per-instance dial enumerations (DOC-7 §4.1) for the **capability
+ * modules** (carousel, contact-form). Dial values are semantic names; each
+ * module's scoped CSS maps them to concrete token references (e.g. the
+ * `spacingTop` value `md` resolves to `var(--space-8)`). Centralised here so the
+ * capability modules don't drift from one another.
  *
- * REQ-50: every *intrinsic typography / colour* dial (family, size, weight,
- * colour, tracking, leading, gradient, treatment) has been removed — those axes
- * now live on the text slots themselves as styled runs (see `text-style.ts`),
- * named after the fidelity report's fields. Only *structural* dials remain here:
- * band layout, height, width, spacing, scrim, shape, letter-case, positioning,
- * and closed chrome treatments (badge/panel/icon/card fills).
+ * Since the framework pivot (REQ-79/REQ-84) the semantic *layout* modules and
+ * their ~20 layout-only dials (hero height/scrim, header logo, footer layout,
+ * text-block panel, services-grid card chrome, …) are gone — layout is owned by
+ * the L1 substrate. What remains here is the **shared length/step resolvers**
+ * (the absolute-or-overlay seam, REQ-58) plus the small set of structural dials
+ * the surviving capability modules still declare.
  */
 import { BREAKPOINTS, type Breakpoint } from './breakpoints'
 
@@ -23,9 +24,8 @@ export const SPACING_DIAL = ['none', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'] as co
 
 /**
  * Standard vertical-spacing step overlay — the named steps → space tokens shared
- * by the content modules (text-block, services-grid, contact-form, hero). Passed
- * to {@link resolveStep}; header/footer carry their own compressed overlays. A
- * literal px (or any length) bypasses the overlay entirely (absolute-or-overlay).
+ * by the capability modules (carousel, contact-form). Passed to {@link resolveStep}.
+ * A literal px (or any length) bypasses the overlay entirely (absolute-or-overlay).
  */
 export const SPACING_STEPS: Record<string, string> = {
   none: 'var(--space-0)',
@@ -41,19 +41,6 @@ export const SPACING_STEPS: Record<string, string> = {
 export const SURFACE_DIAL = ['default', 'subtle', 'inverse', 'accent'] as const
 
 /**
- * Hero band height dial. `auto` sizes the band to its content (default);
- * `fold` fills the viewport to the fold (min-height 100vh) with the content
- * vertically centred — used where the hero image is meant to fill the screen.
- */
-export const HEIGHT_DIAL = ['auto', 'fold'] as const
-
-/**
- * Header image-logo size dial (REQ-20 import; REQ-36). Sizes an `asset-ref` logo's
- * height; a text wordmark's size lives on its styled run's `fontSizePx` (REQ-50).
- */
-export const LOGO_SIZE_DIAL = ['sm', 'md', 'lg', 'xl'] as const
-
-/**
  * Band width dial. `full` (default) spans the container; `half` flexes to one
  * of two columns — consecutive `half` bands are grouped into a shared row by
  * the render pipeline, so e.g. a subscribe + contact form sit side by side.
@@ -63,35 +50,20 @@ export const WIDTH_DIAL = ['full', 'half', 'third', 'two-thirds'] as const
 /** Horizontal alignment dial values (block alignment + text-align share these). */
 export const ALIGN_DIAL = ['left', 'center'] as const
 
-/** Footer content layout dial. `center` stacks centred; `spread` puts the
- * copyright and links on opposite ends of one row (justified, left/right). */
-export const FOOTER_LAYOUT_DIAL = ['center', 'spread'] as const
-
-/**
- * Footer band surface (REQ-36). Extends the shared surface set with
- * `accent-muted` — a softer, less-saturated accent gold the reference footer uses,
- * distinct from the bright accent applied to headings/buttons. Footer-scoped so
- * the shared {@link SURFACE_DIAL} stays lean.
- */
-export const FOOTER_SURFACE_DIAL = ['default', 'subtle', 'inverse', 'accent', 'accent-muted'] as const
-
-/** Inter-card / inter-item gap dial values (services-grid). */
+/** Inter-slide gap dial values (carousel). */
 export const GAP_DIAL = ['tight', 'normal', 'loose', 'airy'] as const
 
 /**
- * Grid-wide card chrome for services-grid (REQ-36 / CAP-1). `default` draws the
- * standard filled + bordered card; `bare` strips the card's fill, border,
- * radius and padding so the cards read as plain text columns composited on the
- * band itself — for dark, art-directed grids where a white card would break the
- * composition. Card title and body inherit the band's text colour; chrome (badge,
- * accent border) is suppressed under `bare`, so the dial is orthogonal to
- * `variant`. Omitting the dial (`default`) leaves cards unchanged.
+ * Card chrome for a carousel slide (REQ-79). `default` draws the standard filled
+ * + bordered card; `bare` strips the card's fill, border, radius and padding so
+ * the slides read as plain columns composited on the band itself — for dark,
+ * art-directed carousels where a white card would break the composition.
  */
 export const CARD_SURFACE_DIAL = ['default', 'bare'] as const
 
 /**
- * Palette roles usable as a markdown callout accent (and other closed, token-
- * backed role treatments). A closed set — each resolves to `var(--color-<role>)`
+ * Palette roles usable as a closed, token-backed role treatment (e.g. the
+ * contact-form submit fill). A closed set — each resolves to `var(--color-<role>)`
  * — so no raw colour ever reaches the output. Kebab-cased to match the emitted
  * custom-property names (`neutral-cool` → `--color-neutral-cool`).
  */
@@ -121,14 +93,6 @@ export const SUBMIT_TREATMENT_DIAL = ['primary', 'neutral'] as const
  * boolean flag.
  */
 export const SUBMIT_INLINE_DIAL = ['stacked', 'inline'] as const
-
-/**
- * Nav collapse breakpoint (REQ-61) — the width below which the header nav folds
- * to a hamburger. `sm`/`md`/`lg`/`xl` pick the threshold; `none` never collapses.
- * A named-breakpoint overlay (a mode), not an absolute px: media-query thresholds
- * cannot read a CSS custom property. Default `md` (the former hardcoded 768px).
- */
-export const NAV_COLLAPSE_DIAL = ['none', 'sm', 'md', 'lg', 'xl'] as const
 
 /**
  * Named content-column width steps (REQ-55) — the `--container-*` token keys,
@@ -233,12 +197,12 @@ export function isLength(value: unknown): boolean {
 
 /**
  * Resolve a step-or-absolute LENGTH dial to CSS — the absolute-or-overlay seam for
- * every spacing/size dial (spacing, gap, logo size, offset, inset, panel pad). A
- * named step (`lg`) maps through the module's `steps` overlay to its token
- * (`var(--space-16)`); an ABSOLUTE value (a px number, or any length literal —
- * `80px`, `5rem`, `fit-content`) passes straight through, so a reproduction lands
- * the exact captured value instead of snapping to the nearest step. `fallback` is
- * used when the value is absent. Unknown/malformed → the fallback's resolution.
+ * every spacing/size dial (spacing, gap, radius). A named step (`lg`) maps
+ * through the module's `steps` overlay to its token (`var(--space-16)`); an
+ * ABSOLUTE value (a px number, or any length literal — `80px`, `5rem`,
+ * `fit-content`) passes straight through, so a reproduction lands the exact
+ * captured value instead of snapping to the nearest step. `fallback` is used
+ * when the value is absent. Unknown/malformed → the fallback's resolution.
  */
 export function resolveStep(
   value: string | number | undefined | null,
@@ -318,64 +282,6 @@ export function responsiveContainerWidthVars(
 }
 
 /**
- * Hero legibility scrim (REQ-32) — an opacity step of a dark neutral tint
- * painted over the background image so overlaid text stays legible. `none`
- * (default) paints nothing; `light`/`medium`/`strong`/`heavy` step up the opacity.
- */
-export const SCRIM_DIAL = ['none', 'light', 'medium', 'strong', 'heavy'] as const
-
-/**
- * Hero CTA corner shape (REQ-36). `round` (default) keeps the token-backed
- * `--radius-md` pill; `square` removes the radius for a hard-cornered button;
- * `soft` is a barely-rounded 2px button. Default-preserving.
- */
-export const CTA_SHAPE_DIAL = ['round', 'square', 'soft'] as const
-
-/**
- * CTA / panel corner RADIUS overlays (REQ-58) — the named shape steps map to a
- * radius token; an absolute px (`8px`) bypasses them (absolute-or-overlay, via
- * {@link resolveStep}). Completes the value-type audit: colour, length, radius.
- */
-export const CTA_RADIUS_STEPS: Record<string, string> = {
-  round: 'var(--radius-md)',
-  square: '0',
-  soft: '2px',
-}
-export const PANEL_CORNER_STEPS: Record<string, string> = {
-  rounded: 'var(--radius-lg)',
-  square: '0',
-}
-
-/**
- * Hero top-of-band gradient scrim (REQ-36). `none` (default) omits it; `top`
- * layers a downward dark gradient (keyed to `--color-scrim`) over the flat scrim,
- * darkening the top edge behind the nav for legibility and fading out ~40% down.
- */
-export const SCRIM_GRADIENT_DIAL = ['none', 'top'] as const
-
-/**
- * Header logo backdrop (REQ-36). `none` (default) renders the logo bare; `card`
- * sets it on a padded, rounded, shadowed plate; `shadow` applies a drop-shadow to
- * the logo glyphs (no plate); `frame` a wide translucent bordered plate.
- */
-export const LOGO_CARD_DIAL = ['none', 'card', 'shadow', 'frame'] as const
-
-/**
- * Text-block contained-panel treatment (REQ-36). `none` (default) fills the whole
- * band. A role value turns the inner content column into a contained *card* — a
- * padded, rounded, inset panel filled with that palette role, floating on the
- * band background: `subtle`, `inverse`, `secondary`, `accent`.
- */
-export const PANEL_DIAL = ['none', 'subtle', 'inverse', 'secondary', 'accent'] as const
-
-/**
- * Text-block list marker (REQ-36). `bullet` (default) keeps the browser's list
- * bullets; `check` replaces them with an accent-coloured ✓. A content-level
- * treatment on the markdown list, so the body stays authored as a plain list.
- */
-export const LIST_MARKER_DIAL = ['bullet', 'check'] as const
-
-/**
  * Contact-form field labelling (REQ-58). `above` (default) renders a visible
  * `<label>` stacked over each input; `placeholder` moves the label text into the
  * field's `placeholder` and visually hides the `<label>` (kept for a11y / the
@@ -384,77 +290,9 @@ export const LIST_MARKER_DIAL = ['bullet', 'check'] as const
 export const FIELD_LABELS_DIAL = ['above', 'placeholder'] as const
 
 /**
- * Services-grid card veil (REQ-58). A frosted card is a translucent WHITE fill
- * over the band, not a solid surface — gigabytealchemy's cards are `bg-white/50`
- * (Mission, over the subtle band) and `bg-white/70` (Building, over the default
- * band), each compositing to a different rendered tint. `none` (default) keeps
- * the solid `--color-surface`; a percentage paints `rgba(255,255,255,.NN)` so the
- * browser composites it over whatever band the grid sits on — and the capture's
- * alpha compositing makes both sides agree at the same value.
- */
-export const CARD_VEIL_DIAL = ['none', '40', '50', '60', '70', '80', '90'] as const
-
-/**
- * Services-grid card border (REQ-58). `default` keeps the 1px hairline; `none`
- * drops it — the frosted-card look (gigabytealchemy's cards are `bg-white/NN
- * rounded-lg` with no border, only an optional `border-l-4` accent). Distinct
- * from `card-surface-bare`, which also strips the fill/radius/padding.
- */
-export const CARD_BORDER_DIAL = ['default', 'none'] as const
-
-/**
- * text-block contained-panel vertical padding (REQ-36). `md` (default) is the
- * base 48px; `lg`/`xl` deepen it so a panel reads taller/airier.
- */
-export const PANEL_PAD_DIAL = ['md', 'lg', 'xl'] as const
-
-/**
- * Contained-panel corner shape (REQ-36) — `rounded` (default) keeps the panel's
- * soft radius; `square` hard-corners it.
- */
-export const PANEL_CORNER_DIAL = ['rounded', 'square'] as const
-
-/**
- * Services-grid icon rendering (REQ-36). `default` renders a string icon as plain
- * text (or an image icon as a small thumbnail); `icon-font` renders a string icon
- * as a glyph in a site-declared icon font, coloured with the accent and sized up.
- */
-export const ICON_FONT_DIAL = ['default', 'icon-font'] as const
-
-/**
- * services-grid card icon layout (REQ-36). `top` (default) stacks the icon above
- * the title; `left` sets the icon beside the title on a header row with the body
- * spanning full width below.
- */
-export const ICON_LAYOUT_DIAL = ['top', 'left'] as const
-
-/**
- * Vertical anchor of a hero's content within a `fold`-height band (REQ-32).
- * `center` (default) matches the prior behaviour; `top`/`bottom` push the
- * content to the band's start/end.
- */
-export const CONTENT_ANCHOR_DIAL = ['top', 'center', 'bottom'] as const
-
-/**
- * Fixed top inset for a `fold`-height hero's content (REQ-49). A separate axis
- * from `contentAnchor`: the anchor picks *where in the flex* the content sits,
- * while this pins it a deliberate token-backed distance from the band's top edge.
- * `none` (default) applies no inset. Steps map to the extended `--space-*` scale:
- * `sm` 4rem, `md` 8rem, `lg` 12rem, `xl` 20rem.
- */
-export const CONTENT_OFFSET_TOP_DIAL = ['none', 'sm', 'md', 'lg', 'xl'] as const
-
-/**
- * Hero content horizontal inset (gutter) dial (REQ-49 cap 5). Sets the
- * `padding-inline` on `.hero__inner` as a token-backed step. `sm` (default) is
- * the prior 16px; `md` 24px, `lg` 32px. Maps to `--space-4`/`--space-6`/`--space-8`.
- */
-export const CONTENT_INSET_DIAL = ['sm', 'md', 'lg'] as const
-
-/**
- * Heading letter-case treatment (REQ-36), shared by hero / text-block /
- * services-grid. `normal` (default) renders the heading as authored; `upper`
- * applies `text-transform: uppercase` at render time. The DOM text node is left
+ * Heading letter-case treatment (REQ-36), shared by the capability modules.
+ * `normal` (default) renders the heading as authored; `upper` applies
+ * `text-transform: uppercase` at render time. The DOM text node is left
  * **literal** — text-transform is not a report field, so it stays a treatment and
  * a faithful-repro values-diff still pairs on the literal text while the rendered
  * result matches the uppercased reference.
@@ -477,26 +315,3 @@ export const CAROUSEL_VIEW_DIAL = ['single', 'peek', 'multi'] as const
  * is the swipeable/scrollable track, so no client JS is needed.
  */
 export const CAROUSEL_CONTROLS_DIAL = ['none', 'dots'] as const
-
-/**
- * Font-weight dial (REQ-79) — the finite set of CSS weight steps, applied directly
- * as `font-weight`. For block-level text a module renders itself (a footer's nav /
- * tagline) where the weight is not carried by a per-run styled-text field. A
- * captured weight (e.g. a light `300` footer) reproduces by picking its step.
- */
-export const FONT_WEIGHT_DIAL = ['100', '200', '300', '400', '500', '600', '700', '800', '900'] as const
-
-/**
- * Hero divider rule (REQ-36) — a thin horizontal rule between the heading and
- * subhead. `none` (default) renders nothing; `rule` draws a short rule inheriting
- * the surface text colour.
- */
-export const HERO_DIVIDER_DIAL = ['none', 'rule'] as const
-
-/**
- * Hero content-column horizontal placement (REQ-36) — where the capped
- * `.hero__inner` column sits within the band, distinct from `align` (which sets
- * text alignment *inside* the column). `center` (default) keeps the centring;
- * `left` drops the start margin so the column hugs the band's left gutter.
- */
-export const CONTENT_COLUMN_DIAL = ['center', 'left'] as const

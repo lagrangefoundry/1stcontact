@@ -2,27 +2,27 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
-import Hero from '../packages/framework/src/modules/hero/index.astro'
-import Header from '../packages/framework/src/modules/header/index.astro'
 import { renderMarkdown, CALLOUT_CSS } from '../packages/framework/src/modules/markdown'
 import { TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens'
 
 /**
- * UATs for REQ-33 — three *universal* framework-code fidelity corrections
- * cherry-picked from the gigabytealchemy re-import values-diff. Each is a
- * correctness fix that makes rendered output match authored/captured source for
- * every site (not a per-site value tune — those live in the site-def):
+ * UATs for REQ-33 — the *universal* framework-code fidelity corrections that
+ * survive the REQ-84 layout-module strip. Each is a correctness fix that makes
+ * rendered output match authored/captured source for every site (not a per-site
+ * value tune — those live in the site-def):
  *
  *   1. The shared markdown renderer renders punctuation *verbatim* (smartypants
  *      off) — a straight apostrophe/quote/dash is not silently curled, so text
  *      still equals its captured reference.
  *   2. The contact-form submit button inherits the site type (`font: inherit`)
  *      rather than falling back to the UA default (Arial 13px).
- *   3. A services-grid checklist tick (✓) is a real leading text run, present in
- *      the DOM / a11y tree — not a `::before` pseudo a capture can't read.
+ *
+ * (The services-grid checklist-tick / hero-subhead / header-wordmark corrections
+ * were coupled to the deleted layout modules; the surviving corrections below —
+ * markdown, callout, contact-form, styled inline runs, palette roles — are
+ * module-independent.)
  *
  * Modules render through Astro's container API — the same SSR path
  * tools/generate uses.
@@ -79,29 +79,6 @@ describe('REQ-33 contact-form submit inherits site type (AC2)', () => {
   })
 })
 
-describe('REQ-33 checklist tick is a real text run (AC3)', () => {
-  it('test_UAT_FC_REQ-33_checklist_tick_is_dom_text_not_pseudo', async () => {
-    const html = await render(ServicesGrid, {
-      variant: 'stacked',
-      dials: {},
-      content: {
-        items: [
-          { title: { text: 'Sanctum Voice' }, body: 'x', checklist: ['On-device', 'Private'] },
-          { title: { text: 'Filler' }, body: 'y' },
-        ],
-      },
-    })
-    // Each tick is an actual <span> text node containing ✓ (two items → two).
-    // (Astro injects a scoped-style class, so match the mark class loosely.)
-    expect(html.match(/services-grid__check-mark[^>]*>✓<\/span>/g)?.length).toBe(2)
-    // Each line's text sits in its own run beside the mark.
-    expect(html).toMatch(/services-grid__check-text[^>]*>On-device<\/span>/)
-    // The old pseudo-element approach is gone (no invisible glyph).
-    const css = moduleSource('../packages/framework/src/modules/services-grid/index.astro')
-    expect(css).not.toContain("services-grid__check::before")
-  })
-})
-
 describe('REQ-33 callout is medium-weight emphasis (AC9)', () => {
   it('test_UAT_FC_REQ-33_callout_text_is_medium_weight', () => {
     // A callout is a weight-emphasised statement (500) — its weight lives here,
@@ -115,64 +92,6 @@ describe('REQ-33 callout is medium-weight emphasis (AC9)', () => {
     const html = await renderMarkdown('> [!primary] These are foundations.')
     expect(html).toContain('blockquote class="fc-callout fc-callout--primary"')
     expect(html).not.toContain('<strong>')
-  })
-})
-
-describe('REQ-33 hero subhead size on the styled run (AC8)', () => {
-  // REQ-50 — the subhead's size is no longer a `subheadSize` dial (with its
-  // lead/body-paragraph split); it's the `subhead` run's own `fontSizePx`,
-  // which resolves to an inline `style` on the rendered subhead.
-  it('test_UAT_FC_REQ-33_subhead_size_alias_scales_the_lead', async () => {
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'H' }, subhead: { text: 'Lead line.', fontSizePx: '2xl' } },
-    })
-    // A prominent lead subtitle: the `2xl` scale step resolves to the theme var.
-    expect(html).toMatch(/hero__subhead[^>]*style="[^"]*font-size: var\(--font-size-2xl\)/)
-  })
-
-  it('test_UAT_FC_REQ-33_subhead_size_literal_px_reproduces_verbatim', async () => {
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'H' }, subhead: { text: 'Lead line.', fontSizePx: 24 } },
-    })
-    // A captured px size pastes straight in — no enum step between diff and spec.
-    expect(html).toMatch(/hero__subhead[^>]*style="[^"]*font-size: 24px/)
-  })
-
-  it('test_UAT_FC_REQ-33_subhead_size_defaults_to_the_base_slot', async () => {
-    // A run that omits `fontSizePx` inherits the base slot size — no inline size.
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'H' }, subhead: { text: 'Lead line.' } },
-    })
-    expect(html).not.toMatch(/hero__subhead[^>]*style="[^"]*font-size:/)
-  })
-})
-
-describe('REQ-33 display wordmark tracking + weight (AC7)', () => {
-  it('test_UAT_FC_REQ-33_display_wordmark_is_tight_and_not_faux_bold', async () => {
-    // REQ-50 — the display wordmark's face/tracking/weight are no longer a
-    // `logoFont` dial + `--font-display` class; they live on the `wordmark`
-    // run's `fontFamily`/`letterSpacingPx`/`fontWeight`, resolved to inline style.
-    const html = await render(Header, {
-      variant: 'top-nav',
-      content: {
-        wordmark: {
-          text: 'ACME',
-          fontFamily: 'display',
-          letterSpacingPx: 'tight',
-          fontWeight: 'semibold',
-        },
-        entries: [],
-      },
-    })
-    // Display face, tight (negative) tracking, never a positive spread.
-    expect(html).toMatch(/header__wordmark[^>]*style="[^"]*font-family: var\(--font-family-display\)/)
-    expect(html).toMatch(/header__wordmark[^>]*style="[^"]*letter-spacing: var\(--tracking-tight\)/)
-    // Its own semibold so a 600-only face is not faux-bolded to 700 by an
-    // inherited `bold`.
-    expect(html).toMatch(/header__wordmark[^>]*style="[^"]*font-weight: var\(--font-weight-semibold\)/)
   })
 })
 
@@ -192,28 +111,6 @@ describe('REQ-33 warm palette roles accent-light / accent-deep (AC4)', () => {
     })
     expect(css).toContain('--color-accent-light: #f5e6a3;')
     expect(css).toContain('--color-accent-deep: #ff6b35;')
-  })
-})
-
-describe('REQ-33 hero subhead colour on the styled run (AC5)', () => {
-  // REQ-50 — the subhead tint is no longer a `subheadColor` dial; it's the
-  // `subhead` run's own `color`, resolved to an inline `style` on the subhead.
-  it('test_UAT_FC_REQ-33_subhead_tinted_by_palette_role', async () => {
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'H' }, subhead: { text: 'Lead paragraph.', color: 'accent-light' } },
-    })
-    // A palette-role alias resolves to the theme var (never a raw colour).
-    expect(html).toMatch(/hero__subhead[^>]*style="[^"]*color: var\(--color-accent-light\)/)
-  })
-
-  it('test_UAT_FC_REQ-33_subhead_inherits_by_default', async () => {
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'H' }, subhead: { text: 'Lead paragraph.' } },
-    })
-    // No colour override when the run omits `color` — inherits the surface colour.
-    expect(html).not.toMatch(/hero__subhead[^>]*style="[^"]*color:/)
   })
 })
 

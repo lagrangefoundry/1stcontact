@@ -1,34 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import Hero from '../packages/framework/src/modules/hero/index.astro'
-import Header from '../packages/framework/src/modules/header/index.astro'
-import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
+import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
-import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
-import { heroMeta } from '../packages/framework/src/modules/hero/meta'
-import { headerMeta } from '../packages/framework/src/modules/header/meta'
-import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
-import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
+import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { generateThemeCss } from '../packages/framework/src/tokens'
 import { CONTENT_WIDTH_DIAL } from '../packages/framework/src/modules/dials'
 
 /**
  * UATs for REQ-45 — the last-mile fidelity primitives the gigabytealchemy
- * perceptual diff surfaced but the framework could not yet express. Post-REQ-50,
- * the intrinsic-typography axes (tracking, leading, subhead/caption size, submit
- * foreground) are no longer dials: they live on the text slots as styled runs
- * (`letterSpacingPx`/`lineHeightPx`/`fontSizePx`/`color`), resolved to an inline
- * `style`. Only the structural `contentWidth` capability remains a dial:
+ * perceptual diff surfaced, scoped to the modules that survive the REQ-84 strip.
+ * The structural `contentWidth` capability remains a dial (exercised here via the
+ * surviving `carousel`, which carries it); the contact-form submit-label colour
+ * and subhead/caption size live on the text slots as styled runs
+ * (`color`/`fontSizePx`), resolved to inline `style`:
  *
- *   1. start-aligned constrained content column (`contentWidth` on text-block +
- *      services-grid) — a narrow measure pinned to the left gutter, collapsing
- *      the cumulative vertical drift that dominated the perceptual heat.
- *   2. tracking — now `run.letterSpacingPx` on the hero heading + header wordmark.
- *   3. hero subhead line-height — now the subhead run's `lineHeightPx`.
- *   4. contact-form submit-label foreground — now the `submitLabel` run's `color`.
- *   5. contact-form subhead / caption size — now the subhead/caption style run's
+ *   1. constrained content column (`contentWidth` on carousel) — a capped measure
+ *      collapsing the cumulative vertical drift that dominated the perceptual heat.
+ *   4. contact-form submit-label foreground — the `submitLabel` run's `color`.
+ *   5. contact-form subhead / caption size — the subhead/caption style run's
  *      `fontSizePx` (with a `caption` markdown slot).
+ *
+ * (Tracking / subhead line-height on the hero heading + header wordmark were
+ * coupled to the deleted layout modules.)
  */
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
@@ -42,25 +36,8 @@ async function render(Component: unknown, props: unknown): Promise<string> {
 }
 
 describe('REQ-45 fidelity primitives — meta surfaces the dials', () => {
-  it('test_UAT_FC_REQ-45_text_block_meta_exposes_content_width_dial', () => {
-    expect(textBlockMeta.dials.contentWidth).toEqual(CONTENT_WIDTH_DIAL)
-  })
-
-  it('test_UAT_FC_REQ-45_services_grid_meta_exposes_content_width_dial', () => {
-    expect(servicesGridMeta.dials.contentWidth).toEqual(CONTENT_WIDTH_DIAL)
-  })
-
-  it('test_UAT_FC_REQ-45_hero_heading_and_subhead_are_styled_runs', () => {
-    // REQ-50: the former `tracking` + `subheadLeading` dials are gone; their
-    // axes are `letterSpacingPx` / `lineHeightPx` on the heading / subhead runs.
-    expect(heroMeta.contentSchema.heading).toEqual({ type: 'styled-text', required: true })
-    expect(heroMeta.contentSchema.subhead).toEqual({ type: 'styled-text', required: false })
-  })
-
-  it('test_UAT_FC_REQ-45_header_wordmark_is_a_styled_run', () => {
-    // REQ-50: the former header `tracking` dial is gone; the wordmark's tracking
-    // is `letterSpacingPx` on its styled run.
-    expect(headerMeta.contentSchema.wordmark).toEqual({ type: 'styled-text', required: false })
+  it('test_UAT_FC_REQ-45_carousel_meta_exposes_content_width_dial', () => {
+    expect(carouselMeta.dials.contentWidth).toEqual(CONTENT_WIDTH_DIAL)
   })
 
   it('test_UAT_FC_REQ-45_contact_form_slots_carry_style_via_runs', () => {
@@ -75,118 +52,25 @@ describe('REQ-45 fidelity primitives — meta surfaces the dials', () => {
   })
 })
 
-describe('REQ-45 capability 1 — start-aligned constrained content column', () => {
-  it('test_UAT_FC_REQ-45_text_block_emits_constrained_content_width', async () => {
+describe('REQ-45 capability 1 — constrained content column', () => {
+  it('test_UAT_FC_REQ-45_carousel_emits_constrained_content_width', async () => {
     // REQ-55: a constrained column is `has-content-width` + an inline
     // `--fc-content-width` (a named-step token), not a per-name class.
-    const html = await render(TextBlock, {
-      variant: 'landing',
+    const html = await render(Carousel, {
       dials: { contentWidth: 'lg' },
-      content: { heading: { text: 'A Different Approach' }, body: 'Body copy.' },
+      content: { heading: { text: 'A Different Approach' }, items: [{ title: { text: 'A' } }] },
     })
     expect(html).toContain('has-content-width')
     expect(html).toContain('--fc-content-width: var(--container-lg)')
   })
 
-  it('test_UAT_FC_REQ-45_text_block_defaults_to_full_frame_content_width', async () => {
-    const html = await render(TextBlock, {
-      variant: 'landing',
-      content: { body: 'Body copy.' },
+  it('test_UAT_FC_REQ-45_carousel_defaults_to_full_frame_content_width', async () => {
+    const html = await render(Carousel, {
+      content: { items: [{ title: { text: 'A' } }] },
     })
     // Default fills the frame — no content-width marker or inline measure.
     expect(html).not.toContain('has-content-width')
     expect(html).not.toContain('--fc-content-width')
-  })
-
-  it('test_UAT_FC_REQ-45_services_grid_emits_constrained_content_width', async () => {
-    const html = await render(ServicesGrid, {
-      variant: 'stacked',
-      dials: { contentWidth: 'lg' },
-      content: {
-        subhead: 'Intro.',
-        items: [
-          { title: { text: 'A' }, body: 'x' },
-          { title: { text: 'B' }, body: 'y' },
-        ],
-      },
-    })
-    expect(html).toContain('has-content-width')
-    expect(html).toContain('--fc-content-width: var(--container-lg)')
-  })
-
-  it('test_UAT_FC_REQ-45_services_grid_defaults_to_full_frame_content_width', async () => {
-    const html = await render(ServicesGrid, {
-      variant: 'three-col',
-      content: {
-        items: [
-          { title: { text: 'A' }, body: 'x' },
-          { title: { text: 'B' }, body: 'y' },
-        ],
-      },
-    })
-    expect(html).not.toContain('has-content-width')
-    expect(html).not.toContain('--fc-content-width')
-  })
-})
-
-describe('REQ-45 capability 2 — tracking on hero heading + header wordmark', () => {
-  it('test_UAT_FC_REQ-45_hero_heading_carries_tracking_style', async () => {
-    // REQ-50: tracking is the heading run's `letterSpacingPx` (a `tight` alias →
-    // the tracking token), emitted as an inline `style` on the h1.
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: {
-        heading: { text: 'Intentional Software', letterSpacingPx: 'tight' },
-        subhead: { text: 'Body.' },
-      },
-    })
-    expect(html).toMatch(
-      /hero__heading[^>]*style="[^"]*letter-spacing: var\(--tracking-tight\)/,
-    )
-  })
-
-  it('test_UAT_FC_REQ-45_hero_heading_defaults_to_untracked', async () => {
-    // A heading run that omits `letterSpacingPx` emits no letter-spacing at all.
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'Acme' }, subhead: { text: 'Body.' } },
-    })
-    expect(html).not.toContain('letter-spacing')
-  })
-
-  it('test_UAT_FC_REQ-45_header_wordmark_carries_tracking_style', async () => {
-    // REQ-50: the wordmark's tracking is `letterSpacingPx` on its styled run.
-    const html = await render(Header, {
-      variant: 'top-nav',
-      content: { wordmark: { text: 'GigabyteAlchemy', letterSpacingPx: 'tighter' }, entries: [] },
-    })
-    expect(html).toMatch(
-      /header__wordmark[^>]*style="[^"]*letter-spacing: var\(--tracking-tighter\)/,
-    )
-  })
-})
-
-describe('REQ-45 capability 3 — hero subhead line-height', () => {
-  it('test_UAT_FC_REQ-45_hero_subhead_carries_leading_style', async () => {
-    // REQ-50: leading is the subhead run's `lineHeightPx` (a `normal` alias →
-    // the line-height token), emitted as an inline `style` on the subhead.
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'Acme' }, subhead: { text: 'Body.', lineHeightPx: 'normal' } },
-    })
-    expect(html).toMatch(
-      /hero__subhead[^>]*style="[^"]*line-height: var\(--line-height-normal\)/,
-    )
-  })
-
-  it('test_UAT_FC_REQ-45_hero_subhead_defaults_to_no_leading_override', async () => {
-    // A subhead run that omits `lineHeightPx` inherits the base leading — no
-    // inline line-height is emitted.
-    const html = await render(Hero, {
-      variant: 'bg-color',
-      content: { heading: { text: 'Acme' }, subhead: { text: 'Body.' } },
-    })
-    expect(html).not.toContain('line-height')
   })
 })
 

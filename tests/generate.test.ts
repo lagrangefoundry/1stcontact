@@ -42,6 +42,38 @@ function dirsIdentical(a: string, b: string): boolean {
 const sitePath = (...parts: string[]) => path.join(cwd, 'storage', 'sites', ...parts)
 const distPath = (...parts: string[]) => path.join(cwd, 'storage', 'dist', ...parts)
 
+/**
+ * Repoint the (now-empty since REQ-84) starter home page onto instances of the
+ * surviving capability modules — a `carousel` and a `contact-form` — so the
+ * render has real module content whose component CSS and schema we can assert.
+ */
+function seedSurvivingModules(slug: string): void {
+  const homePath = sitePath(slug, 'draft', 'pages', 'home.json')
+  const home = JSON.parse(readFileSync(homePath, 'utf8'))
+  home.modules = [
+    {
+      id: 'gallery',
+      type: 'carousel',
+      version: 1,
+      variant: 'default',
+      dials: { surface: 'accent' },
+      content: { heading: { text: 'What people say' }, items: [{ body: 'A great experience.' }] },
+    },
+    {
+      id: 'get-in-touch',
+      type: 'contact-form',
+      version: 2,
+      variant: 'inline',
+      dials: {},
+      content: {
+        action: 'https://example.com/submit',
+        fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+      },
+    },
+  ]
+  writeFileSync(homePath, JSON.stringify(home, null, 2))
+}
+
 describe('1c CLI — storage, versioning & render (REQ-9)', () => {
   it('test_UAT_FC_REQ-9_render_draft_produces_html', async () => {
     cmdNew('acme', { cwd })
@@ -63,6 +95,9 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
 
   it('test_UAT_FC_BUG-1_theme_css_carries_module_component_styles', async () => {
     cmdNew('acme', { cwd })
+    // Author a page of surviving capability modules so the render emits their
+    // component classes (the empty starter would emit no module CSS at all).
+    seedSurvivingModules('acme')
     const { outDir } = await cmdRender('acme', { cwd })
 
     const themeCss = readFileSync(path.join(outDir, 'theme.css'), 'utf8')
@@ -72,18 +107,18 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     expect(themeCss).toContain('--color-primary')
     // …but theme.css must ALSO carry the module component rules — the bug was
     // that it contained ONLY :root tokens and no class selectors.
-    expect(themeCss).toMatch(/\.hero\b/)
-    expect(themeCss).toContain('.header__inner')
-    expect(themeCss).toContain('.footer__inner')
+    expect(themeCss).toMatch(/\.carousel\b/)
+    expect(themeCss).toContain('.carousel__inner')
+    expect(themeCss).toContain('.contact-form__inner')
 
-    // Every module class the render emits on the starter page must have a
-    // matching rule in theme.css — otherwise the page renders unstyled. Spacing
-    // now resolves to an inline --fc-pt/--fc-pb var (REQ-58), so the hero carries
-    // the var and theme.css binds the padding to it.
+    // Every module class the render emits on the page must have a matching rule
+    // in theme.css — otherwise the page renders unstyled. Spacing now resolves
+    // to an inline --fc-pt/--fc-pb var (REQ-58), so the module carries the var
+    // and theme.css binds the padding to it.
     expect(html).toContain('--fc-pt:')
-    expect(themeCss).toMatch(/\.hero \{[^}]*padding-top:\s*var\(--fc-pt\)/)
+    expect(themeCss).toMatch(/\.carousel \{[^}]*padding-top:\s*var\(--fc-pt\)/)
     // And the surface-dial rules that make surfaces visible.
-    expect(themeCss).toContain('.hero.surface-accent')
+    expect(themeCss).toContain('.carousel.surface-accent')
   })
 
   it('test_UAT_FC_REQ-9_publish_creates_locked_revision', async () => {
@@ -192,7 +227,9 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
 
   it('test_UAT_FC_REQ-9_invalid_definition_rejected', async () => {
     cmdNew('acme', { cwd })
-    // Corrupt the page: version must be a positive integer, not a string.
+    // Author two valid modules, then corrupt the second: version must be a
+    // positive integer, not a string.
+    seedSurvivingModules('acme')
     const pagePath = sitePath('acme', 'draft', 'pages', 'home.json')
     const page = JSON.parse(readFileSync(pagePath, 'utf8'))
     page.modules[1].version = 'one'

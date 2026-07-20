@@ -46,18 +46,18 @@ Summary:
 
 **The Rule**: When replacing an approach, delete the old one. If tests pass, the new implementation is correct.
 
-## ⚠️ CRITICAL: Generalize Modules Before Adding New Ones
+## ⚠️ CRITICAL: Close capability gaps in L1, not with new modules
 
-**When a capability gap appears, first try to generalize an existing module — add a dial, variant, or treatment — before creating a new module.** A new module is the last resort, justified only when the capability genuinely does not belong on any existing one.
+Since the framework pivot (REQ-79 / REQ-84) there are two distinct kinds of "gap", and they resolve in different places. Do **not** reach for a new module by reflex.
 
-**Why**: The framework's power is a small set of composable, well-understood modules. Every new module is more surface area to learn, test, document, and keep coherent; it fragments capability that users then have to hunt across. Generalizing keeps related capability in one place and makes it reusable by every site, not just the one that needed it.
+**Layout / presentation gaps → add a typed L1 primitive.** Layout is owned by the **L1 substrate** (`packages/framework/src/l1`, DOC-23) — a single, low-level, CSS-faithful typed element tree. The old semantic *layout* modules (header/hero/footer/text-block/services-grid/layer) are gone; there is no `hero` to add a dial to. When a design cannot yet be expressed, the fix is to **add a typed axis/primitive to L1** (never a raw-CSS hole, never a new "layout module"). The expressive ceiling rises without limit while the security/reliability wall stays put (DOC-24, DOC-2).
 
-**How to decide** (the same test as config-vs-capability):
-- Does the gap fit an existing module's purpose? → add a **dial / variant / treatment / content field** there.
-- Is it a cross-cutting layout/composition concern several modules share? → a **shared primitive** (e.g. the `fc-row` half-width grouping, the overlay band), not a bespoke module.
-- Only if it is a genuinely new *kind* of section with its own purpose → a **new module**.
+**Capability gaps → configure an existing capability module before authoring a new one.** A **module** now means a *capability* — a vetted behavioural core + typed config + named L1 presentation slots (carousel, contact-form; later payments, auth, email-capture, scroll-animation). The AI *configures* a capability; it never writes its code inline. When a capability gap appears:
+- Does it fit an existing capability's purpose? → add a **dial / variant / content field** to that capability module (e.g. a new `carousel` view mode, a new `contact-form` field-labelling mode).
+- Is it a shared length/step/colour concern? → extend a **shared resolver** in `modules/dials.ts` or `text-style.ts` (the absolute-or-overlay seam), reused by every capability.
+- Only if it is a genuinely new *kind of behaviour* with its own core → a **new capability module** (last resort, highest bar; hardened by XGD before publish).
 
-**Evidence this works**: the gigabytealchemy import (REQ-20) was closed almost entirely by generalizing — `height`/`headingTreatment` on hero, `logoSize` on header, `layout` on footer, `accent`/`badge`/`surface`/`status` on services-grid, a `secondary` palette role. Zero new modules; only two new *primitives* (`fc-row`, the secondary role) where no existing module fit. See [[REQ-32]] (treat its capabilities as generalizations of hero / text-block / header, not new modules) and the runbook [[DOC-19]].
+**Why**: layout capability belongs in the one L1 primitive, not scattered across bespoke modules; capability behaviour belongs on a small, well-understood, composable set of capability modules. Both keep related capability in one place, reusable by every site. See DOC-23 (L1), DOC-24 (framework purpose = safety envelope), DOC-2 (security policy); DOC-14 (the old two-tier *layout*-module lifecycle) is superseded by the capability-module contract.
 
 ## ⚠️ CRITICAL: Failure vs Error Taxonomy (Workflow Outcomes)
 

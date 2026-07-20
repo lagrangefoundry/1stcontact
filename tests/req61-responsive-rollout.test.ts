@@ -2,15 +2,15 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
-import Footer from '../packages/framework/src/modules/footer/index.astro'
+import Carousel from '../packages/framework/src/modules/carousel/index.astro'
+import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 import { overrideChain } from '../packages/framework/src/modules/breakpoints'
 
 /**
- * UATs for REQ-61 — the per-breakpoint rollout across every length dial (the
- * REQ-58 audit's length values: spacing, gap, logoSize, contentOffsetTop,
- * contentInset, panelPad). Each owning module (a) resolves the dial through
- * responsiveStepVars and (b) carries the scoped override-and-up media chain.
+ * UATs for REQ-61 — the per-breakpoint rollout across the surviving capability
+ * modules' length dials (the REQ-58 absolute-or-overlay spacing/gap values). Each
+ * owning module (a) resolves the dial through responsiveStepVars and (b) carries
+ * the scoped override-and-up media chain.
  *
  * The chains are asserted against the tested `overrideChain` generator (not
  * hardcoded), so a module that drifts from the shared primitive fails here.
@@ -21,26 +21,15 @@ const MOD = (rel: string): string =>
 
 /** Every module × the length keys it owns, and the CSS property each re-points. */
 const ROLLOUT: { file: string; keys: { dialKey: string; cssProp: string }[] }[] = [
-  { file: 'text-block/index.astro', keys: [
+  { file: 'carousel/index.astro', keys: [
     { dialKey: 'pt', cssProp: 'padding-top' },
     { dialKey: 'pb', cssProp: 'padding-bottom' },
-    { dialKey: 'panel-pad', cssProp: 'padding' },
-  ] },
-  { file: 'services-grid/index.astro', keys: [
-    { dialKey: 'pt', cssProp: 'padding-top' },
     { dialKey: 'gap', cssProp: 'gap' },
   ] },
-  { file: 'header/index.astro', keys: [
+  { file: 'contact-form/index.astro', keys: [
     { dialKey: 'pt', cssProp: 'padding-top' },
-    { dialKey: 'logo', cssProp: 'height' },
+    { dialKey: 'pb', cssProp: 'padding-bottom' },
   ] },
-  { file: 'hero/index.astro', keys: [
-    { dialKey: 'pt', cssProp: 'padding-top' },
-    { dialKey: 'offset-top', cssProp: 'margin-top' },
-    { dialKey: 'inset', cssProp: 'padding-inline' },
-  ] },
-  { file: 'footer/index.astro', keys: [{ dialKey: 'pt', cssProp: 'padding-top' }] },
-  { file: 'contact-form/index.astro', keys: [{ dialKey: 'pt', cssProp: 'padding-top' }] },
 ]
 
 describe('REQ-61 — every length dial carries the per-breakpoint override chain', () => {
@@ -72,21 +61,22 @@ async function render(Component: unknown, props: unknown): Promise<string> {
 }
 
 describe('REQ-61 — rollout emits per-breakpoint vars at render time', () => {
-  it('test_UAT_FC_REQ-61_services_grid_gap_per_breakpoint', async () => {
-    const html = await render(ServicesGrid, {
-      variant: 'cards',
+  it('test_UAT_FC_REQ-61_carousel_gap_per_breakpoint', async () => {
+    const html = await render(Carousel, {
       dials: { gap: { base: 16, lg: 40 } },
-      content: { cards: [{ title: 'A', body: 'x' }] },
+      content: { items: [{ body: 'A quote.' }] },
     })
     expect(html).toContain('--fc-gap: 16px')
     expect(html).toContain('--fc-gap-lg: 40px')
   })
 
-  it('test_UAT_FC_REQ-61_footer_spacing_per_breakpoint', async () => {
-    const html = await render(Footer, {
-      variant: 'columns',
+  it('test_UAT_FC_REQ-61_contact_form_spacing_per_breakpoint', async () => {
+    const html = await render(ContactForm, {
       dials: { spacingTop: { base: 24, md: 64 } },
-      content: { copyright: '© 2026' },
+      content: {
+        action: 'https://example.com/submit',
+        fields: [{ name: 'email', label: 'Your email', type: 'email', required: true }],
+      },
     })
     expect(html).toContain('--fc-pt: 24px')
     expect(html).toContain('--fc-pt-md: 64px')

@@ -45,6 +45,40 @@ afterEach(() => {
 const draftPath = (slug: string, ...parts: string[]) =>
   path.join(cwd, 'storage', 'sites', slug, 'draft', ...parts)
 
+/**
+ * Repoint the (now-empty since REQ-84) starter home page onto instances of the
+ * surviving capability modules — a `carousel` and a `contact-form` — so the
+ * fixtures have real module instances to corrupt / reference. `modules[1]` is
+ * the contact-form; `modules[0]` is the carousel (its `items[].image` is the
+ * only asset-ref sink left in the catalog).
+ */
+function seedSurvivingModules(slug: string): void {
+  const homePath = draftPath(slug, 'pages', 'home.json')
+  const home = JSON.parse(readFileSync(homePath, 'utf8'))
+  home.modules = [
+    {
+      id: 'gallery',
+      type: 'carousel',
+      version: 1,
+      variant: 'default',
+      dials: {},
+      content: { heading: { text: 'What people say' }, items: [{ body: 'A great experience.' }] },
+    },
+    {
+      id: 'get-in-touch',
+      type: 'contact-form',
+      version: 2,
+      variant: 'inline',
+      dials: {},
+      content: {
+        action: 'https://example.com/submit',
+        fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+      },
+    },
+  ]
+  writeFileSync(homePath, JSON.stringify(home, null, 2))
+}
+
 /** Capture a draft tree as a rel→bytes map, for byte-identity assertions. */
 function snapshotDraft(slug: string): Map<string, string> {
   const root = draftPath(slug)
@@ -116,6 +150,7 @@ describe('1c structured-edit command surface (REQ-11)', () => {
 
   it('test_UAT_FC_REQ-11_page_add_validates_schema', async () => {
     cmdNew('acme', { cwd })
+    seedSurvivingModules('acme')
     // Corrupt an existing page so the *resulting* definition is invalid: any
     // write command must reject before touching disk, with a JSON-pointer path.
     const homePath = draftPath('acme', 'pages', 'home.json')
@@ -190,14 +225,18 @@ describe('1c structured-edit command surface (REQ-11)', () => {
 
   it('test_UAT_FC_REQ-11_asset_rm_blocked_by_reference', () => {
     cmdNew('acme', { cwd })
+    seedSurvivingModules('acme')
     const src = path.join(cwd, 'logo.svg')
     writeFileSync(src, '<svg/>')
     editAssetAdd('acme', src, { cwd, as: 'logo.svg' })
 
-    // Reference the asset inline from the hero module's content.
+    // Reference the asset inline from the carousel module's content. The
+    // integrity walker resolves an asset-ref that is a top-level content field
+    // (an object carrying the asset `id`, or an array of them), so we attach it
+    // as the module's slide media field.
     const homePath = draftPath('acme', 'pages', 'home.json')
     const home = JSON.parse(readFileSync(homePath, 'utf8'))
-    home.modules[1].content.image = { id: 'logo.svg', src: 'logo.svg', alt: 'Logo' }
+    home.modules[0].content.image = { id: 'logo.svg', src: 'logo.svg', alt: 'Logo' }
     writeFileSync(homePath, JSON.stringify(home, null, 2))
 
     try {
@@ -206,9 +245,9 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     } catch (e) {
       const ce = e as CommandError
       expect(ce.code).toBe('REFERENTIAL_INTEGRITY')
-      // Names the referrer: page 'home', module 'hero', field 'image'.
+      // Names the referrer: page 'home', module 'gallery', field 'image'.
       expect(ce.message).toContain('home')
-      expect(ce.message).toContain('hero')
+      expect(ce.message).toContain('gallery')
       expect(ce.message).toContain('image')
     }
 

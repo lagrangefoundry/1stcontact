@@ -647,15 +647,23 @@ export const fontFaceSchema = z.object({
  * `color`). Same px vocabulary end-to-end: a captured render value drops
  * straight in and the per-instance `…Style` escape hatch reuses these fields.
  * Every field is optional so a subscale carries only the axes it fixes.
+ *
+ * The length axes are **flat scalars** (`styleAxis`), not responsive: the
+ * theme-CSS emitter (`subScaleVars`) resolves a subscale to a single
+ * `--subscale-<name>-<axis>` custom property with no per-breakpoint form, so a
+ * responsive subscale value was never actually wired through render. Keeping the
+ * schema flat matches the emitter (removes the REQ-61-era type-drift closed in
+ * REQ-84) — a subscale that needs to vary by breakpoint is a future extension of
+ * both sides together, not a schema-only capability.
  */
 export const subScaleSchema = z
   .object({
     fontFamily: z.string().optional(),
-    fontSizePx: responsiveStyleAxis.optional(),
+    fontSizePx: styleAxis.optional(),
     fontWeight: styleAxis.optional(),
     color: z.string().optional(),
-    letterSpacingPx: responsiveStyleAxis.optional(),
-    lineHeightPx: responsiveStyleAxis.optional(),
+    letterSpacingPx: styleAxis.optional(),
+    lineHeightPx: styleAxis.optional(),
   })
   .strict()
 

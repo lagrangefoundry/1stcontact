@@ -72,18 +72,35 @@ class FakeDriver implements BrowserDriver {
   async close(): Promise<void> {}
 }
 
-/** Create a site whose header logo is an `<img src="/assets/logo.png">`. */
+/**
+ * Create a site whose page renders an `<img src="/assets/logo.png">`. Since the
+ * framework pivot (REQ-84) the starter is empty and the surviving asset-ref sink
+ * is a carousel slide's `image`, so we author a carousel with one image slide.
+ */
 function siteWithImageLogo(cwd: string, slug: string): void {
   cmdNew(slug, { cwd })
   // Register a real PNG under the draft's assets/ so render copies it through.
   const staged = path.join(cwd, 'logo.png')
   copyFileSync(FIXTURE_PNG, staged)
   editAssetAdd(slug, staged, { cwd, as: 'logo.png' })
-  // Point the header logo at the served absolute path — the exact shape that
-  // used to render blank when the page couldn't reach its own assets.
+  // Author a carousel whose slide image points at the served absolute path — the
+  // exact shape that used to render blank when the page couldn't reach its own
+  // assets.
   const homePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
   const home = JSON.parse(readFileSync(homePath, 'utf8'))
-  home.modules[0].content.logo = { id: 'logo.png', src: '/assets/logo.png', alt: 'Logo' }
+  home.modules = [
+    {
+      id: 'gallery',
+      type: 'carousel',
+      version: 1,
+      variant: 'default',
+      dials: {},
+      content: {
+        heading: { text: 'Gallery' },
+        items: [{ image: { id: 'logo.png', src: '/assets/logo.png', alt: 'Logo' } }],
+      },
+    },
+  ]
   writeFileSync(homePath, JSON.stringify(home, null, 2))
 }
 

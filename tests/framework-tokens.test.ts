@@ -1,13 +1,8 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens/index'
 import { registry, getModule } from '../packages/framework/src/modules/registry'
-import { headerMeta } from '../packages/framework/src/modules/header/meta'
-import { heroMeta } from '../packages/framework/src/modules/hero/meta'
-import { footerMeta } from '../packages/framework/src/modules/footer/meta'
-import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
-import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
+import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
-import { layerMeta } from '../packages/framework/src/modules/layer/meta'
 import type { ModuleMeta } from '../packages/framework/src/modules/types'
 
 /**
@@ -88,32 +83,28 @@ describe('@1stcontact/framework theme tokens', () => {
 
 describe('@1stcontact/framework module registry', () => {
   it('test_UAT_FC_REQ-4_registry_resolves_known_module', () => {
-    const def = getModule('hero', 2)
-    expect(def.meta.id).toBe('hero')
-    expect(def.meta.version).toBe(2)
+    const def = getModule('carousel', 1)
+    expect(def.meta.id).toBe('carousel')
+    expect(def.meta.version).toBe(1)
     expect(def.Component).toBeTypeOf('function')
   })
 
   it('test_UAT_FC_REQ-4_registry_throws_on_unknown_module', () => {
     expect(() => getModule('nope', 1)).toThrow(/not found in catalog/i)
     // A real module at the wrong version is also a catalog miss.
-    expect(() => getModule('hero', 99)).toThrow(/catalog/i)
+    expect(() => getModule('carousel', 99)).toThrow(/catalog/i)
   })
 
   it('test_UAT_FC_REQ-4_every_module_exports_module_meta', () => {
     // Compile-time: each meta satisfies the ModuleMeta contract (DOC-7 §3.1).
-    // Re-exercised against REQ-5's three content modules — they all conform.
-    expectTypeOf(headerMeta).toMatchTypeOf<ModuleMeta>()
-    expectTypeOf(heroMeta).toMatchTypeOf<ModuleMeta>()
-    expectTypeOf(footerMeta).toMatchTypeOf<ModuleMeta>()
-    expectTypeOf(textBlockMeta).toMatchTypeOf<ModuleMeta>()
-    expectTypeOf(servicesGridMeta).toMatchTypeOf<ModuleMeta>()
+    // Post-pivot (REQ-84) the catalog holds only the two surviving capability
+    // modules; both conform to the contract.
+    expectTypeOf(carouselMeta).toMatchTypeOf<ModuleMeta>()
     expectTypeOf(contactFormMeta).toMatchTypeOf<ModuleMeta>()
-    expectTypeOf(layerMeta).toMatchTypeOf<ModuleMeta>()
 
     // Runtime: every registered module exposes the full contract shape.
-    // 8 modules: the REQ-4/5 six, REQ-15's `layer` host, and REQ-79's `carousel`.
-    expect(registry.size).toBe(8)
+    // 2 modules post-pivot: REQ-79's `carousel` and the `contact-form`.
+    expect(registry.size).toBe(2)
     for (const def of registry.values()) {
       const meta = def.meta
       expect(typeof meta.id).toBe('string')

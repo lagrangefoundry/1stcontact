@@ -7,6 +7,7 @@ import {
   ConformanceError,
   engineAvailable,
   evaluateXBrowser,
+  getModule,
   writeRasterPng,
   X_BROWSER_BOX_PROBE,
   X_BROWSER_TOLERANCE,
@@ -17,6 +18,8 @@ import {
   type Raster,
   type XBrowserBox,
 } from '../tools/generate/src'
+
+const carouselMeta = getModule('carousel', 1).meta
 
 /**
  * UATs for REQ-42 — the conformance harness **cross-browser dimension**
@@ -137,14 +140,22 @@ function identicalShots(): Record<ConformanceEngine, Uint8Array> {
 
 /** A well-formed real catalog module — the served page for the fake-driver runs. */
 const cleanFixture: ConformanceFixture = {
-  label: 'clean-text-block',
+  label: 'clean-carousel',
   props: {
-    version: 2,
-    variant: 'prose',
+    version: carouselMeta.version,
+    variant: carouselMeta.variants[0],
     content: {
-      // REQ-50 — the discrete heading slot is a flat styled run.
-      heading: { text: 'A Cross-Engine Heading' },
-      body: 'A well-formed paragraph that lays out equivalently in Blink, WebKit and Gecko.',
+      // REQ-50 — the discrete heading slot is a flat styled run. Short, single-line
+      // runs avoid engine-specific wrap-point divergence (the wrap column differs by
+      // a font-metric fraction across Blink/WebKit/Gecko, which is a real difference,
+      // not a harness false positive — so the clean baseline stays unwrapped).
+      heading: { text: 'Cross-Engine' },
+      items: [
+        {
+          title: { text: 'Ada Lovelace' },
+          subtitle: { text: 'Engine' },
+        },
+      ],
     },
   },
 }
@@ -154,7 +165,7 @@ async function conformanceErrorOf(
   fixture: ConformanceFixture,
   opts: Parameters<typeof assertModuleConforms>[2],
 ): Promise<ConformanceError | null> {
-  return assertModuleConforms('text-block', [fixture], opts).then(
+  return assertModuleConforms('carousel', [fixture], opts).then(
     () => null,
     (e: unknown) => e as ConformanceError,
   )
@@ -186,7 +197,7 @@ describe('Conformance harness cross-browser dimension (REQ-42)', () => {
     // module lays out equivalently, so the harness passes with no violation.
     const boxes = { chromium: CLEAN_BOXES, webkit: CLEAN_BOXES, firefox: CLEAN_BOXES }
     await expect(
-      assertModuleConforms('text-block', [cleanFixture], {
+      assertModuleConforms('carousel', [cleanFixture], {
         dimension: 'x-browser',
         tier: 'full',
         engines: ENGINES,
@@ -226,7 +237,7 @@ describe('Conformance harness cross-browser dimension (REQ-42)', () => {
       firefox: withJitter(2, 5),
     }
     await expect(
-      assertModuleConforms('text-block', [cleanFixture], {
+      assertModuleConforms('carousel', [cleanFixture], {
         dimension: 'x-browser',
         tier: 'full',
         engines: ENGINES,
@@ -257,7 +268,7 @@ describe('Conformance harness cross-browser dimension (REQ-42)', () => {
     // the dimension is an advisory no-op (a runner missing WebKit/Firefox binaries
     // must not hard-fail the leaf) — DOC-20's advisory-on-missing-runner contract.
     await expect(
-      assertModuleConforms('text-block', [cleanFixture], {
+      assertModuleConforms('carousel', [cleanFixture], {
         dimension: 'x-browser',
         tier: 'full',
         engines: ['chromium'],
@@ -284,7 +295,7 @@ describe('Conformance harness cross-browser dimension — real engines (REQ-42)'
     // calibrated tolerance, and the perceptual backstop does not trip on genuine
     // cross-engine antialiasing — the run passes with no violation.
     await expect(
-      assertModuleConforms('text-block', [cleanFixture], {
+      assertModuleConforms('carousel', [cleanFixture], {
         dimension: 'x-browser',
         tier: 'full',
         viewports: [1280],

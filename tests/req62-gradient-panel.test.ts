@@ -1,21 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { createServer, type Server } from 'node:http'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
-import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
 import { resolveSurfaceGradient } from '../packages/framework/src/modules/text-style'
+import type { ModuleMeta } from '../packages/framework/src/modules/types'
 import {
   chromiumAvailable,
   cmdCapturePage,
   diffManifests,
   flattenCapture,
-  normalizeGradient,
   type Capture,
   type ValueElement,
   type ValueManifest,
@@ -23,15 +20,13 @@ import {
 
 /**
  * UATs for REQ-62 — a gradient PANEL background is a captured, authorable, and
- * diffable value (not just a text-fill gradient). Before REQ-62 a panel gradient
- * (gigabytealchemy's "What We're Exploring", `bg-gradient-to-br from-slate-100
- * to-slate-200`) was invisible to the whole pipeline: `surfaceFillOf` composites
- * solid background-COLORs, so it skipped straight past the gradient's transparent
- * background-color to the band — a missing panel gradient read identically to a
- * present one (a false match). These UATs prove all three seams: the framework
- * authors it (a `gradient` panel fill on text-block), the diff flags a present-vs-
- * missing surface gradient, and the capture records BOTH the gradient AND the
- * composited solid surfaceFill the run sits on.
+ * diffable value (not just a text-fill gradient). The text-block panel that first
+ * carried it went away with the semantic layout modules (REQ-84), but the three
+ * surviving seams the ticket proved are exercised here directly: the shared
+ * `resolveSurfaceGradient` resolver (absolute-or-overlay stops), the `gradient`
+ * content-field validation (`validateModuleContent`, on a synthetic meta), the
+ * values-diff `surfaceGradient` axis (present-vs-missing false-match), and the
+ * capture recording BOTH the gradient AND the composited solid it sits on.
  */
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
@@ -43,15 +38,17 @@ afterAll(() => {
   for (const d of tmpDirs) rmSync(d, { recursive: true, force: true })
 })
 
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(props: unknown): Promise<string> {
-  container ??= await AstroContainer.create()
-  return container.renderToString(
-    TextBlock as Parameters<Container['renderToString']>[0],
-    { props: props as Record<string, unknown> },
-  )
-}
+/** A synthetic meta carrying a `gradient` content field — the field-type under test. */
+const gradientMeta = {
+  id: 'panel-probe',
+  version: 1,
+  variants: ['default'],
+  dials: {},
+  contentSchema: {
+    body: { type: 'markdown', required: false },
+    panelGradient: { type: 'gradient', required: false },
+  },
+} as unknown as ModuleMeta
 
 /** A ValueElement with sensible defaults, overridable per field. */
 function el(text: string, over: Partial<ValueElement> = {}): ValueElement {
@@ -66,30 +63,9 @@ function hasDelta(deltas: { text: string; property: string }[], textSub: string,
   return deltas.some((d) => d.text.includes(textSub) && d.property === property)
 }
 
-// ── the framework authors a gradient panel fill ──────────────────────────────
+// ── the shared resolver authors a gradient surface fill ──────────────────────
 
-describe('REQ-62 gradient panel — framework', () => {
-  it('test_UAT_FC_REQ-62_textblock_meta_exposes_panel_gradient_field', () => {
-    // The panel gradient is a standalone `gradient` content field — the gradient
-    // analogue of the solid `panel` dial (a dial can only carry a string/number).
-    expect(textBlockMeta.contentSchema.panelGradient?.type).toBe('gradient')
-  })
-
-  it('test_UAT_FC_REQ-62_panel_gradient_renders_background_image', async () => {
-    const html = await render({
-      content: {
-        body: 'What We are exploring.',
-        panelGradient: { angleDeg: 135, stops: ['#f1f5f9', '#e2e8f0'] },
-      },
-    })
-    // A gradient panel forces the `gradient` panel class (so the inner gets the
-    // padded/rounded/inset panel box) and paints the sweep inline as a surface.
-    expect(html).toContain('panel-gradient')
-    expect(html).toContain('background-image: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)')
-    // It is a surface fill, NOT a text-fill: no background-clip:text / transparent.
-    expect(html).not.toContain('background-clip: text')
-  })
-
+describe('REQ-62 gradient panel — resolver', () => {
   it('test_UAT_FC_REQ-62_panel_gradient_stops_absolute_or_overlay', () => {
     // Each stop is literal-or-alias (REQ-58 T11): a `#hex` stays absolute; a
     // palette role becomes the overlay `var(--color-…)` — so a site reproduces
@@ -97,19 +73,13 @@ describe('REQ-62 gradient panel — framework', () => {
     const css = resolveSurfaceGradient({ angleDeg: 135, stops: ['#f1f5f9', 'accent'] })
     expect(css).toBe('background-image: linear-gradient(135deg, #f1f5f9 0%, var(--color-accent) 100%)')
   })
-
-  it('test_UAT_FC_REQ-62_no_panel_gradient_keeps_solid', async () => {
-    const html = await render({ content: { body: 'Plain prose.' } })
-    expect(html).not.toContain('panel-gradient')
-    expect(html).not.toContain('background-image: linear-gradient')
-  })
 })
 
 // ── validation accepts a well-formed gradient, rejects a malformed one ────────
 
 describe('REQ-62 gradient panel — validation', () => {
   it('test_UAT_FC_REQ-62_validation_accepts_gradient_panel', () => {
-    const errors = validateModuleContent(textBlockMeta, {
+    const errors = validateModuleContent(gradientMeta, {
       body: 'x',
       panelGradient: { angleDeg: 'to-br', stops: ['#f1f5f9', 'accent'] },
     })
@@ -117,7 +87,7 @@ describe('REQ-62 gradient panel — validation', () => {
   })
 
   it('test_UAT_FC_REQ-62_validation_rejects_malformed_gradient', () => {
-    const errors = validateModuleContent(textBlockMeta, {
+    const errors = validateModuleContent(gradientMeta, {
       body: 'x',
       panelGradient: { angleDeg: 'sideways', stops: ['not-a-colour'] },
     })

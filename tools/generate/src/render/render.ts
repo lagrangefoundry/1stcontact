@@ -2,21 +2,9 @@ import path from 'node:path'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import {
   CALLOUT_CSS,
-  composeOverlayHeader,
   generateThemeCss,
   getModule,
   getModuleCss,
-  isScrollMotion,
-  LAYER_CSS,
-  MOTION_CSS,
-  MOTION_SCRIPT,
-  OVERLAY_BAND_CSS,
-  ROW_CSS,
-  composeRow,
-  SECTION_CSS,
-  wrapWithBackground,
-  wrapWithLayer,
-  wrapWithMotion,
 } from '@1stcontact/framework'
 import type { ModuleDefinition } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
@@ -61,9 +49,8 @@ function escapeHtml(s: string): string {
  * The Weber editor's preview overlay maps a hovered/clicked region in the iframe
  * back to the module instance to edit via `data-fc-module`; without it there is no
  * bridge from a rendered element to its structured content. The attributes go on
- * the module's own root tag (the first opening tag of its markup) so they survive
- * the background/layer/motion wrappers that later close *around* the markup. The
- * hook is inert to layout and to the production site — it is plain data-* metadata.
+ * the module's own root tag (the first opening tag of its markup). The hook is
+ * inert to layout and to the production site — it is plain data-* metadata.
  */
 function stampEditHook(html: string, id: string, type: string): string {
   return html.replace(
@@ -74,91 +61,29 @@ function stampEditHook(html: string, id: string, type: string): string {
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 
-/** Render every module instance on a page, in order, to one HTML fragment. */
+/**
+ * Render every module instance on a page, in order, to one HTML fragment. Since
+ * the framework pivot (REQ-79/REQ-84) layout is owned by the L1 substrate, so a
+ * page here is a plain vertical stack of **capability-module** bands — the old
+ * background/layer/motion/row/overlay-header composition is gone (its helpers
+ * were deleted with the semantic layout modules).
+ */
 async function renderModules(
   container: Container,
   page: Page,
   resolveModule: ModuleResolver,
 ): Promise<string> {
   const parts: string[] = []
-  // A `header` with variant `overlay` (REQ-25) is not emitted as its own band —
-  // it is held here and floated over the following module's band so the two
-  // share one continuous image band.
-  let pendingOverlayHeader: string | null = null
-  // Consecutive partial-width bands (REQ-20 `half`; REQ-36 `third`/`two-thirds`)
-  // are buffered and flushed into one shared `fc-row` so they render as columns
-  // rather than stacking; each keeps its width so the row can carry a ratio.
-  const isPartialWidth = (w: unknown): w is string =>
-    w === 'half' || w === 'third' || w === 'two-thirds'
-  let rowBuffer: {
-    html: string
-    width: string
-    surface?: string
-    rowWidth?: string | number
-  }[] = []
-  const flushRow = (): void => {
-    if (rowBuffer.length === 0) return
-    parts.push(rowBuffer.length === 1 ? rowBuffer[0].html : composeRow(rowBuffer))
-    rowBuffer = []
-  }
-
   for (const m of page.modules) {
     const { Component } = resolveModule(m.type, m.version)
     const rendered = await container.renderToString(Component, {
       props: { variant: m.variant, dials: m.dials, content: m.content },
     })
-    // Stamp the builder edit hook onto the module root before the section
-    // wrappers close around it, so the Weber preview can target this instance.
-    const html = stampEditHook(rendered, m.id, m.type)
-    // A section-level background (REQ-14) wraps the module's markup in stacked
-    // background/overlay/content layers; a layer (REQ-15) then composites its
-    // freely-positioned children over that; motion (REQ-16) wraps outermost so
-    // the whole section animates as one unit. Modules with none are unchanged.
-    const band = wrapWithMotion(
-      await wrapWithLayer(wrapWithBackground(html, m.background), m.layer),
-      m.motion,
-    )
-
-    if (m.type === 'header' && m.variant === 'overlay') {
-      // A header can't sit mid-row; close any open row before holding it.
-      flushRow()
-      pendingOverlayHeader = band
-      continue
-    }
-    if (pendingOverlayHeader) {
-      // Composite the held header over this band, then clear the hold. The
-      // composited unit is always a full-width band.
-      flushRow()
-      parts.push(composeOverlayHeader(pendingOverlayHeader, band))
-      pendingOverlayHeader = null
-      continue
-    }
-    if (isPartialWidth(m.dials?.width)) {
-      rowBuffer.push({
-        html: band,
-        width: m.dials!.width as string,
-        surface: m.dials?.surface as string | undefined,
-        rowWidth: m.dials?.rowWidth as string | number | undefined,
-      })
-      continue
-    }
-    flushRow()
-    parts.push(band)
+    // Stamp the builder edit hook onto the module root so the Weber preview can
+    // target this instance.
+    parts.push(stampEditHook(rendered, m.id, m.type))
   }
-  flushRow()
-  // An overlay header with no following band still renders — never dropped.
-  if (pendingOverlayHeader) parts.push(pendingOverlayHeader)
   return parts.join('\n')
-}
-
-/**
- * Whether any module on the page — or any child of a module's layer — carries a
- * scroll-triggered motion, and therefore needs the reveal island shipped.
- */
-function pageHasScrollMotion(page: Page): boolean {
-  return page.modules.some(
-    (m) => isScrollMotion(m.motion) || (m.layer?.children ?? []).some((c) => isScrollMotion(c.motion)),
-  )
 }
 
 /** Build a complete HTML document for one page. */
@@ -172,12 +97,6 @@ async function renderPage(
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
   const ogImage = page.seoMeta?.ogImage
   const body = await renderModules(container, page, resolveModule)
-  // The scroll-reveal island (REQ-16) ships only when the page needs it — a
-  // self-contained inline script, since the container render drops component
-  // <script> blocks the same way it drops <style>.
-  const motionScript = pageHasScrollMotion(page)
-    ? `\n<script>${MOTION_SCRIPT}</script>`
-    : ''
 
   const head = [
     '<meta charset="utf-8" />',
@@ -204,7 +123,7 @@ async function renderPage(
 ${head}
 </head>
 <body>
-${body}${motionScript}
+${body}
 </body>
 </html>
 `
@@ -237,7 +156,7 @@ export async function renderSite(
   const extraCss = opts.extraCss ? `\n\n${opts.extraCss}` : ''
   writeText(
     path.join(outDir, 'theme.css'),
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}\n\n${SECTION_CSS}\n\n${LAYER_CSS}\n\n${OVERLAY_BAND_CSS}\n\n${ROW_CSS}\n\n${MOTION_CSS}${extraCss}\n`,
+    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}${extraCss}\n`,
   )
 
   const container = await AstroContainer.create()

@@ -5,10 +5,13 @@ import {
   ConformanceError,
   chromiumAvailable,
   createPlaywrightDriver,
+  getModule,
   serveOneModulePage,
   type ConformanceFixture,
   type ModuleResolver,
 } from '../tools/generate/src'
+
+const carouselMeta = getModule('carousel', 1).meta
 import Overflow from './fixtures/conformance/overflow.astro'
 import PageError from './fixtures/conformance/page-error.astro'
 import Collapsed from './fixtures/conformance/collapsed.astro'
@@ -52,14 +55,21 @@ const resolveBroken: ModuleResolver = (type) => {
 
 /** A well-formed real catalog module — the clean, must-pass baseline. */
 const cleanFixture: ConformanceFixture = {
-  label: 'clean-text-block',
+  label: 'clean-carousel',
   props: {
-    version: 2,
-    variant: 'prose',
+    version: carouselMeta.version,
+    variant: carouselMeta.variants[0],
     content: {
       // REQ-50 — the discrete heading slot is a flat styled run.
       heading: { text: 'Isolation Marker Heading' },
-      body: 'A well-formed paragraph of prose that renders cleanly and stays within the viewport.',
+      subhead: 'A well-formed paragraph of prose that renders cleanly and stays within the viewport.',
+      items: [
+        {
+          title: { text: 'Ada Lovelace' },
+          subtitle: { text: 'Analytical Engine' },
+          body: 'A well-formed slide of prose that reflows within the viewport.',
+        },
+      ],
     },
   },
 }
@@ -80,7 +90,7 @@ describe('Conformance harness core (REQ-39)', () => {
   itB('test_UAT_FC_REQ-39_clean_module_passes', async () => {
     // A well-formed real module conforms with no violations — no false positive.
     await expect(
-      assertModuleConforms('text-block', [cleanFixture], {
+      assertModuleConforms('carousel', [cleanFixture], {
         driverFactory: createPlaywrightDriver,
       }),
     ).resolves.toBeUndefined()
@@ -134,7 +144,7 @@ describe('Conformance harness core (REQ-39)', () => {
   it('test_UAT_FC_REQ-39_isolation_renders_single_module', async () => {
     // The harness mounts exactly one module through the catalog renderer and
     // serves it over loopback — provable without a browser.
-    const served = await serveOneModulePage('text-block', cleanFixture)
+    const served = await serveOneModulePage('carousel', cleanFixture)
     try {
       expect(served.handle.url).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):\d+\/$/)
       const html = await fetch(served.handle.url).then((r) => r.text())

@@ -2,28 +2,32 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
-import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
-import Header from '../packages/framework/src/modules/header/index.astro'
-import Hero from '../packages/framework/src/modules/hero/index.astro'
+import Carousel from '../packages/framework/src/modules/carousel/index.astro'
+import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 import { SPACING_STEPS } from '../packages/framework/src/modules/dials'
-import { overrideChain, BREAKPOINT_PX } from '../packages/framework/src/modules/breakpoints'
+import { overrideChain } from '../packages/framework/src/modules/breakpoints'
 import { validateSite } from '../packages/site-schema/src/index'
 
 /**
  * Reconciliation UATs for story-3569e1a4 — Responsive dials: length parameters
- * vary per breakpoint and the nav collapse point is configurable.
+ * vary per breakpoint (the absolute-or-overlay seam now spans the breakpoint
+ * dimension).
  *
- * Boundary: the published-page observables of the framework's structural modules
+ * Boundary: the published-page observables of the surviving capability modules
  * (the inline `--fc-*` custom properties and scoped media-query chains a module
  * emits when rendered) and the site-definition load boundary (`validateSite`).
  * These verify the per-breakpoint value model (base + `sm`/`md`/`lg`/`xl`
- * overrides, "override and up") and the `navCollapse` dial against the existing
- * implementation.
+ * overrides, "override and up") against the shared responsive primitive.
  */
 
 const MODULE_SRC = (rel: string): string =>
   readFileSync(fileURLToPath(new URL(`../packages/framework/src/modules/${rel}`, import.meta.url)), 'utf8')
+
+const FORM_CONTENT = {
+  action: 'https://example.com/submit',
+  fields: [{ name: 'email', label: 'Your email', type: 'email', required: true }],
+}
+const CAROUSEL_CONTENT = { items: [{ body: 'A quote.' }] }
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 let container: Container
@@ -105,11 +109,11 @@ function siteWithDial(spacingTop: unknown) {
         modules: [
           {
             id: 'm1',
-            type: 'hero',
+            type: 'carousel',
             version: 1,
-            variant: 'centered',
+            variant: 'default',
             dials: { spacingTop },
-            content: { heading: 'Welcome' },
+            content: { items: [{ body: 'A quote.' }] },
           },
         ],
       },
@@ -124,10 +128,9 @@ describe('story-3569e1a4 — per-breakpoint length dials', () => {
     // A spacing dial `{ base: A, md: B, xl: C }` emits the base plus exactly the
     // defined overrides — sm/lg carry no var, so a viewport between two overrides
     // falls to the nearest defined one at or below it (override-and-up).
-    const html = await render(TextBlock, {
-      variant: 'prose',
+    const html = await render(Carousel, {
       dials: { spacingTop: { base: 24, md: 48, xl: 64 } },
-      content: { body: 'Most apps.' },
+      content: CAROUSEL_CONTENT,
     })
     expect(html).toContain('--fc-pt: 24px') // <768px → base (A)
     expect(html).toContain('--fc-pt-md: 48px') // ≥768px, e.g. 800px → md (B)
@@ -138,17 +141,16 @@ describe('story-3569e1a4 — per-breakpoint length dials', () => {
     expect(html).not.toContain('--fc-pt-lg')
     // The scoped CSS re-points padding-top through the shared override-and-up chain
     // (xl falls back md→sm→base), wiring the cascade the vars above feed.
-    expect(MODULE_SRC('text-block/index.astro')).toContain(`padding-top: ${overrideChain('pt', 3)}`)
+    expect(MODULE_SRC('carousel/index.astro')).toContain(`padding-top: ${overrideChain('pt', 3)}`)
   })
 
   // ── AC-667 — a scalar dial is constant across all widths ───────────────────
   it('test_UAT_AC667_scalar_length_dial_constant_across_widths', async () => {
     // A single scalar value (named step) emits ONLY the base var — no per-breakpoint
     // override vars — so the resolved length is identical at 500 / 800 / 1300px.
-    const html = await render(TextBlock, {
-      variant: 'prose',
+    const html = await render(Carousel, {
       dials: { spacingTop: 'lg' },
-      content: { body: 'Most apps.' },
+      content: CAROUSEL_CONTENT,
     })
     expect(html).toContain(`--fc-pt: ${SPACING_STEPS.lg}`)
     for (const bp of ['sm', 'md', 'lg', 'xl']) {
@@ -158,20 +160,17 @@ describe('story-3569e1a4 — per-breakpoint length dials', () => {
 
   // ── AC-668 — per-breakpoint form honoured across the full enumerated set ───
   it('test_UAT_AC668_per_breakpoint_form_honoured_across_all_length_dials', async () => {
-    // Each enumerated length dial, on its owning module, honours the per-breakpoint
-    // object: the override var lands at the specified breakpoint while base holds.
+    // Each enumerated length dial, on its owning capability module, honours the
+    // per-breakpoint object: the override var lands at the specified breakpoint
+    // while the base holds.
     const cases: { Component: unknown; dials: Record<string, unknown>; content: unknown; base: string; override: string }[] = [
-      // spacing top / bottom / panel padding — text-block
-      { Component: TextBlock, dials: { spacingTop: { base: 24, md: 64 } }, content: { body: 'x' }, base: '--fc-pt: 24px', override: '--fc-pt-md: 64px' },
-      { Component: TextBlock, dials: { spacingBottom: { base: 24, lg: 64 } }, content: { body: 'x' }, base: '--fc-pb: 24px', override: '--fc-pb-lg: 64px' },
-      { Component: TextBlock, dials: { panelPad: { base: 48, xl: 96 } }, content: { body: 'x' }, base: '--fc-panel-pad: 48px', override: '--fc-panel-pad-xl: 96px' },
-      // gap — services-grid
-      { Component: ServicesGrid, dials: { gap: { base: 16, lg: 40 } }, content: { cards: [{ title: 'A', body: 'x' }] }, base: '--fc-gap: 16px', override: '--fc-gap-lg: 40px' },
-      // logo size — header
-      { Component: Header, dials: { logoSize: { base: 32, md: 64 } }, content: { wordmark: { text: 'Acme' }, entries: [] }, base: '--fc-logo: 32px', override: '--fc-logo-md: 64px' },
-      // content offset / content inset — hero
-      { Component: Hero, dials: { contentOffsetTop: { base: 16, md: 128 } }, content: { heading: { text: 'Hi' } }, base: '--fc-offset-top: 16px', override: '--fc-offset-top-md: 128px' },
-      { Component: Hero, dials: { contentInset: { base: 16, lg: 48 } }, content: { heading: { text: 'Hi' } }, base: '--fc-inset: 16px', override: '--fc-inset-lg: 48px' },
+      // spacing top / bottom + inter-slide gap — carousel
+      { Component: Carousel, dials: { spacingTop: { base: 24, md: 64 } }, content: CAROUSEL_CONTENT, base: '--fc-pt: 24px', override: '--fc-pt-md: 64px' },
+      { Component: Carousel, dials: { spacingBottom: { base: 24, lg: 64 } }, content: CAROUSEL_CONTENT, base: '--fc-pb: 24px', override: '--fc-pb-lg: 64px' },
+      { Component: Carousel, dials: { gap: { base: 16, lg: 40 } }, content: CAROUSEL_CONTENT, base: '--fc-gap: 16px', override: '--fc-gap-lg: 40px' },
+      // spacing top / bottom — contact-form
+      { Component: ContactForm, dials: { spacingTop: { base: 32, md: 64 } }, content: FORM_CONTENT, base: '--fc-pt: 32px', override: '--fc-pt-md: 64px' },
+      { Component: ContactForm, dials: { spacingBottom: { base: 16, xl: 48 } }, content: FORM_CONTENT, base: '--fc-pb: 16px', override: '--fc-pb-xl: 48px' },
     ]
     for (const { Component, dials, content, base, override } of cases) {
       const html = await render(Component, { dials, content })
@@ -184,10 +183,9 @@ describe('story-3569e1a4 — per-breakpoint length dials', () => {
   it('test_UAT_AC670_each_entry_accepts_literal_or_named_overlay', async () => {
     // `{ base: 24, md: "lg" }` — base is an absolute px literal, the md override a
     // named step resolving through the same overlay seam as a scalar dial.
-    const html = await render(TextBlock, {
-      variant: 'prose',
+    const html = await render(Carousel, {
       dials: { spacingTop: { base: 24, md: 'lg' } },
-      content: { body: 'Most apps.' },
+      content: CAROUSEL_CONTENT,
     })
     expect(html).toContain('--fc-pt: 24px') // literal px below md
     expect(html).toContain(`--fc-pt-md: ${SPACING_STEPS.lg}`) // named step at/above md
@@ -196,10 +194,9 @@ describe('story-3569e1a4 — per-breakpoint length dials', () => {
   // ── AC-669 — per-breakpoint content-width cap varies and can drop the cap ──
   it('test_UAT_AC669_per_breakpoint_content_width_cap', async () => {
     // A per-breakpoint cap: base cap + a wider cap at lg.
-    const capped = await render(TextBlock, {
-      variant: 'prose',
+    const capped = await render(Carousel, {
       dials: { contentWidth: { base: '4xl', lg: 896 } },
-      content: { body: 'x' },
+      content: CAROUSEL_CONTENT,
     })
     expect(capped).toContain('has-content-width')
     expect(capped).toContain('--fc-content-width: var(--container-4xl)')
@@ -207,10 +204,9 @@ describe('story-3569e1a4 — per-breakpoint length dials', () => {
 
     // A `bleed` override drops the cap at that width: no `-lg` var → the container
     // is uncapped at ≥1024px, falling through the chain to the base cap below it.
-    const bleedAtLg = await render(TextBlock, {
-      variant: 'prose',
+    const bleedAtLg = await render(Carousel, {
       dials: { contentWidth: { base: '4xl', lg: 'bleed' } },
-      content: { body: 'x' },
+      content: CAROUSEL_CONTENT,
     })
     expect(bleedAtLg).toContain('--fc-content-width: var(--container-4xl)')
     expect(bleedAtLg).not.toContain('--fc-content-width-lg')
@@ -219,36 +215,11 @@ describe('story-3569e1a4 — per-breakpoint length dials', () => {
     // width. Every max-width rule (base + each breakpoint) is gated on the
     // `has-content-width` class, and a bleed base leaves it off — so no cap is
     // applied at any width regardless of the override (which is left inert).
-    const noBaseCap = await render(TextBlock, {
-      variant: 'prose',
+    const noBaseCap = await render(Carousel, {
       dials: { contentWidth: { base: 'bleed', md: 896 } },
-      content: { body: 'x' },
+      content: CAROUSEL_CONTENT,
     })
     expect(noBaseCap).not.toContain('has-content-width')
-  })
-})
-
-// ── AC-671 — navCollapse dial selects the header nav collapse breakpoint ─────
-
-describe('story-3569e1a4 — configurable nav collapse', () => {
-  const headerContent = { content: { wordmark: { text: 'Acme' }, entries: [] } }
-
-  it('test_UAT_AC671_nav_collapse_dial_selects_breakpoint', async () => {
-    // Omitting the dial collapses below 768px (default md).
-    expect(await render(Header, { ...headerContent, dials: {} })).toContain('nav-collapse-md')
-    // The dial selects the breakpoint: navCollapse=lg tags the header for a
-    // <1024px collapse (nav hidden at 900px, shown at 1100px).
-    expect(await render(Header, { ...headerContent, dials: { navCollapse: 'lg' } })).toContain('nav-collapse-lg')
-    // `none` never collapses — the class is present but no media rule matches it.
-    expect(await render(Header, { ...headerContent, dials: { navCollapse: 'none' } })).toContain('nav-collapse-none')
-
-    // The scoped CSS gates the collapse per breakpoint at the BREAKPOINT_PX width:
-    // the lg-tagged header shows its toggle only below 1024px; the default md at 768px.
-    const src = MODULE_SRC('header/index.astro')
-    expect(src).toContain(`@media (max-width: ${BREAKPOINT_PX.md}px) { .header.nav-collapse-md .header__toggle { display: flex; }`)
-    expect(src).toContain(`@media (max-width: ${BREAKPOINT_PX.lg}px) { .header.nav-collapse-lg`)
-    // No ungated collapse rule (would fold every header regardless of the dial).
-    expect(src).not.toMatch(/@media \(max-width: 768px\) \{\s*\.header__toggle/)
   })
 })
 

@@ -5,9 +5,12 @@ import {
   ConformanceError,
   chromiumAvailable,
   createPlaywrightDriver,
+  getModule,
   type ConformanceFixture,
   type ModuleResolver,
 } from '../tools/generate/src'
+
+const carouselMeta = getModule('carousel', 1).meta
 import MobileOverflow from './fixtures/conformance/mobile-overflow.astro'
 import SmallTapTarget from './fixtures/conformance/small-tap-target.astro'
 import SmallFont from './fixtures/conformance/small-font.astro'
@@ -65,15 +68,23 @@ async function conformanceErrorOf(
 }
 
 /** A well-formed real catalog module — the clean, must-pass baseline. */
-const cleanTextBlock: ConformanceFixture = {
-  label: 'clean-text-block',
+const cleanCarousel: ConformanceFixture = {
+  label: 'clean-carousel',
   props: {
-    version: 2,
-    variant: 'prose',
+    version: carouselMeta.version,
+    variant: carouselMeta.variants[0],
     content: {
       // REQ-50 — the discrete heading slot is a flat styled run.
       heading: { text: 'A Responsive Heading' },
-      body: 'A well-formed paragraph of prose that reflows within the viewport at every width from 320px up.',
+      subhead:
+        'A well-formed paragraph of prose that reflows within the viewport at every width from 320px up.',
+      items: [
+        {
+          title: { text: 'Ada Lovelace' },
+          subtitle: { text: 'Analytical Engine' },
+          body: 'A well-formed slide of prose that reflows within the viewport at every width.',
+        },
+      ],
     },
   },
 }
@@ -83,7 +94,7 @@ describe('Conformance harness responsive dimension (REQ-41)', () => {
     // A well-formed real module has no horizontal overflow at any width ≥320 —
     // the responsive default sweeps the full 320…1440 ladder and passes.
     await expect(
-      assertModuleConforms('text-block', [cleanTextBlock], RESPONSIVE),
+      assertModuleConforms('carousel', [cleanCarousel], RESPONSIVE),
     ).resolves.toBeUndefined()
   }, 180000)
 

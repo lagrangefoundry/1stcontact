@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
-import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
+import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
+import type { ModuleMeta } from '../packages/framework/src/modules/types'
 import {
   diffManifests,
   type ValueElement,
@@ -13,16 +13,18 @@ import {
  * Reconciliation UATs for story-82eb6908 — "Gradients as a first-class value:
  * stop positions and panel surface gradients — captured, authored, and diffed."
  * One UAT per acceptance criterion, verifying the behaviour the existing `1c`
- * capture + values-diff pipeline and the framework text-block module already ship.
+ * capture + values-diff pipeline and the framework's first-class gradient value
+ * (styled-run text-fill gradient + gradient content validation) already ship.
  *
  * Boundary: the diff ACs drive the exported diff engine (`diffManifests`) — the
  * same code path the `1c` CLI runs; the authoring ACs drive the framework's
- * real render (Astro container) and content validator (`validateModuleContent`).
+ * real render (Astro container, a carousel styled-text run) and content validator
+ * (`validateModuleContent`).
  *
  *   AC-634 — text-fill gradient stop-position drift surfaces as a gradient delta
  *   AC-635 — gradient stops without an explicit offset are compared on colour only
  *   AC-636 — a missing/differing panel surface gradient surfaces; matching/absent → none
- *   AC-637 — a text-block authored with a gradient panel renders a padded, rounded panel
+ *   AC-637 — a styled-run authored with a text-fill gradient paints the clipped sweep
  *   AC-638 — a gradient-typed content field accepts a well-formed gradient, rejects a malformed one
  */
 
@@ -56,9 +58,19 @@ let container: Container
 async function render(props: unknown): Promise<string> {
   container ??= await AstroContainer.create()
   return container.renderToString(
-    TextBlock as Parameters<Container['renderToString']>[0],
+    Carousel as Parameters<Container['renderToString']>[0],
     { props: props as Record<string, unknown> },
   )
+}
+
+/** A synthetic module exposing a gradient-typed content field — the gradient
+ *  value validation primitive, independent of any one module's schema. */
+const gradientMeta: ModuleMeta = {
+  id: 'test-gradient',
+  version: 1,
+  variants: ['default'],
+  dials: {},
+  contentSchema: { panelGradient: { type: 'gradient', required: false } },
 }
 
 describe('story-82eb6908 — gradients as a first-class value', () => {
@@ -138,39 +150,38 @@ describe('story-82eb6908 — gradients as a first-class value', () => {
     expect(hasDelta(neither.deltas, 'Plain body', 'surfaceGradient')).toBe(false)
   })
 
-  it('test_UAT_AC637_gradient_panel_renders_padded_rounded_panel', async () => {
-    // A text-block authored with a gradient panel (a direction + two stops, one an
-    // absolute hex, one a palette role) renders its content inside the padded,
-    // rounded, inset panel box (the `panel-gradient` class) with the specified
-    // linear-gradient as the surface — superseding the solid panel treatment.
+  it('test_UAT_AC637_text_fill_gradient_paints_clipped_sweep', async () => {
+    // A styled run authored with a text-fill gradient (a direction + two stops, one
+    // an absolute hex, one a palette role) paints the glyphs with the specified
+    // linear-gradient clipped to the text — the first-class gradient value.
     const html = await render({
       content: {
-        body: 'What We are exploring.',
-        panelGradient: { angleDeg: 135, stops: ['#f1f5f9', 'accent'] },
+        heading: {
+          text: 'What We are exploring.',
+          gradient: { angleDeg: 135, stops: ['#f1f5f9', 'accent'] },
+        },
+        items: [{ body: 'A quote.' }],
       },
     })
-    // Padded/rounded/inset panel box (not a flat, full-bleed band).
-    expect(html).toContain('panel-gradient')
-    // The specified linear gradient painted as the panel surface — direction and
-    // both stop colours resolved: the hex literal verbatim, the role → its overlay var.
+    // The specified linear gradient — direction and both stop colours resolved:
+    // the hex literal verbatim, the role → its overlay var.
     expect(html).toContain('background-image: linear-gradient(135deg, #f1f5f9 0%, var(--color-accent) 100%)')
-    // It is a SURFACE fill, not a text-fill gradient: no `background-clip: text`.
-    expect(html).not.toContain('background-clip: text')
+    // A text-fill gradient clips to the glyphs and forces transparent text.
+    expect(html).toContain('background-clip: text')
+    expect(html).toContain('color: transparent')
   })
 
   it('test_UAT_AC638_gradient_field_accepts_wellformed_rejects_malformed', () => {
     // A well-formed gradient object — a direction alias plus colour stops, each an
     // absolute hex or a palette-role alias — produces no validation error.
-    const wellFormed = validateModuleContent(textBlockMeta, {
-      body: 'x',
+    const wellFormed = validateModuleContent(gradientMeta, {
       panelGradient: { angleDeg: 'to-br', stops: ['#f1f5f9', 'accent'] },
     })
     expect(wellFormed).toEqual([])
 
     // A value that is not a gradient object (here a string) is rejected with a
     // validation error that names the offending gradient field.
-    const notAnObject = validateModuleContent(textBlockMeta, {
-      body: 'x',
+    const notAnObject = validateModuleContent(gradientMeta, {
       panelGradient: 'not-a-gradient',
     })
     expect(notAnObject.some((e) => e.field === 'panelGradient')).toBe(true)
