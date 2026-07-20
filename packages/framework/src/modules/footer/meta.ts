@@ -1,5 +1,5 @@
 import type { ModuleMeta } from '../types'
-import { FOOTER_LAYOUT_DIAL, FOOTER_SURFACE_DIAL, SPACING_DIAL, TREATMENT_ROLE_DIAL } from '../dials'
+import { FONT_WEIGHT_DIAL, FOOTER_LAYOUT_DIAL, FOOTER_SURFACE_DIAL, SPACING_DIAL, TREATMENT_ROLE_DIAL } from '../dials'
 
 /** `footer` — minimal site footer. */
 export const footerMeta = {
@@ -18,6 +18,9 @@ export const footerMeta = {
     // Footer link colour (REQ-58) — a palette role OR an absolute #hex; unset
     // inherits the footer text colour.
     linkColor: TREATMENT_ROLE_DIAL,
+    // Footer body/tagline/link font-weight (REQ-79) — a CSS weight step applied to
+    // the footer text (the logo stays bold, social glyphs unaffected); unset inherits.
+    textWeight: FONT_WEIGHT_DIAL,
   },
   contentSchema: {
     logo: { type: 'asset-ref', required: false },

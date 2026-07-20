@@ -3,9 +3,11 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import ServicesGrid from '../packages/framework/src/modules/services-grid/index.astro'
 import TextBlock from '../packages/framework/src/modules/text-block/index.astro'
+import Footer from '../packages/framework/src/modules/footer/index.astro'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { servicesGridMeta } from '../packages/framework/src/modules/services-grid/meta'
 import { textBlockMeta } from '../packages/framework/src/modules/text-block/meta'
+import { footerMeta } from '../packages/framework/src/modules/footer/meta'
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
 import { getModule } from '../packages/framework/src/modules/registry'
 
@@ -157,5 +159,25 @@ describe('REQ-79 text-block section surfaceFill', () => {
     expect(html).toMatch(/surface-inverse/) // white text preserved
     expect(html).toMatch(/list-marker-check/) // accent ✓ marker
     expect(validateModuleContent(textBlockMeta, { body: 'x', surfaceFill: 'muted' })).toEqual([])
+  })
+})
+
+async function renderFooter(props: unknown) {
+  container ??= await AstroContainer.create()
+  return container.renderToString(Footer, { props: props as Record<string, unknown> })
+}
+
+describe('REQ-79 footer textWeight dial', () => {
+  const content = { copyrightHolder: 'Joyful', tagline: 'Follow us', links: [{ label: 'Home', target: { kind: 'url', href: '/' } }] }
+
+  it('test_UAT_FC_REQ-79_footer_textWeight_sets_a_light_footer', async () => {
+    // The reference footer nav/tagline is light (300) — a block-text weight the
+    // footer renders itself (no per-run styled field). The dial applies it inline.
+    const html = await renderFooter({ dials: { textWeight: '300' }, content })
+    expect(html).toMatch(/--fc-text-weight:\s*300/)
+    // Unset → no inline weight var (inherits the document weight).
+    const plain = await renderFooter({ dials: {}, content })
+    expect(plain).not.toMatch(/--fc-text-weight/)
+    expect(footerMeta.dials.textWeight).toContain('300')
   })
 })

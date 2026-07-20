@@ -41,6 +41,10 @@ const linkColorCss = dials.linkColor ? resolveColor(dials.linkColor) : null
 // REQ-68 — copyright opacity (absolute 0..1). The copyright line is muted to 0.7 by
 // default; a site whose copyright colour already carries the mute wants full opacity.
 const copyrightOpacity = dials.copyrightOpacity ?? null
+// Footer text weight (REQ-79) — a CSS weight step applied to the footer body/tagline/
+// links; `null` inherits the document weight. The logo (bold) and social glyphs keep
+// their own explicit weights.
+const textWeight = dials.textWeight ?? null
 
 const { tagline, copyrightHolder } = content
 const links = content.links ?? []
@@ -59,6 +63,7 @@ const year = BUILD_YEAR
   ]}
   style={[
     textColorCss && `--fc-text: ${textColorCss}`,
+    textWeight && `--fc-text-weight: ${textWeight}`,
     copyrightOpacity !== null && `--fc-copyright-opacity: ${copyrightOpacity}`,
     padTopVars,
     padBottomVars,
@@ -96,6 +101,7 @@ const year = BUILD_YEAR
   .footer {
     background: var(--color-surface-inverse);
     color: var(--fc-text, var(--color-bg));
+    font-weight: var(--fc-text-weight, inherit);
     padding-top: var(--fc-pt);
     padding-bottom: var(--fc-pb);
   }

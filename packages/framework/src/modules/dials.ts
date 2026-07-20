@@ -479,6 +479,14 @@ export const CAROUSEL_VIEW_DIAL = ['single', 'peek', 'multi'] as const
 export const CAROUSEL_CONTROLS_DIAL = ['none', 'dots'] as const
 
 /**
+ * Font-weight dial (REQ-79) — the finite set of CSS weight steps, applied directly
+ * as `font-weight`. For block-level text a module renders itself (a footer's nav /
+ * tagline) where the weight is not carried by a per-run styled-text field. A
+ * captured weight (e.g. a light `300` footer) reproduces by picking its step.
+ */
+export const FONT_WEIGHT_DIAL = ['100', '200', '300', '400', '500', '600', '700', '800', '900'] as const
+
+/**
  * Hero divider rule (REQ-36) — a thin horizontal rule between the heading and
  * subhead. `none` (default) renders nothing; `rule` draws a short rule inheriting
  * the surface text colour.
