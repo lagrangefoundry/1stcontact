@@ -7,6 +7,8 @@ export { renderSite } from './render'
 export type { ModuleResolver, RenderSiteOptions } from './render'
 export * from './cli'
 export * from './conformance'
+// L1 round-trip gate (REQ-82) — render/serve/capture an L1 doc + diff vs L1.
+export * from './l1'
 // Re-export the module catalog accessor so consumers (and the conformance
 // self-tests) can reach a real module's contract without a direct framework
 // dependency — the generate package already renders against this catalog.

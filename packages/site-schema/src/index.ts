@@ -11,3 +11,6 @@ export * from './types'
 export * from './schema'
 export { validateSite } from './validate'
 export type { ValidationError, Result } from './validate'
+
+// L1 layout substrate (REQ-82) — the typed element tree + envelope validator.
+export * from './l1'
