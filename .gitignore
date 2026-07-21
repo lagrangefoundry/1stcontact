@@ -144,6 +144,8 @@ Cargo.lock  # Remove this line if project is a binary/application
 # Reference captures (DOC-13 §2.10) — third-party page bundles from `1c capture`.
 # Gitignored: uncommitted third-party material, self-contained for offline re-map.
 /storage/references/
+# Scratch space: repro working files (values-diff JSON, aligned crops). Never committed.
+/storage/tmp/
 
 # ============================================================================
 # Cloudflare Wrangler / Miniflare
