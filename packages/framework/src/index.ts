@@ -24,6 +24,7 @@ export {
   registry,
   getModule,
   getModuleCss,
+  getModuleClientJs,
   contactFormMeta,
   carouselMeta,
   renderMarkdown,

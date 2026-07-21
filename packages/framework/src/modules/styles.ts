@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registry } from './registry'
@@ -60,4 +60,34 @@ export function getModuleCss(): string {
   parts.push(`/* responsive TextRun typography (REQ-70) */\n${responsiveTextCss()}`)
   cache = parts.join('\n\n')
   return cache
+}
+
+let clientJsCache: string | undefined
+
+/**
+ * The combined **client behaviour** for every capability in the catalog (REQ-85).
+ *
+ * A capability module ships fixed, vetted, tested client CODE. `tools/generate`
+ * renders SSR HTML through Astro's container API, which does not bundle island
+ * scripts — so each capability authors a self-contained `client.js` (plain
+ * browser JS, no imports) and this helper folds them into one module, mirroring
+ * how {@link getModuleCss} folds each module's `<style>`. The render pipeline
+ * writes the result to a `capabilities.js` asset and references it once per page;
+ * a capability without a `client.js` simply contributes nothing. Cached — module
+ * sources are immutable at runtime and render output must be deterministic.
+ */
+export function getModuleClientJs(): string {
+  if (clientJsCache !== undefined) return clientJsCache
+  const seen = new Set<string>()
+  const parts: string[] = []
+  for (const { meta } of registry.values()) {
+    if (seen.has(meta.id)) continue
+    seen.add(meta.id)
+    const file = path.join(MODULES_DIR, meta.id, 'client.js')
+    if (!existsSync(file)) continue
+    const js = readFileSync(file, 'utf8').trim()
+    if (js) parts.push(`/* capability: ${meta.id} */\n${js}`)
+  }
+  clientJsCache = parts.join('\n\n')
+  return clientJsCache
 }

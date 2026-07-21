@@ -1,5 +1,5 @@
 export { registry, getModule } from './registry'
-export { getModuleCss } from './styles'
+export { getModuleCss, getModuleClientJs } from './styles'
 export { contactFormMeta } from './contact-form/meta'
 export { carouselMeta } from './carousel/meta'
 export { renderMarkdown, CALLOUT_CSS } from './markdown'

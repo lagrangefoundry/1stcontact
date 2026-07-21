@@ -123,6 +123,28 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     expect(html).toContain('A great experience.')
   })
 
+  it('test_UAT_FC_REQ-85_capability_client_js_ships_and_is_referenced', async () => {
+    cmdNew('acme', { cwd })
+    seedSurvivingModules('acme')
+    const { outDir } = await cmdRender('acme', { cwd })
+
+    // The capabilities' vetted client behaviour ships as one deferred module
+    // asset (the container render omits island JS; the pipeline supplies it).
+    const capsPath = path.join(outDir, 'capabilities.js')
+    expect(existsSync(capsPath)).toBe(true)
+    const capsJs = readFileSync(capsPath, 'utf8')
+    // It carries both capabilities' behaviour, labelled per capability.
+    expect(capsJs).toContain('/* capability: carousel */')
+    expect(capsJs).toContain('/* capability: contact-form */')
+    expect(capsJs).toContain('enhanceAllCarousels')
+    expect(capsJs).toContain('enhanceAllContactForms')
+
+    // The page references it as a deferred module — no dev-path island <script>.
+    const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
+    expect(html).toMatch(/<script type="module" src="\.\/capabilities\.js"><\/script>/)
+    expect(html).not.toMatch(/index\.astro\?astro&type=script/)
+  })
+
   it('test_UAT_FC_REQ-9_publish_creates_locked_revision', async () => {
     cmdNew('acme', { cwd })
     const { id } = await cmdPublish('acme', { cwd, message: 'first', by: 'op', now: '2026-01-01T00:00:00.000Z' })

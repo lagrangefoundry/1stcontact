@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { enhanceContactForm } from '../packages/framework/src/modules/contact-form/enhance'
+import { enhanceContactForm } from '../packages/framework/src/modules/contact-form/client.js'
 
 /**
- * UATs for REQ-5 — the contact-form's progressive-enhancement island
- * (`enhance.ts`). The logic is extracted from the `.astro` `<script>` so it can
- * be exercised against a real DOM (JSDOM) with a mocked `fetch`, independent of
- * the Astro build. The DOM here mirrors the structure the module renders:
+ * UATs for REQ-5 — the contact-form capability's vetted client behaviour
+ * (`client.js`, shipped as `capabilities.js`). Exercised against a real DOM
+ * (JSDOM) with a mocked `fetch`, independent of the Astro build. The DOM here
+ * mirrors the structure the module renders:
  * a `[data-contact-form-root]` wrapping the form, an inline error element, and
  * a `<template data-contact-success>` holding the rendered success markup.
  */

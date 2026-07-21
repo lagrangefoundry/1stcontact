@@ -3,15 +3,17 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { getModule } from '../packages/framework/src/modules/registry'
+import { advanceTrack, enhanceCarousel } from '../packages/framework/src/modules/carousel/client.js'
 
 /**
  * UATs for REQ-85 acceptance `carousel_slots` — the carousel reframed as a
  * capability. Rendered through Astro's container API (the SSR path
  * tools/generate uses). Evidence that: a carousel with L1-authored slides renders
  * (each slide's presentation is a mounted L1 subtree, not module-painted chrome);
- * behavioural `config` drives scroll (`view`) and controls (`dots`); no layout
- * dials remain on the contract; and a malformed slot degrades inertly (isolation)
- * without shipping any client JS (the track is pure CSS scroll-snap, SSR-only).
+ * behavioural `config` drives scroll (`view`/`dots`) and the vetted `autoplay`/
+ * `loop` client behaviour; no layout dials remain on the contract; and a
+ * malformed slot degrades inertly (isolation). The client behaviour ships via the
+ * pipeline's `capabilities.js`, not a per-module island script.
  */
 
 type Container = Awaited<ReturnType<typeof AstroContainer.create>>
@@ -42,7 +44,7 @@ describe('REQ-85 carousel capability — L1 slot slides', () => {
     expect(meta.dials).toBeUndefined()
     expect(meta.variants).toBeUndefined()
     expect(meta.contentSchema).toBeUndefined()
-    expect(Object.keys(carouselMeta.config).sort()).toEqual(['controls', 'view'])
+    expect(Object.keys(carouselMeta.config).sort()).toEqual(['autoplay', 'controls', 'loop', 'view'])
     expect(Object.keys(carouselMeta.slots)).toEqual(['slide'])
   })
 
@@ -72,11 +74,44 @@ describe('REQ-85 carousel capability — L1 slot slides', () => {
     expect(none).not.toMatch(/carousel__dots/)
   })
 
-  it('test_UAT_FC_REQ-85_is_ssr_only_ships_no_client_js', async () => {
-    // The carousel is a pure CSS scroll-snap capability — no island <script>, so
-    // the static build carries no client-JS resource that could fail to load.
-    const html = await render({ config: { view: 'single' }, slots: { slide: slides } })
-    expect(html).not.toMatch(/<script/)
+  it('test_UAT_FC_REQ-85_autoplay_loop_config_surface_as_behaviour_hooks', async () => {
+    // Autoplay/loop are vetted client behaviour; the module marks them with data
+    // attributes its client.js reads. Client JS ships via the pipeline's
+    // capabilities.js, so the module's own output carries no island <script>.
+    const on = await render({ config: { autoplay: true, loop: true }, slots: { slide: slides } })
+    expect(on).toMatch(/data-carousel-autoplay/)
+    expect(on).toMatch(/data-carousel-loop/)
+    expect(on).not.toMatch(/<script/)
+    const off = await render({ config: {}, slots: { slide: slides } })
+    expect(off).not.toMatch(/data-carousel-autoplay/)
+  })
+
+  it('test_UAT_FC_REQ-85_autoplay_client_advances_and_wraps_only_when_loop', () => {
+    // The vetted client algorithm: at the end of the track, advance is a no-op
+    // unless `loop`, in which case it wraps to the start.
+    const scrolls: Array<{ left: number }> = []
+    const track = {
+      clientWidth: 100,
+      scrollWidth: 200,
+      scrollLeft: 100,
+      querySelector: () => ({ getBoundingClientRect: () => ({ width: 100 }) }),
+      scrollBy: (o: { left: number }) => scrolls.push({ left: o.left }),
+      scrollTo: (o: { left: number }) => scrolls.push({ left: o.left }),
+    } as unknown as HTMLElement
+    advanceTrack(track, false)
+    expect(scrolls).toHaveLength(0)
+    advanceTrack(track, true)
+    expect(scrolls).toEqual([{ left: 0 }])
+  })
+
+  it('test_UAT_FC_REQ-85_client_isolation_survives_a_malformed_section', () => {
+    // enhanceCarousel on a section with no track must not throw (degrades to
+    // the no-JS scroll-snap baseline).
+    const bad = {
+      hasAttribute: () => true,
+      querySelector: () => null,
+    } as unknown as HTMLElement
+    expect(() => enhanceCarousel(bad)).not.toThrow()
   })
 
   it('test_UAT_FC_REQ-85_isolation_malformed_slot_content_degrades_without_throwing', async () => {

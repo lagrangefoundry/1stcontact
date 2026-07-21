@@ -4,10 +4,11 @@ import { renderL1Fragment } from '../../l1/render'
 
 /**
  * `carousel` capability (REQ-79, reframed REQ-85). The vetted core owns only
- * behaviour: a pure CSS `scroll-snap` track (swipeable with **no client JS**,
- * per DOC-7's SSR-only rule), per-view slide sizing, and an optional decorative
- * dots row. Each slide's presentation is an **L1 subtree** mounted into the
- * repeated `slide` slot — the module never paints a slide, it wraps L1.
+ * behaviour: a pure CSS `scroll-snap` track (swipeable with no JS), per-view
+ * slide sizing, a decorative dots row, and an optional autoplay/loop wired by the
+ * capability's vetted client code (`client.js`, shipped as `capabilities.js` — no
+ * per-module island script). Each slide's presentation is an **L1 subtree**
+ * mounted into the repeated `slide` slot — the module never paints a slide.
  *
  * Slot CSS is per-instance (geometry/colour vary by slide), so it is emitted as a
  * raw `<style>` in the body — self-closing in source, so `getModuleCss` (which
@@ -25,6 +26,8 @@ const { config = {}, slots = {}, instanceId = 'carousel' } = Astro.props as Prop
 
 const view = typeof config.view === 'string' ? config.view : 'single'
 const controls = config.controls === 'dots' ? 'dots' : 'none'
+const autoplay = config.autoplay === true
+const loop = config.loop === true
 
 // Isolation (REQ-85): malformed slot content must not break the page. Coerce to
 // an array and drop any non-object subtree; the L1 renderer re-checks each value.
@@ -34,7 +37,12 @@ const slideNodes: L1Node[] = Array.isArray(slots.slide)
 const { htmls: slideHtmls, css: slotCss } = renderL1Fragment(slideNodes, `${instanceId}-slide`)
 ---
 
-<section class:list={['carousel', `view-${view}`, `controls-${controls}`]} data-carousel>
+<section
+  class:list={['carousel', `view-${view}`, `controls-${controls}`]}
+  data-carousel
+  data-carousel-autoplay={autoplay ? '' : undefined}
+  data-carousel-loop={loop ? '' : undefined}
+>
   <ul class="carousel__track" role="list">
     {slideHtmls.map((html) => (
       <li class="carousel__slide" data-l1-slot="slide" set:html={html} />

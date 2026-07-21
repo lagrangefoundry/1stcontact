@@ -5,6 +5,7 @@ import {
   generateThemeCss,
   getModule,
   getModuleCss,
+  getModuleClientJs,
 } from '@1stcontact/framework'
 import type { CapabilityDefinition } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
@@ -112,6 +113,9 @@ async function renderPage(
     '  body { margin: 0; font-family: var(--font-family-body); background: var(--color-bg); color: var(--color-text); }',
     '  h1, h2, h3, h4 { font-family: var(--font-family-heading); }',
     '</style>',
+    // Capability client behaviour (REQ-85): one deferred module, emitted only
+    // when a capability ships a `client.js`. Self-wires on load.
+    getModuleClientJs() ? '<script type="module" src="./capabilities.js"></script>' : '',
   ]
     .filter(Boolean)
     .map((line) => `  ${line}`)
@@ -158,6 +162,12 @@ export async function renderSite(
     path.join(outDir, 'theme.css'),
     `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}${extraCss}\n`,
   )
+
+  // capabilities.js = every catalog capability's vetted client behaviour (REQ-85),
+  // folded into one deferred module. Written only when non-empty; the page head
+  // references it only then. Ships the client JS the container render omits.
+  const clientJs = getModuleClientJs()
+  if (clientJs) writeText(path.join(outDir, 'capabilities.js'), `${clientJs}\n`)
 
   const container = await AstroContainer.create()
   const written: string[] = []
