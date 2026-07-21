@@ -9,15 +9,19 @@
  *   - hints             the hint pass reports parent layout mode + sizing unit +
  *                       real `@media` breakpoints for a fixture (real Chromium; skips
  *                       cleanly where the engine is unavailable).
+ *   - adopt_values_gone the pre-L1 `adopt-values` reproduction command (REQ-66) is
+ *                       dissolved: it is neither a valid CLI command nor an exported
+ *                       symbol (the old manifest→site value-adoption path is gone).
  */
 import { createServer, type Server } from 'node:http'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { validateL1 } from '../packages/site-schema/src/index'
 import { foldToL1 } from '../tools/generate/src'
+import * as cli from '../tools/generate/src/cli/index'
 import {
   captureStructuralHints,
   chromiumAvailable,
@@ -279,5 +283,34 @@ describe('REQ-83 — capture to L1 fold + structural hints', () => {
     expect(flexChild?.parentLayout?.justifyContent).toBe('space-between')
     // Authored sizing unit (%) reported for a column.
     expect(hints.nodes.some((n) => n.widthUnit === 'percent')).toBe(true)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    process.exitCode = 0
+  })
+
+  it('test_UAT_FC_REQ-83_adopt_values_command_removed', async () => {
+    // GAP 2: `adopt-values` (REQ-66) was a vestige of the pre-L1 reproduction path
+    // (capture bundle → snap flat Type-A axes into a draft's old-model styled
+    // objects), superseded by the fully-L1 fold (REQ-86). Its removal is total:
+    //
+    //  (a) it is no longer a valid CLI command — dispatch falls through to the
+    //      unknown-command default (exit 1, "Unknown command"), never a handler;
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await cli.run(['adopt-values', 'somesite', '--ref', '/tmp/whatever'])
+    expect(process.exitCode).toBe(1)
+    const msg = stderr.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(msg).toContain('Unknown command: adopt-values')
+
+    //  (b) no `adopt-values` symbol survives on the CLI surface — a dangling export
+    //      would be a build break, so runtime absence proves the strip left no vestige.
+    const surface = cli as Record<string, unknown>
+    for (const sym of ['cmdAdoptValues', 'adoptFlatValues', 'AdoptValuesOptions', 'AdoptChange']) {
+      expect(surface[sym], `${sym} should no longer be exported`).toBeUndefined()
+    }
+    // The surviving REQ-74 gap-inversion sibling is untouched.
+    expect(typeof surface.cmdApplyGapFixes).toBe('function')
+    expect(typeof surface.planGapFixes).toBe('function')
   })
 })
