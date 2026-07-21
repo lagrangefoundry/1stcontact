@@ -210,7 +210,7 @@ function emitNode(node: L1Node, state: RenderState): string {
     case 'slot': {
       // Phase-D seam: an inert, labelled placeholder in B1.
       html = `<div class="${cls}" data-l1-slot="${escapeHtml(node.name)}"${
-        node.capability ? ` data-l1-capability="${escapeHtml(node.capability)}"` : ''
+        node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
       }></div>`
       break
     }
@@ -297,9 +297,9 @@ export interface L1FragmentResult {
 
 /**
  * Render an array of L1 subtrees sharing one selector namespace (REQ-85) — the
- * seam a **capability module** uses to mount its named presentation slots. Every
+ * seam a **behavior module** uses to mount its named presentation slots. Every
  * subtree's classes are drawn from one counter and carry `prefix` (`<prefix>-l1-N`),
- * so multiple mounted fragments — and multiple capability instances on a page —
+ * so multiple mounted fragments — and multiple behavior instances on a page —
  * never collide. The document reset is deliberately *not* emitted (the host page
  * already owns it). Pure; deterministic given `(nodes, prefix)`.
  */

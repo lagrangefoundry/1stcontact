@@ -1,25 +1,25 @@
-import type { CapabilityDefinition } from './capability'
+import type { BehaviorDefinition } from './behavior'
 import ContactForm from './contact-form/index.astro'
 import { contactFormMeta } from './contact-form/meta'
 import Carousel from './carousel/index.astro'
 import { carouselMeta } from './carousel/meta'
 
 /**
- * The capability-module catalog (REQ-85). Since the framework pivot layout is
+ * The behavior-module catalog (REQ-85). Since the framework pivot layout is
  * owned by the L1 substrate (see `l1/render.ts`); the catalog holds only
- * **capability modules** — vetted behavioural cores (a scroll-snap carousel, a
+ * **behavior modules** — vetted behavioural cores (a scroll-snap carousel, a
  * lead-capture form) that mount L1 presentation into their named slots.
  * `tools/generate` discovers modules through this registry; a site definition
  * pins each instance to an `id` + `version` and the generator resolves the
  * component via {@link getModule}.
  */
-const MODULES: CapabilityDefinition[] = [
+const MODULES: BehaviorDefinition[] = [
   { meta: contactFormMeta, Component: ContactForm },
   { meta: carouselMeta, Component: Carousel },
 ]
 
 /** Catalog keyed by `"<id>@<version>"`. */
-export const registry: ReadonlyMap<string, CapabilityDefinition> = new Map(
+export const registry: ReadonlyMap<string, BehaviorDefinition> = new Map(
   MODULES.map((m) => [`${m.meta.id}@${m.meta.version}`, m]),
 )
 
@@ -27,7 +27,7 @@ export const registry: ReadonlyMap<string, CapabilityDefinition> = new Map(
  * Resolve a module by id + version, or throw a clear catalog-miss error naming
  * what was requested and what the catalog contains.
  */
-export function getModule(id: string, version: number): CapabilityDefinition {
+export function getModule(id: string, version: number): BehaviorDefinition {
   const def = registry.get(`${id}@${version}`)
   if (!def) {
     const known = [...registry.keys()].join(', ')

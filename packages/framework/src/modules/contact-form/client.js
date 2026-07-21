@@ -1,5 +1,5 @@
 /**
- * Vetted client behaviour for the `contact-form` capability (REQ-85).
+ * Vetted client behaviour for the `contact-form` behavior (REQ-85).
  *
  * The server-rendered form works with no JavaScript: a real `<form
  * method="post" action=…>` submits by reloading against the endpoint. This

@@ -7,7 +7,7 @@ import {
   getModuleCss,
   getModuleClientJs,
 } from '@1stcontact/framework'
-import type { CapabilityDefinition } from '@1stcontact/framework'
+import type { BehaviorDefinition } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
 import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
@@ -19,7 +19,7 @@ import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
  * broken fixture modules render through this *same* path without polluting the
  * shipping catalog.
  */
-export type ModuleResolver = (type: string, version: number) => CapabilityDefinition
+export type ModuleResolver = (type: string, version: number) => BehaviorDefinition
 
 /** Optional render treatments. All default to the production catalog behaviour. */
 export interface RenderSiteOptions {
@@ -65,7 +65,7 @@ type Container = Awaited<ReturnType<typeof AstroContainer.create>>
 /**
  * Render every module instance on a page, in order, to one HTML fragment. Since
  * the framework pivot (REQ-79/REQ-84) layout is owned by the L1 substrate, so a
- * page here is a plain vertical stack of **capability-module** bands — the old
+ * page here is a plain vertical stack of **behavior-module** bands — the old
  * background/layer/motion/row/overlay-header composition is gone (its helpers
  * were deleted with the semantic layout modules).
  */
@@ -113,8 +113,8 @@ async function renderPage(
     '  body { margin: 0; font-family: var(--font-family-body); background: var(--color-bg); color: var(--color-text); }',
     '  h1, h2, h3, h4 { font-family: var(--font-family-heading); }',
     '</style>',
-    // Capability client behaviour (REQ-85): one deferred module, emitted only
-    // when a capability ships a `client.js`. Self-wires on load.
+    // Behavior client behaviour (REQ-85): one deferred module, emitted only
+    // when a behavior ships a `client.js`. Self-wires on load.
     getModuleClientJs() ? '<script type="module" src="./capabilities.js"></script>' : '',
   ]
     .filter(Boolean)
@@ -163,7 +163,7 @@ export async function renderSite(
     `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}${extraCss}\n`,
   )
 
-  // capabilities.js = every catalog capability's vetted client behaviour (REQ-85),
+  // capabilities.js = every catalog behavior's vetted client behaviour (REQ-85),
   // folded into one deferred module. Written only when non-empty; the page head
   // references it only then. Ships the client JS the container render omits.
   const clientJs = getModuleClientJs()

@@ -1,16 +1,16 @@
 /**
- * Shared per-instance dial enumerations (DOC-7 §4.1) for the **capability
+ * Shared per-instance dial enumerations (DOC-7 §4.1) for the **behavior
  * modules** (carousel, contact-form). Dial values are semantic names; each
  * module's scoped CSS maps them to concrete token references (e.g. the
  * `spacingTop` value `md` resolves to `var(--space-8)`). Centralised here so the
- * capability modules don't drift from one another.
+ * behavior modules don't drift from one another.
  *
  * Since the framework pivot (REQ-79/REQ-84) the semantic *layout* modules and
  * their ~20 layout-only dials (hero height/scrim, header logo, footer layout,
  * text-block panel, services-grid card chrome, …) are gone — layout is owned by
  * the L1 substrate. What remains here is the **shared length/step resolvers**
  * (the absolute-or-overlay seam, REQ-58) plus the small set of structural dials
- * the surviving capability modules still declare.
+ * the surviving behavior modules still declare.
  */
 import { BREAKPOINTS, type Breakpoint } from './breakpoints'
 
@@ -24,7 +24,7 @@ export const SPACING_DIAL = ['none', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'] as co
 
 /**
  * Standard vertical-spacing step overlay — the named steps → space tokens shared
- * by the capability modules (carousel, contact-form). Passed to {@link resolveStep}.
+ * by the behavior modules (carousel, contact-form). Passed to {@link resolveStep}.
  * A literal px (or any length) bypasses the overlay entirely (absolute-or-overlay).
  */
 export const SPACING_STEPS: Record<string, string> = {
@@ -114,7 +114,7 @@ export const CONTAINER_STEPS = {
 } as const
 
 /**
- * Constrained content-column width (REQ-45 capability, REQ-55 scale). Sizes the
+ * Constrained content-column width (REQ-45 behavior, REQ-55 scale). Sizes the
  * content column *within* the section's full-width frame, so the existing `align`
  * dial governs where that column sits. `bleed` (the default) fills the frame; a
  * named step caps the column to the matching `--container-*` token. Off-scale
@@ -290,7 +290,7 @@ export function responsiveContainerWidthVars(
 export const FIELD_LABELS_DIAL = ['above', 'placeholder'] as const
 
 /**
- * Heading letter-case treatment (REQ-36), shared by the capability modules.
+ * Heading letter-case treatment (REQ-36), shared by the behavior modules.
  * `normal` (default) renders the heading as authored; `upper` applies
  * `text-transform: uppercase` at render time. The DOM text node is left
  * **literal** — text-transform is not a report field, so it stays a treatment and

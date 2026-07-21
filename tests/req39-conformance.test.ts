@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CapabilityDefinition } from '@1stcontact/framework'
+import type { BehaviorDefinition } from '@1stcontact/framework'
 import {
   assertModuleConforms,
   ConformanceError,
@@ -35,15 +35,15 @@ const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
 
 // ── the injected test-only catalog of deliberately-broken modules ─────────────
-const brokenMeta = (id: string): CapabilityDefinition['meta'] => ({
+const brokenMeta = (id: string): BehaviorDefinition['meta'] => ({
   id,
   version: 1,
-  kind: 'capability',
+  kind: 'behavior',
   config: {},
   slots: {},
   conformance: { obligations: ['safety'] },
 })
-const BROKEN: Record<string, CapabilityDefinition> = {
+const BROKEN: Record<string, BehaviorDefinition> = {
   'fc-overflow': { meta: brokenMeta('fc-overflow'), Component: Overflow },
   'fc-page-error': { meta: brokenMeta('fc-page-error'), Component: PageError },
   'fc-collapsed': { meta: brokenMeta('fc-collapsed'), Component: Collapsed },

@@ -4,9 +4,9 @@ import ContactForm from '../packages/framework/src/modules/contact-form/index.as
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import {
-  validateCapabilityConfig,
-  validateCapabilitySlots,
-} from '../packages/framework/src/modules/capability'
+  validateBehaviorConfig,
+  validateBehaviorSlots,
+} from '../packages/framework/src/modules/behavior'
 import { getModule } from '../packages/framework/src/modules/registry'
 
 /**
@@ -31,15 +31,15 @@ const textNode = { kind: 'text', text: 'slide' }
 describe('carousel capability — slot bounds', () => {
   it('test_UAT_FC_REQ-5_carousel_rejects_slide_count_outside_1_to_20', () => {
     // The repeated `slide` slot is bounded 1..20 by the capability contract.
-    const tooFew = validateCapabilitySlots(carouselMeta, { slide: [] })
+    const tooFew = validateBehaviorSlots(carouselMeta, { slide: [] })
     expect(tooFew.some((e) => e.field === 'slots.slide' && /at least 1/.test(e.message))).toBe(true)
 
-    const tooMany = validateCapabilitySlots(carouselMeta, {
+    const tooMany = validateBehaviorSlots(carouselMeta, {
       slide: Array.from({ length: 21 }, () => textNode),
     })
     expect(tooMany.some((e) => e.field === 'slots.slide' && /at most 20/.test(e.message))).toBe(true)
 
-    const justRight = validateCapabilitySlots(carouselMeta, {
+    const justRight = validateBehaviorSlots(carouselMeta, {
       slide: Array.from({ length: 3 }, () => textNode),
     })
     expect(justRight).toHaveLength(0)
@@ -102,9 +102,9 @@ describe('contact-form capability', () => {
   })
 
   it('test_UAT_FC_REQ-5_contact_form_field_count_validated_1_to_8', () => {
-    const none = validateCapabilityConfig(contactFormMeta, { action: '/x', fields: [] })
+    const none = validateBehaviorConfig(contactFormMeta, { action: '/x', fields: [] })
     expect(none.some((e) => e.field === 'config.fields')).toBe(true)
-    const nine = validateCapabilityConfig(contactFormMeta, {
+    const nine = validateBehaviorConfig(contactFormMeta, {
       action: '/x',
       fields: Array.from({ length: 9 }, (_, i) => ({
         name: `f${i}`,
@@ -128,7 +128,7 @@ describe('module registry — surviving capability catalog', () => {
     for (const [id, version] of catalog) {
       const def = getModule(id, version)
       expect(def.meta.id).toBe(id)
-      expect(def.meta.kind).toBe('capability')
+      expect(def.meta.kind).toBe('behavior')
       expect(def.Component).toBeTypeOf('function')
     }
   })

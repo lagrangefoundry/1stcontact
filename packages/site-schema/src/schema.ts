@@ -487,7 +487,7 @@ export const moduleInstanceSchema = z
     id: z.string(),
     type: z.string(),
     version: z.number().int().positive(),
-    // ── Capability-module instance (REQ-85) ────────────────────────────────
+    // ── Behavior-module instance (REQ-85) ────────────────────────────────
     // Behavioural, data-only config (how many slides, an endpoint, a field
     // schema) — the closed content-value set, so no raw CSS/HTML smuggles through.
     config: z.record(z.string(), contentValueSchema).optional(),
@@ -496,8 +496,8 @@ export const moduleInstanceSchema = z
     slots: z.record(z.string(), z.union([l1NodeSchema, z.array(l1NodeSchema)])).optional(),
     // ── Pre-pivot reproduction fields ──────────────────────────────────────
     // The capture→dials reproduction engine still emits `variant`/`dials`/
-    // `content`; the reframed capability modules ignore them (REQ-85). Kept
-    // optional so both an old repro instance and a new capability instance
+    // `content`; the reframed behavior modules ignore them (REQ-85). Kept
+    // optional so both an old repro instance and a new behavior instance
     // validate; re-basing reproduction onto L1 is the pivot's separate effort.
     variant: z.string().optional(),
     // A dial value is a string (named step / treatment) OR a number literal —

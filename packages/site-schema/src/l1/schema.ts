@@ -161,16 +161,16 @@ export const l1ImageSchema = z
   .strict()
 
 /**
- * A named presentation slot — the seam where a capability module (payments,
+ * A named presentation slot — the seam where a behavior module (payments,
  * auth, carousel, …) mounts inside an L1 tree (Phase D). In B1 it renders as an
- * empty, labelled placeholder; `capability` records the intended module id.
+ * empty, labelled placeholder; `behavior` records the intended module id.
  */
 export const l1SlotSchema = z
   .object({
     kind: z.literal('slot'),
     id: z.string().optional(),
     name: z.string().min(1),
-    capability: z.string().optional(),
+    behavior: z.string().optional(),
     geometry: l1GeometrySchema.optional(),
     visibility: l1VisibilitySchema.optional(),
   })

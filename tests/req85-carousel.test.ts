@@ -33,7 +33,7 @@ describe('REQ-85 carousel capability — L1 slot slides', () => {
   it('test_UAT_FC_REQ-85_carousel_is_a_capability_in_the_catalog', () => {
     const def = getModule('carousel', 2)
     expect(def.meta.id).toBe('carousel')
-    expect(def.meta.kind).toBe('capability')
+    expect(def.meta.kind).toBe('behavior')
     expect(def.Component).toBeTypeOf('function')
   })
 

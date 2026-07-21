@@ -1,7 +1,7 @@
 /**
- * Vetted client behaviour for the `carousel` capability (REQ-85).
+ * Vetted client behaviour for the `carousel` behavior (REQ-85).
  *
- * A capability module ships fixed, tested behavioural CODE — this is the
+ * A behavior module ships fixed, tested behavioural CODE — this is the
  * carousel's. It is authored as self-contained browser JavaScript (no imports)
  * so the render pipeline can ship it verbatim as a static `capabilities.js`
  * asset; the pure algorithm is unit-tested by importing this module directly.

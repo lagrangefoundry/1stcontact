@@ -3,7 +3,7 @@ import { generateThemeCss, defaultTokens } from '../packages/framework/src/token
 import { registry, getModule } from '../packages/framework/src/modules/registry'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
-import type { CapabilityMeta } from '../packages/framework/src/modules/capability'
+import type { BehaviorMeta } from '../packages/framework/src/modules/behavior'
 
 /**
  * UATs for REQ-4 — @1stcontact/framework theme tokens + module registry.
@@ -96,10 +96,10 @@ describe('@1stcontact/framework module registry', () => {
   })
 
   it('test_UAT_FC_REQ-4_every_module_exports_capability_meta', () => {
-    // Compile-time: each meta satisfies the CapabilityMeta contract (REQ-85).
+    // Compile-time: each meta satisfies the BehaviorMeta contract (REQ-85).
     // Post-pivot the catalog holds only the two surviving capability modules.
-    expectTypeOf(carouselMeta).toMatchTypeOf<CapabilityMeta>()
-    expectTypeOf(contactFormMeta).toMatchTypeOf<CapabilityMeta>()
+    expectTypeOf(carouselMeta).toMatchTypeOf<BehaviorMeta>()
+    expectTypeOf(contactFormMeta).toMatchTypeOf<BehaviorMeta>()
 
     // Runtime: every registered module exposes the full capability contract.
     expect(registry.size).toBe(2)
@@ -107,7 +107,7 @@ describe('@1stcontact/framework module registry', () => {
       const meta = def.meta
       expect(typeof meta.id).toBe('string')
       expect(typeof meta.version).toBe('number')
-      expect(meta.kind).toBe('capability')
+      expect(meta.kind).toBe('behavior')
       // Behavioural config + named L1 slots, no aesthetic dials.
       expect(typeof meta.config).toBe('object')
       expect(typeof meta.slots).toBe('object')

@@ -91,7 +91,7 @@ export interface OneModuleServe {
 /** Build a validated single-module page JSON from a fixture. */
 function oneModulePage(slug: string, fixture: ConformanceFixture, version: number): unknown {
   const p = fixture.props
-  // A capability-module instance (REQ-85): behavioural `config` + named L1 `slots`.
+  // A behavior-module instance (REQ-85): behavioural `config` + named L1 `slots`.
   const instance: Record<string, unknown> = {
     id: 'm0',
     type: slug,
@@ -176,7 +176,7 @@ export async function serveOneModulePage(
  * `responsive` (REQ-41: safety across the viewport ladder + mobile-band tap
  * target / font-floor checks), `x-browser` (REQ-42: Blink/WebKit/Gecko layout
  * equivalence — delegated to {@link assertXBrowserConforms}), or `isolation`
- * (REQ-85: a capability degrades inertly on degenerate config/slots — delegated
+ * (REQ-85: a behavior degrades inertly on degenerate config/slots — delegated
  * to {@link assertIsolationConforms}, render-level, no browser). Throws
  * {@link ConformanceError} on any non-excepted violation. For the browser
  * dimensions on a Chromium-less runner (and only with the default driver) the
@@ -267,7 +267,7 @@ export async function assertModuleConforms(
 }
 
 /**
- * REQ-85 `isolation` dimension — a capability given schema-valid but degenerate
+ * REQ-85 `isolation` dimension — a behavior given schema-valid but degenerate
  * config/slots must **degrade inertly**: render without throwing and still emit a
  * bounded, structurally-intact page. A render that throws (the module crashed the
  * page build) or emits no module band is a violation. Render-level only — reuses

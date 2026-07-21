@@ -4,10 +4,10 @@ import { renderL1Fragment } from '../../l1/render'
 import { assertSafeUrl } from '../safety'
 
 /**
- * `contact-form` capability (reframed REQ-85). The core renders a fully
+ * `contact-form` behavior (reframed REQ-85). The core renders a fully
  * functional, a11y-labelled `<form>` from `config` (action + field schema),
  * with the honeypot + Turnstile anti-spam surface and the no-JS post baseline;
- * `enhance.ts` upgrades it to a JSON `fetch`. Decorative framing — an intro
+ * `client.js` upgrades it to a JSON `fetch`. Decorative framing — an intro
  * heading/subhead, the submit button's look — is authored as L1 and mounted into
  * the `intro` / `submit` slots (never painted by the module).
  */

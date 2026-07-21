@@ -52,12 +52,12 @@ Since the framework pivot (REQ-79 / REQ-84) there are two distinct kinds of "gap
 
 **Layout / presentation gaps → add a typed L1 primitive.** Layout is owned by the **L1 substrate** (`packages/framework/src/l1`, DOC-23) — a single, low-level, CSS-faithful typed element tree. The old semantic *layout* modules (header/hero/footer/text-block/services-grid/layer) are gone; there is no `hero` to add a dial to. When a design cannot yet be expressed, the fix is to **add a typed axis/primitive to L1** (never a raw-CSS hole, never a new "layout module"). The expressive ceiling rises without limit while the security/reliability wall stays put (DOC-24, DOC-2).
 
-**Capability gaps → configure an existing capability module before authoring a new one.** A **module** now means a *capability* — a vetted behavioural core + typed config + named L1 presentation slots (carousel, contact-form; later payments, auth, email-capture, scroll-animation). The AI *configures* a capability; it never writes its code inline. When a capability gap appears:
-- Does it fit an existing capability's purpose? → add a **dial / variant / content field** to that capability module (e.g. a new `carousel` view mode, a new `contact-form` field-labelling mode).
-- Is it a shared length/step/colour concern? → extend a **shared resolver** in `modules/dials.ts` or `text-style.ts` (the absolute-or-overlay seam), reused by every capability.
-- Only if it is a genuinely new *kind of behaviour* with its own core → a **new capability module** (last resort, highest bar; hardened by XGD before publish).
+**Capability gaps → configure an existing behavior module before authoring a new one.** A **module** now means a *behavior module* — a vetted behavioral core + typed config + named L1 presentation slots (carousel, contact-form; later payments, auth, email-capture, scroll-animation). The AI *configures* a behavior module; it never writes its code inline. When a capability gap appears:
+- Does it fit an existing behavior module's purpose? → add a **dial / variant / content field** to that behavior module (e.g. a new `carousel` view mode, a new `contact-form` field-labelling mode).
+- Is it a shared length/step/colour concern? → extend a **shared resolver** in `modules/dials.ts` or `text-style.ts` (the absolute-or-overlay seam), reused by every behavior module.
+- Only if it is a genuinely new *kind of behavior* with its own core → a **new behavior module** (last resort, highest bar; hardened by XGD before publish).
 
-**Why**: layout capability belongs in the one L1 primitive, not scattered across bespoke modules; capability behaviour belongs on a small, well-understood, composable set of capability modules. Both keep related capability in one place, reusable by every site. See DOC-23 (L1), DOC-24 (framework purpose = safety envelope), DOC-2 (security policy); DOC-14 (the old two-tier *layout*-module lifecycle) is superseded by the capability-module contract.
+**Why**: layout capability belongs in the one L1 primitive, not scattered across bespoke modules; behavior belongs on a small, well-understood, composable set of behavior modules. Both keep related capability in one place, reusable by every site. See DOC-23 (L1), DOC-24 (framework purpose = safety envelope), DOC-2 (security policy); DOC-14 (the old two-tier *layout*-module lifecycle) is superseded by the behavior-module contract.
 
 ## ⚠️ CRITICAL: Failure vs Error Taxonomy (Workflow Outcomes)
 

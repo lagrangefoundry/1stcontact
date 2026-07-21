@@ -134,8 +134,8 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     expect(existsSync(capsPath)).toBe(true)
     const capsJs = readFileSync(capsPath, 'utf8')
     // It carries both capabilities' behaviour, labelled per capability.
-    expect(capsJs).toContain('/* capability: carousel */')
-    expect(capsJs).toContain('/* capability: contact-form */')
+    expect(capsJs).toContain('/* behavior: carousel */')
+    expect(capsJs).toContain('/* behavior: contact-form */')
     expect(capsJs).toContain('enhanceAllCarousels')
     expect(capsJs).toContain('enhanceAllContactForms')
 

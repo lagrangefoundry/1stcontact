@@ -29,9 +29,9 @@ export type ConformanceDimension =
   | 'security'
   | 'x-browser'
   | 'responsive'
-  // REQ-85 — a capability given schema-valid but degenerate config/slots must
+  // REQ-85 — a behavior given schema-valid but degenerate config/slots must
   // degrade inertly (render without throwing, page structurally intact), so a
-  // misbehaving capability can never break page-level robustness. Render-level,
+  // misbehaving behavior can never break page-level robustness. Render-level,
   // needs no browser.
   | 'isolation'
 export type ConformanceTier = 'fast' | 'full'

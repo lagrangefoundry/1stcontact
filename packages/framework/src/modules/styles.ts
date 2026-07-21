@@ -14,8 +14,8 @@ import { responsiveTextCss } from './text-style'
  * restores REQ-6's `loadModuleStyles` step: it reads each catalogued module's
  * `index.astro` and folds its raw `<style>` content into the generated CSS.
  *
- * The modules' selectors are plain (`.hero`, `.header__inner`,
- * `.hero.surface-accent`), matching the plain class attributes the container
+ * The modules' selectors are plain (`.carousel__track`, `.contact-form__field`),
+ * matching the plain class attributes the container
  * render emits — so raw extraction lines up with no scope rewriting. The
  * `<style>` blocks are the single source of truth for module CSS; nothing is
  * duplicated here.
@@ -65,15 +65,15 @@ export function getModuleCss(): string {
 let clientJsCache: string | undefined
 
 /**
- * The combined **client behaviour** for every capability in the catalog (REQ-85).
+ * The combined **client behaviour** for every behavior in the catalog (REQ-85).
  *
- * A capability module ships fixed, vetted, tested client CODE. `tools/generate`
+ * A behavior module ships fixed, vetted, tested client CODE. `tools/generate`
  * renders SSR HTML through Astro's container API, which does not bundle island
- * scripts — so each capability authors a self-contained `client.js` (plain
+ * scripts — so each behavior authors a self-contained `client.js` (plain
  * browser JS, no imports) and this helper folds them into one module, mirroring
  * how {@link getModuleCss} folds each module's `<style>`. The render pipeline
  * writes the result to a `capabilities.js` asset and references it once per page;
- * a capability without a `client.js` simply contributes nothing. Cached — module
+ * a behavior without a `client.js` simply contributes nothing. Cached — module
  * sources are immutable at runtime and render output must be deterministic.
  */
 export function getModuleClientJs(): string {
@@ -86,7 +86,7 @@ export function getModuleClientJs(): string {
     const file = path.join(MODULES_DIR, meta.id, 'client.js')
     if (!existsSync(file)) continue
     const js = readFileSync(file, 'utf8').trim()
-    if (js) parts.push(`/* capability: ${meta.id} */\n${js}`)
+    if (js) parts.push(`/* behavior: ${meta.id} */\n${js}`)
   }
   clientJsCache = parts.join('\n\n')
   return clientJsCache

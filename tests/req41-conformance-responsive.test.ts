@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CapabilityDefinition } from '@1stcontact/framework'
+import type { BehaviorDefinition } from '@1stcontact/framework'
 import {
   assertModuleConforms,
   ConformanceError,
@@ -34,15 +34,15 @@ const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
 
 // ── the injected test-only catalog of responsive fixtures ─────────────────────
-const brokenMeta = (id: string): CapabilityDefinition['meta'] => ({
+const brokenMeta = (id: string): BehaviorDefinition['meta'] => ({
   id,
   version: 1,
-  kind: 'capability',
+  kind: 'behavior',
   config: {},
   slots: {},
   conformance: { obligations: ['responsive'] },
 })
-const FIXTURES: Record<string, CapabilityDefinition> = {
+const FIXTURES: Record<string, BehaviorDefinition> = {
   'fc-mobile-overflow': { meta: brokenMeta('fc-mobile-overflow'), Component: MobileOverflow },
   'fc-small-tap-target': { meta: brokenMeta('fc-small-tap-target'), Component: SmallTapTarget },
   'fc-small-font': { meta: brokenMeta('fc-small-font'), Component: SmallFont },

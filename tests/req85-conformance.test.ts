@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CapabilityDefinition } from '@1stcontact/framework'
+import type { BehaviorDefinition } from '@1stcontact/framework'
 import {
   assertModuleConforms,
   ConformanceError,
@@ -25,10 +25,10 @@ const carouselMeta = getModule('carousel', 2).meta
 const contactFormMeta = getModule('contact-form', 3).meta
 
 // A test-only catalog entry whose core throws during SSR (non-isolated).
-const brokenIsolation = (id: string): CapabilityDefinition['meta'] => ({
+const brokenIsolation = (id: string): BehaviorDefinition['meta'] => ({
   id,
   version: 1,
-  kind: 'capability',
+  kind: 'behavior',
   config: {},
   slots: {},
   conformance: { obligations: ['isolation'] },

@@ -1,11 +1,11 @@
-import type { CapabilityMeta } from '../capability'
+import type { BehaviorMeta } from '../behavior'
 
 /**
- * `contact-form` (reframed to a capability by REQ-85) — a lead-capture form. The
+ * `contact-form` (reframed to a behavior by REQ-85) — a lead-capture form. The
  * vetted core keeps everything behavioural: the field schema, a11y-labelled
  * functional controls, the honeypot + Turnstile anti-spam surface, the no-JS
  * `<form method=post>` baseline, and the JSON-`fetch` progressive enhancement
- * (`enhance.ts`). What used to be aesthetic dials (surface, spacing, alignment,
+ * (`client.js`). What used to be aesthetic dials (surface, spacing, alignment,
  * width, submit treatment/colour/inline, field labelling/border/radius) is gone:
  * decorative framing (an intro heading/subhead, the submit button's look) is
  * authored as L1 and mounted into the `intro` / `submit` slots.
@@ -17,7 +17,7 @@ import type { CapabilityMeta } from '../capability'
 export const contactFormMeta = {
   id: 'contact-form',
   version: 3,
-  kind: 'capability',
+  kind: 'behavior',
   config: {
     // Submission endpoint — the no-JS form action and the fetch() target.
     action: { type: 'url', required: true },
@@ -46,4 +46,4 @@ export const contactFormMeta = {
   conformance: {
     obligations: ['safety', 'security', 'x-browser', 'responsive', 'isolation'],
   },
-} as const satisfies CapabilityMeta
+} as const satisfies BehaviorMeta

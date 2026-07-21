@@ -47,20 +47,20 @@ export type {
   ContentFieldType,
 } from './types'
 export {
-  validateCapabilityConfig,
-  validateCapabilitySlots,
-  validateCapabilityInstance,
-} from './capability'
+  validateBehaviorConfig,
+  validateBehaviorSlots,
+  validateBehaviorInstance,
+} from './behavior'
 export type {
-  CapabilityMeta,
-  CapabilityConfigSpec,
-  CapabilityConfigType,
-  CapabilitySlotSpec,
-  CapabilitySlotValue,
-  CapabilityInstance,
-  CapabilityDefinition,
-  CapabilityConformance,
+  BehaviorMeta,
+  BehaviorConfigSpec,
+  BehaviorConfigType,
+  BehaviorSlotSpec,
+  BehaviorSlotValue,
+  BehaviorInstance,
+  BehaviorDefinition,
+  BehaviorConformance,
   ConformanceObligation,
-  CapabilityValidationError,
-  AssertCapabilityMeta,
-} from './capability'
+  BehaviorValidationError,
+  AssertBehaviorMeta,
+} from './behavior'

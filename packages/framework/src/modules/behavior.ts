@@ -2,9 +2,9 @@ import type { AstroComponentFactory } from 'astro/runtime/server/index.js'
 import { l1NodeSchema, type L1Node } from '@1stcontact/site-schema'
 
 /**
- * The **capability-module contract** (REQ-85). Since the framework pivot
+ * The **behavior-module contract** (REQ-85). Since the framework pivot
  * (REQ-79/REQ-84) layout is owned by the L1 substrate, so a module is no longer
- * a bundle of aesthetic dials — it is a **capability**: a vetted behavioural core
+ * a bundle of aesthetic dials — it is a **behavior**: a vetted behavioural core
  * (framework code the AI never writes) exposing
  *
  *  - `config` — typed **behavioural / integration** parameters (how many slides
@@ -13,8 +13,8 @@ import { l1NodeSchema, type L1Node } from '@1stcontact/site-schema'
  *    subtree per slot (a `repeated` slot takes an array — one subtree per item);
  *    the core mounts each into its behavioural chrome. Presentation is 100% L1,
  *    inside the validated L1 security envelope — the module owns zero raw markup.
- *  - `conformance` — the universal ACs (DOC-20) the capability must satisfy,
- *    plus **isolation**: a misbehaving capability must degrade inertly, never
+ *  - `conformance` — the universal ACs (DOC-20) the behavior must satisfy,
+ *    plus **isolation**: a misbehaving behavior must degrade inertly, never
  *    breaking page-level robustness.
  *
  * This deliberately replaces the pre-pivot `ModuleMeta` (variants + aesthetic
@@ -22,7 +22,7 @@ import { l1NodeSchema, type L1Node } from '@1stcontact/site-schema'
  */
 
 /** The kind of a behavioural config field (never an aesthetic axis). */
-export type CapabilityConfigType =
+export type BehaviorConfigType =
   | 'boolean'
   | 'integer'
   | 'enum'
@@ -31,8 +31,8 @@ export type CapabilityConfigType =
   | 'list'
 
 /** One config field's contract. */
-export interface CapabilityConfigSpec {
-  type: CapabilityConfigType
+export interface BehaviorConfigSpec {
+  type: BehaviorConfigType
   required: boolean
   /** Closed value set for an `enum` field (a value outside it is a violation). */
   values?: readonly string[]
@@ -43,13 +43,13 @@ export interface CapabilityConfigSpec {
   minItems?: number
   maxItems?: number
   /** Per-item field contract for a `list` of objects (recursed to any depth). */
-  itemSchema?: Record<string, CapabilityConfigSpec>
+  itemSchema?: Record<string, BehaviorConfigSpec>
   /** Value applied when the field is omitted (documents the core's fallback). */
   default?: boolean | number | string
 }
 
-/** A named L1 presentation slot the capability mounts into its chrome. */
-export interface CapabilitySlotSpec {
+/** A named L1 presentation slot the behavior mounts into its chrome. */
+export interface BehaviorSlotSpec {
   /**
    * A `repeated` slot takes an **array** of L1 subtrees (one per item — carousel
    * slides, form fields); a non-repeated slot takes a single subtree (a heading,
@@ -62,7 +62,7 @@ export interface CapabilitySlotSpec {
   maxItems?: number
 }
 
-/** A universal-AC obligation (DOC-20) plus capability `isolation`. */
+/** A universal-AC obligation (DOC-20) plus behavior `isolation`. */
 export type ConformanceObligation =
   | 'safety'
   | 'security'
@@ -70,49 +70,49 @@ export type ConformanceObligation =
   | 'responsive'
   | 'isolation'
 
-export interface CapabilityConformance {
-  /** The ACs this capability is obliged to satisfy. */
+export interface BehaviorConformance {
+  /** The ACs this behavior is obliged to satisfy. */
   obligations: readonly ConformanceObligation[]
   /** AC ids legitimately opted out of, each with a declared reason. */
   except?: Record<string, string>
 }
 
-/** The full capability contract, exported as `capabilityMeta` from each module. */
-export interface CapabilityMeta {
+/** The full behavior contract, exported as `behaviorMeta` from each module. */
+export interface BehaviorMeta {
   /** Stable identifier, never renamed. */
   id: string
   /** Monotonically incremented on a breaking contract change. */
   version: number
-  /** Discriminant — a capability module, not a pre-pivot layout module. */
-  kind: 'capability'
+  /** Discriminant — a behavior module, not a pre-pivot layout module. */
+  kind: 'behavior'
   /** Per-field behavioural config contract. */
-  config: Record<string, CapabilityConfigSpec>
+  config: Record<string, BehaviorConfigSpec>
   /** Per-slot named-L1-presentation contract. */
-  slots: Record<string, CapabilitySlotSpec>
+  slots: Record<string, BehaviorSlotSpec>
   /** Conformance obligations + isolation. */
-  conformance: CapabilityConformance
+  conformance: BehaviorConformance
 }
 
-/** A capability instance's presentation: an L1 subtree, or an array for a repeated slot. */
-export type CapabilitySlotValue = L1Node | L1Node[]
+/** A behavior instance's presentation: an L1 subtree, or an array for a repeated slot. */
+export type BehaviorSlotValue = L1Node | L1Node[]
 
-/** A capability instance's runtime fields (minus `id`/`type`/`version`). */
-export interface CapabilityInstance {
+/** A behavior instance's runtime fields (minus `id`/`type`/`version`). */
+export interface BehaviorInstance {
   config: Record<string, unknown>
-  slots: Record<string, CapabilitySlotValue>
+  slots: Record<string, BehaviorSlotValue>
 }
 
-/** A registry entry: a capability's contract paired with its renderable component. */
-export interface CapabilityDefinition {
-  meta: CapabilityMeta
+/** A registry entry: a behavior's contract paired with its renderable component. */
+export interface BehaviorDefinition {
+  meta: BehaviorMeta
   Component: AstroComponentFactory
 }
 
-/** Compile-time assertion: a module's `meta` must satisfy {@link CapabilityMeta}. */
-export type AssertCapabilityMeta<T extends CapabilityMeta> = T
+/** Compile-time assertion: a module's `meta` must satisfy {@link BehaviorMeta}. */
+export type AssertBehaviorMeta<T extends BehaviorMeta> = T
 
-/** A single capability-contract violation (mirrors the content-validator shape). */
-export interface CapabilityValidationError {
+/** A single behavior-contract violation (mirrors the content-validator shape). */
+export interface BehaviorValidationError {
   /** The offending config field or slot name (`config.<name>` / `slots.<name>`). */
   field: string
   /** Human-readable explanation. */
@@ -126,9 +126,9 @@ function isMissing(value: unknown): boolean {
 /** Validate one config value against its field spec, appending any violations. */
 function validateConfigField(
   path: string,
-  spec: CapabilityConfigSpec,
+  spec: BehaviorConfigSpec,
   value: unknown,
-  errors: CapabilityValidationError[],
+  errors: BehaviorValidationError[],
 ): void {
   if (isMissing(value)) {
     if (spec.required) errors.push({ field: path, message: `required config '${path}' is missing` })
@@ -186,12 +186,12 @@ function validateConfigField(
   }
 }
 
-/** Validate a capability instance's `config` against `meta.config`. */
-export function validateCapabilityConfig(
-  meta: CapabilityMeta,
+/** Validate a behavior instance's `config` against `meta.config`. */
+export function validateBehaviorConfig(
+  meta: BehaviorMeta,
   config: Record<string, unknown> | undefined,
-): CapabilityValidationError[] {
-  const errors: CapabilityValidationError[] = []
+): BehaviorValidationError[] {
+  const errors: BehaviorValidationError[] = []
   const c = config ?? {}
   for (const [name, spec] of Object.entries(meta.config)) {
     validateConfigField(`config.${name}`, spec, c[name], errors)
@@ -200,22 +200,22 @@ export function validateCapabilityConfig(
 }
 
 /** Every subtree of a slot value, whether single or repeated. */
-function slotSubtrees(value: CapabilitySlotValue | undefined): L1Node[] {
+function slotSubtrees(value: BehaviorSlotValue | undefined): L1Node[] {
   if (value === undefined) return []
   return Array.isArray(value) ? value : [value]
 }
 
 /**
- * Validate a capability instance's `slots` against `meta.slots`: every required
+ * Validate a behavior instance's `slots` against `meta.slots`: every required
  * slot is present, a repeated slot's item count is within bounds, and — the
  * security line — every supplied subtree parses as a valid L1 node, so slot
  * content can never smuggle raw markup past the L1 envelope.
  */
-export function validateCapabilitySlots(
-  meta: CapabilityMeta,
-  slots: Record<string, CapabilitySlotValue> | undefined,
-): CapabilityValidationError[] {
-  const errors: CapabilityValidationError[] = []
+export function validateBehaviorSlots(
+  meta: BehaviorMeta,
+  slots: Record<string, BehaviorSlotValue> | undefined,
+): BehaviorValidationError[] {
+  const errors: BehaviorValidationError[] = []
   const s = slots ?? {}
   for (const [name, spec] of Object.entries(meta.slots)) {
     const path = `slots.${name}`
@@ -248,13 +248,13 @@ export function validateCapabilitySlots(
   return errors
 }
 
-/** Validate a whole capability instance (`config` + `slots`) against its contract. */
-export function validateCapabilityInstance(
-  meta: CapabilityMeta,
-  instance: Partial<CapabilityInstance>,
-): CapabilityValidationError[] {
+/** Validate a whole behavior instance (`config` + `slots`) against its contract. */
+export function validateBehaviorInstance(
+  meta: BehaviorMeta,
+  instance: Partial<BehaviorInstance>,
+): BehaviorValidationError[] {
   return [
-    ...validateCapabilityConfig(meta, instance.config),
-    ...validateCapabilitySlots(meta, instance.slots),
+    ...validateBehaviorConfig(meta, instance.config),
+    ...validateBehaviorSlots(meta, instance.slots),
   ]
 }
