@@ -24,7 +24,16 @@ export interface ConformanceFixture {
   props: Record<string, unknown>
 }
 
-export type ConformanceDimension = 'safety' | 'security' | 'x-browser' | 'responsive'
+export type ConformanceDimension =
+  | 'safety'
+  | 'security'
+  | 'x-browser'
+  | 'responsive'
+  // REQ-85 — a capability given schema-valid but degenerate config/slots must
+  // degrade inertly (render without throwing, page structurally intact), so a
+  // misbehaving capability can never break page-level robustness. Render-level,
+  // needs no browser.
+  | 'isolation'
 export type ConformanceTier = 'fast' | 'full'
 export type ConformanceEngine = 'chromium' | 'webkit' | 'firefox'
 

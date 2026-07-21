@@ -174,11 +174,14 @@ export async function serveOneModulePage(
  * requested {@link ConformanceOptions.dimension} — `safety` (default),
  * `security` (REQ-40: content-injection inert + no off-allowlist egress),
  * `responsive` (REQ-41: safety across the viewport ladder + mobile-band tap
- * target / font-floor checks), or `x-browser` (REQ-42: Blink/WebKit/Gecko
- * layout equivalence — delegated to {@link assertXBrowserConforms}). Throws
- * {@link ConformanceError} on any non-excepted violation. On a Chromium-less
- * runner (and only with the default driver) the check is advisory and returns
- * cleanly — the leaf is a no-op rather than a hard failure (DOC-20).
+ * target / font-floor checks), `x-browser` (REQ-42: Blink/WebKit/Gecko layout
+ * equivalence — delegated to {@link assertXBrowserConforms}), or `isolation`
+ * (REQ-85: a capability degrades inertly on degenerate config/slots — delegated
+ * to {@link assertIsolationConforms}, render-level, no browser). Throws
+ * {@link ConformanceError} on any non-excepted violation. For the browser
+ * dimensions on a Chromium-less runner (and only with the default driver) the
+ * check is advisory and returns cleanly — the leaf is a no-op rather than a hard
+ * failure (DOC-20); `isolation` always runs.
  */
 export async function assertModuleConforms(
   slug: string,
@@ -187,6 +190,10 @@ export async function assertModuleConforms(
 ): Promise<void> {
   if (opts.dimension === 'x-browser') {
     await assertXBrowserConforms(slug, fixtures, opts)
+    return
+  }
+  if (opts.dimension === 'isolation') {
+    await assertIsolationConforms(slug, fixtures, opts)
     return
   }
   const factory: BrowserDriverFactory = opts.driverFactory ?? createPlaywrightDriver
@@ -256,6 +263,58 @@ export async function assertModuleConforms(
   }
 
   const active = allViolations.filter((v) => !except.includes(v.ac))
+  if (active.length > 0) throw new ConformanceError(active)
+}
+
+/**
+ * REQ-85 `isolation` dimension — a capability given schema-valid but degenerate
+ * config/slots must **degrade inertly**: render without throwing and still emit a
+ * bounded, structurally-intact page. A render that throws (the module crashed the
+ * page build) or emits no module band is a violation. Render-level only — reuses
+ * the one-module serve, so it runs with no browser and always executes.
+ *
+ * Fixtures are the module's own hostile-but-safe inputs (wrong-typed config, a
+ * null slide, a missing optional slot) — NOT security payloads: a module that
+ * *fails loud* on an unsafe URL (REQ-46/security) is correct there, so isolation
+ * fixtures deliberately avoid unsafe schemes.
+ */
+async function assertIsolationConforms(
+  slug: string,
+  fixtures: ConformanceFixture[],
+  opts: ConformanceOptions,
+): Promise<void> {
+  const except = opts.except ?? []
+  const violations: ConformanceViolation[] = []
+  for (const fixture of fixtures) {
+    let served: OneModuleServe
+    try {
+      served = await serveOneModulePage(slug, fixture, opts)
+    } catch (err) {
+      // The module threw during render → it can break page-level robustness.
+      violations.push({
+        fixture: fixture.label,
+        viewport: 'ssr',
+        ac: 'isolation.render-throws',
+        message: `render threw on degenerate input: ${(err as Error).message}`,
+      })
+      continue
+    }
+    try {
+      const html = await fetch(served.handle.url).then((r) => r.text())
+      // A structurally-intact page still carries the module's own section band.
+      if (!/<section/.test(html)) {
+        violations.push({
+          fixture: fixture.label,
+          viewport: 'ssr',
+          ac: 'isolation.empty-render',
+          message: 'module emitted no section band (degenerate input collapsed the page)',
+        })
+      }
+    } finally {
+      await served.dispose({ keepRoot: false })
+    }
+  }
+  const active = violations.filter((v) => !except.includes(v.ac))
   if (active.length > 0) throw new ConformanceError(active)
 }
 

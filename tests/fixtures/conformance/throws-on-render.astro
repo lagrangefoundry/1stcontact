@@ -1,0 +1,7 @@
+---
+// A deliberately non-isolated capability: its core throws during SSR, crashing
+// the page build. The REQ-85 `isolation` dimension must flag this as
+// `isolation.render-throws` — proof the check is not a no-op.
+throw new Error('capability core crashed during render')
+---
+<section>unreachable</section>
