@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ModuleDefinition } from '@1stcontact/framework'
+import type { CapabilityDefinition } from '@1stcontact/framework'
 import {
   assertModuleConforms,
   buildBenignContent,
@@ -11,7 +11,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 1).meta
+const carouselMeta = getModule('carousel', 2).meta
 import XssUrl from './fixtures/conformance/xss-url.astro'
 import XssHandler from './fixtures/conformance/xss-handler.astro'
 import CssBreakout from './fixtures/conformance/css-breakout.astro'
@@ -38,14 +38,15 @@ const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
 
 // ── the injected test-only catalog of deliberately-unsafe modules ─────────────
-const brokenMeta = (id: string): ModuleDefinition['meta'] => ({
+const brokenMeta = (id: string): CapabilityDefinition['meta'] => ({
   id,
   version: 1,
-  variants: [],
-  dials: {},
-  contentSchema: {},
+  kind: 'capability',
+  config: {},
+  slots: {},
+  conformance: { obligations: ['security'] },
 })
-const BROKEN: Record<string, ModuleDefinition> = {
+const BROKEN: Record<string, CapabilityDefinition> = {
   'fc-xss-url': { meta: brokenMeta('fc-xss-url'), Component: XssUrl },
   'fc-xss-handler': { meta: brokenMeta('fc-xss-handler'), Component: XssHandler },
   'fc-css-breakout': { meta: brokenMeta('fc-css-breakout'), Component: CssBreakout },
@@ -122,7 +123,7 @@ describe('Conformance harness security dimension (REQ-40)', () => {
     // security violation — the detector does not false-positive.
     const benign: ConformanceFixture = {
       label: 'carousel-benign',
-      props: { version: 1, variant: carouselMeta.variants[0], content: buildBenignContent(carouselMeta) },
+      props: { version: carouselMeta.version, ...buildBenignContent(carouselMeta) },
     }
     await expect(assertModuleConforms('carousel', [benign], SECURITY)).resolves.toBeUndefined()
   }, 120000)

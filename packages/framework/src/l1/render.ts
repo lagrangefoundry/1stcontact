@@ -151,10 +151,12 @@ function geometryRules(selector: string, geo: L1Geometry): Rule[] {
 interface RenderState {
   n: number
   rules: Rule[]
+  /** Class-name namespace so mounted fragments/instances never collide (REQ-85). */
+  prefix?: string
 }
 
 function emitNode(node: L1Node, state: RenderState): string {
-  const cls = `l1-${state.n++}`
+  const cls = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
   const selector = `.${cls}`
   const base: string[] = []
 
@@ -284,6 +286,27 @@ export function renderL1Document(doc: L1Document): L1RenderResult {
   if (bg) reset.push(`body { background-color: ${bg} }`)
   const css = [reset.join('\n'), serializeRules(state.rules)].join('\n')
   return { html: body, css }
+}
+
+export interface L1FragmentResult {
+  /** One HTML string per input subtree, in order. */
+  htmls: string[]
+  /** Combined CSS for all subtrees (selectors unique across the fragment). */
+  css: string
+}
+
+/**
+ * Render an array of L1 subtrees sharing one selector namespace (REQ-85) — the
+ * seam a **capability module** uses to mount its named presentation slots. Every
+ * subtree's classes are drawn from one counter and carry `prefix` (`<prefix>-l1-N`),
+ * so multiple mounted fragments — and multiple capability instances on a page —
+ * never collide. The document reset is deliberately *not* emitted (the host page
+ * already owns it). Pure; deterministic given `(nodes, prefix)`.
+ */
+export function renderL1Fragment(nodes: L1Node[], prefix = 'fc'): L1FragmentResult {
+  const state: RenderState = { n: 0, rules: [], prefix }
+  const htmls = nodes.map((node) => emitNode(node, state))
+  return { htmls, css: serializeRules(state.rules) }
 }
 
 /** Render an L1 document to a complete, standalone HTML page. */

@@ -1,8 +1,4 @@
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import {
   responsiveStepVars,
   isResponsiveValue,
@@ -86,56 +82,3 @@ describe('REQ-61 — responsiveDialValueSchema accepts the per-breakpoint shape'
   })
 })
 
-// ── end-to-end through a real module ─────────────────────────────────────────
-
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(Component: unknown, props: unknown): Promise<string> {
-  container ??= await AstroContainer.create()
-  return container.renderToString(Component as Parameters<Container['renderToString']>[0], {
-    props: props as Record<string, unknown>,
-  })
-}
-
-const CAROUSEL_CONTENT = { items: [{ body: 'A quote.' }] }
-
-describe('REQ-61 — carousel spacing honours per-breakpoint dials', () => {
-  it('test_UAT_FC_REQ-61_carousel_emits_per_breakpoint_spacing_vars', async () => {
-    const html = await render(Carousel, {
-      dials: { spacingTop: { base: 24, md: 64 }, spacingBottom: 24 },
-      content: CAROUSEL_CONTENT,
-    })
-    // Base + the md override emitted inline for spacingTop.
-    expect(html).toContain('--fc-pt: 24px')
-    expect(html).toContain('--fc-pt-md: 64px')
-    // spacingBottom is scalar → only the base var, no `-<bp>` noise.
-    expect(html).toContain('--fc-pb: 24px')
-    expect(html).not.toContain('--fc-pb-md')
-  })
-
-  it('test_UAT_FC_REQ-61_carousel_css_has_scoped_override_chain', () => {
-    // The scoped `<style>` is hoisted (not in renderToString output), so lock the
-    // hand-written media queries against drift by reading the module source — they
-    // must match the ./breakpoints override-and-up chain for both paddings.
-    const src = readFileSync(
-      fileURLToPath(new URL('../packages/framework/src/modules/carousel/index.astro', import.meta.url)),
-      'utf8',
-    )
-    expect(src).toContain('@media (min-width: 640px) { .carousel { padding-top: var(--fc-pt-sm, var(--fc-pt));')
-    expect(src).toContain('padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))')
-    expect(src).toContain(
-      'padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))))',
-    )
-  })
-
-  it('test_UAT_FC_REQ-61_carousel_scalar_spacing_unchanged', async () => {
-    // Backward compatibility: a scalar spacing dial emits exactly the base var.
-    const html = await render(Carousel, {
-      dials: { spacingTop: 'lg' },
-      content: CAROUSEL_CONTENT,
-    })
-    expect(html).toContain(`--fc-pt: ${SPACING_STEPS.lg}`)
-    expect(html).not.toContain('--fc-pt-sm')
-    expect(html).not.toContain('--fc-pt-md')
-  })
-})

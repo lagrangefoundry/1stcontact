@@ -3,7 +3,7 @@ import { generateThemeCss, defaultTokens } from '../packages/framework/src/token
 import { registry, getModule } from '../packages/framework/src/modules/registry'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
-import type { ModuleMeta } from '../packages/framework/src/modules/types'
+import type { CapabilityMeta } from '../packages/framework/src/modules/capability'
 
 /**
  * UATs for REQ-4 — @1stcontact/framework theme tokens + module registry.
@@ -83,9 +83,9 @@ describe('@1stcontact/framework theme tokens', () => {
 
 describe('@1stcontact/framework module registry', () => {
   it('test_UAT_FC_REQ-4_registry_resolves_known_module', () => {
-    const def = getModule('carousel', 1)
+    const def = getModule('carousel', 2)
     expect(def.meta.id).toBe('carousel')
-    expect(def.meta.version).toBe(1)
+    expect(def.meta.version).toBe(2)
     expect(def.Component).toBeTypeOf('function')
   })
 
@@ -95,29 +95,25 @@ describe('@1stcontact/framework module registry', () => {
     expect(() => getModule('carousel', 99)).toThrow(/catalog/i)
   })
 
-  it('test_UAT_FC_REQ-4_every_module_exports_module_meta', () => {
-    // Compile-time: each meta satisfies the ModuleMeta contract (DOC-7 §3.1).
-    // Post-pivot (REQ-84) the catalog holds only the two surviving capability
-    // modules; both conform to the contract.
-    expectTypeOf(carouselMeta).toMatchTypeOf<ModuleMeta>()
-    expectTypeOf(contactFormMeta).toMatchTypeOf<ModuleMeta>()
+  it('test_UAT_FC_REQ-4_every_module_exports_capability_meta', () => {
+    // Compile-time: each meta satisfies the CapabilityMeta contract (REQ-85).
+    // Post-pivot the catalog holds only the two surviving capability modules.
+    expectTypeOf(carouselMeta).toMatchTypeOf<CapabilityMeta>()
+    expectTypeOf(contactFormMeta).toMatchTypeOf<CapabilityMeta>()
 
-    // Runtime: every registered module exposes the full contract shape.
-    // 2 modules post-pivot: REQ-79's `carousel` and the `contact-form`.
+    // Runtime: every registered module exposes the full capability contract.
     expect(registry.size).toBe(2)
     for (const def of registry.values()) {
       const meta = def.meta
       expect(typeof meta.id).toBe('string')
       expect(typeof meta.version).toBe('number')
-      expect(Array.isArray(meta.variants)).toBe(true)
-      expect(meta.variants.length).toBeGreaterThan(0)
-      expect(typeof meta.dials).toBe('object')
-      expect(typeof meta.contentSchema).toBe('object')
-      // Every content field declares a type and a required flag.
-      for (const spec of Object.values(meta.contentSchema)) {
-        expect(typeof spec.type).toBe('string')
-        expect(typeof spec.required).toBe('boolean')
-      }
+      expect(meta.kind).toBe('capability')
+      // Behavioural config + named L1 slots, no aesthetic dials.
+      expect(typeof meta.config).toBe('object')
+      expect(typeof meta.slots).toBe('object')
+      expect(Object.keys(meta.slots).length).toBeGreaterThan(0)
+      // Conformance obligations include the universal ACs + isolation.
+      expect(meta.conformance.obligations).toContain('isolation')
     }
   })
 })

@@ -28,18 +28,15 @@ function seedModules(cwd: string, slug: string): Array<{ id: string; type: strin
     {
       id: 'gallery',
       type: 'carousel',
-      version: 1,
-      variant: 'default',
-      dials: {},
-      content: { heading: { text: 'What people say' }, items: [{ body: 'A great experience.' }] },
+      version: 2,
+      config: { view: 'single' },
+      slots: { slide: [{ kind: 'text', text: 'A great experience.' }] },
     },
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 2,
-      variant: 'inline',
-      dials: {},
-      content: {
+      version: 3,
+      config: {
         action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },

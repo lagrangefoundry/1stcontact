@@ -91,13 +91,13 @@ export interface OneModuleServe {
 /** Build a validated single-module page JSON from a fixture. */
 function oneModulePage(slug: string, fixture: ConformanceFixture, version: number): unknown {
   const p = fixture.props
+  // A capability-module instance (REQ-85): behavioural `config` + named L1 `slots`.
   const instance: Record<string, unknown> = {
     id: 'm0',
     type: slug,
     version,
-    variant: typeof p.variant === 'string' ? p.variant : '',
-    dials: (p.dials as Record<string, string> | undefined) ?? {},
-    content: (p.content as Record<string, unknown> | undefined) ?? {},
+    config: (p.config as Record<string, unknown> | undefined) ?? {},
+    slots: (p.slots as Record<string, unknown> | undefined) ?? {},
   }
   if (p.background) instance.background = p.background
   if (p.layer) instance.layer = p.layer

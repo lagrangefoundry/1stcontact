@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
 import type { ModuleMeta } from '../packages/framework/src/modules/types'
 import {
@@ -24,7 +22,6 @@ import {
  *   AC-634 — text-fill gradient stop-position drift surfaces as a gradient delta
  *   AC-635 — gradient stops without an explicit offset are compared on colour only
  *   AC-636 — a missing/differing panel surface gradient surfaces; matching/absent → none
- *   AC-637 — a styled-run authored with a text-fill gradient paints the clipped sweep
  *   AC-638 — a gradient-typed content field accepts a well-formed gradient, rejects a malformed one
  */
 
@@ -49,18 +46,6 @@ function wordmark(mid: number) {
       { color: '#ff6b35', position: 100 },
     ],
   }
-}
-
-// ── render helper (mirrors the REQ-62 framework UATs) ─────────────────────────
-
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(props: unknown): Promise<string> {
-  container ??= await AstroContainer.create()
-  return container.renderToString(
-    Carousel as Parameters<Container['renderToString']>[0],
-    { props: props as Record<string, unknown> },
-  )
 }
 
 /** A synthetic module exposing a gradient-typed content field — the gradient
@@ -148,27 +133,6 @@ describe('story-82eb6908 — gradients as a first-class value', () => {
       mani('a', [el('Plain body', { surfaceGradient: null })]),
     )
     expect(hasDelta(neither.deltas, 'Plain body', 'surfaceGradient')).toBe(false)
-  })
-
-  it('test_UAT_AC637_text_fill_gradient_paints_clipped_sweep', async () => {
-    // A styled run authored with a text-fill gradient (a direction + two stops, one
-    // an absolute hex, one a palette role) paints the glyphs with the specified
-    // linear-gradient clipped to the text — the first-class gradient value.
-    const html = await render({
-      content: {
-        heading: {
-          text: 'What We are exploring.',
-          gradient: { angleDeg: 135, stops: ['#f1f5f9', 'accent'] },
-        },
-        items: [{ body: 'A quote.' }],
-      },
-    })
-    // The specified linear gradient — direction and both stop colours resolved:
-    // the hex literal verbatim, the role → its overlay var.
-    expect(html).toContain('background-image: linear-gradient(135deg, #f1f5f9 0%, var(--color-accent) 100%)')
-    // A text-fill gradient clips to the glyphs and forces transparent text.
-    expect(html).toContain('background-clip: text')
-    expect(html).toContain('color: transparent')
   })
 
   it('test_UAT_AC638_gradient_field_accepts_wellformed_rejects_malformed', () => {

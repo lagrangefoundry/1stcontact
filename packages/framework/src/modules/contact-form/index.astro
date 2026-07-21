@@ -1,9 +1,16 @@
 ---
-import { renderMarkdown } from '../markdown'
+import type { L1Node } from '@1stcontact/site-schema'
+import { renderL1Fragment } from '../../l1/render'
 import { assertSafeUrl } from '../safety'
-import { resolveStep, responsiveStepVars, SPACING_STEPS } from '../dials'
-import { resolveTextStyle, resolveColor, type TextRun } from '../text-style'
 
+/**
+ * `contact-form` capability (reframed REQ-85). The core renders a fully
+ * functional, a11y-labelled `<form>` from `config` (action + field schema),
+ * with the honeypot + Turnstile anti-spam surface and the no-JS post baseline;
+ * `enhance.ts` upgrades it to a JSON `fetch`. Decorative framing — an intro
+ * heading/subhead, the submit button's look — is authored as L1 and mounted into
+ * the `intro` / `submit` slots (never painted by the module).
+ */
 interface FormField {
   name: string
   label: string
@@ -12,100 +19,56 @@ interface FormField {
 }
 
 interface Props {
-  variant?: string
-  dials?: Record<string, string>
-  content: {
-    heading?: TextRun
-    subhead?: string
-    subheadStyle?: TextRun
-    action: string
-    fields: FormField[]
-    submitLabel?: TextRun
-    successMessage?: string
-    caption?: string
-    captionStyle?: TextRun
-  }
+  config?: Record<string, unknown>
+  slots?: { intro?: L1Node; submit?: L1Node }
+  instanceId?: string
 }
 
-const { dials = {}, content } = Astro.props as Props
-const surface = dials.surface ?? 'default'
-const align = dials.align ?? 'left'
-// Vertical spacing (REQ-58 absolute-or-overlay) — step OR absolute px.
-const padTopVars = responsiveStepVars('pt', dials.spacingTop, SPACING_STEPS, 'lg')
-const padBottomVars = responsiveStepVars('pb', dials.spacingBottom, SPACING_STEPS, 'lg')
-// `half` flexes the band into a shared two-column row (grouped by the pipeline).
-const width = dials.width ?? 'full'
-// Submit-button *fill* treatment (REQ-33): `primary` (brand) or dark `neutral`.
-const submitTreatment = dials.submitTreatment ?? 'primary'
-// Field labelling (REQ-58): `above` (default) shows a stacked <label>;
-// `placeholder` moves the label into the input placeholder + hides the label.
-const fieldLabels = dials.fieldLabels ?? 'above'
-const placeholderLabels = fieldLabels === 'placeholder'
-// Submit-button fill colour (REQ-58) — an absolute #hex OR a palette role,
-// overriding the `submitTreatment` default. The absolute-or-overlay escape hatch.
-const submitColorCss = dials.submitColor ? resolveColor(dials.submitColor) : null
-// Inline submit (REQ-58) — `inline` lays a single-field capture form's field +
-// button on one row (`bg-white/… flex` subscribe strip); `stacked` (default)
-// stacks the button below the fields.
-const submitInline = dials.submitInline === 'inline'
-// REQ-67 — field styling escape hatches (absolute-or-overlay): the field border
-// colour, form control radius, and submit horizontal padding were hard-wired to
-// shared theme tokens (so a theme change perturbed every module). Each dial emits an
-// inline `--fc-*` var the scoped CSS consumes with the current token as its fallback,
-// so an omitted dial is byte-identical to today.
-const RADIUS_STEPS = { none: 'var(--radius-none)', sm: 'var(--radius-sm)', md: 'var(--radius-md)', lg: 'var(--radius-lg)', full: 'var(--radius-full)' }
-const fieldBorderCss = dials.fieldBorderColor ? resolveColor(dials.fieldBorderColor) : null
-const fieldRadiusCss = dials.fieldRadius ? resolveStep(dials.fieldRadius, RADIUS_STEPS, 'md') : null
-const submitPaddingXCss = dials.submitPaddingX ? resolveStep(dials.submitPaddingX, SPACING_STEPS, 'lg') : null
+const { config = {}, slots = {}, instanceId = 'contact-form' } = Astro.props as Props
 
-const { heading, action } = content
-const fields = content.fields ?? []
-const submitLabelText = content.submitLabel?.text ?? 'Send'
-const subheadHtml = content.subhead ? await renderMarkdown(content.subhead) : undefined
-const captionHtml = content.caption ? await renderMarkdown(content.caption) : undefined
-const successHtml = content.successMessage
-  ? await renderMarkdown(content.successMessage)
-  : '<p>Thanks — your message has been sent.</p>'
+const action = typeof config.action === 'string' ? config.action : ''
+// Isolation (REQ-85): coerce the field schema defensively — a malformed entry is
+// dropped rather than throwing, keeping the page robust.
+const fields: FormField[] = Array.isArray(config.fields)
+  ? (config.fields as unknown[])
+      .filter((f): f is Record<string, unknown> => !!f && typeof f === 'object')
+      .map((f) => ({
+        name: String(f.name ?? ''),
+        label: String(f.label ?? ''),
+        type: (['text', 'email', 'tel', 'textarea'].includes(f.type as string)
+          ? (f.type as string)
+          : 'text') as FormField['type'],
+        required: f.required === true,
+      }))
+      .filter((f) => f.name)
+  : []
+const successMessage = typeof config.successMessage === 'string' ? config.successMessage : ''
+
+// Mount the optional L1 slots (single subtrees). One namespace per slot per
+// instance so classes never collide.
+const introNode = slots.intro && typeof slots.intro === 'object' ? [slots.intro] : []
+const submitNode = slots.submit && typeof slots.submit === 'object' ? [slots.submit] : []
+const intro = renderL1Fragment(introNode, `${instanceId}-intro`)
+const submit = renderL1Fragment(submitNode, `${instanceId}-submit`)
+const slotCss = [intro.css, submit.css].filter(Boolean).join('\n')
+
 // Honeypot: hidden from humans, tempting to bots. The server rejects any
 // submission where this is filled (wired in REQ-7).
 const honeypotName = 'hp_company_url'
-
-// REQ-50 — styled runs → inline `style`. `subheadStyle`/`captionStyle` are
-// style-only runs applied to the prose containers; `submitLabel.color` paints
-// the button label (superseding the treatment's derived label colour).
-const headingStyle = resolveTextStyle(heading)
-const subheadStyle = resolveTextStyle(content.subheadStyle)
-const captionStyle = resolveTextStyle(content.captionStyle)
-const submitStyle = resolveTextStyle(content.submitLabel)
 ---
 
-<section
-  class:list={[
-    'contact-form',
-    `surface-${surface}`,
-    `align-${align}`,
-    `width-${width}`,
-  ]}
-  style={[
-    padTopVars,
-    padBottomVars,
-    fieldBorderCss && `--fc-field-border: ${fieldBorderCss}`,
-    fieldRadiusCss && `--fc-field-radius: ${fieldRadiusCss}`,
-    submitPaddingXCss && `--fc-submit-px: ${submitPaddingXCss}`,
-  ].filter(Boolean).join('; ')}
->
+<section class="contact-form">
   <div class="contact-form__inner" data-contact-form-root>
-    {heading?.text && <h2 class="contact-form__heading" style={headingStyle}>{heading.text}</h2>}
-    {subheadHtml && <div class="contact-form__subhead" style={subheadStyle} set:html={subheadHtml} />}
+    {intro.htmls[0] && <div class="contact-form__intro" set:html={intro.htmls[0]} />}
 
-    <form class:list={['contact-form__form', { 'submit-inline': submitInline }]} data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
+    <form class="contact-form__form" data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
       {fields.map((field) => (
         <div class="contact-form__field">
-          <label for={`cf-${field.name}`} class:list={[{ 'visually-hidden': placeholderLabels }]}>{field.label}</label>
+          <label for={`cf-${field.name}`}>{field.label}</label>
           {field.type === 'textarea' ? (
-            <textarea id={`cf-${field.name}`} name={field.name} required={field.required} rows="5" placeholder={placeholderLabels ? field.label : undefined}></textarea>
+            <textarea id={`cf-${field.name}`} name={field.name} required={field.required} rows="5"></textarea>
           ) : (
-            <input id={`cf-${field.name}`} name={field.name} type={field.type} required={field.required} placeholder={placeholderLabels ? field.label : undefined} />
+            <input id={`cf-${field.name}`} name={field.name} type={field.type} required={field.required} />
           )}
         </div>
       ))}
@@ -120,14 +83,16 @@ const submitStyle = resolveTextStyle(content.submitLabel)
       <div data-turnstile-target></div>
 
       <p class="contact-form__error" data-contact-error hidden></p>
-      <button class:list={['contact-form__submit', `submit-${submitTreatment}`]} type="submit" style={[submitStyle, submitColorCss && `background: ${submitColorCss}`].filter(Boolean).join('; ') || undefined}>{submitLabelText}</button>
+      <button class="contact-form__submit" type="submit">
+        {submit.htmls[0] ? <Fragment set:html={submit.htmls[0]} /> : 'Send'}
+      </button>
     </form>
 
-    {captionHtml && <div class="contact-form__caption" style={captionStyle} set:html={captionHtml} />}
-
     {/* Client enhancement swaps the form for this on a successful submit. */}
-    <template data-contact-success set:html={successHtml}></template>
+    <template data-contact-success>{successMessage || 'Thanks — your message has been sent.'}</template>
   </div>
+
+  {slotCss && <style set:html={slotCss} />}
 </section>
 
 <script>
@@ -136,84 +101,20 @@ const submitStyle = resolveTextStyle(content.submitLabel)
 </script>
 
 <style>
-  /* Vertical spacing → inline --fc-pt/--fc-pb (step token OR absolute px). */
-  .contact-form { background: var(--color-bg); color: var(--color-text); padding-top: var(--fc-pt); padding-bottom: var(--fc-pb); }
-  /* REQ-61 — per-breakpoint spacing override chain (see ./breakpoints). */
-  @media (min-width: 640px) { .contact-form { padding-top: var(--fc-pt-sm, var(--fc-pt)); padding-bottom: var(--fc-pb-sm, var(--fc-pb)); } }
-  @media (min-width: 768px) { .contact-form { padding-top: var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))); padding-bottom: var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))); } }
-  @media (min-width: 1024px) { .contact-form { padding-top: var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt)))); padding-bottom: var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb)))); } }
-  @media (min-width: 1280px) { .contact-form { padding-top: var(--fc-pt-xl, var(--fc-pt-lg, var(--fc-pt-md, var(--fc-pt-sm, var(--fc-pt))))); padding-bottom: var(--fc-pb-xl, var(--fc-pb-lg, var(--fc-pb-md, var(--fc-pb-sm, var(--fc-pb))))); } }
-  .contact-form.surface-subtle { background: var(--color-surface-subtle); }
-  .contact-form.surface-inverse { background: var(--color-surface-inverse); color: var(--color-bg); }
-  .contact-form.surface-accent { background: var(--color-accent); color: var(--color-bg); }
-
-
   .contact-form__inner {
-    /* Fixed form measure (REQ-55): the old `narrow` token was 40rem/640px — a
-       width off the Tailwind scale, so kept as a literal rather than a token. */
-    max-width: 40rem;
-    margin-inline: auto;
-    padding-inline: var(--space-4);
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
   }
-  .contact-form.align-center .contact-form__inner { align-items: center; text-align: center; }
-  /* Half-width band: the shared `fc-row` supplies the container width and gutter,
-     so the form inner runs fluid to fill its column. */
-  .contact-form.width-half .contact-form__inner {
-    max-width: none;
-    margin-inline: 0;
-    padding-inline: 0;
-  }
-
-  .contact-form__heading {
-    margin: 0;
-    font-family: var(--font-family-heading);
-    font-weight: var(--font-weight-bold);
-    font-size: var(--font-size-3xl);
-    line-height: var(--line-height-tight);
-  }
-  /* Subhead / caption prose (REQ-50) — the base colour/size are the defaults an
-     omitting `subheadStyle`/`captionStyle` run inherits; a run overrides via
-     inline `style`. */
-  .contact-form__subhead { color: var(--color-muted); }
-  .contact-form__caption { color: var(--color-muted); }
-
   .contact-form__form { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
-  .contact-form.align-center .contact-form__form { text-align: left; }
-  /* Inline submit (REQ-58, responsive REQ-64) — a single-field capture strip
-     modelling the reference's `flex-col sm:flex-row` subscribe form: STACKED on
-     mobile (field over a full-width button), field + button BESIDE each other
-     from the `sm` (640px) breakpoint up. The base form is already
-     `flex-direction: column`, so the mobile strip only needs the button to fill
-     the row; the row layout is asserted from `sm` up. */
-  .contact-form__form.submit-inline { gap: var(--space-3); }
-  .contact-form__form.submit-inline .contact-form__submit { align-self: stretch; margin: 0; white-space: nowrap; }
-  @media (min-width: 640px) {
-    .contact-form__form.submit-inline { flex-direction: row; align-items: flex-start; gap: var(--space-2); }
-    .contact-form__form.submit-inline .contact-form__field { flex: 1; }
-  }
   .contact-form__field { display: flex; flex-direction: column; gap: var(--space-2); }
   .contact-form__field label { font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
-  /* Placeholder-label mode (REQ-58) — the <label> stays in the a11y tree but is
-     removed from the visual layout; the field's placeholder carries the text. */
-  .contact-form__field label.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
   .contact-form__field input,
   .contact-form__field textarea {
     font: inherit;
     padding: var(--space-3);
-    /* REQ-67 — field border colour + control radius default to the theme token, but
-       an inline --fc-field-border / --fc-field-radius (from a dial) overrides them. */
-    border: 1px solid var(--fc-field-border, var(--color-border));
-    border-radius: var(--fc-field-radius, var(--radius-md));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     background: var(--color-bg);
     color: var(--color-text);
   }
@@ -234,22 +135,13 @@ const submitStyle = resolveTextStyle(content.submitLabel)
 
   .contact-form__submit {
     align-self: flex-start;
-    /* Inherit the site font family + size — without this a <button> falls back
-       to the UA default (Arial 13px), diverging from the site's type. Weight is
-       set explicitly below so the label still reads as an action. */
     font: inherit;
-    /* REQ-67 — horizontal padding + control radius are dial-overridable (--fc-submit-px
-       / --fc-field-radius), the submit sharing the form's control radius. */
-    padding: var(--space-3) var(--fc-submit-px, var(--space-6));
+    padding: var(--space-3) var(--space-6);
     border: 0;
-    border-radius: var(--fc-field-radius, var(--radius-md));
+    border-radius: var(--radius-md);
     font-weight: var(--font-weight-semibold);
     cursor: pointer;
+    background: var(--color-primary);
+    color: var(--color-bg);
   }
-  /* Colour treatment (REQ-33). `primary` is the brand button; `neutral` is a
-     high-contrast dark button (the theme's text colour) with a near-white label
-     — e.g. a black "Send message" on a light band. */
-  .contact-form__submit.submit-primary { background: var(--color-primary); color: var(--color-bg); }
-  .contact-form__submit.submit-neutral { background: var(--color-text); color: var(--color-surface); }
-  .contact-form.align-center .contact-form__submit { align-self: center; }
 </style>

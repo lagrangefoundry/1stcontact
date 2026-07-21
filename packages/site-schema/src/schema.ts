@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { l1NodeSchema } from './l1/schema'
 
 /**
  * Zod schemas for 1st Contact site definitions.
@@ -486,15 +487,29 @@ export const moduleInstanceSchema = z
     id: z.string(),
     type: z.string(),
     version: z.number().int().positive(),
-    variant: z.string(),
+    // ── Capability-module instance (REQ-85) ────────────────────────────────
+    // Behavioural, data-only config (how many slides, an endpoint, a field
+    // schema) — the closed content-value set, so no raw CSS/HTML smuggles through.
+    config: z.record(z.string(), contentValueSchema).optional(),
+    // Named L1 presentation slots: a single L1 subtree, or an array for a
+    // `repeated` slot (carousel slides). Every subtree re-enters the L1 envelope.
+    slots: z.record(z.string(), z.union([l1NodeSchema, z.array(l1NodeSchema)])).optional(),
+    // ── Pre-pivot reproduction fields ──────────────────────────────────────
+    // The capture→dials reproduction engine still emits `variant`/`dials`/
+    // `content`; the reframed capability modules ignore them (REQ-85). Kept
+    // optional so both an old repro instance and a new capability instance
+    // validate; re-basing reproduction onto L1 is the pivot's separate effort.
+    variant: z.string().optional(),
     // A dial value is a string (named step / treatment) OR a number literal —
     // the latter lets a dial carry a measured render value directly (REQ-55, e.g.
     // `contentWidth: 896` for an off-scale px width) — OR, for a length dial, a
     // per-breakpoint object `{ base, sm?, md?, lg?, xl? }` (REQ-61), each entry a
     // scalar length. The framework layer decides which dials honour the object
     // form; the schema only accepts its shape.
-    dials: z.record(z.string(), z.union([z.string(), z.number(), responsiveDialValueSchema])),
-    content: z.record(z.string(), contentValueSchema),
+    dials: z
+      .record(z.string(), z.union([z.string(), z.number(), responsiveDialValueSchema]))
+      .optional(),
+    content: z.record(z.string(), contentValueSchema).optional(),
     /** Optional section-level background painted behind this module (REQ-14). */
     background: backgroundSchema.optional(),
     /** Optional layer of freely-positioned children composited over this module (REQ-15). */

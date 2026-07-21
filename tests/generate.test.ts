@@ -54,18 +54,20 @@ function seedSurvivingModules(slug: string): void {
     {
       id: 'gallery',
       type: 'carousel',
-      version: 1,
-      variant: 'default',
-      dials: { surface: 'accent' },
-      content: { heading: { text: 'What people say' }, items: [{ body: 'A great experience.' }] },
+      version: 2,
+      config: { view: 'single', controls: 'dots' },
+      slots: {
+        slide: [
+          { kind: 'text', text: 'A great experience.' },
+          { kind: 'text', text: 'Loved every minute.' },
+        ],
+      },
     },
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 2,
-      variant: 'inline',
-      dials: {},
-      content: {
+      version: 3,
+      config: {
         action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       },
@@ -106,19 +108,19 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     // The design tokens are still present…
     expect(themeCss).toContain('--color-primary')
     // …but theme.css must ALSO carry the module component rules — the bug was
-    // that it contained ONLY :root tokens and no class selectors.
-    expect(themeCss).toMatch(/\.carousel\b/)
-    expect(themeCss).toContain('.carousel__inner')
-    expect(themeCss).toContain('.contact-form__inner')
+    // that it contained ONLY :root tokens and no class selectors. Post-pivot
+    // (REQ-85) the capability modules' static chrome CSS is folded in: the
+    // carousel scroll-snap track + per-view slide sizing, the contact-form
+    // controls.
+    expect(themeCss).toMatch(/\.carousel__track/)
+    expect(themeCss).toContain('.carousel__slide')
+    expect(themeCss).toMatch(/\.carousel\.view-single/)
+    expect(themeCss).toContain('.contact-form__form')
 
-    // Every module class the render emits on the page must have a matching rule
-    // in theme.css — otherwise the page renders unstyled. Spacing now resolves
-    // to an inline --fc-pt/--fc-pb var (REQ-58), so the module carries the var
-    // and theme.css binds the padding to it.
-    expect(html).toContain('--fc-pt:')
-    expect(themeCss).toMatch(/\.carousel \{[^}]*padding-top:\s*var\(--fc-pt\)/)
-    // And the surface-dial rules that make surfaces visible.
-    expect(themeCss).toContain('.carousel.surface-accent')
+    // Per-instance L1 slot presentation is emitted inline (not in theme.css);
+    // the mounted slide content renders into a named slot on the page.
+    expect(html).toContain('data-l1-slot="slide"')
+    expect(html).toContain('A great experience.')
   })
 
   it('test_UAT_FC_REQ-9_publish_creates_locked_revision', async () => {

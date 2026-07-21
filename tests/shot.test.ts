@@ -92,12 +92,10 @@ function siteWithImageLogo(cwd: string, slug: string): void {
     {
       id: 'gallery',
       type: 'carousel',
-      version: 1,
-      variant: 'default',
-      dials: {},
-      content: {
-        heading: { text: 'Gallery' },
-        items: [{ image: { id: 'logo.png', src: '/assets/logo.png', alt: 'Logo' } }],
+      version: 2,
+      config: { view: 'single' },
+      slots: {
+        slide: [{ kind: 'image', src: '/assets/logo.png', alt: 'Logo' }],
       },
     },
   ]

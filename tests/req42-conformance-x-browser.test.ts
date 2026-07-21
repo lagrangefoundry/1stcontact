@@ -19,7 +19,7 @@ import {
   type XBrowserBox,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 1).meta
+const carouselMeta = getModule('carousel', 2).meta
 
 /**
  * UATs for REQ-42 — the conformance harness **cross-browser dimension**
@@ -143,19 +143,13 @@ const cleanFixture: ConformanceFixture = {
   label: 'clean-carousel',
   props: {
     version: carouselMeta.version,
-    variant: carouselMeta.variants[0],
-    content: {
-      // REQ-50 — the discrete heading slot is a flat styled run. Short, single-line
-      // runs avoid engine-specific wrap-point divergence (the wrap column differs by
-      // a font-metric fraction across Blink/WebKit/Gecko, which is a real difference,
-      // not a harness false positive — so the clean baseline stays unwrapped).
-      heading: { text: 'Cross-Engine' },
-      items: [
-        {
-          title: { text: 'Ada Lovelace' },
-          subtitle: { text: 'Engine' },
-        },
-      ],
+    config: { view: 'single' },
+    slots: {
+      // Short, single-line slide text avoids engine-specific wrap-point divergence
+      // (the wrap column differs by a font-metric fraction across Blink/WebKit/Gecko,
+      // a real difference, not a harness false positive — so the baseline stays
+      // unwrapped).
+      slide: [{ kind: 'text', text: 'Cross-Engine' }],
     },
   },
 }

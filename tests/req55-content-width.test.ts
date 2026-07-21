@@ -1,8 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import {
   CONTAINER_STEPS,
   CONTENT_WIDTH_DIAL,
@@ -69,25 +67,11 @@ describe('REQ-58 length value model', () => {
   })
 })
 
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(Component: unknown, props: unknown): Promise<string> {
-  container ??= await AstroContainer.create()
-  return container.renderToString(Component as Parameters<Container['renderToString']>[0], {
-    props: props as Record<string, unknown>,
-  })
-}
-
 describe('REQ-55 named layer — Tailwind `max-w` scale', () => {
-  it('test_UAT_FC_REQ-55_contentWidth_4xl_is_896', async () => {
+  it('test_UAT_FC_REQ-55_contentWidth_4xl_resolves_to_token', () => {
     // `4xl` is the 896px (56rem) Tailwind step that the old scale skipped
     // (768 → 1152). It resolves to the themeable token, and the token is 56rem.
-    const html = await render(Carousel, {
-      dials: { contentWidth: '4xl' },
-      content: { heading: { text: 'Most apps.' }, items: [{ title: { text: 'A' } }] },
-    })
-    expect(html).toContain('has-content-width')
-    expect(html).toContain('--fc-content-width: var(--container-4xl)')
+    expect(resolveContainerWidth('4xl')).toBe('var(--container-4xl)')
     // 56rem @ root-16 = 896px.
     expect(CONTAINER_STEPS['4xl']).toBe('56rem')
     expect(generateThemeCss()).toContain('--container-4xl: 56rem;')
@@ -109,41 +93,19 @@ describe('REQ-55 named layer — Tailwind `max-w` scale', () => {
     expect(CONTAINER_STEPS.bleed).toBe('100%')
   })
 
-  it('test_UAT_FC_REQ-55_bleed_and_absent_fill_the_frame', async () => {
-    // `bleed` (and an absent dial) mean "no cap" — no marker class, no inline var.
-    const bleed = await render(Carousel, {
-      dials: { contentWidth: 'bleed' },
-      content: { items: [{ title: { text: 'x' } }] },
-    })
-    const absent = await render(Carousel, { dials: {}, content: { items: [{ title: { text: 'x' } }] } })
-    for (const html of [bleed, absent]) {
-      expect(html).not.toContain('has-content-width')
-      expect(html).not.toContain('--fc-content-width')
-    }
+  it('test_UAT_FC_REQ-55_bleed_and_absent_are_no_cap', () => {
+    // `bleed` (and an absent dial) mean "no cap".
     expect(resolveContainerWidth('bleed')).toBeNull()
     expect(resolveContainerWidth(undefined)).toBeNull()
   })
 })
 
 describe('REQ-55 literal escape hatch', () => {
-  it('test_UAT_FC_REQ-55_contentWidth_literal_px', async () => {
+  it('test_UAT_FC_REQ-55_contentWidth_literal_px', () => {
     // A bare number is a `px` literal (matching captured render values) — `896`
-    // renders an 896px column without a named step.
-    const numeric = await render(Carousel, {
-      dials: { contentWidth: 896 },
-      content: { items: [{ title: { text: 'A' } }] },
-    })
-    expect(numeric).toContain('has-content-width')
-    expect(numeric).toContain('--fc-content-width: 896px')
-
-    // A rem string is passed straight through — `"56rem"` is the same 896px.
-    const rem = await render(Carousel, {
-      dials: { contentWidth: '56rem' },
-      content: { items: [{ title: { text: 'A' } }] },
-    })
-    expect(rem).toContain('--fc-content-width: 56rem')
-
+    // resolves to an 896px column without a named step.
     expect(resolveContainerWidth(896)).toBe('896px')
+    // A rem string is passed straight through — `"56rem"` is the same 896px.
     expect(resolveContainerWidth('56rem')).toBe('56rem')
     expect(resolveContainerWidth('4xl')).toBe('var(--container-4xl)')
     // The same resolver backs every width dial: named step → token; literal → px.
@@ -152,7 +114,7 @@ describe('REQ-55 literal escape hatch', () => {
 })
 
 describe('REQ-55 gigabytealchemy "Most apps" block', () => {
-  it('test_UAT_FC_REQ-55_gigabytealchemy_most_apps_width', async () => {
+  it('test_UAT_FC_REQ-55_gigabytealchemy_most_apps_width', () => {
     // The REQ-52 "Most apps" block (`different-approach`) is 896px in the
     // reference; under exact-match diffing the old 768/1152 steps could not hit it.
     // Set to `4xl`, it resolves to the 896px token exactly.
@@ -166,13 +128,8 @@ describe('REQ-55 gigabytealchemy "Most apps" block', () => {
     expect(block.content.body).toContain('Most apps')
     expect(block.dials.contentWidth).toBe('4xl')
 
-    // The block's `4xl` contentWidth dial resolves the same through any module —
-    // rendered here via carousel (a surviving `contentWidth`-bearing module).
-    const html = await render(Carousel, {
-      dials: { contentWidth: block.dials.contentWidth },
-      content: { heading: { text: 'Most apps' }, items: [{ title: { text: 'A' } }] },
-    })
-    expect(html).toContain('--fc-content-width: var(--container-4xl)')
+    // The block's `4xl` contentWidth dial resolves to the 896px token.
+    expect(resolveContainerWidth(block.dials.contentWidth)).toBe('var(--container-4xl)')
     // The token backing `4xl` is 56rem = 896px — the reference width, exactly.
     expect(parseFloat(CONTAINER_STEPS['4xl']) * 16).toBe(896)
   })

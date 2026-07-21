@@ -6,7 +6,7 @@ import {
   getModule,
   getModuleCss,
 } from '@1stcontact/framework'
-import type { ModuleDefinition } from '@1stcontact/framework'
+import type { CapabilityDefinition } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
 import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
@@ -18,7 +18,7 @@ import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
  * broken fixture modules render through this *same* path without polluting the
  * shipping catalog.
  */
-export type ModuleResolver = (type: string, version: number) => ModuleDefinition
+export type ModuleResolver = (type: string, version: number) => CapabilityDefinition
 
 /** Optional render treatments. All default to the production catalog behaviour. */
 export interface RenderSiteOptions {
@@ -77,7 +77,7 @@ async function renderModules(
   for (const m of page.modules) {
     const { Component } = resolveModule(m.type, m.version)
     const rendered = await container.renderToString(Component, {
-      props: { variant: m.variant, dials: m.dials, content: m.content },
+      props: { config: m.config, slots: m.slots, instanceId: m.id },
     })
     // Stamp the builder edit hook onto the module root so the Weber preview can
     // target this instance.

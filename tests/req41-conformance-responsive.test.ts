@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ModuleDefinition } from '@1stcontact/framework'
+import type { CapabilityDefinition } from '@1stcontact/framework'
 import {
   assertModuleConforms,
   ConformanceError,
@@ -10,7 +10,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 1).meta
+const carouselMeta = getModule('carousel', 2).meta
 import MobileOverflow from './fixtures/conformance/mobile-overflow.astro'
 import SmallTapTarget from './fixtures/conformance/small-tap-target.astro'
 import SmallFont from './fixtures/conformance/small-font.astro'
@@ -34,14 +34,15 @@ const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
 
 // ── the injected test-only catalog of responsive fixtures ─────────────────────
-const brokenMeta = (id: string): ModuleDefinition['meta'] => ({
+const brokenMeta = (id: string): CapabilityDefinition['meta'] => ({
   id,
   version: 1,
-  variants: [],
-  dials: {},
-  contentSchema: {},
+  kind: 'capability',
+  config: {},
+  slots: {},
+  conformance: { obligations: ['responsive'] },
 })
-const FIXTURES: Record<string, ModuleDefinition> = {
+const FIXTURES: Record<string, CapabilityDefinition> = {
   'fc-mobile-overflow': { meta: brokenMeta('fc-mobile-overflow'), Component: MobileOverflow },
   'fc-small-tap-target': { meta: brokenMeta('fc-small-tap-target'), Component: SmallTapTarget },
   'fc-small-font': { meta: brokenMeta('fc-small-font'), Component: SmallFont },
@@ -72,17 +73,12 @@ const cleanCarousel: ConformanceFixture = {
   label: 'clean-carousel',
   props: {
     version: carouselMeta.version,
-    variant: carouselMeta.variants[0],
-    content: {
-      // REQ-50 — the discrete heading slot is a flat styled run.
-      heading: { text: 'A Responsive Heading' },
-      subhead:
-        'A well-formed paragraph of prose that reflows within the viewport at every width from 320px up.',
-      items: [
+    config: { view: 'single' },
+    slots: {
+      slide: [
         {
-          title: { text: 'Ada Lovelace' },
-          subtitle: { text: 'Analytical Engine' },
-          body: 'A well-formed slide of prose that reflows within the viewport at every width.',
+          kind: 'text',
+          text: 'A well-formed slide of prose that reflows within the viewport at every width from 320px up.',
         },
       ],
     },

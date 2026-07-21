@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ModuleDefinition } from '@1stcontact/framework'
+import type { CapabilityDefinition } from '@1stcontact/framework'
 import {
   assertModuleConforms,
   ConformanceError,
@@ -11,7 +11,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 1).meta
+const carouselMeta = getModule('carousel', 2).meta
 import Overflow from './fixtures/conformance/overflow.astro'
 import PageError from './fixtures/conformance/page-error.astro'
 import Collapsed from './fixtures/conformance/collapsed.astro'
@@ -35,14 +35,15 @@ const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
 
 // ── the injected test-only catalog of deliberately-broken modules ─────────────
-const brokenMeta = (id: string): ModuleDefinition['meta'] => ({
+const brokenMeta = (id: string): CapabilityDefinition['meta'] => ({
   id,
   version: 1,
-  variants: [],
-  dials: {},
-  contentSchema: {},
+  kind: 'capability',
+  config: {},
+  slots: {},
+  conformance: { obligations: ['safety'] },
 })
-const BROKEN: Record<string, ModuleDefinition> = {
+const BROKEN: Record<string, CapabilityDefinition> = {
   'fc-overflow': { meta: brokenMeta('fc-overflow'), Component: Overflow },
   'fc-page-error': { meta: brokenMeta('fc-page-error'), Component: PageError },
   'fc-collapsed': { meta: brokenMeta('fc-collapsed'), Component: Collapsed },
@@ -58,17 +59,13 @@ const cleanFixture: ConformanceFixture = {
   label: 'clean-carousel',
   props: {
     version: carouselMeta.version,
-    variant: carouselMeta.variants[0],
-    content: {
-      // REQ-50 — the discrete heading slot is a flat styled run.
-      heading: { text: 'Isolation Marker Heading' },
-      subhead: 'A well-formed paragraph of prose that renders cleanly and stays within the viewport.',
-      items: [
-        {
-          title: { text: 'Ada Lovelace' },
-          subtitle: { text: 'Analytical Engine' },
-          body: 'A well-formed slide of prose that reflows within the viewport.',
-        },
+    // Behavioural config + L1-authored slide slots (REQ-85). Each slide is an L1
+    // subtree; the marker text lets the isolation test prove the mount happened.
+    config: { view: 'single' },
+    slots: {
+      slide: [
+        { kind: 'text', text: 'Isolation Marker Heading' },
+        { kind: 'text', text: 'A well-formed slide of prose that reflows within the viewport.' },
       ],
     },
   },

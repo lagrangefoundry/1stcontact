@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 import { renderMarkdown, CALLOUT_CSS } from '../packages/framework/src/modules/markdown'
 import { TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens'
@@ -27,13 +25,6 @@ import { generateThemeCss, defaultTokens } from '../packages/framework/src/token
  * Modules render through Astro's container API — the same SSR path
  * tools/generate uses.
  */
-
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(Component: unknown, props: unknown) {
-  container ??= await AstroContainer.create()
-  return container.renderToString(Component as never, { props: props as Record<string, unknown> })
-}
 
 function moduleSource(relPath: string): string {
   return readFileSync(fileURLToPath(new URL(relPath, import.meta.url)), 'utf8')
@@ -64,18 +55,6 @@ describe('REQ-33 contact-form submit inherits site type (AC2)', () => {
     // `font: inherit` on the submit button — without it the <button> falls back
     // to the UA default (Arial 13px) instead of the site's font family/size.
     expect(css).toMatch(/\.contact-form__submit\s*\{[^}]*font:\s*inherit/)
-  })
-
-  it('test_UAT_FC_REQ-33_submit_button_renders', async () => {
-    const html = await render(ContactForm, {
-      dials: {},
-      content: {
-        action: '/x',
-        fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
-        submitLabel: { text: 'Subscribe' },
-      },
-    })
-    expect(html).toMatch(/class="contact-form__submit[^"]*"[^>]*>Subscribe</)
   })
 })
 
@@ -111,32 +90,6 @@ describe('REQ-33 warm palette roles accent-light / accent-deep (AC4)', () => {
     })
     expect(css).toContain('--color-accent-light: #f5e6a3;')
     expect(css).toContain('--color-accent-deep: #ff6b35;')
-  })
-})
-
-describe('REQ-33 contact-form submitTreatment dial (AC6)', () => {
-  async function renderForm(dials: Record<string, string>) {
-    return render(ContactForm, {
-      dials,
-      content: {
-        action: '/x',
-        fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
-        submitLabel: { text: 'Send' },
-      },
-    })
-  }
-
-  it('test_UAT_FC_REQ-33_submit_neutral_is_dark_button', async () => {
-    const html = await renderForm({ submitTreatment: 'neutral' })
-    expect(html).toMatch(/class="contact-form__submit submit-neutral"/)
-    const css = moduleSource('../packages/framework/src/modules/contact-form/index.astro')
-    // Neutral fills with the theme text colour (a dark button on a light band).
-    expect(css).toMatch(/\.submit-neutral\s*\{[^}]*var\(--color-text\)/)
-  })
-
-  it('test_UAT_FC_REQ-33_submit_defaults_to_primary', async () => {
-    const html = await renderForm({})
-    expect(html).toMatch(/class="contact-form__submit submit-primary"/)
   })
 })
 
