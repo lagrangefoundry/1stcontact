@@ -41,6 +41,9 @@ export {
   isColorLiteral,
   isPaletteRole,
   validateModuleContent,
+  validateCapabilityConfig,
+  validateCapabilitySlots,
+  validateCapabilityInstance,
   ContentSafetyError,
   isUnsafeUrl,
   assertSafeUrl,
@@ -69,6 +72,17 @@ export type {
   BlockquoteBlock,
   TableBlock,
   TableCell,
+  CapabilityMeta,
+  CapabilityConfigSpec,
+  CapabilityConfigType,
+  CapabilitySlotSpec,
+  CapabilitySlotValue,
+  CapabilityInstance,
+  CapabilityDefinition,
+  CapabilityConformance,
+  ConformanceObligation,
+  CapabilityValidationError,
+  AssertCapabilityMeta,
 } from './modules'
 
 export { BUILD_YEAR } from './buildInfo'

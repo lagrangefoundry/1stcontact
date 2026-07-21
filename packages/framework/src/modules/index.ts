@@ -46,3 +46,21 @@ export type {
   ContentFieldSpec,
   ContentFieldType,
 } from './types'
+export {
+  validateCapabilityConfig,
+  validateCapabilitySlots,
+  validateCapabilityInstance,
+} from './capability'
+export type {
+  CapabilityMeta,
+  CapabilityConfigSpec,
+  CapabilityConfigType,
+  CapabilitySlotSpec,
+  CapabilitySlotValue,
+  CapabilityInstance,
+  CapabilityDefinition,
+  CapabilityConformance,
+  ConformanceObligation,
+  CapabilityValidationError,
+  AssertCapabilityMeta,
+} from './capability'
