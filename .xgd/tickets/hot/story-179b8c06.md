@@ -6,10 +6,10 @@ title: 'Behavioural capability modules: vetted core + typed config + L1 presenta
   slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-07-22T19:53:38.072019+00:00'
+updated_at: '2026-07-22T20:03:59.985562+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-31e474b9
   capability_uid: capability-ce902be4
