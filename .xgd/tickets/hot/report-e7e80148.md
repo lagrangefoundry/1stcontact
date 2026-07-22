@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T19:32:56.940769+00:00'
+updated_at: '2026-07-22T19:42:54.902796+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -59,7 +59,7 @@ fields:
       a single L1 document, retaining the oracle ladder, or extracting advisory structural
       hints. This is a new capability that makes reproduction near-mechanical. The
       adopt-values removal is documented here because the fold is what replaces it.
-    story_uid: null
+    story_uid: story-8acc338d
   - index: 3
     component: Capability Modules (contract, carousel, contact-form, shipped client
       JS)
