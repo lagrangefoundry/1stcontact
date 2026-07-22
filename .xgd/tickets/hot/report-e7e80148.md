@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T19:28:18.067778+00:00'
+updated_at: '2026-07-22T19:32:56.940769+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-31e474b9
@@ -36,7 +36,7 @@ fields:
       1c capture/diff tooling and layout-module-dial reproduction; none cover a typed
       layout substrate, its by-construction security envelope, or the single safe
       renderer. This is the load-bearing new capability of the framework pivot.
-    story_uid: null
+    story_uid: story-d0a8cfad
   - index: 2
     component: Capture -> L1 Fold + Structural Hints
     item_type: feature
