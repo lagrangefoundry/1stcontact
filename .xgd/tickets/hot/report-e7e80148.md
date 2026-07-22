@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T19:55:27.622295+00:00'
+updated_at: '2026-07-22T20:07:52.925816+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -109,7 +109,7 @@ fields:
       or demand-driven flow promotion. It is a distinct new capability wiring the
       L1 pipeline behind an executable acceptance definition (sample + off-sample
       + content-perturbation).
-    story_uid: null
+    story_uid: story-24098299
   - index: 5
     component: 1c Values-Diff Fidelity
     item_type: upgrade
