@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T20:44:28.235678+00:00'
+updated_at: '2026-07-22T20:52:23.216350+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -289,7 +289,7 @@ fields:
       the same class of behaviour -- a CLI flag correctly plumbed from a subcommand
       into its internal render+serve calls. Extends the existing CLI story; no new
       capability bucket.
-    story_uid: null
+    story_uid: STORY-79
     target_story_ids:
     - STORY-79
     acceptance_criteria_changes:
