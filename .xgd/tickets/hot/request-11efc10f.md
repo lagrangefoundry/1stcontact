@@ -6,10 +6,10 @@ title: 'Framework pivot B1: L1 layout substrate + safety envelope (schema, rende
   validator)'
 created_by: xgd
 created_at: '2026-07-20T19:48:21.817249+00:00'
-updated_at: '2026-07-22T18:51:59.054931+00:00'
-completed_at: null
+updated_at: '2026-07-22T21:22:12.434890+00:00'
+completed_at: '2026-07-22T21:22:12.434890+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
