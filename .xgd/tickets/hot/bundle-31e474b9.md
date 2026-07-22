@@ -127,6 +127,7 @@ fields:
   skipped_commits:
   - 09fa7cf5c6eec2b40cc8055e3e97facbd7eba6fe
   - 9ca7395307bdd2064ce4d444fa2e9766ffd2493f
+  - 65b2582276cace7344ef011f7e81b4ed73a13deb
 ---
 
 # Bundle
