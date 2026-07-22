@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T20:18:08.784794+00:00'
+updated_at: '2026-07-22T20:28:57.478138+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -172,7 +172,7 @@ fields:
       story is upgraded in place: module-dial ACs removed, capability repointed to
       L1 leaf axes (item 1). No new capability bucket is introduced; the capability
       itself survives, only its delivery moves.'
-    story_uid: null
+    story_uid: STORY-80
     target_story_ids:
     - STORY-80
     acceptance_criteria_changes:
