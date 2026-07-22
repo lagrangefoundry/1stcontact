@@ -2,29 +2,30 @@
 uid: story-e15a19ef
 id: STORY-79
 type: story
-title: '1c CLI: boolean flags keep their positionals and --json emits a clean scriptable
-  document'
+title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json emits
+  a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-07-19T03:06:25.668897+00:00'
+updated_at: '2026-07-22T20:51:51.335626+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-ac7ca849
-  story_kind: feature
+  story_kind: upgrade
   story_points: 1
 ---
 
 ## Story
-**As a** user scripting the `1c` CLI, **I want** boolean flags to not swallow a
-following positional argument and `--json` output to be a single clean JSON
-document, **so that** I can invoke `1c` commands in any flag order and pipe their
+**As a** user scripting the `1c` CLI, **I want** flags to be parsed correctly, to
+propagate into the commands a sub-command drives, and `--json` output to be a single
+clean JSON document, **so that** I can invoke `1c` commands in any flag order, trust
+that a store-selecting flag reaches the render/serve it triggers, and pipe
 machine-readable output straight into other tools without it breaking.
 
 ## Description
-Two CLI-correctness guarantees for the `1c` command line:
+Three CLI-correctness guarantees for the `1c` command line:
 
 1. **Boolean flag parsing.** The `--multi-viewport` flag is a boolean toggle, not
    a value-taking option. Invoking `values-diff --multi-viewport <slug>` (or
@@ -42,18 +43,37 @@ Two CLI-correctness guarantees for the `1c` command line:
    when the command's computation fails, so it is never left permanently
    diverted.
 
-In scope: argument-parsing correctness for boolean flags, and stdout/stderr
-separation for scriptable output. Out of scope: the content/shape of the diff
-document itself (covered by the values-diff and size-aware diff capabilities).
+3. **Store-selecting flags propagate into sub-commands.** A command that itself
+   drives a render and a serve must forward the store-selection flags it received
+   to those sub-commands. `aligned-crops --sandbox` renders and serves the
+   sandbox reproduction (from the sandbox store) and emits its crop pairs from it,
+   instead of silently rendering/serving from the `sites/` tree — which, for a
+   sandbox reproduction, would diff an absent or stale site against the reference
+   and produce no valid crops. The source selection (`draft`/`published`, default
+   `draft`) and the working directory are forwarded alongside `--sandbox`; with no
+   `--sandbox` flag the command falls through to the `sites/` tree.
+
+In scope: argument-parsing correctness for boolean flags, propagation of
+store-selecting flags into the render/serve a sub-command triggers, and
+stdout/stderr separation for scriptable output. Out of scope: the content/shape
+of the diff or crop artifacts themselves (covered by the values-diff, size-aware
+diff, and aligned-crops capabilities).
 
 ## Technical Context
-- Reconciled from bundle-ab9e0cb6 (REQ-58 pass-3), plan item 5, commits
-  4f681c73 (boolean flag) and a4323720 (--json stdout hygiene).
+- Guarantees 1–2 reconciled from bundle-ab9e0cb6 (REQ-58 pass-3), plan item 5,
+  commits 4f681c73 (boolean flag) and a4323720 (--json stdout hygiene).
+- Guarantee 3 reconciled from bundle-31e474b9 (BUNDLE-7), plan item 9, commit
+  09fa7cf5. `aligned-crops` previously rendered and served from `sites/` even
+  under `--sandbox`; the store tree (`sandbox` + `cwd`) plus `source` is now
+  forwarded to both the render and the serve it triggers, so a sandbox
+  reproduction is rendered/served from `sandbox/` and the perceptual crops run
+  on it. Verified: `1c aligned-crops joyfulculinary --sandbox` emits 7 crop pairs.
 - Diagnostic diversion happens in two places: render-time chatter during a
   command, and a one-time bootstrap warning Astro routes to stdout during
   server setup. Both are reconciled here as one output-hygiene guarantee.
 - Related capabilities: CAP-63 (1c Values-Diff Fidelity), CAP-65 (1c
-  Size-Aware Diffing) — the commands whose output this hygiene protects.
+  Size-Aware Diffing) — the commands whose output this hygiene protects; the
+  aligned-crops perceptual pipeline whose store routing guarantee 3 protects.
 
 ## Dependencies
 None.
