@@ -6,17 +6,16 @@ title: 'Values-diff closes capture blind spots: rendered-text extent, composited
   fill, box border, and duplicate-text pairing'
 created_by: xgd
 created_at: '2026-07-19T02:17:40.688184+00:00'
-updated_at: '2026-07-22T20:18:08.681983+00:00'
+updated_at: '2026-07-22T20:25:52.336792+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-aa030c83
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-31e474b9
+  updated_by: bundle-31e474b9
 ---
 
 ## Story
