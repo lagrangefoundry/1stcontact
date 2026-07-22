@@ -5,10 +5,10 @@ type: request
 title: 'Framework pivot: L1 layout substrate + capability modules (safety envelope)'
 created_by: xgd
 created_at: '2026-07-19T00:32:33.543948+00:00'
-updated_at: '2026-07-22T18:51:58.993008+00:00'
-completed_at: null
+updated_at: '2026-07-22T21:22:12.542108+00:00'
+completed_at: '2026-07-22T21:22:12.542108+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
