@@ -5,10 +5,10 @@ type: request
 title: capture gradient colour stops (hexify modern colour spaces in-browser)
 created_by: xgd
 created_at: '2026-07-18T18:17:56.313634+00:00'
-updated_at: '2026-07-18T18:28:32.300510+00:00'
+updated_at: '2026-07-19T01:04:53.468287+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false

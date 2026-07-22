@@ -6,10 +6,10 @@ title: 'Noise audit: every values-diff delta must be a real visible difference (
   false positives)'
 created_by: xgd
 created_at: '2026-07-17T01:33:57.749953+00:00'
-updated_at: '2026-07-18T23:32:47.315178+00:00'
+updated_at: '2026-07-19T01:04:56.974535+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false

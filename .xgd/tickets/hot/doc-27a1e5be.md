@@ -5,7 +5,7 @@ type: doc
 title: 'Process: Reproduction-Driven Framework Growth Loop'
 created_by: xgd
 created_at: '2026-07-08T17:34:34.188088+00:00'
-updated_at: '2026-07-19T00:38:59.887611+00:00'
+updated_at: '2026-07-22T00:02:47.403082+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -172,3 +172,30 @@ scoper in this path, and elements carry no scope hash. So `:global(...)` is emit
 theme.css and the browser drops the rule as an invalid selector. Write PLAIN selectors. Pre-existing
 `:global()` rules (text-block links/images/blockquotes, etc.) are silently dead — a latent bug worth a
 sweep.
+
+
+---
+
+## REQ-85 update — the attribution ladder after the pivot (L1 axes + capability gaps)
+
+Since the framework pivot ([[DOC-24]]/[[DOC-23]]) the ladder's lower rungs change:
+there is no longer a `hero`/`services-grid` layout module to "add a dial to", and a
+*module* now means a **behavior module** ([[DOC-25]]). Read step 4's ladder as:
+
+1. **Acceptable residual?** → `except` it. *(unchanged — stops noise-chasing)*
+2. **Config error?** → fix the value, not the framework. *(unchanged)*
+3. **Layout / presentation gap?** → **add a typed L1 primitive** ([[DOC-23]]) — a new
+   axis on the one substrate. Never a new "layout module", never a raw-CSS hole. The
+   expressive ceiling rises while the security wall stays put ([[DOC-24]] §5).
+4. **Behavioural gap that fits an existing behavior module?** → **configure that
+   behavior module** (a new `config` dial/variant, a slot, or a shared resolver) —
+   [[DOC-25]] §1.
+5. **Genuinely new *kind of behaviour*?** → **author a new behavior module** — the
+   last resort, highest bar; hardened + vetted per the Behavior-Module Authoring &
+   Vetting process ([[DOC-26]]), which **replaces** the [[DOC-14]] lifecycle this
+   process previously "refined".
+
+Step 6 "compliance" now inherits the **five** universal ACs — safety / security /
+cross-browser / responsive / **isolation** ([[DOC-20]] REQ-85 update). The two edit
+regimes (§1) are unchanged: site config/theme stays exempt from free-coding; a
+framework change (an L1 axis or a capability) takes full free-coding ceremony.

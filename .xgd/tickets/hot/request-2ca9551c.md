@@ -6,10 +6,10 @@ title: 'Overlay wordmark: anchor positioned wordmark to the content column (trac
   hero left edge across widths)'
 created_by: xgd
 created_at: '2026-07-18T22:43:47.221961+00:00'
-updated_at: '2026-07-18T22:49:20.162994+00:00'
+updated_at: '2026-07-19T01:04:51.519200+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true

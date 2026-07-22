@@ -5,10 +5,10 @@ type: request
 title: 'services-grid card: zero body outer margin so title->body gap isn''t doubled'
 created_by: xgd
 created_at: '2026-07-19T00:13:32.893050+00:00'
-updated_at: '2026-07-19T00:19:42.851437+00:00'
+updated_at: '2026-07-19T01:04:50.274774+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: medium
   auto_merge_back: true

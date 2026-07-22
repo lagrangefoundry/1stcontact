@@ -5,10 +5,10 @@ type: request
 title: contact-form field styling dials (border colour, radius, submit padding)
 created_by: xgd
 created_at: '2026-07-18T15:10:51.316275+00:00'
-updated_at: '2026-07-18T15:16:58.021695+00:00'
+updated_at: '2026-07-19T01:04:55.682661+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false

@@ -5,10 +5,10 @@ type: request
 title: 'adopt-values: mechanically copy reference Type-A flat values into the draft'
 created_by: xgd
 created_at: '2026-07-18T00:43:03.830908+00:00'
-updated_at: '2026-07-18T00:54:37.931894+00:00'
+updated_at: '2026-07-19T01:04:56.507836+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false

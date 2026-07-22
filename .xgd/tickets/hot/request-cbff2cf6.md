@@ -5,10 +5,10 @@ type: request
 title: styled inline runs in markdown body prose ([text]{attrs} spans)
 created_by: xgd
 created_at: '2026-07-18T18:00:40.855610+00:00'
-updated_at: '2026-07-18T18:04:43.034514+00:00'
+updated_at: '2026-07-19T01:04:53.915680+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false

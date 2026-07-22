@@ -5,7 +5,7 @@ type: doc
 title: 'How-To: Faithful Founder-Site Reproduction (successor runbook)'
 created_by: xgd
 created_at: '2026-07-03T01:39:12.471124+00:00'
-updated_at: '2026-07-19T00:38:39.859383+00:00'
+updated_at: '2026-07-21T20:37:44.086164+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,7 +13,103 @@ fields:
   doc_kind: architecture
 ---
 
-# How-To: Faithful Founder-Site Reproduction
+# How-To: Faithful Site Reproduction (L1 world)
+
+> ⚠️ **Rewritten for the framework pivot (REQ-79 / REQ-82 / REQ-83 / REQ-86).**
+> Layout is no longer a stack of semantic modules (hero/header/footer/services-grid);
+> it is the **L1 substrate** ([[DOC-23]]) — one typed, CSS-faithful element tree —
+> and a *module* now means a **capability** ([[DOC-25]]). The **value model and the
+> gate methodology below are unchanged and authoritative** (they read rendered
+> pixels + the captured DOM, which is module-agnostic). What is **superseded** is
+> the section→**module/variant/dial** mapping procedure and the "Capabilities
+> already in the framework" catalog — replaced by the L1 pipeline in this header.
+> Read the module-era sections further down as history.
+
+## Read me first (L1 successor)
+
+You are reproducing a captured site "indistinguishably to the eye" using the L1
+substrate. The pipeline is now **near-mechanical** end-to-end:
+
+```
+1c capture page <url>            → capture.json + raw.html + screenshot + oracle (multistate.json) + hints.json  (DOC-13, REQ-83)
+   → foldToL1(multistate)        → an ABSOLUTE-BASE L1 document (one leaf per node, per-width geometry keyframes)  (REQ-83)
+   → AI structure recovery       → promote pinned regions to FLOW only where the probes demand it  (REQ-86, below)
+   → renderL1 → serve → shoot     → the same renderer tools/generate ships  (REQ-82)
+   → 3-PROBE GATE                 → sample-fidelity · off-sample · content-robustness  (REQ-86)
+```
+
+The site config is **disposable**; the durable output is the **framework growth**
+each residual forces (Interaction Mode 1: prototype → teardown → rebuild). Each
+probe residual is a **framework gap** — a missing L1 axis, a missing capture hint,
+or a region needing promotion — filed and fed back, never a per-site patch.
+
+## The one rule (unchanged)
+
+**Transcribe from the captured DOM. Do NOT reconstruct from memory + screenshot.**
+In the L1 world the fold does this transcription mechanically — every leaf's axes
+and per-width geometry come straight from `capture.json` / the oracle — so a
+residual is a *serializer/axis* bug, not a hand-authoring slip. Verify against
+`raw.html` when a value looks wrong.
+
+## The absolute-base / structure-overlay model (REQ-79 D1)
+
+- **Absolute base.** `foldToL1` emits every leaf absolutely placed by its per-width
+  keyframes. This is *always* a valid layout and reproduces the oracle at the 6
+  captured widths with **zero structural inference** — so **sample-fidelity** is a
+  property of the base.
+- **Structure overlay.** Capture sees painted geometry but not *relationships*
+  (containment, flow, hug-vs-fill). Those are the fields the AI **recovers** — and
+  only where needed: a purely-pinned region breaks at unsampled widths and under
+  longer content, so **off-sample** and **content-robustness** are properties you
+  earn by promoting pinned regions to **flow**. Recovery is **demand-driven** — you
+  promote a region *because a probe failed on it*, not on spec.
+
+## The 3-probe acceptance gate (REQ-86)
+
+`tools/generate/src/l1/probes.ts` (`threeProbeGate`) is the mechanical gate. It runs
+an analytic, browser-free layout evaluator that mirrors the renderer's
+`interpolate|snap` geometry + CSS flow stacking (so every probe is deterministic and
+always-runs, not a Chromium skip):
+
+1. **sample-fidelity** (`sampleFidelityProbe`) — the reproduced geometry matches the
+   retained **oracle** boxes at all 6 captured widths within tolerance. A clean fold
+   reproduces the oracle exactly; a residual here is a serializer bug or a missing L1
+   axis. *Measured on the absolute base.*
+2. **off-sample** (`offSampleProbe`) — the recovered doc renders **sane** (no
+   overlap / clip) at intermediate widths the fold never sampled (**500 / 900px**).
+   Catches interpolation/snap brackets that degrade between captured widths.
+3. **content-robustness** (`contentRobustnessProbe`) — perturb content (longer text /
+   taller image) and the **envelope holds** (no overlap / clip). A pinned region
+   fails here (growing text overruns a fixed-y sibling); a flowed region survives.
+   *This probe's failures drive `promoteToFlow`.*
+
+`threeProbeGate(base, oracle, { recovered })` checks fidelity on the base and the two
+envelope probes on the recovered overlay. `promoteToFlow(doc)` performs the
+demand-driven recovery: it wraps **only** the pinned sibling groups that fail
+content-robustness into flow `stack` containers (pinning the region origin, flowing
+the interior), leaving passing regions absolute. UATs: `tests/req86-e2e-repro.test.ts`.
+
+## Close gaps in L1 — never with a new layout module
+
+When the reproduction cannot express something, the fix is to **add a typed axis /
+primitive to L1** ([[DOC-23]]), never a raw-CSS hole and never a new "layout module"
+(project rule, see CLAUDE.md "Close capability gaps in L1"). A *new module* is only
+for a genuinely new **behaviour** (a capability — carousel, contact-form, payments…),
+authored + hardened per [[DOC-25]] / [[DOC-26]], never for layout/appearance. This
+**supersedes** the module-era "generalize a module's dial/variant before adding one"
+guidance below.
+
+---
+
+*The sections below are the module-era runbook. The **value model and gate
+methodology** (sources of truth, what the screenshot hides, `values-diff`, the
+perceptual `1c diff`, reading the overlay at resolution, measuring computed geometry,
+hero-first, multi-viewport, `aligned-crops`, AI perceptual judgment) remain fully
+valid — they operate on rendered pixels and the captured DOM. The **module-mapping
+procedure and the module catalog are superseded** by the L1 pipeline above; read them
+as history.*
+
+---
 
 ## Read me first (successor)
 
@@ -104,6 +200,8 @@ The value-diff reads *computed styles*; `1c diff` reads *pixels*. It is the sibl
 5. **Value diff gate.** `1c render <slug> --source draft`, then `1c values-diff <slug> --ref <bundle>`. **Fix every flagged delta and re-run until it exits clean.** This is where the six value deltas, the casing slip, and the scrim/anchor would each have been caught.
 6. **Perceptual diff gate.** `1c diff <slug> --ref <bundle>` — mandatory for any art-directed layer the value-diff is blind to. Drive the mean diff down worst-first: open the top-ranked region triptychs, fix, `1c render`, re-`diff`. Use the watch-list above (corner rounding, rotation pivot, circle/ellipse, mask feather, text rhythm). Skip only for a pure band-stack with no positioned imagery.
 7. **Render → screenshot → eyes.** `1c shot <slug> --source draft --out <file>`. Use vision only to **judge** what neither gate encodes (does the gradient read intentional? composition right?), never to read a value.
+
+> ⚠️ **Superseded by the L1 pipeline (see the L1-world header at the top).** This module catalog and the "map each section to a module + variant + dial" procedure no longer describe the framework — layout is the L1 substrate ([[DOC-23]]); close gaps by adding an L1 axis, not a module dial. Kept as history.
 
 ## Capabilities already in the framework (don't reinvent / don't assume absence)
 
