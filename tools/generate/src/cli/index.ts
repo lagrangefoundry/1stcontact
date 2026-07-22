@@ -27,6 +27,7 @@ import {
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
+import { cmdRepro, cmdL1Gate } from './repro'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
@@ -131,6 +132,15 @@ Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
     ladder (multistate.json — the acceptance oracle), the ladder folded into ONE L1 document
     (l1.json: geometry keyframes + interpolate/snap + visibility), and advisory structural hints
     (hints.json: parent layout, sizing unit, position mode, @media breakpoints — read for direction, never executed).
+
+L1 reproduction pipeline (REQ-88) — turn a capture bundle into a servable, gate-able 1c site:
+  1c repro <slug> --ref <captureBundleDir> [--sandbox]
+    Import the bundle's folded l1.json as a raw-L1 home page site (idempotent — re-import rebuilds).
+    The normal render/serve/shot/diff/values-diff loop then works on the reproduction unchanged.
+  1c l1-gate --ref <captureBundleDir> [--json] [--sandbox]
+    The mechanical 3-probe acceptance gate: fold multistate.json → base, promoteToFlow → recovered,
+    then sample-fidelity · off-sample · content-robustness. Exits non-zero while any probe fails;
+    each residual names a framework gap (missing L1 axis / capture hint / region needing promotion).
 
 Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
   1c shot <slug> [--source draft|published] [--viewport mobile|tablet|desktop] [--out <file>] [--sandbox]
@@ -321,6 +331,51 @@ export async function run(argv: string[]): Promise<void> {
           `  l1.json: ${l1Nodes} node(s) across ${l1.widths.length} width(s); ` +
           `hints.json: ${hints.nodes.length} node(s), ${hints.mediaBreakpoints.length} @media breakpoint(s)`,
       )
+      return
+    }
+
+    case 'repro': {
+      const slug = requireSlug(rest[0])
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('repro requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const { draftDir, nodeCount, copiedAssets } = cmdRepro(slug, { ...global, ref })
+      console.log(
+        `Reproduced ${ref} → ${draftDir}\n` +
+          `  raw-L1 home page: ${nodeCount} node(s)${copiedAssets ? '; assets copied' : ''}\n` +
+          `  next: 1c render ${slug}${global.sandbox ? ' --sandbox' : ''}  ·  1c l1-gate --ref ${ref}`,
+      )
+      return
+    }
+
+    case 'l1-gate': {
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('l1-gate requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const report = cmdL1Gate({ ...global, ref })
+      if (flags.json === true) {
+        console.log(JSON.stringify(report, null, 2))
+      } else {
+        const mark = (ok: boolean): string => (ok ? 'PASS' : 'FAIL')
+        const findings = (r: { byWidth: Array<{ findings: unknown[] }> }): number =>
+          r.byWidth.reduce((n, w) => n + w.findings.length, 0)
+        console.log(
+          `3-probe gate on ${ref}: ${report.pass ? 'PASS' : 'FAIL'}\n` +
+            `  sample-fidelity     ${mark(report.sampleFidelity.pass)}  ` +
+            `(maxΔ ${report.sampleFidelity.maxDelta.toFixed(1)}px, ${report.sampleFidelity.residuals.length} residual(s), ` +
+            `${report.sampleFidelity.unmatched.length} unmatched)\n` +
+            `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
+            `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
+            `  promoted regions: ${report.promoted.length ? report.promoted.join(', ') : 'none'}`,
+        )
+      }
+      if (!report.pass) process.exitCode = 1
       return
     }
 

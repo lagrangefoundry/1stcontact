@@ -113,27 +113,13 @@ describe('REQ-55 literal escape hatch', () => {
   })
 })
 
-describe('REQ-55 gigabytealchemy "Most apps" block', () => {
-  it('test_UAT_FC_REQ-55_gigabytealchemy_most_apps_width', () => {
-    // The REQ-52 "Most apps" block (`different-approach`) is 896px in the
-    // reference; under exact-match diffing the old 768/1152 steps could not hit it.
-    // Set to `4xl`, it resolves to the 896px token exactly.
-    const home = JSON.parse(
-      readFileSync(
-        path.join(process.cwd(), 'storage/sites/gigabytealchemy/draft/pages/home.json'),
-        'utf8',
-      ),
-    )
-    const block = home.modules.find((m: { id: string }) => m.id === 'different-approach')
-    expect(block.content.body).toContain('Most apps')
-    expect(block.dials.contentWidth).toBe('4xl')
-
-    // The block's `4xl` contentWidth dial resolves to the 896px token.
-    expect(resolveContainerWidth(block.dials.contentWidth)).toBe('var(--container-4xl)')
-    // The token backing `4xl` is 56rem = 896px — the reference width, exactly.
-    expect(parseFloat(CONTAINER_STEPS['4xl']) * 16).toBe(896)
-  })
-})
+// NOTE (REQ-88): the `REQ-55 gigabytealchemy "Most apps" block` UAT was removed
+// here. It read `storage/sites/gigabytealchemy/draft/pages/home.json` — a
+// module-era (`text-block`) site the framework pivot's deleted layout modules can
+// no longer render, and which REQ-88 removed for the L1 reproduction rebuild. The
+// contentWidth resolver behaviour it exercised (`4xl` → 896px token; literal px)
+// is still covered by `test_UAT_FC_REQ-55_contentWidth_literal_px` above, which
+// tests `resolveContainerWidth` directly without a site fixture.
 
 describe('REQ-55 migration — retired width names are gone', () => {
   const RETIRED = ['xnarrow', 'readable'] as const // renamed dial values; also the

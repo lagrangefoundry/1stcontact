@@ -6,6 +6,7 @@ import {
   getModule,
   getModuleCss,
   getModuleClientJs,
+  renderL1Document,
 } from '@1stcontact/framework'
 import type { BehaviorDefinition } from '@1stcontact/framework'
 import type { Page, Site } from '@1stcontact/site-schema'
@@ -97,7 +98,11 @@ async function renderPage(
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
   const ogImage = page.seoMeta?.ogImage
-  const body = await renderModules(container, page, resolveModule)
+  // A page is either a raw L1 document (a folded reproduction — REQ-88) or a
+  // behavior-module stack. The L1 render is self-contained (concrete values from
+  // the fold); its css rides in a page-level <style> alongside the theme tokens.
+  const l1 = page.l1 ? renderL1Document(page.l1) : null
+  const body = l1 ? l1.html : await renderModules(container, page, resolveModule)
 
   const head = [
     '<meta charset="utf-8" />',
@@ -113,6 +118,9 @@ async function renderPage(
     '  body { margin: 0; font-family: var(--font-family-body); background: var(--color-bg); color: var(--color-text); }',
     '  h1, h2, h3, h4 { font-family: var(--font-family-heading); }',
     '</style>',
+    // REQ-88: the folded L1 document's self-contained css (absolute geometry
+    // keyframes + typed axes). Only present for a raw-L1 page.
+    l1 ? `<style>\n${l1.css}\n</style>` : '',
     // Behavior client behaviour (REQ-85): one deferred module, emitted only
     // when a behavior ships a `client.js`. Self-wires on load.
     getModuleClientJs() ? '<script type="module" src="./capabilities.js"></script>' : '',

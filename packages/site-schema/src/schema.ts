@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { l1NodeSchema } from './l1/schema'
+import { l1DocumentSchema, l1NodeSchema } from './l1/schema'
 
 /**
  * Zod schemas for 1st Contact site definitions.
@@ -519,16 +519,32 @@ export const moduleInstanceSchema = z
   })
   .strict()
 
-/** A page: an ordered list of module instances. */
+/**
+ * A page is one of two mutually-exclusive shapes (REQ-88):
+ *   - a **behavior-module stack** — an ordered list of module instances, or
+ *   - a **raw L1 page** — a single {@link l1DocumentSchema} the page *is*, the
+ *     shape a captured reproduction folds to (there is no behavior module to host
+ *     a pure-layout marketing page since the pivot).
+ * `modules` defaults to `[]`; `l1` is optional; the superRefine enforces the XOR
+ * (both empty is legal — the empty starter). The renderer branches on `l1`.
+ */
 export const pageSchema = z
   .object({
     id: z.string(),
     slug: z.string(),
     title: z.string(),
     seoMeta: seoMetaSchema.optional(),
-    modules: z.array(moduleInstanceSchema),
+    modules: z.array(moduleInstanceSchema).default([]),
+    l1: l1DocumentSchema.optional(),
   })
   .superRefine((page, ctx) => {
+    if (page.l1 && page.modules.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['l1'],
+        message: 'a page is either a module stack or a raw L1 document, not both',
+      })
+    }
     const seen = new Set<string>()
     page.modules.forEach((m, i) => {
       if (seen.has(m.id)) {

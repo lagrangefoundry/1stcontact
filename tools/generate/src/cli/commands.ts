@@ -32,7 +32,7 @@ export interface GlobalOptions {
   sandbox?: boolean
 }
 
-function ctxOf(opts: GlobalOptions): StoreContext {
+export function ctxOf(opts: GlobalOptions): StoreContext {
   const root: Root = opts.sandbox ? 'sandbox' : 'sites'
   return { cwd: opts.cwd ?? process.cwd(), root }
 }
