@@ -6,17 +6,16 @@ title: 'Absolute-or-overlay values: every colour, length, and radius dial accept
   a literal or a named overlay'
 created_by: xgd
 created_at: '2026-07-19T03:09:25.918607+00:00'
-updated_at: '2026-07-22T20:28:57.375021+00:00'
+updated_at: '2026-07-22T20:31:23.570318+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-6e088083
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-31e474b9
+  updated_by: bundle-31e474b9
 ---
 
 ## Story
