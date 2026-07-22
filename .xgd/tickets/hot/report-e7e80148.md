@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T19:42:54.902796+00:00'
+updated_at: '2026-07-22T19:55:27.622295+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -86,7 +86,7 @@ fields:
       (9ca73953) then reframed; its durable form is a capability module. This is a
       genuinely new capability bucket, not an extension of any reproduction-value
       story.
-    story_uid: null
+    story_uid: story-179b8c06
   - index: 4
     component: End-to-End 3-Probe Reproduction Gate
     item_type: feature
