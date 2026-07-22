@@ -5,10 +5,10 @@ type: request
 title: 'Framework pivot D: capability-module contract + reframe carousel & contact-form'
 created_by: xgd
 created_at: '2026-07-20T19:48:30.146121+00:00'
-updated_at: '2026-07-22T18:51:59.239453+00:00'
-completed_at: null
+updated_at: '2026-07-22T21:22:12.325849+00:00'
+completed_at: '2026-07-22T21:22:12.325849+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
