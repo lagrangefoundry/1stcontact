@@ -5,54 +5,15 @@ type: bundle
 title: REQ-63 + REQ-79 + REQ-82 + REQ-83 + REQ-84 + 2 more
 created_by: xgd
 created_at: '2026-07-22T18:51:58.863651+00:00'
-updated_at: '2026-07-22T18:52:01.117968+00:00'
-completed_at: null
+updated_at: '2026-07-22T21:22:12.206840+00:00'
+completed_at: '2026-07-22T21:22:12.206840+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   commits:
-  - working_sha: 8c0c6363e4da654ab348e6e6446f53bcde584a97
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 09fa7cf5c6eec2b40cc8055e3e97facbd7eba6fe
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 9ca7395307bdd2064ce4d444fa2e9766ffd2493f
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 65b2582276cace7344ef011f7e81b4ed73a13deb
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 514b3198ee477422ef863703ee39aa0552a2e8b6
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: b51389536da3ef8bf91bbd1479a6deee560a36d7
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 7131f5e377c7b014ddc8c220b633a7136cf0d0a9
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 1a2faeeefac8e0d261e898cc907f1ec98b4c211a
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: a1f739b67ae42f08a63d1a6174c1ef1fe2edac77
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 0e7064191d9e7e26c5bc8089748cd322a32d0790
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 0f3f5b194f562abc431f509179189707ea3055d2
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 3b65fc824b27ed99c4fef303f00ec47dbb217936
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: b7d32cce7f5c4cbed624efe5a22d3eaeab6ad75a
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 94365416f9d67df69e93d31446eec27d381f1cb7
-    reconcile_sha: null
-    main_sha: null
+    main_sha: edeb1c2c00d0c194a45cf590bed3641a6cf82d60
   auto_merge_back: true
   priority: medium
   orphan_commits:
@@ -137,6 +98,7 @@ fields:
   - a1f739b67ae42f08a63d1a6174c1ef1fe2edac77
   - 3b65fc824b27ed99c4fef303f00ec47dbb217936
   - b7d32cce7f5c4cbed624efe5a22d3eaeab6ad75a
+  merged_at_commit: edeb1c2c00d0c194a45cf590bed3641a6cf82d60
 ---
 
 # Bundle
