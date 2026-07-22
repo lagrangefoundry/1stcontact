@@ -6,10 +6,10 @@ title: 'Coverage audit: capture + diff every render-affecting CSS axis (close al
   blind spots)'
 created_by: xgd
 created_at: '2026-07-17T01:33:33.615654+00:00'
-updated_at: '2026-07-22T18:51:58.931080+00:00'
-completed_at: null
+updated_at: '2026-07-22T21:22:12.656132+00:00'
+completed_at: '2026-07-22T21:22:12.656132+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
