@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T20:07:52.925816+00:00'
+updated_at: '2026-07-22T20:18:08.784794+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -132,7 +132,7 @@ fields:
       axes; the fontLoad change corrects a diff-direction defect in the same pipeline.
       No new capability bucket is introduced -- this is a strict extension of the
       blind-spot-closure capability, so it is an upgrade, not a feature.
-    story_uid: null
+    story_uid: STORY-75
     target_story_ids:
     - STORY-75
     acceptance_criteria_changes:
