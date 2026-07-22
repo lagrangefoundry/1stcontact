@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: framework pivot (REQ-79 L1) + values-diff coverage (REQ-63)'
 created_by: xgd
 created_at: '2026-07-22T19:28:18.067778+00:00'
-updated_at: '2026-07-22T20:34:28.441081+00:00'
+updated_at: '2026-07-22T20:44:28.235678+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -250,7 +250,7 @@ fields:
       the treatment CAPABILITY survives (card look in L1; contact-form presentation
       as capability config + L1 slots) but the module-dial mechanism is gone. Upgrade
       in place; no new bucket.'
-    story_uid: null
+    story_uid: STORY-82
     target_story_ids:
     - STORY-82
     acceptance_criteria_changes:
