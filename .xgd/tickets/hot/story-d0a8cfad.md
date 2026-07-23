@@ -5,7 +5,7 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-07-23T06:14:18.464123+00:00'
+updated_at: '2026-07-23T07:32:53.807167+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
@@ -92,7 +92,9 @@ archived) recorded that the former **per-breakpoint module length dials**
 (`{ base, sm?, md?, lg?, xl? }`) and the header `navCollapse` dial were deleted by
 the REQ-79 pivot. Their responsive-across-widths intent is re-homed here: per-viewport
 variation is carried by this substrate's geometry keyframes (interpolate|snap).
-`navCollapse` was removed with no L1 successor. STORY-81's sole AC (AC-717) is a
-behavioural duplicate of AC-684 and was reassigned here; a follow-up AC-level dedup
-should collapse AC-717 into AC-684 and retire its test file
-(tests/reconciliation-responsive-keyframes.test.ts).
+`navCollapse` was removed with no L1 successor. STORY-81's sole AC (AC-717) was a
+behavioural duplicate of AC-684 and was reassigned here; the AC-level dedup pass
+(per REPORT-795) has since collapsed AC-717 into AC-684 — AC-717 is archived, its
+provenance note folded into AC-684, and its duplicate test file
+(tests/reconciliation-responsive-keyframes.test.ts) retired. That behaviour remains
+covered by tests/reconciliation-l1-substrate.test.ts.
