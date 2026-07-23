@@ -6,14 +6,15 @@ title: card/band and footer visual treatments are expressed via L1 leaf axes, no
   module dials
 created_by: xgd
 created_at: '2026-07-22T20:44:01.723899+00:00'
-updated_at: '2026-07-22T20:44:01.723899+00:00'
+updated_at: '2026-07-23T08:26:15.924262+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-46e3b3c7
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
