@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for 973fcaec'
 created_by: xgd
 created_at: '2026-07-23T11:50:28.897977+00:00'
-updated_at: '2026-07-23T11:50:28.897977+00:00'
+updated_at: '2026-07-23T12:06:54.376547+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: 973fcaec
@@ -18,6 +18,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: test_UAT_AC631
+  batches_pending: false
 ---
 
 {
