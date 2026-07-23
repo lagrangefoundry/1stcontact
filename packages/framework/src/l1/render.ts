@@ -482,6 +482,12 @@ function emitNode(node: L1Node, state: RenderState): string {
         const b = borderCss(a.border)
         if (b) base.push(`border: ${b}`)
       }
+      // BUG-14 — a coloured left-accent border (card rule). Emitted after `border`
+      // so an explicit `border-left` wins; re-derived from numeric/enum/hex fields.
+      if (a.borderLeft) {
+        const b = borderCss(a.borderLeft)
+        if (b) base.push(`border-left: ${b}`)
+      }
       if (a.boxShadow) {
         const sh = shadowCss(a.boxShadow)
         if (sh) base.push(`box-shadow: ${sh}`)

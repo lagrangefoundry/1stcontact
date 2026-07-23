@@ -282,19 +282,20 @@ export interface FoldableElement {
 export type FoldLeafKind = 'text' | 'image' | 'box' | 'control' | 'unknown' | 'empty'
 
 /**
- * Id prefix of a **synthesized backing surface** (BUG-11): the `box` leaf the
- * fold reconstructs *behind* a text run whose composited panel/card fill would
- * otherwise vanish. It is not a captured element — its source element classifies
- * as `text` and is measured through the run's own text leaf — so it has **no
- * oracle counterpart** and must never enter the gate's non-text pairing queue
+ * Id prefixes of a **synthesized backing surface** (BUG-14): the `box` leaves the
+ * fold reconstructs *behind* the text runs whose composited section/card fill
+ * would otherwise vanish — the full-bleed section bands, the section background
+ * images, and the cards. None is a captured element: each one's source elements
+ * classify as `text` and are measured through their own text leaves, so they have
+ * **no oracle counterpart** and must never enter the gate's non-text pairing queue
  * (doing so mispairs every real `box-*` leaf and reports phantom fidelity
  * deltas). {@link isSynthesizedSurfaceId} is the single place that knows this.
  */
-export const SYNTHESIZED_SURFACE_ID_PREFIX = 'surface-'
+export const SYNTHESIZED_SURFACE_ID_PREFIXES = ['section-band-', 'section-bg-', 'card-'] as const
 
-/** True for a fold-synthesized backing surface — see {@link SYNTHESIZED_SURFACE_ID_PREFIX}. */
+/** True for a fold-synthesized backing surface — see {@link SYNTHESIZED_SURFACE_ID_PREFIXES}. */
 export function isSynthesizedSurfaceId(id: string | undefined): boolean {
-  return id !== undefined && id.startsWith(SYNTHESIZED_SURFACE_ID_PREFIX)
+  return id !== undefined && SYNTHESIZED_SURFACE_ID_PREFIXES.some((p) => id.startsWith(p))
 }
 
 /** A text-free element that carries media substance (an `<img>`): it becomes an `image` leaf. */
@@ -551,6 +552,247 @@ function foldSectionBackgrounds(projections: StateProjection[], widths: number[]
 }
 
 /**
+ * BUG-14 — the surface a captured text run sits on, plus its per-width geometry.
+ * The capture attributes the composited card/panel/section fill and the card
+ * treatments (`borderLeft` accent, uniform `border`, `boxShadow`, radius) onto
+ * each *run* (never as a standalone box). We collect one of these per surface-
+ * bearing run, then rebuild the **section-band → card → text** hierarchy from them
+ * (`buildSolidBands` + `buildCards`) instead of emitting a rectangle per run.
+ */
+interface SurfaceRow {
+  fill?: string
+  gradient?: L1Gradient
+  borderLeft?: L1Border
+  border?: L1Border
+  boxShadow?: L1Shadow
+  borderRadiusPx?: number
+  /** Per-width run box (has height), ascending by width. */
+  frames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>
+  /** The run's box at the widest present width — the grouping/classification frame. */
+  widest: NonNullable<ValueElement['box']>
+}
+
+/** A captured asymmetric left-accent border (a card rule) → the L1 `borderLeft` axis. */
+function foldBorderLeftAxis(bl: ValueElement['borderLeft']): L1Border | undefined {
+  if (!bl || !(bl.widthPx > 0)) return undefined
+  const color = colorToHex(bl.color)
+  if (!color) return undefined
+  return { widthPx: bl.widthPx, color }
+}
+
+/** Whether a surface row carries any card treatment (so it is a card, never a plain band). */
+function hasCardTreatment(r: SurfaceRow): boolean {
+  return Boolean(
+    r.borderLeft || r.border || r.boxShadow || (r.borderRadiusPx && r.borderRadiusPx > 0) || r.gradient,
+  )
+}
+
+/** Count of distinct treatments present — the representative-row tiebreak for a card. */
+function treatmentScore(r: SurfaceRow): number {
+  let n = 0
+  if (r.fill) n++
+  if (r.gradient) n++
+  if (r.borderLeft) n++
+  if (r.border) n++
+  if (r.boxShadow) n++
+  if (r.borderRadiusPx && r.borderRadiusPx > 0) n++
+  return n
+}
+
+/** A stable identity for a card surface — two rows with the same signature can be one card. */
+function surfaceSignature(r: SurfaceRow): string {
+  const g = r.gradient ? `${r.gradient.angleDeg ?? ''}:${r.gradient.stops.map((s) => `${s.color}@${s.position ?? ''}`).join(',')}` : ''
+  const bl = r.borderLeft ? `${r.borderLeft.widthPx}/${r.borderLeft.color}` : ''
+  const bd = r.border ? `${r.border.widthPx}/${r.border.color}` : ''
+  const sh = r.boxShadow ? `${r.boxShadow.offsetXPx},${r.boxShadow.offsetYPx},${r.boxShadow.blurPx ?? 0},${r.boxShadow.color}` : ''
+  const rad = r.borderRadiusPx && r.borderRadiusPx > 0 ? Math.round(r.borderRadiusPx) : ''
+  return `${r.fill ?? ''}|${g}|${bl}|${bd}|${sh}|${rad}`
+}
+
+type Rect = NonNullable<ValueElement['box']>
+const xOverlap = (a: Rect, b: Rect): boolean =>
+  Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 0
+const vGap = (a: Rect, b: Rect): number => {
+  const iy = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  return iy >= 0 ? 0 : -iy
+}
+
+/** A card's internal padding, inferred from the vertical rhythm of its runs (data-driven, clamped). */
+function cardPadding(rows: SurfaceRow[]): number {
+  if (rows.length < 2) return clamp(Math.round(0.5 * rows[0].widest.height), 8, 28)
+  const tops = rows.map((r) => r.widest.y).sort((a, b) => a - b)
+  const gaps: number[] = []
+  for (let i = 1; i < tops.length; i++) gaps.push(tops[i] - tops[i - 1])
+  gaps.sort((a, b) => a - b)
+  const med = gaps[Math.floor(gaps.length / 2)] || 16
+  return clamp(Math.round(0.4 * med), 8, 28)
+}
+
+/** Extra height added below the last band so a trailing band has a visible tail. */
+const BAND_TAIL_PAD = 48
+
+/**
+ * BUG-14 — full-bleed **section-band** boxes. Band rows (full-width content runs
+ * with no card treatment) are grouped into maximal consecutive-same-fill runs in
+ * document order; the groups are ordered top-to-bottom and each band **tiles**
+ * from its own top to the next band's top, so a band covers its whole section —
+ * including any cards that sit on it — rather than hugging just its heading. Each
+ * band paints its solid fill full-bleed (`x:0`, `width:viewport`) at every width.
+ */
+function buildSolidBands(bandRows: SurfaceRow[], widths: number[]): L1Box[] {
+  const groups: Array<{ fill: string; rows: SurfaceRow[] }> = []
+  for (const r of bandRows) {
+    if (!r.fill) continue
+    const last = groups[groups.length - 1]
+    if (last && last.fill === r.fill) last.rows.push(r)
+    else groups.push({ fill: r.fill, rows: [r] })
+  }
+  if (groups.length === 0) return []
+  const widestW = Math.max(...widths)
+  const topAt = (g: { rows: SurfaceRow[] }, w: number): number | undefined => {
+    let t = Infinity
+    for (const r of g.rows) {
+      const f = r.frames.find((f) => f.at === w)
+      if (f) t = Math.min(t, f.box.y)
+    }
+    return t === Infinity ? undefined : t
+  }
+  const botAt = (g: { rows: SurfaceRow[] }, w: number): number | undefined => {
+    let b = -Infinity
+    for (const r of g.rows) {
+      const f = r.frames.find((f) => f.at === w)
+      if (f) b = Math.max(b, f.box.y + f.box.height)
+    }
+    return b === -Infinity ? undefined : b
+  }
+  // Slab order top-to-bottom (fixed across widths by the widest-width top).
+  const order = groups
+    .map((g, i) => ({ g, i, top: topAt(g, widestW) ?? Infinity }))
+    .sort((a, b) => a.top - b.top)
+  const boxes: L1Box[] = []
+  order.forEach((entry, oi) => {
+    const keyframes: L1Keyframe[] = []
+    const present: number[] = []
+    for (const w of widths) {
+      const top = topAt(entry.g, w)
+      if (top === undefined) continue
+      let bottom: number | undefined
+      for (let k = oi + 1; k < order.length; k++) {
+        const nt = topAt(order[k].g, w)
+        if (nt !== undefined && nt > top) {
+          bottom = nt
+          break
+        }
+      }
+      if (bottom === undefined) {
+        const ob = botAt(entry.g, w)
+        bottom = ob !== undefined ? ob + BAND_TAIL_PAD : top
+      }
+      keyframes.push({ at: w, x: 0, y: Math.round(top), width: w, height: Math.round(Math.max(0, bottom - top)) })
+      present.push(w)
+    }
+    if (keyframes.length === 0) return
+    const geometry: L1Geometry = { keyframes }
+    if (keyframes.length > 1) {
+      geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+    }
+    const node: L1Box = { kind: 'box', id: `section-band-${oi}`, geometry, axes: { surfaceFill: entry.g.fill } }
+    const vis = visibilityFor(present, widths)
+    if (vis) node.visibility = vis
+    boxes.push(node)
+  })
+  return boxes
+}
+
+/**
+ * BUG-14 — **card** boxes. Card rows (a surface distinct from their band, or any
+ * card treatment) are grouped by connected component under "same surface signature
+ * AND horizontally-overlapping AND vertically-adjacent" — so a card's stacked runs
+ * (title / body / checklist), bridged by its full-width body run, coalesce into
+ * ONE box, while side-by-side grid columns (disjoint x) stay separate cards and a
+ * distinct badge (different fill) becomes its own small box. Each card box is the
+ * union of its runs plus inferred padding, carrying the card treatments
+ * (`borderLeft` accent, border, shadow, radius). Larger cards paint first so a
+ * contained badge lands on top.
+ */
+function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
+  const n = cardRows.length
+  if (n === 0) return []
+  const parent = Array.from({ length: n }, (_, i) => i)
+  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])))
+  const sig = cardRows.map(surfaceSignature)
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (sig[i] !== sig[j]) continue
+      const a = cardRows[i].widest
+      const b = cardRows[j].widest
+      if (!xOverlap(a, b)) continue
+      if (vGap(a, b) <= 2.5 * Math.max(a.height, b.height, 40)) parent[find(i)] = find(j)
+    }
+  }
+  const groups = new Map<number, number[]>()
+  for (let i = 0; i < n; i++) {
+    const r = find(i)
+    const g = groups.get(r)
+    if (g) g.push(i)
+    else groups.set(r, [i])
+  }
+  const boxes: Array<{ node: L1Box; area: number }> = []
+  let idx = 0
+  for (const members of groups.values()) {
+    const rows = members.map((m) => cardRows[m])
+    const rep = rows.slice().sort((a, b) => treatmentScore(b) - treatmentScore(a))[0]
+    const pad = cardPadding(rows)
+    const keyframes: L1Keyframe[] = []
+    const present: number[] = []
+    for (const w of widths) {
+      let x0 = Infinity,
+        y0 = Infinity,
+        x1 = -Infinity,
+        y1 = -Infinity,
+        any = false
+      for (const r of rows) {
+        const f = r.frames.find((f) => f.at === w)
+        if (!f) continue
+        any = true
+        x0 = Math.min(x0, f.box.x)
+        y0 = Math.min(y0, f.box.y)
+        x1 = Math.max(x1, f.box.x + f.box.width)
+        y1 = Math.max(y1, f.box.y + f.box.height)
+      }
+      if (!any) continue
+      keyframes.push({
+        at: w,
+        x: Math.round(x0 - pad),
+        y: Math.round(y0 - pad),
+        width: Math.round(x1 - x0 + 2 * pad),
+        height: Math.round(y1 - y0 + 2 * pad),
+      })
+      present.push(w)
+    }
+    if (keyframes.length === 0) continue
+    const geometry: L1Geometry = { keyframes }
+    if (keyframes.length > 1) {
+      geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+    }
+    const axes: L1BoxAxes = {}
+    if (rep.fill) axes.surfaceFill = rep.fill
+    if (rep.gradient) axes.surfaceGradient = rep.gradient
+    if (rep.borderLeft) axes.borderLeft = rep.borderLeft
+    if (rep.border) axes.border = rep.border
+    if (rep.boxShadow) axes.boxShadow = rep.boxShadow
+    if (rep.borderRadiusPx && rep.borderRadiusPx > 0) axes.borderRadiusPx = Math.round(rep.borderRadiusPx)
+    const node: L1Box = { kind: 'box', id: `card-${idx++}`, geometry, axes }
+    const vis = visibilityFor(present, widths)
+    if (vis) node.visibility = vis
+    const wk = keyframes[keyframes.length - 1]
+    boxes.push({ node, area: wk.width * (wk.height ?? 0) })
+  }
+  // Larger cards first (bottom); a small contained badge paints last (on top).
+  return boxes.sort((a, b) => b.area - a.area).map((b) => b.node)
+}
+
+/**
  * Fold a multi-viewport capture into one L1 document. Text nodes fold to `text`
  * leaves (the round-trip oracle compares text axes); text-free nodes (fields,
  * images) carry no `src` in the manifest and are deferred. The result is
@@ -579,15 +821,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const children: L1Node[] = []
   let imageIdx = 0
   let boxIdx = 0
-  // BUG-11 — the surface a text run sits on. The capture attributes the composited
-  // card/panel/section fill onto each *run* (`surfaceFill`/`surfaceGradient`), never
-  // as a standalone box, so a bare text leaf drops every background. For each run
-  // carrying a surface we build a backing `box` (the run's geometry + the fill), and
-  // tally solid fills so the dominant one becomes the page band (`doc.background`).
-  // The band is painted by the body, so a backing box is emitted only for surfaces
-  // that *differ* from it — the genuine panels/cards — keeping node count down.
-  const pendingSurfaces: Array<{ fill?: string; node: L1Box }> = []
-  const fillCounts = new Map<string, number>()
+  // BUG-14 — the surface each text run sits on, collected per run for the post-loop
+  // section-band → card → text reconstruction (replaces BUG-11's per-run backing
+  // box, which produced a rectangle behind every paragraph).
+  const surfaceRows: SurfaceRow[] = []
   for (const row of table.rows) {
     const present = row.cells.filter((c) => c.element)
     const sample = present[0]?.element
@@ -629,21 +866,29 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (vis) node.visibility = vis
       children.push(node)
 
-      // BUG-11 — reconstruct the surface this run sits on (behind the run) so
-      // panel/card and section fills render. A box leaf carries its own geometry
-      // (the run's box, with height) and the composited fill/gradient.
+      // BUG-14 — record this run's immediate surface (composited fill / gradient +
+      // card treatments) with its per-width geometry. No backing box is emitted
+      // here; the band/card hierarchy is rebuilt from these rows after the loop.
       const surfFill = (widest.surfaceFill ? colorToHex(widest.surfaceFill) : null) ?? undefined
       const surfGrad = foldGradient(widest.surfaceGradient)
-      if (surfFill) fillCounts.set(surfFill, (fillCounts.get(surfFill) ?? 0) + 1)
-      if (surfFill || surfGrad) {
-        const axes: L1BoxAxes = {}
-        if (surfFill) axes.surfaceFill = surfFill
-        if (surfGrad) axes.surfaceGradient = surfGrad
-        // Id is assigned after the band filter below, so surviving surfaces are
-        // numbered contiguously (the id is the pairing/debug handle).
-        const boxNode: L1Box = { kind: 'box', geometry: buildGeometry(true), axes }
-        if (vis) boxNode.visibility = vis
-        pendingSurfaces.push({ fill: surfFill, node: boxNode })
+      const surfBorderLeft = foldBorderLeftAxis(widest.borderLeft)
+      const surfBorder = foldBorder(widest.border)
+      const surfShadow = foldShadow(widest.boxShadow, { spread: true, inset: true })
+      const surfRadius = widest.borderRadiusPx
+      if (
+        widest.box &&
+        (surfFill || surfGrad || surfBorderLeft || surfBorder || surfShadow || (surfRadius && surfRadius > 0))
+      ) {
+        surfaceRows.push({
+          fill: surfFill,
+          gradient: surfGrad,
+          borderLeft: surfBorderLeft,
+          border: surfBorder,
+          boxShadow: surfShadow,
+          borderRadiusPx: surfRadius,
+          frames: framed.map((c) => ({ at: c.width, box: c.element!.box! })),
+          widest: widest.box,
+        })
       }
       continue
     }
@@ -714,31 +959,59 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     signal(sample, 'text-free element is neither media, a painted surface, nor a known control — no L1 leaf yet', presentWidths)
   }
 
-  // BUG-11 — the page band is the solid fill the most runs sit on; it paints via
-  // the document body (`doc.background`). Backing boxes are then emitted only for
-  // surfaces that differ from the band (or carry a gradient the body can't paint),
-  // and are placed *first* so every content leaf paints over its surface.
+  // BUG-14 — rebuild the section-band → card → text hierarchy from the collected
+  // surface rows. A row is a *band* row when it is a full-width content run with no
+  // card treatment; its fill is a band fill. A row *sits on* its band (emits no
+  // box) when it carries a band fill and no treatment. Everything else with a
+  // surface is a *card* — grouped into card boxes carrying their treatments.
+  const pageContentWidth = Math.max(1, ...surfaceRows.map((r) => r.widest.width))
+  const FULL_WIDTH_FRAC = 0.7
+  const isFullWidth = (r: SurfaceRow): boolean => r.widest.width >= FULL_WIDTH_FRAC * pageContentWidth
+  const bandFills = new Set<string>()
+  for (const r of surfaceRows) {
+    if (r.fill && isFullWidth(r) && !hasCardTreatment(r)) bandFills.add(r.fill)
+  }
+  const bandRows: SurfaceRow[] = []
+  const cardRows: SurfaceRow[] = []
+  for (const r of surfaceRows) {
+    const onBand = !hasCardTreatment(r) && Boolean(r.fill) && bandFills.has(r.fill!)
+    if (onBand && isFullWidth(r)) bandRows.push(r)
+    else if (onBand) continue // a narrow run on the band paints nothing of its own
+    else if (r.fill || r.gradient || hasCardTreatment(r)) cardRows.push(r)
+  }
+  const bandNodes = buildSolidBands(bandRows, widths)
+  const cardNodes = buildCards(cardRows, widths)
+
+  // The page base is the band fill covering the greatest total height (shows only
+  // through gaps between the full-bleed bands).
+  const bandHeightByFill = new Map<string, number>()
+  for (const b of bandNodes) {
+    const fill = b.axes?.surfaceFill
+    if (!fill || !b.geometry) continue
+    const kf = b.geometry.keyframes[b.geometry.keyframes.length - 1]
+    bandHeightByFill.set(fill, (bandHeightByFill.get(fill) ?? 0) + (kf.height ?? 0))
+  }
   let band: string | undefined
-  let bandCount = 0
-  for (const [hex, n] of fillCounts) {
-    if (n > bandCount) {
-      bandCount = n
-      band = hex
+  let bandExtent = 0
+  for (const [fill, h] of bandHeightByFill) {
+    if (h > bandExtent) {
+      bandExtent = h
+      band = fill
     }
   }
-  const surfaceNodes = pendingSurfaces
-    .filter((s) => s.node.axes?.surfaceGradient !== undefined || s.fill !== band)
-    .map((s, i) => {
-      s.node.id = `${SYNTHESIZED_SURFACE_ID_PREFIX}${i}`
-      return s.node
-    })
+  // Fallback when no full-bleed bands were found: the most common run fill.
+  if (!band) {
+    const counts = new Map<string, number>()
+    for (const r of surfaceRows) if (r.fill) counts.set(r.fill, (counts.get(r.fill) ?? 0) + 1)
+    let best = 0
+    for (const [fill, n] of counts) if (n > best) ((best = n), (band = fill))
+  }
 
-  // BUG-13 — section/band background images paint beneath everything: the page
-  // band (`doc.background`), then section-background boxes, then panel/card
-  // surfaces, then the content leaves.
+  // BUG-13 — section/band background images (the hero). Paint order beneath
+  // everything: solid bands, then section-image bands, then cards, then content.
   const sectionBgNodes = foldSectionBackgrounds(projections, widths)
 
-  const root: L1Box = { kind: 'box', children: [...sectionBgNodes, ...surfaceNodes, ...children] }
+  const root: L1Box = { kind: 'box', children: [...bandNodes, ...sectionBgNodes, ...cardNodes, ...children] }
   const doc: L1Document = { widths, root }
   if (band) doc.background = band
 

@@ -291,6 +291,9 @@ describe('AC-730 a text-free element that paints a standalone surface folds to a
 // ── AC-731: run-composited surfaces → page band + backing boxes ───────────────
 
 describe('AC-731 run-composited surfaces are reconstructed as a page background band plus backing box leaves', () => {
+  // BUG-14 rebuilt the reconstruction as section-band → card → text: the band runs
+  // group into ONE full-bleed band instead of a backing box per run. The AC holds —
+  // no composited surface is lost, and none is invented for a run already on its band.
   it('test_UAT_AC731_dominant_run_fill_becomes_band_and_differing_surfaces_back_their_runs', () => {
     const BAND = '#f8f5f2'
     const PANEL = '#e8dfd3'
@@ -326,28 +329,40 @@ describe('AC-731 run-composited surfaces are reconstructed as a page background 
     expect(new Set(kinds).size).toBeGreaterThan(1)
     expect(texts).toHaveLength(5)
 
-    // Runs sitting on the band get NO backing box; the panel run and the gradient
-    // run each get exactly one.
-    expect(boxes).toHaveLength(2)
-    const fills = boxes.map((b) => (b.kind === 'box' ? b.axes?.surfaceFill : undefined))
+    // BUG-14 — the three band runs coalesce into ONE full-bleed section band (no
+    // rectangle per paragraph); the panel run and the gradient run each fold a
+    // card. Three backing boxes for five runs.
+    expect(boxes).toHaveLength(3)
+    const bands = boxes.filter((b) => (b.id ?? '').startsWith('section-band-'))
+    const cards = boxes.filter((b) => (b.id ?? '').startsWith('card-'))
+    expect(bands).toHaveLength(1)
+    expect(cards).toHaveLength(2)
+
+    // The band carries the dominant fill and tiles full-bleed from its first run.
+    expect(bands[0].kind === 'box' && bands[0].axes?.surfaceFill).toBe(BAND)
+    for (const kf of bands[0].geometry!.keyframes) expect(kf.x).toBe(0)
+
+    // The cards carry their own surfaces — the differing panel fill, and the
+    // gradient the body cannot paint.
+    const fills = cards.map((b) => (b.kind === 'box' ? b.axes?.surfaceFill : undefined))
     expect(fills).toEqual([PANEL, BAND])
-    const gradients = boxes.map((b) => (b.kind === 'box' ? b.axes?.surfaceGradient : undefined))
+    const gradients = cards.map((b) => (b.kind === 'box' ? b.axes?.surfaceGradient : undefined))
     expect(gradients).toEqual([undefined, gradient])
 
     for (const b of boxes) {
       if (b.kind !== 'box') throw new Error('expected box leaf')
-      expect(b.id).toMatch(/^surface-\d+$/)
-      // The backing box carries the run's geometry with all four sides pinned…
+      // Every backing box is keyframed across the whole ladder with all four
+      // sides pinned…
       expect(b.geometry?.keyframes.map((k) => k.at)).toEqual(LADDER)
-      for (const kf of b.geometry!.keyframes) expect(kf.height).toBe(40)
-      // …and the run's visibility rule (present at every width here → none).
+      for (const kf of b.geometry!.keyframes) expect(kf.height).toBeGreaterThanOrEqual(40)
+      // …and the backed runs' visibility rule (present at every width here → none).
       expect(b.visibility).toBeUndefined()
     }
 
     // All backing boxes are ordered AHEAD of the content leaves, so every leaf
     // paints over its own surface.
-    expect(kinds.slice(0, 2)).toEqual(['box', 'box'])
-    expect(kinds.slice(2).every((k) => k === 'text')).toBe(true)
+    expect(kinds.slice(0, 3)).toEqual(['box', 'box', 'box'])
+    expect(kinds.slice(3).every((k) => k === 'text')).toBe(true)
 
     // Strong observation: both the body band and the panel fill paint.
     const { css } = renderL1Document(doc)
