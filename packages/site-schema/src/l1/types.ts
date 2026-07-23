@@ -23,6 +23,7 @@ import type {
   l1MaskSchema,
   l1NodeSchema,
   l1OverlaySchema,
+  l1PaddingSchema,
   l1ResourcesSchema,
   l1SegmentSchema,
   l1ShadowSchema,
@@ -54,6 +55,7 @@ export type L1Mask = z.infer<typeof l1MaskSchema>
 export type L1Transform = z.infer<typeof l1TransformSchema>
 export type L1BlendMode = z.infer<typeof l1BlendModeSchema>
 export type L1Overlay = z.infer<typeof l1OverlaySchema>
+export type L1Padding = z.infer<typeof l1PaddingSchema>
 
 export type L1Text = z.infer<typeof l1TextSchema>
 export type L1Image = z.infer<typeof l1ImageSchema>

@@ -37,6 +37,8 @@ export const L1_ENVELOPE = {
   transformScale: { min: 0.01, max: 100 },
   /** Transform rotation (REQ-91) — an angle, not a length: ±10 full turns. */
   rotateDeg: { min: -3600, max: 3600 },
+  /** BUG-17 — per-side box-model padding (px); non-negative, bounded so it can't blow out layout. */
+  paddingPx: { min: 0, max: 10_000 },
 } as const
 
 /**
@@ -154,6 +156,19 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
     }
   }
   if (node.mask) checkEffectLen(node.mask.featherPx, `${path}/mask/featherPx`, errors)
+
+  // BUG-17 — per-side padding must sit in the non-negative padding range.
+  if (node.padding) {
+    for (const side of ['topPx', 'rightPx', 'bottomPx', 'leftPx'] as const) {
+      const v = node.padding[side]
+      if (v !== undefined && !inRange(v, L1_ENVELOPE.paddingPx.min, L1_ENVELOPE.paddingPx.max)) {
+        errors.push({
+          path: `${path}/padding/${side}`,
+          message: `padding ${side}=${v} out of range [${L1_ENVELOPE.paddingPx.min}, ${L1_ENVELOPE.paddingPx.max}]`,
+        })
+      }
+    }
+  }
 
   const shadow = (s: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number } | undefined, p: string) => {
     if (!s) return

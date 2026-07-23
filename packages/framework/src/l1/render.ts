@@ -525,6 +525,17 @@ function emitNode(node: L1Node, state: RenderState): string {
     if (t) base.push(`transform: ${t}`)
   }
   if (node.mask) base.push(...maskDecls(node.mask))
+  // BUG-17 node-level padding — a per-side inset. Emitted as longhands (only the
+  // present sides) so a partial padding never resets the others. `box-sizing:
+  // border-box` (the document reset) means this insets content inside the pinned
+  // keyframe box rather than inflating geometry.
+  if (node.padding) {
+    const { topPx, rightPx, bottomPx, leftPx } = node.padding
+    if (px(topPx)) base.push(`padding-top: ${px(topPx)}`)
+    if (px(rightPx)) base.push(`padding-right: ${px(rightPx)}`)
+    if (px(bottomPx)) base.push(`padding-bottom: ${px(bottomPx)}`)
+    if (px(leftPx)) base.push(`padding-left: ${px(leftPx)}`)
+  }
 
   if (base.length) state.rules.push({ selector, decls: base })
   return html
