@@ -6,9 +6,9 @@ title: 'Geometry keyframes produce per-viewport layout: interpolate varies conti
   snap holds'
 created_by: xgd
 created_at: '2026-07-22T19:32:01.904313+00:00'
-updated_at: '2026-07-22T19:38:51.522324+00:00'
+updated_at: '2026-07-23T07:31:37.364738+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -23,7 +23,9 @@ produces position/size that varies continuously with viewport width and equals
 the authored keyframe values at each endpoint (within tolerance); a `snap`
 segment holds the lower keyframe's value unchanged until the next breakpoint.
 Below the smallest keyframe width the smallest keyframe holds; above the largest,
-the largest holds.
+the largest holds. Per-viewport variation is carried by this L1 geometry-keyframe
+substrate, not by per-breakpoint module dials (which no longer exist post REQ-79);
+this criterion subsumes the retired AC-717.
 
 ## Verification
 Render a document with an interpolate track and observe the rendered output
