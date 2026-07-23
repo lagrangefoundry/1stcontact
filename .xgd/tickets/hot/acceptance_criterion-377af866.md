@@ -6,14 +6,15 @@ title: A text-block authored with a gradient panel renders a padded, rounded pan
   with that gradient surface
 created_by: xgd
 created_at: '2026-07-19T02:28:47.534345+00:00'
-updated_at: '2026-07-23T11:13:22.170598+00:00'
+updated_at: '2026-07-23T11:15:40.345088+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-82eb6908
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
