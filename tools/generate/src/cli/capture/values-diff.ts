@@ -42,6 +42,7 @@ import type {
 } from './types'
 import type { RawRun, RawSignals } from './extract'
 import { subScalesFromSignals } from './theme'
+import { isSafeUrl } from '@1stcontact/site-schema'
 
 // ── manifest model ───────────────────────────────────────────────────────────
 
@@ -189,6 +190,20 @@ export interface SectionValues {
   paddingBottomPx?: number
   /** REQ-64 — section band text-align (Type-A). */
   textAlign?: 'left' | 'center' | 'right'
+  /**
+   * BUG-13 — the section band's CSS `background-image` as a foldable URL, absent
+   * when the band paints no image. The page's hero + section imagery is painted
+   * as `background-image` on the band, not as `<img>` elements, so it never
+   * reaches the element manifest; carrying it here lets the fold emit a
+   * section-background `box` (`backgroundImageUrl`) placed by the band geometry.
+   * Only URLs that pass the L1 URL-scheme allowlist (http/https/relative) are
+   * recorded — a `data:`/other-scheme background would fail the envelope, so it
+   * is skipped at projection time rather than throwing in the fold.
+   */
+  backgroundImageUrl?: string
+  /** BUG-13 — the section band's geometry (full-page document coords), so the
+   *  fold can place the background box. Present iff {@link backgroundImageUrl} is. */
+  box?: Box
 }
 
 /** A flat, structured value manifest — the single artifact the diff and a human both read. */
@@ -810,17 +825,40 @@ export function rawRunToElement(run: RawRun): ValueElement {
   return el
 }
 
+/**
+ * BUG-13 — the first `url(...)` in a computed `background-image`, or undefined
+ * when the band paints no image (a solid, a gradient, or `none`). Unsafe schemes
+ * (`data:`, `javascript:`, …) are dropped so a section-background box the fold
+ * emits from this always passes the L1 URL-scheme allowlist.
+ */
+function bandBackgroundImageUrl(css: string | null | undefined): string | undefined {
+  if (!css) return undefined
+  const m = css.match(/url\((['"]?)([^'")]+)\1\)/)
+  if (!m) return undefined
+  const url = m[2]
+  return isSafeUrl(url) ? url : undefined
+}
+
 /** Flatten a capture bundle's sections (+ repeated items, + text-free fields) into a value manifest. */
 export function flattenCapture(capture: Capture): ValueManifest {
   const elements: ValueElement[] = []
-  const sections: SectionValues[] = capture.sections.map((section, index) => ({
-    index,
-    overlay: section.background.overlay ?? null,
-    contentAnchorRatio: section.layout.contentAnchorRatio ?? null,
-    // REQ-64 — the single-width bundle records `contentAlign` (not per-side padding),
-    // so text-align is comparable here; section padding stays undefined (ladder only).
-    textAlign: section.layout.contentAlign,
-  }))
+  const sections: SectionValues[] = capture.sections.map((section, index) => {
+    const sv: SectionValues = {
+      index,
+      overlay: section.background.overlay ?? null,
+      contentAnchorRatio: section.layout.contentAnchorRatio ?? null,
+      // REQ-64 — the single-width bundle records `contentAlign` (not per-side padding),
+      // so text-align is comparable here; section padding stays undefined (ladder only).
+      textAlign: section.layout.contentAlign,
+    }
+    // BUG-13 — a band background image is mirrored-local (`background.image`) when
+    // the band paints one; carry it + the band box so the fold can place it.
+    if (section.background.kind === 'image' && section.background.image && isSafeUrl(section.background.image)) {
+      sv.backgroundImageUrl = section.background.image
+      sv.box = section.box
+    }
+    return sv
+  })
   for (const section of capture.sections) {
     for (const run of section.content) elements.push(contentRunToElement(run))
     for (const item of section.items) {
@@ -846,16 +884,28 @@ export function flattenCapture(capture: Capture): ValueManifest {
  */
 export function flattenSignals(signals: RawSignals, source: string): ValueManifest {
   const elements: ValueElement[] = []
-  const sections: SectionValues[] = signals.bands.map((band, index) => ({
-    index,
-    overlay: band.overlay ?? null,
-    contentAnchorRatio: band.contentAnchorRatio ?? null,
-    // REQ-64 — band vertical padding + text-align were captured all along (RawBand)
-    // but never projected/compared; a taller or re-aligned section is now direct.
-    paddingTopPx: band.paddingTopPx,
-    paddingBottomPx: band.paddingBottomPx,
-    textAlign: band.textAlign,
-  }))
+  const sections: SectionValues[] = signals.bands.map((band, index) => {
+    const sv: SectionValues = {
+      index,
+      overlay: band.overlay ?? null,
+      contentAnchorRatio: band.contentAnchorRatio ?? null,
+      // REQ-64 — band vertical padding + text-align were captured all along (RawBand)
+      // but never projected/compared; a taller or re-aligned section is now direct.
+      paddingTopPx: band.paddingTopPx,
+      paddingBottomPx: band.paddingBottomPx,
+      textAlign: band.textAlign,
+    }
+    // BUG-13 — a band's CSS `background-image` (the page's hero/section imagery,
+    // never an `<img>`) → foldable section-background box. The raw absolute URL is
+    // carried through exactly like a media `src` (REQ-92); downstream asset
+    // mirroring localizes it. Unsafe schemes are dropped by `bandBackgroundImageUrl`.
+    const bgUrl = bandBackgroundImageUrl(band.backgroundImage)
+    if (bgUrl) {
+      sv.backgroundImageUrl = bgUrl
+      sv.box = band.box
+    }
+    return sv
+  })
   for (const band of signals.bands) {
     for (const run of band.content) elements.push(rawRunToElement(run))
     for (const item of band.items) {

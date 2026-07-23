@@ -474,6 +474,10 @@ function emitNode(node: L1Node, state: RenderState): string {
       const bgUrl = cssUrl(a.backgroundImageUrl)
       if (bgUrl) bgLayers.push(bgUrl)
       if (bgLayers.length) base.push(`background-image: ${bgLayers.join(', ')}`)
+      // BUG-13 — a section/band background image fills its box (cover, centered,
+      // no tiling) — the faithful default for a hero/section backdrop. Only when
+      // a real image URL is present; a solid/gradient/scrim layer needs no sizing.
+      if (bgUrl) base.push('background-size: cover', 'background-position: center', 'background-repeat: no-repeat')
       if (a.border) {
         const b = borderCss(a.border)
         if (b) base.push(`border: ${b}`)
