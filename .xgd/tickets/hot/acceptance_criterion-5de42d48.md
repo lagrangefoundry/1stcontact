@@ -6,14 +6,15 @@ title: 'Geometry keyframes produce per-viewport layout: interpolate varies conti
   snap holds'
 created_by: xgd
 created_at: '2026-07-22T19:32:01.904313+00:00'
-updated_at: '2026-07-23T07:31:37.364738+00:00'
+updated_at: '2026-07-23T07:56:07.519217+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
