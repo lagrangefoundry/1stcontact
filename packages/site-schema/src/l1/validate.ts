@@ -237,6 +237,28 @@ export function validateL1(input: unknown): Result<L1Document, ValidationError[]
     }
   }
 
+  // REQ-90 — the document-level resource table: each font-face `src` must clear
+  // the same URL-scheme allowlist as an image (served asset / http(s) only — no
+  // `data:`/`javascript:` smuggling a face through the sole `@font-face` sink),
+  // and a declared weight must sit in the CSS font-weight range.
+  ;(doc.resources?.fonts ?? []).forEach((font, i) => {
+    if (!isSafeUrl(font.src)) {
+      errors.push({
+        path: `/resources/fonts/${i}/src`,
+        message: `font src '${font.src}' is not an allowed URL (http/https or relative only)`,
+      })
+    }
+    if (
+      font.weight !== undefined &&
+      !inRange(font.weight, L1_ENVELOPE.fontWeight.min, L1_ENVELOPE.fontWeight.max)
+    ) {
+      errors.push({
+        path: `/resources/fonts/${i}/weight`,
+        message: `font weight=${font.weight} out of range [${L1_ENVELOPE.fontWeight.min}, ${L1_ENVELOPE.fontWeight.max}]`,
+      })
+    }
+  })
+
   const counter = { n: 0 }
   walk(doc.root, doc.widths, '/root', 1, counter, errors)
   if (counter.n > L1_ENVELOPE.maxNodes) {

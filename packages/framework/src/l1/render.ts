@@ -20,6 +20,7 @@ import type {
   L1Gradient,
   L1Mask,
   L1Node,
+  L1Resources,
   L1Shadow,
   L1Sizing,
   L1Transform,
@@ -62,6 +63,58 @@ function cssFontFamily(v: string | undefined): string | null {
     .filter(Boolean)
     .map((t) => (/\s/.test(t) ? `"${t}"` : t))
   return tokens.length ? tokens.join(', ') : null
+}
+
+// ── REQ-90 document-level resource table → @font-face rules ────────────────────
+
+/** A single font-family *name* (not a list) sanitised for `@font-face`. */
+function fontFaceName(v: string): string | null {
+  const clean = v.replace(/[^A-Za-z0-9 -]/g, '').trim().replace(/\s+/g, ' ')
+  return clean || null
+}
+
+/** The CSS `format()` hint for a served font, derived from its extension. */
+function fontFormat(src: string): string | null {
+  const ext = src.split(/[?#]/)[0].split('.').pop()?.toLowerCase()
+  switch (ext) {
+    case 'woff2':
+      return 'woff2'
+    case 'woff':
+      return 'woff'
+    case 'ttf':
+      return 'truetype'
+    case 'otf':
+      return 'opentype'
+    default:
+      return null
+  }
+}
+
+/**
+ * REQ-90 — compile the document resource table into `@font-face` rules that bind
+ * each `fontFamily` handle to its served substance (a `.woff2`/`.ttf` asset).
+ * This is the sole `@font-face { src: url(…) }` sink: the family is name-sanitised
+ * (inert data, never CSS syntax), the URL clears the same `isSafeUrl` allowlist as
+ * an image `src` (served asset / http(s) only — no `data:`/remote-fetch smuggle)
+ * and is `escapeHtml`-neutralised so a stray quote can't break out of `url("…")`.
+ * `font-display: swap` keeps text visible while the face loads.
+ */
+function fontFaceRules(resources: L1Resources | undefined): string[] {
+  const out: string[] = []
+  for (const f of resources?.fonts ?? []) {
+    const name = fontFaceName(f.family)
+    if (!name || !isSafeUrl(f.src)) continue
+    const fmt = fontFormat(f.src)
+    const decls = [
+      `font-family: "${name}"`,
+      `src: url("${escapeHtml(f.src)}")${fmt ? ` format("${fmt}")` : ''}`,
+    ]
+    if (f.weight !== undefined && Number.isFinite(f.weight)) decls.push(`font-weight: ${Math.round(f.weight)}`)
+    if (f.style) decls.push(`font-style: ${f.style}`)
+    decls.push('font-display: swap')
+    out.push(`@font-face { ${decls.join('; ')} }`)
+  }
+  return out
 }
 
 // ── REQ-91 structured-effect emitters ─────────────────────────────────────────
@@ -475,7 +528,10 @@ export function renderL1Document(doc: L1Document): L1RenderResult {
   ]
   const bg = cssColor(doc.background)
   if (bg) reset.push(`body { background-color: ${bg} }`)
-  const css = [reset.join('\n'), serializeRules(state.rules)].join('\n')
+  // REQ-90 — @font-face rules first so every family handle is bound before any
+  // rule references it (no serif fallback while the CSS is parsed top-down).
+  const faces = fontFaceRules(doc.resources)
+  const css = [reset.join('\n'), ...faces, serializeRules(state.rules)].join('\n')
   return { html: body, css }
 }
 

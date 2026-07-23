@@ -2,13 +2,34 @@
  * `1c capture page <url>` orchestrator (DOC-13). Runs the rendered-only capture
  * pipeline and writes the self-contained bundle to `references/<host>/<path>/`.
  */
-import type { L1Document } from '@1stcontact/site-schema'
+import type { L1Document, L1FontFace } from '@1stcontact/site-schema'
 import { captureLadderScreenshots, captureStructuralHints, runCapturePipeline, runMultiStateCapture } from './pipeline'
 import { writeBundle, writeHints, writeL1, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
 import { foldToL1 } from '../../l1/fold'
 import type { StructuralHints } from './hints'
-import type { BrowserDriverFactory, Capture, RenderEngine } from './types'
+import type { BrowserDriverFactory, Capture, RenderEngine, ThemeFont } from './types'
 import type { MultiStateCapture } from './values-diff'
+
+/**
+ * REQ-90 — turn the captured theme's font handles into L1 font-face resources:
+ * one entry per mirrored `.woff2` (family → served asset). A single-weight family
+ * pins its weight; a multi-weight family leaves weight unset (the capture aggregates
+ * the per-face weight away, so binding the family name is what moves the pixel).
+ * Families whose face never mirrored (`files: []` — e.g. a CDN the intercept missed)
+ * contribute nothing, and the fold drops any face no text paints.
+ */
+function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
+  const out: L1FontFace[] = []
+  for (const f of fonts) {
+    const weight = f.weights.length === 1 ? f.weights[0] : undefined
+    for (const src of f.files) {
+      const face: L1FontFace = { family: f.family, src }
+      if (weight !== undefined) face.weight = weight
+      out.push(face)
+    }
+  }
+  return out
+}
 
 export interface CapturePageOptions {
   /** Working directory the `references/` tree is resolved against. */
@@ -58,7 +79,7 @@ export async function cmdCapturePage(url: string, opts: CapturePageOptions = {})
   // REQ-83 — fold the retained ladder into ONE L1 document (the reproduction
   // artifact), and read the advisory structural hints. `multistate.json` stays as
   // the acceptance oracle the folded doc renders and gates against.
-  const l1 = foldToL1(multiState)
+  const l1 = foldToL1(multiState, { fonts: fontResourcesFromTheme(result.capture.theme.fonts) })
   writeL1(location.bundleDir, l1)
   const hints = await captureStructuralHints(url, {
     driverFactory: opts.driverFactory,

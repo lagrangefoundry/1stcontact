@@ -21,6 +21,7 @@ import {
   validateL1,
   type L1Box,
   type L1Document,
+  type L1FontFace,
   type L1Gradient,
   type L1GradientStop,
   type L1Node,
@@ -36,10 +37,36 @@ const FONT_WEIGHT = { min: 1, max: 1000 }
 export interface FoldOptions {
   /** Preferred engine to fold from when a width was captured on several (default `chromium`). */
   engine?: string
+  /**
+   * REQ-90 — the capture's font-face substance (family → served `.woff2`), from
+   * the bundle's mirrored assets. Only faces whose family is actually painted by a
+   * folded text leaf are kept (an entry earns its place iff it moves a pixel), and
+   * they populate the document's `resources.fonts` table so the renderer can emit
+   * `@font-face` and the named face resolves instead of a serif fallback.
+   */
+  fonts?: L1FontFace[]
 }
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n))
+}
+
+/** The primary font-family token — first comma segment, unquoted, lower-cased for matching. */
+function primaryFamily(ff: string | undefined): string {
+  return (ff ?? '').split(',')[0].trim().replace(/^['"]|['"]$/g, '').toLowerCase()
+}
+
+/**
+ * REQ-90 — the subset of the capture's font faces that a folded text leaf actually
+ * paints, keyed by primary family. A face no text references moves no pixel, so it
+ * is dropped from the table (DOC-27).
+ */
+function usedFontFaces(fonts: L1FontFace[], nodes: L1Node[]): L1FontFace[] {
+  const painted = new Set<string>()
+  for (const n of nodes) {
+    if (n.kind === 'text') painted.add(primaryFamily(n.axes?.fontFamily))
+  }
+  return fonts.filter((f) => painted.has(primaryFamily(f.family)))
 }
 
 /**
@@ -231,6 +258,14 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
 
   const root: L1Box = { kind: 'box', children }
   const doc: L1Document = { widths, root }
+
+  // REQ-90 — bind painted family handles to their served substance so the render
+  // resolves the real face. Built before validation so the envelope scheme-checks
+  // each font `src` alongside the rest of the document.
+  if (opts.fonts && opts.fonts.length) {
+    const fonts = usedFontFaces(opts.fonts, children)
+    if (fonts.length) doc.resources = { fonts }
+  }
 
   const result = validateL1(doc)
   if (!result.ok) {

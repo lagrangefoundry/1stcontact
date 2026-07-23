@@ -407,16 +407,51 @@ export const l1NodeSchema: z.ZodType<L1NodeUnion> = z.lazy(() =>
   z.union([l1TextSchema, l1ImageSchema, l1SlotSchema, l1BoxSchema, l1ContainerSchema]),
 )
 
+// ── Document-level resource table (handle → substance; DOC-27 / REQ-90) ───────
+
+/**
+ * A font-face resource: binds a `fontFamily` *handle* (a name carried in a text
+ * leaf's `axes.fontFamily`) to its pixel-determining *substance* — a served
+ * `.woff2`/`.woff`/`.ttf`/`.otf` asset. Without it `fontFamily: "Poppins"`
+ * paints a serif fallback, because nothing serves or links the face. `src` is
+ * scheme-checked by the envelope validator (served asset / http(s) only — no
+ * remote fetch, no `data:`); the renderer is the sole `@font-face { src: url(…) }`
+ * sink, so the substance can never smuggle raw CSS.
+ */
+export const l1FontFaceSchema = z
+  .object({
+    family: z.string().min(1),
+    src: z.string().min(1),
+    weight: finite.optional(),
+    style: z.enum(['normal', 'italic']).optional(),
+  })
+  .strict()
+
+/**
+ * The document-level resource table — handles bound to their served substance
+ * (DOC-27). Fonts today: the pixel-moving gap where a named face must resolve to
+ * its real glyphs rather than a fallback. Images already carry `src` inline on the
+ * `image` leaf, so they need no table entry (an entry earns its place iff it moves
+ * a pixel the leaf axes cannot).
+ */
+export const l1ResourcesSchema = z
+  .object({
+    fonts: z.array(l1FontFaceSchema).optional(),
+  })
+  .strict()
+
 // ── Document ──────────────────────────────────────────────────────────────────
 
 /**
  * An L1 document: the viewport ladder it is authored against, an optional page
- * background colour, and the root node.
+ * background colour, an optional resource table (handle→substance), and the root
+ * node.
  */
 export const l1DocumentSchema = z
   .object({
     widths: z.array(finite.positive()).min(1),
     background: l1Color.optional(),
+    resources: l1ResourcesSchema.optional(),
     root: l1NodeSchema,
   })
   .strict()

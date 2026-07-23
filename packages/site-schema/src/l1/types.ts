@@ -13,6 +13,7 @@ import type {
   l1ContainerSchema,
   l1DistributionSchema,
   l1DocumentSchema,
+  l1FontFaceSchema,
   l1GeometrySchema,
   l1GradientSchema,
   l1GradientStopSchema,
@@ -22,6 +23,7 @@ import type {
   l1MaskSchema,
   l1NodeSchema,
   l1OverlaySchema,
+  l1ResourcesSchema,
   l1SegmentSchema,
   l1ShadowSchema,
   l1SizingSchema,
@@ -59,4 +61,9 @@ export type L1Slot = z.infer<typeof l1SlotSchema>
 export type L1Box = z.infer<typeof l1BoxSchema>
 export type L1Container = z.infer<typeof l1ContainerSchema>
 export type L1Node = z.infer<typeof l1NodeSchema>
+
+// REQ-90 — document-level resource table (handle → substance).
+export type L1FontFace = z.infer<typeof l1FontFaceSchema>
+export type L1Resources = z.infer<typeof l1ResourcesSchema>
+
 export type L1Document = z.infer<typeof l1DocumentSchema>
