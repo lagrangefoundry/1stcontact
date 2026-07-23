@@ -480,6 +480,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const children: L1Node[] = []
   let imageIdx = 0
   let boxIdx = 0
+  let surfaceIdx = 0
+  // BUG-11 — the surface a text run sits on. The capture attributes the composited
+  // card/panel/section fill onto each *run* (`surfaceFill`/`surfaceGradient`), never
+  // as a standalone box, so a bare text leaf drops every background. For each run
+  // carrying a surface we build a backing `box` (the run's geometry + the fill), and
+  // tally solid fills so the dominant one becomes the page band (`doc.background`).
+  // The band is painted by the body, so a backing box is emitted only for surfaces
+  // that *differ* from it — the genuine panels/cards — keeping node count down.
+  const pendingSurfaces: Array<{ fill?: string; node: L1Box }> = []
+  const fillCounts = new Map<string, number>()
   for (const row of table.rows) {
     const present = row.cells.filter((c) => c.element)
     const sample = present[0]?.element
@@ -520,6 +530,21 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       }
       if (vis) node.visibility = vis
       children.push(node)
+
+      // BUG-11 — reconstruct the surface this run sits on (behind the run) so
+      // panel/card and section fills render. A box leaf carries its own geometry
+      // (the run's box, with height) and the composited fill/gradient.
+      const surfFill = (widest.surfaceFill ? colorToHex(widest.surfaceFill) : null) ?? undefined
+      const surfGrad = foldGradient(widest.surfaceGradient)
+      if (surfFill) fillCounts.set(surfFill, (fillCounts.get(surfFill) ?? 0) + 1)
+      if (surfFill || surfGrad) {
+        const axes: L1BoxAxes = {}
+        if (surfFill) axes.surfaceFill = surfFill
+        if (surfGrad) axes.surfaceGradient = surfGrad
+        const boxNode: L1Box = { kind: 'box', id: `surface-${surfaceIdx++}`, geometry: buildGeometry(true), axes }
+        if (vis) boxNode.visibility = vis
+        pendingSurfaces.push({ fill: surfFill, node: boxNode })
+      }
       continue
     }
 
@@ -575,8 +600,25 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     signal(sample, 'text-free element is neither media, a painted surface, nor a known control — no L1 leaf yet', presentWidths)
   }
 
-  const root: L1Box = { kind: 'box', children }
+  // BUG-11 — the page band is the solid fill the most runs sit on; it paints via
+  // the document body (`doc.background`). Backing boxes are then emitted only for
+  // surfaces that differ from the band (or carry a gradient the body can't paint),
+  // and are placed *first* so every content leaf paints over its surface.
+  let band: string | undefined
+  let bandCount = 0
+  for (const [hex, n] of fillCounts) {
+    if (n > bandCount) {
+      bandCount = n
+      band = hex
+    }
+  }
+  const surfaceNodes = pendingSurfaces
+    .filter((s) => s.node.axes?.surfaceGradient !== undefined || s.fill !== band)
+    .map((s) => s.node)
+
+  const root: L1Box = { kind: 'box', children: [...surfaceNodes, ...children] }
   const doc: L1Document = { widths, root }
+  if (band) doc.background = band
 
   // REQ-90 — bind painted family handles to their served substance so the render
   // resolves the real face. Built before validation so the envelope scheme-checks

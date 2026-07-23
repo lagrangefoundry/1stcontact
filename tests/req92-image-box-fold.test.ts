@@ -123,11 +123,14 @@ describe('REQ-92 — image + surface (box) leaves fold into the L1 tree', () => 
     const ms = JSON.parse(readFileSync(p, 'utf8')) as MultiStateCapture
     const residuals: FoldResidual[] = []
     const doc = foldToL1(ms, { residuals })
-    const nonText = childrenOf(doc).filter((n) => {
-      const k = (n as { kind: string }).kind
-      return k === 'image' || k === 'box'
-    })
-    expect(nonText).toEqual([]) // nothing faked
+    // No <img> in this capture — no image leaf may be faked.
+    const images = childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'image')
+    expect(images).toEqual([])
+    // BUG-11: text-run surfaces now fold to backing `box` leaves (id `surface-*`).
+    // A form control must NOT be among them — every box is a surface backing, never
+    // a faked control, and the controls remain typed field residuals.
+    const boxes = childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'box')
+    for (const b of boxes) expect((b as { id?: string }).id).toMatch(/^surface-\d+$/)
     expect(residuals.filter((r) => r.kind === 'field').length).toBeGreaterThan(0)
   })
 

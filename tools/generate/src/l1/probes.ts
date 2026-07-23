@@ -349,8 +349,13 @@ export function evaluateLayout(
   }
 
   // Overlap: any two non-empty leaf boxes that intersect. Slots are inert
-  // placeholders (Phase-D seams) and are excluded from overlap.
-  const solid = ctx.leaves.filter((l) => l.kind !== 'slot' && l.box.height > 0 && l.box.width > 0)
+  // placeholders (Phase-D seams), and `box` leaves are painted *surfaces* that sit
+  // behind content (a card/section/panel fill, BUG-11) — a background overlapping
+  // the content it backs is by design, not a collision — so both are excluded. A
+  // box that overflows the viewport is still caught by the horizontal-clip check.
+  const solid = ctx.leaves.filter(
+    (l) => l.kind !== 'slot' && l.kind !== 'box' && l.box.height > 0 && l.box.width > 0,
+  )
   for (let i = 0; i < solid.length; i++) {
     for (let j = i + 1; j < solid.length; j++) {
       if (overlaps(solid[i].box, solid[j].box, opts.epsilonPx)) {
