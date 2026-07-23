@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: --json emits machine-readable output; --ref is required
 created_by: xgd
 created_at: '2026-07-19T02:51:39.975404+00:00'
-updated_at: '2026-07-19T02:59:23.538645+00:00'
+updated_at: '2026-07-23T10:49:50.560617+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2c7069fe
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
