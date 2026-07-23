@@ -6,14 +6,15 @@ title: Box-border delta surfaces a differing uniform box border; matching or abs
   borders produce none
 created_by: xgd
 created_at: '2026-07-19T02:18:19.150996+00:00'
-updated_at: '2026-07-19T02:25:29.233392+00:00'
+updated_at: '2026-07-23T11:45:10.189114+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d5de22a5
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
