@@ -635,40 +635,6 @@ export function threeProbeGate(
 
 // ── demand-driven structure recovery ──────────────────────────────────────────
 
-/** Collect index paths of a node's direct-child sibling groups that overlap under perturbation. */
-function failingSiblingGroups(doc: L1Document, scale: number): Set<string> {
-  // Evaluate perturbed at every captured width; collect the paths in every
-  // overlap finding. A path like `0.3` means child 3 of the root.
-  const failing = new Set<string>()
-  for (const width of doc.widths) {
-    const { findings } = evaluateLayout(doc, width, { contentScale: scale })
-    for (const f of findings) {
-      if (f.kind === 'overlap') for (const p of f.paths) failing.add(p)
-    }
-  }
-  return failing
-}
-
-/** Bounding keyframes (per captured width) for a group of pinned children. */
-function groupKeyframes(
-  children: L1Node[],
-  widths: number[],
-): L1Geometry['keyframes'] {
-  return widths.map((at) => {
-    let minX = Infinity
-    let minY = Infinity
-    let maxRight = -Infinity
-    for (const c of children) {
-      if (!isPinned(c)) continue
-      const b = evalGeometry(c.geometry!, at)
-      minX = Math.min(minX, b.x)
-      minY = Math.min(minY, b.y)
-      maxRight = Math.max(maxRight, b.x + b.width)
-    }
-    return { at, x: Math.round(minX), y: Math.round(minY), width: Math.round(maxRight - minX) }
-  })
-}
-
 /** Median vertical gap between consecutive pinned children at the widest sample. */
 function medianGap(children: L1Node[], width: number): number {
   const boxes = children
@@ -684,29 +650,85 @@ function medianGap(children: L1Node[], width: number): number {
   return Math.max(0, Math.round(gaps[Math.floor(gaps.length / 2)]))
 }
 
+/** The direct-child index of `path` under `parentPath`, or null if not a descendant. */
+function directChildIndex(parentPath: string, path: string): number | null {
+  if (!path.startsWith(parentPath + '.')) return null
+  const seg = path.slice(parentPath.length + 1).split('.')[0]
+  const idx = Number(seg)
+  return Number.isInteger(idx) ? idx : null
+}
+
+/**
+ * Connected components (size ≥ 2) of a parent's direct children under the
+ * "overlap under perturbation" relation. Union-find over `links`; each returned
+ * component is the set of children indices that collide (directly or
+ * transitively) and therefore must share one flow region — the smallest grouping
+ * the probe demands, so distinct regions (hero / grid / footer) stay distinct.
+ */
+function overlapComponents(childCount: number, links: Array<[number, number]>): number[][] {
+  const parent = Array.from({ length: childCount }, (_, i) => i)
+  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])))
+  for (const [a, b] of links) parent[find(a)] = find(b)
+  const groups = new Map<number, number[]>()
+  for (let i = 0; i < childCount; i++) {
+    const r = find(i)
+    const g = groups.get(r)
+    if (g) g.push(i)
+    else groups.set(r, [i])
+  }
+  return [...groups.values()].filter((g) => g.length >= 2)
+}
+
+/** Drop a node's absolute geometry so it flows (fills its flow container's width). */
+function dropGeometry(node: L1Node): L1Node {
+  if (!('geometry' in node) || node.geometry === undefined) return node
+  const { geometry: _drop, ...rest } = node as L1Node & { geometry?: L1Geometry }
+  return rest as L1Node
+}
+
 export interface PromoteResult {
   doc: L1Document
-  /** Paths of the parent nodes whose pinned children were promoted to flow. */
+  /** Paths of the flow regions recovered — a whole-node region reports the node's
+   * path; sub-band regions report their path in the rewritten tree. */
   promoted: string[]
 }
 
 /**
- * Demand-driven structure recovery: wrap **only** the pinned sibling groups that
- * fail content-robustness into flow `stack` containers, pinning the region origin
- * (so the region stays where the capture put it) while flowing the interior (so
- * growing content reflows instead of overrunning). Regions that already survive
- * perturbation are left absolute — the recovery is applied where the probe
- * demands it, not everywhere.
+ * Demand-driven, **region-aware** structure recovery. The single-flat-pile
+ * predecessor promoted the whole failing node into one flow stack — too coarse:
+ * it kept one median gap for the entire page and, promoting only some siblings,
+ * left the rest pinned for the grown pile to overrun (BUG-9). This walks the tree
+ * and, at each node, promotes the **smallest** pinned sibling groups that actually
+ * collide under perturbation:
  *
- * The container's per-width origin/width is the group's bounding envelope; its
- * children keep their axes but lose their geometry (they now flow, filling the
- * container width). Returns a validated document.
+ *   - Direct children that overlap under content growth are grouped by connected
+ *     component (`overlapComponents`) — the distinct nested regions (hero / grid /
+ *     footer), each its own flow `stack` with its own interior gap.
+ *   - A node that needs recovery flows **all** its children (regions as sub-stacks,
+ *     survivors as flowed items), so no pinned sibling is left behind to be
+ *     overrun. Under CSS flow, stacked items never overlap and never clip — the
+ *     envelope holds under both off-sample and content-robustness probes.
+ *   - A node with no colliding group is left **absolute** — recovery is applied
+ *     where the probe demands it, per DOC-27's absolute-base / flow-overlay split.
+ *
+ * Fidelity is measured on the absolute base, never on this overlay, so recovery
+ * never regrades `sampleFidelity`. Returns a validated document.
  */
 export function promoteToFlow(doc: L1Document, options: { scale?: number } = {}): PromoteResult {
   const scale = options.scale ?? 2.5
-  const failing = failingSiblingGroups(doc, scale)
   const promoted: string[] = []
   const widest = Math.max(...doc.widths)
+
+  // Perturbed overlap pairs across every captured width, computed once. Each pair
+  // is a (leafPathA, leafPathB) that collide when content grows by `scale`.
+  const overlapPairs: Array<[string, string]> = []
+  for (const width of doc.widths) {
+    for (const f of evaluateLayout(doc, width, { contentScale: scale }).findings) {
+      if (f.kind === 'overlap' && f.paths.length >= 2) {
+        overlapPairs.push([f.paths[0], f.paths[1]])
+      }
+    }
+  }
 
   function rewrite(node: L1Node, path: string): L1Node {
     if (node.kind !== 'box' && node.kind !== 'container') return node
@@ -714,45 +736,60 @@ export function promoteToFlow(doc: L1Document, options: { scale?: number } = {})
       (c, i) => rewrite(c, `${path}.${i}`),
     )
 
-    // Which direct children of this node are flagged failing and pinned-text?
-    const flaggedIdx = children
-      .map((c, i) => ({ c, i }))
-      .filter(({ c, i }) => failing.has(`${path}.${i}`) && c.kind === 'text' && isPinned(c))
-      .map(({ i }) => i)
-
-    if (flaggedIdx.length >= 2) {
-      const group = flaggedIdx
-        .map((i) => children[i])
-        .sort((a, b) => evalGeometry(a.geometry!, widest).y - evalGeometry(b.geometry!, widest).y)
-      const container: L1Node = {
-        kind: 'container',
-        layout: 'stack',
-        gapPx: medianGap(group, widest),
-        geometry: { keyframes: groupKeyframes(group, doc.widths) },
-        children: group.map((c) => {
-          // Drop geometry (now in flow); keep axes/text. A `<p>` fills its
-          // container's width naturally, so no `sizing` is needed (and `text`
-          // carries none).
-          const { geometry: _drop, ...rest } = c as Extract<L1Node, { kind: 'text' }>
-          return rest
-        }),
-      }
-      // Rebuild the child list: the container takes the first flagged slot; the
-      // other flagged children are absorbed into it; non-flagged children keep
-      // their positions.
-      const firstSlot = Math.min(...flaggedIdx)
-      const next: L1Node[] = []
-      children.forEach((c, i) => {
-        if (i === firstSlot) next.push(container)
-        else if (!flaggedIdx.includes(i)) next.push(c)
-      })
-      promoted.push(path)
-      return node.kind === 'container'
-        ? { ...node, children: next }
-        : { ...node, children: next }
+    // Links between THIS node's direct children whose subtrees collide under
+    // perturbation (any leaf under child a overlaps any leaf under child b).
+    const links: Array<[number, number]> = []
+    for (const [p, q] of overlapPairs) {
+      const a = directChildIndex(path, p)
+      const b = directChildIndex(path, q)
+      if (a !== null && b !== null && a !== b) links.push([a, b])
     }
 
-    return node.kind === 'container' ? { ...node, children } : { ...node, children }
+    // Only pinned children are promotable; components restricted to them.
+    const pinned = new Set(children.map((c, i) => (isPinned(c) ? i : -1)).filter((i) => i >= 0))
+    const components = overlapComponents(children.length, links)
+      .map((g) => g.filter((i) => pinned.has(i)))
+      .filter((g) => g.length >= 2)
+
+    if (components.length === 0) {
+      return node.kind === 'container' ? { ...node, children } : { ...node, children }
+    }
+
+    const rebuilt = (kids: L1Node[]): L1Node =>
+      node.kind === 'container' ? { ...node, layout: 'stack', children: kids } : { ...node, children: kids }
+
+    // One region covering every child → flow the node's children directly (the
+    // node *is* the region). Keeps the historical single-region path reporting.
+    if (components.length === 1 && components[0].length === children.length) {
+      promoted.push(path)
+      return rebuilt(children.map(dropGeometry))
+    }
+
+    // Multiple regions (or a region plus survivors): wrap each colliding group in
+    // its own flow sub-stack; flow the survivors alongside so nothing stays pinned.
+    const memberComponent = new Map<number, number>()
+    components.forEach((cl, ci) => cl.forEach((i) => memberComponent.set(i, ci)))
+    const items: L1Node[] = []
+    children.forEach((c, i) => {
+      const ci = memberComponent.get(i)
+      if (ci === undefined) {
+        items.push(dropGeometry(c))
+        return
+      }
+      if (components[ci][0] !== i) return // absorbed into its region's sub-stack
+      const members = components[ci]
+        .map((k) => children[k])
+        .sort((a, b) => evalGeometry(a.geometry!, widest).y - evalGeometry(b.geometry!, widest).y)
+      const region: L1Node = {
+        kind: 'container',
+        layout: 'stack',
+        gapPx: medianGap(members, widest),
+        children: members.map(dropGeometry),
+      }
+      promoted.push(`${path}.${items.length}`)
+      items.push(region)
+    })
+    return rebuilt(items)
   }
 
   const root = rewrite(doc.root, '0')
