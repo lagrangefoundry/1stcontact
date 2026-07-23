@@ -65,13 +65,21 @@ function hasDelta(deltas: { text: string; property: string }[], textSub: string,
 
 // ── the shared resolver authors a gradient surface fill ──────────────────────
 
-describe('REQ-62 gradient panel — resolver', () => {
-  it('test_UAT_FC_REQ-62_panel_gradient_stops_absolute_or_overlay', () => {
-    // Each stop is literal-or-alias (REQ-58 T11): a `#hex` stays absolute; a
-    // palette role becomes the overlay `var(--color-…)` — so a site reproduces
-    // with exact captured values, not just the role vocabulary.
+describe('REQ-62 gradient panel — resolver (AC-637)', () => {
+  it('test_UAT_AC637_surface_gradient_resolves_absolute_or_overlay', () => {
+    // AC-637: a `gradient` content value (direction + two-or-more stops) resolves,
+    // via the shared surface-gradient resolver, to a panel/card
+    // `background-image: linear-gradient(...)` surface fill carrying the authored
+    // direction and stop colours. Each stop is literal-or-alias (REQ-58 T11): a
+    // `#hex` stays absolute; a palette role becomes the overlay `var(--color-…)` —
+    // so a site reproduces with exact captured values, not just the role vocabulary.
     const css = resolveSurfaceGradient({ angleDeg: 135, stops: ['#f1f5f9', 'accent'] })
     expect(css).toBe('background-image: linear-gradient(135deg, #f1f5f9 0%, var(--color-accent) 100%)')
+
+    // AC-637: when fewer than two stops are supplied the value is under-specified
+    // and resolves to no fill (empty declaration), so the caller keeps its solid
+    // treatment rather than painting a degenerate gradient.
+    expect(resolveSurfaceGradient({ angleDeg: 135, stops: ['#f1f5f9'] })).toBe('')
   })
 })
 
