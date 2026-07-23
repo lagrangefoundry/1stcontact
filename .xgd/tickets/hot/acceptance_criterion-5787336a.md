@@ -6,14 +6,15 @@ title: 'Authored axes round-trip: capture(render(L1)) reproduces every literal a
   at all widths'
 created_by: xgd
 created_at: '2026-07-22T19:31:48.950341+00:00'
-updated_at: '2026-07-22T19:38:51.640805+00:00'
+updated_at: '2026-07-23T07:56:05.363459+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
