@@ -300,12 +300,20 @@ export const EXTRACT_SCRIPT = `(() => {
   // browser painting a fallback with different metrics? Generic keywords need no
   // load (always true). A named face is checked against the loaded FontFaceSet;
   // when the API is missing we assume loaded rather than cry false-positive.
-  function fontLoadedOf(s, family) {
+  function fontLoadedOf(s, family, text) {
     if (!family) return true;
     var generic = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-|inherit|initial|unset|-apple-system|blinkmacsystemfont)/i;
     if (generic.test(family)) return true;
     try {
-      return document.fonts && document.fonts.check ? document.fonts.check(s.fontSize + ' "' + family + '"') : true;
+      if (!(document.fonts && document.fonts.check)) return true;
+      // BUG-16 — build the FULL font shorthand (style + real weight + size), not a
+      // bare '<size> "family"' that implies weight 400/normal, so the check probes
+      // the ACTUAL painted face. Pass the run's own text so a subsetted webfont
+      // (Google Fonts unicode-range) is judged only on the glyphs it renders.
+      var style = s.fontStyle && s.fontStyle !== 'normal' ? s.fontStyle + ' ' : '';
+      var weight = parseInt(s.fontWeight, 10) || 400;
+      var shorthand = style + weight + ' ' + s.fontSize + ' "' + family + '"';
+      return text ? document.fonts.check(shorthand, text) : document.fonts.check(shorthand);
     } catch (e) {
       return true;
     }
@@ -733,7 +741,7 @@ export const EXTRACT_SCRIPT = `(() => {
         color: resolvedColor || '#000000',
         colorInferred: !resolvedColor,
         fontFamily: primaryFamily(s.fontFamily),
-        fontLoaded: fontLoadedOf(s, primaryFamily(s.fontFamily)),
+        fontLoaded: fontLoadedOf(s, primaryFamily(s.fontFamily), text),
         fontSizePx: Math.round(parseFloat(s.fontSize)),
         fontWeight: parseInt(s.fontWeight, 10) || 400,
         // REQ-63 typography treatment axes (null when the no-op default).
@@ -890,11 +898,25 @@ export const EXTRACT_SCRIPT = `(() => {
   var children = Array.prototype.filter.call(document.body.children, function (c) {
     return c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE' && visible(c) && c.getBoundingClientRect().height >= 8;
   });
-  children.forEach(function (band) {
+  // BUG-15 — a flat, absolutely-positioned layout (the L1 substrate) nests all
+  // content beneath a wrapper that collapses to ZERO height (its abs-positioned
+  // children leave no in-flow box), so the top-level >=8px scan finds NO bands and
+  // the actual manifest comes back empty. Every reference element then reads
+  // "missing (present -> absent)" and the diff freezes — byte-identical no matter
+  // what we rendered. When the top-level scan is empty yet the body still paints
+  // content, fall back to one body-spanning band so runsUnder / fieldsUnder /
+  // itemGroup still collect the flat tree (paired downstream by text). Semantic
+  // sites always have real >=8px top-level bands, so this never fires for them.
+  var bandRoots = children.map(function (el) { return { el: el, box: absBox(el) }; });
+  if (bandRoots.length === 0) {
+    bandRoots = [{ el: document.body, box: { x: 0, y: 0, width: docW, height: docH } }];
+  }
+  bandRoots.forEach(function (br) {
+    var band = br.el;
     var s = getComputedStyle(band);
     var bg = rgbToHex(s.backgroundColor) || bodyBg;
     var grp = itemGroup(band);
-    var bbox = absBox(band);
+    var bbox = br.box;
     var content = runsUnder(band, grp.roots);
     var fields = fieldsUnder(band, grp.roots);
     // Arrangement is relative to the previous element in reading order, so text
