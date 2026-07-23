@@ -5,12 +5,13 @@ type: capability
 title: L1 Layout Substrate + Safety Envelope
 created_by: xgd
 created_at: '2026-07-22T19:31:01.511990+00:00'
-updated_at: '2026-07-22T19:31:01.511990+00:00'
+updated_at: '2026-07-23T07:56:24.336606+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: l1-layout-substrate
+  uat_coverage: pass
 ---
 
 # Capability: L1 Layout Substrate + Safety Envelope
