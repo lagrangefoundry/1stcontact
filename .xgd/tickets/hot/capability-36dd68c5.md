@@ -5,12 +5,13 @@ type: capability
 title: 1c Gradient Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:27:46.207925+00:00'
-updated_at: '2026-07-19T02:27:46.207925+00:00'
+updated_at: '2026-07-23T11:25:48.778388+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: gradient_fidelity
+  uat_coverage: pass
 ---
 
 # Capability: 1c Gradient Fidelity
