@@ -5,41 +5,49 @@ type: capability
 title: Framework Responsive Per-Breakpoint Dials
 created_by: xgd
 created_at: '2026-07-19T03:19:55.309934+00:00'
-updated_at: '2026-07-19T03:19:55.309934+00:00'
+updated_at: '2026-07-23T09:17:53.987591+00:00'
 completed_at: null
-last_field_updated: created_at
-status: active
+last_field_updated: status
+status: superseded
 fields:
   name: framework_responsive_dials
+  superseded_by_uid: capability-ae9d65d6
 ---
 
-# Framework Responsive Per-Breakpoint Dials
+# Framework Responsive Per-Breakpoint Dials — SUPERSEDED
 
-A site-definition author can make a module's length parameter **vary across the
-viewport width ladder**, and can choose **when a header's navigation collapses to
-a hamburger**.
+**Status: superseded by CAP-70 (L1 Layout Substrate + Safety Envelope,
+`capability-ae9d65d6`) on 2026-07-23.** The surviving behaviour also surfaces
+through CAP-71 (Capture-to-L1 Reproduction Fold, `capability-2049c9ec`), which
+folds the capture ladder into the L1 keyframes.
 
-This extends the absolute-or-overlay value system ([[framework_value_system]] /
-CAP-67) along a new axis: instead of a single value, a length dial may be a
-per-breakpoint object `{ base, sm?, md?, lg?, xl? }`, each entry itself an absolute
-px literal OR a named step/overlay. The framework applies "override and up"
-semantics — a given width uses the nearest defined override at or below it, falling
-back to `base` — the same breakpoint vocabulary the layer position model (REQ-15)
-uses, so the two cannot drift.
+## Disposition (operator decision, 2026-07-23) — RETIRE, do not retain
 
-Scope:
-- **Per-breakpoint length dials** across every spacing-bearing dial the reproduction
-  audit enumerated: spacing top/bottom, gap, logo size, content offset/inset, panel
-  padding, and content-width cap.
-- **content-width cap** as a per-breakpoint sibling: a cap can differ per width, a
-  breakpoint can drop the cap (bleed / no cap), and a per-breakpoint cap requires a
-  base cap.
-- **Configurable nav collapse** — a `navCollapse` dial (sm/md/lg/xl/none, default
-  md) chooses the width below which the header nav collapses to a hamburger toggle;
-  `none` never collapses. Because a media-query threshold cannot read a custom
-  property, the collapse breakpoint is a named overlay (a mode), not an absolute px.
+This capability is **retired**, not retained as a pointer. The REQ-79 / REQ-84
+framework pivot (BUNDLE-7, merged `edeb1c2c`, commit `1a2faeee`) deleted the
+semantic layout modules (header, hero, footer, text-block, services-grid, layer)
+and every dial they carried — including all per-breakpoint length dials and the
+header `navCollapse` dial. That delivery mechanism no longer exists in code
+(`navCollapse` / `perBreakpoint` / `breakpointDial`: 0 hits across `packages/`
+and `tools/`).
 
-A scalar (single-value) dial is unchanged: its value is constant across all widths.
+The surviving concern — a module's per-viewport-width variation — was re-homed to
+the **L1 layout substrate** as per-viewport geometry keyframes with
+`interpolate | snap` segments (`l1KeyframeSchema` / `l1SegmentSchema` in
+`packages/site-schema/src/l1/schema.ts`; `foldToL1` in
+`tools/generate/src/l1/fold.ts`). That behaviour is owned by CAP-70 and CAP-71.
+CAP-68 has no distinct behaviour of its own remaining.
 
-Depends on: CAP-67 (Absolute-or-Overlay Value System) — each per-breakpoint entry
-resolves through the same literal-or-overlay seam.
+No thin "L1-repointing" AC is retained under CAP-68: a hollow pointer would
+duplicate ownership CAP-70/CAP-71 already hold, contradicting the project policy
+"close capability gaps in L1, not with new modules" and "when replacing an
+approach, delete the old one — no legacy containers." The container is therefore
+superseded and carries no active stories (its sole story, STORY-81, is archived).
+
+## Historical scope (what this capability delivered before the pivot)
+
+Originating intent BUNDLE-6 (REQ-58/59/61/62) landed responsive per-breakpoint
+**module dials** (`{ base, sm?, md?, lg?, xl? }`) on spacing-bearing layout
+modules plus a header `navCollapse` dial, extending the absolute-or-overlay value
+system (CAP-67 / [[framework_value_system]]). All of it was retired by BUNDLE-7
+above.
