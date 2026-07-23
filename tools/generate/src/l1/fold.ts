@@ -33,6 +33,7 @@ import {
   type L1ImageAxes,
   type L1Keyframe,
   type L1Node,
+  type L1Padding,
   type L1Segment,
   type L1Shadow,
   type L1TextAxes,
@@ -132,6 +133,31 @@ function restingByWidth(multiState: MultiStateCapture, engine: string): StatePro
     else if (existing.engine !== engine && p.engine === engine) byWidth.set(w, p)
   }
   return [...byWidth.values()].sort((a, b) => a.viewport.width - b.viewport.width)
+}
+
+const PADDING_MAX = 10_000
+/**
+ * BUG-17 — a captured element's per-side padding → the L1 `padding` axis. The
+ * capture reads `getBoundingClientRect` (a border-box that already *includes*
+ * padding), so the leaf's geometry width/height carry the pad; folding it here
+ * (with the renderer's `box-sizing: border-box`) insets the content inside that
+ * pinned box — giving badges/buttons their pill shape and click target — instead
+ * of inflating geometry. Zero / absent / out-of-range sides are dropped; an
+ * all-zero padding yields `undefined` (no axis emitted).
+ */
+function foldPadding(el: ValueElement): L1Padding | undefined {
+  const side = (v: number | undefined): number | undefined =>
+    v !== undefined && Number.isFinite(v) && v > 0 ? clamp(Math.round(v), 0, PADDING_MAX) : undefined
+  const pad: L1Padding = {}
+  const top = side(el.paddingTopPx)
+  const right = side(el.paddingRightPx)
+  const bottom = side(el.paddingBottomPx)
+  const left = side(el.paddingLeftPx)
+  if (top !== undefined) pad.topPx = top
+  if (right !== undefined) pad.rightPx = right
+  if (bottom !== undefined) pad.bottomPx = bottom
+  if (left !== undefined) pad.leftPx = left
+  return Object.keys(pad).length ? pad : undefined
 }
 
 /** Map a captured element's authored axes onto the typed L1 text-axis subset. */
@@ -864,6 +890,8 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         geometry: buildGeometry(false),
       }
       if (vis) node.visibility = vis
+      const pad = foldPadding(widest)
+      if (pad) node.padding = pad
       children.push(node)
 
       // BUG-14 — record this run's immediate surface (composited fill / gradient +
@@ -928,6 +956,8 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       }
       if (Object.keys(axes).length) node.axes = axes
       if (vis) node.visibility = vis
+      const pad = foldPadding(widest)
+      if (pad) node.padding = pad
       children.push(node)
       continue
     }
@@ -952,6 +982,8 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const node: L1Box = { kind: 'box', id: `box-${boxIdx++}`, geometry: buildGeometry(true) }
       if (Object.keys(axes).length) node.axes = axes
       if (vis) node.visibility = vis
+      const pad = foldPadding(widest)
+      if (pad) node.padding = pad
       children.push(node)
       continue
     }
