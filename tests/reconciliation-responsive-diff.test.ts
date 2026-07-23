@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -356,5 +356,56 @@ describe('story-2c7069fe — --json emits machine-readable output; --ref is requ
     expect(missing.code).not.toBe(0)
     expect(missing.err).toMatch(/--ref/)
     expect(missing.out).toBe('')
+  })
+})
+
+// ── AC-721 — --out persists the raw N-way table, independent of --classify ─────
+
+describe('story-2c7069fe — --out persists the raw N-way table to a named file', () => {
+  it('test_UAT_AC721_out_persists_raw_table_independent_of_classify', async () => {
+    // A ladder whose Hero steps across sizes, so the table carries a changed node
+    // with a per-size value in every column — enough to recognise the raw table
+    // (size columns + node rows) as distinct from a classification (labelled moves).
+    const dir = ladderBundle([
+      { name: 'mobile', elements: [el('Hero', { role: 'heading', fontSizePx: 28 })] },
+      { name: 'tablet', elements: [el('Hero', { role: 'heading', fontSizePx: 40 })] },
+      { name: 'desktop', elements: [el('Hero', { role: 'heading', fontSizePx: 48 })] },
+    ])
+
+    // (1) --out with no --classify/--json: the raw table is written to <file> AND
+    //     still printed to stdout (the human table). --out is an addition, not a
+    //     redirection.
+    const outFile = path.join(tmp('ac-rd-out-'), 'table.json')
+    const plain = await runCli(['responsive-diff', '--ref', dir, '--out', outFile])
+    expect(plain.code).toBe(0)
+    expect(plain.out).toContain('responsive-diff:') // stdout still emits the table
+    expect(plain.out).toContain('Hero')
+
+    expect(existsSync(outFile)).toBe(true)
+    const persisted = JSON.parse(readFileSync(outFile, 'utf8'))
+    // The persisted file is the raw N-way table: size columns + per-node rows,
+    // each row carrying its per-size value — NOT a classification payload.
+    expect(persisted.sizes.map((s: { name: string }) => s.name)).toEqual(['mobile', 'tablet', 'desktop'])
+    const hero = persisted.rows.find((r: { label: string }) => r.label === 'Hero')
+    expect(hero).toBeDefined()
+    expect(hero.cells.map((c: { element?: { fontSizePx: number } }) => c.element?.fontSizePx)).toEqual([28, 40, 48])
+    expect(persisted.classifications).toBeUndefined()
+
+    // (2) --classify --out: --classify governs only stdout (labelled moves); the
+    //     persisted file is still the raw table, byte-identical to (1) — --out is
+    //     independent of --classify.
+    const outFile2 = path.join(tmp('ac-rd-out-'), 'table2.json')
+    const classified = await runCli(['responsive-diff', '--ref', dir, '--classify', '--out', outFile2])
+    expect(classified.code).toBe(0)
+    // stdout carries the classification (a value-step label for the stepping Hero)…
+    expect(classified.out).toContain('value-step')
+
+    // …while the persisted file is unchanged by --classify: still the raw table,
+    // identical to the plain-run artifact, with no classification content.
+    expect(existsSync(outFile2)).toBe(true)
+    expect(readFileSync(outFile2, 'utf8')).toBe(readFileSync(outFile, 'utf8'))
+    const persisted2 = JSON.parse(readFileSync(outFile2, 'utf8'))
+    expect(persisted2.classifications).toBeUndefined()
+    expect(persisted2.rows.find((r: { label: string }) => r.label === 'Hero')).toBeDefined()
   })
 })
