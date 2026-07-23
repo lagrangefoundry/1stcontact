@@ -189,6 +189,24 @@ export const l1OverlaySchema = z
   })
   .strict()
 
+/**
+ * BUG-17 — box-model padding: a per-side inset (px) between a leaf's border-box
+ * geometry and its content. A node-level structured axis (like {@link
+ * l1TransformSchema}/{@link l1MaskSchema}), so it applies to any leaf/box kind.
+ * Because the renderer sets `box-sizing: border-box`, padding insets the content
+ * *inside* the pinned keyframe box (a pill badge's glyphs sit off its edge; a
+ * button gains its click-target height) without inflating the geometry the fold
+ * already pinned — so it is round-trip-safe. Sides default to 0 when absent.
+ */
+export const l1PaddingSchema = z
+  .object({
+    topPx: finite.nonnegative().optional(),
+    rightPx: finite.nonnegative().optional(),
+    bottomPx: finite.nonnegative().optional(),
+    leftPx: finite.nonnegative().optional(),
+  })
+  .strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -295,6 +313,7 @@ export const l1TextSchema = z
     visibility: l1VisibilitySchema.optional(),
     transform: l1TransformSchema.optional(),
     mask: l1MaskSchema.optional(),
+    padding: l1PaddingSchema.optional(),
   })
   .strict()
 
@@ -311,6 +330,7 @@ export const l1ImageSchema = z
     visibility: l1VisibilitySchema.optional(),
     transform: l1TransformSchema.optional(),
     mask: l1MaskSchema.optional(),
+    padding: l1PaddingSchema.optional(),
   })
   .strict()
 
@@ -329,6 +349,7 @@ export const l1SlotSchema = z
     visibility: l1VisibilitySchema.optional(),
     transform: l1TransformSchema.optional(),
     mask: l1MaskSchema.optional(),
+    padding: l1PaddingSchema.optional(),
   })
   .strict()
 
@@ -347,6 +368,7 @@ export interface L1BoxNode {
   visibility?: z.infer<typeof l1VisibilitySchema>
   transform?: z.infer<typeof l1TransformSchema>
   mask?: z.infer<typeof l1MaskSchema>
+  padding?: z.infer<typeof l1PaddingSchema>
   children?: L1NodeUnion[]
 }
 
@@ -364,6 +386,7 @@ export interface L1ContainerNode {
   visibility?: z.infer<typeof l1VisibilitySchema>
   transform?: z.infer<typeof l1TransformSchema>
   mask?: z.infer<typeof l1MaskSchema>
+  padding?: z.infer<typeof l1PaddingSchema>
   children: L1NodeUnion[]
 }
 
@@ -386,6 +409,7 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
       visibility: l1VisibilitySchema.optional(),
       transform: l1TransformSchema.optional(),
       mask: l1MaskSchema.optional(),
+      padding: l1PaddingSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -406,6 +430,7 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       visibility: l1VisibilitySchema.optional(),
       transform: l1TransformSchema.optional(),
       mask: l1MaskSchema.optional(),
+      padding: l1PaddingSchema.optional(),
       children: z.array(l1NodeSchema),
     })
     .strict(),
