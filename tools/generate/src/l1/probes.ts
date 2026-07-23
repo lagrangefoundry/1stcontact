@@ -376,6 +376,17 @@ export interface SampleFidelityOptions {
  * text leaf's box (x / y / width) to the retained oracle within tolerance. A
  * clean absolute fold reproduces the oracle exactly (the fold copied the boxes),
  * so this both proves fidelity and catches a serializer that mangles geometry.
+ *
+ * Pairing is by **stable occurrence identity**, not by a `text → box` map. The
+ * fold (`foldToL1`) builds one leaf per responsive-table row, and that table
+ * assigns each oracle element to a row by its occurrence index within its text
+ * key (FIFO document order — see `buildResponsiveTable`). So the k-th reproduced
+ * text leaf of a key corresponds to the k-th oracle element of that key at each
+ * width. Pairing by that occurrence index (rather than keying a map by text,
+ * where duplicate labels/CTAs collide and only the last box survives) is what
+ * kills the phantom deltas — repeated text no longer mispairs against the wrong
+ * box, and genuine coverage gaps (more oracle occurrences than reproduced
+ * leaves) surface as `unmatched` rather than being masked by a stale map hit.
  */
 export function sampleFidelityProbe(
   doc: L1Document,
@@ -391,10 +402,24 @@ export function sampleFidelityProbe(
 
   for (const width of widths) {
     const { leaves } = evaluateLayout(doc, width)
-    const byText = new Map<string, EvalBox>()
-    for (const l of leaves) if (l.kind === 'text' && l.text) byText.set(normText(l.text), l.box)
+    // FIFO queues of reproduced text-leaf boxes by key, in document order — the
+    // same occurrence order the fold's rows were built in.
+    const leafQueues = new Map<string, EvalBox[]>()
+    for (const l of leaves) {
+      if (l.kind !== 'text' || !l.text) continue
+      const k = normText(l.text)
+      const q = leafQueues.get(k)
+      if (q) q.push(l.box)
+      else leafQueues.set(k, [l.box])
+    }
+    // Consume each key's queue occurrence-by-occurrence as the oracle presents
+    // its elements (also in document order), so occurrence i pairs with leaf i.
+    const cursor = new Map<string, number>()
     for (const o of table.filter((t) => t.width === width)) {
-      const got = byText.get(normText(o.text))
+      const k = normText(o.text)
+      const idx = cursor.get(k) ?? 0
+      cursor.set(k, idx + 1)
+      const got = leafQueues.get(k)?.[idx]
       if (!got) {
         unmatched.push({ text: o.text, width })
         continue
