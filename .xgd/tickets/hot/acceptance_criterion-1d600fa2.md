@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Terminal-fails on an un-captured requested width, listing available widths
 created_by: xgd
 created_at: '2026-07-19T02:51:36.106239+00:00'
-updated_at: '2026-07-19T02:59:23.734697+00:00'
+updated_at: '2026-07-23T10:49:48.822074+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2c7069fe
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
