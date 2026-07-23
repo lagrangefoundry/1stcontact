@@ -442,10 +442,15 @@ export const EXTRACT_SCRIPT = `(() => {
     var a = pseudoContentPainted(el, '::after');
     return b && a ? 'both' : b ? 'before' : a ? 'after' : null;
   }
-  // REQ-63 — a painted list marker (disc / decimal / …), else null. none (the
-  // common reset) is not painted; any other type paints a bullet/number the eye
-  // reads but no text run captures (the marker is not a text node).
+  // REQ-63 / BUG-10 — a painted list marker (disc / decimal / …), else null. The
+  // CSS *initial* value of list-style-type is 'disc' on EVERY element, so reading
+  // it unconditionally stamped a phantom bullet on every non-list run (the
+  // wordmark, headings, body). A ::marker box is generated ONLY for a
+  // 'display: list-item' element, so gate on that: a genuine <li> (or any
+  // list-item) keeps its marker; every other element reports null. 'none' still
+  // suppresses a marker on a real list item.
   function listMarkerOf(s) {
+    if (s.display !== 'list-item') return null;
     var t = s.listStyleType;
     return t && t !== 'none' ? t : null;
   }
