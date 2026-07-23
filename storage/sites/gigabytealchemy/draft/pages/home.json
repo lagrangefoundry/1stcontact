@@ -1,0 +1,3325 @@
+{
+  "id": "home",
+  "slug": "home",
+  "title": "gigabytealchemy",
+  "l1": {
+    "widths": [
+      320,
+      375,
+      768,
+      1024,
+      1280,
+      1440
+    ],
+    "root": {
+      "kind": "box",
+      "children": [
+        {
+          "kind": "text",
+          "text": "Gigabyte Alchemy",
+          "axes": {
+            "color": "#000000",
+            "fontFamily": "Cinzel",
+            "fontSizePx": 72,
+            "fontWeight": 600,
+            "lineHeightPx": 90,
+            "letterSpacingPx": -1.8,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 16,
+                "y": 30,
+                "width": 170
+              },
+              {
+                "at": 375,
+                "x": 16,
+                "y": 48,
+                "width": 343
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 79,
+                "width": 685
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 79,
+                "width": 685
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 79,
+                "width": 685
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 79,
+                "width": 685
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Intentional Software",
+          "axes": {
+            "color": "#fbba72",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 36,
+            "fontWeight": 700,
+            "lineHeightPx": 40,
+            "letterSpacingPx": -0.9,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 320,
+                "width": 269
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 320,
+                "width": 269
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 318,
+                "width": 320
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 318,
+                "width": 320
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 318,
+                "width": 320
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 318,
+                "width": 320
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Tools for clarity, presence, and positive connection",
+          "axes": {
+            "color": "#f5e6a3",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 24,
+            "fontWeight": 300,
+            "lineHeightPx": 32,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 380,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 380,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 384,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 384,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 384,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 384,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "We're a software studio building technology to elevate—not just engage. Tools that help you access your wisdom, create inner space, and cultivate positive connection—with yourself and others.",
+          "axes": {
+            "color": "#f5e6a3",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 468,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 468,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 448,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 448,
+                "width": 768
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 448,
+                "width": 768
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 448,
+                "width": 768
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "A Different Approach",
+          "axes": {
+            "color": "#000000",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 36,
+            "fontWeight": 700,
+            "lineHeightPx": 40,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 896,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 896,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 1120,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 864,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 896,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 996,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 1000,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 964,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 1192,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 936,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 968,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 1068,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Through privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 1141,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 1105,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 1275,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 1019,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 1051,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 1151,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.",
+          "axes": {
+            "color": "#45556c",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left",
+            "fontStyle": "italic"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 1370,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 1275,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 1386,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 1101,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 1133,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 1233,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Our Mission",
+          "axes": {
+            "color": "#000000",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 36,
+            "fontWeight": 700,
+            "lineHeightPx": 40,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 1708,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 1584,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 1637,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 1352,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 1384,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 1484,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Our work is guided by a simple belief: the world needs more presence, positivity, and human connection.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 1776,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 1652,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 1709,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 1424,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 1456,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 1556,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "These aren't just features—they're foundations. Every tool we build starts with these principles.",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 500,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 52,
+                "y": 2613,
+                "width": 244
+              },
+              {
+                "at": 375,
+                "x": 52,
+                "y": 2434,
+                "width": 299
+              },
+              {
+                "at": 768,
+                "x": 52,
+                "y": 2091,
+                "width": 692
+              },
+              {
+                "at": 1024,
+                "x": 52,
+                "y": 1725,
+                "width": 868
+              },
+              {
+                "at": 1280,
+                "x": 116,
+                "y": 1757,
+                "width": 868
+              },
+              {
+                "at": 1440,
+                "x": 196,
+                "y": 1857,
+                "width": 868
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Presence",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 20,
+            "fontWeight": 600,
+            "lineHeightPx": 28,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 48,
+                "y": 1957,
+                "width": 224
+              },
+              {
+                "at": 375,
+                "x": 48,
+                "y": 1804,
+                "width": 279
+              },
+              {
+                "at": 768,
+                "x": 48,
+                "y": 1831,
+                "width": 171
+              },
+              {
+                "at": 1024,
+                "x": 48,
+                "y": 1517,
+                "width": 229
+              },
+              {
+                "at": 1280,
+                "x": 112,
+                "y": 1549,
+                "width": 229
+              },
+              {
+                "at": 1440,
+                "x": 192,
+                "y": 1649,
+                "width": 229
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Technology that creates inner space for clarity and insight, helping you access what you know but can't easily reach",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 26,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 48,
+                "y": 1997,
+                "width": 224
+              },
+              {
+                "at": 375,
+                "x": 48,
+                "y": 1844,
+                "width": 279
+              },
+              {
+                "at": 768,
+                "x": 48,
+                "y": 1871,
+                "width": 171
+              },
+              {
+                "at": 1024,
+                "x": 48,
+                "y": 1557,
+                "width": 229
+              },
+              {
+                "at": 1280,
+                "x": 112,
+                "y": 1589,
+                "width": 229
+              },
+              {
+                "at": 1440,
+                "x": 192,
+                "y": 1689,
+                "width": 229
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Positivity",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 20,
+            "fontWeight": 600,
+            "lineHeightPx": 28,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 48,
+                "y": 2181,
+                "width": 224
+              },
+              {
+                "at": 375,
+                "x": 48,
+                "y": 2028,
+                "width": 279
+              },
+              {
+                "at": 768,
+                "x": 299,
+                "y": 1831,
+                "width": 171
+              },
+              {
+                "at": 1024,
+                "x": 357,
+                "y": 1517,
+                "width": 229
+              },
+              {
+                "at": 1280,
+                "x": 421,
+                "y": 1549,
+                "width": 229
+              },
+              {
+                "at": 1440,
+                "x": 501,
+                "y": 1649,
+                "width": 229
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Tools that elevate mood and perspective, supporting gratitude, joy, and emotional well-being",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 26,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 48,
+                "y": 2221,
+                "width": 224
+              },
+              {
+                "at": 375,
+                "x": 48,
+                "y": 2068,
+                "width": 279
+              },
+              {
+                "at": 768,
+                "x": 299,
+                "y": 1871,
+                "width": 171
+              },
+              {
+                "at": 1024,
+                "x": 357,
+                "y": 1557,
+                "width": 229
+              },
+              {
+                "at": 1280,
+                "x": 421,
+                "y": 1589,
+                "width": 229
+              },
+              {
+                "at": 1440,
+                "x": 501,
+                "y": 1689,
+                "width": 229
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Connection",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 20,
+            "fontWeight": 600,
+            "lineHeightPx": 28,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 48,
+                "y": 2405,
+                "width": 224
+              },
+              {
+                "at": 375,
+                "x": 48,
+                "y": 2226,
+                "width": 279
+              },
+              {
+                "at": 768,
+                "x": 549,
+                "y": 1831,
+                "width": 171
+              },
+              {
+                "at": 1024,
+                "x": 667,
+                "y": 1517,
+                "width": 229
+              },
+              {
+                "at": 1280,
+                "x": 731,
+                "y": 1549,
+                "width": 229
+              },
+              {
+                "at": 1440,
+                "x": 811,
+                "y": 1649,
+                "width": 229
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Technology that brings people together to create positive experiences and meaningful interactions",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 26,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 48,
+                "y": 2445,
+                "width": 224
+              },
+              {
+                "at": 375,
+                "x": 48,
+                "y": 2266,
+                "width": 279
+              },
+              {
+                "at": 768,
+                "x": 549,
+                "y": 1871,
+                "width": 171
+              },
+              {
+                "at": 1024,
+                "x": 667,
+                "y": 1557,
+                "width": 229
+              },
+              {
+                "at": 1280,
+                "x": 731,
+                "y": 1589,
+                "width": 229
+              },
+              {
+                "at": 1440,
+                "x": 811,
+                "y": 1689,
+                "width": 229
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "What We're Building",
+          "axes": {
+            "color": "#000000",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 36,
+            "fontWeight": 700,
+            "lineHeightPx": 40,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 2922,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 2714,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 2342,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 1946,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 1978,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 2078,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "From personal reflection tools to developer platforms, our work spans the spectrum of human experience.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 3018,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 2774,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 2406,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 2010,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 2042,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 2142,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Sanctum Voice",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 24,
+            "fontWeight": 700,
+            "lineHeightPx": 32,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 3215,
+                "width": 100
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 2942,
+                "width": 146
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2544,
+                "width": 167
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2119,
+                "width": 167
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2151,
+                "width": 167
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2251,
+                "width": 167
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "In development",
+          "axes": {
+            "color": "#007a55",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 14,
+            "fontWeight": 500,
+            "lineHeightPx": 20,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 160,
+                "y": 3215,
+                "width": 110
+              },
+              {
+                "at": 375,
+                "x": 206,
+                "y": 2942,
+                "width": 113
+              },
+              {
+                "at": 768,
+                "x": 586,
+                "y": 2544,
+                "width": 126
+              },
+              {
+                "at": 1024,
+                "x": 762,
+                "y": 2119,
+                "width": 126
+              },
+              {
+                "at": 1280,
+                "x": 826,
+                "y": 2151,
+                "width": 126
+              },
+              {
+                "at": 1440,
+                "x": 906,
+                "y": 2251,
+                "width": 126
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Your private space to think out loud",
+          "axes": {
+            "color": "#45556c",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 28,
+            "letterSpacingPx": 0,
+            "textAlign": "left",
+            "fontStyle": "italic"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 3295,
+                "width": 204
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3022,
+                "width": 259
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2592,
+                "width": 652
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2167,
+                "width": 828
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2199,
+                "width": 828
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2299,
+                "width": 828
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "A voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 26,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 3367,
+                "width": 204
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3094,
+                "width": 259
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2636,
+                "width": 652
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2211,
+                "width": 828
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2243,
+                "width": 828
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2343,
+                "width": 828
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "XGD (Extreme Generative Development)",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 24,
+            "fontWeight": 700,
+            "lineHeightPx": 32,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 3925,
+                "width": 158
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3578,
+                "width": 184
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2934,
+                "width": 448
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2483,
+                "width": 448
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2515,
+                "width": 448
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2615,
+                "width": 448
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Coming soon",
+          "axes": {
+            "color": "#1447e6",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 14,
+            "fontWeight": 500,
+            "lineHeightPx": 20,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 218,
+                "y": 3925,
+                "width": 75
+              },
+              {
+                "at": 375,
+                "x": 244,
+                "y": 3578,
+                "width": 75
+              },
+              {
+                "at": 768,
+                "x": 601,
+                "y": 2934,
+                "width": 111
+              },
+              {
+                "at": 1024,
+                "x": 777,
+                "y": 2483,
+                "width": 111
+              },
+              {
+                "at": 1280,
+                "x": 841,
+                "y": 2515,
+                "width": 111
+              },
+              {
+                "at": 1440,
+                "x": 921,
+                "y": 2615,
+                "width": 111
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "AI-powered development methodology and tools",
+          "axes": {
+            "color": "#45556c",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 28,
+            "letterSpacingPx": 0,
+            "textAlign": "left",
+            "fontStyle": "italic"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4037,
+                "width": 204
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3690,
+                "width": 259
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2982,
+                "width": 652
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2531,
+                "width": 828
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2563,
+                "width": 828
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2663,
+                "width": 828
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "An open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 26,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4109,
+                "width": 204
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3762,
+                "width": 259
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 3026,
+                "width": 652
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2575,
+                "width": 828
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2607,
+                "width": 828
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2707,
+                "width": 828
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "✓",
+          "axes": {
+            "color": "#2b7fff",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4319,
+                "width": 14
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3946,
+                "width": 14
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 3106,
+                "width": 14
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2655,
+                "width": 14
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2687,
+                "width": 14
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2787,
+                "width": 14
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "✓",
+          "axes": {
+            "color": "#2b7fff",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4399,
+                "width": 14
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 4002,
+                "width": 14
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 3142,
+                "width": 14
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2691,
+                "width": 14
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2723,
+                "width": 14
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2823,
+                "width": 14
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "✓",
+          "axes": {
+            "color": "#2b7fff",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4455,
+                "width": 14
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 4058,
+                "width": 14
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 3178,
+                "width": 14
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2727,
+                "width": 14
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2759,
+                "width": 14
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2859,
+                "width": 14
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "✓",
+          "axes": {
+            "color": "#00bc7d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 3577,
+                "width": 14
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3278,
+                "width": 14
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2742,
+                "width": 14
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2291,
+                "width": 14
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2323,
+                "width": 14
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2423,
+                "width": 14
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "✓",
+          "axes": {
+            "color": "#00bc7d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 3657,
+                "width": 14
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3358,
+                "width": 14
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2778,
+                "width": 14
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2327,
+                "width": 14
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2359,
+                "width": 14
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2459,
+                "width": 14
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "✓",
+          "axes": {
+            "color": "#00bc7d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 3737,
+                "width": 14
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 3414,
+                "width": 14
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 2814,
+                "width": 14
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2363,
+                "width": 14
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2395,
+                "width": 14
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2495,
+                "width": 14
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Designed for developers building AI-enhanced workflows",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 86,
+                "y": 4315,
+                "width": 178
+              },
+              {
+                "at": 375,
+                "x": 86,
+                "y": 3942,
+                "width": 233
+              },
+              {
+                "at": 768,
+                "x": 86,
+                "y": 3102,
+                "width": 413
+              },
+              {
+                "at": 1024,
+                "x": 86,
+                "y": 2651,
+                "width": 413
+              },
+              {
+                "at": 1280,
+                "x": 150,
+                "y": 2683,
+                "width": 413
+              },
+              {
+                "at": 1440,
+                "x": 230,
+                "y": 2783,
+                "width": 413
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Open source and community-driven",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 86,
+                "y": 4395,
+                "width": 178
+              },
+              {
+                "at": 375,
+                "x": 86,
+                "y": 3998,
+                "width": 233
+              },
+              {
+                "at": 768,
+                "x": 86,
+                "y": 3138,
+                "width": 261
+              },
+              {
+                "at": 1024,
+                "x": 86,
+                "y": 2687,
+                "width": 261
+              },
+              {
+                "at": 1280,
+                "x": 150,
+                "y": 2719,
+                "width": 261
+              },
+              {
+                "at": 1440,
+                "x": 230,
+                "y": 2819,
+                "width": 261
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Practical tools for modern software development",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 86,
+                "y": 4451,
+                "width": 178
+              },
+              {
+                "at": 375,
+                "x": 86,
+                "y": 4054,
+                "width": 233
+              },
+              {
+                "at": 768,
+                "x": 86,
+                "y": 3174,
+                "width": 353
+              },
+              {
+                "at": 1024,
+                "x": 86,
+                "y": 2723,
+                "width": 353
+              },
+              {
+                "at": 1280,
+                "x": 150,
+                "y": 2755,
+                "width": 353
+              },
+              {
+                "at": 1440,
+                "x": 230,
+                "y": 2855,
+                "width": 353
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "What We're Exploring",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 20,
+            "fontWeight": 700,
+            "lineHeightPx": 28,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4619,
+                "width": 204
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 4198,
+                "width": 259
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 3298,
+                "width": 652
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2847,
+                "width": 828
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2879,
+                "width": 828
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 2979,
+                "width": 828
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 26,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4663,
+                "width": 204
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 4242,
+                "width": 259
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 3342,
+                "width": 652
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2891,
+                "width": 828
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2923,
+                "width": 828
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 3023,
+                "width": 828
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "More to come as these ideas take shape.",
+          "axes": {
+            "color": "#45556c",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 14,
+            "fontWeight": 400,
+            "lineHeightPx": 20,
+            "letterSpacingPx": 0,
+            "textAlign": "left",
+            "fontStyle": "italic"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 60,
+                "y": 4913,
+                "width": 204
+              },
+              {
+                "at": 375,
+                "x": 60,
+                "y": 4440,
+                "width": 259
+              },
+              {
+                "at": 768,
+                "x": 60,
+                "y": 3436,
+                "width": 652
+              },
+              {
+                "at": 1024,
+                "x": 60,
+                "y": 2959,
+                "width": 828
+              },
+              {
+                "at": 1280,
+                "x": 124,
+                "y": 2991,
+                "width": 828
+              },
+              {
+                "at": 1440,
+                "x": 204,
+                "y": 3091,
+                "width": 828
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Completely on-device—your thoughts never leave your phone",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 86,
+                "y": 3573,
+                "width": 178
+              },
+              {
+                "at": 375,
+                "x": 86,
+                "y": 3274,
+                "width": 233
+              },
+              {
+                "at": 768,
+                "x": 86,
+                "y": 2738,
+                "width": 446
+              },
+              {
+                "at": 1024,
+                "x": 86,
+                "y": 2287,
+                "width": 446
+              },
+              {
+                "at": 1280,
+                "x": 150,
+                "y": 2319,
+                "width": 446
+              },
+              {
+                "at": 1440,
+                "x": 230,
+                "y": 2419,
+                "width": 446
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Creates space for deeper reflection and insight",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 86,
+                "y": 3653,
+                "width": 178
+              },
+              {
+                "at": 375,
+                "x": 86,
+                "y": 3354,
+                "width": 233
+              },
+              {
+                "at": 768,
+                "x": 86,
+                "y": 2774,
+                "width": 340
+              },
+              {
+                "at": 1024,
+                "x": 86,
+                "y": 2323,
+                "width": 340
+              },
+              {
+                "at": 1280,
+                "x": 150,
+                "y": 2355,
+                "width": 340
+              },
+              {
+                "at": 1440,
+                "x": 230,
+                "y": 2455,
+                "width": 340
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Optional modules for journaling, dreams, gratitude, and personal growth",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 400,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 86,
+                "y": 3733,
+                "width": 178
+              },
+              {
+                "at": 375,
+                "x": 86,
+                "y": 3410,
+                "width": 233
+              },
+              {
+                "at": 768,
+                "x": 86,
+                "y": 2810,
+                "width": 521
+              },
+              {
+                "at": 1024,
+                "x": 86,
+                "y": 2359,
+                "width": 521
+              },
+              {
+                "at": 1280,
+                "x": 150,
+                "y": 2391,
+                "width": 521
+              },
+              {
+                "at": 1440,
+                "x": 230,
+                "y": 2491,
+                "width": 521
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "The Alchemy",
+          "axes": {
+            "color": "#000000",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 36,
+            "fontWeight": 700,
+            "lineHeightPx": 40,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 5177,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 4704,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 3680,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 3203,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 3235,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 3335,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 5245,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 4772,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 3752,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 3275,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 3307,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 3407,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "But the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 5386,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 4913,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 3835,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 3358,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 3390,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 3490,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "That's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 5586,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 5083,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 3917,
+                "width": 720
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 3440,
+                "width": 896
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 3472,
+                "width": 896
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 3572,
+                "width": 896
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "We're not trying to change you. We're creating space for you to discover what's already there.",
+          "axes": {
+            "color": "#1d293d",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 500,
+            "lineHeightPx": 29,
+            "letterSpacingPx": 0,
+            "textAlign": "left",
+            "fontStyle": "italic"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 52,
+                "y": 5793,
+                "width": 244
+              },
+              {
+                "at": 375,
+                "x": 52,
+                "y": 5261,
+                "width": 299
+              },
+              {
+                "at": 768,
+                "x": 52,
+                "y": 4008,
+                "width": 692
+              },
+              {
+                "at": 1024,
+                "x": 52,
+                "y": 3531,
+                "width": 868
+              },
+              {
+                "at": 1280,
+                "x": 116,
+                "y": 3563,
+                "width": 868
+              },
+              {
+                "at": 1440,
+                "x": 196,
+                "y": 3663,
+                "width": 868
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Get in touch",
+          "axes": {
+            "color": "#000000",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 36,
+            "fontWeight": 700,
+            "lineHeightPx": 40,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 6102,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 5541,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 4258,
+                "width": 336
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 3752,
+                "width": 464
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 3784,
+                "width": 528
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 3884,
+                "width": 528
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Join our mailing list for updates on our work.",
+          "axes": {
+            "color": "#314158",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 18,
+            "fontWeight": 400,
+            "lineHeightPx": 28,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 6162,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 5601,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 4322,
+                "width": 336
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 3816,
+                "width": 464
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 3848,
+                "width": 528
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 3948,
+                "width": 528
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Subscribe",
+          "axes": {
+            "color": "#ffffff",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 500,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "center"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 6304,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 5743,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 245,
+                "y": 4402,
+                "width": 123
+              },
+              {
+                "at": 1024,
+                "x": 349,
+                "y": 3868,
+                "width": 123
+              },
+              {
+                "at": 1280,
+                "x": 413,
+                "y": 3900,
+                "width": 123
+              },
+              {
+                "at": 1440,
+                "x": 493,
+                "y": 4000,
+                "width": 123
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Send message",
+          "axes": {
+            "color": "#ffffff",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 16,
+            "fontWeight": 500,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "center"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 6700,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 6139,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 408,
+                "y": 4558,
+                "width": 173
+              },
+              {
+                "at": 1024,
+                "x": 536,
+                "y": 4052,
+                "width": 173
+              },
+              {
+                "at": 1280,
+                "x": 664,
+                "y": 4084,
+                "width": 173
+              },
+              {
+                "at": 1440,
+                "x": 744,
+                "y": 4184,
+                "width": 173
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "Protected by Cloudflare Turnstile.",
+          "axes": {
+            "color": "#62748e",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 12,
+            "fontWeight": 400,
+            "lineHeightPx": 16,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 6764,
+                "width": 272
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 6203,
+                "width": 327
+              },
+              {
+                "at": 768,
+                "x": 408,
+                "y": 4622,
+                "width": 336
+              },
+              {
+                "at": 1024,
+                "x": 536,
+                "y": 4116,
+                "width": 464
+              },
+              {
+                "at": 1280,
+                "x": 664,
+                "y": 4148,
+                "width": 528
+              },
+              {
+                "at": 1440,
+                "x": 744,
+                "y": 4248,
+                "width": 528
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "© Gigabyte Alchemy 2025",
+          "axes": {
+            "color": "#90a1b9",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 14,
+            "fontWeight": 400,
+            "lineHeightPx": 20,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 75,
+                "y": 6924,
+                "width": 171
+              },
+              {
+                "at": 375,
+                "x": 102,
+                "y": 6363,
+                "width": 171
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 4782,
+                "width": 171
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 4276,
+                "width": 171
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 4308,
+                "width": 171
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 4408,
+                "width": 171
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "LinkedIn",
+          "axes": {
+            "color": "#90a1b9",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 14,
+            "fontWeight": 400,
+            "lineHeightPx": 20,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 98,
+                "y": 6960,
+                "width": 54
+              },
+              {
+                "at": 375,
+                "x": 126,
+                "y": 6399,
+                "width": 54
+              },
+              {
+                "at": 768,
+                "x": 621,
+                "y": 4782,
+                "width": 54
+              },
+              {
+                "at": 1024,
+                "x": 877,
+                "y": 4276,
+                "width": 54
+              },
+              {
+                "at": 1280,
+                "x": 1069,
+                "y": 4308,
+                "width": 54
+              },
+              {
+                "at": 1440,
+                "x": 1149,
+                "y": 4408,
+                "width": 54
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "text",
+          "text": "GitHub",
+          "axes": {
+            "color": "#90a1b9",
+            "fontFamily": "ui-sans-serif",
+            "fontSizePx": 14,
+            "fontWeight": 400,
+            "lineHeightPx": 20,
+            "letterSpacingPx": 0,
+            "textAlign": "left"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 176,
+                "y": 6960,
+                "width": 45
+              },
+              {
+                "at": 375,
+                "x": 204,
+                "y": 6399,
+                "width": 45
+              },
+              {
+                "at": 768,
+                "x": 699,
+                "y": 4782,
+                "width": 45
+              },
+              {
+                "at": 1024,
+                "x": 955,
+                "y": 4276,
+                "width": 45
+              },
+              {
+                "at": 1280,
+                "x": 1147,
+                "y": 4308,
+                "width": 45
+              },
+              {
+                "at": 1440,
+                "x": 1227,
+                "y": 4408,
+                "width": 45
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
