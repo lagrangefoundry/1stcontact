@@ -38,7 +38,13 @@ import {
   type L1TextAxes,
 } from '@1stcontact/site-schema'
 import { buildResponsiveTable, type LabelledProjection } from '../cli/responsive-diff'
-import { colorToHex, type MultiStateCapture, type StateProjection, type ValueElement } from '../cli/capture'
+import {
+  colorToHex,
+  type MultiStateCapture,
+  type SectionValues,
+  type StateProjection,
+  type ValueElement,
+} from '../cli/capture'
 
 const FONT_SIZE = { min: 1, max: 400 }
 const FONT_WEIGHT = { min: 1, max: 1000 }
@@ -496,6 +502,55 @@ function visibilityFor(presentWidths: number[], ladder: number[]): { fromPx?: nu
 }
 
 /**
+ * BUG-13 — section/band CSS `background-image`s → L1 `box` leaves.
+ *
+ * The page's hero + section imagery is painted as a `background-image` on the
+ * band (a `<section>`/`<div>`), not as `<img>` elements, so it never enters the
+ * element manifest and the element loop above never sees it. The capture instead
+ * carries it as `SectionValues.backgroundImageUrl` + `box` (per band, per width).
+ * Here we match those section entries by ordinal `index` across the sampled
+ * widths and emit one `box` per section carrying `backgroundImageUrl` and a
+ * geometry keyframe track from the band boxes — the renderer already paints the
+ * URL (an allowlisted scheme, guaranteed by the projection). These paint beneath
+ * all content (emitted first by the caller).
+ */
+function foldSectionBackgrounds(projections: StateProjection[], widths: number[]): L1Box[] {
+  // section ordinal → its (width, values) samples across the ladder
+  const byIndex = new Map<number, Array<{ width: number; sv: SectionValues }>>()
+  for (const p of projections) {
+    for (const sv of p.manifest.sections ?? []) {
+      if (!sv.backgroundImageUrl || !sv.box) continue
+      const arr = byIndex.get(sv.index) ?? []
+      arr.push({ width: p.viewport.width, sv })
+      byIndex.set(sv.index, arr)
+    }
+  }
+  const nodes: L1Box[] = []
+  let idx = 0
+  for (const [, entriesRaw] of [...byIndex.entries()].sort((a, b) => a[0] - b[0])) {
+    const entries = entriesRaw.sort((a, b) => a.width - b.width)
+    const keyframes: L1Keyframe[] = entries.map((e) => ({
+      at: e.width,
+      x: Math.round(e.sv.box!.x),
+      y: Math.round(e.sv.box!.y),
+      width: Math.round(e.sv.box!.width),
+      height: Math.round(e.sv.box!.height),
+    }))
+    const geometry: L1Geometry = { keyframes }
+    if (keyframes.length > 1) {
+      geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+    }
+    // The URL is the band's; the widest present width is authoritative (they agree).
+    const url = entries[entries.length - 1].sv.backgroundImageUrl!
+    const node: L1Box = { kind: 'box', id: `section-bg-${idx++}`, geometry, axes: { backgroundImageUrl: url } }
+    const vis = visibilityFor(entries.map((e) => e.width), widths)
+    if (vis) node.visibility = vis
+    nodes.push(node)
+  }
+  return nodes
+}
+
+/**
  * Fold a multi-viewport capture into one L1 document. Text nodes fold to `text`
  * leaves (the round-trip oracle compares text axes); text-free nodes (fields,
  * images) carry no `src` in the manifest and are deferred. The result is
@@ -678,7 +733,12 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       return s.node
     })
 
-  const root: L1Box = { kind: 'box', children: [...surfaceNodes, ...children] }
+  // BUG-13 — section/band background images paint beneath everything: the page
+  // band (`doc.background`), then section-background boxes, then panel/card
+  // surfaces, then the content leaves.
+  const sectionBgNodes = foldSectionBackgrounds(projections, widths)
+
+  const root: L1Box = { kind: 'box', children: [...sectionBgNodes, ...surfaceNodes, ...children] }
   const doc: L1Document = { widths, root }
   if (band) doc.background = band
 
