@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Carousel autoplay/loop ship as vetted client behaviour over a static SSR baseline
 created_by: xgd
 created_at: '2026-07-22T19:54:26.548100+00:00'
-updated_at: '2026-07-22T20:04:00.568620+00:00'
+updated_at: '2026-07-23T06:57:10.483940+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
