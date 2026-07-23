@@ -6,14 +6,15 @@ title: Capturing a page persists a per-width reference screenshot for each ladde
   width, keeping the value matrix free of image bytes
 created_by: xgd
 created_at: '2026-07-19T02:37:53.658441+00:00'
-updated_at: '2026-07-19T02:48:19.250740+00:00'
+updated_at: '2026-07-23T10:49:36.241910+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-16f2793c
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
