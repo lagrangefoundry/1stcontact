@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: --sizes selects and orders the table columns
 created_by: xgd
 created_at: '2026-07-19T02:50:57.222389+00:00'
-updated_at: '2026-07-19T02:59:24.666587+00:00'
+updated_at: '2026-07-23T10:49:39.953905+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2c7069fe
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
