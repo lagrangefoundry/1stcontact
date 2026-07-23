@@ -245,8 +245,16 @@ export const l1BoxAxesSchema = z
     overlay: l1OverlaySchema.optional(),
     /** A drop shadow cast by the box. */
     boxShadow: l1ShadowSchema.optional(),
-    /** A painted box border. */
+    /** A painted box border (uniform, all four sides). */
     border: l1BorderSchema.optional(),
+    /**
+     * BUG-14 — a coloured left-accent border (a card's orange/blue rule), distinct
+     * from the uniform {@link border}: a card frequently carries only a thick
+     * `border-left` as its accent, and drawing that as a full box outline is the
+     * wrong look. A typed left-border primitive (never raw CSS) keeps the accent
+     * faithful while the substrate stays safe by construction.
+     */
+    borderLeft: l1BorderSchema.optional(),
     /** Frosted-glass blur of whatever sits behind the box (backdrop-filter). */
     backdropBlurPx: finite.nonnegative().optional(),
     /** How the box composites with what is behind it. */

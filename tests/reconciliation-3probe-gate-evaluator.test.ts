@@ -385,11 +385,12 @@ describe('story-24098299 — painted backing surfaces', () => {
     const withDoc = foldToL1(withCap)
     const withoutDoc = foldToL1(withoutCap)
 
-    // The panel run's fill differs from the dominant band, so exactly one backing
-    // `box` leaf is emitted behind it (the band paints via the document body).
+    // The composited fills are reconstructed as backing surfaces (BUG-14: one
+    // section band per fill run-group); the same capture folded without them emits
+    // no `box` leaf at all.
     expect(withDoc.background).toBe(BAND)
     const surfaces = evaluateLayout(withDoc, 1280).leaves.filter((l) => l.kind === 'box')
-    expect(surfaces).toHaveLength(1)
+    expect(surfaces).toHaveLength(2)
     expect(evaluateLayout(withoutDoc, 1280).leaves.filter((l) => l.kind === 'box')).toEqual([])
 
     // The surface sits directly behind the content it backs — their boxes really
@@ -397,8 +398,8 @@ describe('story-24098299 — painted backing surfaces', () => {
     const backedText = evaluateLayout(withDoc, 1280).leaves.find(
       (l) => l.text === 'Panel card copy line here',
     )!
-    const s = surfaces[0].box
     const t = backedText.box
+    const s = surfaces.find((l) => l.box.y <= t.y && l.box.y + l.box.height >= t.y + t.height)!.box
     expect(Math.min(s.y + s.height, t.y + t.height) - Math.max(s.y, t.y)).toBeGreaterThan(2)
 
     // At every width, at rest AND under content perturbation: no overlap finding
@@ -436,7 +437,7 @@ describe('story-24098299 — painted backing surfaces', () => {
       children: [
         {
           kind: 'box',
-          id: 'surface-wide',
+          id: 'card-wide',
           axes: { surfaceFill: PANEL },
           geometry: { keyframes: [{ at: 320, x: 0, y: 0, width: 1400, height: 200 }] },
         },
