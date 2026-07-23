@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Terminal-fails on a stale reference with re-capture guidance
 created_by: xgd
 created_at: '2026-07-19T02:51:32.220234+00:00'
-updated_at: '2026-07-19T02:59:23.909044+00:00'
+updated_at: '2026-07-23T10:49:46.882817+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2c7069fe
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
