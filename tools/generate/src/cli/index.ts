@@ -372,7 +372,16 @@ export async function run(argv: string[]): Promise<void> {
             `${report.sampleFidelity.unmatched.length} unmatched)\n` +
             `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
-            `  promoted regions: ${report.promoted.length ? report.promoted.join(', ') : 'none'}`,
+            `  promoted regions: ${report.promoted.length ? report.promoted.join(', ') : 'none'}\n` +
+            `  fold residuals (folder-power gaps): ${report.foldResiduals.length}` +
+            (report.foldResiduals.length
+              ? '\n' +
+                report.foldResiduals
+                  .slice(0, 10)
+                  .map((r) => `    - ${r.kind}: ${r.reason}${r.capturedAxes.length ? ` [${r.capturedAxes.join(', ')}]` : ''}`)
+                  .join('\n') +
+                (report.foldResiduals.length > 10 ? `\n    … +${report.foldResiduals.length - 10} more` : '')
+              : ''),
         )
       }
       if (!report.pass) process.exitCode = 1

@@ -26,13 +26,34 @@ import {
   type L1GradientStop,
   type L1Node,
   type L1Segment,
+  type L1Shadow,
   type L1TextAxes,
 } from '@1stcontact/site-schema'
 import { buildResponsiveTable, type LabelledProjection } from '../cli/responsive-diff'
-import type { MultiStateCapture, StateProjection, ValueElement } from '../cli/capture'
+import { colorToHex, type MultiStateCapture, type StateProjection, type ValueElement } from '../cli/capture'
 
 const FONT_SIZE = { min: 1, max: 400 }
 const FONT_WEIGHT = { min: 1, max: 1000 }
+
+/**
+ * REQ-92 / BUG-6 (B2) — a structured signal for one captured element the fold
+ * cannot yet express as an L1 leaf. The fold used to `continue` silently past
+ * these (text-free media/fields, pure-surface panels, geometry-less runs); they
+ * then reached the gate only as anonymous `unmatched` rows, so the *capability
+ * gap* (folder power) hid behind a *silent drop*. Emitting a typed residual makes
+ * the gap the completeness signal for the whole effort (DOC-21 growth loop): the
+ * residual list names exactly what the language + folder still lack.
+ */
+export interface FoldResidual {
+  /** Best-effort object kind of the un-folded element. */
+  kind: 'image' | 'field' | 'box' | 'text'
+  /** Why it has no faithful L1 leaf yet — the framework-gap this residual names. */
+  reason: string
+  /** The painted pixel-mover axes present on the element (the gap's substance). */
+  capturedAxes: string[]
+  /** The sampled widths the element appeared at (ascending). */
+  widths: number[]
+}
 
 export interface FoldOptions {
   /** Preferred engine to fold from when a width was captured on several (default `chromium`). */
@@ -45,6 +66,13 @@ export interface FoldOptions {
    * `@font-face` and the named face resolves instead of a serif fallback.
    */
   fonts?: L1FontFace[]
+  /**
+   * REQ-92 / BUG-6 (B2) — an out-collector for {@link FoldResidual}s. When
+   * provided, every element the fold cannot yet express is pushed here instead of
+   * being silently dropped, so a caller (the l1-gate) can surface the framework
+   * gaps. Omitted → the fold still drops those elements, but no signal is kept.
+   */
+  residuals?: FoldResidual[]
 }
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -112,6 +140,64 @@ function textAxes(el: ValueElement): L1TextAxes {
   if (caps) axes.fontVariantCaps = caps
   const marker = foldListMarker(el.listMarker)
   if (marker) axes.listMarker = marker
+  // A glyph glow / legibility shadow — paint-only, so it moves pixels without
+  // perturbing the leaf's captured box (unlike transform/mask, which shift the
+  // post-transform geometry the fold already pins and are deferred to a later
+  // increment). Folding it is therefore idempotency-safe.
+  const shadow = foldTextShadow(el.textShadow)
+  if (shadow) axes.textShadow = shadow
+  return axes
+}
+
+/**
+ * A captured computed `text-shadow` string → the L1 structured shadow (REQ-92).
+ * Chrome emits `<color> <offX>px <offY>px [<blur>px]` (colour first); we tolerate
+ * either order by pulling the colour token out and reading the remaining px
+ * lengths positionally. Only the first shadow layer of a comma list is folded;
+ * `none`/unparseable → undefined. Text-shadow has no spread or inset.
+ */
+function foldTextShadow(css: string | null | undefined): L1Shadow | undefined {
+  if (!css || /^none$/i.test(css.trim())) return undefined
+  const first = css.split(/,(?![^(]*\))/)[0].trim() // first layer, not splitting inside rgb(...)
+  const colorTok = first.match(/rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}/)
+  const hex = colorTok ? colorToHex(colorTok[0]) : null
+  if (!hex) return undefined
+  const rest = colorTok ? first.replace(colorTok[0], ' ') : first
+  const nums = (rest.match(/-?\d*\.?\d+px/g) ?? []).map((n) => parseFloat(n))
+  if (nums.length < 2 || !Number.isFinite(nums[0]) || !Number.isFinite(nums[1])) return undefined
+  const shadow: L1Shadow = { offsetXPx: nums[0], offsetYPx: nums[1], color: hex }
+  if (nums.length >= 3 && Number.isFinite(nums[2]) && nums[2] >= 0) shadow.blurPx = nums[2]
+  return shadow
+}
+
+/** Best-effort object kind for a residual an element that has no L1 leaf yet (B2). */
+function residualKindOf(el: ValueElement): FoldResidual['kind'] {
+  if (!el.textless) return 'text'
+  if (el.objectFit != null || el.intrinsicAspect != null) return 'image'
+  if (el.a11yRole) return 'field'
+  return 'box'
+}
+
+/** The painted pixel-mover axes present on an element — the residual's substance (B2). */
+function capturedAxesOf(el: ValueElement): string[] {
+  const axes: string[] = []
+  const has = (name: string, v: unknown): void => {
+    if (v !== null && v !== undefined && v !== '' && v !== 0) axes.push(name)
+  }
+  has('objectFit', el.objectFit)
+  has('intrinsicAspect', el.intrinsicAspect)
+  has('surfaceFill', el.surfaceFill)
+  has('surfaceGradient', el.surfaceGradient)
+  has('border', el.border)
+  has('borderRadiusPx', el.borderRadiusPx)
+  has('boxShadow', el.boxShadow)
+  has('backdropFilter', el.backdropFilter)
+  has('blendMode', el.blendMode)
+  if (el.opacity !== undefined && el.opacity < 1) axes.push('opacity')
+  has('maskEdge', el.maskEdge)
+  has('transformRotateDeg', el.transformRotateDeg)
+  if (el.transformScale !== undefined && el.transformScale !== 1) axes.push('transformScale')
+  has('accessibleName', el.accessibleName)
   return axes
 }
 
@@ -226,15 +312,37 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   }))
   const table = buildResponsiveTable(labelled)
 
+  const residuals = opts.residuals
+  const signal = (el: ValueElement, reason: string, presentWidths: number[]): void => {
+    residuals?.push({ kind: residualKindOf(el), reason, capturedAxes: capturedAxesOf(el), widths: presentWidths })
+  }
+
   const children: L1Node[] = []
   for (const row of table.rows) {
-    // Text-free nodes have no faithful L1 leaf yet (no src/text) — defer them.
-    const sample = row.cells.find((c) => c.element)?.element
-    if (!sample || sample.textless || sample.text.trim() === '') continue
+    const present = row.cells.filter((c) => c.element)
+    const sample = present[0]?.element
+    if (!sample) continue // a truly empty row — nothing was captured, nothing to signal
+    const presentWidths = present.map((c) => c.width)
+
+    // Text-free / empty-text elements (images, form fields, pure-surface panels)
+    // have no faithful L1 leaf yet — signal the capability gap, don't drop it (B2).
+    if (sample.textless || sample.text.trim() === '') {
+      signal(
+        sample,
+        sample.textless
+          ? 'text-free element has no L1 leaf kind yet (image/box/field folding pending)'
+          : 'empty text run — no leaf emitted',
+        presentWidths,
+      )
+      continue
+    }
 
     // Keyframes: one per present cell that carries a box, ascending by width.
     const framed = row.cells.filter((c) => c.element?.box)
-    if (framed.length === 0) continue
+    if (framed.length === 0) {
+      signal(sample, 'text run has no geometry (no box at any sampled width)', presentWidths)
+      continue
+    }
     const keyframes = framed.map((c) => {
       const box = c.element!.box!
       return { at: c.width, x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width) }

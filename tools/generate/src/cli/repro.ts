@@ -20,7 +20,7 @@ import { defaultTokens } from '@1stcontact/framework'
 import { validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
 import { foldToL1, promoteToFlow, threeProbeGate } from '../l1'
-import type { ThreeProbeReport } from '../l1'
+import type { FoldResidual, ThreeProbeReport } from '../l1'
 import { copyDir, draftDir, emptyDir, ensureDir, pathExists, siteDir, writeDraftBase, writeJson } from '../store'
 import { ctxOf } from './commands'
 import type { GlobalOptions } from './commands'
@@ -113,6 +113,13 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
 export interface L1GateResult extends ThreeProbeReport {
   /** Paths of the pinned sibling groups `promoteToFlow` recovered into flow. */
   promoted: string[]
+  /**
+   * REQ-92 / BUG-6 (B2) — elements the fold could not yet express as L1 leaves
+   * (text-free media/fields, pure-surface panels, geometry-less runs). Kept
+   * separate from the probes' mispairing/fidelity residuals: these name *folder
+   * power* gaps (a leaf kind the fold does not emit yet), not a diff delta.
+   */
+  foldResiduals: FoldResidual[]
 }
 
 /**
@@ -130,8 +137,9 @@ export function cmdL1Gate(opts: ReproOptions): L1GateResult {
         `capture — re-capture with \`1c capture page <url>\` before gating.`,
     )
   }
-  const base = foldToL1(multiState)
+  const foldResiduals: FoldResidual[] = []
+  const base = foldToL1(multiState, { residuals: foldResiduals })
   const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE })
   const report = threeProbeGate(base, multiState, { recovered, contentScale: CONTENT_SCALE })
-  return { ...report, promoted }
+  return { ...report, promoted, foldResiduals }
 }
