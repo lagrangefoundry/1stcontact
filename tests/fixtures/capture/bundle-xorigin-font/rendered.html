@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cross-origin webfont bundle</title>
+    <style>
+      /* A cross-origin @font-face whose src is an ABSOLUTE, non-resolving host —
+         exactly the Google-Fonts shape (fonts.gstatic.com). The `.invalid` TLD
+         never resolves, so the ONLY way this face can load during re-extraction
+         is if the loopback server serves the mirrored /alchemy.ttf — which it does
+         only when reextract rewrites the absolute URL to the mirror (BUG-16). */
+      @font-face {
+        font-family: 'Alchemy';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url(https://fonts.gstatic.invalid/s/alchemy/v1/alchemy.ttf) format('truetype');
+      }
+      body { margin: 0; font-family: system-ui, sans-serif; }
+      .hero { padding: 80px 24px; }
+      h1 { margin: 0; font-family: 'Alchemy', serif; font-weight: 600; font-size: 72px; }
+    </style>
+  </head>
+  <body>
+    <section class="hero"><h1>Gigabyte Alchemy</h1></section>
+  </body>
+</html>

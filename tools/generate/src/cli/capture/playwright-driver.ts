@@ -19,6 +19,55 @@ import type {
 const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
 
 /**
+ * BUG-16 — the pre-extraction web-font barrier. The early `document.fonts.ready`
+ * await in {@link PlaywrightDriver.navigate} runs *before* {@link
+ * PlaywrightDriver.settlePage} scrolls and reveals below-fold content, so a face
+ * first needed by a revealed run starts loading only afterwards and is still a
+ * fallback (FOUT) at measure time — corrupting both `font-family` and the
+ * glyph-derived box metrics of that run. This barrier runs right *before*
+ * extraction/screenshot: it force-loads the exact face of every visible text run
+ * (family + real weight + style + the run's own text, so a subsetted webfont
+ * fetches the subset it actually paints), then awaits `document.fonts.ready`.
+ * Bounded throughout — a face that genuinely 404s/times out cannot hang the
+ * capture; it stays unresolved and is honestly reported `fontLoaded:false`.
+ */
+const FONT_BARRIER = `(async () => {
+  if (!(document.fonts && document.fonts.ready)) return true;
+  var generic = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-|inherit|initial|unset|-apple-system|blinkmacsystemfont)/i;
+  function primaryFamily(ff) { return (ff || '').split(',')[0].trim().replace(/^['"]|['"]$/g, ''); }
+  function bounded(p, ms) {
+    return Promise.race([
+      Promise.resolve(p).catch(function () {}),
+      new Promise(function (res) { setTimeout(res, ms); }),
+    ]);
+  }
+  if (document.fonts.load && document.body) {
+    var seen = {}, loads = [];
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null), n;
+    while ((n = walker.nextNode())) {
+      var text = (n.nodeValue || '').replace(/\\s+/g, ' ').trim();
+      if (!text) continue;
+      var el = n.parentElement;
+      if (!el) continue;
+      var s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden') continue;
+      var fam = primaryFamily(s.fontFamily);
+      if (!fam || generic.test(fam)) continue;
+      var style = s.fontStyle && s.fontStyle !== 'normal' ? s.fontStyle + ' ' : '';
+      var weight = parseInt(s.fontWeight, 10) || 400;
+      var shorthand = style + weight + ' ' + s.fontSize + ' "' + fam + '"';
+      var key = shorthand + '::' + text;
+      if (seen[key]) continue;
+      seen[key] = 1;
+      try { loads.push(document.fonts.load(shorthand, text)); } catch (e) {}
+    }
+    await bounded(Promise.allSettled(loads), 4000);
+  }
+  await bounded(document.fonts.ready, 2000);
+  return true;
+})()`
+
+/**
  * REQ-48 (item 6) — the rendering engines the fidelity gate can shoot across
  * (Blink / WebKit / Gecko). Defined on the pure type surface ({@link
  * ./types}); re-exported here so existing importers keep their path. Cross-engine
@@ -102,6 +151,13 @@ class PlaywrightDriver implements BrowserDriver {
     // content, and no pixel gate could flag the gap. Runs before the response
     // drain so lazy subresources mirror into the offline bundle too.
     await this.settlePage()
+
+    // BUG-16 — re-establish the web-font barrier AFTER settle. `settlePage`'s
+    // scroll + reveal can trigger font loads the early `document.fonts.ready`
+    // await (above) never saw, so without this the next screenshot/query would
+    // measure a fallback face (FOUT). Force-loads every visible run's exact face
+    // and awaits `document.fonts.ready`; bounded so a missing face can't hang.
+    await this.page.evaluate(FONT_BARRIER).catch(() => undefined)
 
     for (const resp of pending) {
       try {

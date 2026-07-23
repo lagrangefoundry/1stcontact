@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Webfont Load Fixture</title>
+    <style>
+      /* BUG-16 — a webfont declared ONLY at weight 600 (the gigabytealchemy
+         "Gigabyte Alchemy" / Cinzel@600 shape). The heading paints at 600, so a
+         bare `<size> "Alchemy"` check (weight 400) and any pre-settle measurement
+         must not be what decides `fontLoaded`. */
+      @font-face {
+        font-family: 'Alchemy';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/heading-font.ttf') format('truetype');
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+      }
+      .hero {
+        min-height: 60vh;
+        padding: 80px 24px;
+      }
+      h1 {
+        margin: 0;
+        font-family: 'Alchemy', serif;
+        font-weight: 600;
+        font-size: 72px;
+      }
+      /* A second webfont heading placed far below the fold: only revealed when
+         the capture scrolls, so its face load is triggered AFTER the early
+         document.fonts.ready await — the exact post-settle FOUT this bug is about. */
+      .spacer {
+        height: 220vh;
+      }
+      h2.below {
+        margin: 0;
+        font-family: 'Alchemy', serif;
+        font-weight: 600;
+        font-size: 48px;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Gigabyte Alchemy</h1>
+    </section>
+    <div class="spacer"></div>
+    <section class="deep">
+      <h2 class="below">Deep Below Fold Heading</h2>
+    </section>
+  </body>
+</html>
