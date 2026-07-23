@@ -154,6 +154,9 @@ function toField(f: RawField): Field {
     // REQ-63 — how the image crops within its box.
     objectPosition: f.objectPosition,
     intrinsicAspect: f.intrinsicAspect,
+    // REQ-92 — the media substance an L1 image leaf needs.
+    src: f.src,
+    alt: f.alt,
     accessibleName: f.accessibleName,
     nameSource: f.nameSource,
   }

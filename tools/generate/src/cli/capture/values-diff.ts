@@ -153,6 +153,12 @@ export interface ValueElement {
   objectFit?: string | null
   /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
   intrinsicAspect?: number | null
+  /** REQ-92 — a media element's resolved source URL, else null. The substance an L1
+   *  `image` leaf carries (`RawSignals.images` never reaches the fold, so the src is
+   *  captured onto the media field and flows through the manifest here). */
+  src?: string | null
+  /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
+  alt?: string | null
   /** REQ-47 — a text-free control's accessible name (empty when unlabelled). */
   accessibleName?: string
   /**
@@ -770,6 +776,9 @@ export function fieldToElement(field: Field): ValueElement {
   if (field.objectFit !== undefined) el.objectFit = field.objectFit
   if (field.objectPosition !== undefined) el.objectPosition = field.objectPosition
   if (field.intrinsicAspect !== undefined) el.intrinsicAspect = field.intrinsicAspect
+  // REQ-92 — carry the media substance so the fold can emit a real `image` leaf.
+  if (field.src != null) el.src = field.src
+  if (field.alt != null) el.alt = field.alt
   return el
 }
 

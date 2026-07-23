@@ -35,6 +35,7 @@ import {
   type L1Geometry,
   type L1Node,
 } from '@1stcontact/site-schema'
+import { classifyElement, type FoldableElement } from './fold'
 
 // ── geometry & box helpers ────────────────────────────────────────────────────
 
@@ -46,12 +47,14 @@ export interface EvalBox {
   height: number
 }
 
-/** One evaluated leaf (text / image / slot) at a given width. */
+/** One evaluated leaf (text / image / box / slot) at a given width. */
 export interface EvalLeaf {
   /** Index path from the root (`0.2.1`), stable across a single evaluation. */
   path: string
   kind: L1Node['kind']
   text?: string
+  /** REQ-92 — the leaf's stable `id` (image/box leaves carry one), for non-text pairing. */
+  id?: string
   box: EvalBox
   /** True when the leaf is placed by absolute geometry (out of flow). */
   pinned: boolean
@@ -95,7 +98,14 @@ function evalGeometry(geo: L1Geometry, width: number): EvalBox {
   for (let i = 0; i < f.length - 1; i++) {
     const a = f[i]
     const b = f[i + 1]
-    if (width >= a.at && width <= b.at) {
+    // Half-open `[a.at, b.at)` — REQ-92. The renderer stacks `min-width` rules so
+    // the HIGHEST breakpoint ≤ width wins; at an exact interior breakpoint width
+    // (e.g. 768) the segment STARTING there is active, not the one ending there.
+    // A closed upper bound instead matched the ending segment first, so a `snap`
+    // ending at 768 returned the held lower (375) keyframe — the stale, wider
+    // pre-reflow box — and every element below inherited the cascade (the 1616px
+    // 768 FAIL). Exact-width resolution here mirrors the renderer's winning rule.
+    if (width >= a.at && width < b.at) {
       const seg = geo.segments?.[i] ?? 'interpolate'
       if (seg === 'snap') return { x: a.x, y: a.y, width: a.width, height: a.height ?? 0 }
       const t = b.at === a.at ? 0 : (width - a.at) / (b.at - a.at)
@@ -217,23 +227,32 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // A pinned text keyframe may pin a height; otherwise the height is natural.
       const pinnedH = pinned ? node.geometry!.keyframes[0].height : undefined
       box.height = pinnedH !== undefined ? pinnedH * opts.contentScale : natural
-      ctx.leaves.push({ path, kind: 'text', text: node.text, box, pinned })
+      ctx.leaves.push({ path, kind: 'text', text: node.text, id: node.id, box, pinned })
       return box.height
     }
     case 'image': {
       if (pinned && node.geometry!.keyframes[0].height !== undefined) {
         box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
       }
-      ctx.leaves.push({ path, kind: 'image', box, pinned })
+      ctx.leaves.push({ path, kind: 'image', id: node.id, box, pinned })
       return box.height
     }
     case 'slot': {
-      ctx.leaves.push({ path, kind: 'slot', box, pinned })
+      ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned })
       return box.height
     }
     case 'box':
     case 'container': {
       const children = node.kind === 'container' ? node.children : (node.children ?? [])
+      // A childless `box` is a leaf surface (a divider / painted panel) — REQ-92:
+      // it has its own geometry box, so push it as a leaf the fidelity probe pairs.
+      if (node.kind === 'box' && children.length === 0) {
+        if (pinned && node.geometry!.keyframes[0].height !== undefined) {
+          box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
+        }
+        ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned })
+        return box.height
+      }
       const gap = node.kind === 'container' ? (node.gapPx ?? 0) : 0
       // A `row` container flows horizontally along the main axis; a `box` and a
       // `stack`/`grid` container flow vertically (full-width, stacked). Grid is
@@ -349,24 +368,31 @@ export function evaluateLayout(
 
 // ── the oracle ────────────────────────────────────────────────────────────────
 
-/** One oracle sample: a text run's captured box at a captured width. */
+/** The L1 leaf kind an oracle sample is measured against (text / image / box). */
+export type OracleKind = 'text' | 'image' | 'box'
+
+/** One oracle sample: a captured element's box at a captured width, tagged by kind. */
 export interface OracleBox {
   text: string
+  /** REQ-92 — the leaf kind this element folds to; the pairing key for non-text. */
+  kind: OracleKind
   width: number
   box: EvalBox
 }
 
 /**
- * Project the retained multi-viewport oracle into a flat `(text, width) → box`
- * table. Accepts the `multistate.json` shape (`{ projections: [{ viewport,
- * manifest: { elements: [{ text, box }] } }] }`) structurally, so the probe does
- * not depend on the capture package's concrete types.
+ * Project the retained multi-viewport oracle into a flat `(kind, text, width) →
+ * box` table. Accepts the `multistate.json` shape structurally, so the probe does
+ * not depend on the capture package's concrete types. Each element is classified
+ * through the fold's own {@link classifyElement}, so an oracle `image`/`box` sample
+ * exists exactly where the fold emitted an image/box leaf — controls and empty
+ * runs (never leaves) are excluded from the fidelity measure.
  */
 export interface OracleSource {
   projections: Array<{
     viewport: { width: number }
     state?: string
-    manifest: { elements: Array<{ text?: string; textless?: boolean; box?: EvalBox }> }
+    manifest: { elements: Array<FoldableElement & { box?: EvalBox }> }
   }>
 }
 
@@ -379,8 +405,15 @@ export function oracleBoxes(oracle: OracleSource): OracleBox[] {
   for (const p of oracle.projections) {
     if (p.state && p.state !== 'rest') continue
     for (const el of p.manifest.elements) {
-      if (el.textless || !el.text || !el.box || el.text.trim() === '') continue
-      out.push({ text: el.text, width: p.viewport.width, box: el.box })
+      if (!el.box) continue
+      const kind = classifyElement(el)
+      if (kind === 'text') {
+        if (!el.text || el.text.trim() === '') continue
+        out.push({ text: el.text, kind, width: p.viewport.width, box: el.box })
+      } else if (kind === 'image' || kind === 'box') {
+        out.push({ text: el.text ?? '', kind, width: p.viewport.width, box: el.box })
+      }
+      // 'control' / 'empty' are never leaves — excluded from the fidelity measure.
     }
   }
   return out
@@ -457,7 +490,7 @@ export function sampleFidelityProbe(
     // Consume each key's queue occurrence-by-occurrence as the oracle presents
     // its elements (also in document order), so occurrence i pairs with leaf i.
     const cursor = new Map<string, number>()
-    for (const o of table.filter((t) => t.width === width)) {
+    for (const o of table.filter((t) => t.width === width && t.kind === 'text')) {
       const k = normText(o.text)
       const idx = cursor.get(k) ?? 0
       cursor.set(k, idx + 1)
@@ -471,6 +504,33 @@ export function sampleFidelityProbe(
       const dw = Math.abs(got.width - o.box.width)
       maxDelta = Math.max(maxDelta, dx, dy, dw)
       if (dx > tol || dy > tol || dw > tol) residuals.push({ text: o.text, width, dx, dy, dw })
+    }
+
+    // REQ-92 — non-text (image / box) leaves pair by the SAME document-order
+    // occurrence mechanism, keyed by kind since they carry no text. The k-th
+    // image/box oracle sample pairs with the k-th reproduced leaf of that kind.
+    const nonTextQueues = new Map<string, EvalBox[]>()
+    for (const l of leaves) {
+      if (l.kind !== 'image' && l.kind !== 'box') continue
+      const q = nonTextQueues.get(l.kind)
+      if (q) q.push(l.box)
+      else nonTextQueues.set(l.kind, [l.box])
+    }
+    const nonTextCursor = new Map<string, number>()
+    for (const o of table.filter((t) => t.width === width && t.kind !== 'text')) {
+      const idx = nonTextCursor.get(o.kind) ?? 0
+      nonTextCursor.set(o.kind, idx + 1)
+      const label = o.text || `(${o.kind})`
+      const got = nonTextQueues.get(o.kind)?.[idx]
+      if (!got) {
+        unmatched.push({ text: label, width })
+        continue
+      }
+      const dx = Math.abs(got.x - o.box.x)
+      const dy = Math.abs(got.y - o.box.y)
+      const dw = Math.abs(got.width - o.box.width)
+      maxDelta = Math.max(maxDelta, dx, dy, dw)
+      if (dx > tol || dy > tol || dw > tol) residuals.push({ text: label, width, dx, dy, dw })
     }
   }
 

@@ -140,6 +140,12 @@ export interface RawField extends RawGeometry {
   objectPosition?: string | null
   /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
   intrinsicAspect?: number | null
+  /** REQ-92 — a media element's resolved source URL (`currentSrc || src`), else null.
+   *  The substance an L1 `image` leaf needs; captured here so it flows through the
+   *  manifest to the fold (the flat `RawSignals.images` list never reaches it). */
+  src?: string | null
+  /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
+  alt?: string | null
 }
 
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
@@ -829,6 +835,9 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-63 — how the image crops within its box (default '50% 50%').
         objectPosition: isImg ? (s.objectPosition || '50% 50%') : null,
         intrinsicAspect: intrinsicAspect,
+        // REQ-92 — the media substance an L1 image leaf needs (resolved src + alt).
+        src: isImg ? (el.currentSrc || el.src || null) : null,
+        alt: isImg ? (el.alt || '') : null,
         accessibleName: an.name,
         nameSource: an.source,
       });

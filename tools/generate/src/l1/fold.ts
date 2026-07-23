@@ -19,11 +19,18 @@
  */
 import {
   validateL1,
+  type L1BlendMode,
+  type L1Border,
   type L1Box,
+  type L1BoxAxes,
   type L1Document,
   type L1FontFace,
+  type L1Geometry,
   type L1Gradient,
   type L1GradientStop,
+  type L1Image,
+  type L1ImageAxes,
+  type L1Keyframe,
   type L1Node,
   type L1Segment,
   type L1Shadow,
@@ -150,24 +157,177 @@ function textAxes(el: ValueElement): L1TextAxes {
 }
 
 /**
- * A captured computed `text-shadow` string → the L1 structured shadow (REQ-92).
- * Chrome emits `<color> <offX>px <offY>px [<blur>px]` (colour first); we tolerate
- * either order by pulling the colour token out and reading the remaining px
- * lengths positionally. Only the first shadow layer of a comma list is folded;
- * `none`/unparseable → undefined. Text-shadow has no spread or inset.
+ * A captured computed shadow string → the L1 structured shadow (REQ-92). Chrome
+ * emits `[inset] <color> <offX>px <offY>px [<blur>px] [<spread>px]` (colour first);
+ * we tolerate either colour position by pulling the colour token out and reading
+ * the remaining px lengths positionally. Only the first shadow layer of a comma
+ * list is folded; `none`/unparseable → undefined. `spread`/`inset` apply to a box
+ * shadow; a text shadow passes neither.
  */
-function foldTextShadow(css: string | null | undefined): L1Shadow | undefined {
+function foldShadow(
+  css: string | null | undefined,
+  opts: { spread: boolean; inset: boolean },
+): L1Shadow | undefined {
   if (!css || /^none$/i.test(css.trim())) return undefined
   const first = css.split(/,(?![^(]*\))/)[0].trim() // first layer, not splitting inside rgb(...)
+  const inset = opts.inset && /\binset\b/i.test(first)
   const colorTok = first.match(/rgba?\([^)]*\)|#[0-9a-fA-F]{3,8}/)
   const hex = colorTok ? colorToHex(colorTok[0]) : null
   if (!hex) return undefined
-  const rest = colorTok ? first.replace(colorTok[0], ' ') : first
+  let rest = colorTok ? first.replace(colorTok[0], ' ') : first
+  rest = rest.replace(/\binset\b/i, ' ')
   const nums = (rest.match(/-?\d*\.?\d+px/g) ?? []).map((n) => parseFloat(n))
   if (nums.length < 2 || !Number.isFinite(nums[0]) || !Number.isFinite(nums[1])) return undefined
   const shadow: L1Shadow = { offsetXPx: nums[0], offsetYPx: nums[1], color: hex }
   if (nums.length >= 3 && Number.isFinite(nums[2]) && nums[2] >= 0) shadow.blurPx = nums[2]
+  if (opts.spread && nums.length >= 4 && Number.isFinite(nums[3])) shadow.spreadPx = nums[3]
+  if (inset) shadow.inset = true
   return shadow
+}
+
+/** A text-fill/glyph glow shadow (no spread, no inset). */
+function foldTextShadow(css: string | null | undefined): L1Shadow | undefined {
+  return foldShadow(css, { spread: false, inset: false })
+}
+
+const OBJECT_FITS = new Set(['cover', 'contain', 'fill', 'none', 'scale-down'])
+/** A captured `object-fit` → the L1 enum, else undefined. */
+function foldObjectFit(v: string | null | undefined): L1ImageAxes['objectFit'] {
+  return v && OBJECT_FITS.has(v) ? (v as L1ImageAxes['objectFit']) : undefined
+}
+
+const BLEND_MODES = new Set([
+  'normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge',
+  'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'hue',
+  'saturation', 'color', 'luminosity',
+])
+/** A captured `mix-blend-mode` → the L1 enum, else undefined (`normal` is a no-op). */
+function foldBlendMode(v: string | null | undefined): L1BlendMode | undefined {
+  if (!v) return undefined
+  const t = v.trim().toLowerCase()
+  return t !== 'normal' && BLEND_MODES.has(t) ? (t as L1BlendMode) : undefined
+}
+
+const BORDER_STYLES = new Set(['solid', 'dashed', 'dotted', 'double'])
+/** A captured box-border treatment → the L1 structured border, else undefined. */
+function foldBorder(b: ValueElement['border']): L1Border | undefined {
+  if (!b || !(b.widthPx > 0)) return undefined
+  const color = colorToHex(b.color)
+  if (!color) return undefined
+  const border: L1Border = { widthPx: b.widthPx, color }
+  if (b.style && BORDER_STYLES.has(b.style)) border.style = b.style as L1Border['style']
+  return border
+}
+
+/** A captured `backdrop-filter: blur(Npx)` → N (px), else undefined. */
+function foldBackdropBlur(v: string | null | undefined): number | undefined {
+  if (!v) return undefined
+  const m = v.match(/blur\(\s*(-?\d*\.?\d+)px\s*\)/i)
+  if (!m) return undefined
+  const n = parseFloat(m[1])
+  return Number.isFinite(n) && n >= 0 ? n : undefined
+}
+
+/** ARIA roles that name a form control — a behavior-module seam, never a raw L1 leaf (DOC-25/26). */
+const FORM_CONTROL_ROLES = new Set([
+  'textbox', 'searchbox', 'button', 'checkbox', 'radio', 'radiogroup', 'combobox',
+  'listbox', 'option', 'slider', 'spinbutton', 'switch', 'menuitem',
+  'menuitemcheckbox', 'menuitemradio',
+])
+
+/**
+ * The minimal element shape the leaf-kind decision reads — satisfied by a
+ * {@link ValueElement} and by a retained multistate-oracle element alike. The
+ * gate's `sampleFidelityProbe` classifies oracle elements through the SAME
+ * {@link classifyElement} so its image/box pairing matches exactly what the fold
+ * emitted (no duplicated, driftable classification logic).
+ */
+export interface FoldableElement {
+  text?: string
+  textless?: boolean
+  a11yRole?: string
+  objectFit?: string | null
+  intrinsicAspect?: number | null
+  surfaceFill?: string | null
+  surfaceGradient?: unknown
+  border?: unknown
+  boxShadow?: string | null
+  borderRadiusPx?: number
+  opacity?: number
+  backdropFilter?: string | null
+  blendMode?: string | null
+}
+
+/** The L1 leaf kind an element folds to (independent of geometry/src availability). */
+export type FoldLeafKind = 'text' | 'image' | 'box' | 'control' | 'empty'
+
+/** A text-free element that carries media substance (an `<img>`): it becomes an `image` leaf. */
+function isMediaElement(el: FoldableElement): boolean {
+  return el.objectFit != null || el.intrinsicAspect != null || el.a11yRole === 'img'
+}
+
+/** A text-free element that paints a surface (a divider / decorative panel): a `box` leaf. */
+function paintsSurface(el: FoldableElement): boolean {
+  return Boolean(
+    el.surfaceFill ||
+      el.surfaceGradient ||
+      el.border ||
+      el.boxShadow ||
+      (el.borderRadiusPx !== undefined && el.borderRadiusPx > 0) ||
+      (el.opacity !== undefined && el.opacity < 1) ||
+      el.backdropFilter ||
+      el.blendMode,
+  )
+}
+
+/**
+ * Decide the L1 leaf kind an element folds to. `text` (styled run), `image`
+ * (media), `box` (standalone painted surface), `control` (a form control — a
+ * behavior-module seam, never a raw leaf), or `empty` (an empty-string run).
+ * Ignores geometry/src availability, which the fold gates separately.
+ */
+export function classifyElement(el: FoldableElement): FoldLeafKind {
+  if (!el.textless) return (el.text ?? '').trim() !== '' ? 'text' : 'empty'
+  if (isMediaElement(el)) return 'image'
+  if (el.a11yRole && FORM_CONTROL_ROLES.has(el.a11yRole)) return 'control'
+  if (paintsSurface(el)) return 'box'
+  return 'control' // an unknown text-free element is not measured (residual/behavior seam)
+}
+
+/** Map a captured textless surface element's axes onto the typed L1 box-axis subset. */
+function boxAxes(el: ValueElement): L1BoxAxes {
+  const axes: L1BoxAxes = {}
+  const fill = el.surfaceFill ? colorToHex(el.surfaceFill) : null
+  if (fill) axes.surfaceFill = fill
+  const grad = foldGradient(el.surfaceGradient)
+  if (grad) axes.surfaceGradient = grad
+  if (el.borderRadiusPx !== undefined && el.borderRadiusPx > 0) axes.borderRadiusPx = Math.round(el.borderRadiusPx)
+  if (el.opacity !== undefined && el.opacity < 1) axes.opacity = el.opacity
+  const border = foldBorder(el.border)
+  if (border) axes.border = border
+  const shadow = foldShadow(el.boxShadow, { spread: true, inset: true })
+  if (shadow) axes.boxShadow = shadow
+  const blur = foldBackdropBlur(el.backdropFilter)
+  if (blur !== undefined) axes.backdropBlurPx = blur
+  const blend = foldBlendMode(el.blendMode)
+  if (blend) axes.blendMode = blend
+  return axes
+}
+
+/** Map a captured media element's axes onto the typed L1 image-axis subset. */
+function imageAxes(el: ValueElement): L1ImageAxes {
+  const axes: L1ImageAxes = {}
+  const fit = foldObjectFit(el.objectFit)
+  if (fit) axes.objectFit = fit
+  if (el.borderRadiusPx !== undefined && el.borderRadiusPx > 0) axes.borderRadiusPx = Math.round(el.borderRadiusPx)
+  if (el.opacity !== undefined && el.opacity < 1) axes.opacity = el.opacity
+  const blend = foldBlendMode(el.blendMode)
+  if (blend) axes.blendMode = blend
+  const border = foldBorder(el.border)
+  if (border) axes.border = border
+  const shadow = foldShadow(el.boxShadow, { spread: true, inset: true })
+  if (shadow) axes.boxShadow = shadow
+  return axes
 }
 
 /** Best-effort object kind for a residual an element that has no L1 leaf yet (B2). */
@@ -318,50 +478,101 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   }
 
   const children: L1Node[] = []
+  let imageIdx = 0
+  let boxIdx = 0
   for (const row of table.rows) {
     const present = row.cells.filter((c) => c.element)
     const sample = present[0]?.element
     if (!sample) continue // a truly empty row — nothing was captured, nothing to signal
     const presentWidths = present.map((c) => c.width)
 
-    // Text-free / empty-text elements (images, form fields, pure-surface panels)
-    // have no faithful L1 leaf yet — signal the capability gap, don't drop it (B2).
-    if (sample.textless || sample.text.trim() === '') {
-      signal(
-        sample,
-        sample.textless
-          ? 'text-free element has no L1 leaf kind yet (image/box/field folding pending)'
-          : 'empty text run — no leaf emitted',
-        presentWidths,
-      )
-      continue
-    }
-
-    // Keyframes: one per present cell that carries a box, ascending by width.
+    // Keyframes: one per present cell that carries a box, ascending by width. A
+    // box/image leaf pins all four sides (height too); a text leaf's height is
+    // natural (from flow), so its keyframes omit height (the text path below).
     const framed = row.cells.filter((c) => c.element?.box)
-    if (framed.length === 0) {
-      signal(sample, 'text run has no geometry (no box at any sampled width)', presentWidths)
+    const buildGeometry = (withHeight: boolean): L1Geometry => {
+      const keyframes = framed.map((c) => {
+        const box = c.element!.box!
+        const kf: L1Keyframe = { at: c.width, x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width) }
+        if (withHeight && Number.isFinite(box.height)) kf.height = Math.round(box.height)
+        return kf
+      })
+      const geometry: L1Geometry = { keyframes }
+      if (keyframes.length > 1) {
+        geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+      }
+      return geometry
+    }
+    const widest = (framed[framed.length - 1] ?? present[present.length - 1]).element!
+    const vis = framed.length ? visibilityFor(framed.map((c) => c.width), widths) : undefined
+
+    // ── Text leaf (the round-trip oracle compares text axes) ───────────────────
+    if (!sample.textless && sample.text.trim() !== '') {
+      if (framed.length === 0) {
+        signal(sample, 'text run has no geometry (no box at any sampled width)', presentWidths)
+        continue
+      }
+      const node: Extract<L1Node, { kind: 'text' }> = {
+        kind: 'text',
+        text: widest.text,
+        axes: textAxes(widest),
+        geometry: buildGeometry(false),
+      }
+      if (vis) node.visibility = vis
+      children.push(node)
       continue
     }
-    const keyframes = framed.map((c) => {
-      const box = c.element!.box!
-      return { at: c.width, x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width) }
-    })
 
-    // Axes from the widest present cell (the desktop rendering is the front door).
-    const widest = framed[framed.length - 1].element!
-    const node: Extract<L1Node, { kind: 'text' }> = {
-      kind: 'text',
-      text: widest.text,
-      axes: textAxes(widest),
-      geometry: { keyframes },
+    // An empty-string text run (not text-free) never had substance — signal, drop.
+    if (!sample.textless) {
+      signal(sample, 'empty text run — no leaf emitted', presentWidths)
+      continue
     }
-    if (keyframes.length > 1) {
-      node.geometry!.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+
+    // ── Image leaf — a text-free media element (`<img>`) with a resolvable src ──
+    if (isMediaElement(sample)) {
+      if (framed.length === 0 || !widest.src) {
+        signal(
+          sample,
+          !widest.src
+            ? 'media element captured without a resolvable src'
+            : 'media element has no geometry at any sampled width',
+          presentWidths,
+        )
+        continue
+      }
+      const axes = imageAxes(widest)
+      const node: L1Image = {
+        kind: 'image',
+        id: `image-${imageIdx++}`,
+        src: widest.src,
+        alt: widest.alt ?? widest.accessibleName ?? '',
+        geometry: buildGeometry(true),
+      }
+      if (Object.keys(axes).length) node.axes = axes
+      if (vis) node.visibility = vis
+      children.push(node)
+      continue
     }
-    const vis = visibilityFor(framed.map((c) => c.width), widths)
-    if (vis) node.visibility = vis
-    children.push(node)
+
+    // Form controls (inputs, buttons, Turnstile) belong to a behavior module
+    // (contact-form), not a raw L1 leaf (DOC-25/26) — signal, do not synthesize.
+    if (sample.a11yRole && FORM_CONTROL_ROLES.has(sample.a11yRole)) {
+      signal(sample, 'form control belongs to a behavior module (contact-form), not a raw L1 leaf', presentWidths)
+      continue
+    }
+
+    // ── Box leaf — a text-free element that paints a standalone surface ─────────
+    if (framed.length > 0 && paintsSurface(sample)) {
+      const axes = boxAxes(widest)
+      const node: L1Box = { kind: 'box', id: `box-${boxIdx++}`, geometry: buildGeometry(true) }
+      if (Object.keys(axes).length) node.axes = axes
+      if (vis) node.visibility = vis
+      children.push(node)
+      continue
+    }
+
+    signal(sample, 'text-free element is neither media, a painted surface, nor a known control — no L1 leaf yet', presentWidths)
   }
 
   const root: L1Box = { kind: 'box', children }

@@ -363,6 +363,10 @@ export interface Field extends ElementGeometry {
   objectPosition?: string | null
   /** REQ-48 (item 4) — intrinsic (natural) aspect ratio w/h for a media element, else null. */
   intrinsicAspect?: number | null
+  /** REQ-92 — a media element's resolved source URL, else null (the L1 `image` leaf's `src`). */
+  src?: string | null
+  /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
+  alt?: string | null
 }
 
 export interface ContentRun extends ElementGeometry {
