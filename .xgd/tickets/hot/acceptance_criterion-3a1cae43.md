@@ -5,12 +5,12 @@ type: acceptance_criterion
 title: Per-viewport value variation is delivered by L1 geometry keyframes
 created_by: xgd
 created_at: '2026-07-22T20:33:17.812093+00:00'
-updated_at: '2026-07-22T20:33:17.812093+00:00'
+updated_at: '2026-07-23T06:14:10.437115+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: story_uid
 status: pending
 fields:
-  story_uid: story-3569e1a4
+  story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
 ---
