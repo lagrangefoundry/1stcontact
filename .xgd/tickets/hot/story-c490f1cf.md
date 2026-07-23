@@ -2,13 +2,13 @@
 uid: story-c490f1cf
 id: STORY-80
 type: story
-title: 'Absolute-or-overlay values: every colour, length, and radius dial accepts
-  a literal or a named overlay'
+title: 'Absolute values re-homed in L1: every colour, length, and radius is carried
+  as a validated literal (named overlay parked in L2)'
 created_by: xgd
 created_at: '2026-07-19T03:09:25.918607+00:00'
-updated_at: '2026-07-22T20:31:23.570318+00:00'
+updated_at: '2026-07-23T09:43:32.419120+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: title
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
