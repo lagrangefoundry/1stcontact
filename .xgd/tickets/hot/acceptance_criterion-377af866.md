@@ -6,9 +6,9 @@ title: A text-block authored with a gradient panel renders a padded, rounded pan
   with that gradient surface
 created_by: xgd
 created_at: '2026-07-19T02:28:47.534345+00:00'
-updated_at: '2026-07-19T02:33:48.096241+00:00'
+updated_at: '2026-07-23T11:13:22.170598+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-82eb6908
@@ -17,7 +17,7 @@ fields:
 ---
 
 ## Criterion
-When a text-block section is authored with a gradient panel value (a direction plus two or more colour stops), its content renders inside a padded, rounded, inset panel whose background is the specified linear gradient — direction and colours as authored — superseding the section's solid panel treatment. Each stop colour is resolved as either an absolute hex literal or a palette-role alias.
+When a `gradient` content value is authored (a direction plus two or more colour stops), it resolves to a panel/card surface `background-image: linear-gradient(...)` carrying the authored direction and stop colours in painted order — a gradient surface fill, superseding the element's solid fill. Each stop colour is resolved as either an absolute hex literal or a palette-role alias (absolute-or-overlay). When fewer than two stops are supplied the value is under-specified and resolves to no fill, so the caller keeps its solid treatment.
 
 ## Verification
-Render a text-block whose content declares a gradient panel with a direction and two stops (one an absolute hex, one a palette role). Assert the rendered content panel has a linear-gradient background carrying the resolved direction and stop colours, and is laid out as a padded, rounded, inset panel (not a flat, full-bleed band).
+Call the shared surface-gradient resolver (`resolveSurfaceGradient`) with a gradient declaring a direction and two stops — one an absolute hex, one a palette role. Assert it returns a `background-image: linear-gradient(<direction>, <hex> 0%, var(--color-<role>) 100%)` declaration carrying the resolved direction and stop colours, and returns an empty declaration (no fill) when given a single stop.
