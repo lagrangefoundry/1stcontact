@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-07-22T19:38:50.937442+00:00'
+updated_at: '2026-07-23T06:14:18.464123+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-31e474b9
@@ -83,3 +83,16 @@ None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on 
 
 ## Story Points
 3
+
+
+
+## Merged from STORY-81 (overlap cluster 2 resolution)
+The reconciliation `upgrade` story STORY-81 ("Responsive dials …", CAP-68, now
+archived) recorded that the former **per-breakpoint module length dials**
+(`{ base, sm?, md?, lg?, xl? }`) and the header `navCollapse` dial were deleted by
+the REQ-79 pivot. Their responsive-across-widths intent is re-homed here: per-viewport
+variation is carried by this substrate's geometry keyframes (interpolate|snap).
+`navCollapse` was removed with no L1 successor. STORY-81's sole AC (AC-717) is a
+behavioural duplicate of AC-684 and was reassigned here; a follow-up AC-level dedup
+should collapse AC-717 into AC-684 and retire its test file
+(tests/reconciliation-responsive-keyframes.test.ts).
