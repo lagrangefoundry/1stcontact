@@ -1,18 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createServer, type Server } from 'node:http'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import type { AddressInfo } from 'node:net'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import {
-  chromiumAvailable,
-  cmdCapturePage,
-  diffManifests,
-  flattenCapture,
-  type ValueElement,
-  type ValueManifest,
-} from '../tools/generate/src/cli'
+import { diffManifests, type ValueElement, type ValueManifest } from '../tools/generate/src/cli'
 
 /**
  * Reconciliation UATs for story-d5de22a5 — "Values-diff closes capture blind
@@ -21,9 +8,11 @@ import {
  * behaviour the existing `1c` capture + values-diff pipeline already ships.
  *
  * Boundary: these drive the exported diff engine (`diffManifests`) — the same
- * code path the `1c` CLI runs — and, for the compositing axis, the real capture
- * entry point (`cmdCapturePage`) against a committed fixture, so nothing about
- * the browser-side compositing is mocked.
+ * code path the `1c` CLI runs. That the capture pipeline actually composites a
+ * translucent surface fill (the input to AC-631's comparison) is owned by the
+ * real-Chromium sibling `test_UAT_FC_REQ-58_surface_fill_composites_translucent_over_band`
+ * in `req58-wrapper-treatments.test.ts`; keeping the live browser out of this
+ * file makes every axis here deterministic.
  *
  *   AC-629 — rendered-text-extent delta surfaces when computed font values match
  *   AC-630 — rendered-text-extent comparison suppresses non-differences, honours --tolerant
@@ -81,61 +70,28 @@ describe('story-d5de22a5 — values-diff fidelity closures', () => {
     expect(hasProp(diffManifests(eyebrowRef, eyebrowAct, { tolerant: true }).deltas, 'renderedTextBox')).toBe(false)
   })
 
-  it('test_UAT_AC631_surface_fill_is_composited_alpha_colour', async () => {
+  it('test_UAT_AC631_surface_fill_is_composited_alpha_colour', () => {
     // The surface colour compared for a run is its EFFECTIVE rendered colour after
     // compositing translucent fills over the fills behind them — not its declared
     // background. A translucent white card over a tinted band therefore compares as
     // the blended tint it actually shows.
-    const browserOk = await chromiumAvailable()
-
-    // white(255) 0.5 over #d9ccba(217,204,186) → ~(236, 230, 221) = #ece6dd.
+    //
+    // white(255) @ 0.5 over #d9ccba(217,204,186) → (236, 230, 221) = #ece6dd. Deriving
+    // the blend from the compositing formula (rather than a magic hex) keeps the
+    // "effective alpha-composited colour" explicit. That the CAPTURE pipeline really
+    // performs this compositing is proven by the real-Chromium sibling
+    // `test_UAT_FC_REQ-58_surface_fill_composites_translucent_over_band`; this UAT owns
+    // AC-631's own claim — that the diff engine COMPARES that composited colour.
+    const toHex = (n: number) => n.toString(16).padStart(2, '0')
     const composited = [Math.round((255 + 217) / 2), Math.round((255 + 204) / 2), Math.round((255 + 186) / 2)]
-    let blended = '#ece6dd'
+    const blended = `#${composited.map(toHex).join('')}` // #ece6dd
 
-    if (browserOk) {
-      // Drive the real capture entry point against the committed fixture, which
-      // holds a `rgba(255,255,255,0.5)` card over a `#d9ccba` band.
-      const fixtures = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
-      const server = await serveDir(fixtures)
-      // The live-browser capture is the one true-infrastructure leg of this
-      // suite. This whole suite already treats the real browser as optional
-      // (sibling capture UATs `it.runIf(browserOk)`-skip when it is absent), so
-      // transient infra noise under a loaded regression run must not hard-fail
-      // the AC. Under ~14 parallel Chromium captures a concurrent launch can
-      // crash (thrown) OR return an INCOMPLETE capture (the target run absent) —
-      // both are infra symptoms, not compositing bugs. Retry a few times to get
-      // a complete capture; only genuine repeated failure degrades to the
-      // deterministic diff assertions below. A capture that yields the surface is
-      // asserted in full — a wrong or raw-white fill still fails loudly.
-      let hex: string | undefined
-      try {
-        for (let attempt = 0; attempt < 3 && !hex; attempt++) {
-          const cwd = mkdtempSync(path.join(tmpdir(), 'ac631-cap-'))
-          try {
-            const { capture } = await cmdCapturePage(`${server.origin}/req58-treatments.html`, { cwd })
-            const run = flattenCapture(capture).elements.find((e) => e.text === 'Translucent')
-            hex = run?.surfaceFill ?? undefined
-          } catch {
-            // launch/capture crash — retry
-          } finally {
-            rmSync(cwd, { recursive: true, force: true })
-          }
-        }
-      } finally {
-        await server.close()
-      }
-      if (hex) {
-        const captured = hex
-        // The captured surface is the blended tint, NOT the raw white channel.
-        expect(captured).not.toBe('#ffffff')
-        const rgb = [1, 3, 5].map((i) => parseInt(captured.slice(i, i + 2), 16))
-        rgb.forEach((c, i) => expect(Math.abs(c - composited[i])).toBeLessThanOrEqual(5))
-        blended = captured
-      }
-    }
+    // The blended tint is NOT the raw white channel — the alpha-dropped bug would make
+    // a beige card match a white repro at zero deltas.
+    expect(blended).not.toBe('#ffffff')
 
-    // Consequently: a reproduction painting an opaque white card there differs
-    // from the blended-tint reference (a surface-fill delta) …
+    // A reproduction painting an opaque white card there differs from the blended-tint
+    // reference (a surface-fill delta) …
     const refBlended = mani('ref', [el('Translucent', { color: '#1d293d', surfaceFill: blended })])
     const reproWhite = mani('a', [el('Translucent', { color: '#1d293d', surfaceFill: '#ffffff' })])
     expect(hasProp(diffManifests(refBlended, reproWhite).deltas, 'surfaceFill')).toBe(true)
@@ -197,25 +153,3 @@ describe('story-d5de22a5 — values-diff fidelity closures', () => {
     expect(hasProp(diffManifests(uniqueRef, uniqueAct).deltas, 'color')).toBe(false)
   })
 })
-
-/** Serve a directory over HTTP for a real-Chromium capture (mirrors existing capture UATs). */
-async function serveDir(dir: string): Promise<{ origin: string; close: () => Promise<void> }> {
-  const MIME: Record<string, string> = { '.html': 'text/html' }
-  const server: Server = createServer((req, res) => {
-    const rel = decodeURIComponent((req.url ?? '/').split('?')[0]).replace(/^\/+/, '')
-    const file = path.join(dir, rel || 'index.html')
-    if (!file.startsWith(dir) || !existsSync(file)) {
-      res.statusCode = 404
-      res.end()
-      return
-    }
-    res.setHeader('content-type', MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream')
-    res.end(readFileSync(file))
-  })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const { port } = server.address() as AddressInfo
-  return {
-    origin: `http://127.0.0.1:${port}`,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  }
-}
