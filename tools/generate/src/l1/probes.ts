@@ -350,8 +350,9 @@ export function evaluateLayout(
 
   // Overlap: any two non-empty leaf boxes that intersect. Slots are inert
   // placeholders (Phase-D seams), and a *fold-synthesized* backing surface
-  // (`surface-*`, BUG-11) is the fill painted behind the run it backs — a
-  // background overlapping its own content is by design, not a collision. A
+  // (`section-band-*` / `section-bg-*` / `card-*`, BUG-14) is the fill painted
+  // behind the runs it backs — a background overlapping its own content is by
+  // design, not a collision, and a card sits on its band for the same reason. A
   // genuine captured standalone surface (`box-*`) is real painted content and
   // still participates, so two of them colliding is still reported. Either way a
   // box that overflows the viewport is caught by the horizontal-clip check.
@@ -521,10 +522,11 @@ export function sampleFidelityProbe(
     // occurrence mechanism, keyed by kind since they carry no text. The k-th
     // image/box oracle sample pairs with the k-th reproduced leaf of that kind.
     //
-    // BUG-11's synthesized backing surfaces are excluded: they are fold-invented
-    // boxes painted behind a *text* run (whose source element the oracle
-    // classifies as `text`, and which is already measured through its own text
-    // leaf), so they have no oracle counterpart. Leaving them in the queue would
+    // BUG-14's synthesized backing surfaces (bands, section images, cards) are
+    // excluded: they are fold-invented boxes painted behind *text* runs (whose
+    // source elements the oracle classifies as `text`, and which are already
+    // measured through their own text leaves), so they have no oracle
+    // counterpart. Leaving them in the queue would
     // shift every real `box-*` leaf by the number of surfaces before it and
     // report phantom deltas.
     const nonTextQueues = new Map<string, EvalBox[]>()
