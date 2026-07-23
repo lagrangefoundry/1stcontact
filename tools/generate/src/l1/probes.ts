@@ -150,6 +150,36 @@ function hidden(node: L1Node, width: number): boolean {
   return false
 }
 
+/** A node's fixed main-axis width if it declares one (clamped to its min/max). */
+function fixedWidth(node: L1Node): number | undefined {
+  const w = 'sizing' in node ? node.sizing?.width : undefined
+  if (!w || w.mode !== 'fixed' || w.px === undefined) return undefined
+  let px = w.px
+  if (w.minPx !== undefined) px = Math.max(px, w.minPx)
+  if (w.maxPx !== undefined) px = Math.min(px, w.maxPx)
+  return px
+}
+
+/**
+ * Main-axis widths for a flex row's flow children, mirroring the renderer's
+ * `display:flex; flex-direction:row`. A child that declares a fixed width takes
+ * it; the remaining children share the leftover main-axis extent equally — the
+ * analytic stand-in for flex-grow / natural width, chosen so a well-formed row
+ * tiles its parent without overlap or overflow. If fixed widths already exceed
+ * the available extent the flexible children collapse to 0 (and the fixed ones
+ * surface as a genuine clip, not a false one).
+ */
+function rowChildWidths(children: L1Node[], avail: number, gap: number): number[] {
+  const n = children.length
+  if (n === 0) return []
+  const fixed = children.map(fixedWidth)
+  const fixedSum = fixed.reduce((s: number, w) => s + (w ?? 0), 0)
+  const flexCount = fixed.filter((w) => w === undefined).length
+  const remaining = Math.max(0, avail - gap * (n - 1) - fixedSum)
+  const share = flexCount > 0 ? remaining / flexCount : 0
+  return fixed.map((w) => (w === undefined ? share : w))
+}
+
 // ── analytic layout ───────────────────────────────────────────────────────────
 
 interface Ctx {
@@ -205,32 +235,44 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
     case 'container': {
       const children = node.kind === 'container' ? node.children : (node.children ?? [])
       const gap = node.kind === 'container' ? (node.gapPx ?? 0) : 0
+      // A `row` container flows horizontally along the main axis; a `box` and a
+      // `stack`/`grid` container flow vertically (full-width, stacked). Grid is
+      // modelled as a stack here — envelope-conservative, and the folder does not
+      // emit grid yet.
       const row = node.kind === 'container' && node.layout === 'row'
 
-      // Out-of-flow (pinned) children float independently; in-flow children stack.
+      // Out-of-flow (pinned) children float independently; in-flow children flow.
       const flowChildren: L1Node[] = []
       children.forEach((child, i) => {
         if (isPinned(child)) layout(child, { ...box }, `${path}.${i}`, ctx)
         else flowChildren.push(child)
       })
 
-      let cursorX = box.x
-      let cursorY = box.y
       let maxChildBottom = box.y
-      let maxChildRight = box.x
-      flowChildren.forEach((child) => {
-        const idx = children.indexOf(child)
-        const childFrame: EvalBox = { x: cursorX, y: cursorY, width: box.width, height: 0 }
-        const h = layout(child, childFrame, `${path}.${idx}`, ctx)
-        if (row) {
-          cursorX += box.width + gap
-          maxChildBottom = Math.max(maxChildBottom, cursorY + h)
-        } else {
+      if (row) {
+        // Flex row: children sit side by side, each taking its own main-axis
+        // width; the row's height is the tallest child (cross axis). Mirrors the
+        // renderer's `display:flex; flex-direction:row`.
+        const widths = rowChildWidths(flowChildren, box.width, gap)
+        let cursorX = box.x
+        flowChildren.forEach((child, k) => {
+          const idx = children.indexOf(child)
+          const childFrame: EvalBox = { x: cursorX, y: box.y, width: widths[k], height: 0 }
+          const h = layout(child, childFrame, `${path}.${idx}`, ctx)
+          maxChildBottom = Math.max(maxChildBottom, box.y + h)
+          cursorX += widths[k] + gap
+        })
+      } else {
+        // Stack: each child fills the width and stacks vertically.
+        let cursorY = box.y
+        flowChildren.forEach((child) => {
+          const idx = children.indexOf(child)
+          const childFrame: EvalBox = { x: box.x, y: cursorY, width: box.width, height: 0 }
+          const h = layout(child, childFrame, `${path}.${idx}`, ctx)
           cursorY += h + gap
           maxChildBottom = Math.max(maxChildBottom, cursorY - gap)
-        }
-        maxChildRight = Math.max(maxChildRight, childFrame.x + box.width)
-      })
+        })
+      }
 
       // Natural content height of the flow interior.
       const contentHeight = flowChildren.length ? maxChildBottom - box.y : 0
