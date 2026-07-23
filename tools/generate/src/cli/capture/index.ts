@@ -22,7 +22,7 @@ export {
   engineAvailable,
 } from './playwright-driver'
 export type { RenderEngine } from './playwright-driver'
-export { reextractFromBundle } from './reextract'
+export { reextractFromBundle, rewriteMirroredRefs } from './reextract'
 export {
   writeBundle,
   readCapture,
