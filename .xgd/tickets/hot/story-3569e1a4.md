@@ -6,9 +6,9 @@ title: 'Responsive dials: length parameters vary per breakpoint and the nav coll
   point is configurable'
 created_by: xgd
 created_at: '2026-07-19T03:20:16.873338+00:00'
-updated_at: '2026-07-23T06:14:21.971893+00:00'
+updated_at: '2026-07-23T08:41:50.658690+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: archived
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -33,7 +33,7 @@ Per-viewport variation is now a property of the **L1 layout substrate** (REQ-82 
 **Out of scope:** the L1 substrate/fold implementation itself (owned by plan items 1–2 / the L1 stories).
 
 ## Technical Context
-This is a reconciliation **upgrade**: the responsive-across-widths capability survives, but its delivery has moved from module dials (deleted) to L1 geometry keyframes. The module-dial ACs (AC-666..AC-671, AC-673) describe behaviour the code no longer implements and are removed; a single AC repoints the capability to L1 keyframes. Grounded in `packages/site-schema/src/l1/schema.ts` (keyframe + `interpolate|snap` segment schema) and `tools/generate/src/l1/fold.ts` (the capture→L1 fold). No `navCollapse` or per-breakpoint-dial symbol remains anywhere in `packages/` or `tools/`.
+This is a reconciliation **upgrade**: the responsive-across-widths capability survives, but its delivery has moved from module dials (deleted) to L1 geometry keyframes. The module-dial ACs (AC-666..AC-671, AC-673) describe behaviour the code no longer implements and were removed. The surviving per-viewport variation is delivered by the L1 geometry-keyframe substrate and is owned by CAP-70 (L1 Layout Substrate) and CAP-71 (Capture-to-L1 Fold), not by this capability; whether CAP-68 is therefore retired or retained with a thin L1-repointing AC is an open disposition escalated in report-a1c346dc, and no repointing AC has been created under CAP-68. Grounded in `packages/site-schema/src/l1/schema.ts` (keyframe + `interpolate|snap` segment schema) and `tools/generate/src/l1/fold.ts` (the capture→L1 fold). No `navCollapse` or per-breakpoint-dial symbol remains anywhere in `packages/` or `tools/`.
 
 ## Story Points
 2
