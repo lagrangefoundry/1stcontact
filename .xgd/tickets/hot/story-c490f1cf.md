@@ -6,9 +6,9 @@ title: 'Absolute values re-homed in L1: every colour, length, and radius is carr
   as a validated literal (named overlay parked in L2)'
 created_by: xgd
 created_at: '2026-07-19T03:09:25.918607+00:00'
-updated_at: '2026-07-23T09:43:32.419120+00:00'
+updated_at: '2026-07-23T09:48:50.951181+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -32,7 +32,7 @@ The reproduction mandate is *absolute values are the base; a named scale is an
 overlay of constants*. This story's **absolute base** — the literal side of the
 absolute-or-overlay model — is now carried by the **L1 layout substrate** (see the
 L1 substrate story). Following the framework pivot (REQ-79), the semantic *layout*
-modules (services-grid, text-block, contact-form, hero, header, footer) and their
+modules (header, hero, footer, text-block, services-grid, layer) and their
 ~20 colour/length/radius dials were deleted (REQ-84). The absolute-or-overlay
 capability those dials delivered is **re-homed in L1 leaf axes**: each L1 leaf
 (box / text / image) carries the concrete value directly as a typed literal, and
