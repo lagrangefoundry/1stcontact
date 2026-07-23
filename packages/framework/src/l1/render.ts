@@ -14,10 +14,15 @@
 import { isSafeUrl } from '@1stcontact/site-schema'
 import type {
   L1AxisSizing,
+  L1Border,
   L1Document,
   L1Geometry,
+  L1Gradient,
+  L1Mask,
   L1Node,
+  L1Shadow,
   L1Sizing,
+  L1Transform,
 } from '@1stcontact/site-schema'
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
@@ -57,6 +62,120 @@ function cssFontFamily(v: string | undefined): string | null {
     .filter(Boolean)
     .map((t) => (/\s/.test(t) ? `"${t}"` : t))
   return tokens.length ? tokens.join(', ') : null
+}
+
+// ── REQ-91 structured-effect emitters ─────────────────────────────────────────
+//
+// Each turns a typed structured axis (gradient / shadow / border / mask /
+// transform) into CSS re-derived from numeric/enum/hex fields. Numbers cannot
+// carry an injection; colours pass `cssColor`; enums are closed sets checked
+// here. No instance string is ever concatenated into CSS verbatim.
+
+/** A finite number → `${n}deg`, else null. */
+function deg(v: number | undefined): string | null {
+  return v !== undefined && Number.isFinite(v) ? `${v}deg` : null
+}
+
+/**
+ * Fold an opacity (0..1) into a hex colour → `#rrggbbaa`. The colour's own alpha
+ * (if `#rrggbbaa`) is dropped and replaced. Returns null for a non-hex colour.
+ */
+function withAlpha(color: string, opacity: number | undefined): string | null {
+  const c = cssColor(color)
+  if (!c) return null
+  // Expand #rgb → #rrggbb, strip any existing alpha to the 6-digit base.
+  let base = c.slice(1)
+  if (base.length === 3) base = base.split('').map((ch) => ch + ch).join('')
+  base = base.slice(0, 6)
+  const o = opacity === undefined ? 1 : Math.max(0, Math.min(1, opacity))
+  const a = Math.round(o * 255)
+    .toString(16)
+    .padStart(2, '0')
+  return `#${base}${a}`
+}
+
+/** A linear gradient → `linear-gradient(<angle>, <stop>, …)`, or null if unpaintable. */
+function gradientCss(g: L1Gradient): string | null {
+  const stops = g.stops
+    .map((s) => {
+      const c = cssColor(s.color)
+      if (!c) return null
+      if (s.position !== undefined && Number.isFinite(s.position)) {
+        const p = Math.max(0, Math.min(100, s.position))
+        return `${c} ${p}%`
+      }
+      return c
+    })
+    .filter((s): s is string => s !== null)
+  if (stops.length < 2) return null
+  const angle = deg(g.angleDeg)
+  return `linear-gradient(${angle ? `${angle}, ` : ''}${stops.join(', ')})`
+}
+
+/** A drop shadow → `[inset] <x>px <y>px <blur>px <spread>px <color>`, or null. */
+function shadowCss(s: L1Shadow): string | null {
+  const c = cssColor(s.color)
+  if (!c) return null
+  const x = px(s.offsetXPx)
+  const y = px(s.offsetYPx)
+  if (!x || !y) return null
+  const parts: string[] = []
+  if (s.inset) parts.push('inset')
+  parts.push(x, y)
+  // Blur is required when a spread is present (CSS positional syntax).
+  const blur = px(s.blurPx)
+  const spread = px(s.spreadPx)
+  if (blur || spread) parts.push(blur ?? '0px')
+  if (spread) parts.push(spread)
+  parts.push(c)
+  return parts.join(' ')
+}
+
+/** A box border → `<w>px <style> <color>`, or null if unpaintable. */
+function borderCss(b: L1Border): string | null {
+  const c = cssColor(b.color)
+  if (!c) return null
+  const w = px(b.widthPx)
+  if (!w) return null
+  const style = b.style ?? 'solid'
+  return `${w} ${style} ${c}`
+}
+
+/** A 2D transform → `rotate(<deg>) scale(<n>)`, or null when it is the identity. */
+function transformCss(t: L1Transform): string | null {
+  const parts: string[] = []
+  const r = deg(t.rotateDeg)
+  if (r && t.rotateDeg !== 0) parts.push(`rotate(${r})`)
+  if (t.scale !== undefined && Number.isFinite(t.scale) && t.scale !== 1) {
+    parts.push(`scale(${t.scale})`)
+  }
+  return parts.length ? parts.join(' ') : null
+}
+
+/**
+ * A typed mask/clip edge → safe CSS declarations. A circular/elliptical crop uses
+ * `clip-path`; a feathered edge uses a `mask-image` gradient. Every value is a
+ * keyword or a number — nothing from the instance reaches CSS as a raw string.
+ */
+function maskDecls(m: L1Mask): string[] {
+  switch (m.shape) {
+    case 'circle':
+      return ['clip-path: circle(50%)']
+    case 'ellipse':
+      return ['clip-path: ellipse(50% 50%)']
+    case 'featherRadial': {
+      const inner = m.featherPx !== undefined ? `calc(100% - ${Math.max(0, m.featherPx)}px)` : '60%'
+      const g = `radial-gradient(closest-side, #000 ${inner}, transparent 100%)`
+      return [`-webkit-mask-image: ${g}`, `mask-image: ${g}`]
+    }
+    case 'featherTop':
+    case 'featherBottom': {
+      const f = m.featherPx !== undefined ? Math.max(0, m.featherPx) : 48
+      const dir = m.shape === 'featherTop' ? 'to bottom' : 'to top'
+      const g = `linear-gradient(${dir}, transparent 0, #000 ${f}px)`
+      return [`-webkit-mask-image: ${g}`, `mask-image: ${g}`]
+    }
+  }
 }
 
 const JUSTIFY: Record<string, string> = {
@@ -192,6 +311,34 @@ function emitNode(node: L1Node, state: RenderState): string {
       if (a.textAlign) base.push(`text-align: ${a.textAlign}`)
       if (a.textTransform) base.push(`text-transform: ${a.textTransform}`)
       if (a.fontStyle) base.push(`font-style: ${a.fontStyle}`)
+      // REQ-91 text pixel-movers.
+      if (a.textDecoration && a.textDecoration !== 'none') {
+        base.push(`text-decoration-line: ${a.textDecoration}`)
+      }
+      if (a.fontVariantCaps && a.fontVariantCaps !== 'normal') {
+        base.push(`font-variant-caps: ${a.fontVariantCaps}`)
+      }
+      if (a.textShadow) {
+        const sh = shadowCss(a.textShadow)
+        if (sh) base.push(`text-shadow: ${sh}`)
+      }
+      if (a.listMarker && a.listMarker !== 'none') {
+        base.push('display: list-item', 'list-style-position: inside', `list-style-type: ${a.listMarker}`)
+      }
+      // A text-fill gradient paints the glyphs via background-clip:text; it
+      // overrides the flat colour (pushed later so it wins in the declaration list).
+      if (a.gradientFill) {
+        const g = gradientCss(a.gradientFill)
+        if (g) {
+          base.push(
+            `background-image: ${g}`,
+            '-webkit-background-clip: text',
+            'background-clip: text',
+            '-webkit-text-fill-color: transparent',
+            'color: transparent',
+          )
+        }
+      }
       base.push('margin: 0')
       html = `<p class="${cls}">${escapeHtml(node.text)}</p>`
       break
@@ -201,6 +348,16 @@ function emitNode(node: L1Node, state: RenderState): string {
       if (a.objectFit) base.push(`object-fit: ${a.objectFit}`)
       if (px(a.borderRadiusPx)) base.push(`border-radius: ${px(a.borderRadiusPx)}`)
       if (a.opacity !== undefined) base.push(`opacity: ${a.opacity}`)
+      // REQ-91 image pixel-movers.
+      if (a.border) {
+        const b = borderCss(a.border)
+        if (b) base.push(`border: ${b}`)
+      }
+      if (a.boxShadow) {
+        const sh = shadowCss(a.boxShadow)
+        if (sh) base.push(`box-shadow: ${sh}`)
+      }
+      if (a.blendMode && a.blendMode !== 'normal') base.push(`mix-blend-mode: ${a.blendMode}`)
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')
       const src = isSafeUrl(node.src) ? node.src : ''
@@ -220,6 +377,33 @@ function emitNode(node: L1Node, state: RenderState): string {
       if (fill) base.push(`background-color: ${fill}`)
       if (px(a.borderRadiusPx)) base.push(`border-radius: ${px(a.borderRadiusPx)}`)
       if (a.opacity !== undefined) base.push(`opacity: ${a.opacity}`)
+      // REQ-91 surface pixel-movers. Background layers paint top→bottom: a scrim
+      // overlay sits above a gradient/image (which sit above the solid fill).
+      const bgLayers: string[] = []
+      if (a.overlay) {
+        const c8 = withAlpha(a.overlay.color, a.overlay.opacity)
+        if (c8) bgLayers.push(`linear-gradient(${c8}, ${c8})`)
+      }
+      if (a.surfaceGradient) {
+        const g = gradientCss(a.surfaceGradient)
+        if (g) bgLayers.push(g)
+      }
+      if (a.backgroundImageUrl !== undefined && isSafeUrl(a.backgroundImageUrl)) {
+        bgLayers.push(`url("${escapeHtml(a.backgroundImageUrl)}")`)
+      }
+      if (bgLayers.length) base.push(`background-image: ${bgLayers.join(', ')}`)
+      if (a.border) {
+        const b = borderCss(a.border)
+        if (b) base.push(`border: ${b}`)
+      }
+      if (a.boxShadow) {
+        const sh = shadowCss(a.boxShadow)
+        if (sh) base.push(`box-shadow: ${sh}`)
+      }
+      if (px(a.backdropBlurPx)) {
+        base.push(`-webkit-backdrop-filter: blur(${px(a.backdropBlurPx)})`, `backdrop-filter: blur(${px(a.backdropBlurPx)})`)
+      }
+      if (a.blendMode && a.blendMode !== 'normal') base.push(`mix-blend-mode: ${a.blendMode}`)
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
       const inner = (node.children ?? []).map((child) => emitNode(child, state)).join('')
@@ -242,6 +426,13 @@ function emitNode(node: L1Node, state: RenderState): string {
       break
     }
   }
+
+  // REQ-91 node-level transform / mask — applicable to any node kind.
+  if (node.transform) {
+    const t = transformCss(node.transform)
+    if (t) base.push(`transform: ${t}`)
+  }
+  if (node.mask) base.push(...maskDecls(node.mask))
 
   if (base.length) state.rules.push({ selector, decls: base })
   return html

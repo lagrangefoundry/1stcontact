@@ -31,6 +31,10 @@ export const L1_ENVELOPE = {
   geometryPx: { min: -100_000, max: 100_000 },
   /** Line-height / letter-spacing / radius / gap sane ceilings. */
   lengthPx: { min: -10_000, max: 100_000 },
+  /** Shadow / border / blur / mask lengths (REQ-91) — non-negative blur, bounded offsets. */
+  effectPx: { min: -10_000, max: 10_000 },
+  /** Uniform transform scale (REQ-91) — a sane bound so a huge scale can't blow out layout. */
+  transformScale: { min: 0.01, max: 100 },
 } as const
 
 /**
@@ -91,6 +95,68 @@ function checkGeometry(
   }
 }
 
+/** Bound a single length against the effect range; push an error if out of range. */
+function checkEffectLen(
+  v: number | undefined,
+  path: string,
+  errors: ValidationError[],
+): void {
+  if (v !== undefined && !inRange(v, L1_ENVELOPE.effectPx.min, L1_ENVELOPE.effectPx.max)) {
+    errors.push({
+      path,
+      message: `${v} out of range [${L1_ENVELOPE.effectPx.min}, ${L1_ENVELOPE.effectPx.max}]`,
+    })
+  }
+}
+
+/**
+ * REQ-91 — robustness bounds for the structured effect axes (shadow/border/blur/
+ * mask/transform lengths + scale) and the security scheme-check for a box
+ * background image URL. Schema already enforces finite numbers, hex colours, and
+ * closed enums; this is the envelope's numeric-range + URL-allowlist layer.
+ */
+function checkEffects(node: L1Node, path: string, errors: ValidationError[]): void {
+  if (node.transform) {
+    checkEffectLen(node.transform.rotateDeg, `${path}/transform/rotateDeg`, errors)
+    const s = node.transform.scale
+    if (
+      s !== undefined &&
+      !inRange(s, L1_ENVELOPE.transformScale.min, L1_ENVELOPE.transformScale.max)
+    ) {
+      errors.push({
+        path: `${path}/transform/scale`,
+        message: `scale ${s} out of range [${L1_ENVELOPE.transformScale.min}, ${L1_ENVELOPE.transformScale.max}]`,
+      })
+    }
+  }
+  if (node.mask) checkEffectLen(node.mask.featherPx, `${path}/mask/featherPx`, errors)
+
+  const shadow = (s: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number } | undefined, p: string) => {
+    if (!s) return
+    checkEffectLen(s.offsetXPx, `${p}/offsetXPx`, errors)
+    checkEffectLen(s.offsetYPx, `${p}/offsetYPx`, errors)
+    checkEffectLen(s.blurPx, `${p}/blurPx`, errors)
+    checkEffectLen(s.spreadPx, `${p}/spreadPx`, errors)
+  }
+
+  if (node.kind === 'text' && node.axes) {
+    shadow(node.axes.textShadow, `${path}/axes/textShadow`)
+  }
+  if ((node.kind === 'box' || node.kind === 'image') && node.axes) {
+    shadow(node.axes.boxShadow, `${path}/axes/boxShadow`)
+    if (node.axes.border) checkEffectLen(node.axes.border.widthPx, `${path}/axes/border/widthPx`, errors)
+  }
+  if (node.kind === 'box' && node.axes) {
+    checkEffectLen(node.axes.backdropBlurPx, `${path}/axes/backdropBlurPx`, errors)
+    if (node.axes.backgroundImageUrl !== undefined && !isSafeUrl(node.axes.backgroundImageUrl)) {
+      errors.push({
+        path: `${path}/axes/backgroundImageUrl`,
+        message: `backgroundImageUrl '${node.axes.backgroundImageUrl}' is not an allowed URL (http/https or relative only)`,
+      })
+    }
+  }
+}
+
 function walk(
   node: L1Node,
   widths: readonly number[],
@@ -134,6 +200,8 @@ function walk(
       message: `image src '${node.src}' is not an allowed URL (http/https or relative only)`,
     })
   }
+
+  checkEffects(node, path, errors)
 
   const children = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
   children.forEach((child, i) => walk(child, widths, `${path}/children/${i}`, depth + 1, counter, errors))

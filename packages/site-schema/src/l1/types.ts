@@ -6,21 +6,29 @@
 import type { z } from 'zod'
 import type {
   l1AxisSizingSchema,
+  l1BlendModeSchema,
+  l1BorderSchema,
   l1BoxAxesSchema,
   l1BoxSchema,
   l1ContainerSchema,
   l1DistributionSchema,
   l1DocumentSchema,
   l1GeometrySchema,
+  l1GradientSchema,
+  l1GradientStopSchema,
   l1ImageAxesSchema,
   l1ImageSchema,
   l1KeyframeSchema,
+  l1MaskSchema,
   l1NodeSchema,
+  l1OverlaySchema,
   l1SegmentSchema,
+  l1ShadowSchema,
   l1SizingSchema,
   l1SlotSchema,
   l1TextAxesSchema,
   l1TextSchema,
+  l1TransformSchema,
   l1VisibilitySchema,
 } from './schema'
 
@@ -34,6 +42,16 @@ export type L1Visibility = z.infer<typeof l1VisibilitySchema>
 export type L1TextAxes = z.infer<typeof l1TextAxesSchema>
 export type L1BoxAxes = z.infer<typeof l1BoxAxesSchema>
 export type L1ImageAxes = z.infer<typeof l1ImageAxesSchema>
+
+// REQ-91 shared structured axis forms.
+export type L1GradientStop = z.infer<typeof l1GradientStopSchema>
+export type L1Gradient = z.infer<typeof l1GradientSchema>
+export type L1Shadow = z.infer<typeof l1ShadowSchema>
+export type L1Border = z.infer<typeof l1BorderSchema>
+export type L1Mask = z.infer<typeof l1MaskSchema>
+export type L1Transform = z.infer<typeof l1TransformSchema>
+export type L1BlendMode = z.infer<typeof l1BlendModeSchema>
+export type L1Overlay = z.infer<typeof l1OverlaySchema>
 
 export type L1Text = z.infer<typeof l1TextSchema>
 export type L1Image = z.infer<typeof l1ImageSchema>

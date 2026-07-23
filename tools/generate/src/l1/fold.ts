@@ -17,7 +17,16 @@
  * against the oracle. Any residual delta is a serializer bug or a missing L1
  * axis — a framework fix, not a per-site one.
  */
-import { validateL1, type L1Box, type L1Document, type L1Node, type L1Segment, type L1TextAxes } from '@1stcontact/site-schema'
+import {
+  validateL1,
+  type L1Box,
+  type L1Document,
+  type L1Gradient,
+  type L1GradientStop,
+  type L1Node,
+  type L1Segment,
+  type L1TextAxes,
+} from '@1stcontact/site-schema'
 import { buildResponsiveTable, type LabelledProjection } from '../cli/responsive-diff'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../cli/capture'
 
@@ -65,7 +74,74 @@ function textAxes(el: ValueElement): L1TextAxes {
   const tt = el.textTransform
   if (tt === 'uppercase' || tt === 'lowercase' || tt === 'capitalize') axes.textTransform = tt
   if (el.fontStyle && /italic/i.test(el.fontStyle)) axes.fontStyle = 'italic'
+  // ── REQ-91 text pixel-movers folded straight from the capture's structured
+  //    values (gradient / decoration / caps / marker). Shadows are captured as a
+  //    raw CSS string and are folded by the folder rebuild (REQ-88), not here.
+  const grad = foldGradient(el.gradient)
+  if (grad) axes.gradientFill = grad
+  const dec = foldTextDecoration(el.textDecoration)
+  if (dec) axes.textDecoration = dec
+  const caps = foldFontVariantCaps(el.fontVariant)
+  if (caps) axes.fontVariantCaps = caps
+  const marker = foldListMarker(el.listMarker)
+  if (marker) axes.listMarker = marker
   return axes
+}
+
+/** A captured `TextGradient` → an L1 gradient axis (≥2 hex stops), else undefined. */
+function foldGradient(g: ValueElement['gradient']): L1Gradient | undefined {
+  if (!g || !Array.isArray(g.stops)) return undefined
+  const stops = g.stops
+    .filter((s) => typeof s.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(s.color))
+    .map((s) => {
+      const stop: L1GradientStop = { color: s.color }
+      if (s.position !== null && s.position !== undefined && Number.isFinite(s.position)) {
+        stop.position = clamp(s.position, 0, 100)
+      }
+      return stop
+    })
+  if (stops.length < 2) return undefined
+  const out: L1Gradient = { stops }
+  if (g.angleDeg !== null && g.angleDeg !== undefined && Number.isFinite(g.angleDeg)) {
+    out.angleDeg = g.angleDeg
+  }
+  return out
+}
+
+/** A captured `text-decoration-line` → the L1 enum, else undefined. */
+function foldTextDecoration(v: string | null | undefined): L1TextAxes['textDecoration'] {
+  if (!v) return undefined
+  if (/underline/i.test(v)) return 'underline'
+  if (/line-through/i.test(v)) return 'line-through'
+  if (/overline/i.test(v)) return 'overline'
+  return undefined
+}
+
+/** A captured `font-variant(-caps)` → the L1 small-caps enum, else undefined. */
+function foldFontVariantCaps(v: string | null | undefined): L1TextAxes['fontVariantCaps'] {
+  if (!v) return undefined
+  if (/all-small-caps/i.test(v)) return 'all-small-caps'
+  if (/small-caps/i.test(v)) return 'small-caps'
+  return undefined
+}
+
+const LIST_MARKERS = new Set([
+  'disc',
+  'circle',
+  'square',
+  'decimal',
+  'decimal-leading-zero',
+  'lower-alpha',
+  'upper-alpha',
+  'lower-roman',
+  'upper-roman',
+])
+
+/** A captured `list-style-type` → the L1 marker enum (known values only), else undefined. */
+function foldListMarker(v: string | null | undefined): L1TextAxes['listMarker'] {
+  if (!v) return undefined
+  const t = v.trim().toLowerCase()
+  return LIST_MARKERS.has(t) ? (t as L1TextAxes['listMarker']) : undefined
 }
 
 /**

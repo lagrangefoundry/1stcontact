@@ -93,6 +93,102 @@ export const l1VisibilitySchema = z
   })
   .strict()
 
+// ── Shared structured axis forms (REQ-91) ─────────────────────────────────────
+//
+// Each captured pixel-mover that is not a plain scalar (gradient, shadow, border,
+// mask, transform) gets a *typed structured* form here — never a passthrough CSS
+// string. The renderer re-derives the CSS from these numeric/enum/hex fields, so
+// no instance value ever becomes raw CSS.
+
+/** A gradient colour stop — a hex colour at an optional 0..100% offset. */
+export const l1GradientStopSchema = z
+  .object({
+    color: l1Color,
+    position: finite.min(0).max(100).optional(),
+  })
+  .strict()
+
+/**
+ * A linear gradient — typed structured form (mirrors the capture `TextGradient`).
+ * `angleDeg` is a CSS angle (0 = to-top, 90 = to-right); absent → default `180deg`.
+ * Used for text-fill gradients and surface/panel gradients alike.
+ */
+export const l1GradientSchema = z
+  .object({
+    angleDeg: finite.optional(),
+    stops: z.array(l1GradientStopSchema).min(2),
+  })
+  .strict()
+
+/** A drop shadow — structured (offset / blur / spread / colour / inset), never raw CSS. */
+export const l1ShadowSchema = z
+  .object({
+    offsetXPx: finite,
+    offsetYPx: finite,
+    blurPx: finite.nonnegative().optional(),
+    spreadPx: finite.optional(),
+    color: l1Color,
+    inset: z.boolean().optional(),
+  })
+  .strict()
+
+/** A box border — width + colour + line style. */
+export const l1BorderSchema = z
+  .object({
+    widthPx: finite.nonnegative(),
+    color: l1Color,
+    style: z.enum(['solid', 'dashed', 'dotted', 'double']).optional(),
+  })
+  .strict()
+
+/**
+ * A typed mask / clip edge treatment — never a raw `mask-image` / `clip-path`
+ * string. `shape` names the geometry (circular crop, a feathered edge); `featherPx`
+ * is the soft-edge width where relevant.
+ */
+export const l1MaskSchema = z
+  .object({
+    shape: z.enum(['circle', 'ellipse', 'featherRadial', 'featherTop', 'featherBottom']),
+    featherPx: finite.nonnegative().optional(),
+  })
+  .strict()
+
+/** A node-level 2D transform — rotation (deg) + uniform scale (decomposed from the matrix). */
+export const l1TransformSchema = z
+  .object({
+    rotateDeg: finite.optional(),
+    scale: finite.positive().optional(),
+  })
+  .strict()
+
+/** CSS `mix-blend-mode` values — a closed enum, never a freeform string. */
+export const l1BlendModeSchema = z.enum([
+  'normal',
+  'multiply',
+  'screen',
+  'overlay',
+  'darken',
+  'lighten',
+  'color-dodge',
+  'color-burn',
+  'hard-light',
+  'soft-light',
+  'difference',
+  'exclusion',
+  'hue',
+  'saturation',
+  'color',
+  'luminosity',
+])
+
+/** A full-bleed translucent scrim painted over a box's background (hero overlay). */
+export const l1OverlaySchema = z
+  .object({
+    color: l1Color,
+    opacity: finite.min(0).max(1).optional(),
+  })
+  .strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -107,24 +203,70 @@ export const l1TextAxesSchema = z
     textAlign: z.enum(['left', 'center', 'right', 'justify']).optional(),
     textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
     fontStyle: z.enum(['normal', 'italic']).optional(),
+    // ── REQ-91 text pixel-movers ──────────────────────────────────────────────
+    /** Text-fill gradient (a `background-clip: text` paint) — replaces the flat `color`. */
+    gradientFill: l1GradientSchema.optional(),
+    /** Painted decoration line (underline / strike / overline). */
+    textDecoration: z.enum(['none', 'underline', 'line-through', 'overline']).optional(),
+    /** A glow / drop shadow on the glyphs. */
+    textShadow: l1ShadowSchema.optional(),
+    /** Small-caps rendering. */
+    fontVariantCaps: z.enum(['normal', 'small-caps', 'all-small-caps']).optional(),
+    /** A painted list marker (a bullet / number the eye reads but no text node holds). */
+    listMarker: z
+      .enum([
+        'none',
+        'disc',
+        'circle',
+        'square',
+        'decimal',
+        'decimal-leading-zero',
+        'lower-alpha',
+        'upper-alpha',
+        'lower-roman',
+        'upper-roman',
+      ])
+      .optional(),
   })
   .strict()
 
-/** Box axes — a painted surface with optional rounding / opacity. */
+/** Box axes — a painted surface with optional rounding / opacity / effects. */
 export const l1BoxAxesSchema = z
   .object({
     surfaceFill: l1Color.optional(),
     borderRadiusPx: finite.nonnegative().optional(),
     opacity: finite.min(0).max(1).optional(),
+    // ── REQ-91 surface pixel-movers ───────────────────────────────────────────
+    /** A gradient panel fill (a `background-image` gradient over the surface). */
+    surfaceGradient: l1GradientSchema.optional(),
+    /** A background image (scheme-checked by the envelope, like `image.src`). */
+    backgroundImageUrl: z.string().optional(),
+    /** A full-bleed translucent scrim painted over the background (hero overlay). */
+    overlay: l1OverlaySchema.optional(),
+    /** A drop shadow cast by the box. */
+    boxShadow: l1ShadowSchema.optional(),
+    /** A painted box border. */
+    border: l1BorderSchema.optional(),
+    /** Frosted-glass blur of whatever sits behind the box (backdrop-filter). */
+    backdropBlurPx: finite.nonnegative().optional(),
+    /** How the box composites with what is behind it. */
+    blendMode: l1BlendModeSchema.optional(),
   })
   .strict()
 
-/** Image axes — how the media fills its box. */
+/** Image axes — how the media fills its box, plus painted effects. */
 export const l1ImageAxesSchema = z
   .object({
     objectFit: z.enum(['cover', 'contain', 'fill', 'none', 'scale-down']).optional(),
     borderRadiusPx: finite.nonnegative().optional(),
     opacity: finite.min(0).max(1).optional(),
+    // ── REQ-91 image pixel-movers ─────────────────────────────────────────────
+    /** How the image composites with what is behind it. */
+    blendMode: l1BlendModeSchema.optional(),
+    /** A painted border framing the image. */
+    border: l1BorderSchema.optional(),
+    /** A drop shadow cast by the image. */
+    boxShadow: l1ShadowSchema.optional(),
   })
   .strict()
 
@@ -143,6 +285,8 @@ export const l1TextSchema = z
     axes: l1TextAxesSchema.optional(),
     geometry: l1GeometrySchema.optional(),
     visibility: l1VisibilitySchema.optional(),
+    transform: l1TransformSchema.optional(),
+    mask: l1MaskSchema.optional(),
   })
   .strict()
 
@@ -157,6 +301,8 @@ export const l1ImageSchema = z
     geometry: l1GeometrySchema.optional(),
     sizing: l1AxisSizingSchema.optional(),
     visibility: l1VisibilitySchema.optional(),
+    transform: l1TransformSchema.optional(),
+    mask: l1MaskSchema.optional(),
   })
   .strict()
 
@@ -173,6 +319,8 @@ export const l1SlotSchema = z
     behavior: z.string().optional(),
     geometry: l1GeometrySchema.optional(),
     visibility: l1VisibilitySchema.optional(),
+    transform: l1TransformSchema.optional(),
+    mask: l1MaskSchema.optional(),
   })
   .strict()
 
@@ -189,6 +337,8 @@ export interface L1BoxNode {
   geometry?: z.infer<typeof l1GeometrySchema>
   sizing?: z.infer<typeof l1AxisSizingSchema>
   visibility?: z.infer<typeof l1VisibilitySchema>
+  transform?: z.infer<typeof l1TransformSchema>
+  mask?: z.infer<typeof l1MaskSchema>
   children?: L1NodeUnion[]
 }
 
@@ -204,6 +354,8 @@ export interface L1ContainerNode {
   sizing?: z.infer<typeof l1AxisSizingSchema>
   geometry?: z.infer<typeof l1GeometrySchema>
   visibility?: z.infer<typeof l1VisibilitySchema>
+  transform?: z.infer<typeof l1TransformSchema>
+  mask?: z.infer<typeof l1MaskSchema>
   children: L1NodeUnion[]
 }
 
@@ -224,6 +376,8 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
       geometry: l1GeometrySchema.optional(),
       sizing: l1AxisSizingSchema.optional(),
       visibility: l1VisibilitySchema.optional(),
+      transform: l1TransformSchema.optional(),
+      mask: l1MaskSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -242,6 +396,8 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       sizing: l1AxisSizingSchema.optional(),
       geometry: l1GeometrySchema.optional(),
       visibility: l1VisibilitySchema.optional(),
+      transform: l1TransformSchema.optional(),
+      mask: l1MaskSchema.optional(),
       children: z.array(l1NodeSchema),
     })
     .strict(),
