@@ -6,14 +6,15 @@ title: Each probe residual/finding is diagnostic — it identifies the offending
   and the magnitude of the violation
 created_by: xgd
 created_at: '2026-07-22T20:07:41.211438+00:00'
-updated_at: '2026-07-22T20:14:30.064544+00:00'
+updated_at: '2026-07-23T06:35:04.597652+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-24098299
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
