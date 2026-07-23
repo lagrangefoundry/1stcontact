@@ -4,7 +4,7 @@
  * in-memory {@link CaptureResult}. Browser failure retries; there is **no**
  * static fallback (DOC-13 §2.1, §3).
  */
-import { EXTRACT_SCRIPT, type RawSignals } from './extract'
+import { EXTRACT_SCRIPT, type RawFontFace, type RawSignals } from './extract'
 import { HINTS_SCRIPT, type StructuralHints } from './hints'
 import { createEngineDriver, createPlaywrightDriver, engineAvailable } from './playwright-driver'
 import { buildSections } from './sections'
@@ -105,6 +105,76 @@ function rawHtmlOf(responses: CapturedResponse[], documentUrl: string): string {
   return doc ? new TextDecoder().decode(doc.body) : ''
 }
 
+/** Normalise a `font-family` value the way {@link EXTRACT_SCRIPT} does: first
+ *  family in the list, trimmed, surrounding quotes stripped — so a face parsed
+ *  here keys against the same normalised family painted text carries. */
+function primaryFamily(ff: string): string {
+  return (ff || '').split(',')[0].trim().replace(/^['"]|['"]$/g, '')
+}
+
+/**
+ * BUG-12 — recover `@font-face` rules from captured **stylesheet bytes**.
+ *
+ * The in-page extractor ({@link EXTRACT_SCRIPT}) reads faces from the live CSSOM,
+ * but `styleSheet.cssRules` throws a `SecurityError` on any *cross-origin* sheet
+ * (Google Fonts' `css2?family=…`, most CDN font stylesheets) and those faces are
+ * silently dropped. The response bytes are cached regardless (DOC-13 §3), so the
+ * family→woff2 handle lives in the intercepted CSS text even when the CSSOM hid
+ * it. Parsing the bytes recovers the mapping so the mirrored `.woff2` connects to
+ * the family painted on the page — the substance the fold's resource table needs.
+ */
+function fontFacesFromStylesheets(responses: CapturedResponse[]): RawFontFace[] {
+  const faces: RawFontFace[] = []
+  const blockRe = /@font-face\s*\{([^}]*)\}/gi
+  const urlRe = /url\(\s*(['"]?)([^'")]+)\1\s*\)/gi
+  for (const resp of responses) {
+    if (resp.status >= 400 || resp.body.length === 0) continue
+    if (kindOf(resp.url, resp.contentType) !== 'stylesheet') continue
+    const css = new TextDecoder().decode(resp.body)
+    let block: RegExpExecArray | null
+    while ((block = blockRe.exec(css))) {
+      const body = block[1]
+      const famMatch = /font-family\s*:\s*([^;]+)/i.exec(body)
+      if (!famMatch) continue
+      const family = primaryFamily(famMatch[1])
+      if (!family) continue
+      const srcUrls: string[] = []
+      let m: RegExpExecArray | null
+      urlRe.lastIndex = 0
+      while ((m = urlRe.exec(body))) {
+        try {
+          srcUrls.push(new URL(m[2], resp.url).href)
+        } catch {
+          // data: URIs and malformed refs never mirror to an asset — skip.
+        }
+      }
+      if (!srcUrls.length) continue
+      const w = parseInt(/font-weight\s*:\s*([0-9]+)/i.exec(body)?.[1] ?? '', 10)
+      faces.push({ family, srcUrls, weight: isNaN(w) ? null : w })
+    }
+  }
+  return faces
+}
+
+/**
+ * Map each painted font family to the local paths of its mirrored face files,
+ * drawing on both the in-page CSSOM faces (same-origin) and the byte-parsed faces
+ * (cross-origin) — BUG-12. A family keeps only faces whose `src` actually mirrored
+ * (`urlToLocal` hit); a family whose every face 404'd or was missed contributes
+ * nothing, exactly as before.
+ */
+function fontFilesByFamilyOf(faces: RawFontFace[], urlToLocal: Map<string, string>): Map<string, string[]> {
+  const byFamily = new Map<string, string[]>()
+  for (const face of faces) {
+    const files = face.srcUrls.map((u) => urlToLocal.get(u)).filter((p): p is string => Boolean(p))
+    if (!files.length) continue
+    const merged = byFamily.get(face.family) ?? []
+    for (const f of files) if (!merged.includes(f)) merged.push(f)
+    byFamily.set(face.family, merged)
+  }
+  return byFamily
+}
+
 async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<CaptureResult> {
   const driver = await factory()
   try {
@@ -116,11 +186,13 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
 
     const { assets, assetBytes, urlToLocal } = buildAssets(responses, url, signals.images)
 
-    const fontFilesByFamily = new Map<string, string[]>()
-    for (const face of signals.fontFaces) {
-      const files = face.srcUrls.map((u) => urlToLocal.get(u)).filter((p): p is string => Boolean(p))
-      if (files.length) fontFilesByFamily.set(face.family, files)
-    }
+    // BUG-12 — union the in-page CSSOM faces (same-origin) with faces recovered
+    // from cached stylesheet bytes (cross-origin, which the CSSOM blocks), so a
+    // Google-Fonts-style family connects to its mirrored `.woff2`.
+    const fontFilesByFamily = fontFilesByFamilyOf(
+      [...signals.fontFaces, ...fontFacesFromStylesheets(responses)],
+      urlToLocal,
+    )
 
     const u = new URL(url)
     const capture: Capture = {
