@@ -6,14 +6,15 @@ title: Contact-form renders a functional form from config with L1-authored intro
   presentation
 created_by: xgd
 created_at: '2026-07-22T19:54:45.992184+00:00'
-updated_at: '2026-07-22T20:04:00.439527+00:00'
+updated_at: '2026-07-23T06:57:11.173239+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
