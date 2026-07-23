@@ -6,14 +6,15 @@ title: Carousel renders an L1-authored swipeable slide track driven by behaviour
   config
 created_by: xgd
 created_at: '2026-07-22T19:54:23.832646+00:00'
-updated_at: '2026-07-22T20:04:00.732762+00:00'
+updated_at: '2026-07-23T06:57:09.828424+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
