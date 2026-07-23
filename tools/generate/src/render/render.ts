@@ -1,5 +1,9 @@
 import path from 'node:path'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
+// `astro/container` is imported *lazily* (dynamic import in {@link renderSite}) so a
+// site with no behavior-module page — a folded L1 reproduction (REQ-88) or the empty
+// starter — renders with zero Astro involvement (`renderL1Document` is pure string
+// templating). The type is imported type-only, which the compiler erases at runtime.
+import type { experimental_AstroContainer as AstroContainerType } from 'astro/container'
 import {
   CALLOUT_CSS,
   generateThemeCss,
@@ -61,7 +65,7 @@ function stampEditHook(html: string, id: string, type: string): string {
   )
 }
 
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
+type Container = Awaited<ReturnType<typeof AstroContainerType.create>>
 
 /**
  * Render every module instance on a page, in order, to one HTML fragment. Since
@@ -71,12 +75,18 @@ type Container = Awaited<ReturnType<typeof AstroContainer.create>>
  * were deleted with the semantic layout modules).
  */
 async function renderModules(
-  container: Container,
+  container: Container | undefined,
   page: Page,
   resolveModule: ModuleResolver,
 ): Promise<string> {
   const parts: string[] = []
   for (const m of page.modules) {
+    // Unreachable in practice: renderSite creates the container whenever any page
+    // has modules. Guard defensively so a future caller can't silently render a
+    // module page against a missing container.
+    if (!container) {
+      throw new Error('internal: Astro container required to render behavior-module pages')
+    }
     const { Component } = resolveModule(m.type, m.version)
     const rendered = await container.renderToString(Component, {
       props: { config: m.config, slots: m.slots, instanceId: m.id },
@@ -90,7 +100,7 @@ async function renderModules(
 
 /** Build a complete HTML document for one page. */
 async function renderPage(
-  container: Container,
+  container: Container | undefined,
   site: Site,
   page: Page,
   resolveModule: ModuleResolver,
@@ -177,7 +187,16 @@ export async function renderSite(
   const clientJs = getModuleClientJs()
   if (clientJs) writeText(path.join(outDir, 'capabilities.js'), `${clientJs}\n`)
 
-  const container = await AstroContainer.create()
+  // Astro is only needed to render behavior-module bands. A pure folded-L1
+  // reproduction (REQ-88) — or the empty starter — needs no container, so we
+  // import `astro/container` and create the container only on demand. This keeps
+  // the L1 render path entirely Astro-free (REQ-89).
+  const needsAstro = site.pages.some((p) => !p.l1 && p.modules.length > 0)
+  let container: Container | undefined
+  if (needsAstro) {
+    const { experimental_AstroContainer } = await import('astro/container')
+    container = await experimental_AstroContainer.create()
+  }
   const written: string[] = []
 
   for (const page of site.pages) {

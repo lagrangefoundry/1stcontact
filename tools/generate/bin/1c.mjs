@@ -22,19 +22,22 @@ const require = createRequire(import.meta.resolve('astro/package.json'))
 const { createServer } = await import(require.resolve('vite'))
 
 // Astro's Vite plugin scans for `src/pages` during server setup and, finding
-// none, logs "[WARN] Missing pages directory" through Astro's own logger — which
-// routes WARN to console.info, i.e. *stdout*. `logLevel: 'error'` gates Vite's
-// logger, not Astro's, so it doesn't suppress this. Any stdout write during
-// bootstrap corrupts a `--json` command's single document, so we divert stdout
-// to stderr for the whole setup phase and restore it before `mod.run` prints the
-// command's real output. (Render-time chatter *inside* a command is handled
-// separately by withCleanStdout in the CLI itself.)
+// none, logs "[WARN] Missing pages directory" through Astro's own logger (REQ-89).
+// `logLevel: 'error'` on the *Vite* config (first arg) gates Vite's logger, not
+// Astro's, so it never suppressed this. The fix is the second arg to
+// `getViteConfig` — the inline *Astro* config — whose `logLevel: 'error'` gates
+// Astro's logger and drops the WARN while still surfacing genuine errors.
+//
+// The stdout→stderr diversion below remains as defense in depth: any *other*
+// bootstrap chatter would otherwise corrupt a `--json` command's single document.
+// We restore stdout before `mod.run` prints the command's real output. (Render-time
+// chatter *inside* a command is handled separately by withCleanStdout in the CLI.)
 const originalStdoutWrite = process.stdout.write.bind(process.stdout)
 process.stdout.write = (chunk, enc, cb) => process.stderr.write(chunk, enc, cb)
 
 let server
 try {
-  const cfgFn = getViteConfig({ root: repoRoot, logLevel: 'error' })
+  const cfgFn = getViteConfig({ root: repoRoot, logLevel: 'error' }, { logLevel: 'error' })
   const cfg = typeof cfgFn === 'function' ? await cfgFn({ command: 'serve', mode: 'development' }) : cfgFn
 
   server = await createServer({
