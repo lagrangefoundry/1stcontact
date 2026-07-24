@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for f5e08d21'
 created_by: xgd
 created_at: '2026-07-24T10:36:04.411374+00:00'
-updated_at: '2026-07-24T10:36:04.411374+00:00'
+updated_at: '2026-07-24T10:56:04.831277+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: f5e08d21
@@ -18,6 +18,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: 1c capture page — rendered-only reference capture (REQ-12) test_UAT_FC_REQ-12_style_segmentation
+  batches_pending: false
 ---
 
 {
