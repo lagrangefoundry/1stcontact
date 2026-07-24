@@ -6,7 +6,7 @@ title: A node present only across a subrange of widths carries a visibility rule
   its presence
 created_by: xgd
 created_at: '2026-07-22T19:42:32.898389+00:00'
-updated_at: '2026-07-23T07:16:16.456348+00:00'
+updated_at: '2026-07-24T09:51:13.806487+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
