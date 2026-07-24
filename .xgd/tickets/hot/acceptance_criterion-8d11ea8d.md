@@ -6,14 +6,15 @@ title: 'The behavior contract is published under the Behavior* names with an ato
   kind: ''behavior'' discriminant'
 created_by: xgd
 created_at: '2026-07-24T22:42:02.804554+00:00'
-updated_at: '2026-07-24T22:51:34.156636+00:00'
+updated_at: '2026-07-24T23:15:45.835660+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
