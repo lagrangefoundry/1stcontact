@@ -11,20 +11,1183 @@
       1280,
       1440
     ],
+    "background": "#e8dfd3",
     "root": {
       "kind": "box",
       "children": [
+        {
+          "kind": "box",
+          "id": "section-band-0",
+          "axes": {
+            "surfaceFill": "#030717"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 30,
+                "width": 320,
+                "height": 770
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 48,
+                "width": 375,
+                "height": 753
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 79,
+                "width": 768,
+                "height": 945
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 79,
+                "width": 1024,
+                "height": 689
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 79,
+                "width": 1280,
+                "height": 721
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 79,
+                "width": 1440,
+                "height": 821
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "section-band-1",
+          "axes": {
+            "surfaceFill": "#e8dfd3"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 896,
+                "width": 320,
+                "height": 812
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 896,
+                "width": 375,
+                "height": 688
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 1120,
+                "width": 768,
+                "height": 517
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 864,
+                "width": 1024,
+                "height": 488
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 896,
+                "width": 1280,
+                "height": 488
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 996,
+                "width": 1440,
+                "height": 488
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "section-band-2",
+          "axes": {
+            "surfaceFill": "#d9ccba"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 1708,
+                "width": 320,
+                "height": 1214
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 1584,
+                "width": 375,
+                "height": 1130
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 1637,
+                "width": 768,
+                "height": 705
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 1352,
+                "width": 1024,
+                "height": 595
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 1384,
+                "width": 1280,
+                "height": 595
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 1484,
+                "width": 1440,
+                "height": 595
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "section-band-3",
+          "axes": {
+            "surfaceFill": "#e8dfd3"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 2922,
+                "width": 320,
+                "height": 2255
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 2714,
+                "width": 375,
+                "height": 1990
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 2342,
+                "width": 768,
+                "height": 1339
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 1946,
+                "width": 1024,
+                "height": 1257
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 1978,
+                "width": 1280,
+                "height": 1257
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 2078,
+                "width": 1440,
+                "height": 1257
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "section-band-4",
+          "axes": {
+            "surfaceFill": "#d9ccba"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 5177,
+                "width": 320,
+                "height": 1747
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 4704,
+                "width": 375,
+                "height": 1659
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 3680,
+                "width": 768,
+                "height": 1102
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 3203,
+                "width": 1024,
+                "height": 1073
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 3235,
+                "width": 1280,
+                "height": 1073
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 3335,
+                "width": 1440,
+                "height": 1073
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "section-band-5",
+          "axes": {
+            "surfaceFill": "#0f172b"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 6924,
+                "width": 320,
+                "height": 104
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 6363,
+                "width": 375,
+                "height": 104
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 4782,
+                "width": 768,
+                "height": 68
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 4276,
+                "width": 1024,
+                "height": 68
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 4308,
+                "width": 1280,
+                "height": 68
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 4408,
+                "width": 1440,
+                "height": 68
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "section-bg-0",
+          "axes": {
+            "backgroundImageUrl": "https://gigabytealchemy.ai/images/AlchemistLabWithTech.png"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 0,
+                "width": 320,
+                "height": 800
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 0,
+                "width": 375,
+                "height": 800
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 0,
+                "width": 768,
+                "height": 1024
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 0,
+                "width": 1024,
+                "height": 768
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 0,
+                "width": 1440,
+                "height": 900
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-4",
+          "axes": {
+            "surfaceFill": "#f8f5f2",
+            "borderLeft": {
+              "widthPx": 4,
+              "color": "#ffb900"
+            }
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 47,
+                "y": 3202,
+                "width": 230,
+                "height": 640
+              },
+              {
+                "at": 375,
+                "x": 47,
+                "y": 2929,
+                "width": 285,
+                "height": 566
+              },
+              {
+                "at": 768,
+                "x": 47,
+                "y": 2531,
+                "width": 678,
+                "height": 320
+              },
+              {
+                "at": 1024,
+                "x": 47,
+                "y": 2106,
+                "width": 854,
+                "height": 294
+              },
+              {
+                "at": 1280,
+                "x": 111,
+                "y": 2138,
+                "width": 854,
+                "height": 294
+              },
+              {
+                "at": 1440,
+                "x": 191,
+                "y": 2238,
+                "width": 854,
+                "height": 294
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-5",
+          "axes": {
+            "surfaceFill": "#f8f5f2",
+            "borderLeft": {
+              "widthPx": 4,
+              "color": "#50a2ff"
+            }
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 47,
+                "y": 3912,
+                "width": 230,
+                "height": 624
+              },
+              {
+                "at": 375,
+                "x": 47,
+                "y": 3565,
+                "width": 285,
+                "height": 550
+              },
+              {
+                "at": 768,
+                "x": 47,
+                "y": 2921,
+                "width": 678,
+                "height": 294
+              },
+              {
+                "at": 1024,
+                "x": 47,
+                "y": 2470,
+                "width": 854,
+                "height": 294
+              },
+              {
+                "at": 1280,
+                "x": 111,
+                "y": 2502,
+                "width": 854,
+                "height": 294
+              },
+              {
+                "at": 1440,
+                "x": 191,
+                "y": 2602,
+                "width": 854,
+                "height": 294
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-6",
+          "axes": {
+            "surfaceFill": "#e8dfd3",
+            "surfaceGradient": {
+              "angleDeg": 135,
+              "stops": [
+                {
+                  "color": "#f1f5f9",
+                  "position": 0
+                },
+                {
+                  "color": "#e2e8f0",
+                  "position": 100
+                }
+              ]
+            },
+            "borderLeft": {
+              "widthPx": 4,
+              "color": "#90a1b9"
+            }
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 33,
+                "y": 4592,
+                "width": 258,
+                "height": 388
+              },
+              {
+                "at": 375,
+                "x": 33,
+                "y": 4171,
+                "width": 313,
+                "height": 336
+              },
+              {
+                "at": 768,
+                "x": 33,
+                "y": 3271,
+                "width": 706,
+                "height": 212
+              },
+              {
+                "at": 1024,
+                "x": 33,
+                "y": 2820,
+                "width": 882,
+                "height": 186
+              },
+              {
+                "at": 1280,
+                "x": 97,
+                "y": 2852,
+                "width": 882,
+                "height": 186
+              },
+              {
+                "at": 1440,
+                "x": 177,
+                "y": 2952,
+                "width": 882,
+                "height": 186
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-0",
+          "axes": {
+            "surfaceFill": "#d9ccba",
+            "borderLeft": {
+              "widthPx": 4,
+              "color": "#00d492"
+            }
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 37,
+                "y": 2598,
+                "width": 274,
+                "height": 147
+              },
+              {
+                "at": 375,
+                "x": 37,
+                "y": 2419,
+                "width": 329,
+                "height": 118
+              },
+              {
+                "at": 768,
+                "x": 37,
+                "y": 2076,
+                "width": 722,
+                "height": 89
+              },
+              {
+                "at": 1024,
+                "x": 37,
+                "y": 1710,
+                "width": 898,
+                "height": 59
+              },
+              {
+                "at": 1280,
+                "x": 101,
+                "y": 1742,
+                "width": 898,
+                "height": 59
+              },
+              {
+                "at": 1440,
+                "x": 181,
+                "y": 1842,
+                "width": 898,
+                "height": 59
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-7",
+          "axes": {
+            "surfaceFill": "#d9ccba",
+            "borderLeft": {
+              "widthPx": 4,
+              "color": "#ffb900"
+            }
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 37,
+                "y": 5778,
+                "width": 274,
+                "height": 147
+              },
+              {
+                "at": 375,
+                "x": 37,
+                "y": 5246,
+                "width": 329,
+                "height": 118
+              },
+              {
+                "at": 768,
+                "x": 37,
+                "y": 3993,
+                "width": 722,
+                "height": 89
+              },
+              {
+                "at": 1024,
+                "x": 37,
+                "y": 3516,
+                "width": 898,
+                "height": 59
+              },
+              {
+                "at": 1280,
+                "x": 101,
+                "y": 3548,
+                "width": 898,
+                "height": 59
+              },
+              {
+                "at": 1440,
+                "x": 181,
+                "y": 3648,
+                "width": 898,
+                "height": 59
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-1",
+          "axes": {
+            "surfaceFill": "#ece6dd"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 32,
+                "y": 1941,
+                "width": 256,
+                "height": 176
+              },
+              {
+                "at": 375,
+                "x": 32,
+                "y": 1788,
+                "width": 311,
+                "height": 176
+              },
+              {
+                "at": 768,
+                "x": 32,
+                "y": 1815,
+                "width": 203,
+                "height": 228
+              },
+              {
+                "at": 1024,
+                "x": 32,
+                "y": 1501,
+                "width": 261,
+                "height": 176
+              },
+              {
+                "at": 1280,
+                "x": 96,
+                "y": 1533,
+                "width": 261,
+                "height": 176
+              },
+              {
+                "at": 1440,
+                "x": 176,
+                "y": 1633,
+                "width": 261,
+                "height": 176
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-2",
+          "axes": {
+            "surfaceFill": "#ece6dd"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 32,
+                "y": 2165,
+                "width": 256,
+                "height": 176
+              },
+              {
+                "at": 375,
+                "x": 32,
+                "y": 2012,
+                "width": 311,
+                "height": 150
+              },
+              {
+                "at": 768,
+                "x": 283,
+                "y": 1815,
+                "width": 203,
+                "height": 202
+              },
+              {
+                "at": 1024,
+                "x": 341,
+                "y": 1501,
+                "width": 261,
+                "height": 176
+              },
+              {
+                "at": 1280,
+                "x": 405,
+                "y": 1533,
+                "width": 261,
+                "height": 176
+              },
+              {
+                "at": 1440,
+                "x": 485,
+                "y": 1633,
+                "width": 261,
+                "height": 176
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-3",
+          "axes": {
+            "surfaceFill": "#ece6dd"
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 32,
+                "y": 2389,
+                "width": 256,
+                "height": 176
+              },
+              {
+                "at": 375,
+                "x": 32,
+                "y": 2210,
+                "width": 311,
+                "height": 176
+              },
+              {
+                "at": 768,
+                "x": 533,
+                "y": 1815,
+                "width": 203,
+                "height": 202
+              },
+              {
+                "at": 1024,
+                "x": 651,
+                "y": 1501,
+                "width": 261,
+                "height": 176
+              },
+              {
+                "at": 1280,
+                "x": 715,
+                "y": 1533,
+                "width": 261,
+                "height": 176
+              },
+              {
+                "at": 1440,
+                "x": 795,
+                "y": 1633,
+                "width": 261,
+                "height": 176
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-9",
+          "axes": {
+            "surfaceFill": "#0f172b",
+            "borderRadiusPx": 8
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 6676,
+                "width": 320,
+                "height": 96
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 6115,
+                "width": 375,
+                "height": 96
+              },
+              {
+                "at": 768,
+                "x": 384,
+                "y": 4534,
+                "width": 221,
+                "height": 96
+              },
+              {
+                "at": 1024,
+                "x": 512,
+                "y": 4028,
+                "width": 221,
+                "height": 96
+              },
+              {
+                "at": 1280,
+                "x": 640,
+                "y": 4060,
+                "width": 221,
+                "height": 96
+              },
+              {
+                "at": 1440,
+                "x": 720,
+                "y": 4160,
+                "width": 221,
+                "height": 96
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-8",
+          "axes": {
+            "surfaceFill": "#009966",
+            "borderRadiusPx": 8
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": -1,
+                "y": 6279,
+                "width": 322,
+                "height": 98
+              },
+              {
+                "at": 375,
+                "x": -1,
+                "y": 5718,
+                "width": 377,
+                "height": 98
+              },
+              {
+                "at": 768,
+                "x": 220,
+                "y": 4377,
+                "width": 173,
+                "height": 100
+              },
+              {
+                "at": 1024,
+                "x": 324,
+                "y": 3843,
+                "width": 173,
+                "height": 100
+              },
+              {
+                "at": 1280,
+                "x": 388,
+                "y": 3875,
+                "width": 173,
+                "height": 100
+              },
+              {
+                "at": 1440,
+                "x": 468,
+                "y": 3975,
+                "width": 173,
+                "height": 100
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
         {
           "kind": "text",
           "text": "Gigabyte Alchemy",
           "axes": {
             "color": "#000000",
-            "fontFamily": "Cinzel",
+            "fontFamily": "Cinzel, serif",
             "fontSizePx": 72,
             "fontWeight": 600,
             "lineHeightPx": 90,
             "letterSpacingPx": -1.8,
-            "textAlign": "left"
+            "textAlign": "left",
+            "gradientFill": {
+              "angleDeg": 90,
+              "stops": [
+                {
+                  "color": "#f5e6a3",
+                  "position": 0
+                },
+                {
+                  "color": "#f5e6a3",
+                  "position": 60
+                },
+                {
+                  "color": "#ff8c42",
+                  "position": 90
+                },
+                {
+                  "color": "#ff6b35",
+                  "position": 100
+                }
+              ]
+            }
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 36
+                },
+                {
+                  "at": 375,
+                  "value": 36
+                },
+                {
+                  "at": 768,
+                  "value": 72
+                },
+                {
+                  "at": 1024,
+                  "value": 72
+                },
+                {
+                  "at": 1280,
+                  "value": 72
+                },
+                {
+                  "at": 1440,
+                  "value": 72
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 45
+                },
+                {
+                  "at": 375,
+                  "value": 45
+                },
+                {
+                  "at": 768,
+                  "value": 90
+                },
+                {
+                  "at": 1024,
+                  "value": 90
+                },
+                {
+                  "at": 1280,
+                  "value": 90
+                },
+                {
+                  "at": 1440,
+                  "value": 90
+                }
+              ]
+            },
+            "letterSpacingPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": -0.9
+                },
+                {
+                  "at": 375,
+                  "value": -0.9
+                },
+                {
+                  "at": 768,
+                  "value": -1.8
+                },
+                {
+                  "at": 1024,
+                  "value": -1.8
+                },
+                {
+                  "at": 1280,
+                  "value": -1.8
+                },
+                {
+                  "at": 1440,
+                  "value": -1.8
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -79,12 +1242,98 @@
           "text": "Intentional Software",
           "axes": {
             "color": "#fbba72",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 36,
             "fontWeight": 700,
             "lineHeightPx": 40,
             "letterSpacingPx": -0.9,
             "textAlign": "left"
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 30
+                },
+                {
+                  "at": 375,
+                  "value": 30
+                },
+                {
+                  "at": 768,
+                  "value": 36
+                },
+                {
+                  "at": 1024,
+                  "value": 36
+                },
+                {
+                  "at": 1280,
+                  "value": 36
+                },
+                {
+                  "at": 1440,
+                  "value": 36
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 36
+                },
+                {
+                  "at": 375,
+                  "value": 36
+                },
+                {
+                  "at": 768,
+                  "value": 40
+                },
+                {
+                  "at": 1024,
+                  "value": 40
+                },
+                {
+                  "at": 1280,
+                  "value": 40
+                },
+                {
+                  "at": 1440,
+                  "value": 40
+                }
+              ]
+            },
+            "letterSpacingPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": -0.75
+                },
+                {
+                  "at": 375,
+                  "value": -0.75
+                },
+                {
+                  "at": 768,
+                  "value": -0.9
+                },
+                {
+                  "at": 1024,
+                  "value": -0.9
+                },
+                {
+                  "at": 1280,
+                  "value": -0.9
+                },
+                {
+                  "at": 1440,
+                  "value": -0.9
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -139,12 +1388,70 @@
           "text": "Tools for clarity, presence, and positive connection",
           "axes": {
             "color": "#f5e6a3",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 24,
             "fontWeight": 300,
             "lineHeightPx": 32,
             "letterSpacingPx": 0,
             "textAlign": "left"
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 20
+                },
+                {
+                  "at": 375,
+                  "value": 20
+                },
+                {
+                  "at": 768,
+                  "value": 24
+                },
+                {
+                  "at": 1024,
+                  "value": 24
+                },
+                {
+                  "at": 1280,
+                  "value": 24
+                },
+                {
+                  "at": 1440,
+                  "value": 24
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 28
+                },
+                {
+                  "at": 375,
+                  "value": 28
+                },
+                {
+                  "at": 768,
+                  "value": 32
+                },
+                {
+                  "at": 1024,
+                  "value": 32
+                },
+                {
+                  "at": 1280,
+                  "value": 32
+                },
+                {
+                  "at": 1440,
+                  "value": 32
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -199,7 +1506,7 @@
           "text": "We're a software studio building technology to elevate—not just engage. Tools that help you access your wisdom, create inner space, and cultivate positive connection—with yourself and others.",
           "axes": {
             "color": "#f5e6a3",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -259,12 +1566,70 @@
           "text": "A Different Approach",
           "axes": {
             "color": "#000000",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 36,
             "fontWeight": 700,
             "lineHeightPx": 40,
             "letterSpacingPx": 0,
             "textAlign": "left"
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 30
+                },
+                {
+                  "at": 375,
+                  "value": 30
+                },
+                {
+                  "at": 768,
+                  "value": 36
+                },
+                {
+                  "at": 1024,
+                  "value": 36
+                },
+                {
+                  "at": 1280,
+                  "value": 36
+                },
+                {
+                  "at": 1440,
+                  "value": 36
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 36
+                },
+                {
+                  "at": 375,
+                  "value": 36
+                },
+                {
+                  "at": 768,
+                  "value": 40
+                },
+                {
+                  "at": 1024,
+                  "value": 40
+                },
+                {
+                  "at": 1280,
+                  "value": 40
+                },
+                {
+                  "at": 1440,
+                  "value": 40
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -319,7 +1684,7 @@
           "text": "Most apps are designed to capture attention, harvest data, and keep you scrolling. We build tools designed differently.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -379,7 +1744,7 @@
           "text": "Through privacy-first AI and thoughtful design, we create software grounded in human sovereignty—protecting your privacy, respecting your attention, and supporting your self-knowledge.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -439,7 +1804,7 @@
           "text": "We work at the intersection of cutting-edge engineering and human-centered design—building technology that serves rather than extracts.",
           "axes": {
             "color": "#45556c",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -500,12 +1865,70 @@
           "text": "Our Mission",
           "axes": {
             "color": "#000000",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 36,
             "fontWeight": 700,
             "lineHeightPx": 40,
             "letterSpacingPx": 0,
             "textAlign": "left"
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 30
+                },
+                {
+                  "at": 375,
+                  "value": 30
+                },
+                {
+                  "at": 768,
+                  "value": 36
+                },
+                {
+                  "at": 1024,
+                  "value": 36
+                },
+                {
+                  "at": 1280,
+                  "value": 36
+                },
+                {
+                  "at": 1440,
+                  "value": 36
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 36
+                },
+                {
+                  "at": 375,
+                  "value": 36
+                },
+                {
+                  "at": 768,
+                  "value": 40
+                },
+                {
+                  "at": 1024,
+                  "value": 40
+                },
+                {
+                  "at": 1280,
+                  "value": 40
+                },
+                {
+                  "at": 1440,
+                  "value": 40
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -560,7 +1983,7 @@
           "text": "Our work is guided by a simple belief: the world needs more presence, positivity, and human connection.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -620,7 +2043,7 @@
           "text": "These aren't just features—they're foundations. Every tool we build starts with these principles.",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 500,
             "lineHeightPx": 29,
@@ -680,7 +2103,7 @@
           "text": "Presence",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
             "fontWeight": 600,
             "lineHeightPx": 28,
@@ -740,7 +2163,7 @@
           "text": "Technology that creates inner space for clarity and insight, helping you access what you know but can't easily reach",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 26,
@@ -800,7 +2223,7 @@
           "text": "Positivity",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
             "fontWeight": 600,
             "lineHeightPx": 28,
@@ -860,7 +2283,7 @@
           "text": "Tools that elevate mood and perspective, supporting gratitude, joy, and emotional well-being",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 26,
@@ -920,7 +2343,7 @@
           "text": "Connection",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
             "fontWeight": 600,
             "lineHeightPx": 28,
@@ -980,7 +2403,7 @@
           "text": "Technology that brings people together to create positive experiences and meaningful interactions",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 26,
@@ -1040,12 +2463,70 @@
           "text": "What We're Building",
           "axes": {
             "color": "#000000",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 36,
             "fontWeight": 700,
             "lineHeightPx": 40,
             "letterSpacingPx": 0,
             "textAlign": "left"
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 30
+                },
+                {
+                  "at": 375,
+                  "value": 30
+                },
+                {
+                  "at": 768,
+                  "value": 36
+                },
+                {
+                  "at": 1024,
+                  "value": 36
+                },
+                {
+                  "at": 1280,
+                  "value": 36
+                },
+                {
+                  "at": 1440,
+                  "value": 36
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 36
+                },
+                {
+                  "at": 375,
+                  "value": 36
+                },
+                {
+                  "at": 768,
+                  "value": 40
+                },
+                {
+                  "at": 1024,
+                  "value": 40
+                },
+                {
+                  "at": 1280,
+                  "value": 40
+                },
+                {
+                  "at": 1440,
+                  "value": 40
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -1100,7 +2581,7 @@
           "text": "From personal reflection tools to developer platforms, our work spans the spectrum of human experience.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -1160,7 +2641,7 @@
           "text": "Sanctum Voice",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 24,
             "fontWeight": 700,
             "lineHeightPx": 32,
@@ -1220,12 +2701,14 @@
           "text": "In development",
           "axes": {
             "color": "#007a55",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
             "fontWeight": 500,
             "lineHeightPx": 20,
             "letterSpacingPx": 0,
-            "textAlign": "left"
+            "textAlign": "left",
+            "surfaceFill": "#d0fae5",
+            "borderRadiusPx": 100000
           },
           "geometry": {
             "keyframes": [
@@ -1273,6 +2756,12 @@
               "interpolate",
               "interpolate"
             ]
+          },
+          "padding": {
+            "topPx": 4,
+            "rightPx": 12,
+            "bottomPx": 4,
+            "leftPx": 12
           }
         },
         {
@@ -1280,7 +2769,7 @@
           "text": "Your private space to think out loud",
           "axes": {
             "color": "#45556c",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 28,
@@ -1341,7 +2830,7 @@
           "text": "A voice-first app that helps you access clarity. Use it to work through decisions, prepare for difficult conversations, process your day, or simply explore what you're thinking and feeling.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 26,
@@ -1401,7 +2890,7 @@
           "text": "XGD (Extreme Generative Development)",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 24,
             "fontWeight": 700,
             "lineHeightPx": 32,
@@ -1461,12 +2950,14 @@
           "text": "Coming soon",
           "axes": {
             "color": "#1447e6",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
             "fontWeight": 500,
             "lineHeightPx": 20,
             "letterSpacingPx": 0,
-            "textAlign": "left"
+            "textAlign": "left",
+            "surfaceFill": "#dbeafe",
+            "borderRadiusPx": 100000
           },
           "geometry": {
             "keyframes": [
@@ -1514,6 +3005,12 @@
               "interpolate",
               "interpolate"
             ]
+          },
+          "padding": {
+            "topPx": 4,
+            "rightPx": 12,
+            "bottomPx": 4,
+            "leftPx": 12
           }
         },
         {
@@ -1521,7 +3018,7 @@
           "text": "AI-powered development methodology and tools",
           "axes": {
             "color": "#45556c",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 28,
@@ -1582,7 +3079,7 @@
           "text": "An open-source platform and methodology for hands-off software development, empowering developers to build faster while maintaining quality and control.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 26,
@@ -1642,7 +3139,7 @@
           "text": "✓",
           "axes": {
             "color": "#2b7fff",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -1702,7 +3199,7 @@
           "text": "✓",
           "axes": {
             "color": "#2b7fff",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -1762,7 +3259,7 @@
           "text": "✓",
           "axes": {
             "color": "#2b7fff",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -1822,7 +3319,7 @@
           "text": "✓",
           "axes": {
             "color": "#00bc7d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -1882,7 +3379,7 @@
           "text": "✓",
           "axes": {
             "color": "#00bc7d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -1942,7 +3439,7 @@
           "text": "✓",
           "axes": {
             "color": "#00bc7d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -2002,7 +3499,7 @@
           "text": "Designed for developers building AI-enhanced workflows",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -2062,7 +3559,7 @@
           "text": "Open source and community-driven",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -2122,7 +3619,7 @@
           "text": "Practical tools for modern software development",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -2182,7 +3679,7 @@
           "text": "What We're Exploring",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
             "fontWeight": 700,
             "lineHeightPx": 28,
@@ -2242,7 +3739,7 @@
           "text": "We're also developing technology that brings people together to create positive experiences—tools that strengthen real-world connection and foster meaningful interactions between friends and strangers alike.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 26,
@@ -2302,7 +3799,7 @@
           "text": "More to come as these ideas take shape.",
           "axes": {
             "color": "#45556c",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
             "fontWeight": 400,
             "lineHeightPx": 20,
@@ -2363,7 +3860,7 @@
           "text": "Completely on-device—your thoughts never leave your phone",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -2423,7 +3920,7 @@
           "text": "Creates space for deeper reflection and insight",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -2483,7 +3980,7 @@
           "text": "Optional modules for journaling, dreams, gratitude, and personal growth",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 400,
             "lineHeightPx": 24,
@@ -2543,12 +4040,70 @@
           "text": "The Alchemy",
           "axes": {
             "color": "#000000",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 36,
             "fontWeight": 700,
             "lineHeightPx": 40,
             "letterSpacingPx": 0,
             "textAlign": "left"
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 30
+                },
+                {
+                  "at": 375,
+                  "value": 30
+                },
+                {
+                  "at": 768,
+                  "value": 36
+                },
+                {
+                  "at": 1024,
+                  "value": 36
+                },
+                {
+                  "at": 1280,
+                  "value": 36
+                },
+                {
+                  "at": 1440,
+                  "value": 36
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 36
+                },
+                {
+                  "at": 375,
+                  "value": 36
+                },
+                {
+                  "at": 768,
+                  "value": 40
+                },
+                {
+                  "at": 1024,
+                  "value": 40
+                },
+                {
+                  "at": 1280,
+                  "value": 40
+                },
+                {
+                  "at": 1440,
+                  "value": 40
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -2603,7 +4158,7 @@
           "text": "Our name isn't accidental. Alchemy, at its essence, is about transformation—turning lead into gold, base matter into perfection.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -2663,7 +4218,7 @@
           "text": "But the deepest alchemical tradition was never really about metals. It was about the self—the work of refining, clarifying, and discovering the gold that's already within.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -2723,7 +4278,7 @@
           "text": "That's what we're building: technology for self-transformation. Tools that help you separate signal from noise, access buried wisdom, and become more fully yourself.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 29,
@@ -2783,7 +4338,7 @@
           "text": "We're not trying to change you. We're creating space for you to discover what's already there.",
           "axes": {
             "color": "#1d293d",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 500,
             "lineHeightPx": 29,
@@ -2844,12 +4399,70 @@
           "text": "Get in touch",
           "axes": {
             "color": "#000000",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 36,
             "fontWeight": 700,
             "lineHeightPx": 40,
             "letterSpacingPx": 0,
             "textAlign": "left"
+          },
+          "responsive": {
+            "fontSizePx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 30
+                },
+                {
+                  "at": 375,
+                  "value": 30
+                },
+                {
+                  "at": 768,
+                  "value": 36
+                },
+                {
+                  "at": 1024,
+                  "value": 36
+                },
+                {
+                  "at": 1280,
+                  "value": 36
+                },
+                {
+                  "at": 1440,
+                  "value": 36
+                }
+              ]
+            },
+            "lineHeightPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 36
+                },
+                {
+                  "at": 375,
+                  "value": 36
+                },
+                {
+                  "at": 768,
+                  "value": 40
+                },
+                {
+                  "at": 1024,
+                  "value": 40
+                },
+                {
+                  "at": 1280,
+                  "value": 40
+                },
+                {
+                  "at": 1440,
+                  "value": 40
+                }
+              ]
+            }
           },
           "geometry": {
             "keyframes": [
@@ -2904,7 +4517,7 @@
           "text": "Join our mailing list for updates on our work.",
           "axes": {
             "color": "#314158",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
             "fontWeight": 400,
             "lineHeightPx": 28,
@@ -2964,7 +4577,7 @@
           "text": "Subscribe",
           "axes": {
             "color": "#ffffff",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 500,
             "lineHeightPx": 24,
@@ -3017,6 +4630,12 @@
               "interpolate",
               "interpolate"
             ]
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 24,
+            "bottomPx": 12,
+            "leftPx": 24
           }
         },
         {
@@ -3024,7 +4643,7 @@
           "text": "Send message",
           "axes": {
             "color": "#ffffff",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
             "fontWeight": 500,
             "lineHeightPx": 24,
@@ -3077,6 +4696,12 @@
               "interpolate",
               "interpolate"
             ]
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 32,
+            "bottomPx": 12,
+            "leftPx": 32
           }
         },
         {
@@ -3084,7 +4709,7 @@
           "text": "Protected by Cloudflare Turnstile.",
           "axes": {
             "color": "#62748e",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 12,
             "fontWeight": 400,
             "lineHeightPx": 16,
@@ -3144,7 +4769,7 @@
           "text": "© Gigabyte Alchemy 2025",
           "axes": {
             "color": "#90a1b9",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
             "fontWeight": 400,
             "lineHeightPx": 20,
@@ -3204,7 +4829,7 @@
           "text": "LinkedIn",
           "axes": {
             "color": "#90a1b9",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
             "fontWeight": 400,
             "lineHeightPx": 20,
@@ -3264,7 +4889,7 @@
           "text": "GitHub",
           "axes": {
             "color": "#90a1b9",
-            "fontFamily": "ui-sans-serif",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
             "fontWeight": 400,
             "lineHeightPx": 20,

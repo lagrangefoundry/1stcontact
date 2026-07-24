@@ -296,6 +296,22 @@ export const EXTRACT_SCRIPT = `(() => {
   function primaryFamily(ff) {
     return (ff || '').split(',')[0].trim().replace(/^['"]|['"]$/g, '');
   }
+  // BUG-16 -- the run's font-family must round-trip as the FULL stack, not just
+  // its first token. Truncating to the primary family drops every fallback. An
+  // unmatched family name is still VALID CSS -- it simply resolves to no font --
+  // so a reproduction that emits the lone first token has nothing left to fall
+  // back to and silently paints the document default (serif). Tailwind's
+  // ui-sans-serif stack is the common case: the first token resolves only where
+  // the engine implements that generic, and the rest of the stack is what makes
+  // it robust. Keep the stack CSS-faithful (per L1, DOC-23) and derive the
+  // primary only where a single NAME is required (face load-check, @font-face).
+  function familyStack(ff) {
+    return (ff || '')
+      .split(',')
+      .map(function (t) { return t.trim().replace(/^['"]|['"]$/g, ''); })
+      .filter(Boolean)
+      .join(', ');
+  }
   // REQ-48 (item 7) -- did the intended named face actually resolve, or is the
   // browser painting a fallback with different metrics? Generic keywords need no
   // load (always true). A named face is checked against the loaded FontFaceSet;
@@ -335,6 +351,88 @@ export const EXTRACT_SCRIPT = `(() => {
   function absBox(el) {
     var r = el.getBoundingClientRect();
     return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+  }
+  // REQ-88 / BUG-19 / BUG-20 -- the SURFACE CHAIN behind a run.
+  //
+  // "What is painted behind this text?" was answered by walking parentElement.
+  // That is a proxy that only holds when the painting box is a DOM *ancestor*.
+  // An L1 reproduction paints its bands and cards as absolutely-positioned
+  // SIBLINGS of the text, so the ancestor walk skips every card and lands on the
+  // body backstop -- reporting the page fill for all 37 runs and no accent bar at
+  // all, while the pixels were in fact correct. The diff then scored ~60 phantom
+  // defects and hid the real ones.
+  //
+  // The truthful definition is geometric: the painted boxes that CONTAIN the run,
+  // tightest first. That answer is identical on a conventionally-nested page (an
+  // ancestor contains its descendant), so the reference side is unchanged, while a
+  // sibling-painted reproduction now measures what it actually renders. DOM
+  // ancestors are unioned in because containment is not guaranteed (negative
+  // margins, overflow) and an ancestor paints behind its child regardless.
+  var SURFACE_INDEX = null;
+  function paintedSurfaces() {
+    if (SURFACE_INDEX) return SURFACE_INDEX;
+    SURFACE_INDEX = [];
+    var all = document.body ? document.body.querySelectorAll('*') : [];
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      var cs = getComputedStyle(el);
+      var fill = rgbaOf(cs.backgroundColor);
+      var blw = Math.round(parseFloat(cs.borderLeftWidth)) || 0;
+      var hasBar = blw > 0 && cs.borderLeftStyle && cs.borderLeftStyle !== 'none';
+      // A gradient panel paints a background-IMAGE over a transparent
+      // background-color. It must be indexed too, or the tightest-first order is
+      // wrong: the opaque band BEHIND the panel would be reached first and
+      // surfaceGradientOf would stop there, losing the panel's gradient (REQ-62).
+      var img = cs.backgroundImage || 'none';
+      var hasImage = img !== 'none' && img !== '';
+      if ((!fill || fill[3] <= 0) && !hasBar && !hasImage) continue;
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      var b = absBox(el);
+      if (b.width <= 0 || b.height <= 0) continue;
+      SURFACE_INDEX.push({ el: el, box: b, area: b.width * b.height });
+    }
+    SURFACE_INDEX.sort(function (a, b) { return a.area - b.area; });
+    return SURFACE_INDEX;
+  }
+  /** Does the outer box contain the inner box (1px sub-pixel layout tolerance)? */
+  function boxContains(outer, inner) {
+    return outer.x - 1 <= inner.x &&
+      outer.y - 1 <= inner.y &&
+      outer.x + outer.width + 1 >= inner.x + inner.width &&
+      outer.y + outer.height + 1 >= inner.y + inner.height;
+  }
+  /**
+   * The elements painting behind a run, tightest first: geometric containers
+   * unioned with DOM ancestors, both excluding the run itself. Bounded so a
+   * pathological DOM cannot stall extraction.
+   */
+  function surfaceChain(el) {
+    var box = absBox(el);
+    var chain = [];
+    var seen = [];
+    function add(node) {
+      if (!node || node === el || node.nodeType !== 1) return;
+      if (seen.indexOf(node) !== -1) return;
+      seen.push(node);
+      chain.push(node);
+    }
+    var idx = paintedSurfaces();
+    for (var i = 0; i < idx.length && chain.length < 24; i++) {
+      if (idx[i].el !== el && boxContains(idx[i].box, box)) add(idx[i].el);
+    }
+    // Ancestors last: any that also contains the run is already placed tighter-first
+    // above; this only appends ones geometric containment missed.
+    var node = el.parentElement;
+    for (var j = 0; j < 12 && node && node.nodeType === 1; j++) {
+      add(node);
+      node = node.parentElement;
+    }
+    return chain;
+  }
+  /** The surface chain INCLUDING the run's own element, which may paint its own
+   *  fill, gradient or accent bar (a callout paragraph carrying its own border-left). */
+  function surfaceChainWithSelf(el) {
+    return [el].concat(surfaceChain(el));
   }
   // REQ-58 (T1) — tight bounds around the element's *rendered text*, via a Range
   // over its contents. Unlike the element box (which includes padding and, for a
@@ -381,17 +479,21 @@ export const EXTRACT_SCRIPT = `(() => {
   // element. Reading border-left off the run alone captured none, and the missing
   // bar was invisible to the diff. Walk a few ancestors so the treatment is found
   // where the reference actually paints it.
+  // REQ-88: resolved over the geometric surfaceChain, not a parentElement walk, so
+  // a bar painted on a sibling backing box (an L1 reproduction) is found where the
+  // reference paints it on a wrapper. Bounded to the 4 tightest surfaces, matching
+  // the original walk depth: an accent belongs to the run's own card, not the page.
   function accentBarOf(el) {
-    var node = el;
-    for (var i = 0; i < 4 && node && node !== document.body; i++) {
-      var cs = getComputedStyle(node);
+    var chain = surfaceChainWithSelf(el);
+    for (var i = 0; i < chain.length && i < 4; i++) {
+      if (chain[i] === document.body) break;
+      var cs = getComputedStyle(chain[i]);
       var w = Math.round(parseFloat(cs.borderLeftWidth)) || 0;
       var st = cs.borderLeftStyle;
       if (w > 0 && st && st !== 'none') {
         var c = rgbToHex(cs.borderLeftColor);
         if (c) return { width: w, color: c };
       }
-      node = node.parentElement;
     }
     return { width: 0, color: null };
   }
@@ -473,15 +575,17 @@ export const EXTRACT_SCRIPT = `(() => {
     // renders as a pale tint, yet its backgroundColor reads #ffffff — so
     // composite each ancestor's fill under the accumulated colour until it turns
     // opaque (or the html/body backstop is reached).
+    // REQ-88: composite over the geometric surfaceChain (tightest first) rather
+    // than parentElement, so a card painted as a sibling backing box is the
+    // surface, not the page backstop behind it.
     var acc = null; // [r,g,b,a], top layer first
-    var node = el;
-    for (var i = 0; i < 12 && node && node.nodeType === 1; i++) {
-      var c = rgbaOf(getComputedStyle(node).backgroundColor);
+    var chain = surfaceChainWithSelf(el);
+    for (var i = 0; i < chain.length; i++) {
+      var c = rgbaOf(getComputedStyle(chain[i]).backgroundColor);
       if (c && c[3] > 0) {
         acc = acc ? composite(acc, c) : c;
         if (acc[3] >= 0.999) break; // opaque — nothing behind shows through
       }
-      node = node.parentElement;
     }
     if (!acc || acc[3] <= 0) return null;
     return '#' + h2(acc[0]) + h2(acc[1]) + h2(acc[2]);
@@ -489,22 +593,21 @@ export const EXTRACT_SCRIPT = `(() => {
   // REQ-62 -- the panel/card GRADIENT fill behind a run, the sibling to the
   // composited solid surfaceFillOf. A gradient panel (bg-gradient-to-br from-…)
   // is a background-IMAGE over a transparent background-color, so surfaceFillOf
-  // composites straight past it and records the band. Walk the same ancestor
-  // chain and return the first painting ancestor's raw gradient CSS (normalized
-  // TS-side), skipping a text-fill gradient (background-clip:text -- that is the
-  // run's own text paint, captured by gradientCss, not a surface). Stop at the
-  // first OPAQUE solid fill: a gradient hidden behind it never shows through, so
-  // it is not the rendered surface.
+  // composites straight past it and records the band. Walk the same surface chain
+  // (REQ-88: geometric, tightest-first — not parentElement) and return the first
+  // painting surface's raw gradient CSS (normalized TS-side), skipping a text-fill
+  // gradient (background-clip:text -- that is the run's own text paint, captured by
+  // gradientCss, not a surface). Stop at the first OPAQUE solid fill: a gradient
+  // hidden behind it never shows through, so it is not the rendered surface.
   function surfaceGradientOf(el) {
-    var node = el;
-    for (var i = 0; i < 12 && node && node.nodeType === 1; i++) {
-      var gs = getComputedStyle(node);
+    var chain = surfaceChainWithSelf(el);
+    for (var i = 0; i < chain.length; i++) {
+      var gs = getComputedStyle(chain[i]);
       var img = gs.backgroundImage || 'none';
       var clip = gs.webkitBackgroundClip || gs.backgroundClip || '';
       if (/gradient\\(/.test(img) && clip !== 'text') return hexifyGradient(img);
       var c = rgbaOf(gs.backgroundColor);
       if (c && c[3] >= 0.999) return null; // opaque solid — nothing behind shows
-      node = node.parentElement;
     }
     return null;
   }
@@ -740,7 +843,7 @@ export const EXTRACT_SCRIPT = `(() => {
         text: text,
         color: resolvedColor || '#000000',
         colorInferred: !resolvedColor,
-        fontFamily: primaryFamily(s.fontFamily),
+        fontFamily: familyStack(s.fontFamily),
         fontLoaded: fontLoadedOf(s, primaryFamily(s.fontFamily), text),
         fontSizePx: Math.round(parseFloat(s.fontSize)),
         fontWeight: parseInt(s.fontWeight, 10) || 400,
@@ -928,7 +1031,7 @@ export const EXTRACT_SCRIPT = `(() => {
       backgroundColor: bg,
       backgroundImage: s.backgroundImage || 'none',
       colorScheme: luminance(bg) < 0.5 ? 'dark' : 'light',
-      fontFamily: primaryFamily(s.fontFamily),
+      fontFamily: familyStack(s.fontFamily),
       textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',
       paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
       paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,

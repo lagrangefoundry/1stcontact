@@ -851,11 +851,13 @@ export function flattenCapture(capture: Capture): ValueManifest {
       // so text-align is comparable here; section padding stays undefined (ladder only).
       textAlign: section.layout.contentAlign,
     }
+    // REQ-88 — the section box is geometry every section has; carry it always so
+    // the fold can bound a band at a real section edge (see `flattenSignals`).
+    sv.box = section.box
     // BUG-13 — a band background image is mirrored-local (`background.image`) when
-    // the band paints one; carry it + the band box so the fold can place it.
+    // the band paints one; carry it so the fold can place it.
     if (section.background.kind === 'image' && section.background.image && isSafeUrl(section.background.image)) {
       sv.backgroundImageUrl = section.background.image
-      sv.box = section.box
     }
     return sv
   })
@@ -895,15 +897,18 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
       paddingBottomPx: band.paddingBottomPx,
       textAlign: band.textAlign,
     }
+    // REQ-88 — the band's own box is section GEOMETRY, not image metadata. It was
+    // only carried when the band painted a background image, so the fold had
+    // boundaries for image sections alone and had to guess every other one from
+    // where the next paragraph started — tiling bands over the section below.
+    // Carry it always; the image URL below stays independently gated.
+    sv.box = band.box
     // BUG-13 — a band's CSS `background-image` (the page's hero/section imagery,
     // never an `<img>`) → foldable section-background box. The raw absolute URL is
     // carried through exactly like a media `src` (REQ-92); downstream asset
     // mirroring localizes it. Unsafe schemes are dropped by `bandBackgroundImageUrl`.
     const bgUrl = bandBackgroundImageUrl(band.backgroundImage)
-    if (bgUrl) {
-      sv.backgroundImageUrl = bgUrl
-      sv.box = band.box
-    }
+    if (bgUrl) sv.backgroundImageUrl = bgUrl
     return sv
   })
   for (const band of signals.bands) {

@@ -101,7 +101,10 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
       const res = await reextractFromBundle(XORIGIN_BUNDLE, { cwd })
       const hero = runByText(res.capture, 'Gigabyte Alchemy')
       expect(hero, 'hero heading run re-extracted').toBeDefined()
-      expect(hero!.fontFamily).toBe('Alchemy')
+      // BUG-16 — the run carries the FULL declared stack, not just its first
+      // token: dropping the fallbacks leaves a reproduction with nothing to fall
+      // back to when the primary face resolves to no font.
+      expect(hero!.fontFamily).toBe('Alchemy, serif')
       // `fontLoaded` is recorded sparsely — only `false` is stored — so a resolved
       // face is "never false". The mirror loaded ⇒ not false.
       expect(hero!.fontLoaded).not.toBe(false)
@@ -143,8 +146,8 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
       const { capture } = await cmdCapturePage(`${server.origin}/webfont.html`, { cwd })
       const hero = runByText(capture, 'Gigabyte Alchemy')
       const deep = runByText(capture, 'Deep Below Fold Heading')
-      expect(hero?.fontFamily).toBe('Alchemy')
-      expect(deep?.fontFamily).toBe('Alchemy')
+      expect(hero?.fontFamily).toBe('Alchemy, serif')
+      expect(deep?.fontFamily).toBe('Alchemy, serif')
       const fellBack = allRuns(capture).filter((r) => r.fontLoaded === false).map((r) => r.text)
       expect(fellBack).toEqual([])
     } finally {
@@ -162,4 +165,28 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
     expect(EXTRACT_SCRIPT.trimStart().startsWith('(async')).toBe(false)
     expect(EXTRACT_SCRIPT.trimStart().startsWith('(()')).toBe(true)
   })
+
+  // ── 5. The FULL declared stack round-trips into the reproduction's CSS ───────
+  itB('test_UAT_FC_BUG-16_full_font_stack_reaches_rendered_css', async () => {
+    // Capturing only the primary family drops every fallback. An unmatched family
+    // name is still valid CSS — it just resolves to no font — so a reproduction
+    // emitting the lone first token has nothing left to fall back to and silently
+    // paints the document default (this rendered gigabytealchemy.ai in serif:
+    // Tailwind's stack led with `ui-sans-serif`, which the render engine did not
+    // resolve). The stack must survive capture → fold → render intact.
+    const server = await serveDir(FIXTURES)
+    const cwd = mkdtempSync(path.join(tmpdir(), 'bug16-stack-'))
+    try {
+      const { capture } = await cmdCapturePage(`${server.origin}/webfont.html`, { cwd })
+      const hero = runByText(capture, 'Gigabyte Alchemy')
+      expect(hero?.fontFamily).toBe('Alchemy, serif')
+      // The primary token is still recoverable — @font-face matching keys on it.
+      expect(hero?.fontFamily.split(',')[0].trim()).toBe('Alchemy')
+      // …and a fallback genuinely survives, which is the whole point.
+      expect(hero!.fontFamily.split(',').length).toBeGreaterThan(1)
+    } finally {
+      await server.close()
+      rmSync(cwd, { recursive: true, force: true })
+    }
+  }, 120000)
 })
