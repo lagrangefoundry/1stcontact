@@ -802,8 +802,16 @@ function barBandFills(rows: SurfaceRow[], pageContentWidth: number, fullWidthFra
  * from its own top to the next band's top, so a band covers its whole section —
  * including any cards that sit on it — rather than hugging just its heading. Each
  * band paints its solid fill full-bleed (`x:0`, `width:viewport`) at every width.
+ *
+ * REQ-88 — tiling to the next band's first RUN overshoots whenever the next
+ * section opens with padding: the hero band swallowed the 96px of cream above
+ * "A Different Approach" and painted it near-black. The runs only bound the
+ * band's CONTENT; the captured `sections[].box` edges are where the sections
+ * actually change. So the bottom is clamped to the first real section edge at or
+ * after this band's own content — the boundary is read from the capture instead
+ * of guessed from where the next paragraph happens to start.
  */
-function buildSolidBands(bandRows: SurfaceRow[], widths: number[]): L1Box[] {
+function buildSolidBands(bandRows: SurfaceRow[], widths: number[], sectionEdges: Map<number, number[]>): L1Box[] {
   const groups: Array<{ fill: string; rows: SurfaceRow[] }> = []
   for (const r of bandRows) {
     if (!r.fill) continue
@@ -851,6 +859,17 @@ function buildSolidBands(bandRows: SurfaceRow[], widths: number[]): L1Box[] {
       if (bottom === undefined) {
         const ob = botAt(entry.g, w)
         bottom = ob !== undefined ? ob + BAND_TAIL_PAD : top
+      }
+      // Clamp to the first captured section edge at/after this band's own content:
+      // the runs bound the content, the section box bounds the SURFACE.
+      const contentBottom = botAt(entry.g, w)
+      if (contentBottom !== undefined) {
+        for (const edge of sectionEdges.get(w) ?? []) {
+          if (edge >= contentBottom && edge < bottom) {
+            bottom = edge
+            break
+          }
+        }
       }
       keyframes.push({ at: w, x: 0, y: Math.round(top), width: w, height: Math.round(Math.max(0, bottom - top)) })
       present.push(w)
@@ -1170,7 +1189,20 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     else if (onBand) continue // a narrow run on the band paints nothing of its own
     else if (r.fill || r.gradient || hasCardTreatment(r)) cardRows.push(r)
   }
-  const bandNodes = buildSolidBands(bandRows, widths)
+  // REQ-88 — the captured section boundaries per width: every section box's top
+  // and bottom edge, ascending. These are where the page's surfaces actually
+  // change, and they bound how far a band may tile past its own content.
+  const sectionEdges = new Map<number, number[]>()
+  for (const p of projections) {
+    const edges = new Set<number>()
+    for (const sv of p.manifest.sections ?? []) {
+      if (!sv.box) continue
+      edges.add(Math.round(sv.box.y))
+      edges.add(Math.round(sv.box.y + sv.box.height))
+    }
+    sectionEdges.set(p.viewport.width, [...edges].sort((a, b) => a - b))
+  }
+  const bandNodes = buildSolidBands(bandRows, widths, sectionEdges)
   const cardNodes = buildCards(cardRows, widths)
 
   // The page base is the band fill covering the greatest total height (shows only

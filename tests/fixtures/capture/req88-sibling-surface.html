@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Sibling-painted surface fixture</title>
+    <style>
+      /* An L1 reproduction paints its bands and cards as absolutely-positioned
+         SIBLINGS of the text, never as DOM ancestors. A surface resolver that
+         walks parentElement therefore skips every card and lands on the body
+         backstop. This fixture reproduces that exact shape so the geometric
+         resolver (REQ-88) is held to it. */
+      body { margin: 0; background: #e8dfd3; font-family: system-ui, sans-serif; }
+
+      /* The card's backing box — a sibling of the text it paints behind. */
+      .backing {
+        position: absolute;
+        left: 40px;
+        top: 40px;
+        width: 400px;
+        height: 220px;
+        background: #ffffff;
+        border-left: 4px solid #ffb900;
+      }
+      /* The run: geometrically inside .backing, but NOT a descendant of it. */
+      .run {
+        position: absolute;
+        left: 72px;
+        top: 88px;
+        width: 320px;
+        margin: 0;
+        color: #1d293d;
+        font-size: 20px;
+      }
+
+      /* Control: a conventionally NESTED card. The reference side of a diff looks
+         like this, and must resolve identically — the fix may not move it. */
+      .nested-card {
+        position: absolute;
+        left: 40px;
+        top: 320px;
+        width: 400px;
+        background: #d9ccba;
+        border-left: 4px solid #00d492;
+        padding: 24px;
+      }
+      .nested-card p { margin: 0; color: #1d293d; font-size: 20px; }
+    </style>
+  </head>
+  <body>
+    <div class="backing"></div>
+    <p class="run">Sibling painted surface</p>
+
+    <div class="nested-card">
+      <p>Nested painted surface</p>
+    </div>
+  </body>
+</html>
