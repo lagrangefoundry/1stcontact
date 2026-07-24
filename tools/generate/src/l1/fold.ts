@@ -19,6 +19,7 @@
  */
 import {
   isSafeUrl,
+  L1_ENVELOPE,
   validateL1,
   type L1BlendMode,
   type L1Border,
@@ -419,6 +420,46 @@ function boxAxes(el: ValueElement): L1BoxAxes {
   if (blur !== undefined) axes.backdropBlurPx = blur
   const blend = foldBlendMode(el.blendMode)
   if (blend) axes.blendMode = blend
+  return axes
+}
+
+/**
+ * BUG-20 — is this run a **self-painting chip** (a pill badge)? The capture reads
+ * `borderRadiusPx` / `boxShadow` / `border` from the element's OWN computed style,
+ * unlike `surfaceFill` / `surfaceGradient` / `borderLeft`, which walk ancestors to
+ * find the enclosing card. So an own radius belongs to the run's own element —
+ * but that alone does not make it a chip: a single-run *card* also paints a modest
+ * rounding on itself (BUG-14).
+ *
+ * The discriminator is **pill saturation**: a radius that reaches half the run's
+ * painted height is fully-rounded, which is what a badge is and what a card never
+ * is. Such a run's element *is* the surface (a `rounded-full` "Coming soon"
+ * badge, a tag pill), so it folds to a text leaf carrying its own surface and
+ * contributes no card row — it paints itself. Everything else stays a card row and
+ * keeps BUG-14's section-band → card → text reconstruction untouched.
+ */
+function isChipRun(el: ValueElement): boolean {
+  const h = el.box?.height ?? 0
+  return h > 0 && (el.borderRadiusPx ?? 0) * 2 >= h - 1
+}
+
+/**
+ * BUG-20 — the chip surface a self-painting run carries on its own text leaf.
+ * A pill's authored radius is often a saturating sentinel (`rounded-full` computes
+ * to 33554400px); it is clamped into the L1 envelope's length range, which renders
+ * identically (any radius ≥ half the height paints the same pill).
+ */
+function chipAxes(el: ValueElement): Pick<L1TextAxes, 'surfaceFill' | 'borderRadiusPx' | 'boxShadow' | 'border'> {
+  const axes: Pick<L1TextAxes, 'surfaceFill' | 'borderRadiusPx' | 'boxShadow' | 'border'> = {}
+  const fill = el.surfaceFill ? colorToHex(el.surfaceFill) : null
+  if (fill) axes.surfaceFill = fill
+  if (el.borderRadiusPx !== undefined && el.borderRadiusPx > 0) {
+    axes.borderRadiusPx = Math.min(Math.round(el.borderRadiusPx), L1_ENVELOPE.lengthPx.max)
+  }
+  const shadow = foldShadow(el.boxShadow, { spread: true, inset: true })
+  if (shadow) axes.boxShadow = shadow
+  const border = foldBorder(el.border)
+  if (border) axes.border = border
   return axes
 }
 
@@ -980,10 +1021,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         signal(sample, 'text run has no geometry (no box at any sampled width)', presentWidths)
         continue
       }
+      // BUG-20 — a self-painting chip (a `rounded-full` badge) carries its own
+      // surface on the text leaf; a bare run carries only type axes.
+      const chip = isChipRun(widest)
       const node: Extract<L1Node, { kind: 'text' }> = {
         kind: 'text',
         text: widest.text,
-        axes: textAxes(widest),
+        axes: chip ? { ...textAxes(widest), ...chipAxes(widest) } : textAxes(widest),
         geometry: buildGeometry(false),
       }
       // BUG-18 — keyframe the numeric type axes that vary across the ladder, so
@@ -994,6 +1038,12 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
       children.push(node)
+
+      // BUG-20 — a chip paints its own surface on the text leaf above, so it
+      // contributes no surface row: emitting one would duplicate the pill as a
+      // card box behind the run (and pollute band/card signature detection with
+      // the chip's own fill). The enclosing card is defined by its other runs.
+      if (chip) continue
 
       // BUG-14 — record this run's immediate surface (composited fill / gradient +
       // card treatments) with its per-width geometry. No backing box is emitted

@@ -1933,7 +1933,15 @@ export function diffManifests(
     if (exp.borderRadiusPx !== undefined && act.borderRadiusPx !== undefined) {
       const dr = Math.abs(exp.borderRadiusPx - act.borderRadiusPx)
       const shadowDiffers = !!exp.boxShadow !== !!act.boxShadow
-      if (dr > radiusTol || shadowDiffers) {
+      // BUG-20 — a fully-rounded pill's radius SATURATES: once it reaches half the
+      // painted height every larger value paints the identical shape, so the raw
+      // number is meaningless above that point (`rounded-full` computes to
+      // 33554400px; any sane large value renders the same pill). Comparing the
+      // sentinel as a magnitude reported a defect where no pixel differs. When
+      // BOTH sides are pills the shape agrees by construction — only the shadow
+      // can still differ.
+      const bothPills = isPillElement(exp) && isPillElement(act)
+      if (bothPills ? shadowDiffers : dr > radiusTol || shadowDiffers) {
         push(
           exp,
           'shape',

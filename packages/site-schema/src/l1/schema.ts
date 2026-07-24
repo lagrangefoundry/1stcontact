@@ -291,6 +291,24 @@ export const l1TextAxesSchema = z
         'upper-roman',
       ])
       .optional(),
+    // ── BUG-20 self-surface axes (the chip/badge fusion) ──────────────────────
+    /**
+     * BUG-20 — a run whose OWN element paints a self-contained chip (a
+     * `rounded-full` "Coming soon" badge, a tag pill, a button-shaped link). The
+     * DOM routinely fuses "a styled run" and "a painted surface" into one element,
+     * but L1 previously forced them into disjoint `text` / `box` leaves — so a
+     * badge folded to a text leaf lost its pill entirely (radius 0, no shadow).
+     * These four axes let a text leaf paint its own surface, exactly as the
+     * capture reads them (own computed style, never an ancestor walk — that is
+     * the enclosing card's treatment, which stays on the card box).
+     */
+    surfaceFill: l1Color.optional(),
+    /** The chip's corner rounding. A pill saturates at half its painted height. */
+    borderRadiusPx: finite.nonnegative().optional(),
+    /** A drop shadow cast by the chip. */
+    boxShadow: l1ShadowSchema.optional(),
+    /** A painted border framing the chip (uniform, all four sides). */
+    border: l1BorderSchema.optional(),
   })
   .strict()
 
