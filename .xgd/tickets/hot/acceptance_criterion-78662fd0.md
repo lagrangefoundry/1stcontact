@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Well-formed L1 document is accepted as a typed layout tree
 created_by: xgd
 created_at: '2026-07-22T19:31:43.320246+00:00'
-updated_at: '2026-07-24T09:24:32.829167+00:00'
+updated_at: '2026-07-24T22:54:41.672142+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -27,9 +27,20 @@ keyframes whose widths are all drawn from the document's declared widths; and
 optional structure primitives (per-axis sizing `fixed | fluid | hug`,
 distribution, alignment, viewport-range visibility).
 
+A well-formed `slot` leaf carries a non-empty name and, optionally, the id of
+the behavior module intended to mount there. That optional field is named
+**`behavior`** — REQ-87 renamed it from `capability` when the runtime module
+type was renamed, and no alias for the old name is accepted (see AC-686, where
+the legacy key is rejected outright).
+
 ## Verification
 Submit a hand-authored valid document (a hero: a fluid black box containing a
 white wordmark and a muted subhead, with interpolate and snap geometry tracks
 across a 6-width ladder) to the validator and observe an "ok" result carrying
 the parsed typed document. Vary each optional primitive and confirm each valid
-form is accepted.
+form is accepted — including a slot authored both with and without the optional
+`behavior` field.
+
+Note for UAT authoring: the existing fixture for this criterion still authors a
+slot with the pre-REQ-87 `capability` key and asserts acceptance, so it fails on
+this branch. The fixture is stale, not the behaviour — repair it to `behavior`.
