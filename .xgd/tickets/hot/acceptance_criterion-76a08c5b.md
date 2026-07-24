@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: stdout is restored after the command runs, including when its computation fails
 created_by: xgd
 created_at: '2026-07-19T03:01:50.845026+00:00'
-updated_at: '2026-07-19T03:06:25.828558+00:00'
+updated_at: '2026-07-24T08:18:56.852705+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
