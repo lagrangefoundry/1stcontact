@@ -224,6 +224,9 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
 
   if (node.kind === 'text' && node.axes) {
     shadow(node.axes.textShadow, `${path}/axes/textShadow`)
+    // BUG-20 — a chip run's self-surface effects are bounded exactly like a box's.
+    shadow(node.axes.boxShadow, `${path}/axes/boxShadow`)
+    if (node.axes.border) checkEffectLen(node.axes.border.widthPx, `${path}/axes/border/widthPx`, errors)
   }
   if ((node.kind === 'box' || node.kind === 'image') && node.axes) {
     shadow(node.axes.boxShadow, `${path}/axes/boxShadow`)
@@ -270,7 +273,8 @@ function walk(
         message: `fontWeight=${fontWeight} out of range [${L1_ENVELOPE.fontWeight.min}, ${L1_ENVELOPE.fontWeight.max}]`,
       })
     }
-    for (const [k, v] of Object.entries({ lineHeightPx, letterSpacingPx })) {
+    // BUG-20 — a chip run's corner radius shares the length range with the box axes.
+    for (const [k, v] of Object.entries({ lineHeightPx, letterSpacingPx, borderRadiusPx: node.axes.borderRadiusPx })) {
       if (v !== undefined && !inRange(v, L1_ENVELOPE.lengthPx.min, L1_ENVELOPE.lengthPx.max)) {
         errors.push({ path: `${path}/axes/${k}`, message: `${k}=${v} out of range` })
       }
