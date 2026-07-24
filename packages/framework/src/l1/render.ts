@@ -439,6 +439,23 @@ function emitNode(node: L1Node, state: RenderState): string {
       if (a.listMarker && a.listMarker !== 'none') {
         base.push('display: list-item', 'list-style-position: inside', `list-style-type: ${a.listMarker}`)
       }
+      // BUG-20 — a chip/badge run paints its OWN surface (a `rounded-full` pill).
+      // Emitted before `gradientFill` so a text-fill gradient (which repurposes
+      // background-image + background-clip:text for the glyphs) still wins; a run
+      // never carries both a chip fill and a glyph gradient in practice.
+      if (!a.gradientFill) {
+        const chip = cssColor(a.surfaceFill)
+        if (chip) base.push(`background-color: ${chip}`)
+      }
+      if (px(a.borderRadiusPx)) base.push(`border-radius: ${px(a.borderRadiusPx)}`)
+      if (a.border) {
+        const b = borderCss(a.border)
+        if (b) base.push(`border: ${b}`)
+      }
+      if (a.boxShadow) {
+        const sh = shadowCss(a.boxShadow)
+        if (sh) base.push(`box-shadow: ${sh}`)
+      }
       // A text-fill gradient paints the glyphs via background-clip:text; it
       // overrides the flat colour (pushed later so it wins in the declaration list).
       if (a.gradientFill) {
