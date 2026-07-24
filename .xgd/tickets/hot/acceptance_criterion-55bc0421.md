@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Fluid-width transitions fold to interpolate; reflows fold to snap
 created_by: xgd
 created_at: '2026-07-22T19:42:30.227602+00:00'
-updated_at: '2026-07-23T07:16:15.758909+00:00'
+updated_at: '2026-07-24T09:51:11.220459+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
