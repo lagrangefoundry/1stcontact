@@ -139,7 +139,7 @@ function heroThenPaddedSection(): MultiStateCapture {
       sections: [
         { index: 0, box: { x: 0, y: 0, width, height: 800 } },
         { index: 1, box: { x: 0, y: 800, width, height: 600 } },
-      ],
+      ] as unknown as StateProjection['manifest']['sections'],
       viewport: { width, height: 1200 },
     } as StateProjection['manifest'],
   }))
@@ -179,5 +179,42 @@ describe('REQ-88 band tiling stops at the captured section edge', () => {
     const k = hero!.geometry!.keyframes.find((f) => f.at === 1280)!
     // The hero's own text ends at y=340; the band still covers its whole section.
     expect(k.y + k.height).toBeGreaterThan(340)
+  })
+
+  it('test_UAT_FC_REQ-88_band_top_snaps_up_to_the_edge_that_opens_its_section', () => {
+    // The cream section opens at y=800 but its first run is at 896. Taking the run
+    // as the band top leaves a 96px sliver of the page showing above the band —
+    // the cream strip above gigabytealchemy's navy footer.
+    const doc = foldToL1(heroThenPaddedSection())
+    const kids = (doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as Array<{
+      kind: string
+      id?: string
+      axes?: Record<string, unknown>
+      geometry?: { keyframes: Array<{ at: number; y: number; height: number }> }
+    }>
+    const cream = kids.find((n) => (n.id ?? '').startsWith('section-band-') && n.axes?.surfaceFill === CREAM)
+    expect(cream, 'cream band folded').toBeTruthy()
+    const k = cream!.geometry!.keyframes.find((f) => f.at === 1280)!
+    expect(k.y).toBe(800)
+    expect(k.y).not.toBe(896)
+  })
+
+  it('test_UAT_FC_REQ-88_band_top_snap_never_crosses_the_band_above_it', () => {
+    // The snap must take the edge CLOSEST above the band's first run, not the
+    // smallest qualifying one — otherwise a band climbs over every section between
+    // them (the footer band swallowed the whole contact section and painted it navy).
+    const doc = foldToL1(heroThenPaddedSection())
+    const kids = (doc.root.kind === 'box' ? (doc.root.children ?? []) : []) as Array<{
+      kind: string
+      id?: string
+      axes?: Record<string, unknown>
+      geometry?: { keyframes: Array<{ at: number; y: number; height: number }> }
+    }>
+    const dark = kids.find((n) => (n.id ?? '').startsWith('section-band-') && n.axes?.surfaceFill === DARK)!
+    const cream = kids.find((n) => (n.id ?? '').startsWith('section-band-') && n.axes?.surfaceFill === CREAM)!
+    const dk = dark.geometry!.keyframes.find((f) => f.at === 1280)!
+    const ck = cream.geometry!.keyframes.find((f) => f.at === 1280)!
+    // The cream band starts at or after the dark band ends — no overlap, no swallow.
+    expect(ck.y).toBeGreaterThanOrEqual(dk.y + dk.height)
   })
 })

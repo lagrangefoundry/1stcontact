@@ -167,7 +167,17 @@ describe('BUG-13 — section/band background images fold to L1 boxes', () => {
     }
     const manifest = flattenSignals(signals, 'draft:test')
     expect(manifest.sections[0].backgroundImageUrl).toBeUndefined()
-    expect(manifest.sections[0].box).toBeUndefined()
+    // REQ-88 — the section BOX is plain geometry (carried for every section so the
+    // fold can bound a band at a real section edge) and holds no URL, so it is not
+    // what this guard is about. The security property is that no section-background
+    // box is EMITTED for an unsafe scheme — assert that directly.
+    const doc = foldToL1(
+      multiFrom(
+        () => manifest.sections,
+        (w) => [run({ x: 40, y: 200, width: w - 80, height: 60 })],
+      ),
+    )
+    expect(childrenOf(doc).some((n) => (n.id ?? '').startsWith('section-bg-'))).toBe(false)
   })
 
   it('test_UAT_FC_BUG-13_gradient_only_band_gets_no_background_box', () => {
