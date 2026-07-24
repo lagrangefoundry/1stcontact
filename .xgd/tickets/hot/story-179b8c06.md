@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-07-24T22:51:34.034434+00:00'
+updated_at: '2026-07-24T23:15:26.186749+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -115,24 +115,12 @@ upgrades to STORY-80/81/82).
   (a module *instance* carries L1 subtrees on named slots; the module wraps L1,
   never the inverse).
 
-### Known UAT defect — this story's reconciliation UAT file does not load
-`tests/reconciliation-capability-modules.test.ts` carries the UATs for **all
-eight** of this story's ACs (AC-697…AC-704), but it still imports
-`validateCapabilityConfig / validateCapabilitySlots / validateCapabilityInstance`
-and `CapabilityMeta` from `packages/framework/src/modules/capability` — a module
-path that no longer exists after the `git mv` to `behavior.ts`. Verified this
-session: `npx vitest run tests/reconciliation-capability-modules.test.ts` fails at
-import with *"Cannot find module '../packages/framework/src/modules/capability'"*,
-collecting **0 tests**. Two fixtures inside it also still author the legacy
-discriminant `kind: 'capability'` (lines 83, 454).
-
-The file post-dates the free-coded rename commit (the commit is 21 Jul; this
-reconciliation UAT file is 24 Jul matrix work), so the rename's grep-driven sweep
-could not have seen it. The per-AC `uat_coverage: pass` markings therefore
-predate the rename and are stale — no UAT in this file currently executes.
-Repairing the file (imports → `modules/behavior`, identifiers → `Behavior*`,
-fixture discriminants → `kind: 'behavior'`) is UAT work owned by this story; it is
-a test-only repair with no runtime-code change.
+### Reconciliation UAT file
+This story's reconciliation UATs (AC-697…AC-704) live in
+`tests/reconciliation-behavior-modules.test.ts`. The file was renamed and
+repaired in the same reconciliation as the contract rename itself: imports
+resolve `modules/behavior`, identifiers use the `Behavior*` names, and fixtures
+declare `kind: 'behavior'`. The repair was test-only — no runtime code changed.
 
 ## Dependencies
 - Plan item 1 — L1 Layout Substrate + Safety Envelope (STORY-83 / CAP-70): slot
