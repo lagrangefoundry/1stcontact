@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: REQ-87 capability-module -> behavior-module rename'
 created_by: xgd
 created_at: '2026-07-24T22:36:55.262567+00:00'
-updated_at: '2026-07-24T22:42:58.359055+00:00'
+updated_at: '2026-07-24T22:55:22.003332+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -143,7 +143,7 @@ fields:
         slot key is now caught by the freeform/unknown-key rejection rule, so the
         rename is atomic rather than a tolerated alias. (Absorbs FC test test_UAT_FC_REQ-87_discriminant_atomic_l1_slot_seam_renamed_in_site_schema.)
       remove: []
-    story_uid: null
+    story_uid: story-d0a8cfad
 ---
 
 # Reconciliation Plan — REQ-87 capability-module -> behavior-module rename
