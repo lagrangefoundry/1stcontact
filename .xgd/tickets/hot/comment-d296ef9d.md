@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-6
 created_by: xgd
 created_at: '2026-07-23T05:22:50.701347+00:00'
-updated_at: '2026-07-23T05:24:49.269486+00:00'
+updated_at: '2026-07-23T16:39:24.860511+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -57,5 +57,70 @@ There is no new code to write — the behavior, tests, and commit all exist. And
 2. **Leave BUG-6 at `draft`** as a tracking placeholder until REQ-92 reconciles, then close it.
 
 I'd recommend **option 1**. Which would you like — and do you want me to add the cross-reference comment to BUG-6?
+
+<!-- xgd-turn id="ebae041c-d947-44b7-bb71-7776551e87bb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-23T16:34:58.547646+00:00" -->
+#### You
+Please free code this ticket
+
+<!-- xgd-turn id="ebae041c-d947-44b7-bb71-7776551e87bb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-23T16:39:24.832973+00:00" -->
+#### Claude
+You're right to push. Let me re-examine BUG-6's acceptance for work that genuinely *isn't* yet satisfied by REQ-92's commit — specifically (a) tests named for **this** ticket, and (b) "gate report separates residuals from mispairing." Let me inspect the gate wiring.
+
+Now the picture is precise. Acceptance items 1–3 (no silent drop, typed residuals, **gate separates fold residuals from mispairing residuals**) are all implemented. The **one unmet clause is BUG-6's own**: *"Tests named `test_UAT_FC_<this-ticket>_*`."* The existing tests are `test_UAT_FC_REQ-92_*`, so BUG-6 has **zero matrix coverage** and would be eliminated as drift on the next `test_fix`.
+
+That's the honest, non-duplicative free-coding work: add `test_UAT_FC_BUG-6_*` UATs that lock BUG-6's contract independently — including the gate-separation clause REQ-92's tests don't cover. Let me read the existing test file and the gate probe types to build faithful tests.
+
+BUG-6's distinctive clause vs REQ-92 is **gate-level separation** of fold residuals from probe mispairing residuals. Let me check whether `cmdL1Gate` is testable without a heavy on-disk bundle, and how existing tests exercise the gate.
+
+Let me read the req88 fixture helpers so my gate test matches the established pattern.
+
+Let me confirm the `sampleFidelity.residuals` shape so the separation assertion is precise.
+
+All confirmed: `FoldResidual` (`kind/reason/capturedAxes/widths`) is structurally distinct from the fidelity probe's `FidelityDelta` (`text/dx/dy/dw`), and they live in separate report fields — that's the "separation" BUG-6 demands, and REQ-92's tests never exercise `cmdL1Gate`. 
+
+Now the free-coding lifecycle. First I'll scope the ticket (preserving its body), then write the `test_UAT_FC_BUG-6_*` UATs.
+
+Status is set via `--fields`. Let me scope the ticket (in_progress) and append a note recording the plan, preserving the existing body.
+
+Now the UAT tests. I'll write `test_UAT_FC_BUG-6_*` covering BUG-6's contract — with emphasis on the gate-separation clause REQ-92 doesn't exercise.
+
+All 4 pass. Per my memory note (green vitest ≠ typecheck-clean), let me run a typecheck before committing.
+
+No root tsconfig includes `tests/`. Let me typecheck the test file directly against the base compiler options (it follows imports into the source packages).
+
+Only errors are pre-existing `.astro` module-resolution noise in an unrelated package (`registry.ts`) — my test file itself is type-clean. Now the version bump, then commit.
+
+Now move the ticket to `free_coded` — this validates the version bump against the commit and records the SHA.
+
+Done. Let me verify the final ticket state.
+
+BUG-6 is free-coded. Here's what I did and why.
+
+## The situation
+
+BUG-6's *behavior* (fold emits typed `FoldResidual`s instead of silently dropping text-free/geometry-less elements; the l1-gate keeps them in a `foldResiduals` channel separate from probe mispairing residuals) had **already shipped** — baked into REQ-92's folder rebuild, commit `9e92a339`, which is already claimed by REQ-92 (at `free_coded`). Acceptance items 1–3 were met in code. I couldn't re-attach that SHA to BUG-6 (the gate enforces one-SHA-one-ticket), and re-committing the production code would just duplicate what's in the tree.
+
+But the **one unmet clause was BUG-6's own**: *"Tests named `test_UAT_FC_<this-ticket>_*`."* The existing tests are `test_UAT_FC_REQ-92_*`, so BUG-6 had **zero matrix coverage** and would have been eliminated as drift on the next `test_fix`. That's the honest, non-duplicative free-coding work.
+
+## What I committed
+
+`a4eef9db` — `tests/bug6-signal-not-drop.test.ts` (+ version bump 0.0.177→0.0.178), four `test_UAT_FC_BUG-6_*` UATs, all passing:
+
+- **`no_element_silently_dropped`** — mixed capture → exactly the text leaf + two typed residuals; nothing vanishes.
+- **`every_unexpressed_kind_is_a_typed_residual`** — image/field/geometry-less-run each surface with reason + capturedAxes + widths.
+- **`gate_surfaces_fold_residuals_separate_from_mispairing`** — drives `cmdL1Gate` end-to-end and asserts `foldResiduals` is a distinct channel/shape from the fidelity probe's residuals. **This is the acceptance clause REQ-92's tests never exercise** (they only call `foldToL1`'s collector directly), so it's genuinely new coverage, not a duplicate.
+- **`gate_clean_bundle_emits_no_fold_residuals`** — pure-text oracle → empty gap list.
+
+## Lifecycle completed
+
+- Ticket scoped (`in_progress`) with a note preserving the existing body, explaining the behavior shipped under REQ-92 and this ticket adds the independent UAT lock.
+- Tests pass (4/4); test file is type-clean (only pre-existing `.astro` shim noise elsewhere).
+- Committed `[FREE-CODED]`, version-bumped, and `move-to-free-coded` recorded SHA `a4eef9db` + version `0.0.178`. Status is now **`free_coded`**.
+
+One note for reconcile: because the production behavior lives in REQ-92's commit and BUG-6's commit is tests-only, BUG-6's matrix coverage rides on REQ-92's code landing. If REQ-92 were ever reverted, these tests would fail — which is the correct coupling given B2 was designed to be "baked into" the REQ-92 rebuild.
 
 <!-- xgd-chat-end -->

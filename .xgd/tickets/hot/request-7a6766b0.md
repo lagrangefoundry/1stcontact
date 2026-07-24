@@ -6,7 +6,7 @@ title: Rebuild foldToL1 to populate the full L1 language (image/box/container + 
   axes), signalling residuals
 created_by: xgd
 created_at: '2026-07-23T02:02:03.084523+00:00'
-updated_at: '2026-07-23T04:59:49.872761+00:00'
+updated_at: '2026-07-23T17:11:49.656484+00:00'
 completed_at: null
 last_field_updated: story_points
 status: free_coded
@@ -18,8 +18,11 @@ fields:
   - working_sha: 9e92a3397e2108dba60d5955a46e577ddd7da12f
     reconcile_sha: null
     main_sha: null
-  version: 0.0.177
-  story_points: 3
+  - working_sha: 6ebc8ee889a87ca4f3e26d33d8e3325102464127
+    reconcile_sha: null
+    main_sha: null
+  version: 0.0.179
+  story_points: 8
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). The folder is the **narrowest link**;
@@ -55,5 +58,7 @@ Idempotency (B1 suite) holds on the richer folds at all sampled widths; images,
 surfaces, fields reproduce; residual list is empty for captured pixel-movers the
 language now covers; l1-gate reflects real fidelity. Tests named
 `test_UAT_FC_<this-ticket>_*`.
+
+-
 
 -
