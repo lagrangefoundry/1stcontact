@@ -6,14 +6,15 @@ title: aligned-crops --sandbox renders, serves, and crops the sandbox reproducti
   not the sites/ build
 created_by: xgd
 created_at: '2026-07-22T20:52:06.208123+00:00'
-updated_at: '2026-07-22T20:52:06.208123+00:00'
+updated_at: '2026-07-24T08:19:01.508514+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-e15a19ef
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
