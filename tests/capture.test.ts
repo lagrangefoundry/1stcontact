@@ -167,14 +167,16 @@ describe('1c capture page — rendered-only reference capture (REQ-12)', () => {
     expect(rich.sections).toHaveLength(2)
     expect(rich.sections[0].background.kind).toBe('image')
     expect(rich.sections[1].background.kind).toBe('color')
-    // A uniformly-styled page → exactly one segment.
-    const uniformCwd = mkdtempSync(path.join(tmpdir(), 'req12u-'))
-    try {
-      const { capture } = await cmdCapturePage(`${server.origin}/uniform.html`, { cwd: uniformCwd })
-      expect(capture.sections).toHaveLength(1)
-    } finally {
-      rmSync(uniformCwd, { recursive: true, force: true })
-    }
+    // A uniformly-styled page → exactly one segment. Drives the base capture
+    // pipeline (a real headless Chromium pass through the same extraction +
+    // segmentation buildSections runs) rather than the full cmdCapturePage
+    // orchestration: the multi-state viewport ladder, ladder screenshots, and
+    // structural hints are irrelevant to segmentation, and firing all of them a
+    // second time per test was pure resource contention — a timeout/flake source
+    // under the full parallel suite. runCapturePipeline also retries transient
+    // browser errors (3 attempts), so the segmentation assertion stays exact.
+    const { capture } = await runCapturePipeline(`${server.origin}/uniform.html`)
+    expect(capture.sections).toHaveLength(1)
   }, 60000)
 
   itB('test_UAT_FC_REQ-12_offline_reextraction', async () => {
