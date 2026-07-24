@@ -5,7 +5,7 @@ type: capability
 title: Capability Module Contract & Catalog
 created_by: xgd
 created_at: '2026-07-22T19:53:07.405647+00:00'
-updated_at: '2026-07-23T06:57:14.706155+00:00'
+updated_at: '2026-07-24T10:08:44.090336+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
