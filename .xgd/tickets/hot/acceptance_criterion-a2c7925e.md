@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Capability client behaviour ships as one page-referenced asset
 created_by: xgd
 created_at: '2026-07-22T19:54:48.716204+00:00'
-updated_at: '2026-07-23T06:57:11.906989+00:00'
+updated_at: '2026-07-24T10:08:16.042548+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
