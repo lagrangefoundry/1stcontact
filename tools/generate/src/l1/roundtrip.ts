@@ -13,6 +13,7 @@
 import http from 'node:http'
 import { renderL1Page } from '@1stcontact/framework'
 import type { L1Document, L1Node } from '@1stcontact/site-schema'
+import { evalScalarTrack } from './probes'
 import {
   createEngineDriver,
   diffManifests,
@@ -118,6 +119,17 @@ function textNodes(node: L1Node, out: L1Node[] = []): L1Node[] {
  * A/B model).
  */
 export function expectedTextManifest(doc: L1Document, viewport: Viewport): ValueManifest {
+  // BUG-18 — a numeric type axis with a responsive track resolves to the value the
+  // renderer emits at THIS viewport (the track evaluated at `viewport.width`),
+  // mirroring the browser's media cascade; a single-valued axis keeps its scalar.
+  const resolve = (
+    node: Extract<L1Node, { kind: 'text' }>,
+    axis: 'fontSizePx' | 'lineHeightPx' | 'letterSpacingPx',
+  ): number | undefined => {
+    const track = node.responsive?.[axis]
+    if (track) return evalScalarTrack(track, viewport.width)
+    return node.axes?.[axis]
+  }
   const elements: ValueElement[] = textNodes(doc.root)
     .filter((n) => n.kind === 'text' && n.text.trim() !== '')
     .map((n) => {
@@ -128,11 +140,13 @@ export function expectedTextManifest(doc: L1Document, viewport: Viewport): Value
         role: 'body',
         color: a.color ?? '#000000',
         fontFamily: a.fontFamily ?? '',
-        fontSizePx: a.fontSizePx ?? 16,
+        fontSizePx: resolve(node, 'fontSizePx') ?? 16,
         fontWeight: a.fontWeight ?? 400,
       }
-      if (a.letterSpacingPx !== undefined) el.letterSpacingPx = a.letterSpacingPx
-      if (a.lineHeightPx !== undefined) el.lineHeightPx = a.lineHeightPx
+      const ls = resolve(node, 'letterSpacingPx')
+      if (ls !== undefined) el.letterSpacingPx = ls
+      const lh = resolve(node, 'lineHeightPx')
+      if (lh !== undefined) el.lineHeightPx = lh
       if (a.textAlign !== undefined) el.textAlign = a.textAlign
       return el
     })

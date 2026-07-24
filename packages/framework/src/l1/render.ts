@@ -21,6 +21,7 @@ import type {
   L1Mask,
   L1Node,
   L1Resources,
+  L1ScalarTrack,
   L1Shadow,
   L1Sizing,
   L1Transform,
@@ -347,6 +348,30 @@ function geometryRules(selector: string, geo: L1Geometry): Rule[] {
   return rules
 }
 
+/**
+ * BUG-18 — compile a responsive scalar-axis track (font-size / line-height /
+ * letter-spacing) into media-queried CSS, exactly as {@link geometryRules} does
+ * for position: a base rule at the smallest-width keyframe, then per-breakpoint
+ * overrides — a fluid `calc()` for an `interpolate` segment, the held value for a
+ * `snap`. Every value is a finite number → `${n}px`, so nothing from the instance
+ * reaches CSS as a raw string. All three axes are px lengths, so one emitter serves.
+ */
+function scalarAxisRules(selector: string, prop: string, track: L1ScalarTrack): Rule[] {
+  const f = track.keyframes
+  const rules: Rule[] = [{ selector, decls: [`${prop}: ${f[0].value}px`] }]
+  if (f.length === 1) return rules
+  for (let i = 0; i < f.length - 1; i++) {
+    const a = f[i]
+    const b = f[i + 1]
+    const seg = track.segments?.[i] ?? 'interpolate'
+    const value = seg === 'snap' ? `${a.value}px` : lerpCalc(a.value, a.at, b.value, b.at)
+    rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: [`${prop}: ${value}`] })
+  }
+  const last = f[f.length - 1]
+  rules.push({ media: `(min-width: ${last.at}px)`, selector, decls: [`${prop}: ${last.value}px`] })
+  return rules
+}
+
 interface RenderState {
   n: number
   rules: Rule[]
@@ -380,17 +405,23 @@ function emitNode(node: L1Node, state: RenderState): string {
   switch (node.kind) {
     case 'text': {
       const a = node.axes ?? {}
+      // BUG-18 — a responsive track owns its axis (per-width media rules below);
+      // the static base decl is emitted only for an axis with no track.
+      const r = node.responsive
       const c = cssColor(a.color)
       if (c) base.push(`color: ${c}`)
       const ff = cssFontFamily(a.fontFamily)
       if (ff) base.push(`font-family: ${ff}`)
       const fontSize = px(a.fontSizePx)
-      if (fontSize) base.push(`font-size: ${fontSize}`)
+      if (!r?.fontSizePx && fontSize) base.push(`font-size: ${fontSize}`)
       if (a.fontWeight !== undefined) base.push(`font-weight: ${Math.round(a.fontWeight)}`)
       const lineHeight = px(a.lineHeightPx)
-      if (lineHeight) base.push(`line-height: ${lineHeight}`)
+      if (!r?.lineHeightPx && lineHeight) base.push(`line-height: ${lineHeight}`)
       const letterSpacing = px(a.letterSpacingPx)
-      if (letterSpacing) base.push(`letter-spacing: ${letterSpacing}`)
+      if (!r?.letterSpacingPx && letterSpacing) base.push(`letter-spacing: ${letterSpacing}`)
+      if (r?.fontSizePx) state.rules.push(...scalarAxisRules(selector, 'font-size', r.fontSizePx))
+      if (r?.lineHeightPx) state.rules.push(...scalarAxisRules(selector, 'line-height', r.lineHeightPx))
+      if (r?.letterSpacingPx) state.rules.push(...scalarAxisRules(selector, 'letter-spacing', r.letterSpacingPx))
       if (a.textAlign) base.push(`text-align: ${a.textAlign}`)
       if (a.textTransform) base.push(`text-transform: ${a.textTransform}`)
       if (a.fontStyle) base.push(`font-style: ${a.fontStyle}`)

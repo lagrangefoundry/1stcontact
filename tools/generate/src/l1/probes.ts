@@ -34,6 +34,7 @@ import {
   type L1Document,
   type L1Geometry,
   type L1Node,
+  type L1ScalarTrack,
 } from '@1stcontact/site-schema'
 import { classifyElement, isSynthesizedSurfaceId, type FoldableElement } from './fold'
 
@@ -122,6 +123,31 @@ function evalGeometry(geo: L1Geometry, width: number): EvalBox {
   // Above the last breakpoint: hold the final keyframe (renderer's final rule).
   const last = f[f.length - 1]
   return { x: last.x, y: last.y, width: last.width, height: last.height ?? 0 }
+}
+
+/**
+ * BUG-18 — evaluate a responsive scalar-axis track at `width`, mirroring the
+ * renderer's cascade exactly (the same half-open `[a.at, b.at)` resolution as
+ * {@link evalGeometry}): below the first breakpoint hold the base value; within a
+ * segment `interpolate` linearly or hold the lower value on `snap`; above the last
+ * breakpoint hold the final value. At a sampled width the result equals that
+ * width's keyframe, so the round-trip gate compares the value the browser actually
+ * renders there.
+ */
+export function evalScalarTrack(track: L1ScalarTrack, width: number): number {
+  const f = track.keyframes
+  if (width <= f[0].at) return f[0].value
+  for (let i = 0; i < f.length - 1; i++) {
+    const a = f[i]
+    const b = f[i + 1]
+    if (width >= a.at && width < b.at) {
+      const seg = track.segments?.[i] ?? 'interpolate'
+      if (seg === 'snap') return a.value
+      const t = b.at === a.at ? 0 : (width - a.at) / (b.at - a.at)
+      return lerp(a.value, b.value, t)
+    }
+  }
+  return f[f.length - 1].value
 }
 
 /**

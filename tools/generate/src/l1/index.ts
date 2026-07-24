@@ -25,6 +25,7 @@ export {
 // flow promotion (structure recovery applied only where the pinned form fails).
 export {
   evaluateLayout,
+  evalScalarTrack,
   sampleFidelityProbe,
   offSampleProbe,
   contentRobustnessProbe,

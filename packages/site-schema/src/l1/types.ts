@@ -25,11 +25,14 @@ import type {
   l1OverlaySchema,
   l1PaddingSchema,
   l1ResourcesSchema,
+  l1ScalarKeyframeSchema,
+  l1ScalarTrackSchema,
   l1SegmentSchema,
   l1ShadowSchema,
   l1SizingSchema,
   l1SlotSchema,
   l1TextAxesSchema,
+  l1TextResponsiveSchema,
   l1TextSchema,
   l1TransformSchema,
   l1VisibilitySchema,
@@ -43,6 +46,10 @@ export type L1AxisSizing = z.infer<typeof l1AxisSizingSchema>
 export type L1Distribution = z.infer<typeof l1DistributionSchema>
 export type L1Visibility = z.infer<typeof l1VisibilitySchema>
 export type L1TextAxes = z.infer<typeof l1TextAxesSchema>
+// BUG-18 responsive scalar-axis tracks.
+export type L1ScalarKeyframe = z.infer<typeof l1ScalarKeyframeSchema>
+export type L1ScalarTrack = z.infer<typeof l1ScalarTrackSchema>
+export type L1TextResponsive = z.infer<typeof l1TextResponsiveSchema>
 export type L1BoxAxes = z.infer<typeof l1BoxAxesSchema>
 export type L1ImageAxes = z.infer<typeof l1ImageAxesSchema>
 
