@@ -5,10 +5,10 @@ type: bundle
 title: REQ-51 + REQ-52 + REQ-53 + REQ-54 + REQ-55 + 2 more
 created_by: xgd
 created_at: '2026-07-13T18:05:07.624372+00:00'
-updated_at: '2026-07-13T18:05:09.457088+00:00'
+updated_at: '2026-07-24T19:18:24.783902+00:00'
 completed_at: null
 last_field_updated: status
-status: reconciling
+status: ready_to_reconcile
 fields:
   commits:
   - working_sha: 34f3cb52c994d4644555ee8fc15a9e3381cb017f

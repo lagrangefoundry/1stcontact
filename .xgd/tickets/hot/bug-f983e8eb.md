@@ -6,9 +6,9 @@ title: promoteToFlow only promotes the root — structure recovery must recurse 
   nested regions (robustness fail under perturbation)
 created_by: xgd
 created_at: '2026-07-23T17:20:06.489167+00:00'
-updated_at: '2026-07-23T17:39:00.302686+00:00'
+updated_at: '2026-07-24T22:27:09.894022+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: commits
 status: free_coded
 fields:
   severity: high
@@ -16,7 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: aaf91dae50b10b17a0a30417c40c070eeeb9a694
+  - working_sha: 0e00758e7c7542627c82f9b5b48b42b7ba52aafe
     reconcile_sha: null
     main_sha: null
   version: 0.0.181

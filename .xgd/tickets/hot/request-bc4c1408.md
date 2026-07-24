@@ -6,16 +6,16 @@ title: L1 document-level resource table (font/image handle→substance) + render
   wiring
 created_by: xgd
 created_at: '2026-07-23T02:01:41.218807+00:00'
-updated_at: '2026-07-23T04:41:26.579397+00:00'
+updated_at: '2026-07-24T22:27:15.292743+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 6cf5f4888d841953b624597430d18ba0a0df133c
+  - working_sha: f9884ae8e0125868f4a5e7f375174bf570ed4997
     reconcile_sha: null
     main_sha: null
   version: 0.0.176

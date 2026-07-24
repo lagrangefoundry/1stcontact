@@ -5,16 +5,16 @@ type: request
 title: 'adopt-values: mechanically copy reference Type-A flat values into the draft'
 created_by: xgd
 created_at: '2026-07-18T00:43:03.830908+00:00'
-updated_at: '2026-07-19T01:04:56.507836+00:00'
-completed_at: null
+updated_at: '2026-07-24T22:27:25.479190+00:00'
+completed_at: '2026-07-24T22:27:25.479190+00:00'
 last_field_updated: status
-status: ready_to_reconcile
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 98ea504482736fdd60cc05bd46007a61ae9c52a5
+  - working_sha: 460e6257eb65277aa507f3e0cf283f2655b43b92
     reconcile_sha: null
     main_sha: null
   version: 0.0.141

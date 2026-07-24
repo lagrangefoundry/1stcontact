@@ -6,16 +6,16 @@ title: Rename capability-module type → behavior module (disambiguate from XGD 
   matrix)
 created_by: xgd
 created_at: '2026-07-21T20:25:16.483623+00:00'
-updated_at: '2026-07-22T18:40:52.541058+00:00'
+updated_at: '2026-07-24T22:27:37.792497+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: reconciling
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: dd936736d5c1b5631315111f6a6c2ddd6862efe0
+  - working_sha: 6cb7e8c4a7328b26a277d3d897e20ae5a2361a7d
     reconcile_sha: null
     main_sha: null
   version: 0.0.169

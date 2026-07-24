@@ -6,24 +6,36 @@ title: 'Noise audit: every values-diff delta must be a real visible difference (
   false positives)'
 created_by: xgd
 created_at: '2026-07-17T01:33:57.749953+00:00'
-updated_at: '2026-07-19T01:04:56.974535+00:00'
-completed_at: null
+updated_at: '2026-07-24T22:27:24.142293+00:00'
+completed_at: '2026-07-24T22:27:24.142293+00:00'
 last_field_updated: status
-status: ready_to_reconcile
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 78fda0ad5b19db3cf0f5647bdd2cab13540508f0
+  - working_sha: c81d58fa08099321ed06f18998e6419d1b42c1b3
     reconcile_sha: null
     main_sha: null
-  - 0b76ce6e
-  - a20c906a
-  - ec764f63
-  - '43748537'
-  - 6ea85d74c7665fab685e556a45aa7dd8ffffd80c
-  - ab8a707f10043ef5f92e5ef22c4eb8e9198b28e9
+  - working_sha: 1c7cdf9dce117af854fd280aadebd968c558f0fa
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 397a3327360c589b60cff91049a02b0d3f8a41f0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: af6f45acfaad216662725bf5d0610a597dae25d6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ad62588ef5bec4c6315be7ce6407b2c862272fe9
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7032fc8c472efd41b0d24fadf76f96f39b56e1cf
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5643058aea84b169f98e02ff3eff0c241c7d9978
+    reconcile_sha: null
+    main_sha: null
   version: 0.0.137
 ---
 

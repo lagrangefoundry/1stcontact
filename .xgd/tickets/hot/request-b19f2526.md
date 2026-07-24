@@ -5,18 +5,19 @@ type: request
 title: '1c CLI: file-backed site storage, versioning, and server-side render pipeline'
 created_by: xgd
 created_at: '2026-06-30T20:25:46.923728+00:00'
-updated_at: '2026-07-02T00:19:11.713366+00:00'
-completed_at: null
-last_field_updated: body
-status: free_coded
+updated_at: '2026-07-24T22:26:17.289958+00:00'
+completed_at: '2026-07-24T22:26:17.289958+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   story_points: 8
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - f7ac42ce5e727833c872e01002e523f3857bf057
+  - 0baf0db1f11e6f9fdf8f568ec3cab8aec331fb7e
   version: 0.0.6
+  bundled_in: bundle-f39884d2
 ---
 
 ## Scope

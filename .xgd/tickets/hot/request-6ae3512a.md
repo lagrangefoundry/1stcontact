@@ -5,16 +5,16 @@ type: request
 title: '1c aligned-crops: drift-aligned element crop pairs for the AI perceptual judge'
 created_by: xgd
 created_at: '2026-07-19T00:32:29.667387+00:00'
-updated_at: '2026-07-19T00:37:46.405460+00:00'
-completed_at: null
+updated_at: '2026-07-24T22:27:37.610487+00:00'
+completed_at: '2026-07-24T22:27:37.610487+00:00'
 last_field_updated: status
-status: free_coded
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 8b2cdd3f19792c1b0fe88ababc25532fd9ccc806
+  - working_sha: 47665a4fab054d935334b682226df51aba01b6cf
     reconcile_sha: null
     main_sha: null
   version: 0.0.155

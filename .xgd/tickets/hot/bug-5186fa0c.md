@@ -6,9 +6,9 @@ title: Flat text axes are single-valued at desktop — font-size not keyframed p
   text oversized at mobile
 created_by: xgd
 created_at: '2026-07-23T23:35:14.405652+00:00'
-updated_at: '2026-07-24T00:37:33.350517+00:00'
+updated_at: '2026-07-24T22:26:57.125005+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: free_coded
 fields:
   severity: high
@@ -16,7 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 53fc6141b875b409b23d6a70344a87270407ca3e
+  - working_sha: a0ce0012f55ddf5ea0c54f5f49c8c944ac65008a
     reconcile_sha: null
     main_sha: null
   version: 0.0.190

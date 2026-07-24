@@ -6,9 +6,9 @@ title: foldToL1 silently drops textless/box-less elements — must emit a signal
   residual, not drop
 created_by: xgd
 created_at: '2026-07-23T02:01:15.309088+00:00'
-updated_at: '2026-07-23T16:39:04.751423+00:00'
+updated_at: '2026-07-24T22:27:13.806747+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: free_coded
 fields:
   severity: medium
@@ -16,7 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: a4eef9db46f98e4ef3b3ad38ba2fbd30ce9a4f4c
+  - working_sha: fb2830bfa1de24296292a5b3ad2501e3f0727998
     reconcile_sha: null
     main_sha: null
   version: 0.0.178

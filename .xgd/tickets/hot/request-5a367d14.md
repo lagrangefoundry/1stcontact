@@ -5,16 +5,16 @@ type: request
 title: 'services-grid card: zero body outer margin so title->body gap isn''t doubled'
 created_by: xgd
 created_at: '2026-07-19T00:13:32.893050+00:00'
-updated_at: '2026-07-19T01:04:50.274774+00:00'
-completed_at: null
+updated_at: '2026-07-24T22:27:35.803439+00:00'
+completed_at: '2026-07-24T22:27:35.803439+00:00'
 last_field_updated: status
-status: ready_to_reconcile
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: fd3d9b9580a97c050f488358ca7c7d5decf0a5d0
+  - working_sha: 10dbed3dc7320739a80cadb5d83259f7b1e1426a
     reconcile_sha: null
     main_sha: null
   version: 0.0.154

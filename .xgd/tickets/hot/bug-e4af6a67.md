@@ -6,9 +6,9 @@ title: Capture records list-style-type for non-list elements — every run rende
   bullet
 created_by: xgd
 created_at: '2026-07-23T18:35:46.249096+00:00'
-updated_at: '2026-07-23T20:28:07.294904+00:00'
+updated_at: '2026-07-24T22:27:08.394145+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: ready_to_reconcile
 fields:
   severity: high
@@ -16,7 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 3eceada530fd1f818d90af97befde4f1656915d2
+  - working_sha: 4e650974e2a884891164740f5bb58c046a8b365e
     reconcile_sha: null
     main_sha: null
   version: 0.0.182

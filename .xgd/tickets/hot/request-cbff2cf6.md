@@ -5,16 +5,16 @@ type: request
 title: styled inline runs in markdown body prose ([text]{attrs} spans)
 created_by: xgd
 created_at: '2026-07-18T18:00:40.855610+00:00'
-updated_at: '2026-07-19T01:04:53.915680+00:00'
-completed_at: null
+updated_at: '2026-07-24T22:27:31.474765+00:00'
+completed_at: '2026-07-24T22:27:31.474765+00:00'
 last_field_updated: status
-status: ready_to_reconcile
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 961d9acc7a3fcdd6d656506cbcff74365eb9f37a
+  - working_sha: 2ea933b3a565d837e2ee988b594a8b598504e358
     reconcile_sha: null
     main_sha: null
   version: 0.0.146
