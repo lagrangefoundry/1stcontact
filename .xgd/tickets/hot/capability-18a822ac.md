@@ -5,7 +5,7 @@ type: capability
 title: 1c Size-Aware Diffing
 created_by: xgd
 created_at: '2026-07-19T02:36:14.319634+00:00'
-updated_at: '2026-07-23T10:50:01.381091+00:00'
+updated_at: '2026-07-24T07:47:08.374006+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
