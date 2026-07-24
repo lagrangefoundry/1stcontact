@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: REQ-87 capability-module -> behavior-module rename'
 created_by: xgd
 created_at: '2026-07-24T22:36:55.262567+00:00'
-updated_at: '2026-07-24T22:36:55.262567+00:00'
+updated_at: '2026-07-24T22:42:58.359055+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-84af044b
@@ -87,7 +87,7 @@ fields:
         capability'' -> ''a misbehaving behavior''; the isolation dimension itself
         is unchanged.'
       remove: []
-    story_uid: null
+    story_uid: story-179b8c06
   - index: 2
     component: L1 slot seam (packages/site-schema/src/l1 + framework/src/l1/render.ts)
     item_type: upgrade
