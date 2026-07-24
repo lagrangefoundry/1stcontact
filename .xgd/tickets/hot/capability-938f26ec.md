@@ -5,7 +5,7 @@ type: capability
 title: Framework Reproduction Module Treatments
 created_by: xgd
 created_at: '2026-07-19T03:33:43.924201+00:00'
-updated_at: '2026-07-23T08:26:20.254507+00:00'
+updated_at: '2026-07-24T08:56:08.455827+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
