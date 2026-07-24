@@ -6,7 +6,7 @@ title: Sample-fidelity probe matches reproduced boxes to the oracle at every cap
   width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-07-23T06:35:01.145350+00:00'
+updated_at: '2026-07-24T10:23:23.763406+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
