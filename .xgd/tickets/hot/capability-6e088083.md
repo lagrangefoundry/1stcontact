@@ -5,7 +5,7 @@ type: capability
 title: Framework Absolute-or-Overlay Value System
 created_by: xgd
 created_at: '2026-07-19T03:08:58.653511+00:00'
-updated_at: '2026-07-23T10:04:22.442287+00:00'
+updated_at: '2026-07-24T08:34:07.605102+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
