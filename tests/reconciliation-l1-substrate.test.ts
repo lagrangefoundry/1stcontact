@@ -12,8 +12,9 @@
  *   AC-686  out-of-range / oversize / freeform documents are rejected
  *   AC-687  a rejected document returns the full list of per-field errors
  *   AC-688  the spike renders equivalently across chromium, webkit, firefox
+ *   AC-723  a slot leaf renders as an inert placeholder naming its behavior module
  *
- * The validator + emitter probes (AC-682/684/685/686/687) are engine-free and
+ * The validator + emitter probes (AC-682/684/685/686/687/723) are engine-free and
  * run everywhere; the real-browser probes (AC-683/688) skip cleanly on a runner
  * without the engines installed.
  */
@@ -104,8 +105,9 @@ describe('AC-682 well-formed L1 document accepted as a typed layout tree', () =>
     }
 
     // Each optional structure primitive, varied independently, is still accepted:
-    // per-axis sizing modes, distribution/alignment, viewport visibility, a slot,
-    // an image with an allowed relative src, and both segment kinds.
+    // per-axis sizing modes, distribution/alignment, viewport visibility, a slot
+    // both with and without its optional behavior-module id, an image with an
+    // allowed relative src, and both segment kinds.
     const variants: L1Document[] = [
       {
         widths: WIDTHS,
@@ -126,7 +128,10 @@ describe('AC-682 well-formed L1 document accepted as a typed layout tree', () =>
           layout: 'grid',
           columns: 3,
           children: [
-            { kind: 'slot', name: 'gallery', capability: 'carousel' },
+            // The optional module-id field is `behavior` (REQ-87 rename); a slot
+            // is well-formed both with it and without it.
+            { kind: 'slot', name: 'gallery', behavior: 'carousel' },
+            { kind: 'slot', name: 'unassigned' },
             { kind: 'image', src: '/assets/photo.jpg', alt: 'a photo', axes: { objectFit: 'cover' } },
             { kind: 'text', text: 'caption', visibility: { fromPx: 768 } },
           ],
@@ -185,7 +190,7 @@ describe('AC-683 authored axes round-trip: capture(render(L1)) reproduces every 
 // ── AC-684: geometry keyframes — interpolate varies continuously, snap holds ───
 
 describe('AC-684 geometry keyframes produce per-viewport layout (interpolate vs snap)', () => {
-  it('test_UAT_AC684_interpolate_varies_continuously_and_snap_holds', () => {
+  it('test_UAT_AC684_interpolate_varies_continuously_and_snap_holds', async () => {
     // The interpolate wordmark: base rule pins the smallest keyframe absolutely,
     // the segment emits a viewport-fluid calc() gated at the lower breakpoint that
     // equals the authored endpoints, and the top keyframe is held above the ceiling.
@@ -218,7 +223,77 @@ describe('AC-684 geometry keyframes produce per-viewport layout (interpolate vs 
     const at320 = snapCss.split('@media (min-width: 320px)')[1] ?? ''
     expect(at320).toContain('left: 10px')
     expect(at320).not.toContain('calc(')
-  })
+
+    // A multi-segment track — the per-viewport variation the deleted per-breakpoint
+    // module dials used to express, now carried by one typed substrate (this
+    // criterion subsumes the retired AC-717). The [320,768] band interpolates
+    // width, the [768,1280] band snaps, then jumps at the next breakpoint.
+    const multiDoc: L1Document = {
+      widths: WIDTHS,
+      root: {
+        kind: 'text',
+        text: 'responsive band',
+        geometry: {
+          keyframes: [
+            { at: 320, x: 24, y: 100, width: 300 },
+            { at: 768, x: 24, y: 100, width: 600 },
+            { at: 1280, x: 24, y: 100, width: 900 },
+          ],
+          segments: ['interpolate', 'snap'],
+        },
+      },
+    }
+    const multiCss = renderL1Document(multiDoc).css
+    const band = (w: number): string =>
+      multiCss.split('@media').find((b) => b.includes(`(min-width: ${w}px)`)) ?? ''
+    // Below the smallest keyframe the smallest keyframe holds (the base rule).
+    expect(multiCss.split('@media')[0]).toContain('width: 300px')
+    // Interpolate band: width is a continuous function of the viewport.
+    expect(band(320)).toContain('width: calc(300px + (300 * (100vw - 320px) / 448))')
+    // Snap band: the lower keyframe's width is held, with no viewport term.
+    expect(band(768)).toContain('width: 600px')
+    expect(band(768)).not.toContain('100vw')
+    // At the next breakpoint the snapped value jumps rather than ramping.
+    expect(band(1280)).toContain('width: 900px')
+    expect(band(1280)).not.toContain('calc(')
+
+    // Real-browser confirmation: the interpolate wordmark actually moves and
+    // widens across the ladder, with the endpoints matching the authored
+    // keyframes. Skips cleanly where no engine is installed.
+    if (chromiumReady) {
+      const projections = await captureL1(heroDoc(), {
+        engines: ['chromium'],
+        widths: WIDTHS,
+      })
+      const measured = WIDTHS.map((w) => {
+        const proj = projections.find((p) => p.viewport.width === w)
+        const el = byText(proj!.manifest, 'FAELAN')
+        return { w, x: el!.box!.x, width: el!.box!.width }
+      })
+
+      // Endpoints are pinned to the authored keyframes (x/width @320 and @1280).
+      const at = (w: number) => measured.find((m) => m.w === w)!
+      expect(Math.abs(at(320).x - 20)).toBeLessThanOrEqual(2)
+      expect(Math.abs(at(320).width - 280)).toBeLessThanOrEqual(2)
+      expect(Math.abs(at(1280).x - 340)).toBeLessThanOrEqual(2)
+      expect(Math.abs(at(1280).width - 600)).toBeLessThanOrEqual(2)
+
+      // Strictly increasing across the interpolated span — it moves *and* widens,
+      // rather than snapping between two discrete values.
+      const span = measured.filter((m) => m.w <= 1280)
+      for (let i = 1; i < span.length; i++) {
+        expect(span[i].x, `x @${span[i].w} > x @${span[i - 1].w}`).toBeGreaterThan(span[i - 1].x)
+        expect(
+          span[i].width,
+          `width @${span[i].w} > width @${span[i - 1].w}`,
+        ).toBeGreaterThan(span[i - 1].width)
+      }
+
+      // Above the largest keyframe the largest keyframe holds.
+      expect(at(1440).x).toBeCloseTo(at(1280).x, 1)
+      expect(at(1440).width).toBeCloseTo(at(1280).width, 1)
+    }
+  }, 180000)
 })
 
 // ── AC-685: injection payloads in content values are inert in the output ───────
@@ -276,6 +351,18 @@ describe('AC-686 out-of-range, oversize, and freeform documents are rejected by 
       },
     }
     expect(accepts(inRange)).toBe(true)
+
+    // The unknown-key rule admits no grandfathered exception for a renamed field.
+    // The same slot, keyed two ways: `behavior` (post-REQ-87) is accepted, the
+    // legacy `capability` key is an unknown key and is rejected outright — the
+    // rename is atomic, not a tolerated alias, so a stale document fails loudly
+    // at the envelope instead of silently dropping its module id.
+    const slotDoc = (key: 'behavior' | 'capability'): unknown => ({
+      widths: WIDTHS,
+      root: { kind: 'slot', name: 'body', [key]: 'carousel' },
+    })
+    expect(accepts(slotDoc('behavior')), 'renamed key accepted').toBe(true)
+    expect(accepts(slotDoc('capability')), 'legacy key rejected as unknown').toBe(false)
 
     // Each document below violates exactly one envelope rule and must be rejected.
     const rejected: Record<string, unknown> = {
@@ -443,4 +530,61 @@ describe('AC-688 the spike renders equivalently across chromium, webkit, and fir
     },
     240000,
   )
+})
+
+// ── AC-723: a slot renders as an inert placeholder naming its behavior module ──
+
+describe('AC-723 a slot leaf renders as an inert placeholder naming its behavior module', () => {
+  it('test_UAT_AC723_slot_name_always_emitted_behavior_only_when_declared_both_escaped', () => {
+    // Three slots: one declaring a behavior-module id, one declaring none, and
+    // one whose name and module id both carry attribute-breakout payloads.
+    const doc: L1Document = {
+      widths: WIDTHS,
+      root: {
+        kind: 'container',
+        layout: 'stack',
+        children: [
+          { kind: 'slot', name: 'gallery', behavior: 'carousel' },
+          { kind: 'slot', name: 'unassigned' },
+          {
+            kind: 'slot',
+            name: '"><img src=x onerror=alert(1)>',
+            behavior: '"><script>alert(2)</script>',
+          },
+        ],
+      },
+    }
+    // The payload-bearing slot is well-formed at the envelope (both fields are
+    // strings) — it is the emitter that must neutralise it.
+    expect(validateL1(doc).ok).toBe(true)
+
+    const { html } = renderL1Document(doc)
+    const page = renderL1Page(doc)
+
+    // Every slot reaches the page as an *empty* element — a placeholder carrying
+    // no module code and no attached behaviour.
+    const slots = html.match(/<div[^>]*data-l1-slot="[^"]*"[^>]*><\/div>/g) ?? []
+    expect(slots.length, 'one empty placeholder per slot').toBe(3)
+
+    // (a) A declared module id emits both attributes with the authored values.
+    const declared = slots.find((s) => s.includes('data-l1-slot="gallery"'))
+    expect(declared).toBeDefined()
+    expect(declared).toContain('data-l1-behavior="carousel"')
+
+    // (b) With no module id the attribute is omitted entirely, not emitted empty.
+    const undeclared = slots.find((s) => s.includes('data-l1-slot="unassigned"'))
+    expect(undeclared).toBeDefined()
+    expect(undeclared).not.toContain('data-l1-behavior')
+
+    // (c) Both values are escaped: neither payload closes its attribute or
+    // introduces a live element anywhere in the page.
+    expect(html).toContain('&quot;&gt;&lt;img src=x onerror=alert(1)&gt;')
+    expect(html).toContain('&quot;&gt;&lt;script&gt;alert(2)&lt;/script&gt;')
+    expect(page).not.toContain('<img src=x')
+    expect(page).not.toContain('<script>alert(2)')
+    expect(html).not.toContain('onerror=alert(1)>')
+
+    // The emitted attribute names the *behavior* module — no pre-rename residue.
+    expect(page).not.toContain('data-l1-capability')
+  })
 })
