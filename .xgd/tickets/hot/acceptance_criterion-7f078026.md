@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Render and bootstrap diagnostics are emitted on stderr, not stdout
 created_by: xgd
 created_at: '2026-07-19T03:01:45.893272+00:00'
-updated_at: '2026-07-19T03:06:25.964303+00:00'
+updated_at: '2026-07-24T08:18:52.291912+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
