@@ -5,7 +5,7 @@ type: capability
 title: 1c Values-Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-07-23T11:45:23.573578+00:00'
+updated_at: '2026-07-24T07:03:27.558220+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
