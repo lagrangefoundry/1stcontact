@@ -842,15 +842,37 @@ function buildSolidBands(bandRows: SurfaceRow[], widths: number[], sectionEdges:
     .map((g, i) => ({ g, i, top: topAt(g, widestW) ?? Infinity }))
     .sort((a, b) => a.top - b.top)
   const boxes: L1Box[] = []
+  /**
+   * REQ-88 — a band's TOP snapped up to the section edge that opens it. The runs
+   * only mark where the band's content starts; a section opening with padding put
+   * the edge higher (the footer band began at its copyright line, 52px below the
+   * navy strip's real top, leaving a cream sliver above it). The snap may never
+   * cross into the previous band's content, so a missing edge just leaves the
+   * run-derived top as-is.
+   */
+  const snappedTop = (oi: number, w: number): number | undefined => {
+    const raw = topAt(order[oi].g, w)
+    if (raw === undefined) return undefined
+    const floor = oi > 0 ? (botAt(order[oi - 1].g, w) ?? -Infinity) : 0
+    // The edge that OPENS this band is the closest one at or above the previous
+    // band's content and at or below this band's first run — i.e. the GREATEST
+    // qualifying edge. Taking the smallest instead would snap the band up over
+    // every section between them (the footer swallowed the whole contact section).
+    let best = -Infinity
+    for (const edge of sectionEdges.get(w) ?? []) {
+      if (edge <= raw && edge >= floor && edge > best) best = edge
+    }
+    return best === -Infinity ? raw : best
+  }
   order.forEach((entry, oi) => {
     const keyframes: L1Keyframe[] = []
     const present: number[] = []
     for (const w of widths) {
-      const top = topAt(entry.g, w)
+      const top = snappedTop(oi, w)
       if (top === undefined) continue
       let bottom: number | undefined
       for (let k = oi + 1; k < order.length; k++) {
-        const nt = topAt(order[k].g, w)
+        const nt = snappedTop(k, w)
         if (nt !== undefined && nt > top) {
           bottom = nt
           break
