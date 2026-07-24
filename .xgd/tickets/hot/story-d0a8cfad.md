@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-07-24T23:06:56.242719+00:00'
+updated_at: '2026-07-24T23:15:38.455300+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -93,16 +93,10 @@ behavior-module id, with no module code and no behaviour attached.
   legacy key is now *rejected* by the envelope as an unknown key — recorded in
   AC-686. Nothing about the typed-tree, envelope, round-trip, or cross-browser
   obligations changed; only the field's name.
-- **Known stale fixture at reconciliation time.** REQ-87's grep-driven sweep
-  (commit dated 21 Jul) predates this story's reconciliation UAT file (24 Jul),
-  so `tests/reconciliation-l1-substrate.test.ts` still authors a slot with the
-  legacy `capability` key and asserts acceptance —
-  `test_UAT_AC682_valid_document_and_optional_primitives_accepted` fails on this
-  branch (verified: 1 failed | 6 passed). The fixture, not the code, is wrong;
-  repairing it to the `behavior` key is downstream UAT work under AC-682.
-- The emitted `data-l1-slot` attribute has incidental coverage in CAP-72 /
-  generate tests (carousel mounting); `data-l1-behavior` is asserted nowhere.
-  AC-723 pins both as an obligation of the L1 emitter itself.
+- AC-723 pins the emitted `data-l1-slot` and `data-l1-behavior` attributes as an
+  obligation of the L1 emitter itself, asserted directly by this story's
+  reconciliation UATs rather than left to the incidental coverage they had in the
+  CAP-72 / generate tests.
 
 ## Dependencies
 None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on it).
