@@ -6,7 +6,7 @@ title: Box-border comparison includes line style and captures the border on text
   via the thickest painted side
 created_by: xgd
 created_at: '2026-07-22T20:17:29.886710+00:00'
-updated_at: '2026-07-23T11:45:17.137510+00:00'
+updated_at: '2026-07-24T07:03:11.526991+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
