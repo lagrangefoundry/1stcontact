@@ -2,12 +2,12 @@
 uid: acceptance_criterion-145872b3
 id: AC-697
 type: acceptance_criterion
-title: Behavioural config is validated against the capability's typed contract
+title: Behavioural config is validated against the behavior's typed contract
 created_by: xgd
 created_at: '2026-07-22T19:54:00.901253+00:00'
-updated_at: '2026-07-24T10:07:59.506279+00:00'
+updated_at: '2026-07-24T22:41:16.258600+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: title
 status: active
 fields:
   story_uid: story-179b8c06
@@ -17,7 +17,7 @@ fields:
 ---
 
 ## Criterion
-When a capability instance's `config` is validated against its capability
+When a behavior instance's `config` is validated against its behavior
 contract, each field is checked against its typed spec and every violation is
 reported as a distinct entry naming the offending field (`config.<name>`) and the
 reason. Specifically:
@@ -32,8 +32,10 @@ reason. Specifically:
 A fully valid config produces an empty violation list.
 
 ## Verification
-Validate representative instances of the two survivor capabilities: one with a
-correct config (expect zero violations) and ones each seeding a single defect
+Validate representative instances of the two survivor behavior modules: one with
+a correct config (expect zero violations) and ones each seeding a single defect
 (missing required, wrong type, out-of-range integer, off-enum value,
 out-of-bounds list, malformed list item). Assert exactly the expected
-field-scoped violation is reported in each case.
+field-scoped violation is reported in each case. The config validator is reached
+under its renamed name `validateBehaviorConfig`; any representative meta authored
+by the test must declare `kind: 'behavior'`.
