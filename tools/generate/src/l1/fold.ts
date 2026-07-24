@@ -34,9 +34,11 @@ import {
   type L1Keyframe,
   type L1Node,
   type L1Padding,
+  type L1ScalarKeyframe,
   type L1Segment,
   type L1Shadow,
   type L1TextAxes,
+  type L1TextResponsive,
 } from '@1stcontact/site-schema'
 import { buildResponsiveTable, type LabelledProjection } from '../cli/responsive-diff'
 import {
@@ -193,6 +195,48 @@ function textAxes(el: ValueElement): L1TextAxes {
   const shadow = foldTextShadow(el.textShadow)
   if (shadow) axes.textShadow = shadow
   return axes
+}
+
+/**
+ * BUG-18 — the numeric type axes keyframed per captured width. Each reads its
+ * value the SAME way {@link textAxes} rounds its scalar (so the widest keyframe
+ * equals `axes.<name>`), and interpolates fluidly between captured widths.
+ */
+const RESPONSIVE_TEXT_AXES = {
+  fontSizePx: (v: number) => clamp(Math.round(v), FONT_SIZE.min, FONT_SIZE.max),
+  lineHeightPx: (v: number) => Math.round(v),
+  letterSpacingPx: (v: number) => Math.round(v * 100) / 100,
+} as const
+
+/**
+ * BUG-18 — per-width responsive tracks for the numeric type axes that actually
+ * vary across the sampled ladder. The fold previously took a text run's axes from
+ * the widest cell only, so `fontSizePx` (etc.) was one desktop value applied at
+ * every width — text rendered oversized at mobile. Here each framed cell
+ * contributes a keyframe; an axis whose value is identical across the ladder stays
+ * single-valued (no track — static axes are not bloated into tracks), while one
+ * that varies becomes a keyframe track the renderer emits per width. Segments are
+ * omitted (default `interpolate`), mirroring geometry's fluid default.
+ */
+function responsiveTextTracks(
+  framed: Array<{ width: number; element: ValueElement }>,
+): L1TextResponsive | undefined {
+  const out: L1TextResponsive = {}
+  for (const [axis, round] of Object.entries(RESPONSIVE_TEXT_AXES) as Array<
+    [keyof typeof RESPONSIVE_TEXT_AXES, (v: number) => number]
+  >) {
+    const keyframes: L1ScalarKeyframe[] = []
+    for (const c of framed) {
+      const raw = c.element[axis]
+      if (raw === undefined || raw === null || !Number.isFinite(raw)) continue
+      keyframes.push({ at: c.width, value: round(raw as number) })
+    }
+    // A track earns its place only when ≥2 widths carry the axis AND it varies —
+    // a single value across the ladder stays a scalar in `axes`.
+    if (keyframes.length < 2 || keyframes.every((k) => k.value === keyframes[0].value)) continue
+    out[axis] = { keyframes }
+  }
+  return Object.keys(out).length ? out : undefined
 }
 
 /**
@@ -889,6 +933,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         axes: textAxes(widest),
         geometry: buildGeometry(false),
       }
+      // BUG-18 — keyframe the numeric type axes that vary across the ladder, so
+      // font-size (etc.) scales per width instead of pinning the desktop value.
+      const responsive = responsiveTextTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
+      if (responsive) node.responsive = responsive
       if (vis) node.visibility = vis
       const pad = foldPadding(widest)
       if (pad) node.padding = pad

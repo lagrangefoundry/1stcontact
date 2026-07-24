@@ -14,7 +14,7 @@
  * value that could hang or break a browser.
  */
 import { l1DocumentSchema } from './schema'
-import type { L1Document, L1Geometry, L1Node } from './types'
+import type { L1Document, L1Geometry, L1Node, L1ScalarTrack } from './types'
 import type { Result, ValidationError } from '../validate'
 
 /** Envelope bounds — the numeric ranges + structural caps L1 admits. */
@@ -105,6 +105,50 @@ function checkGeometry(
           message: `geometry ${k}=${v} out of range [${L1_ENVELOPE.geometryPx.min}, ${L1_ENVELOPE.geometryPx.max}]`,
         })
       }
+    }
+  })
+  if (segments && segments.length !== keyframes.length - 1) {
+    errors.push({
+      path: `${path}/segments`,
+      message: `segments length ${segments.length} must equal keyframes.length - 1 (${keyframes.length - 1})`,
+    })
+  }
+}
+
+/**
+ * BUG-18 — well-formedness for a responsive scalar-axis track, mirroring
+ * {@link checkGeometry}: keyframe `at` values are captured widths, strictly
+ * ascending, each `value` sits in the axis's numeric range, and the optional
+ * segment flags are exactly one shorter than the keyframes.
+ */
+function checkScalarTrack(
+  track: L1ScalarTrack,
+  widths: readonly number[],
+  range: { min: number; max: number },
+  path: string,
+  errors: ValidationError[],
+): void {
+  const { keyframes, segments } = track
+  let prevAt = -Infinity
+  keyframes.forEach((kf, i) => {
+    if (kf.at <= prevAt) {
+      errors.push({
+        path: `${path}/keyframes/${i}/at`,
+        message: `keyframes must be sorted strictly ascending by 'at' (got ${kf.at} after ${prevAt})`,
+      })
+    }
+    prevAt = kf.at
+    if (!widths.includes(kf.at)) {
+      errors.push({
+        path: `${path}/keyframes/${i}/at`,
+        message: `keyframe width ${kf.at} is not one of the document widths [${widths.join(', ')}]`,
+      })
+    }
+    if (!inRange(kf.value, range.min, range.max)) {
+      errors.push({
+        path: `${path}/keyframes/${i}/value`,
+        message: `value=${kf.value} out of range [${range.min}, ${range.max}]`,
+      })
     }
   })
   if (segments && segments.length !== keyframes.length - 1) {
@@ -231,6 +275,16 @@ function walk(
         errors.push({ path: `${path}/axes/${k}`, message: `${k}=${v} out of range` })
       }
     }
+  }
+
+  // BUG-18 — responsive scalar-axis tracks: each keyframe value bounded by its
+  // axis range (font-size in the legible range; line-height / letter-spacing in
+  // the length range), keyframes at captured widths, ascending.
+  if (node.kind === 'text' && node.responsive) {
+    const r = node.responsive
+    if (r.fontSizePx) checkScalarTrack(r.fontSizePx, widths, L1_ENVELOPE.fontSizePx, `${path}/responsive/fontSizePx`, errors)
+    if (r.lineHeightPx) checkScalarTrack(r.lineHeightPx, widths, L1_ENVELOPE.lengthPx, `${path}/responsive/lineHeightPx`, errors)
+    if (r.letterSpacingPx) checkScalarTrack(r.letterSpacingPx, widths, L1_ENVELOPE.lengthPx, `${path}/responsive/letterSpacingPx`, errors)
   }
 
   if (node.kind === 'image' && !isSafeUrl(node.src)) {

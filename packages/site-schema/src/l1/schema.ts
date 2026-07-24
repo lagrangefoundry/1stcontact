@@ -60,6 +60,52 @@ export const l1GeometrySchema = z
   })
   .strict()
 
+// ── Responsive scalar-axis tracks (BUG-18) ────────────────────────────────────
+//
+// Geometry is not the only property that varies with width: a text run's type
+// scales down at narrow widths (font-size 72→36, etc.). A responsive scalar
+// track keyframes a single numeric CSS property across the ladder exactly the way
+// geometry keyframes position — an axis that *does not* vary stays a plain scalar
+// in `axes` (don't bloat static axes into tracks).
+
+/** One responsive scalar keyframe: an axis value at a captured viewport width. */
+export const l1ScalarKeyframeSchema = z
+  .object({
+    at: finite.nonnegative(),
+    value: finite,
+  })
+  .strict()
+
+/**
+ * A responsive scalar-axis track: keyframes ascending by `at` plus an optional
+ * per-segment `interpolate|snap` flag (length `keyframes.length - 1`). Mirrors
+ * {@link l1GeometrySchema} for one numeric CSS property; absent segment flags
+ * default to `interpolate` (fluid), so type scales smoothly between the captured
+ * widths and hits each sampled width exactly.
+ */
+export const l1ScalarTrackSchema = z
+  .object({
+    keyframes: z.array(l1ScalarKeyframeSchema).min(1),
+    segments: z.array(l1SegmentSchema).optional(),
+  })
+  .strict()
+
+/**
+ * Per-axis responsive tracks for a text leaf (BUG-18). Only the numeric,
+ * interpolatable type axes that actually vary across the ladder get a track;
+ * every other axis stays single-valued in {@link l1TextAxesSchema}. When present,
+ * the track owns the axis at render time (base rule = smallest-width keyframe,
+ * media overrides above), while `axes.<name>` remains the representative
+ * (widest) value for non-responsive consumers.
+ */
+export const l1TextResponsiveSchema = z
+  .object({
+    fontSizePx: l1ScalarTrackSchema.optional(),
+    lineHeightPx: l1ScalarTrackSchema.optional(),
+    letterSpacingPx: l1ScalarTrackSchema.optional(),
+  })
+  .strict()
+
 // ── Structure primitives (capture leaves empty; the AI recovers) ──────────────
 
 /** Per-axis sizing intent: a fixed px, fluid (fill), or hug (fit-content). */
@@ -309,6 +355,8 @@ export const l1TextSchema = z
     id: z.string().optional(),
     text: z.string(),
     axes: l1TextAxesSchema.optional(),
+    /** BUG-18 — per-width tracks for the numeric type axes that vary across the ladder. */
+    responsive: l1TextResponsiveSchema.optional(),
     geometry: l1GeometrySchema.optional(),
     visibility: l1VisibilitySchema.optional(),
     transform: l1TransformSchema.optional(),
