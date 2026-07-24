@@ -6,7 +6,7 @@ title: Survivor capabilities declare the full five-dimension conformance obligat
   set
 created_by: xgd
 created_at: '2026-07-22T19:55:07.909196+00:00'
-updated_at: '2026-07-23T06:57:13.336850+00:00'
+updated_at: '2026-07-24T10:08:22.086708+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
