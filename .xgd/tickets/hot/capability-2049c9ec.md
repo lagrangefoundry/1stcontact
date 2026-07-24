@@ -5,7 +5,7 @@ type: capability
 title: Capture-to-L1 Reproduction Fold
 created_by: xgd
 created_at: '2026-07-22T19:41:21.754682+00:00'
-updated_at: '2026-07-23T07:16:25.599105+00:00'
+updated_at: '2026-07-24T09:51:33.985279+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
