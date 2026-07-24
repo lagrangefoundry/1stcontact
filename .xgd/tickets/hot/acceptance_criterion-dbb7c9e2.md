@@ -6,7 +6,7 @@ title: Element effects (backdrop-filter/outline presence, blend mode, pseudo-con
   opacity) are captured and compared
 created_by: xgd
 created_at: '2026-07-22T20:17:18.455698+00:00'
-updated_at: '2026-07-23T11:45:15.503788+00:00'
+updated_at: '2026-07-24T07:03:07.745027+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
