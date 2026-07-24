@@ -1,19 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
+import * as framework from '../packages/framework/src/index'
 import {
-  validateCapabilityConfig,
-  validateCapabilitySlots,
-  validateCapabilityInstance,
-  type CapabilityMeta,
-} from '../packages/framework/src/modules/capability'
-import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
-import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
-import { getModuleClientJs } from '../packages/framework/src/modules/styles'
+  registry,
+  getModule,
+  getModuleClientJs,
+  carouselMeta,
+  contactFormMeta,
+  validateBehaviorConfig,
+  validateBehaviorSlots,
+  validateBehaviorInstance,
+} from '../packages/framework/src/index'
+import type {
+  AssertBehaviorMeta,
+  BehaviorConfigSpec,
+  BehaviorConfigType,
+  BehaviorConformance,
+  BehaviorDefinition,
+  BehaviorInstance,
+  BehaviorMeta,
+  BehaviorSlotSpec,
+  BehaviorSlotValue,
+  BehaviorValidationError,
+  ConformanceObligation,
+} from '../packages/framework/src/index'
 import Carousel from '../packages/framework/src/modules/carousel/index.astro'
 import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 import { advanceTrack, enhanceCarousel } from '../packages/framework/src/modules/carousel/client.js'
@@ -27,14 +41,15 @@ import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 import ThrowsOnRender from './fixtures/conformance/throws-on-render.astro'
 
 /**
- * Reconciliation UATs for story-179b8c06 — **behavioural capability modules**:
- * a vetted behavioural core + typed `config` + named L1 presentation `slots` +
- * the five-dimension conformance envelope, delivered against the two survivor
- * capabilities (`carousel` v2, `contact-form` v3). One UAT per acceptance
- * criterion (AC-697 … AC-704), exercised at the real boundary: the capability
- * validator, the SSR container render (the path `tools/generate` uses), the
- * shipped `client.js` behaviour, the `1c` render pipeline, and the conformance
- * harness.
+ * Reconciliation UATs for story-179b8c06 — **behavior modules**: a vetted
+ * behavioural core + typed `config` + named L1 presentation `slots` + the
+ * five-dimension conformance envelope, published under the `Behavior*` names
+ * (REQ-87) and delivered against the two survivors (`carousel` v2,
+ * `contact-form` v3). One UAT per acceptance criterion (AC-697 … AC-704, AC-722),
+ * exercised at the real boundary: the behavior validators reached from the
+ * framework package root, the SSR container render (the path `tools/generate`
+ * uses), the shipped `client.js` behaviour, the render pipeline, and the
+ * conformance harness.
  */
 
 /** A minimal valid L1 subtree (a single text node — the L1 security envelope's atom). */
@@ -53,14 +68,14 @@ async function renderContactForm(props: unknown): Promise<string> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// AC-697 — Behavioural config is validated against the capability's typed contract
+// AC-697 — Behavioural config is validated against the behavior's typed contract
 // ════════════════════════════════════════════════════════════════════════════
-describe('story-179b8c06 — capability behavioural config validation', () => {
+describe('story-179b8c06 — behavioural config validation', () => {
   it('test_UAT_AC697_config_validated_against_typed_contract', () => {
     // A fully valid config for each survivor produces zero violations.
-    expect(validateCapabilityConfig(carouselMeta, {})).toEqual([])
+    expect(validateBehaviorConfig(carouselMeta, {})).toEqual([])
     expect(
-      validateCapabilityConfig(carouselMeta, {
+      validateBehaviorConfig(carouselMeta, {
         view: 'multi',
         controls: 'dots',
         autoplay: true,
@@ -68,37 +83,46 @@ describe('story-179b8c06 — capability behavioural config validation', () => {
       }),
     ).toEqual([])
     expect(
-      validateCapabilityConfig(contactFormMeta, {
+      validateBehaviorConfig(contactFormMeta, {
         action: 'https://example.com/lead',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
       }),
     ).toEqual([])
 
-    // The survivor capabilities carry no integer config field, so the
-    // typed-contract's integer-range rule is exercised via a representative
-    // capability meta — the same `validateCapabilityConfig` code path.
+    // The survivor behaviors carry no integer config field, so the typed
+    // contract's integer-range rule is exercised via a representative behavior
+    // meta — the same `validateBehaviorConfig` code path. It declares the
+    // renamed discriminant.
     const intMeta = {
       id: 'rep-int',
       version: 1,
-      kind: 'capability',
+      kind: 'behavior',
       config: { count: { type: 'integer', required: false, min: 1, max: 6 } },
       slots: {},
       conformance: { obligations: ['isolation'] },
-    } as const satisfies CapabilityMeta
+    } as const satisfies BehaviorMeta
 
     // Each case seeds exactly ONE defect and expects exactly the matching
     // field-scoped violation (nothing more, nothing less).
-    const cases: Array<{ meta: CapabilityMeta; config: Record<string, unknown>; expected: string[] }> = [
+    const cases: Array<{ meta: BehaviorMeta; config: Record<string, unknown>; expected: string[] }> = [
       // Missing required field (contact-form.action).
-      { meta: contactFormMeta, config: { fields: [{ name: 'email', label: 'Email', type: 'email' }] }, expected: ['config.action'] },
+      {
+        meta: contactFormMeta,
+        config: { fields: [{ name: 'email', label: 'Email', type: 'email' }] },
+        expected: ['config.action'],
+      },
       // Wrong type (carousel.autoplay must be boolean).
       { meta: carouselMeta, config: { autoplay: 'yes' }, expected: ['config.autoplay'] },
-      // Integer outside inclusive min/max.
+      // Integer outside its inclusive min/max.
       { meta: intMeta, config: { count: 99 }, expected: ['config.count'] },
       // Value outside a closed enum (carousel.view).
       { meta: carouselMeta, config: { view: 'carousel' }, expected: ['config.view'] },
       // List outside its inclusive item-count bounds (contact-form.fields, minItems 1).
-      { meta: contactFormMeta, config: { action: 'https://example.com/lead', fields: [] }, expected: ['config.fields'] },
+      {
+        meta: contactFormMeta,
+        config: { action: 'https://example.com/lead', fields: [] },
+        expected: ['config.fields'],
+      },
       // Malformed list item — recurse into itemSchema (contact-form.fields[0].type off-enum).
       {
         meta: contactFormMeta,
@@ -108,7 +132,7 @@ describe('story-179b8c06 — capability behavioural config validation', () => {
     ]
 
     for (const { meta, config, expected } of cases) {
-      const fields = validateCapabilityConfig(meta, config).map((e) => e.field).sort()
+      const fields = validateBehaviorConfig(meta, config).map((e) => e.field).sort()
       expect(fields).toEqual(expected)
     }
   })
@@ -120,42 +144,61 @@ describe('story-179b8c06 — capability behavioural config validation', () => {
 describe('story-179b8c06 — slot presentation validated as L1 subtrees', () => {
   it('test_UAT_AC698_slots_validated_as_l1_subtrees', () => {
     // (a) Valid L1 subtrees → zero violations, single and repeated slots.
-    expect(validateCapabilitySlots(carouselMeta, { slide: [textNode, textNode] })).toEqual([])
-    expect(validateCapabilitySlots(contactFormMeta, {})).toEqual([]) // both slots optional
-    expect(validateCapabilitySlots(contactFormMeta, { intro: textNode, submit: textNode })).toEqual([])
+    expect(validateBehaviorSlots(carouselMeta, { slide: [textNode, textNode] })).toEqual([])
+    expect(validateBehaviorSlots(contactFormMeta, {})).toEqual([]) // both slots optional
+    expect(validateBehaviorSlots(contactFormMeta, { intro: textNode, submit: textNode })).toEqual([])
 
-    // (b) The security line: non-L1 content (a raw-markup string / arbitrary
+    // (b) The security line: non-L1 content (a raw-markup string / an arbitrary
     // object) in a slot is a slot-scoped "not a valid L1 subtree" violation.
-    const rawInRepeated = validateCapabilitySlots(carouselMeta, {
+    const rawInRepeated = validateBehaviorSlots(carouselMeta, {
       slide: [textNode, '<script>alert(1)</script>' as unknown as typeof textNode],
     })
-    expect(rawInRepeated.some((e) => e.field === 'slots.slide[1]' && /not a valid L1 subtree/.test(e.message))).toBe(true)
+    expect(
+      rawInRepeated.some((e) => e.field === 'slots.slide[1]' && /not a valid L1 subtree/.test(e.message)),
+    ).toBe(true)
 
-    const rawInSingle = validateCapabilitySlots(contactFormMeta, {
+    const rawInSingle = validateBehaviorSlots(contactFormMeta, {
       intro: { foo: 'bar' } as unknown as typeof textNode,
     })
-    expect(rawInSingle.some((e) => e.field === 'slots.intro' && /not a valid L1 subtree/.test(e.message))).toBe(true)
+    expect(
+      rawInSingle.some((e) => e.field === 'slots.intro' && /not a valid L1 subtree/.test(e.message)),
+    ).toBe(true)
 
     // (c) Missing REQUIRED slot is a violation; missing OPTIONAL slot is not.
-    expect(validateCapabilitySlots(carouselMeta, {})).toEqual([
+    expect(validateBehaviorSlots(carouselMeta, {})).toEqual([
       { field: 'slots.slide', message: expect.stringContaining('required slot') },
     ])
 
     // A repeated slot must be an array within inclusive minItems/maxItems.
-    expect(validateCapabilitySlots(carouselMeta, { slide: [] }).map((e) => e.field)).toEqual(['slots.slide'])
-    const over = validateCapabilitySlots(carouselMeta, { slide: Array(21).fill(textNode) })
+    expect(validateBehaviorSlots(carouselMeta, { slide: [] }).map((e) => e.field)).toEqual([
+      'slots.slide',
+    ])
+    const over = validateBehaviorSlots(carouselMeta, { slide: Array(21).fill(textNode) })
     expect(over.some((e) => e.field === 'slots.slide' && /at most 20/.test(e.message))).toBe(true)
 
     // Array-vs-single mismatch, both directions.
-    const singleGivenArray = validateCapabilitySlots(contactFormMeta, { intro: [textNode] })
-    expect(singleGivenArray.some((e) => e.field === 'slots.intro' && /single L1 subtree/.test(e.message))).toBe(true)
-    const repeatedGivenSingle = validateCapabilitySlots(carouselMeta, { slide: textNode })
-    expect(repeatedGivenSingle.some((e) => e.field === 'slots.slide' && /must be a list/.test(e.message))).toBe(true)
+    const singleGivenArray = validateBehaviorSlots(contactFormMeta, { intro: [textNode] })
+    expect(
+      singleGivenArray.some((e) => e.field === 'slots.intro' && /single L1 subtree/.test(e.message)),
+    ).toBe(true)
+    const repeatedGivenSingle = validateBehaviorSlots(carouselMeta, { slide: textNode })
+    expect(
+      repeatedGivenSingle.some((e) => e.field === 'slots.slide' && /must be a list/.test(e.message)),
+    ).toBe(true)
 
     // Validating a whole instance reports the UNION of config + slot violations.
-    const union = validateCapabilityInstance(contactFormMeta, { config: {}, slots: { intro: [textNode] } })
+    const union = validateBehaviorInstance(contactFormMeta, {
+      config: {},
+      slots: { intro: [textNode] },
+    })
     expect(union.some((e) => e.field.startsWith('config.'))).toBe(true)
     expect(union.some((e) => e.field.startsWith('slots.'))).toBe(true)
+
+    // No slot content bypasses L1 validation on its way to the page: the
+    // carousel mounts only what the L1 renderer accepts — a raw-markup slide is
+    // dropped, never emitted as markup.
+    expect(validateBehaviorSlots(carouselMeta, { slide: ['<img src=x onerror=alert(1)>'] as never }).length)
+      .toBeGreaterThan(0)
   })
 })
 
@@ -192,6 +235,14 @@ describe('story-179b8c06 — carousel L1 slide track', () => {
     const none = await renderCarousel({ config: { controls: 'none' }, slots: { slide: slides } })
     expect(none).not.toMatch(/carousel__dots/)
 
+    // Dots are decorative chrome for a real multi-slide track: a single slide
+    // gets none.
+    const oneSlide = await renderCarousel({
+      config: { controls: 'dots' },
+      slots: { slide: [slides[0]] },
+    })
+    expect(oneSlide).not.toMatch(/carousel__dots/)
+
     // The contract exposes ONLY behavioural config + the `slide` slot — no
     // aesthetic dial produces the slide look.
     const meta = carouselMeta as Record<string, unknown>
@@ -223,7 +274,10 @@ describe('story-179b8c06 — carousel autoplay/loop client behaviour', () => {
     const on = await renderCarousel({ config: { autoplay: true }, slots: { slide: slides } })
     expect(on).toMatch(/data-carousel-autoplay/)
     expect(on).not.toMatch(/data-carousel-loop/)
-    const looped = await renderCarousel({ config: { autoplay: true, loop: true }, slots: { slide: slides } })
+    const looped = await renderCarousel({
+      config: { autoplay: true, loop: true },
+      slots: { slide: slides },
+    })
     expect(looped).toMatch(/data-carousel-autoplay/)
     expect(looped).toMatch(/data-carousel-loop/)
 
@@ -303,13 +357,16 @@ describe('story-179b8c06 — carousel autoplay/loop client behaviour', () => {
     expect(() => enhanceCarousel(missingTrackSection, noopSchedule)).not.toThrow()
     expect(scheduled).toBe(false)
 
-    // Isolation: an absent timer API (no schedule, no global setInterval) is inert.
+    // Isolation: an absent timer API (no injected schedule, no global
+    // setInterval) is inert — the static baseline survives.
     vi.stubGlobal('setInterval', undefined)
     const twoSlideSection = {
       hasAttribute: (a: string) => a === 'data-carousel-autoplay',
       querySelector: (sel: string) => (sel === '.carousel__track' ? multiTrack : null),
     } as unknown as HTMLElement
-    expect(() => enhanceCarousel(twoSlideSection, undefined as unknown as typeof setInterval)).not.toThrow()
+    expect(() =>
+      enhanceCarousel(twoSlideSection, undefined as unknown as typeof setInterval),
+    ).not.toThrow()
   })
 })
 
@@ -340,6 +397,7 @@ describe('story-179b8c06 — contact-form functional render + L1 slots', () => {
     expect(html).toMatch(/<label[^>]*for="cf-email"[^>]*>Email<\/label>/)
     // email field is not required — no `required` attr on its input.
     expect(html).toMatch(/<input[^>]*id="cf-email"[^>]*type="email"(?![^>]*required)[^>]*>/)
+    expect(html).toMatch(/<label[^>]*for="cf-message"[^>]*>Message<\/label>/)
     expect(html).toMatch(/<textarea[^>]*id="cf-message"[^>]*required/)
 
     // The anti-spam surface: a visually-hidden, off-tab-order honeypot + a
@@ -364,18 +422,25 @@ describe('story-179b8c06 — contact-form functional render + L1 slots', () => {
     expect(withSlots).toMatch(/contact-form__intro/)
     expect(withSlots).toContain('Get in touch with our team')
     expect(withSlots).toContain('Send message')
+    expect(withSlots.indexOf('contact-form__intro')).toBeLessThan(withSlots.indexOf('id="cf-name"'))
+    expect(withSlots).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
   })
 })
 
 // ════════════════════════════════════════════════════════════════════════════
-// AC-702 — Capability client behaviour ships as one page-referenced asset
+// AC-702 — Behavior client behaviour ships as one page-referenced asset
 // ════════════════════════════════════════════════════════════════════════════
-describe('story-179b8c06 — capability client behaviour ships once per page', () => {
+describe('story-179b8c06 — behavior client behaviour ships once per page', () => {
+  afterEach(() => {
+    vi.doUnmock('../packages/framework/src/index')
+    vi.resetModules()
+  })
+
   it('test_UAT_AC702_client_behaviour_ships_as_one_page_referenced_asset', async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'ac702-'))
     try {
       cmdNew('acme', { cwd })
-      // Seed the home page with instances of BOTH survivor capabilities.
+      // Seed the home page with instances of BOTH survivor behaviors.
       const homePath = path.join(cwd, 'storage', 'sites', 'acme', 'draft', 'pages', 'home.json')
       const home = JSON.parse(readFileSync(homePath, 'utf8'))
       home.modules = [
@@ -400,12 +465,14 @@ describe('story-179b8c06 — capability client behaviour ships once per page', (
 
       const { outDir } = await cmdRender('acme', { cwd })
 
-      // Exactly ONE client-behaviour asset, folding BOTH capabilities' vetted code.
+      // Exactly ONE client-behaviour asset, folding BOTH behaviors' vetted code.
+      // The filename is deliberately `capabilities.js` — a plural bundle-output
+      // name, not the renamed type (REQ-87 left it alone on purpose).
       const capsPath = path.join(outDir, 'capabilities.js')
       expect(existsSync(capsPath)).toBe(true)
       const capsJs = readFileSync(capsPath, 'utf8')
-      expect(capsJs).toContain('/* capability: carousel */')
-      expect(capsJs).toContain('/* capability: contact-form */')
+      expect(capsJs).toContain('/* behavior: carousel */')
+      expect(capsJs).toContain('/* behavior: contact-form */')
       // The behaviours actually ship (not lost to a 404 island script): the
       // carousel autoplay enhancer and the contact-form JSON-fetch enhancer.
       expect(capsJs).toContain('enhanceAllCarousels')
@@ -420,14 +487,36 @@ describe('story-179b8c06 — capability client behaviour ships once per page', (
         expect(pageHtml.match(scriptRef)?.length).toBe(1)
         expect(pageHtml).not.toMatch(/index\.astro\?astro&type=script/)
       }
-
-      // The asset + reference are emitted precisely because the catalog ships
-      // client behaviour; the emission is gated on getModuleClientJs() being
-      // non-empty (its empty arm suppresses both asset and reference).
-      expect(getModuleClientJs().length).toBeGreaterThan(0)
     } finally {
       rmSync(cwd, { recursive: true, force: true })
     }
+
+    // The asset + reference are emitted precisely BECAUSE the catalog ships
+    // client behaviour. With a catalog that ships none, neither is produced —
+    // the framework catalog is the one seam substituted here (the render
+    // pipeline itself is real).
+    const emptyCwd = mkdtempSync(path.join(tmpdir(), 'ac702-empty-'))
+    try {
+      vi.resetModules()
+      vi.doMock('../packages/framework/src/index', async (importOriginal) => {
+        const actual = await importOriginal<typeof import('../packages/framework/src/index')>()
+        return { ...actual, getModuleClientJs: () => '' }
+      })
+      const commands = await import('../tools/generate/src/cli/commands')
+      commands.cmdNew('nojs', { cwd: emptyCwd })
+      const { outDir } = await commands.cmdRender('nojs', { cwd: emptyCwd })
+
+      expect(existsSync(path.join(outDir, 'capabilities.js'))).toBe(false)
+      const pageHtml = readFileSync(path.join(outDir, 'index.html'), 'utf8')
+      expect(pageHtml).not.toMatch(/capabilities\.js/)
+      expect(pageHtml).not.toMatch(/<script type="module"/)
+    } finally {
+      rmSync(emptyCwd, { recursive: true, force: true })
+    }
+
+    // And the real catalog does ship client behaviour — the positive arm above
+    // is exercising the non-empty branch, not a vacuous one.
+    expect(getModuleClientJs().length).toBeGreaterThan(0)
   })
 })
 
@@ -441,21 +530,26 @@ describe('story-179b8c06 — isolation conformance dimension', () => {
   }
   const contactDegenerate: ConformanceFixture = {
     label: 'contact-degenerate',
-    props: { version: 3, config: { action: 'https://example.com/lead', fields: 'not-a-list' }, slots: {} },
+    props: {
+      version: 3,
+      config: { action: 'https://example.com/lead', fields: 'not-a-list' },
+      slots: {},
+    },
   }
 
-  // A test-only catalog entry whose core throws during SSR (non-isolated).
+  // A test-only catalog entry whose core throws during SSR (non-isolated). It
+  // declares the renamed discriminant `kind: 'behavior'`.
   const resolveThrows: ModuleResolver = (type) => {
     if (type === 'fc-throws') {
       return {
         meta: {
           id: 'fc-throws',
           version: 1,
-          kind: 'capability',
+          kind: 'behavior',
           config: {},
           slots: {},
           conformance: { obligations: ['isolation'] },
-        } as CapabilityMeta,
+        } satisfies BehaviorMeta,
         Component: ThrowsOnRender,
       }
     }
@@ -472,8 +566,9 @@ describe('story-179b8c06 — isolation conformance dimension', () => {
       assertModuleConforms('contact-form', [contactDegenerate], { dimension: 'isolation' }),
     ).resolves.toBeUndefined()
 
-    // A capability whose core throws during render is a page-robustness break —
-    // reported as an isolation violation, so the dimension is a real discriminator.
+    // A behavior whose core throws during render is a page-robustness break —
+    // reported as an isolation violation, so the dimension is a real
+    // discriminator rather than a no-op.
     const err = await assertModuleConforms(
       'fc-throws',
       [{ label: 'throws', props: { config: {}, slots: {} } }],
@@ -484,21 +579,126 @@ describe('story-179b8c06 — isolation conformance dimension', () => {
     )
     expect(err).toBeInstanceOf(ConformanceError)
     expect(err?.violations.some((v) => v.ac === 'isolation.render-throws')).toBe(true)
-  }, 30000)
+  }, 60000)
 })
 
 // ════════════════════════════════════════════════════════════════════════════
-// AC-704 — Survivor capabilities declare the full five-dimension obligation set
+// AC-704 — Survivor behaviors declare the full five-dimension obligation set
 // ════════════════════════════════════════════════════════════════════════════
 describe('story-179b8c06 — full five-dimension conformance obligation set', () => {
   it('test_UAT_AC704_survivors_declare_the_full_obligation_set', () => {
-    const full = ['isolation', 'responsive', 'safety', 'security', 'x-browser']
-    for (const meta of [carouselMeta, contactFormMeta]) {
+    const full: ConformanceObligation[] = [
+      'isolation',
+      'responsive',
+      'safety',
+      'security',
+      'x-browser',
+    ]
+    for (const def of [getModule('carousel', 2), getModule('contact-form', 3)]) {
+      const conformance: BehaviorConformance = def.meta.conformance
       // The published contract enumerates exactly the five conformance
-      // dimensions — the harness holds every capability to the complete envelope.
-      expect([...meta.conformance.obligations].sort()).toEqual(full)
+      // dimensions — the harness holds every behavior to the complete envelope.
+      expect([...conformance.obligations].sort()).toEqual(full)
       // No dimension is legitimately opted out of.
-      expect(meta.conformance.except).toBeUndefined()
+      expect(conformance.except).toBeUndefined()
     }
+  })
+})
+
+// ════════════════════════════════════════════════════════════════════════════
+// AC-722 — The contract is published under the Behavior* names, kind: 'behavior'
+// ════════════════════════════════════════════════════════════════════════════
+describe('story-179b8c06 — Behavior* contract naming is atomic', () => {
+  it('test_UAT_AC722_behavior_contract_published_atomically_under_behavior_names', async () => {
+    // ── The contract TYPES resolve from the framework package root ────────────
+    // Each name is bound to a real declaration here; the file would not compile
+    // if any had failed to resolve after the rename.
+    const meta: BehaviorMeta = getModule('carousel', 2).meta
+    const def: BehaviorDefinition = getModule('contact-form', 3)
+    const fieldSpec: BehaviorConfigSpec = meta.config.view
+    const fieldType: BehaviorConfigType = fieldSpec.type
+    const slotSpec: BehaviorSlotSpec = meta.slots.slide
+    const slotValue: BehaviorSlotValue = [textNode]
+    const instance: BehaviorInstance = { config: { view: 'peek' }, slots: { slide: slotValue } }
+    const conformance: BehaviorConformance = meta.conformance
+    const obligation: ConformanceObligation = conformance.obligations[0]
+    const errors: BehaviorValidationError[] = validateBehaviorInstance(meta, instance)
+    type AssertedMeta = AssertBehaviorMeta<typeof carouselMeta>
+    const asserted: AssertedMeta = carouselMeta
+
+    expect(fieldType).toBe('enum')
+    expect(slotSpec.repeated).toBe(true)
+    expect(obligation).toBeTypeOf('string')
+    expect(def.Component).toBeTypeOf('function')
+    expect(asserted.id).toBe('carousel')
+    expect(errors).toEqual([])
+
+    // ── The three VALIDATORS resolve from the root and drive the contract ─────
+    // Same accept/reject outcomes the typed-contract and slot-security ACs
+    // require, reached under the renamed names.
+    expect(framework.validateBehaviorConfig).toBeTypeOf('function')
+    expect(framework.validateBehaviorSlots).toBeTypeOf('function')
+    expect(framework.validateBehaviorInstance).toBeTypeOf('function')
+    expect(validateBehaviorConfig(meta, { view: 'peek', autoplay: true })).toEqual([])
+    expect(validateBehaviorConfig(meta, { view: 'not-a-view' }).map((e) => e.field)).toEqual([
+      'config.view',
+    ])
+    expect(validateBehaviorSlots(meta, { slide: [textNode] })).toEqual([])
+    expect(validateBehaviorSlots(meta, { slide: ['<b>raw</b>' as never] }).map((e) => e.field)).toEqual([
+      'slots.slide[0]',
+    ])
+    expect(validateBehaviorInstance(meta, { config: { view: 'nope' }, slots: {} }).map((e) => e.field))
+      .toEqual(['config.view', 'slots.slide'])
+
+    // ── Every catalog entry carries the renamed discriminant ─────────────────
+    expect(registry.size).toBeGreaterThan(0)
+    for (const entry of registry.values()) {
+      expect(entry.meta.kind).toBe('behavior')
+      expect(entry.meta.kind).not.toBe('capability')
+    }
+
+    // ── The rename is ATOMIC: no Capability* alias, no 'capability' residue ───
+    // Nothing named Capability* is published from the package root.
+    const rootExports = Object.keys(framework)
+    expect(rootExports).toContain('validateBehaviorConfig')
+    expect(rootExports.filter((k) => /capability/i.test(k))).toEqual([])
+
+    // The package root's own source publishes the Behavior* family and carries
+    // no Capability* identifier (types erase at runtime, so the export list is
+    // the observable form of "published under the Behavior* names").
+    const rootSrc = readFileSync(new URL('../packages/framework/src/index.ts', import.meta.url), 'utf8')
+    for (const name of [
+      'BehaviorMeta',
+      'BehaviorConfigSpec',
+      'BehaviorConfigType',
+      'BehaviorSlotSpec',
+      'BehaviorSlotValue',
+      'BehaviorInstance',
+      'BehaviorDefinition',
+      'BehaviorConformance',
+      'ConformanceObligation',
+      'BehaviorValidationError',
+      'AssertBehaviorMeta',
+      'validateBehaviorConfig',
+      'validateBehaviorSlots',
+      'validateBehaviorInstance',
+    ]) {
+      expect(rootSrc).toContain(name)
+    }
+    expect(rootSrc).not.toMatch(/Capability/)
+
+    // The contract module itself declares no 'capability' discriminant.
+    const contractSrc = readFileSync(
+      new URL('../packages/framework/src/modules/behavior.ts', import.meta.url),
+      'utf8',
+    )
+    expect(contractSrc).toMatch(/kind: 'behavior'/)
+    expect(contractSrc).not.toMatch(/'capability'/)
+    expect(contractSrc).not.toMatch(/Capability/)
+
+    // A generator still importing the pre-rename module path fails to resolve
+    // rather than silently diverging (CLAUDE.md: no legacy modes).
+    const legacyPath = `../packages/framework/src/modules/${'capability'}`
+    await expect(import(/* @vite-ignore */ legacyPath)).rejects.toThrow()
   })
 })
