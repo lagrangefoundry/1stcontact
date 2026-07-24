@@ -145,7 +145,9 @@ describe('1c capture page — rendered-only reference capture (REQ-12)', () => {
     // Each run carries its own exact painted styling.
     const h1 = runs.find((r) => r.text === 'Bright Harbor Studio')
     expect(h1?.fontSizePx).toBe(44)
-    expect(h1?.fontFamily).toBe('GoldHead')
+    // BUG-16 — verbatim means the WHOLE declared stack ('GoldHead', serif), not
+    // the primary family alone; the fallbacks are part of the captured value.
+    expect(h1?.fontFamily).toBe('GoldHead, serif')
     const h2 = runs.find((r) => r.text === 'What we do')
     expect(h2?.color).toBe('#1a73e8')
     expect(h2?.fontSizePx).toBe(32)

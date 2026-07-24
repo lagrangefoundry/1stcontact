@@ -105,9 +105,10 @@ function rawHtmlOf(responses: CapturedResponse[], documentUrl: string): string {
   return doc ? new TextDecoder().decode(doc.body) : ''
 }
 
-/** Normalise a `font-family` value the way {@link EXTRACT_SCRIPT} does: first
- *  family in the list, trimmed, surrounding quotes stripped — so a face parsed
- *  here keys against the same normalised family painted text carries. */
+/** The single family NAME an `@font-face` block declares — trimmed, surrounding
+ *  quotes stripped. Painted runs carry the FULL stack (BUG-16, `familyStack` in
+ *  {@link EXTRACT_SCRIPT}); the fold keys this resource table by a run's *primary*
+ *  token, so both sides still meet on the same normalised name. */
 function primaryFamily(ff: string): string {
   return (ff || '').split(',')[0].trim().replace(/^['"]|['"]$/g, '')
 }
