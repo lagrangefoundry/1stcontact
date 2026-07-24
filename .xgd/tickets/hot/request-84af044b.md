@@ -6,20 +6,21 @@ title: Rename capability-module type → behavior module (disambiguate from XGD 
   matrix)
 created_by: xgd
 created_at: '2026-07-21T20:25:16.483623+00:00'
-updated_at: '2026-07-24T22:27:45.605800+00:00'
-completed_at: null
+updated_at: '2026-07-24T23:31:12.860028+00:00'
+completed_at: '2026-07-24T23:31:12.860028+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 6cb7e8c4a7328b26a277d3d897e20ae5a2361a7d
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
+    main_sha: a270e8836239e952174c7ff21a84f4fb2b29af2d
   version: 0.0.169
   story_points: 3
+  merged_at_commit: a270e8836239e952174c7ff21a84f4fb2b29af2d
 ---
 
 Part of the framework pivot — see **REQ-79 (request-87b26bca)**. Renames the runtime module-type introduced by **REQ-85 (request-015e42ac)**.
