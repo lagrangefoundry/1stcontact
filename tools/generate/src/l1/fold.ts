@@ -702,6 +702,59 @@ function cardPadding(rows: SurfaceRow[]): number {
 const BAND_TAIL_PAD = 48
 
 /**
+ * BUG-19 — detect full-bleed **bar** fills (a footer / nav strip). A bar paints
+ * its solid fill edge-to-edge, but its text runs are individually narrow and
+ * horizontally *distributed* (space-between: items hug the left and right edges
+ * with a large empty gap between), so no single run is full-width and the
+ * single-run band rule misses it — each run wrongly becomes a tiny card, exposing
+ * the page background across the bar.
+ *
+ * A fill is a bar when its same-fill, no-treatment runs share a horizontal row
+ * whose union spans full content width AND whose largest internal horizontal gap
+ * is dominant (the empty bar showing between the edge-hugging items). This
+ * distinguishes a distributed bar from an evenly-tiled card grid (small, even
+ * gaps — e.g. a Presence/Positivity/Connection tile row), which stays cards.
+ */
+function barBandFills(rows: SurfaceRow[], pageContentWidth: number, fullWidthFrac: number): Set<string> {
+  const FULL = fullWidthFrac * pageContentWidth
+  const GAP = 0.2 * pageContentWidth // a bar's central empty stretch dwarfs a grid's inter-tile gap
+  const out = new Set<string>()
+  const byFill = new Map<string, SurfaceRow[]>()
+  for (const r of rows) {
+    if (!r.fill || hasCardTreatment(r)) continue
+    const g = byFill.get(r.fill)
+    if (g) g.push(r)
+    else byFill.set(r.fill, [r])
+  }
+  for (const [fill, group] of byFill) {
+    // Cluster same-fill runs into horizontal rows (vertically-overlapping boxes).
+    const remaining = group.slice().sort((a, b) => a.widest.y - b.widest.y)
+    while (remaining.length) {
+      const seed = remaining.shift()!
+      const row = [seed]
+      for (let i = remaining.length - 1; i >= 0; i--) {
+        if (vGap(seed.widest, remaining[i].widest) === 0) {
+          row.push(remaining[i])
+          remaining.splice(i, 1)
+        }
+      }
+      if (row.length < 2) continue // a lone run is handled by the single-run rule
+      const sorted = row.slice().sort((a, b) => a.widest.x - b.widest.x)
+      const minX = Math.min(...sorted.map((r) => r.widest.x))
+      const maxX = Math.max(...sorted.map((r) => r.widest.x + r.widest.width))
+      if (maxX - minX < FULL) continue // not a full-width span → not a bar
+      let maxGap = 0
+      for (let i = 1; i < sorted.length; i++) {
+        const gap = sorted[i].widest.x - (sorted[i - 1].widest.x + sorted[i - 1].widest.width)
+        if (gap > maxGap) maxGap = gap
+      }
+      if (maxGap >= GAP) out.add(fill)
+    }
+  }
+  return out
+}
+
+/**
  * BUG-14 — full-bleed **section-band** boxes. Band rows (full-width content runs
  * with no card treatment) are grouped into maximal consecutive-same-fill runs in
  * document order; the groups are ordered top-to-bottom and each band **tiles**
@@ -1051,11 +1104,19 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   for (const r of surfaceRows) {
     if (r.fill && isFullWidth(r) && !hasCardTreatment(r)) bandFills.add(r.fill)
   }
+  // BUG-19 — full-bleed **bar** fills (footer / nav strip). A bar paints its fill
+  // edge-to-edge, but its runs are individually narrow and horizontally
+  // *distributed* (space-between), so no single run is full-width and the
+  // single-run rule above misses it — each run would wrongly become a tiny card,
+  // exposing the page background across the bar. Its members become band rows.
+  const barFills = barBandFills(surfaceRows, pageContentWidth, FULL_WIDTH_FRAC)
   const bandRows: SurfaceRow[] = []
   const cardRows: SurfaceRow[] = []
   for (const r of surfaceRows) {
+    const isBar = Boolean(r.fill) && !hasCardTreatment(r) && barFills.has(r.fill!)
     const onBand = !hasCardTreatment(r) && Boolean(r.fill) && bandFills.has(r.fill!)
-    if (onBand && isFullWidth(r)) bandRows.push(r)
+    if (isBar) bandRows.push(r) // BUG-19 — a bar member defines the full-bleed bar band
+    else if (onBand && isFullWidth(r)) bandRows.push(r)
     else if (onBand) continue // a narrow run on the band paints nothing of its own
     else if (r.fill || r.gradient || hasCardTreatment(r)) cardRows.push(r)
   }
