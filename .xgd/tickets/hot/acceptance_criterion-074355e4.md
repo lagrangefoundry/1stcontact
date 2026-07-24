@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Raw multi-viewport sample ladder is retained as the acceptance oracle
 created_by: xgd
 created_at: '2026-07-22T19:42:24.841662+00:00'
-updated_at: '2026-07-23T07:16:14.375735+00:00'
+updated_at: '2026-07-24T09:51:08.929377+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
