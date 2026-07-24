@@ -6,7 +6,7 @@ title: 'Behavioural capability modules: vetted core + typed config + L1 presenta
   slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-07-23T06:57:14.023002+00:00'
+updated_at: '2026-07-24T10:08:37.983435+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: completed
