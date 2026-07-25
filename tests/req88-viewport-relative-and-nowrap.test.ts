@@ -395,13 +395,80 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
     expect(doc.column).toEqual({ containerPx: 1152, insetPx: 24, maxWidthPx: 896 })
 
     const full = textNode(doc, 'Full column run')
-    expect((full.geometry as { anchor?: unknown }).anchor).toEqual({ widthFraction: 1 })
+    expect((full.geometry as { anchor?: unknown }).anchor).toEqual({
+      x: { px: 0, fraction: 0 },
+      width: { px: 0, fraction: 1 },
+    })
     const inset = textNode(doc, 'Inset by an accent')
     expect((inset.geometry as { anchor?: unknown }).anchor).toEqual({
-      startPx: 28,
-      widthPx: -28,
-      widthFraction: 1,
+      x: { px: 28, fraction: 0 },
+      width: { px: -28, fraction: 1 },
     })
+  })
+
+  it('test_UAT_FC_REQ-88_x_anchors_even_when_width_is_not_a_column_function', () => {
+    // The axes are fitted independently, and that is the whole point. Coupling
+    // them anchored one hero line (whose width happened to equal the column
+    // extent) while its neighbours kept drifting keyframes — 24px vs 55.5px at
+    // 1150, a 31px split in text the reference keeps flush.
+    const ms = multi(
+      LADDER.map((width) => {
+        const origin = Math.max(0, (width - 1152) / 2) + 24
+        const extent = Math.min(896, Math.min(1152, width) - 48)
+        return {
+          width,
+          height: LADDER_H[width],
+          elements: [
+            // Several runs filling the column, so its extent is unambiguous.
+            ...['Fills it', 'Also fills', 'Fills too'].map((t, i) =>
+              lines(run({ text: t, box: { x: origin, y: 100 + i * 40, width: extent, height: 29 } }), 1),
+            ),
+            // Same left edge, but its own narrower maximum: x fits, width caps.
+            lines(run({ text: 'Capped', box: { x: origin, y: 500, width: Math.min(768, extent), height: 29 } }), 1),
+            // Same left edge, width is a glyph extent — no column relation at all.
+            lines(run({ text: 'Shrink to fit', box: { x: origin, y: 600, width: 120 + width / 100, height: 29 } }), 1),
+          ],
+        }
+      }),
+    )
+    const doc = foldToL1(ms)
+    // All three must take their LEFT from the column — alignment is shared.
+    for (const t of ['Fills it', 'Capped', 'Shrink to fit']) {
+      expect((textNode(doc, t).geometry as { anchor?: { x?: unknown } }).anchor?.x, t).toBeTruthy()
+    }
+    // A nested `max-w-*` is a capped column term, not a reason to drop the anchor.
+    expect((textNode(doc, 'Capped').geometry as { anchor?: { width?: unknown } }).anchor?.width).toEqual({
+      px: 0,
+      fraction: 1,
+      maxPx: 768,
+    })
+    // A glyph extent is nobody's column function — width stays keyframed.
+    expect((textNode(doc, 'Shrink to fit').geometry as { anchor?: { width?: unknown } }).anchor?.width).toBeUndefined()
+  })
+
+  it('test_UAT_FC_REQ-88_a_full_bleed_band_is_never_anchored_to_the_column', () => {
+    // A band sits at x=0 absolutely. Expressing that as `origin + (-origin)` and
+    // interpolating the residual walks it off the left edge between samples, so
+    // the inset-track fallback is refused for anything spanning the viewport.
+    const ms = multi(
+      LADDER.map((width) => ({
+        width,
+        height: LADDER_H[width],
+        elements: [
+          lines(run({ text: 'band', surfaceFill: '#030717', box: { x: 0, y: 300, width, height: 29 } }), 1),
+          lines(
+            run({
+              text: 'column run',
+              box: { x: Math.max(0, (width - 1152) / 2) + 24, y: 400, width: Math.min(896, Math.min(1152, width) - 48), height: 29 },
+            }),
+            1,
+          ),
+        ],
+      })),
+    )
+    const doc = foldToL1(ms)
+    expect((textNode(doc, 'band').geometry as { anchor?: unknown }).anchor).toBeUndefined()
+    expect((textNode(doc, 'column run').geometry as { anchor?: { x?: unknown } }).anchor?.x).toBeTruthy()
   })
 
   it('test_UAT_FC_REQ-88_column_anchored_css_is_exact_between_and_above_the_samples', () => {
@@ -447,7 +514,7 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
                 { at: 320, x: 0, y: 0, width: 100 },
                 { at: 1280, x: 0, y: 0, width: 100 },
               ],
-              anchor: { widthFraction: 1 },
+              anchor: { width: { fraction: 1 } },
             },
           },
         ],

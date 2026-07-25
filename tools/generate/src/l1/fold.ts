@@ -27,6 +27,7 @@ import {
   type L1BoxAxes,
   type L1Column,
   type L1ColumnAnchor,
+  type L1ColumnTerm,
   type L1Document,
   type L1FontFace,
   type L1Geometry,
@@ -39,6 +40,7 @@ import {
   type L1Padding,
   type L1PaddingResponsive,
   type L1ScalarKeyframe,
+  type L1ScalarTrack,
   type L1Segment,
   type L1Shadow,
   type L1TextAxes,
@@ -408,6 +410,16 @@ function hasAnchoredNode(node: L1Node): boolean {
   return kids.some(hasAnchoredNode)
 }
 
+/**
+ * Is this a plausible share of the column? A node spans some fraction of the
+ * column (a full run 1, a 3-up tile ~1/3, a half ~1/2) or none of it. A steep
+ * coefficient means the axis is tracking something else entirely — responsive
+ * type, a glyph extent — that happens to correlate with the column's growth over
+ * the sampled widths, and extrapolating it off-sample is how a run ends up
+ * kilometres wide.
+ */
+const isSaneColumnFraction = (f: number): boolean => Number.isFinite(f) && Math.abs(f) <= 2
+
 const round2 = (n: number): number => Math.round(n * 100) / 100
 const columnOrigin = (c: L1Column, w: number): number => Math.max(0, (w - c.containerPx) / 2) + c.insetPx
 const columnExtent = (c: L1Column, w: number): number => {
@@ -427,42 +439,82 @@ const columnExtent = (c: L1Column, w: number): number => {
 function fitAnchor(
   frames: Array<{ at: number; box: { x: number; width: number } }>,
   fit: ColumnFit,
+  segments?: L1Segment[],
 ): L1ColumnAnchor | undefined {
   if (frames.length < 3) return undefined
-  const samples = frames.map((f) => ({
-    extent: columnExtent(fit.column, f.at),
-    dx: f.box.x - columnOrigin(fit.column, f.at),
-    w: f.box.width,
-  }))
-  const extents = new Set(samples.map((s) => Math.round(s.extent)))
+  const extents = frames.map((f) => columnExtent(fit.column, f.at))
   // A single distinct extent cannot separate the constant from the fraction.
-  if (extents.size < 2) return undefined
+  if (new Set(extents.map(Math.round)).size < 2) return undefined
 
-  const solve = (ys: number[]): { px: number; fraction: number } | undefined => {
-    const n = samples.length
-    const sx = samples.reduce((a, s) => a + s.extent, 0)
-    const sxx = samples.reduce((a, s) => a + s.extent * s.extent, 0)
-    const sy = ys.reduce((a, y) => a + y, 0)
-    const sxy = samples.reduce((a, s, i) => a + s.extent * ys[i], 0)
+  /** Least-squares `px + fraction * extent` over the given subset, or undefined. */
+  const solve = (idx: number[], ys: number[]): { px: number; fraction: number } | undefined => {
+    const n = idx.length
+    if (n < 2) return undefined
+    const sx = idx.reduce((a, i) => a + extents[i], 0)
+    const sxx = idx.reduce((a, i) => a + extents[i] * extents[i], 0)
+    const sy = idx.reduce((a, i) => a + ys[i], 0)
+    const sxy = idx.reduce((a, i) => a + extents[i] * ys[i], 0)
     const det = n * sxx - sx * sx
     if (Math.abs(det) < 1e-6) return undefined
     const fraction = (n * sxy - sx * sy) / det
-    const px = (sy - fraction * sx) / n
-    for (let i = 0; i < n; i++) {
-      if (Math.abs(px + fraction * samples[i].extent - ys[i]) > 1) return undefined
-    }
-    return { px: round2(px), fraction: round2(fraction) }
+    return { px: (sy - fraction * sx) / n, fraction }
   }
 
-  const start = solve(samples.map((s) => s.dx))
-  const width = solve(samples.map((s) => s.w))
-  if (!start || !width) return undefined
+  /**
+   * Fit one axis, allowing a cap. `min(maxPx, px + fraction * extent)` is what a
+   * *nested* `max-w-*` looks like — a run that fills the column until its own
+   * narrower maximum takes over — and it is common enough that refusing it left
+   * neighbouring runs on different models (the 31px hero split).
+   */
+  const fitAxis = (ys: number[], allowCap: boolean): L1ColumnTerm | undefined => {
+    const all = ys.map((_, i) => i)
+    const plain = solve(all, ys)
+    if (
+      plain &&
+      isSaneColumnFraction(plain.fraction) &&
+      all.every((i) => Math.abs(plain.px + plain.fraction * extents[i] - ys[i]) <= 1)
+    ) {
+      return { px: round2(plain.px), fraction: round2(plain.fraction) }
+    }
+    if (!allowCap) return undefined
+    // The cap is the largest value the axis reaches; fit the samples below it.
+    const cap = Math.max(...ys)
+    const below = all.filter((i) => ys[i] < cap - 0.5)
+    // A two-unknown fit through two points is interpolation, not evidence: the
+    // hero title's width (a shrink-to-fit glyph extent under responsive type) fits
+    // ANY two of its samples and then "verifies" against the cap, yielding
+    // `-684px + 3.14 * extent`. Demand an over-determined fit.
+    if (below.length < 3) return undefined
+    const capped = solve(below, ys)
+    if (!capped || !isSaneColumnFraction(capped.fraction)) return undefined
+    const ok = all.every((i) => Math.abs(Math.min(cap, capped.px + capped.fraction * extents[i]) - ys[i]) <= 1)
+    return ok ? { px: round2(capped.px), fraction: round2(capped.fraction), maxPx: round2(cap) } : undefined
+  }
 
+  // A left edge has no meaningful cap — an element does not stop moving right at
+  // some width — so only width may be capped.
+  const dxs = frames.map((f, i) => f.box.x - columnOrigin(fit.column, frames[i].at))
+  let x = fitAxis(dxs, false)
+  // No closed form? Track the offset instead — but only for content that lives
+  // INSIDE the column. A full-bleed band sits at x=0 absolutely; expressing that
+  // as `origin + (-origin)` and then interpolating the residual walks it off the
+  // left edge between samples, turning a correct band into a negative-x one.
+  if (!x && frames.every((f) => f.box.width < f.at - 1)) {
+    const track: L1ScalarTrack = { keyframes: frames.map((f, i) => ({ at: f.at, value: round2(dxs[i]) })) }
+    // Inherit the node's own geometry segments. A 3-up grid that stacks below `md`
+    // changes layout MODE at that breakpoint, and interpolating an inset across a
+    // mode change slides the third column off the right edge at ~700px. The
+    // geometry track already classifies that jump as a `snap`; the inset must
+    // agree with it, or the two halves of one position disagree about where the
+    // page's breakpoints are.
+    if (segments) track.segments = segments
+    x = { pxTrack: track }
+  }
+  const width = fitAxis(frames.map((f) => f.box.width), true)
+  if (!x && !width) return undefined
   const anchor: L1ColumnAnchor = {}
-  if (start.px !== 0) anchor.startPx = start.px
-  if (start.fraction !== 0) anchor.startFraction = start.fraction
-  if (width.px !== 0) anchor.widthPx = width.px
-  if (width.fraction !== 0) anchor.widthFraction = width.fraction
+  if (x) anchor.x = x
+  if (width) anchor.width = width
   return anchor
 }
 
@@ -1466,6 +1518,7 @@ function buildCards(
       const anchor = fitAnchor(
         keyframes.map((k) => ({ at: k.at, box: { x: k.x, width: k.width } })),
         columnFit,
+        geometry.segments,
       )
       if (anchor) geometry.anchor = anchor
     }
@@ -1575,6 +1628,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         const anchor = fitAnchor(
           framed.map((c) => ({ at: c.width, box: c.element!.box! })),
           columnFit,
+          geometry.segments,
         )
         if (anchor) geometry.anchor = anchor
       }
