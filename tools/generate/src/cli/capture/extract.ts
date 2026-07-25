@@ -503,6 +503,25 @@ export const EXTRACT_SCRIPT = `(() => {
       return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
     } catch (e) { return null; }
   }
+  // BUG-25 — the painted extent of ONE text node, via a Range over that node
+  // rather than over its element's contents.
+  //
+  // renderedTextBox(el) is the element's whole glyph extent, which is the run's
+  // extent only while the element holds a single run. An h1 whose text is split by
+  // a br becomes two runs, and reading geometry off the shared h1 gave both the
+  // SAME box and the SAME glyph box — so a fold positioning them absolutely printed
+  // one on top of the other, and nowrapFromPx measured the PAIR's height and read
+  // both one-line runs as two-line. The browser already knows where each node
+  // paints; this asks it.
+  function textNodeBox(node) {
+    try {
+      var range = node.ownerDocument.createRange();
+      range.selectNodeContents(node);
+      var r = range.getBoundingClientRect();
+      if (!r || r.width <= 0 || r.height <= 0) return null;
+      return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+    } catch (e) { return null; }
+  }
   function roleOf(el) {
     var t = el.tagName.toLowerCase();
     if (t === 'h1' || t === 'h2') return 'heading';
@@ -911,12 +930,30 @@ export const EXTRACT_SCRIPT = `(() => {
     var out = [];
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     var n;
-    while ((n = walker.nextNode())) {
-      var text = n.nodeValue.replace(/\\s+/g, ' ').trim();
-      if (!text) continue;
-      var el = n.parentElement;
-      if (!el || !visible(el)) continue;
-      if (excludes && insideAny(el, excludes)) continue;
+    // BUG-25 — two passes, because a run's geometry depends on whether its element
+    // holds more than one run. Pass 1 selects the qualifying text nodes and counts
+    // them per element; pass 2 emits, reading geometry off the element when it owns
+    // exactly one run (unchanged) and off the text node itself when it does not.
+    var nodes = [];
+    var runCounts = new Map();
+    for (; (n = walker.nextNode()); ) {
+      var t = n.nodeValue.replace(/\\s+/g, ' ').trim();
+      if (!t) continue;
+      var owner = n.parentElement;
+      if (!owner || !visible(owner)) continue;
+      if (excludes && insideAny(owner, excludes)) continue;
+      nodes.push({ node: n, el: owner, text: t });
+      runCounts.set(owner, (runCounts.get(owner) || 0) + 1);
+    }
+    for (var ri = 0; ri < nodes.length; ri++) {
+      n = nodes[ri].node;
+      var text = nodes[ri].text;
+      var el = nodes[ri].el;
+      // The element's box IS the run's box only while it holds a single run; when
+      // it holds several, that shared box says nothing about where this one paints.
+      var ownRun = runCounts.get(el) === 1;
+      var glyphs = ownRun ? renderedTextBox(el) : textNodeBox(n);
+      var runBox = ownRun ? absBox(el) : (glyphs || absBox(el));
       var s = getComputedStyle(el);
       // A text-fill gradient is a background-image gradient clipped to the text
       // (background-clip: text). Capture the raw gradient CSS for TS-side
@@ -981,9 +1018,9 @@ export const EXTRACT_SCRIPT = `(() => {
           : s.textAlign === 'justify' ? 'justify'
           : 'left',
         // REQ-47 per-element geometry / shape / structure (arrangement filled later).
-        box: absBox(el),
+        box: runBox,
         // REQ-58 (T1) — tight rendered-text bounds (glyph extent, padding-excluded).
-        renderedTextBox: renderedTextBox(el),
+        renderedTextBox: glyphs,
         borderRadiusPx: borderRadiusOf(s),
         // REQ-63 — box border on text runs (thickest painted side + style).
         borderWidthPx: runBorder.width,

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>BUG-25 — a multi-line heading splits into runs that must not share a box</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1280px; font-family: Georgia, serif; background: #ffffff; color: #1a1a1a; }
+      section { padding: 40px 20px; }
+      /* The joyfulculinarycreations hero shape: one <h1>, two text nodes split by a
+         <br>, laid out as a full-width block so both runs share the element box. */
+      h1 { font-size: 64px; line-height: 80px; font-weight: 700; }
+      /* A single-text-node paragraph, narrow enough to wrap over several lines.
+         This is the no-regression control: one run, element geometry, unchanged. */
+      p.wrapping { width: 240px; font-size: 18px; line-height: 24px; }
+      /* A single-text-node heading — the common case that must not move. */
+      h2 { font-size: 32px; line-height: 40px; }
+      /* Two text nodes on the SAME line, split by an inline element. Their glyph
+         boxes differ in x, so neither may report the other's rect. */
+      p.inline-split { font-size: 20px; line-height: 28px; }
+    </style>
+  </head>
+  <body>
+    <section>
+      <h1>Dreaming of healthier meals<br />on your dinner table?</h1>
+    </section>
+    <section>
+      <h2>Single line heading</h2>
+      <p class="wrapping">A variety of offerings to please everyone at the dinner table every day.</p>
+      <p class="inline-split">Leading words <em>emphasis</em> trailing words</p>
+    </section>
+  </body>
+</html>
