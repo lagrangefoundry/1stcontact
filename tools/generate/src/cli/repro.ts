@@ -19,12 +19,12 @@
 import { defaultTokens } from '@1stcontact/framework'
 import { validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
-import { foldToL1, promoteToFlow, threeProbeGate } from '../l1'
+import { foldToL1, localizeAssets, promoteToFlow, threeProbeGate } from '../l1'
 import type { FoldResidual, ThreeProbeReport } from '../l1'
 import { copyDir, draftDir, emptyDir, ensureDir, pathExists, siteDir, writeDraftBase, writeJson } from '../store'
 import { ctxOf } from './commands'
 import type { GlobalOptions } from './commands'
-import { readL1, readMultiState } from './capture/bundle'
+import { readCaptureAssets, readL1, readMultiState } from './capture/bundle'
 import path from 'node:path'
 
 /** Content-perturbation factor for the robustness probe + structure recovery. */
@@ -42,6 +42,18 @@ export interface ReproResult {
   nodeCount: number
   /** Whether the bundle carried assets that were copied into the site. */
   copiedAssets: boolean
+  /**
+   * BUG-23 — media handles rewritten from the captured origin to the site's own
+   * mirror. A reproduction that still pointed at the origin would render only
+   * while that host was up, and would hide image regressions from the gate.
+   */
+  localizedAssets: number
+  /**
+   * BUG-23 — mirrored `image`/`font` assets the folded document references
+   * nowhere. The bytes are in the bundle but no leaf (or `@font-face`) was
+   * emitted for them: a **fold gap** to close, surfaced rather than ignored.
+   */
+  unreferencedAssets: string[]
 }
 
 /** Count leaves + containers in an L1 document (for the operator summary). */
@@ -73,6 +85,21 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
     )
   }
 
+  // BUG-23 — bind every media handle to the bundle's mirror BEFORE the document
+  // is written. A handle that still names the captured origin makes the whole
+  // reproduction network-dependent and blinds the perceptual gate to image
+  // regressions, so an unresolvable handle fails the import outright: a
+  // reproduction is self-contained or it does not exist.
+  const localized = localizeAssets(l1, readCaptureAssets(opts.ref))
+  if (localized.unmirrored.length) {
+    throw new Error(
+      `Reproduction would hotlink the captured origin — ${localized.unmirrored.length} media ` +
+        `handle(s) have no mirrored asset in bundle '${opts.ref}':\n` +
+        localized.unmirrored.map((u) => `  ${u}`).join('\n') +
+        `\nRe-capture with \`1c capture page <url>\` so the bundle mirrors every referenced asset.`,
+    )
+  }
+
   const site = {
     id: slug,
     config: { businessName: slug, tagline: '' },
@@ -80,7 +107,7 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
     nav: { pattern: 'top-tabs' as const, entries: [] },
     assets: [],
   }
-  const page = { id: 'home', slug: 'home', title: slug, l1 }
+  const page = { id: 'home', slug: 'home', title: slug, l1: localized.doc }
 
   // Validate the assembled definition before touching disk — a fold that does not
   // satisfy the page schema is a serializer bug, surfaced here not at render time.
@@ -107,7 +134,14 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
   const copiedAssets = pathExists(bundleAssets)
   if (copiedAssets) copyDir(bundleAssets, path.join(draft, 'assets'))
 
-  return { slug, draftDir: draft, nodeCount: countNodes(l1), copiedAssets }
+  return {
+    slug,
+    draftDir: draft,
+    nodeCount: countNodes(localized.doc),
+    copiedAssets,
+    localizedAssets: localized.rewritten.length,
+    unreferencedAssets: localized.unreferenced,
+  }
 }
 
 export interface L1GateResult extends ThreeProbeReport {

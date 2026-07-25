@@ -379,7 +379,7 @@
           "kind": "box",
           "id": "section-bg-0",
           "axes": {
-            "backgroundImageUrl": "https://gigabytealchemy.ai/images/AlchemistLabWithTech.png"
+            "backgroundImageUrl": "/assets/AlchemistLabWithTech.png"
           },
           "geometry": {
             "keyframes": [

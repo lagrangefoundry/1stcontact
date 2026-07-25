@@ -21,6 +21,8 @@ export {
   type FoldableElement,
   type FoldLeafKind,
 } from './fold'
+// BUG-23 — bind media handles to the bundle's mirrored assets (never the origin).
+export { localizeAssets, type LocalizedAssets } from './assets'
 // End-to-end reproduction gate (REQ-86) — the 3-probe acceptance + demand-driven
 // flow promotion (structure recovery applied only where the pinned form fails).
 export {
