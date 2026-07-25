@@ -658,13 +658,22 @@ function visibilityFor(presentWidths: number[], ladder: number[]): { fromPx?: nu
  * geometry keyframe track from the band boxes — the renderer already paints the
  * URL (an allowlisted scheme, guaranteed by the projection). These paint beneath
  * all content (emitted first by the caller).
+ *
+ * BUG-24 — the same box also carries the band's translucent **scrim**
+ * (`SectionValues.overlay`, a colour WITH alpha). The capture has projected it all
+ * along but nothing folded it, so a hero veil (`bg-slate-950/30` over the photo)
+ * was dropped and the image rendered at full brightness. The renderer already
+ * layers `overlay` above `backgroundImageUrl` within one box, so the scrim needs
+ * no node of its own. A section is therefore folded when it paints an image OR a
+ * scrim — an overlay over a solid band is carried just as faithfully.
  */
 function foldSectionBackgrounds(projections: StateProjection[], widths: number[]): L1Box[] {
   // section ordinal → its (width, values) samples across the ladder
   const byIndex = new Map<number, Array<{ width: number; sv: SectionValues }>>()
   for (const p of projections) {
     for (const sv of p.manifest.sections ?? []) {
-      if (!sv.backgroundImageUrl || !sv.box) continue
+      if (!sv.box) continue
+      if (!sv.backgroundImageUrl && !sv.overlay) continue
       const arr = byIndex.get(sv.index) ?? []
       arr.push({ width: p.viewport.width, sv })
       byIndex.set(sv.index, arr)
@@ -685,9 +694,15 @@ function foldSectionBackgrounds(projections: StateProjection[], widths: number[]
     if (keyframes.length > 1) {
       geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
     }
-    // The URL is the band's; the widest present width is authoritative (they agree).
-    const url = entries[entries.length - 1].sv.backgroundImageUrl!
-    const node: L1Box = { kind: 'box', id: `section-bg-${idx++}`, geometry, axes: { backgroundImageUrl: url } }
+    // The URL / scrim are the band's; the widest width carrying each is
+    // authoritative (they agree). Read per-axis rather than off the widest entry:
+    // a section may paint an image at some widths and only a scrim at others.
+    const axes: L1BoxAxes = {}
+    const url = entries.filter((e) => e.sv.backgroundImageUrl).pop()?.sv.backgroundImageUrl
+    if (url) axes.backgroundImageUrl = url
+    const overlay = entries.filter((e) => e.sv.overlay).pop()?.sv.overlay
+    if (overlay) axes.overlay = { color: overlay.color, opacity: overlay.opacity }
+    const node: L1Box = { kind: 'box', id: `section-bg-${idx++}`, geometry, axes }
     const vis = visibilityFor(entries.map((e) => e.width), widths)
     if (vis) node.visibility = vis
     nodes.push(node)

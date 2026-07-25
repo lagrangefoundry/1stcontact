@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>BUG-24 scrim fixture</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; }
+
+      /* A hero photo band, exactly as a real site paints it: a CSS
+         background-image on the <section>, never an <img>. */
+      .hero {
+        position: relative;
+        height: 600px;
+        background-image: url('hero.png');
+        background-size: cover;
+        background-position: center;
+      }
+
+      /* The translucent veil that darkens the photo so the headline reads over
+         it. Authored the way Tailwind v4 emits `bg-slate-950/30`: a colour with
+         its own alpha expressed as color-mix() in oklab, NOT as `rgba(...)`.
+         This is the syntax the pre-BUG-24 rgba()-regex scrim probe could not
+         read, so the veil was dropped and the hero captured unveiled. */
+      .veil {
+        position: absolute;
+        inset: 0;
+        background-color: color-mix(in oklab, #020618 30%, transparent);
+      }
+
+      .hero h1 {
+        position: relative;
+        padding: 240px 40px 0;
+        color: #ffffff;
+        font-size: 48px;
+      }
+
+      /* A second band with no image and no scrim — the control: its section must
+         stay overlay-free so the probe is proved to discriminate. */
+      .plain { height: 400px; background-color: #e8dfd3; }
+      .plain p { padding: 40px; color: #111111; font-size: 18px; }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <div class="veil"></div>
+      <h1>Alchemy</h1>
+    </section>
+    <section class="plain">
+      <p>Body copy below the hero.</p>
+    </section>
+  </body>
+</html>

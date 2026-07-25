@@ -230,6 +230,32 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     return __colorCtx;
   }
+  // BUG-24 — exact-parse the canvas *serialization* of a colour, or null. The 2d
+  // fillStyle getter round-trips losslessly ('#rrggbb' when opaque, 'rgba(r, g, b, a)'
+  // otherwise). The pixel probe below cannot: painting a TRANSLUCENT fill stores
+  // premultiplied bytes, and getImageData's unpremultiply loses up to a level per
+  // channel (rgba(2,6,23,.45) reads back as #020716). Opaque colours are exact
+  // either way. Serializations we cannot read (wide-gamut 'color(srgb …)',
+  // 'oklch(…)') return null and fall through to the probe, so this only ever adds
+  // precision — it never narrows what resolves.
+  function parseSerializedColor(ser) {
+    if (!ser || typeof ser !== 'string') return null;
+    if (ser.charAt(0) === '#') {
+      if (ser.length !== 7 && ser.length !== 9) return null;
+      return [
+        parseInt(ser.slice(1, 3), 16),
+        parseInt(ser.slice(3, 5), 16),
+        parseInt(ser.slice(5, 7), 16),
+        ser.length === 9 ? parseInt(ser.slice(7, 9), 16) / 255 : 1,
+      ];
+    }
+    var sm = ser.match(/^rgba?\\(([^)]+)\\)$/);
+    if (!sm) return null;
+    var sp = sm[1].split(/[,\\s\\/]+/).filter(function (s) { return s !== ''; }).map(parseFloat);
+    if (sp.length < 3) return null;
+    for (var si = 0; si < sp.length; si++) if (isNaN(sp[si])) return null;
+    return [sp[0], sp[1], sp[2], sp.length >= 4 ? sp[3] : 1];
+  }
   // Parse ANY browser-understood colour to [r,g,b,a] (a in 0..1), or null when
   // unparseable. Alpha is PRESERVED here (unlike rgbToHex) so a translucent fill
   // can be composited over what it sits on (REQ-58 capture accuracy).
@@ -244,6 +270,9 @@ export const EXTRACT_SCRIPT = `(() => {
         ctx.fillStyle = '#ffffff';
         ctx.fillStyle = str;
         if (ctx.fillStyle !== probe) return null; // str is not a valid colour
+        // Prefer the lossless serialization; the pixel probe is the fallback.
+        var exact = parseSerializedColor(probe);
+        if (exact) return exact;
         ctx.clearRect(0, 0, 1, 1);
         ctx.fillStyle = str;
         ctx.fillRect(0, 0, 1, 1);
@@ -815,17 +844,20 @@ export const EXTRACT_SCRIPT = `(() => {
     for (var i = 0; i < desc.length; i++) {
       var el = desc[i];
       if (!visible(el)) continue;
-      var m = getComputedStyle(el).backgroundColor.match(/rgba\\(([^)]+)\\)/);
-      if (!m) continue;
-      var p = m[1].split(',').map(function (x) { return parseFloat(x.trim()); });
-      if (p.length < 4) continue;
-      var a = p[3];
+      // BUG-24 — resolve the scrim through rgbaOf (the REQ-52 canvas probe), not a
+      // raw rgba() regex. A Tailwind v4 veil (\`bg-slate-950/30\`) computes to
+      // \`color-mix(in oklab, …)\` / \`oklab(… / .3)\`, which the regex could not read,
+      // so EVERY modern-syntax scrim was silently dropped and the hero rendered
+      // unveiled. rgbaOf resolves any browser-understood colour and preserves alpha.
+      var c = rgbaOf(getComputedStyle(el).backgroundColor);
+      if (!c) continue;
+      var a = c[3];
       if (!(a > 0 && a < 1)) continue; // opaque or fully transparent → not a scrim
       var r = absBox(el);
       var cover = (r.width * r.height) / area;
       if (cover < 0.6) continue; // must substantially blanket the band
       if (!best || cover > best.cover) {
-        best = { color: '#' + hx(p[0]) + hx(p[1]) + hx(p[2]), opacity: Math.round(a * 100) / 100, cover: cover };
+        best = { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(a * 100) / 100, cover: cover };
       }
     }
     return best ? { color: best.color, opacity: best.opacity } : null;
