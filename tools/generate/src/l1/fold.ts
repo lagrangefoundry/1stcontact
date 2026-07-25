@@ -424,7 +424,10 @@ function boxAxes(el: ValueElement): L1BoxAxes {
 }
 
 /**
- * BUG-20 — is this run a **self-painting chip** (a pill badge)? The capture reads
+ * BUG-20 / BUG-21 — is this run **self-painting**: does its own border-box already
+ * span the painted surface, so no separate card box belongs behind it? Two families
+ * qualify — a pill badge (BUG-20, below) and a padded control (BUG-21, see
+ * {@link isPaddedControlRun}). The capture reads
  * `borderRadiusPx` / `boxShadow` / `border` from the element's OWN computed style,
  * unlike `surfaceFill` / `surfaceGradient` / `borderLeft`, which walk ancestors to
  * find the enclosing card. So an own radius belongs to the run's own element —
@@ -438,9 +441,39 @@ function boxAxes(el: ValueElement): L1BoxAxes {
  * contributes no card row — it paints itself. Everything else stays a card row and
  * keeps BUG-14's section-band → card → text reconstruction untouched.
  */
-function isChipRun(el: ValueElement): boolean {
+function isSelfPaintingRun(el: ValueElement): boolean {
   const h = el.box?.height ?? 0
-  return h > 0 && (el.borderRadiusPx ?? 0) * 2 >= h - 1
+  if (h > 0 && (el.borderRadiusPx ?? 0) * 2 >= h - 1) return true
+  return isPaddedControlRun(el)
+}
+
+/**
+ * BUG-21 — the second family of self-painting run: a **padded control** (a button,
+ * a submit link). Pill saturation misses it, because a button's rounding is modest
+ * (`rounded-lg` → 8px on a 48px box), so `Subscribe` / `Send message` folded to a
+ * card row and the card path then *outset* the box by an inferred padding — giving
+ * every button 2x its height and ~50px of extra width, bleeding past both screen
+ * edges at 320.
+ *
+ * The discriminator is an authored **vertical inset**: normal block flow gives a
+ * text element zero vertical padding, so a non-zero `padding-top`/`bottom` is
+ * authored on that very element — which means its border-box already spans the
+ * painted surface (the capture reads `getBoundingClientRect`, see BUG-17). Nothing
+ * beyond it needs painting, so it takes the chip path and contributes no card row.
+ *
+ * Horizontal padding alone is deliberately *not* enough: a `pl`-indented run inside
+ * a card is a common shape and its fill genuinely belongs to the enclosing card.
+ * Two further guards keep an ancestor-attributed treatment on the card box, where
+ * the chip axes cannot carry it: a `surfaceGradient` (no chip gradient axis) and a
+ * `borderLeft` accent bar (no chip borderLeft axis).
+ */
+function isPaddedControlRun(el: ValueElement): boolean {
+  const vPad = (el.paddingTopPx ?? 0) + (el.paddingBottomPx ?? 0)
+  if (!(vPad > 0)) return false
+  if (!el.surfaceFill) return false
+  if (el.surfaceGradient) return false
+  if (el.borderLeft && el.borderLeft.widthPx > 0) return false
+  return true
 }
 
 /**
@@ -681,6 +714,12 @@ interface SurfaceRow {
   frames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>
   /** The run's box at the widest present width — the grouping/classification frame. */
   widest: NonNullable<ValueElement['box']>
+  /**
+   * BUG-21 — the run's OWN per-side padding (px). The captured box is a border-box,
+   * so a side with its own padding is already extended by it and must never be
+   * outset again by the card's inferred padding (see {@link cardOutset}).
+   */
+  ownPad: { top: number; right: number; bottom: number; left: number }
 }
 
 /** A captured asymmetric left-accent border (a card rule) → the L1 `borderLeft` axis. */
@@ -737,6 +776,32 @@ function cardPadding(rows: SurfaceRow[]): number {
   gaps.sort((a, b) => a - b)
   const med = gaps[Math.floor(gaps.length / 2)] || 16
   return clamp(Math.round(0.4 * med), 8, 28)
+}
+
+/**
+ * BUG-21 — the per-edge outset from one run's box to its card's surface edge.
+ *
+ * The captured box is a **border-box**: any padding the run carries itself is
+ * already inside it (BUG-17). Only the padding of an *ancestor* card — which the
+ * capture never sees, since the card element paints no text — is missing, and
+ * {@link cardPadding} estimates that from the group's vertical rhythm. Applying
+ * the estimate to a side the run has already padded double-counts it, which is
+ * how a button grew to 2x its height and ~50px too wide (the estimate for a lone
+ * run is `0.5 * height`, i.e. exactly its own top+bottom padding, then slammed
+ * onto all four sides — so the *vertical* sum landed on the horizontal axis too).
+ *
+ * So the outset is decided **per edge**, from that edge's own captured padding:
+ * a padded side is already at the surface (outset 0), an unpadded one falls back
+ * to the ancestor estimate.
+ */
+function cardOutset(row: SurfaceRow, inferred: number): { top: number; right: number; bottom: number; left: number } {
+  const edge = (own: number): number => (own > 0 ? 0 : inferred)
+  return {
+    top: edge(row.ownPad.top),
+    right: edge(row.ownPad.right),
+    bottom: edge(row.ownPad.bottom),
+    left: edge(row.ownPad.left),
+  }
 }
 
 /** Extra height added below the last band so a trailing band has a visible tail. */
@@ -960,18 +1025,22 @@ function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
         const f = r.frames.find((f) => f.at === w)
         if (!f) continue
         any = true
-        x0 = Math.min(x0, f.box.x)
-        y0 = Math.min(y0, f.box.y)
-        x1 = Math.max(x1, f.box.x + f.box.width)
-        y1 = Math.max(y1, f.box.y + f.box.height)
+        // BUG-21 — each run reaches the card's edge by its OWN per-edge outset: a
+        // side the run already padded is at the surface, an unpadded one takes the
+        // group's inferred ancestor padding.
+        const out = cardOutset(r, pad)
+        x0 = Math.min(x0, f.box.x - out.left)
+        y0 = Math.min(y0, f.box.y - out.top)
+        x1 = Math.max(x1, f.box.x + f.box.width + out.right)
+        y1 = Math.max(y1, f.box.y + f.box.height + out.bottom)
       }
       if (!any) continue
       keyframes.push({
         at: w,
-        x: Math.round(x0 - pad),
-        y: Math.round(y0 - pad),
-        width: Math.round(x1 - x0 + 2 * pad),
-        height: Math.round(y1 - y0 + 2 * pad),
+        x: Math.round(x0),
+        y: Math.round(y0),
+        width: Math.round(x1 - x0),
+        height: Math.round(y1 - y0),
       })
       present.push(w)
     }
@@ -1064,7 +1133,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       }
       // BUG-20 — a self-painting chip (a `rounded-full` badge) carries its own
       // surface on the text leaf; a bare run carries only type axes.
-      const chip = isChipRun(widest)
+      const chip = isSelfPaintingRun(widest)
       const node: Extract<L1Node, { kind: 'text' }> = {
         kind: 'text',
         text: widest.text,
@@ -1108,6 +1177,12 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
           borderRadiusPx: surfRadius,
           frames: framed.map((c) => ({ at: c.width, box: c.element!.box! })),
           widest: widest.box,
+          ownPad: {
+            top: widest.paddingTopPx ?? 0,
+            right: widest.paddingRightPx ?? 0,
+            bottom: widest.paddingBottomPx ?? 0,
+            left: widest.paddingLeftPx ?? 0,
+          },
         })
       }
       continue
