@@ -17,7 +17,7 @@ import type { L1Document } from '@1stcontact/site-schema'
 import type { MultiStateCapture } from './values-diff'
 import type { LadderScreenshot } from './pipeline'
 import type { StructuralHints } from './hints'
-import type { Capture, CaptureResult } from './types'
+import type { Capture, CaptureAsset, CaptureResult } from './types'
 
 export interface BundleLocation {
   bundleDir: string
@@ -56,6 +56,18 @@ export function writeBundle(result: CaptureResult, cwd: string): BundleLocation 
 /** Read a bundle's `capture.json` back into a {@link Capture}. */
 export function readCapture(bundleDir: string): Capture {
   return JSON.parse(readFileSync(path.join(bundleDir, 'capture.json'), 'utf8')) as Capture
+}
+
+/**
+ * BUG-23 — the bundle's origin→mirror asset map, or `[]` when the bundle carries
+ * no `capture.json`. Tolerant because the map is only *needed* by a document that
+ * actually references remote media: a bundle without it and without remote
+ * handles reproduces fine, and one with remote handles fails loudly downstream.
+ */
+export function readCaptureAssets(bundleDir: string): CaptureAsset[] {
+  const src = path.join(bundleDir, 'capture.json')
+  if (!existsSync(src)) return []
+  return (JSON.parse(readFileSync(src, 'utf8')) as Capture).assets ?? []
 }
 
 /** The multi-state projection matrix filename within a bundle (REQ-48). */
