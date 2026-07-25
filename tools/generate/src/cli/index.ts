@@ -342,11 +342,22 @@ export async function run(argv: string[]): Promise<void> {
         process.exitCode = 1
         return
       }
-      const { draftDir, nodeCount, copiedAssets } = cmdRepro(slug, { ...global, ref })
+      const { draftDir, nodeCount, copiedAssets, localizedAssets, unreferencedAssets } = cmdRepro(
+        slug,
+        { ...global, ref },
+      )
+      // BUG-23 — an unreferenced mirrored asset is a fold gap (the bundle has the
+      // bytes; no leaf points at them), so it is reported, not silently dropped.
+      const gap = unreferencedAssets.length
+        ? `\n  ⚠ ${unreferencedAssets.length} mirrored asset(s) referenced by no node (fold gap):` +
+          unreferencedAssets.map((a) => `\n      ${a}`).join('')
+        : ''
       console.log(
         `Reproduced ${ref} → ${draftDir}\n` +
-          `  raw-L1 home page: ${nodeCount} node(s)${copiedAssets ? '; assets copied' : ''}\n` +
-          `  next: 1c render ${slug}${global.sandbox ? ' --sandbox' : ''}  ·  1c l1-gate --ref ${ref}`,
+          `  raw-L1 home page: ${nodeCount} node(s)${copiedAssets ? '; assets copied' : ''}` +
+          `; ${localizedAssets} media handle(s) bound to local mirror` +
+          gap +
+          `\n  next: 1c render ${slug}${global.sandbox ? ' --sandbox' : ''}  ·  1c l1-gate --ref ${ref}`,
       )
       return
     }
