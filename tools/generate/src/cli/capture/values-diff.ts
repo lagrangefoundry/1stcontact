@@ -839,6 +839,10 @@ export function rawRunToElement(run: RawRun): ValueElement {
     borderLeft: border,
     paddingLeftPx: run.paddingLeftPx,
   }
+  // REQ-88 — the rect of the element that PAINTS the accent, when a wrapper does.
+  // This is the projection that builds the multi-state manifest, so the fold reads
+  // it from here; carrying it only on the ContentRun path left it stranded.
+  if (border && run.accentBox) el.accentBox = run.accentBox
   if (run.lineHeightPx !== null) el.lineHeightPx = run.lineHeightPx
   if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
   if (run.colorInferred) el.colorInferred = true
@@ -986,6 +990,40 @@ export const RESPONSIVE_VIEWPORTS: readonly Viewport[] = [
  * reads it as evidence, {@link restingByWidth} skips it as a keyframe.
  */
 export const HEIGHT_PROBE_VIEWPORTS: readonly Viewport[] = [{ width: 1280, height: 1000 }]
+
+/**
+ * REQ-88 — split a capture's projections into the **width ladder** and the
+ * **height probes** that re-shoot a ladder width at a second viewport height.
+ *
+ * Every ladder consumer keys on `(engine, width, state)` — that is what a
+ * *responsive* comparison is about, and adding height to the key would make every
+ * consumer carry an axis only the fold cares about. So a probe is exactly a
+ * projection whose key is already claimed: the first projection at a key defines
+ * the ladder, later ones are evidence.
+ *
+ * Without this split a probe is silently read as a duplicate ladder cell, which is
+ * not a small error: `diffMultiState` diffed the 1280 reference against the
+ * *probe's* reproduction and reported 59 phantom deltas, and `oracleBoxes` handed
+ * the fidelity probe a second full set of 1280 oracle rows whose leaf queues were
+ * already drained — 55 phantom `unmatched`, i.e. every text run on the page.
+ */
+export function partitionProbes(projections: readonly StateProjection[]): {
+  ladder: StateProjection[]
+  probes: StateProjection[]
+} {
+  const seen = new Set<string>()
+  const ladder: StateProjection[] = []
+  const probes: StateProjection[] = []
+  for (const p of projections) {
+    const key = projectionKey(p.engine, p.viewport.width, p.state)
+    if (seen.has(key)) probes.push(p)
+    else {
+      seen.add(key)
+      ladder.push(p)
+    }
+  }
+  return { ladder, probes }
+}
 
 /**
  * REQ-48 (item 5) — the cheap, deterministic no-horizontal-overflow check: every
@@ -2597,12 +2635,15 @@ export function diffMultiState(
   repro: MultiStateCapture,
   opts: DiffOptions = {},
 ): StateDiff[] {
+  // REQ-88 — the ladder only. A height probe shares its key with the ladder cell
+  // it re-shoots, so including it both overwrites that cell's reproduction and
+  // emits a second cell for the same width.
   const reproByKey = new Map<string, StateProjection>()
-  for (const p of repro.projections) {
+  for (const p of partitionProbes(repro.projections).ladder) {
     reproByKey.set(projectionKey(p.engine, p.viewport.width, p.state), p)
   }
 
-  const out: StateDiff[] = reference.projections.map((ref) => {
+  const out: StateDiff[] = partitionProbes(reference.projections).ladder.map((ref) => {
     const key = projectionKey(ref.engine, ref.viewport.width, ref.state)
     const match = reproByKey.get(key)
     if (!match) {

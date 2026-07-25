@@ -31,7 +31,7 @@
 import { describe, expect, it } from 'vitest'
 import { validateL1 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
-import { foldToL1 } from '../tools/generate/src'
+import { diffMultiState, foldToL1, partitionProbes, rawRunToElement, sampleFidelityProbe } from '../tools/generate/src'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -497,5 +497,83 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
     const { css } = renderL1Document(doc)
     expect(css).toContain('padding-left: 12px')
     expect(css).toMatch(/@media \(min-width: 1024px\)[\s\S]*padding-left: 32px/)
+  })
+})
+
+/**
+ * REQ-88 — a height probe is *evidence*, never a ladder cell.
+ *
+ * Every responsive consumer keys a projection on `(engine, width, state)`; none
+ * carries viewport height, because height is not what a responsive comparison is
+ * about. A probe re-shoots a ladder width, so it collides on that key — and the
+ * collision is silent and severe. Both consumers below reported a page-wide
+ * failure on a reproduction that had not changed.
+ */
+describe('REQ-88 — height probes are evidence, not ladder cells', () => {
+  /** The ladder plus one probe re-shooting 1280 at a second height. */
+  function withProbe(): MultiStateCapture {
+    const at = (width: number, height: number): ProjSpec => ({
+      width,
+      height,
+      elements: [lines(run({ text: 'Only run', box: { x: 24, y: 40, width: 200, height: 29 } }), 1)],
+    })
+    return multi([...LADDER.map((w) => at(w, LADDER_H[w])), at(1280, 1000)])
+  }
+
+  it('test_UAT_FC_REQ-88_a_probe_is_partitioned_out_of_the_width_ladder', () => {
+    const { ladder, probes } = partitionProbes(withProbe().projections)
+    expect(ladder.map((p) => p.viewport.width)).toEqual(LADDER)
+    expect(probes.map((p) => `${p.viewport.width}x${p.viewport.height}`)).toEqual(['1280x1000'])
+  })
+
+  it('test_UAT_FC_REQ-88_the_multi_viewport_diff_emits_one_cell_per_ladder_width', () => {
+    // The probe shares 1280's key, so before the split it both overwrote that
+    // cell's *reproduction* — diffing the ladder reference against the probe's
+    // taller render — and emitted a second 1280 cell. On the real capture that
+    // was 59 phantom deltas against a reproduction that had not changed.
+    const ms = withProbe()
+    const cells = diffMultiState(ms, ms)
+    expect(cells.length).toBe(LADDER.length)
+    expect(cells.map((c) => c.viewportWidth).sort((a, b) => a - b)).toEqual(LADDER)
+    // Self-diff: identical inputs must produce no deltas at all.
+    for (const c of cells) expect(c.report?.deltas ?? []).toEqual([])
+  })
+
+  it('test_UAT_FC_REQ-88_the_fidelity_probe_does_not_count_a_probe_as_a_coverage_gap', () => {
+    // `oracleBoxes` drains a FIFO leaf queue per (key, width). A second full set of
+    // 1280 oracle rows finds those queues already empty and reports every text run
+    // on the page as `unmatched` — 55 of them on the real capture, turning a
+    // passing gate into a page-wide FAIL with nothing actually wrong.
+    const ms = withProbe()
+    const report = sampleFidelityProbe(foldToL1(ms), ms as never)
+    expect(report.unmatched).toEqual([])
+    expect(report.residuals).toEqual([])
+    expect(report.pass).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ-88_the_accent_bearer_rect_survives_the_manifest_projection', () => {
+    // `rawRunToElement` is the projection that builds the multi-state manifest the
+    // fold reads. Carrying `accentBox` only on the ContentRun path left it
+    // stranded: capture recorded the bearer's rect and nothing downstream saw it,
+    // so the accent fix silently did nothing on a real capture.
+    const raw = {
+      role: 'body',
+      text: 'Quoted',
+      color: '#111111',
+      fontFamily: 'Inter',
+      fontSizePx: 18,
+      fontWeight: 400,
+      lineHeightPx: 29,
+      letterSpacingPx: 0,
+      gradientCss: null,
+      borderLeftWidthPx: 4,
+      borderLeftColor: '#00d492',
+      accentBox: { x: 88, y: 1756, width: 896, height: 29 },
+      paddingLeftPx: 0,
+      box: { x: 116, y: 1756, width: 868, height: 29 },
+    }
+    expect(rawRunToElement(raw as never).accentBox).toEqual({ x: 88, y: 1756, width: 896, height: 29 })
+    // No accent painted → no bearer rect to carry.
+    expect(rawRunToElement({ ...raw, borderLeftWidthPx: 0, borderLeftColor: null } as never).accentBox).toBeUndefined()
   })
 })

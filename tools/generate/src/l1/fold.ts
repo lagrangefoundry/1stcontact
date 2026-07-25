@@ -48,6 +48,7 @@ import {
 import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-diff'
 import {
   colorToHex,
+  partitionProbes,
   type MultiStateCapture,
   type SectionValues,
   type StateProjection,
@@ -132,7 +133,9 @@ function usedFontFaces(fonts: L1FontFace[], nodes: L1Node[]): L1FontFace[] {
  */
 function restingByWidth(multiState: MultiStateCapture, engine: string): StateProjection[] {
   const byWidth = new Map<number, StateProjection>()
-  for (const p of multiState.projections) {
+  // REQ-88 — the ladder defines the keyframes; a height probe is evidence about
+  // the height axis and never a keyframe of its own ({@link heightProbesFor}).
+  for (const p of partitionProbes(multiState.projections).ladder) {
     if (p.state !== 'rest') continue
     const w = p.viewport.width
     const existing = byWidth.get(w)
@@ -161,15 +164,13 @@ interface HeightProbe {
  */
 function heightProbesFor(multiState: MultiStateCapture, ladder: StateProjection[]): HeightProbe[] {
   const out: HeightProbe[] = []
-  for (const l of ladder) {
-    for (const p of multiState.projections) {
-      if (p.state !== 'rest' || p === l) continue
-      if (p.viewport.width !== l.viewport.width) continue
-      if (p.engine !== l.engine) continue
-      const deltaH = p.viewport.height - l.viewport.height
-      if (Math.abs(deltaH) < 1) continue
-      out.push({ width: l.viewport.width, deltaH, ladder: l, probe: p })
-    }
+  for (const p of partitionProbes(multiState.projections).probes) {
+    if (p.state !== 'rest') continue
+    const l = ladder.find((c) => c.viewport.width === p.viewport.width && c.engine === p.engine)
+    if (!l) continue
+    const deltaH = p.viewport.height - l.viewport.height
+    if (Math.abs(deltaH) < 1) continue
+    out.push({ width: l.viewport.width, deltaH, ladder: l, probe: p })
   }
   return out
 }

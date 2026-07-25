@@ -440,7 +440,20 @@ function normText(s: string): string {
 
 export function oracleBoxes(oracle: OracleSource): OracleBox[] {
   const out: OracleBox[] = []
+  // REQ-88 — the width ladder only. A height probe re-shoots a ladder width at a
+  // second viewport height; admitting it hands the fidelity measure a second full
+  // set of oracle rows at that width whose reproduced-leaf queues are already
+  // drained, reporting every text run on the page as `unmatched`.
+  //
+  // Deduped here on `(width, state)` rather than through the capture package's
+  // `partitionProbes`, so `OracleSource` stays structural (it deliberately carries
+  // no `engine`, and the gate re-folds for one engine anyway). Same rule: the
+  // first projection at a key is the ladder, later ones are evidence.
+  const seenKey = new Set<string>()
   for (const p of oracle.projections) {
+    const key = `${p.viewport.width}:${p.state ?? 'rest'}`
+    if (seenKey.has(key)) continue
+    seenKey.add(key)
     if (p.state && p.state !== 'rest') continue
     for (const el of p.manifest.elements) {
       if (!el.box) continue
