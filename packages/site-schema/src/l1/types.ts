@@ -10,6 +10,8 @@ import type {
   l1BorderSchema,
   l1BoxAxesSchema,
   l1BoxSchema,
+  l1ColumnAnchorSchema,
+  l1ColumnSchema,
   l1ContainerSchema,
   l1DistributionSchema,
   l1DocumentSchema,
@@ -23,6 +25,7 @@ import type {
   l1MaskSchema,
   l1NodeSchema,
   l1OverlaySchema,
+  l1PaddingResponsiveSchema,
   l1PaddingSchema,
   l1ResourcesSchema,
   l1ScalarKeyframeSchema,
@@ -35,12 +38,17 @@ import type {
   l1TextResponsiveSchema,
   l1TextSchema,
   l1TransformSchema,
+  l1ViewportResponseSchema,
   l1VisibilitySchema,
 } from './schema'
 
 export type L1Keyframe = z.infer<typeof l1KeyframeSchema>
 export type L1Segment = z.infer<typeof l1SegmentSchema>
 export type L1Geometry = z.infer<typeof l1GeometrySchema>
+// REQ-88 — viewport-relative extent: the `100vh` hero and the centred column.
+export type L1ViewportResponse = z.infer<typeof l1ViewportResponseSchema>
+export type L1Column = z.infer<typeof l1ColumnSchema>
+export type L1ColumnAnchor = z.infer<typeof l1ColumnAnchorSchema>
 export type L1Sizing = z.infer<typeof l1SizingSchema>
 export type L1AxisSizing = z.infer<typeof l1AxisSizingSchema>
 export type L1Distribution = z.infer<typeof l1DistributionSchema>
@@ -63,6 +71,7 @@ export type L1Transform = z.infer<typeof l1TransformSchema>
 export type L1BlendMode = z.infer<typeof l1BlendModeSchema>
 export type L1Overlay = z.infer<typeof l1OverlaySchema>
 export type L1Padding = z.infer<typeof l1PaddingSchema>
+export type L1PaddingResponsive = z.infer<typeof l1PaddingResponsiveSchema>
 
 export type L1Text = z.infer<typeof l1TextSchema>
 export type L1Image = z.infer<typeof l1ImageSchema>

@@ -11,6 +11,7 @@ import { buildSections } from './sections'
 import { buildTheme, primaryFamily } from './theme'
 import {
   flattenSignals,
+  HEIGHT_PROBE_VIEWPORTS,
   RESPONSIVE_VIEWPORTS,
   type MultiStateCapture,
   type StateProjection,
@@ -254,7 +255,9 @@ export async function runMultiStateCapture(
   opts: MultiStateCaptureOptions = {},
 ): Promise<MultiStateCapture> {
   const engines = opts.engines ?? ['chromium']
-  const viewports = opts.viewports ?? RESPONSIVE_VIEWPORTS
+  // REQ-88 — the width ladder plus the height probes. Probes come last so
+  // `restingByWidth` keeps the ladder entry for a shared width (first-wins).
+  const viewports = opts.viewports ?? [...RESPONSIVE_VIEWPORTS, ...HEIGHT_PROBE_VIEWPORTS]
   const requestedStates = opts.states ?? ['rest', 'hover']
   const factoryFor = opts.driverFactoryFor ?? createEngineDriver
   const isAvailable = opts.isEngineAvailable ?? engineAvailable

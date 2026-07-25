@@ -60,6 +60,13 @@ export interface ValueElement {
   letterSpacingPx?: number
   gradient?: TextGradient | null
   borderLeft?: BorderTreatment | null
+  /**
+   * REQ-88 — rect of the element that PAINTS {@link borderLeft}, when a different
+   * element does. A border paints inside its own border box, so the bar's position
+   * belongs to its bearer; a reproduction without this can only draw the accent on
+   * the run, indented by the bearer's padding and overlapping the first glyph.
+   */
+  accentBox?: Box | null
   paddingLeftPx?: number
   /** REQ-64 — the other three padding sides + normalized text-align. Type-A
    *  (authored) axes that were invisible: a wrong card top/right/bottom pad or a
@@ -772,6 +779,7 @@ export function contentRunToElement(run: ContentRun): ValueElement {
   if (run.letterSpacingPx !== undefined) el.letterSpacingPx = run.letterSpacingPx
   if (run.gradient !== undefined) el.gradient = run.gradient
   if (run.borderLeft !== undefined) el.borderLeft = run.borderLeft
+  if (run.accentBox !== undefined) el.accentBox = run.accentBox
   if (run.paddingLeftPx !== undefined) el.paddingLeftPx = run.paddingLeftPx
   if (run.surfaceFill != null) el.surfaceFill = run.surfaceFill
   if (run.surfaceGradient !== undefined) el.surfaceGradient = run.surfaceGradient
@@ -959,6 +967,25 @@ export const RESPONSIVE_VIEWPORTS: readonly Viewport[] = [
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
 ]
+
+/**
+ * REQ-88 — extra projections that re-shoot a width **already on the ladder** at a
+ * different viewport HEIGHT.
+ *
+ * The ladder above varies width and height together, which makes the height axis
+ * unidentifiable: a `min-h-screen` hero measuring 1024 at 768x1024 and 768 at
+ * 1024x768 is indistinguishable, from those samples alone, from an element whose
+ * height happens to be a decreasing function of *width*. Only a pair that holds
+ * width fixed and moves height separates the two — and until it does, the fold
+ * has no evidence on which to emit `100vh` and must pin whatever pixel height the
+ * capture happened to use.
+ *
+ * Deliberately NOT part of {@link RESPONSIVE_VIEWPORTS}: the width ladder defines
+ * the keyframes, the screenshots and the diff cells, and a duplicate width would
+ * perturb all three. A probe adds one projection and nothing else — the fold
+ * reads it as evidence, {@link restingByWidth} skips it as a keyframe.
+ */
+export const HEIGHT_PROBE_VIEWPORTS: readonly Viewport[] = [{ width: 1280, height: 1000 }]
 
 /**
  * REQ-48 (item 5) — the cheap, deterministic no-horizontal-overflow check: every
