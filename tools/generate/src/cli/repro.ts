@@ -6,9 +6,10 @@
  * into a **servable, gate-able 1c site**, closing the last gap between the L1
  * library (foldToL1 / renderL1 / threeProbeGate) and an operator workflow:
  *
- *   - {@link cmdRepro}  — import a bundle's `l1.json` as a raw-L1 page site, so the
- *                          existing `render / serve / shot / diff / values-diff`
- *                          loop works on the reproduction unchanged.
+ *   - {@link cmdRepro}  — import a bundle's `l1.json` (+ REQ-93's `forms.json`
+ *                          behaviour bindings) as an L1 page site, so the existing
+ *                          `render / serve / shot / diff / values-diff` loop works
+ *                          on the reproduction unchanged.
  *   - {@link cmdL1Gate} — run the mechanical 3-probe acceptance gate (DOC-19) on
  *                          the bundle's oracle: fold → promote → gate, reporting
  *                          each residual as a framework-gap signal.
@@ -16,15 +17,15 @@
  * The site config it writes is disposable (DOC-21): the durable output is the
  * framework growth each probe residual forces.
  */
-import { defaultTokens } from '@1stcontact/framework'
-import { validateSite } from '@1stcontact/site-schema'
+import { defaultTokens, latestModuleVersion } from '@1stcontact/framework'
+import { l1DocumentSlotNames, validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
 import { foldToL1, localizeAssets, promoteToFlow, threeProbeGate } from '../l1'
-import type { FoldResidual, ThreeProbeReport } from '../l1'
+import type { FoldedForm, FoldResidual, ThreeProbeReport } from '../l1'
 import { copyDir, draftDir, emptyDir, ensureDir, pathExists, siteDir, writeDraftBase, writeJson } from '../store'
 import { ctxOf } from './commands'
 import type { GlobalOptions } from './commands'
-import { readCaptureAssets, readL1, readMultiState } from './capture/bundle'
+import { readCaptureAssets, readForms, readL1, readMultiState } from './capture/bundle'
 import path from 'node:path'
 
 /** Content-perturbation factor for the robustness probe + structure recovery. */
@@ -54,6 +55,13 @@ export interface ReproResult {
    * emitted for them: a **fold gap** to close, surfaced rather than ignored.
    */
   unreferencedAssets: string[]
+  /**
+   * REQ-93 — the behaviours mounted into the page's L1 slots, and what the
+   * capture could not tell us about each (a missing endpoint, an unrecorded input
+   * type). Surfaced, never silently defaulted: a reproduced form that posts to
+   * its own URL is honest, but the operator must know before it collects leads.
+   */
+  forms: FoldedForm[]
 }
 
 /** Count leaves + containers in an L1 document (for the operator summary). */
@@ -69,11 +77,19 @@ function countNodes(doc: L1Document): number {
 }
 
 /**
- * Import a capture bundle's folded `l1.json` as a raw-L1 page site. Idempotent:
- * an existing draft for `slug` is emptied and rewritten, so re-import *is* the
- * "delete + rebuild" reproduction loop. The L1 document is self-contained
- * (concrete geometry from the fold), so the site takes `defaultTokens` for its
- * theme — the L1 css, not the theme palette, drives the reproduction.
+ * Import a capture bundle as an L1 page site. Idempotent: an existing draft for
+ * `slug` is emptied and rewritten, so re-import *is* the "delete + rebuild"
+ * reproduction loop. The L1 document is self-contained (concrete geometry from
+ * the fold), so the site takes `defaultTokens` for its theme — the L1 css, not
+ * the theme palette, drives the reproduction.
+ *
+ * REQ-93 — a page is L1 layout **plus** the behaviours mounted into its slots,
+ * so the import reads both halves of the bundle: `l1.json` (the page body, with
+ * a `slot` seam per captured form) and `forms.json` (the binding for each seam).
+ * Both are written by the same `foldToL1` call at capture time, so they cannot
+ * disagree about which seams exist. A bundle with no `forms.json` — one captured
+ * before REQ-93, or a page with no behaviour — carries no slot either, and
+ * imports exactly as it did before.
  */
 export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
   const ctx = ctxOf(opts)
@@ -82,6 +98,28 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
     throw new Error(
       `No l1.json in bundle '${opts.ref}'. The bundle predates the L1 fold — ` +
         `re-capture with \`1c capture page <url>\` before reproducing.`,
+    )
+  }
+  const forms = readForms(opts.ref)
+
+  // REQ-93 — the two artifacts must describe the same seams. They always do when
+  // written together, so a mismatch means the bundle is half-stale (an `l1.json`
+  // folded before REQ-93 carries no seam; a `forms.json` from a later fold names
+  // seams that file has never heard of). Reproducing it anyway would silently
+  // render the behaviours as inert placeholders — exactly the stranding this
+  // ticket exists to end — so it fails loudly with the fix.
+  const seams = l1DocumentSlotNames(l1)
+  const unmatched = [
+    ...seams.filter((s) => !forms.some((f) => f.slot === s)).map((s) => `slot '${s}' has no binding in forms.json`),
+    ...forms.filter((f) => !seams.includes(f.slot)).map((f) => `forms.json binds slot '${f.slot}', absent from l1.json`),
+  ]
+  if (unmatched.length) {
+    throw new Error(
+      `Bundle '${opts.ref}' is internally inconsistent — its L1 seams and behaviour ` +
+        `bindings disagree:\n` +
+        unmatched.map((u) => `  ${u}`).join('\n') +
+        `\nThe two are written by one fold, so this means the bundle is part-stale. ` +
+        `Re-capture with \`1c capture page <url>\`.`,
     )
   }
 
@@ -107,7 +145,22 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
     nav: { pattern: 'top-tabs' as const, entries: [] },
     assets: [],
   }
-  const page = { id: 'home', slug: 'home', title: slug, l1: localized.doc }
+  // REQ-93 — one behavior-module instance per recovered form, each bound by name
+  // to the `slot` the fold emitted for it. The L1 document stays the single page
+  // body; these mount *into* it. Config is derived from the capture only — an
+  // absent endpoint stays absent (the form posts to its own URL) and is reported
+  // through `forms[].residuals` rather than invented here.
+  const modules = forms.map((form) => ({
+    id: form.slot,
+    type: form.behavior,
+    version: latestModuleVersion(form.behavior),
+    slot: form.slot,
+    config: {
+      action: form.action ?? '',
+      fields: form.fields.map((f) => ({ ...f, required: false })),
+    },
+  }))
+  const page = { id: 'home', slug: 'home', title: slug, l1: localized.doc, modules }
 
   // Validate the assembled definition before touching disk — a fold that does not
   // satisfy the page schema is a serializer bug, surfaced here not at render time.
@@ -141,6 +194,7 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
     copiedAssets,
     localizedAssets: localized.rewritten.length,
     unreferencedAssets: localized.unreferenced,
+    forms,
   }
 }
 
@@ -154,6 +208,13 @@ export interface L1GateResult extends ThreeProbeReport {
    * power* gaps (a leaf kind the fold does not emit yet), not a diff delta.
    */
   foldResiduals: FoldResidual[]
+  /**
+   * REQ-93 — the behaviours the fold recovered into L1 slots, with whatever the
+   * capture could not tell us about each. A *derivation* gap (no endpoint, no
+   * recorded input type), deliberately distinct from {@link foldResiduals}: the
+   * form was mounted, so it is not a gap in L1's expressive power.
+   */
+  forms: FoldedForm[]
 }
 
 /**
@@ -172,8 +233,9 @@ export function cmdL1Gate(opts: ReproOptions): L1GateResult {
     )
   }
   const foldResiduals: FoldResidual[] = []
-  const base = foldToL1(multiState, { residuals: foldResiduals })
+  const forms: FoldedForm[] = []
+  const base = foldToL1(multiState, { residuals: foldResiduals, forms })
   const { doc: recovered, promoted } = promoteToFlow(base, { scale: CONTENT_SCALE })
   const report = threeProbeGate(base, multiState, { recovered, contentScale: CONTENT_SCALE })
-  return { ...report, promoted, foldResiduals }
+  return { ...report, promoted, foldResiduals, forms }
 }

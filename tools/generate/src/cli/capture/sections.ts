@@ -166,6 +166,9 @@ function toField(f: RawField): Field {
     alt: f.alt,
     accessibleName: f.accessibleName,
     nameSource: f.nameSource,
+    // REQ-93 — the behavioural facts a mounted behavior module needs.
+    controlType: f.controlType,
+    formAction: f.formAction,
   }
 }
 

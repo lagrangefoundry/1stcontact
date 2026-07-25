@@ -187,6 +187,14 @@ export interface ValueElement {
    * placeholder-inside from label-above — neither geometry nor text can see it.
    */
   nameSource?: NameSource | null
+  /**
+   * REQ-93 — a form control's authored input type and its enclosing form's
+   * submission endpoint. Behavioural, not painted: they move no pixel, so they
+   * are carried for the fold's behavior-module derivation and are deliberately
+   * *not* diffed as value axes.
+   */
+  controlType?: string | null
+  formAction?: string | null
 }
 
 /**
@@ -817,6 +825,10 @@ export function fieldToElement(field: Field): ValueElement {
   // REQ-92 — carry the media substance so the fold can emit a real `image` leaf.
   if (field.src != null) el.src = field.src
   if (field.alt != null) el.alt = field.alt
+  // REQ-93 — carry the behavioural substance so the fold can bind a real behavior
+  // module (input type + submission endpoint), rather than stranding the control.
+  if (field.controlType != null) el.controlType = field.controlType
+  if (field.formAction != null) el.formAction = field.formAction
   return el
 }
 

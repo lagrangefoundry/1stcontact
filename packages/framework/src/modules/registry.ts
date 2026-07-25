@@ -24,6 +24,22 @@ export const registry: ReadonlyMap<string, BehaviorDefinition> = new Map(
 )
 
 /**
+ * REQ-93 — the catalog's current version of a behavior, for a caller that is
+ * *creating* an instance rather than resolving a pinned one (the reproduction
+ * importer, which has a captured behaviour and no version to pin yet). Existing
+ * instances still pin their own version; this is only the pin's origin.
+ */
+export function latestModuleVersion(id: string): number {
+  const versions = MODULES.filter((m) => m.meta.id === id).map((m) => m.meta.version)
+  if (versions.length === 0) {
+    throw new Error(
+      `Module not found in catalog: '${id}'. Known modules: ${[...registry.keys()].join(', ')}.`,
+    )
+  }
+  return Math.max(...versions)
+}
+
+/**
  * Resolve a module by id + version, or throw a clear catalog-miss error naming
  * what was requested and what the catalog contains.
  */

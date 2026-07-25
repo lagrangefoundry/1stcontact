@@ -1,4 +1,4 @@
-export { registry, getModule } from './registry'
+export { registry, getModule, latestModuleVersion } from './registry'
 export { getModuleCss, getModuleClientJs } from './styles'
 export { contactFormMeta } from './contact-form/meta'
 export { carouselMeta } from './carousel/meta'

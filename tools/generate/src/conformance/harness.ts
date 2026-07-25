@@ -88,8 +88,35 @@ export interface OneModuleServe {
   dispose(opts?: { keepRoot?: boolean }): Promise<void>
 }
 
+/**
+ * REQ-93 — the minimal L1 page body that hosts one mounted behaviour: a single
+ * full-width `slot` at the top of the document. Deliberately unstyled and
+ * unpinned in height, so what the checks measure is the *mounted module*, not a
+ * wrapper's own layout.
+ */
+function l1HostDocument(widths: number[]): unknown {
+  return {
+    widths,
+    root: {
+      kind: 'box',
+      children: [
+        {
+          kind: 'slot',
+          name: 'mount',
+          geometry: { keyframes: widths.map((w) => ({ at: w, x: 0, y: 0, width: w })) },
+        },
+      ],
+    },
+  }
+}
+
 /** Build a validated single-module page JSON from a fixture. */
-function oneModulePage(slug: string, fixture: ConformanceFixture, version: number): unknown {
+function oneModulePage(
+  slug: string,
+  fixture: ConformanceFixture,
+  version: number,
+  opts: ConformanceOptions,
+): unknown {
   const p = fixture.props
   // A behavior-module instance (REQ-85): behavioural `config` + named L1 `slots`.
   const instance: Record<string, unknown> = {
@@ -102,7 +129,22 @@ function oneModulePage(slug: string, fixture: ConformanceFixture, version: numbe
   if (p.background) instance.background = p.background
   if (p.layer) instance.layer = p.layer
   if (p.motion) instance.motion = p.motion
-  return { id: 'home', slug: 'home', title: `conformance:${fixture.label}`, modules: [instance] }
+  const page: Record<string, unknown> = {
+    id: 'home',
+    slug: 'home',
+    title: `conformance:${fixture.label}`,
+    modules: [instance],
+  }
+  // REQ-93 — mounted into an L1 seam, the page's other shipping shape. The
+  // binding is by name and is validated by the page schema like any other.
+  if (opts.mountInL1) {
+    instance.slot = 'mount'
+    // The full ladder, whatever this run probes: a keyframe at every width means
+    // the slot spans exactly the viewport at each one, so the wrapper can never
+    // be the thing that overflows.
+    page.l1 = l1HostDocument([...RESPONSIVE_WIDTHS])
+  }
+  return page
 }
 
 /**
@@ -125,7 +167,7 @@ export async function serveOneModulePage(
     opts.version ?? (typeof fixture.props.version === 'number' ? fixture.props.version : 1)
   writeFileSync(
     path.join(draftDir(ctx, slug), 'pages', 'home.json'),
-    JSON.stringify(oneModulePage(slug, fixture, version), null, 2),
+    JSON.stringify(oneModulePage(slug, fixture, version, opts), null, 2),
   )
 
   const loaded = loadSite(ctx, slug, 'draft')
