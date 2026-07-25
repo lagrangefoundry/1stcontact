@@ -6,6 +6,19 @@
 import type { RawRun, RawSignals } from './extract'
 import type { ColorUsage, Theme, ThemeFont, ThemeSubScale, ThemeSubScales } from './types'
 
+/**
+ * The single family NAME at the head of a font stack — trimmed, surrounding
+ * quotes stripped.
+ *
+ * Painted runs carry the FULL stack (BUG-16: `Cinzel, serif`), but an
+ * `@font-face` block declares one bare name (`Cinzel`). Every table that joins
+ * the two — this module's resource files, the fold's `usedFontFaces` — must key
+ * on the primary token so both sides meet on the same normalised name.
+ */
+export function primaryFamily(ff: string): string {
+  return (ff || '').split(',')[0].trim().replace(/^['"]|['"]$/g, '')
+}
+
 /** All text runs across every band and item, in document order. */
 function allRuns(signals: RawSignals): RawRun[] {
   const runs: RawRun[] = []
@@ -115,7 +128,9 @@ export function buildTheme(
     family,
     role: e.heading ? 'heading' : 'body',
     weights: [...e.weights].sort((a, b) => a - b),
-    files: fontFilesByFamily.get(family) ?? [],
+    // The face table is keyed by the bare `@font-face` name; a painted run's
+    // `family` is the full stack, so join on the primary token (BUG-16).
+    files: fontFilesByFamily.get(primaryFamily(family)) ?? [],
   }))
 
   return {
