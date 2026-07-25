@@ -18,7 +18,7 @@
  * endpoint, an input type — the derivation records a residual and falls back to
  * an honest default rather than fabricating one.
  */
-import { isSafeUrl } from '@1stcontact/site-schema'
+import { isSafeUrl, type L1Node } from '@1stcontact/site-schema'
 import type { ValueElement } from '../cli/capture'
 
 /** A captured box, as the capture records it. */
@@ -50,6 +50,16 @@ export interface FoldedFormField {
   /** Human label — the a11y tree's accessible name for the control. */
   label: string
   type: 'text' | 'email' | 'tel' | 'textarea'
+  /**
+   * Where the reference renders this control's label. The a11y tree's
+   * `nameSource` is the only witness to the difference between a label ABOVE the
+   * box and the same words INSIDE it as a placeholder — no painted axis can hold
+   * it, because in both cases the pixels are just text near a box.
+   *
+   * Ignoring it does more than mis-style: a label row the reference never had
+   * pushes every field below it down, so the whole form drifts.
+   */
+  labelMode: 'visible' | 'placeholder'
 }
 
 /** A form the fold recovered: the slot it mounts at, plus its derived config. */
@@ -65,6 +75,22 @@ export interface FoldedForm {
    * whose endpoint we never saw honestly does. See {@link residuals}.
    */
   action?: string
+  /**
+   * The captured submit affordance, as the L1 subtree that gives the module's
+   * button its look — bound to the behavior's `submit` slot (DOC-25 §2).
+   *
+   * A reference's submit control is captured as a *painted run* (text + pill), so
+   * the fold emits it as an ordinary text leaf. Left there it is a page-level
+   * decoration sitting next to a form that renders its own default button —
+   * two buttons, one of them inert. Lifting it into the slot makes the captured
+   * chip **be** the form's button: one control, the reference's look, and the
+   * module's submit behaviour intact.
+   *
+   * Absolute geometry is deliberately dropped on the way in. The module places
+   * its own button, and page-absolute keyframes inside the slot would resolve
+   * against the slot's origin rather than the page's.
+   */
+  submit?: L1Node
   /**
    * What the capture could not tell us about this form. These are *derivation*
    * gaps (a missing endpoint, an unrecorded input type) — deliberately NOT
@@ -142,6 +168,38 @@ export function clusterControls(rows: ControlRow[]): ControlRow[][] {
     .map((members) => members.map((m) => m.row))
 }
 
+/**
+ * Reduce a captured button run to the subtree that belongs in a `submit` slot:
+ * everything about how it *looks*, nothing about where the page put it.
+ *
+ * `geometry` and `visibility` are dropped because the module owns placement —
+ * the keyframes are page-absolute and would resolve against the slot's own
+ * origin. The type axes, the pill's fill and rounding, the padding and the
+ * unbreakable-line pin all survive, because those are the button's appearance.
+ */
+export function submitSlotFrom(node: L1Node): L1Node {
+  const rest: Record<string, unknown> = { ...(node as unknown as Record<string, unknown>) }
+  delete rest.geometry
+  delete rest.visibility
+  return rest as unknown as L1Node
+}
+
+/** Shortest distance between two rects — exported for the fold's submit matching. */
+export function boxDistance(a: Box, b: Box): number {
+  return rectDistance(a, b)
+}
+
+/**
+ * How near a captured button must sit to a form's fields to *be* that form's
+ * submit control, on the same scale as {@link CLUSTER_GAP_FACTOR}. On the
+ * reference page the gap is 22px (stacked) and 12px (inline) against a 75px
+ * threshold, while the nearest *other* form's button is 128px and 263px away —
+ * so the rule separates the two forms by an order of magnitude, not a hair.
+ */
+export function submitProximityThreshold(controlHeights: number[]): number {
+  return CLUSTER_GAP_FACTOR * median(controlHeights)
+}
+
 /** Slugify a label into a submission key. */
 function slugify(label: string): string {
   return label
@@ -194,7 +252,8 @@ export function foldedFormFor(slot: string, group: ControlRow[]): FoldedForm {
     let name = slugify(label) || `field-${i + 1}`
     while (used.has(name)) name = `${name}-${i + 1}`
     used.add(name)
-    return { name, label: label || `Field ${i + 1}`, type }
+    const labelMode = el.nameSource === 'placeholder' ? 'placeholder' : 'visible'
+    return { name, label: label || `Field ${i + 1}`, type, labelMode }
   })
 
   const form: FoldedForm = { slot, behavior: 'contact-form', fields, residuals }

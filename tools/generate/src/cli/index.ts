@@ -392,7 +392,14 @@ export async function run(argv: string[]): Promise<void> {
           `3-probe gate on ${ref}: ${report.pass ? 'PASS' : 'FAIL'}\n` +
             `  sample-fidelity     ${mark(report.sampleFidelity.pass)}  ` +
             `(maxΔ ${report.sampleFidelity.maxDelta.toFixed(1)}px, ${report.sampleFidelity.residuals.length} residual(s), ` +
-            `${report.sampleFidelity.unmatched.length} unmatched)\n` +
+            `${report.sampleFidelity.unmatched.length} unmatched` +
+            // REQ-88 — text a mounted behaviour renders is not L1's to grade, but
+            // saying so out loud keeps the mounted region from becoming a silent
+            // hole in the only gate that reads geometry.
+            (report.sampleFidelity.mounted.length
+              ? `, ${report.sampleFidelity.mounted.length} in mounted behaviour`
+              : '') +
+            `)\n` +
             `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
             `  promoted regions: ${report.promoted.length ? report.promoted.join(', ') : 'none'}\n` +

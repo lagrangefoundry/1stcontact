@@ -488,6 +488,17 @@ export interface SampleFidelityReport {
   residuals: FidelityDelta[]
   /** Oracle samples with no matching reproduced leaf — coverage gaps. */
   unmatched: Array<{ text: string; width: number }>
+  /**
+   * REQ-88 — oracle text this probe deliberately did not grade, because a
+   * behaviour slot covers it: the run is rendered by a mounted behavior module
+   * (a form's own submit button), not by L1.
+   *
+   * Reported rather than silently dropped. Grading L1 on markup it does not emit
+   * would fail the gate for a correct reproduction; dropping it *quietly* would
+   * turn every mounted region into an ungraded hole nobody could see. The number
+   * is the size of what the L1 gate is not the right instrument for.
+   */
+  mounted: Array<{ text: string; width: number }>
 }
 
 export interface SampleFidelityOptions {
@@ -524,10 +535,22 @@ export function sampleFidelityProbe(
   const table = oracleBoxes(oracle)
   const residuals: FidelityDelta[] = []
   const unmatched: Array<{ text: string; width: number }> = []
+  const mounted: Array<{ text: string; width: number }> = []
   let maxDelta = 0
 
   for (const width of widths) {
     const { leaves } = evaluateLayout(doc, width)
+    // REQ-88 — the rects a behavior module mounts into. Oracle text inside one is
+    // the behaviour's markup, not L1's, so it is set aside rather than graded.
+    const slotBoxes = leaves.filter((l) => l.kind === 'slot').map((l) => l.box)
+    const insideSlot = (b: EvalBox): boolean =>
+      slotBoxes.some(
+        (s) =>
+          b.x + b.width / 2 >= s.x &&
+          b.x + b.width / 2 <= s.x + s.width &&
+          b.y + b.height / 2 >= s.y &&
+          b.y + b.height / 2 <= s.y + s.height,
+      )
     // FIFO queues of reproduced text-leaf boxes by key, in document order — the
     // same occurrence order the fold's rows were built in.
     const leafQueues = new Map<string, EvalBox[]>()
@@ -547,7 +570,8 @@ export function sampleFidelityProbe(
       cursor.set(k, idx + 1)
       const got = leafQueues.get(k)?.[idx]
       if (!got) {
-        unmatched.push({ text: o.text, width })
+        if (insideSlot(o.box)) mounted.push({ text: o.text, width })
+        else unmatched.push({ text: o.text, width })
         continue
       }
       const dx = Math.abs(got.x - o.box.x)
@@ -600,6 +624,7 @@ export function sampleFidelityProbe(
     maxDelta,
     residuals,
     unmatched,
+    mounted,
   }
 }
 

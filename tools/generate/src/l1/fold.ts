@@ -49,7 +49,15 @@ import {
   type L1ViewportResponse,
 } from '@1stcontact/site-schema'
 import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-diff'
-import { clusterControls, foldedFormFor, type ControlRow, type FoldedForm } from './forms'
+import {
+  boxDistance,
+  clusterControls,
+  foldedFormFor,
+  submitProximityThreshold,
+  submitSlotFrom,
+  type ControlRow,
+  type FoldedForm,
+} from './forms'
 import {
   colorToHex,
   partitionProbes,
@@ -1611,6 +1619,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // REQ-93 — captured form controls, collected for the post-loop grouping into
   // behavior-module slots (a control is never an L1 leaf; see below).
   const controlRows: ControlRow[] = []
+  // REQ-93 — a captured submit affordance carries text, so the text-leaf branch
+  // claims it before the control branch ever sees it. That is right for a *page*
+  // button and wrong for a *form's* button: left as a page-level run it sits
+  // beside a form that also renders its own default button. Buttons are recorded
+  // here and, after clustering, one that sits with a form is lifted out of the
+  // page body into that form's `submit` slot.
+  const submitCandidates: Array<{
+    node: L1Node
+    frames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>
+  }> = []
   for (const row of table.rows) {
     const present = row.cells.filter((c) => c.element)
     const sample = present[0]?.element
@@ -1698,6 +1716,15 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
+
+      // REQ-93 — see `submitCandidates`. Recorded, not yet claimed: whether this
+      // button belongs to a form is only knowable once the controls are grouped.
+      if (sample.a11yRole === 'button') {
+        const frames = framed
+          .map((c) => ({ at: c.width, box: c.element!.box }))
+          .filter((f): f is { at: number; box: NonNullable<ValueElement['box']> } => Boolean(f.box))
+        if (frames.length) submitCandidates.push({ node, frames })
+      }
 
       // BUG-20 — a chip paints its own surface on the text leaf above, so it
       // contributes no surface row: emitting one would duplicate the pill as a
@@ -1943,6 +1970,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // mounted behaviour occupies exactly the space the reference gave the form.
   // Emitted last so a mounted form paints above the surfaces behind it.
   const slotNodes: L1Slot[] = []
+  const claimedSubmits = new Set<L1Node>()
   clusterControls(controlRows).forEach((group, i) => {
     const name = `form-${i}`
     const byWidth = new Map<number, NonNullable<ValueElement['box']>>()
@@ -1950,6 +1978,34 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       for (const s of row.samples) {
         const prev = byWidth.get(s.at)
         byWidth.set(s.at, prev ? unionBox(prev, s.box) : s.box)
+      }
+    }
+    // REQ-93 — claim this form's submit button, if the reference gave it one.
+    // Matching is geometric because the capture reads painted boxes, not the
+    // DOM's `<form>` boundaries: the nearest unclaimed button within the same
+    // gap scale that separates fields *within* a form (never the one belonging
+    // to the other form on the page — see `submitProximityThreshold`).
+    const widestWidth = Math.max(...byWidth.keys())
+    const groupWidest = byWidth.get(widestWidth)!
+    const threshold = submitProximityThreshold(
+      group.map((r) => r.samples[r.samples.length - 1]?.box.height ?? 0),
+    )
+    let submit: { node: L1Node; frames: typeof submitCandidates[number]['frames'] } | undefined
+    let best = Infinity
+    for (const cand of submitCandidates) {
+      if (claimedSubmits.has(cand.node)) continue
+      const box = cand.frames.find((f) => f.at === widestWidth)?.box
+      if (!box) continue
+      const d = boxDistance(groupWidest, box)
+      if (d <= threshold && d < best) ((best = d), (submit = cand))
+    }
+    if (submit) {
+      claimedSubmits.add(submit.node)
+      // The button is the form's, so the form's seam must be big enough to hold
+      // it — otherwise the mounted button would render outside its own slot.
+      for (const f of submit.frames) {
+        const prev = byWidth.get(f.at)
+        byWidth.set(f.at, prev ? unionBox(prev, f.box) : f.box)
       }
     }
     const keyframes: L1Keyframe[] = [...byWidth.entries()]
@@ -1974,12 +2030,18 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     const vis = visibilityFor([...byWidth.keys()].sort((a, b) => a - b), widths)
     if (vis) node.visibility = vis
     slotNodes.push(node)
-    opts.forms?.push(foldedFormFor(name, group))
+    const form = foldedFormFor(name, group)
+    if (submit) form.submit = submitSlotFrom(submit.node)
+    opts.forms?.push(form)
   })
+
+  // A claimed button is the form's control now, not a page-level run — leaving it
+  // in the body as well would paint the reference's one button twice.
+  const body = claimedSubmits.size ? children.filter((c) => !claimedSubmits.has(c)) : children
 
   const root: L1Box = {
     kind: 'box',
-    children: [...bandNodes, ...sectionBgNodes, ...cardNodes, ...children, ...slotNodes],
+    children: [...bandNodes, ...sectionBgNodes, ...cardNodes, ...body, ...slotNodes],
   }
   const doc: L1Document = { widths, root }
   if (band) doc.background = band

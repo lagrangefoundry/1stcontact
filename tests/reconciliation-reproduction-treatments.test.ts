@@ -151,7 +151,10 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
         },
       },
     })
-    expect(withSubmit).toMatch(/<button[^>]*class="contact-form__submit"/)
+    // REQ-88 — a bound submit slot also marks the button, so the module's own
+    // paint can stand down and the authored chip is not nested inside a second,
+    // differently-coloured button.
+    expect(withSubmit).toMatch(/<button[^>]*class="contact-form__submit contact-form__submit--l1"/)
     expect(withSubmit).toMatch(/class="[^"]*contact-form-submit-l1-0/)
     expect(withSubmit).toContain('Send message')
     expect(withSubmit).toContain('background-color: #e11d48')

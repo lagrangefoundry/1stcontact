@@ -274,7 +274,14 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
     const typed = foldedFormFor('form-0', [
       { samples: [{ at: 1280, element: control({ accessibleName: 'Phone', box: { x: 0, y: 0, width: 200, height: 50 }, controlType: 'tel' }), box: { x: 0, y: 0, width: 200, height: 50 } }] },
     ] as ControlRow[])
-    expect(typed.fields[0]).toEqual({ name: 'phone', label: 'Phone', type: 'tel' })
+    // …and `labelMode` from the a11y tree's `nameSource` — this fixture's control
+    // is placeholder-named, like the reference's own (REQ-88).
+    expect(typed.fields[0]).toEqual({
+      name: 'phone',
+      label: 'Phone',
+      type: 'tel',
+      labelMode: 'placeholder',
+    })
 
     // …and the endpoint from the captured form action.
     const withAction = foldedFormFor('form-0', [
