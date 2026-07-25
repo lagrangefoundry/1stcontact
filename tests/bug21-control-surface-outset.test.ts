@@ -127,12 +127,13 @@ describe('BUG-21 — a padded control surface is not outset by padding its box a
     }
   })
 
-  it('test_UAT_FC_BUG-21_an_ancestor_padded_card_outsets_per_edge_not_by_the_vertical_sum', () => {
-    // A genuine card: its runs carry NO padding of their own (the card element does),
-    // so the ancestor's unseen padding is still inferred — but only on the edges a
-    // run has not already padded. Here the body run is the leftmost AND is indented
-    // (padding-left 24), so the card's left edge is that run's own box edge; every
-    // other edge still takes the estimate.
+  it('test_UAT_FC_BUG-21_a_card_with_no_captured_surface_invents_no_padding', () => {
+    // REQ-88 superseded BUG-21's per-edge *estimate*. A capture now records the
+    // surface-bearing element's own rect (`SurfaceShape.box`), so a real card's
+    // edges are measured. This synthetic manifest carries no surface shape, and the
+    // honest answer for missing data is to invent nothing: the card is exactly the
+    // union of its runs. Guessing an ancestor's padding from vertical rhythm is what
+    // produced BUG-21's 2x-height buttons in the first place.
     const doc = foldToL1(
       multiFrom((w) => [
         run('Band', { x: 0, y: 60, width: w, height: 40 }, { surfaceFill: '#f0ece6' }),
@@ -150,14 +151,12 @@ describe('BUG-21 — a padded control surface is not outset by padding its box a
     const card = cards(doc).find((b) => b.axes?.surfaceFill === '#ffffff')
     expect(card, 'the multi-run card must still fold a card box').toBeDefined()
     const kf = card!.geometry.keyframes.find((k) => k.at === 1280)!
-    // The leftmost run already padded its left edge, so the card stops there — the
-    // pre-fix code pushed it a further ~19px out (the vertical-rhythm estimate).
+    // Exactly the union of the two card runs (x 100..420, y 200..272) — no edge is
+    // pushed out by an estimate, and none is pulled in.
     expect(kf.x).toBe(100)
-    // The other three edges still take the inferred ancestor padding, so the card
-    // is taller than its runs and reaches past their right edge.
-    expect(kf.y).toBeLessThan(200)
-    expect(kf.x + kf.width).toBeGreaterThan(420)
-    expect(kf.height!).toBeGreaterThan(248 + 24 - 200)
+    expect(kf.y).toBe(200)
+    expect(kf.x + kf.width).toBe(420)
+    expect(kf.height!).toBe(72)
   })
 
   it('test_UAT_FC_BUG-21_a_padded_run_carrying_an_ancestor_accent_stays_on_the_card_path', () => {

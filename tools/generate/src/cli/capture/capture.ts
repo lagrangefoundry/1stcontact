@@ -6,6 +6,7 @@ import type { L1Document, L1FontFace } from '@1stcontact/site-schema'
 import { captureLadderScreenshots, captureStructuralHints, runCapturePipeline, runMultiStateCapture } from './pipeline'
 import { writeBundle, writeHints, writeL1, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
 import { foldToL1 } from '../../l1/fold'
+import { primaryFamily } from './theme'
 import type { StructuralHints } from './hints'
 import type { BrowserDriverFactory, Capture, RenderEngine, ThemeFont } from './types'
 import type { MultiStateCapture } from './values-diff'
@@ -23,7 +24,10 @@ function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
   for (const f of fonts) {
     const weight = f.weights.length === 1 ? f.weights[0] : undefined
     for (const src of f.files) {
-      const face: L1FontFace = { family: f.family, src }
+      // An `@font-face` declares ONE family name; a painted run carries the full
+      // stack (BUG-16). Declaring the stack would emit `font-family: "Cinzel serif"`,
+      // which no run's `Cinzel, serif` can ever match — so bind the primary token.
+      const face: L1FontFace = { family: primaryFamily(f.family), src }
       if (weight !== undefined) face.weight = weight
       out.push(face)
     }

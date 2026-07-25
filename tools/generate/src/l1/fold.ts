@@ -730,11 +730,15 @@ interface SurfaceRow {
   /** The run's box at the widest present width — the grouping/classification frame. */
   widest: NonNullable<ValueElement['box']>
   /**
-   * BUG-21 — the run's OWN per-side padding (px). The captured box is a border-box,
-   * so a side with its own padding is already extended by it and must never be
-   * outset again by the card's inferred padding (see {@link cardOutset}).
+   * REQ-88 — the **captured** surface-bearing box per width (`SurfaceShape.box`),
+   * ascending by width. The capture already resolves which ancestor paints the
+   * run's surface and records that element's own rect, so the card's edges are a
+   * measured fact, not something to re-derive from where its text happens to sit.
+   * Empty when the capture carried no surface shape (a synthetic manifest).
    */
-  ownPad: { top: number; right: number; bottom: number; left: number }
+  surfaceFrames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>
+  /** Captured corner radius of the surface-bearing box (0/undefined when square). */
+  surfaceRadiusPx?: number
 }
 
 /** A captured asymmetric left-accent border (a card rule) → the L1 `borderLeft` axis. */
@@ -782,41 +786,9 @@ const vGap = (a: Rect, b: Rect): number => {
   return iy >= 0 ? 0 : -iy
 }
 
-/** A card's internal padding, inferred from the vertical rhythm of its runs (data-driven, clamped). */
-function cardPadding(rows: SurfaceRow[]): number {
-  if (rows.length < 2) return clamp(Math.round(0.5 * rows[0].widest.height), 8, 28)
-  const tops = rows.map((r) => r.widest.y).sort((a, b) => a - b)
-  const gaps: number[] = []
-  for (let i = 1; i < tops.length; i++) gaps.push(tops[i] - tops[i - 1])
-  gaps.sort((a, b) => a - b)
-  const med = gaps[Math.floor(gaps.length / 2)] || 16
-  return clamp(Math.round(0.4 * med), 8, 28)
-}
-
-/**
- * BUG-21 — the per-edge outset from one run's box to its card's surface edge.
- *
- * The captured box is a **border-box**: any padding the run carries itself is
- * already inside it (BUG-17). Only the padding of an *ancestor* card — which the
- * capture never sees, since the card element paints no text — is missing, and
- * {@link cardPadding} estimates that from the group's vertical rhythm. Applying
- * the estimate to a side the run has already padded double-counts it, which is
- * how a button grew to 2x its height and ~50px too wide (the estimate for a lone
- * run is `0.5 * height`, i.e. exactly its own top+bottom padding, then slammed
- * onto all four sides — so the *vertical* sum landed on the horizontal axis too).
- *
- * So the outset is decided **per edge**, from that edge's own captured padding:
- * a padded side is already at the surface (outset 0), an unpadded one falls back
- * to the ancestor estimate.
- */
-function cardOutset(row: SurfaceRow, inferred: number): { top: number; right: number; bottom: number; left: number } {
-  const edge = (own: number): number => (own > 0 ? 0 : inferred)
-  return {
-    top: edge(row.ownPad.top),
-    right: edge(row.ownPad.right),
-    bottom: edge(row.ownPad.bottom),
-    left: edge(row.ownPad.left),
-  }
+/** A surface box identity key — two runs on the same card share one rect. */
+function surfaceKey(box: NonNullable<ValueElement['box']>): string {
+  return `${Math.round(box.x)},${Math.round(box.y)},${Math.round(box.width)},${Math.round(box.height)}`
 }
 
 /** Extra height added below the last band so a trailing band has a visible tail. */
@@ -1006,8 +978,22 @@ function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
   const parent = Array.from({ length: n }, (_, i) => i)
   const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])))
   const sig = cardRows.map(surfaceSignature)
+  // REQ-88 — the captured surface rect at the widest width, when the capture
+  // resolved one. It is an exact identity: two runs painted by the same element
+  // share it, and two runs on different cards never do.
+  const skey = cardRows.map((r) => {
+    const f = r.surfaceFrames[r.surfaceFrames.length - 1]
+    return f ? surfaceKey(f.box) : undefined
+  })
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
+      // A measured surface identity decides membership outright — same rect joins,
+      // different rects stay apart. Proximity heuristics only arbitrate rows whose
+      // surface the capture could not resolve.
+      if (skey[i] !== undefined || skey[j] !== undefined) {
+        if (skey[i] !== undefined && skey[i] === skey[j]) parent[find(i)] = find(j)
+        continue
+      }
       if (sig[i] !== sig[j]) continue
       const a = cardRows[i].widest
       const b = cardRows[j].widest
@@ -1027,7 +1013,6 @@ function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
   for (const members of groups.values()) {
     const rows = members.map((m) => cardRows[m])
     const rep = rows.slice().sort((a, b) => treatmentScore(b) - treatmentScore(a))[0]
-    const pad = cardPadding(rows)
     const keyframes: L1Keyframe[] = []
     const present: number[] = []
     for (const w of widths) {
@@ -1037,17 +1022,18 @@ function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
         y1 = -Infinity,
         any = false
       for (const r of rows) {
-        const f = r.frames.find((f) => f.at === w)
+        // REQ-88 — prefer the surface-bearing element's OWN captured rect. It is
+        // the card's edge as measured, so nothing has to be inferred from where
+        // the text sits; only a row whose surface the capture missed falls back to
+        // its run box (and then reaches no further than that box).
+        const sf = r.surfaceFrames.find((f) => f.at === w)
+        const f = sf ?? r.frames.find((f) => f.at === w)
         if (!f) continue
         any = true
-        // BUG-21 — each run reaches the card's edge by its OWN per-edge outset: a
-        // side the run already padded is at the surface, an unpadded one takes the
-        // group's inferred ancestor padding.
-        const out = cardOutset(r, pad)
-        x0 = Math.min(x0, f.box.x - out.left)
-        y0 = Math.min(y0, f.box.y - out.top)
-        x1 = Math.max(x1, f.box.x + f.box.width + out.right)
-        y1 = Math.max(y1, f.box.y + f.box.height + out.bottom)
+        x0 = Math.min(x0, f.box.x)
+        y0 = Math.min(y0, f.box.y)
+        x1 = Math.max(x1, f.box.x + f.box.width)
+        y1 = Math.max(y1, f.box.y + f.box.height)
       }
       if (!any) continue
       keyframes.push({
@@ -1070,7 +1056,10 @@ function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
     if (rep.borderLeft) axes.borderLeft = rep.borderLeft
     if (rep.border) axes.border = rep.border
     if (rep.boxShadow) axes.boxShadow = rep.boxShadow
-    if (rep.borderRadiusPx && rep.borderRadiusPx > 0) axes.borderRadiusPx = Math.round(rep.borderRadiusPx)
+    // REQ-88 — rounding belongs to the box that paints the surface, not to the text
+    // run sitting on it. A panel's runs are square; the panel element carries r=8.
+    const radius = rep.surfaceRadiusPx ?? rep.borderRadiusPx
+    if (radius && radius > 0) axes.borderRadiusPx = Math.round(radius)
     const node: L1Box = { kind: 'box', id: `card-${idx++}`, geometry, axes }
     const vis = visibilityFor(present, widths)
     if (vis) node.visibility = vis
@@ -1179,9 +1168,30 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const surfBorder = foldBorder(widest.border)
       const surfShadow = foldShadow(widest.boxShadow, { spread: true, inset: true })
       const surfRadius = widest.borderRadiusPx
+      // REQ-88 — the surface-bearing element's own rect + rounding, per width. The
+      // capture resolves the painting ancestor (BUG-22's `SurfaceShape`), so the
+      // card's edges and corners are measured rather than inferred from its runs.
+      //
+      // A surface that spans the whole viewport is the *band*, not a card: the run
+      // sits directly on the section with no card element between them. Bands are
+      // reconstructed separately ({@link buildSolidBands}), so such a row keeps its
+      // run box here — adopting the band rect would stretch a quote's accent rule
+      // across the entire section.
+      const surfFrames = framed
+        .map((c) => ({ at: c.width, box: c.element!.surface?.box, viewport: c.width }))
+        .filter((f): f is { at: number; box: NonNullable<ValueElement['box']>; viewport: number } => Boolean(f.box))
+        .filter((f) => f.box.width < f.viewport)
+        .map((f) => ({ at: f.at, box: f.box }))
+      const surfShapeRadius = surfFrames.length ? widest.surface?.borderRadiusPx : undefined
       if (
         widest.box &&
-        (surfFill || surfGrad || surfBorderLeft || surfBorder || surfShadow || (surfRadius && surfRadius > 0))
+        (surfFill ||
+          surfGrad ||
+          surfBorderLeft ||
+          surfBorder ||
+          surfShadow ||
+          (surfRadius && surfRadius > 0) ||
+          (surfShapeRadius && surfShapeRadius > 0))
       ) {
         surfaceRows.push({
           fill: surfFill,
@@ -1192,12 +1202,8 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
           borderRadiusPx: surfRadius,
           frames: framed.map((c) => ({ at: c.width, box: c.element!.box! })),
           widest: widest.box,
-          ownPad: {
-            top: widest.paddingTopPx ?? 0,
-            right: widest.paddingRightPx ?? 0,
-            bottom: widest.paddingBottomPx ?? 0,
-            left: widest.paddingLeftPx ?? 0,
-          },
+          surfaceFrames: surfFrames,
+          surfaceRadiusPx: surfShapeRadius,
         })
       }
       continue
