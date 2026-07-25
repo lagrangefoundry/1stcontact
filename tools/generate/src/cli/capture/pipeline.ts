@@ -8,7 +8,7 @@ import { EXTRACT_SCRIPT, type RawFontFace, type RawSignals } from './extract'
 import { HINTS_SCRIPT, type StructuralHints } from './hints'
 import { createEngineDriver, createPlaywrightDriver, engineAvailable } from './playwright-driver'
 import { buildSections } from './sections'
-import { buildTheme } from './theme'
+import { buildTheme, primaryFamily } from './theme'
 import {
   flattenSignals,
   RESPONSIVE_VIEWPORTS,
@@ -103,14 +103,6 @@ function rawHtmlOf(responses: CapturedResponse[], documentUrl: string): string {
     responses.find((r) => r.url === documentUrl && (r.contentType ?? '').includes('text/html')) ??
     responses.find((r) => (r.contentType ?? '').includes('text/html'))
   return doc ? new TextDecoder().decode(doc.body) : ''
-}
-
-/** The single family NAME an `@font-face` block declares — trimmed, surrounding
- *  quotes stripped. Painted runs carry the FULL stack (BUG-16, `familyStack` in
- *  {@link EXTRACT_SCRIPT}); the fold keys this resource table by a run's *primary*
- *  token, so both sides still meet on the same normalised name. */
-function primaryFamily(ff: string): string {
-  return (ff || '').split(',')[0].trim().replace(/^['"]|['"]$/g, '')
 }
 
 /**

@@ -12,6 +12,15 @@
       1440
     ],
     "background": "#e8dfd3",
+    "resources": {
+      "fonts": [
+        {
+          "family": "Cinzel",
+          "src": "/assets/8vIJ7ww63mVu7gt79mT7PkRXMw.woff2",
+          "weight": 600
+        }
+      ]
+    },
     "root": {
       "kind": "box",
       "children": [
@@ -379,7 +388,11 @@
           "kind": "box",
           "id": "section-bg-0",
           "axes": {
-            "backgroundImageUrl": "/assets/AlchemistLabWithTech.png"
+            "backgroundImageUrl": "/assets/AlchemistLabWithTech.png",
+            "overlay": {
+              "color": "#030717",
+              "opacity": 0.3
+            }
           },
           "geometry": {
             "keyframes": [
@@ -440,6 +453,7 @@
           "id": "card-4",
           "axes": {
             "surfaceFill": "#f8f5f2",
+            "borderRadiusPx": 8,
             "borderLeft": {
               "widthPx": 4,
               "color": "#ffb900"
@@ -449,45 +463,45 @@
             "keyframes": [
               {
                 "at": 320,
-                "x": 47,
-                "y": 3202,
-                "width": 230,
-                "height": 640
+                "x": 24,
+                "y": 3183,
+                "width": 272,
+                "height": 678
               },
               {
                 "at": 375,
-                "x": 47,
-                "y": 2929,
-                "width": 285,
-                "height": 566
+                "x": 24,
+                "y": 2910,
+                "width": 327,
+                "height": 604
               },
               {
                 "at": 768,
-                "x": 47,
-                "y": 2531,
-                "width": 678,
-                "height": 320
+                "x": 24,
+                "y": 2512,
+                "width": 720,
+                "height": 358
               },
               {
                 "at": 1024,
-                "x": 47,
-                "y": 2106,
-                "width": 854,
-                "height": 294
+                "x": 24,
+                "y": 2087,
+                "width": 896,
+                "height": 332
               },
               {
                 "at": 1280,
-                "x": 111,
-                "y": 2138,
-                "width": 854,
-                "height": 294
+                "x": 88,
+                "y": 2119,
+                "width": 896,
+                "height": 332
               },
               {
                 "at": 1440,
-                "x": 191,
-                "y": 2238,
-                "width": 854,
-                "height": 294
+                "x": 168,
+                "y": 2219,
+                "width": 896,
+                "height": 332
               }
             ],
             "segments": [
@@ -504,6 +518,7 @@
           "id": "card-5",
           "axes": {
             "surfaceFill": "#f8f5f2",
+            "borderRadiusPx": 8,
             "borderLeft": {
               "widthPx": 4,
               "color": "#50a2ff"
@@ -513,45 +528,45 @@
             "keyframes": [
               {
                 "at": 320,
-                "x": 47,
-                "y": 3912,
-                "width": 230,
-                "height": 624
+                "x": 24,
+                "y": 3893,
+                "width": 272,
+                "height": 662
               },
               {
                 "at": 375,
-                "x": 47,
-                "y": 3565,
-                "width": 285,
-                "height": 550
+                "x": 24,
+                "y": 3546,
+                "width": 327,
+                "height": 588
               },
               {
                 "at": 768,
-                "x": 47,
-                "y": 2921,
-                "width": 678,
-                "height": 294
+                "x": 24,
+                "y": 2902,
+                "width": 720,
+                "height": 332
               },
               {
                 "at": 1024,
-                "x": 47,
-                "y": 2470,
-                "width": 854,
-                "height": 294
+                "x": 24,
+                "y": 2451,
+                "width": 896,
+                "height": 332
               },
               {
                 "at": 1280,
-                "x": 111,
-                "y": 2502,
-                "width": 854,
-                "height": 294
+                "x": 88,
+                "y": 2483,
+                "width": 896,
+                "height": 332
               },
               {
                 "at": 1440,
-                "x": 191,
-                "y": 2602,
-                "width": 854,
-                "height": 294
+                "x": 168,
+                "y": 2583,
+                "width": 896,
+                "height": 332
               }
             ],
             "segments": [
@@ -568,6 +583,7 @@
           "id": "card-6",
           "axes": {
             "surfaceFill": "#e8dfd3",
+            "borderRadiusPx": 8,
             "surfaceGradient": {
               "angleDeg": 135,
               "stops": [
@@ -590,50 +606,233 @@
             "keyframes": [
               {
                 "at": 320,
-                "x": 33,
-                "y": 4592,
-                "width": 258,
-                "height": 388
+                "x": 24,
+                "y": 4587,
+                "width": 272,
+                "height": 398
               },
               {
                 "at": 375,
-                "x": 33,
-                "y": 4171,
-                "width": 313,
-                "height": 336
+                "x": 24,
+                "y": 4166,
+                "width": 327,
+                "height": 346
               },
               {
                 "at": 768,
-                "x": 33,
-                "y": 3271,
-                "width": 706,
-                "height": 212
+                "x": 24,
+                "y": 3266,
+                "width": 720,
+                "height": 222
               },
               {
                 "at": 1024,
-                "x": 33,
-                "y": 2820,
-                "width": 882,
-                "height": 186
+                "x": 24,
+                "y": 2815,
+                "width": 896,
+                "height": 196
               },
               {
                 "at": 1280,
-                "x": 97,
-                "y": 2852,
-                "width": 882,
-                "height": 186
+                "x": 88,
+                "y": 2847,
+                "width": 896,
+                "height": 196
               },
               {
                 "at": 1440,
-                "x": 177,
-                "y": 2952,
-                "width": 882,
-                "height": 186
+                "x": 168,
+                "y": 2947,
+                "width": 896,
+                "height": 196
               }
             ],
             "segments": [
               "interpolate",
               "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-1",
+          "axes": {
+            "surfaceFill": "#ece6dd",
+            "borderRadiusPx": 8
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 1933,
+                "width": 272,
+                "height": 192
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 1780,
+                "width": 327,
+                "height": 192
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 1807,
+                "width": 219,
+                "height": 244
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 1493,
+                "width": 277,
+                "height": 192
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 1525,
+                "width": 277,
+                "height": 192
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 1625,
+                "width": 277,
+                "height": 192
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-2",
+          "axes": {
+            "surfaceFill": "#ece6dd",
+            "borderRadiusPx": 8
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 2157,
+                "width": 272,
+                "height": 192
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 2004,
+                "width": 327,
+                "height": 166
+              },
+              {
+                "at": 768,
+                "x": 275,
+                "y": 1807,
+                "width": 219,
+                "height": 244
+              },
+              {
+                "at": 1024,
+                "x": 333,
+                "y": 1493,
+                "width": 277,
+                "height": 192
+              },
+              {
+                "at": 1280,
+                "x": 397,
+                "y": 1525,
+                "width": 277,
+                "height": 192
+              },
+              {
+                "at": 1440,
+                "x": 477,
+                "y": 1625,
+                "width": 277,
+                "height": 192
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "box",
+          "id": "card-3",
+          "axes": {
+            "surfaceFill": "#ece6dd",
+            "borderRadiusPx": 8
+          },
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 2381,
+                "width": 272,
+                "height": 192
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 2202,
+                "width": 327,
+                "height": 192
+              },
+              {
+                "at": 768,
+                "x": 525,
+                "y": 1807,
+                "width": 219,
+                "height": 244
+              },
+              {
+                "at": 1024,
+                "x": 643,
+                "y": 1493,
+                "width": 277,
+                "height": 192
+              },
+              {
+                "at": 1280,
+                "x": 707,
+                "y": 1525,
+                "width": 277,
+                "height": 192
+              },
+              {
+                "at": 1440,
+                "x": 787,
+                "y": 1625,
+                "width": 277,
+                "height": 192
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
               "interpolate",
               "interpolate",
               "interpolate"
@@ -654,45 +853,45 @@
             "keyframes": [
               {
                 "at": 320,
-                "x": 37,
-                "y": 2598,
-                "width": 274,
-                "height": 147
+                "x": 52,
+                "y": 2613,
+                "width": 244,
+                "height": 117
               },
               {
                 "at": 375,
-                "x": 37,
-                "y": 2419,
-                "width": 329,
-                "height": 118
+                "x": 52,
+                "y": 2434,
+                "width": 299,
+                "height": 88
               },
               {
                 "at": 768,
-                "x": 37,
-                "y": 2076,
-                "width": 722,
-                "height": 89
+                "x": 52,
+                "y": 2091,
+                "width": 692,
+                "height": 59
               },
               {
                 "at": 1024,
-                "x": 37,
-                "y": 1710,
-                "width": 898,
-                "height": 59
+                "x": 52,
+                "y": 1725,
+                "width": 868,
+                "height": 29
               },
               {
                 "at": 1280,
-                "x": 101,
-                "y": 1742,
-                "width": 898,
-                "height": 59
+                "x": 116,
+                "y": 1757,
+                "width": 868,
+                "height": 29
               },
               {
                 "at": 1440,
-                "x": 181,
-                "y": 1842,
-                "width": 898,
-                "height": 59
+                "x": 196,
+                "y": 1857,
+                "width": 868,
+                "height": 29
               }
             ],
             "segments": [
@@ -718,352 +917,50 @@
             "keyframes": [
               {
                 "at": 320,
-                "x": 37,
-                "y": 5778,
-                "width": 274,
-                "height": 147
+                "x": 52,
+                "y": 5793,
+                "width": 244,
+                "height": 117
               },
               {
                 "at": 375,
-                "x": 37,
-                "y": 5246,
-                "width": 329,
-                "height": 118
+                "x": 52,
+                "y": 5261,
+                "width": 299,
+                "height": 88
               },
               {
                 "at": 768,
-                "x": 37,
-                "y": 3993,
-                "width": 722,
-                "height": 89
-              },
-              {
-                "at": 1024,
-                "x": 37,
-                "y": 3516,
-                "width": 898,
+                "x": 52,
+                "y": 4008,
+                "width": 692,
                 "height": 59
               },
               {
-                "at": 1280,
-                "x": 101,
-                "y": 3548,
-                "width": 898,
-                "height": 59
-              },
-              {
-                "at": 1440,
-                "x": 181,
-                "y": 3648,
-                "width": 898,
-                "height": 59
-              }
-            ],
-            "segments": [
-              "interpolate",
-              "interpolate",
-              "interpolate",
-              "interpolate",
-              "interpolate"
-            ]
-          }
-        },
-        {
-          "kind": "box",
-          "id": "card-1",
-          "axes": {
-            "surfaceFill": "#ece6dd"
-          },
-          "geometry": {
-            "keyframes": [
-              {
-                "at": 320,
-                "x": 32,
-                "y": 1941,
-                "width": 256,
-                "height": 176
-              },
-              {
-                "at": 375,
-                "x": 32,
-                "y": 1788,
-                "width": 311,
-                "height": 176
-              },
-              {
-                "at": 768,
-                "x": 32,
-                "y": 1815,
-                "width": 203,
-                "height": 228
-              },
-              {
                 "at": 1024,
-                "x": 32,
-                "y": 1501,
-                "width": 261,
-                "height": 176
+                "x": 52,
+                "y": 3531,
+                "width": 868,
+                "height": 29
               },
               {
                 "at": 1280,
-                "x": 96,
-                "y": 1533,
-                "width": 261,
-                "height": 176
+                "x": 116,
+                "y": 3563,
+                "width": 868,
+                "height": 29
               },
               {
                 "at": 1440,
-                "x": 176,
-                "y": 1633,
-                "width": 261,
-                "height": 176
+                "x": 196,
+                "y": 3663,
+                "width": 868,
+                "height": 29
               }
             ],
             "segments": [
               "interpolate",
-              "snap",
               "interpolate",
-              "interpolate",
-              "interpolate"
-            ]
-          }
-        },
-        {
-          "kind": "box",
-          "id": "card-2",
-          "axes": {
-            "surfaceFill": "#ece6dd"
-          },
-          "geometry": {
-            "keyframes": [
-              {
-                "at": 320,
-                "x": 32,
-                "y": 2165,
-                "width": 256,
-                "height": 176
-              },
-              {
-                "at": 375,
-                "x": 32,
-                "y": 2012,
-                "width": 311,
-                "height": 150
-              },
-              {
-                "at": 768,
-                "x": 283,
-                "y": 1815,
-                "width": 203,
-                "height": 202
-              },
-              {
-                "at": 1024,
-                "x": 341,
-                "y": 1501,
-                "width": 261,
-                "height": 176
-              },
-              {
-                "at": 1280,
-                "x": 405,
-                "y": 1533,
-                "width": 261,
-                "height": 176
-              },
-              {
-                "at": 1440,
-                "x": 485,
-                "y": 1633,
-                "width": 261,
-                "height": 176
-              }
-            ],
-            "segments": [
-              "interpolate",
-              "snap",
-              "interpolate",
-              "interpolate",
-              "interpolate"
-            ]
-          }
-        },
-        {
-          "kind": "box",
-          "id": "card-3",
-          "axes": {
-            "surfaceFill": "#ece6dd"
-          },
-          "geometry": {
-            "keyframes": [
-              {
-                "at": 320,
-                "x": 32,
-                "y": 2389,
-                "width": 256,
-                "height": 176
-              },
-              {
-                "at": 375,
-                "x": 32,
-                "y": 2210,
-                "width": 311,
-                "height": 176
-              },
-              {
-                "at": 768,
-                "x": 533,
-                "y": 1815,
-                "width": 203,
-                "height": 202
-              },
-              {
-                "at": 1024,
-                "x": 651,
-                "y": 1501,
-                "width": 261,
-                "height": 176
-              },
-              {
-                "at": 1280,
-                "x": 715,
-                "y": 1533,
-                "width": 261,
-                "height": 176
-              },
-              {
-                "at": 1440,
-                "x": 795,
-                "y": 1633,
-                "width": 261,
-                "height": 176
-              }
-            ],
-            "segments": [
-              "interpolate",
-              "snap",
-              "interpolate",
-              "interpolate",
-              "interpolate"
-            ]
-          }
-        },
-        {
-          "kind": "box",
-          "id": "card-9",
-          "axes": {
-            "surfaceFill": "#0f172b",
-            "borderRadiusPx": 8
-          },
-          "geometry": {
-            "keyframes": [
-              {
-                "at": 320,
-                "x": 0,
-                "y": 6676,
-                "width": 320,
-                "height": 96
-              },
-              {
-                "at": 375,
-                "x": 0,
-                "y": 6115,
-                "width": 375,
-                "height": 96
-              },
-              {
-                "at": 768,
-                "x": 384,
-                "y": 4534,
-                "width": 221,
-                "height": 96
-              },
-              {
-                "at": 1024,
-                "x": 512,
-                "y": 4028,
-                "width": 221,
-                "height": 96
-              },
-              {
-                "at": 1280,
-                "x": 640,
-                "y": 4060,
-                "width": 221,
-                "height": 96
-              },
-              {
-                "at": 1440,
-                "x": 720,
-                "y": 4160,
-                "width": 221,
-                "height": 96
-              }
-            ],
-            "segments": [
-              "interpolate",
-              "snap",
-              "interpolate",
-              "interpolate",
-              "interpolate"
-            ]
-          }
-        },
-        {
-          "kind": "box",
-          "id": "card-8",
-          "axes": {
-            "surfaceFill": "#009966",
-            "borderRadiusPx": 8
-          },
-          "geometry": {
-            "keyframes": [
-              {
-                "at": 320,
-                "x": -1,
-                "y": 6279,
-                "width": 322,
-                "height": 98
-              },
-              {
-                "at": 375,
-                "x": -1,
-                "y": 5718,
-                "width": 377,
-                "height": 98
-              },
-              {
-                "at": 768,
-                "x": 220,
-                "y": 4377,
-                "width": 173,
-                "height": 100
-              },
-              {
-                "at": 1024,
-                "x": 324,
-                "y": 3843,
-                "width": 173,
-                "height": 100
-              },
-              {
-                "at": 1280,
-                "x": 388,
-                "y": 3875,
-                "width": 173,
-                "height": 100
-              },
-              {
-                "at": 1440,
-                "x": 468,
-                "y": 3975,
-                "width": 173,
-                "height": 100
-              }
-            ],
-            "segments": [
-              "interpolate",
-              "snap",
               "interpolate",
               "interpolate",
               "interpolate"
@@ -4582,7 +4479,9 @@
             "fontWeight": 500,
             "lineHeightPx": 24,
             "letterSpacingPx": 0,
-            "textAlign": "center"
+            "textAlign": "center",
+            "surfaceFill": "#009966",
+            "borderRadiusPx": 8
           },
           "geometry": {
             "keyframes": [
@@ -4648,7 +4547,9 @@
             "fontWeight": 500,
             "lineHeightPx": 24,
             "letterSpacingPx": 0,
-            "textAlign": "center"
+            "textAlign": "center",
+            "surfaceFill": "#0f172b",
+            "borderRadiusPx": 8
           },
           "geometry": {
             "keyframes": [
