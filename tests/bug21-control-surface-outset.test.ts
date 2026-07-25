@@ -30,6 +30,7 @@ import { describe, expect, it } from 'vitest'
 import { renderL1Document } from '../packages/framework/src/index'
 import { validateL1 } from '../packages/site-schema/src'
 import { foldToL1 } from '../tools/generate/src'
+import type { FoldedForm } from '../tools/generate/src/l1'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -208,27 +209,52 @@ describe('BUG-21 — a padded control surface is not outset by padding its box a
     const multi = JSON.parse(readFileSync(bundle, 'utf8')) as MultiStateCapture
     const doc = foldToL1(multi)
 
-    // The oracle: the control's own captured box at each width. The fold must
-    // reproduce it within the gate's 0.5px tolerance — no outset anywhere.
+    // REQ-88 — both of this page's padded controls are a *form's* submit button,
+    // so the fold now lifts them out of the page body into that form's `submit`
+    // slot: they are the module's button, not a page-level run beside a form that
+    // renders its own. This test's subject is unchanged — a padded control must
+    // never be outset by padding its box already includes — but the surviving
+    // artifact is the slot subtree plus the seam pinned around it.
+    const forms: FoldedForm[] = []
+    foldToL1(multi, { forms })
+    expect(forms.length, 'both captured forms are recovered').toBeGreaterThan(0)
+    const submits = forms.map((f) => f.submit).filter(Boolean) as Array<{
+      text?: string
+      axes?: Record<string, unknown>
+    }>
     for (const label of ['Subscribe', 'Send message']) {
-      const leaf = textLeaves(doc).find((t) => t.text === label)
-      expect(leaf, `"${label}" must survive as a text leaf`).toBeDefined()
-      expect(leaf!.axes?.surfaceFill, `"${label}" paints its own surface`).toBeDefined()
-
-      for (const p of multi.projections.filter((p) => p.state === 'rest')) {
-        const w = p.viewport.width
-        const src = (p.manifest.elements ?? []).find((e) => e.text === label && e.box)
-        const kf = leaf!.geometry.keyframes.find((k) => k.at === w)
-        if (!src || !kf) continue
-        expect(Math.abs(kf.x - Math.round(src.box!.x)), `${label} x at ${w}`).toBeLessThanOrEqual(0.5)
-        expect(Math.abs(kf.width - Math.round(src.box!.width)), `${label} width at ${w}`).toBeLessThanOrEqual(0.5)
-      }
+      const chip = submits.find((s) => s.text === label)
+      expect(chip, `"${label}" must survive as its form's submit slot`).toBeDefined()
+      // Still the chip path: the control paints its own surface on the text leaf,
+      // rather than folding to a card row that the outset would then double.
+      expect(chip!.axes?.surfaceFill, `"${label}" paints its own surface`).toBeDefined()
 
       // No card box may carry the control's fill — that box was the doubled surface.
       for (const b of cards(doc)) {
         expect(b.axes?.surfaceFill, `no card may duplicate the "${label}" control fill`).not.toBe(
-          leaf!.axes?.surfaceFill,
+          chip!.axes?.surfaceFill,
         )
+      }
+    }
+
+    // The oracle: the seam mounting each form is pinned at the union of the boxes
+    // the reference actually painted. An outset control would inflate that union
+    // (BUG-21's 2x height / +50px width), so this is the same evidence the
+    // per-leaf check carried — read off the artifact that still exists.
+    const slotSeams = (doc.root as { children?: Array<{ kind: string; geometry?: { keyframes: Array<{ at: number; x: number; y: number; width: number; height?: number }> } }> })
+      .children!.filter((n) => n.kind === 'slot')
+    expect(slotSeams.length, 'one seam per recovered form').toBe(forms.length)
+    for (const p of multi.projections.filter((p) => p.state === 'rest')) {
+      const w = p.viewport.width
+      for (const label of ['Subscribe', 'Send message']) {
+        const src = (p.manifest.elements ?? []).find((e) => e.text === label && e.box)
+        if (!src) continue
+        // The button's captured rect lies inside the seam it was claimed by —
+        // and inside it *snugly*: a doubled box could not fit its own union.
+        const seam = slotSeams
+          .map((s) => s.geometry?.keyframes.find((k) => k.at === w))
+          .find((k) => k && src.box!.x >= k.x - 1 && src.box!.x + src.box!.width <= k.x + k.width + 1)
+        expect(seam, `"${label}" at ${w} sits inside its form's seam`).toBeDefined()
       }
     }
 

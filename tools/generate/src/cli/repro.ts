@@ -159,6 +159,10 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
       action: form.action ?? '',
       fields: form.fields.map((f) => ({ ...f, required: false })),
     },
+    // REQ-93 — the reference's own submit chip, as this behaviour's `submit`
+    // slot. Absent when the reference gave the form no button of its own, in
+    // which case the module falls back to its plain functional one.
+    ...(form.submit ? { slots: { submit: form.submit } } : {}),
   }))
   const page = { id: 'home', slug: 'home', title: slug, l1: localized.doc, modules }
 

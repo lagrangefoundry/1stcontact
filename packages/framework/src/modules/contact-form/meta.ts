@@ -30,6 +30,12 @@ export const contactFormMeta = {
       itemSchema: {
         name: { type: 'string', required: true },
         label: { type: 'string', required: true },
+        // REQ-93 — how the reference labelled this control, from the a11y tree's
+        // `nameSource`. `placeholder` puts the label inside the box (and keeps a
+        // visually-hidden <label> for the a11y obligation); `visible` renders it
+        // above. This is not an aesthetic dial: it is a captured FACT about where
+        // the reference renders the label, and the a11y tree is its only witness.
+        labelMode: { type: 'enum', required: false, values: ['visible', 'placeholder'], default: 'visible' },
         type: { type: 'enum', required: true, values: ['text', 'email', 'tel', 'textarea'] },
         required: { type: 'boolean', required: false, default: false },
       },
