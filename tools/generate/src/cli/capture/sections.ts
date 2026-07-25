@@ -164,6 +164,10 @@ function toField(f: RawField): Field {
     // REQ-92 — the media substance an L1 image leaf needs.
     src: f.src,
     alt: f.alt,
+    // BUG-27 — the painted CSS background image (the hero, section imagery) and
+    // the element's own fill beneath it.
+    backgroundImageUrl: f.backgroundImageUrl,
+    surfaceFill: f.surfaceFill,
     accessibleName: f.accessibleName,
     nameSource: f.nameSource,
     // REQ-93 — the behavioural facts a mounted behavior module needs.

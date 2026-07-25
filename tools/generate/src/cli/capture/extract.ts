@@ -157,6 +157,19 @@ export interface RawField extends RawGeometry {
   src?: string | null
   /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
   alt?: string | null
+  /** BUG-27 — the element's own painted `background-color` (`#rrggbb`), else null.
+   *  A backdrop layers its image over this fill; without it the image reproduces
+   *  unshaded. Named to match {@link RawRun.surfaceFill}, which the fold reads. */
+  surfaceFill?: string | null
+  /**
+   * BUG-27 — the absolute URL of the CSS `background-image` this element paints,
+   * else null. A background image was only ever read off a BAND root, so a hero
+   * or section photograph painted on a nested element (the common shape on a
+   * page-builder site) was invisible to the capture entirely. Distinct from
+   * {@link src}: it folds to a `box` leaf carrying `axes.backgroundImageUrl`,
+   * painted BEHIND content, not to an `image` leaf placed in flow.
+   */
+  backgroundImageUrl?: string | null
   /**
    * REQ-93 — a form control's authored input type (`email`, `tel`, `textarea`,
    * …), else null. The a11y role flattens every single-line control to `textbox`,
@@ -217,6 +230,9 @@ export interface RawSignals {
   spacingScalePx: number[]
   containerMaxWidthPx: number | null
   images: RawImage[]
+  /** BUG-27 — the page's own base fill (`<body>`'s painted background colour). What
+   *  shows through wherever no band paints; captured all along but never carried. */
+  bodyBackground: string
 }
 
 export const EXTRACT_SCRIPT = `(() => {
@@ -388,23 +404,152 @@ export const EXTRACT_SCRIPT = `(() => {
       return true;
     }
   }
-  function visible(el) {
+  // BUG-27 -- visibility is TWO independent facts, and a band needs them apart.
+  // (a) the style chain paints at all (display/visibility/opacity), and (b) this
+  // particular box lands on the page. A collapsed-but-painting header fails (b)
+  // on its OWN box while its children pass both, so paintedExtent asks for (a) on
+  // the root and (a)+(b) per descendant. visible() is unchanged: it is both.
+  function styleVisible(el) {
     var node = el;
     while (node && node.nodeType === 1) {
       var s = getComputedStyle(node);
       if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) === 0) return false;
       node = node.parentElement;
     }
-    var r = el.getBoundingClientRect();
-    if (r.width <= 0 || r.height <= 0) return false;
-    var left = r.left + window.scrollX, top = r.top + window.scrollY;
-    if (left + r.width <= 0 || top + r.height <= 0) return false; // off-screen up/left
-    if (left >= docW || top >= docH) return false;                 // off-screen down/right
     return true;
+  }
+  function onScreenBox(b) {
+    if (!b || b.width <= 0 || b.height <= 0) return false;
+    if (b.x + b.width <= 0 || b.y + b.height <= 0) return false; // off-screen up/left
+    if (b.x >= docW || b.y >= docH) return false;                // off-screen down/right
+    return true;
+  }
+  function visible(el) {
+    return styleVisible(el) && onScreenBox(absBox(el));
   }
   function absBox(el) {
     var r = el.getBoundingClientRect();
     return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
+  }
+  function unionBoxes(a, b) {
+    if (!a) return b;
+    if (!b) return a;
+    var x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+    return {
+      x: x, y: y,
+      width: Math.max(a.x + a.width, b.x + b.width) - x,
+      height: Math.max(a.y + a.height, b.y + b.height) - y
+    };
+  }
+  // BUG-27 -- a band's box is the painted extent of its SUBTREE, not its own
+  // in-flow border box.
+  //
+  // The top-level band scan qualified a candidate on its OWN rect being >=8px
+  // tall. A header whose children are absolutely positioned (Elementor, and any
+  // overlay/sticky nav) has an in-flow height of ZERO while painting a full nav
+  // bar beneath it -- so the whole subtree, logo and links included, was dropped
+  // before runsUnder / fieldsUnder ever saw it. Nothing downstream could recover
+  // it: the content simply did not exist in the capture.
+  //
+  // BUG-15 patched the all-collapse case (an L1 flat DOM) with a body-spanning
+  // fallback; this is the same failure when only SOME children collapse, where
+  // that fallback never fires. Measuring the subtree's painted extent is the
+  // general answer and leaves a conventionally-laid-out band unchanged (its
+  // children are inside its own box, so the union IS its own box).
+  function paintedExtent(el) {
+    if (!styleVisible(el)) return null;
+    var own = absBox(el);
+    var acc = onScreenBox(own) ? own : null;
+    var desc = el.getElementsByTagName('*');
+    for (var i = 0; i < desc.length; i++) {
+      var d = desc[i];
+      var tag = d.tagName;
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META') continue;
+      var b = absBox(d);
+      if (!onScreenBox(b)) continue; // cheap reject before the ancestor style walk
+      if (!styleVisible(d)) continue;
+      acc = unionBoxes(acc, b);
+    }
+    // A subtree that paints nothing ON the page contributes no band. This is what
+    // drops a hidden off-screen block (the left:-33554430px SEO-spam trick) whose
+    // own box the pre-BUG-27 scan never looked past.
+    if (!onScreenBox(acc)) return null;
+    // Clamp to the document's painted canvas. A descendant's border box can extend
+    // past what it actually paints when an ancestor clips it (a carousel's
+    // off-stage slides under overflow:hidden), and an unclamped union would hand
+    // the band a box hundreds of px wider than the page. scrollWidth/scrollHeight
+    // are exactly the right bound: overflow that really extends the page grows
+    // them, overflow that is clipped does not.
+    var x0 = Math.max(0, acc.x), y0 = Math.max(0, acc.y);
+    var x1 = Math.min(docW, acc.x + acc.width), y1 = Math.min(docH, acc.y + acc.height);
+    return { x: x0, y: y0, width: Math.max(0, x1 - x0), height: Math.max(0, y1 - y0) };
+  }
+  // BUG-27 -- the page's painted BACKDROPS, in document order.
+  //
+  // A backdrop is what a band paints behind its content: a background image, or a
+  // full-bleed background colour. Both were only ever read off a TOP-LEVEL band
+  // root, so on a page-builder site -- where the whole page is one wrapper and the
+  // visually distinct panels are nested <section>s -- neither was captured at all.
+  // The hero photograph simply did not exist in the manifest, and each panel's
+  // fill had to be INFERRED downstream from the surfaces its runs sit on: a guess
+  // that reads the page correctly only when the largest painted surface is the
+  // page itself. This index is that missing fact, measured rather than inferred.
+  //
+  // Full-bleed is the band test, and full-bleed means TOUCHING BOTH DOCUMENT EDGES
+  // -- not merely being wide. A fraction-of-width test is unstable across the
+  // viewport ladder: a 720px content card is 50% of a 1440px document and 94% of a
+  // 768px one, so it would be captured as a band at the narrow rungs only, and the
+  // fold would then materialise it at its widest geometry. Edge-touching is the
+  // property a band actually has, and it holds at every width.
+  // An image needs no width test -- a painted photograph is a backdrop at any size.
+  //
+  // Indexed once for the whole document (the per-element getComputedStyle sweep is
+  // the same cost paintedSurfaces already pays) and filtered per band by
+  // containment. data: payloads are skipped: they are widget chrome (select arrows,
+  // Elementor's inline SVG icons), never a mirrored asset, and folding them would
+  // bury the page's real imagery in sprite noise.
+  var BACKDROP_MIN_HEIGHT = 8;
+  var BACKDROP_EDGE_TOL = 1;
+  var BG_IMAGE_INDEX = null;
+  function firstPaintedUrl(css) {
+    if (!css || css === 'none') return null;
+    var re = /url\\((['"]?)([^'")]+)\\1\\)/g, m;
+    while ((m = re.exec(css))) {
+      var raw = m[2].trim();
+      if (/^(data|about|blob):/i.test(raw)) continue;
+      try { return new URL(raw, location.href).href; } catch (e) { continue; }
+    }
+    return null;
+  }
+  function backdropBoxes() {
+    if (BG_IMAGE_INDEX) return BG_IMAGE_INDEX;
+    BG_IMAGE_INDEX = [];
+    var all = document.body ? document.body.querySelectorAll('*') : [];
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      var cs = getComputedStyle(el);
+      var url = firstPaintedUrl(cs.backgroundImage);
+      var rgba = rgbaOf(cs.backgroundColor);
+      var fill = (rgba && rgba[3] > 0) ? rgba : null;
+      if (!url && !fill) continue;
+      var b = absBox(el);
+      if (b.height < BACKDROP_MIN_HEIGHT) continue;
+      if (!url) {
+        // A colour-only box qualifies as a backdrop only when it is full-bleed.
+        if (!(b.x <= BACKDROP_EDGE_TOL && b.x + b.width >= docW - BACKDROP_EDGE_TOL)) continue;
+        // ...and only when it is OPAQUE. A translucent full-bleed fill is a scrim
+        // (the veil darkening a hero so text reads over it), and the capture already
+        // has a truer representation of one: overlayOf finds it at any depth and
+        // records it as the band's overlay, which the fold layers ABOVE the image
+        // it veils. Indexing it here as well would paint it twice -- and, since a
+        // fill's alpha lives in the colour rather than in the opacity property, the copy
+        // would land opaque and black out the photograph underneath.
+        if (fill[3] < 0.999) continue;
+      }
+      if (!visible(el)) continue;
+      BG_IMAGE_INDEX.push({ el: el, url: url });
+    }
+    return BG_IMAGE_INDEX;
   }
   // REQ-88 / BUG-19 / BUG-20 -- the SURFACE CHAIN behind a run.
   //
@@ -1055,11 +1200,38 @@ export const EXTRACT_SCRIPT = `(() => {
   // them entirely (items:[]), leaving nothing for the diff to compare while it
   // reported "matched". img is text-free like a field, so it pairs on a11yRole +
   // document order; its object-fit + intrinsic aspect catch circle-as-ellipse.
+  // BUG-27 -- and painted CSS background-image boxes at ANY depth. A background
+  // image is text-free and is not a control, so it pairs the same way a media
+  // element does (a11yRole + document order); it carries the image handle as
+  // backgroundImageUrl rather than src, because it paints a SURFACE behind
+  // content, not replaced content in flow.
   function fieldsUnder(root, excludes) {
     var out = [];
+    var cands = [];
     var els = root.querySelectorAll('input, textarea, select, hr, img');
-    for (var i = 0; i < els.length; i++) {
-      var el = els[i];
+    for (var ci = 0; ci < els.length; ci++) cands.push({ el: els[ci], bgUrl: null });
+    var bgs = backdropBoxes();
+    var added = 0;
+    for (var bi = 0; bi < bgs.length; bi++) {
+      var bel = bgs[bi].el;
+      // The band's OWN background is already the section's background (a band root
+      // is excluded from querySelectorAll too) -- emitting it again would fold a
+      // duplicate box over the section backdrop.
+      if (bel === root || !root.contains(bel)) continue;
+      if (/^(input|textarea|select|hr|img)$/.test(bel.tagName.toLowerCase())) continue;
+      cands.push({ el: bel, bgUrl: bgs[bi].url });
+      added++;
+    }
+    // Each source is document-ordered; their concatenation is not.
+    if (added > 0) {
+      cands.sort(function (a, b) {
+        if (a.el === b.el) return 0;
+        return (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1;
+      });
+    }
+    for (var i = 0; i < cands.length; i++) {
+      var el = cands[i].el;
+      var bgUrl = cands[i].bgUrl;
       if (el.type === 'hidden') continue;
       if (!visible(el)) continue;
       if (excludes && insideAny(el, excludes)) continue;
@@ -1099,6 +1271,16 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-92 — the media substance an L1 image leaf needs (resolved src + alt).
         src: isImg ? (el.currentSrc || el.src || null) : null,
         alt: isImg ? (el.alt || '') : null,
+        // BUG-27 — the painted CSS background image this box carries (absolute URL),
+        // null for every other text-free element. Distinct from src: it folds to a
+        // box leaf painted BEHIND content, not an image leaf placed in flow.
+        backgroundImageUrl: bgUrl,
+        // BUG-27 — the element's OWN painted background-color. A backdrop routinely
+        // layers an image over a solid (the hero here is a photo over #000000 at
+        // opacity .49 -- that black is what darkens it), and capturing the image
+        // without the fill under it reproduces the photograph at full brightness.
+        // Null when the element paints no fill of its own.
+        surfaceFill: rgbToHex(s.backgroundColor),
         accessibleName: an.name,
         nameSource: an.source,
         // REQ-93 — the behavioural facts a mounted behavior module needs and no
@@ -1167,8 +1349,19 @@ export const EXTRACT_SCRIPT = `(() => {
   // ── bands ─────────────────────────────────────────────────────────────────
   var bodyBg = rgbToHex(getComputedStyle(document.body).backgroundColor) || '#ffffff';
   var bands = [];
-  var children = Array.prototype.filter.call(document.body.children, function (c) {
-    return c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE' && visible(c) && c.getBoundingClientRect().height >= 8;
+  // BUG-27 — qualify and box each candidate on the PAINTED EXTENT of its subtree.
+  // A collapsed-but-painting band (an absolutely-positioned header) reads 0px tall
+  // on its own box and was dropped whole; its extent is the nav bar it actually
+  // paints. A conventional band is unaffected — its children sit inside its box,
+  // so the extent IS its own box.
+  var children = [];
+  var childExtents = [];
+  Array.prototype.forEach.call(document.body.children, function (c) {
+    if (c.tagName === 'SCRIPT' || c.tagName === 'STYLE') return;
+    var ext = paintedExtent(c);
+    if (!ext || ext.height < 8) return;
+    children.push(c);
+    childExtents.push(ext);
   });
   // BUG-15 — a flat, absolutely-positioned layout (the L1 substrate) nests all
   // content beneath a wrapper that collapses to ZERO height (its abs-positioned
@@ -1179,7 +1372,7 @@ export const EXTRACT_SCRIPT = `(() => {
   // content, fall back to one body-spanning band so runsUnder / fieldsUnder /
   // itemGroup still collect the flat tree (paired downstream by text). Semantic
   // sites always have real >=8px top-level bands, so this never fires for them.
-  var bandRoots = children.map(function (el) { return { el: el, box: absBox(el) }; });
+  var bandRoots = children.map(function (el, ci) { return { el: el, box: childExtents[ci] }; });
   if (bandRoots.length === 0) {
     bandRoots = [{ el: document.body, box: { x: 0, y: 0, width: docW, height: docH } }];
   }
@@ -1274,5 +1467,6 @@ export const EXTRACT_SCRIPT = `(() => {
     spacingScalePx: spacingScalePx,
     containerMaxWidthPx: containerMaxWidthPx,
     images: images,
+    bodyBackground: bodyBg,
   };
 })()`

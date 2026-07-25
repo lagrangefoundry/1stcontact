@@ -20,6 +20,7 @@
 import {
   isSafeUrl,
   L1_ENVELOPE,
+  isSafeUrl,
   validateL1,
   type L1BlendMode,
   type L1Border,
@@ -770,6 +771,8 @@ export interface FoldableElement {
   opacity?: number
   backdropFilter?: string | null
   blendMode?: string | null
+  /** BUG-27 — a painted CSS `background-image` handle (the hero / section imagery). */
+  backgroundImageUrl?: string | null
 }
 
 /**
@@ -807,7 +810,12 @@ function isMediaElement(el: FoldableElement): boolean {
 /** A text-free element that paints a surface (a divider / decorative panel): a `box` leaf. */
 function paintsSurface(el: FoldableElement): boolean {
   return Boolean(
-    el.surfaceFill ||
+    // BUG-27 — a painted background photograph IS a surface, and the loudest one
+    // on the page. Listed first: on a photography-led page nothing else about the
+    // element (no fill, no border, no radius) would qualify it, so before this the
+    // hero fell through to "no L1 leaf yet" and the page reproduced as flat colour.
+    el.backgroundImageUrl ||
+      el.surfaceFill ||
       el.surfaceGradient ||
       el.border ||
       el.boxShadow ||
@@ -833,11 +841,32 @@ export function classifyElement(el: FoldableElement): FoldLeafKind {
   return 'unknown' // not measured — a residual, not a leaf
 }
 
+/**
+ * BUG-27 — is this box leaf a BACKDROP (paints behind content) rather than a
+ * standalone decorative panel? A painted photograph always is. A solid fill is
+ * one when it spans the viewport: a full-bleed band is by construction the thing
+ * everything else sits on, while a narrower painted box is a card beside its
+ * neighbours. Derived from the folded geometry, so it needs no capture-side flag.
+ */
+const BACKDROP_FULL_BLEED = 0.9
+function isBackdrop(node: L1Box): boolean {
+  if (node.axes?.backgroundImageUrl) return true
+  if (!node.axes?.surfaceFill || !node.geometry) return false
+  const kf = node.geometry.keyframes[node.geometry.keyframes.length - 1]
+  return kf !== undefined && kf.width !== undefined && kf.width >= BACKDROP_FULL_BLEED * kf.at
+}
+
 /** Map a captured textless surface element's axes onto the typed L1 box-axis subset. */
 function boxAxes(el: ValueElement): L1BoxAxes {
   const axes: L1BoxAxes = {}
   const fill = el.surfaceFill ? colorToHex(el.surfaceFill) : null
   if (fill) axes.surfaceFill = fill
+  // BUG-27 — the painted background photograph. Carried as the captured origin
+  // URL; `localizeAssets` rewrites it to the bundle's mirror (or reports it as an
+  // unmirrored gap), exactly as it already does for a section background.
+  if (el.backgroundImageUrl && isSafeUrl(el.backgroundImageUrl)) {
+    axes.backgroundImageUrl = el.backgroundImageUrl
+  }
   const grad = foldGradient(el.surfaceGradient)
   if (grad) axes.surfaceGradient = grad
   if (el.borderRadiusPx !== undefined && el.borderRadiusPx > 0) axes.borderRadiusPx = Math.round(el.borderRadiusPx)
@@ -971,6 +1000,7 @@ function capturedAxesOf(el: ValueElement): string[] {
   }
   has('objectFit', el.objectFit)
   has('intrinsicAspect', el.intrinsicAspect)
+  has('backgroundImageUrl', el.backgroundImageUrl)
   has('surfaceFill', el.surfaceFill)
   has('surfaceGradient', el.surfaceGradient)
   has('border', el.border)
@@ -1610,6 +1640,9 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   }
 
   const children: L1Node[] = []
+  /** BUG-27 — box leaves painting a background photograph; they belong in the
+   *  background layer, beneath all content (see where they are emitted below). */
+  const backdropNodes: L1Box[] = []
   let imageIdx = 0
   let boxIdx = 0
   // BUG-14 — the surface each text run sits on, collected per run for the post-loop
@@ -1885,7 +1918,15 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // widest sample's inset is no longer replayed at every width.
       const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (padTracks) node.responsivePadding = padTracks
-      children.push(node)
+      // BUG-27 — a box painting a background PHOTOGRAPH, or a full-bleed panel
+      // fill, is a backdrop rather than content. The manifest lists every text-free
+      // element after the runs of its band, so pushing one into `children` (which
+      // the renderer paints in document order, absolutely positioned with no
+      // z-index) would lay the hero image OVER the hero's own headline. Backdrops
+      // are collected separately and placed in the background layer, beside the
+      // section-background boxes they are a peer of.
+      if (isBackdrop(node)) backdropNodes.push(node)
+      else children.push(node)
       continue
     }
 
@@ -1931,6 +1972,20 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       edges.add(Math.round(sv.box.y))
       edges.add(Math.round(sv.box.y + sv.box.height))
     }
+    // BUG-27 — a backdrop's edges are section edges too. Style-scope segmentation
+    // only ever sees TOP-LEVEL bands, so a page-builder site whose panels are all
+    // nested inside one wrapper yields a single section and no interior edge at
+    // all — leaving the clamp above with nothing to clamp to (exactly the case
+    // this bug was filed on). A captured background photograph marks a real
+    // surface change by construction, so its top and bottom bound a band the same
+    // way a section edge does: without this the hero's black fill, read off the
+    // runs sitting on it, tiles 3200px down a page that is white below 900.
+    for (const node of backdropNodes) {
+      const kf = node.geometry?.keyframes.find((k) => k.at === p.viewport.width)
+      if (!kf || kf.height === undefined) continue
+      edges.add(Math.round(kf.y))
+      edges.add(Math.round(kf.y + kf.height))
+    }
     sectionEdges.set(p.viewport.width, [...edges].sort((a, b) => a - b))
   }
   const bandNodes = buildSolidBands(bandRows, widths, sectionEdges, heightAt, edgeResponses)
@@ -1938,8 +1993,14 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
 
   // The page base is the band fill covering the greatest total height (shows only
   // through gaps between the full-bleed bands).
+  //
+  // BUG-27 — the captured backdrops count towards that height alongside the
+  // reconstructed bands. They ARE full-bleed bands, read straight off the page
+  // rather than inferred from the surfaces runs sit on, so on a page whose panels
+  // are all nested (and which therefore reconstructs almost no bands of its own)
+  // they are the only honest evidence of what the page is mostly painted in.
   const bandHeightByFill = new Map<string, number>()
-  for (const b of bandNodes) {
+  for (const b of [...bandNodes, ...backdropNodes]) {
     const fill = b.axes?.surfaceFill
     if (!fill || !b.geometry) continue
     const kf = b.geometry.keyframes[b.geometry.keyframes.length - 1]
@@ -1953,12 +2014,21 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       band = fill
     }
   }
-  // Fallback when no full-bleed bands were found: the most common run fill.
+  // Fallback when no full-bleed bands were found: the most common run fill, and
+  // failing that the captured canvas fill (BUG-27 — `<body>`'s own background, the
+  // literal answer to "what shows where nothing is painted"). The canvas is the
+  // LAST resort, not the first: where bands do not quite meet, the dominant band
+  // reads truer than the canvas hiding behind them.
   if (!band) {
     const counts = new Map<string, number>()
     for (const r of surfaceRows) if (r.fill) counts.set(r.fill, (counts.get(r.fill) ?? 0) + 1)
     let best = 0
     for (const [fill, n] of counts) if (n > best) ((best = n), (band = fill))
+  }
+  if (!band) {
+    band = projections
+      .map((p) => p.manifest.bodyBackground)
+      .find((c): c is string => typeof c === 'string' && c.length > 0)
   }
 
   // BUG-13 — section/band background images (the hero). Paint order beneath
@@ -2041,7 +2111,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
 
   const root: L1Box = {
     kind: 'box',
-    children: [...bandNodes, ...sectionBgNodes, ...cardNodes, ...body, ...slotNodes],
+    // BUG-27 — `backdropNodes` (element-level background photographs) sit with the
+    // section-background boxes: both are backdrops, painted beneath cards and
+    // content. Ordered after `sectionBgNodes` because a nested backdrop is, by
+    // construction, inside the section whose background it overlays.
+    children: [...bandNodes, ...sectionBgNodes, ...backdropNodes, ...cardNodes, ...body, ...slotNodes],
   }
   const doc: L1Document = { widths, root }
   if (band) doc.background = band

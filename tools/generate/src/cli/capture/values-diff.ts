@@ -179,6 +179,13 @@ export interface ValueElement {
   src?: string | null
   /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
   alt?: string | null
+  /**
+   * BUG-27 — the CSS `background-image` a text-free box paints (absolute URL on the
+   * reference side, site-local `/assets/…` on ours), else null. A pixel-mover: on a
+   * photography-led page it IS the page, so it is compared as a value axis (by
+   * mirrored basename, since the two sides name the same bytes differently).
+   */
+  backgroundImageUrl?: string | null
   /** REQ-47 — a text-free control's accessible name (empty when unlabelled). */
   accessibleName?: string
   /**
@@ -240,6 +247,15 @@ export interface ValueManifest {
   elements: ValueElement[]
   /** Section-level treatments (scrim, vertical anchor), aligned by ordinal index. */
   sections: SectionValues[]
+  /**
+   * BUG-27 — the page's base fill: what shows through wherever no band paints.
+   * The fold used to *infer* this from the fills its runs sit on, which reads the
+   * page correctly only when the biggest band is the page. On a hero-led page the
+   * biggest run surface is the hero's backdrop, so the whole page reproduced in
+   * the hero's colour. The capture knew the answer all along and never carried it.
+   * Optional so pre-BUG-27 manifests parse (the fold falls back to inference).
+   */
+  bodyBackground?: string
   /**
    * REQ-48 (item 5) — the viewport this manifest was projected at. Layout
    * recomposes per width, so a diff is only meaningful between two sides shot at
@@ -361,6 +377,8 @@ export type DeltaProperty =
   // ── REQ-48 (item 4) media fidelity ───────────────────────────────────────
   | 'objectFit'
   | 'aspect'
+  // ── BUG-27 — the painted CSS background image (the hero / section imagery) ──
+  | 'backgroundImage'
   // ── REQ-48 (item 5) multi-viewport / responsive reflow ───────────────────
   | 'viewport'
   | 'overflow'
@@ -825,6 +843,10 @@ export function fieldToElement(field: Field): ValueElement {
   // REQ-92 — carry the media substance so the fold can emit a real `image` leaf.
   if (field.src != null) el.src = field.src
   if (field.alt != null) el.alt = field.alt
+  // BUG-27 — carry the painted background image so the fold can emit a `box` leaf,
+  // and the fill beneath it so the backdrop composites the way the reference does.
+  if (field.backgroundImageUrl != null) el.backgroundImageUrl = field.backgroundImageUrl
+  if (field.surfaceFill != null) el.surfaceFill = field.surfaceFill
   // REQ-93 — carry the behavioural substance so the fold can bind a real behavior
   // module (input type + submission endpoint), rather than stranding the control.
   if (field.controlType != null) el.controlType = field.controlType
@@ -878,6 +900,24 @@ function bandBackgroundImageUrl(css: string | null | undefined): string | undefi
   return isSafeUrl(url) ? url : undefined
 }
 
+/**
+ * BUG-27 — a bundle's page base fill: the background colour of the section that
+ * covers the most of the document. A bundle's sections are style-scope bands, so
+ * the one spanning the page carries the fill everything else is painted onto.
+ */
+function pageBaseOf(sections: readonly Capture['sections'][number][]): string | undefined {
+  let best: string | undefined
+  let bestArea = 0
+  for (const s of sections) {
+    const area = (s.box?.width ?? 0) * (s.box?.height ?? 0)
+    if (area > bestArea && s.background.color) {
+      bestArea = area
+      best = s.background.color
+    }
+  }
+  return best
+}
+
 /** Flatten a capture bundle's sections (+ repeated items, + text-free fields) into a value manifest. */
 export function flattenCapture(capture: Capture): ValueManifest {
   const elements: ValueElement[] = []
@@ -914,6 +954,9 @@ export function flattenCapture(capture: Capture): ValueManifest {
     sections,
     viewport: capture.viewport,
     subScales: capture.theme.subScales,
+    // BUG-27 — the page base fill. A bundle records it as the background of the
+    // section that spans the document; the widest section is that one.
+    bodyBackground: pageBaseOf(capture.sections),
   }
 }
 
@@ -964,6 +1007,8 @@ export function flattenSignals(signals: RawSignals, source: string): ValueManife
     sections,
     viewport: signals.viewport,
     subScales: subScalesFromSignals(signals),
+    // BUG-27 — the page base fill, read straight off `<body>`.
+    bodyBackground: signals.bodyBackground,
   }
 }
 
@@ -1273,6 +1318,8 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   pseudo: 'A',
   objectPosition: 'A',
   objectFit: 'A',
+  // BUG-27 — an image handle is an authored value: copy the reference's asset.
+  backgroundImage: 'A',
   lineHeightPx: 'A',
   letterSpacingPx: 'A',
   paddingLeftPx: 'A',
@@ -1378,6 +1425,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   mask: 'treatment',
   objectFit: 'media',
   aspect: 'media',
+  // BUG-27 — a wrong/absent background photograph is a media defect.
+  backgroundImage: 'media',
   transform: 'transform',
   motion: 'motion',
 }
@@ -1581,6 +1630,22 @@ function nameSourceLabel(src: NameSource | null | undefined): string {
 /** True when the accessible name is rendered *inside* the field box (placeholder). */
 function nameContained(src: NameSource | null | undefined): boolean {
   return src === 'placeholder'
+}
+
+/**
+ * BUG-27 — the mirrored-asset identity of a media handle: its path tail, minus
+ * query and fragment. The two sides of a reproduction name the same bytes
+ * differently — the reference carries the captured origin URL
+ * (`https://site/wp-content/uploads/2021/12/HERO.jpeg`), our render the site-local
+ * mirror (`/assets/HERO.jpeg`) — and `localizeAssets` mirrors by exactly this
+ * basename, so comparing on it asks the only question that matters: is the same
+ * asset painted here?
+ */
+export function assetBasename(url: string | null | undefined): string | null {
+  if (!url) return null
+  const clean = url.split('#')[0].split('?')[0]
+  const tail = clean.split('/').filter(Boolean).pop()
+  return tail ? tail : null
 }
 
 /**
@@ -2229,6 +2294,15 @@ export function diffManifests(
     // label-above defect the perceptual + value diffs both miss.
     if (nameContained(exp.nameSource) !== nameContained(act.nameSource)) {
       push(exp, 'containment', nameSourceLabel(exp.nameSource), nameSourceLabel(act.nameSource))
+    }
+    // BUG-27 — the painted media handle. Compared by mirrored basename because the
+    // two sides legitimately name the same bytes differently: the reference carries
+    // the captured origin URL, our render the site-local `/assets/…` mirror. Without
+    // this the value gate stayed green on a page reproduced as flat colour.
+    const expBg = assetBasename(exp.backgroundImageUrl)
+    const actBg = assetBasename(act.backgroundImageUrl)
+    if (expBg !== actBg) {
+      push(exp, 'backgroundImage', expBg ?? '(none)', actBg ?? '(none)')
     }
     compareGeometry(exp, act)
     if (exp.box && act.box) gapPairs.push({ exp, act })

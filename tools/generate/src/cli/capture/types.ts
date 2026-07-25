@@ -401,6 +401,12 @@ export interface Field extends ElementGeometry {
   src?: string | null
   /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
   alt?: string | null
+  /** BUG-27 — the element's own painted `background-color` (`#rrggbb`), else null. */
+  surfaceFill?: string | null
+  /** BUG-27 — the CSS `background-image` this box paints (absolute URL), else null.
+   *  Distinct from {@link src}: it folds to a `box` leaf carrying
+   *  `axes.backgroundImageUrl`, painted behind content rather than placed in flow. */
+  backgroundImageUrl?: string | null
   /** REQ-93 — a form control's authored input type (`email`/`tel`/`textarea`/…), else null.
    *  The a11y role flattens every single-line control to `textbox`; this is what
    *  separates them, and what a mounted behavior module reproduces the control from. */
