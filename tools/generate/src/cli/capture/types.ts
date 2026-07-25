@@ -435,6 +435,22 @@ export interface ContentRun extends ElementGeometry {
   gradient?: TextGradient | null
   /** Left-edge accent bar when the element paints one. */
   borderLeft?: BorderTreatment | null
+  /**
+   * REQ-88 — the rect of the element that actually PAINTS {@link borderLeft},
+   * in full-page document coords. The mirror of {@link SurfaceShape}'s `box` for
+   * an accent rule, and load-bearing for exactly the same reason: the bar is
+   * routinely painted on a *wrapper* (`<div class="border-l-4 pl-6">`) while the
+   * run inside it is inset by the wrapper's padding. Without the bearing rect a
+   * reproduction can only draw the bar on the run's own box, which puts it at the
+   * text's left edge — indented from where the reference paints it, and
+   * overlapping the first glyph, since a border paints *inside* the border box.
+   *
+   * `surface` cannot answer this: it resolves the nearest *background*-painting
+   * ancestor, and an accent wrapper commonly has no fill at all, so the walk
+   * runs past it to the band. Absent when the accent is painted on the run's own
+   * element (the rect is then the run's own box).
+   */
+  accentBox?: Box | null
   /** Computed left padding/indent in px. */
   paddingLeftPx?: number
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (nearest painted

@@ -25,6 +25,8 @@ import {
   type L1Border,
   type L1Box,
   type L1BoxAxes,
+  type L1Column,
+  type L1ColumnAnchor,
   type L1Document,
   type L1FontFace,
   type L1Geometry,
@@ -35,13 +37,15 @@ import {
   type L1Keyframe,
   type L1Node,
   type L1Padding,
+  type L1PaddingResponsive,
   type L1ScalarKeyframe,
   type L1Segment,
   type L1Shadow,
   type L1TextAxes,
   type L1TextResponsive,
+  type L1ViewportResponse,
 } from '@1stcontact/site-schema'
-import { buildResponsiveTable, type LabelledProjection } from '../cli/responsive-diff'
+import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-diff'
 import {
   colorToHex,
   type MultiStateCapture,
@@ -136,6 +140,329 @@ function restingByWidth(multiState: MultiStateCapture, engine: string): StatePro
     else if (existing.engine !== engine && p.engine === engine) byWidth.set(w, p)
   }
   return [...byWidth.values()].sort((a, b) => a.viewport.width - b.viewport.width)
+}
+
+// ── REQ-88 — the viewport-HEIGHT axis ─────────────────────────────────────────
+
+/** A ladder width re-shot at a second viewport height (`HEIGHT_PROBE_VIEWPORTS`). */
+interface HeightProbe {
+  width: number
+  /** Signed change in viewport height from the ladder projection to the probe. */
+  deltaH: number
+  ladder: StateProjection
+  probe: StateProjection
+}
+
+/**
+ * REQ-88 — pair each ladder projection with a resting projection at the SAME
+ * width and a DIFFERENT viewport height. Without such a pair the height axis is
+ * unidentifiable and every `100vh` rule reads as a pinned pixel height (see
+ * {@link HEIGHT_PROBE_VIEWPORTS}); with one, the response is a finite difference.
+ */
+function heightProbesFor(multiState: MultiStateCapture, ladder: StateProjection[]): HeightProbe[] {
+  const out: HeightProbe[] = []
+  for (const l of ladder) {
+    for (const p of multiState.projections) {
+      if (p.state !== 'rest' || p === l) continue
+      if (p.viewport.width !== l.viewport.width) continue
+      if (p.engine !== l.engine) continue
+      const deltaH = p.viewport.height - l.viewport.height
+      if (Math.abs(deltaH) < 1) continue
+      out.push({ width: l.viewport.width, deltaH, ladder: l, probe: p })
+    }
+  }
+  return out
+}
+
+/**
+ * A measured `d(geometry)/d(viewport height)` ratio, cleaned up for emission.
+ *
+ * Snapping to eighths absorbs sub-pixel layout noise (a measured 0.9975 is the
+ * `100vh` rule, not a 0.9975 one) without inventing structure: a ratio that is
+ * not near an eighth is returned as measured, and a ratio indistinguishable from
+ * zero returns `undefined` so no axis is emitted at all.
+ */
+/**
+ * REQ-88 — how many lines the reference set this run on: its measured glyph
+ * extent over its line height. Returns `undefined` when either is unavailable —
+ * an unknown line count must never be mistaken for a single line, since that is
+ * the reading that would pin a wrapping paragraph to one unbreakable row.
+ */
+function lineCountOf(el: ValueElement): number | undefined {
+  const lh = el.lineHeightPx
+  const glyphs = el.renderedTextBox
+  if (!lh || lh <= 0 || !glyphs || !Number.isFinite(glyphs.height)) return undefined
+  return Math.max(1, Math.round(glyphs.height / lh))
+}
+
+/**
+ * REQ-88 — the smallest captured width from which the reference set this run on a
+ * single line at *every* wider sample, or `undefined` if it never did.
+ *
+ * Taken as a suffix rather than a single width because pinning must never claim
+ * more than the reference showed: a run that is one line at 1024 but two at 1280
+ * (responsive type can grow faster than its column) yields 1440, not 1024. An
+ * unmeasurable line count breaks the suffix for the same reason — unknown must
+ * not read as "one line", or a real paragraph gets pinned and overprints the run
+ * absolutely positioned below it.
+ */
+function nowrapThreshold(framed: Array<{ width: number; element: ValueElement }>): number | undefined {
+  let threshold: number | undefined
+  for (let i = framed.length - 1; i >= 0; i--) {
+    if (lineCountOf(framed[i].element) !== 1) break
+    threshold = framed[i].width
+  }
+  return threshold
+}
+
+function snapFactor(raw: number): number | undefined {
+  if (!Number.isFinite(raw)) return undefined
+  const eighth = Math.round(raw * 8) / 8
+  const value = Math.abs(raw - eighth) <= 0.01 ? eighth : Math.round(raw * 1e3) / 1e3
+  return Math.abs(value) < 0.005 ? undefined : value
+}
+
+/** Build `{yFactor, heightFactor}` from a measured box delta, or `undefined` if inert. */
+function responseFrom(dy: number, dh: number, deltaH: number): L1ViewportResponse | undefined {
+  const yFactor = snapFactor(dy / deltaH)
+  const heightFactor = snapFactor(dh / deltaH)
+  if (yFactor === undefined && heightFactor === undefined) return undefined
+  const r: L1ViewportResponse = {}
+  if (yFactor !== undefined) r.yFactor = yFactor
+  if (heightFactor !== undefined) r.heightFactor = heightFactor
+  return r
+}
+
+/**
+ * REQ-88 — join a probe's elements to its ladder projection's, by the same
+ * `elementKey` + document-order FIFO the responsive table uses, and record each
+ * ladder element's measured height response. Keyed by element *identity*, so a
+ * caller that already holds a ladder element can look its response up directly.
+ */
+function probeResponses(probes: HeightProbe[]): Map<ValueElement, L1ViewportResponse> {
+  const out = new Map<ValueElement, L1ViewportResponse>()
+  for (const { ladder, probe, deltaH } of probes) {
+    const queues = new Map<string, ValueElement[]>()
+    for (const el of probe.manifest.elements) {
+      const k = elementKey(el)
+      const q = queues.get(k)
+      if (q) q.push(el)
+      else queues.set(k, [el])
+    }
+    const taken = new Map<string, number>()
+    for (const el of ladder.manifest.elements) {
+      const k = elementKey(el)
+      const i = taken.get(k) ?? 0
+      taken.set(k, i + 1)
+      const other = queues.get(k)?.[i]
+      if (!other || !el.box || !other.box) continue
+      const r = responseFrom(other.box.y - el.box.y, other.box.height - el.box.height, deltaH)
+      if (r) out.set(el, r)
+    }
+  }
+  return out
+}
+
+/**
+ * REQ-88 — the same measurement for **section edges**, which is what a band's
+ * extent is clamped to. A band cannot take its height response from the runs it
+ * contains: a `min-h-screen` hero's copy sits in the top half and does not move,
+ * while the band below it starts a full viewport height down. Sections join by
+ * index (same page, same section list) and give the edge responses directly.
+ *
+ * The per-section factors are measured at the probe width and applied at every
+ * width: the CSS rule producing them (`min-h-screen`) is not itself width-varying,
+ * and re-probing at every width would multiply capture cost by the ladder length.
+ */
+function sectionEdgeResponses(
+  probes: HeightProbe[],
+  projections: StateProjection[],
+): Map<number, Map<number, number>> {
+  const byIndex = new Map<number, { top: number; bottom: number }>()
+  for (const { ladder, probe, deltaH } of probes) {
+    const a = ladder.manifest.sections ?? []
+    const b = probe.manifest.sections ?? []
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      const ab = a[i]?.box
+      const bb = b[i]?.box
+      if (!ab || !bb) continue
+      byIndex.set(i, {
+        top: snapFactor((bb.y - ab.y) / deltaH) ?? 0,
+        bottom: snapFactor((bb.y + bb.height - (ab.y + ab.height)) / deltaH) ?? 0,
+      })
+    }
+  }
+  const out = new Map<number, Map<number, number>>()
+  if (byIndex.size === 0) return out
+  for (const p of projections) {
+    const m = new Map<number, number>()
+    const secs = p.manifest.sections ?? []
+    secs.forEach((sv, i) => {
+      const f = byIndex.get(i)
+      if (!sv.box || !f) return
+      m.set(Math.round(sv.box.y), f.top)
+      m.set(Math.round(sv.box.y + sv.box.height), f.bottom)
+    })
+    out.set(p.viewport.width, m)
+  }
+  return out
+}
+
+// ── REQ-88 — the centred content column ───────────────────────────────────────
+
+/** A fitted column plus what it evaluates to at each captured width. */
+interface ColumnFit {
+  column: L1Column
+  originAt: Map<number, number>
+  extentAt: Map<number, number>
+}
+
+/**
+ * REQ-88 — recover the page's centred column (`mx-auto max-w-*` + horizontal
+ * padding) from where content actually sits at each captured width.
+ *
+ * `origin(w)` is the left edge of the narrowest-indented content at `w`; the
+ * column is then the two constants that reproduce every sampled origin:
+ *
+ *   inset     = origin at the narrowest width (below the container, only padding shows)
+ *   container = w - 2 * (origin(w) - inset)   — from any width where the origin has risen
+ *
+ * The fit is rejected unless it reproduces *every* sampled origin and extent to
+ * within a pixel, so a page with no centred column keeps its keyframes untouched.
+ */
+function fitColumn(projections: StateProjection[]): ColumnFit | undefined {
+  const widths: number[] = []
+  const originAt = new Map<number, number>()
+  const extentAt = new Map<number, number>()
+  for (const p of projections) {
+    const w = p.viewport.width
+    // Content only: a full-bleed band spans the viewport and says nothing about
+    // the column that its contents are laid out in.
+    const boxes = p.manifest.elements
+      .filter((e) => e.box && e.text?.trim() && e.box.width < w - 1)
+      .map((e) => e.box!)
+    if (boxes.length === 0) return undefined
+    // The MODAL left edge, not the minimum. A real page has more than one gutter
+    // — this reference sets its header 8px wider than its content column — and the
+    // extreme is whichever of them happens to be widest, which is not the column
+    // the page is laid out in. The edge the most content shares is.
+    const left = modal(boxes.map((b) => b.x))
+    if (left === undefined) return undefined
+    // Measured among that column's OWN runs, so a wide footer bar or an outdented
+    // header cannot set the content width.
+    const right = modal(boxes.filter((b) => Math.round(b.x) === Math.round(left)).map((b) => b.x + b.width))
+    if (right === undefined) return undefined
+    widths.push(w)
+    originAt.set(w, left)
+    extentAt.set(w, right - left)
+  }
+  if (widths.length < 3) return undefined
+
+  const inset = Math.min(...widths.map((w) => originAt.get(w)!))
+  if (inset < 0) return undefined
+  const risen = widths.filter((w) => originAt.get(w)! > inset + 0.5)
+  if (risen.length === 0) return undefined
+  const containers = risen.map((w) => w - 2 * (originAt.get(w)! - inset))
+  const containerPx = containers.reduce((a, b) => a + b, 0) / containers.length
+  if (containers.some((c) => Math.abs(c - containerPx) > 1)) return undefined
+
+  // The content cap is the extent wherever the column has stopped growing.
+  const capped = widths.filter((w) => Math.min(containerPx, w) - 2 * inset > extentAt.get(w)! + 0.5)
+  const maxWidthPx = capped.length ? Math.min(...capped.map((w) => extentAt.get(w)!)) : undefined
+
+  const column: L1Column = { containerPx: round2(containerPx), insetPx: round2(inset) }
+  if (maxWidthPx !== undefined) column.maxWidthPx = round2(maxWidthPx)
+
+  // Verify against every sample — the fit must *reproduce* the page, not resemble it.
+  for (const w of widths) {
+    if (Math.abs(columnOrigin(column, w) - originAt.get(w)!) > 1) return undefined
+    if (Math.abs(columnExtent(column, w) - extentAt.get(w)!) > 1) return undefined
+  }
+  return { column, originAt, extentAt }
+}
+
+/**
+ * The most frequent value in a list, to the pixel; ties break toward the smaller.
+ * Returns the unrounded representative so the fit keeps sub-pixel precision.
+ */
+function modal(values: number[]): number | undefined {
+  const counts = new Map<number, { n: number; value: number }>()
+  for (const v of values) {
+    const key = Math.round(v)
+    const hit = counts.get(key)
+    if (hit) hit.n += 1
+    else counts.set(key, { n: 1, value: v })
+  }
+  let best: { n: number; value: number } | undefined
+  for (const entry of [...counts.values()].sort((a, b) => a.value - b.value)) {
+    if (!best || entry.n > best.n) best = entry
+  }
+  return best?.value
+}
+
+/** Does any node in the tree carry a column anchor? */
+function hasAnchoredNode(node: L1Node): boolean {
+  if (node.geometry?.anchor) return true
+  const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+  return kids.some(hasAnchoredNode)
+}
+
+const round2 = (n: number): number => Math.round(n * 100) / 100
+const columnOrigin = (c: L1Column, w: number): number => Math.max(0, (w - c.containerPx) / 2) + c.insetPx
+const columnExtent = (c: L1Column, w: number): number => {
+  const inner = Math.min(c.containerPx, w) - 2 * c.insetPx
+  return c.maxWidthPx === undefined ? inner : Math.min(c.maxWidthPx, inner)
+}
+
+/**
+ * REQ-88 — express a node's `x` / `width` as an affine function of the column
+ * (`value = px + fraction * extent`), by least squares over the captured widths.
+ *
+ * Returned only when the fit reproduces every sample to within a pixel *on both
+ * axes*. Both, because the renderer takes `x` and `width` from the anchor
+ * together: a half-fitted node would keep keyframes for one axis and take the
+ * column for the other, and the two would disagree everywhere off-sample.
+ */
+function fitAnchor(
+  frames: Array<{ at: number; box: { x: number; width: number } }>,
+  fit: ColumnFit,
+): L1ColumnAnchor | undefined {
+  if (frames.length < 3) return undefined
+  const samples = frames.map((f) => ({
+    extent: columnExtent(fit.column, f.at),
+    dx: f.box.x - columnOrigin(fit.column, f.at),
+    w: f.box.width,
+  }))
+  const extents = new Set(samples.map((s) => Math.round(s.extent)))
+  // A single distinct extent cannot separate the constant from the fraction.
+  if (extents.size < 2) return undefined
+
+  const solve = (ys: number[]): { px: number; fraction: number } | undefined => {
+    const n = samples.length
+    const sx = samples.reduce((a, s) => a + s.extent, 0)
+    const sxx = samples.reduce((a, s) => a + s.extent * s.extent, 0)
+    const sy = ys.reduce((a, y) => a + y, 0)
+    const sxy = samples.reduce((a, s, i) => a + s.extent * ys[i], 0)
+    const det = n * sxx - sx * sx
+    if (Math.abs(det) < 1e-6) return undefined
+    const fraction = (n * sxy - sx * sy) / det
+    const px = (sy - fraction * sx) / n
+    for (let i = 0; i < n; i++) {
+      if (Math.abs(px + fraction * samples[i].extent - ys[i]) > 1) return undefined
+    }
+    return { px: round2(px), fraction: round2(fraction) }
+  }
+
+  const start = solve(samples.map((s) => s.dx))
+  const width = solve(samples.map((s) => s.w))
+  if (!start || !width) return undefined
+
+  const anchor: L1ColumnAnchor = {}
+  if (start.px !== 0) anchor.startPx = start.px
+  if (start.fraction !== 0) anchor.startFraction = start.fraction
+  if (width.px !== 0) anchor.widthPx = width.px
+  if (width.fraction !== 0) anchor.widthFraction = width.fraction
+  return anchor
 }
 
 const PADDING_MAX = 10_000
@@ -236,6 +563,38 @@ function responsiveTextTracks(
     // a single value across the ladder stays a scalar in `axes`.
     if (keyframes.length < 2 || keyframes.every((k) => k.value === keyframes[0].value)) continue
     out[axis] = { keyframes }
+  }
+  return Object.keys(out).length ? out : undefined
+}
+
+/** The captured padding sides, in L1 field order, keyed by their capture axis. */
+const PADDING_SIDES = {
+  topPx: 'paddingTopPx',
+  rightPx: 'paddingRightPx',
+  bottomPx: 'paddingBottomPx',
+  leftPx: 'paddingLeftPx',
+} as const
+
+/**
+ * REQ-88 — per-width tracks for the padding sides that vary across the ladder,
+ * mirroring {@link responsiveTextTracks}. A side that holds one value everywhere
+ * stays a plain scalar on `padding` — a track earns its place only by varying.
+ */
+function responsivePaddingTracks(
+  framed: Array<{ width: number; element: ValueElement }>,
+): L1PaddingResponsive | undefined {
+  const out: L1PaddingResponsive = {}
+  for (const [field, axis] of Object.entries(PADDING_SIDES) as Array<
+    [keyof L1PaddingResponsive, (typeof PADDING_SIDES)[keyof typeof PADDING_SIDES]]
+  >) {
+    const keyframes: L1ScalarKeyframe[] = []
+    for (const c of framed) {
+      const raw = c.element[axis]
+      if (raw === undefined || raw === null || !Number.isFinite(raw)) continue
+      keyframes.push({ at: c.width, value: clamp(Math.round(raw), 0, PADDING_MAX) })
+    }
+    if (keyframes.length < 2 || keyframes.every((k) => k.value === keyframes[0].value)) continue
+    out[field] = { keyframes }
   }
   return Object.keys(out).length ? out : undefined
 }
@@ -739,6 +1098,8 @@ interface SurfaceRow {
   surfaceFrames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>
   /** Captured corner radius of the surface-bearing box (0/undefined when square). */
   surfaceRadiusPx?: number
+  /** REQ-88 — the row's measured viewport-height response, inherited by its card. */
+  viewportResponse?: L1ViewportResponse
 }
 
 /** A captured asymmetric left-accent border (a card rule) → the L1 `borderLeft` axis. */
@@ -863,7 +1224,13 @@ function barBandFills(rows: SurfaceRow[], pageContentWidth: number, fullWidthFra
  * after this band's own content — the boundary is read from the capture instead
  * of guessed from where the next paragraph happens to start.
  */
-function buildSolidBands(bandRows: SurfaceRow[], widths: number[], sectionEdges: Map<number, number[]>): L1Box[] {
+function buildSolidBands(
+  bandRows: SurfaceRow[],
+  widths: number[],
+  sectionEdges: Map<number, number[]>,
+  heightAt: Map<number, number>,
+  edgeResponses: Map<number, Map<number, number>>,
+): L1Box[] {
   const groups: Array<{ fill: string; rows: SurfaceRow[] }> = []
   for (const r of bandRows) {
     if (!r.fill) continue
@@ -919,6 +1286,7 @@ function buildSolidBands(bandRows: SurfaceRow[], widths: number[], sectionEdges:
   order.forEach((entry, oi) => {
     const keyframes: L1Keyframe[] = []
     const present: number[] = []
+    const responseSamples: Array<{ y: number; height: number }> = []
     for (const w of widths) {
       const top = snappedTop(oi, w)
       if (top === undefined) continue
@@ -945,13 +1313,44 @@ function buildSolidBands(bandRows: SurfaceRow[], widths: number[], sectionEdges:
           }
         }
       }
-      keyframes.push({ at: w, x: 0, y: Math.round(top), width: w, height: Math.round(Math.max(0, bottom - top)) })
+      const kf: L1Keyframe = {
+        at: w,
+        x: 0,
+        y: Math.round(top),
+        width: w,
+        height: Math.round(Math.max(0, bottom - top)),
+      }
+      const vh = heightAt.get(w)
+      if (vh) kf.atHeight = vh
+      keyframes.push(kf)
       present.push(w)
+      // REQ-88 — a band is bounded by SECTION EDGES, so its height response is the
+      // difference of its two edges' responses, not anything its runs can report:
+      // a `min-h-screen` hero's copy sits in the top half and never moves, while
+      // the band's own bottom travels a full viewport height. Both edges are
+      // measured, so a band that opens at a fixed edge and closes at a travelling
+      // one comes out with exactly the growth the reference has.
+      const edges = edgeResponses.get(w)
+      if (edges) {
+        const fTop = edges.get(Math.round(top))
+        const fBottom = edges.get(Math.round(bottom))
+        if (fTop !== undefined && fBottom !== undefined) {
+          responseSamples.push({ y: fTop, height: fBottom - fTop })
+        }
+      }
     }
     if (keyframes.length === 0) return
     const geometry: L1Geometry = { keyframes }
     if (keyframes.length > 1) {
       geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+    }
+    // Every width must agree, or the band is not describable as one height rule.
+    const first = responseSamples[0]
+    if (first && responseSamples.every((s) => s.y === first.y && s.height === first.height)) {
+      const r: L1ViewportResponse = {}
+      if (Math.abs(first.y) >= 0.005) r.yFactor = first.y
+      if (Math.abs(first.height) >= 0.005) r.heightFactor = first.height
+      if (r.yFactor !== undefined || r.heightFactor !== undefined) geometry.viewportResponse = r
     }
     const node: L1Box = { kind: 'box', id: `section-band-${oi}`, geometry, axes: { surfaceFill: entry.g.fill } }
     const vis = visibilityFor(present, widths)
@@ -972,7 +1371,12 @@ function buildSolidBands(bandRows: SurfaceRow[], widths: number[], sectionEdges:
  * (`borderLeft` accent, border, shadow, radius). Larger cards paint first so a
  * contained badge lands on top.
  */
-function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
+function buildCards(
+  cardRows: SurfaceRow[],
+  widths: number[],
+  heightAt: Map<number, number>,
+  columnFit?: ColumnFit,
+): L1Box[] {
   const n = cardRows.length
   if (n === 0) return []
   const parent = Array.from({ length: n }, (_, i) => i)
@@ -1036,19 +1440,33 @@ function buildCards(cardRows: SurfaceRow[], widths: number[]): L1Box[] {
         y1 = Math.max(y1, f.box.y + f.box.height)
       }
       if (!any) continue
-      keyframes.push({
+      const kf: L1Keyframe = {
         at: w,
         x: Math.round(x0),
         y: Math.round(y0),
         width: Math.round(x1 - x0),
         height: Math.round(y1 - y0),
-      })
+      }
+      const h = heightAt.get(w)
+      if (h) kf.atHeight = h
+      keyframes.push(kf)
       present.push(w)
     }
     if (keyframes.length === 0) continue
     const geometry: L1Geometry = { keyframes }
     if (keyframes.length > 1) {
       geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+    }
+    // REQ-88 — a card inherits the height response of the runs it encloses, and
+    // takes the column anchor when its own edges are that column's function.
+    const cardResponse = rows.map((r) => r.viewportResponse).find(Boolean)
+    if (cardResponse) geometry.viewportResponse = cardResponse
+    if (columnFit) {
+      const anchor = fitAnchor(
+        keyframes.map((k) => ({ at: k.at, box: { x: k.x, width: k.width } })),
+        columnFit,
+      )
+      if (anchor) geometry.anchor = anchor
     }
     const axes: L1BoxAxes = {}
     if (rep.fill) axes.surfaceFill = rep.fill
@@ -1091,6 +1509,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   }))
   const table = buildResponsiveTable(labelled)
 
+  // REQ-88 — the two viewport functions the width ladder alone cannot express.
+  // Both are *fitted and verified* against every captured sample; where a fit does
+  // not reproduce the page exactly, nothing is emitted and the node keeps its
+  // keyframes, so a page with no centred column or no `100vh` block is unchanged.
+  const heightAt = new Map(projections.map((p) => [p.viewport.width, p.viewport.height]))
+  const probes = heightProbesFor(multiState, projections)
+  const responseOf = probeResponses(probes)
+  const edgeResponses = sectionEdgeResponses(probes, projections)
+  const columnFit = fitColumn(projections)
+
   const residuals = opts.residuals
   const signal = (el: ValueElement, reason: string, presentWidths: number[]): void => {
     residuals?.push({ kind: residualKindOf(el), reason, capturedAxes: capturedAxesOf(el), widths: presentWidths })
@@ -1127,11 +1555,27 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         const width = withHeight ? Math.round(box.width) : Math.ceil(box.width)
         const kf: L1Keyframe = { at: c.width, x: Math.round(box.x), y: Math.round(box.y), width }
         if (withHeight && Number.isFinite(box.height)) kf.height = Math.round(box.height)
+        // REQ-88 — the viewport height this keyframe was measured at, so a height
+        // response has an origin to be measured from.
+        const h = heightAt.get(c.width)
+        if (h) kf.atHeight = h
         return kf
       })
       const geometry: L1Geometry = { keyframes }
       if (keyframes.length > 1) {
         geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+      }
+      // REQ-88 — the viewport-height response, measured element-for-element
+      // against the height probe, and the centred-column anchor where `x`/`width`
+      // are that column's function rather than a line through the samples.
+      const response = framed.map((c) => responseOf.get(c.element!)).find(Boolean)
+      if (response) geometry.viewportResponse = response
+      if (columnFit) {
+        const anchor = fitAnchor(
+          framed.map((c) => ({ at: c.width, box: c.element!.box! })),
+          columnFit,
+        )
+        if (anchor) geometry.anchor = anchor
       }
       return geometry
     }
@@ -1147,10 +1591,18 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // BUG-20 — a self-painting chip (a `rounded-full` badge) carries its own
       // surface on the text leaf; a bare run carries only type axes.
       const chip = isSelfPaintingRun(widest)
+      const axes: L1TextAxes = chip ? { ...textAxes(widest), ...chipAxes(widest) } : textAxes(widest)
+      // REQ-88 — from the width at which the reference stopped wrapping this run,
+      // pin it unbreakable. The fold hands the run a fixed-width box whose slack
+      // over its own glyphs is routinely a fraction of a pixel, and each engine
+      // measures glyphs differently — so without this the reference's own line
+      // count is re-decided, per browser, by rounding. See `axes.nowrapFromPx`.
+      const nowrapFrom = nowrapThreshold(framed.map((c) => ({ width: c.width, element: c.element! })))
+      if (nowrapFrom !== undefined) axes.nowrapFromPx = nowrapFrom
       const node: Extract<L1Node, { kind: 'text' }> = {
         kind: 'text',
         text: widest.text,
-        axes: chip ? { ...textAxes(widest), ...chipAxes(widest) } : textAxes(widest),
+        axes,
         geometry: buildGeometry(false),
       }
       // BUG-18 — keyframe the numeric type axes that vary across the ladder, so
@@ -1160,6 +1612,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (vis) node.visibility = vis
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
+      // REQ-88 — a side that varies across the ladder gets its own track, so the
+      // widest sample's inset is no longer replayed at every width.
+      const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
+      if (padTracks) node.responsivePadding = padTracks
       children.push(node)
 
       // BUG-20 — a chip paints its own surface on the text leaf above, so it
@@ -1186,12 +1642,31 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // reconstructed separately ({@link buildSolidBands}), so such a row keeps its
       // run box here — adopting the band rect would stretch a quote's accent rule
       // across the entire section.
+      //
+      // REQ-88 (round 6) — a run whose only card treatment is an ACCENT RULE has
+      // no fill, so `surface` resolves straight past its wrapper to the band and
+      // the clause above discards it. Falling through to the run's own box put the
+      // 4px rule at the text's left edge — indented by the wrapper's padding from
+      // where the reference paints it, and (since a border paints inside its own
+      // border box) overlapping the first glyph. `accentBox` is that wrapper's
+      // measured rect; it is consulted only when no card-shaped fill was resolved,
+      // so a card that paints both keeps its fill rect for both.
+      const shapeBoxAt = (el: ValueElement, at: number): NonNullable<ValueElement['box']> | undefined => {
+        const shape = el.surface?.box
+        return shape && shape.width < at ? shape : undefined
+      }
       const surfFrames = framed
-        .map((c) => ({ at: c.width, box: c.element!.surface?.box, viewport: c.width }))
-        .filter((f): f is { at: number; box: NonNullable<ValueElement['box']>; viewport: number } => Boolean(f.box))
-        .filter((f) => f.box.width < f.viewport)
-        .map((f) => ({ at: f.at, box: f.box }))
-      const surfShapeRadius = surfFrames.length ? widest.surface?.borderRadiusPx : undefined
+        .map((c) => {
+          const el = c.element!
+          const box = shapeBoxAt(el, c.width) ?? (el.borderLeft ? el.accentBox ?? undefined : undefined)
+          return { at: c.width, box }
+        })
+        .filter((f): f is { at: number; box: NonNullable<ValueElement['box']> } => Boolean(f.box))
+      // Rounding belongs to the resolved *surface* shape. An accent wrapper is a
+      // different element with its own (square) corners, so a row that fell back
+      // to `accentBox` must not inherit the band's radius along the way.
+      const widestAt = framed[framed.length - 1]?.width ?? 0
+      const surfShapeRadius = shapeBoxAt(widest, widestAt) ? widest.surface?.borderRadiusPx : undefined
       if (
         widest.box &&
         (surfFill ||
@@ -1213,6 +1688,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
           widest: widest.box,
           surfaceFrames: surfFrames,
           surfaceRadiusPx: surfShapeRadius,
+          viewportResponse: framed.map((c) => responseOf.get(c.element!)).find(Boolean),
         })
       }
       continue
@@ -1255,6 +1731,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (vis) node.visibility = vis
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
+      // REQ-88 — a side that varies across the ladder gets its own track, so the
+      // widest sample's inset is no longer replayed at every width.
+      const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
+      if (padTracks) node.responsivePadding = padTracks
       children.push(node)
       continue
     }
@@ -1281,6 +1761,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (vis) node.visibility = vis
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
+      // REQ-88 — a side that varies across the ladder gets its own track, so the
+      // widest sample's inset is no longer replayed at every width.
+      const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
+      if (padTracks) node.responsivePadding = padTracks
       children.push(node)
       continue
     }
@@ -1329,8 +1813,8 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     }
     sectionEdges.set(p.viewport.width, [...edges].sort((a, b) => a - b))
   }
-  const bandNodes = buildSolidBands(bandRows, widths, sectionEdges)
-  const cardNodes = buildCards(cardRows, widths)
+  const bandNodes = buildSolidBands(bandRows, widths, sectionEdges, heightAt, edgeResponses)
+  const cardNodes = buildCards(cardRows, widths, heightAt, columnFit)
 
   // The page base is the band fill covering the greatest total height (shows only
   // through gaps between the full-bleed bands).
@@ -1364,6 +1848,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const root: L1Box = { kind: 'box', children: [...bandNodes, ...sectionBgNodes, ...cardNodes, ...children] }
   const doc: L1Document = { widths, root }
   if (band) doc.background = band
+  // REQ-88 — declared only when at least one node actually anchors to it, so an
+  // unfitted page carries no dead constant and the validator's "anchor without a
+  // column" check stays meaningful.
+  if (columnFit && hasAnchoredNode(root)) doc.column = columnFit.column
 
   // REQ-90 — bind painted family handles to their served substance so the render
   // resolves the real face. Built before validation so the envelope scheme-checks

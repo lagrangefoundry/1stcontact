@@ -42,11 +42,108 @@ export const l1KeyframeSchema = z
     y: finite,
     width: finite.nonnegative(),
     height: finite.nonnegative().optional(),
+    /**
+     * REQ-88 — the viewport HEIGHT this keyframe was captured at. Inert on its
+     * own; it is the origin {@link l1ViewportResponseSchema} measures from, so a
+     * height-responsive node still evaluates to exactly its captured geometry at
+     * the size the capture used. Absent on documents folded before height probing.
+     */
+    atHeight: finite.positive().optional(),
   })
   .strict()
 
 /** Between two adjacent keyframes, either linearly interpolate or hold-then-snap. */
 export const l1SegmentSchema = z.enum(['interpolate', 'snap'])
+
+// ── Viewport-relative extent (REQ-88 round 6) ─────────────────────────────────
+//
+// A keyframe track samples a *rule* at N widths and models everything between and
+// beyond those samples as a straight line. That is exact at the samples and wrong
+// wherever the underlying rule is not linear in width — and the two most common
+// rules on a real page are not:
+//
+//   * `min-h-screen` / `100vh` — height depends on viewport HEIGHT, an axis the
+//     width ladder cannot see at all. A pinned px height freezes the fold at
+//     whatever height the capture happened to use.
+//   * `mx-auto` + `max-w-*` — a centred column's left edge is
+//     `max(0, (vw - container)/2) + inset`: FLAT while the viewport is narrower
+//     than the container, then rising at half rate. Interpolating across that
+//     knee overstates the margin everywhere in between, and holding the last
+//     keyframe understates it above the widest sample.
+//
+// Both are expressible as typed, closed-form viewport functions. Where one fits
+// every sample exactly it replaces the sampled axis outright — the reproduction
+// then tracks the rule instead of approximating it, at every width and every
+// height, not just at the six the capture happened to visit.
+
+/**
+ * How a node's vertical geometry responds to the viewport **height** — the axis a
+ * width ladder cannot see at all.
+ *
+ * Expressed as a derivative rather than an absolute, because a `100vh` hero is
+ * never a local fact: the hero's own height tracks the viewport, and *every node
+ * below it* is pushed down by the same amount. One node's `height` response of 1
+ * implies a `y` response of 1 for the whole rest of the page. Writing it as
+ * `d/d(viewport height)` lets both say the same thing in the same units.
+ *
+ * Each axis is applied against its keyframe's own {@link l1KeyframeSchema.atHeight}:
+ *
+ *   y      = keyframe.y      + yFactor      * (100vh - keyframe.atHeight)
+ *   height = keyframe.height + heightFactor * (100vh - keyframe.atHeight)
+ *
+ * so a keyframe evaluates back to exactly its captured value at the height it was
+ * captured at, and the response only takes effect as the viewport departs from it.
+ * A `min-h-screen` hero is `{heightFactor: 1}`; the sections below it are
+ * `{yFactor: 1}`; a run centred within the hero is `{yFactor: 0.5}`.
+ */
+export const l1ViewportResponseSchema = z
+  .object({
+    yFactor: finite.min(-10).max(10).optional(),
+    heightFactor: finite.min(-10).max(10).optional(),
+  })
+  .strict()
+
+/**
+ * A document's centred content column — the shared frame `mx-auto max-w-*`
+ * describes. Document-level because it is ONE design constant every anchored node
+ * refers to (change it once, the whole page re-columns), and because a per-node
+ * copy would let two nodes disagree about a column they visibly share.
+ *
+ *   origin(vw) = max(0, (vw - containerPx) / 2) + insetPx
+ *   extent(vw) = min(maxWidthPx, min(containerPx, vw) - 2 * insetPx)
+ */
+export const l1ColumnSchema = z
+  .object({
+    /** Max width of the centred container itself (Tailwind `max-w-6xl` → 1152). */
+    containerPx: finite.positive(),
+    /** Horizontal padding inside the container (`px-6` → 24). */
+    insetPx: finite.nonnegative(),
+    /** Optional cap on the content width inside the container (`max-w-4xl` → 896). */
+    maxWidthPx: finite.positive().optional(),
+  })
+  .strict()
+
+/**
+ * A node's placement within the document {@link l1ColumnSchema}, as an affine
+ * function of the column's origin and extent:
+ *
+ *   x     = origin + startPx + startFraction * extent
+ *   width = widthPx + widthFraction * extent
+ *
+ * A full-bleed column run is `{startPx: 0, widthFraction: 1}`; a quote inset by
+ * its accent wrapper is `{startPx: 28, widthPx: -28, widthFraction: 1}`; column
+ * *k* of a 3-up grid is `{startFraction: k/3, widthFraction: 1/3}` less its gap.
+ * Present only when the fit reproduces every captured sample exactly — otherwise
+ * the node keeps its keyframes and nothing is invented.
+ */
+export const l1ColumnAnchorSchema = z
+  .object({
+    startPx: finite.optional(),
+    startFraction: finite.optional(),
+    widthPx: finite.optional(),
+    widthFraction: finite.optional(),
+  })
+  .strict()
 
 /**
  * A geometry track: keyframes sorted ascending by `at`, plus an optional
@@ -57,6 +154,15 @@ export const l1GeometrySchema = z
   .object({
     keyframes: z.array(l1KeyframeSchema).min(1),
     segments: z.array(l1SegmentSchema).optional(),
+    /** REQ-88 — how `y` / `height` track the viewport height (the `100vh` axis). */
+    viewportResponse: l1ViewportResponseSchema.optional(),
+    /**
+     * REQ-88 — when present (and the document declares a `column`), `x` and
+     * `width` come from the column function rather than the keyframe track. `y`
+     * always stays keyframed: vertical position is the cumulative integral of
+     * everything above it and has no closed form.
+     */
+    anchor: l1ColumnAnchorSchema.optional(),
   })
   .strict()
 
@@ -253,6 +359,26 @@ export const l1PaddingSchema = z
   })
   .strict()
 
+/**
+ * REQ-88 — per-width tracks for the padding sides that vary across the ladder,
+ * mirroring {@link l1TextResponsiveSchema}.
+ *
+ * Geometry and type both keyframe; padding did not, so it was pinned to the
+ * *widest* sample and replayed at every width. That is silent as long as a page's
+ * padding is width-invariant — but the pinned box is a border box, so a desktop
+ * pad replayed at 320px eats the content width from the inside, and the first
+ * symptom is a run wrapping or clipping at mobile for no visible reason. A track
+ * per side keeps the inset honest at every width, exactly as geometry is.
+ */
+export const l1PaddingResponsiveSchema = z
+  .object({
+    topPx: l1ScalarTrackSchema.optional(),
+    rightPx: l1ScalarTrackSchema.optional(),
+    bottomPx: l1ScalarTrackSchema.optional(),
+    leftPx: l1ScalarTrackSchema.optional(),
+  })
+  .strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -267,6 +393,29 @@ export const l1TextAxesSchema = z
     textAlign: z.enum(['left', 'center', 'right', 'justify']).optional(),
     textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
     fontStyle: z.enum(['normal', 'italic']).optional(),
+    /**
+     * REQ-88 — the viewport width at and above which this run is **unbreakable**,
+     * because the reference set it on a single line at every captured width from
+     * here up. Absent when the reference wrapped it everywhere.
+     *
+     * It exists because a fold turns a flowed run into a fixed-width absolutely
+     * positioned box, which re-opens a decision the reference had already closed.
+     * A shrink-to-fit run's box IS its glyph extent, so the box clears the text it
+     * must hold by a fraction of a pixel — and every engine measures glyphs
+     * slightly differently. Chromium fits `Designed for developers…` in 414px by
+     * 0.77px; Gecko does not, wraps it, and the second line prints on top of the
+     * next absolutely-positioned run. Rounding the box up buys a fraction of a
+     * pixel and leaves the outcome to luck; this states the fact the reference
+     * already established, so no engine gets a vote.
+     *
+     * A *width*, not a flag, because line count is a function of width and the two
+     * are not the same claim: the checklist items above are one line on desktop
+     * and three at 320px. A flag can only be set for runs that never wrap at any
+     * width — which excludes precisely the runs that broke. The threshold is the
+     * smallest captured width from which every wider sample is single-line, so it
+     * is exact at every sample and never pins a run the reference wrapped.
+     */
+    nowrapFromPx: finite.nonnegative().optional(),
     // ── REQ-91 text pixel-movers ──────────────────────────────────────────────
     /** Text-fill gradient (a `background-clip: text` paint) — replaces the flat `color`. */
     gradientFill: l1GradientSchema.optional(),
@@ -380,6 +529,8 @@ export const l1TextSchema = z
     transform: l1TransformSchema.optional(),
     mask: l1MaskSchema.optional(),
     padding: l1PaddingSchema.optional(),
+    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
+    responsivePadding: l1PaddingResponsiveSchema.optional(),
   })
   .strict()
 
@@ -397,6 +548,8 @@ export const l1ImageSchema = z
     transform: l1TransformSchema.optional(),
     mask: l1MaskSchema.optional(),
     padding: l1PaddingSchema.optional(),
+    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
+    responsivePadding: l1PaddingResponsiveSchema.optional(),
   })
   .strict()
 
@@ -416,6 +569,8 @@ export const l1SlotSchema = z
     transform: l1TransformSchema.optional(),
     mask: l1MaskSchema.optional(),
     padding: l1PaddingSchema.optional(),
+    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
+    responsivePadding: l1PaddingResponsiveSchema.optional(),
   })
   .strict()
 
@@ -435,6 +590,7 @@ export interface L1BoxNode {
   transform?: z.infer<typeof l1TransformSchema>
   mask?: z.infer<typeof l1MaskSchema>
   padding?: z.infer<typeof l1PaddingSchema>
+  responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
   children?: L1NodeUnion[]
 }
 
@@ -453,6 +609,7 @@ export interface L1ContainerNode {
   transform?: z.infer<typeof l1TransformSchema>
   mask?: z.infer<typeof l1MaskSchema>
   padding?: z.infer<typeof l1PaddingSchema>
+  responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
   children: L1NodeUnion[]
 }
 
@@ -476,6 +633,8 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
       transform: l1TransformSchema.optional(),
       mask: l1MaskSchema.optional(),
       padding: l1PaddingSchema.optional(),
+    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
+    responsivePadding: l1PaddingResponsiveSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -497,6 +656,8 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       transform: l1TransformSchema.optional(),
       mask: l1MaskSchema.optional(),
       padding: l1PaddingSchema.optional(),
+    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
+    responsivePadding: l1PaddingResponsiveSchema.optional(),
       children: z.array(l1NodeSchema),
     })
     .strict(),
@@ -551,6 +712,8 @@ export const l1DocumentSchema = z
     widths: z.array(finite.positive()).min(1),
     background: l1Color.optional(),
     resources: l1ResourcesSchema.optional(),
+    /** REQ-88 — the shared centred content column `geometry.anchor` refers to. */
+    column: l1ColumnSchema.optional(),
     root: l1NodeSchema,
   })
   .strict()

@@ -69,7 +69,7 @@ function norm(text: string): string {
 }
 
 /** The join key for an element — text-free nodes key on their role, not text. */
-function elementKey(el: ValueElement): string {
+export function elementKey(el: ValueElement): string {
   if (el.textless) return `role:${el.a11yRole ?? el.role}`
   return `text:${norm(el.text)}`
 }

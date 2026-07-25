@@ -15,6 +15,8 @@ import { isSafeUrl } from '@1stcontact/site-schema'
 import type {
   L1AxisSizing,
   L1Border,
+  L1Column,
+  L1ColumnAnchor,
   L1Document,
   L1Geometry,
   L1Gradient,
@@ -25,6 +27,7 @@ import type {
   L1Shadow,
   L1Sizing,
   L1Transform,
+  L1ViewportResponse,
 } from '@1stcontact/site-schema'
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
@@ -296,13 +299,6 @@ interface Rule {
   decls: string[]
 }
 
-/** Static position declarations for a keyframe. */
-function frameDecls(kf: L1Geometry['keyframes'][number]): string[] {
-  const d = [`left: ${kf.x}px`, `top: ${kf.y}px`, `width: ${kf.width}px`]
-  if (kf.height !== undefined) d.push(`height: ${kf.height}px`)
-  return d
-}
-
 /**
  * A linearly-interpolated `calc()` between two keyframe values, driven by
  * `100vw`. At `100vw === w1` it equals `v1`; at `w2` it equals `v2`.
@@ -315,12 +311,91 @@ function lerpCalc(v1: number, w1: number, v2: number, w2: number): string {
   return `calc(${v1}px + (${dv} * (100vw - ${w1}px) / ${dw}))`
 }
 
-/** Compile a geometry track for `selector` into absolute-position rules. */
-function geometryRules(selector: string, geo: L1Geometry): Rule[] {
+/** A number formatted for CSS with no exponent notation and no trailing noise. */
+function num(n: number): string {
+  return String(Math.round(n * 1e4) / 1e4)
+}
+
+/**
+ * REQ-88 — the centred column's *extent* as a CSS length expression:
+ * `min(maxWidthPx, min(containerPx, 100vw) - 2 * insetPx)`.
+ */
+function columnExtentCss(col: L1Column): string {
+  const inner = `(min(${num(col.containerPx)}px, 100vw) - ${num(col.insetPx * 2)}px)`
+  return col.maxWidthPx === undefined ? inner : `min(${num(col.maxWidthPx)}px, ${inner})`
+}
+
+/** REQ-88 — the column's *origin*: `max(0, (100vw - containerPx) / 2) + insetPx`. */
+function columnOriginCss(col: L1Column): string {
+  return `max(0px, (100vw - ${num(col.containerPx)}px) / 2) + ${num(col.insetPx)}px`
+}
+
+/**
+ * REQ-88 — `left` / `width` for a column-anchored node, as closed-form CSS. These
+ * are *static* declarations: the column function is exact at every viewport width,
+ * so unlike a keyframe track it needs no media queries and no extrapolation.
+ */
+function anchorDecls(anchor: L1ColumnAnchor, col: L1Column): string[] {
+  const extent = columnExtentCss(col)
+  const decls: string[] = []
+  const startPx = anchor.startPx ?? 0
+  const startFraction = anchor.startFraction ?? 0
+  const left = [columnOriginCss(col)]
+  if (startPx !== 0) left.push(`${num(startPx)}px`)
+  if (startFraction !== 0) left.push(`${num(startFraction)} * ${extent}`)
+  decls.push(`left: calc(${left.join(' + ')})`)
+
+  const widthPx = anchor.widthPx ?? 0
+  const widthFraction = anchor.widthFraction ?? 0
+  if (widthFraction === 0) decls.push(`width: ${num(widthPx)}px`)
+  else if (widthPx === 0 && widthFraction === 1) decls.push(`width: ${extent}`)
+  else decls.push(`width: calc(${num(widthPx)}px + ${num(widthFraction)} * ${extent})`)
+  return decls
+}
+
+/**
+ * REQ-88 — a value plus its viewport-height response, measured from the height the
+ * keyframe was captured at: `base + factor * (100vh - atHeight)`. `factor: 1` with
+ * `base === atHeight` collapses to plain `100vh` — the `min-h-screen` hero.
+ */
+function viewportResponsive(base: string, factor: number, atHeight: number): string {
+  if (factor === 0) return base
+  const shift = factor === 1 ? `(100vh - ${num(atHeight)}px)` : `${num(factor)} * (100vh - ${num(atHeight)}px)`
+  return `calc(${base} + ${shift})`
+}
+
+/**
+ * Compile a geometry track for `selector` into absolute-position rules.
+ *
+ * REQ-88 — an axis governed by a viewport function (a column anchor for `x`/
+ * `width`, `100vh` for `height`) is emitted once, statically, and *suppressed*
+ * from the keyframe rules below: the two would otherwise fight, with whichever
+ * media query happened to sort last winning. The keyframes remain in the document
+ * as the captured record of what the function evaluates to at the sampled widths.
+ */
+function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Rule[] {
   const frames = geo.keyframes
   const rules: Rule[] = []
+  const anchored = Boolean(geo.anchor && column)
+  const yF = geo.viewportResponse?.yFactor ?? 0
+  const hF = geo.viewportResponse?.heightFactor ?? 0
+
+  /** Held (non-interpolated) declarations for one keyframe. */
+  const decls = (kf: L1Geometry['keyframes'][number]): string[] => {
+    const h = kf.atHeight
+    const d: string[] = [`top: ${h ? viewportResponsive(`${kf.y}px`, yF, h) : `${kf.y}px`}`]
+    if (!anchored) d.push(`left: ${kf.x}px`, `width: ${kf.width}px`)
+    if (kf.height !== undefined) {
+      d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hF, h) : `${kf.height}px`}`)
+    }
+    return d
+  }
+
+  const staticDecls: string[] = ['position: absolute']
+  if (anchored) staticDecls.push(...anchorDecls(geo.anchor!, column!))
+
   // Base: the smallest-width keyframe held statically (covers below-ladder widths).
-  rules.push({ selector, decls: ['position: absolute', ...frameDecls(frames[0])] })
+  rules.push({ selector, decls: [...staticDecls, ...decls(frames[0])] })
   if (frames.length === 1) return rules
 
   for (let i = 0; i < frames.length - 1; i++) {
@@ -329,22 +404,32 @@ function geometryRules(selector: string, geo: L1Geometry): Rule[] {
     const seg = geo.segments?.[i] ?? 'interpolate'
     if (seg === 'snap') {
       // Hold the lower keyframe until the next breakpoint.
-      rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: frameDecls(a) })
+      rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: decls(a) })
     } else {
-      const decls = [
-        `left: ${lerpCalc(a.x, a.at, b.x, b.at)}`,
-        `top: ${lerpCalc(a.y, a.at, b.y, b.at)}`,
-        `width: ${lerpCalc(a.width, a.at, b.width, b.at)}`,
-      ]
-      if (a.height !== undefined && b.height !== undefined) {
-        decls.push(`height: ${lerpCalc(a.height, a.at, b.height, b.at)}`)
+      // Both the value and the height it was captured at interpolate across the
+      // segment, so the response stays anchored to the right origin in between.
+      const atH =
+        a.atHeight !== undefined && b.atHeight !== undefined
+          ? lerpCalc(a.atHeight, a.at, b.atHeight, b.at)
+          : undefined
+      const respond = (base: string, factor: number): string => {
+        if (factor === 0 || atH === undefined) return base
+        const shift = factor === 1 ? `(100vh - ${atH})` : `${num(factor)} * (100vh - ${atH})`
+        return `calc(${base} + ${shift})`
       }
-      rules.push({ media: `(min-width: ${a.at}px)`, selector, decls })
+      const d = [`top: ${respond(lerpCalc(a.y, a.at, b.y, b.at), yF)}`]
+      if (!anchored) {
+        d.push(`left: ${lerpCalc(a.x, a.at, b.x, b.at)}`, `width: ${lerpCalc(a.width, a.at, b.width, b.at)}`)
+      }
+      if (a.height !== undefined && b.height !== undefined) {
+        d.push(`height: ${respond(lerpCalc(a.height, a.at, b.height, b.at), hF)}`)
+      }
+      rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: d })
     }
   }
   // Final keyframe held statically above the last breakpoint.
   const last = frames[frames.length - 1]
-  rules.push({ media: `(min-width: ${last.at}px)`, selector, decls: frameDecls(last) })
+  rules.push({ media: `(min-width: ${last.at}px)`, selector, decls: decls(last) })
   return rules
 }
 
@@ -377,6 +462,10 @@ interface RenderState {
   rules: Rule[]
   /** Class-name namespace so mounted fragments/instances never collide (REQ-85). */
   prefix?: string
+  /** REQ-88 — the document's centred column, resolved for `geometry.anchor`. */
+  column?: L1Column
+  /** REQ-88 — the ladder's smallest width; below it the base rule is in force. */
+  minWidth?: number
 }
 
 function emitNode(node: L1Node, state: RenderState): string {
@@ -385,7 +474,7 @@ function emitNode(node: L1Node, state: RenderState): string {
   const base: string[] = []
 
   if (node.geometry) {
-    state.rules.push(...geometryRules(selector, node.geometry))
+    state.rules.push(...geometryRules(selector, node.geometry, state.column))
   }
   if (node.visibility) {
     const { fromPx, untilPx } = node.visibility
@@ -423,6 +512,20 @@ function emitNode(node: L1Node, state: RenderState): string {
       if (r?.lineHeightPx) state.rules.push(...scalarAxisRules(selector, 'line-height', r.lineHeightPx))
       if (r?.letterSpacingPx) state.rules.push(...scalarAxisRules(selector, 'letter-spacing', r.letterSpacingPx))
       if (a.textAlign) base.push(`text-align: ${a.textAlign}`)
+      // REQ-88 — a run the reference kept on one line must not become breakable
+      // just because the fold gave it a fixed-width box (see `axes.nowrapFromPx`).
+      // At or below the ladder's floor the pin is unconditional; above it, it
+      // starts at the width from which the reference stopped wrapping.
+      if (a.nowrapFromPx !== undefined) {
+        if (a.nowrapFromPx <= (state.minWidth ?? 0)) base.push('white-space: nowrap')
+        else {
+          state.rules.push({
+            media: `(min-width: ${a.nowrapFromPx}px)`,
+            selector,
+            decls: ['white-space: nowrap'],
+          })
+        }
+      }
       if (a.textTransform) base.push(`text-transform: ${a.textTransform}`)
       if (a.fontStyle) base.push(`font-style: ${a.fontStyle}`)
       // REQ-91 text pixel-movers.
@@ -577,13 +680,22 @@ function emitNode(node: L1Node, state: RenderState): string {
   // present sides) so a partial padding never resets the others. `box-sizing:
   // border-box` (the document reset) means this insets content inside the pinned
   // keyframe box rather than inflating geometry.
+  //
+  // REQ-88 — a side with a per-width track is owned by that track (media rules
+  // below); the static longhand is emitted only for a side that does not vary,
+  // exactly as BUG-18 does for the numeric type axes.
+  const padTracks = node.responsivePadding
   if (node.padding) {
     const { topPx, rightPx, bottomPx, leftPx } = node.padding
-    if (px(topPx)) base.push(`padding-top: ${px(topPx)}`)
-    if (px(rightPx)) base.push(`padding-right: ${px(rightPx)}`)
-    if (px(bottomPx)) base.push(`padding-bottom: ${px(bottomPx)}`)
-    if (px(leftPx)) base.push(`padding-left: ${px(leftPx)}`)
+    if (!padTracks?.topPx && px(topPx)) base.push(`padding-top: ${px(topPx)}`)
+    if (!padTracks?.rightPx && px(rightPx)) base.push(`padding-right: ${px(rightPx)}`)
+    if (!padTracks?.bottomPx && px(bottomPx)) base.push(`padding-bottom: ${px(bottomPx)}`)
+    if (!padTracks?.leftPx && px(leftPx)) base.push(`padding-left: ${px(leftPx)}`)
   }
+  if (padTracks?.topPx) state.rules.push(...scalarAxisRules(selector, 'padding-top', padTracks.topPx))
+  if (padTracks?.rightPx) state.rules.push(...scalarAxisRules(selector, 'padding-right', padTracks.rightPx))
+  if (padTracks?.bottomPx) state.rules.push(...scalarAxisRules(selector, 'padding-bottom', padTracks.bottomPx))
+  if (padTracks?.leftPx) state.rules.push(...scalarAxisRules(selector, 'padding-left', padTracks.leftPx))
 
   if (base.length) state.rules.push({ selector, decls: base })
   return html
@@ -618,7 +730,7 @@ export interface L1RenderResult {
 
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
 export function renderL1Document(doc: L1Document): L1RenderResult {
-  const state: RenderState = { n: 0, rules: [] }
+  const state: RenderState = { n: 0, rules: [], column: doc.column, minWidth: Math.min(...doc.widths) }
   const body = emitNode(doc.root, state)
   const reset = [
     '*, *::before, *::after { box-sizing: border-box }',
