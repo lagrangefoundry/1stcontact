@@ -82,6 +82,9 @@ function toContentRun(r: RawRun): ContentRun {
     borderLeft,
     paddingLeftPx: r.paddingLeftPx,
   }
+  // REQ-88 — carried only alongside a real accent, and only when a *different*
+  // element paints it; an accent on the run's own box needs no separate rect.
+  if (borderLeft && r.accentBox) run.accentBox = r.accentBox
   if (r.lineHeightPx !== null) run.lineHeightPx = r.lineHeightPx
   if (r.colorInferred) run.colorInferred = true
   if (r.fontLoaded === false) run.fontLoaded = false

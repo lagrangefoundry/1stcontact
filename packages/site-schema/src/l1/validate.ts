@@ -113,6 +113,38 @@ function checkGeometry(
       message: `segments length ${segments.length} must equal keyframes.length - 1 (${keyframes.length - 1})`,
     })
   }
+  // REQ-88 — the viewport-relative extents are closed-form CSS lengths, so they
+  // take the same px envelope as the keyframe coordinates they replace. A column
+  // fraction is a unitless multiplier and gets its own bound: a node may sit a
+  // column-width or two outside the column, never thousands.
+  // A height response is meaningless without the origin it is measured from, and
+  // applying it against a missing `atHeight` would silently treat 0 as the capture
+  // height — turning `100vh` into `y + 100vh`. Require the pair.
+  if (geo.viewportResponse) {
+    keyframes.forEach((kf, i) => {
+      if (kf.atHeight === undefined) {
+        errors.push({
+          path: `${path}/keyframes/${i}/atHeight`,
+          message: 'geometry.viewportResponse requires every keyframe to carry `atHeight`',
+        })
+      }
+    })
+  }
+  if (geo.anchor) {
+    for (const [k, v] of Object.entries({ startPx: geo.anchor.startPx, widthPx: geo.anchor.widthPx })) {
+      if (v !== undefined && !inRange(v, L1_ENVELOPE.geometryPx.min, L1_ENVELOPE.geometryPx.max)) {
+        errors.push({ path: `${path}/anchor/${k}`, message: `${k}=${v} out of range` })
+      }
+    }
+    for (const [k, v] of Object.entries({
+      startFraction: geo.anchor.startFraction,
+      widthFraction: geo.anchor.widthFraction,
+    })) {
+      if (v !== undefined && !inRange(v, -10, 10)) {
+        errors.push({ path: `${path}/anchor/${k}`, message: `${k}=${v} out of range [-10, 10]` })
+      }
+    }
+  }
 }
 
 /**
@@ -291,6 +323,15 @@ function walk(
     if (r.letterSpacingPx) checkScalarTrack(r.letterSpacingPx, widths, L1_ENVELOPE.lengthPx, `${path}/responsive/letterSpacingPx`, errors)
   }
 
+  // REQ-88 — per-width padding tracks take the same bounds as the static sides.
+  if (node.responsivePadding) {
+    const tracks = node.responsivePadding
+    for (const side of ['topPx', 'rightPx', 'bottomPx', 'leftPx'] as const) {
+      const track = tracks[side]
+      if (track) checkScalarTrack(track, widths, L1_ENVELOPE.paddingPx, `${path}/responsivePadding/${side}`, errors)
+    }
+  }
+
   if (node.kind === 'image' && !isSafeUrl(node.src)) {
     errors.push({
       path: `${path}/src`,
@@ -355,6 +396,25 @@ export function validateL1(input: unknown): Result<L1Document, ValidationError[]
       })
     }
   })
+
+  // REQ-88 — a column anchor is meaningless without the column it refers to, and
+  // silently falling back to the keyframes would hide the dangling reference
+  // behind geometry that merely looks plausible. Reject it instead.
+  if (!doc.column) {
+    const dangling: string[] = []
+    const scan = (node: L1Node, path: string): void => {
+      if (node.geometry?.anchor) dangling.push(path)
+      const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+      kids.forEach((c, i) => scan(c, `${path}/children/${i}`))
+    }
+    scan(doc.root, '/root')
+    for (const path of dangling) {
+      errors.push({
+        path: `${path}/geometry/anchor`,
+        message: 'geometry.anchor requires the document to declare a `column`',
+      })
+    }
+  }
 
   const counter = { n: 0 }
   walk(doc.root, doc.widths, '/root', 1, counter, errors)

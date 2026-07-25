@@ -8,7 +8,7 @@
  * The script is authored as a raw string, never a stringified TS function, so
  * the exact source below is what Chromium evaluates — no build step rewrites it.
  */
-import type { SurfaceShape } from './types'
+import type { Box, SurfaceShape } from './types'
 
 /**
  * REQ-47 — rendered element geometry, shape, structure and arrangement. Every
@@ -105,6 +105,8 @@ export interface RawRun extends RawGeometry {
   borderLeftWidthPx: number
   /** Left border colour `#rrggbb` when a left border is painted, else null. */
   borderLeftColor: string | null
+  /** REQ-88 — rect of the element painting the accent; null when the run paints its own. */
+  accentBox: Box | null
   paddingLeftPx: number
   /** REQ-64 — the other three padding sides (Type-A, authored). Only `paddingLeft`
    *  was captured before, so a wrong card/section top/right/bottom pad was invisible. */
@@ -521,6 +523,11 @@ export const EXTRACT_SCRIPT = `(() => {
   // a bar painted on a sibling backing box (an L1 reproduction) is found where the
   // reference paints it on a wrapper. Bounded to the 4 tightest surfaces, matching
   // the original walk depth: an accent belongs to the run's own card, not the page.
+  // REQ-88 (round 6): also returns the BEARING ELEMENT'S RECT. A border paints
+  // inside its own border box, so the bar's position is a property of the element
+  // that carries it, not of the run that sits inside it. Reporting only
+  // width+colour forced the fold to draw the accent on the run's box — indented by
+  // the wrapper's padding and overlapping the first glyph. See accentBox.
   function accentBarOf(el) {
     var chain = surfaceChainWithSelf(el);
     for (var i = 0; i < chain.length && i < 4; i++) {
@@ -530,10 +537,10 @@ export const EXTRACT_SCRIPT = `(() => {
       var st = cs.borderLeftStyle;
       if (w > 0 && st && st !== 'none') {
         var c = rgbToHex(cs.borderLeftColor);
-        if (c) return { width: w, color: c };
+        if (c) return { width: w, color: c, box: absBox(chain[i]), self: chain[i] === el };
       }
     }
-    return { width: 0, color: null };
+    return { width: 0, color: null, box: null, self: false };
   }
   // REQ-58 / REQ-63 — the element's own painted BOX border. Distinct from
   // accentBarOf (an asymmetric left-only accent bar): a form field's outline / a
@@ -936,6 +943,10 @@ export const EXTRACT_SCRIPT = `(() => {
         gradientCss: gradientCss,
         borderLeftWidthPx: blW,
         borderLeftColor: blColor,
+        // REQ-88 (round 6) — the rect of the element that paints the accent, so a
+        // reproduction can place the bar where the reference draws it rather than
+        // on the run it happens to sit beside. Null when the run paints its own.
+        accentBox: accent.self ? null : accent.box,
         // REQ-58 (item 3b) — card/panel fill behind the run (null when on the band).
         surfaceFill: surfaceFillOf(el),
         // REQ-62 — panel/card GRADIENT fill behind the run (null when the surface

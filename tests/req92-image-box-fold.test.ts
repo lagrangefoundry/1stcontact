@@ -126,11 +126,16 @@ describe('REQ-92 — image + surface (box) leaves fold into the L1 tree', () => 
     // No <img> in this capture — no image leaf may be faked.
     const images = childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'image')
     expect(images).toEqual([])
-    // BUG-11: text-run surfaces now fold to backing `box` leaves (id `surface-*`).
-    // A form control must NOT be among them — every box is a surface backing, never
-    // a faked control, and the controls remain typed field residuals.
+    // Text-run surfaces fold to painted `box` leaves. A form control must NOT be
+    // among them — every box is a reconstructed surface, never a faked control,
+    // and the controls remain typed field residuals.
+    //
+    // REQ-88 replaced BUG-11's per-run `surface-*` backing box with the section-band
+    // → card reconstruction, so the ids that express "this box is a surface" are now
+    // `section-band-*` / `card-*`. The property under test is unchanged; only the
+    // vocabulary for it moved, and this expectation had not followed.
     const boxes = childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'box')
-    for (const b of boxes) expect((b as { id?: string }).id).toMatch(/^surface-\d+$/)
+    for (const b of boxes) expect((b as { id?: string }).id).toMatch(/^(section-band|section-bg|card|surface)-\d+$/)
     expect(residuals.filter((r) => r.kind === 'field').length).toBeGreaterThan(0)
   })
 
