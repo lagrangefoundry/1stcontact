@@ -11,6 +11,7 @@ import type {
   l1BoxAxesSchema,
   l1BoxSchema,
   l1ColumnAnchorSchema,
+  l1ColumnTermSchema,
   l1ColumnSchema,
   l1ContainerSchema,
   l1DistributionSchema,
@@ -49,6 +50,7 @@ export type L1Geometry = z.infer<typeof l1GeometrySchema>
 export type L1ViewportResponse = z.infer<typeof l1ViewportResponseSchema>
 export type L1Column = z.infer<typeof l1ColumnSchema>
 export type L1ColumnAnchor = z.infer<typeof l1ColumnAnchorSchema>
+export type L1ColumnTerm = z.infer<typeof l1ColumnTermSchema>
 export type L1Sizing = z.infer<typeof l1SizingSchema>
 export type L1AxisSizing = z.infer<typeof l1AxisSizingSchema>
 export type L1Distribution = z.infer<typeof l1DistributionSchema>

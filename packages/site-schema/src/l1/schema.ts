@@ -55,6 +55,52 @@ export const l1KeyframeSchema = z
 /** Between two adjacent keyframes, either linearly interpolate or hold-then-snap. */
 export const l1SegmentSchema = z.enum(['interpolate', 'snap'])
 
+// ── Responsive scalar-axis tracks (BUG-18) ────────────────────────────────────
+//
+// Geometry is not the only property that varies with width: a text run's type
+// scales down at narrow widths (font-size 72→36, etc.). A responsive scalar
+// track keyframes a single numeric CSS property across the ladder exactly the way
+// geometry keyframes position — an axis that *does not* vary stays a plain scalar
+// in `axes` (don't bloat static axes into tracks).
+
+/** One responsive scalar keyframe: an axis value at a captured viewport width. */
+export const l1ScalarKeyframeSchema = z
+  .object({
+    at: finite.nonnegative(),
+    value: finite,
+  })
+  .strict()
+
+/**
+ * A responsive scalar-axis track: keyframes ascending by `at` plus an optional
+ * per-segment `interpolate|snap` flag (length `keyframes.length - 1`). Mirrors
+ * {@link l1GeometrySchema} for one numeric CSS property; absent segment flags
+ * default to `interpolate` (fluid), so type scales smoothly between the captured
+ * widths and hits each sampled width exactly.
+ */
+export const l1ScalarTrackSchema = z
+  .object({
+    keyframes: z.array(l1ScalarKeyframeSchema).min(1),
+    segments: z.array(l1SegmentSchema).optional(),
+  })
+  .strict()
+
+/**
+ * Per-axis responsive tracks for a text leaf (BUG-18). Only the numeric,
+ * interpolatable type axes that actually vary across the ladder get a track;
+ * every other axis stays single-valued in {@link l1TextAxesSchema}. When present,
+ * the track owns the axis at render time (base rule = smallest-width keyframe,
+ * media overrides above), while `axes.<name>` remains the representative
+ * (widest) value for non-responsive consumers.
+ */
+export const l1TextResponsiveSchema = z
+  .object({
+    fontSizePx: l1ScalarTrackSchema.optional(),
+    lineHeightPx: l1ScalarTrackSchema.optional(),
+    letterSpacingPx: l1ScalarTrackSchema.optional(),
+  })
+  .strict()
+
 // ── Viewport-relative extent (REQ-88 round 6) ─────────────────────────────────
 //
 // A keyframe track samples a *rule* at N widths and models everything between and
@@ -124,24 +170,60 @@ export const l1ColumnSchema = z
   .strict()
 
 /**
- * A node's placement within the document {@link l1ColumnSchema}, as an affine
- * function of the column's origin and extent:
+ * One axis expressed against the column: `px + fraction * extent`, optionally
+ * capped. The cap is what a nested `max-w-*` looks like — a run inside the column
+ * that fills it until its own narrower maximum takes over.
+ */
+export const l1ColumnTermSchema = z
+  .object({
+    px: finite.optional(),
+    fraction: finite.optional(),
+    /** Upper bound on the result (`min(maxPx, px + fraction * extent)`). */
+    maxPx: finite.positive().optional(),
+    /**
+     * A per-width track for the constant, superseding `px` — the offset *inside*
+     * the column, keyframed.
+     *
+     * Needed because a page changes layout MODE across the ladder: a 3-up grid
+     * stacks at mobile, and the hero title sits in a narrower gutter below `md`.
+     * No single affine function of the column covers both regimes, so those nodes
+     * would keep fully-absolute keyframes and drift away from their anchored
+     * neighbours exactly where the column origin starts moving.
+     *
+     * Tracking the *residual* rather than the absolute position is strictly
+     * better than keyframing `x`: the origin stays closed-form, so wherever the
+     * inset is locally constant (the whole desktop range) the node tracks the
+     * column exactly, and the interpolation that remains applies to a small local
+     * offset instead of the whole position.
+     */
+    pxTrack: l1ScalarTrackSchema.optional(),
+  })
+  .strict()
+
+/**
+ * A node's placement within the document {@link l1ColumnSchema}:
  *
- *   x     = origin + startPx + startFraction * extent
- *   width = widthPx + widthFraction * extent
+ *   x     = origin + x.px     + x.fraction     * extent
+ *   width =         width.px + width.fraction * extent   (capped by width.maxPx)
  *
- * A full-bleed column run is `{startPx: 0, widthFraction: 1}`; a quote inset by
- * its accent wrapper is `{startPx: 28, widthPx: -28, widthFraction: 1}`; column
- * *k* of a 3-up grid is `{startFraction: k/3, widthFraction: 1/3}` less its gap.
- * Present only when the fit reproduces every captured sample exactly — otherwise
- * the node keeps its keyframes and nothing is invented.
+ * **The two axes are independent, and that independence is load-bearing.** They
+ * were coupled at first — anchor both or neither — on the reasoning that the
+ * renderer takes them together. The result was worse than not anchoring at all:
+ * on the reference hero, one line's width happened to equal the column extent and
+ * the other three did not, so one line followed the column while its neighbours
+ * kept drifting keyframes. At 1150px they sat at 24px and 55.5px respectively —
+ * a 31px split in text the reference keeps flush.
+ *
+ * Alignment is a *shared* property; width is a private one. A node whose left edge
+ * follows the column must say so even when its width is its own business.
+ *
+ * Each axis is present only when its fit reproduces every captured sample;
+ * otherwise that axis keeps its keyframes and nothing is invented.
  */
 export const l1ColumnAnchorSchema = z
   .object({
-    startPx: finite.optional(),
-    startFraction: finite.optional(),
-    widthPx: finite.optional(),
-    widthFraction: finite.optional(),
+    x: l1ColumnTermSchema.optional(),
+    width: l1ColumnTermSchema.optional(),
   })
   .strict()
 
@@ -163,52 +245,6 @@ export const l1GeometrySchema = z
      * everything above it and has no closed form.
      */
     anchor: l1ColumnAnchorSchema.optional(),
-  })
-  .strict()
-
-// ── Responsive scalar-axis tracks (BUG-18) ────────────────────────────────────
-//
-// Geometry is not the only property that varies with width: a text run's type
-// scales down at narrow widths (font-size 72→36, etc.). A responsive scalar
-// track keyframes a single numeric CSS property across the ladder exactly the way
-// geometry keyframes position — an axis that *does not* vary stays a plain scalar
-// in `axes` (don't bloat static axes into tracks).
-
-/** One responsive scalar keyframe: an axis value at a captured viewport width. */
-export const l1ScalarKeyframeSchema = z
-  .object({
-    at: finite.nonnegative(),
-    value: finite,
-  })
-  .strict()
-
-/**
- * A responsive scalar-axis track: keyframes ascending by `at` plus an optional
- * per-segment `interpolate|snap` flag (length `keyframes.length - 1`). Mirrors
- * {@link l1GeometrySchema} for one numeric CSS property; absent segment flags
- * default to `interpolate` (fluid), so type scales smoothly between the captured
- * widths and hits each sampled width exactly.
- */
-export const l1ScalarTrackSchema = z
-  .object({
-    keyframes: z.array(l1ScalarKeyframeSchema).min(1),
-    segments: z.array(l1SegmentSchema).optional(),
-  })
-  .strict()
-
-/**
- * Per-axis responsive tracks for a text leaf (BUG-18). Only the numeric,
- * interpolatable type axes that actually vary across the ladder get a track;
- * every other axis stays single-valued in {@link l1TextAxesSchema}. When present,
- * the track owns the axis at render time (base rule = smallest-width keyframe,
- * media overrides above), while `axes.<name>` remains the representative
- * (widest) value for non-responsive consumers.
- */
-export const l1TextResponsiveSchema = z
-  .object({
-    fontSizePx: l1ScalarTrackSchema.optional(),
-    lineHeightPx: l1ScalarTrackSchema.optional(),
-    letterSpacingPx: l1ScalarTrackSchema.optional(),
   })
   .strict()
 

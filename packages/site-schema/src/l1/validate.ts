@@ -131,17 +131,20 @@ function checkGeometry(
     })
   }
   if (geo.anchor) {
-    for (const [k, v] of Object.entries({ startPx: geo.anchor.startPx, widthPx: geo.anchor.widthPx })) {
-      if (v !== undefined && !inRange(v, L1_ENVELOPE.geometryPx.min, L1_ENVELOPE.geometryPx.max)) {
-        errors.push({ path: `${path}/anchor/${k}`, message: `${k}=${v} out of range` })
-      }
+    if (!geo.anchor.x && !geo.anchor.width) {
+      errors.push({ path: `${path}/anchor`, message: 'geometry.anchor must govern at least one of `x` / `width`' })
     }
-    for (const [k, v] of Object.entries({
-      startFraction: geo.anchor.startFraction,
-      widthFraction: geo.anchor.widthFraction,
-    })) {
-      if (v !== undefined && !inRange(v, -10, 10)) {
-        errors.push({ path: `${path}/anchor/${k}`, message: `${k}=${v} out of range [-10, 10]` })
+    for (const axis of ['x', 'width'] as const) {
+      const term = geo.anchor[axis]
+      if (!term) continue
+      for (const k of ['px', 'maxPx'] as const) {
+        const v = term[k]
+        if (v !== undefined && !inRange(v, L1_ENVELOPE.geometryPx.min, L1_ENVELOPE.geometryPx.max)) {
+          errors.push({ path: `${path}/anchor/${axis}/${k}`, message: `${k}=${v} out of range` })
+        }
+      }
+      if (term.fraction !== undefined && !inRange(term.fraction, -10, 10)) {
+        errors.push({ path: `${path}/anchor/${axis}/fraction`, message: `fraction=${term.fraction} out of range [-10, 10]` })
       }
     }
   }
