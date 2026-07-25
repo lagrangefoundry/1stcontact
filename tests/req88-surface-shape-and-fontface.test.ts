@@ -164,6 +164,56 @@ describe('REQ-88 — a card takes the captured surface rect; a mirrored face bin
     expect(card!.axes?.borderRadiusPx).toBeUndefined()
   })
 
+  it('test_UAT_FC_REQ-88_a_text_box_is_never_narrower_than_its_own_glyph_extent', () => {
+    // A shrink-to-fit run's captured box IS its glyph extent, so any fractional
+    // width below .5 rounded DOWN to a box too small for its own text — and CSS
+    // answers that by wrapping. The reference's hero title measured 685.31 and was
+    // pinned at 685, reflowing onto a second line the reference never had.
+    const FRACTIONAL = [
+      { text: 'Gigabyte Alchemy', width: 685.31 },
+      { text: 'Sanctum Voice', width: 167.296875 },
+      { text: 'XGD (Extreme Generative Development)', width: 448.4375 },
+      { text: 'Intentional Software', width: 320.25 },
+    ]
+    const doc = foldToL1(
+      multiFrom((w) => [
+        band(w),
+        ...FRACTIONAL.map((f, i) => run(f.text, { x: 88, y: 100 + i * 120, width: f.width, height: 97 })),
+      ]),
+    )
+    const leaves = ((doc.root as { children?: unknown[] }).children ?? []) as Array<{
+      kind: string
+      text?: string
+      geometry: { keyframes: Array<{ at: number; width: number }> }
+    }>
+    for (const f of FRACTIONAL) {
+      const leaf = leaves.find((n) => n.kind === 'text' && n.text === f.text)
+      expect(leaf, `${f.text} must fold to a text leaf`).toBeDefined()
+      for (const kf of leaf!.geometry.keyframes) {
+        expect(kf.width, `${f.text} @${kf.at} must contain its own glyphs`).toBeGreaterThanOrEqual(f.width)
+      }
+      // ...and no wider than necessary — the smallest integer that still fits.
+      expect(leaf!.geometry.keyframes[0].width).toBe(Math.ceil(f.width))
+    }
+  })
+
+  it('test_UAT_FC_REQ-88_a_box_leaf_keeps_nearest_rounding', () => {
+    // Only text can reflow. A surface box has no such constraint, so it stays on
+    // nearest rounding and does not creep outward a pixel at a time.
+    const SURFACE = { x: 88, y: 2119, width: 896.4, height: 332.4 }
+    const doc = foldToL1(
+      multiFrom((w) => [
+        band(w),
+        onSurface('Panel title', { x: 124, y: 2151, width: 167, height: 32 }, SURFACE),
+        onSurface('Panel body', { x: 124, y: 2199, width: 828, height: 44 }, SURFACE),
+      ]),
+    )
+    const card = cards(doc).find((b) => b.axes?.surfaceFill === '#f8f5f2')
+    const kf = frameAt(card!, 1280)
+    expect(kf.width).toBe(896)
+    expect(kf.height).toBe(332)
+  })
+
   it('test_UAT_FC_REQ-88_a_face_file_table_joins_a_run_stack_on_its_primary_token', () => {
     // `buildTheme` receives the face table keyed by the bare `@font-face` name while
     // painted runs carry the full stack. Joining on the raw stack returned no files,
