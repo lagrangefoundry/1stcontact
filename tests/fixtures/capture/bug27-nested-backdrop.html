@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BUG-27 nested-backdrop capture fixture</title>
+    <style>
+      * { margin: 0; box-sizing: border-box; }
+      body { font-family: system-ui, sans-serif; color: #0f172a; background: #ffffff; }
+
+      /* ── A collapsed-but-painting header ───────────────────────────────────
+         Its children are absolutely positioned, so the <header>'s OWN in-flow
+         border box is 0px tall while it paints a full nav bar. The pre-BUG-27
+         band scan qualified a top-level child on its own height >= 8px, so this
+         whole subtree — logo and links — was dropped before extraction. */
+      header { position: relative; height: 0; }
+      header .bar { position: absolute; top: 20px; left: 0; width: 100%; height: 80px; }
+      header img { position: absolute; top: 30px; left: 20px; width: 200px; height: 60px; }
+      header nav { position: absolute; top: 45px; right: 20px; }
+      header nav a { margin-left: 24px; color: #ffffff; text-decoration: none; font-size: 18px; }
+
+      /* ── A nested hero backdrop ────────────────────────────────────────────
+         The photograph is a background-IMAGE on a nested element, layered over
+         its own black fill at opacity .49 (the veil that darkens it). Nothing
+         about this is visible to a scan that only reads a top-level band's own
+         background, which is why the page reproduced as flat colour. */
+      .hero { position: relative; height: 600px; }
+      .hero .backdrop {
+        position: absolute; inset: 0;
+        background-color: #000000;
+        background-image: url(hero.png);
+        background-size: cover;
+        background-position: center center;
+        background-repeat: no-repeat;
+        opacity: 0.49;
+      }
+      .hero h1 { position: relative; padding: 220px 0 0 40px; font-size: 56px; color: #ffffff; }
+
+      /* ── A nested full-bleed panel ─────────────────────────────────────────
+         Its fill is a real section background one level down. Before BUG-27 it
+         had to be INFERRED from the surfaces its runs sit on. */
+      .panel { background-color: #7a7a7a; padding: 48px 40px; }
+      .panel p { color: #ffffff; font-size: 20px; }
+
+      /* A narrower card: NOT full-bleed, so it must stay a card rather than
+         being indexed as a band. */
+      .card { width: 400px; margin: 24px auto; padding: 16px; background-color: #ece6dd; }
+
+      /* ── A full-bleed TRANSLUCENT scrim ────────────────────────────────────
+         A veil, not a band. `overlayOf` already records it as the band's
+         `overlay` axis, so the backdrop index must skip it — indexing it too
+         would paint it twice, and opaquely (a fill's alpha lives in the colour,
+         not in `opacity`), blacking out whatever it veils. */
+      .veiled { position: relative; height: 300px; background-color: #2f6f3f; }
+      .veiled .scrim { position: absolute; inset: 0; background-color: rgba(3, 7, 23, 0.3); }
+      .veiled p { position: relative; padding: 40px; color: #ffffff; font-size: 20px; }
+
+      /* ── A hidden off-screen block ─────────────────────────────────────────
+         The SEO-spam trick. It paints nothing on the page, so it must neither
+         become a band nor stretch one 33 million pixels wide. */
+      .offscreen { position: absolute; left: -33554430px; top: 0; width: 360px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="bar" style="background-color: #123456"></div>
+      <img src="logo.png" alt="Chef logo" />
+      <nav>
+        <a href="#a">Meet the Chef</a>
+        <a href="#b">Our Services</a>
+      </nav>
+    </header>
+
+    <div class="wrapper">
+      <section class="hero">
+        <div class="backdrop"></div>
+        <h1>Dreaming of healthier meals</h1>
+      </section>
+
+      <section class="panel">
+        <p>Busy families who may have multiple food restrictions.</p>
+        <div class="card"><p>A narrow card, not a band.</p></div>
+      </section>
+
+      <section class="veiled">
+        <div class="scrim"></div>
+        <p>Quote over a veiled panel.</p>
+      </section>
+    </div>
+
+    <div class="offscreen">
+      <p><a href="https://spam.example/x">https://spam.example/x</a></p>
+    </div>
+  </body>
+</html>
