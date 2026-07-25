@@ -342,21 +342,33 @@ export async function run(argv: string[]): Promise<void> {
         process.exitCode = 1
         return
       }
-      const { draftDir, nodeCount, copiedAssets, localizedAssets, unreferencedAssets } = cmdRepro(
-        slug,
-        { ...global, ref },
-      )
+      const { draftDir, nodeCount, copiedAssets, localizedAssets, unreferencedAssets, forms } =
+        cmdRepro(slug, { ...global, ref })
       // BUG-23 — an unreferenced mirrored asset is a fold gap (the bundle has the
       // bytes; no leaf points at them), so it is reported, not silently dropped.
       const gap = unreferencedAssets.length
         ? `\n  ⚠ ${unreferencedAssets.length} mirrored asset(s) referenced by no node (fold gap):` +
           unreferencedAssets.map((a) => `\n      ${a}`).join('')
         : ''
+      // REQ-93 — behaviours mounted into the page's L1 slots, and what the capture
+      // could not tell us about each (an endpoint it never saw, an input type it
+      // did not record). Surfaced so an honest default is never mistaken for a fact.
+      const mounted = forms.length
+        ? `\n  behaviours mounted: ${forms.length}` +
+          forms
+            .map(
+              (f) =>
+                `\n      ${f.behavior} → slot '${f.slot}' (${f.fields.length} field(s))` +
+                f.residuals.map((r) => `\n        ⚠ ${r}`).join(''),
+            )
+            .join('')
+        : ''
       console.log(
         `Reproduced ${ref} → ${draftDir}\n` +
-          `  raw-L1 home page: ${nodeCount} node(s)${copiedAssets ? '; assets copied' : ''}` +
+          `  L1 home page: ${nodeCount} node(s)${copiedAssets ? '; assets copied' : ''}` +
           `; ${localizedAssets} media handle(s) bound to local mirror` +
           gap +
+          mounted +
           `\n  next: 1c render ${slug}${global.sandbox ? ' --sandbox' : ''}  ·  1c l1-gate --ref ${ref}`,
       )
       return
@@ -384,6 +396,10 @@ export async function run(argv: string[]): Promise<void> {
             `  off-sample          ${mark(report.offSample.pass)}  (${findings(report.offSample)} envelope finding(s))\n` +
             `  content-robustness  ${mark(report.contentRobustness.pass)}  (${findings(report.contentRobustness)} finding(s))\n` +
             `  promoted regions: ${report.promoted.length ? report.promoted.join(', ') : 'none'}\n` +
+            // REQ-93 — behaviours recovered into slots. Reported beside the fold
+            // residuals because it is the same completeness question from the
+            // other side: what the page needs that raw L1 does not express.
+            `  behaviours mounted: ${report.forms.length ? report.forms.map((f) => `${f.behavior}@${f.slot}`).join(', ') : 'none'}\n` +
             `  fold residuals (folder-power gaps): ${report.foldResiduals.length}` +
             (report.foldResiduals.length
               ? '\n' +

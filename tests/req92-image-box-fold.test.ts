@@ -113,11 +113,17 @@ describe('REQ-92 — image + surface (box) leaves fold into the L1 tree', () => 
     expect(nonTextUnmatched).toEqual([])
   })
 
-  it('test_UAT_FC_REQ-92_form_controls_stay_residuals', () => {
+  it('test_UAT_FC_REQ-92_form_controls_never_become_l1_leaves', () => {
     // gigabytealchemy has only textless form controls (textboxes) — they must NOT
-    // be faked into leaves; they remain typed field residuals (behavior seam).
+    // be faked into leaves (a control belongs to a behavior module, DOC-25/26).
     // This holds for the stale bundle too (controls never needed the src plumbing),
     // so read it directly rather than gating on a fresh capture.
+    //
+    // REQ-93 supersedes the *destination*, not this rule: a control is no longer
+    // stranded as a `field` residual either — it is grouped into the form it
+    // belongs to and mounted at an L1 `slot`. The invariant under test is
+    // unchanged (no faked `<input>` leaf); where the control goes instead is
+    // asserted by the REQ-93 UATs.
     const p = path.join(process.cwd(), 'storage', 'references', 'gigabytealchemy.ai', 'index', 'multistate.json')
     if (!existsSync(p)) return
     const ms = JSON.parse(readFileSync(p, 'utf8')) as MultiStateCapture
@@ -136,7 +142,12 @@ describe('REQ-92 — image + surface (box) leaves fold into the L1 tree', () => 
     // vocabulary for it moved, and this expectation had not followed.
     const boxes = childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'box')
     for (const b of boxes) expect((b as { id?: string }).id).toMatch(/^(section-band|section-bg|card|surface)-\d+$/)
-    expect(residuals.filter((r) => r.kind === 'field').length).toBeGreaterThan(0)
+    // No `text` leaf was synthesized for a control's accessible name either.
+    const texts = childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'text')
+    for (const t of texts) expect((t as unknown as { text: string }).text.trim()).not.toBe('')
+    // REQ-93 — the controls left the residual list because they now have a home.
+    expect(residuals.filter((r) => r.kind === 'field')).toEqual([])
+    expect(childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'slot').length).toBeGreaterThan(0)
   })
 
   it('test_UAT_FC_REQ-92_image_fold_is_idempotent', () => {

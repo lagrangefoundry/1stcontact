@@ -4,8 +4,9 @@
  */
 import type { L1Document, L1FontFace } from '@1stcontact/site-schema'
 import { captureLadderScreenshots, captureStructuralHints, runCapturePipeline, runMultiStateCapture } from './pipeline'
-import { writeBundle, writeHints, writeL1, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
+import { writeBundle, writeForms, writeHints, writeL1, writeLadderScreenshots, writeMultiState, type BundleLocation } from './bundle'
 import { foldToL1 } from '../../l1/fold'
+import type { FoldedForm } from '../../l1/forms'
 import { primaryFamily } from './theme'
 import type { StructuralHints } from './hints'
 import type { BrowserDriverFactory, Capture, RenderEngine, ThemeFont } from './types'
@@ -83,8 +84,17 @@ export async function cmdCapturePage(url: string, opts: CapturePageOptions = {})
   // REQ-83 — fold the retained ladder into ONE L1 document (the reproduction
   // artifact), and read the advisory structural hints. `multistate.json` stays as
   // the acceptance oracle the folded doc renders and gates against.
-  const l1 = foldToL1(multiState, { fonts: fontResourcesFromTheme(result.capture.theme.fonts) })
+  //
+  // REQ-93 — the same fold recovers the page's behaviours: each captured form
+  // becomes a `slot` seam in the document plus a binding written beside it, so
+  // the two artifacts always agree about which seams exist.
+  const forms: FoldedForm[] = []
+  const l1 = foldToL1(multiState, {
+    fonts: fontResourcesFromTheme(result.capture.theme.fonts),
+    forms,
+  })
   writeL1(location.bundleDir, l1)
+  writeForms(location.bundleDir, forms)
   const hints = await captureStructuralHints(url, {
     driverFactory: opts.driverFactory,
   })

@@ -117,19 +117,18 @@ describe('REQ-92 — fold populates more of the L1 language + signals residuals'
       { residuals },
     )
 
-    // The document has ONLY the real text leaf — the text-free elements are not
-    // faked into leaves…
+    // No text-free element is faked into a text leaf — the only text leaf is the
+    // real run. (REQ-93: the control does gain a node, but a `slot` seam, never a
+    // synthesized `<input>`; the invariant under test is unchanged.)
     const leaves = doc.root.kind === 'box' ? (doc.root.children ?? []) : []
-    expect(leaves.map((n) => n.kind === 'text' && n.text)).toEqual(['Real Heading'])
+    expect(leaves.map((n) => (n.kind === 'text' ? n.text : n.kind))).toEqual(['Real Heading', 'slot'])
 
-    // …but they are SIGNALLED as typed residuals rather than silently dropped (B2).
+    // …and the image, which still has no L1 leaf, is SIGNALLED as a typed residual
+    // rather than silently dropped (B2).
     const image = residuals.find((r) => r.kind === 'image')
-    const field = residuals.find((r) => r.kind === 'field')
     expect(image).toBeDefined()
     expect(image?.capturedAxes).toEqual(expect.arrayContaining(['objectFit', 'intrinsicAspect']))
     expect(image?.widths).toEqual(LADDER)
-    expect(field).toBeDefined()
-    expect(field?.capturedAxes).toContain('accessibleName')
   })
 
   it('test_UAT_FC_REQ-92_drop_stays_silent_without_the_collector', () => {

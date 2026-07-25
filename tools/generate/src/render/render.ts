@@ -74,11 +74,11 @@ type Container = Awaited<ReturnType<typeof AstroContainerType.create>>
  * background/layer/motion/row/overlay-header composition is gone (its helpers
  * were deleted with the semantic layout modules).
  */
-async function renderModules(
+async function renderModuleInstances(
   container: Container | undefined,
   page: Page,
   resolveModule: ModuleResolver,
-): Promise<string> {
+): Promise<string[]> {
   const parts: string[] = []
   for (const m of page.modules) {
     // Unreachable in practice: renderSite creates the container whenever any page
@@ -95,7 +95,7 @@ async function renderModules(
     // target this instance.
     parts.push(stampEditHook(rendered, m.id, m.type))
   }
-  return parts.join('\n')
+  return parts
 }
 
 /** Build a complete HTML document for one page. */
@@ -108,11 +108,22 @@ async function renderPage(
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
   const ogImage = page.seoMeta?.ogImage
-  // A page is either a raw L1 document (a folded reproduction — REQ-88) or a
+  // The page body is either an L1 document (a folded reproduction — REQ-88) or a
   // behavior-module stack. The L1 render is self-contained (concrete values from
   // the fold); its css rides in a page-level <style> alongside the theme tokens.
-  const l1 = page.l1 ? renderL1Document(page.l1) : null
-  const body = l1 ? l1.html : await renderModules(container, page, resolveModule)
+  //
+  // REQ-93 — when the page carries both, the L1 document is still the single
+  // body and each module mounts into the `slot` it is bound to. Modules render
+  // first (async, through the Astro container) and are handed to the pure L1
+  // emitter as finished fragments; the page schema has already proved every
+  // binding resolves to exactly one existing slot.
+  const rendered = await renderModuleInstances(container, page, resolveModule)
+  const mounts: Record<string, string> = {}
+  page.modules.forEach((m, i) => {
+    if (m.slot) mounts[m.slot] = rendered[i]
+  })
+  const l1 = page.l1 ? renderL1Document(page.l1, { mounts }) : null
+  const body = l1 ? l1.html : rendered.join('\n')
 
   const head = [
     '<meta charset="utf-8" />',
@@ -187,11 +198,13 @@ export async function renderSite(
   const clientJs = getModuleClientJs()
   if (clientJs) writeText(path.join(outDir, 'capabilities.js'), `${clientJs}\n`)
 
-  // Astro is only needed to render behavior-module bands. A pure folded-L1
+  // Astro is only needed to render behavior modules. A pure folded-L1
   // reproduction (REQ-88) — or the empty starter — needs no container, so we
   // import `astro/container` and create the container only on demand. This keeps
-  // the L1 render path entirely Astro-free (REQ-89).
-  const needsAstro = site.pages.some((p) => !p.l1 && p.modules.length > 0)
+  // the L1 render path entirely Astro-free (REQ-89). A page that mounts a
+  // behaviour into an L1 slot (REQ-93) does need one, so the test is the presence
+  // of modules, not the absence of `l1`.
+  const needsAstro = site.pages.some((p) => p.modules.length > 0)
   let container: Container | undefined
   if (needsAstro) {
     const { experimental_AstroContainer } = await import('astro/container')

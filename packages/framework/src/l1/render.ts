@@ -520,6 +520,8 @@ interface RenderState {
   column?: L1Column
   /** REQ-88 — the ladder's smallest width; below it the base rule is in force. */
   minWidth?: number
+  /** REQ-93 — pre-rendered behavior-module HTML, keyed by the slot name it binds to. */
+  mounts?: Readonly<Record<string, string>>
 }
 
 function emitNode(node: L1Node, state: RenderState): string {
@@ -653,10 +655,18 @@ function emitNode(node: L1Node, state: RenderState): string {
       break
     }
     case 'slot': {
-      // Phase-D seam: an inert, labelled placeholder in B1.
+      // REQ-93 — the mount point for a behavior module bound to this seam. When a
+      // caller supplies the module's already-rendered fragment it becomes the
+      // slot's content (the page validator has already proved the binding
+      // resolves); with no mount it stays the inert, labelled placeholder.
+      //
+      // The fragment is framework-rendered markup, not instance data, so it is
+      // inserted verbatim — every instance value inside it already passed the
+      // module's own escaping/URL sinks on the way in.
+      const mounted = state.mounts?.[node.name] ?? ''
       html = `<div class="${cls}" data-l1-slot="${escapeHtml(node.name)}"${
         node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
-      }></div>`
+      }>${mounted}</div>`
       break
     }
     case 'box': {
@@ -782,9 +792,26 @@ export interface L1RenderResult {
   css: string
 }
 
+/** Options for {@link renderL1Document}. */
+export interface L1RenderOptions {
+  /**
+   * REQ-93 — behavior-module fragments to mount, keyed by the L1 `slot` name each
+   * is bound to. A slot with no entry renders as the inert placeholder. Rendering
+   * a module needs an async Astro container, which the pure L1 emitter must not
+   * own — so the caller renders first and hands the finished HTML in here.
+   */
+  mounts?: Readonly<Record<string, string>>
+}
+
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
-export function renderL1Document(doc: L1Document): L1RenderResult {
-  const state: RenderState = { n: 0, rules: [], column: doc.column, minWidth: Math.min(...doc.widths) }
+export function renderL1Document(doc: L1Document, opts: L1RenderOptions = {}): L1RenderResult {
+  const state: RenderState = {
+    n: 0,
+    rules: [],
+    column: doc.column,
+    minWidth: Math.min(...doc.widths),
+    mounts: opts.mounts,
+  }
   const body = emitNode(doc.root, state)
   const reset = [
     '*, *::before, *::after { box-sizing: border-box }',

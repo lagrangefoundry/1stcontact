@@ -43,11 +43,13 @@ import {
   type L1ScalarTrack,
   type L1Segment,
   type L1Shadow,
+  type L1Slot,
   type L1TextAxes,
   type L1TextResponsive,
   type L1ViewportResponse,
 } from '@1stcontact/site-schema'
 import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-diff'
+import { clusterControls, foldedFormFor, type ControlRow, type FoldedForm } from './forms'
 import {
   colorToHex,
   partitionProbes,
@@ -98,6 +100,14 @@ export interface FoldOptions {
    * gaps. Omitted → the fold still drops those elements, but no signal is kept.
    */
   residuals?: FoldResidual[]
+  /**
+   * REQ-93 — an out-collector for the behavior-module bindings the fold
+   * recovered. Every captured form becomes a `slot` node in the tree; the
+   * matching {@link FoldedForm} here carries the config a page needs to bind a
+   * `contact-form` instance to that slot. Omitted → the slots are still emitted
+   * (the layout is faithful either way), but nothing mounts into them.
+   */
+  forms?: FoldedForm[]
 }
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -1024,6 +1034,19 @@ function foldListMarker(v: string | null | undefined): L1TextAxes['listMarker'] 
   return LIST_MARKERS.has(t) ? (t as L1TextAxes['listMarker']) : undefined
 }
 
+/** The smallest rect containing both — a group's extent at one width (REQ-93). */
+function unionBox<T extends { x: number; y: number; width: number; height: number }>(a: T, b: T): T {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  return {
+    ...a,
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  }
+}
+
 /**
  * Classify the transition between two adjacent keyframes purely from geometry:
  *   - `snap`        — a reflow: the element jumps horizontally by more than a
@@ -1585,6 +1608,9 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // section-band → card → text reconstruction (replaces BUG-11's per-run backing
   // box, which produced a rectangle behind every paragraph).
   const surfaceRows: SurfaceRow[] = []
+  // REQ-93 — captured form controls, collected for the post-loop grouping into
+  // behavior-module slots (a control is never an L1 leaf; see below).
+  const controlRows: ControlRow[] = []
   for (const row of table.rows) {
     const present = row.cells.filter((c) => c.element)
     const sample = present[0]?.element
@@ -1794,10 +1820,22 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       continue
     }
 
-    // Form controls (inputs, buttons, Turnstile) belong to a behavior module
-    // (contact-form), not a raw L1 leaf (DOC-25/26) — signal, do not synthesize.
+    // Form controls (inputs, textareas, Turnstile) belong to a behavior module,
+    // not a raw L1 leaf (DOC-25/26) — so the fold never synthesizes an `<input>`.
+    //
+    // REQ-93 — but declining to fake one is not the same as dropping it. The
+    // controls are collected here and, after the loop, grouped into the forms
+    // they visibly belong to; each group becomes a `slot` node at its union rect
+    // that a `contact-form` instance mounts into. A control with no geometry at
+    // any width has nothing to mount at, so it stays a residual.
     if (sample.a11yRole && FORM_CONTROL_ROLES.has(sample.a11yRole)) {
-      signal(sample, 'form control belongs to a behavior module (contact-form), not a raw L1 leaf', presentWidths)
+      if (framed.length === 0) {
+        signal(sample, 'form control has no geometry at any sampled width — no slot to mount at', presentWidths)
+        continue
+      }
+      controlRows.push({
+        samples: framed.map((c) => ({ at: c.width, element: c.element!, box: c.element!.box! })),
+      })
       continue
     }
 
@@ -1900,7 +1938,49 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // everything: solid bands, then section-image bands, then cards, then content.
   const sectionBgNodes = foldSectionBackgrounds(projections, widths)
 
-  const root: L1Box = { kind: 'box', children: [...bandNodes, ...sectionBgNodes, ...cardNodes, ...children] }
+  // REQ-93 — the behaviour seams. Each cluster of captured controls is one form;
+  // its `slot` node is pinned at the cluster's union rect per width, so the
+  // mounted behaviour occupies exactly the space the reference gave the form.
+  // Emitted last so a mounted form paints above the surfaces behind it.
+  const slotNodes: L1Slot[] = []
+  clusterControls(controlRows).forEach((group, i) => {
+    const name = `form-${i}`
+    const byWidth = new Map<number, NonNullable<ValueElement['box']>>()
+    for (const row of group) {
+      for (const s of row.samples) {
+        const prev = byWidth.get(s.at)
+        byWidth.set(s.at, prev ? unionBox(prev, s.box) : s.box)
+      }
+    }
+    const keyframes: L1Keyframe[] = [...byWidth.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([at, box]) => {
+        const kf: L1Keyframe = {
+          at,
+          x: Math.round(box.x),
+          y: Math.round(box.y),
+          width: Math.round(box.width),
+          height: Math.round(box.height),
+        }
+        const h = heightAt.get(at)
+        if (h) kf.atHeight = h
+        return kf
+      })
+    const geometry: L1Geometry = { keyframes }
+    if (keyframes.length > 1) {
+      geometry.segments = keyframes.slice(1).map((kf, k) => segmentKind(keyframes[k], kf))
+    }
+    const node: L1Slot = { kind: 'slot', id: name, name, behavior: 'contact-form', geometry }
+    const vis = visibilityFor([...byWidth.keys()].sort((a, b) => a - b), widths)
+    if (vis) node.visibility = vis
+    slotNodes.push(node)
+    opts.forms?.push(foldedFormFor(name, group))
+  })
+
+  const root: L1Box = {
+    kind: 'box',
+    children: [...bandNodes, ...sectionBgNodes, ...cardNodes, ...children, ...slotNodes],
+  }
   const doc: L1Document = { widths, root }
   if (band) doc.background = band
   // REQ-88 — declared only when at least one node actually anchors to it, so an

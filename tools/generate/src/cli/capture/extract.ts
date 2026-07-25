@@ -157,6 +157,20 @@ export interface RawField extends RawGeometry {
   src?: string | null
   /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
   alt?: string | null
+  /**
+   * REQ-93 — a form control's authored input type (`email`, `tel`, `textarea`,
+   * …), else null. The a11y role flattens every single-line control to `textbox`,
+   * so this is the only signal that separates an email box from a phone box —
+   * exactly what a mounted `contact-form` needs to reproduce the control.
+   */
+  controlType?: string | null
+  /**
+   * REQ-93 — the enclosing `<form>`'s resolved `action`, else null. The endpoint
+   * is behavioural, not painted, so it is invisible to every geometry axis; with
+   * it a reproduction submits where the reference does, and without it the
+   * derivation records the gap rather than inventing one.
+   */
+  formAction?: string | null
 }
 
 /** A top-level style-scope band candidate (DOC-13 §2.7). */
@@ -1050,9 +1064,33 @@ export const EXTRACT_SCRIPT = `(() => {
         alt: isImg ? (el.alt || '') : null,
         accessibleName: an.name,
         nameSource: an.source,
+        // REQ-93 — the behavioural facts a mounted behavior module needs and no
+        // painted axis can hold: the control's authored input type (the a11y role
+        // flattens email/tel/text alike to 'textbox'), and the enclosing form's
+        // resolved action (its submission endpoint).
+        controlType: controlTypeOf(el),
+        formAction: formActionOf(el),
       });
     }
     return out;
+  }
+
+  // A control's authored input type: 'textarea'/'select' name themselves; an
+  // <input> reports its type attribute (defaulting to 'text'). null otherwise.
+  function controlTypeOf(el) {
+    var t = el.tagName.toLowerCase();
+    if (t === 'textarea' || t === 'select') return t;
+    if (t === 'input') return (el.getAttribute('type') || 'text').toLowerCase();
+    return null;
+  }
+  // The enclosing <form>'s submission endpoint, resolved against the document
+  // (el.form.action is already absolute). Empty/absent -> null.
+  function formActionOf(el) {
+    var form = el.form || (el.closest ? el.closest('form') : null);
+    if (!form) return null;
+    var raw = form.getAttribute('action');
+    if (raw == null || raw.trim() === '') return null;
+    return form.action || raw;
   }
 
   // Repeated sub-units within a band (cards): the first sibling group of >=2
