@@ -35,6 +35,7 @@ import type {
   InteractionState,
   NameSource,
   RenderEngine,
+  SurfaceShape,
   TextGradient,
   ThemeSubScale,
   ThemeSubScales,
@@ -125,6 +126,17 @@ export interface ValueElement {
   border?: BorderTreatment | null
   /** Computed `box-shadow` when a shadow is painted, else null. */
   boxShadow?: string | null
+  /**
+   * BUG-22 — the box that actually PAINTS the surface behind this run, and its
+   * shape. `self: true` on a conventional page (a `<button>` paints its own pill);
+   * `self: false` in an L1 reproduction, whose flat tree paints a control's
+   * surface on a sibling backing box while the label is its own text node. The
+   * pairing joins on text and therefore lands on the label, whose own
+   * `borderRadiusPx` reads 0 — so the diff resolves a split control's surface
+   * axes (and the surface's geometry) against this bearing node instead.
+   * Absent on pre-BUG-22 manifests, which keeps the resolution inert.
+   */
+  surface?: SurfaceShape | null
   /** ARIA role — the browser's framework-agnostic semantic label. */
   a11yRole?: string
   /** Rendered arrangement relative to the previous element in the section. */
@@ -664,6 +676,7 @@ function copyGeometry(
     borderColor?: string | null
     borderStyle?: string | null
     boxShadow?: string | null
+    surface?: SurfaceShape | null
     a11yRole?: string
     arrangement?: Arrangement | null
     zIndex?: number
@@ -703,6 +716,8 @@ function copyGeometry(
         : null
   }
   if (src.boxShadow !== undefined) el.boxShadow = src.boxShadow
+  // BUG-22 — the surface-bearing box behind the run (see {@link ValueElement.surface}).
+  if (src.surface !== undefined) el.surface = src.surface
   if (src.a11yRole !== undefined) el.a11yRole = src.a11yRole
   if (src.arrangement !== undefined) el.arrangement = src.arrangement
   if (src.zIndex !== undefined) el.zIndex = src.zIndex
@@ -1130,8 +1145,16 @@ const SUBSCALE_AXES: ReadonlyArray<{
  * badges rather than all body runs.
  */
 function isPillElement(el: ValueElement): boolean {
-  const h = el.box?.height ?? 0
-  return h > 0 && (el.borderRadiusPx ?? 0) * 2 >= h - 1
+  return isPillShape(el.box, el.borderRadiusPx)
+}
+
+/**
+ * The pill test at box + radius granularity, so it can be applied to a surface-
+ * bearing box that is not the element's own (BUG-22) as well as to the element.
+ */
+function isPillShape(box: Box | undefined, radiusPx: number | undefined): boolean {
+  const h = box?.height ?? 0
+  return h > 0 && (radiusPx ?? 0) * 2 >= h - 1
 }
 
 /** A badge-cohort element: a small, short-text, strongly-rounded body run. */
@@ -1935,9 +1958,39 @@ export function diffManifests(
         )
       }
     }
-    if (exp.borderRadiusPx !== undefined && act.borderRadiusPx !== undefined) {
-      const dr = Math.abs(exp.borderRadiusPx - act.borderRadiusPx)
-      const shadowDiffers = !!exp.boxShadow !== !!act.boxShadow
+    // BUG-22 — SPLIT CONTROL. The reference represents a control as ONE node: the
+    // `<button>` carries the label, the fill, the rounding and the box together.
+    // An L1 reproduction is a flat tree, so the same control is TWO nodes — a
+    // `text` node for the label plus a sibling backing box that paints the
+    // surface. Pairing joins on text and therefore lands on the label, whose own
+    // shape axes read 0: a phantom `radius 8px -> 0px` classified Type-A flat,
+    // which led the printed repair order with a no-op while the backing box's real
+    // geometry defect (2× the reference height) went unreported entirely.
+    //
+    // Resolve the surface axes against the node that BEARS the surface. `self`
+    // distinguishes the two representations, so this fires only where the sides
+    // genuinely disagree about node identity — a self-painting chip (BUG-20) is
+    // self on both sides and keeps the own-axis comparison untouched.
+    const surface = exp.surface?.self === true && act.surface && !act.surface.self ? act.surface : null
+    const actRadiusPx = surface ? surface.borderRadiusPx : act.borderRadiusPx
+    const actShadow = surface ? surface.boxShadow : act.boxShadow
+    // The backing box IS the control's painted rect, so its geometry is what the
+    // reference's control box must be compared against — the label's box carries
+    // only the glyphs. This is the axis the phantom was standing in front of.
+    if (surface && exp.box) {
+      const dpos = Math.max(Math.abs(exp.box.x - surface.box.x), Math.abs(exp.box.y - surface.box.y))
+      if (dpos > positionTol) {
+        push(exp, 'position', `surface ${posLabel(exp.box)}`, `surface ${posLabel(surface.box)}`, dpos)
+      }
+      const dw = Math.abs(exp.box.width - surface.box.width)
+      const dh = Math.abs(exp.box.height - surface.box.height)
+      if (dw > widthTol || dh > heightTol) {
+        push(exp, 'size', `surface ${sizeLabel(exp.box)}`, `surface ${sizeLabel(surface.box)}`, Math.max(dw, dh))
+      }
+    }
+    if (exp.borderRadiusPx !== undefined && actRadiusPx !== undefined) {
+      const dr = Math.abs(exp.borderRadiusPx - actRadiusPx)
+      const shadowDiffers = !!exp.boxShadow !== !!actShadow
       // BUG-20 — a fully-rounded pill's radius SATURATES: once it reaches half the
       // painted height every larger value paints the identical shape, so the raw
       // number is meaningless above that point (`rounded-full` computes to
@@ -1945,23 +1998,20 @@ export function diffManifests(
       // sentinel as a magnitude reported a defect where no pixel differs. When
       // BOTH sides are pills the shape agrees by construction — only the shadow
       // can still differ.
-      const bothPills = isPillElement(exp) && isPillElement(act)
+      const bothPills = isPillShape(exp.box, exp.borderRadiusPx) && isPillShape(surface?.box ?? act.box, actRadiusPx)
       if (bothPills ? shadowDiffers : dr > radiusTol || shadowDiffers) {
-        push(
-          exp,
-          'shape',
-          shapeLabel(exp.borderRadiusPx, exp.boxShadow),
-          shapeLabel(act.borderRadiusPx, act.boxShadow),
-          dr,
-        )
+        push(exp, 'shape', shapeLabel(exp.borderRadiusPx, exp.boxShadow), shapeLabel(actRadiusPx, actShadow), dr)
       }
     }
     // Uniform box border (blind spot) — a form field's outline / a card hairline.
     // Compare presence + width + colour, like borderLeft. Only when both sides
     // record the field (pre-blind-spot manifests omit `border`, so skip then).
-    if (exp.border !== undefined && act.border !== undefined) {
+    // BUG-22 — on a split control the hairline is painted by the backing box, so
+    // resolve it there rather than off the label (which paints none).
+    const actBorder = surface ? surface.border : act.border
+    if (exp.border !== undefined && actBorder !== undefined) {
       const e = exp.border
-      const a = act.border ?? null
+      const a = actBorder ?? null
       // REQ-63 — line style (dashed/dotted/solid) joins width + colour, but only
       // when BOTH sides captured one (a pre-REQ-63 side omits it) so it never
       // fabricates a delta against a bundle that never recorded the style.
