@@ -28,6 +28,7 @@ import {
 } from './edit'
 import { cmdCapturePage } from './capture'
 import { cmdRepro, cmdL1Gate } from './repro'
+import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
@@ -112,6 +113,24 @@ export type {
   RegionBox,
   CropOptions,
 } from './perceptual'
+export {
+  cmdGate,
+  referenceCoverage,
+  reconcileGates,
+  formatGateReport,
+  PERCEPTUAL_MEAN_FLOOR,
+  PERCEPTUAL_PCT_FLOOR,
+  SECTION_DENSITY_PX,
+} from './gate'
+export type {
+  GateOptions,
+  GateReport,
+  GateVerdict,
+  ReferenceCoverage,
+  CoverageFinding,
+  PerceptualFloor,
+  ReconcileInput,
+} from './gate'
 export { parseArgs } from './args'
 export { withCleanStdout } from './stdio'
 
@@ -141,6 +160,20 @@ L1 reproduction pipeline (REQ-88) — turn a capture bundle into a servable, gat
     The mechanical 3-probe acceptance gate: fold multistate.json → base, promoteToFlow → recovered,
     then sample-fidelity · off-sample · content-robustness. Exits non-zero while any probe fails;
     each residual names a framework gap (missing L1 axis / capture hint / region needing promotion).
+
+Cross-gate reconciliation (REQ-94) — run l1-gate + values-diff + perceptual diff and COMPARE them:
+  1c gate <slug> --ref <captureBundleDir> [--source draft|published] [--size mobile|tablet|desktop]
+          [--out <dir>] [--json] [--sandbox] [--mean-floor <0-255>] [--pct-floor <0-100>]
+  1c gate --ref <captureBundleDir> --actual-image <png> --actual-manifest <manifest.json> [--out <dir>] [--json]
+    l1-gate is blind to colour/font/media BY DESIGN and values-diff can only compare elements present in
+    BOTH manifests — so a page whose capture missed its imagery passes both while the perceptual eye reads
+    80% of pixels wrong. This verb makes that DISAGREEMENT the finding. A perceptual FLOOR fails the run
+    regardless of the value gates, and the verdict names the likely cause:
+      capture-incomplete       the reference manifest is impoverished vs the reference screenshot —
+                               fix the CAPTURE; value deltas against it are not yet evidence
+      reproduction-wrong       coverage is clean and both eyes agree — work the values-diff deltas
+      unexplained-disagreement nothing but pixels sees it — a pixel-moving axis the manifest lacks
+    Reference coverage (mirrored-vs-referenced images, page height per section) is reported every run.
 
 Screenshot primitive (REQ-13) — AI eyes; PNG of our own output or any URL:
   1c shot <slug> [--source draft|published] [--viewport mobile|tablet|desktop] [--out <file>] [--sandbox]
@@ -417,6 +450,51 @@ export async function run(argv: string[]): Promise<void> {
                 (report.foldResiduals.length > 10 ? `\n    … +${report.foldResiduals.length - 10} more` : '')
               : ''),
         )
+      }
+      if (!report.pass) process.exitCode = 1
+      return
+    }
+
+    case 'gate': {
+      // REQ-94 — the three gates run and are compared to each other. `--actual-image`
+      // / `--actual-manifest` are the same offline seams `diff` / `values-diff`
+      // expose, so the reconciliation is drivable without a headless browser.
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('gate requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const actualImagePath = typeof flags['actual-image'] === 'string' ? flags['actual-image'] : undefined
+      const actualManifestPath =
+        typeof flags['actual-manifest'] === 'string' ? flags['actual-manifest'] : undefined
+      const offline = Boolean(actualImagePath && actualManifestPath)
+      const slug = offline ? undefined : requireSlug(rest[0])
+      const source: RenderChannel = flags.source === 'published' ? 'published' : 'draft'
+      const floorFlag = (name: string): number | undefined => {
+        const v = flags[name]
+        if (typeof v !== 'string') return undefined
+        const n = Number(v)
+        if (Number.isNaN(n)) throw new Error(`--${name} expects a number, got '${v}'.`)
+        return n
+      }
+      const report = await withCleanStdout(() =>
+        cmdGate({
+          ...global,
+          slug,
+          source,
+          ref,
+          size: parseSize(flags.size),
+          actualImagePath,
+          actualManifestPath,
+          out: typeof flags.out === 'string' ? flags.out : undefined,
+          floor: { mean: floorFlag('mean-floor'), pct: floorFlag('pct-floor') },
+        }),
+      )
+      if (flags.json === true) {
+        console.log(JSON.stringify(report, null, 2))
+      } else {
+        console.log(formatGateReport(report, ref))
       }
       if (!report.pass) process.exitCode = 1
       return
