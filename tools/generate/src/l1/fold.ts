@@ -1116,7 +1116,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     const buildGeometry = (withHeight: boolean): L1Geometry => {
       const keyframes = framed.map((c) => {
         const box = c.element!.box!
-        const kf: L1Keyframe = { at: c.width, x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width) }
+        // REQ-88 — a text box rounds its width UP. A shrink-to-fit run's captured
+        // box IS its glyph extent (element width === renderedTextBox width), so
+        // rounding to nearest makes the box narrower than the text it must hold
+        // whenever the fraction is below .5 — and CSS answers that by wrapping.
+        // `Gigabyte Alchemy` measured 685.31 and was pinned at 685, so the hero
+        // title reflowed onto a second line the reference never had. Ceil is the
+        // smallest integer that still contains the measured content; a box/image
+        // leaf has no such constraint and stays on nearest.
+        const width = withHeight ? Math.round(box.width) : Math.ceil(box.width)
+        const kf: L1Keyframe = { at: c.width, x: Math.round(box.x), y: Math.round(box.y), width }
         if (withHeight && Number.isFinite(box.height)) kf.height = Math.round(box.height)
         return kf
       })
