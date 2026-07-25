@@ -8,6 +8,7 @@
  * The script is authored as a raw string, never a stringified TS function, so
  * the exact source below is what Chromium evaluates — no build step rewrites it.
  */
+import type { SurfaceShape } from './types'
 
 /**
  * REQ-47 — rendered element geometry, shape, structure and arrangement. Every
@@ -18,6 +19,14 @@
 export interface RawGeometry {
   /** `getBoundingClientRect()` in full-page document coords. */
   box: { x: number; y: number; width: number; height: number }
+  /**
+   * BUG-22 — the box that PAINTS the surface behind this element, with that box's
+   * shape (see {@link SurfaceShape}). `self: true` on a conventional page, where a
+   * control paints its own fill + rounding; `self: false` in an L1 reproduction,
+   * which paints a control's surface on a sibling backing box while the label is
+   * its own text node. Null when nothing paints behind the element.
+   */
+  surface?: SurfaceShape | null
   /** Largest computed corner radius in px (0 when square). */
   borderRadiusPx: number
   /** Uniform box-border width in px (0 when none painted) — the thickest painted side. */
@@ -611,6 +620,43 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     return null;
   }
+  // BUG-22 -- WHICH box paints the surface behind this run, and what shape is it.
+  //
+  // surfaceFillOf / surfaceGradientOf answer "what colour is behind the run" by
+  // compositing the chain. The surface's SHAPE (its rounding, shadow, border and
+  // box) lives on the single element that paints it, and which element that is
+  // differs between the two sides of a reproduction diff. A conventional page
+  // paints a control's fill + rounding on the run's OWN element (a <button>), so
+  // the run's own borderRadiusPx is the control's. An L1 reproduction is a flat
+  // tree: the label is its own text node and the fill is a sibling backing box, so
+  // the run's own radius reads 0 while the pixels are correct. Recording the
+  // painting element (tightest-first, as everywhere else) lets the diff resolve a
+  // control's surface axes against the box that bears them.
+  function surfaceOf(el) {
+    var chain = surfaceChainWithSelf(el);
+    for (var i = 0; i < chain.length; i++) {
+      var node = chain[i];
+      if (node === document.body || node === document.documentElement) break;
+      var cs = getComputedStyle(node);
+      var fill = rgbaOf(cs.backgroundColor);
+      var img = cs.backgroundImage || 'none';
+      if ((!fill || fill[3] <= 0) && (img === 'none' || img === '')) continue;
+      var b = boxBorderOf(cs);
+      var border = null;
+      if (b.width > 0 && b.color) {
+        border = { widthPx: b.width, color: b.color };
+        if (b.style) border.style = b.style;
+      }
+      return {
+        self: node === el,
+        box: absBox(node),
+        borderRadiusPx: borderRadiusOf(cs),
+        boxShadow: boxShadowOf(cs),
+        border: border
+      };
+    }
+    return null;
+  }
   // REQ-48 (item 2) -- effective paint order. z-index:auto (the default, and the
   // common case) resolves to 0; an explicit integer is the rendered stacking
   // value. This is the only field that separates a correctly-placed-but-wrongly-
@@ -863,6 +909,11 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-62 — panel/card GRADIENT fill behind the run (null when the surface
         // is a solid or the run sits on the band). Distinct from surfaceFill.
         surfaceGradientCss: surfaceGradientOf(el),
+        // BUG-22 — WHICH box paints that surface, and its shape. The self flag
+        // separates a control that paints its own pill from one whose pill is a
+        // sibling backing box (an L1 reproduction), so the diff never reads a
+        // control's rounding off its label.
+        surface: surfaceOf(el),
         paddingLeftPx: Math.round(parseFloat(s.paddingLeft)) || 0,
         // REQ-64 — the other three padding sides + normalized text-align (Type-A).
         paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,

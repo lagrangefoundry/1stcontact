@@ -110,6 +110,10 @@ function toContentRun(r: RawRun): ContentRun {
   // is present (even when it normalizes to null) so the diff's `surfaceGradient`
   // axis is active for fresh captures and catches a missing panel gradient.
   if (r.surfaceGradientCss !== undefined) run.surfaceGradient = normalizeGradient(r.surfaceGradientCss)
+  // BUG-22 — the box that PAINTS the surface (the run's own element, or a sibling
+  // backing box in an L1 reproduction) and its shape. Carried verbatim; the diff
+  // uses it to resolve a split control's surface axes against the bearing node.
+  if (r.surface !== undefined) run.surface = r.surface
   run.borderRadiusPx = r.borderRadiusPx
   run.boxShadow = r.boxShadow
   run.a11yRole = r.a11yRole

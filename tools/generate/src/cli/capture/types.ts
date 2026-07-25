@@ -264,6 +264,34 @@ export interface BorderTreatment {
   style?: string
 }
 
+/**
+ * BUG-22 — the painted surface a run sits on, as an *element* rather than as a
+ * colour. `surfaceFill`/`surfaceGradient` answer "what colour is behind this
+ * run"; this answers "which box paints it, and what shape is that box".
+ *
+ * The distinction is load-bearing because the two sides of a reproduction diff
+ * represent a control differently. A conventional page paints a button's fill,
+ * rounding and shadow on the run's OWN element (`<button class="rounded bg-…">`),
+ * so `self` is true and the shape axes duplicate the element's own. An L1
+ * reproduction is a flat tree: the label is a `text` node and its surface is a
+ * *sibling backing box*, so the run's own shape axes read 0 while the pixels are
+ * correct. Recording the surface-bearing node lets the diff compare like for
+ * like instead of reading a control's rounding off its label (see
+ * {@link ../values-diff}).
+ */
+export interface SurfaceShape {
+  /** True when the run's own element is the box that paints the surface. */
+  self: boolean
+  /** The surface-bearing box in full-page document coords. */
+  box: Box
+  /** Largest computed corner radius of the surface in px (0 when square). */
+  borderRadiusPx: number
+  /** Computed `box-shadow` of the surface when painted, else null. */
+  boxShadow: string | null
+  /** Uniform box border of the surface (thickest painted side), else null. */
+  border: BorderTreatment | null
+}
+
 /** REQ-47 — how an element sits relative to the previous element in its section. */
 export type Arrangement = 'row' | 'stack'
 
@@ -290,6 +318,12 @@ export interface ElementGeometry {
   borderStyle?: string | null
   /** Computed `box-shadow` when a shadow is painted, else null. */
   boxShadow?: string | null
+  /** BUG-22 — the box that actually PAINTS the surface behind this run (the run's
+   *  own element on a conventional page; a sibling backing box in an L1
+   *  reproduction), with that box's shape. Absent when nothing paints behind the
+   *  run, and on pre-BUG-22 bundles — so the diff's split-control resolution stays
+   *  inert rather than fabricating a delta. */
+  surface?: SurfaceShape | null
   /** REQ-63 — computed `backdrop-filter` (frosted-glass blur behind the element) when painted, else null. */
   backdropFilter?: string | null
   /** REQ-63 — computed `mix-blend-mode` when non-`normal`, else null. */
