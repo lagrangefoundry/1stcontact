@@ -54,6 +54,8 @@ export {
   fieldToElement,
   horizontalOverflows,
   unresolvedFonts,
+  HEIGHT_PROBE_VIEWPORTS,
+  partitionProbes,
   RESPONSIVE_VIEWPORTS,
 } from './values-diff'
 export type {
