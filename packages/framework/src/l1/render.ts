@@ -17,6 +17,7 @@ import type {
   L1Border,
   L1Column,
   L1ColumnAnchor,
+  L1ColumnTerm,
   L1Document,
   L1Geometry,
   L1Gradient,
@@ -338,19 +339,66 @@ function columnOriginCss(col: L1Column): string {
 function anchorDecls(anchor: L1ColumnAnchor, col: L1Column): string[] {
   const extent = columnExtentCss(col)
   const decls: string[] = []
-  const startPx = anchor.startPx ?? 0
-  const startFraction = anchor.startFraction ?? 0
-  const left = [columnOriginCss(col)]
-  if (startPx !== 0) left.push(`${num(startPx)}px`)
-  if (startFraction !== 0) left.push(`${num(startFraction)} * ${extent}`)
-  decls.push(`left: calc(${left.join(' + ')})`)
 
-  const widthPx = anchor.widthPx ?? 0
-  const widthFraction = anchor.widthFraction ?? 0
-  if (widthFraction === 0) decls.push(`width: ${num(widthPx)}px`)
-  else if (widthPx === 0 && widthFraction === 1) decls.push(`width: ${extent}`)
-  else decls.push(`width: calc(${num(widthPx)}px + ${num(widthFraction)} * ${extent})`)
+  /**
+   * `px + fraction * extent`, capped — as a CSS length expression.
+   *
+   * `needsCalc` is not an optimisation: `lead` is a compound expression
+   * (`max(…) + 24px`), so a sum containing it is only legal inside `calc()`.
+   * Emitting it bare produces an invalid declaration that the browser DROPS,
+   * which for `left` silently resolves to 0 and slams the node to the page edge.
+   */
+  const termCss = (term: L1ColumnTerm, lead?: string): string => {
+    const parts: string[] = lead ? [lead] : []
+    const px = term.px ?? 0
+    const fraction = term.fraction ?? 0
+    if (px !== 0) parts.push(`${num(px)}px`)
+    if (fraction !== 0) parts.push(fraction === 1 ? extent : `${num(fraction)} * ${extent}`)
+    if (parts.length === 0) parts.push('0px')
+    const needsCalc = parts.length > 1 || Boolean(lead)
+    const sum = needsCalc ? `calc(${parts.join(' + ')})` : parts[0]
+    return term.maxPx === undefined ? sum : `min(${num(term.maxPx)}px, ${sum})`
+  }
+
+  // A tracked constant is emitted per-breakpoint by the caller (it needs media
+  // rules); the static declaration is only for a term whose constant is constant.
+  if (anchor.x && !anchor.x.pxTrack) decls.push(`left: ${termCss(anchor.x, columnOriginCss(col))}`)
+  if (anchor.width && !anchor.width.pxTrack) decls.push(`width: ${termCss(anchor.width)}`)
   return decls
+}
+
+/**
+ * REQ-88 — `left`/`width` rules for an anchored axis whose constant is a per-width
+ * track: the column function stays closed-form and only the small inside-the-column
+ * offset is keyframed, so wherever that offset is locally constant (the whole
+ * desktop range) the node tracks the column exactly.
+ */
+function anchorTrackRules(
+  selector: string,
+  prop: 'left' | 'width',
+  term: L1ColumnTerm,
+  col: L1Column,
+): Rule[] {
+  const track = term.pxTrack!
+  const f = track.keyframes
+  const lead = prop === 'left' ? `${columnOriginCss(col)} + ` : ''
+  const fraction = term.fraction ?? 0
+  const tail = fraction === 0 ? '' : ` + ${fraction === 1 ? columnExtentCss(col) : `${num(fraction)} * ${columnExtentCss(col)}`}`
+  const wrap = (value: string): string => {
+    const expr = `calc(${lead}${value}${tail})`
+    return term.maxPx === undefined ? expr : `min(${num(term.maxPx)}px, ${expr})`
+  }
+  const rules: Rule[] = [{ selector, decls: [`${prop}: ${wrap(`${f[0].value}px`)}`] }]
+  for (let i = 0; i < f.length - 1; i++) {
+    const a = f[i]
+    const b = f[i + 1]
+    const seg = track.segments?.[i] ?? 'interpolate'
+    const value = seg === 'snap' ? `${a.value}px` : lerpCalc(a.value, a.at, b.value, b.at)
+    rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: [`${prop}: ${wrap(value)}`] })
+  }
+  const last = f[f.length - 1]
+  rules.push({ media: `(min-width: ${last.at}px)`, selector, decls: [`${prop}: ${wrap(`${last.value}px`)}`] })
+  return rules
 }
 
 /**
@@ -376,7 +424,11 @@ function viewportResponsive(base: string, factor: number, atHeight: number): str
 function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Rule[] {
   const frames = geo.keyframes
   const rules: Rule[] = []
-  const anchored = Boolean(geo.anchor && column)
+  // REQ-88 — suppression is PER AXIS: a node may take its left edge from the
+  // column while its width stays keyframed (see `l1ColumnAnchorSchema`).
+  const anchor = column ? geo.anchor : undefined
+  const anchoredX = Boolean(anchor?.x)
+  const anchoredWidth = Boolean(anchor?.width)
   const yF = geo.viewportResponse?.yFactor ?? 0
   const hF = geo.viewportResponse?.heightFactor ?? 0
 
@@ -384,7 +436,8 @@ function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Ru
   const decls = (kf: L1Geometry['keyframes'][number]): string[] => {
     const h = kf.atHeight
     const d: string[] = [`top: ${h ? viewportResponsive(`${kf.y}px`, yF, h) : `${kf.y}px`}`]
-    if (!anchored) d.push(`left: ${kf.x}px`, `width: ${kf.width}px`)
+    if (!anchoredX) d.push(`left: ${kf.x}px`)
+    if (!anchoredWidth) d.push(`width: ${kf.width}px`)
     if (kf.height !== undefined) {
       d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hF, h) : `${kf.height}px`}`)
     }
@@ -392,7 +445,9 @@ function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Ru
   }
 
   const staticDecls: string[] = ['position: absolute']
-  if (anchored) staticDecls.push(...anchorDecls(geo.anchor!, column!))
+  if (anchor) staticDecls.push(...anchorDecls(anchor, column!))
+  if (anchor?.x?.pxTrack) rules.push(...anchorTrackRules(selector, 'left', anchor.x, column!))
+  if (anchor?.width?.pxTrack) rules.push(...anchorTrackRules(selector, 'width', anchor.width, column!))
 
   // Base: the smallest-width keyframe held statically (covers below-ladder widths).
   rules.push({ selector, decls: [...staticDecls, ...decls(frames[0])] })
@@ -418,9 +473,8 @@ function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Ru
         return `calc(${base} + ${shift})`
       }
       const d = [`top: ${respond(lerpCalc(a.y, a.at, b.y, b.at), yF)}`]
-      if (!anchored) {
-        d.push(`left: ${lerpCalc(a.x, a.at, b.x, b.at)}`, `width: ${lerpCalc(a.width, a.at, b.width, b.at)}`)
-      }
+      if (!anchoredX) d.push(`left: ${lerpCalc(a.x, a.at, b.x, b.at)}`)
+      if (!anchoredWidth) d.push(`width: ${lerpCalc(a.width, a.at, b.width, b.at)}`)
       if (a.height !== undefined && b.height !== undefined) {
         d.push(`height: ${respond(lerpCalc(a.height, a.at, b.height, b.at), hF)}`)
       }
