@@ -163,7 +163,7 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     expect(() => cmdL1Gate({ cwd, ref })).toThrow(/re-capture/)
   })
 
-  it('test_UAT_FC_REQ-88_schema_page_l1_xor_modules', () => {
+  it('test_UAT_FC_REQ-88_schema_page_l1_admits_no_second_body', () => {
     const l1 = foldToL1(pinnedOracle())
     const base = {
       id: 'gigabyte',
@@ -185,7 +185,11 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     }
     expect(validateSite({ ...base, pages: [modulePage] }).ok).toBe(true)
 
-    // A page that is BOTH is rejected — the XOR.
+    // A page carrying an L1 document AND a module that claims to be a second page
+    // body is rejected. REQ-93 narrowed the rule from "never both" to "a module
+    // may accompany `l1` only when it is BOUND to a slot in that tree" — the XOR's
+    // real intent (no two competing page bodies) is what survives, and an UNBOUND
+    // module is exactly what that intent forbids.
     const bothPage = {
       id: 'home',
       slug: 'home',
@@ -196,7 +200,7 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     const both = validateSite({ ...base, pages: [bothPage] })
     expect(both.ok).toBe(false)
     if (!both.ok) {
-      expect(both.errors.some((e) => /not both/.test(e.message))).toBe(true)
+      expect(both.errors.some((e) => /must name the L1 slot it mounts into/.test(e.message))).toBe(true)
     }
   })
 })

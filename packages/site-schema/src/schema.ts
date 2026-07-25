@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { l1DocumentSchema, l1NodeSchema } from './l1/schema'
+import { l1DocumentSlotNames } from './l1/slots'
 
 /**
  * Zod schemas for 1st Contact site definitions.
@@ -494,6 +495,14 @@ export const moduleInstanceSchema = z
     // Named L1 presentation slots: a single L1 subtree, or an array for a
     // `repeated` slot (carousel slides). Every subtree re-enters the L1 envelope.
     slots: z.record(z.string(), z.union([l1NodeSchema, z.array(l1NodeSchema)])).optional(),
+    /**
+     * REQ-93 — the name of the `slot` node in the page's L1 tree this instance
+     * mounts into. Required on a page that carries `l1` (the L1 document is the
+     * single page body; a module joins it at a declared seam, never beside it);
+     * forbidden on a page that does not (there would be nothing to bind to).
+     * Enforced by {@link pageSchema}, which is where both halves are visible.
+     */
+    slot: z.string().min(1).optional(),
     // ── Pre-pivot reproduction fields ──────────────────────────────────────
     // The capture→dials reproduction engine still emits `variant`/`dials`/
     // `content`; the reframed behavior modules ignore them (REQ-85). Kept
@@ -520,13 +529,27 @@ export const moduleInstanceSchema = z
   .strict()
 
 /**
- * A page is one of two mutually-exclusive shapes (REQ-88):
+ * A page is one of two shapes:
  *   - a **behavior-module stack** — an ordered list of module instances, or
- *   - a **raw L1 page** — a single {@link l1DocumentSchema} the page *is*, the
- *     shape a captured reproduction folds to (there is no behavior module to host
- *     a pure-layout marketing page since the pivot).
- * `modules` defaults to `[]`; `l1` is optional; the superRefine enforces the XOR
- * (both empty is legal — the empty starter). The renderer branches on `l1`.
+ *   - an **L1 page** — a single {@link l1DocumentSchema} that *is* the page body,
+ *     the shape a captured reproduction folds to.
+ *
+ * REQ-88 made these mutually exclusive. REQ-93 narrows that: the rule protecting
+ * against *two competing page bodies* is not "never both" but
+ *
+ *   > modules may accompany `l1` when each is **bound by name to a `slot`
+ *   > present in the L1 tree**
+ *
+ * — which is exactly the composition DOC-25/26 describe (the L1 document stays
+ * the single body; behaviours mount *into* it at declared seams). A captured page
+ * is routinely 100% L1 layout plus one behaviour; under the old XOR the
+ * behavioural half of every such reproduction was permanently stranded.
+ *
+ * Binding is validated, never best-effort: an unbound module, a `slot` naming a
+ * seam that does not exist, an ambiguous (duplicated) seam, and a `slot` on a
+ * page with no L1 tree are each an error with a machine-readable path — the same
+ * principle as REQ-88's `anchor`-without-`column` check. `modules` defaults to
+ * `[]`; both empty is legal (the empty starter).
  */
 export const pageSchema = z
   .object({
@@ -538,11 +561,59 @@ export const pageSchema = z
     l1: l1DocumentSchema.optional(),
   })
   .superRefine((page, ctx) => {
-    if (page.l1 && page.modules.length > 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['l1'],
-        message: 'a page is either a module stack or a raw L1 document, not both',
+    if (!page.l1) {
+      // No page body to mount into — a `slot` here names nothing.
+      page.modules.forEach((m, i) => {
+        if (m.slot !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['modules', i, 'slot'],
+            message: `module '${m.id}' names slot '${m.slot}' but the page has no L1 document to mount into`,
+          })
+        }
+      })
+    } else {
+      const names = l1DocumentSlotNames(page.l1)
+      const duplicated = names.filter((n, i) => names.indexOf(n) !== i)
+      for (const name of new Set(duplicated)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['l1'],
+          message: `duplicate L1 slot name '${name}' — a mount point must be unambiguous`,
+        })
+      }
+      const available = new Set(names)
+      const bound = new Set<string>()
+      page.modules.forEach((m, i) => {
+        if (m.slot === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['modules', i, 'slot'],
+            message:
+              `module '${m.id}' must name the L1 slot it mounts into ` +
+              `(available: ${[...available].join(', ') || 'none'})`,
+          })
+          return
+        }
+        if (!available.has(m.slot)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['modules', i, 'slot'],
+            message:
+              `no slot named '${m.slot}' in the page's L1 tree ` +
+              `(available: ${[...available].join(', ') || 'none'})`,
+          })
+          return
+        }
+        if (bound.has(m.slot)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['modules', i, 'slot'],
+            message: `slot '${m.slot}' is bound by more than one module`,
+          })
+          return
+        }
+        bound.add(m.slot)
       })
     }
     const seen = new Set<string>()

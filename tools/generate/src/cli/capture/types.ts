@@ -401,6 +401,12 @@ export interface Field extends ElementGeometry {
   src?: string | null
   /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
   alt?: string | null
+  /** REQ-93 — a form control's authored input type (`email`/`tel`/`textarea`/…), else null.
+   *  The a11y role flattens every single-line control to `textbox`; this is what
+   *  separates them, and what a mounted behavior module reproduces the control from. */
+  controlType?: string | null
+  /** REQ-93 — the enclosing `<form>`'s resolved submission endpoint, else null. */
+  formAction?: string | null
 }
 
 export interface ContentRun extends ElementGeometry {

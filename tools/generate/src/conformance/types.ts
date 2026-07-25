@@ -81,6 +81,15 @@ export interface ConformanceOptions {
   xBrowserBackstop?: boolean
   /** Module version to pin the one-module page to (default from props, else `1`). */
   version?: number
+  /**
+   * REQ-93 — mount the instance into an L1 `slot` instead of rendering it as a
+   * bare page body. A captured page is L1 layout plus a behaviour bound to a seam
+   * inside it, so that is a *shipping* shape: the same universal ACs must hold for
+   * a mounted behaviour as for a standalone one (a form that overflows only once
+   * it is inside a pinned slot is still a violation). The wrapper is the minimum
+   * that makes the shape real — one full-width slot node, no styling of its own.
+   */
+  mountInL1?: boolean
   /** Keep the temp sandbox on failure for debugging (default `true`). */
   keepSandboxOnFailure?: boolean
 }

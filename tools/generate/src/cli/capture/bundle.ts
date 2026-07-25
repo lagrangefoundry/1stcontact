@@ -17,6 +17,7 @@ import type { L1Document } from '@1stcontact/site-schema'
 import type { MultiStateCapture } from './values-diff'
 import type { LadderScreenshot } from './pipeline'
 import type { StructuralHints } from './hints'
+import type { FoldedForm } from '../../l1/forms'
 import type { Capture, CaptureAsset, CaptureResult } from './types'
 
 export interface BundleLocation {
@@ -117,6 +118,37 @@ export function readL1(bundleDir: string): L1Document | null {
   const src = path.join(bundleDir, L1_FILE)
   if (!existsSync(src)) return null
   return JSON.parse(readFileSync(src, 'utf8')) as L1Document
+}
+
+/** REQ-93 — the recovered behavior-module bindings filename within a bundle. */
+const FORMS_FILE = 'forms.json'
+
+/**
+ * REQ-93 — persist the behavior-module bindings the fold recovered, beside the
+ * `l1.json` whose `slot` nodes they mount into.
+ *
+ * A separate artifact rather than a field on the document, because they are
+ * different kinds of fact: `l1.json` is the page body (pure presentation, under
+ * the L1 envelope), while these are *behavioural* config for modules the body
+ * merely reserves seams for. They are written by the same `foldToL1` call that
+ * emits those seams, so the two can never disagree about which slots exist.
+ */
+export function writeForms(bundleDir: string, forms: FoldedForm[]): string {
+  mkdirSync(bundleDir, { recursive: true })
+  const dest = path.join(bundleDir, FORMS_FILE)
+  writeFileSync(dest, JSON.stringify(forms, null, 2))
+  return dest
+}
+
+/**
+ * Read a bundle's `forms.json`, or `[]` when the bundle predates REQ-93 (or its
+ * page simply has no behaviours). Empty is the honest answer for both: the L1
+ * document then carries no slot to mount into either.
+ */
+export function readForms(bundleDir: string): FoldedForm[] {
+  const src = path.join(bundleDir, FORMS_FILE)
+  if (!existsSync(src)) return []
+  return JSON.parse(readFileSync(src, 'utf8')) as FoldedForm[]
 }
 
 /** REQ-83 — persist the advisory structural-hint sidecar alongside `capture.json`. */

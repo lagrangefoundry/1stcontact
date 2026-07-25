@@ -5,3 +5,5 @@
 export * from './schema'
 export * from './types'
 export { validateL1, isSafeUrl, L1_ENVELOPE } from './validate'
+// REQ-93 — the slot inventory a page's behavior modules bind against.
+export { l1SlotNames, l1DocumentSlotNames } from './slots'

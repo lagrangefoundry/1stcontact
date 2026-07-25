@@ -23,6 +23,7 @@ export type {
 export {
   registry,
   getModule,
+  latestModuleVersion,
   getModuleCss,
   getModuleClientJs,
   contactFormMeta,
@@ -90,4 +91,4 @@ export { BUILD_YEAR } from './buildInfo'
 
 // L1 layout substrate renderer (REQ-82) — the one safe emitter.
 export { renderL1Document, renderL1Page, renderL1Fragment } from './l1/render'
-export type { L1RenderResult, L1FragmentResult } from './l1/render'
+export type { L1RenderResult, L1FragmentResult, L1RenderOptions } from './l1/render'

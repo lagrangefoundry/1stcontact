@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { foldToL1, type FoldResidual } from '../tools/generate/src'
+import { foldToL1, type FoldedForm, type FoldResidual } from '../tools/generate/src'
 import { writeMultiState } from '../tools/generate/src/cli/capture/bundle'
 import { cmdL1Gate } from '../tools/generate/src/cli/repro'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
@@ -101,34 +101,39 @@ function bundleWith(multistate: MultiStateCapture): string {
 describe('BUG-6 — foldToL1 signals unexpressed elements instead of dropping them', () => {
   it('test_UAT_FC_BUG-6_no_element_silently_dropped', () => {
     // A capture mixing one real heading with a text-free image and a text-free
-    // field. The fold must emit ONLY the text leaf, but account for BOTH text-free
-    // elements as typed residuals — nothing vanishes without a trace.
+    // field. Every element must be accounted for — nothing vanishes without a
+    // trace. REQ-93 changed *where* the control is accounted for, not whether:
+    // it is no longer a residual, it is a `slot` seam with a bound behaviour.
     const residuals: FoldResidual[] = []
+    const forms: FoldedForm[] = []
     const doc = foldToL1(
       multiFromLadder((w) => [textEl(w, { text: 'Real Heading' }), imageEl(w), fieldEl()]),
-      { residuals },
+      { residuals, forms },
     )
 
     const leaves = doc.root.kind === 'box' ? (doc.root.children ?? []) : []
-    expect(leaves.map((n) => n.kind === 'text' && n.text)).toEqual(['Real Heading'])
+    expect(leaves.map((n) => (n.kind === 'text' ? n.text : n.kind))).toEqual(['Real Heading', 'slot'])
 
-    // Two text-free elements went in besides the heading → two typed residuals out.
-    expect(residuals).toHaveLength(2)
-    expect(residuals.map((r) => r.kind).sort()).toEqual(['field', 'image'])
+    // The image still has no L1 leaf → a typed residual. The control has a home.
+    expect(residuals.map((r) => r.kind)).toEqual(['image'])
+    expect(forms.map((f) => f.slot)).toEqual(['form-0'])
+    expect(forms[0].fields.map((f) => f.label)).toEqual(['Email'])
   })
 
   it('test_UAT_FC_BUG-6_every_unexpressed_kind_is_a_typed_residual', () => {
-    // image (media), field (control) and a geometry-less text run must each surface
-    // as a typed residual carrying a reason, its captured pixel-mover axes, and the
-    // widths it appeared at — the completeness signal, not an anonymous drop.
+    // image (media) and a geometry-less text run must each surface as a typed
+    // residual carrying a reason, its captured pixel-mover axes, and the widths it
+    // appeared at — the completeness signal, not an anonymous drop. (REQ-93: a
+    // control with geometry is no longer among them — it becomes a mounted seam.)
     const residuals: FoldResidual[] = []
     foldToL1(
       multiFromLadder((w) => [
         textEl(w, { text: 'Real Heading' }),
         imageEl(w),
-        fieldEl(),
         // present at every width but never boxed → no keyframes → no leaf.
         { text: 'Ghost Run', role: 'body', color: '#111111', fontFamily: 'Inter', fontSizePx: 18, fontWeight: 400 },
+        // a control with no box either — no seam to mount at, so still a residual.
+        { ...fieldEl(), box: undefined },
       ]),
       { residuals },
     )
@@ -138,6 +143,7 @@ describe('BUG-6 — foldToL1 signals unexpressed elements instead of dropping th
     const ghost = residuals.find((r) => r.kind === 'text')
     expect(image?.capturedAxes).toEqual(expect.arrayContaining(['objectFit', 'intrinsicAspect']))
     expect(field?.capturedAxes).toContain('accessibleName')
+    expect(field?.reason).toMatch(/no geometry/i)
     expect(ghost?.reason).toMatch(/geometry/i)
     // Every residual names a reason and the widths it spans — no bare entries.
     for (const r of residuals) {
