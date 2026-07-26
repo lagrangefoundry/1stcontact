@@ -11,7 +11,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 2).meta
+const carouselMeta = getModule('carousel', 3).meta
 import XssUrl from './fixtures/conformance/xss-url.astro'
 import XssHandler from './fixtures/conformance/xss-handler.astro'
 import CssBreakout from './fixtures/conformance/css-breakout.astro'

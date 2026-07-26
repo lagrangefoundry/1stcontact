@@ -2,27 +2,28 @@
 import type { L1Node } from '@1stcontact/site-schema'
 import { renderL1Fragment } from '../../l1/render'
 import { assertSafeUrl } from '../safety'
+import { contactFormControls, controlId, type ContactFormField } from './controls'
 
 /**
- * `contact-form` behavior (reframed REQ-85). The core renders a fully
- * functional, a11y-labelled `<form>` from `config` (action + field schema),
- * with the honeypot + Turnstile anti-spam surface and the no-JS post baseline;
- * `client.js` upgrades it to a JSON `fetch`. Decorative framing — an intro
- * heading/subhead, the submit button's look — is authored as L1 and mounted into
- * the `intro` / `submit` slots (never painted by the module).
+ * `contact-form` behavior (REQ-85; made layout-agnostic by construction in
+ * REQ-96).
+ *
+ * The core is purely behavioural: a real `<form method=post action=…>`, the
+ * programmatic label association, the honeypot + Turnstile anti-spam surface, and
+ * the JSON-`fetch` upgrade in `client.js`. **It paints nothing.** The form's whole
+ * presentation is the L1 subtree in the `form` slot; each control inside it is an
+ * L1 `control` node that the emitter renders as the element declared here
+ * (`controls.ts`), carrying L1's class, geometry and paint axes.
+ *
+ * The only CSS below belongs to the module's **invariant** elements (DOC-25
+ * §10.3) — presentation fixed by an obligation rather than by taste: a honeypot a
+ * designer must not be able to reveal, a programmatic label that must stay out of
+ * the visual flow, and the module's own wrapper chrome, which must contribute no
+ * layout of its own to the L1 it wraps.
  */
-interface FormField {
-  name: string
-  label: string
-  /** REQ-93 — how the reference labelled this control (see the CSS note below). */
-  labelMode?: 'visible' | 'placeholder'
-  type: 'text' | 'email' | 'tel' | 'textarea'
-  required: boolean
-}
-
 interface Props {
   config?: Record<string, unknown>
-  slots?: { intro?: L1Node; submit?: L1Node }
+  slots?: { form?: L1Node }
   instanceId?: string
 }
 
@@ -31,7 +32,7 @@ const { config = {}, slots = {}, instanceId = 'contact-form' } = Astro.props as 
 const action = typeof config.action === 'string' ? config.action : ''
 // Isolation (REQ-85): coerce the field schema defensively — a malformed entry is
 // dropped rather than throwing, keeping the page robust.
-const fields: FormField[] = Array.isArray(config.fields)
+const fields: ContactFormField[] = Array.isArray(config.fields)
   ? (config.fields as unknown[])
       .filter((f): f is Record<string, unknown> => !!f && typeof f === 'object')
       .map((f) => ({
@@ -40,20 +41,22 @@ const fields: FormField[] = Array.isArray(config.fields)
         labelMode: f.labelMode === 'placeholder' ? 'placeholder' : 'visible',
         type: (['text', 'email', 'tel', 'textarea'].includes(f.type as string)
           ? (f.type as string)
-          : 'text') as FormField['type'],
+          : 'text') as ContactFormField['type'],
         required: f.required === true,
       }))
       .filter((f) => f.name)
   : []
 const successMessage = typeof config.successMessage === 'string' ? config.successMessage : ''
+const submitLabel = typeof config.submitLabel === 'string' && config.submitLabel ? config.submitLabel : 'Send'
 
-// Mount the optional L1 slots (single subtrees). One namespace per slot per
-// instance so classes never collide.
-const introNode = slots.intro && typeof slots.intro === 'object' ? [slots.intro] : []
-const submitNode = slots.submit && typeof slots.submit === 'object' ? [slots.submit] : []
-const intro = renderL1Fragment(introNode, `${instanceId}-intro`)
-const submit = renderL1Fragment(submitNode, `${instanceId}-submit`)
-const slotCss = [intro.css, submit.css].filter(Boolean).join('\n')
+// The module's half of the control contract: which elements exist and what makes
+// them work. Handed to the emitter, which pairs each with the L1 node naming it.
+const controls = contactFormControls(fields, submitLabel)
+
+// The form's presentation, as one L1 subtree in its own class namespace so two
+// instances on a page never collide.
+const formNode = slots.form && typeof slots.form === 'object' ? [slots.form] : []
+const form = renderL1Fragment(formNode, `${instanceId}-form`, controls)
 
 // Honeypot: hidden from humans, tempting to bots. The server rejects any
 // submission where this is filled (wired in REQ-7).
@@ -62,60 +65,61 @@ const honeypotName = 'hp_company_url'
 
 <section class="contact-form">
   <div class="contact-form__inner" data-contact-form-root>
-    {intro.htmls[0] && <div class="contact-form__intro" set:html={intro.htmls[0]} />}
-
     <form class="contact-form__form" data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
+      {/*
+        Invariant — the programmatic label for every control, whatever the
+        reference rendered visually. A control's *visible* words (a label above
+        the box, or the placeholder inside it) are the reference's business: the
+        first is an L1 text run in the subtree below, the second is a
+        `placeholder` attribute the module sets from `labelMode`. This element is
+        neither: it is the accessible name, and it is not a designer's to move,
+        restyle, or remove.
+      */}
       {fields.map((field) => (
-        <div class="contact-form__field">
-          <label for={`cf-${field.name}`} class={field.labelMode === 'placeholder' ? 'contact-form__label--visually-hidden' : undefined}>{field.label}</label>
-          {field.type === 'textarea' ? (
-            <textarea id={`cf-${field.name}`} name={field.name} required={field.required} rows="5" placeholder={field.labelMode === 'placeholder' ? field.label : undefined}></textarea>
-          ) : (
-            <input id={`cf-${field.name}`} name={field.name} type={field.type} required={field.required} placeholder={field.labelMode === 'placeholder' ? field.label : undefined} />
-          )}
-        </div>
+        <label class="contact-form__label" data-fc-invariant for={controlId(field.name)}>{field.label}</label>
       ))}
 
-      {/* Honeypot — visually hidden, off the tab order, never autofilled. */}
-      <div class="contact-form__honeypot" aria-hidden="true">
+      {form.htmls[0] && <Fragment set:html={form.htmls[0]} />}
+
+      {/* Invariant — visually hidden, off the tab order, never autofilled. */}
+      <div class="contact-form__honeypot" data-fc-invariant aria-hidden="true">
         <label for={`cf-${honeypotName}`}>Leave this field empty</label>
         <input id={`cf-${honeypotName}`} name={honeypotName} type="text" tabindex="-1" autocomplete="off" />
       </div>
 
-      {/* Turnstile mounts here (script + token wired in REQ-7); degrades cleanly. */}
-      <div data-turnstile-target></div>
+      {/* Invariant — Turnstile mounts here (script + token wired in REQ-7). */}
+      <div class="contact-form__turnstile" data-fc-invariant data-turnstile-target></div>
 
-      <p class="contact-form__error" data-contact-error hidden></p>
-      <button class:list={['contact-form__submit', submit.htmls[0] && 'contact-form__submit--l1']} type="submit">
-        {submit.htmls[0] ? <Fragment set:html={submit.htmls[0]} /> : 'Send'}
-      </button>
+      {/* Invariant — the client enhancement's inline error surface. */}
+      <p class="contact-form__error" data-fc-invariant data-contact-error hidden></p>
     </form>
 
     {/* Client enhancement swaps the form for this on a successful submit. */}
     <template data-contact-success>{successMessage || 'Thanks — your message has been sent.'}</template>
   </div>
 
-  {slotCss && <style set:html={slotCss} />}
+  {form.css && <style set:html={form.css} />}
 </section>
 
 <style>
-  .contact-form__inner {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-  .contact-form__form { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
-  .contact-form__field { display: flex; flex-direction: column; gap: var(--space-2); }
-  .contact-form__field label { font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
   /*
-   * REQ-93 — a reference that labels its controls with a PLACEHOLDER (the a11y
-   * tree's `nameSource`) is reproduced by putting the text inside the box, not
-   * above it. The label element stays in the DOM and stays programmatically
-   * associated — the module's a11y obligation is not negotiable — but it is
-   * removed from the visual flow, which is also what stops each field being
-   * pushed down by a label row the reference never had.
+   * REQ-96 — every rule here belongs to an INVARIANT element: presentation fixed
+   * by an obligation, not by taste (DOC-25 §10.3). There is deliberately nothing
+   * about a field's surface, height, spacing or arrangement — all of that is the
+   * `form` slot's L1 subtree, and the module has no way to express it.
    */
-  .contact-form__label--visually-hidden {
+
+  /* The module's own chrome must contribute no layout to the L1 it wraps. */
+  .contact-form,
+  .contact-form__inner,
+  .contact-form__form { margin: 0; padding: 0; border: 0; }
+
+  /*
+   * The programmatic label: present and associated for assistive technology,
+   * removed from the visual flow so it neither paints nor displaces the L1
+   * layout. Obligation, not styling — which is why a designer cannot vary it.
+   */
+  .contact-form__label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -126,16 +130,6 @@ const honeypotName = 'hp_company_url'
     white-space: nowrap;
     border: 0;
   }
-  .contact-form__field input,
-  .contact-form__field textarea {
-    font: inherit;
-    padding: var(--space-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-    color: var(--color-text);
-  }
-  .contact-form__field textarea { resize: vertical; }
 
   /* Honeypot is removed from the visual + accessibility tree without display:none
      (some bots skip display:none fields). */
@@ -148,31 +142,10 @@ const honeypotName = 'hp_company_url'
     white-space: nowrap;
   }
 
-  .contact-form__error { margin: 0; color: var(--color-accent); font-size: var(--font-size-sm); }
+  /* The Turnstile mount sits where the widget expects it and takes no space
+     until the widget occupies it. */
+  .contact-form__turnstile { margin: 0; }
 
-  .contact-form__submit {
-    align-self: flex-start;
-    font: inherit;
-    padding: var(--space-3) var(--space-6);
-    border: 0;
-    border-radius: var(--radius-md);
-    font-weight: var(--font-weight-semibold);
-    cursor: pointer;
-    background: var(--color-primary);
-    color: var(--color-bg);
-  }
-
-  /*
-   * REQ-93 — when the `submit` slot is filled, the L1 subtree IS the button's
-   * look. The module's own paint must get out of its way entirely, or the
-   * authored chip renders nested inside a second, differently-coloured button.
-   * The element stays a real `<button>`: only its decoration is surrendered.
-   */
-  .contact-form__submit--l1 {
-    padding: 0;
-    background: none;
-    border-radius: 0;
-    color: inherit;
-    font-weight: inherit;
-  }
+  /* The inline error surface — shown only by the client enhancement. */
+  .contact-form__error { margin: 0; }
 </style>

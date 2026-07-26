@@ -28,17 +28,29 @@ function seedModules(cwd: string, slug: string): Array<{ id: string; type: strin
     {
       id: 'gallery',
       type: 'carousel',
-      version: 2,
-      config: { view: 'single' },
+      version: 3,
+      config: {},
       slots: { slide: [{ kind: 'text', text: 'A great experience.' }] },
     },
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 3,
+      version: 4,
       config: {
         action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+      },
+      // REQ-96 — the form's presentation is an L1 subtree with a control leaf
+      // per element; the module paints nothing of its own.
+      slots: {
+        form: {
+          kind: 'container',
+          layout: 'stack',
+          children: [
+            { kind: 'control', control: 'email' },
+            { kind: 'control', control: 'submit' },
+          ],
+        },
       },
     },
   ]

@@ -257,7 +257,9 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
     checkEffectLen(s.spreadPx, `${p}/spreadPx`, errors)
   }
 
-  if (node.kind === 'text' && node.axes) {
+  // REQ-96 — a `control` leaf carries the same text-axis bag as a `text` run
+  // (it is a styled, surface-painting leaf), so it takes the same bounds.
+  if ((node.kind === 'text' || node.kind === 'control') && node.axes) {
     shadow(node.axes.textShadow, `${path}/axes/textShadow`)
     // BUG-20 — a chip run's self-surface effects are bounded exactly like a box's.
     shadow(node.axes.boxShadow, `${path}/axes/boxShadow`)
@@ -294,7 +296,7 @@ function walk(
 
   if (node.geometry) checkGeometry(node.geometry, widths, `${path}/geometry`, errors)
 
-  if (node.kind === 'text' && node.axes) {
+  if ((node.kind === 'text' || node.kind === 'control') && node.axes) {
     const { fontSizePx, fontWeight, lineHeightPx, letterSpacingPx } = node.axes
     if (fontSizePx !== undefined && !inRange(fontSizePx, L1_ENVELOPE.fontSizePx.min, L1_ENVELOPE.fontSizePx.max)) {
       errors.push({
@@ -319,7 +321,7 @@ function walk(
   // BUG-18 — responsive scalar-axis tracks: each keyframe value bounded by its
   // axis range (font-size in the legible range; line-height / letter-spacing in
   // the length range), keyframes at captured widths, ascending.
-  if (node.kind === 'text' && node.responsive) {
+  if ((node.kind === 'text' || node.kind === 'control') && node.responsive) {
     const r = node.responsive
     if (r.fontSizePx) checkScalarTrack(r.fontSizePx, widths, L1_ENVELOPE.fontSizePx, `${path}/responsive/fontSizePx`, errors)
     if (r.lineHeightPx) checkScalarTrack(r.lineHeightPx, widths, L1_ENVELOPE.lengthPx, `${path}/responsive/lineHeightPx`, errors)

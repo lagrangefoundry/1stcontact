@@ -21,8 +21,8 @@ import ThrowsOnRender from './fixtures/conformance/throws-on-render.astro'
  * browser, so it always runs.
  */
 
-const carouselMeta = getModule('carousel', 2).meta
-const contactFormMeta = getModule('contact-form', 3).meta
+const carouselMeta = getModule('carousel', 3).meta
+const contactFormMeta = getModule('contact-form', 4).meta
 
 // A test-only catalog entry whose core throws during SSR (non-isolated).
 const brokenIsolation = (id: string): BehaviorDefinition['meta'] => ({
@@ -41,12 +41,12 @@ const resolveThrows: ModuleResolver = (type) => {
 /** Degenerate-but-schema-valid fixtures: wrong-typed config + missing/empty slots. */
 const carouselDegenerate: ConformanceFixture = {
   label: 'carousel-degenerate',
-  props: { version: 2, config: { view: 12345, controls: 'bogus' }, slots: {} },
+  props: { version: 3, config: { autoplay: 12345, loop: 'bogus' }, slots: {} },
 }
 const contactDegenerate: ConformanceFixture = {
   label: 'contact-degenerate',
   props: {
-    version: 3,
+    version: 4,
     config: { action: 'https://example.com/lead', fields: 'not-a-list' },
     slots: {},
   },

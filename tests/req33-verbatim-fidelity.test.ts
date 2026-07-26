@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { renderMarkdown, CALLOUT_CSS } from '../packages/framework/src/modules/markdown'
 import { TREATMENT_ROLE_DIAL } from '../packages/framework/src/modules/dials'
 import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens'
+import { renderL1Fragment } from '../packages/framework/src/l1/render'
 
 /**
  * UATs for REQ-33 — the *universal* framework-code fidelity corrections that
@@ -51,10 +52,20 @@ describe('REQ-33 verbatim punctuation — smartypants off (AC1)', () => {
 
 describe('REQ-33 contact-form submit inherits site type (AC2)', () => {
   it('test_UAT_FC_REQ-33_submit_button_inherits_font', () => {
-    const css = moduleSource('../packages/framework/src/modules/contact-form/index.astro')
     // `font: inherit` on the submit button — without it the <button> falls back
     // to the UA default (Arial 13px) instead of the site's font family/size.
-    expect(css).toMatch(/\.contact-form__submit\s*\{[^}]*font:\s*inherit/)
+    //
+    // REQ-96 moved this from the module's stylesheet to the L1 emitter: a control
+    // leaf is neutralised of UA chrome by the sole emitter, so EVERY module's
+    // controls inherit the site's type rather than each module remembering to say
+    // so. The guarantee is now structural instead of per-module discipline.
+    const { css } = renderL1Fragment(
+      [{ kind: 'control', control: 'submit' }],
+      'fc',
+      { submit: { tag: 'button', attrs: { type: 'submit' }, text: 'Send' } },
+    )
+    expect(css).toMatch(/font:\s*inherit/)
+    expect(css).toMatch(/appearance:\s*none/)
   })
 })
 

@@ -83,9 +83,9 @@ describe('@1stcontact/framework theme tokens', () => {
 
 describe('@1stcontact/framework module registry', () => {
   it('test_UAT_FC_REQ-4_registry_resolves_known_module', () => {
-    const def = getModule('carousel', 2)
+    const def = getModule('carousel', 3)
     expect(def.meta.id).toBe('carousel')
-    expect(def.meta.version).toBe(2)
+    expect(def.meta.version).toBe(3)
     expect(def.Component).toBeTypeOf('function')
   })
 

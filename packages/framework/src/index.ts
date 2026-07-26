@@ -45,7 +45,11 @@ export {
   validateModuleContent,
   validateBehaviorConfig,
   validateBehaviorSlots,
+  validateBehaviorControls,
   validateBehaviorInstance,
+  resolveControlNames,
+  contactFormControls,
+  controlId,
   ContentSafetyError,
   isUnsafeUrl,
   assertSafeUrl,
@@ -77,6 +81,8 @@ export type {
   BehaviorMeta,
   BehaviorConfigSpec,
   BehaviorConfigType,
+  BehaviorControlSpec,
+  ContactFormField,
   BehaviorSlotSpec,
   BehaviorSlotValue,
   BehaviorInstance,
@@ -91,4 +97,15 @@ export { BUILD_YEAR } from './buildInfo'
 
 // L1 layout substrate renderer (REQ-82) — the one safe emitter.
 export { renderL1Document, renderL1Page, renderL1Fragment } from './l1/render'
-export type { L1RenderResult, L1FragmentResult, L1RenderOptions } from './l1/render'
+export type {
+  L1RenderResult,
+  L1FragmentResult,
+  L1RenderOptions,
+  L1ControlElement,
+  L1ControlTag,
+} from './l1/render'
+
+// L2 — the optional library of vetted L1 designs (REQ-96): a default look a site
+// can drop into a behavior's slot when it has no capture to transcribe.
+export { contactFormPreset } from './l2/contact-form'
+export type { ContactFormPresetField, ContactFormPresetOptions } from './l2/contact-form'

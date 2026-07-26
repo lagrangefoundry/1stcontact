@@ -1,14 +1,16 @@
 ---
 import type { L1Node } from '@1stcontact/site-schema'
-import { renderL1Fragment } from '../../l1/render'
+import { renderL1Fragment, type L1ControlElement } from '../../l1/render'
 
 /**
- * `carousel` behavior (REQ-79, reframed REQ-85). The vetted core owns only
- * behaviour: a pure CSS `scroll-snap` track (swipeable with no JS), per-view
- * slide sizing, a decorative dots row, and an optional autoplay/loop wired by the
- * behavior's vetted client code (`client.js`, shipped as `capabilities.js` — no
- * per-module island script). Each slide's presentation is an **L1 subtree**
- * mounted into the repeated `slide` slot — the module never paints a slide.
+ * `carousel` behavior (REQ-79, reframed REQ-85; layout-agnostic by construction
+ * in REQ-96).
+ *
+ * The vetted core owns only behaviour: a pure CSS `scroll-snap` track (swipeable
+ * with no JS) and an optional autoplay/loop wired by `client.js`. Each slide's
+ * presentation is an **L1 subtree** mounted into the repeated `slide` slot, and
+ * each pagination dot is an L1 `control` node naming an element the module
+ * declares — so the module paints neither.
  *
  * Slot CSS is per-instance (geometry/colour vary by slide), so it is emitted as a
  * raw `<style>` in the body — self-closing in source, so `getModuleCss` (which
@@ -18,14 +20,12 @@ import { renderL1Fragment } from '../../l1/render'
  */
 interface Props {
   config?: Record<string, unknown>
-  slots?: { slide?: L1Node[] }
+  slots?: { slide?: L1Node[]; dots?: L1Node }
   instanceId?: string
 }
 
 const { config = {}, slots = {}, instanceId = 'carousel' } = Astro.props as Props
 
-const view = typeof config.view === 'string' ? config.view : 'single'
-const controls = config.controls === 'dots' ? 'dots' : 'none'
 const autoplay = config.autoplay === true
 const loop = config.loop === true
 
@@ -34,11 +34,31 @@ const loop = config.loop === true
 const slideNodes: L1Node[] = Array.isArray(slots.slide)
   ? slots.slide.filter((n): n is L1Node => !!n && typeof n === 'object')
   : []
-const { htmls: slideHtmls, css: slotCss } = renderL1Fragment(slideNodes, `${instanceId}-slide`)
+const { htmls: slideHtmls, css: slideCss } = renderL1Fragment(slideNodes, `${instanceId}-slide`)
+
+// REQ-96 — the module's half of the dot contract: one declared element per
+// mounted slide, carrying the behavioural markers `client.js` reads. What a dot
+// *looks* like is entirely the L1 node that names it.
+const dotControls: Record<string, L1ControlElement> = {}
+slideNodes.forEach((_, i) => {
+  dotControls[`dot-${i}`] = {
+    tag: 'span',
+    attrs: {
+      'data-carousel-dot': String(i),
+      'aria-hidden': 'true',
+      // The current-slide marker: a behavioural state no static L1 subtree can
+      // express, so the module owns it (and the one invariant rule below).
+      'data-carousel-current': i === 0 ? true : undefined,
+    },
+  }
+})
+const dotsNode = slots.dots && typeof slots.dots === 'object' ? [slots.dots] : []
+const dots = renderL1Fragment(dotsNode, `${instanceId}-dots`, dotControls)
+const slotCss = [slideCss, dots.css].filter(Boolean).join('\n')
 ---
 
 <section
-  class:list={['carousel', `view-${view}`, `controls-${controls}`]}
+  class="carousel"
   data-carousel
   data-carousel-autoplay={autoplay ? '' : undefined}
   data-carousel-loop={loop ? '' : undefined}
@@ -49,25 +69,25 @@ const { htmls: slideHtmls, css: slotCss } = renderL1Fragment(slideNodes, `${inst
     ))}
   </ul>
 
-  {controls === 'dots' && slideNodes.length > 1 && (
-    <div class="carousel__dots" aria-hidden="true">
-      {slideNodes.map((_, i) => (
-        <span class:list={['carousel__dot', i === 0 && 'is-active']} />
-      ))}
-    </div>
-  )}
+  {dots.htmls[0] && <Fragment set:html={dots.htmls[0]} />}
 
   {slotCss && <style set:html={slotCss} />}
 </section>
 
 <style>
+  /*
+   * REQ-96 — every rule here is behavioural mechanics or an invariant state
+   * signal. There is deliberately no `gap`, no `flex-basis`, and nothing about a
+   * dot's size or colour: a slide's width is its own L1 subtree's sizing, and a
+   * dot's look is the L1 control node naming it.
+   */
+
   /* The track — a pure CSS scroll-snap row: genuinely swipeable/scrollable, no JS. */
   .carousel__track {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
-    gap: var(--space-6);
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
@@ -76,31 +96,19 @@ const { htmls: slideHtmls, css: slotCss } = renderL1Fragment(slideNodes, `${inst
   }
   .carousel__track::-webkit-scrollbar { display: none; }
 
+  /* A slide is a snap target sized by its own content — never by a view dial. */
   .carousel__slide {
     scroll-snap-align: center;
-    flex: 0 0 100%;
+    flex: 0 0 auto;
     min-width: 0;
-    box-sizing: border-box;
-  }
-  /* Slides-per-view — behavioural scroll sizing (not an aesthetic dial). `single`
-     fills the view; `peek` leaves neighbours visible at the edges; `multi` fits
-     several per view from the md breakpoint up. */
-  .carousel.view-single .carousel__slide { flex-basis: 100%; }
-  .carousel.view-peek .carousel__slide { flex-basis: 85%; }
-  .carousel.view-multi .carousel__slide { flex-basis: 100%; }
-  @media (min-width: 768px) {
-    .carousel.view-peek .carousel__slide { flex-basis: 60%; }
-    .carousel.view-multi .carousel__slide { flex-basis: calc((100% - 2 * var(--space-6)) / 3); }
   }
 
-  /* Decorative pagination dots — an aria-hidden position indicator; the
-     scrollable track is the real affordance. */
-  .carousel__dots { display: flex; gap: var(--space-2); justify-content: center; margin-top: var(--space-4); }
-  .carousel__dot {
-    width: var(--space-2);
-    height: var(--space-2);
-    border-radius: var(--radius-full);
-    background: var(--color-border);
-  }
-  .carousel__dot.is-active { background: var(--color-accent); }
+  /*
+   * The one invariant state signal (DOC-25 §10.3): which slide is current must
+   * be discernible, and a static L1 subtree has no state axis to say it with.
+   * Opacity is the minimal, size- and colour-agnostic way to express it, so the
+   * dot's actual look stays entirely L1's.
+   */
+  [data-carousel-dot] { opacity: 0.4; }
+  [data-carousel-dot][data-carousel-current] { opacity: 1; }
 </style>

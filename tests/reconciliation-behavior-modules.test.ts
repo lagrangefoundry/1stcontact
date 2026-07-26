@@ -13,6 +13,7 @@ import {
   contactFormMeta,
   validateBehaviorConfig,
   validateBehaviorSlots,
+  validateBehaviorControls,
   validateBehaviorInstance,
 } from '../packages/framework/src/index'
 import type {
@@ -101,6 +102,14 @@ describe('story-179b8c06 — behavioural config validation', () => {
       slots: {},
       conformance: { obligations: ['isolation'] },
     } as const satisfies BehaviorMeta
+    const enumMeta = {
+      id: 'fc-enum',
+      version: 1,
+      kind: 'behavior',
+      config: { mode: { type: 'enum', required: false, values: ['single', 'multi'] } },
+      slots: {},
+      conformance: { obligations: ['isolation'] },
+    } as const satisfies BehaviorMeta
 
     // Each case seeds exactly ONE defect and expects exactly the matching
     // field-scoped violation (nothing more, nothing less).
@@ -115,8 +124,9 @@ describe('story-179b8c06 — behavioural config validation', () => {
       { meta: carouselMeta, config: { autoplay: 'yes' }, expected: ['config.autoplay'] },
       // Integer outside its inclusive min/max.
       { meta: intMeta, config: { count: 99 }, expected: ['config.count'] },
-      // Value outside a closed enum (carousel.view).
-      { meta: carouselMeta, config: { view: 'carousel' }, expected: ['config.view'] },
+      // Value outside a closed enum (REQ-96 removed carousel.view — the enum
+      // rule is unchanged, so a local meta carries the case now).
+      { meta: enumMeta, config: { mode: 'carousel' }, expected: ['config.mode'] },
       // List outside its inclusive item-count bounds (contact-form.fields, minItems 1).
       {
         meta: contactFormMeta,
@@ -145,8 +155,12 @@ describe('story-179b8c06 — slot presentation validated as L1 subtrees', () => 
   it('test_UAT_AC698_slots_validated_as_l1_subtrees', () => {
     // (a) Valid L1 subtrees → zero violations, single and repeated slots.
     expect(validateBehaviorSlots(carouselMeta, { slide: [textNode, textNode] })).toEqual([])
-    expect(validateBehaviorSlots(contactFormMeta, {})).toEqual([]) // both slots optional
-    expect(validateBehaviorSlots(contactFormMeta, { intro: textNode, submit: textNode })).toEqual([])
+    // REQ-96 — contact-form's slot surface is one REQUIRED `form` subtree: the
+    // form's whole presentation, control leaves included.
+    expect(validateBehaviorSlots(contactFormMeta, { form: textNode })).toEqual([])
+    expect(validateBehaviorSlots(contactFormMeta, {})).toEqual([
+      { field: 'slots.form', message: expect.stringContaining('required slot') },
+    ])
 
     // (b) The security line: non-L1 content (a raw-markup string / an arbitrary
     // object) in a slot is a slot-scoped "not a valid L1 subtree" violation.
@@ -158,10 +172,10 @@ describe('story-179b8c06 — slot presentation validated as L1 subtrees', () => 
     ).toBe(true)
 
     const rawInSingle = validateBehaviorSlots(contactFormMeta, {
-      intro: { foo: 'bar' } as unknown as typeof textNode,
+      form: { foo: 'bar' } as unknown as typeof textNode,
     })
     expect(
-      rawInSingle.some((e) => e.field === 'slots.intro' && /not a valid L1 subtree/.test(e.message)),
+      rawInSingle.some((e) => e.field === 'slots.form' && /not a valid L1 subtree/.test(e.message)),
     ).toBe(true)
 
     // (c) Missing REQUIRED slot is a violation; missing OPTIONAL slot is not.
@@ -177,9 +191,9 @@ describe('story-179b8c06 — slot presentation validated as L1 subtrees', () => 
     expect(over.some((e) => e.field === 'slots.slide' && /at most 20/.test(e.message))).toBe(true)
 
     // Array-vs-single mismatch, both directions.
-    const singleGivenArray = validateBehaviorSlots(contactFormMeta, { intro: [textNode] })
+    const singleGivenArray = validateBehaviorSlots(contactFormMeta, { form: [textNode] })
     expect(
-      singleGivenArray.some((e) => e.field === 'slots.intro' && /single L1 subtree/.test(e.message)),
+      singleGivenArray.some((e) => e.field === 'slots.form' && /single L1 subtree/.test(e.message)),
     ).toBe(true)
     const repeatedGivenSingle = validateBehaviorSlots(carouselMeta, { slide: textNode })
     expect(
@@ -189,7 +203,7 @@ describe('story-179b8c06 — slot presentation validated as L1 subtrees', () => 
     // Validating a whole instance reports the UNION of config + slot violations.
     const union = validateBehaviorInstance(contactFormMeta, {
       config: {},
-      slots: { intro: [textNode] },
+      slots: { form: [textNode] },
     })
     expect(union.some((e) => e.field.startsWith('config.'))).toBe(true)
     expect(union.some((e) => e.field.startsWith('slots.'))).toBe(true)
@@ -212,7 +226,7 @@ describe('story-179b8c06 — carousel L1 slide track', () => {
   ]
 
   it('test_UAT_AC699_carousel_renders_l1_slide_track_from_config', async () => {
-    const html = await renderCarousel({ config: { view: 'single' }, slots: { slide: slides } })
+    const html = await renderCarousel({ config: {}, slots: { slide: slides } })
     // A pure-CSS scroll-snap track (the swipeable, no-JS affordance)...
     expect(html).toMatch(/carousel__track/)
     // ...with one slide element per supplied L1 subtree, each a named slot mount...
@@ -221,36 +235,39 @@ describe('story-179b8c06 — carousel L1 slide track', () => {
     expect(html).toContain('Chef Sarah transformed our weekly meals.')
     expect(html).toContain('The postpartum service was a lifesaver.')
 
-    // `view` drives per-view slide sizing via the section class.
-    expect(html).toMatch(/class="carousel [^"]*\bview-single\b/)
-    const multi = await renderCarousel({ config: { view: 'multi' }, slots: { slide: slides } })
-    expect(multi).toMatch(/class="carousel [^"]*\bview-multi\b/)
-    const peek = await renderCarousel({ config: { view: 'peek' }, slots: { slide: slides } })
-    expect(peek).toMatch(/class="carousel [^"]*\bview-peek\b/)
+    // REQ-96 — the module emits NO slide sizing: a slide's width is its own L1
+    // subtree's, so there is no `view` class and no `flex-basis` to inspect.
+    expect(html).not.toMatch(/view-single|view-peek|view-multi/)
 
-    // `controls: dots` emits one decorative marker per slide; `none` emits none.
-    const dots = await renderCarousel({ config: { controls: 'dots' }, slots: { slide: slides } })
-    expect(dots).toMatch(/carousel__dots[^>]*aria-hidden="true"/)
-    expect(dots.match(/class="carousel__dot[" ]/g)?.length).toBe(2)
-    const none = await renderCarousel({ config: { controls: 'none' }, slots: { slide: slides } })
-    expect(none).not.toMatch(/carousel__dots/)
-
-    // Dots are decorative chrome for a real multi-slide track: a single slide
-    // gets none.
-    const oneSlide = await renderCarousel({
-      config: { controls: 'dots' },
-      slots: { slide: [slides[0]] },
+    // Pagination dots are L1 control leaves in the `dots` slot; the module
+    // supplies only the behavioural markers its client.js reads.
+    const dots = await renderCarousel({
+      config: {},
+      slots: {
+        slide: slides,
+        dots: {
+          kind: 'container',
+          layout: 'row',
+          children: [
+            { kind: 'control', control: 'dot-0' },
+            { kind: 'control', control: 'dot-1' },
+          ],
+        },
+      },
     })
-    expect(oneSlide).not.toMatch(/carousel__dots/)
+    expect(dots.match(/data-carousel-dot="\d"/g)?.length).toBe(2)
+    expect(dots).toMatch(/data-carousel-current/)
+    // No `dots` slot → no indicator; the scrollable track is the affordance.
+    expect(html).not.toMatch(/data-carousel-dot/)
 
-    // The contract exposes ONLY behavioural config + the `slide` slot — no
+    // The contract exposes ONLY behavioural config + presentation slots — no
     // aesthetic dial produces the slide look.
     const meta = carouselMeta as Record<string, unknown>
     expect(meta.dials).toBeUndefined()
     expect(meta.variants).toBeUndefined()
     expect(meta.contentSchema).toBeUndefined()
-    expect(Object.keys(carouselMeta.config).sort()).toEqual(['autoplay', 'controls', 'loop', 'view'])
-    expect(Object.keys(carouselMeta.slots)).toEqual(['slide'])
+    expect(Object.keys(carouselMeta.config).sort()).toEqual(['autoplay', 'loop'])
+    expect(Object.keys(carouselMeta.slots)).toEqual(['slide', 'dots'])
   })
 })
 
@@ -371,9 +388,9 @@ describe('story-179b8c06 — carousel autoplay/loop client behaviour', () => {
 })
 
 // ════════════════════════════════════════════════════════════════════════════
-// AC-701 — Contact-form renders a functional form with L1-authored intro/submit
+// AC-701 — Contact-form renders a functional form whose controls are L1 leaves
 // ════════════════════════════════════════════════════════════════════════════
-describe('story-179b8c06 — contact-form functional render + L1 slots', () => {
+describe('story-179b8c06 — contact-form functional render + L1 controls', () => {
   const config = {
     action: 'https://example.com/submit',
     fields: [
@@ -383,47 +400,71 @@ describe('story-179b8c06 — contact-form functional render + L1 slots', () => {
     ],
   }
 
-  it('test_UAT_AC701_contact_form_renders_functional_form_with_l1_slots', async () => {
-    const html = await renderContactForm({ config, slots: {} })
+  /** The form's presentation: one L1 `control` leaf per element the module declares. */
+  const formSlot = {
+    kind: 'container',
+    layout: 'stack',
+    gapPx: 16,
+    children: [
+      { kind: 'control', control: 'name' },
+      { kind: 'control', control: 'email' },
+      { kind: 'control', control: 'message' },
+      { kind: 'control', control: 'submit', axes: { surfaceFill: '#0f172b', color: '#ffffff' } },
+    ],
+  }
+
+  it('test_UAT_AC701_contact_form_renders_functional_form_with_l1_controls', async () => {
+    const html = await renderContactForm({ config, slots: { form: formSlot } })
 
     // A real no-JS post form pointing at the configured (safe) endpoint.
     expect(html).toMatch(/<form[^>]*data-contact-form[^>]*method="post"/)
     expect(html).toContain('action="https://example.com/submit"')
 
-    // One labelled control per configured field, with the right input type and
-    // required flag; a `textarea` for the textarea field.
-    expect(html).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
+    // One control per configured field, carrying the module's attribute bundle:
+    // the right input type and required flag, and a `textarea` for the multi-line
+    // field. The class on each is L1's, never the module's.
     expect(html).toMatch(/<input[^>]*id="cf-name"[^>]*type="text"[^>]*required/)
-    expect(html).toMatch(/<label[^>]*for="cf-email"[^>]*>Email<\/label>/)
-    // email field is not required — no `required` attr on its input.
     expect(html).toMatch(/<input[^>]*id="cf-email"[^>]*type="email"(?![^>]*required)[^>]*>/)
-    expect(html).toMatch(/<label[^>]*for="cf-message"[^>]*>Message<\/label>/)
     expect(html).toMatch(/<textarea[^>]*id="cf-message"[^>]*required/)
+    // …and the paint comes from the L1 node, not from a module stylesheet.
+    expect(html).toMatch(/background-color: #0f172b/)
+
+    // The programmatic label stays in the core — an a11y obligation, not styling —
+    // and is marked invariant so a reproduction gate never pairs against it.
+    expect(html).toMatch(/<label[^>]*data-fc-invariant[^>]*for="cf-name"[^>]*>Your name<\/label>/)
+    expect(html).toMatch(/for="cf-email"[^>]*>Email<\/label>/)
+    expect(html).toMatch(/for="cf-message"[^>]*>Message<\/label>/)
 
     // The anti-spam surface: a visually-hidden, off-tab-order honeypot + a
-    // Turnstile mount point.
-    expect(html).toMatch(/contact-form__honeypot/)
+    // Turnstile mount point, both invariant.
+    expect(html).toMatch(/contact-form__honeypot[^>]*data-fc-invariant/)
     expect(html).toMatch(/name="hp_company_url"[^>]*tabindex="-1"/)
     expect(html).toMatch(/data-turnstile-target/)
 
-    // Absent slots → a plain functional intro/button baseline.
-    expect(html).not.toMatch(/contact-form__intro/)
-    expect(html).toMatch(/<button[^>]*class="contact-form__submit"[^>]*>\s*Send\s*<\/button>/)
+    // REQ-96 — the module paints NO control of its own: no default button, no
+    // field chrome class. An unauthored form is an empty form, loudly.
+    expect(html).not.toMatch(/contact-form__submit/)
+    expect(html).not.toMatch(/contact-form__field/)
+    const unauthored = await renderContactForm({ config, slots: {} })
+    expect(unauthored).not.toMatch(/<input[^>]*id="cf-name"/)
+    expect(unauthored).not.toMatch(/<button/)
+  })
 
-    // Supplied L1 slots appear: intro renders above the fields; submit dresses
-    // the button. Field labels remain in the core (not a slot).
-    const withSlots = await renderContactForm({
+  it('test_UAT_FC_REQ-96_a_control_node_binds_only_to_a_declared_element', () => {
+    // The check the slot-only contract could not express: a control naming an
+    // element no behavior declares renders nothing, so it must fail validation
+    // rather than silently drop a field the author believed they had placed.
+    const bogus = validateBehaviorControls(contactFormMeta, {
       config,
       slots: {
-        intro: { kind: 'text', text: 'Get in touch with our team' },
-        submit: { kind: 'text', text: 'Send message' },
+        form: { kind: 'container', layout: 'stack', children: [{ kind: 'control', control: 'phone' }] },
       },
     })
-    expect(withSlots).toMatch(/contact-form__intro/)
-    expect(withSlots).toContain('Get in touch with our team')
-    expect(withSlots).toContain('Send message')
-    expect(withSlots.indexOf('contact-form__intro')).toBeLessThan(withSlots.indexOf('id="cf-name"'))
-    expect(withSlots).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
+    expect(bogus.some((e) => /control 'phone' is not declared/.test(e.message))).toBe(true)
+
+    // Every configured field resolves; so does `submit`.
+    const ok = validateBehaviorControls(contactFormMeta, { config, slots: { form: formSlot } })
+    expect(ok).toEqual([])
   })
 })
 
@@ -447,17 +488,27 @@ describe('story-179b8c06 — behavior client behaviour ships once per page', () 
         {
           id: 'gallery',
           type: 'carousel',
-          version: 2,
-          config: { view: 'single', controls: 'dots', autoplay: true },
+          version: 3,
+          config: { autoplay: true },
           slots: { slide: [{ kind: 'text', text: 'A great experience.' }] },
         },
         {
           id: 'get-in-touch',
           type: 'contact-form',
-          version: 3,
+          version: 4,
           config: {
             action: 'https://example.com/submit',
             fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+          },
+          slots: {
+            form: {
+              kind: 'container',
+              layout: 'stack',
+              children: [
+                { kind: 'control', control: 'email' },
+                { kind: 'control', control: 'submit' },
+              ],
+            },
           },
         },
       ]
@@ -526,12 +577,12 @@ describe('story-179b8c06 — behavior client behaviour ships once per page', () 
 describe('story-179b8c06 — isolation conformance dimension', () => {
   const carouselDegenerate: ConformanceFixture = {
     label: 'carousel-degenerate',
-    props: { version: 2, config: { view: 12345, controls: 'bogus' }, slots: {} },
+    props: { version: 3, config: { autoplay: 12345, loop: 'bogus' }, slots: {} },
   }
   const contactDegenerate: ConformanceFixture = {
     label: 'contact-degenerate',
     props: {
-      version: 3,
+      version: 4,
       config: { action: 'https://example.com/lead', fields: 'not-a-list' },
       slots: {},
     },
@@ -594,7 +645,7 @@ describe('story-179b8c06 — full five-dimension conformance obligation set', ()
       'security',
       'x-browser',
     ]
-    for (const def of [getModule('carousel', 2), getModule('contact-form', 3)]) {
+    for (const def of [getModule('carousel', 3), getModule('contact-form', 4)]) {
       const conformance: BehaviorConformance = def.meta.conformance
       // The published contract enumerates exactly the five conformance
       // dimensions — the harness holds every behavior to the complete envelope.
@@ -613,20 +664,20 @@ describe('story-179b8c06 — Behavior* contract naming is atomic', () => {
     // ── The contract TYPES resolve from the framework package root ────────────
     // Each name is bound to a real declaration here; the file would not compile
     // if any had failed to resolve after the rename.
-    const meta: BehaviorMeta = getModule('carousel', 2).meta
-    const def: BehaviorDefinition = getModule('contact-form', 3)
-    const fieldSpec: BehaviorConfigSpec = meta.config.view
+    const meta: BehaviorMeta = getModule('carousel', 3).meta
+    const def: BehaviorDefinition = getModule('contact-form', 4)
+    const fieldSpec: BehaviorConfigSpec = meta.config.autoplay
     const fieldType: BehaviorConfigType = fieldSpec.type
     const slotSpec: BehaviorSlotSpec = meta.slots.slide
     const slotValue: BehaviorSlotValue = [textNode]
-    const instance: BehaviorInstance = { config: { view: 'peek' }, slots: { slide: slotValue } }
+    const instance: BehaviorInstance = { config: { autoplay: true }, slots: { slide: slotValue } }
     const conformance: BehaviorConformance = meta.conformance
     const obligation: ConformanceObligation = conformance.obligations[0]
     const errors: BehaviorValidationError[] = validateBehaviorInstance(meta, instance)
     type AssertedMeta = AssertBehaviorMeta<typeof carouselMeta>
     const asserted: AssertedMeta = carouselMeta
 
-    expect(fieldType).toBe('enum')
+    expect(fieldType).toBe('boolean')
     expect(slotSpec.repeated).toBe(true)
     expect(obligation).toBeTypeOf('string')
     expect(def.Component).toBeTypeOf('function')
@@ -639,16 +690,17 @@ describe('story-179b8c06 — Behavior* contract naming is atomic', () => {
     expect(framework.validateBehaviorConfig).toBeTypeOf('function')
     expect(framework.validateBehaviorSlots).toBeTypeOf('function')
     expect(framework.validateBehaviorInstance).toBeTypeOf('function')
-    expect(validateBehaviorConfig(meta, { view: 'peek', autoplay: true })).toEqual([])
-    expect(validateBehaviorConfig(meta, { view: 'not-a-view' }).map((e) => e.field)).toEqual([
-      'config.view',
+    expect(validateBehaviorConfig(meta, { loop: false, autoplay: true })).toEqual([])
+    expect(validateBehaviorConfig(meta, { autoplay: 'not-a-boolean' }).map((e) => e.field)).toEqual([
+      'config.autoplay',
     ])
     expect(validateBehaviorSlots(meta, { slide: [textNode] })).toEqual([])
     expect(validateBehaviorSlots(meta, { slide: ['<b>raw</b>' as never] }).map((e) => e.field)).toEqual([
       'slots.slide[0]',
     ])
-    expect(validateBehaviorInstance(meta, { config: { view: 'nope' }, slots: {} }).map((e) => e.field))
-      .toEqual(['config.view', 'slots.slide'])
+    expect(
+      validateBehaviorInstance(meta, { config: { autoplay: 'nope' }, slots: {} }).map((e) => e.field),
+    ).toEqual(['config.autoplay', 'slots.slide'])
 
     // ── Every catalog entry carries the renamed discriminant ─────────────────
     expect(registry.size).toBeGreaterThan(0)

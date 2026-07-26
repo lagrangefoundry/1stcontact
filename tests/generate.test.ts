@@ -54,22 +54,41 @@ function seedSurvivingModules(slug: string): void {
     {
       id: 'gallery',
       type: 'carousel',
-      version: 2,
-      config: { view: 'single', controls: 'dots' },
+      version: 3,
+      config: {},
       slots: {
         slide: [
           { kind: 'text', text: 'A great experience.' },
           { kind: 'text', text: 'Loved every minute.' },
         ],
+        // REQ-96 — a dot's look is an L1 control node, not module CSS.
+        dots: {
+          kind: 'container',
+          layout: 'row',
+          children: [
+            { kind: 'control', control: 'dot-0' },
+            { kind: 'control', control: 'dot-1' },
+          ],
+        },
       },
     },
     {
       id: 'get-in-touch',
       type: 'contact-form',
-      version: 3,
+      version: 4,
       config: {
         action: 'https://example.com/submit',
         fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+      },
+      slots: {
+        form: {
+          kind: 'container',
+          layout: 'stack',
+          children: [
+            { kind: 'control', control: 'email' },
+            { kind: 'control', control: 'submit' },
+          ],
+        },
       },
     },
   ]
@@ -108,13 +127,13 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     // The design tokens are still present…
     expect(themeCss).toContain('--color-primary')
     // …but theme.css must ALSO carry the module component rules — the bug was
-    // that it contained ONLY :root tokens and no class selectors. Post-pivot
-    // (REQ-85) the capability modules' static chrome CSS is folded in: the
-    // carousel scroll-snap track + per-view slide sizing, the contact-form
-    // controls.
+    // that it contained ONLY :root tokens and no class selectors. Post-REQ-96
+    // what is left to fold in is behavioural mechanics and invariant elements
+    // only: the carousel's scroll-snap track, and the contact-form's
+    // visually-hidden label / honeypot.
     expect(themeCss).toMatch(/\.carousel__track/)
     expect(themeCss).toContain('.carousel__slide')
-    expect(themeCss).toMatch(/\.carousel\.view-single/)
+    expect(themeCss).toContain('.contact-form__honeypot')
     expect(themeCss).toContain('.contact-form__form')
 
     // Per-instance L1 slot presentation is emitted inline (not in theme.css);

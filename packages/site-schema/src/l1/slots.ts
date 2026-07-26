@@ -27,3 +27,21 @@ export function l1SlotNames(root: L1Node): string[] {
 export function l1DocumentSlotNames(doc: L1Document): string[] {
   return l1SlotNames(doc.root)
 }
+
+/**
+ * REQ-96 — every `control` node's declared element name in `root`, in document
+ * order, duplicates included. The mirror of {@link l1SlotNames} for the *other*
+ * composition direction: a slot name resolves a module onto the tree, a control
+ * name resolves an element of that module onto a leaf of the tree. The behavior
+ * validator uses it to prove every control node binds to a declared element.
+ */
+export function l1ControlNames(root: L1Node): string[] {
+  const names: string[] = []
+  const walk = (node: L1Node): void => {
+    if (node.kind === 'control') names.push(node.control)
+    else if (node.kind === 'container') node.children.forEach(walk)
+    else if (node.kind === 'box') (node.children ?? []).forEach(walk)
+  }
+  walk(root)
+  return names
+}

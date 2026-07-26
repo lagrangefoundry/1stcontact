@@ -92,8 +92,8 @@ function siteWithImageLogo(cwd: string, slug: string): void {
     {
       id: 'gallery',
       type: 'carousel',
-      version: 2,
-      config: { view: 'single' },
+      version: 3,
+      config: {},
       slots: {
         slide: [{ kind: 'image', src: '/assets/logo.png', alt: 'Logo' }],
       },

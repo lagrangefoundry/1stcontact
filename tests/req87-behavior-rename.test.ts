@@ -23,22 +23,22 @@ describe('REQ-87 — behavior-module rename preserves the REQ-85 contract', () =
     // The renamed contract compiles and is exported: BehaviorMeta + the three
     // validateBehavior* validators. Exercising them proves config drives
     // behaviour and slots mount L1 exactly as REQ-85 required.
-    const meta: BehaviorMeta = getModule('carousel', 2).meta
+    const meta: BehaviorMeta = getModule('carousel', 3).meta
 
     // A well-formed instance: behavioural config within bounds + one L1 subtree
     // per repeated slide slot.
     const validSlide = { kind: 'text', text: 'Chef Sarah transformed our weekly meals.' }
     expect(
       validateBehaviorInstance(meta, {
-        config: { view: 'peek', controls: 'dots', autoplay: true, loop: false },
+        config: { autoplay: true, loop: false },
         slots: { slide: [validSlide] },
       }),
     ).toEqual([])
 
     // Config out of contract → a config violation (behaviour is contract-driven).
-    const badConfig = validateBehaviorConfig(meta, { view: 'not-a-view' })
+    const badConfig = validateBehaviorConfig(meta, { autoplay: 'not-a-boolean' })
     expect(badConfig.length).toBeGreaterThan(0)
-    expect(badConfig[0].field).toBe('config.view')
+    expect(badConfig[0].field).toBe('config.autoplay')
 
     // A required repeated slot missing / carrying non-L1 content → a slot
     // violation (slots mount validated L1, the security line).
@@ -56,8 +56,8 @@ describe('REQ-87 — behavior-module rename preserves the REQ-85 contract', () =
       expect(meta.kind).toBe('behavior')
     }
     // Both real behavior modules specifically.
-    expect(getModule('carousel', 2).meta.kind).toBe('behavior')
-    expect(getModule('contact-form', 3).meta.kind).toBe('behavior')
+    expect(getModule('carousel', 3).meta.kind).toBe('behavior')
+    expect(getModule('contact-form', 4).meta.kind).toBe('behavior')
   })
 
   it('test_UAT_FC_REQ-87_discriminant_atomic_l1_slot_seam_renamed_in_site_schema', () => {

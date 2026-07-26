@@ -31,7 +31,7 @@ const slides = [
 
 describe('REQ-85 carousel capability — L1 slot slides', () => {
   it('test_UAT_FC_REQ-85_carousel_is_a_capability_in_the_catalog', () => {
-    const def = getModule('carousel', 2)
+    const def = getModule('carousel', 3)
     expect(def.meta.id).toBe('carousel')
     expect(def.meta.kind).toBe('behavior')
     expect(def.Component).toBeTypeOf('function')
@@ -44,15 +44,16 @@ describe('REQ-85 carousel capability — L1 slot slides', () => {
     expect(meta.dials).toBeUndefined()
     expect(meta.variants).toBeUndefined()
     expect(meta.contentSchema).toBeUndefined()
-    expect(Object.keys(carouselMeta.config).sort()).toEqual(['autoplay', 'controls', 'loop', 'view'])
-    expect(Object.keys(carouselMeta.slots)).toEqual(['slide'])
+    // REQ-96 removed `view` (a flex-basis wearing behavioural clothes) and
+    // `controls` (dots are now an L1-authored slot). What is left is behaviour.
+    expect(Object.keys(carouselMeta.config).sort()).toEqual(['autoplay', 'loop'])
+    expect(Object.keys(carouselMeta.slots)).toEqual(['slide', 'dots'])
   })
 
   it('test_UAT_FC_REQ-85_carousel_slots_renders_scroll_snap_track_with_one_slide_per_subtree', async () => {
-    const html = await render({ config: { view: 'single' }, slots: { slide: slides } })
+    const html = await render({ config: {}, slots: { slide: slides } })
     // The behavioural core: a scroll-snap track (the swipeable affordance, no JS).
     expect(html).toMatch(/carousel__track/)
-    expect(html).toMatch(/class="carousel [^"]*\bview-single\b/)
     // One slide wrapper per L1 subtree, each a named slot mount point...
     expect(html.match(/data-l1-slot="slide"/g)?.length).toBe(2)
     // ...carrying the mounted L1 presentation (the authored slide text verbatim).
@@ -62,16 +63,27 @@ describe('REQ-85 carousel capability — L1 slot slides', () => {
     expect(html).toMatch(/carousel-slide-l1-\d+/)
   })
 
-  it('test_UAT_FC_REQ-85_view_and_dots_config_drive_scroll_and_controls', async () => {
-    const multi = await render({ config: { view: 'multi', controls: 'dots' }, slots: { slide: slides } })
-    expect(multi).toMatch(/class="carousel [^"]*\bview-multi\b/)
-    // `controls: dots` adds a decorative aria-hidden indicator, one dot per slide.
-    expect(multi).toMatch(/carousel__dots[^>]*aria-hidden="true"/)
-    expect(multi.match(/class="carousel__dot[" ]/g)?.length).toBe(2)
-    expect(multi).toMatch(/carousel__dot is-active/)
-    // Default controls omit the dots row.
-    const none = await render({ config: { view: 'single' }, slots: { slide: slides } })
-    expect(none).not.toMatch(/carousel__dots/)
+  it('test_UAT_FC_REQ-96_dots_are_l1_control_leaves_not_module_paint', async () => {
+    // REQ-96 — a pagination dot is a leaf whose entire look is taste, so it is an
+    // L1 `control` node naming an element the module declares. The module wires
+    // the behavioural markers and nothing else.
+    const dots = {
+      kind: 'container',
+      layout: 'row',
+      gapPx: 8,
+      children: [
+        { kind: 'control', control: 'dot-0', axes: { surfaceFill: '#111111', borderRadiusPx: 4 } },
+        { kind: 'control', control: 'dot-1', axes: { surfaceFill: '#111111', borderRadiusPx: 4 } },
+      ],
+    }
+    const withDots = await render({ config: {}, slots: { slide: slides, dots } })
+    expect(withDots.match(/data-carousel-dot="\d"/g)?.length).toBe(2)
+    // The first dot carries the current marker; its LOOK comes from L1.
+    expect(withDots).toMatch(/data-carousel-current/)
+    expect(withDots).toMatch(/background-color: #111111/)
+    // No dots slot → no indicator; the scrollable track was always the affordance.
+    const none = await render({ config: {}, slots: { slide: slides } })
+    expect(none).not.toMatch(/data-carousel-dot/)
   })
 
   it('test_UAT_FC_REQ-85_autoplay_loop_config_surface_as_behaviour_hooks', async () => {

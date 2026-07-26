@@ -30,12 +30,55 @@ export function advanceTrack(track, loop) {
 }
 
 /**
- * Attach autoplay/loop to one carousel `<section>`. `schedule` is injectable so
- * the behaviour is unit-testable without a real timer; it defaults to the global
- * `setInterval`.
+ * REQ-96 — mark the dot matching the slide nearest the track's scroll position.
+ *
+ * Which slide is current is a *behavioural state*, so the module owns it: a dot's
+ * look is an L1 subtree, and a static subtree has no state axis to say "this one"
+ * with. The module marks it and gives it the one invariant opacity rule; L1 keeps
+ * everything else.
+ */
+export function syncDots(section, track) {
+  const dots = section.querySelectorAll('[data-carousel-dot]')
+  if (dots.length === 0) return
+  const slides = track.querySelectorAll('.carousel__slide')
+  let current = 0
+  let best = Infinity
+  for (let i = 0; i < slides.length; i++) {
+    const distance = Math.abs(slides[i].offsetLeft - track.scrollLeft)
+    if (distance < best) {
+      best = distance
+      current = i
+    }
+  }
+  for (let i = 0; i < dots.length; i++) {
+    if (i === current) dots[i].setAttribute('data-carousel-current', '')
+    else dots[i].removeAttribute('data-carousel-current')
+  }
+}
+
+/**
+ * Attach the dot indicator and autoplay/loop to one carousel `<section>`.
+ * `schedule` is injectable so the behaviour is unit-testable without a real
+ * timer; it defaults to the global `setInterval`.
  */
 export function enhanceCarousel(section, schedule) {
   try {
+    // The indicator is independent of autoplay, and its own failure must not cost
+    // the track its autoplay — hence its own guard rather than the outer one.
+    try {
+      const dotTrack = section.querySelector('.carousel__track')
+      if (dotTrack && typeof dotTrack.addEventListener === 'function') {
+        dotTrack.addEventListener('scroll', function () {
+          try {
+            syncDots(section, dotTrack)
+          } catch (_e) {
+            // A failed indicator update must never break scrolling.
+          }
+        })
+      }
+    } catch (_e) {
+      // No indicator; the track still scrolls and still autoplays.
+    }
     if (!section.hasAttribute('data-carousel-autoplay')) return
     const loop = section.hasAttribute('data-carousel-loop')
     const track = section.querySelector('.carousel__track')

@@ -263,6 +263,53 @@ function maskDecls(m: L1Mask): string[] {
   }
 }
 
+// ── REQ-96 control leaves: the module's element, painted by L1 ────────────────
+
+/** The tags a behavior module may declare as a control leaf. */
+export type L1ControlTag = 'input' | 'textarea' | 'button' | 'select' | 'span'
+
+/**
+ * A module-declared leaf element, as handed to the emitter. The module owns the
+ * tag and the **attribute bundle** (`type` / `name` / `required` / `for`↔`id`
+ * wiring, the behavioural `data-*` hooks); L1 owns the class, geometry and every
+ * paint axis. `text` is the element's own content where the tag admits one (a
+ * button's label, a textarea's value) — controls that are void elements ignore it.
+ */
+export interface L1ControlElement {
+  tag: L1ControlTag
+  attrs?: Readonly<Record<string, string | number | boolean | undefined>>
+  text?: string
+}
+
+/** Tags with no closing tag — their content, if any, is dropped. */
+const VOID_CONTROL_TAGS = new Set<L1ControlTag>(['input'])
+
+/**
+ * Attribute names a control may never carry, whoever declared it. `class` and
+ * `style` are L1's (letting a module set either would hand presentation back to
+ * the module, which is the whole point of REQ-96), and an `on*` handler is a
+ * script sink. Defence in depth: the modules are framework code, but the sole
+ * emitter is where the guarantee is *constructed*, not assumed.
+ */
+function isSafeAttrName(name: string): boolean {
+  if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(name)) return false
+  const lower = name.toLowerCase()
+  return lower !== 'class' && lower !== 'style' && !lower.startsWith('on')
+}
+
+/** A module-declared control element → HTML, with L1's class and escaped attrs. */
+function controlHtml(el: L1ControlElement, cls: string): string {
+  const attrs: string[] = [`class="${cls}"`]
+  for (const [name, value] of Object.entries(el.attrs ?? {})) {
+    if (value === undefined || value === false || !isSafeAttrName(name)) continue
+    if (value === true) attrs.push(name)
+    else attrs.push(`${name}="${escapeHtml(String(value))}"`)
+  }
+  const open = `<${el.tag} ${attrs.join(' ')}`
+  if (VOID_CONTROL_TAGS.has(el.tag)) return `${open} />`
+  return `${open}>${escapeHtml(el.text ?? '')}</${el.tag}>`
+}
+
 const JUSTIFY: Record<string, string> = {
   start: 'flex-start',
   center: 'center',
@@ -522,6 +569,8 @@ interface RenderState {
   minWidth?: number
   /** REQ-93 — pre-rendered behavior-module HTML, keyed by the slot name it binds to. */
   mounts?: Readonly<Record<string, string>>
+  /** REQ-96 — the mounted behavior's declared leaf elements, keyed by control name. */
+  controls?: Readonly<Record<string, L1ControlElement>>
 }
 
 function emitNode(node: L1Node, state: RenderState): string {
@@ -546,13 +595,17 @@ function emitNode(node: L1Node, state: RenderState): string {
     }
   }
 
-  let html: string
-  switch (node.kind) {
-    case 'text': {
-      const a = node.axes ?? {}
-      // BUG-18 — a responsive track owns its axis (per-width media rules below);
-      // the static base decl is emitted only for an axis with no track.
-      const r = node.responsive
+  /**
+   * The text-axis bag → CSS, shared by the `text` run and the REQ-96 `control`
+   * leaf. A control is a styled, surface-painting text leaf (a placeholder, a
+   * button label), so it takes exactly the same axes — factoring this is what
+   * makes "L1 paints the control" literally the same code path as "L1 paints a
+   * run", rather than a parallel half-implementation.
+   */
+  const emitTextAxes = (
+    a: NonNullable<Extract<L1Node, { kind: 'text' }>['axes']>,
+    r: Extract<L1Node, { kind: 'text' }>['responsive'],
+  ): void => {
       const c = cssColor(a.color)
       if (c) base.push(`color: ${c}`)
       const ff = cssFontFamily(a.fontFamily)
@@ -629,8 +682,57 @@ function emitNode(node: L1Node, state: RenderState): string {
           )
         }
       }
+  }
+
+  let html: string
+  switch (node.kind) {
+    case 'text': {
+      // BUG-18 — a responsive track owns its axis (per-width media rules below);
+      // the static base decl is emitted only for an axis with no track.
+      emitTextAxes(node.axes ?? {}, node.responsive)
       base.push('margin: 0')
       html = `<p class="${cls}">${escapeHtml(node.text)}</p>`
+      break
+    }
+    case 'control': {
+      // REQ-96 — L1 wraps the module: the mounted behavior declared this element
+      // (its tag + attribute bundle — `type`/`name`/`required`/label wiring), and
+      // L1 supplies the class, geometry and paint. The module ships no CSS for it.
+      //
+      // An unbound name emits nothing. That is the isolation-correct degradation:
+      // a bare `<input>` with no module behind it would paint UA chrome into the
+      // page and collect a field nothing submits.
+      const el = state.controls?.[node.control]
+      if (!el) {
+        html = ''
+        break
+      }
+      emitTextAxes(node.axes ?? {}, node.responsive)
+      base.push(...axisSizingCss(node.sizing))
+      // The zero-look baseline. A form control arrives with UA chrome (border,
+      // fill, padding, its own font) that would paint *through* an L1 subtree
+      // that simply declined to set those axes — so the sole emitter neutralises
+      // it here, once, rather than every module carrying a reset stylesheet.
+      // Pushed BEFORE the axes so any axis the instance did author still wins.
+      base.unshift(
+        '-webkit-appearance: none',
+        'appearance: none',
+        'margin: 0',
+        'padding: 0',
+        'border: 0',
+        'background: transparent',
+        'font: inherit',
+        'color: inherit',
+      )
+      // A placeholder is painted by a UA pseudo-element that does NOT inherit
+      // `color`, so an L1 subtree that set a field's text colour would still get
+      // the browser's grey inside the box. Re-point it at the element's own
+      // colour — the reference's placeholder-labelled field then paints from L1
+      // like every other run.
+      if (el.tag === 'input' || el.tag === 'textarea') {
+        state.rules.push({ selector: `${selector}::placeholder`, decls: ['color: inherit', 'opacity: 1'] })
+      }
+      html = controlHtml(el, cls)
       break
     }
     case 'image': {
@@ -841,8 +943,12 @@ export interface L1FragmentResult {
  * never collide. The document reset is deliberately *not* emitted (the host page
  * already owns it). Pure; deterministic given `(nodes, prefix)`.
  */
-export function renderL1Fragment(nodes: L1Node[], prefix = 'fc'): L1FragmentResult {
-  const state: RenderState = { n: 0, rules: [], prefix }
+export function renderL1Fragment(
+  nodes: L1Node[],
+  prefix = 'fc',
+  controls?: Readonly<Record<string, L1ControlElement>>,
+): L1FragmentResult {
+  const state: RenderState = { n: 0, rules: [], prefix, controls }
   const htmls = nodes.map((node) => emitNode(node, state))
   return { htmls, css: serializeRules(state.rules) }
 }

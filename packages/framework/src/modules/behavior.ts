@@ -1,5 +1,6 @@
 import type { AstroComponentFactory } from 'astro/runtime/server/index.js'
-import { l1NodeSchema, type L1Node } from '@1stcontact/site-schema'
+import { l1ControlNames, l1NodeSchema, type L1Node } from '@1stcontact/site-schema'
+import type { L1ControlTag } from '../l1/render'
 
 /**
  * The **behavior-module contract** (REQ-85). Since the framework pivot
@@ -62,6 +63,47 @@ export interface BehaviorSlotSpec {
   maxItems?: number
 }
 
+/**
+ * REQ-96 — one **module-declared leaf element** in the contract: the second
+ * composition direction, where L1 wraps the module.
+ *
+ * A `slot` is the module wrapping L1 and works only for containers. A control is
+ * the inverse, and is the only shape available for a leaf: `<input>` is void and
+ * `<textarea>`'s content is its value, so no L1 subtree can go *inside* one. The
+ * module declares that the element must exist and what its behavioural
+ * attributes are; an L1 `control` node names it and supplies every paint axis.
+ *
+ * Declaring controls is what makes "the module ships no CSS" *enforceable*: an
+ * element on this list is one the module may not paint.
+ */
+export interface BehaviorControlSpec {
+  /** The tag the module emits for this element. */
+  element: L1ControlTag
+  /** Whether an instance must bind an L1 `control` node to it. */
+  required: boolean
+  /**
+   * When set, this is not one element but **one per item** of the named `list`
+   * config field, and the instance names each control by that item's `name`
+   * (`contact-form`'s fields). The declaration is the rule; the roster is
+   * resolved per instance.
+   */
+  perItemOf?: string
+  /**
+   * When set, this is one element **per subtree** of the named repeated slot,
+   * named `<key>-<index>` (a carousel's pagination dots — one per slide).
+   */
+  perSubtreeOf?: string
+  /**
+   * REQ-96 §10.3 — presentation fixed by an **obligation**, not by taste: the
+   * honeypot must stay invisible, the Turnstile mount must sit where the widget
+   * expects it, a visually-hidden label must stay out of flow. An invariant
+   * element is the module's to paint and is never bound to an L1 control node;
+   * it is also excluded from the reproduction value gate, since it exists only
+   * on our side and would otherwise slide the control pairing.
+   */
+  invariant?: boolean
+}
+
 /** A universal-AC obligation (DOC-20) plus behavior `isolation`. */
 export type ConformanceObligation =
   | 'safety'
@@ -89,6 +131,11 @@ export interface BehaviorMeta {
   config: Record<string, BehaviorConfigSpec>
   /** Per-slot named-L1-presentation contract. */
   slots: Record<string, BehaviorSlotSpec>
+  /**
+   * REQ-96 — the leaf elements the module declares, which L1 paints. A behavior
+   * with no leaf controls (every element it owns is a container) declares none.
+   */
+  controls?: Record<string, BehaviorControlSpec>
   /** Conformance obligations + isolation. */
   conformance: BehaviorConformance
 }
@@ -248,6 +295,86 @@ export function validateBehaviorSlots(
   return errors
 }
 
+/**
+ * REQ-96 — the control names an instance may bind, resolved from the declaration
+ * against this instance's config and slots. Keyed by name → the declaration it
+ * came from, so a caller can tell a field control from the submit button.
+ *
+ * `invariant` controls are deliberately absent: their presentation is fixed by an
+ * obligation, so there is nothing for an L1 node to paint.
+ */
+export function resolveControlNames(
+  meta: BehaviorMeta,
+  instance: Partial<BehaviorInstance>,
+): Map<string, { key: string; spec: BehaviorControlSpec }> {
+  const out = new Map<string, { key: string; spec: BehaviorControlSpec }>()
+  for (const [key, spec] of Object.entries(meta.controls ?? {})) {
+    if (spec.invariant) continue
+    if (spec.perItemOf) {
+      const items = instance.config?.[spec.perItemOf]
+      if (!Array.isArray(items)) continue
+      for (const item of items) {
+        const name = (item as Record<string, unknown> | null)?.name
+        if (typeof name === 'string' && name) out.set(name, { key, spec })
+      }
+      continue
+    }
+    if (spec.perSubtreeOf) {
+      const subtrees = instance.slots?.[spec.perSubtreeOf]
+      const count = Array.isArray(subtrees) ? subtrees.length : subtrees ? 1 : 0
+      for (let i = 0; i < count; i++) out.set(`${key}-${i}`, { key, spec })
+      continue
+    }
+    out.set(key, { key, spec })
+  }
+  return out
+}
+
+/**
+ * REQ-96 — validate the control bindings: every `control` node inside the
+ * instance's slot subtrees names an element this behavior declares, and every
+ * required declared element is bound by at least one node.
+ *
+ * This is the check the pre-REQ-96 contract could not express. A control node
+ * naming an element no module declares would render nothing (the emitter's inert
+ * degradation) — silently dropping a field the author believed they had placed.
+ */
+export function validateBehaviorControls(
+  meta: BehaviorMeta,
+  instance: Partial<BehaviorInstance>,
+): BehaviorValidationError[] {
+  const errors: BehaviorValidationError[] = []
+  const declared = resolveControlNames(meta, instance)
+  const bound = new Set<string>()
+  for (const [slotName, value] of Object.entries(instance.slots ?? {})) {
+    slotSubtrees(value).forEach((node, i) => {
+      // A subtree that does not parse is already reported by the slot validator.
+      if (!l1NodeSchema.safeParse(node).success) return
+      const suffix = Array.isArray(value) ? `[${i}]` : ''
+      for (const name of l1ControlNames(node)) {
+        bound.add(name)
+        if (!declared.has(name)) {
+          errors.push({
+            field: `slots.${slotName}${suffix}`,
+            message:
+              `control '${name}' is not declared by behavior '${meta.id}' ` +
+              `(declared: ${[...declared.keys()].join(', ') || 'none'})`,
+          })
+        }
+      }
+    })
+  }
+  for (const [name, { key, spec }] of declared) {
+    if (spec.required && !bound.has(name)) {
+      errors.push({
+        field: `controls.${key}`,
+        message: `required control '${name}' has no L1 control node bound to it`,
+      })
+    }
+  }
+  return errors
+}
+
 /** Validate a whole behavior instance (`config` + `slots`) against its contract. */
 export function validateBehaviorInstance(
   meta: BehaviorMeta,
@@ -256,5 +383,6 @@ export function validateBehaviorInstance(
   return [
     ...validateBehaviorConfig(meta, instance.config),
     ...validateBehaviorSlots(meta, instance.slots),
+    ...validateBehaviorControls(meta, instance),
   ]
 }

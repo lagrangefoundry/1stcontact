@@ -33,7 +33,7 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
     // (a) The delivery mechanism is gone: the module catalog holds only the two
     // survivor capabilities. No services-grid/footer (or any deleted layout
     // module) survives, so no cardVeil/cardBorder/footer-colour dial can exist.
-    expect([...registry.keys()].sort()).toEqual(['carousel@2', 'contact-form@3'])
+    expect([...registry.keys()].sort()).toEqual(['carousel@3', 'contact-form@4'])
     for (const gone of ['services-grid', 'footer', 'header', 'hero', 'text-block', 'layer']) {
       expect([...registry.keys()].some((k) => k.startsWith(`${gone}@`))).toBe(false)
       expect(() => getModule(gone, 1)).toThrow(/not found in catalog/)
@@ -123,55 +123,50 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     ],
   }
 
-  it('test_UAT_AC718_contact_form_presentation_via_config_and_l1_slots', async () => {
-    // (a) The capability meta carries only behavioural/functional config — no
-    // aesthetic dials (fieldLabels / submitInline / submitColor) remain — and
-    // exposes `intro` + `submit` as declared L1 presentation slots.
-    expect(Object.keys(contactFormMeta.config).sort()).toEqual(['action', 'fields', 'successMessage'])
+  it('test_UAT_AC718_contact_form_presentation_via_config_and_l1_controls', async () => {
+    // (a) The behavior meta carries only behavioural/functional config — no
+    // aesthetic dials (fieldLabels / submitInline / submitColor) remain — and its
+    // whole presentation surface is the required `form` slot.
+    expect(Object.keys(contactFormMeta.config).sort()).toEqual([
+      'action',
+      'fields',
+      'submitLabel',
+      'successMessage',
+    ])
     for (const gone of ['fieldLabels', 'submitInline', 'submitColor', 'submitColour', 'submitTreatment']) {
       expect(Object.keys(contactFormMeta.config)).not.toContain(gone)
     }
-    expect(Object.keys(contactFormMeta.slots).sort()).toEqual(['intro', 'submit'])
+    expect(Object.keys(contactFormMeta.slots)).toEqual(['form'])
     expect((contactFormMeta as Record<string, unknown>).dials).toBeUndefined()
 
     const container = await AstroContainer.create()
 
-    // (b) With an L1 subtree in the `submit` slot, the rendered submit button
-    // reflects that L1 look: the mounted (namespaced) fragment, its verbatim
-    // content, and its surface colour literal shipped as fragment CSS.
-    const withSubmit = await container.renderToString(ContactForm, {
-      props: {
-        config,
-        slots: {
-          submit: {
-            kind: 'box',
-            axes: { surfaceFill: '#e11d48' },
-            children: [{ kind: 'text', text: 'Send message' }],
-          },
-        },
-      },
-    })
-    // REQ-88 — a bound submit slot also marks the button, so the module's own
-    // paint can stand down and the authored chip is not nested inside a second,
-    // differently-coloured button.
-    expect(withSubmit).toMatch(/<button[^>]*class="contact-form__submit contact-form__submit--l1"/)
-    expect(withSubmit).toMatch(/class="[^"]*contact-form-submit-l1-0/)
-    expect(withSubmit).toContain('Send message')
-    expect(withSubmit).toContain('background-color: #e11d48')
-
-    // (c) With the `submit` slot absent, a plain functional button renders (no L1
-    // look, no authored surface colour).
-    const plain = await container.renderToString(ContactForm, { props: { config, slots: {} } })
-    expect(plain).toMatch(/<button[^>]*class="contact-form__submit"[^>]*>\s*Send\s*<\/button>/)
-    expect(plain).not.toContain('background-color: #e11d48')
-
-    // (d) Field labelling is a fixed obligation of the vetted core, independent of
-    // presentation: every configured field renders a programmatic <label> bound to
-    // its control — in BOTH the slot-dressed and the plain baseline renders.
-    for (const html of [withSubmit, plain]) {
-      expect(html).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
-      expect(html).toMatch(/<input[^>]*id="cf-name"[^>]*type="text"[^>]*required/)
-      expect(html).toMatch(/<label[^>]*for="cf-email"[^>]*>Email<\/label>/)
+    // (b) REQ-96 — the submit button IS an L1 control leaf: the module supplies
+    // `<button type=submit>` and its label, L1 supplies the class and every paint
+    // axis. `submitInline` would have been a dial; the button's position is now
+    // wherever the L1 subtree puts it.
+    const form = {
+      kind: 'container',
+      layout: 'stack',
+      children: [
+        { kind: 'control', control: 'name' },
+        { kind: 'control', control: 'email' },
+        { kind: 'control', control: 'submit', axes: { surfaceFill: '#e11d48' } },
+      ],
     }
+    const rendered = await container.renderToString(ContactForm, {
+      props: { config: { ...config, submitLabel: 'Send message' }, slots: { form } },
+    })
+    expect(rendered).toMatch(/<button[^>]*class="[^"]*contact-form-form-l1-\d+"[^>]*type="submit"/)
+    expect(rendered).toContain('Send message')
+    expect(rendered).toContain('background-color: #e11d48')
+    // The module contributes no competing paint of its own.
+    expect(rendered).not.toMatch(/contact-form__submit/)
+
+    // (c) REQ-88's a11y obligation is unchanged: every control keeps a
+    // programmatic <label> bound to it, whatever the presentation does.
+    expect(rendered).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
+    expect(rendered).toMatch(/<input[^>]*id="cf-name"[^>]*type="text"[^>]*required/)
+    expect(rendered).toMatch(/<label[^>]*for="cf-email"[^>]*>Email<\/label>/)
   })
 })

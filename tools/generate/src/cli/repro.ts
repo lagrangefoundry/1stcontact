@@ -25,7 +25,8 @@ import type { FoldedForm, FoldResidual, ThreeProbeReport } from '../l1'
 import { copyDir, draftDir, emptyDir, ensureDir, pathExists, siteDir, writeDraftBase, writeJson } from '../store'
 import { ctxOf } from './commands'
 import type { GlobalOptions } from './commands'
-import { readCaptureAssets, readForms, readL1, readMultiState } from './capture/bundle'
+import { readCapture, readCaptureAssets, readForms, readL1, readMultiState, writeForms, writeL1 } from './capture/bundle'
+import { fontResourcesFromTheme } from './capture/capture'
 import path from 'node:path'
 
 /** Content-perturbation factor for the robustness probe + structure recovery. */
@@ -158,11 +159,12 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
     config: {
       action: form.action ?? '',
       fields: form.fields.map((f) => ({ ...f, required: false })),
+      ...(form.submitLabel ? { submitLabel: form.submitLabel } : {}),
     },
-    // REQ-93 — the reference's own submit chip, as this behaviour's `submit`
-    // slot. Absent when the reference gave the form no button of its own, in
-    // which case the module falls back to its plain functional one.
-    ...(form.submit ? { slots: { submit: form.submit } } : {}),
+    // REQ-96 — the form's whole presentation: the captured controls as `control`
+    // leaves, positioned and painted exactly as the reference had them, inside a
+    // box pinned at the seam the module mounts into.
+    slots: { form: form.form },
   }))
   const page = { id: 'home', slug: 'home', title: slug, l1: localized.doc, modules }
 
@@ -200,6 +202,50 @@ export function cmdRepro(slug: string, opts: ReproOptions): ReproResult {
     unreferencedAssets: localized.unreferenced,
     forms,
   }
+}
+
+/** What a {@link cmdRefold} run rewrote in the bundle. */
+export interface RefoldResult {
+  bundleDir: string
+  nodeCount: number
+  forms: FoldedForm[]
+  residuals: FoldResidual[]
+}
+
+/**
+ * REQ-96 — re-derive a retained bundle's `l1.json` + `forms.json` from its own
+ * `multistate.json`, **offline**.
+ *
+ * The two derived artifacts are a pure function of the retained oracle and the
+ * *current* fold, so every change to the fold makes every stored bundle stale.
+ * Until now the only way to pick that change up was `1c capture page <url>` —
+ * re-hitting a third-party site over the network to re-derive something we
+ * already hold every input for, and re-rolling the oracle itself in the process
+ * (so a fold change and a reference change land inseparably). This re-runs the
+ * fold against the retained oracle and rewrites only what the fold produced.
+ *
+ * The oracle, the screenshots, the mirrored assets and the hints are untouched:
+ * a refold changes what we DERIVE, never what we OBSERVED.
+ */
+export function cmdRefold(opts: ReproOptions): RefoldResult {
+  const multiState = readMultiState(opts.ref)
+  if (!multiState) {
+    throw new Error(
+      `No multistate.json in bundle '${opts.ref}'. The bundle predates multi-state ` +
+        `capture, so there is no retained oracle to re-fold — re-capture with ` +
+        `\`1c capture page <url>\`.`,
+    )
+  }
+  const forms: FoldedForm[] = []
+  const residuals: FoldResidual[] = []
+  const doc = foldToL1(multiState, {
+    fonts: fontResourcesFromTheme(readCapture(opts.ref).theme.fonts),
+    forms,
+    residuals,
+  })
+  writeL1(opts.ref, doc)
+  writeForms(opts.ref, forms)
+  return { bundleDir: opts.ref, nodeCount: countNodes(doc), forms, residuals }
 }
 
 export interface L1GateResult extends ThreeProbeReport {

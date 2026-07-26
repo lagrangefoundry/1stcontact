@@ -117,6 +117,24 @@ function textsOf(doc: ReturnType<typeof foldToL1>): string[] {
   return out
 }
 
+/**
+ * REQ-96 — the `submit` control leaf inside a recovered form's presentation
+ * subtree. The button is no longer a bare slot subtree: it is a declared element
+ * the module renders and L1 paints, so it is found by its control name.
+ */
+function submitControlOf(form: FoldedForm): {
+  axes?: Record<string, number | string>
+  geometry?: { keyframes: unknown[] }
+} | undefined {
+  let found: { axes?: Record<string, number | string>; geometry?: { keyframes: unknown[] } } | undefined
+  const walk = (n: { kind: string; control?: string; children?: unknown[] }): void => {
+    if (n.kind === 'control' && n.control === 'submit') found = n as never
+    for (const c of (n.children ?? []) as typeof n[]) walk(c)
+  }
+  walk(form.form as never)
+  return found
+}
+
 describe('REQ-88 — reproduced form labelling and submit binding', () => {
   // ── 1. Labelling follows the reference, not the module's default ───────────
 
@@ -171,6 +189,7 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
             action: '/leads',
             fields: [{ name: 'email', label: 'Your email', type: 'email', labelMode: 'placeholder' }],
           },
+          slots: { form: { kind: 'control', control: 'email' } },
         },
       },
       { mountInL1: true },
@@ -181,7 +200,7 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
       expect(html).toMatch(/<input[^>]*placeholder="Your email"/)
       // …and the <label> survives, programmatically associated but out of flow.
       // The a11y obligation is not traded away for the reference's look.
-      expect(html).toMatch(/<label[^>]*for="cf-email"[^>]*class="[^"]*visually-hidden/)
+      expect(html).toMatch(/<label[^>]*class="contact-form__label"[^>]*for="cf-email"/)
       expect(html).toContain('>Your email</label>')
     } finally {
       await served.dispose()
@@ -190,15 +209,21 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
 
   // ── 2. The reference's own button becomes the form's button ────────────────
 
-  it('test_UAT_FC_REQ-88_a_button_beside_a_form_becomes_that_forms_submit_slot', () => {
+  it('test_UAT_FC_REQ-88_a_button_beside_a_form_becomes_that_forms_submit_control', () => {
     const { forms } = foldFixture(formWithSubmitCapture())
     expect(forms).toHaveLength(1)
-    const submit = forms[0].submit as { kind: string; text?: string; axes?: Record<string, unknown> } | undefined
-    expect(submit?.text).toBe('Send message')
+    // REQ-96 — the button is a `control` leaf inside the form's presentation
+    // subtree, and its words are behavioural copy on the config.
+    expect(forms[0].submitLabel).toBe('Send message')
+    const submit = submitControlOf(forms[0])
+    expect(submit).toBeDefined()
     // Its LOOK travels with it — the chip's fill and rounding are what make the
-    // mounted button the reference's button rather than the module's default.
+    // mounted button the reference's button rather than a module default.
     expect(submit?.axes?.surfaceFill).toBe('#0f172b')
     expect(submit?.axes?.borderRadiusPx).toBe(8)
+    // …and so does its PLACE, now rebased to the form's own seam rather than
+    // discarded (which is what cost the reference its inline Subscribe button).
+    expect(submit?.geometry?.keyframes.length).toBeGreaterThan(0)
   })
 
   it('test_UAT_FC_REQ-88_a_claimed_submit_leaves_the_page_body_exactly_once', () => {
@@ -207,7 +232,7 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
     // Claimed: it is the form's control now, so it must not ALSO paint as a
     // page-level run — that is the duplicate button the reference never had.
     expect(texts).not.toContain('Send message')
-    expect(forms[0].submit).toBeDefined()
+    expect(submitControlOf(forms[0])).toBeDefined()
   })
 
   it('test_UAT_FC_REQ-88_an_unrelated_page_button_is_never_claimed_by_a_form', () => {
@@ -245,8 +270,8 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
     // Both of the page's forms get their own button, matched to the right form —
     // the two sit 128px and 263px from the *other* form's fields, so this also
     // proves the proximity rule separates them rather than grabbing the nearest.
-    const submits = forms.map((f) => f.submit as { text?: string } | undefined)
-    expect(submits.map((s) => s?.text).sort()).toEqual(['Send message', 'Subscribe'])
+    expect(forms.map((f) => f.submitLabel).sort()).toEqual(['Send message', 'Subscribe'])
+    expect(forms.every((f) => submitControlOf(f) !== undefined)).toBe(true)
 
     // Neither remains in the page body: one reference button, one rendered button.
     const texts = textsOf(doc)
@@ -254,19 +279,30 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
     expect(texts).not.toContain('Subscribe')
   })
 
-  it('test_UAT_FC_REQ-88_a_bound_submit_slot_replaces_the_modules_default_button', async () => {
+  it('test_UAT_FC_REQ-96_a_bound_submit_control_is_the_only_button', async () => {
     const served = await serveOneModulePage(
       'contact-form',
       {
-        label: 'submit-slot-bound',
+        label: 'submit-control-bound',
         props: {
           version: latestModuleVersion('contact-form'),
-          config: { action: '/leads', fields: [{ name: 'email', label: 'Your email', type: 'email' }] },
+          config: {
+            action: '/leads',
+            fields: [{ name: 'email', label: 'Your email', type: 'email' }],
+            submitLabel: 'Send message',
+          },
           slots: {
-            submit: {
-              kind: 'text',
-              text: 'Send message',
-              axes: { color: '#ffffff', surfaceFill: '#0f172b', borderRadiusPx: 8 },
+            form: {
+              kind: 'container',
+              layout: 'stack',
+              children: [
+                { kind: 'control', control: 'email' },
+                {
+                  kind: 'control',
+                  control: 'submit',
+                  axes: { color: '#ffffff', surfaceFill: '#0f172b', borderRadiusPx: 8 },
+                },
+              ],
             },
           },
         },
@@ -276,11 +312,12 @@ describe('REQ-88 — reproduced form labelling and submit binding', () => {
     try {
       const html = readFileSync(path.join(served.handle.rootDir, 'index.html'), 'utf8')
       expect(html).toContain('Send message')
-      // The module's placeholder label is gone — one button, not two.
-      expect(html).not.toMatch(/<button[^>]*>\s*Send\s*<\/button>/)
-      // …and the module surrenders its own paint so the authored chip is not
-      // nested inside a second, differently-coloured button.
-      expect(html).toContain('contact-form__submit--l1')
+      // Exactly one button, and it is the L1-painted one: REQ-88 needed a
+      // `--l1` modifier to stop the module painting over the authored chip;
+      // REQ-96 removes the module's paint entirely, so there is nothing to undo.
+      expect(html.match(/<button/g)?.length).toBe(1)
+      expect(html).not.toMatch(/contact-form__submit/)
+      expect(html).toContain('background-color: #0f172b')
     } finally {
       await served.dispose()
     }

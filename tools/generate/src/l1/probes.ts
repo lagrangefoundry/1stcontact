@@ -267,6 +267,16 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       ctx.leaves.push({ path, kind: 'slot', id: node.id, box, pinned })
       return box.height
     }
+    case 'control': {
+      // REQ-96 — a control is a leaf like any other: the module contributes its
+      // element, L1 contributes the box, so the geometry model is unchanged. A
+      // pinned keyframe height wins; otherwise the parent's frame stands.
+      if (pinned && node.geometry!.keyframes[0].height !== undefined) {
+        box.height = evalGeometry(node.geometry!, width).height * opts.contentScale
+      }
+      ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned })
+      return box.height
+    }
     case 'box':
     case 'container': {
       const children = node.kind === 'container' ? node.children : (node.children ?? [])

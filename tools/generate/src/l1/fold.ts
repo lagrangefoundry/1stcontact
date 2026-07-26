@@ -29,6 +29,7 @@ import {
   type L1Column,
   type L1ColumnAnchor,
   type L1ColumnTerm,
+  type L1Control,
   type L1Document,
   type L1FontFace,
   type L1Geometry,
@@ -45,6 +46,7 @@ import {
   type L1Segment,
   type L1Shadow,
   type L1Slot,
+  type L1Text,
   type L1TextAxes,
   type L1TextResponsive,
   type L1ViewportResponse,
@@ -55,7 +57,6 @@ import {
   clusterControls,
   foldedFormFor,
   submitProximityThreshold,
-  submitSlotFrom,
   type ControlRow,
   type FoldedForm,
 } from './forms'
@@ -2100,8 +2101,79 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     const vis = visibilityFor([...byWidth.keys()].sort((a, b) => a - b), widths)
     if (vis) node.visibility = vis
     slotNodes.push(node)
-    const form = foldedFormFor(name, group)
-    if (submit) form.submit = submitSlotFrom(submit.node)
+
+    // REQ-96 — the form's presentation, as `control` leaves inside a box pinned
+    // at the seam. Every control keeps the geometry and paint the capture
+    // measured; only the ORIGIN changes, from the page to the seam the module
+    // mounts at. Under REQ-93 the module placed its own controls from a
+    // stylesheet, which is why the reference's field heights and surfaces — and
+    // its inline submit button — could not reproduce at all.
+    const rebase = (box: NonNullable<ValueElement['box']>, at: number): L1Keyframe => {
+      const seam = byWidth.get(at)!
+      return {
+        at,
+        x: Math.round(box.x - seam.x),
+        y: Math.round(box.y - seam.y),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      }
+    }
+    const rebasedGeometry = (
+      frames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>,
+    ): L1Geometry => {
+      const kfs = frames
+        .filter((f) => byWidth.has(f.at))
+        .sort((a, b) => a.at - b.at)
+        .map((f) => {
+          const kf = rebase(f.box, f.at)
+          const h = heightAt.get(f.at)
+          if (h) kf.atHeight = h
+          return kf
+        })
+      const geo: L1Geometry = { keyframes: kfs }
+      if (kfs.length > 1) geo.segments = kfs.slice(1).map((kf, k) => segmentKind(kfs[k], kf))
+      return geo
+    }
+
+    const form = foldedFormFor(name, group, { kind: 'box', children: [] })
+    const controlNodes: L1Node[] = group.map((row, fi) => {
+      const widestEl = row.samples[row.samples.length - 1].element
+      const control: L1Control = {
+        kind: 'control',
+        id: `${name}-${form.fields[fi].name}`,
+        control: form.fields[fi].name,
+        geometry: rebasedGeometry(row.samples.map((s) => ({ at: s.at, box: s.box }))),
+      }
+      // A captured control paints its surface on its own element, exactly as a
+      // chip run does — same axes, same reader.
+      const axes = chipAxes(widestEl)
+      if (Object.keys(axes).length) control.axes = axes
+      return control
+    })
+    if (submit) {
+      const chip = submit.node as L1Text
+      const submitControl: L1Control = {
+        kind: 'control',
+        id: `${name}-submit`,
+        control: 'submit',
+        geometry: rebasedGeometry(submit.frames),
+      }
+      if (chip.axes) submitControl.axes = chip.axes
+      if (chip.responsive) submitControl.responsive = chip.responsive
+      if (chip.padding) submitControl.padding = chip.padding
+      if (chip.responsivePadding) submitControl.responsivePadding = chip.responsivePadding
+      controlNodes.push(submitControl)
+      form.submitLabel = chip.text
+    }
+    form.form = {
+      kind: 'box',
+      id: `${name}-body`,
+      geometry: {
+        keyframes: keyframes.map((kf) => ({ ...kf, x: 0, y: 0 })),
+        ...(geometry.segments ? { segments: geometry.segments } : {}),
+      },
+      children: controlNodes,
+    }
     opts.forms?.push(form)
   })
 
