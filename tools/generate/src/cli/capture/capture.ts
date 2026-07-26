@@ -20,7 +20,7 @@ import type { MultiStateCapture } from './values-diff'
  * Families whose face never mirrored (`files: []` — e.g. a CDN the intercept missed)
  * contribute nothing, and the fold drops any face no text paints.
  */
-function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
+export function fontResourcesFromTheme(fonts: ThemeFont[]): L1FontFace[] {
   const out: L1FontFace[] = []
   for (const f of fonts) {
     const weight = f.weights.length === 1 ? f.weights[0] : undefined

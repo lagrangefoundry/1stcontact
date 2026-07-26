@@ -69,8 +69,8 @@ function seedModules(cwd: string, slug: string): void {
     {
       id: 'gallery',
       type: 'carousel',
-      version: 2,
-      config: { view: 'single', controls: 'dots' },
+      version: 3,
+      config: {},
       slots: { slide: [{ kind: 'text', text: 'A great experience.' }] },
     },
   ]

@@ -14,6 +14,7 @@ import type {
   l1ColumnTermSchema,
   l1ColumnSchema,
   l1ContainerSchema,
+  l1ControlSchema,
   l1DistributionSchema,
   l1DocumentSchema,
   l1FontFaceSchema,
@@ -78,6 +79,8 @@ export type L1PaddingResponsive = z.infer<typeof l1PaddingResponsiveSchema>
 export type L1Text = z.infer<typeof l1TextSchema>
 export type L1Image = z.infer<typeof l1ImageSchema>
 export type L1Slot = z.infer<typeof l1SlotSchema>
+// REQ-96 — the control leaf: L1 wraps a module-declared element.
+export type L1Control = z.infer<typeof l1ControlSchema>
 export type L1Box = z.infer<typeof l1BoxSchema>
 export type L1Container = z.infer<typeof l1ContainerSchema>
 export type L1Node = z.infer<typeof l1NodeSchema>

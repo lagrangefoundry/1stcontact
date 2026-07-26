@@ -8,6 +8,7 @@ import {
   validateBehaviorSlots,
 } from '../packages/framework/src/modules/behavior'
 import { getModule } from '../packages/framework/src/modules/registry'
+import { contactFormPreset } from '../packages/framework/src/l2/contact-form'
 
 /**
  * UATs for REQ-5 (reframed REQ-85) — behavioural validation and SSR of the two
@@ -56,6 +57,7 @@ describe('contact-form capability', () => {
   it('test_UAT_FC_REQ-5_contact_form_renders_configured_fields', async () => {
     const html = await render(ContactForm, {
       config: { action: '/api/forms/contact', fields },
+      slots: { form: contactFormPreset(fields) },
     })
     expect(html).toMatch(/<input[^>]+name="name"[^>]+type="text"/)
     expect(html).toMatch(/<input[^>]+name="email"[^>]+type="email"/)
@@ -68,6 +70,7 @@ describe('contact-form capability', () => {
   it('test_UAT_FC_REQ-5_contact_form_action_attribute_uses_configured_url', async () => {
     const html = await render(ContactForm, {
       config: { action: '/leads/intake', fields },
+      slots: { form: contactFormPreset(fields) },
     })
     expect(html).toMatch(/<form[^>]+data-contact-form[^>]+action="\/leads\/intake"[^>]+method="post"/)
   })
@@ -75,6 +78,7 @@ describe('contact-form capability', () => {
   it('test_UAT_FC_REQ-5_contact_form_includes_honeypot_hidden_field', async () => {
     const html = await render(ContactForm, {
       config: { action: '/api/forms/contact', fields },
+      slots: { form: contactFormPreset(fields) },
     })
     expect(html).toContain('contact-form__honeypot')
     expect(html).toMatch(/<input[^>]+name="hp_[a-z_]+"/)
@@ -83,6 +87,7 @@ describe('contact-form capability', () => {
   it('test_UAT_FC_REQ-5_contact_form_renders_turnstile_mount_point', async () => {
     const html = await render(ContactForm, {
       config: { action: '/api/forms/contact', fields },
+      slots: { form: contactFormPreset(fields) },
     })
     expect(html).toContain('data-turnstile-target')
   })
@@ -94,6 +99,7 @@ describe('contact-form capability', () => {
     // submission path never depends on it.
     const html = await render(ContactForm, {
       config: { action: '/api/forms/contact', fields },
+      slots: { form: contactFormPreset(fields) },
     })
     expect(html).toMatch(/<form[^>]+action="\/api\/forms\/contact"[^>]+method="post"/)
     expect(html).toContain('type="submit"')
@@ -118,12 +124,12 @@ describe('contact-form capability', () => {
 
 describe('module registry — surviving capability catalog', () => {
   it('test_UAT_FC_REQ-5_registry_includes_the_surviving_capability_modules', () => {
-    // Post-pivot the catalog holds only the two vetted capability modules;
-    // reframing to the capability contract bumped their versions (REQ-85):
-    // contact-form v3 and carousel v2.
+    // Post-pivot the catalog holds only the two vetted behavior modules;
+    // REQ-96 (controls replace module-painted leaves) bumped both again:
+    // contact-form v4 and carousel v3.
     const catalog: Array<[string, number]> = [
-      ['contact-form', 3],
-      ['carousel', 2],
+      ['contact-form', 4],
+      ['carousel', 3],
     ]
     for (const [id, version] of catalog) {
       const def = getModule(id, version)

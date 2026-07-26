@@ -19,7 +19,7 @@ import {
   type XBrowserBox,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 2).meta
+const carouselMeta = getModule('carousel', 3).meta
 
 /**
  * UATs for REQ-42 — the conformance harness **cross-browser dimension**

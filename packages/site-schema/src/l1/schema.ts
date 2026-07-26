@@ -590,6 +590,50 @@ export const l1ImageSchema = z
   .strict()
 
 /**
+ * REQ-96 — a **control leaf**: the second composition direction, where *L1 wraps
+ * the module* instead of the module wrapping L1.
+ *
+ * A `slot` works when the behavioural element is a **container** — a carousel's
+ * `<li>` really can hold a slide's whole L1 look. It is structurally impossible
+ * for a **leaf**: `<input>` is a void element and `<textarea>`'s content is its
+ * value, so there is nowhere to put an L1 subtree. Under the slot model alone a
+ * behavior module therefore *had* to paint its own controls, which no validator
+ * could catch — the contract had no vocabulary for "this element's look belongs
+ * to L1" (DOC-25 §10).
+ *
+ * A control node names an element the mounted behavior declared (`control`), and
+ * the renderer emits that element carrying **L1's class, geometry and paint
+ * axes**. The module contributes only the element's attribute bundle — its
+ * `type` / `name` / `required` / label wiring — so the safety envelope stays
+ * construction-time while appearance stays 100% L1.
+ *
+ * An unbound name renders nothing: a control whose module is absent degrades
+ * inertly rather than painting a bare, UA-styled input into the page.
+ */
+export const l1ControlSchema = z
+  .object({
+    kind: z.literal('control'),
+    id: z.string().optional(),
+    /** The module-declared element this node paints (a field name, `submit`, …). */
+    control: z.string().min(1),
+    /**
+     * Paint axes, identical to a text run's: a control is a styled text-bearing
+     * leaf (a placeholder, a button label) that may also paint its own surface.
+     */
+    axes: l1TextAxesSchema.optional(),
+    responsive: l1TextResponsiveSchema.optional(),
+    geometry: l1GeometrySchema.optional(),
+    sizing: l1AxisSizingSchema.optional(),
+    visibility: l1VisibilitySchema.optional(),
+    transform: l1TransformSchema.optional(),
+    mask: l1MaskSchema.optional(),
+    padding: l1PaddingSchema.optional(),
+    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
+    responsivePadding: l1PaddingResponsiveSchema.optional(),
+  })
+  .strict()
+
+/**
  * A named presentation slot — the seam where a behavior module (payments,
  * auth, carousel, …) mounts inside an L1 tree (Phase D). In B1 it renders as an
  * empty, labelled placeholder; `behavior` records the intended module id.
@@ -654,6 +698,7 @@ export type L1NodeUnion =
   | z.infer<typeof l1TextSchema>
   | z.infer<typeof l1ImageSchema>
   | z.infer<typeof l1SlotSchema>
+  | z.infer<typeof l1ControlSchema>
   | L1BoxNode
   | L1ContainerNode
 
@@ -700,7 +745,7 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
 )
 
 export const l1NodeSchema: z.ZodType<L1NodeUnion> = z.lazy(() =>
-  z.union([l1TextSchema, l1ImageSchema, l1SlotSchema, l1BoxSchema, l1ContainerSchema]),
+  z.union([l1TextSchema, l1ImageSchema, l1SlotSchema, l1ControlSchema, l1BoxSchema, l1ContainerSchema]),
 )
 
 // ── Document-level resource table (handle → substance; DOC-27 / REQ-90) ───────

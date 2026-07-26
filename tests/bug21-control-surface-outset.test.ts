@@ -77,6 +77,17 @@ const cards = (doc: ReturnType<typeof foldToL1>): Box[] => boxes(doc).filter((b)
 const textLeaves = (doc: ReturnType<typeof foldToL1>) =>
   (doc.root.children ?? []).filter((n): n is Extract<typeof n, { kind: 'text' }> => n.kind === 'text')
 
+/** The `submit` control leaf inside a recovered form's presentation subtree. */
+function submitControlOf(form: FoldedForm): { axes?: Record<string, unknown> } | undefined {
+  let found: { axes?: Record<string, unknown> } | undefined
+  const walk = (n: { kind: string; control?: string; children?: unknown[] }): void => {
+    if (n.kind === 'control' && n.control === 'submit') found = n as never
+    for (const c of (n.children ?? []) as typeof n[]) walk(c)
+  }
+  walk(form.form as never)
+  return found
+}
+
 describe('BUG-21 — a padded control surface is not outset by padding its box already includes', () => {
   it('test_UAT_FC_BUG-21_padded_control_surface_matches_its_captured_box_at_every_width', () => {
     const doc = foldToL1(pageWithButton())
@@ -210,21 +221,21 @@ describe('BUG-21 — a padded control surface is not outset by padding its box a
     const doc = foldToL1(multi)
 
     // REQ-88 — both of this page's padded controls are a *form's* submit button,
-    // so the fold now lifts them out of the page body into that form's `submit`
-    // slot: they are the module's button, not a page-level run beside a form that
-    // renders its own. This test's subject is unchanged — a padded control must
-    // never be outset by padding its box already includes — but the surviving
-    // artifact is the slot subtree plus the seam pinned around it.
+    // so the fold lifts them out of the page body into that form's presentation.
+    // REQ-96 — that presentation is now an L1 subtree of `control` leaves, so the
+    // surviving artifact is the `submit` control plus the seam pinned around it.
+    // This test's subject is unchanged: a padded control must never be outset by
+    // padding its box already includes.
     const forms: FoldedForm[] = []
     foldToL1(multi, { forms })
     expect(forms.length, 'both captured forms are recovered').toBeGreaterThan(0)
-    const submits = forms.map((f) => f.submit).filter(Boolean) as Array<{
-      text?: string
-      axes?: Record<string, unknown>
-    }>
+    const submits = forms.map((f) => ({
+      text: f.submitLabel,
+      axes: submitControlOf(f)?.axes,
+    }))
     for (const label of ['Subscribe', 'Send message']) {
       const chip = submits.find((s) => s.text === label)
-      expect(chip, `"${label}" must survive as its form's submit slot`).toBeDefined()
+      expect(chip, `"${label}" must survive as its form's submit control`).toBeDefined()
       // Still the chip path: the control paints its own surface on the text leaf,
       // rather than folding to a card row that the outset would then double.
       expect(chip!.axes?.surfaceFill, `"${label}" paints its own surface`).toBeDefined()

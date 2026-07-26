@@ -27,7 +27,7 @@ import {
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
-import { cmdRepro, cmdL1Gate } from './repro'
+import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
@@ -156,6 +156,11 @@ L1 reproduction pipeline (REQ-88) — turn a capture bundle into a servable, gat
   1c repro <slug> --ref <captureBundleDir> [--sandbox]
     Import the bundle's folded l1.json as a raw-L1 home page site (idempotent — re-import rebuilds).
     The normal render/serve/shot/diff/values-diff loop then works on the reproduction unchanged.
+  1c refold --ref <captureBundleDir>
+    Re-derive the bundle's l1.json + forms.json from its OWN retained multistate.json, offline.
+    Both are a pure function of the oracle and the current fold, so every fold change makes every
+    stored bundle stale; this picks the change up without re-hitting the site (which would also
+    re-roll the oracle, landing a fold change and a reference change inseparably).
   1c l1-gate --ref <captureBundleDir> [--json] [--sandbox]
     The mechanical 3-probe acceptance gate: fold multistate.json → base, promoteToFlow → recovered,
     then sample-fidelity · off-sample · content-robustness. Exits non-zero while any probe fails;
@@ -403,6 +408,26 @@ export async function run(argv: string[]): Promise<void> {
           gap +
           mounted +
           `\n  next: 1c render ${slug}${global.sandbox ? ' --sandbox' : ''}  ·  1c l1-gate --ref ${ref}`,
+      )
+      return
+    }
+
+    case 'refold': {
+      const ref = typeof flags.ref === 'string' ? flags.ref : undefined
+      if (!ref) {
+        console.error('refold requires --ref <captureBundleDir>.\n\n' + USAGE)
+        process.exitCode = 1
+        return
+      }
+      const { nodeCount, forms, residuals } = cmdRefold({ ...global, ref })
+      console.log(
+        `Refolded ${ref} from its retained oracle\n` +
+          `  l1.json: ${nodeCount} node(s)\n` +
+          `  forms.json: ${forms.length} behaviour binding(s)` +
+          forms
+            .map((f) => `\n      ${f.behavior} → slot '${f.slot}' (${f.fields.length} field(s))`)
+            .join('') +
+          `\n  fold residuals: ${residuals.length}`,
       )
       return
     }

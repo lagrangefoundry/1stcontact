@@ -6426,7 +6426,7 @@
     {
       "id": "form-0",
       "type": "contact-form",
-      "version": 3,
+      "version": 4,
       "slot": "form-0",
       "config": {
         "action": "https://api.gigabytefoundry.ai/contact",
@@ -6452,37 +6452,379 @@
             "labelMode": "placeholder",
             "required": false
           }
-        ]
+        ],
+        "submitLabel": "Send message"
       },
       "slots": {
-        "submit": {
-          "kind": "text",
-          "text": "Send message",
-          "axes": {
-            "color": "#ffffff",
-            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
-            "fontSizePx": 16,
-            "fontWeight": 500,
-            "lineHeightPx": 24,
-            "letterSpacingPx": 0,
-            "textAlign": "center",
-            "surfaceFill": "#0f172b",
-            "borderRadiusPx": 8,
-            "nowrapFromPx": 320
+        "form": {
+          "kind": "box",
+          "id": "form-0-body",
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 0,
+                "width": 272,
+                "height": 348,
+                "atHeight": 800
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 0,
+                "width": 327,
+                "height": 348,
+                "atHeight": 800
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 0,
+                "width": 336,
+                "height": 348,
+                "atHeight": 1024
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 0,
+                "width": 464,
+                "height": 348,
+                "atHeight": 768
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 0,
+                "width": 528,
+                "height": 348,
+                "atHeight": 800
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 0,
+                "width": 528,
+                "height": 348,
+                "atHeight": 900
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
           },
-          "padding": {
-            "topPx": 12,
-            "rightPx": 32,
-            "bottomPx": 12,
-            "leftPx": 32
-          }
+          "children": [
+            {
+              "kind": "control",
+              "id": "form-0-your-name",
+              "control": "your-name",
+              "geometry": {
+                "keyframes": [
+                  {
+                    "at": 320,
+                    "x": 0,
+                    "y": 0,
+                    "width": 272,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 375,
+                    "x": 0,
+                    "y": 0,
+                    "width": 327,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 768,
+                    "x": 0,
+                    "y": 0,
+                    "width": 336,
+                    "height": 50,
+                    "atHeight": 1024
+                  },
+                  {
+                    "at": 1024,
+                    "x": 0,
+                    "y": 0,
+                    "width": 464,
+                    "height": 50,
+                    "atHeight": 768
+                  },
+                  {
+                    "at": 1280,
+                    "x": 0,
+                    "y": 0,
+                    "width": 528,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 1440,
+                    "x": 0,
+                    "y": 0,
+                    "width": 528,
+                    "height": 50,
+                    "atHeight": 900
+                  }
+                ],
+                "segments": [
+                  "interpolate",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate"
+                ]
+              },
+              "axes": {
+                "borderRadiusPx": 8,
+                "border": {
+                  "widthPx": 1,
+                  "color": "#000000",
+                  "style": "solid"
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "id": "form-0-your-email",
+              "control": "your-email",
+              "geometry": {
+                "keyframes": [
+                  {
+                    "at": 320,
+                    "x": 0,
+                    "y": 66,
+                    "width": 272,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 375,
+                    "x": 0,
+                    "y": 66,
+                    "width": 327,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 768,
+                    "x": 0,
+                    "y": 66,
+                    "width": 336,
+                    "height": 50,
+                    "atHeight": 1024
+                  },
+                  {
+                    "at": 1024,
+                    "x": 0,
+                    "y": 66,
+                    "width": 464,
+                    "height": 50,
+                    "atHeight": 768
+                  },
+                  {
+                    "at": 1280,
+                    "x": 0,
+                    "y": 66,
+                    "width": 528,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 1440,
+                    "x": 0,
+                    "y": 66,
+                    "width": 528,
+                    "height": 50,
+                    "atHeight": 900
+                  }
+                ],
+                "segments": [
+                  "interpolate",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate"
+                ]
+              },
+              "axes": {
+                "borderRadiusPx": 8,
+                "border": {
+                  "widthPx": 1,
+                  "color": "#000000",
+                  "style": "solid"
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "id": "form-0-your-message",
+              "control": "your-message",
+              "geometry": {
+                "keyframes": [
+                  {
+                    "at": 320,
+                    "x": 0,
+                    "y": 132,
+                    "width": 272,
+                    "height": 146,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 375,
+                    "x": 0,
+                    "y": 132,
+                    "width": 327,
+                    "height": 146,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 768,
+                    "x": 0,
+                    "y": 132,
+                    "width": 336,
+                    "height": 146,
+                    "atHeight": 1024
+                  },
+                  {
+                    "at": 1024,
+                    "x": 0,
+                    "y": 132,
+                    "width": 464,
+                    "height": 146,
+                    "atHeight": 768
+                  },
+                  {
+                    "at": 1280,
+                    "x": 0,
+                    "y": 132,
+                    "width": 528,
+                    "height": 146,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 1440,
+                    "x": 0,
+                    "y": 132,
+                    "width": 528,
+                    "height": 146,
+                    "atHeight": 900
+                  }
+                ],
+                "segments": [
+                  "interpolate",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate"
+                ]
+              },
+              "axes": {
+                "borderRadiusPx": 8,
+                "border": {
+                  "widthPx": 1,
+                  "color": "#000000",
+                  "style": "solid"
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "id": "form-0-submit",
+              "control": "submit",
+              "geometry": {
+                "keyframes": [
+                  {
+                    "at": 320,
+                    "x": 0,
+                    "y": 300,
+                    "width": 272,
+                    "height": 48,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 375,
+                    "x": 0,
+                    "y": 300,
+                    "width": 327,
+                    "height": 48,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 768,
+                    "x": 0,
+                    "y": 300,
+                    "width": 173,
+                    "height": 48,
+                    "atHeight": 1024
+                  },
+                  {
+                    "at": 1024,
+                    "x": 0,
+                    "y": 300,
+                    "width": 173,
+                    "height": 48,
+                    "atHeight": 768
+                  },
+                  {
+                    "at": 1280,
+                    "x": 0,
+                    "y": 300,
+                    "width": 173,
+                    "height": 48,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 1440,
+                    "x": 0,
+                    "y": 300,
+                    "width": 173,
+                    "height": 48,
+                    "atHeight": 900
+                  }
+                ],
+                "segments": [
+                  "interpolate",
+                  "snap",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate"
+                ]
+              },
+              "axes": {
+                "color": "#ffffff",
+                "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+                "fontSizePx": 16,
+                "fontWeight": 500,
+                "lineHeightPx": 24,
+                "letterSpacingPx": 0,
+                "textAlign": "center",
+                "surfaceFill": "#0f172b",
+                "borderRadiusPx": 8,
+                "nowrapFromPx": 320
+              },
+              "padding": {
+                "topPx": 12,
+                "rightPx": 32,
+                "bottomPx": 12,
+                "leftPx": 32
+              }
+            }
+          ]
         }
       }
     },
     {
       "id": "form-1",
       "type": "contact-form",
-      "version": 3,
+      "version": 4,
       "slot": "form-1",
       "config": {
         "action": "",
@@ -6494,30 +6836,228 @@
             "labelMode": "placeholder",
             "required": false
           }
-        ]
+        ],
+        "submitLabel": "Subscribe"
       },
       "slots": {
-        "submit": {
-          "kind": "text",
-          "text": "Subscribe",
-          "axes": {
-            "color": "#ffffff",
-            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
-            "fontSizePx": 16,
-            "fontWeight": 500,
-            "lineHeightPx": 24,
-            "letterSpacingPx": 0,
-            "textAlign": "center",
-            "surfaceFill": "#009966",
-            "borderRadiusPx": 8,
-            "nowrapFromPx": 320
+        "form": {
+          "kind": "box",
+          "id": "form-1-body",
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 0,
+                "y": 0,
+                "width": 272,
+                "height": 110,
+                "atHeight": 800
+              },
+              {
+                "at": 375,
+                "x": 0,
+                "y": 0,
+                "width": 327,
+                "height": 110,
+                "atHeight": 800
+              },
+              {
+                "at": 768,
+                "x": 0,
+                "y": 0,
+                "width": 344,
+                "height": 50,
+                "atHeight": 1024
+              },
+              {
+                "at": 1024,
+                "x": 0,
+                "y": 0,
+                "width": 448,
+                "height": 50,
+                "atHeight": 768
+              },
+              {
+                "at": 1280,
+                "x": 0,
+                "y": 0,
+                "width": 448,
+                "height": 50,
+                "atHeight": 800
+              },
+              {
+                "at": 1440,
+                "x": 0,
+                "y": 0,
+                "width": 448,
+                "height": 50,
+                "atHeight": 900
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
           },
-          "padding": {
-            "topPx": 12,
-            "rightPx": 24,
-            "bottomPx": 12,
-            "leftPx": 24
-          }
+          "children": [
+            {
+              "kind": "control",
+              "id": "form-1-your-email-address",
+              "control": "your-email-address",
+              "geometry": {
+                "keyframes": [
+                  {
+                    "at": 320,
+                    "x": 0,
+                    "y": 0,
+                    "width": 272,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 375,
+                    "x": 0,
+                    "y": 0,
+                    "width": 327,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 768,
+                    "x": 0,
+                    "y": 0,
+                    "width": 209,
+                    "height": 50,
+                    "atHeight": 1024
+                  },
+                  {
+                    "at": 1024,
+                    "x": 0,
+                    "y": 0,
+                    "width": 313,
+                    "height": 50,
+                    "atHeight": 768
+                  },
+                  {
+                    "at": 1280,
+                    "x": 0,
+                    "y": 0,
+                    "width": 313,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 1440,
+                    "x": 0,
+                    "y": 0,
+                    "width": 313,
+                    "height": 50,
+                    "atHeight": 900
+                  }
+                ],
+                "segments": [
+                  "interpolate",
+                  "snap",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate"
+                ]
+              },
+              "axes": {
+                "borderRadiusPx": 8,
+                "border": {
+                  "widthPx": 1,
+                  "color": "#000000",
+                  "style": "solid"
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "id": "form-1-submit",
+              "control": "submit",
+              "geometry": {
+                "keyframes": [
+                  {
+                    "at": 320,
+                    "x": 0,
+                    "y": 62,
+                    "width": 272,
+                    "height": 48,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 375,
+                    "x": 0,
+                    "y": 62,
+                    "width": 327,
+                    "height": 48,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 768,
+                    "x": 221,
+                    "y": 0,
+                    "width": 123,
+                    "height": 50,
+                    "atHeight": 1024
+                  },
+                  {
+                    "at": 1024,
+                    "x": 325,
+                    "y": 0,
+                    "width": 123,
+                    "height": 50,
+                    "atHeight": 768
+                  },
+                  {
+                    "at": 1280,
+                    "x": 325,
+                    "y": 0,
+                    "width": 123,
+                    "height": 50,
+                    "atHeight": 800
+                  },
+                  {
+                    "at": 1440,
+                    "x": 325,
+                    "y": 0,
+                    "width": 123,
+                    "height": 50,
+                    "atHeight": 900
+                  }
+                ],
+                "segments": [
+                  "interpolate",
+                  "snap",
+                  "interpolate",
+                  "interpolate",
+                  "interpolate"
+                ]
+              },
+              "axes": {
+                "color": "#ffffff",
+                "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+                "fontSizePx": 16,
+                "fontWeight": 500,
+                "lineHeightPx": 24,
+                "letterSpacingPx": 0,
+                "textAlign": "center",
+                "surfaceFill": "#009966",
+                "borderRadiusPx": 8,
+                "nowrapFromPx": 320
+              },
+              "padding": {
+                "topPx": 12,
+                "rightPx": 24,
+                "bottomPx": 12,
+                "leftPx": 24
+              }
+            }
+          ]
         }
       }
     }

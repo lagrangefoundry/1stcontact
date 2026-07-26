@@ -427,6 +427,21 @@ export const EXTRACT_SCRIPT = `(() => {
   function visible(el) {
     return styleVisible(el) && onScreenBox(absBox(el));
   }
+  // REQ-96 -- a behavior module's INVARIANT elements: presentation fixed by an
+  // obligation rather than by taste (a honeypot that must stay invisible, a
+  // programmatic label that must stay out of flow, the Turnstile mount). They
+  // exist only on OUR side of a reproduction, so pairing against them slides the
+  // whole control queue and every field mispairs against its neighbour -- 15
+  // repro-only objects turned all 26 reported deltas on gigabytealchemy
+  // unreadable. The module marks them; the capture skips them and their subtrees.
+  function moduleInvariant(el) {
+    var node = el;
+    while (node && node.nodeType === 1) {
+      if (node.hasAttribute && node.hasAttribute('data-fc-invariant')) return true;
+      node = node.parentElement;
+    }
+    return false;
+  }
   function absBox(el) {
     var r = el.getBoundingClientRect();
     return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
@@ -970,6 +985,14 @@ export const EXTRACT_SCRIPT = `(() => {
         try { lbl = document.querySelector('label[for="' + idSel + '"]'); } catch (e) { lbl = null; }
       }
       if (!lbl && el.closest) lbl = el.closest('label');
+      // REQ-96 -- a module-INVARIANT label is the a11y association a behavior
+      // module is obliged to keep, not the labelling the page RENDERS. Reading
+      // the name off it would report 'label' (outside/above) for a control the
+      // reference labels with a placeholder INSIDE the box -- a permanent,
+      // unfixable delta manufactured by the module honouring an obligation.
+      // Invariant elements are excluded from the value gate; that has to include
+      // the name they would otherwise source.
+      if (lbl && moduleInvariant(lbl)) lbl = null;
       var lblText = lbl ? collapseText(lbl.textContent) : '';
       if (lblText) return { name: lblText, source: 'label' };
       var ph = el.getAttribute('placeholder');
@@ -1086,6 +1109,7 @@ export const EXTRACT_SCRIPT = `(() => {
       if (!t) continue;
       var owner = n.parentElement;
       if (!owner || !visible(owner)) continue;
+      if (moduleInvariant(owner)) continue;
       if (excludes && insideAny(owner, excludes)) continue;
       nodes.push({ node: n, el: owner, text: t });
       runCounts.set(owner, (runCounts.get(owner) || 0) + 1);
@@ -1234,6 +1258,7 @@ export const EXTRACT_SCRIPT = `(() => {
       var bgUrl = cands[i].bgUrl;
       if (el.type === 'hidden') continue;
       if (!visible(el)) continue;
+      if (moduleInvariant(el)) continue;
       if (excludes && insideAny(el, excludes)) continue;
       var s = getComputedStyle(el);
       var an = accessibleNameOf(el);

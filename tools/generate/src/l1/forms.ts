@@ -76,21 +76,24 @@ export interface FoldedForm {
    */
   action?: string
   /**
-   * The captured submit affordance, as the L1 subtree that gives the module's
-   * button its look — bound to the behavior's `submit` slot (DOC-25 §2).
+   * REQ-96 — the form's **entire presentation**, as one L1 subtree bound to the
+   * behavior's `form` slot: a root box at the form's seam, holding a `control`
+   * node per captured control (named by the field it belongs to, plus `submit`),
+   * each carrying the geometry and paint the capture measured.
    *
-   * A reference's submit control is captured as a *painted run* (text + pill), so
-   * the fold emits it as an ordinary text leaf. Left there it is a page-level
-   * decoration sitting next to a form that renders its own default button —
-   * two buttons, one of them inert. Lifting it into the slot makes the captured
-   * chip **be** the form's button: one control, the reference's look, and the
-   * module's submit behaviour intact.
-   *
-   * Absolute geometry is deliberately dropped on the way in. The module places
-   * its own button, and page-absolute keyframes inside the slot would resolve
-   * against the slot's origin rather than the page's.
+   * Geometry is *rebased* to the seam rather than dropped. Under REQ-93's slot-only
+   * model the module placed its own controls, so page-absolute keyframes would have
+   * resolved against the wrong origin and had to be discarded — which is precisely
+   * why the reference's field heights, surfaces and the inline-vs-stacked
+   * arrangement of its submit button could not be reproduced. Rebasing keeps every
+   * measured number and resolves it against the seam the module mounts at.
    */
-  submit?: L1Node
+  form: L1Node
+  /**
+   * The words on the captured submit button. Behavioural copy (it names the
+   * action), not styling — the button's look lives on its `control` node.
+   */
+  submitLabel?: string
   /**
    * What the capture could not tell us about this form. These are *derivation*
    * gaps (a missing endpoint, an unrecorded input type) — deliberately NOT
@@ -168,22 +171,6 @@ export function clusterControls(rows: ControlRow[]): ControlRow[][] {
     .map((members) => members.map((m) => m.row))
 }
 
-/**
- * Reduce a captured button run to the subtree that belongs in a `submit` slot:
- * everything about how it *looks*, nothing about where the page put it.
- *
- * `geometry` and `visibility` are dropped because the module owns placement —
- * the keyframes are page-absolute and would resolve against the slot's own
- * origin. The type axes, the pill's fill and rounding, the padding and the
- * unbreakable-line pin all survive, because those are the button's appearance.
- */
-export function submitSlotFrom(node: L1Node): L1Node {
-  const rest: Record<string, unknown> = { ...(node as unknown as Record<string, unknown>) }
-  delete rest.geometry
-  delete rest.visibility
-  return rest as unknown as L1Node
-}
-
 /** Shortest distance between two rects — exported for the fold's submit matching. */
 export function boxDistance(a: Box, b: Box): number {
   return rectDistance(a, b)
@@ -230,7 +217,7 @@ function typeFromControlType(controlType: string): FoldedFormField['type'] | und
  * - `action` is the captured form action. Absent, the form posts to its own URL
  *   (the browser default) and the gap is recorded — never a fabricated endpoint.
  */
-export function foldedFormFor(slot: string, group: ControlRow[]): FoldedForm {
+export function foldedFormFor(slot: string, group: ControlRow[], form: L1Node): FoldedForm {
   const residuals: string[] = []
   const samples = group.map((row) => widestSample(row)!).filter(Boolean)
   const singleLineHeight = Math.min(...samples.map((s) => s.box.height))
@@ -256,9 +243,9 @@ export function foldedFormFor(slot: string, group: ControlRow[]): FoldedForm {
     return { name, label: label || `Field ${i + 1}`, type, labelMode }
   })
 
-  const form: FoldedForm = { slot, behavior: 'contact-form', fields, residuals }
+  const folded: FoldedForm = { slot, behavior: 'contact-form', fields, form, residuals }
   const captured = samples.map((s) => s.element.formAction).find((a) => a && a.trim() !== '')
-  if (captured && isSafeUrl(captured)) form.action = captured
+  if (captured && isSafeUrl(captured)) folded.action = captured
   else if (captured) residuals.push(`captured form action '${captured}' is not a safe URL — dropped`)
   else {
     residuals.push(
@@ -266,5 +253,5 @@ export function foldedFormFor(slot: string, group: ControlRow[]): FoldedForm {
         'set the endpoint on the reproduced site before it collects real leads',
     )
   }
-  return form
+  return folded
 }

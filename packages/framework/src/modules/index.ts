@@ -49,12 +49,19 @@ export type {
 export {
   validateBehaviorConfig,
   validateBehaviorSlots,
+  validateBehaviorControls,
   validateBehaviorInstance,
+  resolveControlNames,
 } from './behavior'
+// REQ-96 — `contact-form`'s attribute bundles (the module's half of the control
+// contract), exported so the repro pipeline and tests can resolve the same roster.
+export { contactFormControls, controlId } from './contact-form/controls'
+export type { ContactFormField } from './contact-form/controls'
 export type {
   BehaviorMeta,
   BehaviorConfigSpec,
   BehaviorConfigType,
+  BehaviorControlSpec,
   BehaviorSlotSpec,
   BehaviorSlotValue,
   BehaviorInstance,

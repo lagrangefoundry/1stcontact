@@ -11,7 +11,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 2).meta
+const carouselMeta = getModule('carousel', 3).meta
 import Overflow from './fixtures/conformance/overflow.astro'
 import PageError from './fixtures/conformance/page-error.astro'
 import Collapsed from './fixtures/conformance/collapsed.astro'

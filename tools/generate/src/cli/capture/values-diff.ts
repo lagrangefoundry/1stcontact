@@ -2280,8 +2280,26 @@ export function diffManifests(
   for (const exp of expected.elements) {
     if (!exp.textless) continue
     const start = deltas.length
+    // REQ-96 — a named control joins on its ACCESSIBLE NAME, falling back to
+    // document order for an unnamed one (a divider, an image, an unlabelled box).
+    //
+    // Document-order FIFO alone assumes the two sides enumerate their controls in
+    // the same order, and a reproduction has no way to guarantee that: the fold
+    // emits one seam per *geometric* cluster, top-to-bottom, while the reference's
+    // DOM order is whatever its author wrote. On gigabytealchemy the two disagree
+    // by exactly one position, which mispaired every field against its neighbour
+    // and turned four correct boxes into sixteen CRITICAL deltas. A control's
+    // accessible name is a real join key — the same role text plays for a run — so
+    // using it makes the pairing say what it means. A genuine name difference is
+    // still reported: an exp whose name matches nothing falls back to the queue
+    // head and the `name` axis flags it there.
     const q = fieldQueues.get(exp.a11yRole ?? exp.role)
-    const act = q && q.length > 0 ? q.shift() : undefined
+    const expName = norm(exp.accessibleName ?? '')
+    let act: ValueElement | undefined
+    if (q && q.length > 0) {
+      const byName = expName ? q.findIndex((el) => norm(el.accessibleName ?? '') === expName) : -1
+      act = q.splice(byName >= 0 ? byName : 0, 1)[0]
+    }
     if (!act) {
       unmatched++
       push(exp, 'missing', 'present', 'absent')

@@ -10,7 +10,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 
-const carouselMeta = getModule('carousel', 2).meta
+const carouselMeta = getModule('carousel', 3).meta
 import MobileOverflow from './fixtures/conformance/mobile-overflow.astro'
 import SmallTapTarget from './fixtures/conformance/small-tap-target.astro'
 import SmallFont from './fixtures/conformance/small-font.astro'
