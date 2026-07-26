@@ -580,7 +580,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -657,7 +664,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -747,7 +761,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -818,6 +839,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 0,
+                "fraction": 0
+              }
             }
           }
         },
@@ -888,6 +915,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 0
+                    },
+                    {
+                      "at": 375,
+                      "value": 0
+                    },
+                    {
+                      "at": 768,
+                      "value": 251
+                    },
+                    {
+                      "at": 1024,
+                      "value": 309
+                    },
+                    {
+                      "at": 1280,
+                      "value": 309
+                    },
+                    {
+                      "at": 1440,
+                      "value": 309
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           }
         },
@@ -958,6 +1024,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 0
+                    },
+                    {
+                      "at": 375,
+                      "value": 0
+                    },
+                    {
+                      "at": 768,
+                      "value": 501
+                    },
+                    {
+                      "at": 1024,
+                      "value": 619
+                    },
+                    {
+                      "at": 1280,
+                      "value": 619
+                    },
+                    {
+                      "at": 1440,
+                      "value": 619
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           }
         },
@@ -1033,7 +1138,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -1109,7 +1221,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -1284,7 +1403,46 @@
               "interpolate",
               "interpolate",
               "interpolate"
-            ]
+            ],
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": -8
+                    },
+                    {
+                      "at": 375,
+                      "value": -8
+                    },
+                    {
+                      "at": 768,
+                      "value": 0
+                    },
+                    {
+                      "at": 1024,
+                      "value": 0
+                    },
+                    {
+                      "at": 1280,
+                      "value": 0
+                    },
+                    {
+                      "at": 1440,
+                      "value": 0
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
+            }
           }
         },
         {
@@ -1437,7 +1595,13 @@
               "interpolate",
               "interpolate",
               "interpolate"
-            ]
+            ],
+            "anchor": {
+              "x": {
+                "px": 0,
+                "fraction": 0
+              }
+            }
           }
         },
         {
@@ -1564,7 +1728,14 @@
               "interpolate"
             ],
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -1631,7 +1802,18 @@
               "interpolate",
               "interpolate",
               "interpolate"
-            ]
+            ],
+            "anchor": {
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1,
+                "maxPx": 768
+              }
+            }
           }
         },
         {
@@ -1761,7 +1943,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -1833,7 +2022,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -1905,7 +2101,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -1978,7 +2181,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -2109,7 +2319,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -2182,7 +2399,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -2255,9 +2479,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 28,
-              "widthPx": -28,
-              "widthFraction": 1
+              "x": {
+                "px": 28,
+                "fraction": 0
+              },
+              "width": {
+                "px": -28,
+                "fraction": 1
+              }
             }
           }
         },
@@ -2328,6 +2557,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 24,
+                "fraction": 0
+              }
             }
           }
         },
@@ -2397,6 +2632,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 24,
+                "fraction": 0
+              }
             }
           }
         },
@@ -2467,6 +2708,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 24
+                    },
+                    {
+                      "at": 375,
+                      "value": 24
+                    },
+                    {
+                      "at": 768,
+                      "value": 274.66
+                    },
+                    {
+                      "at": 1024,
+                      "value": 333.33
+                    },
+                    {
+                      "at": 1280,
+                      "value": 333.33
+                    },
+                    {
+                      "at": 1440,
+                      "value": 333.33
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           }
         },
@@ -2536,6 +2816,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 24
+                    },
+                    {
+                      "at": 375,
+                      "value": 24
+                    },
+                    {
+                      "at": 768,
+                      "value": 274.66
+                    },
+                    {
+                      "at": 1024,
+                      "value": 333.33
+                    },
+                    {
+                      "at": 1280,
+                      "value": 333.33
+                    },
+                    {
+                      "at": 1440,
+                      "value": 333.33
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           }
         },
@@ -2606,6 +2925,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 24
+                    },
+                    {
+                      "at": 375,
+                      "value": 24
+                    },
+                    {
+                      "at": 768,
+                      "value": 525.33
+                    },
+                    {
+                      "at": 1024,
+                      "value": 642.66
+                    },
+                    {
+                      "at": 1280,
+                      "value": 642.66
+                    },
+                    {
+                      "at": 1440,
+                      "value": 642.66
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           }
         },
@@ -2675,6 +3033,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 24
+                    },
+                    {
+                      "at": 375,
+                      "value": 24
+                    },
+                    {
+                      "at": 768,
+                      "value": 525.33
+                    },
+                    {
+                      "at": 1024,
+                      "value": 642.66
+                    },
+                    {
+                      "at": 1280,
+                      "value": 642.66
+                    },
+                    {
+                      "at": 1440,
+                      "value": 642.66
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           }
         },
@@ -2805,7 +3202,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -2878,7 +3282,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -2949,6 +3360,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 36,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3021,6 +3438,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 136.3
+                    },
+                    {
+                      "at": 375,
+                      "value": 182.19
+                    },
+                    {
+                      "at": 768,
+                      "value": 562.38
+                    },
+                    {
+                      "at": 1024,
+                      "value": 738.38
+                    },
+                    {
+                      "at": 1280,
+                      "value": 738.38
+                    },
+                    {
+                      "at": 1440,
+                      "value": 738.38
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           },
           "padding": {
@@ -3100,9 +3556,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3174,9 +3635,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3247,6 +3713,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 36,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3319,6 +3791,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 194.11
+                    },
+                    {
+                      "at": 375,
+                      "value": 220.16
+                    },
+                    {
+                      "at": 768,
+                      "value": 577.38
+                    },
+                    {
+                      "at": 1024,
+                      "value": 753.38
+                    },
+                    {
+                      "at": 1280,
+                      "value": 753.38
+                    },
+                    {
+                      "at": 1440,
+                      "value": 753.38
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           },
           "padding": {
@@ -3398,9 +3909,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3472,9 +3988,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3547,8 +4068,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": 13.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3621,8 +4148,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": 13.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3695,8 +4228,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": 13.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3769,8 +4308,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": 13.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3843,8 +4388,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": 13.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3917,8 +4468,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": 13.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -3989,6 +4546,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 61.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -4059,6 +4622,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 61.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -4129,6 +4698,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 61.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -4201,9 +4776,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4275,9 +4855,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4351,9 +4936,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36,
+                "fraction": 0
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4424,6 +5014,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 61.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -4494,6 +5090,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 61.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -4564,6 +5166,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 61.55,
+                "fraction": 0
+              }
             }
           }
         },
@@ -4694,7 +5302,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4766,7 +5381,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4838,7 +5460,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4910,7 +5539,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "x": {
+                "px": 0,
+                "fraction": 0
+              },
+              "width": {
+                "px": 0,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4984,9 +5620,14 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 28,
-              "widthPx": -28,
-              "widthFraction": 1
+              "x": {
+                "px": 28,
+                "fraction": 0
+              },
+              "width": {
+                "px": -28,
+                "fraction": 1
+              }
             }
           }
         },
@@ -5115,6 +5756,12 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "px": 0,
+                "fraction": 0
+              }
             }
           }
         },
@@ -5185,163 +5832,13 @@
             ],
             "viewportResponse": {
               "yFactor": 1
-            }
-          }
-        },
-        {
-          "kind": "text",
-          "text": "Subscribe",
-          "axes": {
-            "color": "#ffffff",
-            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
-            "fontSizePx": 16,
-            "fontWeight": 500,
-            "lineHeightPx": 24,
-            "letterSpacingPx": 0,
-            "textAlign": "center",
-            "nowrapFromPx": 320,
-            "surfaceFill": "#009966",
-            "borderRadiusPx": 8
-          },
-          "geometry": {
-            "keyframes": [
-              {
-                "at": 320,
-                "x": 24,
-                "y": 6304,
-                "width": 272,
-                "atHeight": 800
-              },
-              {
-                "at": 375,
-                "x": 24,
-                "y": 5743,
-                "width": 327,
-                "atHeight": 800
-              },
-              {
-                "at": 768,
-                "x": 245,
-                "y": 4402,
-                "width": 123,
-                "atHeight": 1024
-              },
-              {
-                "at": 1024,
-                "x": 349,
-                "y": 3868,
-                "width": 123,
-                "atHeight": 768
-              },
-              {
-                "at": 1280,
-                "x": 413,
-                "y": 3900,
-                "width": 123,
-                "atHeight": 800
-              },
-              {
-                "at": 1440,
-                "x": 493,
-                "y": 4000,
-                "width": 123,
-                "atHeight": 900
+            },
+            "anchor": {
+              "x": {
+                "px": 0,
+                "fraction": 0
               }
-            ],
-            "segments": [
-              "interpolate",
-              "snap",
-              "interpolate",
-              "interpolate",
-              "interpolate"
-            ],
-            "viewportResponse": {
-              "yFactor": 1
             }
-          },
-          "padding": {
-            "topPx": 12,
-            "rightPx": 24,
-            "bottomPx": 12,
-            "leftPx": 24
-          }
-        },
-        {
-          "kind": "text",
-          "text": "Send message",
-          "axes": {
-            "color": "#ffffff",
-            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
-            "fontSizePx": 16,
-            "fontWeight": 500,
-            "lineHeightPx": 24,
-            "letterSpacingPx": 0,
-            "textAlign": "center",
-            "nowrapFromPx": 320,
-            "surfaceFill": "#0f172b",
-            "borderRadiusPx": 8
-          },
-          "geometry": {
-            "keyframes": [
-              {
-                "at": 320,
-                "x": 24,
-                "y": 6700,
-                "width": 272,
-                "atHeight": 800
-              },
-              {
-                "at": 375,
-                "x": 24,
-                "y": 6139,
-                "width": 327,
-                "atHeight": 800
-              },
-              {
-                "at": 768,
-                "x": 408,
-                "y": 4558,
-                "width": 173,
-                "atHeight": 1024
-              },
-              {
-                "at": 1024,
-                "x": 536,
-                "y": 4052,
-                "width": 173,
-                "atHeight": 768
-              },
-              {
-                "at": 1280,
-                "x": 664,
-                "y": 4084,
-                "width": 173,
-                "atHeight": 800
-              },
-              {
-                "at": 1440,
-                "x": 744,
-                "y": 4184,
-                "width": 173,
-                "atHeight": 900
-              }
-            ],
-            "segments": [
-              "interpolate",
-              "snap",
-              "interpolate",
-              "interpolate",
-              "interpolate"
-            ],
-            "viewportResponse": {
-              "yFactor": 1
-            }
-          },
-          "padding": {
-            "topPx": 12,
-            "rightPx": 32,
-            "bottomPx": 12,
-            "leftPx": 32
           }
         },
         {
@@ -5411,6 +5908,45 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 0
+                    },
+                    {
+                      "at": 375,
+                      "value": 0
+                    },
+                    {
+                      "at": 768,
+                      "value": 384
+                    },
+                    {
+                      "at": 1024,
+                      "value": 512
+                    },
+                    {
+                      "at": 1280,
+                      "value": 576
+                    },
+                    {
+                      "at": 1440,
+                      "value": 576
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              }
             }
           }
         },
@@ -5481,6 +6017,49 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 50.56
+                    },
+                    {
+                      "at": 375,
+                      "value": 78.06
+                    },
+                    {
+                      "at": 768,
+                      "value": 0
+                    },
+                    {
+                      "at": 1024,
+                      "value": 0
+                    },
+                    {
+                      "at": 1280,
+                      "value": 0
+                    },
+                    {
+                      "at": 1440,
+                      "value": 0
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              },
+              "width": {
+                "px": 170.88,
+                "fraction": 0
+              }
             }
           }
         },
@@ -5551,6 +6130,49 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 74.28
+                    },
+                    {
+                      "at": 375,
+                      "value": 101.78
+                    },
+                    {
+                      "at": 768,
+                      "value": 596.58
+                    },
+                    {
+                      "at": 1024,
+                      "value": 852.58
+                    },
+                    {
+                      "at": 1280,
+                      "value": 980.58
+                    },
+                    {
+                      "at": 1440,
+                      "value": 980.58
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              },
+              "width": {
+                "px": 54.16,
+                "fraction": 0
+              }
             }
           }
         },
@@ -5621,10 +6243,283 @@
             ],
             "viewportResponse": {
               "yFactor": 1
+            },
+            "anchor": {
+              "x": {
+                "pxTrack": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 152.44
+                    },
+                    {
+                      "at": 375,
+                      "value": 179.94
+                    },
+                    {
+                      "at": 768,
+                      "value": 674.73
+                    },
+                    {
+                      "at": 1024,
+                      "value": 930.73
+                    },
+                    {
+                      "at": 1280,
+                      "value": 1058.73
+                    },
+                    {
+                      "at": 1440,
+                      "value": 1058.73
+                    }
+                  ],
+                  "segments": [
+                    "interpolate",
+                    "snap",
+                    "interpolate",
+                    "interpolate",
+                    "interpolate"
+                  ]
+                }
+              },
+              "width": {
+                "px": 45.27,
+                "fraction": 0
+              }
             }
+          }
+        },
+        {
+          "kind": "slot",
+          "id": "form-0",
+          "name": "form-0",
+          "behavior": "contact-form",
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 6400,
+                "width": 272,
+                "height": 348,
+                "atHeight": 800
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 5839,
+                "width": 327,
+                "height": 348,
+                "atHeight": 800
+              },
+              {
+                "at": 768,
+                "x": 408,
+                "y": 4258,
+                "width": 336,
+                "height": 348,
+                "atHeight": 1024
+              },
+              {
+                "at": 1024,
+                "x": 536,
+                "y": 3752,
+                "width": 464,
+                "height": 348,
+                "atHeight": 768
+              },
+              {
+                "at": 1280,
+                "x": 664,
+                "y": 3784,
+                "width": 528,
+                "height": 348,
+                "atHeight": 800
+              },
+              {
+                "at": 1440,
+                "x": 744,
+                "y": 3884,
+                "width": 528,
+                "height": 348,
+                "atHeight": 900
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "snap",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
+          }
+        },
+        {
+          "kind": "slot",
+          "id": "form-1",
+          "name": "form-1",
+          "behavior": "contact-form",
+          "geometry": {
+            "keyframes": [
+              {
+                "at": 320,
+                "x": 24,
+                "y": 6242,
+                "width": 272,
+                "height": 110,
+                "atHeight": 800
+              },
+              {
+                "at": 375,
+                "x": 24,
+                "y": 5681,
+                "width": 327,
+                "height": 110,
+                "atHeight": 800
+              },
+              {
+                "at": 768,
+                "x": 24,
+                "y": 4402,
+                "width": 344,
+                "height": 50,
+                "atHeight": 1024
+              },
+              {
+                "at": 1024,
+                "x": 24,
+                "y": 3868,
+                "width": 448,
+                "height": 50,
+                "atHeight": 768
+              },
+              {
+                "at": 1280,
+                "x": 88,
+                "y": 3900,
+                "width": 448,
+                "height": 50,
+                "atHeight": 800
+              },
+              {
+                "at": 1440,
+                "x": 168,
+                "y": 4000,
+                "width": 448,
+                "height": 50,
+                "atHeight": 900
+              }
+            ],
+            "segments": [
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate",
+              "interpolate"
+            ]
           }
         }
       ]
     }
-  }
+  },
+  "modules": [
+    {
+      "id": "form-0",
+      "type": "contact-form",
+      "version": 3,
+      "slot": "form-0",
+      "config": {
+        "action": "https://api.gigabytefoundry.ai/contact",
+        "fields": [
+          {
+            "name": "your-name",
+            "label": "Your name",
+            "type": "text",
+            "labelMode": "placeholder",
+            "required": false
+          },
+          {
+            "name": "your-email",
+            "label": "Your email",
+            "type": "email",
+            "labelMode": "placeholder",
+            "required": false
+          },
+          {
+            "name": "your-message",
+            "label": "Your message",
+            "type": "textarea",
+            "labelMode": "placeholder",
+            "required": false
+          }
+        ]
+      },
+      "slots": {
+        "submit": {
+          "kind": "text",
+          "text": "Send message",
+          "axes": {
+            "color": "#ffffff",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+            "fontSizePx": 16,
+            "fontWeight": 500,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "center",
+            "surfaceFill": "#0f172b",
+            "borderRadiusPx": 8,
+            "nowrapFromPx": 320
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 32,
+            "bottomPx": 12,
+            "leftPx": 32
+          }
+        }
+      }
+    },
+    {
+      "id": "form-1",
+      "type": "contact-form",
+      "version": 3,
+      "slot": "form-1",
+      "config": {
+        "action": "",
+        "fields": [
+          {
+            "name": "your-email-address",
+            "label": "Your email address",
+            "type": "email",
+            "labelMode": "placeholder",
+            "required": false
+          }
+        ]
+      },
+      "slots": {
+        "submit": {
+          "kind": "text",
+          "text": "Subscribe",
+          "axes": {
+            "color": "#ffffff",
+            "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+            "fontSizePx": 16,
+            "fontWeight": 500,
+            "lineHeightPx": 24,
+            "letterSpacingPx": 0,
+            "textAlign": "center",
+            "surfaceFill": "#009966",
+            "borderRadiusPx": 8,
+            "nowrapFromPx": 320
+          },
+          "padding": {
+            "topPx": 12,
+            "rightPx": 24,
+            "bottomPx": 12,
+            "leftPx": 24
+          }
+        }
+      }
+    }
+  ]
 }
