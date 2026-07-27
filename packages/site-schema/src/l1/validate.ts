@@ -457,6 +457,16 @@ function walk(
     }
   }
 
+  // REQ-106 — a link's href clears the same allowlist as every other URL sink.
+  // The renderer degrades an unsafe href to the plain element, but failing here
+  // as well means the author is told rather than quietly shipping a dead button.
+  const link = (node as { link?: { href: string } }).link
+  if (link !== undefined && !isSafeUrl(link.href)) {
+    errors.push({
+      path: `${path}/link/href`,
+      message: `link href '${link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
+    })
+  }
   if (node.kind === 'image' && !isSafeUrl(node.src)) {
     errors.push({
       path: `${path}/src`,
@@ -540,6 +550,28 @@ export function validateL1(input: unknown): Result<L1Document, ValidationError[]
       })
     }
   }
+
+  // REQ-106 — ids became real DOM ids when links landed, so they must be unique.
+  // A duplicate breaks `#anchor` navigation (the browser takes the first match)
+  // and, worse, the `for`<->`id` association the REQ-96 `control` contract relies
+  // on for its accessible names. Cheap to check, silent and confusing when missed.
+  const seenIds = new Map<string, string>()
+  const scanIds = (node: L1Node, path: string): void => {
+    if (node.id !== undefined) {
+      const first = seenIds.get(node.id)
+      if (first !== undefined) {
+        errors.push({
+          path: `${path}/id`,
+          message: `duplicate node id '${node.id}' (first declared at ${first}) — a DOM id must be unique`,
+        })
+      } else {
+        seenIds.set(node.id, path)
+      }
+    }
+    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+    kids.forEach((c, i) => scanIds(c, `${path}/children/${i}`))
+  }
+  scanIds(doc.root, '/root')
 
   const counter = { n: 0 }
   walk(doc.root, doc.widths, '/root', 1, counter, errors)

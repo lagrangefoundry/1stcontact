@@ -121,7 +121,10 @@ describe('REQ-102 — `1c new` seeds a renderable L1 document', () => {
     // document: the slug is in the `<title>` too, so "contains the slug"
     // would pass on a page whose body was empty.
     const body = html.slice(html.indexOf('<body>'))
-    expect(body).toMatch(/<p class="[^"]+">renderme<\/p>/)
+    // REQ-106 — a node's `id` is now emitted as a real DOM id (so `#anchor`
+    // navigation has something to land on), so the run carries attributes beyond
+    // its class. Match the class and the content, not the exact attribute list.
+    expect(body).toMatch(/<p class="[^"]+"[^>]*>renderme<\/p>/)
     // …laid out by the root container as a flowed, centred stack, and painted
     // on the document background.
     expect(html).toContain('display: flex')

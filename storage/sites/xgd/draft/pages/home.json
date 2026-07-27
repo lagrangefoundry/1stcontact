@@ -13,7 +13,7 @@
       "version": 4,
       "slot": "signup-form",
       "config": {
-        "action": "mailto:hello@xgd.dev",
+        "action": "/api/lead",
         "fields": [
           {
             "name": "email",
@@ -344,6 +344,25 @@
                     "fontSizePx": 15,
                     "fontWeight": 400,
                     "lineHeightPx": 22
+                  },
+                  "link": {
+                    "href": "#papers"
+                  },
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 140,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "color": "#1F2937"
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": "#2E86A3",
+                        "offsetPx": 3
+                      }
+                    }
                   }
                 },
                 {
@@ -355,17 +374,72 @@
                     "fontSizePx": 15,
                     "fontWeight": 400,
                     "lineHeightPx": 22
+                  },
+                  "link": {
+                    "href": "#how"
+                  },
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 140,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "color": "#1F2937"
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": "#2E86A3",
+                        "offsetPx": 3
+                      }
+                    }
                   }
                 },
                 {
-                  "kind": "text",
-                  "text": "Join the beta",
+                  "kind": "box",
+                  "id": "nav-cta",
+                  "link": {
+                    "href": "#signup"
+                  },
                   "axes": {
-                    "color": "#1F2937",
-                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                    "fontSizePx": 15,
-                    "fontWeight": 500,
-                    "lineHeightPx": 22
+                    "surfaceFill": "#2E86A3",
+                    "borderRadiusPx": 6
+                  },
+                  "padding": {
+                    "topPx": 9,
+                    "bottomPx": 9,
+                    "leftPx": 16,
+                    "rightPx": 16
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "Join the beta",
+                      "axes": {
+                        "color": "#FFFEF8",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 600,
+                        "lineHeightPx": 22,
+                        "nowrapFromPx": 0
+                      }
+                    }
+                  ],
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 160,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "surfaceFill": "#236D87"
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": "#2E86A3",
+                        "offsetPx": 2
+                      }
+                    }
                   }
                 }
               ]
@@ -646,7 +720,17 @@
                         "blurPx": 24,
                         "color": "#00000059"
                       }
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": "#2E86A3",
+                        "offsetPx": 2
+                      }
                     }
+                  },
+                  "link": {
+                    "href": "#signup"
                   }
                 },
                 {
@@ -695,7 +779,17 @@
                       "motion": {
                         "offsetYPx": -2
                       }
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": "#2E86A3",
+                        "offsetPx": 2
+                      }
                     }
+                  },
+                  "link": {
+                    "href": "#papers"
                   }
                 }
               ],
@@ -721,7 +815,7 @@
               "children": [
                 {
                   "kind": "box",
-                  "id": "cta-primary",
+                  "id": "cta-primary-sm",
                   "axes": {
                     "surfaceFill": "#2E86A3",
                     "borderRadiusPx": 6
@@ -763,12 +857,22 @@
                         "blurPx": 24,
                         "color": "#00000059"
                       }
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": "#2E86A3",
+                        "offsetPx": 2
+                      }
                     }
+                  },
+                  "link": {
+                    "href": "#signup"
                   }
                 },
                 {
                   "kind": "box",
-                  "id": "cta-secondary",
+                  "id": "cta-secondary-sm",
                   "axes": {
                     "borderRadiusPx": 6,
                     "border": {
@@ -813,7 +917,17 @@
                       "motion": {
                         "offsetYPx": -2
                       }
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": "#2E86A3",
+                        "offsetPx": 2
+                      }
                     }
+                  },
+                  "link": {
+                    "href": "#papers"
                   }
                 }
               ],
@@ -2690,7 +2804,7 @@
         },
         {
           "kind": "container",
-          "id": "proof",
+          "id": "papers",
           "layout": "stack",
           "align": "center",
           "sizing": {
@@ -4328,7 +4442,10 @@
                         "lineHeightPx": 22
                       }
                     }
-                  ]
+                  ],
+                  "link": {
+                    "href": "#"
+                  }
                 },
                 {
                   "kind": "text",
