@@ -988,7 +988,7 @@
             }
           },
           "axes": {
-            "backgroundImageUrl": "/assets/xgd-grid-hero.svg"
+            "backgroundImageUrl": "/assets/xgd-grid-hero.svg?v=2"
           }
         },
         {
@@ -2799,7 +2799,7 @@
             }
           ],
           "axes": {
-            "backgroundImageUrl": "/assets/xgd-echo-1.svg"
+            "backgroundImageUrl": "/assets/xgd-echo-1.svg?v=2"
           }
         },
         {
@@ -4005,7 +4005,7 @@
             }
           ],
           "axes": {
-            "backgroundImageUrl": "/assets/xgd-echo-3.svg"
+            "backgroundImageUrl": "/assets/xgd-echo-3.svg?v=2"
           }
         },
         {
