@@ -48,14 +48,14 @@
               "kind": "control",
               "control": "email",
               "axes": {
-                "color": "#FAFAF9",
+                "color": "#1F2937",
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 15,
-                "surfaceFill": "#131317",
+                "surfaceFill": "#FFFFFF",
                 "borderRadiusPx": 6,
                 "border": {
                   "widthPx": 1,
-                  "color": "#2E2E33",
+                  "color": "#D1D5DB",
                   "style": "solid"
                 }
               },
@@ -82,19 +82,19 @@
                 "hover": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#4A4A52",
+                    "color": "#4AAFC9",
                     "style": "solid"
                   }
                 },
                 "focus": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#E3B341",
+                    "color": "#2E86A3",
                     "style": "solid"
                   },
                   "ring": {
                     "widthPx": 2,
-                    "color": "#E3B34155",
+                    "color": "#2E86A355",
                     "offsetPx": 1
                   }
                 }
@@ -104,14 +104,14 @@
               "kind": "control",
               "control": "message",
               "axes": {
-                "color": "#FAFAF9",
+                "color": "#1F2937",
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 15,
-                "surfaceFill": "#131317",
+                "surfaceFill": "#FFFFFF",
                 "borderRadiusPx": 6,
                 "border": {
                   "widthPx": 1,
-                  "color": "#2E2E33",
+                  "color": "#D1D5DB",
                   "style": "solid"
                 }
               },
@@ -138,19 +138,19 @@
                 "hover": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#4A4A52",
+                    "color": "#4AAFC9",
                     "style": "solid"
                   }
                 },
                 "focus": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#E3B341",
+                    "color": "#2E86A3",
                     "style": "solid"
                   },
                   "ring": {
                     "widthPx": 2,
-                    "color": "#E3B34155",
+                    "color": "#2E86A355",
                     "offsetPx": 1
                   }
                 }
@@ -160,12 +160,12 @@
               "kind": "control",
               "control": "submit",
               "axes": {
-                "color": "#0A0A0B",
+                "color": "#FFFFFF",
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 15,
                 "fontWeight": 600,
                 "textAlign": "center",
-                "surfaceFill": "#FAFAF9",
+                "surfaceFill": "#2E86A3",
                 "borderRadiusPx": 6
               },
               "padding": {
@@ -189,7 +189,7 @@
                   "easing": "ease-out"
                 },
                 "hover": {
-                  "surfaceFill": "#FFFFFF",
+                  "surfaceFill": "#236D87",
                   "motion": {
                     "offsetYPx": -2
                   },
@@ -203,7 +203,7 @@
                 "focus": {
                   "ring": {
                     "widthPx": 2,
-                    "color": "#E3B341",
+                    "color": "#2E86A3",
                     "offsetPx": 2
                   }
                 }
@@ -223,7 +223,7 @@
       1280,
       1440
     ],
-    "background": "#0A0A0B",
+    "background": "#FFFEF8",
     "resources": {
       "fonts": [
         {
@@ -293,7 +293,7 @@
               "id": "wordmark",
               "text": "xgd",
               "axes": {
-                "color": "#FAFAF9",
+                "color": "#1F2937",
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 22,
                 "fontWeight": 700,
@@ -315,7 +315,7 @@
                   "kind": "text",
                   "text": "Whitepapers",
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 15,
                     "fontWeight": 400,
@@ -326,7 +326,7 @@
                   "kind": "text",
                   "text": "How it works",
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 15,
                     "fontWeight": 400,
@@ -337,7 +337,7 @@
                   "kind": "text",
                   "text": "Join the beta",
                   "axes": {
-                    "color": "#FAFAF9",
+                    "color": "#1F2937",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 15,
                     "fontWeight": 500,
@@ -403,7 +403,7 @@
               "id": "eyebrow",
               "text": "Extreme Generative Development",
               "axes": {
-                "color": "#8B8B90",
+                "color": "#6B7280",
                 "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                 "fontSizePx": 13,
                 "fontWeight": 400,
@@ -438,7 +438,7 @@
                   "id": "h1-a",
                   "text": "AI writes it.",
                   "axes": {
-                    "color": "#5E5E66",
+                    "color": "#9CA3AF",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 78,
                     "fontWeight": 700,
@@ -497,7 +497,7 @@
                   "id": "h1-b",
                   "text": "XGD keeps it working.",
                   "axes": {
-                    "color": "#FAFAF9",
+                    "color": "#1F2937",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 78,
                     "fontWeight": 700,
@@ -570,7 +570,7 @@
                 }
               },
               "axes": {
-                "color": "#A1A1A6",
+                "color": "#4B5563",
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 19,
                 "fontWeight": 400,
@@ -623,7 +623,7 @@
                   "kind": "box",
                   "id": "cta-primary",
                   "axes": {
-                    "surfaceFill": "#FAFAF9",
+                    "surfaceFill": "#2E86A3",
                     "borderRadiusPx": 6
                   },
                   "padding": {
@@ -637,7 +637,7 @@
                       "kind": "text",
                       "text": "Join the beta waitlist",
                       "axes": {
-                        "color": "#0A0A0B",
+                        "color": "#FFFFFF",
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 600,
@@ -652,7 +652,7 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "surfaceFill": "#FFFFFF",
+                      "surfaceFill": "#236D87",
                       "motion": {
                         "offsetYPx": -2
                       },
@@ -672,7 +672,7 @@
                     "borderRadiusPx": 6,
                     "border": {
                       "widthPx": 1,
-                      "color": "#2E2E33",
+                      "color": "#D1D5DB",
                       "style": "solid"
                     }
                   },
@@ -687,7 +687,7 @@
                       "kind": "text",
                       "text": "Read the whitepaper",
                       "axes": {
-                        "color": "#FAFAF9",
+                        "color": "#1F2937",
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 500,
@@ -702,10 +702,10 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "surfaceFill": "#16161A",
+                      "surfaceFill": "#EAF5F8",
                       "border": {
                         "widthPx": 1,
-                        "color": "#4A4A52",
+                        "color": "#4AAFC9",
                         "style": "solid"
                       },
                       "motion": {
@@ -739,7 +739,7 @@
                   "kind": "box",
                   "id": "cta-primary",
                   "axes": {
-                    "surfaceFill": "#FAFAF9",
+                    "surfaceFill": "#2E86A3",
                     "borderRadiusPx": 6
                   },
                   "padding": {
@@ -753,7 +753,7 @@
                       "kind": "text",
                       "text": "Join the beta waitlist",
                       "axes": {
-                        "color": "#0A0A0B",
+                        "color": "#FFFFFF",
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 600,
@@ -769,7 +769,7 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "surfaceFill": "#FFFFFF",
+                      "surfaceFill": "#236D87",
                       "motion": {
                         "offsetYPx": -2
                       },
@@ -789,7 +789,7 @@
                     "borderRadiusPx": 6,
                     "border": {
                       "widthPx": 1,
-                      "color": "#2E2E33",
+                      "color": "#D1D5DB",
                       "style": "solid"
                     }
                   },
@@ -804,7 +804,7 @@
                       "kind": "text",
                       "text": "Read the whitepaper",
                       "axes": {
-                        "color": "#FAFAF9",
+                        "color": "#1F2937",
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 500,
@@ -820,10 +820,10 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "surfaceFill": "#16161A",
+                      "surfaceFill": "#EAF5F8",
                       "border": {
                         "widthPx": 1,
-                        "color": "#4A4A52",
+                        "color": "#4AAFC9",
                         "style": "solid"
                       },
                       "motion": {
@@ -853,7 +853,7 @@
         {
           "kind": "box",
           "axes": {
-            "surfaceFill": "#1C1C21"
+            "surfaceFill": "#E5E2D5"
           },
           "sizing": {
             "width": {
@@ -955,7 +955,7 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -991,7 +991,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#FAFAF9",
+                    "color": "#1F2937",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -1072,7 +1072,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#A1A1A6",
+                    "color": "#4B5563",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -1155,7 +1155,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1167,7 +1167,7 @@
                           "kind": "text",
                           "text": "Intent evaporates",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1179,7 +1179,7 @@
                           "kind": "text",
                           "text": "The reason a behaviour exists lives in a conversation that scrolls away, not in anything the build can check.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1188,11 +1188,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -1208,10 +1208,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -1241,7 +1241,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1253,7 +1253,7 @@
                           "kind": "text",
                           "text": "Tests drift",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1265,7 +1265,7 @@
                           "kind": "text",
                           "text": "Suites grow around the implementation they were written against, so they keep passing long after the behaviour they describe has moved.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1274,11 +1274,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -1294,10 +1294,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -1327,7 +1327,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1339,7 +1339,7 @@
                           "kind": "text",
                           "text": "Review stops scaling",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1351,7 +1351,7 @@
                           "kind": "text",
                           "text": "Reading every diff was always the weakest link. At generated volume it stops being a link at all.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1360,11 +1360,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -1380,10 +1380,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -1431,7 +1431,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1443,7 +1443,7 @@
                           "kind": "text",
                           "text": "Intent evaporates",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1455,7 +1455,7 @@
                           "kind": "text",
                           "text": "The reason a behaviour exists lives in a conversation that scrolls away, not in anything the build can check.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1464,11 +1464,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -1484,10 +1484,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -1517,7 +1517,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1529,7 +1529,7 @@
                           "kind": "text",
                           "text": "Tests drift",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1541,7 +1541,7 @@
                           "kind": "text",
                           "text": "Suites grow around the implementation they were written against, so they keep passing long after the behaviour they describe has moved.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1550,11 +1550,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -1570,10 +1570,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -1603,7 +1603,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1615,7 +1615,7 @@
                           "kind": "text",
                           "text": "Review stops scaling",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1627,7 +1627,7 @@
                           "kind": "text",
                           "text": "Reading every diff was always the weakest link. At generated volume it stops being a link at all.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1636,11 +1636,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -1656,10 +1656,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -1674,7 +1674,7 @@
             }
           ],
           "axes": {
-            "surfaceFill": "#0E0E10"
+            "surfaceFill": "#F5F4EC"
           }
         },
         {
@@ -1767,7 +1767,7 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -1803,7 +1803,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#FAFAF9",
+                    "color": "#1F2937",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -1884,7 +1884,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#A1A1A6",
+                    "color": "#4B5563",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -1967,7 +1967,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1979,7 +1979,7 @@
                           "kind": "text",
                           "text": "Capability",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1991,7 +1991,7 @@
                           "kind": "text",
                           "text": "A durable slice of what your system does — finite, named, and stable across refactors.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2000,11 +2000,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2020,10 +2020,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2053,7 +2053,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2065,7 +2065,7 @@
                           "kind": "text",
                           "text": "User story",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2077,7 +2077,7 @@
                           "kind": "text",
                           "text": "Why that behaviour exists, in plain English. Derived from your intent, never loose free text.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2086,11 +2086,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2106,10 +2106,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2139,7 +2139,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2151,7 +2151,7 @@
                           "kind": "text",
                           "text": "Acceptance criteria",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2163,7 +2163,7 @@
                           "kind": "text",
                           "text": "What correct means for the story. Behavioural, not bound to any one implementation.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2172,11 +2172,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2192,10 +2192,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2225,7 +2225,7 @@
                           "kind": "text",
                           "text": "04",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2237,7 +2237,7 @@
                           "kind": "text",
                           "text": "Verification",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2249,7 +2249,7 @@
                           "kind": "text",
                           "text": "An executable test per criterion. Passing tests are the evidence; missing ones are reported, not hidden.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2258,11 +2258,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2278,10 +2278,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2329,7 +2329,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2341,7 +2341,7 @@
                           "kind": "text",
                           "text": "Capability",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2353,7 +2353,7 @@
                           "kind": "text",
                           "text": "A durable slice of what your system does — finite, named, and stable across refactors.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2362,11 +2362,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2382,10 +2382,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2415,7 +2415,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2427,7 +2427,7 @@
                           "kind": "text",
                           "text": "User story",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2439,7 +2439,7 @@
                           "kind": "text",
                           "text": "Why that behaviour exists, in plain English. Derived from your intent, never loose free text.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2448,11 +2448,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2468,10 +2468,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2501,7 +2501,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2513,7 +2513,7 @@
                           "kind": "text",
                           "text": "Acceptance criteria",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2525,7 +2525,7 @@
                           "kind": "text",
                           "text": "What correct means for the story. Behavioural, not bound to any one implementation.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2534,11 +2534,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2554,10 +2554,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2587,7 +2587,7 @@
                           "kind": "text",
                           "text": "04",
                           "axes": {
-                            "color": "#E3B341",
+                            "color": "#2E86A3",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2599,7 +2599,7 @@
                           "kind": "text",
                           "text": "Verification",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2611,7 +2611,7 @@
                           "kind": "text",
                           "text": "An executable test per criterion. Passing tests are the evidence; missing ones are reported, not hidden.",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2620,11 +2620,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -2640,10 +2640,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -2669,7 +2669,7 @@
             }
           },
           "axes": {
-            "surfaceFill": "#0E0E10"
+            "surfaceFill": "#F5F4EC"
           },
           "children": [
             {
@@ -2751,7 +2751,7 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -2787,7 +2787,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#FAFAF9",
+                    "color": "#1F2937",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 44,
                     "fontWeight": 700,
@@ -2869,7 +2869,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#A1A1A6",
+                    "color": "#4B5563",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -2936,7 +2936,7 @@
                   "axes": {
                     "borderLeft": {
                       "widthPx": 2,
-                      "color": "#E3B341",
+                      "color": "#2E86A3",
                       "style": "solid"
                     }
                   },
@@ -2964,7 +2964,7 @@
                       "kind": "text",
                       "text": "“I built a platform I’ve never read the source of — but I never stopped being its engineer.”",
                       "axes": {
-                        "color": "#FAFAF9",
+                        "color": "#1F2937",
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 26,
                         "fontWeight": 500,
@@ -3010,7 +3010,7 @@
                       "kind": "text",
                       "text": "Martin Westhead · GenDev Labs",
                       "axes": {
-                        "color": "#8B8B90",
+                        "color": "#6B7280",
                         "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                         "fontSizePx": 12,
                         "fontWeight": 400,
@@ -3114,7 +3114,7 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -3150,7 +3150,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#FAFAF9",
+                    "color": "#1F2937",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -3231,7 +3231,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#A1A1A6",
+                    "color": "#4B5563",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -3310,11 +3310,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -3329,7 +3329,7 @@
                           "kind": "text",
                           "text": "You own",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -3354,7 +3354,7 @@
                           "kind": "text",
                           "text": "Product intent and priorities",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3369,7 +3369,7 @@
                           "kind": "text",
                           "text": "The architecture and its constraints",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3384,7 +3384,7 @@
                           "kind": "text",
                           "text": "What done means for each behaviour",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3399,7 +3399,7 @@
                           "kind": "text",
                           "text": "The decision to ship",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3417,10 +3417,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -3446,11 +3446,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -3465,7 +3465,7 @@
                           "kind": "text",
                           "text": "XGD owns",
                           "axes": {
-                            "color": "#8B8B90",
+                            "color": "#6B7280",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -3490,7 +3490,7 @@
                           "kind": "text",
                           "text": "Technical design and sprint planning",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3505,7 +3505,7 @@
                           "kind": "text",
                           "text": "The code, and the tests that pin it",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3520,7 +3520,7 @@
                           "kind": "text",
                           "text": "Regression, reconciliation, repair",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3535,7 +3535,7 @@
                           "kind": "text",
                           "text": "Evidence that all of it still holds",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3553,10 +3553,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -3600,11 +3600,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -3619,7 +3619,7 @@
                           "kind": "text",
                           "text": "You own",
                           "axes": {
-                            "color": "#FAFAF9",
+                            "color": "#1F2937",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -3644,7 +3644,7 @@
                           "kind": "text",
                           "text": "Product intent and priorities",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3659,7 +3659,7 @@
                           "kind": "text",
                           "text": "The architecture and its constraints",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3674,7 +3674,7 @@
                           "kind": "text",
                           "text": "What done means for each behaviour",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3689,7 +3689,7 @@
                           "kind": "text",
                           "text": "The decision to ship",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3707,10 +3707,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -3736,11 +3736,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#141419",
+                        "surfaceFill": "#FFFEF8",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#26262C",
+                          "color": "#E5E2D5",
                           "style": "solid"
                         }
                       },
@@ -3755,7 +3755,7 @@
                           "kind": "text",
                           "text": "XGD owns",
                           "axes": {
-                            "color": "#8B8B90",
+                            "color": "#6B7280",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -3780,7 +3780,7 @@
                           "kind": "text",
                           "text": "Technical design and sprint planning",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3795,7 +3795,7 @@
                           "kind": "text",
                           "text": "The code, and the tests that pin it",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3810,7 +3810,7 @@
                           "kind": "text",
                           "text": "Regression, reconciliation, repair",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3825,7 +3825,7 @@
                           "kind": "text",
                           "text": "Evidence that all of it still holds",
                           "axes": {
-                            "color": "#A1A1A6",
+                            "color": "#4B5563",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -3843,10 +3843,10 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#191920",
+                          "surfaceFill": "#FFFFFF",
                           "border": {
                             "widthPx": 1,
-                            "color": "#3A3A44",
+                            "color": "#4AAFC9",
                             "style": "solid"
                           },
                           "motion": {
@@ -3861,7 +3861,7 @@
             }
           ],
           "axes": {
-            "surfaceFill": "#0E0E10"
+            "surfaceFill": "#F5F4EC"
           }
         },
         {
@@ -3954,7 +3954,7 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -3990,7 +3990,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#FAFAF9",
+                    "color": "#1F2937",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -4071,7 +4071,7 @@
                     }
                   },
                   "axes": {
-                    "color": "#A1A1A6",
+                    "color": "#4B5563",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -4151,7 +4151,7 @@
                       "kind": "text",
                       "text": "Join the beta — and get the whitepapers.",
                       "axes": {
-                        "color": "#FAFAF9",
+                        "color": "#1F2937",
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 19,
                         "fontWeight": 600,
@@ -4181,7 +4181,7 @@
                         }
                       },
                       "axes": {
-                        "color": "#8B8B90",
+                        "color": "#6B7280",
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 400,
@@ -4215,7 +4215,7 @@
         {
           "kind": "box",
           "axes": {
-            "surfaceFill": "#1C1C21"
+            "surfaceFill": "#E5E2D5"
           },
           "sizing": {
             "width": {
@@ -4238,7 +4238,7 @@
             }
           },
           "axes": {
-            "surfaceFill": "#0E0E10"
+            "surfaceFill": "#F5F4EC"
           },
           "children": [
             {
@@ -4265,7 +4265,7 @@
                   "kind": "text",
                   "text": "xgd",
                   "axes": {
-                    "color": "#8B8B90",
+                    "color": "#6B7280",
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 17,
                     "fontWeight": 700,
@@ -4277,7 +4277,7 @@
                   "kind": "text",
                   "text": "© 2026 GenDev Labs",
                   "axes": {
-                    "color": "#5E5E66",
+                    "color": "#9CA3AF",
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 12,
                     "fontWeight": 400,
