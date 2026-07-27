@@ -19,9 +19,14 @@ import type {
   L1ColumnAnchor,
   L1ColumnTerm,
   L1Document,
+  L1FocusRing,
+  L1FocusState,
   L1Geometry,
   L1Gradient,
+  L1HoverState,
+  L1Interaction,
   L1Mask,
+  L1Motion,
   L1Node,
   L1Resources,
   L1ScalarTrack,
@@ -328,6 +333,143 @@ function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[]
   if (a.blendMode && a.blendMode !== 'normal') out.push(`mix-blend-mode: ${a.blendMode}`)
   return out
 }
+
+// ── REQ-99 interaction state: the sole pseudo-class sink ─────────────────────
+//
+// A pseudo-class is a *selector*, and nothing in an L1 document may name one:
+// the instance declares `interaction.hover` / `interaction.focus` as typed value
+// bags, and only this emitter knows those compile to `:hover` / `:focus-visible`.
+// So the substrate gains interaction feedback without gaining a way to smuggle a
+// selector — the same construction that keeps colours hex-only and text escaped.
+
+/** The default focus indicator every interactive node gets when it authors none. */
+const DEFAULT_FOCUS_RING: L1FocusRing = { widthPx: 2, color: '#000000', offsetPx: 2 }
+
+/**
+ * A focus ring → `outline` + `outline-offset`. The default ring paints
+ * `currentColor` rather than a fixed hue so it inherits whatever colour the node
+ * was authored with, and therefore stays visible on a light or a dark surface
+ * without the substrate guessing at a palette.
+ */
+function focusRingDecls(ring: L1FocusRing | undefined): string[] {
+  const style = ring?.style ?? 'solid'
+  const w = px(ring?.widthPx ?? DEFAULT_FOCUS_RING.widthPx) ?? '2px'
+  const color = ring ? cssColor(ring.color) : 'currentColor'
+  const offset = px(ring?.offsetPx ?? DEFAULT_FOCUS_RING.offsetPx) ?? '2px'
+  return [`outline: ${w} ${style} ${color ?? 'currentColor'}`, `outline-offset: ${offset}`]
+}
+
+/**
+ * A state's motion composed with the node's own base transform → one `transform`
+ * value. CSS `transform` REPLACES rather than accumulates, so a hover that only
+ * wants to nudge would silently discard an authored rotation if the two were not
+ * merged here.
+ */
+function motionTransformCss(motion: L1Motion, base: L1Transform | undefined): string | null {
+  const parts: string[] = []
+  const x = motion.offsetXPx ?? 0
+  const y = motion.offsetYPx ?? 0
+  if (x !== 0 || y !== 0) parts.push(`translate(${num(x)}px, ${num(y)}px)`)
+  const rotate = motion.rotateDeg ?? base?.rotateDeg
+  if (rotate !== undefined && Number.isFinite(rotate) && rotate !== 0) parts.push(`rotate(${num(rotate)}deg)`)
+  const scale = motion.scale ?? base?.scale
+  if (scale !== undefined && Number.isFinite(scale) && scale !== 1) parts.push(`scale(${num(scale)})`)
+  return parts.length ? parts.join(' ') : null
+}
+
+/** One interaction state (paint delta + motion) → CSS declarations. */
+function stateDecls(state: L1HoverState | L1FocusState, base: L1Transform | undefined): string[] {
+  const out: string[] = [...surfaceDecls(state)]
+  const c = cssColor(state.color)
+  if (c) out.push(`color: ${c}`)
+  if (state.textDecoration) out.push(`text-decoration-line: ${state.textDecoration}`)
+  if (state.motion) {
+    const t = motionTransformCss(state.motion, base)
+    if (t) out.push(`transform: ${t}`)
+  }
+  return out
+}
+
+/** The CSS property a declaration sets (`background-color: #fff` → `background-color`). */
+function declProp(decl: string): string {
+  return decl.slice(0, decl.indexOf(':')).trim()
+}
+
+/**
+ * REQ-99 — compile a node's interaction states into rules.
+ *
+ * `interactive` marks a node the user can actually focus (a `control`): it gets
+ * the default ring when it authored none, so an author cannot ship a control with
+ * no focus indicator. The schema gives no way to express "no ring", and this is
+ * the other half of that obligation — taste may restyle the indicator, never
+ * remove it (DOC-16 §4 sets the quality bar; this is the floor beneath it).
+ *
+ * The transition is emitted on the BASE rule, so it governs the leave as well as
+ * the enter, and only over the properties the states actually change — derived
+ * from the emitted declarations rather than a blanket `all`, which would animate
+ * geometry the keyframe track owns. Under `prefers-reduced-motion: reduce` the
+ * transition is dropped and any state motion collapses back to the base
+ * transform: a user who asked for no movement gets the paint change alone.
+ */
+function interactionRules(
+  selector: string,
+  interaction: L1Interaction,
+  baseTransform: L1Transform | undefined,
+  interactive: boolean,
+): { rules: Rule[]; baseDecls: string[] } {
+  const rules: Rule[] = []
+  const props = new Set<string>()
+  let anyMotion = false
+
+  if (interactive && !interaction.focus?.ring) {
+    // The floor: a focusable node with no authored ring still gets one.
+    rules.push({ selector: `${selector}:focus-visible`, decls: focusRingDecls(undefined) })
+  }
+
+  if (interaction.hover) {
+    const decls = stateDecls(interaction.hover, baseTransform)
+    if (decls.length) {
+      rules.push({ selector: `${selector}:hover`, decls })
+      decls.forEach((d) => props.add(declProp(d)))
+    }
+    if (interaction.hover.motion) anyMotion = true
+  }
+
+  if (interaction.focus) {
+    const decls = stateDecls(interaction.focus, baseTransform)
+    // The paint delta transitions; the ring does NOT. A focus indicator that
+    // fades in is an indicator that is briefly absent, which is the one thing it
+    // may never be — so the ring is appended after the property set is taken.
+    decls.forEach((d) => props.add(declProp(d)))
+    if (interaction.focus.ring) decls.push(...focusRingDecls(interaction.focus.ring))
+    if (decls.length) {
+      rules.push({ selector: `${selector}:focus-visible`, decls })
+    }
+    if (interaction.focus.motion) anyMotion = true
+  }
+
+  const baseDecls: string[] = []
+  const duration = interaction.transition?.durationMs
+  if (duration !== undefined && Number.isFinite(duration) && props.size) {
+    baseDecls.push(
+      `transition-property: ${[...props].join(', ')}`,
+      `transition-duration: ${num(duration)}ms`,
+      `transition-timing-function: ${interaction.transition?.easing ?? 'ease'}`,
+    )
+    rules.push({ media: REDUCED_MOTION, selector, decls: ['transition-duration: 0ms'] })
+  }
+  if (anyMotion) {
+    const settled = baseTransform ? transformCss(baseTransform) : null
+    const decls = [`transform: ${settled ?? 'none'}`]
+    if (interaction.hover?.motion) rules.push({ media: REDUCED_MOTION, selector: `${selector}:hover`, decls })
+    if (interaction.focus?.motion) {
+      rules.push({ media: REDUCED_MOTION, selector: `${selector}:focus-visible`, decls })
+    }
+  }
+  return { rules, baseDecls }
+}
+
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
 
 // ── REQ-96 control leaves: the module's element, painted by L1 ────────────────
 
@@ -873,6 +1015,21 @@ function emitNode(node: L1Node, state: RenderState): string {
   if (padTracks?.rightPx) state.rules.push(...scalarAxisRules(selector, 'padding-right', padTracks.rightPx))
   if (padTracks?.bottomPx) state.rules.push(...scalarAxisRules(selector, 'padding-bottom', padTracks.bottomPx))
   if (padTracks?.leftPx) state.rules.push(...scalarAxisRules(selector, 'padding-left', padTracks.leftPx))
+
+  // REQ-99 — interaction states. A `control` is the one kind the user can focus,
+  // so it is the kind that carries the default-ring obligation; every other kind
+  // gets exactly the states it authored.
+  const interactive = node.kind === 'control' && Boolean(state.controls?.[node.control])
+  if (node.interaction) {
+    const { rules, baseDecls } = interactionRules(selector, node.interaction, node.transform, interactive)
+    state.rules.push(...rules)
+    base.push(...baseDecls)
+  } else if (interactive) {
+    // A control that declared no interaction at all still gets the floor: the
+    // emitter neutralises the UA's own chrome (`appearance: none`), so leaving
+    // this out is what would actually strip a focus indicator.
+    state.rules.push({ selector: `${selector}:focus-visible`, decls: focusRingDecls(undefined) })
+  }
 
   if (base.length) state.rules.push({ selector, decls: base })
   return html
