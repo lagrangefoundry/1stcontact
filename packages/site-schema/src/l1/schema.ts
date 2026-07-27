@@ -572,6 +572,56 @@ export const l1InteractionSchema = z
   })
   .strict()
 
+// ── Navigation (REQ-106) ──────────────────────────────────────────────────────
+//
+// L1 had no way to express a link at all: no `href` in the schema, no anchor kind,
+// and `<a>` never appeared in the renderer's output. An L1 page therefore had no
+// navigation of any kind — a functional floor, not an aesthetic ceiling, and the
+// one gap on this list no amount of design work can compensate for.
+//
+// A link is not a *kind* of thing, it is a *role* any subtree can take: a text
+// run, a painted box around a run, a whole card, an image. So it is a node-level
+// field like {@link l1TransformSchema} / {@link l1InteractionSchema}, not a
+// seventh node kind.
+
+/**
+ * REQ-106 — the navigation role.
+ *
+ * The renderer **retags** rather than wraps: a node that already emits one element
+ * emits an `<a>` instead, keeping its class verbatim. Wrapping would put focus on
+ * an outer element while {@link l1InteractionSchema}'s `focus` targets the inner
+ * class, silently costing a linked node its focus ring — the one axis DOC-24 holds
+ * above taste. Only `image` wraps, because a void element cannot be an anchor.
+ *
+ * `control` deliberately cannot carry this: an anchor around a submit button is a
+ * malformed interactive nesting, and the module owns that element's semantics.
+ * Because every node object is `.strict()`, that exclusion is enforced by the
+ * shape rather than by a rule someone has to remember.
+ */
+export const l1LinkSchema = z
+  .object({
+    /**
+     * Cleared by the same `isSafeUrl` allowlist that guards `image.src` and
+     * `backgroundImageUrl`, so `javascript:` is rejected with no new security
+     * surface. An unsafe href degrades to the un-linked element — never a live
+     * unsafe link.
+     */
+    href: z.string(),
+    /**
+     * Opens in a new browsing context. There is deliberately no way to ask for
+     * `_blank` without its `rel`: the renderer always pairs it with
+     * `noopener noreferrer`, because the opener reference is a security hole
+     * rather than a preference.
+     */
+    newTab: z.boolean().optional(),
+    /** An accessible name, for when the visible content is not a sufficient one. */
+    ariaLabel: z.string().optional(),
+  })
+  .strict()
+
+/** REQ-106 — the navigation role a node may take. */
+export type L1Link = z.infer<typeof l1LinkSchema>
+
 // ── Scroll reveal (REQ-100) ───────────────────────────────────────────────────
 //
 // L1 had no motion of any kind: no transition, no animation, no notion of
@@ -744,6 +794,8 @@ export const l1TextSchema = z
     interaction: l1InteractionSchema.optional(),
     /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
     reveal: l1RevealSchema.optional(),
+    /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+    link: l1LinkSchema.optional(),
   })
   .strict()
 
@@ -767,6 +819,8 @@ export const l1ImageSchema = z
     interaction: l1InteractionSchema.optional(),
     /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
     reveal: l1RevealSchema.optional(),
+    /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+    link: l1LinkSchema.optional(),
   })
   .strict()
 
@@ -865,6 +919,8 @@ export interface L1BoxNode {
   interaction?: z.infer<typeof l1InteractionSchema>
   /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
   reveal?: z.infer<typeof l1RevealSchema>
+  /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+  link?: L1Link
   children?: L1NodeUnion[]
 }
 
@@ -889,6 +945,8 @@ export interface L1ContainerNode {
   interaction?: z.infer<typeof l1InteractionSchema>
   /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
   reveal?: z.infer<typeof l1RevealSchema>
+  /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+  link?: L1Link
   /**
    * REQ-100 — the interval between successive children's reveals, in ms.
    *
@@ -929,6 +987,8 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
     interaction: l1InteractionSchema.optional(),
     /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
     reveal: l1RevealSchema.optional(),
+    /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+    link: l1LinkSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -958,6 +1018,8 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
     interaction: l1InteractionSchema.optional(),
     /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
     reveal: l1RevealSchema.optional(),
+    /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+    link: l1LinkSchema.optional(),
     /** REQ-100 — interval between successive revealing children, in ms. */
     staggerMs: finite.nonnegative().optional(),
       children: z.array(l1NodeSchema),

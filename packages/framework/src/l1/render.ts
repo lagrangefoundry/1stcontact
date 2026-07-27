@@ -11,7 +11,7 @@
  * lower keyframe's value until the next breakpoint. Text height is natural (the
  * glyph box); only box/image leaves pin a height.
  */
-import { isSafeUrl } from '@1stcontact/site-schema'
+import { isSafeUrl, type L1Link } from '@1stcontact/site-schema'
 import type {
   L1AxisSizing,
   L1Border,
@@ -974,6 +974,33 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
   // here means every node kind's markup picks it up without any of them
   // re-litigating how a class attribute is built.
   const cls = node.reveal ? `${name} ${REVEAL_CLASS}` : name
+
+  // REQ-106 — a node's own `id` becomes a real DOM id, so `href="#how"` has
+  // something to land on. Uniqueness is the envelope validator's job (a duplicate
+  // breaks both anchor navigation and the `for`<->`id` association the `control`
+  // contract depends on), which is why this can be emitted unconditionally here.
+  const idAttr = node.id ? ` id="${escapeHtml(node.id)}"` : ''
+
+  // REQ-106 — the navigation role. The renderer RETAGS the node's own element as
+  // an `<a>` rather than wrapping it, so the class, every paint axis and the
+  // REQ-99 focus ring all stay on the element the author actually styled.
+  // Wrapping would move focus to an outer element and silently cost a linked node
+  // its focus indicator. `image` is the one exception — a void element cannot be
+  // an anchor, so it wraps.
+  //
+  // `href` clears the same `isSafeUrl` allowlist as `image.src` and
+  // `backgroundImageUrl`: an unsafe href degrades to the plain element, never a
+  // live `javascript:` link. `_blank` always carries its `rel`; the opener
+  // reference is a security hole, not a preference.
+  const nodeLink: L1Link | undefined = (node as { link?: L1Link }).link
+  const href = nodeLink && isSafeUrl(nodeLink.href) ? nodeLink.href : undefined
+  const linkAttrs = href
+    ? ` href="${escapeHtml(href)}"` +
+      (nodeLink?.newTab ? ' target="_blank" rel="noopener noreferrer"' : '') +
+      (nodeLink?.ariaLabel ? ` aria-label="${escapeHtml(nodeLink.ariaLabel)}"` : '')
+    : ''
+  /** The element name to emit — the anchor when linked, else the node's own. */
+  const tag = (own: string): string => (href ? 'a' : own)
   const base: string[] = []
 
   if (node.geometry) {
@@ -1081,7 +1108,10 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       // rather than borrowing a wrapper container's `max-width`.
       base.push(...axisSizingCss(node.sizing))
       base.push('margin: 0')
-      html = `<p class="${cls}">${escapeHtml(node.text)}</p>`
+      // REQ-106 — a retagged run needs the block behaviour `<p>` had, and must not
+      // inherit UA link chrome. Unshifted so any authored colour/decoration wins.
+      if (href) base.unshift('display: block', 'text-decoration: none', 'color: inherit')
+      html = `<${tag('p')} class="${cls}"${idAttr}${linkAttrs}>${escapeHtml(node.text)}</${tag('p')}>`
       break
     }
     case 'control': {
@@ -1132,7 +1162,8 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')
       const src = isSafeUrl(node.src) ? node.src : ''
-      html = `<img class="${cls}" src="${escapeHtml(src)}" alt="${escapeHtml(node.alt)}" />`
+      const img = `<img class="${cls}"${idAttr} src="${escapeHtml(src)}" alt="${escapeHtml(node.alt)}" />`
+      html = href ? `<a${linkAttrs} style="display:contents">${img}</a>` : img
       break
     }
     case 'slot': {
@@ -1146,7 +1177,7 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       // module's own escaping/URL sinks on the way in.
       base.push(...surfaceDecls(node.axes ?? {}))
       const mounted = state.mounts?.[node.name] ?? ''
-      html = `<div class="${cls}" data-l1-slot="${escapeHtml(node.name)}"${
+      html = `<div class="${cls}"${idAttr} data-l1-slot="${escapeHtml(node.name)}"${
         node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
       }>${mounted}</div>`
       break
@@ -1156,7 +1187,8 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
       const inner = (node.children ?? []).map((child) => emitNode(child, state)).join('')
-      html = `<div class="${cls}">${inner}</div>`
+      if (href) base.unshift('text-decoration: none', 'color: inherit')
+      html = `<${tag('div')} class="${cls}"${idAttr}${linkAttrs}>${inner}</${tag('div')}>`
       break
     }
     case 'container': {
@@ -1184,7 +1216,8 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
           return emitNode(child, state, share)
         })
         .join('')
-      html = `<div class="${cls}">${inner}</div>`
+      if (href) base.unshift('text-decoration: none', 'color: inherit')
+      html = `<${tag('div')} class="${cls}"${idAttr}${linkAttrs}>${inner}</${tag('div')}>`
       break
     }
   }

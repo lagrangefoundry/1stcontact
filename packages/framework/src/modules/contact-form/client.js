@@ -25,7 +25,33 @@ function showError(form, message) {
   }
 }
 
+/**
+ * BUG-28 — whether this submission can be enhanced at all.
+ *
+ * `assertSafeUrl` accepts `mailto:` and `tel:` actions, but `fetch()` cannot send
+ * to either: it rejects, and the catch below reports "could not reach the server"
+ * on a form that would have worked perfectly by native submit. Worse, the
+ * `preventDefault()` had already cancelled that native submit — so the vetted
+ * no-JS baseline this file documents as its degradation path was unreachable for
+ * exactly the actions that needed it.
+ *
+ * The scheme already carries the answer, so no config field is added for it
+ * (DOC-25 §2 — a dial for something the data determines is the wrong shape).
+ * http(s), relative, and empty (post-to-self) enhance; anything else, including
+ * anything unparseable, falls through to the browser.
+ */
+function canEnhance(action) {
+  try {
+    const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(String(action).trim())
+    return !scheme || /^https?$/i.test(scheme[1])
+  } catch (_e) {
+    return false
+  }
+}
+
 async function handleSubmit(form, event) {
+  // Decided BEFORE preventDefault, so a non-fetchable action keeps its native submit.
+  if (!canEnhance(form.getAttribute('action') || '')) return
   event.preventDefault()
 
   const errorEl = form.querySelector(ERROR_SELECTOR)
