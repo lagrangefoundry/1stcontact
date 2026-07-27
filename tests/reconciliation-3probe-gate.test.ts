@@ -13,6 +13,7 @@
  *   AC-708  combined gate over the absolute-base / structure-overlay split
  *   AC-709  demand-driven recovery promotes only failing pinned groups
  *   AC-710  each probe residual / finding is diagnostic
+ *   AC-724  value-render is deterministic and per-occurrence faithful
  */
 import { describe, expect, it } from 'vitest'
 import {
@@ -123,6 +124,34 @@ function narrowOracle(): MultiStateCapture {
   return { url: 'http://narrow.test/', notes: [], projections }
 }
 
+/**
+ * A stack carrying the SAME label ("Learn more") three times at distinct y
+ * positions (100 / 500 / 900) plus a unique heading, at every ladder width.
+ * Exercises the pairing rule: keying oracle↔reproduced by text alone collapses
+ * the three occurrences onto one box (the last, y=900), so occurrences 0 and 1
+ * would compare against y=900 → phantom dy of 800 / 400 at every width.
+ */
+const CTA = 'Learn more'
+function repeatedTextOracle(): MultiStateCapture {
+  const projections: StateProjection[] = LADDER.map((width) => ({
+    engine: 'chromium',
+    viewport: { width, height: 1200 },
+    state: 'rest',
+    manifest: {
+      source: `dup@${width}`,
+      viewport: { width, height: 1200 },
+      sections: [],
+      elements: [
+        text('Unique heading', { x: 20, y: 20, width: width - 40, height: 48 }),
+        text(CTA, { x: 20, y: 100, width: width - 40, height: 48 }),
+        text(CTA, { x: 20, y: 500, width: width - 40, height: 48 }),
+        text(CTA, { x: 20, y: 900, width: width - 40, height: 48 }),
+      ],
+    },
+  }))
+  return { url: 'http://dup.test/', notes: [], projections }
+}
+
 describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
   it('test_UAT_AC705_sample_fidelity_matches_oracle_within_tolerance', () => {
     const cap = oracle()
@@ -161,6 +190,50 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     const withUnmatched = sampleFidelityProbe(doc, withGap, { tolerancePx: 2 })
     expect(withUnmatched.pass).toBe(false)
     expect(withUnmatched.unmatched).toContainEqual({ text: 'Ghost row', width: 768 })
+
+    // ── Pairing rule: occurrence index in document order, not a text→box map ──
+    const dupCap = repeatedTextOracle()
+    const dupDoc = foldToL1(dupCap)
+
+    // (a) N occurrences of one label → N independent comparisons, each against
+    // its own box. A text-keyed map would collapse them and report phantom
+    // deltas of 400 / 800px here; occurrence pairing gates clean.
+    const dupLeaves = evaluateLayout(dupDoc, 1440).leaves.filter(
+      (l) => l.kind === 'text' && l.text === CTA,
+    )
+    expect(dupLeaves).toHaveLength(3)
+    const dupClean = sampleFidelityProbe(dupDoc, dupCap, { tolerancePx: 2 })
+    expect(dupClean.pass).toBe(true)
+    expect(dupClean.residuals).toEqual([])
+    expect(dupClean.unmatched).toEqual([])
+    expect(dupClean.maxDelta).toBeLessThanOrEqual(2)
+
+    // (b) A surplus oracle occurrence — reproduced runs for the key exhausted
+    // before the oracle's — is exactly one unmatched entry, NOT a re-pair
+    // against an already-consumed box. The other three still pair cleanly.
+    const dupWithGap = structuredClone(dupCap)
+    dupWithGap.projections
+      .find((p) => p.viewport.width === 768)!
+      .manifest.elements.push(text(CTA, { x: 20, y: 1100, width: 200, height: 48 }))
+    const dupUnmatched = sampleFidelityProbe(dupDoc, dupWithGap, { tolerancePx: 2 })
+    expect(dupUnmatched.pass).toBe(false)
+    expect(dupUnmatched.unmatched).toEqual([{ text: CTA, width: 768 }])
+    expect(dupUnmatched.residuals).toEqual([])
+
+    // (c) Drift on ONE occurrence of a repeated key is attributed to that
+    // occurrence — exactly one residual with its width and per-axis deltas.
+    // A nearest-box or last-writer match would have absorbed it silently.
+    const dupShifted = structuredClone(dupCap)
+    const shiftedProj = dupShifted.projections.find((p) => p.viewport.width === 1440)!
+    const middleCta = shiftedProj.manifest.elements.filter((e) => e.text === CTA)[1]!
+    middleCta.box!.y += 30
+    const dupResidual = sampleFidelityProbe(dupDoc, dupShifted, { tolerancePx: 2 })
+    expect(dupResidual.pass).toBe(false)
+    expect(dupResidual.residuals).toHaveLength(1)
+    const dr = dupResidual.residuals[0]
+    expect(dr.text).toBe(CTA)
+    expect(dr.width).toBe(1440)
+    expect(dr.dy).toBeCloseTo(30, 5)
   })
 
   it('test_UAT_AC706_off_sample_envelope_holds_at_unsampled_widths', () => {
@@ -288,5 +361,35 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     expect(clip.detail).toMatch(/\d+px/)
     expect(clip.paths.length).toBeGreaterThanOrEqual(1)
     for (const p of clip.paths) expect(p).toMatch(/^\d+(\.\d+)*$/)
+  })
+
+  it('test_UAT_AC724_value_render_deterministic_and_per_occurrence_faithful', () => {
+    // The idempotence identity the fidelity verdict rests on:
+    // value-render(value-render(X)) == value-render(X), with repeated text
+    // present. Without it a clean sample-fidelity report could be an artefact
+    // of collapsed or re-ordered runs rather than genuine reproduction.
+    const cap = repeatedTextOracle()
+    const doc = foldToL1(cap)
+
+    for (const width of LADDER) {
+      // Deterministic: the analytic value-render is a pure function of the
+      // document and the width — same runs, same order, same boxes.
+      const first = evaluateLayout(doc, width).leaves
+      const second = evaluateLayout(doc, width).leaves
+      expect(second).toEqual(first)
+
+      // Per-occurrence faithful: N oracle elements sharing a text key yield N
+      // distinct reproduced runs (not one collapsed run), and the k-th run
+      // reproduces the k-th oracle element's own box within tolerance.
+      const proj = cap.projections.find((p) => p.viewport.width === width)!
+      const oracleCtas = proj.manifest.elements.filter((e) => e.text === CTA)
+      const reproCtas = first.filter((l) => l.kind === 'text' && l.text === CTA)
+      expect(oracleCtas).toHaveLength(3)
+      expect(reproCtas).toHaveLength(oracleCtas.length)
+      oracleCtas.forEach((o, i) => {
+        expect(Math.abs(reproCtas[i].box.y - o.box!.y)).toBeLessThanOrEqual(2)
+        expect(Math.abs(reproCtas[i].box.x - o.box!.x)).toBeLessThanOrEqual(2)
+      })
+    }
   })
 })
