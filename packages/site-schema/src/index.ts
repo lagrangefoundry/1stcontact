@@ -14,3 +14,6 @@ export type { ValidationError, Result } from './validate'
 
 // L1 layout substrate (REQ-82) — the typed element tree + envelope validator.
 export * from './l1'
+
+// Font provenance registry (REQ-101) — the licence index over every font file.
+export * from './fonts'

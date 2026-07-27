@@ -934,6 +934,16 @@ export const siteConfigSchema = z.object({
     })
     .optional(),
   integrations: z.record(z.string(), z.string()).optional(),
+  /**
+   * REQ-101 — how this site is distributed, which decides how strictly its fonts
+   * are gated. `'internal'` (the default when absent) is a site we build and
+   * serve ourselves: a free font with an unresolved product-redistribution
+   * question is fine here. `'product'` asserts the site ships as part of the 1st
+   * Contact product across customer domains, where a per-licensee licence cannot
+   * be shared — so `1c fonts check` requires every family it references to carry
+   * `licence.redistribute_in_product: true`.
+   */
+  distribution: z.enum(['internal', 'product']).optional(),
 })
 
 /** Top-level site definition (DOC-7 §2.1). */
