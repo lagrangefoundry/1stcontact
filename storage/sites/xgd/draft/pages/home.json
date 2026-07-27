@@ -299,15 +299,15 @@
               "sizing": {
                 "width": {
                   "mode": "fixed",
-                  "px": 76
+                  "px": 112
                 },
                 "height": {
                   "mode": "fixed",
-                  "px": 38
+                  "px": 30
                 }
               },
               "padding": {
-                "topPx": 13
+                "topPx": 8
               },
               "children": [
                 {
@@ -4299,15 +4299,15 @@
                   "sizing": {
                     "width": {
                       "mode": "fixed",
-                      "px": 68
+                      "px": 96
                     },
                     "height": {
                       "mode": "fixed",
-                      "px": 34
+                      "px": 26
                     }
                   },
                   "padding": {
-                    "topPx": 12
+                    "topPx": 7
                   },
                   "children": [
                     {
