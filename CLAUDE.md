@@ -48,16 +48,24 @@ Summary:
 
 ## ⚠️ CRITICAL: Close capability gaps in L1, not with new modules
 
-Since the framework pivot (REQ-79 / REQ-84) there are two distinct kinds of "gap", and they resolve in different places. Do **not** reach for a new module by reflex.
+Since the framework pivot (REQ-79 / REQ-84 / REQ-96) there are two distinct kinds of "gap", and they resolve in different places. Do **not** reach for a new module by reflex.
 
 **Layout / presentation gaps → add a typed L1 primitive.** Layout is owned by the **L1 substrate** (`packages/framework/src/l1`, DOC-23) — a single, low-level, CSS-faithful typed element tree. The old semantic *layout* modules (header/hero/footer/text-block/services-grid/layer) are gone; there is no `hero` to add a dial to. When a design cannot yet be expressed, the fix is to **add a typed axis/primitive to L1** (never a raw-CSS hole, never a new "layout module"). The expressive ceiling rises without limit while the security/reliability wall stays put (DOC-24, DOC-2).
 
-**Capability gaps → configure an existing behavior module before authoring a new one.** A **module** now means a *behavior module* — a vetted behavioral core + typed config + named L1 presentation slots (carousel, contact-form; later payments, auth, email-capture, scroll-animation). The AI *configures* a behavior module; it never writes its code inline. When a capability gap appears:
-- Does it fit an existing behavior module's purpose? → add a **dial / variant / content field** to that behavior module (e.g. a new `carousel` view mode, a new `contact-form` field-labelling mode).
-- Is it a shared length/step/colour concern? → extend a **shared resolver** in `modules/dials.ts` or `text-style.ts` (the absolute-or-overlay seam), reused by every behavior module.
-- Only if it is a genuinely new *kind of behavior* with its own core → a **new behavior module** (last resort, highest bar; hardened by XGD before publish).
+**Behaviour gaps → configure an existing behavior module before authoring a new one.** A **module** now means a *behavior module* — a vetted behavioural core + typed `config` + named L1 presentation seams (carousel, contact-form; later payments, auth, email-capture). The AI *configures* a behavior module; it never writes its code inline. When a behaviour gap appears:
+- Does it fit an existing behavior module's purpose? → add a **behavioural** `config` field to it (an endpoint, a field schema, autoplay/loop, an anti-spam mode).
+- Is the gap actually about how the thing *looks*? → it is not a module gap at all. Appearance is L1: a typed axis, the L1 subtree bound into a **slot**, or the L1 node carrying a **`control`** name (`kind: 'control'` in `packages/site-schema/src/l1/schema.ts`). A vetted *default* look belongs in an **L2 preset** (`packages/framework/src/l2/`), never in the module.
+- Only if it is a genuinely new *kind of behaviour* with its own core → a **new behavior module** (last resort, highest bar; hardened per DOC-26 before publish).
 
-**Why**: layout capability belongs in the one L1 primitive, not scattered across bespoke modules; behavior belongs on a small, well-understood, composable set of behavior modules. Both keep related capability in one place, reusable by every site. See DOC-23 (L1), DOC-24 (framework purpose = safety envelope), DOC-2 (security policy); DOC-14 (the old two-tier *layout*-module lifecycle) is superseded by the behavior-module contract.
+**`config` is data-only and never aesthetic** (DOC-25 §2, §10). REQ-96 deleted `carousel`'s `config.view` as the canonical violation: it was presented as behavioural ("slides per view") but resolved to a `flex-basis`. If a proposed `config` field bottoms out in a CSS value, it is an aesthetic dial wearing behavioural clothes — put it in L1.
+
+**A conforming behavior module ships zero CSS**, with one carve-out: a small **declared** set of *invariant elements* whose presentation is pinned by an obligation rather than by taste (the honeypot must stay invisible; the Turnstile mount must sit where the widget expects it; a visually-hidden label must stay out of flow). Anything not on that list paints from L1 or does not paint at all. Residual module stylesheets and the aesthetic resolvers in `modules/dials.ts` / `text-style.ts` are legacy being dismantled under REQ-96 — do not extend them.
+
+**Two composition directions** (DOC-25 §10), chosen per element by whether it can hold children:
+- **container** (carousel slide, form wrapper) → the module wraps L1, via a **slot**.
+- **leaf control** (`<input>`, `<textarea>`, a button's face) → **L1 wraps the module**, via a `control` node. A void element has nowhere to put a subtree, so the slot model is structurally unreachable there; the module supplies only that element's attribute bundle (`type`/`name`/`required`, the `for`↔`id` wiring, the endpoint), and L1 owns its class, geometry and every paint axis.
+
+**Why**: layout capability belongs in the one L1 primitive, not scattered across bespoke modules; behaviour belongs on a small, well-understood, composable set of behavior modules. Both keep related capability in one place, reusable by every site. See DOC-23 (L1), DOC-24 (framework purpose = safety envelope), DOC-2 (security policy), DOC-25 (behavior-module contract + §10 amendment), DOC-26 (authoring & vetting); DOC-14 (the old two-tier *layout*-module lifecycle) is superseded.
 
 ## ⚠️ CRITICAL: Failure vs Error Taxonomy (Workflow Outcomes)
 
