@@ -291,26 +291,25 @@
             {
               "kind": "container",
               "id": "lockup",
-              "layout": "row",
+              "layout": "stack",
               "align": "center",
-              "gapPx": 9,
-              "children": [
-                {
-                  "kind": "image",
-                  "id": "lockup-mark",
-                  "src": "/assets/xgd-mesh-ink.svg",
-                  "alt": "",
-                  "sizing": {
-                    "width": {
-                      "mode": "fixed",
-                      "px": 30
-                    },
-                    "height": {
-                      "mode": "fixed",
-                      "px": 13
-                    }
-                  }
+              "axes": {
+                "backgroundImageUrl": "/assets/xgd-grid-mark.svg"
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fixed",
+                  "px": 76
                 },
+                "height": {
+                  "mode": "fixed",
+                  "px": 38
+                }
+              },
+              "padding": {
+                "topPx": 13
+              },
+              "children": [
                 {
                   "kind": "text",
                   "id": "wordmark",
@@ -381,11 +380,461 @@
         },
         {
           "kind": "container",
+          "layout": "stack",
+          "children": [
+            {
+              "kind": "text",
+              "id": "eyebrow",
+              "text": "Extreme Generative Development",
+              "axes": {
+                "color": "#6B7280",
+                "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                "fontSizePx": 13,
+                "fontWeight": 400,
+                "letterSpacingPx": 1.6,
+                "lineHeightPx": 20,
+                "textTransform": "uppercase"
+              },
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 90
+              }
+            },
+            {
+              "kind": "container",
+              "id": "h1-block",
+              "layout": "stack",
+              "gapPx": 0,
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                }
+              },
+              "padding": {
+                "topPx": 34,
+                "bottomPx": 34
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "id": "h1-a",
+                  "text": "AI writes it.",
+                  "axes": {
+                    "color": "#9CA3AF",
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 78,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -2.4,
+                    "lineHeightPx": 84
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 38
+                        },
+                        {
+                          "at": 768,
+                          "value": 58
+                        },
+                        {
+                          "at": 1440,
+                          "value": 78
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 42
+                        },
+                        {
+                          "at": 768,
+                          "value": 63
+                        },
+                        {
+                          "at": 1440,
+                          "value": 84
+                        }
+                      ]
+                    },
+                    "letterSpacingPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": -1.2
+                        },
+                        {
+                          "at": 1440,
+                          "value": -2.4
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "id": "h1-b",
+                  "text": "XGD keeps it working.",
+                  "axes": {
+                    "color": "#1F2937",
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 78,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -2.4,
+                    "lineHeightPx": 84
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 38
+                        },
+                        {
+                          "at": 768,
+                          "value": 58
+                        },
+                        {
+                          "at": 1440,
+                          "value": 78
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 42
+                        },
+                        {
+                          "at": 768,
+                          "value": 63
+                        },
+                        {
+                          "at": 1440,
+                          "value": 84
+                        }
+                      ]
+                    },
+                    "letterSpacingPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": -1.2
+                        },
+                        {
+                          "at": 1440,
+                          "value": -2.4
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 190
+              }
+            },
+            {
+              "kind": "text",
+              "id": "sub",
+              "text": "XGD maintains a living spec of your software's intended behavior and tests the running system against it on every change. You own that intent and the architecture; XGD owns the implementation.",
+              "sizing": {
+                "width": {
+                  "mode": "fluid",
+                  "maxPx": 620
+                }
+              },
+              "axes": {
+                "color": "#4B5563",
+                "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                "fontSizePx": 19,
+                "fontWeight": 400,
+                "lineHeightPx": 31
+              },
+              "responsive": {
+                "fontSizePx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 17
+                    },
+                    {
+                      "at": 1440,
+                      "value": 19
+                    }
+                  ]
+                },
+                "lineHeightPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 28
+                    },
+                    {
+                      "at": 1440,
+                      "value": 31
+                    }
+                  ]
+                }
+              },
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 300
+              }
+            },
+            {
+              "kind": "container",
+              "id": "cta-row",
+              "layout": "row",
+              "align": "center",
+              "gapPx": 14,
+              "padding": {
+                "topPx": 44
+              },
+              "children": [
+                {
+                  "kind": "box",
+                  "id": "cta-primary",
+                  "axes": {
+                    "surfaceFill": "#2E86A3",
+                    "borderRadiusPx": 6
+                  },
+                  "padding": {
+                    "topPx": 15,
+                    "bottomPx": 15,
+                    "leftPx": 26,
+                    "rightPx": 26
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "Join the beta waitlist",
+                      "axes": {
+                        "color": "#FFFFFF",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 600,
+                        "lineHeightPx": 20,
+                        "nowrapFromPx": 0
+                      }
+                    }
+                  ],
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 160,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "surfaceFill": "#236D87",
+                      "motion": {
+                        "offsetYPx": -2
+                      },
+                      "boxShadow": {
+                        "offsetXPx": 0,
+                        "offsetYPx": 8,
+                        "blurPx": 24,
+                        "color": "#00000059"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "id": "cta-secondary",
+                  "axes": {
+                    "borderRadiusPx": 6,
+                    "border": {
+                      "widthPx": 1,
+                      "color": "#D1D5DB",
+                      "style": "solid"
+                    }
+                  },
+                  "padding": {
+                    "topPx": 15,
+                    "bottomPx": 15,
+                    "leftPx": 26,
+                    "rightPx": 26
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "Read the whitepaper",
+                      "axes": {
+                        "color": "#1F2937",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 500,
+                        "lineHeightPx": 20,
+                        "nowrapFromPx": 0
+                      }
+                    }
+                  ],
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 160,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "surfaceFill": "#EAF5F8",
+                      "border": {
+                        "widthPx": 1,
+                        "color": "#4AAFC9",
+                        "style": "solid"
+                      },
+                      "motion": {
+                        "offsetYPx": -2
+                      }
+                    }
+                  }
+                }
+              ],
+              "visibility": {
+                "fromPx": 520
+              },
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 400
+              }
+            },
+            {
+              "kind": "container",
+              "id": "cta-stack",
+              "layout": "stack",
+              "align": "stretch",
+              "gapPx": 12,
+              "padding": {
+                "topPx": 44
+              },
+              "children": [
+                {
+                  "kind": "box",
+                  "id": "cta-primary",
+                  "axes": {
+                    "surfaceFill": "#2E86A3",
+                    "borderRadiusPx": 6
+                  },
+                  "padding": {
+                    "topPx": 15,
+                    "bottomPx": 15,
+                    "leftPx": 26,
+                    "rightPx": 26
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "Join the beta waitlist",
+                      "axes": {
+                        "color": "#FFFFFF",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 600,
+                        "lineHeightPx": 20,
+                        "nowrapFromPx": 0,
+                        "textAlign": "center"
+                      }
+                    }
+                  ],
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 160,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "surfaceFill": "#236D87",
+                      "motion": {
+                        "offsetYPx": -2
+                      },
+                      "boxShadow": {
+                        "offsetXPx": 0,
+                        "offsetYPx": 8,
+                        "blurPx": 24,
+                        "color": "#00000059"
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "id": "cta-secondary",
+                  "axes": {
+                    "borderRadiusPx": 6,
+                    "border": {
+                      "widthPx": 1,
+                      "color": "#D1D5DB",
+                      "style": "solid"
+                    }
+                  },
+                  "padding": {
+                    "topPx": 15,
+                    "bottomPx": 15,
+                    "leftPx": 26,
+                    "rightPx": 26
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "Read the whitepaper",
+                      "axes": {
+                        "color": "#1F2937",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 500,
+                        "lineHeightPx": 20,
+                        "nowrapFromPx": 0,
+                        "textAlign": "center"
+                      }
+                    }
+                  ],
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 160,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "surfaceFill": "#EAF5F8",
+                      "border": {
+                        "widthPx": 1,
+                        "color": "#4AAFC9",
+                        "style": "solid"
+                      },
+                      "motion": {
+                        "offsetYPx": -2
+                      }
+                    }
+                  }
+                }
+              ],
+              "visibility": {
+                "untilPx": 520
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                }
+              },
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 400
+              }
+            }
+          ],
           "id": "hero",
-          "layout": "row",
-          "align": "center",
-          "distribution": "between",
-          "gapPx": 48,
+          "align": "start",
           "sizing": {
             "width": {
               "mode": "fluid",
@@ -424,500 +873,9 @@
               ]
             }
           },
-          "children": [
-            {
-              "kind": "container",
-              "layout": "stack",
-              "children": [
-                {
-                  "kind": "text",
-                  "id": "eyebrow",
-                  "text": "Extreme Generative Development",
-                  "axes": {
-                    "color": "#6B7280",
-                    "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                    "fontSizePx": 13,
-                    "fontWeight": 400,
-                    "letterSpacingPx": 1.6,
-                    "lineHeightPx": 20,
-                    "textTransform": "uppercase"
-                  },
-                  "reveal": {
-                    "yPx": 20,
-                    "durationMs": 640,
-                    "easing": "ease-out",
-                    "delayMs": 90
-                  }
-                },
-                {
-                  "kind": "container",
-                  "id": "h1-block",
-                  "layout": "stack",
-                  "gapPx": 0,
-                  "sizing": {
-                    "width": {
-                      "mode": "fluid"
-                    }
-                  },
-                  "padding": {
-                    "topPx": 34,
-                    "bottomPx": 34
-                  },
-                  "children": [
-                    {
-                      "kind": "text",
-                      "id": "h1-a",
-                      "text": "AI writes it.",
-                      "axes": {
-                        "color": "#9CA3AF",
-                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                        "fontSizePx": 78,
-                        "fontWeight": 700,
-                        "letterSpacingPx": -2.4,
-                        "lineHeightPx": 84
-                      },
-                      "responsive": {
-                        "fontSizePx": {
-                          "keyframes": [
-                            {
-                              "at": 320,
-                              "value": 38
-                            },
-                            {
-                              "at": 768,
-                              "value": 58
-                            },
-                            {
-                              "at": 1440,
-                              "value": 78
-                            }
-                          ]
-                        },
-                        "lineHeightPx": {
-                          "keyframes": [
-                            {
-                              "at": 320,
-                              "value": 42
-                            },
-                            {
-                              "at": 768,
-                              "value": 63
-                            },
-                            {
-                              "at": 1440,
-                              "value": 84
-                            }
-                          ]
-                        },
-                        "letterSpacingPx": {
-                          "keyframes": [
-                            {
-                              "at": 320,
-                              "value": -1.2
-                            },
-                            {
-                              "at": 1440,
-                              "value": -2.4
-                            }
-                          ]
-                        }
-                      }
-                    },
-                    {
-                      "kind": "text",
-                      "id": "h1-b",
-                      "text": "XGD keeps it working.",
-                      "axes": {
-                        "color": "#1F2937",
-                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                        "fontSizePx": 78,
-                        "fontWeight": 700,
-                        "letterSpacingPx": -2.4,
-                        "lineHeightPx": 84
-                      },
-                      "responsive": {
-                        "fontSizePx": {
-                          "keyframes": [
-                            {
-                              "at": 320,
-                              "value": 38
-                            },
-                            {
-                              "at": 768,
-                              "value": 58
-                            },
-                            {
-                              "at": 1440,
-                              "value": 78
-                            }
-                          ]
-                        },
-                        "lineHeightPx": {
-                          "keyframes": [
-                            {
-                              "at": 320,
-                              "value": 42
-                            },
-                            {
-                              "at": 768,
-                              "value": 63
-                            },
-                            {
-                              "at": 1440,
-                              "value": 84
-                            }
-                          ]
-                        },
-                        "letterSpacingPx": {
-                          "keyframes": [
-                            {
-                              "at": 320,
-                              "value": -1.2
-                            },
-                            {
-                              "at": 1440,
-                              "value": -2.4
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  ],
-                  "reveal": {
-                    "yPx": 20,
-                    "durationMs": 640,
-                    "easing": "ease-out",
-                    "delayMs": 190
-                  }
-                },
-                {
-                  "kind": "text",
-                  "id": "sub",
-                  "text": "XGD maintains a living spec of your software's intended behavior and tests the running system against it on every change. You own that intent and the architecture; XGD owns the implementation.",
-                  "sizing": {
-                    "width": {
-                      "mode": "fluid",
-                      "maxPx": 620
-                    }
-                  },
-                  "axes": {
-                    "color": "#4B5563",
-                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                    "fontSizePx": 19,
-                    "fontWeight": 400,
-                    "lineHeightPx": 31
-                  },
-                  "responsive": {
-                    "fontSizePx": {
-                      "keyframes": [
-                        {
-                          "at": 320,
-                          "value": 17
-                        },
-                        {
-                          "at": 1440,
-                          "value": 19
-                        }
-                      ]
-                    },
-                    "lineHeightPx": {
-                      "keyframes": [
-                        {
-                          "at": 320,
-                          "value": 28
-                        },
-                        {
-                          "at": 1440,
-                          "value": 31
-                        }
-                      ]
-                    }
-                  },
-                  "reveal": {
-                    "yPx": 20,
-                    "durationMs": 640,
-                    "easing": "ease-out",
-                    "delayMs": 300
-                  }
-                },
-                {
-                  "kind": "container",
-                  "id": "cta-row",
-                  "layout": "row",
-                  "align": "center",
-                  "gapPx": 14,
-                  "padding": {
-                    "topPx": 44
-                  },
-                  "children": [
-                    {
-                      "kind": "box",
-                      "id": "cta-primary",
-                      "axes": {
-                        "surfaceFill": "#2E86A3",
-                        "borderRadiusPx": 6
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Join the beta waitlist",
-                          "axes": {
-                            "color": "#FFFFFF",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 600,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0
-                          }
-                        }
-                      ],
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#236D87",
-                          "motion": {
-                            "offsetYPx": -2
-                          },
-                          "boxShadow": {
-                            "offsetXPx": 0,
-                            "offsetYPx": 8,
-                            "blurPx": 24,
-                            "color": "#00000059"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "box",
-                      "id": "cta-secondary",
-                      "axes": {
-                        "borderRadiusPx": 6,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#D1D5DB",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Read the whitepaper",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 500,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0
-                          }
-                        }
-                      ],
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#EAF5F8",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -2
-                          }
-                        }
-                      }
-                    }
-                  ],
-                  "visibility": {
-                    "fromPx": 520
-                  },
-                  "reveal": {
-                    "yPx": 20,
-                    "durationMs": 640,
-                    "easing": "ease-out",
-                    "delayMs": 400
-                  }
-                },
-                {
-                  "kind": "container",
-                  "id": "cta-stack",
-                  "layout": "stack",
-                  "align": "stretch",
-                  "gapPx": 12,
-                  "padding": {
-                    "topPx": 44
-                  },
-                  "children": [
-                    {
-                      "kind": "box",
-                      "id": "cta-primary",
-                      "axes": {
-                        "surfaceFill": "#2E86A3",
-                        "borderRadiusPx": 6
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Join the beta waitlist",
-                          "axes": {
-                            "color": "#FFFFFF",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 600,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0,
-                            "textAlign": "center"
-                          }
-                        }
-                      ],
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#236D87",
-                          "motion": {
-                            "offsetYPx": -2
-                          },
-                          "boxShadow": {
-                            "offsetXPx": 0,
-                            "offsetYPx": 8,
-                            "blurPx": 24,
-                            "color": "#00000059"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "box",
-                      "id": "cta-secondary",
-                      "axes": {
-                        "borderRadiusPx": 6,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#D1D5DB",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Read the whitepaper",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 500,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0,
-                            "textAlign": "center"
-                          }
-                        }
-                      ],
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#EAF5F8",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -2
-                          }
-                        }
-                      }
-                    }
-                  ],
-                  "visibility": {
-                    "untilPx": 520
-                  },
-                  "sizing": {
-                    "width": {
-                      "mode": "fluid"
-                    }
-                  },
-                  "reveal": {
-                    "yPx": 20,
-                    "durationMs": 640,
-                    "easing": "ease-out",
-                    "delayMs": 400
-                  }
-                }
-              ],
-              "id": "hero-copy",
-              "align": "start",
-              "sizing": {
-                "width": {
-                  "mode": "fluid"
-                }
-              }
-            },
-            {
-              "kind": "image",
-              "id": "hero-mark",
-              "src": "/assets/xgd-mesh.svg",
-              "alt": "",
-              "sizing": {
-                "width": {
-                  "mode": "fixed",
-                  "px": 430
-                },
-                "height": {
-                  "mode": "fixed",
-                  "px": 186
-                }
-              },
-              "axes": {
-                "opacity": 0.6
-              },
-              "visibility": {
-                "fromPx": 1024
-              },
-              "reveal": {
-                "yPx": 0,
-                "fromOpacity": 0,
-                "durationMs": 1100,
-                "easing": "ease-out",
-                "delayMs": 520
-              }
-            }
-          ]
+          "axes": {
+            "backgroundImageUrl": "/assets/xgd-grid-hero.svg"
+          }
         },
         {
           "kind": "box",
@@ -4332,29 +4290,26 @@
               "children": [
                 {
                   "kind": "container",
-                  "layout": "row",
+                  "id": "footer-lockup",
+                  "layout": "stack",
                   "align": "center",
-                  "gapPx": 9,
-                  "children": [
-                    {
-                      "kind": "image",
-                      "id": "footer-mark",
-                      "src": "/assets/xgd-mesh-ink.svg",
-                      "alt": "",
-                      "sizing": {
-                        "width": {
-                          "mode": "fixed",
-                          "px": 26
-                        },
-                        "height": {
-                          "mode": "fixed",
-                          "px": 11
-                        }
-                      },
-                      "axes": {
-                        "opacity": 0.55
-                      }
+                  "axes": {
+                    "backgroundImageUrl": "/assets/xgd-grid-mark.svg"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fixed",
+                      "px": 68
                     },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 34
+                    }
+                  },
+                  "padding": {
+                    "topPx": 12
+                  },
+                  "children": [
                     {
                       "kind": "text",
                       "text": "xgd",
