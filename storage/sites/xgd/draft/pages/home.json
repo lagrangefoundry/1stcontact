@@ -1,12 +1,219 @@
 {
   "id": "home",
   "slug": "home",
-  "title": "XGD \u2014 AI writes it. XGD keeps it working.",
+  "title": "XGD — AI writes it. XGD keeps it working.",
   "seoMeta": {
-    "title": "XGD \u2014 AI writes it. XGD keeps it working.",
+    "title": "XGD — AI writes it. XGD keeps it working.",
     "description": "XGD maintains a living spec of your software's intended behavior and tests the running system against it on every change. You own that intent and the architecture; XGD owns the implementation."
   },
-  "modules": [],
+  "modules": [
+    {
+      "id": "signup",
+      "type": "contact-form",
+      "version": 4,
+      "slot": "signup-form",
+      "config": {
+        "action": "mailto:hello@xgd.dev",
+        "fields": [
+          {
+            "name": "email",
+            "label": "Email address",
+            "labelMode": "placeholder",
+            "type": "email",
+            "required": true
+          },
+          {
+            "name": "message",
+            "label": "What are you building? (optional)",
+            "labelMode": "placeholder",
+            "type": "textarea",
+            "required": false
+          }
+        ],
+        "submitLabel": "Send me the whitepapers",
+        "successMessage": "Thanks — the papers are on their way."
+      },
+      "slots": {
+        "form": {
+          "kind": "container",
+          "layout": "stack",
+          "gapPx": 12,
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          },
+          "children": [
+            {
+              "kind": "control",
+              "control": "email",
+              "axes": {
+                "color": "#FAFAF9",
+                "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                "fontSizePx": 15,
+                "surfaceFill": "#131317",
+                "borderRadiusPx": 6,
+                "border": {
+                  "widthPx": 1,
+                  "color": "#2E2E33",
+                  "style": "solid"
+                }
+              },
+              "padding": {
+                "topPx": 14,
+                "bottomPx": 14,
+                "leftPx": 16,
+                "rightPx": 16
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                },
+                "height": {
+                  "mode": "fixed",
+                  "px": 50
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 140,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "border": {
+                    "widthPx": 1,
+                    "color": "#4A4A52",
+                    "style": "solid"
+                  }
+                },
+                "focus": {
+                  "border": {
+                    "widthPx": 1,
+                    "color": "#E3B341",
+                    "style": "solid"
+                  },
+                  "ring": {
+                    "widthPx": 2,
+                    "color": "#E3B34155",
+                    "offsetPx": 1
+                  }
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "control": "message",
+              "axes": {
+                "color": "#FAFAF9",
+                "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                "fontSizePx": 15,
+                "surfaceFill": "#131317",
+                "borderRadiusPx": 6,
+                "border": {
+                  "widthPx": 1,
+                  "color": "#2E2E33",
+                  "style": "solid"
+                }
+              },
+              "padding": {
+                "topPx": 14,
+                "bottomPx": 14,
+                "leftPx": 16,
+                "rightPx": 16
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                },
+                "height": {
+                  "mode": "fixed",
+                  "px": 110
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 140,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "border": {
+                    "widthPx": 1,
+                    "color": "#4A4A52",
+                    "style": "solid"
+                  }
+                },
+                "focus": {
+                  "border": {
+                    "widthPx": 1,
+                    "color": "#E3B341",
+                    "style": "solid"
+                  },
+                  "ring": {
+                    "widthPx": 2,
+                    "color": "#E3B34155",
+                    "offsetPx": 1
+                  }
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "control": "submit",
+              "axes": {
+                "color": "#0A0A0B",
+                "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                "fontSizePx": 15,
+                "fontWeight": 600,
+                "textAlign": "center",
+                "surfaceFill": "#FAFAF9",
+                "borderRadiusPx": 6
+              },
+              "padding": {
+                "topPx": 15,
+                "bottomPx": 15,
+                "leftPx": 26,
+                "rightPx": 26
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                },
+                "height": {
+                  "mode": "fixed",
+                  "px": 50
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 160,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "surfaceFill": "#FFFFFF",
+                  "motion": {
+                    "offsetYPx": -2
+                  },
+                  "boxShadow": {
+                    "offsetXPx": 0,
+                    "offsetYPx": 8,
+                    "blurPx": 24,
+                    "color": "#00000059"
+                  }
+                },
+                "focus": {
+                  "ring": {
+                    "widthPx": 2,
+                    "color": "#E3B341",
+                    "offsetPx": 2
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
   "l1": {
     "widths": [
       320,
@@ -948,7 +1155,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -981,11 +1188,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -994,6 +1201,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -1017,7 +1241,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1050,11 +1274,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1063,6 +1287,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -1086,7 +1327,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1119,11 +1360,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1132,6 +1373,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     }
                   ]
@@ -1173,7 +1431,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1206,11 +1464,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1219,6 +1477,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -1242,7 +1517,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1275,11 +1550,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1288,6 +1563,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -1311,7 +1603,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1344,11 +1636,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1357,6 +1649,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     }
                   ]
@@ -1658,7 +1967,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1680,7 +1989,7 @@
                         },
                         {
                           "kind": "text",
-                          "text": "A durable slice of what your system does \u2014 finite, named, and stable across refactors.",
+                          "text": "A durable slice of what your system does — finite, named, and stable across refactors.",
                           "axes": {
                             "color": "#A1A1A6",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
@@ -1691,11 +2000,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1704,6 +2013,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -1727,7 +2053,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1760,11 +2086,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1773,6 +2099,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -1796,7 +2139,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1829,11 +2172,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1842,6 +2185,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -1865,7 +2225,7 @@
                           "kind": "text",
                           "text": "04",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1898,11 +2258,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1911,6 +2271,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     }
                   ]
@@ -1952,7 +2329,7 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1974,7 +2351,7 @@
                         },
                         {
                           "kind": "text",
-                          "text": "A durable slice of what your system does \u2014 finite, named, and stable across refactors.",
+                          "text": "A durable slice of what your system does — finite, named, and stable across refactors.",
                           "axes": {
                             "color": "#A1A1A6",
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
@@ -1985,11 +2362,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -1998,6 +2375,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -2021,7 +2415,7 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2054,11 +2448,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -2067,6 +2461,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -2090,7 +2501,7 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2123,11 +2534,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -2136,6 +2547,23 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
                       }
                     },
                     {
@@ -2159,7 +2587,7 @@
                           "kind": "text",
                           "text": "04",
                           "axes": {
-                            "color": "#5E5E66",
+                            "color": "#E3B341",
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2192,11 +2620,11 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -2205,6 +2633,389 @@
                         "bottomPx": 28,
                         "leftPx": 24,
                         "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "container",
+          "id": "proof",
+          "layout": "stack",
+          "align": "center",
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          },
+          "axes": {
+            "surfaceFill": "#0E0E10"
+          },
+          "children": [
+            {
+              "kind": "container",
+              "id": "proof-inner",
+              "layout": "stack",
+              "align": "center",
+              "gapPx": 0,
+              "staggerMs": 90,
+              "sizing": {
+                "width": {
+                  "mode": "fluid",
+                  "maxPx": 900
+                }
+              },
+              "padding": {
+                "topPx": 150,
+                "bottomPx": 150,
+                "leftPx": 32,
+                "rightPx": 32
+              },
+              "responsivePadding": {
+                "topPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 96
+                    },
+                    {
+                      "at": 1440,
+                      "value": 150
+                    }
+                  ]
+                },
+                "bottomPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 96
+                    },
+                    {
+                      "at": 1440,
+                      "value": 150
+                    }
+                  ]
+                },
+                "leftPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 20
+                    },
+                    {
+                      "at": 768,
+                      "value": 32
+                    }
+                  ]
+                },
+                "rightPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 20
+                    },
+                    {
+                      "at": 768,
+                      "value": 32
+                    }
+                  ]
+                }
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "text": "Proof",
+                  "reveal": {
+                    "yPx": 14,
+                    "durationMs": 500,
+                    "easing": "ease-out"
+                  },
+                  "axes": {
+                    "color": "#8B8B90",
+                    "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                    "fontSizePx": 13,
+                    "fontWeight": 400,
+                    "letterSpacingPx": 1.6,
+                    "lineHeightPx": 20,
+                    "textTransform": "uppercase"
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 26
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "XGD was built with XGD.",
+                  "reveal": {
+                    "yPx": 22,
+                    "durationMs": 640,
+                    "easing": "ease-out"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 760
+                    }
+                  },
+                  "axes": {
+                    "color": "#FAFAF9",
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 44,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -1.2,
+                    "lineHeightPx": 52,
+                    "textAlign": "center"
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 29
+                        },
+                        {
+                          "at": 768,
+                          "value": 38
+                        },
+                        {
+                          "at": 1440,
+                          "value": 44
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 35
+                        },
+                        {
+                          "at": 768,
+                          "value": 45
+                        },
+                        {
+                          "at": 1440,
+                          "value": 52
+                        }
+                      ]
+                    },
+                    "letterSpacingPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": -0.7
+                        },
+                        {
+                          "at": 1440,
+                          "value": -1.2
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 22
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "Its creator has not read a single line of its source — and has never stopped holding its architecture, reminding the system cycle after cycle of the decisions that shaped it.",
+                  "reveal": {
+                    "yPx": 18,
+                    "durationMs": 640,
+                    "easing": "ease-out"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 620
+                    }
+                  },
+                  "axes": {
+                    "color": "#A1A1A6",
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 18,
+                    "fontWeight": 400,
+                    "lineHeightPx": 30,
+                    "textAlign": "center"
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 16
+                        },
+                        {
+                          "at": 1440,
+                          "value": 18
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 27
+                        },
+                        {
+                          "at": 1440,
+                          "value": 30
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 56
+                    }
+                  }
+                },
+                {
+                  "kind": "container",
+                  "id": "proof-quote",
+                  "layout": "stack",
+                  "align": "start",
+                  "gapPx": 18,
+                  "reveal": {
+                    "yPx": 24,
+                    "durationMs": 700,
+                    "easing": "ease-out",
+                    "delayMs": 120
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 720
+                    }
+                  },
+                  "axes": {
+                    "borderLeft": {
+                      "widthPx": 2,
+                      "color": "#E3B341",
+                      "style": "solid"
+                    }
+                  },
+                  "padding": {
+                    "leftPx": 32,
+                    "topPx": 6,
+                    "bottomPx": 6
+                  },
+                  "responsivePadding": {
+                    "leftPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 18
+                        },
+                        {
+                          "at": 768,
+                          "value": 32
+                        }
+                      ]
+                    }
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "“I built a platform I’ve never read the source of — but I never stopped being its engineer.”",
+                      "axes": {
+                        "color": "#FAFAF9",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 26,
+                        "fontWeight": 500,
+                        "letterSpacingPx": -0.5,
+                        "lineHeightPx": 38
+                      },
+                      "responsive": {
+                        "fontSizePx": {
+                          "keyframes": [
+                            {
+                              "at": 320,
+                              "value": 19
+                            },
+                            {
+                              "at": 768,
+                              "value": 23
+                            },
+                            {
+                              "at": 1440,
+                              "value": 26
+                            }
+                          ]
+                        },
+                        "lineHeightPx": {
+                          "keyframes": [
+                            {
+                              "at": 320,
+                              "value": 29
+                            },
+                            {
+                              "at": 768,
+                              "value": 34
+                            },
+                            {
+                              "at": 1440,
+                              "value": 38
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "kind": "text",
+                      "text": "Martin Westhead · GenDev Labs",
+                      "axes": {
+                        "color": "#8B8B90",
+                        "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                        "fontSizePx": 12,
+                        "fontWeight": 400,
+                        "letterSpacingPx": 1.2,
+                        "lineHeightPx": 18
                       }
                     }
                   ]
@@ -2499,11 +3310,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -2599,7 +3410,24 @@
                             "leftPx": 18
                           }
                         }
-                      ]
+                      ],
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
+                      }
                     },
                     {
                       "kind": "container",
@@ -2618,11 +3446,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -2718,7 +3546,24 @@
                             "leftPx": 18
                           }
                         }
-                      ]
+                      ],
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
+                      }
                     }
                   ]
                 },
@@ -2755,11 +3600,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -2855,7 +3700,24 @@
                             "leftPx": 18
                           }
                         }
-                      ]
+                      ],
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
+                      }
                     },
                     {
                       "kind": "container",
@@ -2874,11 +3736,11 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#131316",
+                        "surfaceFill": "#141419",
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#1C1C21",
+                          "color": "#26262C",
                           "style": "solid"
                         }
                       },
@@ -2974,7 +3836,24 @@
                             "leftPx": 18
                           }
                         }
-                      ]
+                      ],
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": "#191920",
+                          "border": {
+                            "widthPx": 1,
+                            "color": "#3A3A44",
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
+                      }
                     }
                   ]
                 }
@@ -3179,7 +4058,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "XGD does not claim your software is correct. It guarantees that every claim of correctness is backed by inspectable evidence \u2014 and that every gap in that evidence is visible rather than quietly absent.",
+                  "text": "XGD does not claim your software is correct. It guarantees that every claim of correctness is backed by inspectable evidence — and that every gap in that evidence is visible rather than quietly absent.",
                   "reveal": {
                     "yPx": 18,
                     "durationMs": 640,
@@ -3238,249 +4117,94 @@
                   }
                 },
                 {
-                  "kind": "container",
-                  "id": "close-cta-row",
-                  "layout": "row",
-                  "align": "center",
-                  "gapPx": 14,
-                  "visibility": {
-                    "fromPx": 520
-                  },
-                  "children": [
-                    {
-                      "kind": "box",
-                      "id": "close-cta-primary",
-                      "axes": {
-                        "borderRadiusPx": 6,
-                        "surfaceFill": "#FAFAF9"
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Join the beta waitlist",
-                          "axes": {
-                            "color": "#0A0A0B",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 600,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0,
-                            "textAlign": "center"
-                          }
-                        }
-                      ],
-                      "reveal": {
-                        "yPx": 16,
-                        "durationMs": 520,
-                        "easing": "ease-out",
-                        "delayMs": 120
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "motion": {
-                            "offsetYPx": -2
-                          },
-                          "boxShadow": {
-                            "offsetXPx": 0,
-                            "offsetYPx": 8,
-                            "blurPx": 24,
-                            "color": "#00000059"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "box",
-                      "id": "close-cta-secondary",
-                      "axes": {
-                        "borderRadiusPx": 6,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#2E2E33",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Read the whitepaper",
-                          "axes": {
-                            "color": "#FAFAF9",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 500,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0,
-                            "textAlign": "center"
-                          }
-                        }
-                      ],
-                      "reveal": {
-                        "yPx": 16,
-                        "durationMs": 520,
-                        "easing": "ease-out",
-                        "delayMs": 120
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#16161A",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4A4A52",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -2
-                          }
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "kind": "container",
-                  "id": "close-cta-stack",
-                  "layout": "stack",
-                  "align": "stretch",
-                  "gapPx": 12,
+                  "kind": "box",
                   "sizing": {
                     "width": {
                       "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 52
+                    }
+                  }
+                },
+                {
+                  "kind": "container",
+                  "id": "signup",
+                  "layout": "stack",
+                  "align": "stretch",
+                  "gapPx": 0,
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 520
                     }
                   },
-                  "visibility": {
-                    "untilPx": 520
+                  "reveal": {
+                    "yPx": 22,
+                    "durationMs": 640,
+                    "easing": "ease-out",
+                    "delayMs": 120
                   },
                   "children": [
                     {
-                      "kind": "box",
-                      "id": "close-cta-primary-s",
+                      "kind": "text",
+                      "text": "Join the beta — and get the whitepapers.",
                       "axes": {
-                        "borderRadiusPx": 6,
-                        "surfaceFill": "#FAFAF9"
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Join the beta waitlist",
-                          "axes": {
-                            "color": "#0A0A0B",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 600,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0,
-                            "textAlign": "center"
-                          }
-                        }
-                      ],
-                      "reveal": {
-                        "yPx": 16,
-                        "durationMs": 520,
-                        "easing": "ease-out",
-                        "delayMs": 120
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "motion": {
-                            "offsetYPx": -2
-                          },
-                          "boxShadow": {
-                            "offsetXPx": 0,
-                            "offsetYPx": 8,
-                            "blurPx": 24,
-                            "color": "#00000059"
-                          }
-                        }
+                        "color": "#FAFAF9",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 19,
+                        "fontWeight": 600,
+                        "letterSpacingPx": -0.3,
+                        "lineHeightPx": 27
                       }
                     },
                     {
                       "kind": "box",
-                      "id": "close-cta-secondary-s",
-                      "axes": {
-                        "borderRadiusPx": 6,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#2E2E33",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 15,
-                        "bottomPx": 15,
-                        "leftPx": 26,
-                        "rightPx": 26
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "Read the whitepaper",
-                          "axes": {
-                            "color": "#FAFAF9",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 500,
-                            "lineHeightPx": 20,
-                            "nowrapFromPx": 0,
-                            "textAlign": "center"
-                          }
-                        }
-                      ],
-                      "reveal": {
-                        "yPx": 16,
-                        "durationMs": 520,
-                        "easing": "ease-out",
-                        "delayMs": 120
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 160,
-                          "easing": "ease-out"
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid"
                         },
-                        "hover": {
-                          "surfaceFill": "#16161A",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4A4A52",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -2
-                          }
+                        "height": {
+                          "mode": "fixed",
+                          "px": 10
                         }
                       }
+                    },
+                    {
+                      "kind": "text",
+                      "text": "One email. We’ll send the papers straight back and let you know when the beta opens. Tell us what you’re building if you want a reply.",
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid",
+                          "maxPx": 460
+                        }
+                      },
+                      "axes": {
+                        "color": "#8B8B90",
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 400,
+                        "lineHeightPx": 25
+                      }
+                    },
+                    {
+                      "kind": "box",
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid"
+                        },
+                        "height": {
+                          "mode": "fixed",
+                          "px": 26
+                        }
+                      }
+                    },
+                    {
+                      "kind": "slot",
+                      "id": "signup-slot",
+                      "name": "signup-form",
+                      "behavior": "contact-form"
                     }
                   ]
                 }
@@ -3551,7 +4275,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "\u00a9 2026 GenDev Labs",
+                  "text": "© 2026 GenDev Labs",
                   "axes": {
                     "color": "#5E5E66",
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
