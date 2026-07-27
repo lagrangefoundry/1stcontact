@@ -54,6 +54,10 @@ function seedModules(cwd: string, slug: string): Array<{ id: string; type: strin
       },
     },
   ]
+  // REQ-102 — `1c new` now seeds an L1 document, so a behavior module must name
+  // the seam it mounts into (REQ-93). Declare one slot per instance and bind it.
+  home.l1.root.children.push(...home.modules.map((m) => ({ kind: 'slot', name: m.id })))
+  for (const m of home.modules) m.slot = m.id
   writeFileSync(homePath, JSON.stringify(home, null, 2))
   return home.modules.map((m: { id: string; type: string }) => ({ id: m.id, type: m.type }))
 }
