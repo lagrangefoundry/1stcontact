@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: BUG-5 — sample-fidelity pairing by occurrence identity'
 created_by: xgd
 created_at: '2026-07-27T20:35:58.938325+00:00'
-updated_at: '2026-07-27T20:35:58.938325+00:00'
+updated_at: '2026-07-27T20:39:06.407643+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bug-5b7153d2
@@ -80,7 +80,7 @@ fields:
       one new AC pins deterministic, per-occurrence-faithful analytic value-render.
       All prior intent of STORY-86 (three probes, absolute-base/structure-overlay
       split, demand-driven recovery, diagnostic residuals) is preserved unchanged.
-    story_uid: null
+    story_uid: story-24098299
 ---
 
 # Reconciliation Plan
