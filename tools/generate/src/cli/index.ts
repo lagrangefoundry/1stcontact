@@ -27,6 +27,7 @@ import {
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
+import { cmdFontsCheck, formatFontsReport } from './fonts'
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
@@ -51,6 +52,22 @@ import type { RenderChannel } from '../store'
 export * from './commands'
 export * from './edit'
 export * from './capture'
+export {
+  cmdFontsCheck,
+  loadFontRegistry,
+  collectFontUsages,
+  formatFontsReport,
+  assetBasename,
+  registryPath,
+  REGISTRY_REL,
+} from './fonts'
+export type {
+  FontsCheckReport,
+  FontUsage,
+  FontViolation,
+  FontWarning,
+  ViolationKind,
+} from './fonts'
 export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
 export { startServe } from './serve'
@@ -223,6 +240,14 @@ Adopt-gaps (REQ-74) — close section-boundary vertical GAP deltas by inverting 
   1c adopt-gaps <slug> --ref <captureBundleDir> [--apply] [--json] [--sandbox]
     A gap is linear in one knob: new spacingTop = current + (ref_gap - our_gap); a too-tight gap also
     reduces the previous section's spacingBottom. Dry-run by default. Pairs with the REQ-73 gap axis.
+
+Fonts (REQ-101) — licence provenance for every font file in the project:
+  1c fonts check [--json]
+    Join every site's l1.resources.fonts against fonts/registry.yaml. Fails on a family the
+    registry does not record, on a served file the family's entry does not list, and — for a
+    site declaring config.distribution "product" — on a licence whose redistribute_in_product
+    is not true. Outstanding licence actions are reported but do not fail. Scans both the
+    sites/ and sandbox/ trees, because a licence attaches to the font, not to the site.
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -791,6 +816,28 @@ export async function run(argv: string[]): Promise<void> {
           .filter((d) => d.property === 'gap')
           .map((d) => ({ text: d.text, expected: d.expected, actual: d.actual }))
         emit(cmdApplyGapFixes(slug, gaps, { ...global, apply: flags.apply === true }), json)
+      } catch (err) {
+        fail(err, json)
+      }
+      return
+    }
+
+    case 'fonts': {
+      const json = flags.json === true
+      const sub = rest[0]
+      if (sub !== 'check') {
+        console.error(`Unknown fonts subcommand '${sub ?? ''}'. Expected: check.\n\n` + USAGE)
+        process.exitCode = 1
+        return
+      }
+      try {
+        const report = cmdFontsCheck(process.cwd())
+        if (json) {
+          console.log(JSON.stringify({ ok: report.pass, data: report }, null, 2))
+        } else {
+          console.log(formatFontsReport(report))
+        }
+        if (!report.pass) process.exitCode = 1
       } catch (err) {
         fail(err, json)
       }
