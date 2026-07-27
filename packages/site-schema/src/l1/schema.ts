@@ -469,6 +469,109 @@ const surfaceAxesShape = {
  */
 export const l1SurfaceAxesSchema = z.object(surfaceAxesShape).strict()
 
+// ── Interaction state (REQ-99) ────────────────────────────────────────────────
+//
+// L1 had no vocabulary for interaction state at all — no `:hover`, no
+// `:focus-visible` — so every control it paints was visually inert: a button
+// gave no pointer feedback, and a field got whatever focus treatment the user
+// agent happened to supply.
+//
+// That was survivable while a module could paint its own controls. Since REQ-96
+// it is not: L1 is the sole owner of appearance and a behavior module ships zero
+// CSS, so an interaction treatment L1 cannot express is one that cannot exist.
+//
+// The axes are typed and closed exactly like every other pixel-mover here — a
+// state is a *delta bag* of the same paint axes the base node carries, plus a
+// typed motion. Never a CSS string, never a selector: the renderer is the only
+// thing that knows a colon-pseudo exists.
+
+/** Transition timing curve — a closed enum, never a raw `cubic-bezier(…)` string. */
+export const l1EasingSchema = z.enum(['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out'])
+
+/**
+ * How the node animates *between* its states.
+ *
+ * Declared on the interaction as a whole rather than inside `hover`, because a
+ * CSS transition lives on the base rule and therefore governs the leave as well
+ * as the enter. Putting it inside one state would describe only half the motion
+ * and silently make un-hovering instant.
+ */
+export const l1TransitionSchema = z
+  .object({
+    durationMs: finite.nonnegative(),
+    easing: l1EasingSchema.optional(),
+  })
+  .strict()
+
+/**
+ * A state's movement — the small lift/scale that reads as "this responds".
+ * Composed with the node's own {@link l1TransformSchema} by the renderer, because
+ * a CSS `transform` replaces rather than accumulates: a state that only wants to
+ * nudge would otherwise silently discard the node's authored rotation.
+ */
+export const l1MotionSchema = z
+  .object({
+    offsetXPx: finite.optional(),
+    offsetYPx: finite.optional(),
+    scale: finite.positive().optional(),
+    rotateDeg: finite.optional(),
+  })
+  .strict()
+
+/**
+ * A focus indicator — an outline ring outside the node's box.
+ *
+ * **There is deliberately no way to express "no ring".** `widthPx` is positive,
+ * the field carries no `none` variant, and the renderer emits a default ring for
+ * every interactive node that does not author one. A visible focus indicator is
+ * the one place where an obligation outranks taste, so the substrate gives taste
+ * no vocabulary to override it (DOC-24: the envelope constrains safety, not
+ * appearance — and this is a safety axis wearing an appearance's clothes).
+ */
+export const l1FocusRingSchema = z
+  .object({
+    widthPx: finite.positive(),
+    color: l1Color,
+    offsetPx: finite.optional(),
+    style: z.enum(['solid', 'dashed', 'dotted', 'double']).optional(),
+  })
+  .strict()
+
+/**
+ * The paint + motion delta a node takes on in an interaction state. It is the
+ * shared surface group (REQ-98) plus the two run axes a hover most often changes
+ * (colour, underline) plus a typed motion — so a state can restate any axis the
+ * base node could paint, and nothing new had to be invented for it to do so.
+ */
+const interactionStateShape = {
+  ...surfaceAxesShape,
+  color: l1Color.optional(),
+  textDecoration: z.enum(['none', 'underline', 'line-through', 'overline']).optional(),
+  motion: l1MotionSchema.optional(),
+} as const
+
+/** The pointer-hover state delta. */
+export const l1HoverStateSchema = z.object(interactionStateShape).strict()
+
+/** The keyboard-focus state delta, plus its ring. */
+export const l1FocusStateSchema = z
+  .object({ ...interactionStateShape, ring: l1FocusRingSchema.optional() })
+  .strict()
+
+/**
+ * REQ-99 — a node's interaction states. Node-level (like {@link l1TransformSchema}
+ * / {@link l1MaskSchema} / {@link l1PaddingSchema}), so every kind carries it
+ * uniformly rather than each kind re-deriving its own slice — the asymmetry
+ * REQ-98 removed from the paint group.
+ */
+export const l1InteractionSchema = z
+  .object({
+    transition: l1TransitionSchema.optional(),
+    hover: l1HoverStateSchema.optional(),
+    focus: l1FocusStateSchema.optional(),
+  })
+  .strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -593,6 +696,8 @@ export const l1TextSchema = z
     padding: l1PaddingSchema.optional(),
     /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
     responsivePadding: l1PaddingResponsiveSchema.optional(),
+    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
+    interaction: l1InteractionSchema.optional(),
   })
   .strict()
 
@@ -612,6 +717,8 @@ export const l1ImageSchema = z
     padding: l1PaddingSchema.optional(),
     /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
     responsivePadding: l1PaddingResponsiveSchema.optional(),
+    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
+    interaction: l1InteractionSchema.optional(),
   })
   .strict()
 
@@ -656,6 +763,8 @@ export const l1ControlSchema = z
     padding: l1PaddingSchema.optional(),
     /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
     responsivePadding: l1PaddingResponsiveSchema.optional(),
+    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
+    interaction: l1InteractionSchema.optional(),
   })
   .strict()
 
@@ -679,6 +788,8 @@ export const l1SlotSchema = z
     padding: l1PaddingSchema.optional(),
     /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
     responsivePadding: l1PaddingResponsiveSchema.optional(),
+    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
+    interaction: l1InteractionSchema.optional(),
   })
   .strict()
 
@@ -699,6 +810,7 @@ export interface L1BoxNode {
   mask?: z.infer<typeof l1MaskSchema>
   padding?: z.infer<typeof l1PaddingSchema>
   responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
+  interaction?: z.infer<typeof l1InteractionSchema>
   children?: L1NodeUnion[]
 }
 
@@ -720,6 +832,7 @@ export interface L1ContainerNode {
   mask?: z.infer<typeof l1MaskSchema>
   padding?: z.infer<typeof l1PaddingSchema>
   responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
+  interaction?: z.infer<typeof l1InteractionSchema>
   children: L1NodeUnion[]
 }
 
@@ -746,6 +859,8 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
       padding: l1PaddingSchema.optional(),
     /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
     responsivePadding: l1PaddingResponsiveSchema.optional(),
+    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
+    interaction: l1InteractionSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -771,6 +886,8 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       padding: l1PaddingSchema.optional(),
     /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
     responsivePadding: l1PaddingResponsiveSchema.optional(),
+    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
+    interaction: l1InteractionSchema.optional(),
       children: z.array(l1NodeSchema),
     })
     .strict(),

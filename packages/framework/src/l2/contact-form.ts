@@ -82,6 +82,15 @@ export function contactFormPreset(
         borderRadiusPx: o.radiusPx,
         border: { widthPx: 1, color: o.borderColor },
       },
+      // REQ-99 — the preset is a *vetted* default, so it authors the interaction
+      // treatment too: a field that only responds when the user agent decides to
+      // is exactly the ceiling the ticket names. The ring colour is the field's
+      // own accent rather than the UA's, and the border warms on hover.
+      interaction: {
+        transition: { durationMs: 120, easing: 'ease-out' },
+        hover: { border: { widthPx: 1, color: o.color } },
+        focus: { ring: { widthPx: 2, color: o.submitFill, offsetPx: 2 } },
+      },
       padding: { topPx: 12, rightPx: 12, bottomPx: 12, leftPx: 12 },
       sizing: {
         width: { mode: 'fluid' },
@@ -116,6 +125,11 @@ export function contactFormPreset(
       textAlign: 'center',
       surfaceFill: o.submitFill,
       borderRadiusPx: o.radiusPx,
+    },
+    interaction: {
+      transition: { durationMs: 120, easing: 'ease-out' },
+      hover: { opacity: 0.9, motion: { offsetYPx: -1 } },
+      focus: { ring: { widthPx: 2, color: o.submitFill, offsetPx: 2 } },
     },
     padding: { topPx: 12, rightPx: 24, bottomPx: 12, leftPx: 24 },
     sizing: { width: { mode: 'hug' } },

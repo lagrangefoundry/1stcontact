@@ -39,6 +39,10 @@ export const L1_ENVELOPE = {
   rotateDeg: { min: -3600, max: 3600 },
   /** BUG-17 — per-side box-model padding (px); non-negative, bounded so it can't blow out layout. */
   paddingPx: { min: 0, max: 10_000 },
+  /** REQ-99 — interaction transition duration; bounded so a state change can't stall for minutes. */
+  transitionMs: { min: 0, max: 10_000 },
+  /** REQ-99 — focus-ring width; the floor is 1 so a ring can never be authored away. */
+  focusRingPx: { min: 1, max: 100 },
 } as const
 
 /**
@@ -249,45 +253,123 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
     }
   }
 
-  const shadow = (s: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number } | undefined, p: string) => {
-    if (!s) return
-    checkEffectLen(s.offsetXPx, `${p}/offsetXPx`, errors)
-    checkEffectLen(s.offsetYPx, `${p}/offsetYPx`, errors)
-    checkEffectLen(s.blurPx, `${p}/blurPx`, errors)
-    checkEffectLen(s.spreadPx, `${p}/spreadPx`, errors)
-  }
-
   // REQ-98 — the shared surface group is bounded ONCE, for every kind that can
   // paint. Previously each kind's slice was checked by hand, so the envelope
   // inherited the same arbitrariness as the schema: `borderLeft`'s width was
   // never bounded on any kind, and a background image URL was scheme-checked
   // only on a `box`. One group, one check, no kind left out.
-  const axes = node.axes
-  if (axes) {
-    if (
-      axes.borderRadiusPx !== undefined &&
-      !inRange(axes.borderRadiusPx, L1_ENVELOPE.lengthPx.min, L1_ENVELOPE.lengthPx.max)
-    ) {
-      errors.push({
-        path: `${path}/axes/borderRadiusPx`,
-        message: `borderRadiusPx=${axes.borderRadiusPx} out of range`,
-      })
-    }
-    shadow(axes.boxShadow, `${path}/axes/boxShadow`)
-    if (axes.border) checkEffectLen(axes.border.widthPx, `${path}/axes/border/widthPx`, errors)
-    if (axes.borderLeft) checkEffectLen(axes.borderLeft.widthPx, `${path}/axes/borderLeft/widthPx`, errors)
-    checkEffectLen(axes.backdropBlurPx, `${path}/axes/backdropBlurPx`, errors)
-    if (axes.backgroundImageUrl !== undefined && !isSafeUrl(axes.backgroundImageUrl)) {
-      errors.push({
-        path: `${path}/axes/backgroundImageUrl`,
-        message: `backgroundImageUrl '${axes.backgroundImageUrl}' is not an allowed URL (http/https or relative only)`,
-      })
-    }
-  }
+  //
+  // REQ-99 — and it is called for an *interaction state* too, because a hover
+  // delta restates the same axes: a state that could carry an unbounded shadow
+  // or an unchecked background URL would be a hole in the envelope that opens
+  // only on pointer-over, i.e. exactly where nothing would notice it.
+  if (node.axes) checkSurface(node.axes, `${path}/axes`, errors)
   // REQ-96 — a `control` leaf carries the same text-axis bag as a `text` run
   // (it is a styled, surface-painting leaf), so it takes the same bounds.
   if ((node.kind === 'text' || node.kind === 'control') && node.axes) {
-    shadow(node.axes.textShadow, `${path}/axes/textShadow`)
+    checkShadow(node.axes.textShadow, `${path}/axes/textShadow`, errors)
+  }
+
+  if (node.interaction) checkInteraction(node.interaction, `${path}/interaction`, errors)
+}
+
+/** Bound a structured shadow's four lengths. */
+function checkShadow(
+  s: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number } | undefined,
+  path: string,
+  errors: ValidationError[],
+): void {
+  if (!s) return
+  checkEffectLen(s.offsetXPx, `${path}/offsetXPx`, errors)
+  checkEffectLen(s.offsetYPx, `${path}/offsetYPx`, errors)
+  checkEffectLen(s.blurPx, `${path}/blurPx`, errors)
+  checkEffectLen(s.spreadPx, `${path}/spreadPx`, errors)
+}
+
+/**
+ * REQ-98 — numeric bounds + the URL allowlist for the shared surface/paint group,
+ * wherever it appears: a node's `axes`, or a REQ-99 interaction-state delta.
+ */
+function checkSurface(
+  axes: {
+    borderRadiusPx?: number
+    boxShadow?: { offsetXPx: number; offsetYPx: number; blurPx?: number; spreadPx?: number }
+    border?: { widthPx: number }
+    borderLeft?: { widthPx: number }
+    backdropBlurPx?: number
+    backgroundImageUrl?: string
+  },
+  path: string,
+  errors: ValidationError[],
+): void {
+  if (
+    axes.borderRadiusPx !== undefined &&
+    !inRange(axes.borderRadiusPx, L1_ENVELOPE.lengthPx.min, L1_ENVELOPE.lengthPx.max)
+  ) {
+    errors.push({
+      path: `${path}/borderRadiusPx`,
+      message: `borderRadiusPx=${axes.borderRadiusPx} out of range`,
+    })
+  }
+  checkShadow(axes.boxShadow, `${path}/boxShadow`, errors)
+  if (axes.border) checkEffectLen(axes.border.widthPx, `${path}/border/widthPx`, errors)
+  if (axes.borderLeft) checkEffectLen(axes.borderLeft.widthPx, `${path}/borderLeft/widthPx`, errors)
+  checkEffectLen(axes.backdropBlurPx, `${path}/backdropBlurPx`, errors)
+  if (axes.backgroundImageUrl !== undefined && !isSafeUrl(axes.backgroundImageUrl)) {
+    errors.push({
+      path: `${path}/backgroundImageUrl`,
+      message: `backgroundImageUrl '${axes.backgroundImageUrl}' is not an allowed URL (http/https or relative only)`,
+    })
+  }
+}
+
+/**
+ * REQ-99 — the interaction envelope: state paint deltas take the same surface
+ * bounds as the base node, motion takes the transform bounds, and the transition
+ * duration and focus-ring width are bounded so no state can stall a page or
+ * shrink an indicator toward invisibility.
+ */
+function checkInteraction(
+  interaction: NonNullable<L1Node['interaction']>,
+  path: string,
+  errors: ValidationError[],
+): void {
+  const d = interaction.transition?.durationMs
+  if (d !== undefined && !inRange(d, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
+    errors.push({
+      path: `${path}/transition/durationMs`,
+      message: `durationMs=${d} out of range [${L1_ENVELOPE.transitionMs.min}, ${L1_ENVELOPE.transitionMs.max}]`,
+    })
+  }
+  for (const state of ['hover', 'focus'] as const) {
+    const s = interaction[state]
+    if (!s) continue
+    checkSurface(s, `${path}/${state}`, errors)
+    const m = s.motion
+    if (m) {
+      checkEffectLen(m.offsetXPx, `${path}/${state}/motion/offsetXPx`, errors)
+      checkEffectLen(m.offsetYPx, `${path}/${state}/motion/offsetYPx`, errors)
+      checkEffectLen(m.rotateDeg, `${path}/${state}/motion/rotateDeg`, errors)
+      if (
+        m.scale !== undefined &&
+        !inRange(m.scale, L1_ENVELOPE.transformScale.min, L1_ENVELOPE.transformScale.max)
+      ) {
+        errors.push({
+          path: `${path}/${state}/motion/scale`,
+          message: `scale ${m.scale} out of range [${L1_ENVELOPE.transformScale.min}, ${L1_ENVELOPE.transformScale.max}]`,
+        })
+      }
+    }
+  }
+  const ring = interaction.focus?.ring
+  if (ring) {
+    if (!inRange(ring.widthPx, L1_ENVELOPE.focusRingPx.min, L1_ENVELOPE.focusRingPx.max)) {
+      errors.push({
+        path: `${path}/focus/ring/widthPx`,
+        message: `focus ring widthPx=${ring.widthPx} out of range [${L1_ENVELOPE.focusRingPx.min}, ${L1_ENVELOPE.focusRingPx.max}] — a focus indicator may not be authored away`,
+      })
+    }
+    checkEffectLen(ring.offsetPx, `${path}/focus/ring/offsetPx`, errors)
   }
 }
 

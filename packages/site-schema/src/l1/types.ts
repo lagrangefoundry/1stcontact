@@ -16,7 +16,12 @@ import type {
   l1ControlSchema,
   l1DistributionSchema,
   l1DocumentSchema,
+  l1EasingSchema,
+  l1FocusRingSchema,
+  l1FocusStateSchema,
   l1FontFaceSchema,
+  l1HoverStateSchema,
+  l1InteractionSchema,
   l1GeometrySchema,
   l1GradientSchema,
   l1GradientStopSchema,
@@ -24,6 +29,7 @@ import type {
   l1ImageSchema,
   l1KeyframeSchema,
   l1MaskSchema,
+  l1MotionSchema,
   l1NodeSchema,
   l1OverlaySchema,
   l1PaddingResponsiveSchema,
@@ -40,6 +46,7 @@ import type {
   l1TextResponsiveSchema,
   l1TextSchema,
   l1TransformSchema,
+  l1TransitionSchema,
   l1ViewportResponseSchema,
   l1VisibilitySchema,
 } from './schema'
@@ -76,6 +83,16 @@ export type L1BlendMode = z.infer<typeof l1BlendModeSchema>
 export type L1Overlay = z.infer<typeof l1OverlaySchema>
 export type L1Padding = z.infer<typeof l1PaddingSchema>
 export type L1PaddingResponsive = z.infer<typeof l1PaddingResponsiveSchema>
+
+// REQ-99 — typed interaction state (hover / focus), the substrate's only
+// vocabulary for a pseudo-class.
+export type L1Easing = z.infer<typeof l1EasingSchema>
+export type L1Transition = z.infer<typeof l1TransitionSchema>
+export type L1Motion = z.infer<typeof l1MotionSchema>
+export type L1FocusRing = z.infer<typeof l1FocusRingSchema>
+export type L1HoverState = z.infer<typeof l1HoverStateSchema>
+export type L1FocusState = z.infer<typeof l1FocusStateSchema>
+export type L1Interaction = z.infer<typeof l1InteractionSchema>
 
 export type L1Text = z.infer<typeof l1TextSchema>
 export type L1Image = z.infer<typeof l1ImageSchema>
