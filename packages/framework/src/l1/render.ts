@@ -690,6 +690,9 @@ function emitNode(node: L1Node, state: RenderState): string {
       // BUG-18 — a responsive track owns its axis (per-width media rules below);
       // the static base decl is emitted only for an axis with no track.
       emitTextAxes(node.axes ?? {}, node.responsive)
+      // REQ-97 — the run's own measure. A paragraph caps its line length here
+      // rather than borrowing a wrapper container's `max-width`.
+      base.push(...axisSizingCss(node.sizing))
       base.push('margin: 0')
       html = `<p class="${cls}">${escapeHtml(node.text)}</p>`
       break
