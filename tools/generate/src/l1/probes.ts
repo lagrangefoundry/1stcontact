@@ -197,6 +197,26 @@ function fixedWidth(node: L1Node): number | undefined {
 }
 
 /**
+ * REQ-97 — the width a node actually paints at: the extent its parent offered,
+ * narrowed by the node's own `sizing.width`. Mirrors the CSS the renderer emits
+ * (`width` / `min-width` / `max-width`), where a max-width caps a fluid or
+ * geometry-pinned width alike.
+ *
+ * This matters for `text` above all other kinds, because a text leaf's *height*
+ * is a function of its width: a run that declares a measure wraps to more lines
+ * than the frame alone would predict, and an analytic model that ignored the
+ * measure would report a phantom drift against the browser.
+ */
+function constrainWidth(node: L1Node, avail: number): number {
+  const w = 'sizing' in node ? node.sizing?.width : undefined
+  if (!w) return avail
+  let px = w.mode === 'fixed' && w.px !== undefined ? w.px : avail
+  if (w.minPx !== undefined) px = Math.max(px, w.minPx)
+  if (w.maxPx !== undefined) px = Math.min(px, w.maxPx)
+  return px
+}
+
+/**
  * Main-axis widths for a flex row's flow children, mirroring the renderer's
  * `display:flex; flex-direction:row`. A child that declares a fixed width takes
  * it; the remaining children share the leftover main-axis extent equally — the
@@ -239,6 +259,12 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
   // A pinned node resolves its own box from geometry, ignoring the parent frame.
   const pinned = isPinned(node)
   const box: EvalBox = pinned ? evalGeometry(node.geometry!, width) : { ...frame }
+  // REQ-97 — the node's own `sizing.width` narrows whatever extent it was given,
+  // for every kind alike (the renderer emits the same width/min/max CSS for all
+  // of them). It reads loudest on `text`, whose *height* is a function of its
+  // width: a run declaring a measure wraps to more lines than the frame alone
+  // predicts, and a model that ignored it would report a phantom drift.
+  box.width = constrainWidth(node, box.width)
 
   switch (node.kind) {
     case 'text': {

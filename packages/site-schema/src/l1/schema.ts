@@ -561,6 +561,25 @@ export const l1TextSchema = z
     /** BUG-18 — per-width tracks for the numeric type axes that vary across the ladder. */
     responsive: l1TextResponsiveSchema.optional(),
     geometry: l1GeometrySchema.optional(),
+    /**
+     * REQ-97 — a text run's own **measure**: the max line length, which is the
+     * most fundamental control in typography and the one axis a paragraph must
+     * be able to declare for itself.
+     *
+     * Text was the only leaf without it — an artefact of which face was
+     * exercised first, not a decision: capture folds text absolutely-positioned
+     * with a geometry track, so the transcription face never needed sizing,
+     * while the authoring face had to wrap every constrained paragraph in a
+     * container that carried no other meaning. Under REQ-96 (L1 is the sole
+     * owner of appearance; modules ship no CSS) that gap stops being an
+     * ergonomic annoyance and becomes a hole in the contract.
+     *
+     * `width` is the axis that matters. `height` is admitted only because the
+     * shared axis-sizing shape is simpler than a width-only variant — a text
+     * leaf's height is natural, from flow (see {@link l1KeyframeSchema}), so
+     * pinning it merely clips or pads and is rarely what an author wants.
+     */
+    sizing: l1AxisSizingSchema.optional(),
     visibility: l1VisibilitySchema.optional(),
     transform: l1TransformSchema.optional(),
     mask: l1MaskSchema.optional(),
