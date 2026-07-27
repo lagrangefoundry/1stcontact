@@ -81,21 +81,20 @@ export function localizeAssets(doc: L1Document, assets: readonly CaptureAsset[])
   }
 
   const walk = (node: L1Node): L1Node => {
-    if (node.kind === 'image') {
-      return { ...node, src: resolve(node.src) }
+    let next: L1Node = node.kind === 'image' ? { ...node, src: resolve(node.src) } : { ...node }
+    // REQ-98 — `backgroundImageUrl` is part of the shared surface group, so ANY
+    // kind can carry one. Resolving it only on a `box` would silently hotlink the
+    // target from a painted container/slot — the exact hole this module closes.
+    const axes = next.axes
+    if (axes?.backgroundImageUrl !== undefined) {
+      next = {
+        ...next,
+        axes: { ...axes, backgroundImageUrl: resolve(axes.backgroundImageUrl) },
+      } as L1Node
     }
-    if (node.kind === 'box') {
-      const next: L1Node = { ...node }
-      if (next.axes?.backgroundImageUrl !== undefined) {
-        next.axes = { ...next.axes, backgroundImageUrl: resolve(next.axes.backgroundImageUrl) }
-      }
-      if (next.children) next.children = next.children.map(walk)
-      return next
-    }
-    if (node.kind === 'container') {
-      return { ...node, children: node.children.map(walk) }
-    }
-    return node
+    if (next.kind === 'box' && next.children) next.children = next.children.map(walk)
+    else if (next.kind === 'container') next.children = next.children.map(walk)
+    return next
   }
 
   const next: L1Document = { ...doc, root: walk(doc.root) as L1Document['root'] }

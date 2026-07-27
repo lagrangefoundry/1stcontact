@@ -18,14 +18,13 @@
  * axis — a framework fix, not a per-site one.
  */
 import {
-  isSafeUrl,
   L1_ENVELOPE,
   isSafeUrl,
   validateL1,
   type L1BlendMode,
   type L1Border,
   type L1Box,
-  type L1BoxAxes,
+  type L1SurfaceAxes,
   type L1Column,
   type L1ColumnAnchor,
   type L1ColumnTerm,
@@ -858,8 +857,8 @@ function isBackdrop(node: L1Box): boolean {
 }
 
 /** Map a captured textless surface element's axes onto the typed L1 box-axis subset. */
-function boxAxes(el: ValueElement): L1BoxAxes {
-  const axes: L1BoxAxes = {}
+function boxAxes(el: ValueElement): L1SurfaceAxes {
+  const axes: L1SurfaceAxes = {}
   const fill = el.surfaceFill ? colorToHex(el.surfaceFill) : null
   if (fill) axes.surfaceFill = fill
   // BUG-27 — the painted background photograph. Carried as the captured origin
@@ -1171,7 +1170,7 @@ function foldSectionBackgrounds(projections: StateProjection[], widths: number[]
     // The URL / scrim are the band's; the widest width carrying each is
     // authoritative (they agree). Read per-axis rather than off the widest entry:
     // a section may paint an image at some widths and only a scrim at others.
-    const axes: L1BoxAxes = {}
+    const axes: L1SurfaceAxes = {}
     const url = entries.filter((e) => e.sv.backgroundImageUrl).pop()?.sv.backgroundImageUrl
     if (url) axes.backgroundImageUrl = url
     const overlay = entries.filter((e) => e.sv.overlay).pop()?.sv.overlay
@@ -1584,7 +1583,7 @@ function buildCards(
       )
       if (anchor) geometry.anchor = anchor
     }
-    const axes: L1BoxAxes = {}
+    const axes: L1SurfaceAxes = {}
     if (rep.fill) axes.surfaceFill = rep.fill
     if (rep.gradient) axes.surfaceGradient = rep.gradient
     if (rep.borderLeft) axes.borderLeft = rep.borderLeft

@@ -415,6 +415,60 @@ export const l1PaddingResponsiveSchema = z
   })
   .strict()
 
+// ── The shared surface/paint axis group (REQ-98) ──────────────────────────────
+//
+// Which node kinds could *paint* used to be arbitrary: `box`/`image`/`text` each
+// re-declared an overlapping slice of these axes, while `container` and `slot`
+// carried none. So any element that was both painted and internally laid out
+// needed TWO nodes — a `box` wrapping a `container` — and every new kind
+// (REQ-96's `control`) re-litigated the question by hand.
+//
+// That is a hole in the REQ-96 contract, not an ergonomic complaint: L1 owns
+// class, geometry and every paint axis, and a behavior module ships zero CSS. An
+// axis L1 cannot carry on the node that needs it is an axis a module must paint.
+//
+// So the group is declared ONCE, here, and spread into every kind that renders a
+// box. A kind adds only what is *its own* (text adds type, image adds
+// `objectFit`, container adds layout); nothing re-declares a surface.
+
+const surfaceAxesShape = {
+  /** The painted fill behind the node's content. */
+  surfaceFill: l1Color.optional(),
+  /** Corner rounding. A pill saturates at half the painted height. */
+  borderRadiusPx: finite.nonnegative().optional(),
+  opacity: finite.min(0).max(1).optional(),
+  /** A gradient panel fill (a `background-image` gradient over the surface). */
+  surfaceGradient: l1GradientSchema.optional(),
+  /** A background image (scheme-checked by the envelope, like `image.src`). */
+  backgroundImageUrl: z.string().optional(),
+  /** A full-bleed translucent scrim painted over the background (hero overlay). */
+  overlay: l1OverlaySchema.optional(),
+  /** A drop shadow cast by the node. */
+  boxShadow: l1ShadowSchema.optional(),
+  /** A painted border (uniform, all four sides). */
+  border: l1BorderSchema.optional(),
+  /**
+   * BUG-14 — a coloured left-accent border (a card's orange/blue rule), distinct
+   * from the uniform {@link border}: a card frequently carries only a thick
+   * `border-left` as its accent, and drawing that as a full box outline is the
+   * wrong look. A typed left-border primitive (never raw CSS) keeps the accent
+   * faithful while the substrate stays safe by construction.
+   */
+  borderLeft: l1BorderSchema.optional(),
+  /** Frosted-glass blur of whatever sits behind the node (backdrop-filter). */
+  backdropBlurPx: finite.nonnegative().optional(),
+  /** How the node composites with what is behind it. */
+  blendMode: l1BlendModeSchema.optional(),
+} as const
+
+/**
+ * REQ-98 — the paint capability every box-rendering node kind carries: `box`,
+ * `container`, `text`, `image`, `slot`, `control`. One declaration, spread into
+ * each kind's axis bag, so a painted-and-laid-out element is ONE node and a new
+ * kind inherits the surface rather than re-deriving it.
+ */
+export const l1SurfaceAxesSchema = z.object(surfaceAxesShape).strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -477,71 +531,24 @@ export const l1TextAxesSchema = z
       ])
       .optional(),
     // ── BUG-20 self-surface axes (the chip/badge fusion) ──────────────────────
-    /**
-     * BUG-20 — a run whose OWN element paints a self-contained chip (a
-     * `rounded-full` "Coming soon" badge, a tag pill, a button-shaped link). The
-     * DOM routinely fuses "a styled run" and "a painted surface" into one element,
-     * but L1 previously forced them into disjoint `text` / `box` leaves — so a
-     * badge folded to a text leaf lost its pill entirely (radius 0, no shadow).
-     * These four axes let a text leaf paint its own surface, exactly as the
-     * capture reads them (own computed style, never an ancestor walk — that is
-     * the enclosing card's treatment, which stays on the card box).
-     */
-    surfaceFill: l1Color.optional(),
-    /** The chip's corner rounding. A pill saturates at half its painted height. */
-    borderRadiusPx: finite.nonnegative().optional(),
-    /** A drop shadow cast by the chip. */
-    boxShadow: l1ShadowSchema.optional(),
-    /** A painted border framing the chip (uniform, all four sides). */
-    border: l1BorderSchema.optional(),
+    //
+    // A run whose OWN element paints a self-contained chip (a `rounded-full`
+    // "Coming soon" badge, a tag pill, a button-shaped link). The DOM routinely
+    // fuses "a styled run" and "a painted surface" into one element, but L1 once
+    // forced them into disjoint `text` / `box` leaves — so a badge folded to a
+    // text leaf lost its pill entirely (radius 0, no shadow). Since REQ-98 the
+    // surface a run paints is the SAME group every other kind carries, read as
+    // the capture reads it (own computed style, never an ancestor walk — that is
+    // the enclosing card's treatment, which stays on the card box).
+    ...surfaceAxesShape,
   })
   .strict()
 
-/** Box axes — a painted surface with optional rounding / opacity / effects. */
-export const l1BoxAxesSchema = z
-  .object({
-    surfaceFill: l1Color.optional(),
-    borderRadiusPx: finite.nonnegative().optional(),
-    opacity: finite.min(0).max(1).optional(),
-    // ── REQ-91 surface pixel-movers ───────────────────────────────────────────
-    /** A gradient panel fill (a `background-image` gradient over the surface). */
-    surfaceGradient: l1GradientSchema.optional(),
-    /** A background image (scheme-checked by the envelope, like `image.src`). */
-    backgroundImageUrl: z.string().optional(),
-    /** A full-bleed translucent scrim painted over the background (hero overlay). */
-    overlay: l1OverlaySchema.optional(),
-    /** A drop shadow cast by the box. */
-    boxShadow: l1ShadowSchema.optional(),
-    /** A painted box border (uniform, all four sides). */
-    border: l1BorderSchema.optional(),
-    /**
-     * BUG-14 — a coloured left-accent border (a card's orange/blue rule), distinct
-     * from the uniform {@link border}: a card frequently carries only a thick
-     * `border-left` as its accent, and drawing that as a full box outline is the
-     * wrong look. A typed left-border primitive (never raw CSS) keeps the accent
-     * faithful while the substrate stays safe by construction.
-     */
-    borderLeft: l1BorderSchema.optional(),
-    /** Frosted-glass blur of whatever sits behind the box (backdrop-filter). */
-    backdropBlurPx: finite.nonnegative().optional(),
-    /** How the box composites with what is behind it. */
-    blendMode: l1BlendModeSchema.optional(),
-  })
-  .strict()
-
-/** Image axes — how the media fills its box, plus painted effects. */
+/** Image axes — how the media fills its box, plus the shared painted surface. */
 export const l1ImageAxesSchema = z
   .object({
     objectFit: z.enum(['cover', 'contain', 'fill', 'none', 'scale-down']).optional(),
-    borderRadiusPx: finite.nonnegative().optional(),
-    opacity: finite.min(0).max(1).optional(),
-    // ── REQ-91 image pixel-movers ─────────────────────────────────────────────
-    /** How the image composites with what is behind it. */
-    blendMode: l1BlendModeSchema.optional(),
-    /** A painted border framing the image. */
-    border: l1BorderSchema.optional(),
-    /** A drop shadow cast by the image. */
-    boxShadow: l1ShadowSchema.optional(),
+    ...surfaceAxesShape,
   })
   .strict()
 
@@ -663,6 +670,8 @@ export const l1SlotSchema = z
     id: z.string().optional(),
     name: z.string().min(1),
     behavior: z.string().optional(),
+    /** REQ-98 — the seam's own painted surface (a framed, filled mount point). */
+    axes: l1SurfaceAxesSchema.optional(),
     geometry: l1GeometrySchema.optional(),
     visibility: l1VisibilitySchema.optional(),
     transform: l1TransformSchema.optional(),
@@ -682,7 +691,7 @@ export const l1SlotSchema = z
 export interface L1BoxNode {
   kind: 'box'
   id?: string
-  axes?: z.infer<typeof l1BoxAxesSchema>
+  axes?: z.infer<typeof l1SurfaceAxesSchema>
   geometry?: z.infer<typeof l1GeometrySchema>
   sizing?: z.infer<typeof l1AxisSizingSchema>
   visibility?: z.infer<typeof l1VisibilitySchema>
@@ -693,11 +702,13 @@ export interface L1BoxNode {
   children?: L1NodeUnion[]
 }
 
-/** A layout container: stack / row / grid over its children. */
+/** A painted layout container: stack / row / grid over its children. */
 export interface L1ContainerNode {
   kind: 'container'
   id?: string
   layout: 'stack' | 'row' | 'grid'
+  /** REQ-98 — the shared surface group: a container paints AND lays out. */
+  axes?: z.infer<typeof l1SurfaceAxesSchema>
   gapPx?: number
   columns?: number
   distribution?: z.infer<typeof l1DistributionSchema>
@@ -726,7 +737,7 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
     .object({
       kind: z.literal('box'),
       id: z.string().optional(),
-      axes: l1BoxAxesSchema.optional(),
+      axes: l1SurfaceAxesSchema.optional(),
       geometry: l1GeometrySchema.optional(),
       sizing: l1AxisSizingSchema.optional(),
       visibility: l1VisibilitySchema.optional(),
@@ -746,6 +757,8 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       kind: z.literal('container'),
       id: z.string().optional(),
       layout: z.enum(['stack', 'row', 'grid']),
+      /** REQ-98 — the shared surface group: a container paints AND lays out. */
+      axes: l1SurfaceAxesSchema.optional(),
       gapPx: finite.nonnegative().optional(),
       columns: z.number().int().positive().optional(),
       distribution: l1DistributionSchema.optional(),

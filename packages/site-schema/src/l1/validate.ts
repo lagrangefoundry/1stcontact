@@ -257,26 +257,37 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
     checkEffectLen(s.spreadPx, `${p}/spreadPx`, errors)
   }
 
+  // REQ-98 — the shared surface group is bounded ONCE, for every kind that can
+  // paint. Previously each kind's slice was checked by hand, so the envelope
+  // inherited the same arbitrariness as the schema: `borderLeft`'s width was
+  // never bounded on any kind, and a background image URL was scheme-checked
+  // only on a `box`. One group, one check, no kind left out.
+  const axes = node.axes
+  if (axes) {
+    if (
+      axes.borderRadiusPx !== undefined &&
+      !inRange(axes.borderRadiusPx, L1_ENVELOPE.lengthPx.min, L1_ENVELOPE.lengthPx.max)
+    ) {
+      errors.push({
+        path: `${path}/axes/borderRadiusPx`,
+        message: `borderRadiusPx=${axes.borderRadiusPx} out of range`,
+      })
+    }
+    shadow(axes.boxShadow, `${path}/axes/boxShadow`)
+    if (axes.border) checkEffectLen(axes.border.widthPx, `${path}/axes/border/widthPx`, errors)
+    if (axes.borderLeft) checkEffectLen(axes.borderLeft.widthPx, `${path}/axes/borderLeft/widthPx`, errors)
+    checkEffectLen(axes.backdropBlurPx, `${path}/axes/backdropBlurPx`, errors)
+    if (axes.backgroundImageUrl !== undefined && !isSafeUrl(axes.backgroundImageUrl)) {
+      errors.push({
+        path: `${path}/axes/backgroundImageUrl`,
+        message: `backgroundImageUrl '${axes.backgroundImageUrl}' is not an allowed URL (http/https or relative only)`,
+      })
+    }
+  }
   // REQ-96 — a `control` leaf carries the same text-axis bag as a `text` run
   // (it is a styled, surface-painting leaf), so it takes the same bounds.
   if ((node.kind === 'text' || node.kind === 'control') && node.axes) {
     shadow(node.axes.textShadow, `${path}/axes/textShadow`)
-    // BUG-20 — a chip run's self-surface effects are bounded exactly like a box's.
-    shadow(node.axes.boxShadow, `${path}/axes/boxShadow`)
-    if (node.axes.border) checkEffectLen(node.axes.border.widthPx, `${path}/axes/border/widthPx`, errors)
-  }
-  if ((node.kind === 'box' || node.kind === 'image') && node.axes) {
-    shadow(node.axes.boxShadow, `${path}/axes/boxShadow`)
-    if (node.axes.border) checkEffectLen(node.axes.border.widthPx, `${path}/axes/border/widthPx`, errors)
-  }
-  if (node.kind === 'box' && node.axes) {
-    checkEffectLen(node.axes.backdropBlurPx, `${path}/axes/backdropBlurPx`, errors)
-    if (node.axes.backgroundImageUrl !== undefined && !isSafeUrl(node.axes.backgroundImageUrl)) {
-      errors.push({
-        path: `${path}/axes/backgroundImageUrl`,
-        message: `backgroundImageUrl '${node.axes.backgroundImageUrl}' is not an allowed URL (http/https or relative only)`,
-      })
-    }
   }
 }
 
@@ -310,8 +321,9 @@ function walk(
         message: `fontWeight=${fontWeight} out of range [${L1_ENVELOPE.fontWeight.min}, ${L1_ENVELOPE.fontWeight.max}]`,
       })
     }
-    // BUG-20 — a chip run's corner radius shares the length range with the box axes.
-    for (const [k, v] of Object.entries({ lineHeightPx, letterSpacingPx, borderRadiusPx: node.axes.borderRadiusPx })) {
+    // REQ-98 — `borderRadiusPx` is part of the shared surface group and is
+    // bounded there, for every kind, rather than only on a text run.
+    for (const [k, v] of Object.entries({ lineHeightPx, letterSpacingPx })) {
       if (v !== undefined && !inRange(v, L1_ENVELOPE.lengthPx.min, L1_ENVELOPE.lengthPx.max)) {
         errors.push({ path: `${path}/axes/${k}`, message: `${k}=${v} out of range` })
       }

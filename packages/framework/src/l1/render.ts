@@ -27,6 +27,7 @@ import type {
   L1ScalarTrack,
   L1Shadow,
   L1Sizing,
+  L1SurfaceAxes,
   L1Transform,
   L1ViewportResponse,
 } from '@1stcontact/site-schema'
@@ -261,6 +262,71 @@ function maskDecls(m: L1Mask): string[] {
       return [`-webkit-mask-image: ${g}`, `mask-image: ${g}`]
     }
   }
+}
+
+/**
+ * REQ-98 — the shared surface/paint axis group → CSS. One emitter for **every**
+ * node kind that renders a box (`box`, `container`, `text`, `image`, `slot`,
+ * `control`), because which kinds could paint used to be arbitrary: a painted,
+ * internally-laid-out element needed a `box` wrapped around a `container`, and
+ * each new kind re-derived its own slice of these declarations by hand.
+ *
+ * Background layers paint top→bottom: a scrim overlay sits above a gradient /
+ * image, which sit above the solid fill.
+ *
+ * `fill: false` suppresses only the solid `background-color` — a text run
+ * painting its glyphs with a `gradientFill` repurposes the background layers via
+ * `background-clip: text`, so its own chip fill would be clipped to the glyphs
+ * rather than painted behind them.
+ */
+function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[] {
+  const out: string[] = []
+  if (opts.fill !== false) {
+    const fill = cssColor(a.surfaceFill)
+    if (fill) out.push(`background-color: ${fill}`)
+  }
+  if (px(a.borderRadiusPx)) out.push(`border-radius: ${px(a.borderRadiusPx)}`)
+  if (a.opacity !== undefined) out.push(`opacity: ${a.opacity}`)
+  const bgLayers: string[] = []
+  if (a.overlay) {
+    const c8 = withAlpha(a.overlay.color, a.overlay.opacity)
+    if (c8) bgLayers.push(`linear-gradient(${c8}, ${c8})`)
+  }
+  if (a.surfaceGradient) {
+    const g = gradientCss(a.surfaceGradient)
+    if (g) bgLayers.push(g)
+  }
+  const bgUrl = cssUrl(a.backgroundImageUrl)
+  if (bgUrl) bgLayers.push(bgUrl)
+  if (bgLayers.length) out.push(`background-image: ${bgLayers.join(', ')}`)
+  // BUG-13 — a section/band background image fills its box (cover, centered, no
+  // tiling) — the faithful default for a hero/section backdrop. Only when a real
+  // image URL is present; a solid/gradient/scrim layer needs no sizing.
+  if (bgUrl) {
+    out.push('background-size: cover', 'background-position: center', 'background-repeat: no-repeat')
+  }
+  if (a.border) {
+    const b = borderCss(a.border)
+    if (b) out.push(`border: ${b}`)
+  }
+  // BUG-14 — a coloured left-accent border (card rule). Emitted after `border`
+  // so an explicit `border-left` wins; re-derived from numeric/enum/hex fields.
+  if (a.borderLeft) {
+    const b = borderCss(a.borderLeft)
+    if (b) out.push(`border-left: ${b}`)
+  }
+  if (a.boxShadow) {
+    const sh = shadowCss(a.boxShadow)
+    if (sh) out.push(`box-shadow: ${sh}`)
+  }
+  if (px(a.backdropBlurPx)) {
+    out.push(
+      `-webkit-backdrop-filter: blur(${px(a.backdropBlurPx)})`,
+      `backdrop-filter: blur(${px(a.backdropBlurPx)})`,
+    )
+  }
+  if (a.blendMode && a.blendMode !== 'normal') out.push(`mix-blend-mode: ${a.blendMode}`)
+  return out
 }
 
 // ── REQ-96 control leaves: the module's element, painted by L1 ────────────────
@@ -651,23 +717,12 @@ function emitNode(node: L1Node, state: RenderState): string {
       if (a.listMarker && a.listMarker !== 'none') {
         base.push('display: list-item', 'list-style-position: inside', `list-style-type: ${a.listMarker}`)
       }
-      // BUG-20 — a chip/badge run paints its OWN surface (a `rounded-full` pill).
-      // Emitted before `gradientFill` so a text-fill gradient (which repurposes
-      // background-image + background-clip:text for the glyphs) still wins; a run
-      // never carries both a chip fill and a glyph gradient in practice.
-      if (!a.gradientFill) {
-        const chip = cssColor(a.surfaceFill)
-        if (chip) base.push(`background-color: ${chip}`)
-      }
-      if (px(a.borderRadiusPx)) base.push(`border-radius: ${px(a.borderRadiusPx)}`)
-      if (a.border) {
-        const b = borderCss(a.border)
-        if (b) base.push(`border: ${b}`)
-      }
-      if (a.boxShadow) {
-        const sh = shadowCss(a.boxShadow)
-        if (sh) base.push(`box-shadow: ${sh}`)
-      }
+      // BUG-20 / REQ-98 — a chip/badge run paints its OWN surface (a
+      // `rounded-full` pill), through the same shared emitter as every other
+      // kind. Emitted before `gradientFill` so a text-fill gradient (which
+      // repurposes background-image + background-clip:text for the glyphs) still
+      // wins; a run never carries both a chip fill and a glyph gradient.
+      base.push(...surfaceDecls(a, { fill: !a.gradientFill }))
       // A text-fill gradient paints the glyphs via background-clip:text; it
       // overrides the flat colour (pushed later so it wins in the declaration list).
       if (a.gradientFill) {
@@ -741,18 +796,7 @@ function emitNode(node: L1Node, state: RenderState): string {
     case 'image': {
       const a = node.axes ?? {}
       if (a.objectFit) base.push(`object-fit: ${a.objectFit}`)
-      if (px(a.borderRadiusPx)) base.push(`border-radius: ${px(a.borderRadiusPx)}`)
-      if (a.opacity !== undefined) base.push(`opacity: ${a.opacity}`)
-      // REQ-91 image pixel-movers.
-      if (a.border) {
-        const b = borderCss(a.border)
-        if (b) base.push(`border: ${b}`)
-      }
-      if (a.boxShadow) {
-        const sh = shadowCss(a.boxShadow)
-        if (sh) base.push(`box-shadow: ${sh}`)
-      }
-      if (a.blendMode && a.blendMode !== 'normal') base.push(`mix-blend-mode: ${a.blendMode}`)
+      base.push(...surfaceDecls(a))
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')
       const src = isSafeUrl(node.src) ? node.src : ''
@@ -768,6 +812,7 @@ function emitNode(node: L1Node, state: RenderState): string {
       // The fragment is framework-rendered markup, not instance data, so it is
       // inserted verbatim — every instance value inside it already passed the
       // module's own escaping/URL sinks on the way in.
+      base.push(...surfaceDecls(node.axes ?? {}))
       const mounted = state.mounts?.[node.name] ?? ''
       html = `<div class="${cls}" data-l1-slot="${escapeHtml(node.name)}"${
         node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
@@ -775,47 +820,7 @@ function emitNode(node: L1Node, state: RenderState): string {
       break
     }
     case 'box': {
-      const a = node.axes ?? {}
-      const fill = cssColor(a.surfaceFill)
-      if (fill) base.push(`background-color: ${fill}`)
-      if (px(a.borderRadiusPx)) base.push(`border-radius: ${px(a.borderRadiusPx)}`)
-      if (a.opacity !== undefined) base.push(`opacity: ${a.opacity}`)
-      // REQ-91 surface pixel-movers. Background layers paint top→bottom: a scrim
-      // overlay sits above a gradient/image (which sit above the solid fill).
-      const bgLayers: string[] = []
-      if (a.overlay) {
-        const c8 = withAlpha(a.overlay.color, a.overlay.opacity)
-        if (c8) bgLayers.push(`linear-gradient(${c8}, ${c8})`)
-      }
-      if (a.surfaceGradient) {
-        const g = gradientCss(a.surfaceGradient)
-        if (g) bgLayers.push(g)
-      }
-      const bgUrl = cssUrl(a.backgroundImageUrl)
-      if (bgUrl) bgLayers.push(bgUrl)
-      if (bgLayers.length) base.push(`background-image: ${bgLayers.join(', ')}`)
-      // BUG-13 — a section/band background image fills its box (cover, centered,
-      // no tiling) — the faithful default for a hero/section backdrop. Only when
-      // a real image URL is present; a solid/gradient/scrim layer needs no sizing.
-      if (bgUrl) base.push('background-size: cover', 'background-position: center', 'background-repeat: no-repeat')
-      if (a.border) {
-        const b = borderCss(a.border)
-        if (b) base.push(`border: ${b}`)
-      }
-      // BUG-14 — a coloured left-accent border (card rule). Emitted after `border`
-      // so an explicit `border-left` wins; re-derived from numeric/enum/hex fields.
-      if (a.borderLeft) {
-        const b = borderCss(a.borderLeft)
-        if (b) base.push(`border-left: ${b}`)
-      }
-      if (a.boxShadow) {
-        const sh = shadowCss(a.boxShadow)
-        if (sh) base.push(`box-shadow: ${sh}`)
-      }
-      if (px(a.backdropBlurPx)) {
-        base.push(`-webkit-backdrop-filter: blur(${px(a.backdropBlurPx)})`, `backdrop-filter: blur(${px(a.backdropBlurPx)})`)
-      }
-      if (a.blendMode && a.blendMode !== 'normal') base.push(`mix-blend-mode: ${a.blendMode}`)
+      base.push(...surfaceDecls(node.axes ?? {}))
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
       const inner = (node.children ?? []).map((child) => emitNode(child, state)).join('')
@@ -831,6 +836,9 @@ function emitNode(node: L1Node, state: RenderState): string {
       if (node.gapPx !== undefined) base.push(`gap: ${node.gapPx}px`)
       if (node.distribution) base.push(`justify-content: ${JUSTIFY[node.distribution]}`)
       if (node.align) base.push(`align-items: ${ALIGN[node.align]}`)
+      // REQ-98 — a container paints AND lays out, so a painted, internally-laid-out
+      // element is ONE node rather than a `box` wrapped around a `container`.
+      base.push(...surfaceDecls(node.axes ?? {}))
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
       const inner = node.children.map((child) => emitNode(child, state)).join('')
