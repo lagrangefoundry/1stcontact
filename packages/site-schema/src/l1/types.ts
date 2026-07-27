@@ -8,7 +8,6 @@ import type {
   l1AxisSizingSchema,
   l1BlendModeSchema,
   l1BorderSchema,
-  l1BoxAxesSchema,
   l1BoxSchema,
   l1ColumnAnchorSchema,
   l1ColumnTermSchema,
@@ -36,6 +35,7 @@ import type {
   l1ShadowSchema,
   l1SizingSchema,
   l1SlotSchema,
+  l1SurfaceAxesSchema,
   l1TextAxesSchema,
   l1TextResponsiveSchema,
   l1TextSchema,
@@ -61,7 +61,8 @@ export type L1TextAxes = z.infer<typeof l1TextAxesSchema>
 export type L1ScalarKeyframe = z.infer<typeof l1ScalarKeyframeSchema>
 export type L1ScalarTrack = z.infer<typeof l1ScalarTrackSchema>
 export type L1TextResponsive = z.infer<typeof l1TextResponsiveSchema>
-export type L1BoxAxes = z.infer<typeof l1BoxAxesSchema>
+// REQ-98 — the one paint capability every box-rendering kind carries.
+export type L1SurfaceAxes = z.infer<typeof l1SurfaceAxesSchema>
 export type L1ImageAxes = z.infer<typeof l1ImageAxesSchema>
 
 // REQ-91 shared structured axis forms.
