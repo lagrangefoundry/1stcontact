@@ -572,6 +572,50 @@ export const l1InteractionSchema = z
   })
   .strict()
 
+// ── Scroll reveal (REQ-100) ───────────────────────────────────────────────────
+//
+// L1 had no motion of any kind: no transition, no animation, no notion of
+// "entering the viewport". Every page it rendered arrived fully formed, which
+// DOC-17 names as the single biggest "alive vs template" tell — and which the
+// xgd.dev build (REQ-95) hit the moment sections 2–5 existed to scroll past.
+//
+// Motion is an *adjective*, not a noun, so it belongs here rather than in a
+// behavior module: a reveal modifies a node already in the tree, wraps nothing,
+// and needs no named slot. Putting it in a module would also make animated
+// content unfoldable by construction — `fold` maps captured node axes onto L1
+// node axes and never authors a module.
+//
+// The axes are exactly the ones the page demanded, and no more. There is no
+// `xPx` and no entry scale: sections 2–5 wanted a rise and a fade, so a rise and
+// a fade is what the substrate gained. Timing reuses REQ-99's
+// {@link l1EasingSchema} rather than minting a second vocabulary for the same
+// idea.
+
+/**
+ * How a node enters when it first scrolls into view.
+ *
+ * The node settles at the geometry and opacity it already declares — this names
+ * only where it comes *from*, so a reveal never restates the design. A node
+ * authored at `opacity: 0.6` reveals to `0.6`, not to `1`.
+ *
+ * `delayMs` is the per-node escape hatch from a container's {@link
+ * L1ContainerNode.staggerMs}: stagger indexes children by position, which is
+ * right for a row of peers and wrong wherever a visibility-paired duplicate
+ * subtree (the hero's `cta-row` / `cta-stack`) puts two nodes in the count where
+ * the reader only ever sees one.
+ */
+export const l1RevealSchema = z
+  .object({
+    /** Vertical offset the node rises *from*, in px. Negative descends. */
+    yPx: finite.optional(),
+    /** Opacity the node fades *from*. Absent → 0. */
+    fromOpacity: finite.min(0).max(1).optional(),
+    durationMs: finite.nonnegative().optional(),
+    delayMs: finite.nonnegative().optional(),
+    easing: l1EasingSchema.optional(),
+  })
+  .strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -698,6 +742,8 @@ export const l1TextSchema = z
     responsivePadding: l1PaddingResponsiveSchema.optional(),
     /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
     interaction: l1InteractionSchema.optional(),
+    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+    reveal: l1RevealSchema.optional(),
   })
   .strict()
 
@@ -719,6 +765,8 @@ export const l1ImageSchema = z
     responsivePadding: l1PaddingResponsiveSchema.optional(),
     /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
     interaction: l1InteractionSchema.optional(),
+    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+    reveal: l1RevealSchema.optional(),
   })
   .strict()
 
@@ -765,6 +813,8 @@ export const l1ControlSchema = z
     responsivePadding: l1PaddingResponsiveSchema.optional(),
     /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
     interaction: l1InteractionSchema.optional(),
+    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+    reveal: l1RevealSchema.optional(),
   })
   .strict()
 
@@ -790,6 +840,8 @@ export const l1SlotSchema = z
     responsivePadding: l1PaddingResponsiveSchema.optional(),
     /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
     interaction: l1InteractionSchema.optional(),
+    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+    reveal: l1RevealSchema.optional(),
   })
   .strict()
 
@@ -811,6 +863,8 @@ export interface L1BoxNode {
   padding?: z.infer<typeof l1PaddingSchema>
   responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
   interaction?: z.infer<typeof l1InteractionSchema>
+  /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+  reveal?: z.infer<typeof l1RevealSchema>
   children?: L1NodeUnion[]
 }
 
@@ -833,6 +887,18 @@ export interface L1ContainerNode {
   padding?: z.infer<typeof l1PaddingSchema>
   responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
   interaction?: z.infer<typeof l1InteractionSchema>
+  /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+  reveal?: z.infer<typeof l1RevealSchema>
+  /**
+   * REQ-100 — the interval between successive children's reveals, in ms.
+   *
+   * Container-level because staggering is a statement about a *set* of peers,
+   * which is precisely what a container is and a `box` is not. Only children
+   * that carry their own {@link l1RevealSchema} take part, and they take part in
+   * document order; a child's own `reveal.delayMs` adds to its stagger share
+   * rather than replacing it.
+   */
+  staggerMs?: number
   children: L1NodeUnion[]
 }
 
@@ -861,6 +927,8 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
     responsivePadding: l1PaddingResponsiveSchema.optional(),
     /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
     interaction: l1InteractionSchema.optional(),
+    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+    reveal: l1RevealSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -888,6 +956,10 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
     responsivePadding: l1PaddingResponsiveSchema.optional(),
     /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
     interaction: l1InteractionSchema.optional(),
+    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+    reveal: l1RevealSchema.optional(),
+    /** REQ-100 — interval between successive revealing children, in ms. */
+    staggerMs: finite.nonnegative().optional(),
       children: z.array(l1NodeSchema),
     })
     .strict(),

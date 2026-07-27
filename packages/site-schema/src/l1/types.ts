@@ -35,6 +35,7 @@ import type {
   l1PaddingResponsiveSchema,
   l1PaddingSchema,
   l1ResourcesSchema,
+  l1RevealSchema,
   l1ScalarKeyframeSchema,
   l1ScalarTrackSchema,
   l1SegmentSchema,
@@ -88,6 +89,8 @@ export type L1PaddingResponsive = z.infer<typeof l1PaddingResponsiveSchema>
 // vocabulary for a pseudo-class.
 export type L1Easing = z.infer<typeof l1EasingSchema>
 export type L1Transition = z.infer<typeof l1TransitionSchema>
+// REQ-100 — the typed scroll-entrance axis (rise + fade, timed).
+export type L1Reveal = z.infer<typeof l1RevealSchema>
 export type L1Motion = z.infer<typeof l1MotionSchema>
 export type L1FocusRing = z.infer<typeof l1FocusRingSchema>
 export type L1HoverState = z.infer<typeof l1HoverStateSchema>

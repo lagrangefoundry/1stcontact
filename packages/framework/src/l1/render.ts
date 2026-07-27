@@ -29,6 +29,7 @@ import type {
   L1Motion,
   L1Node,
   L1Resources,
+  L1Reveal,
   L1ScalarTrack,
   L1Shadow,
   L1Sizing,
@@ -416,7 +417,7 @@ function interactionRules(
   interaction: L1Interaction,
   baseTransform: L1Transform | undefined,
   interactive: boolean,
-): { rules: Rule[]; baseDecls: string[] } {
+): { rules: Rule[]; transitions: TransitionSpec[] } {
   const rules: Rule[] = []
   const props = new Set<string>()
   let anyMotion = false
@@ -448,15 +449,17 @@ function interactionRules(
     if (interaction.focus.motion) anyMotion = true
   }
 
-  const baseDecls: string[] = []
+  const transitions: TransitionSpec[] = []
   const duration = interaction.transition?.durationMs
   if (duration !== undefined && Number.isFinite(duration) && props.size) {
-    baseDecls.push(
-      `transition-property: ${[...props].join(', ')}`,
-      `transition-duration: ${num(duration)}ms`,
-      `transition-timing-function: ${interaction.transition?.easing ?? 'ease'}`,
-    )
-    rules.push({ media: REDUCED_MOTION, selector, decls: ['transition-duration: 0ms'] })
+    for (const prop of props) {
+      transitions.push({
+        prop,
+        durationMs: duration,
+        easing: interaction.transition?.easing ?? 'ease',
+        delayMs: 0,
+      })
+    }
   }
   if (anyMotion) {
     const settled = baseTransform ? transformCss(baseTransform) : null
@@ -466,10 +469,190 @@ function interactionRules(
       rules.push({ media: REDUCED_MOTION, selector: `${selector}:focus-visible`, decls })
     }
   }
-  return { rules, baseDecls }
+  return { rules, transitions }
 }
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+
+// ── REQ-100 scroll reveal: the sole entrance-motion sink ──────────────────────
+//
+// The construction mirrors REQ-99's: an L1 document names a *typed value bag*
+// and only this emitter knows it compiles to a class, a pseudo-class-free
+// pre-state rule, and one shared IntersectionObserver. No document can name a
+// selector, a keyframe, or a script — so the substrate gains entrance motion
+// without gaining a way to smuggle any of the three.
+//
+// Three properties make the mechanism safe rather than merely pretty:
+//
+//   1. **It fails visible.** The pre-state rule is gated on a `data-l1-motion`
+//      marker that only the script sets. No JS, no IntersectionObserver, a
+//      thrown error, or a reduced-motion preference → the marker is absent, the
+//      rule never matches, and the page renders fully settled. Hiding content in
+//      CSS and revealing it in JS would invert that, which is how a scroll
+//      library turns a broken script into a blank page.
+//   2. **Settling needs no second rule.** The pre-state is written under
+//      `:not(.l1-in)`, so adding the class simply stops it matching and the
+//      node's own authored opacity/geometry resume. A reveal therefore never
+//      restates the design and cannot drift from it.
+//   3. **It composes with `interaction`.** Entrance uses the independent
+//      `translate` property while a hover's motion uses `transform`; the two
+//      compose natively instead of overwriting each other, and their transitions
+//      are merged into one declaration set by {@link transitionDecls} rather
+//      than the second silently replacing the first.
+
+/** The class an author cannot write: the observer's handle on a revealing node. */
+const REVEAL_CLASS = 'l1-rv'
+/** The class the observer adds once a node has entered. */
+const REVEALED_CLASS = 'l1-in'
+/** Set by the script only when motion is actually going to run (see §1 above). */
+const MOTION_MARKER = 'html[data-l1-motion]'
+/**
+ * The observer's root inset: `top right bottom left`.
+ *
+ * Bottom is SHRUNK so a node reveals shortly after clearing the fold rather than
+ * the instant it grazes it. Top is EXPANDED past any real document height, so a
+ * node the reader has scrolled beyond is still intersecting and settles instead
+ * of staying dark — see {@link L1_REVEAL_SCRIPT} for why this cannot be a test
+ * inside the callback.
+ */
+const REVEAL_ROOT_MARGIN = '200000px 0px -8% 0px'
+
+/** One property's share of a merged `transition` declaration. */
+interface TransitionSpec {
+  prop: string
+  durationMs: number
+  easing: string
+  delayMs: number
+}
+
+/**
+ * Merge every transitioning property — interaction states and scroll entrance
+ * alike — into ONE set of `transition-*` longhands.
+ *
+ * A rule may carry only one `transition-property`, so emitting the two features
+ * independently would mean whichever ran second silently cancelled the first: a
+ * revealing button would lose its hover feedback, with nothing to show for it in
+ * either feature's own tests. The list form keeps both, each with its own
+ * duration and delay.
+ */
+function transitionDecls(specs: TransitionSpec[]): string[] {
+  if (!specs.length) return []
+  // A single value is broadcast across every property in the list, so the list
+  // form is emitted only where the timings genuinely differ. Collapsing keeps the
+  // common case (one feature, uniform timing) reading as it always has, and keeps
+  // the list — which exists for the interaction+reveal overlap — legible when it
+  // does appear.
+  const uniform = <T,>(pick: (s: TransitionSpec) => T): T | null => {
+    const first = pick(specs[0])
+    return specs.every((s) => pick(s) === first) ? first : null
+  }
+  const dur = uniform((s) => s.durationMs)
+  const ease = uniform((s) => s.easing)
+  const delay = uniform((s) => s.delayMs)
+
+  const out = [
+    `transition-property: ${specs.map((s) => s.prop).join(', ')}`,
+    `transition-duration: ${
+      dur !== null ? `${num(dur)}ms` : specs.map((s) => `${num(s.durationMs)}ms`).join(', ')
+    }`,
+    `transition-timing-function: ${ease !== null ? ease : specs.map((s) => s.easing).join(', ')}`,
+  ]
+  // An all-zero delay is the CSS initial value; emitting it would be noise.
+  if (delay !== 0) {
+    out.push(
+      `transition-delay: ${
+        delay !== null ? `${num(delay)}ms` : specs.map((s) => `${num(s.delayMs)}ms`).join(', ')
+      }`,
+    )
+  }
+  return out
+}
+
+/**
+ * REQ-100 — compile a node's scroll entrance into its pre-state rules.
+ *
+ * `staggerDelayMs` is the node's share of its parent container's stagger; it
+ * ADDS to any `delayMs` the node authored, so a per-node delay tunes a stagger
+ * rather than fighting it.
+ *
+ * `settledOpacity` is the opacity the node actually paints at — its authored
+ * value, not 1 — so the reduced-motion fallback restores the design rather than
+ * brightening a deliberately-dimmed node.
+ */
+function revealRules(
+  selector: string,
+  reveal: L1Reveal,
+  staggerDelayMs: number,
+  settledOpacity: number,
+): { rules: Rule[]; transitions: TransitionSpec[] } {
+  const pre = `${MOTION_MARKER} ${selector}:not(.${REVEALED_CLASS})`
+  const from = reveal.fromOpacity ?? 0
+  const y = reveal.yPx ?? 0
+
+  const decls = [`opacity: ${num(from)}`]
+  if (y !== 0) decls.push(`translate: 0 ${num(y)}px`)
+  const rules: Rule[] = [{ selector: pre, decls }]
+
+  // Belt and braces on the reduced-motion obligation: the script already
+  // declines to set the marker, and this makes the pre-state inert even if some
+  // other path sets it. A user who asked for no motion gets the settled page.
+  rules.push({
+    media: REDUCED_MOTION,
+    selector: pre,
+    decls: [`opacity: ${num(settledOpacity)}`, 'translate: none'],
+  })
+
+  const durationMs = reveal.durationMs ?? 600
+  const easing = reveal.easing ?? 'ease-out'
+  const delayMs = (reveal.delayMs ?? 0) + staggerDelayMs
+  const transitions: TransitionSpec[] = [{ prop: 'opacity', durationMs, easing, delayMs }]
+  if (y !== 0) transitions.push({ prop: 'translate', durationMs, easing, delayMs })
+  return { rules, transitions }
+}
+
+/**
+ * The one renderer-owned script that drives every reveal on the page — vetted
+ * once, identical for every site, carrying no instance data of any kind.
+ *
+ * It returns *before* setting the marker whenever motion must not run (no
+ * IntersectionObserver, or a reduced-motion preference), which is what makes the
+ * CSS pre-state fail visible rather than fail blank. Emitted inline at the top
+ * of the body so the marker lands before the content below it paints; a deferred
+ * script would show the settled page first and then yank it back to the
+ * pre-state.
+ *
+ * The `rootMargin` is what makes a node the reader has already gone PAST settle
+ * too. Its bottom is SHRUNK (-8%) so a node reveals a little after its top edge
+ * clears the fold rather than the instant it grazes it; its top is EXPANDED by a
+ * span no document scrolls further than, so the root reaches back over
+ * everything above the viewport and anything skipped over is still *intersecting*
+ * — by an End keypress, an anchor link, or a reload restoring a mid-page scroll
+ * position. Observed on the xgd.dev page itself: jumping to the foot left every
+ * band in between laid out, occupying space, and invisible.
+ *
+ * It has to be the margin rather than a `boundingClientRect.bottom < 0` test in
+ * the callback, because a node that goes from below the viewport to above it in
+ * one jump never *changes* intersection ratio — it is 0 throughout — so the
+ * observer delivers no entry for it at all and no callback clause can run. (Real
+ * browser, xgd.dev, jump to foot: 7 entries delivered, none with a negative
+ * bottom, 16 bands left dark.) Widening the root turns the same nodes into
+ * genuine intersections, which the observer does report.
+ */
+export const L1_REVEAL_SCRIPT = `(function(){
+var d=document.documentElement;
+if(!('IntersectionObserver' in window))return;
+try{if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return}catch(e){return}
+d.setAttribute('data-l1-motion','');
+function run(){
+var io=new IntersectionObserver(function(es){
+for(var i=0;i<es.length;i++){var e=es[i];
+if(e.isIntersecting){e.target.classList.add('${REVEALED_CLASS}');io.unobserve(e.target)}}
+},{rootMargin:'${REVEAL_ROOT_MARGIN}'});
+var ns=document.getElementsByClassName('${REVEAL_CLASS}');
+for(var i=0;i<ns.length;i++)io.observe(ns[i]);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();
+})();`
 
 // ── REQ-96 control leaves: the module's element, painted by L1 ────────────────
 
@@ -779,11 +962,18 @@ interface RenderState {
   mounts?: Readonly<Record<string, string>>
   /** REQ-96 — the mounted behavior's declared leaf elements, keyed by control name. */
   controls?: Readonly<Record<string, L1ControlElement>>
+  /** REQ-100 — set once any node reveals, so a motionless page ships no script. */
+  hasReveal?: boolean
 }
 
-function emitNode(node: L1Node, state: RenderState): string {
-  const cls = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
-  const selector = `.${cls}`
+function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string {
+  const name = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
+  const selector = `.${name}`
+  // REQ-100 — a revealing node carries a second, fixed class purely as the
+  // observer's handle. Splitting the *attribute value* from the *selector name*
+  // here means every node kind's markup picks it up without any of them
+  // re-litigating how a class attribute is built.
+  const cls = node.reveal ? `${name} ${REVEAL_CLASS}` : name
   const base: string[] = []
 
   if (node.geometry) {
@@ -983,7 +1173,17 @@ function emitNode(node: L1Node, state: RenderState): string {
       base.push(...surfaceDecls(node.axes ?? {}))
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
-      const inner = node.children.map((child) => emitNode(child, state)).join('')
+      // REQ-100 — a container's stagger is handed DOWN to each revealing child as
+      // its share of the interval. Only children that actually reveal advance the
+      // counter, so a decorative spacer between two cards does not silently buy
+      // itself a slot and desynchronise everything after it.
+      let revealIndex = 0
+      const inner = node.children
+        .map((child) => {
+          const share = node.staggerMs && child.reveal ? revealIndex++ * node.staggerMs : 0
+          return emitNode(child, state, share)
+        })
+        .join('')
       html = `<div class="${cls}">${inner}</div>`
       break
     }
@@ -1020,15 +1220,44 @@ function emitNode(node: L1Node, state: RenderState): string {
   // so it is the kind that carries the default-ring obligation; every other kind
   // gets exactly the states it authored.
   const interactive = node.kind === 'control' && Boolean(state.controls?.[node.control])
+  const transitions: TransitionSpec[] = []
   if (node.interaction) {
-    const { rules, baseDecls } = interactionRules(selector, node.interaction, node.transform, interactive)
+    const { rules, transitions: t } = interactionRules(
+      selector,
+      node.interaction,
+      node.transform,
+      interactive,
+    )
     state.rules.push(...rules)
-    base.push(...baseDecls)
+    transitions.push(...t)
   } else if (interactive) {
     // A control that declared no interaction at all still gets the floor: the
     // emitter neutralises the UA's own chrome (`appearance: none`), so leaving
     // this out is what would actually strip a focus indicator.
     state.rules.push({ selector: `${selector}:focus-visible`, decls: focusRingDecls(undefined) })
+  }
+
+  // REQ-100 — scroll entrance. Emitted after `interaction` so both features'
+  // transitions reach `transitionDecls` together (see its doc comment: two
+  // independent emissions would leave only the last one standing).
+  if (node.reveal) {
+    const settledOpacity = node.kind === 'slot' ? 1 : (node.axes?.opacity ?? 1)
+    const { rules, transitions: t } = revealRules(
+      selector,
+      node.reveal,
+      staggerDelayMs,
+      settledOpacity,
+    )
+    state.rules.push(...rules)
+    transitions.push(...t)
+    state.hasReveal = true
+  }
+
+  if (transitions.length) {
+    base.push(...transitionDecls(transitions))
+    // One blanket kill-switch covers every transitioning property on the node:
+    // a single `transition-duration` value applies to the whole list.
+    state.rules.push({ media: REDUCED_MOTION, selector, decls: ['transition-duration: 0ms'] })
   }
 
   if (base.length) state.rules.push({ selector, decls: base })
@@ -1060,6 +1289,13 @@ function serializeRules(rules: Rule[]): string {
 export interface L1RenderResult {
   html: string
   css: string
+  /**
+   * REQ-100 — the renderer-owned reveal script, present only when the document
+   * actually reveals something. Already inlined at the head of `html`; exposed
+   * separately so a CSP-bound consumer can hash or nonce it rather than having
+   * to find it in the markup.
+   */
+  js?: string
 }
 
 /** Options for {@link renderL1Document}. */
@@ -1093,7 +1329,11 @@ export function renderL1Document(doc: L1Document, opts: L1RenderOptions = {}): L
   // rule references it (no serif fallback while the CSS is parsed top-down).
   const faces = fontFaceRules(doc.resources)
   const css = [reset.join('\n'), ...faces, serializeRules(state.rules)].join('\n')
-  return { html: body, css }
+  // REQ-100 — the reveal script rides at the TOP of the body, so its
+  // `data-l1-motion` marker is set before the content beneath it paints. A page
+  // that reveals nothing ships no script at all.
+  if (!state.hasReveal) return { html: body, css }
+  return { html: `<script>${L1_REVEAL_SCRIPT}</script>\n${body}`, css, js: L1_REVEAL_SCRIPT }
 }
 
 export interface L1FragmentResult {

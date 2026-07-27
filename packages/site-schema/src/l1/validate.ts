@@ -271,6 +271,32 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
   }
 
   if (node.interaction) checkInteraction(node.interaction, `${path}/interaction`, errors)
+
+  // REQ-100 — the scroll-entrance axis takes the same duration ceiling as an
+  // interaction transition: both are "how long a node spends not yet settled",
+  // and an unbounded one is content the reader waits on indefinitely. The delay
+  // is bounded for the same reason — a stagger share adds to it, so an
+  // unbounded delay is an unbounded time-to-content.
+  if (node.reveal) {
+    for (const field of ['durationMs', 'delayMs'] as const) {
+      const v = node.reveal[field]
+      if (v !== undefined && !inRange(v, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
+        errors.push({
+          path: `${path}/reveal/${field}`,
+          message: `${field}=${v} out of range [${L1_ENVELOPE.transitionMs.min}, ${L1_ENVELOPE.transitionMs.max}]`,
+        })
+      }
+    }
+    checkEffectLen(node.reveal.yPx, `${path}/reveal/yPx`, errors)
+  }
+  if (node.kind === 'container' && node.staggerMs !== undefined) {
+    if (!inRange(node.staggerMs, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
+      errors.push({
+        path: `${path}/staggerMs`,
+        message: `staggerMs=${node.staggerMs} out of range [${L1_ENVELOPE.transitionMs.min}, ${L1_ENVELOPE.transitionMs.max}]`,
+      })
+    }
+  }
 }
 
 /** Bound a structured shadow's four lengths. */
