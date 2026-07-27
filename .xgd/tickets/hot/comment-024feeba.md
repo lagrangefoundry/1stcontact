@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-07-24T22:24:39.097624+00:00'
+updated_at: '2026-07-26T00:48:38.956546+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2261,5 +2261,1824 @@ Understood. Standing by — I won't run anything.
 Nothing needs cleaning up first: the tree is clean at HEAD, and your capture will overwrite `storage/references/gigabytealchemy.ai/index/` in place (that directory is untracked, so git won't fight you over it).
 
 Ping me when the import's done and we'll read the result together.
+
+<!-- xgd-turn id="d1ae9e79-7706-4872-80b2-e070914ec299-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T01:18:20.171243+00:00" -->
+#### You
+can they be run in parallel?
+
+<!-- xgd-turn id="d1ae9e79-7706-4872-80b2-e070914ec299-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T01:20:30.828640+00:00" -->
+#### Claude
+Good question — the answer differs per pair, and there are two real coupling risks. Let me check the actual file surfaces rather than guess.
+
+Mostly yes, but not all four — and there's a blocker that hits before parallelism even matters. Let me check whether main has the code these bugs are against.
+
+Before the parallelism answer, a blocker: **none of this code is on main.**
+
+```
+d98aab90 / 6ede6a8e / 2c166b19 on main:  NO / NO / NO
+xgd-working ahead of main by:            62 commits
+repro.ts on main:                        NO (created in d98aab90)
+cardPadding / foldSectionBackgrounds on main:  absent
+```
+
+Per the branch topology, `branch-<ticket>` is cut from **main**. A `branch-BUG-21` cut today has no `cardPadding` to fix and no `repro.ts` to modify — all four bugs are unbuildable there. **A reconcile promoting the REQ-88 bundle into main gates every one of them**, parallel or serial.
+
+Also, while mapping fold.ts I found the likely culprit for BUG-21 — worth pinning in the ticket:
+
+Exact root cause, arithmetically proven. `cardPadding` (`fold.ts:687`) returns **one scalar** applied to all four sides, and for a single-row surface (a button has one text run) it's `0.5 × row height`:
+
+- `Send message`: widest height 48 → `0.5×48 = 24` → `48 + 24 + 24 = 96` ✓ (observed 96)
+- `Subscribe`: widest height 50 → `0.5×50 = 25` → `48 + 25 + 25 = 98` ✓ (observed 98 at @320, where target h=48)
+
+The 2× height is **structural, not incidental**: `h + 2×(0.5h) = 2h` exactly, guaranteed for any single-row control in the 16–56px clamp range. And because the scalar comes from the *widest* occurrence, the @320 Subscribe box inherits the 50px-tall desktop row's padding — which is why it's 98 rather than 96.
+
+Yes — three of the four, once main has the code. Here's the actual constraint map:
+
+| bug | primary file surface | parallel-safe? |
+|---|---|---|
+| BUG-21 | `l1/fold.ts` — `cardPadding` + surface reconstruction (~650–760) | ✅ |
+| BUG-22 | `cli/capture/values-diff.ts` | ✅ |
+| BUG-23 | `cli/repro.ts` (asset mirroring) | ✅ |
+| BUG-24 | `capture/extract.ts` + L1 colour types + `render.ts` + `fold.ts` colour axes | ❌ serialize |
+
+**Wave 1 — BUG-21 ∥ BUG-22 ∥ BUG-23.** File-disjoint, no shared semantics. BUG-21's acceptance criteria are geometry-vs-oracle and diff-region based, so it verifies without needing BUG-22's fix — they're genuinely independent.
+
+**Wave 2 — BUG-24 alone.** Two reasons it can't join: it reworks colour axes in `fold.ts`, colliding with BUG-21's surface reconstruction in the same file; and its criterion 3 explicitly requires BUG-23 landed first, since hero pixels can't be measured honestly while the page hotlinks the target's own image.
+
+Three caveats worth deciding up front:
+
+1. **BUG-23's implementation location decides its independence.** Put the URL rewrite in `repro.ts` (where assets are already mirrored, line 108) and it never touches `fold.ts`. Put it at `fold.ts:612` instead and it lands in the same file as BUG-21 — still a disjoint hunk (577–620 vs ~687) that git will merge, but needless risk. `repro.ts` is also the architecturally correct home: the bundle should faithfully record what the target used; the *reproduction* step is what should point at its own mirror.
+
+2. **BUG-22 landing before BUG-21 is preferable but not required.** You'd rather have an honest scoreboard show the geometry defect, then fix BUG-21 and watch it disappear. If BUG-21 lands first, BUG-22's criterion 2 can only be demonstrated against a synthetic fixture — weaker evidence, though still valid.
+
+3. **Don't start BUG-24 yet on its merits, independent of conflicts.** Its causal claim is unconfirmed by design. The right sequence is BUG-23 → re-measure the hero → read the aligned-crop overlay → *then* decide whether BUG-24 is real and what shape the fix takes. Developing it now means authoring against a hypothesis.
+
+One thing to watch on merge-back: all three wave-1 branches return to a main that has only just received REQ-88's `fold.ts` work, so the `[FREE-CODED]` overwrite check in merge review matters more than usual here — BUG-21 in particular edits code that will be days old on main.
+
+The gating action is the reconcile. That's a pipeline run and yours to drive; want me to check what's queued for it?
+
+<!-- xgd-turn id="8217e9f0-a6f9-46d4-a512-5a04ab404735-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T02:02:05.187272+00:00" -->
+#### You
+ok the bugs have been fixed. there is a caveat on bug-24 that I don't understand abour AC3 what is this/
+
+<!-- xgd-turn id="8217e9f0-a6f9-46d4-a512-5a04ab404735-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T02:02:55.453219+00:00" -->
+#### Claude
+That's AC3 as I originally wrote it, and the ⛔ is the implementer correctly declining to claim something they didn't measure. Here's what it's for.
+
+BUG-24 had **two halves**, and only one was a fact when I filed it:
+
+- **Verified** — the capability gap. Colour alpha was unrepresentable anywhere in the value set (0 `rgba(`, 0 eight-digit hex, 0 `alpha` keys, against 354 `opacity` keys). That's a census, not an inference.
+- **Unconfirmed** — the *diagnosis*. That the missing veil is **why** hero diff regions #7/#8/#9/#12 appear. That was a hypothesis from region means (28–43) fitting a uniform brightness shift better than missing content.
+
+AC1/AC2/AC4 close the first half — and they're properly closed, with the veil now captured as `overlay={"color":"#030717","opacity":0.3}` where it previously captured `null`, each fix proven necessary by independent reversion. AC3 is the only criterion that tests the *second* half: did fixing the gap actually move those four regions?
+
+It's still open because answering it isn't a code change. It needs a full reproduction round — re-capture, re-fold, re-render, `1c diff` — then reading regions #7/#8/#9/#12. That's a pipeline pass, and in our protocol you drive those.
+
+**Why it was worth leaving open rather than ticking:** the veil gap being real does not prove it caused those regions. Both can be true independently — we could have fixed a genuine capability gap and still have four unexplained hero regions from something else entirely. If AC3 had been marked ✅ by assumption, the ticket would close saying "hero explained" and we'd stop looking at the front door, which is the one region [[hero-fidelity-front-door]] says to get exactly right.
+
+It's now unblocked: BUG-23 is `ready_to_reconcile`, and that was the precondition — hero pixels couldn't be measured honestly while the page was serving the target's own image over the network.
+
+One practical catch when you do run it: **the stored oracle bundle is stale for this purpose.** The fix note says the veil was verified against a live capture in a temp dir, deliberately not overwriting `storage/references/gigabytealchemy.ai/index`. So that bundle still predates the `extract.ts` change and carries no scrim — measuring against it would show no veil and look like the fix did nothing. A fresh `1c capture page` has to come first, same trap as [[repro-recapture-before-pass]].
+
+So the sequence when you're ready: reconcile → `1c capture page https://gigabytealchemy.ai` → repro → render → `1c diff`, then we read #7/#8/#9/#12 together and either close AC3 or name the real cause.
+
+<!-- xgd-turn id="831694bc-d746-46fc-b3de-5bfb03331fcd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T02:12:33.477187+00:00" -->
+#### You
+```
+(.venv-working) ) martin@nyx 1stcontact % bin/1c capture page https://gigabytealchemy.ai                                
+
+Captured https://gigabytealchemy.ai → /Users/martin/Projects/1stcontact/storage/references/gigabytealchemy.ai/index
+  8 section(s), 5 asset(s)
+  l1.json: 70 node(s) across 6 width(s); hints.json: 109 node(s), 0 @media breakpoint(s)
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+Reproduced storage/references/gigabytealchemy.ai/index → /Users/martin/Projects/1stcontact/storage/sites/gigabytealchemy/draft
+  raw-L1 home page: 71 node(s); assets copied; 1 media handle(s) bound to local mirror
+  ⚠ 1 mirrored asset(s) referenced by no node (fold gap):
+      assets/8vIJ7ww63mVu7gt79mT7PkRXMw.woff2
+  next: 1c render gigabytealchemy  ·  1c l1-gate --ref storage/references/gigabytealchemy.ai/index
+((.venv-working) ) martin@nyx 1stcontact % bin/1c render gigabytealchemy                                              
+Rendered 2 file(s) → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft
+((.venv-working) ) martin@nyx 1stcontact % bin/1c l1-gate --ref storage/references/gigabytealchemy.ai/index                                     
+3-probe gate on storage/references/gigabytealchemy.ai/index: PASS
+  sample-fidelity     PASS  (maxΔ 0.5px, 0 residual(s), 0 unmatched)
+  off-sample          PASS  (0 envelope finding(s))
+  content-robustness  PASS  (0 finding(s))
+  promoted regions: 0.15, 0.16, 0.17, 0.18, 0.21
+  fold residuals (folder-power gaps): 4
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+((.venv-working) ) martin@nyx 1stcontact % bin/1c values-diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index --multi-viewport
+values-diff --multi-viewport: 6 cell(s) across the viewport ladder
+  67 delta(s), 0 missing cell(s) — worst cell first
+  repair order (REQ-64): A-flat 0 → A-structural 1 → B 14  (15 defects deduped across the ladder)
+    ① copy the 0 Type-A flat value(s); ② author the 1 Type-A structural (responsive/spacing); ③ then read the 14 Type-B as the residual
+  ✗ @320 chromium:rest  6 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] renderedTextBox  text 170×93            → text 133×86
+      [A] borderLeft       4px #50a2ff            → none
+  ✗ @375 chromium:rest  5 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] renderedTextBox  text 343×48            → text 269×41
+  ✗ @768 chromium:rest  14 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1024 chromium:rest  14 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1280 chromium:rest  14 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1440 chromium:rest  14 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+((.venv-working) ) martin@nyx 1stcontact % bin/1c shot gigabytealchemy                                                                          
+Shot http://localhost:50241/ @ 1280×800 → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft/shot-draft-desktop.png
+((.venv-working) ) martin@nyx 1stcontact % bin/1c diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+perceptual-diff: storage/references/gigabytealchemy.ai/index/screenshot.full.png ⇄ /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/req38-diff-Qz4PTl/actual.png
+  mean 2.56 / 255 · 1.6% pixels over threshold · 12 region(s)
+  bands: 10.2 4.0 0.7 0.0 0.0 2.0 1.7 2.4 5.4 5.6 3.9 0.7 0.7 0.7 3.2 0.1
+  #1 score 12735.3 (mean 83.8) @ 96,96 672×80
+  #2 score 6278.0 (mean 34.7) @ 80,2480 896×336
+  #3 score 5030.0 (mean 42.6) @ 80,2112 896×336
+  #4 score 2228.5 (mean 63.7) @ 80,320 160×80
+  #5 score 1777.5 (mean 88.9) @ 224,320 192×32
+  #6 score 1003.7 (mean 91.2) @ 416,2512 160×32
+  #7 score 699.7 (mean 29.1) @ 80,2848 32×192
+  #8 score 414.2 (mean 34.5) @ 416,3920 112×32
+  #9 score 386.9 (mean 96.7) @ 224,2160 64×16
+  #10 score 281.4 (mean 46.9) @ 80,1744 32×64
+  #11 score 223.6 (mean 44.7) @ 480,2688 80×16
+  #12 score 222.1 (mean 37.0) @ 144,2704 80×32
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Can I just give you a rundown of the big differences I see. There are still many and I'm not sure they're coming up in your numbers.
+
+1. The gigabytes alchemy title is in the wrong font and the cour gradient change is incorrect it is too subtle
+2. The hero image background should be pinned to the page fold it is not
+3. Our Mission 
+a. The panel boxes should have rounded corners they do not
+b. The green vertical quote bar is taller than the original
+
+4. What we are building
+a. Each panel has rounded corners on the left-hand side top and bottom in the original
+b. The line spacing is off. For example "sanctum voice" wraps when it should not and voice runs over "your private" - similar effect on all the other panel titles
+c. "what we are exploring" has a different left indent from the other panels and a different width it is wider
+5. The Alchemy
+a. We're not trying to ... again the quote bar is too large
+
+6. Get in touch - there are no text entry Fields and the send message Button wrapped the text and is therefore too tall
+7 Gigabyte Alchemy 2025 wraps when it should not
+
+<!-- xgd-turn id="831694bc-d746-46fc-b3de-5bfb03331fcd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T02:15:38.645660+00:00" -->
+#### Claude
+First, the wins are real and large:
+
+- **mean 5.21 → 2.56** / 255, pixels over threshold 2.8% → 1.6%
+- **BUG-21 confirmed fixed** — old regions #2/#3 (the 2× button surfaces, means 150.2/135.9) are gone from the list entirely
+- **BUG-22 confirmed** — `A-flat 2 → 0`, the phantom radius no longer leads the repair order
+- **BUG-23 confirmed** — `1 media handle(s) bound to local mirror`, plus the new fold-gap warning correctly flagging the unreferenced `.woff2` (that's AC4 doing its job)
+
+Now your list — you're right to distrust the numbers. Let me check each against the draft.
+
+Several of your items are already visible in the draft, and two are new regressions. Let me confirm the most serious ones.
+
+Two confirmed, one of them serious:
+
+You're right, and it's worth being precise about *how* right: **5 of your 7 items are invisible to both gates.** Here's the mapping, with what I verified.
+
+| your item | verified mechanism | caught by? |
+|---|---|---|
+| 1. Title wrong font + gradient too subtle | `@font-face` count in rendered CSS = **0**; `woff2` referenced **0** times | only the new fold-gap warning |
+| 2. Hero not pinned to fold | not yet verified | ❌ nothing |
+| 3a/4a. Panels missing rounded corners | **every** box has `borderRadiusPx: None`; target has `r=8` on all panels | ❌ nothing |
+| 3b/5a. Quote bar too tall | `borderLeft` present; @320 it vanishes | partly (`[A] borderLeft → none` @320) |
+| 4b/6/7. Text wraps when it shouldn't | panels undersized → text short by ~47px | ⚠️ as "text extent" **[REVIEW]** |
+| 4c. "Exploring" panel misaligned+wider | target all three at `x=88 w=896`; repro gives `111/854`, `111/854`, `97/882` | ❌ nothing |
+| 6. No entry fields | 4 fold residuals → contact-form module | ✅ expected, not a bug |
+
+**Item 1 is one bug, not two.** The mirrored Cinzel file `8vIJ7ww63mVu7gt79mT7PkRXMw.woff2` is exactly the asset the new warning flags as "referenced by no node". No `@font-face` is emitted, so `font-family: Cinzel, serif` resolves to plain serif. The gradient itself is *perfect* — rendered CSS is `linear-gradient(90deg, #f5e6a3 0%, #f5e6a3 60%, #ff8c42 90%, #ff6b35 100%)`, byte-identical to the oracle. It reads "too subtle" because it's clipped to text whose extent is wrong under the fallback font, and 60% of the ramp is flat gold before any orange appears. Fix the font and the gradient follows. Note BUG-23's AC4 warning caught this on its first run — that criterion earned its keep immediately.
+
+**The bigger finding: BUG-21 was fixed in the wrong direction.** Compare the three "What we are building" panels at 1280:
+
+```
+target:  x=88 w=896 h=332   x=88 w=896 h=332   x=88 w=896 h=196
+repro:   x=111 w=854 h=294  x=111 w=854 h=294  x=97 w=882 h=186
+```
+
+Before the fix, surfaces were **outset** by `0.5 × row height`. Now they're **inset** by a per-card amount that varies (23, 23, 9) — which is precisely your item 4c, the "exploring" panel sitting at a different indent and width from its siblings. The swing from over-large to under-large, with the error still varying per card, says the underlying approach didn't change: the surface box is still being *inferred from row rhythm* instead of *taken from the captured element box*, which the oracle records directly (`x=88 w=896`). And the radius got dropped along the way — the reason no panel has corners.
+
+So items 3a, 4a, 4b, 4c, 6b and 7 are plausibly **one root cause**: surface geometry is inferred rather than read. That's worth fixing once, properly, rather than as six symptoms.
+
+Two things I'd flag about the gates themselves:
+
+- **`values-diff` reports `A-flat 0`** while every panel on the page is missing its border radius and sitting at the wrong x/width. It regressed from reporting a *phantom* radius to reporting *nothing* — BUG-22 fixed the false positive but the surface-box geometry criterion (its AC2) clearly isn't landing.
+- **The "text extent / wrapping" cluster is dispositioned `[REVIEW]`**, which reads as benign drift. It's actually your items 4b, 6b and 7 — visible broken wrapping across every panel title, the footer, and the send button. That disposition is miscalibrated.
+
+I have not verified item 2 (hero pinning) yet — I'd want to check whether the target uses `background-attachment` or a viewport-height section before guessing.
+
+Want me to file these? My read is four: the font-face gap (high — it's the front door), the surface-geometry inference regression covering 3a/4a/4c/4b (high, and it should reopen or supersede BUG-21 rather than be a fresh symptom ticket), the `[REVIEW]` misdisposition on text extent, and hero pinning once I've checked it. I'd also reopen BUG-22's AC2 rather than file new — it's the same criterion, unmet.
+
+<!-- xgd-turn id="47fac546-964d-426c-8c1f-ff67c235d781-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T03:53:55.739155+00:00" -->
+#### You
+Can you just fix the issues in this ticket
+
+<!-- xgd-turn id="47fac546-964d-426c-8c1f-ff67c235d781-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T04:13:18.890456+00:00" -->
+#### Claude
+Working under REQ-88 per your call. Let me read the surface reconstruction before changing it.
+
+`SurfaceShape` already exists — BUG-22 added it, carrying exactly what's needed (`box`, `borderRadiusPx`, `self`). The fold just isn't using it.
+
+The capture already holds the exact answer — `surface.box` for the "Sanctum Voice" panel at 1280 is `{x: 88, width: 896, height: 332}`, matching the target precisely, with `borderRadiusPx: 8`. The fold infers instead of reading it. Let me check the font path too, then fix both.
+
+`theme.fonts[].files` is **empty** — the family name is captured but no file is linked, so `fontResourcesFromTheme` yields nothing and no `@font-face` is emitted. Meanwhile the woff2 *is* downloaded as an asset.
+
+Found it. `files: fontFilesByFamily.get(family)` — but `family` is now the **full stack** `"Cinzel, serif"`, while the file map is keyed by the bare family name.
+
+Both root causes are now pinned. Let me find the existing primary-family helper so I reuse rather than duplicate.
+
+Now implementing. Fix 1 — the font-file linkage:
+
+Now remove the duplicate helper in `pipeline.ts` and import the shared one:
+
+Now Fix 2 — make the fold read the captured surface box instead of inferring it:
+
+Now delete the two inference functions:
+
+Now rewrite `buildCards` to read the captured surface box:
+
+Now the radius must come from the surface, not the run:
+
+Now populate the new fields where surface rows are recorded:
+
+The fold-gap warning is gone — the woff2 is now referenced. Verifying both fixes:
+
+`@font-face` emits now, but the family is wrong — `"Cinzel serif"` (the sanitised full stack) will never match `font-family: Cinzel, serif`. The face must declare the bare name:
+
+`font-family: "Cinzel"` — now it binds. Let me verify the panel geometry against the oracle and re-measure:
+
+Panels now match the oracle exactly — `card-4/5/6` at `x=88 w=896`, `r=8`, and the three tiles at `277x192 r=8`. Items 3a/4a/4c fixed. But `card-0`/`card-7` regressed to full-bleed `1280x595`:
+
+`card-0`/`card-7` still take a band-sized rect. Let me look at what the capture says about that quote run rather than guess.
+
+The fold change needs a re-capture — `1c repro` imports the bundle's already-folded `l1.json`, so my band guard isn't in it yet:
+
+All boxes now match the oracle exactly, including the quote rules (`card-0`/`card-7` at `868x29`, matching the captured run `868x29.25` — previously 59px, which was your "quote bar too tall"). Measuring:
+
+Substantial improvement: **mean 2.56 → 1.65** (0.9% over threshold, from 2.8% at session start), values-diff **15 → 14** defects across **5** causes (was 7), and the panel regions are gone. But 8 of 12 remaining regions are now clustered on the hero title — so let me verify the font actually loads rather than just declaring.
+
+The shot does go through the BUG-16 font barrier, so this isn't a load race. Checking how the title's gradient is applied:
+
+CSS mechanism is correct (`background-clip: text`, correct family/weight/tracking) — the hero residual is metric-level, not structural. Now let me check I haven't broken anything, starting with the BUG-21 test that referenced the deleted helpers:
+
+That test asserts the *inference* I deliberately removed — inventing padding is precisely what caused BUG-21. Updating it to the new contract:
+
+Now the REQ-88 UATs for both fixes:
+
+Two fixture errors on my side: `renderL1Document` returns `{ css }`, and my card fixtures lack a band row (so the panels were classified as bands themselves). Fixing both:
+
+Only the one pre-existing failure remains (`req92`, BUG-14's `section-band` ids — unrelated), and the suite is up to **737 passing** from 731. Clean typecheck per [[build-verify-clean-rebuild]]:
+
+The backticks in that double-quoted command were shell-expanded and mangled the body. Let me restore from git and redo it properly.
+
+Now append the round-5 section using a quoted heredoc so nothing is shell-expanded:
+
+Body restored intact. Now record the commit and version:
+
+Fixed under REQ-88, committed as `455a16f1`, tree clean.
+
+**Both root causes turned out to be joins where the data already existed on one side.**
+
+**1. Card geometry was inferred instead of read.** BUG-22 had already added `SurfaceShape` to the capture — the painting ancestor, its own rect, its radius. The fold ignored it and re-derived panels from where their text runs sat. That's why fixing BUG-21 per-edge only reversed the error's direction rather than removing it. The fold now reads the measured rect, and that rect doubles as an exact grouping identity, so sibling tiles can't merge or drift. `cardPadding`/`cardOutset` are deleted; with no captured surface, a card is exactly its runs' union and nothing is invented.
+
+**2. The mirrored font never bound.** Two breaks, both fallout from my own BUG-16 change widening `fontFamily` to the full stack: `buildTheme` looked the face-file table up by `"Cinzel, serif"` while it's keyed by the bare `"Cinzel"` (→ `files: []`), and the face then declared the stack as its family, which sanitises to `"Cinzel serif"` — unmatchable. Either alone left the title on the document default.
+
+**Measured on a fresh capture:**
+
+| | before | after |
+|---|---|---|
+| perceptual mean | 2.56 | **1.65** / 255 |
+| pixels over threshold | 1.6% | **0.9%** |
+| values-diff defects / causes | 15 / 7 | **14 / 5** |
+
+Panels now match the oracle exactly at every width — `card-4/5/6` at `x=88 w=896 r=8`, tiles at `277x192 r=8`, quote rules at `868x29`. Gate PASS at 0 residuals. Suite 737 pass (from 731); the single failure is the pre-existing `req92` one from BUG-14's id change.
+
+**Your items 1, 3a, 3b, 4a, 4c, 5a are fixed.** Four are not, and I'd rather name them than let the improved numbers imply otherwise:
+
+- **Hero title still wrong** — 8 of 12 remaining diff regions cluster there. The CSS is now correct (family, weight 600, `letter-spacing -0.9px`, gradient byte-identical to the oracle) and `1c shot` does pass through the BUG-16 font barrier, so it isn't a load race. Metric-level and unattributed — I couldn't close it.
+- **Hero pinning (item 2)** — not investigated at all.
+- **Send-message button wrapping (item 6)** — the 4 absent fields are the expected `contact-form` residual; the label wrap isn't, and remains.
+- **Items 4b/7 wrapping** — still the 7 `[REVIEW]` text-extent defects. That disposition reads as benign drift while being your visible breakage; it's miscalibrated, and I left it as-is rather than quietly reclassifying.
+
+All four are written into the ticket's "Still open" section so they don't get lost.
+
+Two process notes: I recovered the ticket body from git after backticks in a double-quoted command got shell-expanded and stripped content on the first update attempt — it's verified intact now. And worth knowing for the next round: **fold changes need a re-capture, not just `1c repro`**, since repro imports the bundle's already-folded `l1.json` — that briefly had me debugging a fix that was in the code but not in the bundle.
+
+<!-- xgd-turn id="84769761-43c0-448b-8f6b-b6f23b337473-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T17:38:47.767042+00:00" -->
+#### You
+I will do another run, but since we know we have outstanding issues can you dig into them
+
+<!-- xgd-turn id="84769761-43c0-448b-8f6b-b6f23b337473-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T17:46:18.671694+00:00" -->
+#### Claude
+Digging in now. Let me start with the wrapping cluster, since your items 4b, 6 and 7 all look like the same mechanism.
+
+That's the systemic one, and it's a rounding-direction bug. For **shrink-to-fit** runs the captured element box *is* the glyph extent (`target elem == glyphs` exactly), and the fold does `Math.round(box.width)` — which rounds **down**, making the box narrower than the text it must hold. Guaranteed wrap.
+
+**9 nodes have negative slack**, and they map straight onto your list: `Sanctum Voice` (−0.30, item 4b), `Intentional Software` (−0.25), `XGD (Extreme Generative Development)` (−0.44), and — notably — **`Gigabyte Alchemy` (−0.31), the hero title from item 1.**
+
+Same mechanism on the button, in its sharpest form: at ≥768 `Send message` has content width **108.78** and glyph width **108.78** — *exactly zero slack*. Rounding to nearest leaves ±0.5px of luck; rounding down guarantees the wrap.
+
+Let me check the axis rounding too, since the footer (item 7) has only +0.12px and ceil won't save it:
+
+Axes are exact — size, weight, tracking, line-height and the responsive track all match the target precisely. So the footer's razor-thin +0.12px isn't an axis-rounding loss. Now your item 2:
+
+Our `section-bg-0` height tracks the viewport exactly (800/800/1024/768/800/900) — that *is* `min-h-screen` reproduced faithfully, so the hero box is pinned. Let me check where the hero content sits inside it, since the target uses `pt-80`:
+
+Item 2 resolved — and it's not what it looked like. Hero content matches the target **exactly at every width** (title `y=79 x=88 w=685`, `Intentional Software` `y=318`, etc.), and the hero box height tracks the viewport (800/800/1024/768/800/900). So nothing is misplaced. What's missing is that the target's `min-h-screen` is **`100vh` — viewport-relative**, and we reproduce it as a fixed `800px`. Viewed in any window that isn't 800px tall, the hero stops short of the fold. Both gates are blind to it because capture and shot use the same viewport height, so the error is zero by construction.
+
+And item 1 now has a concrete cause:
+
+The hero title residual is a **wrapped second line** — regions at y 80–160 are line 1, and #1 at y 176–240 is a line 2 the target doesn't have. Caused by a 0.31px rounding-down. Implementing the fix:
+
+Adding a UAT that pins the regression:
+
+Dug into all four. **Three of them were one bug**, and it's a rounding direction.
+
+**A text box was rounded down below its own glyph extent.** For a shrink-to-fit run the captured box *is* the glyph extent — `box.width === renderedTextBox.width` for 21 of the page's 55 runs. `Math.round` on that makes the box narrower than the text it must hold whenever the fraction is under .5, and CSS answers a too-small box by wrapping. Nine runs were pinned below their own measured extent, worst −0.44px.
+
+**That is the hero title defect.** `Gigabyte Alchemy` measures 685.31 and was pinned at 685. It's one 97px line in the reference; 0.31px short, it reflows onto a second 90px line. Six of the twelve perceptual regions sit on it — y 80–160 is line one, and **`#1 @80,176` is a line two the reference never had.**
+
+I need to correct what I told you last round: I said that residual was "metric-level and unattributed" after checking that the font, weight, tracking and gradient were all exact. They *were* exact — I just never checked the box width against the glyph width, so I stopped one measurement short. It was geometry all along.
+
+Fixed by ceiling text-leaf widths (`5d414929`) — smallest integer that still contains the measured content, so it invents no room. Box and image leaves keep nearest rounding so surfaces can't creep outward a pixel per pass. Suite 739 pass.
+
+**Item 2 is a different animal, and it's the interesting one.** Hero content matches the reference *exactly* at every width — title `y=79 x=88 w=685`, `Intentional Software` `y=318` — and `section-bg-0`'s height tracks each captured viewport (800/800/1024/768/800/900). Nothing is misplaced. The reference's hero is `min-h-screen` = **`100vh`, viewport-relative**, and L1 keyframes geometry on *width* only, so it reproduces as a fixed `800px`. In any window that isn't 800px tall, the hero stops short of the fold — exactly what you saw.
+
+Worth stating plainly: **both gates are blind to this by construction.** Capture and shot use the same viewport height, so the error is identically zero on every probe. No amount of width-ladder sampling reaches it — it's the single-viewport blind spot, but on the height axis. Closing it needs a typed L1 axis for viewport-relative extent, which is a design decision about L1's geometry model rather than a fold bug, so I've documented it and left it for you.
+
+**One more thing I found but didn't fix:** at ≥768 `Send message` has content width 108.78 against glyph width 108.78 — *exactly zero slack*. Ceil lifts it to +0.22px, so your reported wrap should go, but it's decided by a fifth of a pixel. A run whose content width equals its glyph width is shrink-to-fit and physically cannot wrap in the reference; reproducing it as a fixed-width box reintroduces the possibility. A typed `whiteSpace: nowrap` axis would make that structural instead of lucky. Flagged, not implemented.
+
+Ticket updated with all of it; version 0.0.199. I deliberately ran no pipeline commands so as not to collide with your run — note the fold changes need a **re-capture**, not just `repro`, to show up.
+
+<!-- xgd-turn id="b412fea5-ecb2-46c1-a286-037e187d896a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T17:59:59.459503+00:00" -->
+#### You
+ok good so I think we need at least one hero capture at a different size so we can "see" that connection. It was an important and deliberate design feature.
+
+Can you give me your list of everything else that you can see that is outstanding. Here is mine:
+
+1. Our left margin is twice the width of the target (acceptable)
+2. Green quote bar "These aren't..." Indented and overrunning text (unacceptable)
+3. What we're buildi... check/bullet lists are wrapping on ours and the line spacing is messed up they are overwriting the  line below (u)
+4. We're not try... Orage quote bar indented and overwriting text
+5. Get in touch - still no text entry fields. Send message CTA wrapping and therefore too large and overrunniung the text below
+
+<!-- xgd-turn id="b412fea5-ecb2-46c1-a286-037e187d896a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T18:09:21.838523+00:00" -->
+#### Claude
+I'll dig into the current state rather than answer from the prior session's numbers — your run may have changed things.
+
+Fresh bundle at 10:52 today. Let me verify it postdates the ceil fix, then measure the actual current state.
+
+Ceil fix is in this bundle (10:45 commit, 10:52 capture). Now let me measure the specific elements in your list against the target.
+
+Let me see how the target actually marks up these quote bars, and what our render emits for them.
+
+The markup is decisive — let me check how capture attributes that border.
+
+The mechanism is clear. Let me confirm how capture resolves `surface` and `borderLeft` ancestors.
+
+Now let me look at what our renderer actually emits for the button and the quote bar.
+
+Playwright is available. Let me measure our actual render directly — read-only, writes nothing to the site or bundle.
+
+At 1280 the buttons don't wrap — so your wrap report is from a different width. Let me sweep the ladder and off-sample widths, comparing line counts against the target.
+
+Zero mismatches across the whole ladder. So your wrapping is at an **off-sample** width — your actual window. Let me test between the samples.
+
+Most of those are legitimately multi-line in the target too. Let me target exactly the elements you named — the check lists and the CTA.
+
+The ladder is clean in Chromium, so let me test the engine the user actually browses in — this is a cross-browser question.
+
+Firefox wraps 8 more runs than Chromium — cross-engine fragility confirmed. Let me identify exactly which.
+
+Now let me check the viewport heights in the capture — that's what your hero request hinges on — and the left-margin behaviour.
+
+My centered-column guess was wrong — let me read the target's actual margins and find which section is the viewport-height one.
+
+Cleaned up — only your repro output is modified. Here's what I found.
+
+## First: your hero capture request — the evidence is already in the bundle
+
+The ladder already varies viewport **height**, and section 1's height matches it 1:1 in all six:
+
+| capture | 320×**800** | 375×**800** | 768×**1024** | 1024×**768** | 1280×**800** | 1440×**900** |
+|---|---|---|---|---|---|---|
+| hero height | 800 | 800 | **1024** | **768** | 800 | 900 |
+
+The 768w×1024h / 1024w×768h pair is the clincher — height goes *up* as width goes *down*, which rules out width-dependence entirely. That is `min-h-screen` = `100vh`, unambiguously, and it's already visible in what we captured.
+
+A same-width height pair would still be worth adding as a clean control (it isolates the variable instead of relying on the inverted pair), but you don't need it to prove the connection — you need it so the **fold** has a rule it can generalise from. Right now nothing in the fold looks at viewport height at all.
+
+## Your list — all five confirmed, with mechanisms
+
+**Items 2 and 4 are one bug.** Measured in our render: the green and amber quote bars sit at `x=116 w=868`; the target's bars are on a wrapper at `x=88 w=896`. Two consequences, both of which you saw — the bar is indented by 28px, and because it's painted on the *text run's own* box, the 4px rule lands at x=116..120 where the first glyph also starts, so it overruns the text.
+
+The cause is precise: capture's `accentBarOf` returns only `{width, color}`, not the box that bears the border. `surfaceOf` *would* supply the box but requires a background, and the target's markup is `<div class="border-l-4 border-emerald-400 pl-6">` — a border with no fill. So it skips the wrapper, returns the band, the fold rejects that as viewport-wide, and falls back to the run's rect. The three "What we're building" cards get it *right* only because they also carry `bg-white/70`, so `surfaceOf` finds them.
+
+**Items 3 and 5 are one bug, and it's the systemic one — it's cross-browser.** At 1280 in Chromium there are **zero** line-count mismatches against the target; the ceil fix held completely. In Firefox, **8 runs wrap that don't in Chromium**:
+
+```
+Designed for developers building AI-…   box=414  glyph=413.23  slack 0.77
+Open source and community-driven        box=261  glyph=260.67  slack 0.33
+Practical tools for modern software…    box=353  glyph=352.75  slack 0.25
+Completely on-device—your thoughts…     box=447  glyph=446.34  slack 0.66
+Creates space for deeper reflection…    box=341  glyph=340.19  slack 0.81
+Optional modules for journaling,…       box=521  glyph=520.67  slack 0.33
+© Gigabyte Alchemy 2025                 box=171  glyph=170.88  slack 0.12
+Send message                            box=173  glyph=108.78  slack 0.22 (after 64px padding)
+```
+
+Those are exactly your checklists, your CTA, and the footer. And they don't just wrap — I measured the collisions in Firefox: "Completely on-device…" overruns the following ✓ by 42px and the next item by 10px. That's your "overwriting the line below," precisely.
+
+So ceiling the width bought a fraction of a pixel and the wrap is still decided by luck. A shrink-to-fit run *cannot* wrap in the reference; reproducing it as a fixed-width absolutely-positioned box reintroduces the possibility, and each engine's glyph metrics differ by just enough. This is the `whiteSpace: nowrap` axis I flagged last session — no longer a hypothesis. It's also a **cross-browser conformance failure** under DOC-20's x-browser AC.
+
+**Item 1 is not acceptable — it's the same class as the hero.** The target's rule is `max-w-6xl (1152) mx-auto` + `px-6`, i.e. `left = max(0, (vw−1152)/2) + 24`. It reproduces exactly at all six samples (24/24/24/24/88/168). But between 1024 and 1280 we interpolate linearly while the target stays flat at 24 until 1152 — so at vw=1150 ours is **55.5 vs the target's 24**, which is the 2× you saw. Above 1440 it freezes at 168 where the target at 1600 would be 248.
+
+**Item 5's missing fields** are the 4 typed residuals for the `contact-form` behavior module — expected, not a defect.
+
+## Four more I found that aren't on your list
+
+1. **Six heading runs overflow their box by ~3px in every engine** — `Intentional Software`, `A Different Approach`, `Our Mission`, `What We're Building`, `The Alchemy`, `Get in touch`. The target pins height 43 where line-height is 40 (font metrics exceed the leading); our text leaves take natural height = 40. Cosmetically invisible here because everything is absolutely positioned, but it's systematic.
+
+2. **No extrapolation above the top sample.** All geometry freezes at the 1440 keyframe, so at 1800px the page renders its 1440 layout in an 1800px window.
+
+3. **Padding is not keyframed** — `foldPadding` takes the widest sample and emits one flat value while width *is* keyframed. It doesn't bite on this site (the target's padding is constant), but it's latent.
+
+4. **Both gates are Chromium-only, and the off-sample probe is analytic** — it has no font metrics, so it structurally *cannot* detect wrapping. That's why finding 2 above sailed through a green gate. Same shape as the hero-height blind spot: the gate and the capture share an assumption, so the error is zero by construction.
+
+## The pattern worth naming
+
+Three of these — the left margin, the hero height, and the off-sample card widths — are the same thing. **The target expresses layout in relative units (`100vh`, `mx-auto`, intrinsic `max-w`), and L1 pins absolute pixels per width sample.** At the samples we're exact; between and beyond them we're modelling. Every one of these needs a typed L1 axis for viewport- or container-relative extent, which is a design decision about L1's geometry model rather than a fold bug. Worth noting the docs describe a `Position.anchor: 'column'` primitive from REQ-75 that did exactly this — I checked, and it did not survive the pivot; there's no `anchor` in the current schema, renderer, or fold.
+
+I've made no code changes and run no pipeline commands. My suggested order if you want me to fix: the accent-bar box (contained, closes items 2 and 4), then `nowrap` on shrink-to-fit runs (closes 3, 5, and the footer, and is a conformance fix), then the relative-extent axis as a deliberate design step rather than a patch.
+
+<!-- xgd-turn id="342b9399-01e1-4023-9fee-cab5f6acbe25-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T18:13:06.633570+00:00" -->
+#### You
+Please fix them all the order is irrelevant -
+
+<!-- xgd-turn id="342b9399-01e1-4023-9fee-cab5f6acbe25-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T18:43:07.283600+00:00" -->
+#### Claude
+I'll work through all of them. Let me start with the ticket and the code I need to touch.
+
+Let me look at the capture types, the fold's geometry builder, and whether browser-driven tests already exist.
+
+There's already a cross-browser conformance suite — let me see how it drives engines.
+
+Now let me read the fold's geometry builder and surface-row emission.
+
+Plan is clear. Let me track the work and start with the capture side.
+
+Now let me implement. Starting with capture — the accent bar needs to carry the box that paints it.
+
+Now wiring it through the normalizer:
+
+Now the L1 schema. Let me see the document shape first.
+
+Now the L1 schema — three new typed axes:
+
+Now the `nowrap` axis and the document-level column:
+
+Now the renderer:
+
+Now let me implement the renderer's viewport-relative geometry:
+
+Now wiring the column through render state and adding `white-space`:
+
+The hero needs a same-width/different-height pair to be identifiable — let me find the capture ladder.
+
+The hero needs an additive viewport-height response (everything below it shifts too). Let me revise the schema accordingly.
+
+Now updating the renderer for the additive height response:
+
+Now the capture ladder needs a same-width height probe to make the hero fit identifiable:
+
+Now the fold — the largest piece. Let me see the tail of `foldToL1`:
+
+Now the fold helpers — viewport-height fit, column fit, and nowrap:
+
+Now wiring it into `foldToL1` — geometry, nowrap, and the accent box:
+
+Now the `nowrap` axis and the accent box in the text-leaf branch:
+
+Now the accent-bar box in the surface rows:
+
+Now `SurfaceRow` needs to carry its element so cards inherit the height response:
+
+Now `buildCards` and `buildSolidBands` need the new axes threaded through:
+
+Now `buildSolidBands` — bands take their response from the section edges they snap to:
+
+Now let me typecheck what I have before continuing:
+
+The extract script is a template literal — my comment's backticks terminated it:
+
+Let me verify the padding gap is real before adding schema surface for it:
+
+Confirmed inert on this page (0 of 54 runs vary). It's still a real modelling gap, so let me close it with a synthetic test to back it.
+
+Now the renderer and validator for responsive padding:
+
+Now the fold builds the padding tracks:
+
+All clean. Let me run the existing suite to check for regressions before writing new tests:
+
+One failure — let me determine whether it's mine or pre-existing:
+
+Pre-existing failure, unrelated (same on the clean tree). Now the UATs — let me see the existing fixture helpers:
+
+Now let me write the UATs:
+
+All 13 pass. Now the gate gap that let the wrapping through — a real cross-engine check:
+
+Now the cross-engine wrap conformance UAT — this is the check that was missing:
+
+Playwright resolves from `tools/generate`, not the root — let me drive it through the project's own driver instead:
+
+754 passing (+15), only the pre-existing failure. Now let me verify against the real bundle — it predates both the accent box and the height probe:
+
+The column fit is rejecting on real data — let me see why:
+
+The header uses a narrower gutter than the content column — taking the *minimum* x conflates them. The modal origin is the right measure:
+
+Column recovered exactly: `max-w-6xl (1152) mx-auto px-6` + `max-w-4xl (896)` — matching my hand derivation. Let me verify the rendered output end-to-end without touching the site:
+
+Margins now track the rule exactly at every width — including 1150 (was 55.5, the 2.3× you saw) and above 1440. Now the Firefox check:
+
+6 still wrap in Firefox — let me identify exactly which:
+
+Firefox's glyph width is 337 vs Chromium's 413 — that's a different font, not sub-pixel drift. Let me re-measure line count by height, which is unambiguous:
+
+Now a sharper finding: those checklist items are single-line at 1280 but genuinely multi-line at 320, so an all-widths `nowrap` can't express them. Let me make the axis width-aware:
+
+<!-- xgd-turn id="80e7ccc0-3b63-4b99-beb3-40be2bc7b121-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T19:03:08.830833+00:00" -->
+#### You
+please continue
+
+<!-- xgd-turn id="80e7ccc0-3b63-4b99-beb3-40be2bc7b121-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T19:13:38.803849+00:00" -->
+#### Claude
+Continuing — replacing the all-or-nothing `whiteSpace` with a width threshold:
+
+Now the fold computes the threshold:
+
+Now updating the UATs for the width-aware axis:
+
+Now let me update the cross-engine UAT and re-measure the real fold in Firefox:
+
+Now the real-bundle measurement across engines:
+
+Firefox now matches Chromium exactly (13 = the genuine multi-line paragraphs). Let me clean up and do a full verification:
+
+While that runs, let me update the ticket body:
+
+Quality gate is red only on that pre-existing failure. Let me check whether it's REQ-88 fallout (and so in scope):
+
+That's REQ-88's own fallout — rounds 3–5 replaced BUG-11's per-run `surface-*` boxes with the band/card reconstruction, and this expectation was never updated:
+
+Full suite green — 757/757. Let me update the ticket and commit:
+
+All done and committed as `65d222bb` (REQ-88, v0.0.200, `free_coded`). **Suite is 757/757 green** — the first fully clean run; the long-standing `req92` failure turned out to be this ticket's own round-3 fallout.
+
+## What changed
+
+**Items 2 & 4 — quote bars.** Capture now records `accentBox`, the rect of the element that actually paints the rule. `surfaceOf` structurally couldn't supply it: it resolves the nearest *background*-painting ancestor, and `border-l-4 pl-6` has no fill, so the walk ran past the wrapper to the band. The three `bg-white/70` cards were always right for exactly that reason.
+
+**Items 3 & 5 — wrapping and overlap.** New `axes.nowrapFromPx`. Mid-implementation I found my first design was wrong: an all-widths `nowrap` would have covered only 20 of 55 runs and **missed every checklist item**, because those are one line on desktop and three at 320. The axis had to be a *width* — the smallest captured width whose whole suffix is single-line. Measured on the real fold, Firefox went from 19 wrapped runs to **13, identical to Chromium**, and the remaining 13 are genuine paragraphs matching the reference's own line counts.
+
+**Item 1 — left margin.** `fitColumn` recovered `{containerPx: 1152, insetPx: 24, maxWidthPx: 896}` — exactly `max-w-6xl mx-auto px-6` + `max-w-4xl`. Rendered origin is now exact at every width I measured:
+
+| vw | 320 | 1024 | 1100 | 1150 | 1280 | 1440 | 1600 | 1800 |
+|---|---|---|---|---|---|---|---|---|
+| ours | 24 | 24 | 24 | **24** | 88 | 168 | **248** | **348** |
+| rule | 24 | 24 | 24 | 24 | 88 | 168 | 248 | 348 |
+
+1150 was 55.5 (your 2× — actually 2.3×); 1600/1800 were frozen at 168. That also closes the no-extrapolation gap for the 33 anchored nodes.
+
+**The hero.** Your instinct was exactly right, and stronger than "helpful": the axis was **unidentifiable**, not merely unmodelled. Width and height moved together in the ladder, so `100vh` was indistinguishable from a width-decreasing height — no fitting algorithm could have recovered it. `HEIGHT_PROBE_VIEWPORTS` re-shoots 1280 at height 1000, kept out of the main ladder so it doesn't perturb keyframes, screenshots or diff cells. Modelled as a derivative, because a `100vh` hero isn't local — everything below it shifts by the same amount, so `{heightFactor: 1}` on the hero and `{yFactor: 1}` below say the same thing in the same units. Without a probe the fold emits nothing rather than guessing.
+
+**Plus:** `responsivePadding` keyframes padding; the gate gap is closed by a real 3-engine UAT with a calibration half that fails if the fixture stops discriminating.
+
+## Two things you should know
+
+**A re-capture is required for two of these.** `accentBox` and the height probe are capture-side data absent from your 10:52 bundle, so the quote bars and the hero won't change until you run `1c capture page` again. I verified the fold degrades cleanly against the current bundle — accents keep the old rect, no height response is emitted, nothing else regresses. The `nowrapFromPx` and column fixes need no re-capture and are live now.
+
+**One correction to my earlier report.** I attributed the Firefox wraps to sub-pixel slack, and that holds — but I initially measured line count via `getClientRects().length`, which Firefox fragments for reasons other than wrapping. Re-measuring by glyph height confirmed the wraps are real and the diagnosis stands; the specific per-run slack figures came from Chromium and are sound.
+
+I didn't touch `storage/sites/gigabytealchemy/draft/pages/home.json` — that's your repro output from the 10:52 run and it'll be regenerated. I also ran no pipeline commands; all verification went through temp files and the project's own driver.
+
+<!-- xgd-turn id="62ecbbb8-8f6b-40f8-873b-084480eb3f48-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T19:26:26.072234+00:00" -->
+#### You
+ok we are close, there are still some big gaps, wht ca you see
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c capture page https://gigabytealchemy.ai                                
+
+Captured https://gigabytealchemy.ai → /Users/martin/Projects/1stcontact/storage/references/gigabytealchemy.ai/index
+  8 section(s), 5 asset(s)
+  l1.json: 70 node(s) across 6 width(s); hints.json: 109 node(s), 0 @media breakpoint(s)
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+Reproduced storage/references/gigabytealchemy.ai/index → /Users/martin/Projects/1stcontact/storage/sites/gigabytealchemy/draft
+  raw-L1 home page: 71 node(s); assets copied; 1 media handle(s) bound to local mirror
+  next: 1c render gigabytealchemy  ·  1c l1-gate --ref storage/references/gigabytealchemy.ai/index
+((.venv-working) ) martin@nyx 1stcontact % bin/1c render gigabytealchemy                                   
+Rendered 2 file(s) → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft
+((.venv-working) ) martin@nyx 1stcontact % bin/1c l1-gate --ref storage/references/gigabytealchemy.ai/index           
+3-probe gate on storage/references/gigabytealchemy.ai/index: FAIL
+  sample-fidelity     FAIL  (maxΔ 0.9px, 0 residual(s), 55 unmatched)
+  off-sample          PASS  (0 envelope finding(s))
+  content-robustness  PASS  (0 finding(s))
+  promoted regions: 0.15, 0.16, 0.17, 0.18, 0.21
+  fold residuals (folder-power gaps): 4
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+((.venv-working) ) martin@nyx 1stcontact % bin/1c values-diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index --multi-viewport
+values-diff --multi-viewport: 7 cell(s) across the viewport ladder
+  95 delta(s), 0 missing cell(s) — worst cell first
+  repair order (REQ-64): A-flat 0 → A-structural 0 → B 54  (54 defects deduped across the ladder)
+    ① copy the 0 Type-A flat value(s); ② author the 0 Type-A structural (responsive/spacing); ③ then read the 54 Type-B as the residual
+  ✗ @320 chromium:rest  4 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+  ✗ @375 chromium:rest  4 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+  ✗ @768 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1024 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1280 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1440 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1280 chromium:rest  59 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] position         @ (124, 2959)          → @ (124, 2687)
+((.venv-working) ) martin@nyx 1stcontact % bin/1c shot gigabytealchemy                                                                          
+Shot http://localhost:62078/ @ 1280×800 → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft/shot-draft-desktop.png
+((.venv-working) ) martin@nyx 1stcontact % bin/1c diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index 
+perceptual-diff: storage/references/gigabytealchemy.ai/index/screenshot.full.png ⇄ /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/req38-diff-olmw3R/actual.png
+  mean 1.06 / 255 · 0.6% pixels over threshold · 12 region(s)
+  bands: 5.3 1.9 0.7 0.0 0.0 0.8 0.7 0.1 1.1 0.6 1.0 0.2 0.6 0.6 3.2 0.1
+  #1 score 2194.4 (mean 48.8) @ 448,96 272×64
+  #2 score 1224.7 (mean 49.0) @ 160,96 176×64
+  #3 score 875.0 (mean 54.7) @ 96,80 112×80
+  #4 score 789.0 (mean 39.5) @ 224,320 192×32
+  #5 score 725.4 (mean 60.5) @ 336,96 96×64
+  #6 score 441.1 (mean 33.9) @ 96,320 128×32
+  #7 score 414.2 (mean 34.5) @ 416,3920 112×32
+  #8 score 310.1 (mean 51.7) @ 720,96 64×32
+  #9 score 118.8 (mean 29.7) @ 720,3936 64×16
+  #10 score 116.8 (mean 29.2) @ 128,3344 64×16
+  #11 score 115.7 (mean 38.6) @ 96,512 48×16
+  #12 score 104.5 (mean 34.8) @ 720,144 48×16
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="62ecbbb8-8f6b-40f8-873b-084480eb3f48-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T19:33:43.194215+00:00" -->
+#### Claude
+Let me look at the actual data rather than infer — several of those numbers look like something I introduced.
+
+Two problems already visible. Let me confirm the second — `accentBox` never reached the manifest:
+
+Confirmed — I patched the wrong projection function; the manifest is built by `rawRunToElement`. Let me now check the gate's 55 unmatched:
+
+Both gate failures are artifacts of my probe leaking into the ladder. Let me confirm the mechanism precisely:
+
+Root cause confirmed: `projectionKey` is `(engine, width, state)` — it has no height, so the probe collides with the ladder's 1280 cell. Let me fix both defects.
+
+Now the fold uses the same split, and the accent box reaches the manifest:
+
+`OracleSource` is deliberately structural (no `engine`), so let me keep that decoupling rather than widen it:
+
+Green. Let me verify against the fresh bundle:
+
+Gate now passes (0 unmatched, 0 residuals) and the hero is recovered: `section-band-0 {heightFactor: 1}` with `yFactor: 1` on all 65 nodes below. Let me add UATs for these fixes:
+
+Two real defects in that output — both mine, and both were masking the actual state.
+
+## What the numbers were really telling you
+
+**The gate FAIL and the 95 deltas were phantoms.** My height probe leaked into the ladder. Every consumer keys a projection on `(engine, width, state)` — that key deliberately carries no viewport *height* — so the 1280×1000 probe collided with the 1280×800 ladder cell. My round-6 claim that the probe "adds one projection and nothing else" was wrong: `RESPONSIVE_VIEWPORTS` bounds what gets *shot*, not what downstream reads, and both consumers enumerate `multiState.projections` directly.
+
+- `oracleBoxes` drains a FIFO leaf queue per `(key, width)`. A second set of 1280 rows found those queues already empty → **all 55 text runs reported as unmatched**. That's why the count was suspiciously exactly your text-run count.
+- `diffMultiState` both *overwrote* 1280's reproduction with the probe's taller render and emitted a second 1280 cell → the 59-delta cell, and the 7th cell in your listing.
+
+`partitionProbes` now states the rule once: first projection at a key is the ladder, later ones are evidence.
+
+**The accent fix had never run at all.** I wired `accentBox` through `contentRunToElement` and `sections.ts` — neither of which builds the multi-state manifest. `rawRunToElement` does, and it dropped the field. Zero elements in your fresh capture carried it. That's a straight miss on my part; the round-6 UAT passed because it fed the fold a hand-built manifest and never exercised the capture→manifest projection. There's now a UAT on that seam specifically.
+
+## Where it actually stands
+
+| | your run | now |
+|---|---|---|
+| l1-gate sample-fidelity | FAIL, 55 unmatched | **PASS** — 0 unmatched, 0 residuals, maxΔ 0.89px |
+| values-diff cells | 7 | **6** |
+| runs pinned unbreakable | 20/55 | **42/55** |
+| hero | — | **`section-band-0 {heightFactor: 1}`, 64 nodes below `{yFactor: 1}`** |
+| column | — | `{1152, 24, 896}`, 33 anchored |
+
+**The hero is recovered end-to-end from a real capture.** The probe made it identifiable and the fold now emits `100vh` — that's your "important and deliberate design feature" landing for the first time.
+
+Suite 761 passing, clean `tsc`. Committed as `d75a26fb`, v0.0.201, ticket updated.
+
+## One more capture needed
+
+The accent fix landed *after* your capture, so the two quote bars are still at `x=116`. Re-run `bin/1c capture page https://gigabytealchemy.ai` and they'll move to `x=88 w=896`. Everything else is live on the current bundle.
+
+## What's genuinely left after that
+
+Your perceptual diff actually **improved** to mean 1.06 (from 1.65) at 0.6% pixels — the reproduction got better while the scoreboard got louder.
+
+- **The hero title** is still the dominant residual: regions #1/#2/#3/#5/#8 all sit in `y 80..160`, scoring 2194/1225/875/725/310. Same metric-level Cinzel residual recorded in round 5, still unattributed — not geometry, not the column.
+- **`arrangement beside → below prev` and `gap 142→149px`** at ≥768 are the contact form: with the 4 fields correctly absent as `contact-form` residuals, the surviving controls sit differently. Those resolve when the behavior module lands, not before.
+- **`0 @media breakpoints`** in hints remains true and is fine — this page's responsiveness is intrinsic (`mx-auto`, `max-w-*`, `min-h-screen`), which is exactly what the two new axes now model rather than approximate.
+
+<!-- xgd-turn id="f7379ed8-eefc-45b0-9ed6-ddbde55028e2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T19:43:14.671858+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c capture page https://gigabytealchemy.ai                                
+
+Captured https://gigabytealchemy.ai → /Users/martin/Projects/1stcontact/storage/references/gigabytealchemy.ai/index
+  8 section(s), 5 asset(s)
+  l1.json: 70 node(s) across 6 width(s); hints.json: 109 node(s), 0 @media breakpoint(s)
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+Reproduced storage/references/gigabytealchemy.ai/index → /Users/martin/Projects/1stcontact/storage/sites/gigabytealchemy/draft
+  raw-L1 home page: 71 node(s); assets copied; 1 media handle(s) bound to local mirror
+  next: 1c render gigabytealchemy  ·  1c l1-gate --ref storage/references/gigabytealchemy.ai/index
+((.venv-working) ) martin@nyx 1stcontact % bin/1c render gigabytealchemy                                                 
+Rendered 2 file(s) → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft
+((.venv-working) ) martin@nyx 1stcontact % bin/1c l1-gate --ref storage/references/gigabytealchemy.ai/index           
+3-probe gate on storage/references/gigabytealchemy.ai/index: PASS
+  sample-fidelity     PASS  (maxΔ 0.9px, 0 residual(s), 0 unmatched)
+  off-sample          PASS  (0 envelope finding(s))
+  content-robustness  PASS  (0 finding(s))
+  promoted regions: 0.15, 0.16, 0.17, 0.18, 0.21
+  fold residuals (folder-power gaps): 4
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+((.venv-working) ) martin@nyx 1stcontact % bin/1c values-diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index --multi-viewport
+values-diff --multi-viewport: 6 cell(s) across the viewport ladder
+  36 delta(s), 0 missing cell(s) — worst cell first
+  repair order (REQ-64): A-flat 0 → A-structural 0 → B 7  (7 defects deduped across the ladder)
+    ① copy the 0 Type-A flat value(s); ② author the 0 Type-A structural (responsive/spacing); ③ then read the 7 Type-B as the residual
+  ✗ @320 chromium:rest  4 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+  ✗ @375 chromium:rest  4 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+  ✗ @768 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1024 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1280 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1440 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+((.venv-working) ) martin@nyx 1stcontact % bin/1c shot gigabytealchemy                                                                          
+Shot http://localhost:64478/ @ 1280×800 → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft/shot-draft-desktop.png
+((.venv-working) ) martin@nyx 1stcontact % bin/1c diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+perceptual-diff: storage/references/gigabytealchemy.ai/index/screenshot.full.png ⇄ /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/req38-diff-fPB25a/actual.png
+  mean 1.04 / 255 · 0.6% pixels over threshold · 12 region(s)
+  bands: 5.3 1.9 0.7 0.0 0.0 0.8 0.5 0.1 1.1 0.6 1.0 0.2 0.6 0.5 3.2 0.1
+  #1 score 2194.4 (mean 48.8) @ 448,96 272×64
+  #2 score 1224.7 (mean 49.0) @ 160,96 176×64
+  #3 score 875.0 (mean 54.7) @ 96,80 112×80
+  #4 score 789.0 (mean 39.5) @ 224,320 192×32
+  #5 score 725.4 (mean 60.5) @ 336,96 96×64
+  #6 score 441.1 (mean 33.9) @ 96,320 128×32
+  #7 score 414.2 (mean 34.5) @ 416,3920 112×32
+  #8 score 310.1 (mean 51.7) @ 720,96 64×32
+  #9 score 118.8 (mean 29.7) @ 720,3936 64×16
+  #10 score 116.8 (mean 29.2) @ 128,3344 64×16
+  #11 score 115.7 (mean 38.6) @ 96,512 48×16
+  #12 score 104.5 (mean 34.8) @ 720,144 48×16
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Accents are now good. Issues:
+1. Strange indent of "Tools for clarity..." at some sizes it is NOT consistently aligned with the other hero text and has a negative indent into the left margin (looks janky)
+2. Still no text boxes on the email capture
+
+<!-- xgd-turn id="fefb70a1-7605-4666-bb05-2b1650ab55fd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T19:43:32.640720+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c capture page https://gigabytealchemy.ai                                
+
+Captured https://gigabytealchemy.ai → /Users/martin/Projects/1stcontact/storage/references/gigabytealchemy.ai/index
+  8 section(s), 5 asset(s)
+  l1.json: 70 node(s) across 6 width(s); hints.json: 109 node(s), 0 @media breakpoint(s)
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+Reproduced storage/references/gigabytealchemy.ai/index → /Users/martin/Projects/1stcontact/storage/sites/gigabytealchemy/draft
+  raw-L1 home page: 71 node(s); assets copied; 1 media handle(s) bound to local mirror
+  next: 1c render gigabytealchemy  ·  1c l1-gate --ref storage/references/gigabytealchemy.ai/index
+((.venv-working) ) martin@nyx 1stcontact % bin/1c render gigabytealchemy                                                 
+Rendered 2 file(s) → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft
+((.venv-working) ) martin@nyx 1stcontact % bin/1c l1-gate --ref storage/references/gigabytealchemy.ai/index           
+3-probe gate on storage/references/gigabytealchemy.ai/index: PASS
+  sample-fidelity     PASS  (maxΔ 0.9px, 0 residual(s), 0 unmatched)
+  off-sample          PASS  (0 envelope finding(s))
+  content-robustness  PASS  (0 finding(s))
+  promoted regions: 0.15, 0.16, 0.17, 0.18, 0.21
+  fold residuals (folder-power gaps): 4
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+((.venv-working) ) martin@nyx 1stcontact % bin/1c values-diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index --multi-viewport
+values-diff --multi-viewport: 6 cell(s) across the viewport ladder
+  36 delta(s), 0 missing cell(s) — worst cell first
+  repair order (REQ-64): A-flat 0 → A-structural 0 → B 7  (7 defects deduped across the ladder)
+    ① copy the 0 Type-A flat value(s); ② author the 0 Type-A structural (responsive/spacing); ③ then read the 7 Type-B as the residual
+  ✗ @320 chromium:rest  4 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+  ✗ @375 chromium:rest  4 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+  ✗ @768 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1024 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1280 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1440 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+((.venv-working) ) martin@nyx 1stcontact % bin/1c shot gigabytealchemy                                                                          
+Shot http://localhost:64478/ @ 1280×800 → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft/shot-draft-desktop.png
+((.venv-working) ) martin@nyx 1stcontact % bin/1c diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+perceptual-diff: storage/references/gigabytealchemy.ai/index/screenshot.full.png ⇄ /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/req38-diff-fPB25a/actual.png
+  mean 1.04 / 255 · 0.6% pixels over threshold · 12 region(s)
+  bands: 5.3 1.9 0.7 0.0 0.0 0.8 0.5 0.1 1.1 0.6 1.0 0.2 0.6 0.5 3.2 0.1
+  #1 score 2194.4 (mean 48.8) @ 448,96 272×64
+  #2 score 1224.7 (mean 49.0) @ 160,96 176×64
+  #3 score 875.0 (mean 54.7) @ 96,80 112×80
+  #4 score 789.0 (mean 39.5) @ 224,320 192×32
+  #5 score 725.4 (mean 60.5) @ 336,96 96×64
+  #6 score 441.1 (mean 33.9) @ 96,320 128×32
+  #7 score 414.2 (mean 34.5) @ 416,3920 112×32
+  #8 score 310.1 (mean 51.7) @ 720,96 64×32
+  #9 score 118.8 (mean 29.7) @ 720,3936 64×16
+  #10 score 116.8 (mean 29.2) @ 128,3344 64×16
+  #11 score 115.7 (mean 38.6) @ 96,512 48×16
+  #12 score 104.5 (mean 34.8) @ 720,144 48×16
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Accents are now good. Issues:
+
+1. Strange indent of "Tools for clarity..." at some sizes it is NOT consistently aligned with the other hero text and has a negative indent into the left margin (looks janky)
+2. Still no text boxes on the email capture
+
+Can you see these issues?
+
+<!-- xgd-turn id="fefb70a1-7605-4666-bb05-2b1650ab55fd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T19:58:01.970493+00:00" -->
+#### Claude
+Let me look at both concretely.
+
+Both are real. Let me confirm issue 1's mechanism before fixing — I think I caused it:
+
+Confirmed, and it's my bug. At 1150 "Tools for clarity" is at 24 (correct) while the other three hero lines are at 55.5 (keyframed, wrong) — a 31.5px split. `fitAnchor` requires *both* x and width to fit, so only one element anchored and the rest kept drifting keyframes. Mixed anchoring is worse than uniformly-wrong, because it breaks alignment the reference guarantees.
+
+Now the fold fits each axis independently, with a cap for nested `max-w-*`:
+
+Two bugs in my own fix: the CSS isn't wrapped in `calc()` (so `left` is dropped entirely), and the hero title got a degenerate 2-point overfit.
+
+The subhead is fixed, but the hero *title* still drifts (55.5 vs 24 at 1150) — it uses a narrower gutter at mobile. Let me check how general that is:
+
+The pattern is clear: 16 elements have a *locally constant* inset that only varies at low widths. Tracking the inset (not the absolute x) fixes all of them. Let me add that:
+
+`l1ScalarTrackSchema` is declared after the column section — that's a TDZ error at module load. Let me reorder:
+
+Now the renderer emits the tracked inset, and the fold falls back to it:
+
+All four hero lines now align at every width. Let me check the whole page and run the suite:
+
+63 of 71 nodes now anchored, origin exact everywhere. One residual at 700px — the 3-up grid stacks below `md`, and my inset track interpolates across that mode change. Let me check how geometry already handles it:
+
+The geometry track already decides `snap` at layout-mode changes — the inset track should inherit exactly that decision:
+
+Clean at every width now. Let me run the suite and update the affected UATs:
+
+My fixture was degenerate — three distinct right edges, so the modal extent tied. Let me make it realistic:
+
+Issue 1 is fixed and the suite is green (763). Now the contact form — let me see what the behavior-module seam already provides:
+
+This is the real blocker, and it's structural. Let me confirm what the capture actually has for those fields:
+
+Everything needed is captured. Let me commit issue 1 and record the finding.
+
+Yes — I can see both, and the first one was mine.
+
+## 1. The hero indent — fixed
+
+Not a capture gap. In round 6 I required **both** `x` and `width` to fit the column before anchoring either. On your hero, exactly one line's width equals the column extent — so `Tools for clarity` followed the column while its three neighbours kept absolute keyframes, and the two models disagree exactly where the origin starts moving:
+
+| viewport | 1024 | 1100 | **1150** | 1200 | 1280 |
+|---|---|---|---|---|---|
+| `Tools for clarity` | 24 | 24 | **24** | 48 | 88 |
+| the other three | 24 | 43 | **55.5** | 68 | 88 |
+| the rule | 24 | 24 | **24** | 48 | 88 |
+
+`Tools for clarity` was the *correct* one; the others were drifting right, which reads as the odd one being pulled into the margin. Mixed anchoring is worse than none — it breaks an alignment the reference guarantees.
+
+**Alignment is shared; width is private.** The anchor is now `{x?, width?}`, fitted and suppressed per axis. Four things had to be fixed for that to actually work:
+
+- A nested `max-w-*` is a *capped* column term — refusing it was half the reason neighbours split.
+- A two-point fit is interpolation, not evidence. The hero title's glyph extent fits any two samples and then "verifies" against the cap, giving `-684px + 3.14 × extent`. Capped fits now need an over-determined fit, and fractions are bounded to a plausible share of the column.
+- A layout *mode* change isn't a fit — the 3-up grid stacks below `md` and the title uses a narrower gutter there. Those anchor via a keyframed **inset**, so the origin stays closed-form and only the small in-column offset interpolates. The track inherits the node's geometry `segments`; without that the third grid column slid 42px off-screen at ~700px.
+- A full-bleed band must never anchor — `origin + (-origin)` interpolated puts it at `x = -31` at 1150.
+
+I also found a renderer bug the same way: `left: max(…) + 24px` isn't a legal bare value, so the declaration was **dropped** and every anchored node slammed to `x = 0`. Compound expressions are now always wrapped in `calc()`.
+
+Measured across 12 widths: origin exact at every one, zero negative-x nodes, zero horizontal overflow. Anchored `x` went 33 → **63 of 71**. Suite 763 green, committed `65ff44db`, v0.0.202.
+
+## 2. The form fields — diagnosed, not fixed
+
+This one isn't a folder-power gap, and it won't yield to any fold improvement. The capture already has everything the module needs: `a11yRole: textbox`, `accessibleName` ("Your name" / "Your email" / "Your message" / "Your email address"), `nameSource: placeholder`, geometry, border, radius — for two distinct forms (mailing list at `x=88`, contact at `x=664`).
+
+The blocker is that **there is nowhere to put them**. `pageSchema` enforces a strict XOR, added by this same ticket:
+
+> a page is either a module stack or a raw L1 document, not both
+
+Your page is 100% L1 layout **plus one behavior module**. That combination is currently unrepresentable, so those four fields can only ever be residuals. `l1SlotSchema` already carries `name` and `behavior` — the seam exists in L1; what's missing is the page's ability to bind a module instance to a slot inside its L1 tree.
+
+I've deliberately not started it, because it's a coherent five-part change rather than a patch: relax the XOR to "modules may accompany `l1` when each binds to a slot present in the tree", emit the slot in the fold, derive `fields[]`/`action` in `repro`, mount the fragment in `render`, and then the module's conformance obligations (safety/security/x-browser/responsive/isolation) apply to the result. Half-building that would leave the page in a worse state than the honest residual it is now.
+
+It's written up in the ticket with the diagnosis and the plan, so it can start from there. Say the word and I'll take it — it's the last visible gap in the reproduction.
+
+<!-- xgd-turn id="ad5b2af9-6851-45fd-9e46-d26ae32f47ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T20:22:14.190270+00:00" -->
+#### You
+Can you create a ticket for that please.  While that runs I think I want to try to import joyfulculinarycreations - can you give me the commands - I want to put this one in the sandbox not sites
+
+<!-- xgd-turn id="ad5b2af9-6851-45fd-9e46-d26ae32f47ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T20:23:41.833289+00:00" -->
+#### Claude
+The user explicitly asked for a new ticket, so I'll create one. Let me first check what target options `repro` actually supports.
+
+`--sandbox` exists as a global flag. Let me confirm it's wired through the commands you'll need:
+
+Ticket created: **REQ-93** (`request-f26cbe32`) — *L1 pages must be able to host behavior modules in their slots*, cross-linked from REQ-88. It carries the full diagnosis (the XOR, the captured field table showing the data is already there, why the fold is right to refuse), the narrower rule that preserves the XOR's intent, a five-part scope, and acceptance criteria. Nothing is running — ticket creation is instant, so you're not waiting on it.
+
+## Importing joyfulculinarycreations into the sandbox
+
+`--sandbox` is a global flag — it targets the gitignored `sandbox/` scratch tree instead of the git-tracked `sites/` tree, and every command below honours it.
+
+```bash
+# 1. Capture — no --sandbox here; bundles always land in storage/references/<host>/index
+bin/1c capture page https://joyfulculinarycreations.com
+
+# 2. Import the folded bundle as a raw-L1 site, in the sandbox
+bin/1c repro joyful --ref storage/references/joyfulculinarycreations.com/index --sandbox
+
+# 3. Render
+bin/1c render joyful --sandbox
+
+# 4. Gate (reads the bundle, not the site — --sandbox is harmless but unnecessary)
+bin/1c l1-gate --ref storage/references/joyfulculinarycreations.com/index
+
+# 5. Value-level fidelity across the ladder
+bin/1c values-diff joyful --ref storage/references/joyfulculinarycreations.com/index --multi-viewport --sandbox
+
+# 6. Perceptual eye
+bin/1c shot joyful --sandbox
+bin/1c diff joyful --ref storage/references/joyfulculinarycreations.com/index --sandbox
+```
+
+Two notes on this one specifically:
+
+**It's image-dense**, unlike gigabytealchemy — the existing `req92-image-box-fold` UATs already read a joyful bundle for exactly that reason. So expect the image-leaf path to get its first real exercise alongside everything from this session. Worth adding `--clusters` on the values-diff to roll defects into ranked causes rather than reading 6 cells of raw deltas:
+
+```bash
+bin/1c values-diff joyful --ref storage/references/joyfulculinarycreations.com/index --multi-viewport --clusters --sandbox
+```
+
+**The column fit is the thing to watch.** It's `fitColumn`'s second-ever page, and gigabytealchemy taught me one lesson already — I had to switch from the *minimum* left edge to the *modal* one because that page has two gutters (header 16px, content 24px). If joyful's layout isn't a centred column at all, the fit should reject cleanly and every node keeps its keyframes; if it's a column with a shape I haven't seen, that's exactly the probe worth having. Either outcome is informative — just send me the output.
+
+<!-- xgd-turn id="dae17e7c-bf87-4276-933d-df2859a4235c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T20:45:54.189754+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c capture page https://joyfulculinarycreations.com
+Captured https://joyfulculinarycreations.com → /Users/martin/Projects/1stcontact/storage/references/joyfulculinarycreations.com/index
+  1 section(s), 84 asset(s)
+  l1.json: 88 node(s) across 6 width(s); hints.json: 371 node(s), 20 @media breakpoint(s)
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro joyful --ref storage/references/joyfulculinarycreations.com/index --sandbox
+Transform failed with 1 error:
+
+[PARSE_ERROR] Expected a semicolon or an implicit semicolon after a statement, but found none
+      ╭─[ tools/generate/src/cli/capture/extract.ts:1069:46 ]
+      │
+ 1069 │         // flattens email/tel/text alike to `textbox`), and the enclosing form's
+      │                                              │ 
+      │                                              ╰─ 
+      │ 
+      │ Help: Try inserting a semicolon here
+──────╯
+
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="dae17e7c-bf87-4276-933d-df2859a4235c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T20:47:26.026085+00:00" -->
+#### Claude
+A parse error in `extract.ts` — let me look at what's there and whether it's mine.
+
+There's substantial uncommitted REQ-93 work in the tree (not mine — I committed clean). The break is the same trap I hit earlier: backticks inside `EXTRACT_SCRIPT`'s template literal. Let me find every instance:
+
+Existing comments escape them (`\`bg-slate-950/30\``); the four new REQ-93 comments don't. Let me match the established convention:
+
+Fixed — the CLI runs again. But there are things you need to know before you re-run.
+
+## What broke
+
+Backticks inside `EXTRACT_SCRIPT`'s template literal, in four new comments:
+
+```
+// flattens email/tel/text alike to `textbox`), and the enclosing form's
+```
+
+The script is authored as a raw string so that what Chromium evaluates is exactly the source — which means a backtick in a *comment* terminates the literal. The existing comments escape them (`\`bg-slate-950/30\``); these four didn't. I hit the identical trap earlier in this session on a `\`accentBox\`` comment, so it's a repeat, not a one-off — probably worth a lint rule.
+
+Typecheck is clean and `bin/1c list --sandbox` runs.
+
+## Two things I did not do, deliberately
+
+**I have not committed the fix.** Your working tree has substantial **uncommitted REQ-93 work** that isn't mine — new `packages/site-schema/src/l1/slots.ts` and `tools/generate/src/l1/forms.ts`, plus edits across `schema.ts`, `registry.ts`, `repro.ts`, `render.ts`, `harness.ts` and the capture layer (`controlType` / `formAction` extraction). I committed clean at `65ff44db`; something else has started REQ-93 since. Staging `extract.ts` would sweep that in-flight work into a commit under REQ-88, so the fix is sitting in the working tree for whoever owns that change to commit with it.
+
+**I touched only the backticks** — nothing else in the REQ-93 code. It may have other incomplete edges; a green typecheck isn't a working feature.
+
+So: if that REQ-93 work is a background agent still running, expect churn. If it stalled, it needs finishing or reverting before the joyful import gives you trustworthy numbers.
+
+## Your commands
+
+`bin/1c list --sandbox` already shows `joyful` and `joyfulculinary` — so a prior run got partway. `repro` is idempotent (re-import wipes and rebuilds), so just re-run:
+
+```bash
+bin/1c repro joyful --ref storage/references/joyfulculinarycreations.com/index --sandbox
+bin/1c render joyful --sandbox
+bin/1c l1-gate --ref storage/references/joyfulculinarycreations.com/index
+bin/1c values-diff joyful --ref storage/references/joyfulculinarycreations.com/index --multi-viewport --clusters --sandbox
+bin/1c shot joyful --sandbox
+bin/1c diff joyful --ref storage/references/joyfulculinarycreations.com/index --sandbox
+```
+
+You may want to `bin/1c rm joyfulculinary --sandbox` (or leave it) so the two half-imports don't confuse you later.
+
+## Two numbers in your capture output worth watching
+
+**`20 @media breakpoint(s)`** — gigabytealchemy had **0**. That page's responsiveness was entirely intrinsic (`mx-auto`, `max-w-*`, `min-h-screen`), which is exactly what this session's two new axes model. Joyful has real authored breakpoints, so it will stress `segmentKind`'s interpolate/snap classification much harder — and the inset-track fix I just made inherits those segment decisions, so this is its first real test.
+
+**`1 section(s)`** — against gigabytealchemy's 8. Band reconstruction clamps band tops and bottoms to captured section edges; with one section there are effectively no interior edges to clamp to, so bands will fall back to run-derived extents. If you see bands bleeding into each other, that's the cause, not the column work.
+
+<!-- xgd-turn id="8e5953c4-5394-4490-a3d3-90e9a0ba7801-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T21:03:16.784390+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro joyful --ref storage/references/joyfulculinarycreations.com/index --sandbox
+Reproduced storage/references/joyfulculinarycreations.com/index → /Users/martin/Projects/1stcontact/storage/sandbox/joyful/draft
+  L1 home page: 89 node(s); assets copied; 4 media handle(s) bound to local mirror
+  ⚠ 7 mirrored asset(s) referenced by no node (fold gap):
+      assets/JCC-WEBSITE-LOGO-350-x-100-px.png
+      assets/market-vegetables-produce-6329164.jpg
+      assets/HERO-AdobeStock_254767116-scaled.jpeg
+      assets/fa-brands-400.woff2
+      assets/fa-regular-400.woff2
+      assets/fa-solid-900.woff2
+      assets/eicons.woff2
+  next: 1c render joyful --sandbox  ·  1c l1-gate --ref storage/references/joyfulculinarycreations.com/index
+((.venv-working) ) martin@nyx 1stcontact % bin/1c render joyful --sandbox
+Rendered 2 file(s) → /Users/martin/Projects/1stcontact/storage/dist/sandbox/joyful/draft
+((.venv-working) ) martin@nyx 1stcontact % bin/1c l1-gate --ref storage/references/joyfulculinarycreations.com/index
+3-probe gate on storage/references/joyfulculinarycreations.com/index: PASS
+  sample-fidelity     PASS  (maxΔ 1.0px, 0 residual(s), 0 unmatched)
+  off-sample          PASS  (0 envelope finding(s))
+  content-robustness  PASS  (0 finding(s))
+  promoted regions: 0.16, 0.18, 0.19, 0.20
+  behaviours mounted: none
+  fold residuals (folder-power gaps): 0
+((.venv-working) ) martin@nyx 1stcontact % bin/1c values-diff joyful --ref storage/references/joyfulculinarycreations.com/index --multi-viewport --clusters --sandbox
+values-diff --clusters: 91 counted defect(s) roll up to 6 cause(s)
+  fix 6 · review 85 · accept 0   (counted defects, by disposition)
+
+  [REVIEW]  41 × surfaceFill                    @all
+             e.g. "Free Consultation", "Have a question? This…", "Home Visit"
+  [REVIEW]  25 × textAlign                      @320,375,768
+             e.g. "A balanced plate crea…", "A variety of offering…", "And now you can with …"
+  [REVIEW]  15 × text extent / wrapping         @all
+             e.g. "“So fabulous. We are …", "And now you can with …", "Dreaming of healthier…"
+  [FIX  ]   6 × vertical spacing               @all
+             e.g. "“So fabulous. We are …", "Dreaming of healthier…", "For expecting mothers…"
+  [REVIEW]   2 × layout structure               @1280,1440
+             e.g. "Everyone has the righ…", "In-home weekly, bi-we…"
+  [REVIEW]   2 × overflow                       @768,1024,1280,1440
+             e.g. "Gray R.", "I cannot say enough g…"
+((.venv-working) ) martin@nyx 1stcontact %                                                   
+
+((.venv-working) ) martin@nyx 1stcontact % bin/1c shot joyful --sandbox
+Shot http://localhost:57813/ @ 1280×800 → /Users/martin/Projects/1stcontact/storage/dist/sandbox/joyful/draft/shot-draft-desktop.png
+((.venv-working) ) martin@nyx 1stcontact % bin/1c diff joyful --ref storage/references/joyfulculinarycreations.com/index --sandbox
+perceptual-diff: storage/references/joyfulculinarycreations.com/index/screenshot.full.png ⇄ /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/req38-diff-67znSg/actual.png
+  mean 106.84 / 255 · 80.3% pixels over threshold · 12 region(s)
+  bands: 79.5 79.5 108.0 107.5 120.9 103.5 107.9 118.8 118.6 69.7 108.4 95.1 46.1 118.9 118.3 208.3
+  #1 score 1794772.8 (mean 121.2) @ 0,0 1280×3600
+  #2 score 713018.1 (mean 148.0) @ 0,3744 1280×962
+  #3 score 2524.7 (mean 33.2) @ 320,3200 624×64
+  #4 score 1707.3 (mean 41.6) @ 320,3168 656×16
+  #5 score 1607.8 (mean 40.2) @ 320,3136 640×16
+  #6 score 1031.8 (mean 34.4) @ 320,3104 480×16
+  #7 score 1030.2 (mean 36.8) @ 448,2976 256×32
+  #8 score 493.9 (mean 38.0) @ 720,2976 112×32
+  #9 score 428.3 (mean 30.6) @ 464,3024 160×32
+  #10 score 181.9 (mean 30.3) @ 880,1184 96×16
+  #11 score 178.4 (mean 29.7) @ 608,3232 64×32
+  #12 score 173.4 (mean 34.7) @ 816,3104 80×16
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+<!-- xgd-turn id="8e5953c4-5394-4490-a3d3-90e9a0ba7801-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T21:08:42.730566+00:00" -->
+#### Claude
+That diff is the headline: **mean 106.8/255, 80.3% of pixels over threshold** — the page is essentially not reproduced — while `l1-gate` says PASS with zero residuals. Let me find out why.
+
+Only **69 elements and 4 images** captured from a 4744px page, and one "section" spanning 0→4440 with no background. Let me check what's actually on the page:
+
+Only 5 `<img>` and 3 `background-image` in the rendered HTML on a page with 86 assets — this is an Elementor site where imagery comes from external CSS and lazy loading. Let me look at the actual pixels:
+
+Our render is **1700 × 4703** at a 1280 viewport — a 420px horizontal overflow. Let me find what's escaping:
+
+Two findings: `doc.column` is **undefined** — my column fit correctly rejected this page, so all of this session's anchor work is inert here. And the 1700px canvas is *one* runaway testimonial node (which values-diff did flag as `overflow`). Neither explains 80%. Let me look at the pixels:
+
+Now I can see it. Let me measure precisely rather than guess:
+
+Both heading lines are at **y=171 in the reference manifest itself** — identical y, which guarantees the overprint. Let me check whether that's a duplicate element:
+
+Yes — and the diagnosis is clear. Let me clean up:
+
+Yes, clearly — and the gates being green while the page is 80% wrong is the most useful thing here.
+
+## What the reproduction actually looks like
+
+Reference: full-bleed hero photograph, condensed display face, two-line heading. Ours: **flat black, serif fallback, and the two heading lines printed on top of each other** — `ONDYEOAUMRIDNIGNNEROATHAEBALLTEHIER MEALS`.
+
+## Root cause 1 — one box, two runs (the overprint)
+
+The capture splits the hero `<h1>` into two text runs and gives **both the identical box**:
+
+```
+'Dreaming of healthier meals'  box={x:20, y:171.5, 1240×301.6}  glyphs={x:20, y:311.3, 815.2×172.4}
+'on your dinner table?'        box={x:20, y:171.5, 1240×301.6}  glyphs={x:20, y:311.3, 815.2×172.4}
+```
+
+Same element box *and* same glyph box — there is no per-line geometry recorded anywhere, so the fold cannot separate them. Two absolutely-positioned runs at identical coordinates overprint exactly. I checked how widespread it is: **exactly one shared box on the whole page** — but it's the hero, the most prominent element on the site. gigabytealchemy never hit this because its headings were single-run.
+
+(I'd wondered whether the manifest and screenshot disagreed about layout. They don't — the glyph box at y=311 matches the screenshot. That concern was unfounded.)
+
+## Root cause 2 — no imagery at all (the bulk of the 80%)
+
+Both captured sections report `backgroundImageUrl: None`, and only **4 `<img>`** elements were extracted from a page with 86 mirrored assets. The `repro` warning named the casualties precisely: the hero photo (`HERO-AdobeStock_254767116-scaled.jpeg`), the logo, and `market-vegetables-produce`. This is an Elementor site where imagery arrives via external CSS and lazy loading, so a page whose *substance* is photography reproduces as flat colour. The black page background and the serif fallback (the real display face isn't bound) compound it.
+
+Also: **2 sections**, one spanning y=0→4440. With no interior section edges, band reconstruction has nothing to clamp to — the mechanism that fixed gigabytealchemy's bands is inert here.
+
+## Why every gate stayed green
+
+- **`l1-gate`** is *by design* blind to colour, font and image — that's documented in REQ-88. It grades geometry, and the geometry is fine.
+- **`values-diff`** compares runs present in both manifests. The missing imagery isn't in the *reference* manifest either, so there's nothing to raise a delta against; it leaks out only as `41 × surfaceFill` — dispositioned `REVIEW`, not `FIX`.
+- **The perceptual diff was the only gate that saw it**, and it was unambiguous: mean 106.8, regions #1 and #2 covering the entire page.
+
+That inverts gigabytealchemy, where the value gates were the sharp instrument and the perceptual mean was 1.04. **On an image-led page the value-level gates are structurally near-blind.** Worth encoding as a rule: trust `values-diff` on text-led pages, trust `diff` on image-led ones, and treat a large gap between them as itself a finding.
+
+## One genuine layout defect
+
+`scrollWidth` is 1700 at a 1280 viewport — a 420px overflow from a single testimonial node (`l1-85`, "I cannot say enough good thi…", x=1027 w=673). `values-diff` did catch this as `2 × overflow`.
+
+## This session's work is inert here, correctly
+
+`doc.column` came back **undefined** and zero nodes anchored — the column fit rejected this page outright, because it genuinely has no centred `mx-auto max-w-*` column. That's the designed behaviour and good evidence the fit doesn't overreach onto pages it doesn't understand. The height probe worked (82/89 nodes carry a `yFactor`, and our y positions match the reference exactly).
+
+## What I'd file
+
+Three separate tickets, none of them REQ-88 or REQ-93:
+
+1. **Multi-line text runs must carry per-line geometry** (capture) — highest value, smallest fix, and it's a correctness bug that will hit every site with a wrapped heading.
+2. **CSS background images and lazy-loaded media are not captured** (capture) — the big one for image-led sites; needs a lazy-load settle strategy plus background-image extraction on non-section elements.
+3. **Gate calibration for image-led pages** — a green `l1-gate` + low `values-diff` alongside a perceptual mean of 106 should be a hard failure, not something an operator has to notice.
+
+The working tree is clean and the REQ-93 work that was in flight has been committed by whoever owns it. Say the word and I'll write those three up.
+
+<!-- xgd-turn id="23cd4327-dfcf-4cab-b6c5-c32e3f7de68b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T21:13:15.514897+00:00" -->
+#### You
+Please go ahead and file these
+
+<!-- xgd-turn id="23cd4327-dfcf-4cab-b6c5-c32e3f7de68b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T21:15:26.701263+00:00" -->
+#### Claude
+All three filed and cross-linked, working tree clean.
+
+| ticket | title | priority |
+|---|---|---|
+| **BUG-25** (`bug-fe8af80a`) | A multi-line text element splits into runs that all share one box | high |
+| **BUG-27** (`bug-2936cebf`) | CSS background images and lazy-loaded media are not captured | high |
+| **REQ-94** (`request-16253634`) | Gate calibration: a clean value gate must not outvote a failing perceptual diff | medium, 5pts |
+
+Each carries the measured evidence rather than a description — BUG-25 has the two identical box/glyph rects side by side, BUG-27 has the coverage table (4 images vs 86 assets, 2 sections across 4744px, `backgroundImageUrl: None`), REQ-94 has all three gate outputs quoted together so the disagreement is the artifact.
+
+Three things I put in deliberately that you may want to check:
+
+**BUG-25 has a second-order consequence I hadn't mentioned.** REQ-88's `nowrapFromPx` derives line count from `renderedTextBox.height / lineHeightPx`. When two runs share one glyph box, that ratio describes the *pair* — so both get classified as 2-line and neither is pinned. A shared box corrupts line-count reasoning as well as position, which raises the ticket's value above "the hero looks wrong".
+
+**BUG-27 separates two causes that could easily be conflated.** Lazy-load settling is the known hazard, but there's a second one: `background-image` appears to be read only on *sections*, so a painted background on any other element is invisible regardless of settling. Fixing only the lazy-load half would leave the hero unreachable. I flagged the 2-section detection as possibly common-cause with that.
+
+**REQ-94 names the pattern rather than just this instance.** This is the third consecutive round where a defect reached you through a screenshot while the numbers read clean — cross-engine wrapping (Chromium-only gates), the mixed-anchor hero split (exact at every sampled width, wrong between them), and now this. The common shape is *a gate sharing an assumption with the thing it grades*. I made the cheapest proposal — reporting reference-coverage numbers the pipeline already computes — the leading one, since 4-images-vs-86-assets was sitting in your terminal output the whole time and would have flagged it immediately.
+
+I also recorded REQ-88's behaviour on this page as **negative evidence** in its own ticket: `fitColumn` declined joyful outright (`doc.column` undefined, zero nodes anchored) because it genuinely has no centred column, and the height probe fitted cleanly with y positions matching the reference exactly. That the anchor machinery doesn't overreach onto a page it doesn't understand is worth having on record — it's the property most likely to be doubted later.
+
+All three are `draft` status, so they're ready for you to triage into the queue.
+
+<!-- xgd-turn id="e4174fb4-6887-4231-8d51-07776d134302-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T21:38:24.885864+00:00" -->
+#### You
+ok back to gigabyte alchemy, we now have text boxes, but they are incorrectly formatted and incorrectly located
+
+<!-- xgd-turn id="e4174fb4-6887-4231-8d51-07776d134302-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T21:41:35.534363+00:00" -->
+#### Claude
+The REQ-93 work has landed. Let me look at what's actually rendering.
+
+Both forms mounted with the right fields. Let me measure where they actually land against the reference:
+
+Now I can see exactly what's wrong. Let me check one more thing — whether the original L1 labels are still there too:
+
+Yes — I can see both problems, and they share one root cause.
+
+## Measured against the reference @1280
+
+| field | reference | ours | drift |
+|---|---|---|---|
+| Your name | y=3784, 528×**50** | y=**3809**, 528×**44** | +25 |
+| Your email | y=3850 | y=**3894** | +44 |
+| Your message | y=3916, 528×**146** | y=**3979**, 528×**116** | +63 |
+| Your email address | y=3900, 313×50 | y=**3925**, 313×44 | +25 |
+
+The drift is *progressive* — that's the signature of flow layout, not a constant offset.
+
+## Formatting
+
+- **Labels are rendered as visible text above each box.** The reference puts them *inside* as placeholders — and the capture recorded exactly that: `nameSource: 'placeholder'`. That axis exists to distinguish the two cases and isn't being consulted. The module's a11y obligation is satisfiable with `aria-label` + `placeholder`, so faithfulness and accessibility aren't in tension here.
+- **Fields are white**; the reference's are transparent over the cream band with a 1px dark border. Ours are gray-200 border, **6px** radius against the captured **8px**, `system-ui` against the page stack.
+- **Two submit buttons per form.** The captured chip renders as an L1 node (navy "Send message", green "Subscribe") *and* the module renders its own default blue `<button>Send</button>` underneath — overlapping the Turnstile line. That's the most visible break.
+
+## The root cause
+
+**Mounting happens at *form* granularity.** `SLOT form-0` is one 528×278 box holding all three fields, so the module lays them out internally with its own gaps, paddings and label rows. Every position, height and spacing then comes from the module's stylesheet rather than the capture — which is exactly what the numbers show. The slot rect is even the union of the reference's three field boxes (3784→4062), but the module's content runs to 4169 and overflows it by 82px.
+
+That contradicts the project's own rule that **layout is owned by the L1 substrate**. A behavior module should contribute *behaviour* — the controls, validation, honeypot, submit — while L1 says where things go.
+
+So the fix I'd recommend is to mount at **control** granularity: one slot per field, each positioned by L1 at its captured rect. That single change resolves the position drift, the heights, the textarea size and the label placement together, because each control lands in a box L1 already knows the geometry of. The duplicate button resolves the same way — the captured chip belongs in the module's existing `submit` slot (its meta already says "Optional L1 look for the submit button; absent → a plain functional button"), rather than sitting beside the module as an unrelated L1 node.
+
+The per-field presentation that remains — border colour/width, radius, fill, font — is already captured; the `l1-gate` residual named it precisely as `[border, borderRadiusPx, accessibleName]`.
+
+## Scope
+
+This is REQ-93's design, not REQ-88's, and the call between "module owns internal layout" and "L1 positions each control" is a real architectural decision rather than a bug fix — so I've stopped at the diagnosis rather than unilaterally re-cutting someone else's committed work.
+
+Want me to take it? If so I'd suggest doing it under REQ-93 with the control-granularity change as the headline, and I'd start by confirming the `submit`/`intro` slot binding works before moving the field mounting, since that's the cheapest half and removes the duplicate button immediately.
+
+<!-- xgd-turn id="23202441-02ff-47c9-9aff-996b84a40abc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T21:49:41.594373+00:00" -->
+#### You
+Go ahead it doesn't matter
+
+<!-- xgd-turn id="23202441-02ff-47c9-9aff-996b84a40abc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T21:54:33.593745+00:00" -->
+#### Claude
+Working under REQ-93 then. Let me see what the current implementation does.
+
+The module already has a `submit` slot that isn't being bound, and renders a visible `<label>` regardless of how the reference labelled the control. Let me fix the labelling first — it also removes most of the position drift.
+
+Now the field type and the derivation:
+
+Now the meta schema and the fold's derivation:
+
+Let me verify the fix end-to-end:
+
+I need to stop here and be straight with you: I have the diagnosis but **not a working fix**, and I'm not going to commit an unverified change.
+
+## What I found
+
+The module already has a `submit` slot it isn't being given, and it renders a visible `<label>` regardless of how the reference labelled the control — while the capture records `nameSource: "placeholder"` on all four fields. That single fact explains both symptoms: the label rows are the extra ~25px each field is pushed down by, so fixing the labelling also removes most of the position drift.
+
+## What I did
+
+Plumbed `labelMode` end to end — `meta.ts` config schema, the Astro template (visually-hidden `<label>` + `placeholder`, keeping the a11y association intact), and `foldedFormFor` deriving it from `nameSource`. It typechecks and `repro` re-ran clean.
+
+**It doesn't take effect.** The written `home.json` still has no `labelMode`, and the rendered inputs have no placeholder. I narrowed it: `contentValueSchema` is a fully permissive recursive value type (`z.record(z.string(), contentValueSchema)`), so validation provably isn't stripping the key — which means the derivation isn't setting it at runtime, even though the bundle demonstrably carries `nameSource: "placeholder"` and `repro.ts:160` spreads all field keys. That's where the next 20 minutes should go.
+
+I ran out of room to chase it properly, and guessing at that point would have been worse than stopping.
+
+## State
+
+Four files modified, uncommitted:
+- `packages/framework/src/modules/contact-form/{index.astro,meta.ts}`
+- `tools/generate/src/l1/forms.ts`
+- `storage/sites/gigabytealchemy/draft/pages/home.json` (regenerated output)
+
+Nothing is committed, so `git checkout` on those three source files reverts cleanly if you'd rather start fresh.
+
+## The remaining work, in order
+
+1. **Finish `labelMode`** — one runtime check away. Fixes the labels *and* most of the position drift together.
+2. **Bind the captured CTA into `slots.submit`** — the module falls back to `'Send'` only when the slot is empty, so binding the navy "Send message" / green "Subscribe" chip removes the duplicate blue button and gets the right label and colour for free. `moduleInstanceSchema.slots` already accepts L1 subtrees; `repro.ts` just never populates it.
+3. **Per-control mounting** for the residual geometry (50px vs 44px field height, 146px vs 116px textarea, border/radius/fill). This is the architectural one I flagged — mounting at *form* granularity puts field layout inside the behavior module, against the project's rule that layout belongs to L1. Worth doing deliberately rather than by patching the module's stylesheet.
+
+Items 1 and 2 are small and get you most of the visible fidelity; item 3 is a design decision for REQ-93 proper.
+
+<!-- xgd-turn id="cf52ae6e-474f-4444-9fd8-bb22f8aba5d6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-25T22:16:32.451272+00:00" -->
+#### You
+Please complete this
+
+<!-- xgd-turn id="cf52ae6e-474f-4444-9fd8-bb22f8aba5d6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-25T22:35:50.373195+00:00" -->
+#### Claude
+I'll pick up where the prior session stopped. Let me look at the current state of the modified files.
+
+The derivation looks right. Let me trace why `labelMode` isn't reaching the written page.
+
+Found it — `forms.json` is written at **capture** time, so `repro` alone can't pick up the derivation change. Let me verify the bundle has what's needed.
+
+`nameSource: 'placeholder'` is in the bundle — so the derivation is right, but `forms.json` was written at capture time and is stale. Let me look at the mounting path before deciding how to proceed.
+
+Slots mount one fragment each — so per-control slots would make N separate `<form>`s, which is behaviourally wrong. Let me check the module's existing slot design.
+
+The `submit` slot already renders an L1 subtree inside the button. Let me see how the fold classifies controls, and whether the CTA is one.
+
+Confirmed: the text-leaf branch runs first, so a button with text becomes an L1 text node. Let me read that branch to add the submit-candidate hook.
+
+Now I'll implement. First, the `submit` binding on the folded form:
+
+Now the fold — collecting button candidates and lifting them into their form:
+
+Now the lifting logic in the clustering pass:
+
+Now the module must let the L1 chip own the button's look, and `repro` must bind the slot:
+
+A parse error in `extract.ts` at line 509 — let me check whether that's committed.
+
+That's a concurrent BUG-25 edit, not mine — same backtick-in-template-literal trap. Let me confirm my files are clean and check whether it blocks tests.
+
+My files typecheck clean. Let me run the tests (the type-only import should keep me clear of the broken file).
+
+The concurrent BUG-25 edit blocks all testing. Let me apply the mechanical backtick escape (semantics-preserving, matching the file's existing convention) so I can verify — I won't commit their file.
+
+One failure — the existing field-shape assertion, which my `labelMode` addition legitimately changes. Let me update it.
+
+Now the UATs for both changes. Let me check the test's fixture helpers first:
+
+Now the UATs. Let me check the conformance harness props shape for the render-level test:
+
+6 of 7 pass. The failure is my fixture not tripping chip detection — let me check what makes a run self-painting.
+
+My tests pass; the req93 assertion needs `placeholder` (its `control()` helper defaults `nameSource` to placeholder):
+
+4 files failing. One is the BUG-25 agent's scratch file. Let me separate mine from pre-existing by stashing only my files.
+
+Baseline is clean — all three are mine. Restoring my work:
+
+The real-capture fidelity probe now fails because the button left the L1 body. Let me look at the probe — L1's fidelity should be graded on what L1 actually renders.
+
+Both failures share one cause: the button left the L1 body. Let me check whether the probe can see slot rects.
+
+Now surface the mounted count in the CLI gate report so it isn't an invisible hole:
+
+Now update the BUG-21 UAT — its property still holds, but on the submit slot rather than the page body:
+
+The button's exact position was pinned by BUG-21. Let me check what survives — the slot seam is still pinned exactly, so the anti-outset evidence holds there.
+
+Now the reconciliation test's exact-class assertion:
+
+All 36 pass. Full suite and typecheck:
+
+Clean. Now let me verify end-to-end against the real capture by re-folding offline (read-only):
+
+tsx can't load `.astro`. Let me add the real-capture check as a proper UAT instead — it's evidence worth keeping:
+
+Let me confirm the UATs actually fail without the fix (RED):
+
+Proper RED — 7 of 8 fail without the fix. Now the version bump and commit (staging only my files, not the in-flight BUG-25 work):
+
+The BUG-25 agent committed (taking my backtick fix with it). Let me verify and commit my work:
+
+Now the ticket. Let me read the current body first:
+
+Done and committed. Both items are in, plus a gate change they forced.
+
+## Labelling — and the drift was the same defect
+
+The reference names every control with a **placeholder**; the module rendered a visible `<label>` row above each field regardless. That wasn't two problems:
+
+| field | reference y | ours | drift |
+|---|---|---|---|
+| Your name | 3784 | 3809 | +25 |
+| Your email | 3850 | 3894 | +44 |
+| Your message | 3916 | 3979 | +63 |
+
+Progressive drift is the signature of flow layout — each label row pushes everything below it down. "Incorrectly formatted" and "incorrectly located" were one cause. Carried as `labelMode` from the a11y tree's `nameSource`, which is the only witness (a label above the box and the same words inside it are both just text near a box). The `<label>` stays in the DOM, programmatically associated — moved out of flow, not removed.
+
+Why the prior session's fix appeared not to work: `forms.json` is written by the fold at **capture** time, so `1c repro` alone could never pick it up. The derivation was correct all along.
+
+## The reference's button is now the form's button
+
+A captured button carries text, so the fold's text-leaf branch claims it before the control branch sees it — leaving the chip as a page-level run beside a form rendering its own default `Send`. Buttons are now claimed by the form they sit with; the rule separates the page's two forms by an order of magnitude, not a hair:
+
+| | to its own fields | to the other form's | threshold |
+|---|---|---|---|
+| Subscribe | 12px | 128px | 75px |
+| Send message | 18px | 263px | 75px |
+
+**One correction to what I told you last turn.** I recommended per-control mounting. That's architecturally wrong: slots mount one fragment each, so N control slots would produce N separate `<form>`s. A form is one form. The right seam was the `submit` slot the module already declared.
+
+**And one deliberate trade.** Geometry is dropped entering the slot — the module places its own button, and page-absolute keyframes would resolve against the slot's origin. So the button's exact per-width position, previously pinned to 0.5px by BUG-21, becomes flow-approximate within its seam. That's real fidelity spent on one working control instead of two. It's on the ticket; reversing it needs a way for L1 to position a control the module owns, which the current mount can't express.
+
+## The gate had to learn what it isn't measuring
+
+Lifting the button made `sampleFidelityProbe` report it `unmatched` — the L1 gate failing a *correct* reproduction, grading L1 against text L1 no longer emits. Oracle text a slot covers is now set aside **and counted** (`1c l1-gate` reports "N in mounted behaviour"). Grading it fails a correct page; dropping it quietly makes every mounted region an invisible hole — the same shape as REQ-94.
+
+## Verification
+
+8 UATs, **7 fail without the fix** with the exact defect values. One runs against the real capture: all four controls derive `labelMode: 'placeholder'`, both buttons match the right form, neither remains in the body. Two existing UATs were retargeted rather than weakened — BUG-21's anti-outset subject is unchanged, read off the slot subtree and the seam pinned around it.
+
+**785 passing, 0 failing** (the suite is fully green — the earlier `req92` failure is gone). Clean `tsc`. Commit `5b7f82be`, v0.0.205, REQ-88 at `free_coded` with all nine SHAs.
+
+## Still open
+
+- **Per-field geometry** — field height 44 vs 50, textarea 116 vs 146, border colour/radius/font. These come from the module's stylesheet, and putting them in `config` would be aesthetics in a behavioural contract (DOC-25). The clean answer is a repeated `field` slot, which is a design decision I didn't take unilaterally.
+- **Re-capture required.** Run `1c capture page https://gigabytealchemy.ai` first — the bundle's `forms.json` predates this.
+- **A concurrent BUG-25 edit** had unescaped backticks in `EXTRACT_SCRIPT`'s template literal, breaking every `1c` command and the whole test run. I applied the mechanical escape to unblock verification; BUG-25 has since committed it. That's the **third** occurrence of this trap — a lint rule would close the class.
+
+<!-- xgd-turn id="f7f848a3-fe62-481c-81e6-7266eb33b5ea-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-26T00:22:55.730580+00:00" -->
+#### You
+ok where are we - I have implemented the three changes from joyful. But lets finish GA first
+
+<!-- xgd-turn id="f7f848a3-fe62-481c-81e6-7266eb33b5ea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-26T00:28:16.831109+00:00" -->
+#### Claude
+Let me check the actual state rather than answer from where I left off.
+
+Here's where we are:
+
+**The three joyful tickets are all `free_coded`** — BUG-25 (multi-line runs), BUG-27 (CSS backgrounds + lazy media), REQ-94 (gate reconciliation, commit `bb7bf22b`).
+
+**GA is blocked on one thing I flagged and never got to run:** the bundle is still the 14:35 capture. `forms.json` has no `labelMode` and no `submit`. My REQ-88 form fixes are committed but have **never actually run on GA**.
+
+That's now doubly true — BUG-25 and BUG-27 both change the *capture*, so a GA re-capture picks up multi-line hero runs and CSS background images too, not just the form.
+
+`bin/1c` exists. Re-capturing GA — this picks up my form fixes plus BUG-25/BUG-27's capture changes:
+
+Both fixes are live in the bundle. Now repro and the gate:
+
+Gate **PASS** — maxΔ 0.9px, 0 residuals, 0 unmatched, 0 fold residuals. The 12 "in mounted behaviour" is exactly the 2 buttons × 6 widths. Now the perceptual check:
+
+REQ-94's reconciled `1c gate` is exactly the right instrument here:
+
+Cross-gate **PASS** — mean 2.61/255, 2.8% over threshold. Two things worth chasing: 26 value deltas and an unreferenced hero image.
+
+Important — the values-diff says our controls still report `label (outside/above)`. Let me check what actually rendered:
+
+Rendering is correct — labels visually hidden, placeholders set, both submit slots bound. So two gate artifacts are misleading me. Let me see the full diff and the actual pixels:
+
+Now the real picture. The pairing has slid completely — 15 repro-only objects. Let me see what they are and look at the actual pixels:
+
+Top 5 diff regions are **all** the form — and the two buttons are the worst (mean 120 and 145). Let me look:
+
+Now I can judge it. Big improvement — placeholders inside the boxes, one button per form, right colours. But three visible differences remain, and they share one root cause:
+
+| | reference | ours |
+|---|---|---|
+| field surface | transparent (band shows through), **dark 1px border** | **white fill**, `#e5e7eb` border (invisible) |
+| field height | 50px (textarea 146) | 44px (textarea 116) |
+| Subscribe | **inline, right of the field** | **stacked below it** |
+
+All three are the module's stylesheet deciding presentation the capture already knows. That's the "item 3" I left open last turn — and the diff now proves it's the dominant defect: the top 5 regions are all form, buttons worst (mean 120 / 145) while the rest of the page sits near zero.
+
+Let me check the other flagged item before summarising:
+
+The hero is **done** — visually identical. BUG-27's CSS-background fix works; the `unreferenced-image` warning is a false positive (section-band images are folded by `foldSectionBackgrounds`, so no *element* references them, which is what the coverage check looks for).
+
+## Where GA stands
+
+Re-captured, re-repro'd, re-rendered against all your joyful fixes:
+
+- **`1c l1-gate` PASS** — maxΔ 0.9px, 0 residuals, 0 unmatched, **0 fold residuals**
+- **`1c gate` PASS** — perceptual mean 2.61/255, 2.8% over threshold, both eyes agree
+- **My REQ-88 form work is live for the first time** — `labelMode: placeholder` on all four controls, both buttons claimed by the right form, neither duplicated
+
+The page is essentially reproduced. **The form is the only visible gap left**, and the diff agrees emphatically — top 5 regions all form, everything else near zero:
+
+```
+#1 mean 45.9 @ 656,3904   form-0 fields      #4 mean  88.8 @ 80,3888   form-1 field
+#2 mean 40.6 @ 656,3776   form-0 fields      #5 mean 145.3 @ 80,3968   Subscribe
+#3 mean 120.0 @ 656,4048  Send message       #6-12 mean 33-60          hero text (subpixel)
+```
+
+## One root cause, and a decision
+
+The three deltas — white fill vs bordered-transparent, 44px vs 50px, stacked vs inline — are all the module's stylesheet deciding presentation the capture already measured. Per DOC-25 that's backwards: presentation belongs in **slots**, and `contact-form` only has `intro`/`submit`.
+
+The fix is a repeated **`field` slot**: each field's shell (fill, border, radius, box) authored as L1 at its captured rect rebased to the form's seam, with the module rendering only the functional `<input>` inside it. That closes all three at once — inline-vs-stacked stops being a concept, since every control is placed by its own geometry — and it would also recover the submit button's exact position I traded away last turn.
+
+It needs `renderL1Fragment` to accept injected content per node, plus fold/repro/module/schema changes. Meaningful surgery on a vetted behavior module.
+
+**Do you want me to build it, or is GA done at mean 2.61?** I'd build it — the stacked Subscribe button is the kind of layout difference a user notices immediately, and the field-slot mechanism is what the next site will need anyway.
+
+One thing I'd file separately either way: our a11y and anti-spam scaffolding (visually-hidden labels, honeypot inputs, Turnstile divs) puts **15 repro-only objects** into the value gate, sliding the pairing so every field mispairs against its neighbour. All 26 deltas above are unreliable to read for that reason — the perceptual eye is currently the only trustworthy instrument on this region.
+
+<!-- xgd-turn id="4dd173f7-cb17-4019-ae35-4e7b401803fb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-26T00:34:26.260565+00:00" -->
+#### You
+Is there a design gap here. It sounds like the module is making layout decisions which should not do. It should not have the ability to make any layout decisions loud decisions should come from L1. How do we make the capability module completely layout agnostic?
+
+<!-- xgd-turn id="4dd173f7-cb17-4019-ae35-4e7b401803fb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-26T00:36:34.241407+00:00" -->
+#### Claude
+Good question — and yes, I think there's a real gap, in the doc as much as the code. Let me ground this in the actual contract rather than my read of it.
+
+Yes — and it's systemic, not a `contact-form` defect. The carousel paints too:
+
+```css
+.carousel__track { gap: var(--space-6) }        .carousel__dot { width: var(--space-2); background: var(--color-border) }
+.carousel.view-peek .carousel__slide { flex-basis: 85% }   →  60% at ≥768px
+```
+
+`config.view = 'peek'` is a **layout dial wearing behavioural clothes** — it resolves to a flex-basis. DOC-25 §2 says config is "data-only… never aesthetics", and §1.3 says "appearance is 100% L1; the module wraps L1, it never paints it." Both modules violate that today, so the contract isn't being enforced — but the deeper problem is that for a form it *can't* be.
+
+## Why the contract can't hold for a form
+
+The slot model has one composition direction: **the module wraps L1**. A slot is a container the module renders *around* an L1 subtree. That works when the behavioural element is itself a container — a carousel's `<li class="carousel__slide">` genuinely can hold a slide's whole L1 look.
+
+It breaks on **leaves**. `<input>` is a void element and a `<textarea>`'s content is its value: there is nowhere to put an L1 subtree. So for form controls "appearance is 100% L1" isn't merely unmet, it's structurally unreachable — the module *must* paint, and no validator can catch it because the contract has no way to say "this element's look is L1's".
+
+The `submit` slot is the tell. It only worked because `<button>` happens to be a container — and even then I had to add `.contact-form__submit--l1` to make the module stop painting over the L1 chip. That modifier is the design gap made visible.
+
+## Making it actually layout-agnostic
+
+Add the second composition direction: **L1 wraps the module** for leaves. An L1 node carries `control: '<name>'`; L1 emits the element, and the module supplies only its *attribute bundle*.
+
+| | owns |
+|---|---|
+| **L1** | the element's class, geometry, and every paint axis — for the behaviour's own controls, not just decoration around them |
+| **module** | which elements must exist, their type/name/required/`for`↔`id` wiring, the endpoint, the client behaviour |
+
+The module then ships **zero CSS**. Not "less CSS" — none. Layout-agnostic by construction rather than by discipline, which is the only version a contract can enforce.
+
+Two refinements that fall out, and I think both are right:
+
+**Not every element is L1's.** The honeypot must be invisible, the Turnstile mount must sit where the widget expects, the hidden label must stay out of flow. Those are *obligations*, not taste — a designer must not be able to reveal the honeypot. So the module keeps a small set of **invariant** elements whose presentation is fixed by the obligation. That's a sharper line than "L1 owns everything", and it also explains the 15 phantom objects polluting the value gate: same category, different consumer — the gate should exclude module-invariant elements.
+
+**Security stays construction-time.** L1 contributes class + geometry + paint, and *only* those. The module still authors `action` through `assertSafeUrl`, the `name`/`type`/`required`, and the label pairing — so the safety envelope (DOC-24) doesn't degrade from "guaranteed by construction" to "hopefully validated".
+
+## The cost, honestly
+
+Deleting the module's stylesheet means a form authored *without* a capture has no look at all — every site would pay authoring cost for something that used to be drop-in. So the stylesheet shouldn't be deleted, it should be **relocated** to an L2 preset: the optional library of vetted L1 designs DOC-24 already anticipates. Default look becomes a starting point instead of a ceiling, which is the same move the pivot made for layout modules.
+
+## What it buys on GA
+
+All three remaining deltas plus the regression I introduced last turn — field fill/border/radius become L1 axes, 44px→50px becomes L1 geometry, and inline-vs-stacked stops being a concept at all since each control carries its own geometry. The submit button's exact position comes back for the same reason.
+
+This is a DOC-25 amendment plus a real implementation — `renderL1Fragment`/schema gain the `control` node, both modules lose their stylesheets, and `contact-form`'s default look moves to a preset. Bigger than the rest of REQ-88 and it changes a vetted contract, so I'd want it scoped as its own ticket rather than appended here.
+
+Want me to write it up as the DOC-25 amendment and a new REQ, and then implement? I'd sequence it as: amend DOC-25 → `control` node in L1 + schema → `contact-form` → GA → carousel (which will also surface `view: peek` as the aesthetic dial it is).
+
+<!-- xgd-turn id="79e249fa-ec86-4959-97f6-9e74b009071a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-26T00:46:04.481910+00:00" -->
+#### You
+Yes please and create a ticket for implementing it
+
+<!-- xgd-turn id="79e249fa-ec86-4959-97f6-9e74b009071a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-26T00:48:38.924441+00:00" -->
+#### Claude
+Creating the implementation ticket first, then amending DOC-25.
+
+REQ-96 created. Let me fix the BUG-21 link placeholder and get the real uid:
+
+Now the DOC-25 amendment. Let me read the sections I'm changing so I extend rather than overwrite:
+
+Now linking REQ-88 to the successor so the GA trail is complete:
+
+Both written.
+
+## REQ-96 — the implementation ticket
+
+**"Behavior modules must be layout-agnostic by construction: an L1 `control` node for leaf elements"** (`request-3a064234`, draft).
+
+It carries the diagnosis, the mechanism, both refinements, the cost, and a 7-step scope: DOC-25 amendment → `control` node in L1 + schema → `contact-form` → GA re-measure → `carousel` → L2 preset. Acceptance is concrete — both modules ship no CSS beyond invariants, GA's three deltas close, the submit position is pinned to the oracle again, and the safety envelope is provably unchanged.
+
+## DOC-25 §10 — the amendment
+
+Marked as amending §1.3, §2, §7 and §8. The core of it:
+
+> A behavior composes with L1 in **two** directions, chosen per element by whether that element can hold children.
+
+Container → module wraps L1 (`slots`, unchanged). Leaf → **L1 wraps module** (`control` node, new). And the carve-out that keeps it honest:
+
+> L1 owns everything the reference can legitimately vary; the module owns what an obligation pins.
+
+I put four things in the doc deliberately, because they're the parts most likely to be lost:
+
+- **Why no validator could have caught this.** §2's contract has no vocabulary for "this element's look belongs to L1", so the violation was undetectable rather than merely unenforced. That's why it survived in the doc's own worked example.
+- **`carousel.config.view` is named as an aesthetic dial** — `view: peek` resolves to a flex-basis, which §2 explicitly forbids. Expect it to fall out during step 6.
+- **Security is load-bearing, not incidental.** If inverting the composition direction degraded a guarantee from *true by construction* to *hopefully validated*, the amendment would be a net loss. It doesn't — the module still authors every security-relevant attribute — but I wrote that as the test the implementation must pass, not as reassurance.
+- **The `--l1` modifier I added last turn is the gap made visible.** Cited as evidence rather than quietly fixed.
+
+The one line I'd point at if you read nothing else, from §10.6: *"inline vs stacked" is not a dial the module should have, at any granularity* — arrangement is emergent from where L1 puts each control. That's the shape of the whole change.
+
+## GA
+
+Committed the regenerated site data (`f07bbe20`). GA is reproduced — cross-gate PASS, mean 2.61/255, 0 fold residuals, hero identical. REQ-88 records round-10 and hands the residual to REQ-96, including the note that `values-diff` is currently unreadable on the form region (15 phantom objects from our own scaffolding) so the perceptual eye is the only trustworthy instrument there.
+
+REQ-96 is `draft`. Say the word and I'll start on it — step 2 (the `control` node) is the one that determines whether the rest is easy or awkward, so I'd build that first and check the seam with you before touching either module.
 
 <!-- xgd-chat-end -->

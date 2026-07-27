@@ -5,9 +5,9 @@ type: doc
 title: L1 Layout Substrate — the typed element tree
 created_by: xgd
 created_at: '2026-07-20T20:51:27.239081+00:00'
-updated_at: '2026-07-20T20:51:27.239081+00:00'
+updated_at: '2026-07-27T19:35:52.879566+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -104,3 +104,5 @@ L1 axis, i.e. a *framework* fix. The site is disposable; the language hardens.
 [[DOC-2]] (Security Policy) · [[DOC-7]] (framework principles, being split in
 Phase C) · [[DOC-13]] (capture / ValueElement / eyes) · [[DOC-20]] (conformance
 ACs — the envelope's per-module form) · REQ-79 (pivot umbrella) · REQ-82 (this).
+
+-

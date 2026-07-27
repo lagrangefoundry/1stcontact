@@ -6,19 +6,19 @@ title: Rebuild foldToL1 to populate the full L1 language (image/box/container + 
   axes), signalling residuals
 created_by: xgd
 created_at: '2026-07-23T02:02:03.084523+00:00'
-updated_at: '2026-07-24T22:27:12.454491+00:00'
+updated_at: '2026-07-27T20:32:07.117177+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 444d11a0c69a42a8755fd936f590861cd918c74d
+  - working_sha: 0bafd405a9886d7eeb86cbea39b17c65b8ffff6e
     reconcile_sha: null
     main_sha: null
-  - working_sha: aeb57f9ac61d69d1776b40a5f2049f12dbc56259
+  - working_sha: 198b1e9a8180caed9d007b0a4c66e5c43b12a1ad
     reconcile_sha: null
     main_sha: null
   version: 0.0.179

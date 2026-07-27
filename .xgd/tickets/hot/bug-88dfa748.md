@@ -6,17 +6,17 @@ title: Fold drops element padding — badges/buttons render cramped (0 padding) 
   inter-element gaps inflate
 created_by: xgd
 created_at: '2026-07-23T23:35:10.980687+00:00'
-updated_at: '2026-07-24T22:26:58.592021+00:00'
+updated_at: '2026-07-27T20:32:14.322291+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: c49a28c918ef269de3d79e00b4e42b398edfab81
+  - working_sha: 3563fc04e6d64f773679d52292bcf37039527b34
     reconcile_sha: null
     main_sha: null
   version: 0.0.189
