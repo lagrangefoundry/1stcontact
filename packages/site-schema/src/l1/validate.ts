@@ -43,6 +43,16 @@ export const L1_ENVELOPE = {
   transitionMs: { min: 0, max: 10_000 },
   /** REQ-99 — focus-ring width; the floor is 1 so a ring can never be authored away. */
   focusRingPx: { min: 1, max: 100 },
+  /**
+   * REQ-103 — a pattern's tile period. The floor is what makes this an envelope
+   * rule rather than taste: a sub-pixel spacing tiles a full-bleed band millions
+   * of times and is a way to hang a compositor, so the smallest period L1 admits
+   * is one device pixel. The ceiling keeps a "texture" from becoming one rule in
+   * the middle of a section, which is a border wearing the wrong axis.
+   */
+  patternSpacingPx: { min: 1, max: 1000 },
+  /** REQ-103 — a pattern's line width / dot diameter, bounded like any effect length. */
+  patternThicknessPx: { min: 0, max: 1000 },
 } as const
 
 /**
@@ -324,6 +334,7 @@ function checkSurface(
     borderLeft?: { widthPx: number }
     backdropBlurPx?: number
     backgroundImageUrl?: string
+    pattern?: { spacingPx: number; thicknessPx?: number; angleDeg?: number }
   },
   path: string,
   errors: ValidationError[],
@@ -346,6 +357,28 @@ function checkSurface(
       path: `${path}/backgroundImageUrl`,
       message: `backgroundImageUrl '${axes.backgroundImageUrl}' is not an allowed URL (http/https or relative only)`,
     })
+  }
+  // REQ-103 — the texture axis takes the same treatment as every other numeric
+  // pixel-mover: the schema pins its shape and its hex colour, the envelope pins
+  // how large a value it may hold. Bounded here (in the shared surface check) so
+  // an interaction state's pattern delta is bounded by the same rule as the base.
+  if (axes.pattern) {
+    const { spacingPx, thicknessPx, angleDeg } = axes.pattern
+    const spacing = L1_ENVELOPE.patternSpacingPx
+    if (!inRange(spacingPx, spacing.min, spacing.max)) {
+      errors.push({
+        path: `${path}/pattern/spacingPx`,
+        message: `spacingPx=${spacingPx} out of range [${spacing.min}, ${spacing.max}]`,
+      })
+    }
+    const thickness = L1_ENVELOPE.patternThicknessPx
+    if (thicknessPx !== undefined && !inRange(thicknessPx, thickness.min, thickness.max)) {
+      errors.push({
+        path: `${path}/pattern/thicknessPx`,
+        message: `thicknessPx=${thicknessPx} out of range [${thickness.min}, ${thickness.max}]`,
+      })
+    }
+    checkEffectLen(angleDeg, `${path}/pattern/angleDeg`, errors)
   }
 }
 

@@ -24,12 +24,14 @@ import type {
   L1FocusState,
   L1Geometry,
   L1Gradient,
+  L1GradientOrigin,
   L1HoverState,
   L1Interaction,
   L1LayoutMode,
   L1Mask,
   L1Motion,
   L1Node,
+  L1Pattern,
   L1Resources,
   L1Reveal,
   L1ScalarTrack,
@@ -188,7 +190,24 @@ function withAlpha(color: string, opacity: number | undefined): string | null {
   return `#${base}${a}`
 }
 
-/** A linear gradient → `linear-gradient(<angle>, <stop>, …)`, or null if unpaintable. */
+/** REQ-103 — a typed radial origin → the CSS position keywords it names. */
+const RADIAL_ORIGIN_CSS: Record<L1GradientOrigin, string> = {
+  center: 'center',
+  top: 'top',
+  bottom: 'bottom',
+  left: 'left',
+  right: 'right',
+  'top-left': 'left top',
+  'top-right': 'right top',
+  'bottom-left': 'left bottom',
+  'bottom-right': 'right bottom',
+}
+
+/**
+ * A gradient → `linear-gradient(…)` or (REQ-103) `radial-gradient(…)`, or null if
+ * unpaintable. Both branches re-derive every token from a number, a hex colour or
+ * a closed enum — the instance contributes no CSS syntax.
+ */
 function gradientCss(g: L1Gradient): string | null {
   const stops = g.stops
     .map((s) => {
@@ -202,8 +221,90 @@ function gradientCss(g: L1Gradient): string | null {
     })
     .filter((s): s is string => s !== null)
   if (stops.length < 2) return null
+  if (g.kind === 'radial') {
+    // `<extent> at <origin>` — both keywords, both from closed enums. Omitted
+    // when absent so the browser's own defaults (farthest-corner at center) win.
+    const shape = [g.extent, g.origin ? `at ${RADIAL_ORIGIN_CSS[g.origin]}` : null]
+      .filter((p): p is string => Boolean(p))
+      .join(' ')
+    return `radial-gradient(${shape ? `${shape}, ` : ''}${stops.join(', ')})`
+  }
   const angle = deg(g.angleDeg)
   return `linear-gradient(${angle ? `${angle}, ` : ''}${stops.join(', ')})`
+}
+
+/** One `background-*` layer: the image plus its positional sizing triple. */
+interface BgLayer {
+  image: string
+  size: string
+  position: string
+  repeat: string
+}
+
+/** A background layer that takes the CSS defaults for the sizing triple. */
+function plainLayer(image: string): BgLayer {
+  return { image, size: 'auto', position: '0% 0%', repeat: 'repeat' }
+}
+
+/**
+ * REQ-103 — a typed pattern → the repeating background layers that draw it.
+ *
+ * A `grid` is two layers (one set of rules per axis) because a single CSS
+ * gradient runs along one axis only; `dots` and `lines` are one each. Every
+ * number is clamped into the envelope's range before it reaches a declaration,
+ * and the colour passes `cssColor`, so a pattern cannot express anything but a
+ * texture — it is the same "name the intent, not the declaration" contract the
+ * rest of the surface group keeps.
+ */
+function patternLayers(p: L1Pattern): BgLayer[] {
+  const c = cssColor(p.color)
+  if (!c) return []
+  const spacing = Math.max(1, p.spacingPx)
+  // A tile is at most solid: a rule wider than its own period is a fill, not a
+  // pattern, so the thickness saturates at the spacing rather than overflowing
+  // into the neighbouring tile.
+  const thickness = Math.min(spacing, Math.max(0, p.thicknessPx ?? (p.shape === 'dots' ? 2 : 1)))
+  const tile = `${spacing}px ${spacing}px`
+  switch (p.shape) {
+    case 'dots': {
+      // A hard-edged disc centred in each tile — `thicknessPx` is its diameter.
+      const r = thickness / 2
+      return [
+        {
+          image: `radial-gradient(circle at center, ${c} ${r}px, transparent ${r}px)`,
+          size: tile,
+          position: '0% 0%',
+          repeat: 'repeat',
+        },
+      ]
+    }
+    case 'grid':
+      // One hairline along each axis, drawn at the leading edge of every tile.
+      return [
+        {
+          image: `linear-gradient(to bottom, ${c} ${thickness}px, transparent ${thickness}px)`,
+          size: tile,
+          position: '0% 0%',
+          repeat: 'repeat',
+        },
+        {
+          image: `linear-gradient(to right, ${c} ${thickness}px, transparent ${thickness}px)`,
+          size: tile,
+          position: '0% 0%',
+          repeat: 'repeat',
+        },
+      ]
+    case 'lines': {
+      // A repeating gradient carries its own period, so this layer needs no tile
+      // size — which is also what lets it tilt without the tile shearing.
+      const angle = deg(p.angleDeg) ?? '0deg'
+      return [
+        plainLayer(
+          `repeating-linear-gradient(${angle}, ${c} 0, ${c} ${thickness}px, transparent ${thickness}px, transparent ${spacing}px)`,
+        ),
+      ]
+    }
+  }
 }
 
 /** A drop shadow → `[inset] <x>px <y>px <blur>px <spread>px <color>`, or null. */
@@ -295,22 +396,38 @@ function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[]
   }
   if (px(a.borderRadiusPx)) out.push(`border-radius: ${px(a.borderRadiusPx)}`)
   if (a.opacity !== undefined) out.push(`opacity: ${a.opacity}`)
-  const bgLayers: string[] = []
+  // REQ-103 — the layer order, top-most first: a scrim covers everything; a
+  // texture reads *over* the wash and the backdrop it textures; a gradient washes
+  // the image; the image sits on the solid fill. So a dot-grid over a radial glow
+  // over a dark fill — the ordinary dark-theme stack — is what the axes say.
+  const bgLayers: BgLayer[] = []
   if (a.overlay) {
     const c8 = withAlpha(a.overlay.color, a.overlay.opacity)
-    if (c8) bgLayers.push(`linear-gradient(${c8}, ${c8})`)
+    if (c8) bgLayers.push(plainLayer(`linear-gradient(${c8}, ${c8})`))
   }
+  if (a.pattern) bgLayers.push(...patternLayers(a.pattern))
   if (a.surfaceGradient) {
     const g = gradientCss(a.surfaceGradient)
-    if (g) bgLayers.push(g)
+    if (g) bgLayers.push(plainLayer(g))
   }
   const bgUrl = cssUrl(a.backgroundImageUrl)
-  if (bgUrl) bgLayers.push(bgUrl)
-  if (bgLayers.length) out.push(`background-image: ${bgLayers.join(', ')}`)
-  // BUG-13 — a section/band background image fills its box (cover, centered, no
-  // tiling) — the faithful default for a hero/section backdrop. Only when a real
-  // image URL is present; a solid/gradient/scrim layer needs no sizing.
   if (bgUrl) {
+    // BUG-13 — a section/band background image fills its box (cover, centered, no
+    // tiling) — the faithful default for a hero/section backdrop.
+    bgLayers.push({ image: bgUrl, size: 'cover', position: 'center', repeat: 'no-repeat' })
+  }
+  if (bgLayers.length) out.push(`background-image: ${bgLayers.map((l) => l.image).join(', ')}`)
+  // The sizing triple is *positional* — one value per layer, in layer order — so a
+  // tiled pattern and a `cover` backdrop can coexist on one box. A surface with no
+  // pattern has at most one layer that cares, so it keeps emitting the single
+  // value BUG-13 set (and a surface with no layer that cares emits nothing).
+  if (a.pattern && bgLayers.length) {
+    out.push(
+      `background-size: ${bgLayers.map((l) => l.size).join(', ')}`,
+      `background-position: ${bgLayers.map((l) => l.position).join(', ')}`,
+      `background-repeat: ${bgLayers.map((l) => l.repeat).join(', ')}`,
+    )
+  } else if (bgUrl) {
     out.push('background-size: cover', 'background-position: center', 'background-repeat: no-repeat')
   }
   if (a.border) {
