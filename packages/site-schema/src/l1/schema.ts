@@ -346,16 +346,70 @@ export const l1GradientStopSchema = z
   .strict()
 
 /**
+ * REQ-103 — where a radial gradient's centre sits. A closed set of the nine box
+ * positions CSS names, never an `at 30% 40%` string: the author picks a corner or
+ * an edge, and the renderer is the only thing that knows the syntax.
+ */
+export const l1GradientOriginSchema = z.enum([
+  'center',
+  'top',
+  'bottom',
+  'left',
+  'right',
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right',
+])
+
+/** REQ-103 — how far a radial gradient's final stop reaches (CSS `<extent-keyword>`). */
+export const l1GradientExtentSchema = z.enum([
+  'closest-side',
+  'closest-corner',
+  'farthest-side',
+  'farthest-corner',
+])
+
+/**
  * A linear gradient — typed structured form (mirrors the capture `TextGradient`).
  * `angleDeg` is a CSS angle (0 = to-top, 90 = to-right); absent → default `180deg`.
  * Used for text-fill gradients and surface/panel gradients alike.
+ *
+ * REQ-103 — `kind` is optional here and required on {@link l1RadialGradientSchema},
+ * so linear is what a gradient is when it does not say otherwise. That is not a
+ * compatibility shim: linear is the shape a capture folds to, and a discriminator
+ * every folded gradient would have to restate is noise on the overwhelmingly
+ * common case.
  */
-export const l1GradientSchema = z
+export const l1LinearGradientSchema = z
   .object({
+    kind: z.literal('linear').optional(),
     angleDeg: finite.optional(),
     stops: z.array(l1GradientStopSchema).min(2),
   })
   .strict()
+
+/**
+ * REQ-103 — a radial gradient: the soft glow behind a headline, which is the most
+ * common single device in dark-theme marketing design and had no representation
+ * at all while L1's only gradient was linear.
+ *
+ * The axes a radial has and a linear does not (`origin`, `extent`) live only on
+ * this branch, and `angleDeg` lives only on the other, so the two cannot be mixed
+ * into a gradient that means nothing — a radial with an angle is rejected by the
+ * schema rather than silently ignored by the renderer.
+ */
+export const l1RadialGradientSchema = z
+  .object({
+    kind: z.literal('radial'),
+    origin: l1GradientOriginSchema.optional(),
+    extent: l1GradientExtentSchema.optional(),
+    stops: z.array(l1GradientStopSchema).min(2),
+  })
+  .strict()
+
+/** A gradient fill — linear (the default) or radial (REQ-103). */
+export const l1GradientSchema = z.union([l1LinearGradientSchema, l1RadialGradientSchema])
 
 /** A drop shadow — structured (offset / blur / spread / colour / inset), never raw CSS. */
 export const l1ShadowSchema = z
@@ -427,6 +481,36 @@ export const l1OverlaySchema = z
   .strict()
 
 /**
+ * REQ-103 — a repeating surface texture: the dot-grid, hairline grid or rule set
+ * that separates a premium dark page from a flat one.
+ *
+ * Every surface L1 could paint was a flat colour or one gradient, and a
+ * background image was pinned to `cover` / `no-repeat` (BUG-13), so a 24×24
+ * dot-grid could not tile. The only route left was a single full-bleed asset
+ * stretched across the box — which distorts at every viewport it was not authored
+ * for, costs a binary per section, and pushes the design decision out of L1 and
+ * back into a hand-authored file, which is precisely what the substrate exists to
+ * prevent (DOC-23, DOC-24).
+ *
+ * So the intent is named, not the declaration — the same move `borderLeft` and
+ * `overlay` already made. `spacingPx` is the tile period; `thicknessPx` is the
+ * line width, or the dot **diameter** for `dots` (default 1px, 2px respectively);
+ * `angleDeg` tilts `lines` only and is inert on the other shapes, exactly as
+ * {@link l1MaskSchema}'s `featherPx` is inert on a circular crop. The renderer
+ * compiles the lot to repeating gradients, so no asset is involved and nothing
+ * from the instance reaches CSS as a string.
+ */
+export const l1PatternSchema = z
+  .object({
+    shape: z.enum(['dots', 'grid', 'lines']),
+    spacingPx: finite.positive(),
+    thicknessPx: finite.positive().optional(),
+    color: l1Color,
+    angleDeg: finite.optional(),
+  })
+  .strict()
+
+/**
  * BUG-17 — box-model padding: a per-side inset (px) between a leaf's border-box
  * geometry and its content. A node-level structured axis (like {@link
  * l1TransformSchema}/{@link l1MaskSchema}), so it applies to any leaf/box kind.
@@ -488,6 +572,8 @@ const surfaceAxesShape = {
   opacity: finite.min(0).max(1).optional(),
   /** A gradient panel fill (a `background-image` gradient over the surface). */
   surfaceGradient: l1GradientSchema.optional(),
+  /** REQ-103 — a repeating texture (dot-grid / hairline grid / rules) over the fill. */
+  pattern: l1PatternSchema.optional(),
   /** A background image (scheme-checked by the envelope, like `image.src`). */
   backgroundImageUrl: z.string().optional(),
   /** A full-bleed translucent scrim painted over the background (hero overlay). */

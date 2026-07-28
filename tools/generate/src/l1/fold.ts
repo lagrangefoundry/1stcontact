@@ -32,8 +32,8 @@ import {
   type L1Document,
   type L1FontFace,
   type L1Geometry,
-  type L1Gradient,
   type L1GradientStop,
+  type L1LinearGradient,
   type L1Image,
   type L1ImageAxes,
   type L1Keyframe,
@@ -1017,7 +1017,10 @@ function capturedAxesOf(el: ValueElement): string[] {
 }
 
 /** A captured `TextGradient` → an L1 gradient axis (≥2 hex stops), else undefined. */
-function foldGradient(g: ValueElement['gradient']): L1Gradient | undefined {
+// REQ-103 — a capture yields a linear gradient (the extractor hexifies
+// `linear-gradient(…)` only), so the fold builds the linear branch by name rather
+// than the union: an `angleDeg` is meaningless on a radial and TS says so.
+function foldGradient(g: ValueElement['gradient']): L1LinearGradient | undefined {
   if (!g || !Array.isArray(g.stops)) return undefined
   const stops = g.stops
     .filter((s) => typeof s.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(s.color))
@@ -1029,7 +1032,7 @@ function foldGradient(g: ValueElement['gradient']): L1Gradient | undefined {
       return stop
     })
   if (stops.length < 2) return undefined
-  const out: L1Gradient = { stops }
+  const out: L1LinearGradient = { stops }
   if (g.angleDeg !== null && g.angleDeg !== undefined && Number.isFinite(g.angleDeg)) {
     out.angleDeg = g.angleDeg
   }
@@ -1193,7 +1196,7 @@ function foldSectionBackgrounds(projections: StateProjection[], widths: number[]
  */
 interface SurfaceRow {
   fill?: string
-  gradient?: L1Gradient
+  gradient?: L1LinearGradient
   borderLeft?: L1Border
   border?: L1Border
   boxShadow?: L1Shadow

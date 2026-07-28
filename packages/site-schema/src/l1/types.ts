@@ -23,8 +23,12 @@ import type {
   l1HoverStateSchema,
   l1InteractionSchema,
   l1GeometrySchema,
+  l1GradientExtentSchema,
+  l1GradientOriginSchema,
   l1GradientSchema,
   l1GradientStopSchema,
+  l1LinearGradientSchema,
+  l1RadialGradientSchema,
   l1ImageAxesSchema,
   l1ImageSchema,
   l1KeyframeSchema,
@@ -36,6 +40,7 @@ import type {
   l1OverlaySchema,
   l1PaddingResponsiveSchema,
   l1PaddingSchema,
+  l1PatternSchema,
   l1ResourcesSchema,
   l1ResponsiveLayoutSchema,
   l1RevealSchema,
@@ -83,6 +88,12 @@ export type L1ImageAxes = z.infer<typeof l1ImageAxesSchema>
 // REQ-91 shared structured axis forms.
 export type L1GradientStop = z.infer<typeof l1GradientStopSchema>
 export type L1Gradient = z.infer<typeof l1GradientSchema>
+// REQ-103 — the two gradient branches, and the repeating-texture axis.
+export type L1LinearGradient = z.infer<typeof l1LinearGradientSchema>
+export type L1RadialGradient = z.infer<typeof l1RadialGradientSchema>
+export type L1GradientOrigin = z.infer<typeof l1GradientOriginSchema>
+export type L1GradientExtent = z.infer<typeof l1GradientExtentSchema>
+export type L1Pattern = z.infer<typeof l1PatternSchema>
 export type L1Shadow = z.infer<typeof l1ShadowSchema>
 export type L1Border = z.infer<typeof l1BorderSchema>
 export type L1Mask = z.infer<typeof l1MaskSchema>

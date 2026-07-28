@@ -1421,7 +1421,13 @@
             }
           ],
           "axes": {
-            "surfaceFill": "#F5F4EC"
+            "surfaceFill": "#F5F4EC",
+            "pattern": {
+              "shape": "grid",
+              "spacingPx": 48,
+              "thicknessPx": 1,
+              "color": "#8b5c2a1a"
+            }
           }
         },
         {
@@ -3328,7 +3334,13 @@
             }
           ],
           "axes": {
-            "surfaceFill": "#F5F4EC"
+            "surfaceFill": "#F5F4EC",
+            "pattern": {
+              "shape": "grid",
+              "spacingPx": 48,
+              "thicknessPx": 1,
+              "color": "#8b5c2a1a"
+            }
           }
         },
         {
