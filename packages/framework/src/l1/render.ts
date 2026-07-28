@@ -18,6 +18,7 @@ import type {
   L1Column,
   L1ColumnAnchor,
   L1ColumnTerm,
+  L1Container,
   L1Document,
   L1FocusRing,
   L1FocusState,
@@ -25,6 +26,7 @@ import type {
   L1Gradient,
   L1HoverState,
   L1Interaction,
+  L1LayoutMode,
   L1Mask,
   L1Motion,
   L1Node,
@@ -949,6 +951,30 @@ function scalarAxisRules(selector: string, prop: string, track: L1ScalarTrack): 
   return rules
 }
 
+/**
+ * REQ-104 — the CSS for ONE layout mode, emitted whole.
+ *
+ * Whole rather than as a delta because a `@media` override has to be able to
+ * *replace* the mode below it: a grid that becomes a row must reset `display`, and
+ * a wrapping row that becomes a stack must reset `flex-wrap` (a column flex
+ * container that inherited `wrap` from the base rule breaks the moment anything
+ * constrains its height). Restating the mode at each breakpoint means every rule
+ * in the cascade is self-sufficient and no combination can leak across.
+ *
+ * `flex-wrap` is emitted only when the node actually declares `wrap`, so the
+ * emission for an untouched container is unchanged to the byte.
+ */
+function layoutDecls(mode: L1LayoutMode, node: L1Container): string[] {
+  if (mode === 'grid') {
+    return ['display: grid', `grid-template-columns: repeat(${node.columns ?? 1}, 1fr)`]
+  }
+  const decls = ['display: flex', `flex-direction: ${mode === 'row' ? 'row' : 'column'}`]
+  if (node.wrap !== undefined) {
+    decls.push(`flex-wrap: ${node.wrap && mode === 'row' ? 'wrap' : 'nowrap'}`)
+  }
+  return decls
+}
+
 interface RenderState {
   n: number
   rules: Rule[]
@@ -1006,20 +1032,6 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
   if (node.geometry) {
     state.rules.push(...geometryRules(selector, node.geometry, state.column))
   }
-  if (node.visibility) {
-    const { fromPx, untilPx } = node.visibility
-    if (fromPx !== undefined) {
-      state.rules.push({
-        media: `(max-width: ${fromPx - 1}px)`,
-        selector,
-        decls: ['display: none'],
-      })
-    }
-    if (untilPx !== undefined) {
-      state.rules.push({ media: `(min-width: ${untilPx}px)`, selector, decls: ['display: none'] })
-    }
-  }
-
   /**
    * The text-axis bag → CSS, shared by the `text` run and the REQ-96 `control`
    * leaf. A control is a styled, surface-painting text leaf (a placeholder, a
@@ -1192,10 +1204,18 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       break
     }
     case 'container': {
-      if (node.layout === 'grid') {
-        base.push('display: grid', `grid-template-columns: repeat(${node.columns ?? 1}, 1fr)`)
-      } else {
-        base.push('display: flex', `flex-direction: ${node.layout === 'row' ? 'row' : 'column'}`)
+      // REQ-104 — layout is a per-width axis. With a track, the first keyframe is
+      // the base rule and each later one is a `min-width` override; with none, the
+      // static `layout` is the base and nothing else is emitted, so a document that
+      // declares no responsive layout renders byte-identically to before.
+      const track = node.responsiveLayout
+      base.push(...layoutDecls(track ? track.keyframes[0].value : node.layout, node))
+      for (const kf of track?.keyframes.slice(1) ?? []) {
+        state.rules.push({
+          media: `(min-width: ${kf.at}px)`,
+          selector,
+          decls: layoutDecls(kf.value, node),
+        })
       }
       if (node.gapPx !== undefined) base.push(`gap: ${node.gapPx}px`)
       if (node.distribution) base.push(`justify-content: ${JUSTIFY[node.distribution]}`)
@@ -1293,13 +1313,52 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
     state.rules.push({ media: REDUCED_MOTION, selector, decls: ['transition-duration: 0ms'] })
   }
 
+  // Visibility is emitted LAST (REQ-104) so that within any one media block it is
+  // the final word on `display`. It shares that property with the layout track,
+  // and a node that is both hidden at a width and laid out at it must resolve to
+  // hidden — a container whose `responsiveLayout` re-declared `display: flex`
+  // after a `display: none` would simply reappear.
+  if (node.visibility) {
+    const { fromPx, untilPx } = node.visibility
+    if (fromPx !== undefined) {
+      state.rules.push({
+        media: `(max-width: ${fromPx - 1}px)`,
+        selector,
+        decls: ['display: none'],
+      })
+    }
+    if (untilPx !== undefined) {
+      state.rules.push({ media: `(min-width: ${untilPx}px)`, selector, decls: ['display: none'] })
+    }
+  }
+
   if (base.length) state.rules.push({ selector, decls: base })
   return html
 }
 
+/**
+ * The `min-width` a media condition opens at, for ordering. A condition without
+ * one (`max-width`, `prefers-reduced-motion`) sorts last: a max-width block is
+ * disjoint from every min-width block above it so its position cannot matter, and
+ * the reduced-motion kill-switch must survive whatever the width blocks set.
+ */
+function mediaMinWidth(media: string): number {
+  const m = /\(min-width:\s*(\d+(?:\.\d+)?)px\)/.exec(media)
+  return m ? Number(m[1]) : Infinity
+}
+
 function serializeRules(rules: Rule[]): string {
-  // Group by media so cascade order is deterministic: base rules first, then
-  // media blocks in source order (ascending min-width breakpoints override).
+  // Group by media so cascade order is deterministic: base rules first, then media
+  // blocks by ASCENDING breakpoint (REQ-104).
+  //
+  // Source order was not enough. Blocks were ordered by first appearance across
+  // the whole document, so one node emitting `(min-width: 768px)` before another
+  // node emitted `(min-width: 520px)` put 520 *after* 768 in the stylesheet — and
+  // then, for any node declaring both, the 520 rule won at 1280px. Harmless while
+  // every node keyframed at the same captured ladder; a live bug the moment two
+  // authored breakpoints interleave, which is exactly what a responsive layout
+  // track invites. Sorting by breakpoint makes the cascade a property of the
+  // stylesheet rather than of the order nodes happened to be walked in.
   const bare: Rule[] = rules.filter((r) => !r.media)
   const mediaOrder: string[] = []
   const byMedia = new Map<string, Rule[]>()
@@ -1311,6 +1370,7 @@ function serializeRules(rules: Rule[]): string {
     }
     byMedia.get(r.media)!.push(r)
   }
+  mediaOrder.sort((a, b) => mediaMinWidth(a) - mediaMinWidth(b))
   const block = (r: Rule) => `${r.selector} { ${r.decls.join('; ')} }`
   const out: string[] = bare.map(block)
   for (const m of mediaOrder) {

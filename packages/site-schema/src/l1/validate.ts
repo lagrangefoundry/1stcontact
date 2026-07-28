@@ -457,6 +457,34 @@ function walk(
     }
   }
 
+  // REQ-104 — the per-width layout track. `at` is a free breakpoint (not a
+  // captured sample), so unlike a geometry / scalar track it is NOT checked
+  // against `widths`; what IS checked is that the breakpoints ascend and that the
+  // static `layout` still names the widest keyframe's mode. Letting the two
+  // disagree would leave every non-responsive consumer of `layout` — the analytic
+  // evaluator's fallback, the folder, any future tool — reading a mode the page
+  // never renders at any width, which is worse than not declaring one at all.
+  if (node.kind === 'container' && node.responsiveLayout) {
+    const kfs = node.responsiveLayout.keyframes
+    let prevAt = -Infinity
+    kfs.forEach((kf, i) => {
+      if (kf.at <= prevAt) {
+        errors.push({
+          path: `${path}/responsiveLayout/keyframes/${i}/at`,
+          message: `keyframes must be sorted strictly ascending by 'at' (got ${kf.at} after ${prevAt})`,
+        })
+      }
+      prevAt = kf.at
+    })
+    const widest = kfs[kfs.length - 1].value
+    if (node.layout !== widest) {
+      errors.push({
+        path: `${path}/layout`,
+        message: `layout='${node.layout}' disagrees with the widest responsiveLayout keyframe ('${widest}') — \`layout\` is the representative widest value`,
+      })
+    }
+  }
+
   // REQ-106 — a link's href clears the same allowlist as every other URL sink.
   // The renderer degrades an unsafe href to the plain element, but failing here
   // as well means the author is told rather than quietly shipping a dead button.

@@ -28,6 +28,8 @@ import type {
   l1ImageAxesSchema,
   l1ImageSchema,
   l1KeyframeSchema,
+  l1LayoutKeyframeSchema,
+  l1LayoutModeSchema,
   l1MaskSchema,
   l1MotionSchema,
   l1NodeSchema,
@@ -35,6 +37,7 @@ import type {
   l1PaddingResponsiveSchema,
   l1PaddingSchema,
   l1ResourcesSchema,
+  l1ResponsiveLayoutSchema,
   l1RevealSchema,
   l1ScalarKeyframeSchema,
   l1ScalarTrackSchema,
@@ -63,6 +66,10 @@ export type L1ColumnTerm = z.infer<typeof l1ColumnTermSchema>
 export type L1Sizing = z.infer<typeof l1SizingSchema>
 export type L1AxisSizing = z.infer<typeof l1AxisSizingSchema>
 export type L1Distribution = z.infer<typeof l1DistributionSchema>
+// REQ-104 — the layout mode and its per-width track.
+export type L1LayoutMode = z.infer<typeof l1LayoutModeSchema>
+export type L1LayoutKeyframe = z.infer<typeof l1LayoutKeyframeSchema>
+export type L1ResponsiveLayout = z.infer<typeof l1ResponsiveLayoutSchema>
 export type L1Visibility = z.infer<typeof l1VisibilitySchema>
 export type L1TextAxes = z.infer<typeof l1TextAxesSchema>
 // BUG-18 responsive scalar-axis tracks.

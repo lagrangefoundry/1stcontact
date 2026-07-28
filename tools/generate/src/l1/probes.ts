@@ -30,6 +30,7 @@
  * per-site patch.
  */
 import {
+  resolveLayoutMode,
   validateL1,
   type L1Document,
   type L1Geometry,
@@ -236,6 +237,31 @@ function rowChildWidths(children: L1Node[], avail: number, gap: number): number[
   return fixed.map((w) => (w === undefined ? share : w))
 }
 
+/**
+ * REQ-104 — greedily pack a wrapping row's children into lines: a child that no
+ * longer fits on the current line starts the next one. Returns the child indices
+ * per line, so a row that fits comes back as a single line and the caller's model
+ * is identical to the non-wrapping one.
+ */
+function packRowLines(widths: number[], avail: number, gap: number, eps: number): number[][] {
+  const lines: number[][] = []
+  let line: number[] = []
+  let used = 0
+  widths.forEach((w, i) => {
+    const cost = line.length ? gap + w : w
+    if (line.length > 0 && used + cost > avail + eps) {
+      lines.push(line)
+      line = [i]
+      used = w
+    } else {
+      line.push(i)
+      used += cost
+    }
+  })
+  if (line.length) lines.push(line)
+  return lines
+}
+
 // ── analytic layout ───────────────────────────────────────────────────────────
 
 interface Ctx {
@@ -320,7 +346,13 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
       // `stack`/`grid` container flow vertically (full-width, stacked). Grid is
       // modelled as a stack here — envelope-conservative, and the folder does not
       // emit grid yet.
-      const row = node.kind === 'container' && node.layout === 'row'
+      //
+      // REQ-104 — the mode is resolved AT THIS WIDTH, through the same shared
+      // cascade the renderer compiles. Reading the static `layout` would model a
+      // container that stacks at mobile as a row there, and report the phantom
+      // overlap/clip findings of a layout the page never renders.
+      const row = node.kind === 'container' && resolveLayoutMode(node, width) === 'row'
+      const wrapping = row && node.kind === 'container' && node.wrap === true
 
       // Out-of-flow (pinned) children float independently; in-flow children flow.
       const flowChildren: L1Node[] = []
@@ -334,15 +366,30 @@ function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
         // Flex row: children sit side by side, each taking its own main-axis
         // width; the row's height is the tallest child (cross axis). Mirrors the
         // renderer's `display:flex; flex-direction:row`.
+        //
+        // REQ-104 — with `wrap`, children that no longer fit start a new line
+        // instead of squeezing, and the row's height is the sum of its lines. A
+        // row whose children DO fit packs into exactly one line, so the model is
+        // unchanged wherever wrapping never happens.
         const widths = rowChildWidths(flowChildren, box.width, gap)
-        let cursorX = box.x
-        flowChildren.forEach((child, k) => {
-          const idx = children.indexOf(child)
-          const childFrame: EvalBox = { x: cursorX, y: box.y, width: widths[k], height: 0 }
-          const h = layout(child, childFrame, `${path}.${idx}`, ctx)
-          maxChildBottom = Math.max(maxChildBottom, box.y + h)
-          cursorX += widths[k] + gap
-        })
+        const lines = wrapping
+          ? packRowLines(widths, box.width, gap, opts.epsilonPx)
+          : [flowChildren.map((_, k) => k)]
+        let cursorY = box.y
+        for (const line of lines) {
+          let cursorX = box.x
+          let lineHeight = 0
+          for (const k of line) {
+            const child = flowChildren[k]
+            const idx = children.indexOf(child)
+            const childFrame: EvalBox = { x: cursorX, y: cursorY, width: widths[k], height: 0 }
+            const h = layout(child, childFrame, `${path}.${idx}`, ctx)
+            lineHeight = Math.max(lineHeight, h)
+            cursorX += widths[k] + gap
+          }
+          cursorY += lineHeight + gap
+          maxChildBottom = Math.max(maxChildBottom, cursorY - gap)
+        }
       } else {
         // Stack: each child fills the width and stacks vertically.
         let cursorY = box.y
@@ -884,8 +931,14 @@ export function promoteToFlow(doc: L1Document, options: { scale?: number } = {})
     // parent exactly where the pinned version overlapped. The absolute base
     // (which keeps the authored layout) is what fidelity is measured on; this
     // rewrite only ever applies to a node whose children *already* collide.
+    //
+    // REQ-104 — that forcing has to take any per-width layout track with it: the
+    // track OWNS the mode at render time, and a leftover one would quietly
+    // re-row the region the probe just flowed.
     const rebuilt = (kids: L1Node[]): L1Node =>
-      node.kind === 'container' ? { ...node, layout: 'stack', children: kids } : { ...node, children: kids }
+      node.kind === 'container'
+        ? { ...node, layout: 'stack', responsiveLayout: undefined, children: kids }
+        : { ...node, children: kids }
 
     // One region covering every child → flow the node's children directly (the
     // node *is* the region). Keeps the historical single-region path reporting.
