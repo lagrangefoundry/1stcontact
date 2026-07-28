@@ -803,6 +803,58 @@ export const l1ImageAxesSchema = z
   })
   .strict()
 
+// ── The shared node-level axis groups (REQ-105) ───────────────────────────────
+//
+// REQ-98 hoisted *paint* into one shape spread into every kind. The node-level
+// groups below — the ones that answer "where is this box, how big is it, is it
+// here at all, how does it move" — were left declared BY HAND on each kind, and
+// promptly drifted: `slot` was the one box-rendering kind with no `sizing`, so a
+// mounted behavior module could be painted but not measured, and giving it a
+// max-width cost a container that existed only to carry the number.
+//
+// That is the same "two nodes for one element" hole REQ-98 named, and REQ-97 had
+// already patched it once for `text`. Patching a third kind by hand would leave
+// the fourth to drift, so the groups are declared ONCE, here, and spread into
+// every kind. A new kind inherits them rather than re-deriving which ones it is
+// allowed to have.
+//
+// `link` is deliberately NOT in this shape: it is a per-kind decision, not a
+// universal one (a `control` is already the interactive element the module
+// declared, and a `slot` is a mount point rather than something a reader
+// follows), so it stays declared by the four kinds that actually navigate.
+
+const nodeAxisGroupsShape = {
+  /** Per-width absolute placement — the transcription face's pinned box. */
+  geometry: l1GeometrySchema.optional(),
+  /**
+   * REQ-105 — the node's own extent: a fixed px, fluid fill, or hug, per axis,
+   * with min/max. Every box-rendering kind carries it, `slot` included: a seam
+   * that can be filled and framed but not measured forces a sizing-only wrapper
+   * around it, which is a node with no content, no paint and no semantic role.
+   */
+  sizing: l1AxisSizingSchema.optional(),
+  visibility: l1VisibilitySchema.optional(),
+  transform: l1TransformSchema.optional(),
+  mask: l1MaskSchema.optional(),
+  padding: l1PaddingSchema.optional(),
+  /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
+  responsivePadding: l1PaddingResponsiveSchema.optional(),
+  /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
+  interaction: l1InteractionSchema.optional(),
+  /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
+  reveal: l1RevealSchema.optional(),
+} as const
+
+/**
+ * REQ-105 — the node-level axis groups every L1 node kind carries: placement,
+ * sizing, visibility, transform, mask, padding (static + responsive) and the
+ * typed interaction / reveal states. One declaration, spread into each kind.
+ */
+export const l1NodeAxisGroupsSchema = z.object(nodeAxisGroupsShape).strict()
+
+/** The inferred shape of {@link l1NodeAxisGroupsSchema} — every field optional. */
+export type L1NodeAxisGroups = z.infer<typeof l1NodeAxisGroupsSchema>
+
 // ── Nodes — a discriminated union on `kind` ───────────────────────────────────
 //
 // `container` and `box` are recursive; Zod v4 handles this with a lazy getter on
@@ -818,36 +870,14 @@ export const l1TextSchema = z
     axes: l1TextAxesSchema.optional(),
     /** BUG-18 — per-width tracks for the numeric type axes that vary across the ladder. */
     responsive: l1TextResponsiveSchema.optional(),
-    geometry: l1GeometrySchema.optional(),
     /**
-     * REQ-97 — a text run's own **measure**: the max line length, which is the
-     * most fundamental control in typography and the one axis a paragraph must
-     * be able to declare for itself.
-     *
-     * Text was the only leaf without it — an artefact of which face was
-     * exercised first, not a decision: capture folds text absolutely-positioned
-     * with a geometry track, so the transcription face never needed sizing,
-     * while the authoring face had to wrap every constrained paragraph in a
-     * container that carried no other meaning. Under REQ-96 (L1 is the sole
-     * owner of appearance; modules ship no CSS) that gap stops being an
-     * ergonomic annoyance and becomes a hole in the contract.
-     *
-     * `width` is the axis that matters. `height` is admitted only because the
-     * shared axis-sizing shape is simpler than a width-only variant — a text
-     * leaf's height is natural, from flow (see {@link l1KeyframeSchema}), so
-     * pinning it merely clips or pads and is rarely what an author wants.
+     * REQ-97 — `sizing` gives a run its own **measure**: the max line length,
+     * which is the most fundamental control in typography and the one axis a
+     * paragraph must be able to declare for itself. `width` is the axis that
+     * matters; a text leaf's height is natural, from flow (see
+     * {@link l1KeyframeSchema}), so pinning it merely clips or pads.
      */
-    sizing: l1AxisSizingSchema.optional(),
-    visibility: l1VisibilitySchema.optional(),
-    transform: l1TransformSchema.optional(),
-    mask: l1MaskSchema.optional(),
-    padding: l1PaddingSchema.optional(),
-    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
-    responsivePadding: l1PaddingResponsiveSchema.optional(),
-    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
-    interaction: l1InteractionSchema.optional(),
-    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-    reveal: l1RevealSchema.optional(),
+    ...nodeAxisGroupsShape,
     /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
     link: l1LinkSchema.optional(),
   })
@@ -861,18 +891,7 @@ export const l1ImageSchema = z
     src: z.string(),
     alt: z.string(),
     axes: l1ImageAxesSchema.optional(),
-    geometry: l1GeometrySchema.optional(),
-    sizing: l1AxisSizingSchema.optional(),
-    visibility: l1VisibilitySchema.optional(),
-    transform: l1TransformSchema.optional(),
-    mask: l1MaskSchema.optional(),
-    padding: l1PaddingSchema.optional(),
-    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
-    responsivePadding: l1PaddingResponsiveSchema.optional(),
-    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
-    interaction: l1InteractionSchema.optional(),
-    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-    reveal: l1RevealSchema.optional(),
+    ...nodeAxisGroupsShape,
     /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
     link: l1LinkSchema.optional(),
   })
@@ -911,18 +930,7 @@ export const l1ControlSchema = z
      */
     axes: l1TextAxesSchema.optional(),
     responsive: l1TextResponsiveSchema.optional(),
-    geometry: l1GeometrySchema.optional(),
-    sizing: l1AxisSizingSchema.optional(),
-    visibility: l1VisibilitySchema.optional(),
-    transform: l1TransformSchema.optional(),
-    mask: l1MaskSchema.optional(),
-    padding: l1PaddingSchema.optional(),
-    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
-    responsivePadding: l1PaddingResponsiveSchema.optional(),
-    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
-    interaction: l1InteractionSchema.optional(),
-    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-    reveal: l1RevealSchema.optional(),
+    ...nodeAxisGroupsShape,
   })
   .strict()
 
@@ -939,17 +947,12 @@ export const l1SlotSchema = z
     behavior: z.string().optional(),
     /** REQ-98 — the seam's own painted surface (a framed, filled mount point). */
     axes: l1SurfaceAxesSchema.optional(),
-    geometry: l1GeometrySchema.optional(),
-    visibility: l1VisibilitySchema.optional(),
-    transform: l1TransformSchema.optional(),
-    mask: l1MaskSchema.optional(),
-    padding: l1PaddingSchema.optional(),
-    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
-    responsivePadding: l1PaddingResponsiveSchema.optional(),
-    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
-    interaction: l1InteractionSchema.optional(),
-    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-    reveal: l1RevealSchema.optional(),
+    /**
+     * REQ-105 — including `sizing`: the seam is measurable as well as paintable,
+     * so a mounted module takes its measure from the slot itself rather than from
+     * a wrapper container that exists only to carry the number.
+     */
+    ...nodeAxisGroupsShape,
   })
   .strict()
 
@@ -959,27 +962,17 @@ export const l1SlotSchema = z
 // still Zod-inferred; only the recursion is manual).
 
 /** A painted box that may nest children. */
-export interface L1BoxNode {
+export interface L1BoxNode extends L1NodeAxisGroups {
   kind: 'box'
   id?: string
   axes?: z.infer<typeof l1SurfaceAxesSchema>
-  geometry?: z.infer<typeof l1GeometrySchema>
-  sizing?: z.infer<typeof l1AxisSizingSchema>
-  visibility?: z.infer<typeof l1VisibilitySchema>
-  transform?: z.infer<typeof l1TransformSchema>
-  mask?: z.infer<typeof l1MaskSchema>
-  padding?: z.infer<typeof l1PaddingSchema>
-  responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
-  interaction?: z.infer<typeof l1InteractionSchema>
-  /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-  reveal?: z.infer<typeof l1RevealSchema>
   /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
   link?: L1Link
   children?: L1NodeUnion[]
 }
 
 /** A painted layout container: stack / row / grid over its children. */
-export interface L1ContainerNode {
+export interface L1ContainerNode extends L1NodeAxisGroups {
   kind: 'container'
   id?: string
   layout: z.infer<typeof l1LayoutModeSchema>
@@ -1002,16 +995,6 @@ export interface L1ContainerNode {
   columns?: number
   distribution?: z.infer<typeof l1DistributionSchema>
   align?: z.infer<typeof l1AlignSchema>
-  sizing?: z.infer<typeof l1AxisSizingSchema>
-  geometry?: z.infer<typeof l1GeometrySchema>
-  visibility?: z.infer<typeof l1VisibilitySchema>
-  transform?: z.infer<typeof l1TransformSchema>
-  mask?: z.infer<typeof l1MaskSchema>
-  padding?: z.infer<typeof l1PaddingSchema>
-  responsivePadding?: z.infer<typeof l1PaddingResponsiveSchema>
-  interaction?: z.infer<typeof l1InteractionSchema>
-  /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-  reveal?: z.infer<typeof l1RevealSchema>
   /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
   link?: L1Link
   /**
@@ -1042,20 +1025,9 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
       kind: z.literal('box'),
       id: z.string().optional(),
       axes: l1SurfaceAxesSchema.optional(),
-      geometry: l1GeometrySchema.optional(),
-      sizing: l1AxisSizingSchema.optional(),
-      visibility: l1VisibilitySchema.optional(),
-      transform: l1TransformSchema.optional(),
-      mask: l1MaskSchema.optional(),
-      padding: l1PaddingSchema.optional(),
-    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
-    responsivePadding: l1PaddingResponsiveSchema.optional(),
-    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
-    interaction: l1InteractionSchema.optional(),
-    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-    reveal: l1RevealSchema.optional(),
-    /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
-    link: l1LinkSchema.optional(),
+      ...nodeAxisGroupsShape,
+      /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+      link: l1LinkSchema.optional(),
       children: z.array(l1NodeSchema).optional(),
     })
     .strict(),
@@ -1077,22 +1049,11 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       columns: z.number().int().positive().optional(),
       distribution: l1DistributionSchema.optional(),
       align: l1AlignSchema.optional(),
-      sizing: l1AxisSizingSchema.optional(),
-      geometry: l1GeometrySchema.optional(),
-      visibility: l1VisibilitySchema.optional(),
-      transform: l1TransformSchema.optional(),
-      mask: l1MaskSchema.optional(),
-      padding: l1PaddingSchema.optional(),
-    /** REQ-88 — per-width padding tracks; a track owns its side at render time. */
-    responsivePadding: l1PaddingResponsiveSchema.optional(),
-    /** REQ-99 — typed hover / focus states; the renderer is the sole pseudo-class sink. */
-    interaction: l1InteractionSchema.optional(),
-    /** REQ-100 — typed scroll-entrance; the renderer owns the observer that drives it. */
-    reveal: l1RevealSchema.optional(),
-    /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
-    link: l1LinkSchema.optional(),
-    /** REQ-100 — interval between successive revealing children, in ms. */
-    staggerMs: finite.nonnegative().optional(),
+      ...nodeAxisGroupsShape,
+      /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
+      link: l1LinkSchema.optional(),
+      /** REQ-100 — interval between successive revealing children, in ms. */
+      staggerMs: finite.nonnegative().optional(),
       children: z.array(l1NodeSchema),
     })
     .strict(),
