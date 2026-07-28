@@ -267,6 +267,55 @@ export const l1AxisSizingSchema = z
   })
   .strict()
 
+/** A container's flow mode: stacked (column), row, or grid. */
+export const l1LayoutModeSchema = z.enum(['stack', 'row', 'grid'])
+
+/**
+ * REQ-104 — one breakpoint of a container's layout mode: the mode in force from
+ * `at` px upward. Discrete, so there is no `segments` companion — a layout mode
+ * has nothing to interpolate, it snaps.
+ */
+export const l1LayoutKeyframeSchema = z
+  .object({
+    at: finite.nonnegative(),
+    value: l1LayoutModeSchema,
+  })
+  .strict()
+
+/**
+ * REQ-104 — a per-width track for a container's layout mode: the axis that lets a
+ * horizontal run of peers become a vertical one on a narrow screen, which is the
+ * single most common responsive behaviour on the web.
+ *
+ * The first keyframe's mode is also the base (in force *below* its `at`), and each
+ * subsequent keyframe overrides from its `at` upward — the same mobile-first
+ * cascade {@link l1ScalarTrackSchema} compiles to. `container.layout` stays the
+ * representative (widest) value for non-responsive consumers, and the envelope
+ * requires the two to agree so they cannot drift apart.
+ *
+ * **`at` is a breakpoint, not a sample.** Geometry and scalar tracks keyframe at
+ * the document's captured `widths` because they are *sampled* from a capture and
+ * interpolated between samples. A layout mode is neither: it is an authored design
+ * decision that snaps at a width the capture may never have visited (REQ-83's hint
+ * pass reads a page's real `@media` breakpoints for exactly this reason). So `at`
+ * is free, like {@link l1VisibilitySchema}'s `fromPx`.
+ *
+ * This exists because the only alternative was authoring the subtree **twice**
+ * under paired `visibility.fromPx` / `untilPx` — which doubles the node count,
+ * silently desynchronises when one copy is edited, feeds `staggerMs` phantom
+ * peers, and for a {@link l1ControlSchema} leaf is not merely expensive but
+ * *malformed*: duplicating a control duplicates a form field, so both copies share
+ * one `name` and one `id`. `visibility` is CSS, not `disabled` — the hidden copy
+ * still submits, and the duplicate id breaks the `for`↔`id` association the module
+ * exists to guarantee. A control row that becomes a control column has to be ONE
+ * subtree, and this is the axis that makes it one.
+ */
+export const l1ResponsiveLayoutSchema = z
+  .object({
+    keyframes: z.array(l1LayoutKeyframeSchema).min(1),
+  })
+  .strict()
+
 /** Main-axis distribution for a container (maps to flex `justify-content`). */
 export const l1DistributionSchema = z.enum(['start', 'center', 'end', 'between', 'around'])
 
@@ -650,9 +699,14 @@ export type L1Link = z.infer<typeof l1LinkSchema>
  *
  * `delayMs` is the per-node escape hatch from a container's {@link
  * L1ContainerNode.staggerMs}: stagger indexes children by position, which is
- * right for a row of peers and wrong wherever a visibility-paired duplicate
- * subtree (the hero's `cta-row` / `cta-stack`) puts two nodes in the count where
+ * right for a row of peers and wrong wherever two nodes sit in the count where
  * the reader only ever sees one.
+ *
+ * REQ-104 removed the case that motivated it — a visibility-paired duplicate
+ * subtree (the hero's `cta-row` / `cta-stack`), which existed only because
+ * `layout` could not vary with width and is now one node carrying a
+ * {@link l1ResponsiveLayoutSchema} track. The hatch stays for the cases a
+ * positional index still cannot express.
  */
 export const l1RevealSchema = z
   .object({
@@ -928,7 +982,20 @@ export interface L1BoxNode {
 export interface L1ContainerNode {
   kind: 'container'
   id?: string
-  layout: 'stack' | 'row' | 'grid'
+  layout: z.infer<typeof l1LayoutModeSchema>
+  /**
+   * REQ-104 — the per-width layout track. When present it OWNS the mode at render
+   * time (base rule = first keyframe, media overrides above), and `layout` above
+   * stays the representative widest value.
+   */
+  responsiveLayout?: z.infer<typeof l1ResponsiveLayoutSchema>
+  /**
+   * REQ-104 — `flex-wrap: wrap` for a row: children that no longer fit start a new
+   * line instead of squeezing. Combined with each child's `sizing.width.minPx` this
+   * is the "cards reflow when they run out of room" behaviour, with no breakpoint
+   * to author. Inert wherever the resolved mode is not `row`.
+   */
+  wrap?: boolean
   /** REQ-98 — the shared surface group: a container paints AND lays out. */
   axes?: z.infer<typeof l1SurfaceAxesSchema>
   gapPx?: number
@@ -999,7 +1066,11 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
     .object({
       kind: z.literal('container'),
       id: z.string().optional(),
-      layout: z.enum(['stack', 'row', 'grid']),
+      layout: l1LayoutModeSchema,
+      /** REQ-104 — per-width layout track; the track owns the mode at render time. */
+      responsiveLayout: l1ResponsiveLayoutSchema.optional(),
+      /** REQ-104 — `flex-wrap: wrap` for a row; inert in any other resolved mode. */
+      wrap: z.boolean().optional(),
       /** REQ-98 — the shared surface group: a container paints AND lays out. */
       axes: l1SurfaceAxesSchema.optional(),
       gapPx: finite.nonnegative().optional(),

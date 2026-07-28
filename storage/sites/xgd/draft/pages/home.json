@@ -669,9 +669,21 @@
             },
             {
               "kind": "container",
-              "id": "cta-row",
+              "id": "cta",
               "layout": "row",
-              "align": "center",
+              "responsiveLayout": {
+                "keyframes": [
+                  {
+                    "at": 0,
+                    "value": "stack"
+                  },
+                  {
+                    "at": 520,
+                    "value": "row"
+                  }
+                ]
+              },
+              "align": "stretch",
               "gapPx": 14,
               "padding": {
                 "topPx": 44
@@ -700,7 +712,8 @@
                         "fontSizePx": 15,
                         "fontWeight": 600,
                         "lineHeightPx": 20,
-                        "nowrapFromPx": 0
+                        "nowrapFromPx": 0,
+                        "textAlign": "center"
                       }
                     }
                   ],
@@ -760,7 +773,8 @@
                         "fontSizePx": 15,
                         "fontWeight": 500,
                         "lineHeightPx": 20,
-                        "nowrapFromPx": 0
+                        "nowrapFromPx": 0,
+                        "textAlign": "center"
                       }
                     }
                   ],
@@ -793,157 +807,16 @@
                   }
                 }
               ],
-              "visibility": {
-                "fromPx": 520
-              },
               "reveal": {
                 "yPx": 20,
                 "durationMs": 640,
                 "easing": "ease-out",
                 "delayMs": 400
-              }
-            },
-            {
-              "kind": "container",
-              "id": "cta-stack",
-              "layout": "stack",
-              "align": "stretch",
-              "gapPx": 12,
-              "padding": {
-                "topPx": 44
-              },
-              "children": [
-                {
-                  "kind": "box",
-                  "id": "cta-primary-sm",
-                  "axes": {
-                    "surfaceFill": "#2E86A3",
-                    "borderRadiusPx": 6
-                  },
-                  "padding": {
-                    "topPx": 15,
-                    "bottomPx": 15,
-                    "leftPx": 26,
-                    "rightPx": 26
-                  },
-                  "children": [
-                    {
-                      "kind": "text",
-                      "text": "Join the beta waitlist",
-                      "axes": {
-                        "color": "#FFFFFF",
-                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                        "fontSizePx": 15,
-                        "fontWeight": 600,
-                        "lineHeightPx": 20,
-                        "nowrapFromPx": 0,
-                        "textAlign": "center"
-                      }
-                    }
-                  ],
-                  "interaction": {
-                    "transition": {
-                      "durationMs": 160,
-                      "easing": "ease-out"
-                    },
-                    "hover": {
-                      "surfaceFill": "#236D87",
-                      "motion": {
-                        "offsetYPx": -2
-                      },
-                      "boxShadow": {
-                        "offsetXPx": 0,
-                        "offsetYPx": 8,
-                        "blurPx": 24,
-                        "color": "#00000059"
-                      }
-                    },
-                    "focus": {
-                      "ring": {
-                        "widthPx": 2,
-                        "color": "#2E86A3",
-                        "offsetPx": 2
-                      }
-                    }
-                  },
-                  "link": {
-                    "href": "#signup"
-                  }
-                },
-                {
-                  "kind": "box",
-                  "id": "cta-secondary-sm",
-                  "axes": {
-                    "borderRadiusPx": 6,
-                    "border": {
-                      "widthPx": 1,
-                      "color": "#D1D5DB",
-                      "style": "solid"
-                    }
-                  },
-                  "padding": {
-                    "topPx": 15,
-                    "bottomPx": 15,
-                    "leftPx": 26,
-                    "rightPx": 26
-                  },
-                  "children": [
-                    {
-                      "kind": "text",
-                      "text": "Read the whitepaper",
-                      "axes": {
-                        "color": "#1F2937",
-                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                        "fontSizePx": 15,
-                        "fontWeight": 500,
-                        "lineHeightPx": 20,
-                        "nowrapFromPx": 0,
-                        "textAlign": "center"
-                      }
-                    }
-                  ],
-                  "interaction": {
-                    "transition": {
-                      "durationMs": 160,
-                      "easing": "ease-out"
-                    },
-                    "hover": {
-                      "surfaceFill": "#EAF5F8",
-                      "border": {
-                        "widthPx": 1,
-                        "color": "#4AAFC9",
-                        "style": "solid"
-                      },
-                      "motion": {
-                        "offsetYPx": -2
-                      }
-                    },
-                    "focus": {
-                      "ring": {
-                        "widthPx": 2,
-                        "color": "#2E86A3",
-                        "offsetPx": 2
-                      }
-                    }
-                  },
-                  "link": {
-                    "href": "#papers"
-                  }
-                }
-              ],
-              "visibility": {
-                "untilPx": 520
               },
               "sizing": {
                 "width": {
                   "mode": "fluid"
                 }
-              },
-              "reveal": {
-                "yPx": 20,
-                "durationMs": 640,
-                "easing": "ease-out",
-                "delayMs": 400
               }
             }
           ],
@@ -1260,8 +1133,20 @@
                 },
                 {
                   "kind": "container",
-                  "id": "problem-items-row",
+                  "id": "problem-items",
                   "layout": "row",
+                  "responsiveLayout": {
+                    "keyframes": [
+                      {
+                        "at": 0,
+                        "value": "stack"
+                      },
+                      {
+                        "at": 768,
+                        "value": "row"
+                      }
+                    ]
+                  },
                   "align": "stretch",
                   "distribution": "start",
                   "gapPx": 20,
@@ -1270,285 +1155,6 @@
                     "width": {
                       "mode": "fluid"
                     }
-                  },
-                  "visibility": {
-                    "fromPx": 768
-                  },
-                  "children": [
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 12,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "01",
-                          "axes": {
-                            "color": "#2E86A3",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.2,
-                            "lineHeightPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Intent evaporates",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 19,
-                            "fontWeight": 600,
-                            "letterSpacingPx": -0.3,
-                            "lineHeightPx": 26
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "The reason a behaviour exists lives in a conversation that scrolls away, not in anything the build can check.",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 400,
-                            "lineHeightPx": 25
-                          }
-                        }
-                      ],
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 26,
-                        "bottomPx": 28,
-                        "leftPx": 24,
-                        "rightPx": 24
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 12,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "02",
-                          "axes": {
-                            "color": "#2E86A3",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.2,
-                            "lineHeightPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Tests drift",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 19,
-                            "fontWeight": 600,
-                            "letterSpacingPx": -0.3,
-                            "lineHeightPx": 26
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Suites grow around the implementation they were written against, so they keep passing long after the behaviour they describe has moved.",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 400,
-                            "lineHeightPx": 25
-                          }
-                        }
-                      ],
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 26,
-                        "bottomPx": 28,
-                        "leftPx": 24,
-                        "rightPx": 24
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 12,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "03",
-                          "axes": {
-                            "color": "#2E86A3",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.2,
-                            "lineHeightPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Review stops scaling",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 19,
-                            "fontWeight": 600,
-                            "letterSpacingPx": -0.3,
-                            "lineHeightPx": 26
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Reading every diff was always the weakest link. At generated volume it stops being a link at all.",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 400,
-                            "lineHeightPx": 25
-                          }
-                        }
-                      ],
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 26,
-                        "bottomPx": 28,
-                        "leftPx": 24,
-                        "rightPx": 24
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "kind": "container",
-                  "id": "problem-items-stack",
-                  "layout": "stack",
-                  "align": "stretch",
-                  "gapPx": 20,
-                  "staggerMs": 80,
-                  "sizing": {
-                    "width": {
-                      "mode": "fluid"
-                    }
-                  },
-                  "visibility": {
-                    "untilPx": 768
                   },
                   "children": [
                     {
@@ -2072,8 +1678,20 @@
                 },
                 {
                   "kind": "container",
-                  "id": "how-steps-row",
+                  "id": "how-steps",
                   "layout": "row",
+                  "responsiveLayout": {
+                    "keyframes": [
+                      {
+                        "at": 0,
+                        "value": "stack"
+                      },
+                      {
+                        "at": 768,
+                        "value": "row"
+                      }
+                    ]
+                  },
                   "align": "stretch",
                   "distribution": "start",
                   "gapPx": 16,
@@ -2082,371 +1700,6 @@
                     "width": {
                       "mode": "fluid"
                     }
-                  },
-                  "visibility": {
-                    "fromPx": 768
-                  },
-                  "children": [
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 12,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "01",
-                          "axes": {
-                            "color": "#2E86A3",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.2,
-                            "lineHeightPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Capability",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 19,
-                            "fontWeight": 600,
-                            "letterSpacingPx": -0.3,
-                            "lineHeightPx": 26
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "A durable slice of what your system does — finite, named, and stable across refactors.",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 400,
-                            "lineHeightPx": 25
-                          }
-                        }
-                      ],
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 26,
-                        "bottomPx": 28,
-                        "leftPx": 24,
-                        "rightPx": 24
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 12,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "02",
-                          "axes": {
-                            "color": "#2E86A3",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.2,
-                            "lineHeightPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "User story",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 19,
-                            "fontWeight": 600,
-                            "letterSpacingPx": -0.3,
-                            "lineHeightPx": 26
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Why that behaviour exists, in plain English. Derived from your intent, never loose free text.",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 400,
-                            "lineHeightPx": 25
-                          }
-                        }
-                      ],
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 26,
-                        "bottomPx": 28,
-                        "leftPx": 24,
-                        "rightPx": 24
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 12,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "03",
-                          "axes": {
-                            "color": "#2E86A3",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.2,
-                            "lineHeightPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Acceptance criteria",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 19,
-                            "fontWeight": 600,
-                            "letterSpacingPx": -0.3,
-                            "lineHeightPx": 26
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "What correct means for the story. Behavioural, not bound to any one implementation.",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 400,
-                            "lineHeightPx": 25
-                          }
-                        }
-                      ],
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 26,
-                        "bottomPx": 28,
-                        "leftPx": 24,
-                        "rightPx": 24
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 12,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "04",
-                          "axes": {
-                            "color": "#2E86A3",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.2,
-                            "lineHeightPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Verification",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 19,
-                            "fontWeight": 600,
-                            "letterSpacingPx": -0.3,
-                            "lineHeightPx": 26
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "An executable test per criterion. Passing tests are the evidence; missing ones are reported, not hidden.",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 15,
-                            "fontWeight": 400,
-                            "lineHeightPx": 25
-                          }
-                        }
-                      ],
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 26,
-                        "bottomPx": 28,
-                        "leftPx": 24,
-                        "rightPx": 24
-                      },
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "kind": "container",
-                  "id": "how-steps-stack",
-                  "layout": "stack",
-                  "align": "stretch",
-                  "gapPx": 16,
-                  "staggerMs": 80,
-                  "sizing": {
-                    "width": {
-                      "mode": "fluid"
-                    }
-                  },
-                  "visibility": {
-                    "untilPx": 768
                   },
                   "children": [
                     {
@@ -3422,8 +2675,20 @@
                 },
                 {
                   "kind": "container",
-                  "id": "contract-panels-row",
+                  "id": "contract-panels",
                   "layout": "row",
+                  "responsiveLayout": {
+                    "keyframes": [
+                      {
+                        "at": 0,
+                        "value": "stack"
+                      },
+                      {
+                        "at": 768,
+                        "value": "row"
+                      }
+                    ]
+                  },
                   "align": "stretch",
                   "distribution": "start",
                   "gapPx": 20,
@@ -3432,299 +2697,6 @@
                     "width": {
                       "mode": "fluid"
                     }
-                  },
-                  "visibility": {
-                    "fromPx": 768
-                  },
-                  "children": [
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 10,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 30,
-                        "bottomPx": 32,
-                        "leftPx": 28,
-                        "rightPx": 28
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "You own",
-                          "axes": {
-                            "color": "#1F2937",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.4,
-                            "lineHeightPx": 18,
-                            "textTransform": "uppercase"
-                          }
-                        },
-                        {
-                          "kind": "box",
-                          "sizing": {
-                            "width": {
-                              "mode": "fluid"
-                            },
-                            "height": {
-                              "mode": "fixed",
-                              "px": 6
-                            }
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Product intent and priorities",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "The architecture and its constraints",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "What done means for each behaviour",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "The decision to ship",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        }
-                      ],
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "container",
-                      "layout": "stack",
-                      "align": "start",
-                      "gapPx": 10,
-                      "reveal": {
-                        "yPx": 20,
-                        "durationMs": 560,
-                        "easing": "ease-out",
-                        "delayMs": 140
-                      },
-                      "sizing": {
-                        "width": {
-                          "mode": "fluid"
-                        }
-                      },
-                      "axes": {
-                        "surfaceFill": "#FFFEF8",
-                        "borderRadiusPx": 10,
-                        "border": {
-                          "widthPx": 1,
-                          "color": "#E5E2D5",
-                          "style": "solid"
-                        }
-                      },
-                      "padding": {
-                        "topPx": 30,
-                        "bottomPx": 32,
-                        "leftPx": 28,
-                        "rightPx": 28
-                      },
-                      "children": [
-                        {
-                          "kind": "text",
-                          "text": "XGD owns",
-                          "axes": {
-                            "color": "#6B7280",
-                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
-                            "fontSizePx": 12,
-                            "fontWeight": 400,
-                            "letterSpacingPx": 1.4,
-                            "lineHeightPx": 18,
-                            "textTransform": "uppercase"
-                          }
-                        },
-                        {
-                          "kind": "box",
-                          "sizing": {
-                            "width": {
-                              "mode": "fluid"
-                            },
-                            "height": {
-                              "mode": "fixed",
-                              "px": 6
-                            }
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Technical design and sprint planning",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "The code, and the tests that pin it",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Regression, reconciliation, repair",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        },
-                        {
-                          "kind": "text",
-                          "text": "Evidence that all of it still holds",
-                          "axes": {
-                            "color": "#4B5563",
-                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
-                            "fontSizePx": 16,
-                            "fontWeight": 400,
-                            "lineHeightPx": 27,
-                            "listMarker": "disc"
-                          },
-                          "padding": {
-                            "leftPx": 18
-                          }
-                        }
-                      ],
-                      "interaction": {
-                        "transition": {
-                          "durationMs": 180,
-                          "easing": "ease-out"
-                        },
-                        "hover": {
-                          "surfaceFill": "#FFFFFF",
-                          "border": {
-                            "widthPx": 1,
-                            "color": "#4AAFC9",
-                            "style": "solid"
-                          },
-                          "motion": {
-                            "offsetYPx": -3
-                          }
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
-                  "kind": "container",
-                  "id": "contract-panels-stack",
-                  "layout": "stack",
-                  "align": "stretch",
-                  "gapPx": 20,
-                  "staggerMs": 80,
-                  "sizing": {
-                    "width": {
-                      "mode": "fluid"
-                    }
-                  },
-                  "visibility": {
-                    "untilPx": 768
                   },
                   "children": [
                     {

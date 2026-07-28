@@ -16,9 +16,10 @@
  *   `container.staggerMs`                — §3's four `how-steps` cards, §2's
  *       three `problem-items`, §4's two `contract-panels`: rows of peers that
  *       read mechanical when they all land at once.
- *   `reveal.delayMs`                     — the hero, where the visibility-paired
- *       `cta-row` / `cta-stack` duplicate subtree puts two nodes in a stagger
- *       count that the reader only ever sees one of.
+ *   `reveal.delayMs`                     — the hero, where a duplicate subtree
+ *       put two nodes in a stagger count the reader only ever saw one of. (That
+ *       particular duplicate is gone since REQ-104 gave `layout` a per-width
+ *       track; the hatch remains for what a positional index cannot express.)
  *
  * There is no `xPx` and no entry scale: sections 2–5 did not ask for either.
  *
