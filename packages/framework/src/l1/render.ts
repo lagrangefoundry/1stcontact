@@ -1188,6 +1188,10 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       // inserted verbatim — every instance value inside it already passed the
       // module's own escaping/URL sinks on the way in.
       base.push(...surfaceDecls(node.axes ?? {}))
+      // REQ-105 — the seam's own measure. A mounted module is constrained by the
+      // slot it mounts into, so a max-width no longer costs a wrapper container
+      // that carries nothing but the number.
+      base.push(...axisSizingCss(node.sizing))
       const mounted = state.mounts?.[node.name] ?? ''
       html = `<div class="${cls}"${idAttr} data-l1-slot="${escapeHtml(node.name)}"${
         node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
