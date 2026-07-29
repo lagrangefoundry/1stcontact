@@ -6,20 +6,21 @@ title: foldToL1 silently drops textless/box-less elements — must emit a signal
   residual, not drop
 created_by: xgd
 created_at: '2026-07-23T02:01:15.309088+00:00'
-updated_at: '2026-07-27T20:32:09.931679+00:00'
+updated_at: '2026-07-29T03:38:24.233922+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   severity: medium
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 03fd513518fb985d0c5204ecd8e0ee3271f3e045
+  - working_sha: 6c2005409f1be9a8a77599e8e8760b7f209b5829
     reconcile_sha: null
     main_sha: null
   version: 0.0.178
+  bundled_in: bundle-cceaba25
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). This is the mechanism that makes

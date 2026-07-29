@@ -6,18 +6,18 @@ title: 'Framework pivot C: strip layout modules to L1 (delete hero/text-block/se
   + helpers)'
 created_by: xgd
 created_at: '2026-07-20T19:48:27.064344+00:00'
-updated_at: '2026-07-22T18:51:59.178748+00:00'
-completed_at: null
+updated_at: '2026-07-29T03:27:52.559970+00:00'
+completed_at: '2026-07-29T03:27:52.559970+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 1a2faeeefac8e0d261e898cc907f1ec98b4c211a
+  - working_sha: 47aba3435f99f21f7654df24fa9a91c834fa8b08
     reconcile_sha: null
-    main_sha: null
+    main_sha: 47aba3435f99f21f7654df24fa9a91c834fa8b08
   version: 0.0.162
   story_points: 8
   bundled_in: bundle-31e474b9

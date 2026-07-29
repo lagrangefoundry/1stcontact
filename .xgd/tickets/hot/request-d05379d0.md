@@ -5,42 +5,93 @@ type: request
 title: Faithful reproduction of joyfulculinarycreations.com (personal-chef site)
 created_by: xgd
 created_at: '2026-07-03T18:00:22.857118+00:00'
-updated_at: '2026-07-10T02:56:26.538106+00:00'
-completed_at: null
-last_field_updated: body
-status: draft
+updated_at: '2026-07-29T03:07:43.612730+00:00'
+completed_at: '2026-07-29T03:07:43.612730+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - 9e9fda0
-  - 91567a5
-  - 214e367
-  - 1287d3b
-  - 378ca40
-  - 09696ea
-  - bbda08d
-  - b868954
-  - a39f8c6
-  - a3b1af6
-  - 558d036
-  - a688960
-  - 57c34d2
-  - 15d0e22
-  - c671bb5
-  - ca92c52
-  - 21ccb60
-  - 0c31c6a
-  - bd6988a
-  - 1b560de
-  - 8f20680
-  - 2b4b823
-  - 33ef30e
-  - 08478c2
-  - 8680a48
-  - 192768e2
-  - c21c8dc3
+  - working_sha: 730786e7ede524894cd1e23c8ec1de494f49d04d
+    reconcile_sha: null
+    main_sha: 730786e7ede524894cd1e23c8ec1de494f49d04d
+  - working_sha: 4ccb856eb720368d46c1b8ee74f2ba2ffc5a1727
+    reconcile_sha: null
+    main_sha: 4ccb856eb720368d46c1b8ee74f2ba2ffc5a1727
+  - working_sha: 4d1a3609c5e3aced7514b4b410dd78fdfc415ced
+    reconcile_sha: null
+    main_sha: 4d1a3609c5e3aced7514b4b410dd78fdfc415ced
+  - working_sha: 02e5debd13f5dc0caa802419ccf3e96e33f1a05a
+    reconcile_sha: null
+    main_sha: 02e5debd13f5dc0caa802419ccf3e96e33f1a05a
+  - working_sha: 5a3c6bdcddee2d9128877ccb445d26ef1f8c6747
+    reconcile_sha: null
+    main_sha: 5a3c6bdcddee2d9128877ccb445d26ef1f8c6747
+  - working_sha: 0acc10720ef3a82f99307f290f9693e427ee3d6b
+    reconcile_sha: null
+    main_sha: 0acc10720ef3a82f99307f290f9693e427ee3d6b
+  - working_sha: 5a3077f551ac7554c82f82be7460eb0c73b55e79
+    reconcile_sha: null
+    main_sha: 5a3077f551ac7554c82f82be7460eb0c73b55e79
+  - working_sha: bb7dd22b9232c2c144810f9ca78501d87885d471
+    reconcile_sha: null
+    main_sha: bb7dd22b9232c2c144810f9ca78501d87885d471
+  - working_sha: 847b5069ef6b7bb97f927c6483a7d75a9de40cc6
+    reconcile_sha: null
+    main_sha: 847b5069ef6b7bb97f927c6483a7d75a9de40cc6
+  - working_sha: b845f5777096e9d96a8c2dda64bc54e3103e943a
+    reconcile_sha: null
+    main_sha: b845f5777096e9d96a8c2dda64bc54e3103e943a
+  - working_sha: 07f9314b5fc59d511e5fed44190158a05bcc538c
+    reconcile_sha: null
+    main_sha: 07f9314b5fc59d511e5fed44190158a05bcc538c
+  - working_sha: c2face735cf4428a0013af90fe254b72e97d37e5
+    reconcile_sha: null
+    main_sha: c2face735cf4428a0013af90fe254b72e97d37e5
+  - working_sha: 342012c662e615ab7e9005557d3d89c5cafff272
+    reconcile_sha: null
+    main_sha: 342012c662e615ab7e9005557d3d89c5cafff272
+  - working_sha: c91ab9a063bee7cd3ce6a42cf92cf02ce27bbcf8
+    reconcile_sha: null
+    main_sha: c91ab9a063bee7cd3ce6a42cf92cf02ce27bbcf8
+  - working_sha: a34cd409a5cf708040e5df8e8933656c740f7071
+    reconcile_sha: null
+    main_sha: a34cd409a5cf708040e5df8e8933656c740f7071
+  - working_sha: 0aaf2c0d6e7bb5c325711cc2013d3f54a482522f
+    reconcile_sha: null
+    main_sha: 0aaf2c0d6e7bb5c325711cc2013d3f54a482522f
+  - working_sha: 61ad72671a321f34d634faa43b235d9f82931c01
+    reconcile_sha: null
+    main_sha: 61ad72671a321f34d634faa43b235d9f82931c01
+  - working_sha: 7dc7b3570d760218602cc3fc22f7485ad5a6aa16
+    reconcile_sha: null
+    main_sha: 7dc7b3570d760218602cc3fc22f7485ad5a6aa16
+  - working_sha: 70a6cf8e65026f7196b3503115e8b2d78b83cb7c
+    reconcile_sha: null
+    main_sha: 70a6cf8e65026f7196b3503115e8b2d78b83cb7c
+  - working_sha: 98b42779ddf7c2f35f8b6d44d5696ce1ca0abaf7
+    reconcile_sha: null
+    main_sha: 98b42779ddf7c2f35f8b6d44d5696ce1ca0abaf7
+  - working_sha: 428d17e3db58454edbc1087cc07c541c860c0c3e
+    reconcile_sha: null
+    main_sha: 428d17e3db58454edbc1087cc07c541c860c0c3e
+  - working_sha: d3766de882de22b03ff7b68bcfea1c56071a40c2
+    reconcile_sha: null
+    main_sha: d3766de882de22b03ff7b68bcfea1c56071a40c2
+  - working_sha: a1767cb4ccce72207fcdf1e274e21ec9630ced08
+    reconcile_sha: null
+    main_sha: a1767cb4ccce72207fcdf1e274e21ec9630ced08
+  - working_sha: b37fad4afc2fdb37bd5bcd410f53287b8532432f
+    reconcile_sha: null
+    main_sha: b37fad4afc2fdb37bd5bcd410f53287b8532432f
+  - working_sha: 39912fa828c5c18732f591c12b7a4ede8ce06409
+    reconcile_sha: null
+    main_sha: 39912fa828c5c18732f591c12b7a4ede8ce06409
+  - working_sha: 763e819bcd5d78797147c996c25189d645c86036
+    reconcile_sha: null
+    main_sha: 763e819bcd5d78797147c996c25189d645c86036
 ---
 
 ## Goal

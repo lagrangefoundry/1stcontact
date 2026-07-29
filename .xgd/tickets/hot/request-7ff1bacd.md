@@ -5,40 +5,37 @@ type: request
 title: 'L1 reproduction pipeline: capture bundle → servable, gate-able site'
 created_by: xgd
 created_at: '2026-07-21T23:30:09.316183+00:00'
-updated_at: '2026-07-26T00:48:06.903080+00:00'
+updated_at: '2026-07-29T03:07:52.630482+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: commits
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: d98aab90e61097cca4ef59d200e4a9059460c31f
+  - working_sha: bd520ea29e0a5045fe862d0dd176b8998c57e34b
     reconcile_sha: null
     main_sha: null
-  - working_sha: 6ede6a8eb525c00fa5a1038a6d6229e70af58d1c
+  - working_sha: dceffcf86e50503cee329643ba5b055355a4dd8f
     reconcile_sha: null
     main_sha: null
-  - working_sha: 2c166b192aae8537bfd875799c7da5ec0ece8ea3
+  - working_sha: 0a8e839805ba3439cc16b407b8ee6caefbf44a94
     reconcile_sha: null
     main_sha: null
-  - working_sha: 455a16f147d33dbda0a2c4ad4f2e293bf254de0a
+  - working_sha: ec730765108f881c48fd5fbe5be52c66d4496ff2
     reconcile_sha: null
     main_sha: null
-  - working_sha: 5d414929774057c2ed548ad38eb6f7514a8e18de
+  - working_sha: 35ce614a7cfaf6937e321d4abd7da3c6e082983d
     reconcile_sha: null
     main_sha: null
-  - working_sha: 65d222bbe48a1a6a0be2d3d23a53b1eef603fe6a
+  - working_sha: ae36e71f08d87dffc06fcb322e620579ef23076b
     reconcile_sha: null
     main_sha: null
-  - working_sha: b542fd58721f586a9463058bb72573df3bebae66
+  - working_sha: e5b2aa59ca16c4db2ccd4057d191a55dfe4b1e64
     reconcile_sha: null
     main_sha: null
-  - working_sha: 65ff44db0b83466a7e6aefa2780202fb531ff991
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 5b7f82be51319017b2388af6ad744539a9e99d39
+  - working_sha: ddb1adc7ef795c7794b0089739791f1f785f39ca
     reconcile_sha: null
     main_sha: null
   version: 0.0.205

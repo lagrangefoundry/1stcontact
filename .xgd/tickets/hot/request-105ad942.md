@@ -5,18 +5,18 @@ type: request
 title: Object-grouped inspection + comparison output (per-object params, incl. position)
 created_by: xgd
 created_at: '2026-07-10T17:19:59.829477+00:00'
-updated_at: '2026-07-13T18:05:07.706895+00:00'
-completed_at: null
+updated_at: '2026-07-28T18:01:34.904208+00:00'
+completed_at: '2026-07-28T18:01:34.904208+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 34f3cb52c994d4644555ee8fc15a9e3381cb017f
+  - working_sha: 4c5027132cb408b85de160913c871b58a82381f7
     reconcile_sha: null
-    main_sha: null
+    main_sha: 4c5027132cb408b85de160913c871b58a82381f7
   version: 0.0.93
   bundled_in: bundle-d9c2e655
 ---

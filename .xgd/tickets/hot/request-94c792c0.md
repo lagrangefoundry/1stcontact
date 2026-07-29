@@ -5,18 +5,18 @@ type: request
 title: 'contentWidth: align to Tailwind max-w scale + literal escape hatch'
 created_by: xgd
 created_at: '2026-07-12T23:42:07.165403+00:00'
-updated_at: '2026-07-13T18:05:07.928806+00:00'
-completed_at: null
+updated_at: '2026-07-28T18:01:34.180964+00:00'
+completed_at: '2026-07-28T18:01:34.180964+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 46db8574c31835575830ee7a0daca352a22de9b3
+  - working_sha: 3d339ad0c837791a1708755e401fcdb93a4911fd
     reconcile_sha: null
-    main_sha: null
+    main_sha: 3d339ad0c837791a1708755e401fcdb93a4911fd
   version: 0.0.98
   bundled_in: bundle-d9c2e655
 ---

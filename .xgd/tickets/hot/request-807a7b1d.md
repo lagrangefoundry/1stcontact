@@ -6,18 +6,18 @@ title: Richer text block kinds — tables, code, rich/nested blockquotes, headin
   nested list items
 created_by: xgd
 created_at: '2026-07-13T15:53:30.219724+00:00'
-updated_at: '2026-07-13T18:07:24.290037+00:00'
-completed_at: null
-last_field_updated: body
-status: bundled
+updated_at: '2026-07-28T18:01:33.812477+00:00'
+completed_at: '2026-07-28T18:01:33.812477+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: ef6f6b1508f660ee0f784c2bb9f4812cfa19a350
+  - working_sha: ff8da934181dd43cb3e07a0e408c10f0cbed4c6f
     reconcile_sha: null
-    main_sha: null
+    main_sha: ff8da934181dd43cb3e07a0e408c10f0cbed4c6f
   version: 0.0.104
   bundled_in: bundle-d9c2e655
 ---

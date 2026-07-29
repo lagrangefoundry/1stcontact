@@ -6,21 +6,21 @@ title: 'Framework pivot B2: capture to L1 fold (keyframes + oracle) + structural
   extractor'
 created_by: xgd
 created_at: '2026-07-20T19:48:24.468991+00:00'
-updated_at: '2026-07-22T18:51:59.116527+00:00'
-completed_at: null
+updated_at: '2026-07-29T03:27:51.724745+00:00'
+completed_at: '2026-07-29T03:27:51.724745+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 7131f5e377c7b014ddc8c220b633a7136cf0d0a9
+  - working_sha: 9a3d613c083970a7a3454278902d201e439f40c9
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 94365416f9d67df69e93d31446eec27d381f1cb7
+    main_sha: 9a3d613c083970a7a3454278902d201e439f40c9
+  - working_sha: 87b8394d93737c260781e55a3fe60813905184d3
     reconcile_sha: null
-    main_sha: null
+    main_sha: 87b8394d93737c260781e55a3fe60813905184d3
   version: 0.0.168
   story_points: 5
   bundled_in: bundle-31e474b9

@@ -5,24 +5,24 @@ type: request
 title: 'gigabytealchemy.ai: re-import with object-grouped fidelity tooling'
 created_by: xgd
 created_at: '2026-07-11T00:41:50.707205+00:00'
-updated_at: '2026-07-13T18:05:07.762299+00:00'
-completed_at: null
+updated_at: '2026-07-28T18:01:34.712394+00:00'
+completed_at: '2026-07-28T18:01:34.712394+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: cf0ab084be0794586677a46b87bc906b1f358969
+  - working_sha: d1464aae352372405c983bca17786770b12931d1
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 3cd464e762d0a1ff41d1fd6e6ee21ef1b5b55bf4
+    main_sha: d1464aae352372405c983bca17786770b12931d1
+  - working_sha: 5afbb8ea3f0375da11ccd2bc787628a4a6e79983
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 4b0282b44e0dc93a69a54130b3eef7b3e403f95e
+    main_sha: 5afbb8ea3f0375da11ccd2bc787628a4a6e79983
+  - working_sha: 2e508dd368e0b260da4f7c09727d1006662af020
     reconcile_sha: null
-    main_sha: null
+    main_sha: 2e508dd368e0b260da4f7c09727d1006662af020
   version: 0.0.96
   bundled_in: bundle-d9c2e655
 ---

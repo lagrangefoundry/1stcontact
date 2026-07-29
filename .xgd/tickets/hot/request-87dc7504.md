@@ -6,30 +6,30 @@ title: 'Component-owned typography: theme label scale + capture reads it + per-i
   escape hatch'
 created_by: xgd
 created_at: '2026-07-12T23:42:10.801971+00:00'
-updated_at: '2026-07-13T18:05:07.984722+00:00'
-completed_at: null
+updated_at: '2026-07-28T18:01:34.018399+00:00'
+completed_at: '2026-07-28T18:01:34.018399+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 1798632d810910bf49f9a33429c4020e4eeddf2c
+  - working_sha: 4eaf051eab278b3ab505513fb859f43f53ad7f02
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 8f27664f65c1427a1779b2d57f0c2057ad0377ab
+    main_sha: 4eaf051eab278b3ab505513fb859f43f53ad7f02
+  - working_sha: 86f71aa2a634af05f1fa08746c2164b4c0d7da29
     reconcile_sha: null
-    main_sha: null
-  - working_sha: a0376a210a98d1b44e9a8a572c83be956d1bb42a
+    main_sha: 86f71aa2a634af05f1fa08746c2164b4c0d7da29
+  - working_sha: 784ab3963a0c1f09028a48df3999b249b942c181
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 259c6b6c398710fc5c6a39b36c6ad0c9c467753f
+    main_sha: 784ab3963a0c1f09028a48df3999b249b942c181
+  - working_sha: b9cbaaf6acb23894f56d26cc4a7022b945b764e3
     reconcile_sha: null
-    main_sha: null
-  - working_sha: 13b5a5123bffe3a1978d9e9f94a64b9ecc54f8b8
+    main_sha: b9cbaaf6acb23894f56d26cc4a7022b945b764e3
+  - working_sha: 825a95c87ee69e43f99a9a344c92ad24412d0dd4
     reconcile_sha: null
-    main_sha: null
+    main_sha: 825a95c87ee69e43f99a9a344c92ad24412d0dd4
   version: 0.0.105
   bundled_in: bundle-d9c2e655
 ---

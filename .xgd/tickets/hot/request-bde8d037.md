@@ -5,20 +5,21 @@ type: request
 title: 'Astro boots on every 1c command — silence ''Missing pages directory: src/pages'''
 created_by: xgd
 created_at: '2026-07-22T23:59:09.668656+00:00'
-updated_at: '2026-07-27T20:32:05.779317+00:00'
+updated_at: '2026-07-29T03:38:24.031856+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 7228736bf6bfd73da5382478c05be582a520f04d
+  - working_sha: 5dc46d0fbe230ca673b7ba1a5429bb416cfb02e2
     reconcile_sha: null
     main_sha: null
   version: 0.0.175
   story_points: 2
+  bundled_in: bundle-cceaba25
 ---
 
 # Astro boots on every `1c` command — silence `Missing pages directory: src/pages`

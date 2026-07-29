@@ -6,19 +6,20 @@ title: L1 document-level resource table (font/image handle→substance) + render
   wiring
 created_by: xgd
 created_at: '2026-07-23T02:01:41.218807+00:00'
-updated_at: '2026-07-27T20:32:06.449364+00:00'
+updated_at: '2026-07-29T03:38:24.099303+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: a594d05f63cd5655074acb8bcdc2b5e05fe51c00
+  - working_sha: fd5f477c4fbe68f48639a6a9750178071ed86e50
     reconcile_sha: null
     main_sha: null
   version: 0.0.176
+  bundled_in: bundle-cceaba25
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Closes the **form hole** in the L1

@@ -5,18 +5,18 @@ type: request
 title: 'values-diff: exact match by default for reproducible axes (supersedes REQ-35)'
 created_by: xgd
 created_at: '2026-07-12T23:16:00.331931+00:00'
-updated_at: '2026-07-13T18:05:07.818399+00:00'
-completed_at: null
+updated_at: '2026-07-28T18:01:34.507304+00:00'
+completed_at: '2026-07-28T18:01:34.507304+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 1f625dff4fb8fdb731259dfe62a79394e4bee1f6
+  - working_sha: 6ebb1f235e8b6a9fd1e59b9d618faa61436f0b57
     reconcile_sha: null
-    main_sha: null
+    main_sha: 6ebb1f235e8b6a9fd1e59b9d618faa61436f0b57
   version: 0.0.97
   story_points: 3
   bundled_in: bundle-d9c2e655

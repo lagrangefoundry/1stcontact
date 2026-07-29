@@ -6,21 +6,22 @@ title: Fold drops the reflowed cell across a breakpoint — captured width loses
   keyframe; snap holds the lower frame (fidelity fail at a sampled width)
 created_by: xgd
 created_at: '2026-07-23T17:19:54.193844+00:00'
-updated_at: '2026-07-27T20:32:08.429523+00:00'
+updated_at: '2026-07-29T03:38:24.302178+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   severity: high
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: b911d7a4e551460438943ad07b89cf8fb245a5ca
+  - working_sha: ce978d97d356e779d302437d61e2d7269e5a39e5
     reconcile_sha: null
     main_sha: null
   version: 0.0.180
   story_points: 1
+  bundled_in: bundle-cceaba25
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Finding 2 from the gigabytealchemy

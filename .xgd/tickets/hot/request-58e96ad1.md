@@ -6,18 +6,18 @@ title: 'Framework pivot E: reproduce a site end-to-end in the new system (3-prob
   gate)'
 created_by: xgd
 created_at: '2026-07-20T19:48:32.790492+00:00'
-updated_at: '2026-07-22T18:51:59.300545+00:00'
-completed_at: null
+updated_at: '2026-07-29T03:27:53.373627+00:00'
+completed_at: '2026-07-29T03:27:53.373627+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: b7d32cce7f5c4cbed624efe5a22d3eaeab6ad75a
+  - working_sha: b421e4ee721fce0195d2ffa441505fbb68bf8453
     reconcile_sha: null
-    main_sha: null
+    main_sha: b421e4ee721fce0195d2ffa441505fbb68bf8453
   version: 0.0.167
   story_points: 4
   bundled_in: bundle-31e474b9

@@ -5,7 +5,7 @@ type: request
 title: 'gendevlabs.ai: first site AUTHORED in L1 (authoring-face probe)'
 created_by: xgd
 created_at: '2026-07-25T22:03:36.283650+00:00'
-updated_at: '2026-07-26T01:28:41.237292+00:00'
+updated_at: '2026-07-27T23:42:41.735498+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -560,3 +560,25 @@ Candidate resolutions, in order of preference:
    `responsive` already keyframes scalar axes. Strictly more powerful; more work.
 
 Not yet filed — flagged for the operator alongside REQ-97…REQ-102.
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-

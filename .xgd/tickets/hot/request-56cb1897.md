@@ -5,14 +5,23 @@ type: request
 title: '1c new scaffolds no L1 document: authored sites start from nothing'
 created_by: xgd
 created_at: '2026-07-26T01:27:13.225254+00:00'
-updated_at: '2026-07-26T01:27:13.225254+00:00'
+updated_at: '2026-07-28T23:02:44.195297+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: body
+status: free_coded
 fields:
   priority: low
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 7b4284b8f27d425e318dc2eb99e1f1d217c2e17d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1d996d83162386f1b6cebdcf57734386520d660b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.0.223
+  story_points: 2
 ---
 
 ## The gap
@@ -60,3 +69,5 @@ contaminate a reproduction import.
 - `1c repro` over a freshly scaffolded slug yields the same result as over a
   slug that never had a skeleton.
 - No flag, no mode detection, no legacy path.
+
+-

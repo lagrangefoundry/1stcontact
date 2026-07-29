@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-95
 created_by: xgd
 created_at: '2026-07-25T22:34:29.970587+00:00'
-updated_at: '2026-07-27T19:25:14.133387+00:00'
+updated_at: '2026-07-29T00:39:36.032426+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1106,5 +1106,556 @@ I left the heading alone since REQ-95's body quotes it verbatim.
 **Not committed** — the working tree also has untracked `storage/sites/xgd/`, and I didn't want to sweep that in or guess at how you want the site config staged. It's a docs/prompt change so it's exempt from the ticket ceremony; say the word and I'll commit it on its own.
 
 Where next — file gap 7 (row containers can't wrap), or carry on authoring sections 2–5? REQ-98's warning about colliding with REQ-96 in `schema.ts` may also want revisiting now that REQ-96 has actually landed.
+
+<!-- xgd-turn id="1ff91a19-d1df-452a-9afc-b7db9f706db4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:08:04.124739+00:00" -->
+#### You
+So a couple of comments on the logo. The logo kind of needs the XGD in order to make sense just having the grid floating in the air on its own is a little weird.
+
+So the logo is its entirety is to have the "xgd" positioned over the top of the grid. The grid itself is intended to capture the idea of a funnel it is almost a rectangular grid that has been squeezed in the middle unfortunately yours looks nothing like that. You show two segments that are separated and unconnected. It's a little odd
+
+I actually like the idea of creating a background segment of that grid that would be a background for the whole hero space.
+
+<!-- xgd-turn id="1ff91a19-d1df-452a-9afc-b7db9f706db4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T22:12:42.184800+00:00" -->
+#### Claude
+Three real corrections — and the second one means I misread the geometry. Let me re-look.
+
+Now I see it — it's **one** continuous grid with a Gaussian waist pulling down to a point at centre. My "two wings" was the pinch, misread. Rebuilding.
+
+Right topology now, but the bottom reads flat — the waist needs to dip *below* the outer edge to make the point. Tuning.
+
+Correct now — one grid, two lobes, converging to a point. Applying all three of your notes.
+
+Hero ground works well — a real segment of the funnel framing the copy. The nav lockup is a smudge though; the grid's far too dense at 62px.
+
+That's the logo now — grid behind, wordmark over, waist behind the "g". Checking mobile, where the hero ground could get noisy.
+
+Mobile is fine — the grid crops to a faint corner texture. Committing and recording.
+
+All three notes actioned.
+
+**You were right that I had the geometry wrong.** It's not two shapes — it's **one continuous rectangular mesh with a Gaussian waist**. Every horizontal line runs unbroken left to right, collapsing toward a single point at the centre. The "wings" *are* the pinch. My first version drew two disconnected patches, which is why it looked odd.
+
+The rebuild:
+
+```
+half(u) = 0.44·H·(1 − 0.962·g(u))     # half-height collapses at the waist
+mid(u)  = H·(0.46 + 0.505·g(u))       # waist descends BELOW the outer edge
+```
+
+That second line is the bit that matters — the drop (0.505) exceeding the outer half-height (0.44) is what makes the lobes converge to a *point*. My first funnel attempt had them meeting on a flat bottom rail, which read as a valley rather than the mark.
+
+**The grid never appears alone now.** The lockup is a container carrying the grid as `backgroundImageUrl` with the wordmark as its child — so `xgd` paints over the funnel, waist behind the `g`, as in your reference. That also solved something I'd been avoiding: L1 has no z-stacking, so "text over image" had no expression as two sibling nodes. `backgroundImageUrl` on the parent *is* the stacking primitive, and it was already there.
+
+Also: the mark needed a **separate low-density variant** for small sizes. At 62px the 19×8 grid was an illegible smudge, so the lockup uses 11×5 with a heavier stroke. Line count turns out to be a function of render size, not of the mark.
+
+**The hero ground is your idea and it's the best thing on the page now** — the waist falls below the fold, so the two rising lobes frame the copy without competing with the headline.
+
+One honest limitation: **at 375px the mark is effectively absent from the hero.** `background-size` is pinned to `cover`, so on a tall narrow box it crops to the centre and the funnel is lost — you get faint diagonals in the corners. It's inoffensive but it isn't the design. `contain` would fix it; so would any `background-position` other than `center`. Neither is expressible.
+
+That's the same `render.ts:284` pin as REQ-103, blocking a design in a second independent way — *fitting* an image rather than *tiling* one. I've added it to REQ-103's scope with two extra ACs rather than filing a sibling ticket, since it's one missing capability: the author can't say how a background paints.
+
+Committed. If the silhouette still isn't quite right, the whole shape is four constants (`SIG`, `PINCH`, `DROP`, and the rib clustering exponent) — tell me what's off and it's a fast loop.
+
+<!-- xgd-turn id="4e438da1-50ab-42fd-a468-42e95fa4f351-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:19:42.007547+00:00" -->
+#### You
+ok good progress. Comments:
+
+1. the pinch point in the grid is a corner/sharp point not a smooth transition - its a funnel, not a well
+
+2. Love the grid background to the hero but its too symmetric. I'd like to take  say 2/3s of the grid or maybe eve 1/3 so it echos the logo but doesn't try replicate the whole thing
+
+<!-- xgd-turn id="4e438da1-50ab-42fd-a468-42e95fa4f351-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T22:22:29.762803+00:00" -->
+#### Claude
+Both are real. The cusp first — a Gaussian gives a smooth minimum (a well); a funnel needs a corner.
+
+Sharp cusp — that's a funnel. Now the asymmetric hero crop.
+
+Better — asymmetric now. But it still shows both lobes converging, which replicates rather than echoes. Trying a tighter crop with the cusp at the corner.
+
+Mobile actually improved — the narrower source crop means `cover` now lands on a coherent portion. Committing.
+
+Both fixed.
+
+**1. The pinch was a Gaussian** — `exp(−(u−0.5)²/2σ²)`. That function is smooth at its minimum, which is exactly why it read as a well. Replaced with a two-sided exponential:
+
+```
+cusp(u) = exp(−|u−0.5| / λ)      λ = 0.085
+```
+
+The `|u−0.5|` *is* the fix — the absolute value gives the corner that the squared term smoothed away. Same composition otherwise, so the lobes still converge below the outer edge, but now to a point.
+
+**2. The hero ground is now an off-centre segment** — `u ∈ [0, 0.52]`, so roughly half the grid. The flat outer lobe sits quietly behind the copy, the surface sweeps down and away to the right, and the waist falls off the bottom-right corner. Implied rather than restated. I also dropped the stroke opacity 0.32 → 0.24, because the arcs were cutting through the body text.
+
+I went to ~1/2 rather than 2/3: at 0.66 you could still see both lobes converging, which was still replicating. Easy to dial either way — it's one argument.
+
+Two implementation notes worth flagging:
+
+**Ribs are computed over the full domain and then filtered to the crop**, not redistributed across it. Otherwise a segment restretches into a differently-spaced grid and stops being *the same grid*, which was the point.
+
+**The asymmetry had to be baked into the SVG's `viewBox`** rather than authored. `background-position` is pinned to `center`, so an off-centre crop has no expression in L1 — more evidence for REQ-103, though I've corrected one thing I told you last turn: I said the mark was "absent at mobile", and with the narrower crop that's no longer true. `cover` on a tall narrow box now lands on a coherent sweep, and 375px reads fine. The gap stands; that particular symptom doesn't.
+
+The whole shape is four constants (`LAM`, `PINCH`, `DROP`, rib-clustering exponent) plus the crop pair, so if the cusp wants to be sharper or the lobes shallower, say which way and it's a one-line loop.
+
+<!-- xgd-turn id="7dca9155-5a6d-4962-9034-f9f4755e76fa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:24:39.567050+00:00" -->
+#### You
+It looks the same to me?
+
+<!-- xgd-turn id="7dca9155-5a6d-4962-9034-f9f4755e76fa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T22:27:02.036456+00:00" -->
+#### Claude
+Let me verify what's actually on disk rather than guess.
+
+Files are current and the cusp is in the generator — so the geometry did change. I think the problem is mine: **I cropped the cusp out of the hero.** Let me prove the change exists, then fix that.
+
+The change is real — but you can't see it, and that's my composition error: **I cropped the cusp out of the hero**, and at 76px the nav lockup can't show it either. Let me put it back in frame.
+
+You were right, and the fault was mine.
+
+I checked before arguing: the dist SVGs are byte-identical to source, and the generator does carry the cusp. Rendered the two profiles side by side at 560px and the difference is unmistakable — Gaussian rounds into a basin, exponential comes to a point.
+
+So the geometry *did* change. **The composition hid it.** The mark appears in exactly two places, and neither could show the fix:
+
+- The **nav lockup is 76px wide** — the cusp is two pixels of detail there.
+- The **hero crop cut the cusp off**. I set `U1 = 0.52` chasing your "echo, don't replicate" note so hard that I cropped away the one feature you'd just asked me to correct.
+
+I verified both changes in a standalone preview and never re-checked them in the composition that actually ships. A fix that isn't visible at the size and crop it ships in hasn't been delivered.
+
+**Fixed:** hero crop widened to `u ∈ [0, 0.72]`. The waist now sits fully in frame in the open right-hand space, below and right of the CTAs — so the cusp is the hero's focal point, in exactly the area that was empty. The left lobe stays long and quiet behind the copy, the right lobe is short, so it's still asymmetric and still an echo rather than the whole mark.
+
+Verified this time in the shipping composition, not a preview: full hero band at 1280 with the cusp complete and clear of the section divider, and at 375 with the sweep legible and unclipped.
+
+One thing still true and worth flagging: **the nav lockup can't show the cusp at any setting.** At 76px the funnel is a texture, not a shape. If you want the mark legible in the nav it needs to be physically larger — 110–120px wide — or the lockup drops the grid and runs the wordmark alone. Your call; I didn't want to change the nav's scale without asking.
+
+<!-- xgd-turn id="a8b25d40-e19d-40af-8b8a-44bab5c4fe38-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:30:14.693438+00:00" -->
+#### You
+Again, I'm not seeing a difference. I don't understand your description of the cusp. The problem for me is that the shape of the curve is wrong. If you consider just half of the curve and I'm talking about the top line here obviously there are several curves if we consider the right hand side it is an S shape horizontal it goes sharper and it ends moving back toward the horizontal. In the original the curve is not an S it's a C. It is a simple curve that travels from off vertical at the cent toward the horizontal at the edge. Does that make sense
+
+<!-- xgd-turn id="a8b25d40-e19d-40af-8b8a-44bab5c4fe38-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T22:35:36.927675+00:00" -->
+#### Claude
+That makes complete sense, and it's a much better description than mine. Let me look at the actual curve rather than reason about it.
+
+Now I can see it. Let me measure the reference curve rather than eyeball it.
+
+Real data — now I can fit it. Let me get the bottom edge too and solve for the exponent.
+
+Fitted. It's a **power law, not an exponential** — `(1−|t|)^2.37` — and the mark is nearly **4:1**, far flatter than my 2.3:1. Rebuilding from the measurements.
+
+The curve is a C now — no elbow, no flat run. Regenerating the site assets at the fitted 4:1 geometry.
+
+Nav lockup reads now. The hero's too zoomed — at true 4:1 the aspect-match forces a narrow window. Adding viewBox padding so I can show a wider span.
+
+Your description was exactly right, and it caught a defect both previous passes had. **I'd been tuning constants of the wrong function.**
+
+**Why it was an S.** The profile was `exp(−|u−0.5|/λ)`. An exponential puts essentially all its curvature within a couple of λ of the centre — by `|t| = 0.3` it's already at 3% of full height. So the edge was a dead-flat line with an elbow near the waist, and flat → sharp bend → flat reads as an S. Worse: pass 3's "sharper cusp" made it *narrower*, so I was actively moving away from what you wanted.
+
+So I stopped guessing and measured. Column-scanned the reference for the topmost dark pixel across the right lobe, least-squares fit in log space:
+
+```
+h(t) = 100.0 · (1−t)^2.37     half-width 196px, outer edge 95px
+```
+
+Three things the fit found that eyeballing never would have:
+
+1. **It's a power law, not an exponential.** `(1−|t|)^p` leaves the waist off the vertical and arrives *tangent to horizontal* at the outer edge — one C, no inflection, no flat run. The corner at the waist survives, since the derivative at `t=0` is `−p ≠ 0`.
+2. **Exponent ≈ 2.37**, checked against held-out samples: predicted 48.4 vs measured 48; predicted 3.6 vs measured 3.
+3. **The mark is nearly 4:1**, not the 2.3:1 I'd been drawing. Every version so far was far too tall for its width — a completely separate error that no amount of profile tuning would have surfaced.
+
+Two knock-on fixes: the lockups had to grow and change aspect (a 4:1 mark in a 2:1 box means `cover` crops the lobes off) — nav is now 112px, which also resolves the "can't read at 76px" problem I flagged. And the hero needed viewBox padding, because with `background-position` pinned to `center` an aspect-matched window at true 4:1 shows only 42% of the mark, too zoomed for the C to read.
+
+The method lesson is the part I've recorded for DOC-19: I spent three passes tuning parameters of a function that was the wrong shape, each time verifying by eye against a *remembered* impression of your reference. Eyeballing can't distinguish "right family, wrong parameter" from "wrong family" — and those need opposite responses. Where a reference image exists, fit to pixels first.
+
+If the curve still isn't right, the exponent is one number and I can re-fit against any of the six variants — tell me which one is canonical.
+
+<!-- xgd-turn id="cef7b5c0-8b20-45cd-9529-1e7477d221a9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:38:05.426914+00:00" -->
+#### You
+Good now three things
+1. A little more curve please - its a bit too flat
+2. The actual logo in the top left has become a little broad the grid should be about the size of the 'xgd' text
+3. can you give me hints/echos of the grid on every pale panel as you go down. Suggest bigger zoom show only 10-20% of the grid and fade it in and out in interesting ways
+
+<!-- xgd-turn id="cef7b5c0-8b20-45cd-9529-1e7477d221a9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T22:42:40.888048+00:00" -->
+#### Claude
+Three fixes. Let me check which panels are pale first, then do all three together.
+
+Three pale panels: `problem`, `proof`, `contract`. Extending the generator with viewBox windowing and gradient fades.
+
+Echo files are 300KB — over-sampled for a 14% crop. Fixing the sampling, then placing them.Far too heavy — `cover` scales those viewBoxes ~2.3×, so a 5-unit stroke lands at ~12px. Toning them right down.
+
+Subtler, but I picked crops centred on the waist where every rib converges — too busy. Checking the lockup, then re-picking cleaner fragments.
+
+Grid's the right width now but sits above the wordmark instead of behind it. Fixing the overlap, and re-picking the echo fragments away from the convergence.All three done.
+
+**1. More curve.** Two levers, and only one is safe — raising the exponent concentrates curvature near the waist, which is exactly what produced the S in earlier passes, so I moved it barely (2.37 → 2.55). The real change is aspect: `VH` 100 → 132 against unchanged width, taking the mark from 3.92:1 to **2.97:1**. That stretches the fitted profile vertically without altering its shape — a deeper C, not a sharper elbow.
+
+Flagging one thing: that's now a **deliberate departure from the measured reference**, which really is 3.92:1. The true proportion read lazy at page scale. I've recorded it so the discrepancy isn't later mistaken for another fitting error.
+
+**2. Lockup scaled down.** You were right — at 112px the grid was ~2.5× the wordmark. In your reference they're about equal (mesh 394px, wordmark ~410px). Now 54×28. Two constraints had to hold at once: box aspect must match the viewBox's or `cover` crops the lobes off, *and* the wordmark must sit over the grid rather than beneath it. Solved with the viewBox padding — grid drawn in the top 66%, wordmark placed across its lower half, overhanging slightly. That's your reference's actual arrangement.
+
+**3. Echoes on the three pale panels** — `problem`, `proof`, `contract` — each a *different* 14% fragment at ~7× the hero's zoom, each with a different fade axis (horizontal, diagonal, vertical). The fade is a gradient mask baked into the SVG, since L1's `mask` only offers circle/ellipse/feather-radial/top/bottom — no directional linear fade.
+
+Two calibration errors worth flagging, since both are the kind that repeat:
+
+- **First attempt was ~7× too heavy** and obliterated the copy. Stroke 5 at 0.5 opacity seemed reasonable in the abstract, but a 549-unit viewBox on a 1280px panel is a 2.3× upscale, so it landed at ~12px. Stroke weight inside a cropped viewBox is meaningless until you multiply by the crop's scale factor.
+- **First crops were centred on the waist**, where every rib converges — so the "texture" was a dense fan, not a lattice. The fragments now sit away from the convergence.
+
+Also fixed a waste bug I'd introduced: arcs were sampled at a fixed 400 points regardless of crop, so each echo shipped ~300KB of off-screen path data. Sampling is now proportional to the emitted span — 300KB → 50KB each.
+
+<!-- xgd-turn id="1f27fbf3-f44c-437f-bfff-7e25428967d3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:45:12.486726+00:00" -->
+#### You
+yes the cirve look s good now and logo is stronger. I like the grig echos but you mis understood my "paler pannels". I meant the other ones. More specifically I wanted to spread them out 
+Hero -> plain -> echo -> plain -> echo...
+
+<!-- xgd-turn id="1f27fbf3-f44c-437f-bfff-7e25428967d3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T22:47:15.355730+00:00" -->
+#### Claude
+Ah — paler = the *white* panels, and you want them alternating. Let me fix both the rhythm and the banding.Fixed — and there were two mistakes, not one.
+
+**"Pale" meant the lighter panels.** I read it as the tinted bone bands (`#F5F4EC`) and put all three echoes there. The paler surface is the page ground, `#FFFEF8` — so they were on exactly the wrong set, *and* bunched in a row.
+
+**The banding itself had a repeat.** Working through the alternation surfaced a defect that predates this pass: `proof` and `contract` were **both** bone, so the rhythm was `bone → pale → bone → bone → pale`. That's why "spread them out" couldn't be satisfied by moving echoes alone — the substrate they alternate against wasn't alternating.
+
+Now both alternate in step:
+
+| section | band | echo |
+|---|---|---|
+| hero | pale | hero grid |
+| problem | bone | — |
+| **how** | **pale** | mid-lobe, horizontal fade |
+| proof | bone | — |
+| **contract** | **pale** | left mid-lobe, vertical fade |
+| close | **bone** | — |
+
+To get there I moved `contract` bone → pale and `close` pale → bone. **That's a band-colour change you didn't ask for** — I made it because the rhythm you described is unreachable without closing the repeat, but it's your call and reverting is two values. Say the word.
+
+Dropped `xgd-echo-2.svg` rather than leave it unreferenced — two echoes is what the rhythm wants, and a third would have to displace a plain panel.
+
+One thing I've recorded for myself: two passes running have now turned on a term I assumed rather than checked — "pale panel" here, the reference curve's shape before it. When you name a set, I should enumerate it back before acting. That's one line, and it would have caught this before I generated and placed three assets.
+
+<!-- xgd-turn id="ae3236e8-0b85-4926-b345-d3b30948870f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:50:25.366522+00:00" -->
+#### You
+ok good work, I like it - need to spend time on the cop and tweak a few details but its looking good for me. What do you think?
+
+<!-- xgd-turn id="ae3236e8-0b85-4926-b345-d3b30948870f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T22:51:53.823678+00:00" -->
+#### Claude
+Let me check one thing before I answer, because I think it might be the biggest outstanding item.
+
+Found something material. Let me record it before I answer.
+
+Honest answer: the *look* is there. The **function isn't**, and I found something while checking that I think outranks everything on your tweaks list.
+
+## Nothing on the page is clickable
+
+Verified, not guessed: there's no `href` anywhere in the L1 schema, the renderer's node switch has no anchor kind, and `grep -c '<a '` over `render.ts` returns **0**. The renderer has never emitted a link.
+
+So "Join the beta waitlist", "Read the whitepaper" (both appear twice), and all three nav items do nothing. The only interactive element is the form — which is dead too (BUG-28).
+
+That's more severe than the texture gap. Texture is an aesthetic ceiling; this is a functional floor. No amount of copy or design reaches it. And it's clearly an L1 gap by your own CLAUDE.md test — navigation is presentation plus a URL, not a behaviour with its own core. The shape probably isn't a new node kind either; it's a wrapper role like the surface group, so a `link?: { href, newTab?, ariaLabel? }` field on the shared node shape. The URL allowlist and `escapeHtml` already exist, so the security envelope doesn't widen. Recorded on REQ-95; **not filed** — say the word.
+
+## What's genuinely working
+
+The palette was the right call — warm bone against petrol teal is differentiated in a category where everyone ships near-black. The mark work landed: hero ground, alternating echoes and lockup now read as one system rather than three uses of a logo. And AC4 was a convincing pass — 8 strings grown 50–100% and every band reflowed with cards staying equal-height. That's the property absolute-positioned output doesn't have, and it's the actual thesis of the framework.
+
+## What I'd fix, ranked
+
+1. **Links** (above) and **the form** (BUG-28). Both blocking.
+2. **"Evidence, not promises" shows no evidence.** That closing headline is itself a promise — there's no screenshot, no capability matrix, no artifact, no number anywhere on the page. For a dev tool that's the biggest credibility gap, and you already have the dashboard. One real capability-matrix screenshot would do more than any copy edit.
+3. **Section shape is still monotonous.** Four of six bands are eyebrow → headline → paragraph → card row. `proof` breaks it; nothing else does. I'd break one more — probably `how`, since a four-step traceable chain wants to *look* like a chain, not four equal cards.
+4. **The proof section is underplayed.** "I built a platform I've never read the source of — but I never stopped being its engineer" is the strongest line on the page, and it's small and below the fold. I'd give it real size.
+5. On copy, since you're going there anyway: the hero sub is two sentences that front-load mechanism where a benefit should be. "Maintains a living spec and tests the running system against it on every change" is *how*, not *why I care*.
+
+Items 3–5 are design judgement, not verified findings — take or leave. Items 1–2 aren't.
+
+<!-- xgd-turn id="3f50b4f1-725a-46e1-9d1c-85a65381283f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T22:55:56.663774+00:00" -->
+#### You
+All good stuff - can you fix the functionality, the links etc.
+
+BTW why is Join the beta in a different color - it looks a little odd
+
+<!-- xgd-turn id="3f50b4f1-725a-46e1-9d1c-85a65381283f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T23:10:13.179597+00:00" -->
+#### Claude
+Two things. Quick answer on the nav first, then the real work.
+
+Nav colour: "Join the beta" is `text-primary` + weight 500 while its siblings are `text-muted` 400 — it was meant to read as the primary action but without a button treatment it just looks inconsistent. I'll make it a real button.
+
+Now the functionality. This needs framework changes, so it needs its own scope ticket.
+
+Line-number insertion went in stale — my earlier edit shifted them. Reverting and redoing with unique anchors.
+
+Stale compiled `dist` — need to rebuild site-schema before the framework sees the new type.
+
+Both compile. Now the envelope validator — href allowlist and the duplicate-id rule.
+
+Now UAT tests for both, then wiring the site.
+
+Test expectation was wrong, not the code — `'::::'` is schemeless, i.e. a relative URL, which *should* enhance. Fixing the test.
+
+Now wiring the site: real links, the nav button, and a real form endpoint.
+
+Two things: a duplicate `id="signup"` I created — and the render pipeline didn't reject it, which it should have.
+
+Page passes the envelope. Removing the probe and running the full suite for regressions.
+
+One regression — REQ-102's test pins the exact attribute list, and nodes now carry their `id`. That's the intended REQ-106 change, so the assertion needs to admit it.
+
+Nav reads properly now. Committing under the free-coding protocol.
+
+A SHA can only belong to one ticket — I bundled two tickets into one commit. Splitting it.
+
+Done. Both shipped, full suite green (**873 tests, 124 files**).
+
+## The nav colour
+
+Its siblings were `text-muted` at weight 400; "Join the beta" was `text-primary` at 500 — darker and heavier with nothing carrying *why*. That reads as inconsistency, not emphasis. It's now a real button (accent fill, `#236D87` hover, focus ring), which states "primary action" instead of making you infer it from a colour.
+
+## What shipped
+
+**REQ-106** — typed link role + DOM id emission. The renderer **retags** rather than wraps: a linked node emits `<a>` in place of its own element, keeping its class, so every paint axis and the REQ-99 focus ring stay attached. Wrapping would have moved focus to an outer element and silently cost linked nodes their focus indicator. `image` is the exception — a void element can't be an anchor. `href` clears the same allowlist as `image.src`, and `_blank` always carries its `rel`. 10 UATs.
+
+**BUG-28** — enhancement is now decided from the action's scheme *before* `preventDefault()`, so a `mailto:`/`tel:` form keeps its native submit. 3 UATs.
+
+**The site** — nav, both hero CTAs plus their mobile duplicates, and the footer all navigate; `#how`/`#papers`/`#signup` hit real ids. The form posts to `/api/lead`, a relative endpoint `fetch()` can actually reach — that's the real fix; BUG-28 only makes the *fallback* honest. You'll need to stand that endpoint up.
+
+## Three things you should know
+
+**The duplicate-id rule caught a real defect immediately.** REQ-104's visibility-paired CTA workaround declared `cta-primary`/`cta-secondary` twice. Harmless while ids were never emitted; a genuine bug the moment they became DOM ids. Second time that workaround has cost something concrete.
+
+**I had to loosen a REQ-102 assertion.** It matched `<p class="…">renderme</p>` exactly, which id emission breaks. It was over-specific — pinning the whole attribute list where it meant to pin the class and content. Relaxed, not weakened.
+
+**GAP 12 — authored L1 never passes the envelope validator.** `grep validateL1` across the tree returns two call sites, both on the *reproduction* path. Nothing on the authoring or render path calls it. So shape (zod) runs for an authored page but the **envelope** — numeric bounds, URL allowlist, node cap, and my new duplicate-id rule — does not. Every document this session has authored bypassed it: my duplicate `id="signup"` rendered without complaint and I caught it by reading the emitted HTML.
+
+Not a security hole — the renderer's own `isSafeUrl` degradation is independent defence, which is why the unsafe-href UAT asserts on both. But the envelope being enforced for *reproduced* documents and decorative for *authored* ones is backwards; the authored path is the one with someone free-typing values into it. The fix is one call, but it may fail existing authored or fixture documents, and that triage shouldn't ride along in a link change. Want me to file it?
+
+<!-- xgd-turn id="bcc0582b-a1f9-4ac0-943c-758bea1d1d71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T23:30:40.732810+00:00" -->
+#### You
+yeah please file these and then one small tweak to try the teal and petrol is distinctive but a little code, we have a brown in our pallet too that is used for "code" text in markdown, can you find that brown and try the background grids in that color?
+
+<!-- xgd-turn id="bcc0582b-a1f9-4ac0-943c-758bea1d1d71-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T23:33:22.829624+00:00" -->
+#### Claude
+`--color-md-mono: #8B5C2A` — that's the one. Filing the validator gap, then trying it.
+
+Much warmer — reads as drafting ink on paper, and it stops competing with the teal. It's a touch faint though; brown at the same opacity carries less than teal did.Both done.
+
+**REQ-107 filed** — authored L1 bypasses the envelope validator. I wrote the risk into the ticket explicitly: turning the check on will surface documents that have been out of envelope all along, and *that triage is the work*, not the one-line call. Each failure is either a real defect or an over-tight bound — and neither should be resolved by weakening the check to make the suite pass.
+
+**The brown is `#8B5C2A`** (`--color-md-mono`, dashboard line 117). Confirmed it's the actual code-text colour — it's what `.ProseMirror code`, `.comments-section code` and `#modalBodyContent code` all resolve to. The near miss is `--color-warning-text: #92400E`, which is a warning token, not code.
+
+Applied to the **background grids only** — hero ground and both panel echoes. The lockup grid stays ink, since that one's the logo rather than a background, and the mark is monochrome.
+
+One thing worth knowing: **the swap wasn't opacity-neutral.** Brown carries less against `#FFFEF8` than teal did at the same value, so I had to lift hero 0.26 → 0.34 and echoes 0.17 → 0.22 to hold the same apparent weight. At the original values it read washed out.
+
+My honest view: it's better, and not only because it's warmer. It splits the palette by **role**. Brown is now the substrate — paper, grid, the drawing itself. Teal is the only cool thing left and appears *only* on elements that act: nav button, both CTAs, submit, card ordinals, the proof rule. That reads as an engineering drawing with a signal colour, rather than one hue doing both jobs and neither distinctly.
+
+It also removed an accidental competition I hadn't spotted — the teal grid was in the same hue family as the teal buttons, so the CTAs were fighting their own background.
+
+Verified at 1280 and 375; copy stays legible over the hero and both echoes.
+
+If you want to push the warmth further, the next lever is the bone bands themselves (`#F5F4EC` is already warm, but could go warmer) — though I'd leave that until you've done the copy pass, since copy changes are what will show whether the page still reads calm at that temperature.
+
+<!-- xgd-turn id="b7332a61-ee21-48fb-bdf8-108f77fbd35e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T23:34:33.470484+00:00" -->
+#### You
+I see no change?
+
+<!-- xgd-turn id="b7332a61-ee21-48fb-bdf8-108f77fbd35e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T23:38:39.633672+00:00" -->
+#### Claude
+Let me check what's actually on disk and in the rendered output.
+
+The SVGs are brown on disk *and* in dist. So the change shipped. Let me render and look at the actual pixels rather than assume.Grids are brown in the render. Let me sample the actual pixels to be definitive, and check whether a stale serve is what you're looking at.
+
+Confirmed at pixel level. Now let me make the difference actually visible rather than assert it.
+
+The generator was a temp script — but the change is a single attribute, so let me render a stronger variant for comparison.Now it's unmistakable — but the panel echoes at 0.38 are cutting through the body copy. Pulling those back while keeping the hero strong.You were right, and I was wrong about what "done" meant.
+
+**The brown had landed.** Verified three ways — the SVGs on disk, the copies in `dist`, and the rendered pixels themselves (`rgb(215,198,177)`, which is exactly `#8B5C2A` at 0.34 composited over the cream ground). Zoomed into the hero grid and it's unmistakably tan.
+
+**But you genuinely couldn't see it, and that's the real finding:**
+
+| | composite over cream | luminance |
+|---|---|---|
+| teal @ 0.26 | `rgb(201,223,226)` | ~218 |
+| brown @ 0.34 | `rgb(216,199,178)` | ~202 |
+
+The **hue** rotated completely. The **lightness** barely moved. At 1.3px and 15/255 off the background, the eye reads "faint line" — it doesn't read a colour at all. So the change was real and below the perceptual threshold simultaneously.
+
+**Fixed by raising weight until the hue actually carries** — hero `0.34 → 0.55` at 1.5px, echoes `0.22 → 0.27`. I tried the echoes at 0.38 first and it was too loud; the arcs cut straight through the body copy in the *how* and *contract* sections. 0.27 gives texture without competing.
+
+Verified at 1280 and 375 in the shipping composition. The hero now reads as drafting ink on paper, and it stops competing with the teal — which is now the only cool thing on the page and appears solely on things that act.
+
+Committed as `c93fb8369`.
+
+**The pattern worth naming:** that's the third time this session I've shipped something real but invisible — the cusp fix cropped out of frame, the curve-family fix at 76px where it couldn't show, and now this. Each time I verified the *edit* landed rather than the *perception* changed. I've recorded it on REQ-95 with the specific rule: when changing hue on a low-opacity element, opacity isn't an independent variable — retune weight in the same pass, and check the composition, not the value.
+
+<!-- xgd-turn id="4fdc42c2-45b6-4839-bef4-91301d9886ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T23:39:22.899283+00:00" -->
+#### You
+You are putting tickets into ready__to_implement really DO NOT do that - if the dispatcher were running that would trigger automated implemnentation - We are free coding, completely different mode different states please follow the protocol.
+
+I still see no change the grids are clearly petrol
+
+<!-- xgd-turn id="4fdc42c2-45b6-4839-bef4-91301d9886ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T23:39:57.516776+00:00" -->
+#### Claude
+Two separate things. Let me fix the ticket state first, then actually find why you're seeing petrol.
+
+REQ-95 is `draft`, not `ready_to_implement` — let me find which ticket you saw.
+
+<!-- xgd-turn id="3f0fc414-faa9-495f-9ec7-516d7c5a14cc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T23:40:18.547171+00:00" -->
+#### You
+I fixed the ticket - my comment is on your protocol please stick to the states you have been given
+
+<!-- xgd-turn id="3f0fc414-faa9-495f-9ec7-516d7c5a14cc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T23:42:53.854649+00:00" -->
+#### Claude
+Understood on protocol — free-coding states only (`draft` → `free_coded`), never `ready_to_implement`. That's the dispatcher's path, not ours.
+
+Back to the petrol. I changed three of the four grid assets — let me check the one I didn't.
+
+The mark is dark grey — not the source. All four assets are non-petrol on disk. So what you're viewing isn't what I'm rendering. Let me find where you're looking.
+
+No dev server for the site — but there are long-running workers on 8789–8799. That's likely what you're actually viewing, and it may serve from its own store rather than `storage/dist`.
+
+Port **8792** is serving the XGD site — that's your window. Let me check what colour *it* is actually serving.
+
+Found it. Every server-side artifact is brown — including what port 8792 serves *right now*, fetched fresh via curl, bypassing any browser cache:
+
+| where | colour |
+|---|---|
+| `storage/sites/.../assets/` | `#8B5C2A` brown |
+| `storage/dist/.../assets/` | `#8B5C2A` brown |
+| **served live by :8792** | `#8B5C2A` brown |
+| my Playwright renders | brown (sampled `rgb(215,198,177)`) |
+| **your browser** | petrol |
+
+The only component in that chain that isn't brown is your browser's cache. The filename never changed across all my edits, and these are `background-image: url("/assets/xgd-grid-hero.svg")` — which browsers cache hard and revalidate lazily. My screenshots use a fresh Playwright context every time, so I have been structurally unable to see what you're seeing.
+
+Let me fix it properly rather than telling you to hard-refresh, so this can't recur.
+
+No cache headers at all — no `ETag`, no `Last-Modified`, no `Cache-Control`. That's the root cause: with no validators, browsers apply *heuristic* caching and can hold an asset indefinitely without ever revalidating. Query strings do work, so let me version the three changed assets.
+
+Now let me correct the ticket — I recorded a design lesson on a false premise and it should not stand.
+
+**Reload the page — the grids will be brown.**
+
+You were right that nothing changed, and I had the cause wrong three times running.
+
+Your browser was serving a cached teal SVG. Everything server-side was already brown — I confirmed by curling the live server on :8792 directly, bypassing any browser cache. The only non-brown thing in the entire chain was your browser.
+
+The reason it stuck: that server sends **no `Cache-Control`, no `ETag`, no `Last-Modified`** on `/assets/*`. With zero validators the browser falls back to heuristic caching and can hold an asset indefinitely without revalidating. And the filename never changed across three edits — so every fix I shipped was invisible to the only viewer that counted.
+
+Fixed by versioning the URLs (`xgd-grid-hero.svg?v=2`, plus both echoes). Confirmed the live server is now emitting them.
+
+**Where I went wrong:** my screenshots use a fresh Playwright context with a cold cache; you use a warm browser. Those two can never disagree about a newly-named asset, but they disagree silently and forever about a *mutated* one. I was structurally incapable of reproducing your symptom — and instead of noticing that, I treated my own render as ground truth and concluded your eyes were the problem. One `curl` against the running server would have ended this at your first report. I've corrected the ticket, which was carrying a "faint hue isn't perceptible" lesson built on that false premise.
+
+**One thing to judge on reload:** while chasing the wrong diagnosis I raised the grid weight — hero from 0.34 to 0.55 at 1.5px, echoes 0.22 to 0.27. You've never actually seen brown at the original 0.34, so that bump was compensating for a problem that didn't exist. It may now read heavier than you want. Say the word and I'll put it back to 0.34 so you can judge the colour at the weight it was designed for.
+
+Also noted on the ticket: `/assets/*` should carry a content hash or at least an `ETag` — that's a renderer/server fix rather than site config, so it wants its own ticket when you want it done.
+
+<!-- xgd-turn id="10f38acf-bd16-4226-b579-8ad491bb18f6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-29T00:30:07.429648+00:00" -->
+#### You
+ok so REQ-101 is still finalizing but all the tickets you created, you have. What else were you planning to do?
+
+<!-- xgd-turn id="10f38acf-bd16-4226-b579-8ad491bb18f6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-29T00:31:14.132730+00:00" -->
+#### Claude
+Let me check actual state rather than reconstruct from memory.
+
+Checked rather than recalled. Here's what's actually outstanding:
+
+**One thing I flagged and never filed.** On REQ-95 I wrote that `/assets/*` should ship a content hash or at minimum `ETag`/`Cache-Control` — the root cause of the petrol saga. I confirmed no such ticket exists (nothing in the request list matches cache/etag/asset-hash). It's a renderer/server change, not site config, so it needs its own ticket. I haven't created it because this session is scoped to REQ-95 and I need your explicit go-ahead to open a new one. Say the word and I'll file it.
+
+**One thing waiting on you.** The grid weight. I raised hero to `0.55` @1.5px and echoes to `0.27` while chasing the wrong diagnosis — you've still never seen brown at the original `0.34`. Once you reload and look, tell me which you want and I'll set it.
+
+**One thing I'm deliberately not touching.** The working tree has 144 uncommitted lines across `tools/generate/src/cli/fonts.ts`, `index.ts`, and `tests/req101-font-registry.test.ts`. That's REQ-101, which you say is still finalizing — so I'll stay off those files unless you want me on them.
+
+**REQ-95's gap backlog is otherwise clear.** GAP 7 (row containers can't wrap) did get filed — REQ-104. So the pass-1 gaps are all out as tickets; nothing from that probe is sitting unrecorded.
+
+REQ-95 itself is `draft`, which is correct — it moves to `free_coded` when the work commits with the ceremony, and nothing goes near `ready_to_implement`.
+
+The asset-cache ticket is the only real loose end. Want it filed?
+
+<!-- xgd-turn id="1f42d7f0-c0f4-4399-accd-37d9b5ddf8b4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-29T00:38:44.382898+00:00" -->
+#### You
+I see the brown now on browser refresh and I think the grid is too heavy it would be better as more of a texture, it is fighting the text a little right now
+
+Remind me what the asset cache is?
+
+<!-- xgd-turn id="1f42d7f0-c0f4-4399-accd-37d9b5ddf8b4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-29T00:39:35.999395+00:00" -->
+#### Claude
+Dialing it back to texture weight. One principled note on the number: brown is intrinsically darker than the teal it replaced (luminance ~100 vs ~150), so matching the *original* texture weight means going **below** the old opacity, not to it.
+
+Bumping the URL version too — otherwise you'd hit the exact same stale-cache wall.That reads as texture — present in the ground, not competing with the copy.
+
+Reload once more (`?v=3`) and it should sit back as ground texture.
+
+Hero is now `0.24` @1.2px, echoes `0.17`. That's *below* the teal's old `0.26` on purpose — `#8B5C2A` has luminance ~100 against the teal's ~150, so at equal opacity brown lands roughly 1.5× heavier. Matching the original texture weight meant going down, not back to where it was.
+
+---
+
+**On the asset cache — what it was:**
+
+Your browser was showing petrol long after the files were brown, because of how the dev server hands out `/assets/*`.
+
+Three things combined:
+
+1. **The filename never changed.** The page asks for `/assets/xgd-grid-hero.svg`. I edited that file's *contents* four times, but the URL stayed identical — so as far as the browser was concerned, it already had that resource.
+
+2. **The server sends no cache validators.** I checked the response headers: no `ETag`, no `Last-Modified`, no `Cache-Control`. Nothing. With zero validators, browsers fall back to *heuristic* caching — they guess a freshness lifetime and may hold the file indefinitely without ever asking the server whether it changed.
+
+3. **I couldn't reproduce it.** Every screenshot I take spins a fresh Playwright context with a cold cache, so I always fetched the real file. You had a warm browser holding the original teal. We were looking at genuinely different bytes, and I kept treating my render as ground truth.
+
+The `?v=2` → `?v=3` I've been adding is the workaround: a different URL is a different cache entry, so the browser is forced to fetch. It works, but it's manual — I have to remember every time, and if I forget, you silently see stale pixels again.
+
+**The real fix** is for the renderer to either hash the content into the filename (`xgd-grid-hero.a3f9c1.svg`, changes automatically whenever the bytes change) or for the server to send an `ETag`. Either makes staleness structurally impossible instead of dependent on me remembering.
+
+That's the ticket I flagged and haven't filed — it's a renderer/server change, outside REQ-95's scope. Still happy to file it whenever you want.
 
 <!-- xgd-chat-end -->

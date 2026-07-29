@@ -5,16 +5,16 @@ type: bug
 title: A multi-line text element splits into runs that all share one box
 created_by: xgd
 created_at: '2026-07-25T21:13:52.591806+00:00'
-updated_at: '2026-07-25T22:29:17.109088+00:00'
+updated_at: '2026-07-29T03:02:40.841044+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 0de621a0848fe78069623f641b134bcc52e4bdb4
+  - working_sha: 2a564d8ee40eb2810534cb4ddcf1575ab7688260
     reconcile_sha: null
     main_sha: null
   version: 0.0.204

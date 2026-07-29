@@ -5,21 +5,21 @@ type: request
 title: Styled-run text content model + markup (implements DOC-22)
 created_by: xgd
 created_at: '2026-07-12T23:37:43.237932+00:00'
-updated_at: '2026-07-13T18:05:07.874619+00:00'
-completed_at: null
+updated_at: '2026-07-28T18:01:34.341772+00:00'
+completed_at: '2026-07-28T18:01:34.341772+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 05767c0e5d636eb4924ee407891dc20c4eaa6181
+  - working_sha: 1a0cd0d5141bc1505d23632bb08cfc34244dcfef
     reconcile_sha: null
-    main_sha: null
-  - working_sha: dc41e246f24a27075b1efe199b41a9c66cbbcdb2
+    main_sha: 1a0cd0d5141bc1505d23632bb08cfc34244dcfef
+  - working_sha: 774f0bf974d5103a3254921c656503640a421ba9
     reconcile_sha: null
-    main_sha: null
+    main_sha: 774f0bf974d5103a3254921c656503640a421ba9
   version: 0.0.99
   bundled_in: bundle-d9c2e655
 ---
