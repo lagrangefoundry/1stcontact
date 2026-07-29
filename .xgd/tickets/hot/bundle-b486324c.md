@@ -11,9 +11,6 @@ last_field_updated: created_at
 status: ready_to_reconcile
 fields:
   commits:
-  - working_sha: 028784f941574150f0b80bfb88e9e8a56a2b7be8
-    reconcile_sha: null
-    main_sha: null
   - working_sha: 2193232bb9e836191fef942f0567fa9e5ff30ff9
     reconcile_sha: null
     main_sha: null
