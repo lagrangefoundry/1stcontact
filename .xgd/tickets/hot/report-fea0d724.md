@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-8 (L1 language power + folder rebuild + gate
   free-coded)'
 created_by: xgd
 created_at: '2026-07-29T03:46:13.561155+00:00'
-updated_at: '2026-07-29T04:06:13.234242+00:00'
+updated_at: '2026-07-29T04:22:09.118362+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -236,7 +236,7 @@ fields:
         region-aware recovery on a real multi-region capture, where single-level promotion
         previously left them failing at every width.'
       remove: []
-    story_uid: null
+    story_uid: story-24098299
   - index: 4
     component: 1c CLI output hygiene — quiet bootstrap and Astro-free L1 render path
     item_type: upgrade
