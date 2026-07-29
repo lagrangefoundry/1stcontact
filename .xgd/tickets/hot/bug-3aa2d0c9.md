@@ -6,10 +6,10 @@ title: Fold drops the reflowed cell across a breakpoint — captured width loses
   keyframe; snap holds the lower frame (fidelity fail at a sampled width)
 created_by: xgd
 created_at: '2026-07-23T17:19:54.193844+00:00'
-updated_at: '2026-07-29T03:38:24.302178+00:00'
-completed_at: null
+updated_at: '2026-07-29T06:05:17.015416+00:00'
+completed_at: '2026-07-29T06:05:17.015416+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   severity: high
   priority: high
