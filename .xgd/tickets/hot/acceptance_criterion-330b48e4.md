@@ -6,9 +6,9 @@ title: Sample-fidelity probe matches reproduced leaf boxes to the oracle at ever
   captured width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-07-29T04:18:43.554111+00:00'
+updated_at: '2026-07-29T05:10:31.837826+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -83,8 +83,18 @@ with no residuals and the three genuine occurrences still clean. Shift only the 
 occurrence of that label at the widest width by 30px and assert exactly one residual,
 naming that text and width, with dy = 30.
 
-Non-text leaves: fold a capture carrying images and painted surface panels and assert
-their boxes are measured — perturb one image's reproduced box beyond tolerance and
-assert exactly one residual labelled by kind at that width; remove one reproduced box
-leaf and assert exactly one unmatched entry for the box kind. Assert an oracle capture
-containing form controls and empty runs produces no unmatched entries for them.
+Non-text leaves and measured scope: fold a capture spanning every leaf kind the
+classifier distinguishes — a text run, two images at well-separated y, a painted
+surface panel, plus a form control and an empty run — and assert the reproduced tree
+carries exactly four leaves (one text, two images, one box), the control and the empty
+run having produced none. Assert the probe gates clean on that capture: keying the
+images by kind alone rather than by kind AND document-order occurrence would compare
+the first image against the second's box and report a phantom delta, so a clean report
+is the occurrence-pairing discriminator, and an empty unmatched list is the observable
+proof that the control and the empty run were excluded from the measure rather than
+counted as coverage gaps. Perturb one image's oracle box beyond tolerance at one width
+and assert exactly one residual, labelled by kind, at that width with the correct
+delta. Append a surplus oracle occurrence of a kind at one width — exhausting the
+reproduced leaves of that kind — and assert exactly one unmatched entry labelled by
+that kind at that width, with no residuals and the remaining occurrences still pairing
+cleanly; assert this for the image kind and for the box kind alike.
