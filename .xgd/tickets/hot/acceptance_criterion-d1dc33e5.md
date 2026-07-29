@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Font resource entries are scheme-checked and weight-bounded by the envelope
 created_by: xgd
 created_at: '2026-07-29T03:50:35.256866+00:00'
-updated_at: '2026-07-29T03:50:35.256866+00:00'
+updated_at: '2026-07-29T04:02:26.302942+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
