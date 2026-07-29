@@ -6,10 +6,10 @@ title: 'Hero front-door fidelity primitives: subhead content-width, fixed-top of
   subhead weight + finer leading (REQ-45 successor)'
 created_by: xgd
 created_at: '2026-07-07T18:39:57.787701+00:00'
-updated_at: '2026-07-08T18:59:05.136866+00:00'
-completed_at: null
+updated_at: '2026-07-29T18:34:30.704702+00:00'
+completed_at: '2026-07-29T18:34:30.704702+00:00'
 last_field_updated: status
-status: ready_to_reconcile
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 5
