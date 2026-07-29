@@ -6,9 +6,9 @@ title: Content-robustness probe asserts the envelope holds under perturbed (grow
   content
 created_by: xgd
 created_at: '2026-07-22T20:07:13.870340+00:00'
-updated_at: '2026-07-24T10:23:39.893872+00:00'
+updated_at: '2026-07-29T04:19:18.897508+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -28,8 +28,16 @@ layout produces no sibling overlap and no clip.
 - A region whose interior flows (siblings reflow to absorb the extra content) keeps the
   envelope and reports pass = true.
 - Findings are reported per captured width.
+- The probe measures the **structure-recovered overlay**, not the absolute base. On a
+  real multi-region page the envelope holds at every captured width once recovery is
+  region-aware and flows all of a recovering node's children; promoting a single flat
+  pile — which keeps one shared gap and leaves non-promoted siblings pinned — is not
+  sufficient to satisfy this criterion.
 
 ## Verification
 Run the probe at 2.5× on a folded fixture of pinned sibling text runs and assert
 pass = false with at least one overlap finding. Run it on the equivalent flow-structured
 document and assert pass = true with empty findings.
+
+Run the probe on the recovered overlay of a retained real multi-region capture and
+assert pass = true with empty findings at every captured width.
