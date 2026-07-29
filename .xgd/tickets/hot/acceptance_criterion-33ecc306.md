@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Out-of-range, oversize, and freeform documents are rejected by the envelope
 created_by: xgd
 created_at: '2026-07-22T19:32:24.574998+00:00'
-updated_at: '2026-07-24T22:54:51.095645+00:00'
+updated_at: '2026-07-29T03:49:26.180253+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -33,6 +33,15 @@ fields. A `slot` leaf authored with the pre-REQ-87 `capability` key instead of
 tolerated alias, so a stale document fails loudly at the envelope rather than
 silently dropping its module id. (Absorbs FC test
 `test_UAT_FC_REQ-87_discriminant_atomic_l1_slot_seam_renamed_in_site_schema`.)
+
+The same envelope discipline — typed values, bounded numbers, hex-only colours,
+an allowlisted URL scheme, and no unknown keys — governs the document's
+structured effect axes and its document-level resource table without exception;
+those two surfaces carry their own bounds and are pinned separately (see the
+criteria covering structured-axis rejection and font-resource rejection), so a
+value that leaves the envelope through a gradient, shadow, border, mask,
+transform, background image, or font face is rejected exactly as one that leaves
+it through a scalar axis.
 
 ## Verification
 Submit documents each violating one envelope rule above and observe the
