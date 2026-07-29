@@ -6,10 +6,10 @@ title: Rebuild foldToL1 to populate the full L1 language (image/box/container + 
   axes), signalling residuals
 created_by: xgd
 created_at: '2026-07-23T02:02:03.084523+00:00'
-updated_at: '2026-07-29T03:38:24.166090+00:00'
-completed_at: null
+updated_at: '2026-07-29T06:05:17.289160+00:00'
+completed_at: '2026-07-29T06:05:17.289160+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
