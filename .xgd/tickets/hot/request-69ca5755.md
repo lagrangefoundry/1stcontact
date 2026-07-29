@@ -5,10 +5,10 @@ type: request
 title: 'gap inversion: --fix-gaps sets spacingTop to close a gap delta (one-shot)'
 created_by: xgd
 created_at: '2026-07-18T20:45:19.196183+00:00'
-updated_at: '2026-07-18T20:54:40.525030+00:00'
-completed_at: null
-last_field_updated: commits
-status: free_coded
+updated_at: '2026-07-29T18:42:16.682666+00:00'
+completed_at: '2026-07-29T18:42:16.682666+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
