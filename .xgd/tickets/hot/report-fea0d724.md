@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-8 (L1 language power + folder rebuild + gate
   free-coded)'
 created_by: xgd
 created_at: '2026-07-29T03:46:13.561155+00:00'
-updated_at: '2026-07-29T03:46:13.561155+00:00'
+updated_at: '2026-07-29T03:52:04.525933+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-cceaba25
@@ -82,7 +82,7 @@ fields:
         to the structured forms and the resource table (effectPx and transformScale
         bounds, hex-only colours, font src allowlist, font weight range).'
       remove: []
-    story_uid: null
+    story_uid: story-d0a8cfad
   - index: 2
     component: Capture-to-L1 fold — full-language folder + signalled residuals
     item_type: upgrade
