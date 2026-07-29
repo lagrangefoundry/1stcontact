@@ -6,20 +6,21 @@ title: 'L1 rows cannot wrap or reflow: responsive layout track (no workaround ex
   for control nodes)'
 created_by: xgd
 created_at: '2026-07-27T21:23:58.990576+00:00'
-updated_at: '2026-07-28T17:53:56.466085+00:00'
+updated_at: '2026-07-29T06:06:54.785715+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 83b9a68745a7afbe1e11b7862a81269725c5c898
+  - working_sha: 21385951abdc3fc03019f0396531a7dab78d4344
     reconcile_sha: null
     main_sha: null
   version: 0.0.221
   story_points: 3
+  bundled_in: bundle-b486324c
 ---
 
 ## The gap
