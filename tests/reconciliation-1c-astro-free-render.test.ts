@@ -1,0 +1,178 @@
+/**
+ * Reconciliation UATs for story-e15a19ef — "1c CLI: flags parse correctly,
+ * propagate into sub-commands, and --json emits a clean scriptable document".
+ *
+ * Two guarantees reconciled from bundle-cceaba25 (BUNDLE-8), plan item 4,
+ * commit 5dc46d0f (REQ-89):
+ *
+ *   • AC-738 — every `1c` command boots quietly: the Astro-backed Vite bootstrap
+ *     no longer emits "Missing pages directory" on *either* stream, because the
+ *     inline Astro config's `logLevel: 'error'` gates the logger that emits it
+ *     (the earlier stdout→stderr diversion had only moved the noise).
+ *   • AC-739 — the render path is Astro-free unless a page needs Astro: the
+ *     container is constructed only when a page carries behavior modules.
+ *
+ * The sibling stdout/stderr-hygiene criteria (AC-656/657/658/659) and the
+ * aligned-crops sandbox routing (AC-720) are covered in
+ * `reconciliation-1c-cli-output-hygiene.test.ts` and
+ * `reconciliation-1c-aligned-crops-sandbox-routing.test.ts`.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { experimental_AstroContainer } from 'astro/container'
+import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
+import { cmdRepro } from '../tools/generate/src/cli/repro'
+import { foldToL1 } from '../tools/generate/src/l1'
+import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
+import type {
+  MultiStateCapture,
+  StateProjection,
+  ValueElement,
+} from '../tools/generate/src/cli/capture'
+
+const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+const LADDER = [320, 375, 768, 1024, 1280, 1440]
+const HEADLINE = 'Front door heading'
+
+/** A single-run oracle folded to an L1 document — pure L1, no modules anywhere. */
+function l1Oracle(): MultiStateCapture {
+  const el = (width: number): ValueElement => ({
+    text: HEADLINE,
+    role: 'body',
+    color: '#111827',
+    fontFamily: 'Inter',
+    fontSizePx: 40,
+    fontWeight: 600,
+    lineHeightPx: 48,
+    box: { x: 20, y: 100, width: width - 40, height: 48 },
+  })
+  const projections: StateProjection[] = LADDER.map((width) => ({
+    engine: 'chromium',
+    viewport: { width, height: 900 },
+    state: 'rest',
+    manifest: {
+      source: `fixture@${width}`,
+      viewport: { width, height: 900 },
+      sections: [],
+      elements: [el(width)],
+    },
+  }))
+  return { url: 'http://fixture.test/', notes: [], projections }
+}
+
+/** Repoint a starter site's home page onto a real behavior-module instance. */
+function seedModules(cwd: string, slug: string): void {
+  const homePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
+  const home = JSON.parse(readFileSync(homePath, 'utf8'))
+  home.modules = [
+    {
+      id: 'gallery',
+      type: 'carousel',
+      version: 2,
+      config: { view: 'single', controls: 'dots' },
+      slots: { slide: [{ kind: 'text', text: 'A great experience.' }] },
+    },
+  ]
+  writeFileSync(homePath, JSON.stringify(home, null, 2))
+}
+
+let cwd: string
+beforeEach(() => {
+  cwd = mkdtempSync(path.join(tmpdir(), 'story-e15a19ef-'))
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+  rmSync(cwd, { recursive: true, force: true })
+})
+
+// ── AC-738: every 1c command boots quietly, on both streams ──────────────────
+
+describe('story-e15a19ef — the 1c bootstrap is quiet on both streams', () => {
+  it('test_UAT_AC738_commands_boot_without_missing_pages_warning', () => {
+    // Drive the real `1c` binary as a subprocess so the launcher's Astro-backed
+    // Vite bootstrap runs for real — that bootstrap scans the working root for a
+    // pages directory before any CLI code loads, and used to log
+    // "[WARN] Missing pages directory: src/pages" on every invocation.
+    //
+    // Both commands here are non-rendering (they never build a site), which is
+    // exactly the case the AC calls out: the warning must be absent because it is
+    // suppressed at its source, not merely diverted between streams.
+    //
+    // Run from the repo root — the launcher roots its Astro Vite server at the
+    // repo and Astro's `.astro` compile cache is cwd-sensitive; the operator
+    // always invokes `1c` in-repo.
+    const bin = path.join(repoRoot, 'tools', 'generate', 'bin', '1c.mjs')
+
+    for (const command of ['help', 'list']) {
+      const res = spawnSync('node', [bin, command], { cwd: repoRoot, encoding: 'utf8' })
+
+      // The command booted and ran to completion (a failed boot would exit non-zero).
+      expect(res.status, command).toBe(0)
+      // Its own output came out on stdout …
+      expect(res.stdout.trim().length, command).toBeGreaterThan(0)
+      // … and the bootstrap warning appears on NEITHER stream.
+      expect(res.stdout, command).not.toContain('Missing pages directory')
+      expect(res.stderr, command).not.toContain('Missing pages directory')
+    }
+
+    // Spot-check that `help` really produced the usage text (not just any bytes),
+    // proving the quiet boot did not come at the cost of the command's output.
+    const help = spawnSync('node', [bin, 'help'], { cwd: repoRoot, encoding: 'utf8' })
+    expect(help.stdout).toContain('1c —')
+  }, 120_000)
+})
+
+// ── AC-739: the Astro container is created only for behavior-module pages ────
+
+describe('story-e15a19ef — Astro is engaged only when a page carries modules', () => {
+  it('test_UAT_AC739_astro_container_created_only_for_module_pages', async () => {
+    // ── (a) A site whose pages are all L1 reproductions ──────────────────────
+    // Fold a capture to L1 and import it as a raw-L1 home page, then render it
+    // through the ordinary render entry point with container creation observed.
+    const ref = path.join(cwd, 'bundle')
+    writeL1(ref, foldToL1(l1Oracle()))
+    cmdRepro('l1only', { cwd, ref })
+
+    let createSpy = vi.spyOn(experimental_AstroContainer, 'create')
+    const l1Out = (await cmdRender('l1only', { cwd })).outDir
+
+    const l1Html = readFileSync(path.join(l1Out, 'index.html'), 'utf8')
+    expect(l1Html).toContain(HEADLINE) // the expected page HTML rendered …
+    expect(l1Html).not.toContain('data-fc-type') // … carrying no module hooks …
+    expect(createSpy).not.toHaveBeenCalled() // … with no container constructed.
+    vi.restoreAllMocks()
+
+    // ── (b) The empty starter — no pages carry modules either ────────────────
+    cmdNew('starter', { cwd })
+
+    createSpy = vi.spyOn(experimental_AstroContainer, 'create')
+    const starterOut = (await cmdRender('starter', { cwd })).outDir
+
+    const starterHtml = readFileSync(path.join(starterOut, 'index.html'), 'utf8')
+    expect(starterHtml).toContain('<html') // a real document was emitted …
+    expect(starterHtml).not.toContain('data-fc-type') // … with no module hooks …
+    expect(createSpy).not.toHaveBeenCalled() // … and no container constructed.
+    vi.restoreAllMocks()
+
+    // ── (c) A site with at least one behavior-module page ────────────────────
+    cmdNew('acme', { cwd })
+    seedModules(cwd, 'acme')
+
+    createSpy = vi.spyOn(experimental_AstroContainer, 'create')
+    const modOut = (await cmdRender('acme', { cwd })).outDir
+
+    // The container was created on demand …
+    expect(createSpy).toHaveBeenCalled()
+    // … and the page renders exactly as before: module markup, its theme CSS,
+    // and the client script are all present.
+    const modHtml = readFileSync(path.join(modOut, 'index.html'), 'utf8')
+    expect(modHtml).toContain('data-fc-type="carousel"')
+    expect(readFileSync(path.join(modOut, 'theme.css'), 'utf8')).toContain('.carousel__track')
+    expect(modHtml).toContain('src="./capabilities.js"')
+    expect(existsSync(path.join(modOut, 'capabilities.js'))).toBe(true)
+  }, 60_000)
+})
