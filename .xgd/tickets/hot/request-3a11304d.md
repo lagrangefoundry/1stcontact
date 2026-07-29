@@ -6,10 +6,10 @@ title: 'values-diff cause clustering: group counted defects into a ranked cause 
   with dispositions'
 created_by: xgd
 created_at: '2026-07-18T23:37:50.616841+00:00'
-updated_at: '2026-07-18T23:41:18.763430+00:00'
-completed_at: null
+updated_at: '2026-07-29T18:42:17.543087+00:00'
+completed_at: '2026-07-29T18:42:17.543087+00:00'
 last_field_updated: status
-status: free_coded
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
