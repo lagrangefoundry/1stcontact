@@ -6,10 +6,10 @@ title: Flat text axes are single-valued at desktop — font-size not keyframed p
   text oversized at mobile
 created_by: xgd
 created_at: '2026-07-23T23:35:14.405652+00:00'
-updated_at: '2026-07-27T20:32:25.778844+00:00'
+updated_at: '2026-07-29T18:35:42.301636+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   severity: high
   priority: high
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.190
+  bundled_in: bundle-4ff83a8b
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). From the round-3 gigabytealchemy
