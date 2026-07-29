@@ -18,6 +18,7 @@
  * axis — a framework fix, not a per-site one.
  */
 import {
+  isSafeUrl,
   validateL1,
   type L1BlendMode,
   type L1Border,
@@ -95,13 +96,19 @@ function primaryFamily(ff: string | undefined): string {
  * REQ-90 — the subset of the capture's font faces that a folded text leaf actually
  * paints, keyed by primary family. A face no text references moves no pixel, so it
  * is dropped from the table (DOC-27).
+ *
+ * A face whose `src` the envelope would reject is dropped too: an unmirrored or
+ * otherwise unrepresentable asset is a content condition, and letting it reach
+ * `validateL1` would throw the whole fold over one unresolvable face. Dropping it
+ * degrades that family to the fallback face — the same outcome as before REQ-90 —
+ * instead of crashing the capture/gate run.
  */
 function usedFontFaces(fonts: L1FontFace[], nodes: L1Node[]): L1FontFace[] {
   const painted = new Set<string>()
   for (const n of nodes) {
     if (n.kind === 'text') painted.add(primaryFamily(n.axes?.fontFamily))
   }
-  return fonts.filter((f) => painted.has(primaryFamily(f.family)))
+  return fonts.filter((f) => painted.has(primaryFamily(f.family)) && isSafeUrl(f.src))
 }
 
 /**
@@ -594,12 +601,19 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
 
     // ── Image leaf — a text-free media element (`<img>`) with a resolvable src ──
     if (isMediaElement(sample)) {
-      if (framed.length === 0 || !widest.src) {
+      // An src the envelope will not accept (a `data:` lazy-load placeholder, a
+      // paren-bearing URL) is a *content* condition, not a system bug: signal it
+      // as a folder-power gap rather than letting it reach `validateL1` and take
+      // the fold-level throw path, which would burn the whole capture/gate run
+      // over one image (BUG-6 / REQ-92 — signal, don't drop; never crash).
+      if (framed.length === 0 || !widest.src || !isSafeUrl(widest.src)) {
         signal(
           sample,
           !widest.src
             ? 'media element captured without a resolvable src'
-            : 'media element has no geometry at any sampled width',
+            : !isSafeUrl(widest.src)
+              ? 'media element src is not an allowed URL (http/https or relative only) — asset must be mirrored before it can fold'
+              : 'media element has no geometry at any sampled width',
           presentWidths,
         )
         continue

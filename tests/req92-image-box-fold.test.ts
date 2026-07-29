@@ -278,4 +278,89 @@ describe('REQ-92 — image + surface (box) leaves fold into the L1 tree', () => 
     expect(r?.reason).toMatch(/src/i)
     expect(validateL1(doc).ok).toBe(true)
   })
+
+  it('test_UAT_FC_REQ-92_data_url_media_src_is_a_residual_not_a_throw', () => {
+    // A `data:` lazy-load placeholder is the standard pattern on exactly the kind
+    // of site this pipeline targets. The envelope rightly refuses it (DOC-2), so
+    // the fold must *signal* it as a folder-power gap — never hand it to
+    // validateL1, which would throw and burn the whole capture/gate run (which
+    // happens after the browser work) over one image.
+    const residuals: FoldResidual[] = []
+    let doc!: ReturnType<typeof foldToL1>
+    expect(() => {
+      doc = foldToL1(
+        multiFrom((w) => [
+          textless(w, {
+            role: 'img',
+            a11yRole: 'img',
+            src: 'data:image/svg+xml,<svg/>',
+            box: { x: 0, y: 200, width: w, height: 300 },
+          }),
+        ]),
+        { residuals },
+      )
+    }).not.toThrow()
+
+    expect(childrenOf(doc)).toEqual([]) // no leaf carrying an unrepresentable src
+    expect(validateL1(doc).ok).toBe(true)
+    const r = residuals.find((r) => r.kind === 'image')
+    expect(r?.reason).toMatch(/not an allowed URL/i)
+    expect(r?.widths).toEqual(LADDER)
+  })
+
+  it('test_UAT_FC_REQ-92_paren_bearing_media_src_is_a_residual_not_a_throw', () => {
+    // Same class, different trigger: an `https:` URL carrying raw parentheses is
+    // refused because the value is emitted into a CSS `url(…)` context. Signal it.
+    const residuals: FoldResidual[] = []
+    let doc!: ReturnType<typeof foldToL1>
+    expect(() => {
+      doc = foldToL1(
+        multiFrom((w) => [
+          textless(w, {
+            role: 'img',
+            a11yRole: 'img',
+            src: 'https://cdn.example.com/logo(1).png',
+            box: { x: 0, y: 200, width: w, height: 300 },
+          }),
+        ]),
+        { residuals },
+      )
+    }).not.toThrow()
+
+    expect(childrenOf(doc)).toEqual([])
+    expect(validateL1(doc).ok).toBe(true)
+    expect(residuals.find((r) => r.kind === 'image')?.reason).toMatch(/not an allowed URL/i)
+  })
+
+  it('test_UAT_FC_REQ-92_safe_media_src_still_folds_alongside_an_unsafe_one', () => {
+    // The guard is surgical: an envelope-safe sibling in the same capture still
+    // becomes a real image leaf. One bad src degrades one element, not the page.
+    const residuals: FoldResidual[] = []
+    const doc = foldToL1(
+      multiFrom((w) => [
+        textless(w, {
+          role: 'img',
+          a11yRole: 'img',
+          src: 'data:image/gif;base64,R0lGOD',
+          box: { x: 0, y: 200, width: w, height: 300 },
+        }),
+        textless(w, {
+          text: '',
+          role: 'img',
+          a11yRole: 'img',
+          accessibleName: 'Team',
+          src: 'https://cdn.example.com/team.jpg',
+          alt: 'Team',
+          box: { x: 0, y: 600, width: w, height: 200 },
+        }),
+      ]),
+      { residuals },
+    )
+    const images = childrenOf(doc).filter((n) => (n as { kind: string }).kind === 'image') as unknown as Array<{
+      src: string
+    }>
+    expect(images.map((i) => i.src)).toEqual(['https://cdn.example.com/team.jpg'])
+    expect(residuals.filter((r) => r.kind === 'image').length).toBe(1)
+    expect(validateL1(doc).ok).toBe(true)
+  })
 })

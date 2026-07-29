@@ -35,6 +35,8 @@ export const L1_ENVELOPE = {
   effectPx: { min: -10_000, max: 10_000 },
   /** Uniform transform scale (REQ-91) — a sane bound so a huge scale can't blow out layout. */
   transformScale: { min: 0.01, max: 100 },
+  /** Transform rotation (REQ-91) — an angle, not a length: ±10 full turns. */
+  rotateDeg: { min: -3600, max: 3600 },
 } as const
 
 /**
@@ -133,7 +135,13 @@ function checkEffectLen(
  */
 function checkEffects(node: L1Node, path: string, errors: ValidationError[]): void {
   if (node.transform) {
-    checkEffectLen(node.transform.rotateDeg, `${path}/transform/rotateDeg`, errors)
+    const r = node.transform.rotateDeg
+    if (r !== undefined && !inRange(r, L1_ENVELOPE.rotateDeg.min, L1_ENVELOPE.rotateDeg.max)) {
+      errors.push({
+        path: `${path}/transform/rotateDeg`,
+        message: `rotateDeg ${r} out of range [${L1_ENVELOPE.rotateDeg.min}, ${L1_ENVELOPE.rotateDeg.max}]`,
+      })
+    }
     const s = node.transform.scale
     if (
       s !== undefined &&

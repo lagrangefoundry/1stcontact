@@ -231,6 +231,54 @@ describe('BUG-11 — fold reconstructs run surfaces (fills + doc.background)', (
     expect(ids).toEqual(['surface-0', 'surface-1'])
   })
 
+  it('test_UAT_FC_BUG-11_only_synthesized_surfaces_are_exempt_from_overlap', () => {
+    // The overlap exemption is for the fold's *invented* backing surfaces
+    // (`surface-*`) sitting behind the run they back — that is by design. A
+    // genuine captured standalone surface (`box-*`) is real painted content, so
+    // two of them colliding is still a real envelope violation and must be
+    // reported. Exempting every `box` leaf would have hidden that class.
+    const ms = multiFrom((w) => [
+      // A panel run on a non-band fill → a synthesized `surface-*` box behind it.
+      run(w, 'Panel copy', { x: 40, y: 100, width: 240, height: 40 }, { surfaceFill: '#e8dfd3' }),
+      run(w, 'Band copy', { x: 40, y: 400, width: w - 80, height: 40 }, { surfaceFill: '#f8f5f2' }),
+      // Two genuine standalone painted surfaces that overlap each other.
+      {
+        text: '',
+        textless: true,
+        role: 'separator',
+        a11yRole: 'separator',
+        box: { x: 20, y: 700, width: 200, height: 80 },
+        surfaceFill: '#00d492',
+      } as ValueElement,
+      {
+        text: '',
+        textless: true,
+        role: 'complementary',
+        a11yRole: 'complementary',
+        box: { x: 100, y: 740, width: 200, height: 80 },
+        surfaceFill: '#0f172b',
+      } as ValueElement,
+    ])
+    const doc = foldToL1(ms)
+
+    const boxes = childrenOf(doc).filter((n) => n.kind === 'box')
+    const real = boxes.filter((b) => b.id?.startsWith('box-')).map((b) => b.id)
+    expect(real.length).toBe(2) // both standalone surfaces folded as real box leaves
+    expect(boxes.filter((b) => b.id?.startsWith('surface-')).length).toBe(1)
+
+    const overlaps = evaluateLayout(doc, 1280).findings.filter((f) => f.kind === 'overlap')
+    const leaves = evaluateLayout(doc, 1280).leaves
+    const idAt = (p: string) => leaves.find((l) => l.path === p)?.id
+    const pairs = overlaps.map((f) => f.paths.map(idAt).sort())
+
+    // The two genuine surfaces collide and are reported…
+    expect(pairs).toContainEqual(real.slice().sort())
+    // …while the synthesized backing surface never appears in any overlap finding.
+    for (const f of overlaps) {
+      for (const p of f.paths) expect(idAt(p) ?? '').not.toMatch(/^surface-/)
+    }
+  })
+
   it('test_UAT_FC_BUG-11_real_capture_gets_background_and_surfaces', () => {
     // The two retained real captures: the fold now sets a page band and emits
     // backing surfaces, while text fidelity stays clean. Skips cleanly if the

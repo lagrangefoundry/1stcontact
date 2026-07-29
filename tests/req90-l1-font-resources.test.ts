@@ -202,6 +202,28 @@ describe('REQ-90 — L1 font resource table + @font-face', () => {
     expect(doc.resources).toBeUndefined()
   })
 
+  it('test_UAT_FC_REQ-90_fold_drops_an_unmirrored_face_instead_of_throwing', () => {
+    // A face whose src the envelope refuses (an un-mirrored `data:` payload, a
+    // paren-bearing URL) is a *content* condition, not a system bug. The fold must
+    // drop that face — degrading the family to the fallback, as before REQ-90 —
+    // rather than feeding validateL1 a value it rejects, which would throw the
+    // whole fold and burn the capture/gate run over one unresolvable font.
+    for (const src of ['data:font/woff2;base64,AAAA', 'https://cdn.example.com/os(1).woff2']) {
+      const doc = foldToL1(oracleWith('Oswald'), { fonts: [{ family: 'Oswald', src }] })
+      expect(validateL1(doc).ok, src).toBe(true)
+      expect(doc.resources, src).toBeUndefined() // the only face was dropped → no table
+    }
+
+    // A safe face alongside an unsafe one still lands: only the bad entry is dropped.
+    const mixed = foldToL1(oracleWith('Oswald'), {
+      fonts: [
+        { family: 'Oswald', src: 'data:font/woff2;base64,AAAA' },
+        { family: 'Oswald', src: 'assets/oswald.woff2', weight: 700 },
+      ],
+    })
+    expect(mixed.resources?.fonts).toEqual([{ family: 'Oswald', src: 'assets/oswald.woff2', weight: 700 }])
+  })
+
   // ── End-to-end acceptance: a named face resolves in a real browser ────────────
   const FONT = path.join(
     process.cwd(),
