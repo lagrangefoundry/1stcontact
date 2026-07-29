@@ -6,10 +6,10 @@ title: L1 document-level resource table (font/image handle→substance) + render
   wiring
 created_by: xgd
 created_at: '2026-07-23T02:01:41.218807+00:00'
-updated_at: '2026-07-29T03:38:24.099303+00:00'
-completed_at: null
+updated_at: '2026-07-29T06:05:17.442683+00:00'
+completed_at: '2026-07-29T06:05:17.442683+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
