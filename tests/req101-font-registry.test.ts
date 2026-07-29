@@ -29,7 +29,12 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parse as parseYaml } from 'yaml'
 import { validateFontRegistry, validateSite } from '../packages/site-schema/src/index'
-import { cmdFontsCheck, assetBasename, REGISTRY_REL } from '../tools/generate/src/cli/fonts'
+import {
+  cmdFontsCheck,
+  collectFontFilesOnDisk,
+  assetBasename,
+  REGISTRY_REL,
+} from '../tools/generate/src/cli/fonts'
 import { starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import { run } from '../tools/generate/src/cli/index'
 
@@ -137,6 +142,13 @@ function registryFor(
       ...files.map((f) => `      - { path: ${f} }`),
     ].join('\n') + '\n'
   )
+}
+
+/** Drop a placeholder font file at a repo-relative path inside a workspace. */
+function writeFontFile(cwd: string, relPath: string): void {
+  const abs = path.join(cwd, relPath)
+  mkdirSync(path.dirname(abs), { recursive: true })
+  writeFileSync(abs, 'wOF2', 'utf8')
 }
 
 const workspaces: string[] = []
@@ -315,7 +327,7 @@ describe('REQ-101 — font provenance registry', () => {
     const report = cmdFontsCheck(cwd)
     expect(report.pass).toBe(false)
     expect(report.violations[0].kind).toBe('unregistered-family')
-    expect(report.violations[0].usage.root).toBe('sandbox')
+    expect(report.violations[0].usage?.root).toBe('sandbox')
 
     // No registry must be a hard error, never a vacuous pass over un-provenanced
     // fonts — that would defeat the whole gate.
@@ -346,5 +358,54 @@ describe('REQ-101 — font provenance registry', () => {
     expect(assetBasename('assets/jetbrains-mono.woff2')).toBe('jetbrains-mono.woff2')
     expect(assetBasename('/assets/karla.woff2?v=2')).toBe('karla.woff2')
     expect(assetBasename('https://cdn.example.com/f/oswald.woff2#x')).toBe('oswald.woff2')
+  })
+
+  it('test_UAT_FC_REQ-101_unreferenced_font_file_on_disk_fails_the_check', () => {
+    // The reference join alone cannot see the class the ticket cares most about:
+    // a capture bundle mirrors a third party's fonts into storage/references/,
+    // and those bytes sit in the repo whether or not a page points at them —
+    // with exactly the redistribution status least likely to be clear. So
+    // provenance is demanded of the file, not of the reference to it.
+    const cwd = workspace(registryFor('Satoshi', ['satoshi-400.woff2'], true), [
+      { root: 'sites', slug: 'xgd', fonts: [{ family: 'Satoshi', src: '/assets/satoshi-400.woff2' }] },
+    ])
+    writeFontFile(cwd, 'storage/sites/xgd/draft/assets/satoshi-400.woff2')
+    expect(cmdFontsCheck(cwd).pass).toBe(true)
+
+    // A capture drops an unregistered face in, referenced by nothing at all.
+    writeFontFile(cwd, 'storage/references/example.com/index/assets/aH8kZq2.woff2')
+    const report = cmdFontsCheck(cwd)
+    expect(report.pass).toBe(false)
+    const violation = report.violations.find((v) => v.kind === 'unprovenanced-file')
+    expect(violation?.file?.file).toBe('aH8kZq2.woff2')
+    expect(violation?.file?.locations).toEqual([
+      'storage/references/example.com/index/assets/aH8kZq2.woff2',
+    ])
+    expect(violation?.message).toContain('aH8kZq2.woff2')
+
+    // Rendered output is derived byte-for-byte from a draft and is gitignored,
+    // so it must not be scanned — otherwise every finding doubles and the check
+    // starts depending on whether anyone rendered recently.
+    writeFontFile(cwd, 'storage/dist/sites/xgd/draft/assets/aH8kZq2.woff2')
+    expect(cmdFontsCheck(cwd).violations.filter((v) => v.kind === 'unprovenanced-file')).toHaveLength(
+      1,
+    )
+  })
+
+  it('test_UAT_FC_REQ-101_shipped_registry_accounts_for_every_font_file_in_the_repo', () => {
+    // Acceptance criterion 4 as a live gate rather than a sampled list: the real
+    // repo's font bytes and the real registry must agree in BOTH directions, so
+    // neither a new capture bundle nor a deleted face can drift the record.
+    const registry = validateFontRegistry(
+      parseYaml(readFileSync(path.join(REPO_ROOT, REGISTRY_REL), 'utf8')),
+    )
+    expect(registry.ok).toBe(true)
+    if (!registry.ok) return
+
+    const registered = new Set(registry.value.fonts.flatMap((f) => f.files.map((x) => x.path)))
+    const onDisk = collectFontFilesOnDisk(REPO_ROOT)
+    expect(onDisk.length).toBeGreaterThan(0)
+    expect(onDisk.filter((f) => !registered.has(f.file)).map((f) => f.locations[0])).toEqual([])
+    expect([...registered].filter((p) => !onDisk.some((f) => f.file === p))).toEqual([])
   })
 })

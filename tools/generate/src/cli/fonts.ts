@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs'
 import { parse as parseYaml } from 'yaml'
 import type { FontRegistry, FontRegistryEntry, L1FontFace, Page } from '@1stcontact/site-schema'
 import { validateFontRegistry } from '@1stcontact/site-schema'
-import { listDirs, pathExists } from '../store/fsutil'
+import { listDirs, listFilesRel, pathExists } from '../store/fsutil'
 import { draftDir, type Root, type StoreContext } from '../store/paths'
 import { loadSite } from '../store/loadSite'
 import { CommandError } from './errors'
@@ -92,14 +92,26 @@ export interface FontUsage {
   file: string
 }
 
+/** A font file present in the source trees, with every location holding it. */
+export interface FontFileOnDisk {
+  /** Asset basename — the key the registry's `files[].path` records. */
+  file: string
+  /** Repo-relative paths holding this file, sorted. */
+  locations: string[]
+}
+
 export type ViolationKind =
   | 'unregistered-family'
   | 'unregistered-file'
+  | 'unprovenanced-file'
   | 'redistribution-not-permitted'
 
 export interface FontViolation {
   kind: ViolationKind
-  usage: FontUsage
+  /** Present when the violation came from a page's font reference. */
+  usage?: FontUsage
+  /** Present when the violation came from the on-disk scan. */
+  file?: FontFileOnDisk
   message: string
   hint: string
 }
@@ -118,6 +130,8 @@ export interface FontsCheckReport {
   registered: string[]
   /** Every font reference found across every site, in scan order. */
   usages: FontUsage[]
+  /** Every font file present in the source trees, by basename. */
+  filesOnDisk: FontFileOnDisk[]
   violations: FontViolation[]
   warnings: FontWarning[]
 }
@@ -184,13 +198,58 @@ export function collectFontUsages(cwd: string): FontUsage[] {
   return usages
 }
 
+const FONT_EXTENSIONS = ['.woff2', '.woff', '.ttf', '.otf']
+
 /**
- * Join every site's font references against the registry.
+ * Trees under `storage/` that hold no project source and are therefore not
+ * scanned: `dist/` is gitignored render output copied byte-for-byte from a
+ * draft, so counting it would double every finding and make the check depend on
+ * whether anyone had rendered recently; `node_modules/` is vendored.
+ */
+const NON_SOURCE_TREES = new Set(['dist', 'node_modules'])
+
+/**
+ * Every font file present in the project's source trees, keyed by basename.
  *
- * Three failures, each answering a different question:
- *   - `unregistered-family` — we do not know where this font came from at all.
+ * The usage join below only sees fonts a site actually *references*, which
+ * leaves the class this ticket cares most about invisible: a capture bundle
+ * mirrors a third party's fonts into `storage/references/`, and those bytes are
+ * in the repo whether or not a page ever points at them. Their redistribution
+ * status is exactly the thing least likely to be clear, so provenance has to be
+ * demanded of the file on disk, not of the reference to it.
+ */
+export function collectFontFilesOnDisk(cwd: string): FontFileOnDisk[] {
+  const storage = path.join(cwd, 'storage')
+  if (!pathExists(storage)) return []
+
+  const byFile = new Map<string, string[]>()
+  for (const tree of listDirs(storage)) {
+    if (NON_SOURCE_TREES.has(tree)) continue
+    for (const rel of listFilesRel(path.join(storage, tree))) {
+      const base = rel.split('/').pop() ?? rel
+      const lower = base.toLowerCase()
+      if (!FONT_EXTENSIONS.some((ext) => lower.endsWith(ext))) continue
+      const locations = byFile.get(base) ?? []
+      locations.push(`storage/${tree}/${rel}`)
+      byFile.set(base, locations)
+    }
+  }
+
+  return [...byFile.entries()]
+    .map(([file, locations]) => ({ file, locations: locations.sort() }))
+    .sort((a, b) => a.file.localeCompare(b.file))
+}
+
+/**
+ * Join every site's font references — and every font file on disk — against the
+ * registry.
+ *
+ * Four failures, each answering a different question:
+ *   - `unregistered-family` — a page names a font we cannot account for at all.
  *   - `unregistered-file`   — we know the family, but not this particular file
  *                             (a weight added by hand escapes the record).
+ *   - `unprovenanced-file`  — bytes are in the tree that no entry records, even
+ *                             though nothing references them yet.
  *   - `redistribution-not-permitted` — the site ships as product and the licence
  *                             does not permit that, or has not been resolved.
  */
@@ -201,6 +260,18 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
 
   const violations: FontViolation[] = []
   const actionSites = new Map<string, Set<string>>()
+
+  const registeredFiles = new Set(registry.fonts.flatMap((e) => e.files.map((f) => f.path)))
+  const filesOnDisk = collectFontFilesOnDisk(cwd)
+  for (const onDisk of filesOnDisk) {
+    if (registeredFiles.has(onDisk.file)) continue
+    violations.push({
+      kind: 'unprovenanced-file',
+      file: onDisk,
+      message: `'${onDisk.file}' is on disk (${onDisk.locations[0]}) but no registry entry records it.`,
+      hint: `Add it to the owning family's files list in ${REGISTRY_REL}, recording where it came from and what its licence permits — or delete the file.`,
+    })
+  }
 
   for (const usage of usages) {
     const siteRef = `${usage.root}/${usage.slug}`
@@ -256,6 +327,7 @@ export function cmdFontsCheck(cwd: string = process.cwd()): FontsCheckReport {
     registryPath: registryPath(cwd),
     registered: registry.fonts.map((f) => f.family),
     usages,
+    filesOnDisk,
     violations,
     warnings,
   }
@@ -267,7 +339,8 @@ export function formatFontsReport(report: FontsCheckReport): string {
   const sites = new Set(report.usages.map((u) => `${u.root}/${u.slug}`))
   lines.push(
     `fonts check — ${report.registered.length} registered famil${report.registered.length === 1 ? 'y' : 'ies'}, ` +
-      `${report.usages.length} reference(s) across ${sites.size} site(s)`,
+      `${report.usages.length} reference(s) across ${sites.size} site(s), ` +
+      `${report.filesOnDisk.length} font file(s) on disk`,
   )
 
   if (report.violations.length > 0) {

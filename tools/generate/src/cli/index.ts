@@ -56,6 +56,7 @@ export {
   cmdFontsCheck,
   loadFontRegistry,
   collectFontUsages,
+  collectFontFilesOnDisk,
   formatFontsReport,
   assetBasename,
   registryPath,
@@ -64,6 +65,7 @@ export {
 export type {
   FontsCheckReport,
   FontUsage,
+  FontFileOnDisk,
   FontViolation,
   FontWarning,
   ViolationKind,
