@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-8 (L1 language power + folder rebuild + gate
   free-coded)'
 created_by: xgd
 created_at: '2026-07-29T03:46:13.561155+00:00'
-updated_at: '2026-07-29T04:34:09.617161+00:00'
+updated_at: '2026-07-29T04:39:28.553298+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -319,7 +319,7 @@ fields:
         marker type; and list-style-type:none suppresses the marker on a real list
         item.'
       remove: []
-    story_uid: null
+    story_uid: story-d5de22a5
 ---
 
 # Reconciliation Plan — BUNDLE-8 (bundle-cceaba25)
