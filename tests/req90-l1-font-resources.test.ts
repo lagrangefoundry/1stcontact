@@ -157,6 +157,33 @@ describe('REQ-90 — L1 font resource table + @font-face', () => {
     expect(css).not.toContain('javascript:')
   })
 
+  it('test_UAT_FC_REQ-90_font_src_cannot_break_out_of_the_css_string', () => {
+    // A scheme-clean URL carrying a raw newline: the newline terminates the CSS
+    // string, the following `}` closes the `@font-face` rule, and the remainder
+    // becomes live CSS (plus an off-allowlist remote `url()`). Both layers must
+    // refuse it — the envelope (Layer 1) and the renderer (Layer 2, defence in
+    // depth: safe even if the validator were bypassed). DOC-2 §2.
+    const payload = '/a.woff2\n} body { display: none } .x{background:url(https://evil.example/x'
+    const doc = docPainting('Poppins', { fonts: [{ family: 'Poppins', src: payload }] })
+
+    const result = validateL1(doc)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.path === '/resources/fonts/0/src')).toBe(true)
+    }
+
+    // Renderer, fed the unvalidated document directly: the face is dropped whole.
+    const { css } = renderL1Document(doc)
+    expect(css).not.toContain('@font-face')
+    expect(css).not.toContain('display: none')
+    expect(css).not.toContain('evil.example')
+    // No fragment of the payload reaches the stylesheet at all, so its `}` can
+    // never close a rule; braces stay balanced.
+    expect(css).not.toContain('/a.woff2')
+    expect(css).not.toContain('} body')
+    expect((css.match(/}/g) ?? []).length).toBe((css.match(/{/g) ?? []).length)
+  })
+
   it('test_UAT_FC_REQ-90_fold_populates_only_painted_families', () => {
     // Oswald is painted by the leaf; Ghost is not — only Oswald earns a table entry.
     const doc = foldToL1(oracleWith('Oswald'), {

@@ -487,9 +487,11 @@ describe('AC-727 a document font resource table binds a family handle to its ser
       expect(bare).not.toContain('@font-face')
 
       // An entry that cannot be emitted safely produces *no* rule rather than a
-      // broken or unsafe one: an off-allowlist source, and a family that
-      // sanitises away to nothing. A stray quote in an allowlisted source is
-      // escaped so it cannot break out of `url("…")`.
+      // broken or unsafe one: an off-allowlist source, a family that sanitises
+      // away to nothing, and — because CSS has no entity escaping — a source
+      // carrying any character that could close the `url("…")` token, the
+      // declaration, or the rule (a raw quote, a newline). Neutralising such a
+      // value is not an option in a CSS context; the only safe emit is none.
       const unsafe = renderL1Document({
         widths: WIDTHS,
         resources: {
@@ -498,6 +500,7 @@ describe('AC-727 a document font resource table binds a family handle to its ser
             { family: 'AlsoBlocked', src: 'javascript:alert(1)' },
             { family: '{}@;', src: '/fonts/x.woff2' },
             { family: 'Quoted', src: '/fonts/a".ttf' },
+            { family: 'Breakout', src: '/fonts/a.ttf\n} body { display: none } .x{' },
           ],
         },
         root: { kind: 'text', text: 'x' },
@@ -505,9 +508,13 @@ describe('AC-727 a document font resource table binds a family handle to its ser
       expect(unsafe).not.toContain('Blocked')
       expect(unsafe).not.toContain('data:font')
       expect(unsafe).not.toContain('javascript:')
-      expect(unsafe).toContain('src: url("/fonts/a&quot;.ttf")')
-      // Exactly one rule survived — the escaped-but-allowlisted entry.
-      expect(unsafe.match(/@font-face/g) ?? []).toHaveLength(1)
+      expect(unsafe).not.toContain('Quoted')
+      expect(unsafe).not.toContain('Breakout')
+      expect(unsafe).not.toContain('display: none')
+      // No entry survived — every one of them was unsafe.
+      expect(unsafe).not.toContain('@font-face')
+      // …and the stylesheet's braces stay balanced (nothing broke out of a rule).
+      expect((unsafe.match(/}/g) ?? []).length).toBe((unsafe.match(/{/g) ?? []).length)
 
       // ── End-to-end: the bound face actually paints the glyphs ────────────────
       // Skips cleanly where no engine or no font asset is available.

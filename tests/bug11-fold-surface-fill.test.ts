@@ -178,6 +178,59 @@ describe('BUG-11 — fold reconstructs run surfaces (fills + doc.background)', (
     expect(report.unmatched).toEqual([])
   })
 
+  it('test_UAT_FC_BUG-11_synthesized_surfaces_do_not_mispair_real_box_leaves', () => {
+    // Regression for the non-text fidelity pairing. REQ-92 pairs the oracle's
+    // `box` samples positionally against the reproduced `box` leaves, but BUG-11
+    // *prepends* synthesized `surface-*` boxes that have no oracle counterpart
+    // (their source element is a text run, classified `text` by the oracle). If
+    // they enter the pairing queue, the k-th oracle box pairs with the k-th
+    // surface and the gate reports phantom deltas for a document that reproduces
+    // its real surface exactly.
+    //
+    // The ladder: (a) a run on the dominant band → no backing box; (b) a run on a
+    // differing panel fill → one `surface-*` leaf; (c) a text-free painted
+    // divider → one `box-*` leaf AND one oracle `box` sample, far from the panel.
+    const ms = multiFrom((w) => [
+      run(w, 'Band heading', { x: 20, y: 40, width: w - 40, height: 40 }, { surfaceFill: '#f8f5f2' }),
+      run(w, 'Band body', { x: 20, y: 100, width: w - 40, height: 40 }, { surfaceFill: '#f8f5f2' }),
+      run(w, 'Panel copy', { x: 40, y: 200, width: 240, height: 40 }, { surfaceFill: '#e8dfd3' }),
+      {
+        text: '',
+        textless: true,
+        role: 'box',
+        box: { x: 0, y: 600, width: w, height: 4 },
+        surfaceFill: '#00d492',
+      } as ValueElement,
+    ])
+    const doc = foldToL1(ms)
+
+    // One synthesized surface (the panel run) and one real box leaf (the divider).
+    const boxes = childrenOf(doc).filter((n) => n.kind === 'box')
+    expect(boxes.filter((b) => b.id?.startsWith('surface-')).length).toBe(1)
+    expect(boxes.filter((b) => b.id?.startsWith('box-')).length).toBe(1)
+
+    const report = sampleFidelityProbe(doc, ms, { tolerancePx: 2 })
+    expect(report.residuals).toEqual([])
+    expect(report.unmatched).toEqual([])
+    expect(report.pass).toBe(true)
+  })
+
+  it('test_UAT_FC_BUG-11_surface_ids_are_contiguous_after_the_band_filter', () => {
+    // Ids are the pairing/debug handle, so they must be dense: band runs whose
+    // backing box is filtered out must not burn an index (`surface-1` with no
+    // `surface-0`).
+    const ms = multiFrom((w) => [
+      run(w, 'Band A', { x: 10, y: 20, width: 100, height: 30 }, { surfaceFill: '#f8f5f2' }),
+      run(w, 'Band B', { x: 10, y: 60, width: 100, height: 30 }, { surfaceFill: '#f8f5f2' }),
+      run(w, 'Panel A', { x: 10, y: 200, width: 100, height: 30 }, { surfaceFill: '#0f172b' }),
+      run(w, 'Panel B', { x: 10, y: 240, width: 100, height: 30 }, { surfaceFill: '#0f172b' }),
+    ])
+    const ids = childrenOf(foldToL1(ms))
+      .filter((n) => n.kind === 'box')
+      .map((n) => n.id)
+    expect(ids).toEqual(['surface-0', 'surface-1'])
+  })
+
   it('test_UAT_FC_BUG-11_real_capture_gets_background_and_surfaces', () => {
     // The two retained real captures: the fold now sets a page band and emits
     // backing surfaces, while text fidelity stays clean. Skips cleanly if the

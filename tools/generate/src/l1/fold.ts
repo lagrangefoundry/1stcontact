@@ -258,8 +258,31 @@ export interface FoldableElement {
   blendMode?: string | null
 }
 
-/** The L1 leaf kind an element folds to (independent of geometry/src availability). */
-export type FoldLeafKind = 'text' | 'image' | 'box' | 'control' | 'empty'
+/**
+ * The L1 leaf kind an element folds to (independent of geometry/src
+ * availability). `control` and `unknown` are both "not a measurable leaf", but
+ * they are distinct gaps: a `control` is a *known* behavior-module seam
+ * (DOC-25/26), while `unknown` is a text-free element with no recognised
+ * substance at all. Keeping them apart is what lets the residual namer stay a
+ * pure lookup instead of re-deriving the kind (see `RESIDUAL_KIND_BY_LEAF`).
+ */
+export type FoldLeafKind = 'text' | 'image' | 'box' | 'control' | 'unknown' | 'empty'
+
+/**
+ * Id prefix of a **synthesized backing surface** (BUG-11): the `box` leaf the
+ * fold reconstructs *behind* a text run whose composited panel/card fill would
+ * otherwise vanish. It is not a captured element — its source element classifies
+ * as `text` and is measured through the run's own text leaf — so it has **no
+ * oracle counterpart** and must never enter the gate's non-text pairing queue
+ * (doing so mispairs every real `box-*` leaf and reports phantom fidelity
+ * deltas). {@link isSynthesizedSurfaceId} is the single place that knows this.
+ */
+export const SYNTHESIZED_SURFACE_ID_PREFIX = 'surface-'
+
+/** True for a fold-synthesized backing surface — see {@link SYNTHESIZED_SURFACE_ID_PREFIX}. */
+export function isSynthesizedSurfaceId(id: string | undefined): boolean {
+  return id !== undefined && id.startsWith(SYNTHESIZED_SURFACE_ID_PREFIX)
+}
 
 /** A text-free element that carries media substance (an `<img>`): it becomes an `image` leaf. */
 function isMediaElement(el: FoldableElement): boolean {
@@ -283,15 +306,16 @@ function paintsSurface(el: FoldableElement): boolean {
 /**
  * Decide the L1 leaf kind an element folds to. `text` (styled run), `image`
  * (media), `box` (standalone painted surface), `control` (a form control — a
- * behavior-module seam, never a raw leaf), or `empty` (an empty-string run).
- * Ignores geometry/src availability, which the fold gates separately.
+ * behavior-module seam, never a raw leaf), `unknown` (a text-free element with
+ * no recognised substance), or `empty` (an empty-string run). Ignores
+ * geometry/src availability, which the fold gates separately.
  */
 export function classifyElement(el: FoldableElement): FoldLeafKind {
   if (!el.textless) return (el.text ?? '').trim() !== '' ? 'text' : 'empty'
   if (isMediaElement(el)) return 'image'
   if (el.a11yRole && FORM_CONTROL_ROLES.has(el.a11yRole)) return 'control'
   if (paintsSurface(el)) return 'box'
-  return 'control' // an unknown text-free element is not measured (residual/behavior seam)
+  return 'unknown' // not measured — a residual, not a leaf
 }
 
 /** Map a captured textless surface element's axes onto the typed L1 box-axis subset. */
@@ -330,12 +354,25 @@ function imageAxes(el: ValueElement): L1ImageAxes {
   return axes
 }
 
+/**
+ * The residual kind for each leaf kind {@link classifyElement} can report. A
+ * residual names the leaf the fold *would* have emitted, so the two must agree:
+ * `classifyElement` is the single source of the kind decision and this map is
+ * only the naming (`control` reads as `field` in a residual; an empty run is
+ * still text substance).
+ */
+const RESIDUAL_KIND_BY_LEAF: Record<FoldLeafKind, FoldResidual['kind']> = {
+  text: 'text',
+  empty: 'text',
+  image: 'image',
+  box: 'box',
+  control: 'field',
+  unknown: 'box',
+}
+
 /** Best-effort object kind for a residual an element that has no L1 leaf yet (B2). */
 function residualKindOf(el: ValueElement): FoldResidual['kind'] {
-  if (!el.textless) return 'text'
-  if (el.objectFit != null || el.intrinsicAspect != null) return 'image'
-  if (el.a11yRole) return 'field'
-  return 'box'
+  return RESIDUAL_KIND_BY_LEAF[classifyElement(el)]
 }
 
 /** The painted pixel-mover axes present on an element — the residual's substance (B2). */
@@ -480,7 +517,6 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const children: L1Node[] = []
   let imageIdx = 0
   let boxIdx = 0
-  let surfaceIdx = 0
   // BUG-11 — the surface a text run sits on. The capture attributes the composited
   // card/panel/section fill onto each *run* (`surfaceFill`/`surfaceGradient`), never
   // as a standalone box, so a bare text leaf drops every background. For each run
@@ -541,7 +577,9 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         const axes: L1BoxAxes = {}
         if (surfFill) axes.surfaceFill = surfFill
         if (surfGrad) axes.surfaceGradient = surfGrad
-        const boxNode: L1Box = { kind: 'box', id: `surface-${surfaceIdx++}`, geometry: buildGeometry(true), axes }
+        // Id is assigned after the band filter below, so surviving surfaces are
+        // numbered contiguously (the id is the pairing/debug handle).
+        const boxNode: L1Box = { kind: 'box', geometry: buildGeometry(true), axes }
         if (vis) boxNode.visibility = vis
         pendingSurfaces.push({ fill: surfFill, node: boxNode })
       }
@@ -588,7 +626,14 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     }
 
     // ── Box leaf — a text-free element that paints a standalone surface ─────────
-    if (framed.length > 0 && paintsSurface(sample)) {
+    if (paintsSurface(sample)) {
+      // The gap is *geometry*, not expressiveness — name it as such rather than
+      // falling through to the "neither media nor a surface" reason below (which
+      // would misreport a surface the language can already express).
+      if (framed.length === 0) {
+        signal(sample, 'painted surface has no geometry at any sampled width', presentWidths)
+        continue
+      }
       const axes = boxAxes(widest)
       const node: L1Box = { kind: 'box', id: `box-${boxIdx++}`, geometry: buildGeometry(true) }
       if (Object.keys(axes).length) node.axes = axes
@@ -614,7 +659,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   }
   const surfaceNodes = pendingSurfaces
     .filter((s) => s.node.axes?.surfaceGradient !== undefined || s.fill !== band)
-    .map((s) => s.node)
+    .map((s, i) => {
+      s.node.id = `${SYNTHESIZED_SURFACE_ID_PREFIX}${i}`
+      return s.node
+    })
 
   const root: L1Box = { kind: 'box', children: [...surfaceNodes, ...children] }
   const doc: L1Document = { widths, root }

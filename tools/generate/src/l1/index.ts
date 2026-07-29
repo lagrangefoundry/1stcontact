@@ -14,6 +14,8 @@ export {
 export {
   foldToL1,
   classifyElement,
+  isSynthesizedSurfaceId,
+  SYNTHESIZED_SURFACE_ID_PREFIX,
   type FoldOptions,
   type FoldResidual,
   type FoldableElement,

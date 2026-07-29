@@ -65,6 +65,33 @@ function cssFontFamily(v: string | undefined): string | null {
   return tokens.length ? tokens.join(', ') : null
 }
 
+/**
+ * Characters a URL may contain inside a CSS `url("…")` token. A strict
+ * allowlist of the RFC-3986 unreserved / reserved set **minus** the delimiters
+ * that could close the token or the surrounding rule (`"`, `'`, `\`, `(`, `)`,
+ * `<`, `>`, whitespace and every control character). Anything else must arrive
+ * percent-encoded.
+ */
+const CSS_URL_ALLOWED = /^[A-Za-z0-9\-._~:/?#[\]@!$&*+,;=%]+$/
+
+/**
+ * The **sole** CSS `url()` sink. Returns the complete, quoted `url("…")` token,
+ * or null when the value is not provably inert.
+ *
+ * `escapeHtml` must never be used here: it neutralises `<`, `>` and quotes but
+ * leaves newlines untouched, and a newline terminates a CSS string — the next
+ * `}` then closes the rule and the remainder becomes live CSS (DOC-2 §2). This
+ * checks the scheme allowlist (`isSafeUrl`) *and* an independent character
+ * allowlist, so the renderer stays safe even if the validator is bypassed
+ * (defence in depth — Layer 2 does not trust Layer 1).
+ */
+function cssUrl(src: string | undefined): string | null {
+  if (!src) return null
+  const v = src.trim()
+  if (!isSafeUrl(v) || !CSS_URL_ALLOWED.test(v)) return null
+  return `url("${v}")`
+}
+
 // ── REQ-90 document-level resource table → @font-face rules ────────────────────
 
 /** A single font-family *name* (not a list) sanitised for `@font-face`. */
@@ -93,21 +120,21 @@ function fontFormat(src: string): string | null {
 /**
  * REQ-90 — compile the document resource table into `@font-face` rules that bind
  * each `fontFamily` handle to its served substance (a `.woff2`/`.ttf` asset).
- * This is the sole `@font-face { src: url(…) }` sink: the family is name-sanitised
- * (inert data, never CSS syntax), the URL clears the same `isSafeUrl` allowlist as
- * an image `src` (served asset / http(s) only — no `data:`/remote-fetch smuggle)
- * and is `escapeHtml`-neutralised so a stray quote can't break out of `url("…")`.
- * `font-display: swap` keeps text visible while the face loads.
+ * The family is name-sanitised (inert data, never CSS syntax) and the URL goes
+ * through {@link cssUrl} — the one CSS `url()` sink — so it cannot break out of
+ * the string, the declaration, or the rule. `font-display: swap` keeps text
+ * visible while the face loads.
  */
 function fontFaceRules(resources: L1Resources | undefined): string[] {
   const out: string[] = []
   for (const f of resources?.fonts ?? []) {
     const name = fontFaceName(f.family)
-    if (!name || !isSafeUrl(f.src)) continue
+    const url = cssUrl(f.src)
+    if (!name || !url) continue
     const fmt = fontFormat(f.src)
     const decls = [
       `font-family: "${name}"`,
-      `src: url("${escapeHtml(f.src)}")${fmt ? ` format("${fmt}")` : ''}`,
+      `src: ${url}${fmt ? ` format("${fmt}")` : ''}`,
     ]
     if (f.weight !== undefined && Number.isFinite(f.weight)) decls.push(`font-weight: ${Math.round(f.weight)}`)
     if (f.style) decls.push(`font-style: ${f.style}`)
@@ -441,9 +468,8 @@ function emitNode(node: L1Node, state: RenderState): string {
         const g = gradientCss(a.surfaceGradient)
         if (g) bgLayers.push(g)
       }
-      if (a.backgroundImageUrl !== undefined && isSafeUrl(a.backgroundImageUrl)) {
-        bgLayers.push(`url("${escapeHtml(a.backgroundImageUrl)}")`)
-      }
+      const bgUrl = cssUrl(a.backgroundImageUrl)
+      if (bgUrl) bgLayers.push(bgUrl)
       if (bgLayers.length) base.push(`background-image: ${bgLayers.join(', ')}`)
       if (a.border) {
         const b = borderCss(a.border)

@@ -38,14 +38,30 @@ export const L1_ENVELOPE = {
 } as const
 
 /**
+ * Characters a URL may never carry *raw*, because the value is later emitted
+ * into an HTML attribute **and** into a CSS `url("…")` string. A newline (or any
+ * control character) terminates a CSS string, after which a `}` closes the rule
+ * and everything following becomes live CSS — the classic declaration break-out.
+ * Quotes, backslash, parentheses and angle brackets close or re-open the
+ * surrounding token in one context or the other. A legitimate served asset or
+ * http(s) URL never needs any of them raw: percent-encoding carries them.
+ */
+const URL_FORBIDDEN_CHARS = /[\u0000-\u0020\u007f-\u009f"'\\()<>]/
+
+/**
  * URL scheme allowlist for image `src`. Relative and root-relative URLs pass;
  * absolute URLs must be http(s). Everything else — `javascript:`, `data:`,
  * `vbscript:`, `file:` — is rejected. Mirrors the framework content-safety
  * boundary, re-implemented here to keep site-schema dependency-free.
+ *
+ * Beyond the scheme, the value must be free of {@link URL_FORBIDDEN_CHARS} so it
+ * cannot break out of the HTML attribute or CSS string it is emitted into
+ * (DOC-2 §2 — no instance string ever becomes raw CSS or HTML).
  */
 export function isSafeUrl(url: string): boolean {
   const trimmed = url.trim()
   if (trimmed === '') return false
+  if (URL_FORBIDDEN_CHARS.test(trimmed)) return false
   // A scheme is `word:` at the very start (before any / ? #). No scheme → relative.
   const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(trimmed)
   if (!scheme) return !/^\s*javascript:/i.test(trimmed) // defensive; relative is safe

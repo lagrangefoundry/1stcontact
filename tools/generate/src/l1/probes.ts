@@ -35,7 +35,7 @@ import {
   type L1Geometry,
   type L1Node,
 } from '@1stcontact/site-schema'
-import { classifyElement, type FoldableElement } from './fold'
+import { classifyElement, isSynthesizedSurfaceId, type FoldableElement } from './fold'
 
 // ── geometry & box helpers ────────────────────────────────────────────────────
 
@@ -418,7 +418,7 @@ export function oracleBoxes(oracle: OracleSource): OracleBox[] {
       } else if (kind === 'image' || kind === 'box') {
         out.push({ text: el.text ?? '', kind, width: p.viewport.width, box: el.box })
       }
-      // 'control' / 'empty' are never leaves — excluded from the fidelity measure.
+      // 'control' / 'unknown' / 'empty' are never leaves — excluded from the measure.
     }
   }
   return out
@@ -514,9 +514,17 @@ export function sampleFidelityProbe(
     // REQ-92 — non-text (image / box) leaves pair by the SAME document-order
     // occurrence mechanism, keyed by kind since they carry no text. The k-th
     // image/box oracle sample pairs with the k-th reproduced leaf of that kind.
+    //
+    // BUG-11's synthesized backing surfaces are excluded: they are fold-invented
+    // boxes painted behind a *text* run (whose source element the oracle
+    // classifies as `text`, and which is already measured through its own text
+    // leaf), so they have no oracle counterpart. Leaving them in the queue would
+    // shift every real `box-*` leaf by the number of surfaces before it and
+    // report phantom deltas.
     const nonTextQueues = new Map<string, EvalBox[]>()
     for (const l of leaves) {
       if (l.kind !== 'image' && l.kind !== 'box') continue
+      if (isSynthesizedSurfaceId(l.id)) continue
       const q = nonTextQueues.get(l.kind)
       if (q) q.push(l.box)
       else nonTextQueues.set(l.kind, [l.box])
@@ -760,6 +768,14 @@ export function promoteToFlow(doc: L1Document, options: { scale?: number } = {})
       return node.kind === 'container' ? { ...node, children } : { ...node, children }
     }
 
+    // A recovered node is forced to `stack`, *including* a container the fold
+    // authored as `row` or `grid`. This is deliberate, not an oversight: the
+    // recovery overlay's whole guarantee is that promoted children survive
+    // perturbation, and only vertical stacking is unconditionally overlap-free
+    // and clip-free under growth — a row re-flows sideways and overflows its
+    // parent exactly where the pinned version overlapped. The absolute base
+    // (which keeps the authored layout) is what fidelity is measured on; this
+    // rewrite only ever applies to a node whose children *already* collide.
     const rebuilt = (kids: L1Node[]): L1Node =>
       node.kind === 'container' ? { ...node, layout: 'stack', children: kids } : { ...node, children: kids }
 

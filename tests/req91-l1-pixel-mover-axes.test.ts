@@ -233,6 +233,33 @@ describe('REQ-91 L1 pixel-mover axes — renderer safe sink', () => {
     expect(css).not.toContain('background-image: url')
   })
 
+  it('test_UAT_FC_REQ-91_background_image_url_cannot_break_out_of_the_css_string', () => {
+    // The scheme allowlist alone is not enough: this URL is relative (scheme-clean)
+    // but carries a raw newline, which terminates the CSS string. The following `}`
+    // would close the rule and the remainder becomes live CSS — including an
+    // off-allowlist remote `url()` (egress). DOC-2 §2 forbids any instance string
+    // becoming raw CSS, so both layers refuse it.
+    const payload = '/a.png\n} body { display: none } .x{background:url(https://evil.example/x'
+    const doc = docWith({ kind: 'box', axes: { backgroundImageUrl: payload } } as L1Node)
+
+    const res = validateL1(doc)
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.errors.some((e) => e.path.endsWith('/axes/backgroundImageUrl'))).toBe(true)
+    }
+
+    // Renderer, fed the unvalidated document directly (defence in depth).
+    const css = renderL1Document(doc).css
+    expect(css).not.toContain('background-image: url')
+    expect(css).not.toContain('display: none')
+    expect(css).not.toContain('evil.example')
+    // No fragment of the payload reaches the stylesheet at all.
+    expect(css).not.toContain('/a.png')
+    expect(css).not.toContain('} body')
+    // No stray closing brace beyond the rules the renderer itself emitted.
+    expect((css.match(/}/g) ?? []).length).toBe((css.match(/{/g) ?? []).length)
+  })
+
   it('test_UAT_FC_REQ-91_image_effects_render', () => {
     const css = render({
       kind: 'image',
