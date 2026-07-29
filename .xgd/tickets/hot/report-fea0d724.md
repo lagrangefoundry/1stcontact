@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-8 (L1 language power + folder rebuild + gate
   free-coded)'
 created_by: xgd
 created_at: '2026-07-29T03:46:13.561155+00:00'
-updated_at: '2026-07-29T03:52:04.525933+00:00'
+updated_at: '2026-07-29T04:06:13.234242+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -152,7 +152,7 @@ fields:
         box and image leaves pin all four sides (height included); a text leaf''s
         height stays natural from flow.'
       remove: []
-    story_uid: null
+    story_uid: story-8acc338d
   - index: 3
     component: 3-probe reproduction gate — analytic evaluator + region-aware recovery
       + residual channel
