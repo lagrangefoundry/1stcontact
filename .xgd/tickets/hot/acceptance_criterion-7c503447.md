@@ -6,10 +6,10 @@ title: Typography treatments (font-style, decoration, transform, small-caps) and
   marker are captured and compared per text run
 created_by: xgd
 created_at: '2026-07-22T20:17:07.039778+00:00'
-updated_at: '2026-07-29T04:38:33.931116+00:00'
+updated_at: '2026-07-29T04:43:01.700002+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5de22a5
   kind: behavior
