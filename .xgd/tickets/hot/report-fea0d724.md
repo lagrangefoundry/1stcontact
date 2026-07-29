@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-8 (L1 language power + folder rebuild + gate
   free-coded)'
 created_by: xgd
 created_at: '2026-07-29T03:46:13.561155+00:00'
-updated_at: '2026-07-29T04:22:09.118362+00:00'
+updated_at: '2026-07-29T04:34:09.617161+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -281,7 +281,7 @@ fields:
         warning is now suppressed at its source (Astro''s own logger) rather than
         merely rerouted.'
       remove: []
-    story_uid: null
+    story_uid: story-e15a19ef
   - index: 5
     component: Capture fidelity — list marker recorded only where a marker is painted
     item_type: upgrade
