@@ -6,9 +6,9 @@ title: Demand-driven recovery promotes only the colliding regions to flow, recur
   and returns a valid L1 document
 created_by: xgd
 created_at: '2026-07-22T20:07:38.473705+00:00'
-updated_at: '2026-07-29T04:19:01.283403+00:00'
+updated_at: '2026-07-29T05:09:42.250923+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -51,14 +51,15 @@ perturbation absolute.
 
 ## Verification
 On a folded fixture whose root pinned runs fail content-robustness, run recovery and
-assert the root region is listed as promoted, the recovered document passes
-content-robustness at every captured width, and the returned document validates. Assert
-a region that already passes is not promoted.
+assert the root region is listed as promoted by the node's own path, the recovered
+document passes content-robustness at every captured width, and the returned document
+validates. Assert a region that already passes is not promoted and stays pinned.
 
-Multi-region: on a fixture (and a real multi-region capture) whose page carries several
-independently-colliding bands separated by roomy space, assert recovery reports more
-than one promoted region with nested paths rather than a single whole-page region, that
-each band's own interior gap differs where its absolute spacing differed, and that no
-child of a recovering node remains pinned. Assert the recovered document passes both
-envelope probes at every captured width, and that the sample-fidelity report on the
-absolute base is byte-identical to its pre-recovery value.
+Multi-region: on a fold whose page carries several independently-colliding bands
+separated by roomy space, plus one lone non-colliding survivor run, assert recovery
+reports more than one promoted region by nested path rather than a single whole-page
+region; that each promoted path names a flow stack whose interior gap differs where the
+bands' absolute spacing differed; and that no descendant of a recovering node — the
+survivor included — remains pinned. Assert the recovered document validates and passes
+both envelope probes at every captured width, and that the sample-fidelity report on
+the untouched absolute base is byte-identical to its pre-recovery value.
