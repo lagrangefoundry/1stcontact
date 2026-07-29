@@ -5,10 +5,10 @@ type: request
 title: 'Astro boots on every 1c command — silence ''Missing pages directory: src/pages'''
 created_by: xgd
 created_at: '2026-07-22T23:59:09.668656+00:00'
-updated_at: '2026-07-29T03:38:24.031856+00:00'
-completed_at: null
+updated_at: '2026-07-29T06:05:17.614459+00:00'
+completed_at: '2026-07-29T06:05:17.614459+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
