@@ -6,7 +6,7 @@ title: Off-sample probe asserts the layout envelope holds at unsampled intermedi
   widths
 created_by: xgd
 created_at: '2026-07-22T20:07:11.256057+00:00'
-updated_at: '2026-07-29T04:19:18.017925+00:00'
+updated_at: '2026-07-29T05:09:16.384400+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -26,9 +26,9 @@ each width exactly when no two leaf boxes overlap and no leaf clips beyond the v
   at that width, and pass = false.
 - The report lists findings per evaluated width.
 - The probe measures the **structure-recovered overlay**, not the absolute base. On a
-  real multi-region page the envelope holds at the unsampled widths once recovery is
-  region-aware; promoting a single flat pile is not sufficient to satisfy this
-  criterion.
+  multi-region page — several independently-colliding bands separated by roomy space —
+  the envelope holds at the unsampled widths once recovery is region-aware; promoting a
+  single flat pile is not sufficient to satisfy this criterion.
 
 ## Verification
 Run the probe on a folded fixture document at 500 and 900px and assert pass = true with
@@ -36,5 +36,6 @@ empty findings per width. Construct a document whose interpolation degrades betw
 captured widths so a clip/overlap appears at an intermediate width, and assert the
 probe reports that finding at the affected width with pass = false.
 
-Run the probe on the recovered overlay of a retained real multi-region capture and
-assert pass = true with empty findings at every evaluated width.
+Run the probe on the recovered overlay of a multi-region page (a fold whose recovery
+promotes more than one region) and assert pass = true with empty findings at every
+evaluated width.
