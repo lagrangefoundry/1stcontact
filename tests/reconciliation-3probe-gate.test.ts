@@ -8,10 +8,13 @@
  * recovery.
  *
  *   AC-705  sample-fidelity probe matches reproduced boxes to the oracle
+ *           (text by normalized text, image/box by kind — both by document-order
+ *           occurrence; controls and empty runs excluded from the measure)
  *   AC-706  off-sample probe asserts the envelope at unsampled widths
  *   AC-707  content-robustness probe under perturbed (grown) content
  *   AC-708  combined gate over the absolute-base / structure-overlay split
- *   AC-709  demand-driven recovery promotes only failing pinned groups
+ *   AC-709  demand-driven recovery promotes only the colliding regions, region-
+ *           aware and recursive, leaving nothing pinned behind
  *   AC-710  each probe residual / finding is diagnostic
  *   AC-724  value-render is deterministic and per-occurrence faithful
  */
@@ -31,6 +34,7 @@ import type {
   ValueElement,
 } from '../tools/generate/src/cli/capture'
 import { validateL1 } from '../packages/site-schema/src/index'
+import type { L1Node } from '../packages/site-schema/src/index'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
@@ -152,6 +156,145 @@ function repeatedTextOracle(): MultiStateCapture {
   return { url: 'http://dup.test/', notes: [], projections }
 }
 
+/** A text-free captured element — the shape images / surfaces / controls arrive in. */
+function textless(over: Partial<ValueElement> & { box: ValueElement['box'] }): ValueElement {
+  return {
+    text: '',
+    role: 'img',
+    color: '',
+    fontFamily: '',
+    fontSizePx: 0,
+    fontWeight: 0,
+    textless: true,
+    ...over,
+  }
+}
+
+/**
+ * A capture spanning every leaf kind the classifier distinguishes, so the
+ * fidelity measure's *scope* and its non-text pairing are both observable:
+ *
+ *   - one text run,
+ *   - TWO images at well-separated y (200 / 600) — they carry no text, so a
+ *     kind→single-box map would compare occurrence 0 against occurrence 1's box
+ *     and report a phantom dy of 400 at every width; only occurrence pairing
+ *     within the `image` key gates clean,
+ *   - one standalone painted surface (a `box` leaf),
+ *   - a form control and an empty run — neither ever becomes a leaf, so both must
+ *     be excluded from the measure rather than counted as coverage gaps.
+ */
+function mixedKindOracle(): MultiStateCapture {
+  const projections: StateProjection[] = LADDER.map((width) => ({
+    engine: 'chromium',
+    viewport: { width, height: 1400 },
+    state: 'rest',
+    manifest: {
+      source: `mixed@${width}`,
+      viewport: { width, height: 1400 },
+      sections: [],
+      elements: [
+        text(HEADLINE, { x: 20, y: 20, width: width - 40, height: 48 }),
+        textless({
+          a11yRole: 'img',
+          objectFit: 'cover',
+          intrinsicAspect: 1.5,
+          src: 'https://cdn.example.com/one.jpg',
+          alt: 'One',
+          box: { x: 10, y: 200, width: width - 20, height: 300 },
+        }),
+        textless({
+          a11yRole: 'img',
+          objectFit: 'cover',
+          intrinsicAspect: 1.5,
+          src: 'https://cdn.example.com/two.jpg',
+          alt: 'Two',
+          box: { x: 10, y: 600, width: width - 20, height: 300 },
+        }),
+        textless({
+          role: 'separator',
+          a11yRole: 'separator',
+          surfaceFill: '#f0eee9',
+          borderRadiusPx: 8,
+          box: { x: 40, y: 1000, width: width - 80, height: 4 },
+        }),
+        // Never a leaf: a form control is a behavior-module seam (DOC-25/26)…
+        textless({ role: 'textbox', a11yRole: 'textbox', box: { x: 40, y: 1100, width: 260, height: 40 } }),
+        // …and an empty run paints nothing.
+        { ...text('', { x: 20, y: 1200, width: width - 40, height: 20 }), text: '' },
+      ],
+    },
+  }))
+  return { url: 'http://mixed.test/', notes: [], projections }
+}
+
+/** An image element sharing the fixture's geometry, for surplus-occurrence probes. */
+function extraImage(width: number, y: number): ValueElement {
+  return textless({
+    a11yRole: 'img',
+    objectFit: 'cover',
+    intrinsicAspect: 1.5,
+    src: 'https://cdn.example.com/surplus.jpg',
+    alt: 'Surplus',
+    box: { x: 10, y, width: width - 20, height: 100 },
+  })
+}
+
+/**
+ * A flat page of three tightly packed regions — a hero, a three-card grid, and a
+ * footer. Each region's runs sit ~60px apart, so under a 2.5× content
+ * perturbation a region overruns its own interior; the regions themselves are
+ * ~360px apart, so they stay distinct even after growth.
+ *
+ * This is the shape single-level promotion could not recover: one flat pile with
+ * one shared median gap cannot keep the grid's interior and the footer's interior
+ * sane simultaneously, and the siblings it left pinned were overrun anyway.
+ */
+function multiRegionOracle(regions: number[][]): MultiStateCapture {
+  const projections: StateProjection[] = LADDER.map((width) => ({
+    engine: 'chromium',
+    viewport: { width, height: 1600 },
+    state: 'rest',
+    manifest: {
+      source: `region@${width}`,
+      viewport: { width, height: 1600 },
+      sections: [],
+      elements: regions.flatMap((ys, r) =>
+        // A ~10-char run: one line at rest, two under a 2.5× grow — so a tight
+        // region overruns only when perturbed, exactly like `oracle()`.
+        ys.map((y, i) => text(`col ${r}${i} row`, { x: 20, y, width: width - 40, height: 48 })),
+      ),
+    },
+  }))
+  return { url: 'http://region.test/', notes: [], projections }
+}
+
+/**
+ * Hero (y≈100), grid (y≈600), footer (y≈1200). The bands carry DIFFERENT interior
+ * pitches — 60 / 90 / 60 — while every band sits ~330px clear of its neighbours.
+ * A single shared median gap cannot be all three at once, which is exactly what
+ * region-aware recovery has to get right.
+ *
+ * The trailing lone run (y=1500) collides with nothing: it is a **survivor** — a
+ * pinned sibling of the recovering node that belongs to no colliding group. It is
+ * what the "nothing is left pinned behind" clause is about, since the superseded
+ * promote left exactly this kind of sibling absolute for a grown region to overrun.
+ */
+const GRID_AND_FOOTER = [
+  [100, 160, 220],
+  [600, 690, 780],
+  [1200, 1260],
+  [1500],
+]
+
+/** Every node beneath `node` that still carries absolute geometry (is pinned). */
+function pinnedDescendants(node: L1Node, path = '0'): string[] {
+  const out: string[] = []
+  if ((node as { geometry?: unknown }).geometry !== undefined) out.push(path)
+  const kids = (node as { children?: L1Node[] }).children ?? []
+  kids.forEach((c, i) => out.push(...pinnedDescendants(c, `${path}.${i}`)))
+  return out
+}
+
 describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
   it('test_UAT_AC705_sample_fidelity_matches_oracle_within_tolerance', () => {
     const cap = oracle()
@@ -234,6 +377,70 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     expect(dr.text).toBe(CTA)
     expect(dr.width).toBe(1440)
     expect(dr.dy).toBeCloseTo(30, 5)
+
+    // ── Which oracle samples are measured: the fold's own classifier ──────────
+    // A capture spanning every leaf kind — text, two images, a painted surface,
+    // plus a form control and an empty run that never become leaves.
+    const mixedCap = mixedKindOracle()
+    const mixedDoc = foldToL1(mixedCap)
+
+    // Scope: an oracle sample exists exactly where the fold emits a leaf. The
+    // control and the empty run are in the capture but produce no leaf — the
+    // reproduced tree carries one text, two images and one box, nothing else.
+    const mixedLeaves = evaluateLayout(mixedDoc, 1440).leaves
+    const kinds = mixedLeaves.map((l) => l.kind).sort()
+    expect(kinds).toEqual(['box', 'image', 'image', 'text'])
+    const capturedAt1440 = mixedCap.projections.find((p) => p.viewport.width === 1440)!.manifest.elements
+    expect(capturedAt1440.some((e) => e.a11yRole === 'textbox')).toBe(true) // control present…
+    expect(capturedAt1440.some((e) => !e.textless && e.text === '')).toBe(true) // …and an empty run
+
+    // …and because they are excluded from the measure rather than counted as
+    // coverage gaps, the probe gates clean: no residual, and crucially no
+    // unmatched entry for either of them.
+    const mixedClean = sampleFidelityProbe(mixedDoc, mixedCap, { tolerancePx: 2 })
+    expect(mixedClean.pass).toBe(true)
+    expect(mixedClean.residuals).toEqual([])
+    expect(mixedClean.unmatched).toEqual([])
+
+    // (d) Kind-keyed occurrence pairing for text-free leaves. The two images
+    // carry no text, so they key on kind: the k-th image oracle sample pairs
+    // with the k-th reproduced image leaf. A kind→single-box map would compare
+    // occurrence 0 (y=200) against occurrence 1's box (y=600) and report a
+    // phantom dy of 400 at every width — the clean report above rules that out.
+    // Drift on ONE image occurrence is attributed to that occurrence alone.
+    const imgShifted = structuredClone(mixedCap)
+    const imgProj = imgShifted.projections.find((p) => p.viewport.width === 1440)!
+    imgProj.manifest.elements.filter((e) => e.a11yRole === 'img')[1].box!.y += 25
+    const imgResidual = sampleFidelityProbe(mixedDoc, imgShifted, { tolerancePx: 2 })
+    expect(imgResidual.pass).toBe(false)
+    expect(imgResidual.residuals).toHaveLength(1)
+    expect(imgResidual.residuals[0].text).toBe('(image)') // labelled by kind — it has no text
+    expect(imgResidual.residuals[0].width).toBe(1440)
+    expect(imgResidual.residuals[0].dy).toBeCloseTo(25, 5)
+
+    // (e) A surplus non-text occurrence — the reproduced leaves of that kind are
+    // exhausted before the oracle's — is exactly one unmatched entry labelled by
+    // kind, not a re-pair against an already-consumed box. Holds for `(image)`…
+    const surplusImg = structuredClone(mixedCap)
+    surplusImg.projections
+      .find((p) => p.viewport.width === 768)!
+      .manifest.elements.push(extraImage(768, 1300))
+    const imgUnmatched = sampleFidelityProbe(mixedDoc, surplusImg, { tolerancePx: 2 })
+    expect(imgUnmatched.pass).toBe(false)
+    expect(imgUnmatched.unmatched).toEqual([{ text: '(image)', width: 768 }])
+    expect(imgUnmatched.residuals).toEqual([]) // the other two images still pair cleanly
+
+    // …and identically for `(box)`.
+    const surplusBox = structuredClone(mixedCap)
+    surplusBox.projections
+      .find((p) => p.viewport.width === 1024)!
+      .manifest.elements.push(
+        textless({ surfaceFill: '#101010', box: { x: 40, y: 1320, width: 200, height: 4 } }),
+      )
+    const boxUnmatched = sampleFidelityProbe(mixedDoc, surplusBox, { tolerancePx: 2 })
+    expect(boxUnmatched.pass).toBe(false)
+    expect(boxUnmatched.unmatched).toEqual([{ text: '(box)', width: 1024 }])
+    expect(boxUnmatched.residuals).toEqual([])
   })
 
   it('test_UAT_AC706_off_sample_envelope_holds_at_unsampled_widths', () => {
@@ -256,6 +463,17 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     // The width that was fine when captured (900 interpolates safely) is clean.
     const at900 = failReport.byWidth.find((w) => w.width === 900)!
     expect(at900.findings).toEqual([])
+
+    // The probe also holds after region-aware recovery on a MULTI-REGION page
+    // (hero / grid / footer): each colliding region becomes its own flow stack
+    // and no sibling is left pinned, so the envelope holds at both off-sample
+    // widths. Single-level promotion left pinned survivors behind here.
+    const regionBase = foldToL1(multiRegionOracle(GRID_AND_FOOTER))
+    const regionRecovered = promoteToFlow(regionBase, { scale: 2.5 })
+    expect(regionRecovered.promoted.length).toBeGreaterThan(1) // genuinely multi-region
+    const regionOffSample = offSampleProbe(regionRecovered.doc)
+    expect(regionOffSample.pass).toBe(true)
+    for (const w of regionOffSample.byWidth) expect(w.findings).toEqual([])
   })
 
   it('test_UAT_AC707_content_robustness_under_grown_content', () => {
@@ -275,6 +493,30 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     const after = contentRobustnessProbe(flowed, { scale: 2.5 })
     expect(after.pass).toBe(true)
     for (const w of after.byWidth) expect(w.findings).toEqual([])
+
+    // The same holds on a MULTI-REGION page (hero / grid / footer), where a
+    // single flat pile with one shared median gap could not keep every region's
+    // interior sane at once. The pinned base collides inside each region at the
+    // narrow widths (where the grown run wraps), and the report names those
+    // widths; region-aware recovery clears every captured width.
+    const regionBase = foldToL1(multiRegionOracle(GRID_AND_FOOTER))
+    const regionBefore = contentRobustnessProbe(regionBase, { scale: 2.5 })
+    expect(regionBefore.pass).toBe(false)
+    const failingWidths = regionBefore.byWidth.filter((w) => w.findings.length > 0)
+    expect(failingWidths.length).toBeGreaterThan(0)
+    for (const w of failingWidths) expect(w.findings.every((f) => f.kind === 'overlap')).toBe(true)
+    // Each region's interior collides independently — the collisions are not one
+    // pile but several, which is what forces region-aware (not flat) recovery.
+    const collidingChildren = new Set(
+      failingWidths.flatMap((w) => w.findings.flatMap((f) => f.paths.map((p) => p.split('.')[1]))),
+    )
+    expect(collidingChildren.size).toBeGreaterThan(2)
+
+    const regionRecovered = promoteToFlow(regionBase, { scale: 2.5 })
+    expect(regionRecovered.promoted.length).toBeGreaterThan(1) // genuinely multi-region
+    const regionAfter = contentRobustnessProbe(regionRecovered.doc, { scale: 2.5 })
+    expect(regionAfter.pass).toBe(true)
+    for (const w of regionAfter.byWidth) expect(w.findings).toEqual([])
   })
 
   it('test_UAT_AC708_combined_gate_non_vacuous_over_base_overlay_split', () => {
@@ -305,13 +547,13 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
   })
 
   it('test_UAT_AC709_demand_driven_recovery_promotes_only_failing_groups', () => {
-    // A folded fixture whose root pinned runs fail content-robustness.
+    // ── Whole-node region: the node IS the region, so it reports its own path ──
     const base = foldToL1(oracle())
     expect(contentRobustnessProbe(base, { scale: 2.5 }).pass).toBe(false)
 
     const { doc: recovered, promoted } = promoteToFlow(base, { scale: 2.5 })
     // The failing root region is reported as promoted (its index path).
-    expect(promoted).toContain('0')
+    expect(promoted).toEqual(['0'])
     // After recovery the region keeps the envelope at every captured width.
     const after = contentRobustnessProbe(recovered, { scale: 2.5 })
     expect(after.pass).toBe(true)
@@ -319,11 +561,74 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     // The returned document is a valid L1 document (satisfies the validator).
     expect(validateL1(recovered).ok).toBe(true)
 
+    // ── Region-aware and recursive: distinct regions stay distinct ────────────
+    // A page of three tightly packed regions (hero / grid / footer). Recovery
+    // must discover each colliding component of the root's direct children and
+    // promote it as its OWN flow sub-stack with its own interior gap — not
+    // collapse the page into one pile with one shared gap.
+    const regionCap = multiRegionOracle(GRID_AND_FOOTER)
+    const regionBase = foldToL1(regionCap)
+    expect(contentRobustnessProbe(regionBase, { scale: 2.5 }).pass).toBe(false)
+
+    const regionResult = promoteToFlow(regionBase, { scale: 2.5 })
+
+    // Three nested regions, each reported by its own path under the root —
+    // never the single `['0']` a one-level promotion produces.
+    expect(regionResult.promoted).not.toEqual(['0'])
+    expect(regionResult.promoted).toHaveLength(3)
+    expect(new Set(regionResult.promoted).size).toBe(3)
+    for (const p of regionResult.promoted) expect(p).toMatch(/^0\.\d+$/)
+
+    // Each promoted path names a flow `stack` container carrying its OWN interior
+    // gap, derived from its members' absolute measurements. The fixture's grid
+    // band is pitched 90px apart against the hero's and footer's 60px, so the
+    // recovered gaps differ where the absolute spacing differed — one shared
+    // median gap across the page could not reproduce all three.
+    const regionNodes = regionResult.promoted.map((p) => {
+      const idx = Number(p.split('.')[1])
+      return ((regionResult.doc.root as { children?: L1Node[] }).children ?? [])[idx]
+    })
+    for (const n of regionNodes) {
+      expect(n.kind).toBe('container')
+      expect((n as { layout?: string }).layout).toBe('stack')
+      expect((n as { gapPx?: number }).gapPx).toBeGreaterThan(0)
+    }
+    const regionGaps = regionNodes.map((n) => (n as { gapPx?: number }).gapPx)
+    expect(regionGaps).toEqual([60, 90, 60])
+    expect(new Set(regionGaps).size).toBeGreaterThan(1)
+
+    // Nothing is left pinned behind: a recovering node flows ALL of its children
+    // (regions as sub-stacks, and the non-colliding survivor flowed alongside),
+    // so no absolute geometry survives anywhere beneath it for a grown region to
+    // overrun. The fixture's lone y=1500 run is that survivor — it belongs to no
+    // colliding group, yet it must not remain pinned.
+    expect(pinnedDescendants(regionBase.root).length).toBeGreaterThan(0) // was pinned
+    expect(regionResult.promoted).toHaveLength(3) // …and is not one of the regions
+    expect(pinnedDescendants(regionResult.doc.root)).toEqual([])
+
+    // The previously-failing regions now keep the envelope under the same
+    // perturbation, at every captured width and at unsampled widths alike.
+    const regionAfter = contentRobustnessProbe(regionResult.doc, { scale: 2.5 })
+    expect(regionAfter.pass).toBe(true)
+    for (const w of regionAfter.byWidth) expect(w.findings).toEqual([])
+    expect(offSampleProbe(regionResult.doc).pass).toBe(true)
+    expect(validateL1(regionResult.doc).ok).toBe(true)
+
+    // Fidelity is measured on the untouched absolute base, so recovery never
+    // regrades it — the same base yields the identical report afterwards.
+    const fidelityBefore = sampleFidelityProbe(regionBase, regionCap, { tolerancePx: 2 })
+    expect(fidelityBefore.pass).toBe(true)
+    promoteToFlow(regionBase, { scale: 2.5 })
+    const fidelityAfter = sampleFidelityProbe(regionBase, regionCap, { tolerancePx: 2 })
+    expect(JSON.stringify(fidelityAfter)).toEqual(JSON.stringify(fidelityBefore))
+
+    // ── Demanded, not applied by default ──────────────────────────────────────
     // A region that already survives perturbation is left absolute — not
     // promoted (empty promotion list).
     const roomyBase = foldToL1(roomyOracle())
     expect(contentRobustnessProbe(roomyBase, { scale: 2.5 }).pass).toBe(true)
     expect(promoteToFlow(roomyBase, { scale: 2.5 }).promoted).toEqual([])
+    expect(pinnedDescendants(roomyBase.root).length).toBeGreaterThan(0) // stayed pinned
   })
 
   it('test_UAT_AC710_probe_findings_are_diagnostic', () => {
