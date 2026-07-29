@@ -2,13 +2,13 @@
 uid: acceptance_criterion-330b48e4
 id: AC-705
 type: acceptance_criterion
-title: Sample-fidelity probe matches reproduced boxes to the oracle at every captured
-  width within tolerance
+title: Sample-fidelity probe matches reproduced leaf boxes to the oracle at every
+  captured width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-07-27T20:38:21.197614+00:00'
+updated_at: '2026-07-29T04:18:43.554111+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-24098299
@@ -20,34 +20,50 @@ fields:
 ## Criterion
 Given a reproduced site definition and its retained capture oracle, the sample-fidelity
 probe reports pass = true with an empty residual list and an empty unmatched list
-exactly when, at every captured width, each oracle text sample's box (x, y, width) is
-within the per-axis tolerance (default 2px) of the box of the reproduced text run it is
-paired with.
+exactly when, at every captured width, each oracle sample's box (x, y, width) is within
+the per-axis tolerance (default 2px) of the box of the reproduced leaf it is paired
+with.
 
-**Pairing rule (per captured width).** Oracle samples and reproduced text runs are
-keyed by normalized text and paired by **occurrence index in document order**: the
-k-th oracle sample carrying a given text pairs with the k-th reproduced run carrying
-that text. Consequences, all observable in the report:
+**Which oracle samples are measured.** Each captured element is classified through the
+same element classifier the fold uses, so an oracle sample exists exactly where the
+fold emits a leaf: text runs with non-empty text, images, and painted surface boxes.
+Elements that never become leaves — form controls and empty runs — are excluded from
+the fidelity measure entirely, rather than counting as coverage gaps.
+
+**Pairing rule (per captured width).** Pairing is by **occurrence index in document
+order** on both sides, within a key:
+
+- **Text leaves** key on normalized text: the k-th oracle sample carrying a given text
+  pairs with the k-th reproduced run carrying that text.
+- **Image and box leaves** carry no text, so they key on leaf **kind**: the k-th
+  image (respectively box) oracle sample pairs with the k-th reproduced leaf of that
+  kind. A non-text residual or unmatched entry is labelled by its kind when the
+  element has no text.
+
+Consequences, all observable in the report:
 
 - A page carrying the same label/CTA N times yields N independent comparisons — each
   occurrence is compared against its own box, never against a sibling's, so repeated
   text produces no phantom deltas at the sampled widths.
-- When a key's reproduced runs are exhausted before its oracle occurrences, each
-  surplus oracle occurrence is reported as exactly one unmatched entry (text, width) —
-  a genuine coverage gap — instead of being re-paired against an already-consumed box;
-  the key's other occurrences still pair cleanly.
+- When a key's reproduced leaves are exhausted before its oracle occurrences, each
+  surplus oracle occurrence is reported as exactly one unmatched entry (text or kind
+  label, width) — a genuine coverage gap — instead of being re-paired against an
+  already-consumed box; the key's other occurrences still pair cleanly. This holds for
+  non-text keys as it does for text.
 - Drift affecting only one occurrence of a repeated key is reported as exactly one
   residual naming that occurrence's width and per-axis deltas; it is not absorbed by a
   nearest-box or last-writer match.
 - Pairing is order-defined on both sides, so the verdict is reproducible run to run.
 
 Report shape:
-- Any paired run whose box exceeds tolerance on any axis is reported as a residual
-  carrying the run text, the width, and the per-axis deltas (dx, dy, dw).
-- Any oracle sample with no reproduced run left to pair with is reported as an
-  unmatched entry (text, width).
+- Any paired leaf whose box exceeds tolerance on any axis is reported as a residual
+  carrying the leaf's text (or kind label), the width, and the per-axis deltas
+  (dx, dy, dw).
+- Any oracle sample with no reproduced leaf left to pair with is reported as an
+  unmatched entry (text or kind label, width).
 - If either the residual list or the unmatched list is non-empty, pass = false.
-- The report also exposes the largest observed per-axis delta.
+- The report also exposes the largest observed per-axis delta, across text and non-text
+  comparisons alike.
 
 This rule governs the L1 reproduction gate. The `1c values-diff` fidelity pipeline
 pairs duplicate text by its own (positional) rule and is unaffected by this criterion.
@@ -66,3 +82,9 @@ that label at one width and assert exactly one unmatched entry (that text, that 
 with no residuals and the three genuine occurrences still clean. Shift only the middle
 occurrence of that label at the widest width by 30px and assert exactly one residual,
 naming that text and width, with dy = 30.
+
+Non-text leaves: fold a capture carrying images and painted surface panels and assert
+their boxes are measured — perturb one image's reproduced box beyond tolerance and
+assert exactly one residual labelled by kind at that width; remove one reproduced box
+leaf and assert exactly one unmatched entry for the box kind. Assert an oracle capture
+containing form controls and empty runs produces no unmatched entries for them.
