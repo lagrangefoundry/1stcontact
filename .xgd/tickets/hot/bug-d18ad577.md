@@ -6,10 +6,10 @@ title: evaluateLayout row/flow layout assigns full parent width to every child (
   overflow)
 created_by: xgd
 created_at: '2026-07-23T02:01:22.782832+00:00'
-updated_at: '2026-07-29T03:38:23.900314+00:00'
-completed_at: null
+updated_at: '2026-07-29T06:05:17.983103+00:00'
+completed_at: '2026-07-29T06:05:17.983103+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   severity: medium
   priority: high
