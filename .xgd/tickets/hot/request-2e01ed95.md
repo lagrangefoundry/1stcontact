@@ -5,10 +5,10 @@ type: request
 title: 'Conformance harness: responsive dimension (viewport axis + mobile checks)'
 created_by: xgd
 created_at: '2026-07-03T23:18:02.847530+00:00'
-updated_at: '2026-07-08T18:59:05.832849+00:00'
-completed_at: null
+updated_at: '2026-07-29T18:34:30.937032+00:00'
+completed_at: '2026-07-29T18:34:30.937032+00:00'
 last_field_updated: status
-status: ready_to_reconcile
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
