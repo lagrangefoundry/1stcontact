@@ -17,9 +17,6 @@ fields:
   - working_sha: c165c1f7152bd40d91dfc56fb1b2195585e97f72
     reconcile_sha: null
     main_sha: null
-  - working_sha: 028784f941574150f0b80bfb88e9e8a56a2b7be8
-    reconcile_sha: null
-    main_sha: null
   version: 0.0.223
   story_points: 2
   bundled_in: bundle-b486324c
