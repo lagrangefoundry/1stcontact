@@ -6,21 +6,22 @@ title: values-diff cannot read L1-rendered pages — reports stale/false 'missin
   useless as an L1 reproduction scoreboard
 created_by: xgd
 created_at: '2026-07-23T22:39:21.555138+00:00'
-updated_at: '2026-07-27T20:32:12.887075+00:00'
+updated_at: '2026-07-29T18:35:41.919042+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   severity: high
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 31d0a5f0b4355836de3ebe67a7be55e2e6aa0b14
+  - working_sha: d99396afc4c318a8479e5139b70c8492ec70511c
     reconcile_sha: null
     main_sha: null
   version: 0.0.187
   story_points: 2
+  bundled_in: bundle-4ff83a8b
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Surfaced in the gigabytealchemy round:

@@ -5,19 +5,20 @@ type: request
 title: 'L1 cannot express a link: typed link role + DOM id emission'
 created_by: xgd
 created_at: '2026-07-27T22:57:19.236802+00:00'
-updated_at: '2026-07-27T23:08:13.939859+00:00'
+updated_at: '2026-07-29T06:06:54.277193+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coded
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 3d473b5ce30ba909a5a05be1194c58db2765ae1f
+  - working_sha: e893658cd123e1f9839bb917c61840608b8c840a
     reconcile_sha: null
     main_sha: null
   version: 0.0.218
+  bundled_in: bundle-b486324c
 ---
 
 ## The gap

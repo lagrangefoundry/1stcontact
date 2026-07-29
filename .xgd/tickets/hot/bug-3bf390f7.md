@@ -7,21 +7,22 @@ title: Reproduction hotlinks the captured origin instead of its mirrored local a
   gate
 created_by: xgd
 created_at: '2026-07-24T22:51:03.848182+00:00'
-updated_at: '2026-07-25T01:53:33.038580+00:00'
+updated_at: '2026-07-29T18:35:42.905669+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   severity: high
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 038fe8e55079594e344005370f6b52e57cb20055
+  - working_sha: ff0f8b1b59aef63b2a94424bdb85ac46728c81e9
     reconcile_sha: null
     main_sha: null
   version: 0.0.194
   story_points: 3
+  bundled_in: bundle-4ff83a8b
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Related to [[bug-ad50b1df]] (BUG-2, capture asset

@@ -5,23 +5,24 @@ type: request
 title: '1c new scaffolds no L1 document: authored sites start from nothing'
 created_by: xgd
 created_at: '2026-07-26T01:27:13.225254+00:00'
-updated_at: '2026-07-28T23:02:44.195297+00:00'
+updated_at: '2026-07-29T06:06:53.479809+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: bundled
 fields:
   priority: low
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 7b4284b8f27d425e318dc2eb99e1f1d217c2e17d
+  - working_sha: c165c1f7152bd40d91dfc56fb1b2195585e97f72
     reconcile_sha: null
     main_sha: null
-  - working_sha: 1d996d83162386f1b6cebdcf57734386520d660b
+  - working_sha: 028784f941574150f0b80bfb88e9e8a56a2b7be8
     reconcile_sha: null
     main_sha: null
   version: 0.0.223
   story_points: 2
+  bundled_in: bundle-b486324c
 ---
 
 ## The gap

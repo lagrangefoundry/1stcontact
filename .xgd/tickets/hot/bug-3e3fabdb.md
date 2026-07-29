@@ -6,21 +6,22 @@ title: values-diff mis-attributes split text+box controls — phantom radius del
   the repair order while the real geometry defect goes unreported
 created_by: xgd
 created_at: '2026-07-24T22:50:44.105883+00:00'
-updated_at: '2026-07-25T01:53:31.206508+00:00'
+updated_at: '2026-07-29T18:35:43.216534+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   severity: high
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 62588dc72288bc6fe7bbc900234b96628a615130
+  - working_sha: e54061126072adec08637aef7b06b310d8010cba
     reconcile_sha: null
     main_sha: null
   version: 0.0.196
   story_points: 3
+  bundled_in: bundle-4ff83a8b
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Tooling defect in the reproduction

@@ -5,23 +5,24 @@ type: request
 title: 'No font-acquisition path or licence provenance: font registry + 1c fonts check'
 created_by: xgd
 created_at: '2026-07-26T01:26:56.621937+00:00'
-updated_at: '2026-07-29T00:31:50.960603+00:00'
+updated_at: '2026-07-29T06:06:54.159436+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: a2b2f7a2dad1d2cca47a33afeed4b589e1ce0653
+  - working_sha: be8017b738f2f794eb36f575113a1bf3c0dbf31b
     reconcile_sha: null
     main_sha: null
-  - working_sha: 589a6fb3c53bd412ac619cbe200c60fb288ca257
+  - working_sha: f537a2c26974d55c26d96fb16de76714591a2a85
     reconcile_sha: null
     main_sha: null
   version: 0.0.225
   story_points: 3
+  bundled_in: bundle-b486324c
 ---
 
 ## The gap

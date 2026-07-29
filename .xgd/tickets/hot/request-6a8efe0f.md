@@ -6,20 +6,21 @@ title: 'L1 slot cannot be sized: hoist sizing to a shared shape the way REQ-98 h
   paint'
 created_by: xgd
 created_at: '2026-07-27T21:24:02.786215+00:00'
-updated_at: '2026-07-28T22:50:08.072611+00:00'
+updated_at: '2026-07-29T06:06:54.943089+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: bundled
 fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 15670772f734761cea5f3c7d7541306fb8923d80
+  - working_sha: 7bc219c406485d3d84efcf82d33853dc71503879
     reconcile_sha: null
     main_sha: null
   version: 0.0.222
   story_points: 2
+  bundled_in: bundle-b486324c
 ---
 
 ## The gap
