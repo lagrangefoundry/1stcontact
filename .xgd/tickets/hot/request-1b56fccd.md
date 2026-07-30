@@ -5,15 +5,20 @@ type: request
 title: 'R2 artifact store + 1c deploy: ship rendered snapshots to Cloudflare'
 created_by: xgd
 created_at: '2026-07-30T19:34:53.952227+00:00'
-updated_at: '2026-07-30T20:34:58.889652+00:00'
+updated_at: '2026-07-30T20:35:03.467577+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 32febac786cd40ae3581aa142602038a8b99721b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.6
 ---
 
 ## The gap
