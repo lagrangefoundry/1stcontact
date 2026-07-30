@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-30T18:42:53.781929+00:00'
+updated_at: '2026-07-30T18:45:22.887801+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,173 @@ Once you've called those, I'll scope it onto CHAT-11 with the behaviour descript
    4. ok
    
    Can you playback the storage and workflow for the design you are proposing, I am a little unclear what you are suggesting?
+
+<!-- xgd-turn id="07a65c0c-4675-429c-904c-a4621a5ee591-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T18:45:22.852908+00:00" -->
+#### Claude
+Good — let me nail down one thing that changes my recommendation, then play the whole design back.
+
+## 1. Commands to run
+
+Step one is dashboard-only — there's no CLI to enable R2 on an account:
+
+**In the browser:** https://dash.cloudflare.com/8feaadfce95919ab2d2b93aa8df6f6ce/r2 → **Enable R2**. It asks for a payment method even though the free tier (10 GB-month storage, 1M Class A ops, 10M Class B ops/month) will cover us for a long time — our whole corpus is a few MB.
+
+Then, from `/Users/martin/Projects/1stcontact`:
+
+```bash
+# Re-mint the OAuth token — your current one has no r2 scope
+./node_modules/.bin/wrangler login
+
+# Verify: should now list "r2 (write)" among the scopes
+./node_modules/.bin/wrangler whoami
+
+# Should return an empty list rather than error 10042
+./node_modules/.bin/wrangler r2 bucket list
+
+# Create the bucket
+./node_modules/.bin/wrangler r2 bucket create 1stcontact-sites
+```
+
+DNS: `1stcontact.io` has no proxied record, so the declared Worker route can't resolve yet. Rather than hand-adding a placeholder record, I'd switch `apps/public-site/wrangler.toml` from a `routes` entry to `custom_domain = true` — wrangler then provisions the DNS record and cert itself on deploy. That's a config change I can make when we implement; no manual DNS step for you.
+
+Tell me when R2 is enabled and I'll run the verification commands myself.
+
+## 2. Draft privacy
+
+Agreed, and I think that's the right call — gating publication on access control would be the tail wagging the dog. I'll amend DOC-12's "author only (private)" wording to say drafts are shared by unguessable URL, with real ACLs arriving with login. Doc change, no code.
+
+## 3. What I meant — and why it's now moot
+
+I was assuming previews had to live on a subdomain (`gigabytealchemy-draft-a1b2c3d4.1stcontact.io`), because root-absolute `/assets/…` refs break under a path prefix. The redirect was a consolation prize: let you *share* the readable `1stcontact.io/site/…` link, which would then 302 to the ugly subdomain.
+
+Then I looked at the renderer, and the constraint is softer than I thought. There is exactly **one** CSS `url()` sink:
+
+```ts
+// packages/framework/src/l1/render.ts:105
+function cssUrl(src: string | undefined): string | null {
+  if (!src) return null
+  const v = src.trim()
+  if (!isSafeUrl(v) || !CSS_URL_ALLOWED.test(v)) return null
+  return `url("${v}")`
+}
+```
+
+One hardened chokepoint, plus the equivalent for `<img src>`. Normalising `/assets/x` → `assets/x` at those two points makes the rendered output **relocatable** — it works at any path *or* any host. Every page is flat at the snapshot root (`index.html`, `home.html`), so the relative depth is always zero; and `CSS_URL_ALLOWED` already permits the characters.
+
+So: **your original URL works, verbatim, and no redirect is needed.** Better still, it drops the wildcard-DNS dependency entirely — proxied wildcard records are plan-dependent on Cloudflare and I couldn't confirm they're available on this zone. Phase 1 now needs one hostname: the apex.
+
+The cost is re-baselining the fidelity/round-trip gates, since the emitted bytes change. The authored L1 stays exactly as it is — sites keep writing `/assets/…`, so no ticket churn on `xgd` or `gigabytealchemy`.
+
+## 4. Slug stays the platform identifier
+
+Confirmed — `gigabytealchemy`, with custom domain as a separate site field later.
+
+---
+
+# Playback: storage and workflow
+
+## Local — unchanged, still canonical
+
+```
+storage/sites/gigabytealchemy/
+  draft/              site.json, pages/*.json, assets/*     ← you edit here
+  revisions/0001/     immutable snapshot, written by `1c publish`
+  history.json        revision log
+storage/dist/sites/gigabytealchemy/draft/                   ← rendered output, disposable
+```
+
+Nothing about how you author or modify sites changes.
+
+## R2 — new
+
+```
+r2://1stcontact-sites/
+  sites/gigabytealchemy/manifest.json
+  sites/gigabytealchemy/preview/a1b2c3d4/out/     index.html, theme.css, capabilities.js, assets/…
+  sites/gigabytealchemy/preview/a1b2c3d4/source/  site.json, pages/, assets/
+  sites/gigabytealchemy/rev/0001/out/
+  sites/gigabytealchemy/rev/0001/source/
+```
+
+```json
+// manifest.json
+{
+  "slug": "gigabytealchemy",
+  "live": 1,
+  "revisions": [{ "id": 1, "publishedAt": "2026-07-30T…", "message": "launch" }],
+  "previews": [{ "sha": "a1b2c3d4", "createdAt": "2026-07-30T…", "basedOn": 1 }]
+}
+```
+
+Two things to notice. `out/` is the rendered artifact the Worker serves. `source/` is the DOC-12 snapshot — it costs a few hundred KB and it's what Phase 2 imports into D1, so the store move reads from R2 rather than from your laptop.
+
+## Workflow A — share a draft
+
+```bash
+$ 1c render gigabytealchemy          # existing
+$ 1c deploy gigabytealchemy          # NEW (--channel draft is the default)
+```
+
+`deploy` hashes the rendered output → `a1b2c3d4`, uploads `out/` + `source/` under `preview/a1b2c3d4/`, appends a preview entry to the manifest, and prints:
+
+```
+https://1stcontact.io/site/gigabytealchemy/draft/a1b2c3d4/
+```
+
+Edit, deploy again, get a new SHA and a new link. Old links keep working because snapshots are immutable — which is what makes "here's what it looked like on Tuesday" free. `1c deploy --prune` garbage-collects previews.
+
+Note a preview snapshot is **not** a revision: it never enters `history.json` and never mints a revision number. That keeps DOC-12's mutable-draft / immutable-revision split intact and lets you share previews as freely as you like.
+
+## Workflow B — publish
+
+```bash
+$ 1c publish gigabytealchemy -m "launch"          # existing: draft/ → revisions/0001, renders
+$ 1c deploy gigabytealchemy --channel published   # NEW: uploads rev/0001, sets manifest.live = 1
+```
+
+```
+https://1stcontact.io/site/gigabytealchemy/       ← Phase 1
+https://gigabytealchemy.1stcontact.io/            ← later, when we do subdomains
+https://gigabytealchemy.ai/                       ← later still, custom domain cutover
+```
+
+`gigabytealchemy.ai` currently serves the original site you're reproducing, and Phase 1 touches only `1stcontact.io` — so there's zero exposure to anything live.
+
+## Worker — the request path
+
+```
+GET 1stcontact.io/site/gigabytealchemy/draft/a1b2c3d4/assets/satoshi-400.woff2
+
+  parseRoute      → { slug, channel: 'draft', ref: 'a1b2c3d4', file: 'assets/satoshi-400.woff2' }
+  SiteStore       → r2 prefix  sites/gigabytealchemy/preview/a1b2c3d4/out/
+  R2 GET          → stream, content-type by extension
+  Cache-Control   → public, max-age=31536000, immutable      (SHA-addressed, never changes)
+  X-Robots-Tag    → noindex                                  (draft channel)
+```
+
+For the live published URL there's no SHA, so `SiteStore` reads `manifest.live` → `rev/0001/out/index.html`, with a short TTL and a Cache API purge on deploy. `/site/` is a reserved prefix, so it won't collide with the 1stcontact marketing site when that eventually occupies the apex root.
+
+`SiteStore` is one small accessor — `resolve(slug, channel, ref) → prefix` plus `live(slug)`. It is the seam.
+
+## What Phase 2 actually changes
+
+| | Phase 1 | Phase 2 |
+|---|---|---|
+| `SiteStore` impl | reads `manifest.json` from R2 | reads D1 `sites` / `revisions` / `pages` |
+| Site definition | local files, `source/` mirrored to R2 | D1 canonical, imported from R2 `source/` |
+| Renderer | local `1c` | server-side, in control-app |
+| Route grammar, R2 `out/` layout, SHA addressing, caching, deploy semantics, DNS/TLS | — | **unchanged** |
+
+Which is the point: Phase 2 is "swap one accessor and move where rendering runs," not a rebuild. And it's triggered by the builder needing server-side reads and writes — not by a date.
+
+---
+
+Two things I'd like your read on before I scope it onto CHAT-11:
+
+**Is the renderer change in or out of Phase 1?** In: your readable URL works and no wildcard DNS is needed. Out: previews need subdomains and the wildcard question becomes blocking. I'd put it in, but it means re-baselining the fidelity gates on both sites, and you're mid-flight on reproduction work (REQ-108 and friends) — so it's your call whether that churn lands now.
+
+**Does `1c deploy` also render, or require a prior `1c render`?** `publish` already renders implicitly. I'd have `deploy` render too, so there's no way to ship stale bytes — but that makes it slower and less obviously a pure upload.
 
 <!-- xgd-chat-end -->
