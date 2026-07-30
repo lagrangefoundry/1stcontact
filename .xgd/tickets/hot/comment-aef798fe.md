@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T21:05:48.740199+00:00'
+updated_at: '2026-07-30T21:15:40.301936+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -190,5 +190,17 @@ Three things I'd flag before we commit to this:
 Two questions before I start: **is DOC-8 in or out** of the paper offer, and do you want me to **rewrite DOC-9 first** — or draft the new page copy and let the doc catch up afterwards? I'd argue for the doc first, given it's just demonstrated what happens when it lags.
 
 I've made no changes on disk. Want me to record this review and the positioning finding on CHAT-12 before we move?
+
+<!-- xgd-turn id="bd785eb7-de9a-4142-b253-b550834bd1af-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T21:15:40.272394+00:00" -->
+#### You
+DOC-8 is not ready likely added later
+
+We need to add a module for this whitepaper usecase which would include a backend for email capture. We have designs for some of these. Lets keep this chat focused on the content of the page though - those mechanics are easy to solve later
+
+In fairness on the framing of the regression - the point is that that is the error rate one should expect if you just use structured vibecoding (vibecoding with design docs)
+
+What is DOC-9 (which project is it in) please update it first
 
 <!-- xgd-chat-end -->
