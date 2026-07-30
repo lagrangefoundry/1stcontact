@@ -68,6 +68,35 @@ export function snapshotSha(files: readonly SnapshotFile[]): string {
   return createHash('sha256').update(listing, 'utf8').digest('hex').slice(0, SNAPSHOT_ID_LENGTH)
 }
 
+/**
+ * The first path segment inside a served site that belongs to the preview
+ * channel: `/site/<slug>/draft/<sha>/…` (REQ-111).
+ *
+ * A published snapshot containing a top-level entry of this name would be
+ * addressed at `/site/<slug>/draft/…` and shadowed by the preview route.
+ */
+export const RESERVED_SNAPSHOT_SEGMENT = 'draft'
+
+/**
+ * Refuse a snapshot whose rendered output would collide with the preview route.
+ *
+ * Checked at deploy time rather than trusted to convention, so the collision is
+ * impossible rather than merely unlikely — and so it is caught by the operator
+ * who caused it, not by a visitor who cannot see why a page vanished.
+ */
+export function assertNoReservedSegment(files: readonly SnapshotFile[]): void {
+  const clash = files.find(
+    (f) => f.rel.startsWith('out/') && f.rel.slice('out/'.length).split('/')[0] === RESERVED_SNAPSHOT_SEGMENT,
+  )
+  if (clash === undefined) return
+  throw new Error(
+    `Snapshot contains a top-level '${RESERVED_SNAPSHOT_SEGMENT}' entry (${clash.rel}).\n` +
+      `'${RESERVED_SNAPSHOT_SEGMENT}' is reserved: it is the first path segment of the ` +
+      `preview channel (/site/<slug>/${RESERVED_SNAPSHOT_SEGMENT}/<sha>/), so a published ` +
+      'entry of that name would be unreachable. Rename it.',
+  )
+}
+
 /** Total bytes across `files`, rendered as a short human string (`2.7 MB`). */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`

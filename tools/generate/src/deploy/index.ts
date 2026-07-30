@@ -9,9 +9,11 @@ export { cmdDeploy, formatDeployReport, DEPLOY_BASE_URL } from './deploy'
 export type { DeployOptions, DeployResult, DeployStage } from './deploy'
 
 export {
+  assertNoReservedSegment,
   collectSnapshotFiles,
   snapshotSha,
   formatBytes,
+  RESERVED_SNAPSHOT_SEGMENT,
   SNAPSHOT_ID_LENGTH,
 } from './content'
 export type { SnapshotFile } from './content'
