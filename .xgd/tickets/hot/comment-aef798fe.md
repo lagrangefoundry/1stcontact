@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T20:50:46.290632+00:00'
+updated_at: '2026-07-30T21:03:35.502519+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -107,5 +107,15 @@ The one genuinely excellent piece of microcopy on the page is "One email. We'll 
 - Do you want me to work up rewrites of specific sections, or agree the structural changes first?
 
 Nothing changed on disk — this is analysis only. CHAT-12's body is still empty; say the word and I'll record the review conclusions there before we start editing.
+
+<!-- xgd-turn id="b1854589-b1ad-4d04-ba13-df5e6f0ed593-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T21:03:35.470952+00:00" -->
+#### You
+ok lets see, there are two whitepapers - did you find them? Yes they should be named, but downloading should require giving up an email address. We email hard-to-guess links to the papers. Users should get a [] join the mailing list for updates option
+
+At this point I'm still a ways of beta so whitelist is the primary CTA
+
+Our position on vibecoding has changed significantly since we started. It might be worth taking a moment to reflect on that since I'm not sure really where our current documentation sits on this. And it's original conception XGD was a fully automated code generation system you drop in specifications at the top and the system runs through a full development cycle and produces code at the bottom. The code has some guarantees that it will work and do some version of the specification that was asked of it. There were two problems with this one it's very hard to get specification correct for anything that is not trivial. Two the full code generation cycle is long, even for a small bug there's a lot of planning and testing in the work that means you must wait several hours before your code is ready. As we know from agile and lean development the cycle time from specification to observe code is actually a really important metric and detaining the effectiveness of a software development process and what I found was that I kept falling back to vibecoding rather than using my automated development simply because I could get immediate feedback on what was going on. So I prioritized a second alternative workflow which we call free coding. Under free coding the AI is essentially driven in a vibe coding like fashion. The AI actually has some operational rules that it must follow which it mostly does but to the user the experience is similar to a kind of structured vibecoding and critically it operates at the same cadence so code appears rapidly. XGD then runs background processes to properly inculcate the specifications into the capability matrix. This process is called reconciliation. So, not the experience of using XGD for creating software is very vibe coding like, and the dashboard and tooling have been created to support this kind of structured vibe coding experience. However, we are trying to possess ourselves as being qualitatively different from vibecoding in that we have the capability matrix and all of the machinery associated with it that protects against system regressions. Broadly speaking (and we probably don't have enough data to make this claim too strongly) we see around one regression for every two tickets implemented when free coding against a complicated code base. XGD holds to the intended specification and fixes these regressions automatically. That is the magic that we need to communicate.
 
 <!-- xgd-chat-end -->
