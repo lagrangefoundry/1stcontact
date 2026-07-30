@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T01:27:15.288619+00:00'
+updated_at: '2026-07-30T01:35:45.635553+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,11 @@ Done. Makes sense, and it's built and shipped on REQ-108.
 **Verification:** 8 UATs, plus `bin/verify_req108_pointer.mjs` at 15/15 in real Chromium (byte-identical screenshots 400ms apart with the pointer parked and zero tracker writes; ~120px deformation while moving; settles under 1px). Full suite: 927 passing. The 4 failures in `tests/reconciliation-*` are pre-existing — I confirmed them against a stashed tree.
 
 One thing I deliberately did **not** paper over: the hero grid being an asset at all is the real gap — that's why it needs the mask-pass workaround while the pattern bands need nothing. The clean fix is a typed perspective-grid primitive in L1, after which the hero joins the `pattern` branch. It's recorded as a known limitation on the ticket, not silently absorbed.
+
+<!-- xgd-turn id="7178036d-13fc-4a2e-a967-7ece97585c95-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T01:35:45.607175+00:00" -->
+#### You
+oh its not working on the grids on "The contract" or "How it works" - it looks like you added grids did you? to :"The Problem" asnd "evidence not promises" The were plain before???
 
 <!-- xgd-chat-end -->
