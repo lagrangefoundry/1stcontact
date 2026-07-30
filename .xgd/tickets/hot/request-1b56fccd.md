@@ -5,9 +5,9 @@ type: request
 title: 'R2 artifact store + 1c deploy: ship rendered snapshots to Cloudflare'
 created_by: xgd
 created_at: '2026-07-30T19:34:53.952227+00:00'
-updated_at: '2026-07-30T19:34:53.952227+00:00'
+updated_at: '2026-07-30T20:34:58.889652+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -160,3 +160,5 @@ R2 is faked at the upload-boundary seam in tests; no network in the suite.
 Needs the relocatable-output ticket for the path-based URL to resolve. Pairs with
 the public-site Worker ticket, which consumes this layout — the two can be built
 in parallel against this spec.
+
+-
