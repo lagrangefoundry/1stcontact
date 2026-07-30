@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T23:00:19.915251+00:00'
+updated_at: '2026-07-30T23:01:01.940952+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -262,5 +262,11 @@ Go ahead
 <!-- xgd-chat role="assistant" ts="2026-07-30T23:00:19.885889+00:00" -->
 #### Claude
 Rewriting the page against the revised DOC-9. First, the exact structure so I edit surgically.
+
+<!-- xgd-turn id="e6543414-50cd-4416-b9a9-a341013696d8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T23:01:01.911582+00:00" -->
+#### You
+Wait one thing to be careful about human out of the loop -> human out of the coding loop - human is in product design and architecture and QA
 
 <!-- xgd-chat-end -->
