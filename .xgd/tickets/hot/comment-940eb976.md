@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T18:46:11.893865+00:00'
+updated_at: '2026-07-30T18:52:20.606322+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -262,5 +262,35 @@ Two corrections to things I said earlier: my "~5000 pixels moved" claim about `i
 Lets try that to see what it looks like
 
 Also if I move focus to another window and come back, some of the animations still work but this effect has died
+
+<!-- xgd-turn id="16a15f49-2f7f-4f78-a768-581cdd7add92-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T18:52:20.577567+00:00" -->
+#### Claude
+Two things — the focus bug first, since that's a real defect. Let me reproduce it:
+
+Reproduced — the accent fades on focus loss and **never returns**: the opacity restore sits inside the one-time marker branch, so it runs only on the very first pointermove. Fixing:
+
+Fixed — it now comes back on both a synthetic blur and a real window switch. Adding regression coverage so it can't silently return:
+
+Now folding a real focus-loss check into the runtime harness, since that's where it would actually have been caught:
+
+Now the transparent-pattern experiment you asked to see:
+
+Works exactly as hoped — resting band is perfectly flat (0 of 4080 edge pixels differ from the fill), and ~700 px light under the cursor. Here's what it looks like:
+
+The grid appears out of nothing. One observation: at the bands' original 48px spacing only ~4 lines land in the region, so it reads as a crosshair rather than a patch of grid. Since the grid is now invisible at rest, spacing is purely an effect parameter — let me show you a denser one:
+
+At 24px you can actually read the amoeba silhouette in the grid patch — that's the better setting. Running full verification:
+
+Both done — committed as `91702915d` (REQ-108, v0.1.3).
+
+**The focus bug was real, and worse than it looked.** `blur` faded the accent out, but the only code that faded it back in sat inside the one-time branch that arms the pointer marker — so it ran exactly once, on the session's very first mouse move. One alt-tab killed the effect permanently. That's why other animations survived: the scroll reveals have no such teardown. Reproduced against both a synthetic blur and a genuine window switch (`--l1-pto` stuck at `0` through refocus), then split into two pieces of state that I'd wrongly conflated: `on` arms the marker and is never revoked, `dim` is the reversible visibility. Now covered by a UAT and a focus-cycle check in the runtime harness (20/20).
+
+**The invisible grid works, and looks good.** `#problem` and `#close` carry a `pattern` at `#8b5c2a00` — fully transparent, painting nothing — and the accent redraws it in teal. The resting band measures 0 of 4080 sampled edge pixels off its flat fill, so it's genuinely plain, and ~1375 px light up under the cursor. The grid exists only where your hand is.
+
+One judgement call I made while testing: I dropped the spacing from 48px to 24px. With the base invisible, spacing stops being a design constraint and becomes purely an effect parameter — at 48px only ~4 lines land inside the region and it reads as a crosshair, whereas at 24px you can actually see the amoeba silhouette in the grid patch (both screenshots above). Easy to change if you prefer the sparser look.
+
+Worth noting the two bands now differ in character: the invisible-grid bands light a dense, full-strength patch anywhere you move, while the hero/how/contract asset grids only respond near their sparse motifs (0.9–13% coverage). If you like the invisible-grid behaviour, the same trick could be applied to those three bands as well — they'd keep their existing decorative grid *and* gain a full-bleed invisible one for the cursor to light.
 
 <!-- xgd-chat-end -->
