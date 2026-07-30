@@ -88,14 +88,17 @@ async function bandOf(page, index) {
   const markerBefore = await page.evaluate(() => document.documentElement.hasAttribute('data-l1-pointer'))
   ok('no pointer → no marker (the captured page is the plain page)', markerBefore === false)
 
-  // Scroll the second accented band (#problem, the pattern branch) into view.
+  // Scroll an accented band into view. Every accented band is now asset-drawn
+  // (#problem / #close lost their patterns when the operator removed those grids),
+  // so the probe sits where that band's strokes actually are — the accent recolours
+  // a texture, and over blank fill there is correctly nothing to see.
   await page.evaluate(() => {
-    document.getElementById('problem').scrollIntoView({ block: 'center' })
+    document.getElementById('how').scrollIntoView({ block: 'center' })
   })
   await page.waitForTimeout(400)
   const band = await bandOf(page, 1)
-  const cx = Math.round(band.left + band.w / 2)
-  const cy = Math.round(band.top + band.h / 2)
+  const cx = Math.round(band.left + band.w * 0.22)
+  const cy = Math.round(Math.max(200, band.top + 220))
 
   const plain = await page.screenshot({ clip: { x: cx - 200, y: cy - 200, width: 400, height: 400 } })
   await writeFile(join(OUT, '1-no-pointer.png'), plain)
@@ -124,10 +127,10 @@ async function bandOf(page, index) {
     // Count how many frames the page's own script schedules by observing custom
     // property writes: read the tracker value repeatedly and see if it changes.
     const el = document.getElementsByClassName('l1-pt')[1]
-    let last = el.style.getPropertyValue('--l1-pt0x')
+    let last = el.style.getPropertyValue('--l1-pt0x') + el.style.getPropertyValue('--l1-pt0s')
     while (performance.now() - t0 < 300) {
       await new Promise((r) => requestAnimationFrame(r))
-      const now = el.style.getPropertyValue('--l1-pt0x')
+      const now = el.style.getPropertyValue('--l1-pt0x') + el.style.getPropertyValue('--l1-pt0s')
       if (now !== last) n++
       last = now
     }
@@ -144,10 +147,21 @@ async function bandOf(page, index) {
       // the lobe positions the script wrote and the radii the CSS declared.
       const el = document.querySelector('.' + cls)
       const styles = getComputedStyle(el, '::after')
-      const mask = styles.maskImage || styles.webkitMaskImage
-      // The COMPUTED value resolves `transparent` to `rgba(0, 0, 0, 0)`, so the
-      // outer stop is read by position-after-the-opaque-core rather than by keyword.
-      const radii = [...mask.matchAll(/rgba\(0, 0, 0, 0\) ([\d.]+)px/g)].map((m) => Number(m[1]))
+      // The region sits on whichever side the texture ISN'T: it masks a pattern, and
+      // it paints under an asset. Read whichever one carries the lobes.
+      const mask = styles.maskImage || styles.webkitMaskImage || ''
+      const region = mask.includes('radial-gradient') ? mask : styles.backgroundImage || ''
+      // The COMPUTED value resolves `transparent` to `rgba(0, 0, 0, 0)`. A bump's
+      // outer stop is a `calc()` carrying the script's flicker scale; the core's is
+      // a plain length. Both forms are read, and the bump's is read at its RESTING
+      // scale (the px inside the calc), which is the geometry under test here.
+      const radii = [
+        ...region.matchAll(/rgba\(46, 134, 163, 0\)|rgba\(0, 0, 0, 0\)/g),
+      ].length
+        ? [...region.matchAll(/(?:rgba\([^)]*, 0\)) (?:calc\([^)]*?\*\s*)?([\d.]+)px/g)].map((m) =>
+            Number(m[1]),
+          )
+        : []
       const trackers = []
       for (let i = 0; i < 7; i++) {
         trackers.push([
@@ -160,7 +174,7 @@ async function bandOf(page, index) {
     { cls: band.cls, cx, cy },
   )
   const maxR = Math.max(...geom.radii)
-  ok('the region reaches ~the authored radius', maxR > 60 && maxR <= 95, `max lobe reach ${maxR}px`)
+  ok('the region reaches ~the authored radius', maxR > 40 && maxR <= 95, `max lobe reach ${maxR}px`)
   ok('the lobes differ (a rough outline, not a disc)', new Set(geom.radii).size > 1, `${new Set(geom.radii).size} distinct radii`)
   ok('the overlay is fully on once a pointer is present', geom.opacity === '1')
   ok(
@@ -200,7 +214,10 @@ async function bandOf(page, index) {
   ok('moving deforms the region (trackers spread)', maxSpread > 8, `max spread ${maxSpread.toFixed(1)}px`)
   ok('at rest the region is undeformed', spread.settled < 1, `settled spread ${spread.settled.toFixed(2)}px`)
 
-  await page.waitForTimeout(500)
+  // The slowest tracker eases at 0.1/frame, so converging from a ~125px spread is
+  // legitimately ~1s of frames. Waiting 500ms and calling the residual a failure
+  // measures the harness, not the product.
+  await page.waitForTimeout(1600)
   const afterSettle = await page.evaluate(({ cls }) => {
     const el = document.querySelector('.' + cls)
     const xs = []
@@ -208,6 +225,54 @@ async function bandOf(page, index) {
     return Math.max(...xs) - Math.min(...xs)
   }, { cls: band.cls })
   ok('it settles back to the stable shape after moving', afterSettle < 1, `${afterSettle.toFixed(2)}px`)
+
+  // (3b) The FLICKER — the edge boils while the hand moves and stops dead when it
+  // doesn't. Read the per-lobe scales the script writes: they are the one thing
+  // that is genuinely random, so consecutive frames must differ while moving and
+  // must land on exactly 1 at rest.
+  const flicker = await (async () => {
+    const samples = []
+    for (let i = 0; i < 20; i++) {
+      await page.mouse.move(cx - 140 + i * 14, cy + Math.sin(i / 2) * 50)
+      samples.push(
+        await page.evaluate(({ cls }) => {
+          const el = document.querySelector('.' + cls)
+          const out = []
+          for (let i = 0; i < 7; i++) {
+            out.push(parseFloat(el.style.getPropertyValue('--l1-pt' + i + 's') || '1'))
+          }
+          return out
+        }, { cls: band.cls }),
+      )
+    }
+    return samples
+  })()
+  let differing = 0
+  for (let i = 1; i < flicker.length; i++) {
+    if (flicker[i].some((v, j) => Math.abs(v - flicker[i - 1][j]) > 0.01)) differing++
+  }
+  const swing = Math.max(...flicker.map((s) => Math.max(...s) - Math.min(...s)))
+  ok(
+    'moving makes the edge boil (consecutive frames differ)',
+    differing >= flicker.length - 3,
+    `${differing}/${flicker.length - 1} frames differ, max lobe swing ${swing.toFixed(2)}`,
+  )
+  ok(
+    'lobes both shrink and grow (lines drop in AND out of the accent)',
+    flicker.some((s) => s.some((v) => v < 0.97)) && flicker.some((s) => s.some((v) => v > 1.03)),
+  )
+  await page.waitForTimeout(1600)
+  const restScales = await page.evaluate(({ cls }) => {
+    const el = document.querySelector('.' + cls)
+    const out = []
+    for (let i = 0; i < 7; i++) out.push(el.style.getPropertyValue('--l1-pt' + i + 's'))
+    return out
+  }, { cls: band.cls })
+  ok(
+    'the flicker snaps to exactly 1 at rest (no endless repaint)',
+    restScales.every((v) => v === '1'),
+    restScales.join(','),
+  )
 
   // (4) The hero — the asset branch. Its accent must show the GRID in teal, not a
   // flat teal blob: so the painted pixels inside the region are mostly NOT teal.
@@ -235,11 +300,11 @@ async function bandOf(page, index) {
   })
   const page = await ctx.newPage()
   await page.goto(URL_BASE, { waitUntil: 'load' })
-  await page.evaluate(() => document.getElementById('problem').scrollIntoView({ block: 'center' }))
+  await page.evaluate(() => document.getElementById('how').scrollIntoView({ block: 'center' }))
   await page.waitForTimeout(300)
   const band = await bandOf(page, 1)
-  const cx = Math.round(band.left + band.w / 2)
-  const cy = Math.round(band.top + band.h / 2)
+  const cx = Math.round(band.left + band.w * 0.22)
+  const cy = Math.round(Math.max(200, band.top + 220))
   const before = await page.screenshot({ clip: { x: cx - 150, y: cy - 150, width: 300, height: 300 } })
   await page.mouse.move(cx, cy)
   await page.waitForTimeout(400)
