@@ -159,7 +159,10 @@ describe('REQ-108 — a texture responds to the pointer', () => {
     // holds because the band is its own stacking context.
     expect(b.overlay).toContain('pointer-events: none')
     expect(b.overlay).toContain('z-index: -1')
-    expect(b.self).toContain('isolation: isolate')
+    expect(declsOf(b.css, `html[data-l1-pointer] .${b.cls}`)).toContain('isolation: isolate')
+    // And the node itself carries NOTHING extra — a stacking context changes how the
+    // band rasterises, so it may not exist before a pointer does (see AC3).
+    expect(b.self).not.toContain('isolation: isolate')
 
     // Nothing in the document named the mechanism.
     const authored = JSON.stringify(docWithBand({ pattern: GRID, pointerAccent: ACCENT }))
@@ -232,17 +235,19 @@ describe('REQ-108 — a texture responds to the pointer', () => {
       docWithBand({ surfaceFill: '#F5F4EC', pattern: GRID, pointerAccent: ACCENT }),
     )
 
-    // EVERY rule the accent adds is behind the marker. If one were not, the accent
-    // would paint on a page whose script never ran.
+    // EVERY rule the accent adds is behind the marker — no exceptions, including the
+    // ones that paint nothing. `isolation: isolate` is the case in point: it makes
+    // the band a stacking context, which is the kind of thing that can change how it
+    // rasterises, so it waits for the pointer too. That leaves this assertion with
+    // no whitelist to drift, which is the real reason it is worth doing.
     const added = accented.css
       .split('\n')
       .filter((line) => !plain.css.includes(line.trim()) && line.trim())
     expect(added.length).toBeGreaterThan(0)
     for (const line of added) {
       const isMarked = line.includes('html[data-l1-pointer]')
-      const isIsolation = line.includes('isolation: isolate')
       const isMediaFrame = /^\s*[@}]/.test(line) || line.trim() === '}'
-      expect(isMarked || isIsolation || isMediaFrame, `unmarked rule: ${line}`).toBe(true)
+      expect(isMarked || isMediaFrame, `unmarked rule: ${line}`).toBe(true)
     }
 
     // The overlay starts fully transparent and is turned on by an inherited custom
@@ -392,7 +397,7 @@ describe('REQ-108 — a texture responds to the pointer', () => {
   it('test_UAT_FC_REQ-108_a_node_with_no_texture_emits_no_overlay', () => {
     const b = band({ surfaceFill: '#F5F4EC', pointerAccent: ACCENT })
     expect(b.overlay).toEqual([])
-    expect(b.self).not.toContain('isolation: isolate')
+    expect(b.css).not.toContain('isolation')
     expect(b.classes).not.toContain('l1-pt')
     expect(b.js).toBeUndefined()
   })
