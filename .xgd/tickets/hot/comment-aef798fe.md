@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T23:01:01.940952+00:00'
+updated_at: '2026-07-30T23:07:10.138071+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -268,5 +268,61 @@ Rewriting the page against the revised DOC-9. First, the exact structure so I ed
 <!-- xgd-chat role="user" ts="2026-07-30T23:01:01.911582+00:00" -->
 #### You
 Wait one thing to be careful about human out of the loop -> human out of the coding loop - human is in product design and architecture and QA
+
+<!-- xgd-turn id="e6543414-50cd-4416-b9a9-a341013696d8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T23:07:10.107539+00:00" -->
+#### Claude
+Important distinction, and my §6 phrasing ("development loop") was too vague — it should name the three things. Let me tighten DOC-9 before it propagates into the page.
+
+Two instances of my own bad habit still in there — §1 and the §7 register table.
+
+DOC-9 is consistent now — the only bare "out of the loop" uses left are the two rules forbidding it. §6 now leads with it as the single most damaging imprecision, and §10 has it on both lists.
+
+Now the page. Let me map the exact text slots per section.
+
+Every slot maps cleanly. Applying the rewrite.
+
+Done — DOC-9 first, then the page against it. **Reload to see it** (`localhost:8792`); no asset filenames changed so no cache-bust needed, but the HTML itself may be held.
+
+## The DOC-9 correction you called
+
+§6 now leads with it as a rule rather than burying it in a list:
+
+> **Never say "out of the loop" unqualified. It is the _coding_ loop, and only that one.**
+
+with the reasoning that unqualified it says the human has *left the project* — untrue, and precisely the magic-wand reading §5 exists to prevent. The human is out of the coding loop (not writing, not reading, not reviewing diffs) and stays in **product design, architecture and QA**. It's on both the do and don't lists in §10, and I swept the rest of the doc — the only bare uses left are the two rules forbidding it.
+
+## What changed on the page
+
+31 text slots, copy only, zero structural churn. Renders clean, all five links resolve.
+
+**Hero sub** — was 25 words of mechanism before any reason to care. Now: *"Work at conversational speed. Behind you, XGD maintains a living spec of what your software should do, tests the running system against it on every change, and repairs what breaks. You keep product, architecture and quality."* Short–long–short, and "Behind you" gets the emphasis position.
+
+**Problem** is now the trap rather than three restatements of the same complaint: regressions arrive quietly → discipline costs cadence → so you route around it. That third beat is the one that makes XGD necessary rather than merely nice, and it wasn't on the page at all.
+
+**How** became the loop instead of a static description of the matrix — you build / XGD reconciles / the record can't go stale / regressions get repaired. Step 03 absorbs the old "tests drift" point, which the previous version raised in the problem section and then never answered.
+
+**Proof** carries the numbers and the abandonment story: *"We built the fully autonomous version first — then noticed we were avoiding it, because waiting hours for a small change cost more than it saved. Free coding exists because of what we found out about ourselves."*
+
+**Contract** was describing autonomous mode, which after your correction is straightforwardly wrong. Headline is now *"You're out of the code. Not out of the project."* and the columns map to DOC-9 §6 exactly — I moved technology and API choices back to your side, where DOC-9 has always put them, and gave XGD "detailed design" to signal it sits below the architecture line.
+
+The benchmark reads: *"roughly one regression for every two tickets — that is the going rate for the practice, not a fault of the tool."*
+
+## Two decisions worth checking
+
+**`id="papers"` was on the Proof section** — so "Whitepapers" in the nav and "Read the whitepaper" in the hero both landed somewhere with no paper in it. Renamed to `proof`. Since the papers are gated now, nav "Whitepapers" goes to `#signup`, and the hero's secondary became **"See the evidence" → `#proof`** — sceptics get a non-committal path, ready readers take the primary CTA. Two buttons pointing at the same form would have been worse.
+
+**I softened "the ninety thousand already there" to "it wrote last month."** The original invited the brownfield reader DOC-7 says you can't yet serve. Say the word if you'd rather keep the wider claim.
+
+## Left open
+
+The **mailing-list checkbox isn't on the page** — I didn't write copy promising something the form can't do. `contact-form` supports `text|email|tel|textarea` only, so it needs the module change first.
+
+One new candidate gap: an L1 text leaf carries a single style, so both paper titles run unemphasised inside the sentence. No way to mark an inline run without splitting the node and breaking the flow — same family as the REQ-95 list.
+
+And the two structural items from my first review are untouched, because they're layout not copy: six identical section shapes, and the proof section still being physically small for the weight it now carries.
+
+Uncommitted — I'd guess you'll want a pass over the wording first. CHAT-12 has the full record.
 
 <!-- xgd-chat-end -->
