@@ -41,6 +41,7 @@ import type {
   l1PaddingResponsiveSchema,
   l1PaddingSchema,
   l1PatternSchema,
+  l1PointerAccentSchema,
   l1ResourcesSchema,
   l1ResponsiveLayoutSchema,
   l1RevealSchema,
@@ -94,6 +95,8 @@ export type L1RadialGradient = z.infer<typeof l1RadialGradientSchema>
 export type L1GradientOrigin = z.infer<typeof l1GradientOriginSchema>
 export type L1GradientExtent = z.infer<typeof l1GradientExtentSchema>
 export type L1Pattern = z.infer<typeof l1PatternSchema>
+// REQ-108 — the pointer-reactive accent on whatever texture a node paints.
+export type L1PointerAccent = z.infer<typeof l1PointerAccentSchema>
 export type L1Shadow = z.infer<typeof l1ShadowSchema>
 export type L1Border = z.infer<typeof l1BorderSchema>
 export type L1Mask = z.infer<typeof l1MaskSchema>

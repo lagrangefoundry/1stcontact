@@ -511,6 +511,40 @@ export const l1PatternSchema = z
   .strict()
 
 /**
+ * REQ-108 — a pointer-reactive accent on whatever texture the node already
+ * paints: within a rough region tracking the cursor, the texture is redrawn in a
+ * second colour, so a grid appears to come alive under the reader's hand.
+ *
+ * It is a **sibling of {@link l1PatternSchema}, not a field inside it**, because
+ * the texture it accents may be either the `pattern` axis (the flat hairline grid)
+ * or a `backgroundImageUrl` (the hero's perspective grid, which no orthogonal
+ * tile can express). One axis covers both; the renderer resolves which.
+ *
+ * The author names the *intent* — a colour, how far the region reaches, how soft
+ * its edge, how rough its outline — and never the mechanism. There is
+ * deliberately **no blob count**: how many lobes make an outline "rough" is a
+ * renderer constant, not a design decision, and exposing it would let a document
+ * reach into the mask's construction. `roughness` (0 = a plain disc, 1 = maximally
+ * lumpy) is the whole of the dial.
+ *
+ * Everything about the motion — that the region lags, deforms while moving, and
+ * settles when still — is the renderer's script and CSS, so the axis stays a
+ * static value bag that a captured page can round-trip.
+ */
+export const l1PointerAccentSchema = z
+  .object({
+    /** The colour the texture is redrawn in inside the region. */
+    color: l1Color,
+    /** How far the region reaches from the cursor — half its rough diameter. */
+    radiusPx: finite.positive(),
+    /** Width of the region's feathered edge; 0 is a hard cut. Defaults to a third of the radius. */
+    softnessPx: finite.nonnegative().optional(),
+    /** 0 → a plain disc; 1 → maximally lumpy. Defaults to a middling roughness. */
+    roughness: finite.min(0).max(1).optional(),
+  })
+  .strict()
+
+/**
  * BUG-17 — box-model padding: a per-side inset (px) between a leaf's border-box
  * geometry and its content. A node-level structured axis (like {@link
  * l1TransformSchema}/{@link l1MaskSchema}), so it applies to any leaf/box kind.
@@ -576,6 +610,12 @@ const surfaceAxesShape = {
   pattern: l1PatternSchema.optional(),
   /** A background image (scheme-checked by the envelope, like `image.src`). */
   backgroundImageUrl: z.string().optional(),
+  /**
+   * REQ-108 — the node's texture (its {@link pattern}, else its
+   * {@link backgroundImageUrl}) redrawn in a second colour inside a rough region
+   * tracking the pointer. Inert on a node that paints no texture.
+   */
+  pointerAccent: l1PointerAccentSchema.optional(),
   /** A full-bleed translucent scrim painted over the background (hero overlay). */
   overlay: l1OverlaySchema.optional(),
   /** A drop shadow cast by the node. */

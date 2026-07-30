@@ -96,7 +96,13 @@ export type {
 export { BUILD_YEAR } from './buildInfo'
 
 // L1 layout substrate renderer (REQ-82) — the one safe emitter.
-export { renderL1Document, renderL1Page, renderL1Fragment, L1_REVEAL_SCRIPT } from './l1/render'
+export {
+  renderL1Document,
+  renderL1Page,
+  renderL1Fragment,
+  L1_REVEAL_SCRIPT,
+  L1_POINTER_SCRIPT,
+} from './l1/render'
 export type {
   L1RenderResult,
   L1FragmentResult,

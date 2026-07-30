@@ -32,6 +32,7 @@ import type {
   L1Motion,
   L1Node,
   L1Pattern,
+  L1PointerAccent,
   L1Resources,
   L1Reveal,
   L1ScalarTrack,
@@ -451,6 +452,14 @@ function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[]
     )
   }
   if (a.blendMode && a.blendMode !== 'normal') out.push(`mix-blend-mode: ${a.blendMode}`)
+  // REQ-108 — an accented node must be a stacking context, or its negative-z
+  // overlay escapes to an ancestor and paints BEHIND this node's own background
+  // (see the section comment, §4). `isolation` is used rather than `z-index: 0`
+  // because it creates the context without entering the sibling z-order, so a
+  // band that gains an accent cannot start painting over the band above it.
+  // Emitted only where the accent actually paints — the same two-source test
+  // `pointerAccentRules` makes — so a node with no texture takes no declaration.
+  if (a.pointerAccent && (a.pattern || bgUrl)) out.push('isolation: isolate')
   return out
 }
 
@@ -771,6 +780,313 @@ var ns=document.getElementsByClassName('${REVEAL_CLASS}');
 for(var i=0;i<ns.length;i++)io.observe(ns[i]);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);else run();
+})();`
+
+// ── REQ-108 pointer accent: the texture, redrawn under the reader's hand ──────
+//
+// The construction is REQ-100's, one step further. A document names a *typed
+// value bag* (`pointerAccent`) and only this emitter knows it compiles to a
+// pseudo-element, a mask built from N radial lobes, and one shared pointer
+// listener. No document can name a selector, a mask string, or a script.
+//
+// Four properties make it safe rather than merely pretty:
+//
+//   1. **It fails visible, and it fails STILL.** The overlay rule is gated on a
+//      `data-l1-pointer` marker that only the script sets, and on the *first real
+//      pointermove* at that — not on load. No JS, a touch device, a
+//      reduced-motion preference, or a headless capture (which never moves a
+//      pointer) → the marker is absent, the rule never matches, and the band
+//      paints its plain texture. This is also what keeps the L1 round-trip honest:
+//      the captured page is the unaccented page.
+//   2. **The accent cannot drift from the texture.** It is not a second design —
+//      it is the node's own {@link L1Pattern} re-emitted through
+//      {@link patternLayers} with one colour substituted, or the node's own
+//      background asset used as its own mask at the identical `cover / center`
+//      geometry. Change the grid's spacing and the accent follows, because it is
+//      the same call.
+//   3. **The script carries no instance data.** Every number from the axis — the
+//      reach, the lobe radii, the angular offsets, the feather — is baked into the
+//      CSS here. The script supplies only N lagging cursor trackers, so it never
+//      learns a radius, a colour, or how many lobes a mask happens to use.
+//   4. **It composes rather than covers.** The overlay sits at `z-index: -1` so it
+//      paints above the node's own background and *below* its content — a teal
+//      grid line never lands on top of a headline. That ordering is only reliable
+//      inside a stacking context, which is why an accented node also takes
+//      `isolation: isolate` (see {@link surfaceDecls}); without it a negative-z
+//      pseudo-element escapes to an ancestor and hides behind the band's own fill.
+
+/** The class an author cannot write: the pointer listener's handle on a node. */
+const POINTER_CLASS = 'l1-pt'
+/** Set by the script only on a real pointer's first move (see §1 above). */
+const POINTER_MARKER = 'html[data-l1-pointer]'
+/**
+ * How many lobes make up the region's outline.
+ *
+ * A renderer constant, deliberately NOT an axis: how many bumps read as "rough"
+ * is a property of the mechanism, and exposing it would let a document reach into
+ * the mask's construction (and, at a large enough count, into the compositor's
+ * budget). Seven is enough for an outline with no evident symmetry, and it is
+ * coprime with the 3× radial variation in {@link pointerLobes} so no two lobes
+ * share a reach.
+ */
+const POINTER_LOBES = 7
+/** Inherited from `<html>`: 1 once a pointer is in the page, 0 when it leaves. */
+const POINTER_OPACITY_VAR = '--l1-pto'
+/** The fade when the pointer leaves the window — not the tracking, which is JS. */
+const POINTER_FADE_MS = 220
+
+/**
+ * How many times an asset-drawn texture is composited into its own mask.
+ *
+ * A mask takes a texture's ALPHA, so an accent drawn through one can never paint
+ * heavier than the texture did — and the hero's grid is stroked at 0.24, which put
+ * the first cut of this axis ~25 levels away from the cream it sat on: measurable,
+ * and invisible. An accent that can only ever equal the line it replaces cannot be
+ * seen on a faint line, so the mask layer is repeated and the copies ADD
+ * (`1-(1-a)^n`), saturating a faint texture toward a full-strength accent while
+ * leaving an already-solid one exactly where it was.
+ *
+ * A renderer constant rather than an axis, for the same reason {@link POINTER_LOBES}
+ * is: it is a property of the mechanism (how hard the accent asserts itself over a
+ * faint texture), not a design decision, and dressing "how many mask passes" up as
+ * an author-facing strength dial would be naming the implementation.
+ *
+ * Chosen by looking: at 4 passes the hero's 0.24 grid reaches ~0.68 — clearly a
+ * teal line rather than a tinted one — without the region reading as a wash.
+ */
+const POINTER_TEXTURE_PASSES = 4
+
+/** One lobe of the region: its offset from the cursor, its radius, its hard core. */
+interface PointerLobe {
+  dx: number
+  dy: number
+  radius: number
+  /** Where the mask is still fully opaque — the feather runs from here to `radius`. */
+  inner: number
+}
+
+/**
+ * REQ-108 — the region's outline, as N overlapping circles.
+ *
+ * Roughness is produced by *construction*, not by randomness, which is what makes
+ * the shape stable while the pointer is still: the lobes sit at fixed angles with
+ * fixed radii, so a settled region is the same region every time, and it is
+ * identical between the renderer's output and any capture of it.
+ *
+ * Each lobe reaches out to `reach_i` in its own direction, varying with `cos(3θ)`
+ * so the outline has three shallow bays rather than seven identical bumps, and is
+ * centred a third of the way out with a radius covering the remainder — so every
+ * lobe still overlaps the cursor and the region is solid in the middle rather than
+ * a ring of discs.
+ *
+ * `roughness: 0` collapses the offsets AND the variation to zero, leaving N
+ * concentric circles of radius `radiusPx` — a plain disc. So the dial's floor is a
+ * neat circle and its ceiling is a lumpy one, with nothing else to know.
+ */
+function pointerLobes(accent: L1PointerAccent): PointerLobe[] {
+  const R = accent.radiusPx
+  const rough = accent.roughness ?? 0.5
+  const soft = accent.softnessPx ?? R / 3
+  const lobes: PointerLobe[] = []
+  for (let i = 0; i < POINTER_LOBES; i++) {
+    const t = (i / POINTER_LOBES) * Math.PI * 2
+    // Reach never EXCEEDS radiusPx — the axis names the region's outer bound, so a
+    // rougher outline eats inward rather than growing past what the author asked for.
+    const reach = R * (1 - 0.22 * rough * (0.5 + 0.5 * Math.cos(3 * t + 1)))
+    const d = 0.35 * reach * rough
+    const radius = reach - d
+    lobes.push({
+      dx: d * Math.cos(t),
+      dy: d * Math.sin(t),
+      radius,
+      inner: Math.max(0, radius - soft),
+    })
+  }
+  return lobes
+}
+
+/**
+ * One lobe centre coordinate: the script's tracker plus this lobe's fixed offset.
+ *
+ * The fallback is far outside any box, so a marker set without the trackers ever
+ * having been written (nothing does that, but the rule should not depend on it)
+ * masks to nothing rather than blooming at the origin.
+ */
+function pointerTerm(varName: string, offset: number): string {
+  const o = Math.round(offset * 1e4) / 1e4
+  const fallback = `var(${varName}, -9999px)`
+  if (o === 0) return fallback
+  return `calc(${fallback} ${o < 0 ? '-' : '+'} ${num(Math.abs(o))}px)`
+}
+
+/**
+ * REQ-108 — a node's pointer accent → the overlay rules that paint it.
+ *
+ * Returns nothing at all when the node paints no texture: the axis accents *a
+ * texture*, and on a node with neither a pattern nor a background image there is
+ * nothing to redraw, so the honest emission is silence rather than a bloom of flat
+ * colour following the mouse.
+ */
+function pointerAccentRules(selector: string, a: L1SurfaceAxes): Rule[] {
+  const accent = a.pointerAccent
+  if (!accent) return []
+  const color = cssColor(accent.color)
+  if (!color) return []
+
+  // The region, as layers of one colour — `#000` when it is masking (only its alpha
+  // is read) or the accent colour when it is painting. Layers UNION either way,
+  // because both a background stack and a mask stack composite `source-over` by
+  // default, so the region is the shape the lobes cover TOGETHER. That default is
+  // also why no `mask-composite` is emitted anywhere: the one construction that
+  // needed `intersect` is the one this function no longer uses.
+  const region = (c: string): BgLayer[] =>
+    pointerLobes(accent).map((l, i) => ({
+      image:
+        `radial-gradient(circle at ${pointerTerm(`--l1-pt${i}x`, l.dx)} ` +
+        `${pointerTerm(`--l1-pt${i}y`, l.dy)}, ${c} ${num(l.inner)}px, transparent ${num(l.radius)}px)`,
+      size: 'auto',
+      position: '0 0',
+      repeat: 'no-repeat',
+    }))
+
+  const decls = [
+    "content: ''",
+    'position: absolute',
+    'inset: 0',
+    // §4 — above the node's own background, below its content.
+    'z-index: -1',
+    // Decoration must never eat a click, a hover or a text selection.
+    'pointer-events: none',
+    // A rounded band would otherwise show square accent corners.
+    'border-radius: inherit',
+    `opacity: var(${POINTER_OPACITY_VAR}, 0)`,
+    `transition: opacity ${POINTER_FADE_MS}ms ease-out`,
+  ]
+
+  // The texture and the region take OPPOSITE sides of the compositing pair, chosen
+  // by which side the texture can occupy: a pattern is drawn by gradients, so it
+  // must be the paint and the region masks it; an asset carries only alpha the
+  // renderer cannot recolour, so it must be the mask and the region paints. Each
+  // arrangement is a union-only stack, which is why neither needs `mask-composite`.
+  let paint: BgLayer[]
+  let mask: BgLayer[]
+  if (a.pattern) {
+    // §2 — the SAME emitter as the base texture, with one colour substituted.
+    paint = patternLayers({ ...a.pattern, color: accent.color })
+    if (!paint.length) return []
+    mask = region('#000')
+  } else {
+    // The asset branch — the hero's perspective grid, which no orthogonal tile can
+    // express. The asset is strokes on transparency, so its ALPHA is the grid: mask
+    // with it and the accent lands on exactly those strokes, recolouring them with
+    // no second asset and no colour baked into a file. The region cannot also be a
+    // mask layer here (a union of lobes intersected with the asset is not a
+    // union-only stack), so it becomes the paint instead — which is the same result
+    // by the other route, and leaves the asset free to repeat and gain weight.
+    const url = cssUrl(a.backgroundImageUrl)
+    if (!url) return []
+    paint = region(color)
+    // BUG-13's geometry, restated verbatim, so the teal strokes land on the brown
+    // ones at every viewport rather than sliding off them.
+    mask = Array.from({ length: POINTER_TEXTURE_PASSES }, () => ({
+      image: url,
+      size: 'cover',
+      position: 'center',
+      repeat: 'no-repeat',
+    }))
+  }
+
+  decls.push(
+    `background-image: ${paint.map((l) => l.image).join(', ')}`,
+    `background-size: ${paint.map((l) => l.size).join(', ')}`,
+    `background-position: ${paint.map((l) => l.position).join(', ')}`,
+    `background-repeat: ${paint.map((l) => l.repeat).join(', ')}`,
+  )
+  // The prefixed longhands first, so a browser that understands both takes the
+  // standard ones (older Safari and Chrome know only the prefixed forms).
+  for (const prefix of ['-webkit-', '']) {
+    decls.push(
+      `${prefix}mask-image: ${mask.map((m) => m.image).join(', ')}`,
+      `${prefix}mask-size: ${mask.map((m) => m.size).join(', ')}`,
+      `${prefix}mask-position: ${mask.map((m) => m.position).join(', ')}`,
+      `${prefix}mask-repeat: ${mask.map((m) => m.repeat).join(', ')}`,
+    )
+  }
+
+  const overlay = `${POINTER_MARKER} ${selector}::after`
+  return [
+    { selector: overlay, decls },
+    // Belt and braces on the reduced-motion obligation, exactly as the reveal does
+    // it: the script already declines to set the marker, and this makes the overlay
+    // inert even if some other path sets it. A cursor-tracking region is motion.
+    { media: REDUCED_MOTION, selector: overlay, decls: ['display: none'] },
+  ]
+}
+
+/**
+ * The one renderer-owned script that drives every pointer accent on the page —
+ * vetted once, identical for every site, carrying no instance data of any kind
+ * (§3 above): it knows how many trackers to run and how hard each one lags, and
+ * nothing else. Reach, roughness, feather and colour never reach it.
+ *
+ * It returns *before* setting the marker whenever the effect must not run — no
+ * pointer events, no rAF, a reduced-motion preference, or an input that is not a
+ * fine hovering pointer (a touchscreen has no cursor to follow, and a
+ * finger-triggered bloom under an element the reader just tapped is noise). And it
+ * sets the marker on the first real `pointermove` rather than on load, so a page
+ * nobody has moved a pointer over — every capture, every crawler — is the plain
+ * page.
+ *
+ * The trackers are what make the region deform. Each eases toward the cursor by
+ * its own fraction, so while the pointer moves they string out behind it and the
+ * lobes they carry pull the outline apart; when it stops they all converge on the
+ * same point and the outline settles to the fixed shape {@link pointerLobes}
+ * describes. The rAF loop runs only while some tracker is still short of the
+ * cursor and stops when they arrive, so a still pointer costs nothing per frame —
+ * which is the "stable while the mouse is still" requirement, met by *not
+ * running* rather than by damping.
+ *
+ * Every rect is read before any property is written, so a frame never interleaves
+ * layout reads with style writes.
+ */
+export const L1_POINTER_SCRIPT = `(function(){
+var d=document.documentElement;
+if(!('PointerEvent' in window)||!('requestAnimationFrame' in window)||!window.matchMedia)return;
+try{
+if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+if(!window.matchMedia('(hover: hover) and (pointer: fine)').matches)return;
+}catch(e){return}
+var N=${POINTER_LOBES},LAG=[0.5,0.36,0.28,0.22,0.17,0.13,0.1];
+var px=0,py=0,tx=null,ty=null,raf=0,on=false;
+function frame(){
+raf=0;
+var i,j,busy=false;
+for(i=0;i<N;i++){
+var ex=px-tx[i],ey=py-ty[i];
+if(ex*ex+ey*ey>0.04)busy=true;
+tx[i]+=ex*LAG[i];ty[i]+=ey*LAG[i];
+}
+var ns=document.getElementsByClassName('${POINTER_CLASS}'),rects=[];
+for(j=0;j<ns.length;j++)rects.push(ns[j].getBoundingClientRect());
+for(j=0;j<ns.length;j++){
+var r=rects[j],s=ns[j].style;
+for(i=0;i<N;i++){
+s.setProperty('--l1-pt'+i+'x',(tx[i]-r.left)+'px');
+s.setProperty('--l1-pt'+i+'y',(ty[i]-r.top)+'px');
+}}
+if(busy)raf=requestAnimationFrame(frame);
+}
+function move(e){
+if(e.pointerType&&e.pointerType!=='mouse'&&e.pointerType!=='pen')return;
+px=e.clientX;py=e.clientY;
+if(!tx){tx=[];ty=[];for(var i=0;i<N;i++){tx.push(px);ty.push(py)}}
+if(!on){on=true;d.setAttribute('data-l1-pointer','');d.style.setProperty('${POINTER_OPACITY_VAR}','1')}
+if(!raf)raf=requestAnimationFrame(frame);
+}
+function fade(){if(on)d.style.setProperty('${POINTER_OPACITY_VAR}','0')}
+document.addEventListener('pointermove',move,{passive:true});
+document.addEventListener('pointerleave',fade);
+window.addEventListener('blur',fade);
 })();`
 
 // ── REQ-96 control leaves: the module's element, painted by L1 ────────────────
@@ -1107,16 +1423,28 @@ interface RenderState {
   controls?: Readonly<Record<string, L1ControlElement>>
   /** REQ-100 — set once any node reveals, so a motionless page ships no script. */
   hasReveal?: boolean
+  /** REQ-108 — set once any node accents, so a page with no accent ships no script. */
+  hasPointerAccent?: boolean
 }
 
 function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string {
   const name = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
   const selector = `.${name}`
+  // REQ-108 — the accent overlay. Resolved here, before the class attribute, so
+  // the marker class is added only when the accent actually paints: the emitter
+  // returns nothing for a node whose axis names no texture to redraw, and a class
+  // on such a node would make the script write custom properties every frame for
+  // an overlay that does not exist.
+  const accentRules = pointerAccentRules(selector, (node.axes ?? {}) as L1SurfaceAxes)
+
   // REQ-100 — a revealing node carries a second, fixed class purely as the
-  // observer's handle. Splitting the *attribute value* from the *selector name*
-  // here means every node kind's markup picks it up without any of them
-  // re-litigating how a class attribute is built.
-  const cls = node.reveal ? `${name} ${REVEAL_CLASS}` : name
+  // observer's handle; REQ-108's accent adds a third the same way. Splitting the
+  // *attribute value* from the *selector name* here means every node kind's markup
+  // picks them up without any of them re-litigating how a class attribute is built.
+  const marks = [name]
+  if (node.reveal) marks.push(REVEAL_CLASS)
+  if (accentRules.length) marks.push(POINTER_CLASS)
+  const cls = marks.join(' ')
 
   // REQ-106 — a node's own `id` becomes a real DOM id, so `href="#how"` has
   // something to land on. Uniqueness is the envelope validator's job (a duplicate
@@ -1427,6 +1755,14 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
     state.hasReveal = true
   }
 
+  // REQ-108 — the accent overlay's own rules (resolved at the top of the emitter).
+  // Its opacity fade is the pseudo-element's, not the node's, so it stays out of
+  // `transitions` and cannot collide with a hover or an entrance on the node.
+  if (accentRules.length) {
+    state.rules.push(...accentRules)
+    state.hasPointerAccent = true
+  }
+
   if (transitions.length) {
     base.push(...transitionDecls(transitions))
     // One blanket kill-switch covers every transitioning property on the node:
@@ -1504,10 +1840,11 @@ export interface L1RenderResult {
   html: string
   css: string
   /**
-   * REQ-100 — the renderer-owned reveal script, present only when the document
-   * actually reveals something. Already inlined at the head of `html`; exposed
-   * separately so a CSP-bound consumer can hash or nonce it rather than having
-   * to find it in the markup.
+   * The renderer-owned scripts the document actually needs — REQ-100's reveal
+   * observer, REQ-108's pointer accent — concatenated in emission order, and
+   * absent entirely when it needs none. Already inlined at the head of `html`;
+   * exposed separately so a CSP-bound consumer can hash or nonce it rather than
+   * having to find it in the markup.
    */
   js?: string
 }
@@ -1545,9 +1882,14 @@ export function renderL1Document(doc: L1Document, opts: L1RenderOptions = {}): L
   const css = [reset.join('\n'), ...faces, serializeRules(state.rules)].join('\n')
   // REQ-100 — the reveal script rides at the TOP of the body, so its
   // `data-l1-motion` marker is set before the content beneath it paints. A page
-  // that reveals nothing ships no script at all.
-  if (!state.hasReveal) return { html: body, css }
-  return { html: `<script>${L1_REVEAL_SCRIPT}</script>\n${body}`, css, js: L1_REVEAL_SCRIPT }
+  // that reveals nothing ships no script at all, and REQ-108's accent script is
+  // present on the same terms: only when a node actually carries the axis.
+  const scripts: string[] = []
+  if (state.hasReveal) scripts.push(L1_REVEAL_SCRIPT)
+  if (state.hasPointerAccent) scripts.push(L1_POINTER_SCRIPT)
+  if (!scripts.length) return { html: body, css }
+  const js = scripts.join('\n')
+  return { html: `<script>${js}</script>\n${body}`, css, js }
 }
 
 export interface L1FragmentResult {

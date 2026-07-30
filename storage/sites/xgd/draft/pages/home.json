@@ -861,7 +861,13 @@
             }
           },
           "axes": {
-            "backgroundImageUrl": "/assets/xgd-grid-hero.svg?v=3"
+            "backgroundImageUrl": "/assets/xgd-grid-hero.svg?v=3",
+            "pointerAccent": {
+              "color": "#2e86a3",
+              "radiusPx": 95,
+              "softnessPx": 34,
+              "roughness": 0.65
+            }
           }
         },
         {
@@ -1427,6 +1433,12 @@
               "spacingPx": 48,
               "thicknessPx": 1,
               "color": "#8b5c2a1a"
+            },
+            "pointerAccent": {
+              "color": "#2e86a3a6",
+              "radiusPx": 95,
+              "softnessPx": 34,
+              "roughness": 0.65
             }
           }
         },
@@ -3340,6 +3352,12 @@
               "spacingPx": 48,
               "thicknessPx": 1,
               "color": "#8b5c2a1a"
+            },
+            "pointerAccent": {
+              "color": "#2e86a3a6",
+              "radiusPx": 95,
+              "softnessPx": 34,
+              "roughness": 0.65
             }
           }
         },
