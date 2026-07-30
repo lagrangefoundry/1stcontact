@@ -53,6 +53,14 @@ export const L1_ENVELOPE = {
   patternSpacingPx: { min: 1, max: 1000 },
   /** REQ-103 — a pattern's line width / dot diameter, bounded like any effect length. */
   patternThicknessPx: { min: 0, max: 1000 },
+  /**
+   * REQ-108 — how far a pointer accent reaches from the cursor. The floor keeps a
+   * region from being a sub-pixel artefact no reader can see (a mask that costs a
+   * repaint per frame and paints nothing); the ceiling keeps "an accent under the
+   * hand" from becoming a full-bleed recolour that follows the mouse, which is a
+   * different design and a compositor cost the author did not choose.
+   */
+  pointerAccentRadiusPx: { min: 8, max: 1000 },
 } as const
 
 /**
@@ -335,6 +343,7 @@ function checkSurface(
     backdropBlurPx?: number
     backgroundImageUrl?: string
     pattern?: { spacingPx: number; thicknessPx?: number; angleDeg?: number }
+    pointerAccent?: { radiusPx: number; softnessPx?: number }
   },
   path: string,
   errors: ValidationError[],
@@ -379,6 +388,21 @@ function checkSurface(
       })
     }
     checkEffectLen(angleDeg, `${path}/pattern/angleDeg`, errors)
+  }
+  // REQ-108 — the pointer accent's reach and feather are lengths, bounded here for
+  // the same reason the pattern's are: the schema says a positive number, the
+  // envelope says how large a number a document may hold. `roughness` needs no
+  // rule — the schema already pins it to 0..1, which is the whole of its range.
+  if (axes.pointerAccent) {
+    const { radiusPx, softnessPx } = axes.pointerAccent
+    const reach = L1_ENVELOPE.pointerAccentRadiusPx
+    if (!inRange(radiusPx, reach.min, reach.max)) {
+      errors.push({
+        path: `${path}/pointerAccent/radiusPx`,
+        message: `radiusPx=${radiusPx} out of range [${reach.min}, ${reach.max}]`,
+      })
+    }
+    checkEffectLen(softnessPx, `${path}/pointerAccent/softnessPx`, errors)
   }
 }
 
