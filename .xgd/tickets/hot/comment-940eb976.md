@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T18:52:20.606322+00:00'
+updated_at: '2026-07-30T18:58:43.811838+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -292,5 +292,11 @@ Both done — committed as `91702915d` (REQ-108, v0.1.3).
 One judgement call I made while testing: I dropped the spacing from 48px to 24px. With the base invisible, spacing stops being a design constraint and becomes purely an effect parameter — at 48px only ~4 lines land inside the region and it reads as a crosshair, whereas at 24px you can actually see the amoeba silhouette in the grid patch (both screenshots above). Easy to change if you prefer the sparser look.
 
 Worth noting the two bands now differ in character: the invisible-grid bands light a dense, full-strength patch anywhere you move, while the hero/how/contract asset grids only respond near their sparse motifs (0.9–13% coverage). If you like the invisible-grid behaviour, the same trick could be applied to those three bands as well — they'd keep their existing decorative grid *and* gain a full-bleed invisible one for the cursor to light.
+
+<!-- xgd-turn id="75e3b124-8940-4c95-b6b3-2d4df7f2d17d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T18:58:43.778485+00:00" -->
+#### You
+ok I like the transparent grid. I may decide later that it is too much but I think its kind of fun. Can you (1) add it to the PROOF section and (2) make it a little coarser please
 
 <!-- xgd-chat-end -->
