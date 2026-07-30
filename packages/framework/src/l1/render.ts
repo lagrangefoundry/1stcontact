@@ -452,14 +452,6 @@ function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[]
     )
   }
   if (a.blendMode && a.blendMode !== 'normal') out.push(`mix-blend-mode: ${a.blendMode}`)
-  // REQ-108 — an accented node must be a stacking context, or its negative-z
-  // overlay escapes to an ancestor and paints BEHIND this node's own background
-  // (see the section comment, §4). `isolation` is used rather than `z-index: 0`
-  // because it creates the context without entering the sibling z-order, so a
-  // band that gains an accent cannot start painting over the band above it.
-  // Emitted only where the accent actually paints — the same two-source test
-  // `pointerAccentRules` makes — so a node with no texture takes no declaration.
-  if (a.pointerAccent && (a.pattern || bgUrl)) out.push('isolation: isolate')
   return out
 }
 
@@ -812,8 +804,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 //      paints above the node's own background and *below* its content — a teal
 //      grid line never lands on top of a headline. That ordering is only reliable
 //      inside a stacking context, which is why an accented node also takes
-//      `isolation: isolate` (see {@link surfaceDecls}); without it a negative-z
-//      pseudo-element escapes to an ancestor and hides behind the band's own fill.
+//      `isolation: isolate` — behind the same marker, so §1 has no exception;
+//      without it a negative-z pseudo-element escapes to an ancestor and hides
+//      behind the band's own fill.
 
 /** The class an author cannot write: the pointer listener's handle on a node. */
 const POINTER_CLASS = 'l1-pt'
@@ -1015,6 +1008,19 @@ function pointerAccentRules(selector: string, a: L1SurfaceAxes): Rule[] {
 
   const overlay = `${POINTER_MARKER} ${selector}::after`
   return [
+    // §4 — the node must be a stacking context, or the negative-z overlay escapes to
+    // an ancestor and paints BEHIND this node's own background. `isolation` rather
+    // than `z-index: 0` because it creates the context without entering the sibling
+    // z-order, so a band that gains an accent cannot start painting over the one
+    // above it.
+    //
+    // Gated on the marker like every other declaration the axis adds, which makes
+    // the fail-visible invariant TOTAL: "nothing this axis emits applies before a
+    // pointer moves", with no exception to carve out of the test. Measured
+    // unconditionally it moved nothing on a resting band (0 pixels, reveals
+    // settled) — but a stacking context is the kind of thing that can change how a
+    // band rasterises, and not creating one until it is needed costs nothing.
+    { selector: `${POINTER_MARKER} ${selector}`, decls: ['isolation: isolate'] },
     { selector: overlay, decls },
     // Belt and braces on the reduced-motion obligation, exactly as the reveal does
     // it: the script already declines to set the marker, and this makes the overlay

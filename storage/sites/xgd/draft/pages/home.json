@@ -2070,7 +2070,13 @@
             }
           ],
           "axes": {
-            "backgroundImageUrl": "/assets/xgd-echo-1.svg?v=3"
+            "backgroundImageUrl": "/assets/xgd-echo-1.svg?v=3",
+            "pointerAccent": {
+              "color": "#2e86a3",
+              "radiusPx": 95,
+              "softnessPx": 34,
+              "roughness": 0.65
+            }
           }
         },
         {
@@ -2995,7 +3001,13 @@
             }
           ],
           "axes": {
-            "backgroundImageUrl": "/assets/xgd-echo-3.svg?v=3"
+            "backgroundImageUrl": "/assets/xgd-echo-3.svg?v=3",
+            "pointerAccent": {
+              "color": "#2e86a3",
+              "radiusPx": 95,
+              "softnessPx": 34,
+              "roughness": 0.65
+            }
           }
         },
         {
