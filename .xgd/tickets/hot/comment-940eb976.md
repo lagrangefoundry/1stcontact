@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T18:17:36.873400+00:00'
+updated_at: '2026-07-30T18:46:11.893865+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -254,5 +254,13 @@ The flicker is real randomness, in the script: each bump's radius chases a fresh
 Two corrections to things I said earlier: my "~5000 pixels moved" claim about `isolation` was wrong (it was reveal fades caught mid-flight — it moves 0), and the 14k–30k px accent footprints I quoted were inflated the same way. The honest footprint is ~1–2.4k px per region.
 
 **One thing worth your call.** With the full-bleed grids gone, the effect now only appears near those sparse motifs. If you want it to work across a whole band without a visible grid, there's a clean trick: give the band a `pattern` with a fully transparent colour (`#8b5c2a00`). The base grid paints nothing, and the accent redraws it in teal — so the grid exists *only* under the cursor. One-line site edit, no framework change. Say the word and I'll apply it to whichever bands you want.
+
+<!-- xgd-turn id="16a15f49-2f7f-4f78-a768-581cdd7add92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T18:46:11.863282+00:00" -->
+#### You
+Lets try that to see what it looks like
+
+Also if I move focus to another window and come back, some of the animations still work but this effect has died
 
 <!-- xgd-chat-end -->
