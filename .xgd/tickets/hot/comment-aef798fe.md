@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T21:03:35.502519+00:00'
+updated_at: '2026-07-30T21:05:48.740199+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -117,5 +117,78 @@ ok lets see, there are two whitepapers - did you find them? Yes they should be n
 At this point I'm still a ways of beta so whitelist is the primary CTA
 
 Our position on vibecoding has changed significantly since we started. It might be worth taking a moment to reflect on that since I'm not sure really where our current documentation sits on this. And it's original conception XGD was a fully automated code generation system you drop in specifications at the top and the system runs through a full development cycle and produces code at the bottom. The code has some guarantees that it will work and do some version of the specification that was asked of it. There were two problems with this one it's very hard to get specification correct for anything that is not trivial. Two the full code generation cycle is long, even for a small bug there's a lot of planning and testing in the work that means you must wait several hours before your code is ready. As we know from agile and lean development the cycle time from specification to observe code is actually a really important metric and detaining the effectiveness of a software development process and what I found was that I kept falling back to vibecoding rather than using my automated development simply because I could get immediate feedback on what was going on. So I prioritized a second alternative workflow which we call free coding. Under free coding the AI is essentially driven in a vibe coding like fashion. The AI actually has some operational rules that it must follow which it mostly does but to the user the experience is similar to a kind of structured vibecoding and critically it operates at the same cadence so code appears rapidly. XGD then runs background processes to properly inculcate the specifications into the capability matrix. This process is called reconciliation. So, not the experience of using XGD for creating software is very vibe coding like, and the dashboard and tooling have been created to support this kind of structured vibe coding experience. However, we are trying to possess ourselves as being qualitatively different from vibecoding in that we have the capability matrix and all of the machinery associated with it that protects against system regressions. Broadly speaking (and we probably don't have enough data to make this claim too strongly) we see around one regression for every two tickets implemented when free coding against a complicated code base. XGD holds to the intended specification and fixes these regressions automatically. That is the magic that we need to communicate.
+
+<!-- xgd-turn id="b1854589-b1ad-4d04-ba13-df5e6f0ed593-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T21:05:48.705859+00:00" -->
+#### Claude
+Let me check the papers and what the current docs actually say about vibe coding — I don't want to reflect on a remembered position.
+
+## The papers
+
+Two public papers, both in `xgd-biz`:
+
+- **DOC-4 — "How Can You Trust the Code Your AI Writes?"** — frames the problem: four waves, the scaling wall, behavioral identity, the Software Artificer.
+- **DOC-5 — "Extreme Generative Development: An Experiment in AI Software Development"** — XGD as the answer, plus the nine-month self-build report.
+
+There's also **DOC-8, "Accountability as a First Principle"**, which DOC-7 lists alongside the other two as a public whitepaper. You said two — so is DOC-8 not for release, or just not ready?
+
+**One hard dependency:** there are no PDFs. I searched both repos — zero. The papers exist only as ticket bodies. Gated download needs an actual artifact before any of the capture mechanics matter.
+
+## Capture mechanics
+
+Flipping to waitlist-primary is straightforward copy work. Two things that aren't:
+
+**The mailing-list checkbox doesn't exist.** `contact-form`'s field schema (`packages/framework/src/modules/contact-form/meta.ts:48`) allows `text | email | tel | textarea` only. No checkbox, no boolean. By your own CLAUDE.md test this is cleanly behavioural — it changes what gets submitted, not how anything looks — so it's a legitimate `config` addition to `contact-form` rather than an L1 gap. Wants its own ticket.
+
+**Hard-to-guess links are a backend, and there isn't one.** The form posts to `/api/lead`, which doesn't exist. Tokenised URLs + delivery is exactly the Cloudflare work you parked. So the page can honestly promise "we'll email you the papers" today, but nothing will arrive until that's stood up — worth deciding whether the site ships before or after.
+
+Minor: DOC-5 §6 gives `beta@gendevlabs.ai` as the contact, which now contradicts the xgd.dev decision.
+
+## Where the documentation actually sits on vibe coding
+
+I audited it rather than reconstructing from memory, and the answer is cleaner than I expected: **the whitepapers already carry your new position. The positioning keystone doesn't.**
+
+**DOC-4 is aligned.** Wave 3 contains this sentence: *"Automation returns generative development to the speed of vibe coding but with the discipline of agentic engineering integrated into it."* That is your new position, already written, sitting inside the four-waves argument.
+
+**DOC-5 is aligned and specific.** §4 names free coding, reconciliation, *"preserves the iteration velocity that makes vibe coding valuable — results in five to ten minutes,"* and §4's closing paragraph makes exactly your argument about cycle time driving discovery. It also carries the number: *"one regression for every two tickets created."* (Defect worth fixing: §4 is titled "Three Modes of Working" and lists two.)
+
+**DOC-9 is the stale one** — and it's the doc whose own header says *"if this drifts, every downstream doc drifts."* It has drifted while its downstream papers stayed current.
+
+- §1 core message — *"XGD safely gets the human out of the coding loop"* — describes autonomous mode. Free coding puts the human firmly *in* the loop; just not the code-review loop.
+- §2's three-act spine treats vibe coding as the thing to escape. Your product treats it as the thing to **keep**.
+- §10 "Don't anchor the category to vibe coding (hook only, then pivot)" now under-serves the product, because vibe coding is no longer a hook — it's a description of the actual user experience.
+- And the keystone already half-knows: §7's own founder-value example is *"Build at vibe-coding speed…"*, which contradicts §10 two sections later.
+
+**Why this matters for the site:** the current page was authored from DOC-9, so it inherits the autonomous-pipeline story wholesale. There is not one word on that page about what using XGD actually feels like. The contract table is the sharpest symptom — "XGD owns technical design and sprint planning" describes the overnight mode, not the mode you actually work in.
+
+## The reframe I'd propose
+
+Your account gives a better three-act spine than the one in DOC-9, and its third beat is genuinely fresh:
+
+1. **Vibe coding is fast, and the speed is the point.** Short loop means you learn — about the architecture and about what the product should be.
+2. **Every attempt to make it safe puts a process in front of you.** Spec it, plan it, review it — minutes become hours, so you stop using it.
+3. **XGD moves the governance behind you.** You work at chat cadence; reconciliation builds the capability matrix in the background; regressions are caught and fixed without you.
+
+The claim underneath is one sentence and I don't think anyone else is making it: **governance runs off the critical path.** Not "we made rigour tolerable" — "we took rigour out of your way."
+
+**And the strongest asset here is the abandonment story.** You built the fully automated version first, and then caught yourself not using it. That's the same rhetorical shape as "I've never read my own source" — a founder reporting an inconvenient finding about their own product, which reads as credibility rather than marketing. Right now it appears in no document at all, only in your message to me. I'd put it on the page.
+
+Three things I'd flag before we commit to this:
+
+- **It cuts against DOC-9 §5.** Leaning on vibe coding pulls exactly the magic-wand audience you want to repel. My suggestion: lead on *cadence* — "you never wait for the process" — and use vibe coding as the named contrast **inside** the story, not as the promise on the hero. Keeps the qualify-out intact.
+- **The regression stat needs careful framing.** "One regression per two tickets" is simultaneously proof that the net works and an admission of how often generative development breaks things. Framed as *what free coding on a 130k-line codebase actually costs, all caught and fixed automatically*, it's your best number. Framed loosely, a skeptic reads it as an indictment. And you're right that the data is thin — n=1 system — so I'd state that limitation on the page rather than let someone else find it.
+- **Does the hero survive?** I think "AI writes it. XGD keeps it working." does — it's cadence-neutral. But the sub is now doubly wrong: it's mechanism-first *and* it tells the autonomous story. That's where the cadence claim belongs.
+
+## What I'd do next
+
+1. **Update DOC-9** to match DOC-4/DOC-5 — new spine, revised core message, revised §10. Nothing downstream should be written from the current version. Docs are exempt from the free-coding ceremony, so this is quick.
+2. **Then rewrite the page against it** — problem section gets the cycle-time story, a new section on how it actually feels to use, contract table corrected to free coding, proof section loaded with DOC-5's numbers.
+3. **Restructure capture** — waitlist primary, papers named with titles, mailing-list opt-in, fixed `#papers` target.
+4. **File** the checkbox gap on `contact-form`.
+
+Two questions before I start: **is DOC-8 in or out** of the paper offer, and do you want me to **rewrite DOC-9 first** — or draft the new page copy and let the doc catch up afterwards? I'd argue for the doc first, given it's just demonstrated what happens when it lags.
+
+I've made no changes on disk. Want me to record this review and the positioning finding on CHAT-12 before we move?
 
 <!-- xgd-chat-end -->
