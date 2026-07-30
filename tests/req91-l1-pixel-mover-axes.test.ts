@@ -224,7 +224,9 @@ describe('REQ-91 L1 pixel-mover axes — renderer safe sink', () => {
 
   it('test_UAT_FC_REQ-91_box_background_image_url_safe_only', () => {
     const safe = render({ kind: 'box', axes: { backgroundImageUrl: '/assets/hero.jpg' } })
-    expect(safe).toContain('background-image: url("/assets/hero.jpg")')
+    // REQ-109 — safe AND relocatable: the vetted value is emitted
+    // document-relative, so the same bytes serve from any path prefix.
+    expect(safe).toContain('background-image: url("assets/hero.jpg")')
     // An unsafe URL never reaches CSS even if it somehow passed validation: the
     // renderer re-checks the scheme and drops it (defence in depth).
     const doc = docWith({ kind: 'box', axes: { backgroundImageUrl: 'javascript:alert(1)' } } as L1Node)

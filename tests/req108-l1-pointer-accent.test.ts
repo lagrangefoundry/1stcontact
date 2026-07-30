@@ -212,7 +212,10 @@ describe('REQ-108 — a texture responds to the pointer', () => {
     // the cream it sits on: real, and invisible. The copies ADD.
     const mask = commaList(decl(b.overlay, 'mask-image')!)
     expect(mask.length).toBeGreaterThan(1)
-    for (const layer of mask) expect(layer).toBe(`url("${src}")`)
+    // REQ-109 — the mask names the same asset the backdrop does, in the emitted
+    // document-relative form (both sides go through the one `url()` sink).
+    const emitted = src.slice(1)
+    for (const layer of mask) expect(layer).toBe(`url("${emitted}")`)
 
     // The asset mask restates the base layer's geometry EXACTLY, or the teal
     // strokes would slide off the brown ones at every viewport but one.

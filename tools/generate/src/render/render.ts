@@ -213,6 +213,18 @@ export async function renderSite(
   const written: string[] = []
 
   for (const page of site.pages) {
+    // REQ-109 — the flatness invariant. Emitted asset URLs are document-relative
+    // (`assets/x.svg`, not `/assets/x.svg`) so a snapshot is relocatable under any
+    // path prefix. That rewrite is only correct while every page sits FLAT at the
+    // snapshot root: a page one directory down would need a depth-aware `../`
+    // prefix, and would otherwise resolve its assets against its own subdirectory
+    // and 404. Fail loud here rather than emit silently-wrong relative URLs.
+    if (page.slug.includes('/') || page.slug.includes('\\')) {
+      throw new Error(
+        `page slug '${page.slug}' is nested: rendered pages must sit flat at the ` +
+          'snapshot root, because emitted asset URLs are relative to it (REQ-109)',
+      )
+    }
     const html = await renderPage(container, site, page, resolveModule)
     const file = `${page.slug}.html`
     writeText(path.join(outDir, file), html)

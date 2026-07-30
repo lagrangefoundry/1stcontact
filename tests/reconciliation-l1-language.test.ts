@@ -90,7 +90,8 @@ describe('AC-725 typed pixel-mover axes render as CSS re-derived from their type
     // are folded into an 8-digit hex rather than emitted as a raw rgba() string.
     expect(box).toContain(
       'background-image: linear-gradient(#00000080, #00000080), ' +
-        'linear-gradient(180deg, #00d492, #0b0b0b), url("/assets/hero.jpg")',
+        // REQ-109 — emitted document-relative; the axis still authors `/assets/…`.
+        'linear-gradient(180deg, #00d492, #0b0b0b), url("assets/hero.jpg")',
     )
     expect(box).toContain('background-color: #0b0b0b')
     expect(box).toContain('border: 2px dashed #00d492')
@@ -465,12 +466,13 @@ describe('AC-727 a document font resource table binds a family handle to its ser
       // format hint derived from the asset's own extension, the declared weight
       // and style, and `font-display: swap` to keep text visible while loading.
       expect(css).toContain(
-        '@font-face { font-family: "Bound Face"; src: url("/fonts/bound.woff2") format("woff2"); ' +
+        // REQ-109 — the one `url()` sink emits document-relative, fonts included.
+        '@font-face { font-family: "Bound Face"; src: url("fonts/bound.woff2") format("woff2"); ' +
           'font-weight: 600; font-style: italic; font-display: swap }',
       )
       // The hint follows the extension — and is omitted when unrecognised.
-      expect(css).toContain('src: url("/fonts/plain.ttf") format("truetype")')
-      expect(css).toContain('src: url("/fonts/mystery"); font-display: swap')
+      expect(css).toContain('src: url("fonts/plain.ttf") format("truetype")')
+      expect(css).toContain('src: url("fonts/mystery"); font-display: swap')
 
       // The rules are emitted *before* the rules that reference the family, so no
       // rule resolves against a fallback first.
