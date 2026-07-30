@@ -6,9 +6,9 @@ title: 'public-site Worker: serve draft previews and published sites from R2 (Si
   seam)'
 created_by: xgd
 created_at: '2026-07-30T19:35:00.276283+00:00'
-updated_at: '2026-07-30T20:47:08.644363+00:00'
+updated_at: '2026-07-30T20:47:38.943019+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -149,3 +149,72 @@ in [[DOC-7]] §11.3: R2 + Worker rather than Workers Static Assets, because Stat
 Assets binds artifacts to a Worker *deployment* — every publish and every preview
 link would require a deploy, which does not go multi-tenant. Matches [[DOC-5]] §5
 (R2 for static build artifacts).
+
+
+---
+
+## As built (2026-07-30)
+
+Implemented as specified. Files: `apps/public-site/src/routes.ts` (pure grammar),
+`content-type.ts` (pure extension map), `site-store.ts` (`SiteStore` +
+`R2SiteStore`), `index.ts` (handler); R2 binding `SITES` in
+`apps/public-site/wrangler.toml`; the deploy-time reserved-segment gate as
+`assertNoReservedSegment` in `tools/generate/src/deploy/content.ts`, called from
+`cmdDeploy` before upload.
+
+### Decisions taken during implementation
+
+- **The manifest is the authority on what is servable, and untrusted input never
+  reaches a key.** A draft id from the URL is *looked up* in `manifest.previews`
+  and the prefix is then built from the manifest's own value; the published
+  prefix is built from `manifest.live`, which the URL cannot influence. A
+  side-effect worth having: an orphaned snapshot (interrupted upload, or one
+  `--prune` has unlinked but not swept) is unreachable rather than quietly live.
+
+- **Dot-segment traversal never reaches the parser.** WHATWG URL normalises both
+  `..` and its `%2e%2e` spelling before dispatch, so those attempts resolve to
+  some other harmless route. `%2f` is *not* normalised and does reach the parser,
+  which refuses it. The parser rejects `.`/`..`/embedded separators anyway —
+  defence in depth, exercised directly rather than through a `Request`.
+
+- **404s are not cached.** A 404 is the answer for both "never existed" and "not
+  deployed yet"; caching the second would make a fresh deploy look broken.
+
+- **`X-Robots-Tag: noindex` on every draft-channel response**, not only the
+  successful ones — including the 301 and the 404. A crawler that reached a
+  preview should be told so whatever it found there.
+
+- **Beyond the stated scope, all small and all in the same direction**: `HEAD` is
+  served (via `bucket.head`, no body); anything other than `GET`/`HEAD` is a
+  `405` with `Allow`, since the server is read-only; the trailing-slash 301
+  preserves the query string; and `/site/<slug>` redirects on the same rule as
+  the draft form.
+
+- **`test_UAT_FC_REQ-1_public_site_serves_apex_and_wildcard_routes` was updated**,
+  not left to fail: this ticket deliberately replaces the apex zone route with
+  `custom_domain = true`, which supersedes the assertion that test pinned. The
+  wildcard-route half is unchanged.
+
+### Not done
+
+The deploy-time `draft` guard is a standing invariant rather than a currently
+reachable one: `renderSite` emits pages flat and copies assets into `assets/`, so
+no site definition can presently produce a top-level `draft` entry. The gate is
+tested on a synthetic snapshot listing at its own entry point, and will start
+earning its keep the day rendered output gains nesting.
+
+The `wrangler dev` smoke check named under Acceptance was not run — it needs the
+real bucket and a deploy. The UATs drive the Worker's actual `fetch` entry point
+with the bucket seeded by a real `1c deploy`, so the serving path is covered; what
+remains unverified is the wiring to a live R2 bucket and the apex custom domain.
+`wrangler deploy --env production --dry-run` passes and reports the `SITES`
+binding.
+
+### Evidence
+
+`tests/req111-public-site-serving.test.ts` — 10 UATs, one per acceptance bullet
+plus the route grammar, the reserved segment, and warm-cache behaviour. Bucket
+faked at the R2 binding (the one boundary we do not own); route grammar,
+`SiteStore`, header policy and cache are real. Suites run green:
+req111, req110, req109, public-site, control-app, deploy-workflow, generate,
+naming, ci-workflow. `pnpm -r build` clean.
