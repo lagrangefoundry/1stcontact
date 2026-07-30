@@ -27,6 +27,7 @@ import {
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
+import { cmdDeploy, formatDeployReport } from '../deploy'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
@@ -163,6 +164,18 @@ Usage:
   1c checkout <slug> [<revId>] [--force] [--sandbox]
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
+
+Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
+  1c deploy <slug> [--channel draft|published] [--dry-run] [--prune] [--sandbox] [--json]
+    Renders first, always — there is no way to ship stale bytes. The snapshot (out/ plus the
+    source/ it was rendered from, so R2 holds a COMPLETE DOC-12 revision) is content-addressed:
+    redeploying identical bytes is a no-op that returns the same URL.
+    --channel draft (default) publishes an immutable, shareable PREVIEW snapshot; it never enters
+    history.json and never mints a revision number. --channel published ships the current latest
+    revision and moves the manifest's live pointer; it refuses when history.json is empty
+    (publish mints the revision, deploy ships it).
+    --dry-run prints the full plan and writes nothing. --prune deletes snapshot objects the
+    manifest does not reference — the orphans an interrupted deploy leaves behind.
 
 Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
   1c capture page <url>
@@ -353,6 +366,25 @@ export async function run(argv: string[]): Promise<void> {
       })
       const n = changes.added.length + changes.modified.length + changes.removed.length
       console.log(`Published revision r${id} (${n} change(s)) → ${outDir}`)
+      return
+    }
+
+    case 'deploy': {
+      // REQ-110 — render + content-address + upload. Render chatter is diverted so
+      // `--json` stays a single clean document.
+      const slug = requireSlug(rest[0])
+      if (flags.channel !== undefined && flags.channel !== 'draft' && flags.channel !== 'published') {
+        throw new Error(`Invalid --channel '${String(flags.channel)}'. Use draft|published.`)
+      }
+      const result = await withCleanStdout(() =>
+        cmdDeploy(slug, {
+          ...global,
+          channel: flags.channel === 'published' ? 'published' : 'draft',
+          dryRun: flags['dry-run'] === true,
+          prune: flags.prune === true,
+        }),
+      )
+      console.log(flags.json === true ? JSON.stringify(result, null, 2) : formatDeployReport(result))
       return
     }
 
