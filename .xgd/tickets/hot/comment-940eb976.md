@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T01:35:45.635553+00:00'
+updated_at: '2026-07-30T01:45:38.689054+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -137,5 +137,52 @@ One thing I deliberately did **not** paper over: the hero grid being an asset at
 <!-- xgd-chat role="user" ts="2026-07-30T01:35:45.607175+00:00" -->
 #### You
 oh its not working on the grids on "The contract" or "How it works" - it looks like you added grids did you? to :"The Problem" asnd "evidence not promises" The were plain before???
+
+<!-- xgd-turn id="7178036d-13fc-4a2e-a967-7ece97585c95-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T01:45:38.658924+00:00" -->
+#### Claude
+Let me check what those bands actually paint — and whether my commit touched grids at all.
+
+My commit added **only** `pointerAccent` blocks — no grids. Let me find out what "How it works" and "The contract" actually paint:
+
+Found it — two separate things:
+
+1. **"The problem" / "Evidence, not promises" already had grids** (the `pattern` axis, `#8b5c2a1a` — 10% brown). My commit didn't add them; the teal accent just makes a grid you could barely see suddenly noticeable.
+2. **"How it works" and "The contract" do have grids** — drawn by a *different* asset — and I simply missed them. That's my error: I accented 3 of the 5 textured bands.
+
+Both echo grids are brown at `stroke-opacity="0.17"` with a fade mask — fainter still than the hero. Adding the accent to them:
+
+Now let me look at all five bands, and separately check whether the two pre-existing grid bands changed at all with no pointer present:
+
+Two findings — one of them a real bug in my implementation:
+
+**The resting page changed.** With no pointer at all, "The problem" differs by ~5000 pixels (maxΔ=42) from the un-accented page. That's `isolation: isolate` — I emitted it unconditionally, and creating a stacking context shifts Chrome's text antialiasing. My own AC3 test explicitly whitelisted that declaration, which was the tell. Fixing it — the stacking context only needs to exist when the overlay does:
+
+Now tightening the tests — AC3 no longer gets to whitelist that declaration:
+
+Now re-measuring the resting page, which is the claim that was false:
+
+Still 4297 — so isolation wasn't the whole story. Likely the REQ-100 reveal fades are caught mid-flight (maxΔ=42 on text edges). Testing that properly with reveals fully settled:
+
+Zero on all five with reveals settled — so the earlier 4297 was my measurement catching reveal fades mid-flight, not the axis. That means my claim about isolation moving ~5000 pixels may be wrong; I need to check it before leaving it in a comment:
+
+Good — that corrects me: unconditional isolation also gives 0. My ~5000px attribution was wrong both times; it was reveal-fade timing noise. Keeping the marker-gating anyway (it makes the invariant exception-free), but the comments must state the real reason:
+
+Now let me look at the two bands the user reported broken:
+
+Now updating the ticket body to match what's actually built:
+
+Fixed. Two separate answers to your two questions:
+
+**"How it works" and "The contract" — my miss.** Those bands *do* paint grids, but from a different source than I'd looked at: assets (`xgd-echo-1.svg` / `xgd-echo-3.svg`, brown at `stroke-opacity="0.17"`), the same branch as the hero. I'd accented 3 of the page's 5 textured bands and never enumerated the other two. Both now carry the axis and light teal under the cursor — verified visually and by measurement (~14.5k pixels moving per band).
+
+**"The problem" / "Evidence, not promises" — no, I didn't add grids.** They were already `pattern` axes at `#8b5c2a1a` — 10% brown, near-invisible. Checked against the commit diff: it adds `pointerAccent` blocks and nothing else, no `pattern` anywhere. What changed is that the teal accent draws your eye to a grid that was always there. If you'd rather those two bands *not* participate, say so — dropping their `pointerAccent` is a one-line revert each and leaves the grids exactly as they were.
+
+**One real bug your question flushed out.** Checking "did the resting page change?" I found `isolation: isolate` was being emitted unconditionally — the one declaration not gated behind the pointer marker, which my own test had to whitelist. It's now behind the marker with everything else, so nothing the axis emits applies before a pointer moves and that test has no whitelist left to drift.
+
+I should correct something I said while chasing it: I first measured ~5000 pixels changing on a resting "The problem" and attributed it to that declaration. That was wrong — it was REQ-100 reveal fades caught mid-flight by too short a settle. With reveals settled it's **0 pixels different on all five bands**, gated or not. I kept the gating anyway (a stacking context is the kind of thing that *can* change rasterisation, and it costs nothing to wait), but the justification is the exception-free invariant, not a measured regression. The commit message and code comments say that rather than the claim I'd initially written.
+
+Committed as `3714436c4`, both SHAs recorded on REQ-108, version 0.1.1. Full suite: 927 passing, same 4 pre-existing `reconciliation-*` failures.
 
 <!-- xgd-chat-end -->
