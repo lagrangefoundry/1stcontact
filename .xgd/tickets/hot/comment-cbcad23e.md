@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-30T19:29:48.078357+00:00'
+updated_at: '2026-07-30T19:36:14.959672+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -355,5 +355,41 @@ Lets make the renderer change its small
 Sure deploy can render - make sure its clear in the command output what it is doing though?
 
 Can you create tickets for this work now, please?
+
+<!-- xgd-turn id="94614e3b-d36a-4eb6-8b62-ea68f4cd0471-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T19:36:14.922609+00:00" -->
+#### Claude
+R2 is live and the bucket exists. Both decisions noted: renderer change is in, `deploy` renders with explicit staged output.
+
+Let me check the ticket conventions before I write these.
+
+Confirmed three URL sinks. Writing the tickets now.
+
+Now creating the tickets:
+
+Three tickets created, all at `draft` (I won't promote them — that's your call):
+
+| Ticket | Points | Scope |
+|---|---|---|
+| **REQ-109** | 2 | Relocatable output — document-relative asset URLs at the three renderer sinks |
+| **REQ-110** | 3 | R2 artifact store + `1c deploy` |
+| **REQ-111** | 3 | `public-site` Worker serves previews and published sites from R2 |
+
+CHAT-11 now carries the design record — the serving-vs-storing decision, the URL scheme and what was rejected, the phase-2 boundary, every decision taken in session, and the account state (bucket created, `1stcontact.io` unrouted, `gigabytealchemy.ai` untouched). Appended, so the existing body and the `xgd-chat-end` marker are intact.
+
+Four judgement calls I made while writing them up, since you should know rather than discover them:
+
+**Trailing slash is load-bearing.** Once asset URLs are relative, `/site/xgd/draft/<sha>` without the trailing slash resolves `assets/x.svg` one directory too high. The Worker must 301 the bare form. That's in REQ-111 as a correctness requirement, not a polish item — it's the kind of thing that would otherwise show up as "fonts work on my machine but not from the link I sent."
+
+**Snapshot id is a 12-hex content hash** (48 bits), so redeploying identical content is a no-op that returns the same link. The honest caveat: a content hash is derivable by anyone who can reproduce the exact rendered bytes, so it's not *cryptographically* unguessable the way a random token would be. Impractical to exploit, and given you've accepted unguessable-URL privacy for v1 I don't think it changes the calculus — but if it ever does, the fix is a random token in the manifest pointing at the content-addressed key, with no layout change.
+
+**One wart I couldn't design away cheaply.** Published URLs aren't revision-scoped, so `/site/<slug>/assets/x.svg` can't be cached immutably. Deploying a new revision leaves a ≤60s window where a browser can pair new HTML with cached old CSS. Documented in REQ-111 as accepted for v1; the fixes (revision-scoped published asset paths, or purge-on-deploy) are both additive. Draft previews don't have this problem at all — they're SHA-addressed and cached `immutable`.
+
+**`draft` becomes a reserved path segment** within a site, so a published page can't be named `draft`. REQ-110 validates it at deploy time so the collision can't happen rather than merely being unlikely.
+
+One thing still outstanding, and it's yours to greenlight: **DOC-12 says draft output is "author only (private)"**, which the unguessable-URL model contradicts. It also has no concept of a preview snapshot (immutable, GC-able, never entering `history.json`) — that's new vocabulary this design introduces. Both want amending in DOC-12 itself rather than living only in a REQ. Want me to do that now? It's a doc change, so no free-coding ceremony.
+
+On sequencing, I'd start with REQ-109. It's the prerequisite for the other two, it's the smallest, and it carries the only real unknown in the batch — how much the fidelity and round-trip gates need re-baselining once emitted bytes change. Better to learn that before building on top of it. Say the word and I'll pick it up.
 
 <!-- xgd-chat-end -->
