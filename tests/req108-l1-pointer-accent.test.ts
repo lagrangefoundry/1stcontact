@@ -318,6 +318,19 @@ describe('REQ-108 — a texture responds to the pointer', () => {
     // Exactly one listener set, and the marker set once.
     expect(L1_POINTER_SCRIPT.match(/addEventListener\('pointermove'/g)).toHaveLength(1)
     expect(L1_POINTER_SCRIPT.match(/setAttribute\('data-l1-pointer'/g)).toHaveLength(1)
+
+    // Arming the marker (one-time, never revoked — it is what makes the page fail
+    // visible) and dimming on leave/blur (reversible) are SEPARATE state. Restoring
+    // the opacity inside the one-time branch means it happens exactly once ever:
+    // switch to another window and back and the accent is gone for good, with
+    // nothing left to turn it on again. Observed in a real browser before the fix.
+    const arm = L1_POINTER_SCRIPT.indexOf("if(!on){on=true")
+    const restore = L1_POINTER_SCRIPT.indexOf(`if(dim){dim=false`)
+    expect(arm).toBeGreaterThan(0)
+    expect(restore).toBeGreaterThan(0)
+    // The restore is its own statement AFTER the arming branch closes, not inside it.
+    expect(L1_POINTER_SCRIPT.slice(arm, restore)).toContain('}')
+    expect(L1_POINTER_SCRIPT).toContain(`function fade(){if(!dim){dim=true`)
     // Reads before writes within a frame — a tracking loop that interleaved
     // getBoundingClientRect with setProperty would thrash layout every frame.
     expect(L1_POINTER_SCRIPT.indexOf('getBoundingClientRect')).toBeLessThan(
