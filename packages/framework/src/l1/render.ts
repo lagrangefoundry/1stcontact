@@ -825,6 +825,26 @@ const POINTER_MARKER = 'html[data-l1-pointer]'
 const POINTER_LOBES = 7
 /** Inherited from `<html>`: 1 once a pointer is in the page, 0 when it leaves. */
 const POINTER_OPACITY_VAR = '--l1-pto'
+/**
+ * How far a lobe's radius may jitter while the pointer is at full speed, as a
+ * fraction of that radius.
+ *
+ * This is the dial that makes the edge *boil*: at 0.3 a lobe swings ±30% of its
+ * reach frame to frame, so grid lines sitting near the boundary drop in and out of
+ * the accent colour as the hand moves. Small values read as a soft breathing edge
+ * and lose the effect entirely on a sparse grid, where whole seconds can pass with
+ * no line near enough to the boundary to flicker.
+ */
+const POINTER_FLICKER = 0.3
+/**
+ * The pointer speed (px per frame) at which flicker reaches full amplitude.
+ *
+ * Below it the jitter scales down, and it is zero for a still pointer — which is
+ * what reconciles "random" with "stable while the mouse is still". ~26px/frame is
+ * an ordinary brisk mouse movement at 60Hz, so the effect is at full boil during
+ * normal use rather than only during a flick.
+ */
+const POINTER_FLICKER_SPEED = 26
 /** The fade when the pointer leaves the window — not the tracking, which is JS. */
 const POINTER_FADE_MS = 220
 
@@ -856,43 +876,80 @@ interface PointerLobe {
   radius: number
   /** Where the mask is still fully opaque — the feather runs from here to `radius`. */
   inner: number
+  /** Which of the script's lagging trackers this lobe rides. */
+  tracker: number
+  /** Whether the script's per-lobe flicker scales it (the core never flickers). */
+  flickers: boolean
 }
 
 /**
- * REQ-108 — the region's outline, as N overlapping circles.
+ * REQ-108 — the region's *resting* outline: a stable core plus protruding bumps.
  *
- * Roughness is produced by *construction*, not by randomness, which is what makes
- * the shape stable while the pointer is still: the lobes sit at fixed angles with
- * fixed radii, so a settled region is the same region every time, and it is
- * identical between the renderer's output and any capture of it.
+ * This is the shape the region settles to, and it is produced by construction
+ * rather than by chance: fixed angles, fixed radii, so a still pointer sits in the
+ * same region every time and the rendered stylesheet stays deterministic. The
+ * flicker that makes the edge feel alive is the script's (see
+ * {@link L1_POINTER_SCRIPT}), applied on top of these numbers as a per-lobe scale
+ * — so *movement* is random while *rest* is not.
  *
- * Each lobe reaches out to `reach_i` in its own direction, varying with `cos(3θ)`
- * so the outline has three shallow bays rather than seven identical bumps, and is
- * centred a third of the way out with a radius covering the remainder — so every
- * lobe still overlaps the cursor and the region is solid in the middle rather than
- * a ring of discs.
+ * **Why a core and bumps rather than N overlapping discs.** The first two cuts
+ * unioned N near-concentric circles, and a union of discs whose centres all sit
+ * well inside the region and whose radii are all a similar large fraction of it
+ * is a circle — no amount of harmonic variation in the radii rescues it, because
+ * the boundary is always the outermost of several overlapping arcs of nearly the
+ * same curvature. Rendered on a dense grid it read as a disc with a dent, which is
+ * what "way too much like a circle" describes.
  *
- * `roughness: 0` collapses the offsets AND the variation to zero, leaving N
- * concentric circles of radius `radiusPx` — a plain disc. So the dial's floor is a
- * neat circle and its ceiling is a lumpy one, with nothing else to know.
+ * So the shape is built the other way round: ONE core disc, deliberately well
+ * inside the region, and N small bumps pushed OUT toward the boundary at varied
+ * distances and radii. Where a bump sits, the outline bulges to `reach_i`; between
+ * bumps it falls back to the core. With the numbers below the boundary swings
+ * between ~0.7R and R rather than ~0.86R and R, and — because it is falling back
+ * to a smaller circle rather than to another big arc — the bays read as bays.
+ *
+ * Three harmonics (2θ, 3θ, 5θ, none a divisor of the bump count) drive the reach,
+ * a fourth skews the angular spacing so the bumps do not sit at even intervals,
+ * and a fifth varies each bump's own size. Nothing repeats around the circle.
+ *
+ * `roughness: 0` collapses the core to the full radius and every bump to a disc
+ * tangent to it from the inside — so the union is exactly a plain circle of
+ * `radiusPx`. The dial's floor is a neat circle and its ceiling is an amoeba.
  */
 function pointerLobes(accent: L1PointerAccent): PointerLobe[] {
   const R = accent.radiusPx
   const rough = accent.roughness ?? 0.5
-  const soft = accent.softnessPx ?? R / 3
-  const lobes: PointerLobe[] = []
+  const soft = accent.softnessPx ?? R / 6
+  const feather = (radius: number): number => Math.max(0, radius - soft)
+
+  // The core: what the outline falls back to between bumps, and what keeps the
+  // middle solid. It rides tracker 0 (the quickest) and never flickers — a pulsing
+  // middle would read as the whole region breathing rather than its edge boiling.
+  const core = R * (1 - 0.45 * rough)
+  const lobes: PointerLobe[] = [
+    { dx: 0, dy: 0, radius: core, inner: feather(core), tracker: 0, flickers: false },
+  ]
+
   for (let i = 0; i < POINTER_LOBES; i++) {
-    const t = (i / POINTER_LOBES) * Math.PI * 2
-    // Reach never EXCEEDS radiusPx — the axis names the region's outer bound, so a
-    // rougher outline eats inward rather than growing past what the author asked for.
-    const reach = R * (1 - 0.22 * rough * (0.5 + 0.5 * Math.cos(3 * t + 1)))
-    const d = 0.35 * reach * rough
-    const radius = reach - d
+    const even = (i / POINTER_LOBES) * Math.PI * 2
+    const t = even + 0.34 * rough * Math.sin(3 * even + 0.8)
+    // Amplitudes sum to 1, so `wobble` spans [-1, 1] and the reach spans
+    // [R(1-0.35·rough), R]: a rougher outline eats INWARD. The axis names the
+    // region's outer bound, so no bump may grow past what the author asked for.
+    const wobble =
+      0.46 * Math.cos(3 * t + 1.7) + 0.32 * Math.cos(5 * t + 0.4) + 0.22 * Math.cos(2 * t + 2.6)
+    const reach = R * (1 - 0.35 * rough * (0.5 + 0.5 * wobble))
+    // Each bump has its own size, so they read as different features rather than
+    // one feature repeated. Small enough to protrude, large enough that its base
+    // always overlaps the core — otherwise a bump would float free of the region.
+    const radius = R * 0.28 * (0.7 + 0.6 * (0.5 + 0.5 * Math.sin(5 * t + 1.1)))
+    const d = reach - radius
     lobes.push({
       dx: d * Math.cos(t),
       dy: d * Math.sin(t),
       radius,
-      inner: Math.max(0, radius - soft),
+      inner: feather(radius),
+      tracker: i,
+      flickers: true,
     })
   }
   return lobes
@@ -910,6 +967,19 @@ function pointerTerm(varName: string, offset: number): string {
   const fallback = `var(${varName}, -9999px)`
   if (o === 0) return fallback
   return `calc(${fallback} ${o < 0 ? '-' : '+'} ${num(Math.abs(o))}px)`
+}
+
+/**
+ * One lobe's gradient stop, scaled by the script's per-lobe jitter.
+ *
+ * The length stays in the CSS and only a unitless MULTIPLIER crosses into the
+ * script, which is what keeps {@link L1_POINTER_SCRIPT} free of instance data
+ * while still letting it flicker the edge: it never learns the radius it is
+ * scaling. Defaults to 1, so a lobe the script has not touched — no JS, or the
+ * frame before the first jitter — is exactly the resting geometry.
+ */
+function pointerScaled(i: number, length: number): string {
+  return `calc(var(--l1-pt${i}s, 1) * ${num(length)}px)`
 }
 
 /**
@@ -933,14 +1003,20 @@ function pointerAccentRules(selector: string, a: L1SurfaceAxes): Rule[] {
   // also why no `mask-composite` is emitted anywhere: the one construction that
   // needed `intersect` is the one this function no longer uses.
   const region = (c: string): BgLayer[] =>
-    pointerLobes(accent).map((l, i) => ({
-      image:
-        `radial-gradient(circle at ${pointerTerm(`--l1-pt${i}x`, l.dx)} ` +
-        `${pointerTerm(`--l1-pt${i}y`, l.dy)}, ${c} ${num(l.inner)}px, transparent ${num(l.radius)}px)`,
-      size: 'auto',
-      position: '0 0',
-      repeat: 'no-repeat',
-    }))
+    pointerLobes(accent).map((l) => {
+      // The core takes its lengths straight; only a bump is scaled by the script's
+      // flicker, so the middle stays put while the edge boils.
+      const inner = l.flickers ? pointerScaled(l.tracker, l.inner) : `${num(l.inner)}px`
+      const outer = l.flickers ? pointerScaled(l.tracker, l.radius) : `${num(l.radius)}px`
+      return {
+        image:
+          `radial-gradient(circle at ${pointerTerm(`--l1-pt${l.tracker}x`, l.dx)} ` +
+          `${pointerTerm(`--l1-pt${l.tracker}y`, l.dy)}, ${c} ${inner}, transparent ${outer})`,
+        size: 'auto',
+        position: '0 0',
+        repeat: 'no-repeat',
+      }
+    })
 
   const decls = [
     "content: ''",
@@ -1047,10 +1123,25 @@ function pointerAccentRules(selector: string, a: L1SurfaceAxes): Rule[] {
  * its own fraction, so while the pointer moves they string out behind it and the
  * lobes they carry pull the outline apart; when it stops they all converge on the
  * same point and the outline settles to the fixed shape {@link pointerLobes}
- * describes. The rAF loop runs only while some tracker is still short of the
- * cursor and stops when they arrive, so a still pointer costs nothing per frame —
- * which is the "stable while the mouse is still" requirement, met by *not
- * running* rather than by damping.
+ * describes.
+ *
+ * The *flicker* is the second half, and it is genuinely random: each lobe's radius
+ * is scaled by a value that chases a fresh random target every frame, so the edge
+ * boils and lines at the boundary drop in and out of the accent colour. Its
+ * amplitude is proportional to POINTER SPEED — the region flickers hardest while
+ * the hand is moving and stops dead when it isn't, which is why "random" and
+ * "stable while still" are not in tension. Randomness lives here rather than in
+ * the emitted CSS deliberately: the stylesheet stays deterministic, so two renders
+ * are byte-identical and a capture reproduces.
+ *
+ * The scales SNAP to exactly 1 once the jitter has decayed, rather than easing
+ * asymptotically toward it. A region that drifted by a thousandth of a pixel
+ * forever would keep the rAF loop alive and keep repainting a still page.
+ *
+ * The rAF loop runs only while some tracker is short of the cursor or some lobe is
+ * off its resting scale, and stops when neither is true — so a still pointer costs
+ * nothing per frame. "Stable while the mouse is still" is met by *not running*
+ * rather than by damping.
  *
  * Every rect is read before any property is written, so a frame never interleaves
  * layout reads with style writes.
@@ -1063,14 +1154,22 @@ if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
 if(!window.matchMedia('(hover: hover) and (pointer: fine)').matches)return;
 }catch(e){return}
 var N=${POINTER_LOBES},LAG=[0.5,0.36,0.28,0.22,0.17,0.13,0.1];
-var px=0,py=0,tx=null,ty=null,raf=0,on=false;
+var JIT=${POINTER_FLICKER},SPD=${POINTER_FLICKER_SPEED};
+var px=0,py=0,tx=null,ty=null,sc=null,raf=0,on=false,spd=0,lx=0,ly=0;
 function frame(){
 raf=0;
 var i,j,busy=false;
+var mx=px-lx,my=py-ly;lx=px;ly=py;
+spd+=(Math.sqrt(mx*mx+my*my)-spd)*0.3;
+var amp=spd<0.5?0:Math.min(1,spd/SPD);
 for(i=0;i<N;i++){
 var ex=px-tx[i],ey=py-ty[i];
 if(ex*ex+ey*ey>0.04)busy=true;
 tx[i]+=ex*LAG[i];ty[i]+=ey*LAG[i];
+var tg=1+(Math.random()*2-1)*JIT*amp;
+sc[i]+=(tg-sc[i])*0.45;
+if(amp===0&&Math.abs(sc[i]-1)<0.004)sc[i]=1;
+if(sc[i]!==1)busy=true;
 }
 var ns=document.getElementsByClassName('${POINTER_CLASS}'),rects=[];
 for(j=0;j<ns.length;j++)rects.push(ns[j].getBoundingClientRect());
@@ -1079,13 +1178,14 @@ var r=rects[j],s=ns[j].style;
 for(i=0;i<N;i++){
 s.setProperty('--l1-pt'+i+'x',(tx[i]-r.left)+'px');
 s.setProperty('--l1-pt'+i+'y',(ty[i]-r.top)+'px');
+s.setProperty('--l1-pt'+i+'s',sc[i]);
 }}
 if(busy)raf=requestAnimationFrame(frame);
 }
 function move(e){
 if(e.pointerType&&e.pointerType!=='mouse'&&e.pointerType!=='pen')return;
 px=e.clientX;py=e.clientY;
-if(!tx){tx=[];ty=[];for(var i=0;i<N;i++){tx.push(px);ty.push(py)}}
+if(!tx){tx=[];ty=[];sc=[];lx=px;ly=py;for(var i=0;i<N;i++){tx.push(px);ty.push(py);sc.push(1)}}
 if(!on){on=true;d.setAttribute('data-l1-pointer','');d.style.setProperty('${POINTER_OPACITY_VAR}','1')}
 if(!raf)raf=requestAnimationFrame(frame);
 }

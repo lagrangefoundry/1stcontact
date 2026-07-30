@@ -287,9 +287,19 @@ describe('REQ-103 — a surface can carry a repeating texture', () => {
       // Every `background-size` on a page whose surfaces declare no pattern is
       // still the single `cover` value BUG-13 emits — the positional list form
       // appears only where a texture asked for it.
-      for (const [, value] of css.matchAll(/background-size:\s*([^;}]+)/g)) {
-        if (patternedNodes(page.l1.root) > 0) continue
-        expect(commaList(value.trim()), `${path} background-size`).toHaveLength(1)
+      //
+      // Scoped to the rules that style a NODE'S SURFACE, which is what this claim
+      // is about. REQ-108's pointer accent paints a renderer-owned `::after` whose
+      // background is legitimately a stack of lobes, and it is gated behind
+      // `html[data-l1-pointer]`; reading its `background-size` here would make this
+      // assertion fail for a page that declares no pattern at all — which is the
+      // opposite of what it is checking.
+      for (const [, selector, block] of css.matchAll(/(?:^|\n)([^\n{}]+)\{([^}]*)\}/g)) {
+        if (selector.includes('data-l1-pointer')) continue
+        for (const [, value] of block.matchAll(/background-size:\s*([^;}]+)/g)) {
+          if (patternedNodes(page.l1.root) > 0) continue
+          expect(commaList(value.trim()), `${path} background-size`).toHaveLength(1)
+        }
       }
     }
   })

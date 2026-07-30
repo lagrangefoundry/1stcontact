@@ -88,6 +88,19 @@ function band(axes: L1SurfaceAxes) {
   }
 }
 
+/**
+ * Every lobe's outer radius in a region stack, in layer order.
+ *
+ * A bump's stop is `transparent calc(var(--l1-ptNs, 1) * 34.9px)` — the resting
+ * length wrapped in the script's flicker scale — while the core's is a plain
+ * `transparent 42px`. Both forms are read at their resting length.
+ */
+function lobeRadii(css: string): number[] {
+  // `[^)]*` would stop at the `)` closing the `var()` INSIDE the calc, so the
+  // multiplier is skipped with a lazy `.*?` up to the `*` instead.
+  return [...css.matchAll(/transparent (?:calc\(.*?\*\s*)?([\d.]+)px/g)].map((m) => Number(m[1]))
+}
+
 /** Split a comma-separated CSS list, respecting `fn(a, b)` nesting. */
 function commaList(value: string): string[] {
   const out: string[] = []
@@ -149,8 +162,9 @@ describe('REQ-108 — a texture responds to the pointer', () => {
     // browser the substrate claims (the prefixed form is not optional on older Safari).
     expect(decl(b.overlay, '-webkit-mask-image')).toBe(mask)
 
-    // The region reaches no further than the radius the author asked for.
-    const radii = [...mask!.matchAll(/transparent ([\d.]+)px/g)].map((m) => Number(m[1]))
+    // The region reaches no further than the radius the author asked for. A bump's
+    // outer stop carries the script's flicker scale, the core's is a plain length.
+    const radii = lobeRadii(mask!)
     expect(radii.length).toBeGreaterThan(1)
     for (const r of radii) expect(r).toBeLessThanOrEqual(ACCENT.radiusPx)
 
@@ -328,47 +342,95 @@ describe('REQ-108 — a texture responds to the pointer', () => {
   })
 
   /**
-   * AC5 — the region is rough by construction, not by randomness. That is what
-   * makes it stable while the pointer is still (a settled region is the same region
-   * every time) and what keeps a rendered page reproducible. `roughness` is the
-   * whole of the dial: its floor is a plain circle, its ceiling a lumpy one.
+   * AC5 — where the randomness lives. The *resting* outline is deterministic (so a
+   * still pointer sits in the same region every time and two renders are
+   * byte-identical), while the *flicker* is genuinely random and belongs to the
+   * script. And the resting outline must not read as a circle: a union of
+   * near-concentric discs is one however its radii are varied, so the shape is a
+   * small core plus bumps pushed out to it.
    */
-  it('test_UAT_FC_REQ-108_the_region_is_rough_deterministically_not_randomly', () => {
+  it('test_UAT_FC_REQ-108_the_resting_shape_is_deterministic_and_the_flicker_is_random', () => {
     const lobesOf = (css: string, cls: string) => {
       const mask = decl(declsOf(css, `html[data-l1-pointer] .${cls}::after`), 'mask-image')!
       return commaList(mask).map((l) => ({
-        // The lobe's own reach, and how far its centre is offset from the cursor.
-        radius: Number(/transparent ([\d.]+)px/.exec(l)![1]),
+        // The lobe's own reach, how far its centre is offset from the cursor, and
+        // whether the script's flicker scales it.
+        radius: lobeRadii(l)[0],
         offsets: [...l.matchAll(/[-+] ([\d.]+)px/g)].map((m) => Number(m[1])),
+        flickers: l.includes('s, 1)'),
       }))
     }
 
-    // Two renders of the same axis are byte-identical: no Math.random anywhere.
+    // Two renders of the same axis are byte-identical: the RENDERER rolls no dice,
+    // so a captured page reproduces and the round-trip gate stays meaningful.
     const one = renderL1Document(docWithBand({ pattern: GRID, pointerAccent: ACCENT }))
     const two = renderL1Document(docWithBand({ pattern: GRID, pointerAccent: ACCENT }))
     expect(one.css).toBe(two.css)
+    expect(one.css).not.toContain('NaN')
 
-    // Rough: the lobes do NOT share a reach, so the outline has no evident symmetry.
     const rough = lobesOf(one.css, bandClass(one.html))
     expect(rough.length).toBeGreaterThan(4)
-    expect(new Set(rough.map((l) => l.radius)).size).toBeGreaterThan(1)
-    // Every lobe is offset from the cursor, and every one still overlaps it — so
-    // the region is solid in the middle rather than a ring of separate discs.
-    for (const l of rough) {
-      const d = Math.hypot(...(l.offsets.length ? l.offsets : [0]))
-      expect(d).toBeGreaterThan(0)
-      expect(l.radius).toBeGreaterThan(d)
+
+    // Exactly one core — centred, unscaled, and the thing the outline falls back to
+    // between bumps. Everything else is a bump: offset from the cursor and flickering.
+    const cores = rough.filter((l) => !l.flickers)
+    const bumps = rough.filter((l) => l.flickers)
+    expect(cores).toHaveLength(1)
+    expect(cores[0].offsets).toEqual([])
+    expect(bumps.length).toBeGreaterThan(4)
+    for (const b of bumps) expect(b.offsets.length).toBeGreaterThan(0)
+
+    // NOT A CIRCLE. Every bump reaches PAST the core, so the boundary alternates
+    // between bump reach and core radius rather than tracing one arc; and the
+    // bumps' own reaches differ, so no two bulges are the same size. A union of
+    // near-concentric discs — the first two cuts — fails this by construction.
+    const core = cores[0].radius
+    const reaches = bumps.map((b) => Math.hypot(b.offsets[0] ?? 0, b.offsets[1] ?? 0) + b.radius)
+    for (const reach of reaches) {
+      expect(reach).toBeGreaterThan(core)
+      expect(reach).toBeLessThanOrEqual(ACCENT.radiusPx + 0.001)
+    }
+    expect(new Set(bumps.map((b) => b.radius)).size).toBeGreaterThan(1)
+    // The bays DEEPEN with roughness — which is the dial doing what it says, and
+    // the property the "too much like a circle" cut failed. Asserted as a trend
+    // rather than one threshold, so it cannot be satisfied by a lucky constant.
+    const bayRatio = (roughness: number) => {
+      const r = renderL1Document(
+        docWithBand({ pattern: GRID, pointerAccent: { ...ACCENT, roughness } }),
+      )
+      const ls = lobesOf(r.css, bandClass(r.html))
+      const c = ls.find((l) => !l.flickers)!.radius
+      const reach = ls
+        .filter((l) => l.flickers)
+        .map((l) => Math.hypot(l.offsets[0] ?? 0, l.offsets[1] ?? 0) + l.radius)
+      return c / Math.max(...reach)
+    }
+    expect(bayRatio(1)).toBeLessThan(bayRatio(0.65))
+    expect(bayRatio(0.65)).toBeLessThan(bayRatio(0.3))
+    // At the roughness the site actually uses, the outline falls back to ~70% of
+    // its reach between bumps — deep enough that no arc dominates the silhouette.
+    expect(bayRatio(0.65)).toBeLessThan(0.75)
+    // Every bump still overlaps the core, so no bulge floats free of the region.
+    for (const b of bumps) {
+      expect(Math.hypot(b.offsets[0] ?? 0, b.offsets[1] ?? 0) - b.radius).toBeLessThan(core)
     }
 
-    // `roughness: 0` collapses the offsets and the variation together, leaving
-    // concentric circles of exactly `radiusPx` — a neat circle, as documented.
+    // The flicker is the script's, and it is random, speed-scaled, and snaps to rest.
+    expect(L1_POINTER_SCRIPT).toContain('Math.random()')
+    expect(L1_POINTER_SCRIPT).toMatch(/sc\[i\]\+=\(tg-sc\[i\]\)/)
+    expect(L1_POINTER_SCRIPT).toContain('if(amp===0&&Math.abs(sc[i]-1)<0.004)sc[i]=1')
+
+    // `roughness: 0` collapses the core, the offsets and the variation together,
+    // leaving concentric circles of exactly `radiusPx` — a neat circle, as documented.
     const neat = renderL1Document(
       docWithBand({ pattern: GRID, pointerAccent: { ...ACCENT, roughness: 0 } }),
     )
     const disc = lobesOf(neat.css, bandClass(neat.html))
     for (const l of disc) {
-      expect(l.radius).toBe(ACCENT.radiusPx)
-      expect(l.offsets).toEqual([])
+      const d = Math.hypot(l.offsets[0] ?? 0, l.offsets[1] ?? 0)
+      // Emitted lengths are rounded to 4dp, so exact equality is not the claim —
+      // "every lobe's edge lands on the same circle, to well under a pixel" is.
+      expect(Math.abs(d + l.radius - ACCENT.radiusPx)).toBeLessThan(0.01)
     }
 
     // `softnessPx` is the feather: the mask is opaque up to `radius - softness`.
@@ -378,14 +440,15 @@ describe('REQ-108 — a texture responds to the pointer', () => {
     const soft = renderL1Document(
       docWithBand({ pattern: GRID, pointerAccent: { ...ACCENT, roughness: 0, softnessPx: 30 } }),
     )
-    const core = (css: string, html: string) =>
+    // The core lobe's opaque stop, which at `roughness: 0` is the whole disc.
+    const opaqueTo = (css: string, html: string) =>
       Number(
         /#000 ([\d.]+)px/.exec(
           decl(declsOf(css, `html[data-l1-pointer] .${bandClass(html)}::after`), 'mask-image')!,
         )![1],
       )
-    expect(core(hard.css, hard.html)).toBe(ACCENT.radiusPx)
-    expect(core(soft.css, soft.html)).toBe(ACCENT.radiusPx - 30)
+    expect(opaqueTo(hard.css, hard.html)).toBe(ACCENT.radiusPx)
+    expect(opaqueTo(soft.css, soft.html)).toBe(ACCENT.radiusPx - 30)
   })
 
   /**
