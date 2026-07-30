@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T18:58:43.811838+00:00'
+updated_at: '2026-07-30T19:03:06.141925+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -298,5 +298,27 @@ Worth noting the two bands now differ in character: the invisible-grid bands lig
 <!-- xgd-chat role="user" ts="2026-07-30T18:58:43.778485+00:00" -->
 #### You
 ok I like the transparent grid. I may decide later that it is too much but I think its kind of fun. Can you (1) add it to the PROOF section and (2) make it a little coarser please
+
+<!-- xgd-turn id="75e3b124-8940-4c95-b6b3-2d4df7f2d17d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T19:03:06.102057+00:00" -->
+#### Claude
+`#papers` is the PROOF band. Applying both changes:
+
+All three light up, all three are perfectly flat at rest. Here's the PROOF band and the coarser spacing:
+
+32px reads well and the ragged silhouette is still legible. This "invisible base grid" is now load-bearing for the site, so let me pin it as framework behaviour rather than leave it to a throwaway script:
+
+Both done — committed as `de973d5e1` (REQ-108, v0.1.4).
+
+**PROOF (`#papers`) now has the invisible grid**, and all three invisible-grid bands coarsened from 24px to **32px**. I applied the new spacing to `#problem` and `#close` too rather than leaving PROOF looking different — say the word if you wanted only the new band coarser.
+
+Verified per band: flat cream at rest (0 of 4080 sampled edge pixels off the fill on every one) and 1032–1621 px lighting under the cursor. At 32px the ragged silhouette is still legible — you can see the uneven line lengths around the edge in the screenshots above — which is what I'd have worried about losing going coarser.
+
+One thing I did beyond the ask: pinned the invisible-grid trick with its own UAT. It works by accident of the construction — the accent substitutes the colour and keeps the geometry, so a zero-alpha pattern paints nothing while its accent paints — and nothing was testing that. A future renderer change that skipped zero-alpha pattern layers as a cheap optimisation would silently delete the effect from three bands with every other test still green.
+
+Full suite: 928 passing, same 4 pre-existing `reconciliation-*` failures. Runtime harness 20/20, including the focus-loss cycle.
+
+On "too much later" — the retreat is cheap and graded, so you're not locked in: raise `spacingPx` for fewer lines, drop the alpha on `#2e86a3a6` for a fainter teal, or delete the `pattern` block from any band to take it out entirely. All site-JSON edits, no framework change.
 
 <!-- xgd-chat-end -->
