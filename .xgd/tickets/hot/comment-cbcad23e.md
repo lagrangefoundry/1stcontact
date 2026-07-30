@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-29T19:35:01.135058+00:00'
+updated_at: '2026-07-30T18:42:53.781929+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -125,5 +125,16 @@ Worth noting the risk profile: `gigabytealchemy.ai` is already live and proxied 
 4. **Slug vs domain.** Your example said `gigabytealchemy_ai`, implying the slug encodes the target domain. Current slug is `gigabytealchemy`. I'd keep slug as the platform identifier and make custom domain a separate site field — confirm?
 
 Once you've called those, I'll scope it onto CHAT-11 with the behaviour description and test plan before touching code.
+
+<!-- xgd-turn id="07a65c0c-4675-429c-904c-a4621a5ee591-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T18:42:53.749443+00:00" -->
+#### You
+1. Please give me the commands to run
+   2. Lets discuss - I see value in being able to share draft sites and unguessable seems sufficiently private to me at least for v1. Once we have user login we can tighten up and offer more robust control like google docs. Its not worth gating publication on having access control
+   3. I don't understand this one
+   4. ok
+   
+   Can you playback the storage and workflow for the design you are proposing, I am a little unclear what you are suggesting?
 
 <!-- xgd-chat-end -->
