@@ -274,6 +274,32 @@ async function bandOf(page, index) {
     restScales.join(','),
   )
 
+  // (3c) Focus loss and return. The accent dims when the pointer leaves the window
+  // and must come BACK when it returns — the one-time marker arming and the
+  // reversible dim are separate state, and conflating them left the accent dead
+  // for the rest of the session after a single alt-tab.
+  const focusCycle = await (async () => {
+    const read = () =>
+      page.evaluate(() => document.documentElement.style.getPropertyValue('--l1-pto'))
+    await page.mouse.move(cx, cy)
+    await page.waitForTimeout(300)
+    const live = await read()
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+    await page.waitForTimeout(200)
+    const blurred = await read()
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.mouse.move(cx + 24, cy + 12)
+    await page.mouse.move(cx + 48, cy + 24)
+    await page.waitForTimeout(300)
+    return { live, blurred, back: await read() }
+  })()
+  ok('the accent dims when the pointer leaves the window', focusCycle.blurred === '0')
+  ok(
+    'and comes back on the next move after refocus',
+    focusCycle.live === '1' && focusCycle.back === '1',
+    `live=${focusCycle.live} blurred=${focusCycle.blurred} back=${focusCycle.back}`,
+  )
+
   // (4) The hero — the asset branch. Its accent must show the GRID in teal, not a
   // flat teal blob: so the painted pixels inside the region are mostly NOT teal.
   await page.evaluate(() => window.scrollTo(0, 0))

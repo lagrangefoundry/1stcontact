@@ -1138,6 +1138,13 @@ function pointerAccentRules(selector: string, a: L1SurfaceAxes): Rule[] {
  * asymptotically toward it. A region that drifted by a thousandth of a pixel
  * forever would keep the rAF loop alive and keep repainting a still page.
  *
+ * Two pieces of state, not one, and the distinction matters: `on` is the ONE-TIME
+ * arming of the marker (§1 — it can never be taken back, because the CSS gate is
+ * what makes the page fail visible), while `dim` is the REVERSIBLE visibility that
+ * the leave/blur handlers toggle. Folding the opacity restore into the `on` branch
+ * — where it began — meant it ran exactly once ever: switch to another window and
+ * back, and the accent was faded out with nothing left to turn it on again.
+ *
  * The rAF loop runs only while some tracker is short of the cursor or some lobe is
  * off its resting scale, and stops when neither is true — so a still pointer costs
  * nothing per frame. "Stable while the mouse is still" is met by *not running*
@@ -1155,7 +1162,7 @@ if(!window.matchMedia('(hover: hover) and (pointer: fine)').matches)return;
 }catch(e){return}
 var N=${POINTER_LOBES},LAG=[0.5,0.36,0.28,0.22,0.17,0.13,0.1];
 var JIT=${POINTER_FLICKER},SPD=${POINTER_FLICKER_SPEED};
-var px=0,py=0,tx=null,ty=null,sc=null,raf=0,on=false,spd=0,lx=0,ly=0;
+var px=0,py=0,tx=null,ty=null,sc=null,raf=0,on=false,dim=true,spd=0,lx=0,ly=0;
 function frame(){
 raf=0;
 var i,j,busy=false;
@@ -1186,10 +1193,11 @@ function move(e){
 if(e.pointerType&&e.pointerType!=='mouse'&&e.pointerType!=='pen')return;
 px=e.clientX;py=e.clientY;
 if(!tx){tx=[];ty=[];sc=[];lx=px;ly=py;for(var i=0;i<N;i++){tx.push(px);ty.push(py);sc.push(1)}}
-if(!on){on=true;d.setAttribute('data-l1-pointer','');d.style.setProperty('${POINTER_OPACITY_VAR}','1')}
+if(!on){on=true;d.setAttribute('data-l1-pointer','')}
+if(dim){dim=false;d.style.setProperty('${POINTER_OPACITY_VAR}','1')}
 if(!raf)raf=requestAnimationFrame(frame);
 }
-function fade(){if(on)d.style.setProperty('${POINTER_OPACITY_VAR}','0')}
+function fade(){if(!dim){dim=true;d.style.setProperty('${POINTER_OPACITY_VAR}','0')}}
 document.addEventListener('pointermove',move,{passive:true});
 document.addEventListener('pointerleave',fade);
 window.addEventListener('blur',fade);
