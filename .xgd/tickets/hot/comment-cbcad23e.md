@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-30T23:24:26.979194+00:00'
+updated_at: '2026-07-30T23:26:13.312259+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -507,5 +507,43 @@ The deploy is still not run. When you want it: `pnpm deploy:public` once to put 
 <!-- xgd-chat role="user" ts="2026-07-30T23:24:26.949620+00:00" -->
 #### You
 Yeah I ran it - it worked
+
+<!-- xgd-turn id="8258efb8-c9b6-4083-829e-1273a9d55d73-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T23:26:13.191214+00:00" -->
+#### Claude
+Let me verify the things I flagged as risky actually hold in production.
+
+The user deployed `xgd` (snapshot `fa0344fb47a8`). Verifying it end-to-end:
+
+The 301, immutable caching, and `noindex` all hold. Now the real test — every asset resolving under the path prefix:
+
+Confirmed live, and I checked the parts that could plausibly have been broken-but-look-fine:
+
+```
+https://1stcontact.io/site/xgd/draft/fa0344fb47a8/
+```
+
+| Check | Result |
+|---|---|
+| Apex | 200 — `custom_domain` provisioned DNS + cert with no dashboard step |
+| Bare path → trailing slash | `301 → …/fa0344fb47a8/` |
+| Root-absolute refs in served HTML | **none** |
+| All 11 referenced files + `home.html` | 200, correct content types (woff2 as `font/woff2`, svg as `image/svg+xml`) |
+| Draft headers | `max-age=31536000, immutable` + `x-robots-tag: noindex` |
+| Missing asset / unknown slug | 404, no directory listing, no distinction leaked |
+
+The asset check is the one that mattered. REQ-109's whole purpose was making the snapshot relocatable, and a font 404 under a path prefix is exactly the failure that looks fine in a screenshot — the page renders, just with fallback type. All five Satoshi/JetBrains faces serve correctly.
+
+R2 manifest for `xgd`: one preview, `live: null`, `revisions: []`.
+
+**One thing to be aware of about what went live.** The snapshot captured the uncommitted xgd copy rework from the concurrent session — the page says "Join the waitlist" and "See the evidence", not the committed "Send me the whitepapers" / "Read the whitepaper". Not a problem, just worth knowing before you share the link: it's someone's in-progress copy, and `storage/sites/xgd/draft/pages/home.json` is still uncommitted. Because snapshots are immutable, that link will keep serving that content forever; a later `1c deploy xgd` mints a new SHA and leaves this one alone.
+
+CHAT-11 now records the verification results and what's still untested:
+
+- `gigabytealchemy` isn't deployed (no manifest in R2) — the site you said was closest to ready.
+- **Nothing has been published on any site.** `1c publish` → `1c deploy --channel published` is the whole other half of REQ-110/111 and hasn't been exercised against R2 once. The `/site/<slug>/` route, `manifest.live` resolution, and the published-channel TTL behaviour are all still theory. The draft path working doesn't tell us much about that path — it resolves through a different branch of `SiteStore`.
+
+Publishing `gigabytealchemy` would exercise both gaps at once, if you want the coverage.
 
 <!-- xgd-chat-end -->
