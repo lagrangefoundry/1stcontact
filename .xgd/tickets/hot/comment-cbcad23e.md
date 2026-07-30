@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-30T23:02:45.744289+00:00'
+updated_at: '2026-07-30T23:09:19.629555+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -397,5 +397,71 @@ On sequencing, I'd start with REQ-109. It's the prerequisite for the other two, 
 <!-- xgd-chat role="user" ts="2026-07-30T23:02:45.709604+00:00" -->
 #### You
 ok the three reqs have been run can how do I push to cloudflare?
+
+<!-- xgd-turn id="b76fa3ec-6b18-43dd-9db0-81eb31f0ffb9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T23:09:19.596665+00:00" -->
+#### Claude
+Let me check what actually landed before giving you commands.
+
+All three landed and the tree is clean. Verifying the implementations:
+
+4 failures. Let me see all of them before answering.
+
+That approach can't work — pnpm's workspace symlinks resolve back to the main checkout. Cleaning up and isolating it directly instead:
+
+That file was clean at the start of this turn — a test run mutated a tracked site definition. Tracking that down before I touch anything:
+
+"Join the waitlist" isn't in the test suite at all — so this isn't fixture leakage. Checking whether another process is writing:
+
+HEAD moved while I was working — there's a concurrent session in this repo. Let me confirm what's mine and that I didn't disturb anything:
+
+Clean — `relativizeUrl` is present at all three sinks and identical to the REQ-109 commit. Now a dry run:
+
+Everything's in place and verified. Two commands.
+
+**Step 1 — deploy the Worker (once):**
+
+```bash
+pnpm deploy:public
+```
+
+Dry run passes with the R2 binding wired (`env.SITES → 1stcontact-sites`). This is the step that makes `1stcontact.io` live: `custom_domain = true` has wrangler provision the DNS record and certificate, so the first run may take a minute or two while the cert issues. The apex root just returns the holding string `Hello from 1stcontact.io` — no marketing site yet, nothing sensitive exposed.
+
+**Step 2 — push a site (repeat any time):**
+
+```bash
+./bin/1c deploy gigabytealchemy
+./bin/1c deploy xgd
+```
+
+I ran the dry run and it behaves exactly as specced:
+
+```
+$ ./bin/1c deploy gigabytealchemy --dry-run
+  render     storage/dist/sites/gigabytealchemy/draft   9 files   2.7 MB
+  hash       e4f29da6c24b
+  upload     preview/e4f29da6c24b/out                   9 files   2.7 MB
+  upload     preview/e4f29da6c24b/source                7 files   2.6 MB
+  manifest   + preview e4f29da6c24b                     (basedOn no revision)
+
+  (dry-run — nothing was uploaded)
+
+  →  https://1stcontact.io/site/gigabytealchemy/draft/e4f29da6c24b/
+```
+
+Drop `--dry-run` and that URL is shareable. To publish rather than preview, `1c publish <slug> -m "…"` first to mint the revision, then `1c deploy <slug> --channel published`, which serves at `1stcontact.io/site/<slug>/`.
+
+I stopped short of running either — both are outward-facing, and step 1 in particular puts a hostname live. Say go and I'll run them.
+
+Three things you should know first.
+
+**Another session is working in this repo right now.** HEAD moved under me mid-turn (`0d3e6e6d9 xgd(ticket): update chat chat-4ddcde8c` — not our CHAT-11), and `storage/sites/xgd/draft/pages/home.json` is modified in the working tree with reworked copy: "Join the waitlist" replacing "Send me the whitepapers", a new hero subhead, "See the evidence". It re-rendered `storage/dist` at 16:05:27. I left it alone. Deploying `xgd` right now would snapshot someone else's half-finished edit — I'd do `gigabytealchemy` first and `xgd` once that session is done.
+
+**4 tests fail, none of them ours.** 950 pass; the failures are `AC-733`/`AC-737`/`AC-739`/`AC-705` in the L1 fold and 3-probe gate area, all asserting on fold node kinds — an unexpected `slot` and `field` appearing in folded documents. The REQ-109/110/111 suites all pass. Those four files were last touched by `7b1f35120 fix(l1-fold): rebuild section-band → card → text surface hierarchy`, which predates REQ-109, and no fold source has changed since. A URL-string change can't add a `slot` leaf to a fold, so I'm confident it's independent — but I couldn't prove it by bisecting: a worktree can't be tested without an install (pnpm's workspace symlinks resolve back to the main checkout), and given the concurrent session I wasn't willing to keep mutating the tree to isolate it. Worth a look, separately from this work.
+
+**One correction to my own report:** to test that attribution I briefly checked out the pre-REQ-109 `render.ts`, then restored it. It's verified byte-identical to the REQ-109 commit and `relativizeUrl` is present at all three sinks (`cssUrl`, `href`, `img src`) with the `//` guard intact. No harm done, but you'd have seen it in a `git status` snapshot taken in that window.
+
+Also still outstanding from last turn: the **DOC-12 amendment** (draft privacy wording, plus the preview-snapshot concept). Want me to do that while you decide on deploying?
 
 <!-- xgd-chat-end -->
