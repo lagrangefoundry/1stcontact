@@ -6,15 +6,20 @@ title: 'public-site Worker: serve draft previews and published sites from R2 (Si
   seam)'
 created_by: xgd
 created_at: '2026-07-30T19:35:00.276283+00:00'
-updated_at: '2026-07-30T19:35:00.276283+00:00'
+updated_at: '2026-07-30T20:47:08.644363+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 02bf9b3393526485b00a3d1badc66ebe9cf0cf1e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.7
 ---
 
 ## The gap
