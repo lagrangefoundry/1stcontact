@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T21:15:40.301936+00:00'
+updated_at: '2026-07-30T21:18:30.742343+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -202,5 +202,53 @@ We need to add a module for this whitepaper usecase which would include a backen
 In fairness on the framing of the regression - the point is that that is the error rate one should expect if you just use structured vibecoding (vibecoding with design docs)
 
 What is DOC-9 (which project is it in) please update it first
+
+<!-- xgd-turn id="bd785eb7-de9a-4142-b253-b550834bd1af-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T21:18:30.710798+00:00" -->
+#### Claude
+DOC-9 is in **`/Users/martin/Projects/xgd-biz`** (`XGD-Positioning`, uid `doc-d27f58f5`) — the business/marketing workspace, not this repo. That's why it drifted: the whitepapers get edited there when you're writing, the keystone doesn't.
+
+And your correction on the regression rate is important — that reframes it from a confession into a benchmark. I'll write it that way.
+
+Now the revision. Writing it out first so you can see the whole thing.
+
+DOC-9 updated and auto-committed to `xgd-biz` (`00da4c3`).
+
+## What changed
+
+**§1 core message** — was *"XGD safely gets the human out of the coding loop."* Now:
+
+> **XGD makes generative development safe without making it slow.**
+
+Two clauses answering two different competitors: *safe* separates you from vibe coding, *not slow* separates you from everyone trying to fix vibe coding by putting process in front of the developer. The second is the less contested claim and nobody else is making it.
+
+**§2 spine rewritten.** Act one now says *why* people keep returning to vibe coding — the loop is short and short loops are how you learn. Act two covers both agentic engineering and the spec-in/code-out pipeline, and names their shared flaw: the governance is in front of you either way. Act three is the new claim. Carrying line:
+
+> Vibe coding put nothing in your way and gave you no guarantees. Agentic engineering gave you the guarantees by putting itself in your way. **XGD runs the governance behind you.**
+
+**§2.1 is new** — the two modes with their loop times, and the argument that cadence is positioning rather than implementation detail. It records that XGD was built autonomous-first and that its creator kept routing around it, with the conclusion stated flatly: *a governance system people route around provides no governance.*
+
+**§3 category** — kept, and strengthened rather than revised. A Kubernetes controller reconciles asynchronously in the background while you keep working; that's now a precise technical statement of "the governance runs behind you," to an audience that already knows what a control loop is.
+
+**§5** — added the tension your reframe creates: cadence language pulls the exact audience this section exists to repel. Resolution recorded as *lead on the cadence, not on the phrase* — use vibe coding as the named contrast inside the argument, never as the headline promise, and keep matrix/architecture language adjacent to any cadence claim.
+
+**§6** — the important precision. The human is out of the **code-review** loop and, in free coding, firmly in the **development** loop. "Out of the loop" unqualified is now imprecise; the doc says to name which one.
+
+**§8 split into three assets** — built-with-XGD (now carrying DOC-5's numbers), the regression benchmark, and the abandonment story, which had appeared in no document anywhere.
+
+On the benchmark, I wrote it your way and made the framing an explicit instruction rather than a suggestion: **one regression per two tickets is the error rate to expect from structured vibe coding as a practice** — the ambient cost of generative development on a real codebase, which almost nobody measures because almost nobody has an instrument that can. The claim is the instrument and the repair, not the rate. There's a matching *don't* in §10: never quote the number without that framing.
+
+**§10** — new dos (say what it feels like; name which loop) and new don'ts (don't describe XGD as a spec-in/code-out pipeline; don't promise "no process" — there is process, it runs behind you).
+
+**Open/next** — records the tagline as resolved with the rejection history, and flags that *"AI writes it. XGD keeps it working."* carries **safe** but is silent on **not slow**. So the sub-headline now has to carry cadence, which is a second independent reason to rewrite it.
+
+Also noted there: DOC-5 §4 is titled "Three Modes of Working" and describes two. Either a mode is missing or the title is wrong — your call, I didn't touch it.
+
+## One thing to flag
+
+`xgd-biz` has an uncommitted `.xgd/config.yaml` rewrite — all comments stripped, four defaults materialized (`matrix_refactor` bounds, four `notifications.events` flags). Semantically it only makes previously-implicit defaults explicit, so behaviour is unchanged, but the file lost its documentation. It looks like a YAML round-trip side effect from running `xgd` in that workspace, quite possibly from my read-only ticket calls earlier. I've left it alone — `git checkout .xgd/config.yaml` restores the commented version if you want it back.
+
+Ready to take the page content against the revised doc whenever you are. The three sections that change most are the problem section (gains the cycle-time story), the contract table (currently describes autonomous mode, which is now wrong), and the hero sub.
 
 <!-- xgd-chat-end -->
