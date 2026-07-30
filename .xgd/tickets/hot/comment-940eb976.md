@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T01:45:38.689054+00:00'
+updated_at: '2026-07-30T17:54:57.711562+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -184,5 +184,15 @@ Fixed. Two separate answers to your two questions:
 I should correct something I said while chasing it: I first measured ~5000 pixels changing on a resting "The problem" and attributed it to that declaration. That was wrong — it was REQ-100 reveal fades caught mid-flight by too short a settle. With reveals settled it's **0 pixels different on all five bands**, gated or not. I kept the gating anyway (a stacking context is the kind of thing that *can* change rasterisation, and it costs nothing to wait), but the justification is the exception-free invariant, not a measured regression. The commit message and code comments say that rather than the claim I'd initially written.
 
 Committed as `3714436c4`, both SHAs recorded on REQ-108, version 0.1.1. Full suite: 927 passing, same 4 pre-existing `reconciliation-*` failures.
+
+<!-- xgd-turn id="869427ef-a47f-41be-b679-77386d30026d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T17:54:57.679610+00:00" -->
+#### You
+**"The problem" / "Evidence, not promises" — no, I didn't add grids.** The grids there were not previously visible - I don't like them, please remove them
+
+**"How it works" and "The contract" and the Hero** The special effect no longer works on these
+
+Please add randomness to the effect that is what I want. The rough shape is way too much like a circle, I want the edges of the circle to flicker in and out of the color change as the pointer moves
 
 <!-- xgd-chat-end -->
