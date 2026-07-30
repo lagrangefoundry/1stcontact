@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T17:54:57.711562+00:00'
+updated_at: '2026-07-30T18:17:36.873400+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -194,5 +194,65 @@ Committed as `3714436c4`, both SHAs recorded on REQ-108, version 0.1.1. Full sui
 **"How it works" and "The contract" and the Hero** The special effect no longer works on these
 
 Please add randomness to the effect that is what I want. The rough shape is way too much like a circle, I want the edges of the circle to flicker in and out of the color change as the pointer moves
+
+<!-- xgd-turn id="869427ef-a47f-41be-b679-77386d30026d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T18:17:36.840688+00:00" -->
+#### Claude
+Three things. Let me start by reproducing the regression rather than guessing — including in other browsers:
+
+WebKit is showing zeros — that's likely what you're seeing. Let me get clean cross-engine data (my harness crashed before Firefox ran):
+
+All three engines agree — so this isn't a browser bug. But look at the footprints: hero moves **0 px** at that probe point while `how` moves 1588. Let me find out where each band actually *has* grid strokes to accent:
+
+Now the picture is clear. Let me confirm the effect works where strokes actually exist:
+
+The effect **isn't broken** — it works on all three (973–1613 px accented). The problem is coverage: those bands' grids are sparse decorative motifs, covering **0.9% (how), 3.1% (contract), 12.9% (hero)** of the band, versus 100% for the full-bleed `pattern` grids. So most of the band has no line to light. I'll come back to that. First, your three asks — starting with the geometry rework:
+
+Now the per-lobe scale the script will jitter:
+
+Now the script — the actual flicker:
+
+Now removing the two grids you don't want, and softening the edge so the flicker reads:
+
+Now let me verify the flicker is real — measuring frame-to-frame variation while moving vs. still:
+
+Flicker confirmed: every frame differs while moving, and it snaps to exactly 1 and freezes when still. Now let me actually *see* the shape — with the grids removed, I'll render a dense test grid temporarily to judge the outline:
+
+Still reads as a circle — the user is right. A union of 7 near-concentric discs can't be anything else. Restructuring the geometry: a stable core plus *protruding bumps* at varied distances, so the boundary swings between 0.7R and R with real bays:
+
+Now it's an amoeba with real bays, and the moving frame differs visibly. Let me update the runtime harness for the new band set and fold in flicker checks:
+
+Three harness failures — the radii probe doesn't understand the new `calc()` stops, and 500ms isn't long enough for the slowest tracker (lag 0.1) to converge from a 125px spread. Fixing the harness and adding flicker coverage:
+
+The probe is looking in the wrong place — these are asset bands now, so the region lives in `background-image`, not the mask:
+
+18/18 in a real browser. Now the unit tests, which encode the old geometry:
+
+Both are the same stale regex — bump radii are now `calc(...)`. Updating the parsing and reframing AC5, since the determinism story has legitimately changed (resting shape deterministic, flicker random):
+
+The regex can't cross the `)` inside `var(...)`. Fixing:
+
+Now let me look at the real page — the three bands that carry the effect:
+
+A REQ-103 test broke — that's mine. Let me look:
+
+REQ-103's invariant is about *node surfaces*, but its scan reads every `background-size` in the stylesheet — including my renderer-owned overlay, whose multi-layer background is correct. Narrowing the scan to what REQ-103 actually claims:
+
+Back to 927 passing with only the 4 pre-existing `reconciliation-*` failures. Committing:
+
+All three done, committed as `e203df706` (REQ-108, v0.1.2).
+
+**1. Grids removed.** "The problem" and "Evidence, not promises" render as plain cream now — the `pattern` axis and its accent are gone from both.
+
+**2. The effect on hero / how / contract.** It was never broken — I measured it working in all three engines (973–1613 px recoloured). The real problem is coverage: those bands' grids are sparse decorative motifs, not full-bleed grids. Measured share of the band carrying any texture: **hero 12.9%, contract 3.1%, how 0.9%** — versus 100% for the two `pattern` grids you just removed. The accent recolours lines that exist, so over blank fill it correctly does nothing. Most of those bands is blank fill, which is why it feels dead.
+
+**3. Randomness and the shape.** You were right that it was still a circle, and the reason is structural: I was unioning near-concentric discs, and the boundary of such a union is always the outermost of several arcs of near-identical curvature — varying their radii (I tried one harmonic, then three) can't fix it. Rebuilt inside-out: a small core disc plus bumps pushed *out* to the boundary at varied angles, distances and sizes. The outline now bulges at a bump and falls back to the core between them, so it swings ~0.7R–R and the bays read as bays.
+
+The flicker is real randomness, in the script: each bump's radius chases a fresh random target every frame, amplitude scaled by pointer speed, snapping to exactly 1 when you stop. Verified in-browser — **19/19 consecutive frames differ while moving**, lobes both shrink and grow (so lines drop in *and* out), and at rest every scale is exactly 1 with zero frames scheduled. The emitted CSS stays deterministic, so captures still reproduce.
+
+Two corrections to things I said earlier: my "~5000 pixels moved" claim about `isolation` was wrong (it was reveal fades caught mid-flight — it moves 0), and the 14k–30k px accent footprints I quoted were inflated the same way. The honest footprint is ~1–2.4k px per region.
+
+**One thing worth your call.** With the full-bleed grids gone, the effect now only appears near those sparse motifs. If you want it to work across a whole band without a visible grid, there's a clean trick: give the band a `pattern` with a fully transparent colour (`#8b5c2a00`). The base grid paints nothing, and the accent redraws it in teal — so the grid exists *only* under the cursor. One-line site edit, no framework change. Say the word and I'll apply it to whichever bands you want.
 
 <!-- xgd-chat-end -->
