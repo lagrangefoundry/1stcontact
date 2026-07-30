@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T21:18:30.742343+00:00'
+updated_at: '2026-07-30T22:59:30.186597+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -250,5 +250,11 @@ Also noted there: DOC-5 §4 is titled "Three Modes of Working" and describes two
 `xgd-biz` has an uncommitted `.xgd/config.yaml` rewrite — all comments stripped, four defaults materialized (`matrix_refactor` bounds, four `notifications.events` flags). Semantically it only makes previously-implicit defaults explicit, so behaviour is unchanged, but the file lost its documentation. It looks like a YAML round-trip side effect from running `xgd` in that workspace, quite possibly from my read-only ticket calls earlier. I've left it alone — `git checkout .xgd/config.yaml` restores the commented version if you want it back.
 
 Ready to take the page content against the revised doc whenever you are. The three sections that change most are the problem section (gains the cycle-time story), the contract table (currently describes autonomous mode, which is now wrong), and the hero sub.
+
+<!-- xgd-turn id="dbf891ae-6de9-4a81-b4cc-2dfb940adf64-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T22:59:30.155678+00:00" -->
+#### You
+Go ahead
 
 <!-- xgd-chat-end -->
