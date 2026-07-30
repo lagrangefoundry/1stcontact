@@ -54,7 +54,9 @@ const SURFACE_DECLS = [
   'background-color: #101828',
   'border-radius: 12px',
   'opacity: 0.9',
-  'background-image: linear-gradient(#00000080, #00000080), linear-gradient(90deg, #ff0000, #0000ff), url("/assets/card.png")',
+  // REQ-109 — the authored axis keeps its `/assets/…`; the EMITTED url() is
+  // document-relative so a rendered snapshot relocates under any path prefix.
+  'background-image: linear-gradient(#00000080, #00000080), linear-gradient(90deg, #ff0000, #0000ff), url("assets/card.png")',
   'background-size: cover',
   'background-position: center',
   'background-repeat: no-repeat',
@@ -369,7 +371,7 @@ describe('REQ-98 — one shared surface group across every node kind', () => {
     // The band: fill, then the scrim-over-image background stack, then sizing.
     expect(baseDecls(css, clsOf('div', 1))).toEqual([
       'background-color: #0b1120',
-      'background-image: linear-gradient(#00000066, #00000066), url("/assets/hero.png")',
+      'background-image: linear-gradient(#00000066, #00000066), url("assets/hero.png")',
       'background-size: cover',
       'background-position: center',
       'background-repeat: no-repeat',

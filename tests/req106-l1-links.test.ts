@@ -29,7 +29,8 @@ describe('REQ-106 — the L1 navigation role', () => {
   it('test_UAT_FC_REQ-106_retags_a_run_as_an_anchor', () => {
     const html = render(run('Join the beta', { href: '/beta' }))
     expect(html).toContain('<a')
-    expect(html).toContain('href="/beta"')
+    // REQ-109 — an authored root-relative href emerges document-relative.
+    expect(html).toContain('href="beta"')
     expect(html).toContain('Join the beta')
     // Retagged, not wrapped: the run is the anchor, so there is no <p> left.
     expect(html).not.toContain('<p ')

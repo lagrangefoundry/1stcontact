@@ -92,6 +92,35 @@ function cssFontFamily(v: string | undefined): string | null {
 const CSS_URL_ALLOWED = /^[A-Za-z0-9\-._~:/?#[\]@!$&*+,;=%]+$/
 
 /**
+ * REQ-109 — root-relative → document-relative. A rendered snapshot must be
+ * **relocatable**: the same bytes have to resolve whether they are served from a
+ * host root or from `…/site/<slug>/draft/<sha>/`. A root-absolute `/assets/x.svg`
+ * resolves against the apex and 404s under any path prefix, and `<base href>` is
+ * no answer because it does not reach `url()` inside CSS — which is exactly where
+ * the fonts and background images live.
+ *
+ * Dropping the leading slash is only correct because every page sits FLAT at the
+ * snapshot root; `renderSite` asserts that invariant rather than let a nested page
+ * emit a silently-wrong relative URL.
+ *
+ * The `//` guard is load-bearing, not decorative: `//evil.com/x` is a
+ * protocol-relative absolute URL, and stripping its first slash would turn a
+ * remote host into a local path. Everything that is not exactly one leading slash
+ * — absolute URLs, `#anchor`, already-relative values — passes through untouched.
+ *
+ * Applied only AFTER the safety checks at each sink, so the security envelope is
+ * unchanged: this rewrites the shape of an already-vetted value, it never admits
+ * one.
+ */
+function relativizeUrl(v: string): string {
+  if (!v.startsWith('/') || v.startsWith('//')) return v
+  // A bare `/` is the site root; document-relative that is the snapshot's own
+  // directory. `''` would resolve to the current *page*, which is a different
+  // target once the page is not `index.html`.
+  return v.slice(1) || './'
+}
+
+/**
  * The **sole** CSS `url()` sink. Returns the complete, quoted `url("…")` token,
  * or null when the value is not provably inert.
  *
@@ -106,7 +135,7 @@ function cssUrl(src: string | undefined): string | null {
   if (!src) return null
   const v = src.trim()
   if (!isSafeUrl(v) || !CSS_URL_ALLOWED.test(v)) return null
-  return `url("${v}")`
+  return `url("${relativizeUrl(v)}")`
 }
 
 // ── REQ-90 document-level resource table → @font-face rules ────────────────────
@@ -1578,7 +1607,8 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
   // live `javascript:` link. `_blank` always carries its `rel`; the opener
   // reference is a security hole, not a preference.
   const nodeLink: L1Link | undefined = (node as { link?: L1Link }).link
-  const href = nodeLink && isSafeUrl(nodeLink.href) ? nodeLink.href : undefined
+  const href =
+    nodeLink && isSafeUrl(nodeLink.href) ? relativizeUrl(nodeLink.href.trim()) : undefined
   const linkAttrs = href
     ? ` href="${escapeHtml(href)}"` +
       (nodeLink?.newTab ? ' target="_blank" rel="noopener noreferrer"' : '') +
@@ -1732,7 +1762,7 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       base.push(...surfaceDecls(a))
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')
-      const src = isSafeUrl(node.src) ? node.src : ''
+      const src = isSafeUrl(node.src) ? relativizeUrl(node.src.trim()) : ''
       const img = `<img class="${cls}"${idAttr} src="${escapeHtml(src)}" alt="${escapeHtml(node.alt)}" />`
       html = href ? `<a${linkAttrs} style="display:contents">${img}</a>` : img
       break

@@ -119,7 +119,9 @@ describe('BUG-23 — reproduction serves its own mirrored assets', () => {
     }
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     const css = readFileSync(path.join(outDir, 'theme.css'), 'utf8')
-    expect(`${html}${css}`).toContain('/assets/AlchemistLabWithTech.png')
+    // REQ-109 — the definition still authors `/assets/…`; the RENDERED handle is
+    // document-relative so the snapshot is relocatable under any path prefix.
+    expect(`${html}${css}`).toContain('url("assets/AlchemistLabWithTech.png")')
   })
 
   it('test_UAT_FC_BUG-23_reproduction_renders_without_reaching_the_target_host', async () => {
@@ -133,7 +135,9 @@ describe('BUG-23 — reproduction serves its own mirrored assets', () => {
       readFileSync(path.join(outDir, 'index.html'), 'utf8'),
       readFileSync(path.join(outDir, 'theme.css'), 'utf8'),
     ].join('\n')
-    const refs = [...body.matchAll(/["'(](\/assets\/[^"')]+)/g)].map((m) => m[1])
+    // REQ-109 — rendered handles are document-relative (`assets/…`); the leading
+    // slash is optional here so the check reads either shape as self-contained.
+    const refs = [...body.matchAll(/["'(](\/?assets\/[^"')]+)/g)].map((m) => m[1])
     expect(refs.length).toBeGreaterThan(0)
     for (const r of refs) {
       expect(existsSync(path.join(outDir, r.replace(/^\//, '')))).toBe(true)

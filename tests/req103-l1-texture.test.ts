@@ -175,7 +175,9 @@ describe('REQ-103 — a surface can carry a repeating texture', () => {
     expect(layers[0]).toContain('#00000033') // the scrim, alpha-folded
     expect(layers[1]).toContain('radial-gradient(circle at center')
     expect(layers[2]).toContain('radial-gradient(at top')
-    expect(layers[3]).toBe('url("/assets/xgd-grid-hero.svg")')
+    // REQ-109 — emitted document-relative so the snapshot relocates; the axis is
+    // still authored `/assets/…`.
+    expect(layers[3]).toBe('url("assets/xgd-grid-hero.svg")')
 
     // The sizing triple is positional, so a tiled texture and a `cover` backdrop
     // coexist: each layer keeps its own size / position / repeat.
