@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-30T23:14:14.933601+00:00'
+updated_at: '2026-07-30T23:16:29.210556+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -469,5 +469,37 @@ Also still outstanding from last turn: the **DOC-12 amendment** (draft privacy w
 <!-- xgd-chat role="user" ts="2026-07-30T23:14:14.868931+00:00" -->
 #### You
 sure
+
+<!-- xgd-turn id="e9aa3d2e-0c2f-4517-baa1-bc2a4aefa7c8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-30T23:16:29.181594+00:00" -->
+#### Claude
+Doing the DOC-12 amendment. Let me read it first.
+
+Now amending it. Five surgical changes:
+
+Before writing back, checking the concurrent session hasn't touched DOC-12 in the meantime:
+
+DOC-12 is amended and committed (`fb8cac178`). It grew from 8.2k to 12.2k chars across five changes:
+
+**Principle 4** was the actual contradiction. It read "Draft output is author-only" — now:
+
+> **Draft and published never share a location.** Every rendered artifact has its own address, so publishing is always a deliberate act and unpublished work is never served from a published URL. Draft output is **link-private, not authenticated**: anyone holding the unguessable URL can view it (§5.1). Tightening this to per-viewer access control waits for login — gating publication on access control was judged not worth it for v1.
+
+I kept the separate-locations invariant, which is still true and still load-bearing; only the privacy claim was wrong. The §6 rendering table's "author only (private)" row is corrected to match.
+
+**New §5.1, "Preview snapshots (shared drafts)"** — the vocabulary that didn't exist before. Documents `1c deploy`, the URL shape, and the key property: a preview snapshot is deliberately *not* a revision, never enters `history.json`, never mints an id, and is GC-able. That's what lets drafts be shared freely without polluting publish history, and it's the bit most likely to be misread later as "a draft deploy is a publish." It also records the content-hash guessability caveat and its escape hatch.
+
+**§7 restructured** from "Cloudflare mapping (eventual)" into the serving/storing split, with a three-column table (file → phase 1 → phase 2) so the boundary is legible. States the phase-2 trigger as *a server-side builder needing to read and write the store*, not a date, and spells out why `source/` ships beside `out/`: it makes phase 2 an import from R2 rather than a re-derivation from your laptop.
+
+**§9 caveats** — closed the open question ("Multi-tenant published-output serving — **decided**: shared Worker + R2 by slug, not Workers Static Assets", closing DOC-7 §11.3) and added the three honest limitations: the published-channel TTL window, link-only draft privacy, and the path-based URL scheme with subdomains as additive.
+
+I checked DOC-12 hadn't been touched by the concurrent session before writing back, since `--body-file` replaces wholesale — byte count matched what I'd fetched, so no lost update.
+
+Two things unchanged from where we were:
+
+`storage/sites/xgd/draft/pages/home.json` is still modified in the working tree — that's the other session's copy rework, and I've left it alone throughout.
+
+The deploy is still not run. When you want it: `pnpm deploy:public` once to put the Worker and the apex hostname live, then `./bin/1c deploy gigabytealchemy`. I'd hold off on `xgd` until whoever is editing its copy is finished.
 
 <!-- xgd-chat-end -->
