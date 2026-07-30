@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-30T23:09:19.629555+00:00'
+updated_at: '2026-07-30T23:14:14.933601+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -463,5 +463,11 @@ Three things you should know first.
 **One correction to my own report:** to test that attribution I briefly checked out the pre-REQ-109 `render.ts`, then restored it. It's verified byte-identical to the REQ-109 commit and `relativizeUrl` is present at all three sinks (`cssUrl`, `href`, `img src`) with the `//` guard intact. No harm done, but you'd have seen it in a `git status` snapshot taken in that window.
 
 Also still outstanding from last turn: the **DOC-12 amendment** (draft privacy wording, plus the preview-snapshot concept). Want me to do that while you decide on deploying?
+
+<!-- xgd-turn id="e9aa3d2e-0c2f-4517-baa1-bc2a4aefa7c8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T23:14:14.868931+00:00" -->
+#### You
+sure
 
 <!-- xgd-chat-end -->
