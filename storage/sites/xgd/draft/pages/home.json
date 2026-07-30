@@ -1430,7 +1430,7 @@
             "surfaceFill": "#F5F4EC",
             "pattern": {
               "shape": "grid",
-              "spacingPx": 24,
+              "spacingPx": 32,
               "thicknessPx": 1,
               "color": "#8b5c2a00"
             },
@@ -2090,7 +2090,19 @@
             }
           },
           "axes": {
-            "surfaceFill": "#F5F4EC"
+            "surfaceFill": "#F5F4EC",
+            "pattern": {
+              "shape": "grid",
+              "spacingPx": 32,
+              "thicknessPx": 1,
+              "color": "#8b5c2a00"
+            },
+            "pointerAccent": {
+              "color": "#2e86a3a6",
+              "radiusPx": 95,
+              "softnessPx": 14,
+              "roughness": 0.65
+            }
           },
           "children": [
             {
@@ -3361,7 +3373,7 @@
             "surfaceFill": "#F5F4EC",
             "pattern": {
               "shape": "grid",
-              "spacingPx": 24,
+              "spacingPx": 32,
               "thicknessPx": 1,
               "color": "#8b5c2a00"
             },

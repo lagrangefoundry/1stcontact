@@ -465,6 +465,38 @@ describe('REQ-108 — a texture responds to the pointer', () => {
   })
 
   /**
+   * AC5b — a texture drawn in a FULLY TRANSPARENT colour still accents.
+   *
+   * This is what xgd.dev's `#problem`, `#papers` and `#close` bands now run on: a
+   * `pattern` at `#8b5c2a00` paints nothing at all, and the accent redraws that
+   * same pattern in teal — so the grid exists ONLY under the cursor. It falls out
+   * of the construction rather than being a special case (the accent substitutes
+   * the colour and keeps the geometry), but the site depends on it, so it is
+   * pinned: a renderer that started skipping zero-alpha pattern layers as an
+   * "optimisation" would silently delete the effect from three bands.
+   */
+  it('test_UAT_FC_REQ-108_a_fully_transparent_texture_still_accents', () => {
+    const invisible = { ...GRID, spacingPx: 32, color: '#8b5c2a00' } as const
+    const b = band({ surfaceFill: '#F5F4EC', pattern: invisible, pointerAccent: ACCENT })
+
+    // The base grid is emitted, and paints nothing: every layer is zero-alpha.
+    const base = decl(b.self, 'background-image')
+    expect(base).toBeTruthy()
+    expect(base).toContain('#8b5c2a00')
+    expect(decl(b.self, 'background-size')).toBe('32px 32px, 32px 32px')
+
+    // The accent redraws the same geometry in a colour that DOES paint.
+    const accent = decl(b.overlay, 'background-image')
+    expect(accent).toContain(TEAL)
+    expect(accent).not.toContain('#8b5c2a00')
+    expect(decl(b.overlay, 'background-size')).toBe('32px 32px, 32px 32px')
+    // Still masked to the pointer region — an invisible grid that lit up everywhere
+    // would just be a visible grid.
+    expect(decl(b.overlay, 'mask-image')).toContain('--l1-pt')
+    expect(b.classes).toContain('l1-pt')
+  })
+
+  /**
    * AC6 — the axis accents *a texture*. On a node that paints none there is nothing
    * to redraw, so the honest emission is silence — not a bloom of flat colour
    * following the mouse, and not a stacking context and a listener handle bought
