@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-108
 created_by: xgd
 created_at: '2026-07-30T00:30:12.896873+00:00'
-updated_at: '2026-07-30T00:33:28.426670+00:00'
+updated_at: '2026-07-30T00:59:29.960613+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -44,5 +44,11 @@ Two things to confirm before I code:
 2. **Accent colour** — I've assumed `#2e86a3` (the primary teal-petrol). The lighter `#4aafc9` would read brighter against the cream fill; the brown grid is at ~10% alpha (`#8b5c2a1a`), so a full-strength teal may be a big jump — I'd land it around 35–45% alpha unless you want it emphatic.
 
 Go-ahead and I'll implement, UAT, and commit.
+
+<!-- xgd-turn id="a8003eb2-b124-42b3-9f77-f802c1f1890c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-30T00:59:29.882046+00:00" -->
+#### You
+definitely include the hero grid. Do not include the little logos
 
 <!-- xgd-chat-end -->
