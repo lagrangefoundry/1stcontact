@@ -9,7 +9,13 @@ import {
   revisionDir,
   type RenderChannel,
 } from '../store'
-import { collectSnapshotFiles, formatBytes, snapshotSha, type SnapshotFile } from './content'
+import {
+  assertNoReservedSegment,
+  collectSnapshotFiles,
+  formatBytes,
+  snapshotSha,
+  type SnapshotFile,
+} from './content'
 import {
   readManifest,
   writeManifest,
@@ -118,6 +124,7 @@ export async function cmdDeploy(slug: string, opts: DeployOptions = {}): Promise
 
   // ── hash ──────────────────────────────────────────────────────────────────
   const files = collectSnapshotFiles(outDir, sourceDir)
+  assertNoReservedSegment(files)
   const sha = snapshotSha(files)
   const prefix =
     channel === 'draft'

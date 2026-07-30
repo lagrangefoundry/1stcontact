@@ -4,14 +4,31 @@ compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+# The bucket `1c deploy` publishes rendered snapshots to (REQ-110/REQ-111).
+# Declared at the top level for `wrangler dev` and repeated under
+# [env.production] because a named environment does not inherit bindings.
+[[r2_buckets]]
+binding = "SITES"
+bucket_name = "1stcontact-sites"
+
 [env.production]
 name = "1stcontact-public-site"
 routes = [
   # public-site is the generic multi-tenant site server:
-  #   apex (1stcontact.io)  = the 1st Contact marketing site
-  #   *.1stcontact.io       = customer sites by slug subdomain
+  #   apex (1stcontact.io)  = /site/<slug>/… for every deployed site, and later
+  #                           the 1st Contact marketing site at /
+  #   *.1stcontact.io       = customer sites by slug subdomain (declared, not
+  #                           yet served — subdomain routing is additive)
   # `app` is a reserved slug, so control-app's more-specific app.1stcontact.io/*
   # route takes precedence over this wildcard.
-  { pattern = "1stcontact.io/*", zone_name = "1stcontact.io" },
+  #
+  # The apex is a custom domain rather than a zone route so wrangler provisions
+  # the DNS record and certificate itself: the zone has no proxied record for the
+  # apex, and a route alone would resolve to nothing.
+  { pattern = "1stcontact.io", custom_domain = true },
   { pattern = "*.1stcontact.io/*", zone_name = "1stcontact.io" }
 ]
+
+[[env.production.r2_buckets]]
+binding = "SITES"
+bucket_name = "1stcontact-sites"
