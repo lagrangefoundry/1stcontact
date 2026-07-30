@@ -5,7 +5,7 @@ type: doc
 title: Site Storage, Versioning & Rendering Model
 created_by: xgd
 created_at: '2026-06-30T20:21:05.234795+00:00'
-updated_at: '2026-07-02T18:52:43.389035+00:00'
+updated_at: '2026-07-30T23:16:09.012276+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -17,7 +17,7 @@ fields:
 
 ## 1. Purpose
 
-Defines how a site is **stored**, **versioned**, and **rendered** — for the current file-backed system and the eventual Cloudflare (D1 + R2) system. Companion to [[DOC-7]] (framework) and [[DOC-5]] (platform).
+Defines how a site is **stored**, **versioned**, and **rendered** — for the current file-backed system and the Cloudflare (D1 + R2) system it is migrating to. Companion to [[DOC-7]] (framework) and [[DOC-5]] (platform).
 
 This model **supersedes** the earlier framing in which a site was a single flat `site.json` and a revision captured only the definition JSON.
 
@@ -26,7 +26,7 @@ This model **supersedes** the earlier framing in which a site was a single flat 
 1. **Source is versioned; renders are derived.** The versioned source of truth is the site *definition + assets + metadata*. Rendered HTML/CSS/JS is a derived build artifact, regenerated from source — never versioned.
 2. **A version captures everything.** A revision is an immutable snapshot of the *entire* site state: page definitions, assets, **and** metadata — not just the definition.
 3. **Forward-only history.** Revisions are immutable once published. The live site is **always the latest revision** (no separate "head"/`published_revision_id` pointer — it is derivable). To change a published site you return it to draft, edit, and publish a *new* revision. Nothing is rewritten or deleted; "rollback" = `checkout <old>` + `publish`.
-4. **Private draft vs public published — separate locations.** Draft output is author-only; published output is public. They never share a location, so unpublished work can never be served.
+4. **Draft and published never share a location.** Every rendered artifact has its own address, so publishing is always a deliberate act and unpublished work is never served from a published URL. Draft output is **link-private, not authenticated**: anyone holding the unguessable URL can view it (§5.1). Tightening this to per-viewer access control waits for login — gating publication on access control was judged not worth it for v1.
 5. **Git is not the versioning mechanism.** Git version-controls the repository; site versioning is the explicit revisions model below, which is identical in files and in D1. Git history does not migrate to Cloudflare.
 6. **Server-side rendering only (for now).** HTML is rendered on a machine (build/CLI) and shipped fully-formed to the browser. There is **no client-side/in-browser renderer** until interaction latency proves one is needed.
 
@@ -105,6 +105,20 @@ Append-only log; one entry per publish. No `head` field (live = highest id).
 - `1c revisions <slug>` — print the history log.
 - **Rollback** is not a distinct command: `1c checkout <old>` then `1c publish`.
 
+### 5.1 Preview snapshots (shared drafts)
+
+- `1c deploy <slug> [--channel draft|published]` — render, content-address the output, upload it to the R2 artifact store, and print the URL (REQ-110). Deploy *always* renders first, so stale bytes cannot ship.
+
+A **preview snapshot** is an immutable, content-addressed copy of a draft render, published to a hard-to-guess URL so the draft can be shared for review:
+
+```
+https://1stcontact.io/site/<slug>/draft/<sha12>/
+```
+
+It is deliberately **not a revision**. It never enters `history.json`, never mints a revision id, and may be garbage-collected at will (`1c deploy --prune`). This keeps the mutable-draft / immutable-revision split of principle 2 intact: drafts can be shared as freely and as often as the author likes without polluting publish history. The id is a hash of the rendered bytes, so redeploying identical content is a no-op that yields the same URL.
+
+Preview snapshots are **link-private, not authenticated** (principle 4). Draft responses carry `X-Robots-Tag: noindex`. Because the id is derived from content rather than random, it is in principle computable by someone who can reproduce the exact rendered bytes; accepted for v1, and replaceable by a random token in the manifest without any layout change.
+
 ## 6. Rendering
 
 - `render` is a **pure function** of `(source, framework)` -> static HTML/CSS/JS. Deterministic; reproducible.
@@ -113,23 +127,33 @@ Append-only log; one entry per publish. No `head` field (live = highest id).
 | | Draft preview | Published site |
 |---|---|---|
 | Rendered from | `draft/` | latest revision |
-| Audience | author only (private) | public |
+| Audience | author, plus anyone holding the link (§5.1) | public |
 | Triggered by | `1c render` | `1c publish` (always) |
 | Lives in | `storage/dist/<slug>/draft/` | `storage/dist/<slug>/published/` |
 
 - Server-side only (see principle 6). The builder's future preview, when built, is server-rendered HTML shown in an iframe — not a client-side renderer.
 
-## 7. Cloudflare mapping (eventual)
+## 7. Cloudflare mapping
 
-| Concept | File (now) | Cloudflare (eventual) |
-|---|---|---|
-| draft source | `storage/sites/<slug>/draft/` | D1 draft + R2 draft assets |
-| revision (snapshot) | `revisions/NNNN/` | R2 site snapshot + D1 revision metadata |
-| history log | `history.json` | D1 `revisions` table |
-| asset bytes | `.../assets/` | R2 (versioned with the revision) |
-| published render | `storage/dist/<slug>/published/` | Workers Static Assets / R2 (public URL) |
-| draft preview | `storage/dist/<slug>/draft/` | authenticated preview surface (control-app) |
-| "live = latest" | highest revision | derivable; no `published_revision_id` pointer needed |
+The migration splits into **serving** and **storing**, and the two move independently.
+
+**Phase 1 — serving** (REQ-109/110/111): definitions stay canonical on the operator's machine and `1c` remains the renderer, while Cloudflare serves the rendered artifact out of R2. **Phase 2 — storing**: the canonical store moves into D1, triggered by a *server-side builder* needing to read and write it — not by a date. Moving the store while authoring is local would demand bidirectional sync that neither endpoint requires, which is the genuinely throwaway work.
+
+| Concept | File (now) | Phase 1 — serving | Phase 2 — storing |
+|---|---|---|---|
+| draft source | `storage/sites/<slug>/draft/` | canonical on disk; mirrored to R2 as `source/` beside each snapshot | D1 draft + R2 draft assets |
+| revision (snapshot) | `revisions/NNNN/` | R2 `sites/<slug>/rev/NNNN/{out,source}/` | + D1 revision metadata |
+| history log | `history.json` | R2 `sites/<slug>/manifest.json` | D1 `revisions` table |
+| asset bytes | `.../assets/` | R2, inside the snapshot | unchanged |
+| published render | `storage/dist/<slug>/published/` | R2 `rev/NNNN/out/`, served by `public-site` at `/site/<slug>/` | unchanged; renderer moves server-side |
+| draft preview | `storage/dist/<slug>/draft/` | R2 `preview/<sha>/out/`, served at `/site/<slug>/draft/<sha>/` (§5.1) | + per-viewer access control |
+| "live = latest" | highest revision | `manifest.live` | D1; still derivable |
+
+Because `source/` ships beside `out/`, each R2 revision is a *complete* snapshot per principle 2 — so phase 2 is an **import from R2**, not a re-derivation from a laptop.
+
+Everything but the store itself survives phase 2 unchanged: the route grammar, the R2 `out/` layout, content-addressing, the caching rules, deploy semantics, and DNS/TLS. The Worker reaches storage through a single `SiteStore` accessor; phase 2 swaps only its implementation.
+
+**Relocatable artifacts.** Serving one rendered snapshot at more than one URL requires the render to hold no absolute self-references, so asset URLs are emitted document-relative (REQ-109). This is what makes a snapshot content-addressable and lets promotion be a pointer flip rather than a re-render.
 
 ## 8. Versioning storage strategy
 
@@ -139,7 +163,10 @@ Append-only log; one entry per publish. No `head` field (live = highest id).
 ## 9. Known deferrals / caveats
 
 - **Render fidelity for old revisions:** re-rendering uses the *current* framework, so an old revision can render differently than at original publish if the framework changed. MVP relies on the repo-pinned framework. Future options: pin a framework version per revision, or store rendered output.
-- **Multi-tenant published-output serving** (per-site assets vs shared Worker + R2 by slug) — open; decided in a later REQ ([[DOC-7]] §11.3).
+- **Multi-tenant published-output serving** — **decided** (REQ-111): one shared `public-site` Worker serving R2 by slug, *not* Workers Static Assets. Static Assets binds artifacts to a Worker *deployment*, so every publish and every preview link would require a deploy, which does not go multi-tenant. Closes [[DOC-7]] §11.3.
+- **Published-channel cache staleness:** published URLs are not revision-scoped, so a new revision leaves a window (≤ the published TTL) in which a client can pair new HTML with cached old CSS. Preview snapshots are immune — SHA-addressed and cached immutably. Both fixes (revision-scoped published asset paths, or purge-on-deploy) are additive.
+- **Draft access control:** preview snapshots are link-private only (principle 4, §5.1); per-viewer sharing arrives with login.
+- **URL scheme:** sites are served path-based under the apex (`/site/<slug>/…`). Subdomain serving (`<slug>.1stcontact.io`, per [[DOC-7]] §2.2) and custom domains are later and additive — relocatable artifacts (§7) mean neither needs a re-render.
 - **AI builder and client-side preview** — explicitly out of scope for now.
 
 ## 10. Reconciliations required in existing tickets/docs
