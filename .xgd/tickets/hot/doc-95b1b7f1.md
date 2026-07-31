@@ -5,7 +5,7 @@ type: doc
 title: Site Storage, Versioning & Rendering Model
 created_by: xgd
 created_at: '2026-06-30T20:21:05.234795+00:00'
-updated_at: '2026-07-31T20:28:37.319523+00:00'
+updated_at: '2026-07-31T20:29:38.986391+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -139,15 +139,19 @@ The migration splits into **serving** and **storing**, and the two move independ
 
 **Phase 1 — serving** (REQ-109/110/111): definitions stay canonical on the operator's machine and `1c` remains the renderer, while Cloudflare serves the rendered artifact out of R2. **Phase 2 — storing**: the canonical store moves into D1, triggered by a *server-side builder* needing to read and write it — not by a date. Moving the store while authoring is local would demand bidirectional sync that neither endpoint requires, which is the genuinely throwaway work.
 
+**Keys are namespaced by root.** `<root>` below is `sites` or `sandbox` — the same split §3.1 makes on disk. It is part of the R2 address, not only the local path: without it a `--sandbox` deploy shares a keyspace with any real site of the same slug and can overwrite its published bytes (BUG-31). **Only `sites/` is servable** — the Worker never derives a root from a request, so no URL can name a `sandbox/` key.
+
 | Concept | File (now) | Phase 1 — serving | Phase 2 — storing |
 |---|---|---|---|
-| draft source | `storage/sites/<slug>/draft/` | canonical on disk; mirrored to R2 as `source/` beside each snapshot | D1 draft + R2 draft assets |
-| revision (snapshot) | `revisions/NNNN/` | R2 `sites/<slug>/rev/NNNN/{out,source}/` | + D1 revision metadata |
-| history log | `history.json` | R2 `sites/<slug>/manifest.json` | D1 `revisions` table |
+| draft source | `storage/<root>/<slug>/draft/` | canonical on disk; mirrored to R2 as `source/` beside each snapshot | D1 draft + R2 draft assets |
+| revision (snapshot) | `revisions/NNNN/` | R2 `<root>/<slug>/rev/NNNN/{out,source}/` | + D1 revision metadata |
+| history log | `history.json` | R2 `<root>/<slug>/manifest.json` | D1 `revisions` table |
 | asset bytes | `.../assets/` | R2, inside the snapshot | unchanged |
-| published render | `storage/dist/<slug>/published/` | R2 `rev/NNNN/out/`, served by `public-site` at `/site/<slug>/` | unchanged; renderer moves server-side |
-| draft preview | `storage/dist/<slug>/draft/` | R2 `preview/<sha>/out/`, served at `/site/<slug>/draft/<sha>/` (§5.1) | + per-viewer access control |
-| "live = latest" | highest revision | `manifest.live` | D1; still derivable |
+| published render | `storage/dist/<root>/<slug>/published/` | R2 `<root>/<slug>/rev/NNNN/out/`; served by `public-site` at `/site/<slug>/` for `sites` only | unchanged; renderer moves server-side |
+| draft preview | `storage/dist/<root>/<slug>/draft/` | R2 `<root>/<slug>/preview/<sha>/out/`; served at `/site/<slug>/draft/<sha>/` for `sites` only (§5.1) | + per-viewer access control |
+| "live = latest" | highest revision | `manifest.live` (per root) | D1; still derivable |
+
+A sandbox deploy therefore uploads and indexes normally but reports no URL: the snapshot is unreachable by construction. Exercising the *serving* path needs a throwaway slug under `storage/sites/`.
 
 Because `source/` ships beside `out/`, each R2 revision is a *complete* snapshot per principle 2 — so phase 2 is an **import from R2**, not a re-derivation from a laptop.
 
