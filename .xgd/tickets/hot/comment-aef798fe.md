@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-31T00:25:56.970083+00:00'
+updated_at: '2026-07-31T00:27:10.843316+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -330,5 +330,43 @@ Uncommitted — I'd guess you'll want a pass over the wording first. CHAT-12 has
 <!-- xgd-chat role="user" ts="2026-07-31T00:25:56.939350+00:00" -->
 #### You
 I think the white papers probably deserve a page of their own. the title for each, a paragraph about what they say and an email capture form. Do you agree/
+
+<!-- xgd-turn id="4c0897b6-1129-4e47-81af-b0778bca26af-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T00:27:10.816307+00:00" -->
+#### Claude
+Let me check what a second page actually costs here before I answer — the render said "2 file(s)" and I want to know what's shared and what gets duplicated.
+
+Yes — and for a stronger reason than tidiness: it's what DOC-7 already plans. The web platform workstream is *"blog → whitepaper lead capture → beta signup"*, three stages, and the papers are the middle one. Traffic arrives **for the papers** from the Medium/LinkedIn/Reddit cross-posts and from talks. That traffic needs somewhere to land, and `xgd.dev/#signup` is not a thing you can put on a slide.
+
+Three more arguments in favour:
+
+**It fixes the two-asks problem properly.** You've made the waitlist primary; the papers are a different intent at a much lower commitment. Right now they're fighting for the same box at the bottom of the home page, which is why that paragraph is currently the weakest on the page — it's doing two jobs. Split them and each page gets exactly one ask.
+
+**The titles are the one genuinely searchable asset you own.** Earlier I argued organic isn't your channel, and that holds for "XGD" and "generative development" — both unwinnable. But *"how can you trust the code your AI writes"* is a question people actually type, and it accrues to a page, not an anchor.
+
+**Room to sell them.** Two titles plus two abstracts is a whole band on the home page. On its own page it's the point.
+
+## What it costs — worth knowing before you commit
+
+**There is no shared chrome.** I checked: a page is a self-contained L1 document (`widths`, `background`, `resources`, `root`) with no partial, layout, or include mechanism. The site currently has exactly one page — `index.html` and `home.html` are the same document aliased, not two pages.
+
+So a second page means **the nav and footer get authored twice**, and every future nav edit has to be made in both or they silently diverge. That's the same duplication tax as the REQ-95 CTA workaround, one level up — and it's a genuine framework gap that only appears the moment a site has two pages. Which makes it good REQ-95 evidence rather than an argument against doing it; it just wants a ticket alongside.
+
+The backend gap doesn't change: still no PDFs anywhere, still no `/api/lead`. A dedicated page makes the missing artifact *more* conspicuous, not less.
+
+## What I'd change on the home page
+
+- Close section drops the two-title sentence and goes back to a clean waitlist ask.
+- Nav "Whitepapers" becomes a real link to `/papers` instead of the `#signup` workaround I put in an hour ago.
+- Hero secondary stays "See the evidence" → `#proof`. Sceptics get a path, and I'd avoid pointing two hero buttons at two different conversions.
+
+## Three calls before I build it
+
+1. **One form or one per paper?** You said "an email capture form", singular — I agree, since you're emailing both links anyway. Two forms doubles the ask for no gain. A per-paper checkbox is the escape hatch if their audiences ever diverge.
+2. **What does the page ask for?** My suggestion: paper request is the primary action, mailing list is a checkbox, beta waitlist is a second checkbox or just a link home. One primary ask per page, same principle as the split itself.
+3. **Slug** — `/papers` or `/whitepapers`? And I'd build the layout to take a third, since DOC-8 lands later.
+
+Nothing built yet. If those land, I'll write the page and file the shared-chrome gap.
 
 <!-- xgd-chat-end -->
