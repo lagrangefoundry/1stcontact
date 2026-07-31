@@ -134,7 +134,15 @@ describe('REQ-109 — relocatable rendered output', () => {
         return
       }
       const rel = decodeURIComponent(url.pathname.slice(PREFIX.length)) || 'index.html'
-      const file = path.join(out, rel)
+      let file = path.join(out, rel)
+      // Extensionless → sibling `.html`, mirroring what actually serves these
+      // bytes: the `public-site` Worker (REQ-113) and `1c serve` both resolve
+      // `/whitepapers` to `whitepapers.html`. Modelling it here is what keeps
+      // this a test of the RENDERED URLS rather than of a toy server that
+      // resolves less than production does.
+      if (!path.extname(file) && !existsSync(file) && existsSync(`${file}.html`)) {
+        file = `${file}.html`
+      }
       // No traversal out of the snapshot, and no directory reads.
       if (!file.startsWith(out) || !existsSync(file) || !statSync(file).isFile()) {
         res.writeHead(404).end()

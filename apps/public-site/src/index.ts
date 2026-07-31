@@ -115,25 +115,40 @@ async function serve(
   // about sites the asker has no business knowing exist.
   if (prefix === null) return notFound(target.channel)
 
-  const key = `${prefix}/${target.path}`
+  // REQ-113 — the exact key first, then the extensionless → `.html` mapping the
+  // route marked eligible. Ordered, not merged: a real object always wins, so
+  // nothing that resolves today can start resolving somewhere else.
+  const candidates = [target.path]
+  if (target.htmlFallback) candidates.push(target.htmlFallback)
+
   const headers = withDraftPolicy(new Headers(), target.channel)
-  headers.set('content-type', contentTypeFor(target.path))
   headers.set('cache-control', target.channel === 'draft' ? IMMUTABLE_CACHE : PUBLISHED_CACHE)
 
   if (request.method === 'HEAD') {
-    const head = await bucket.head(key)
-    if (head === null) return notFound(target.channel)
-    headers.set('content-length', String(head.size))
-    if (head.httpEtag) headers.set('etag', head.httpEtag)
-    return new Response(null, { status: 200, headers })
+    for (const candidate of candidates) {
+      const head = await bucket.head(`${prefix}/${candidate}`)
+      if (head === null) continue
+      // Typed from the key that answered, never from the requested path: a
+      // fallback hit is HTML, and `/whitepapers` carries no extension to guess
+      // from.
+      headers.set('content-type', contentTypeFor(candidate))
+      headers.set('content-length', String(head.size))
+      if (head.httpEtag) headers.set('etag', head.httpEtag)
+      return new Response(null, { status: 200, headers })
+    }
+    return notFound(target.channel)
   }
 
-  const object = await bucket.get(key)
+  for (const candidate of candidates) {
+    const object = await bucket.get(`${prefix}/${candidate}`)
+    if (object === null) continue
+    headers.set('content-type', contentTypeFor(candidate))
+    if (object.httpEtag) headers.set('etag', object.httpEtag)
+    return new Response(object.body, { status: 200, headers })
+  }
   // A missing object is a 404 and never a directory listing: the bucket's key
   // space is not a browsable filesystem and must not become one by accident.
-  if (object === null) return notFound(target.channel)
-  if (object.httpEtag) headers.set('etag', object.httpEtag)
-  return new Response(object.body, { status: 200, headers })
+  return notFound(target.channel)
 }
 
 function notFound(channel?: Channel): Response {
