@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-07-31T20:20:35.035078+00:00'
+updated_at: '2026-07-31T20:27:09.035978+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -844,5 +844,11 @@ Two findings worth calling out:
 Scope held to the colour group: typography, spacing, radius, shadow and breakpoint tokens are untouched, since they're a different axis family with nothing replacing them here.
 
 ACs 8–12 make the retirement checkable — no `--color-*` anywhere outside the new model, nothing emitted into rendered pages, non-colour groups still validating, and a clean `pnpm -r build` (the schema cut is wide enough that stale `dist/` would hide type drift).
+
+<!-- xgd-turn id="fc6f8d91-4880-4185-bbb9-0b6c2e12b79a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T20:27:09.003322+00:00" -->
+#### You
+ok once all the docs are up to date and consistent, can you create a plan for tickets to implement the web designer. The tab name should be "Site", for now - please make it a parameter so its not baked into a million places and we can change it if needed
 
 <!-- xgd-chat-end -->
