@@ -6,9 +6,9 @@ title: L1 palette colour model (literal base, palette overlay) + retrofit existi
   sites
 created_by: xgd
 created_at: '2026-07-31T19:36:30.336865+00:00'
-updated_at: '2026-07-31T23:05:11.563537+00:00'
+updated_at: '2026-07-31T23:05:40.689509+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -182,3 +182,5 @@ the retrofit in §3.
 [[DOC-23]] §5, written from the CHAT-9 discussion of the web editor's colour
 surface. The measured evidence in §5.3 withdrew an earlier assumption that
 palette-driven colour threatened reproduction fidelity.
+
+-
