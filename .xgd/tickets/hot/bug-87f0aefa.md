@@ -5,14 +5,19 @@ type: bug
 title: relativizeUrl turns /#frag into a same-page anchor, breaking cross-page links
 created_by: xgd
 created_at: '2026-07-31T00:45:39.331427+00:00'
-updated_at: '2026-07-31T00:45:39.331427+00:00'
+updated_at: '2026-07-31T01:02:08.406323+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 22cf7aee7d78c629b0de50e3fd700a619dd1e35d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.9
 ---
 
 ## Symptom
