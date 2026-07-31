@@ -1,3 +1,4 @@
+import type { Root } from '../store'
 import type { R2Client } from './r2'
 
 /**
@@ -35,8 +36,17 @@ export interface SiteManifest {
   previews: ManifestPreview[]
 }
 
-export function manifestKey(slug: string): string {
-  return `sites/${slug}/manifest.json`
+/**
+ * The manifest object key for `slug` under `root`.
+ *
+ * Keyed by root, not by slug alone (BUG-31). The local store separates real
+ * sites (`storage/sites/`) from throwaway scratch (`storage/sandbox/`, gitignored
+ * — DOC-12 §3.1); flattening that distinction in R2 let a sandbox deploy read,
+ * rewrite, and overwrite a real site's manifest and published bytes whenever the
+ * two shared a slug. The root is part of the address on both sides.
+ */
+export function manifestKey(root: Root, slug: string): string {
+  return `${root}/${slug}/manifest.json`
 }
 
 export function emptyManifest(slug: string): SiteManifest {
@@ -53,8 +63,12 @@ export interface ManifestRead {
   raw: string | null
 }
 
-export async function readManifest(client: R2Client, slug: string): Promise<ManifestRead> {
-  const raw = await client.get(manifestKey(slug))
+export async function readManifest(
+  client: R2Client,
+  root: Root,
+  slug: string,
+): Promise<ManifestRead> {
+  const raw = await client.get(manifestKey(root, slug))
   if (raw === null) return { manifest: emptyManifest(slug), raw: null }
   const manifest = JSON.parse(raw) as SiteManifest
   return {
@@ -92,11 +106,12 @@ export class ManifestConflictError extends Error {
  */
 export async function writeManifest(
   client: R2Client,
+  root: Root,
   slug: string,
   manifest: SiteManifest,
   expectedRaw: string | null,
 ): Promise<void> {
-  const current = await client.get(manifestKey(slug))
+  const current = await client.get(manifestKey(root, slug))
   if (current !== expectedRaw) throw new ManifestConflictError(slug)
-  await client.putText(manifestKey(slug), serializeManifest(manifest), 'application/json')
+  await client.putText(manifestKey(root, slug), serializeManifest(manifest), 'application/json')
 }

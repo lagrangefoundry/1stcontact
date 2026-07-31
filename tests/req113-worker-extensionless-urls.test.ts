@@ -137,7 +137,7 @@ async function deployPublished(): Promise<void> {
     now: '2026-07-30T12:00:00.000Z',
     channel: 'published',
   })
-  const raw = await client.get(manifestKey(SLUG))
+  const raw = await client.get(manifestKey('sites', SLUG))
   const m = JSON.parse(raw as string) as SiteManifest
   // Guard the guard: a published channel with no live revision would 404 for
   // reasons that have nothing to do with this ticket.

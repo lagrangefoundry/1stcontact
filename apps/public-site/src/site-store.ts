@@ -39,9 +39,19 @@ interface SiteManifest {
   previews: ManifestPreview[]
 }
 
+/**
+ * The only R2 root this Worker will ever address (BUG-31).
+ *
+ * `1c deploy` keys snapshots by the store root the definition came from, so
+ * throwaway `storage/sandbox/` content lands under `sandbox/`. Nothing here
+ * derives a root from a request, so no URL — however crafted — can name a
+ * sandbox key: unreachable by construction, not by a check that could be missed.
+ */
+export const SERVABLE_ROOT = 'sites'
+
 /** The manifest object key for `slug`. Mirrors `tools/generate/src/deploy/manifest.ts`. */
 export function manifestKey(slug: string): string {
-  return `sites/${slug}/manifest.json`
+  return `${SERVABLE_ROOT}/${slug}/manifest.json`
 }
 
 /** Zero-pad a revision id to its canonical 4-digit prefix (`1` → `0001`). */
@@ -86,11 +96,11 @@ export class R2SiteStore implements SiteStore {
       if (ref === undefined) return null
       const preview = manifest.previews.find((p) => p.sha === ref)
       if (preview === undefined) return null
-      return `sites/${slug}/preview/${preview.sha}/out`
+      return `${SERVABLE_ROOT}/${slug}/preview/${preview.sha}/out`
     }
 
     if (manifest.live === null) return null
-    return `sites/${slug}/rev/${padRevision(manifest.live)}/out`
+    return `${SERVABLE_ROOT}/${slug}/rev/${padRevision(manifest.live)}/out`
   }
 
   async live(slug: string): Promise<number | null> {
