@@ -5,7 +5,7 @@ type: doc
 title: Site Storage, Versioning & Rendering Model
 created_by: xgd
 created_at: '2026-06-30T20:21:05.234795+00:00'
-updated_at: '2026-07-30T23:16:09.012276+00:00'
+updated_at: '2026-07-31T20:28:37.319523+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -174,3 +174,31 @@ Everything but the store itself survives phase 2 unchanged: the route grammar, t
 - **REQ-7 (D1 schema):** drop `published_revision_id` (forward-only); revisions must snapshot *everything* (assets + metadata), not the definition only; adopt per-page granularity (aligns with [[DOC-5]]'s Pages/Sections entities).
 - **REQ-4 (framework):** the render path need **not** be browser-ESM (no client-side preview); that constraint is lifted.
 - **[[DOC-7]] §2.2/§2.4/§11** and **[[DOC-5]]** reconciled to this document.
+
+
+---
+
+## 11. Reconciliation — the builder is now designed (2026-07-31, CHAT-9)
+
+§9's deferral *"AI builder and client-side preview — explicitly out of scope for
+now"* is **half superseded**:
+
+- **The builder is in scope and specified** — [[DOC-8]] (app architecture) and
+  [[DOC-28]] (the page editor). Nothing in this document's storage or versioning
+  model changes as a result; the builder *consumes* it.
+- **Client-side preview stays out of scope**, exactly as principle 6 and §6 state.
+  The builder's preview is server-rendered HTML in an iframe.
+
+Two consequences worth recording here, where the storage model lives:
+
+- **This document's §7 phase-2 trigger is now real.** Moving the canonical store to
+  D1 is triggered by *"a server-side builder needing to read and write it"* — that
+  builder is being built. Whether v1 runs against the file-backed store first is an
+  open question ([[DOC-8]] §13).
+- **A third render channel exists.** Alongside draft preview and published, the
+  builder renders an **edit** channel: the same document with links/forms/behaviour
+  /motion disabled and editor handles stamped ([[DOC-28]] §5). It is a render mode,
+  not a new artifact — it is never published, never content-addressed, and never
+  enters `history.json`.
+- **The toolbar's Publish is exactly §5's `publish`** — snapshot, diff, append,
+  render. The builder adds no publish semantics of its own.
