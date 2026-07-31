@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-31T00:30:53.868237+00:00'
+updated_at: '2026-07-31T00:35:43.905115+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -374,5 +374,57 @@ Nothing built yet. If those land, I'll write the page and file the shared-chrome
 <!-- xgd-chat role="user" ts="2026-07-31T00:30:53.837761+00:00" -->
 #### You
 one form. Agree on 2. /whitepapers
+
+<!-- xgd-turn id="9d477ae5-c200-462a-951d-c0625c784309-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T00:35:43.873823+00:00" -->
+#### Claude
+The site already has `reveal`, `stagger`, `hover` and `responsiveLayout` — richer than the transcript described. Let me check the form slot before I build.
+
+All clear — controls map 1:1 to fields, so email-only is a clean single-node removal. Building the page.
+
+Navigation defect — `/whitepapers` 404s. Let me check how the server resolves paths before deciding.
+
+The dev server has no extensionless fallback (`serve.ts:66-74` only maps directories to `index.html`), though Cloudflare Pages would serve `/whitepapers` from `whitepapers.html` automatically. Rather than leave the nav dead while you review, I'll point at the path that works in both.
+
+The source JSON has `/#how`, but the renderer emits `#how`. Let me find the rewrite.
+
+Found it — REQ-109's `relativizeUrl` (`render.ts:115`) strips the leading slash so snapshots are relocatable. Correct for `/assets/x.svg`, but `/#how` becomes `#how`, which means "this page" rather than "the root page". That's a real bug, and only a second page can expose it. Working around it explicitly for now:
+
+Built and rendering. **`localhost:8792/whitepapers.html`** (reload the home page too — its nav changed).
+
+## The page
+
+Nav → header → the two papers → capture → footer. I built it by deep-copying the home page's chrome and band structures rather than re-authoring, so it inherits the type, palette, grid echoes, reveal/stagger and hover treatments instead of me re-deriving them and drifting.
+
+**Header:** eyebrow "Whitepapers", then *"Two papers." / "One argument."* — parallel to the home H1's two-beat shape, and true: one frames the problem, one answers it.
+
+**The cards** carry number, title, abstract. Paper 01 gets the four waves, the structural-not-capability argument, behavioural identity and the Artificer. Paper 02 gets the governor framing, the three contributions, and — deliberately — *"the velocity, the regression rate, and what we still don't know."* Naming the uncertainty section is a credibility signal for this audience, and it's what §5 of that paper actually contains.
+
+`paper-items` is the home page's three-card row with two children, so **DOC-8 drops in later** without new structure.
+
+**Form is email-only** — I removed the `message` field and its matching control node. This page's whole point is low commitment; the qualifying question stays on the waitlist form where the ask is bigger.
+
+**Home changed too:** nav "Whitepapers" now leaves for the real page, and the close section drops the two-title sentence, so it asks for the waitlist and nothing else. That paragraph was the weakest on the page precisely because it was doing two jobs.
+
+## Two framework findings — both only reachable with a second page
+
+**No shared chrome, confirmed.** Nav and footer are duplicated. Every future nav edit must be made in both files or they diverge silently. Wants a ticket.
+
+**A real defect in `relativizeUrl`.** REQ-109 (`render.ts:115`) strips one leading slash so snapshots are relocatable — correct for `/assets/x.svg`, wrong for `/#how`, which becomes `#how`: *this* page's anchor, not the root page's. On a one-page site those are indistinguishable, which is why it survived. My nav pointed at anchors that don't exist on `/whitepapers` until I caught it in the emitted HTML.
+
+The function's own docstring makes the argument against its behaviour — it explains that `''` would resolve to the current *page*, "which is a different target once the page is not `index.html`", and that reasoning applies verbatim to `/#frag`. The fix looks like: when the remainder begins with `#`, emit `./#frag`. Relocatability survives; the cross-page target stops being wrong.
+
+Worked around by authoring `/index.html#how` on the whitepapers page. Home keeps bare `#how`, where the same-page anchor is genuinely what you want.
+
+## Three things for you
+
+**URLs end in `.html`.** `1c serve` has no extensionless fallback (`serve.ts:66-74`), so `/whitepapers` 404s locally even though Cloudflare Pages would serve it. Rather than leave the nav dead while you review, I pointed at `/whitepapers.html`, which works in both. A three-line serve fix gets the clean URL — say the word.
+
+**The mailing-list checkbox still isn't there.** `contact-form` has no checkbox type, so I wrote no copy promising one rather than ship a claim the form can't honour. That's the one part of decision 2 that's unmet, and it needs the module change. It's small — add `checkbox` to the field-type enum, render the control, UATs — and it's genuine framework work, so it wants a ticket and the full ceremony rather than riding along in a copy session.
+
+**Paper 02's card says "Extreme Generative Development"** — I dropped the "An Experiment in AI Software Development" subtitle for the card. The abstract covers it, but the PDF they receive will carry the longer title, so confirm that's the trade you want.
+
+Nothing committed — two files (`home.json` modified, `whitepapers.json` new). And I still can't screenshot to check how it actually looks, so this is verified as structure, links and copy, not as composition.
 
 <!-- xgd-chat-end -->
