@@ -38,24 +38,25 @@ describe('REQ-50 unified vocabulary — literal values (reproduction)', () => {
 
 describe('REQ-50 unified vocabulary — theme aliases (design)', () => {
   it('test_UAT_FC_REQ-50_aliases_resolve_to_theme_vars', () => {
+    // REQ-114 — the `color` alias is gone with the colour token group; the
+    // surviving alias groups (family, size, weight, tracking, leading) are
+    // untouched, so the alias mechanism itself is unchanged.
     const style = resolveTextStyle({
       fontFamily: 'heading',
       fontSizePx: '5xl',
       fontWeight: 'medium',
-      color: 'primary',
+      color: '#0f9d6e',
       letterSpacingPx: 'tight',
       lineHeightPx: 'snug',
     })
     expect(style).toContain('font-family: var(--font-family-heading)')
     expect(style).toContain('font-size: var(--font-size-5xl)')
     expect(style).toContain('font-weight: var(--font-weight-medium)')
-    expect(style).toContain('color: var(--color-primary)')
     expect(style).toContain('letter-spacing: var(--tracking-tight)')
     expect(style).toContain('line-height: var(--line-height-snug)')
-  })
-
-  it('test_UAT_FC_REQ-50_camelCase_palette_role_kebabs_to_var', () => {
-    expect(resolveTextStyle({ color: 'surfaceInverse' })).toBe('color: var(--color-surface-inverse)')
+    // Colour is a painted value, never a custom property (AC-9).
+    expect(style).toContain('color: #0f9d6e')
+    expect(style).not.toContain('--color-')
   })
 })
 
@@ -87,23 +88,27 @@ describe('REQ-50 unified vocabulary — text-fill gradient (mirrors report TextG
     expect(style).toContain('color: transparent')
   })
 
-  it('test_UAT_FC_REQ-50_gradient_direction_and_role_aliases_resolve_to_vars', () => {
+  it('test_UAT_FC_REQ-50_gradient_direction_alias_resolves_with_positioned_stops', () => {
+    // REQ-114 — the stops were `accent-light` / `accent-deep`, two slots of the
+    // retired colour palette. The *direction* alias is not a colour and survives,
+    // as does an explicitly positioned stop; only the stop colours become literal.
     const style = resolveTextStyle({
       gradient: {
         angleDeg: 'to-right',
-        stops: [{ color: 'accent-light' }, { color: 'accent-deep', position: 80 }],
+        stops: [{ color: '#f5e6a3' }, { color: '#ff6b35', position: 80 }],
       },
     })
     expect(style).toContain(
-      'background-image: linear-gradient(to right, var(--color-accent-light) 0%, var(--color-accent-deep) 80%)',
+      'background-image: linear-gradient(to right, #f5e6a3 0%, #ff6b35 80%)',
     )
+    expect(style).not.toContain('--color-')
   })
 
   it('test_UAT_FC_REQ-50_gradient_supersedes_flat_color_on_the_same_run', () => {
     // color:transparent must win — the flat color is dropped, not both emitted.
     const style = resolveTextStyle({
       color: '#ffffff',
-      gradient: { angleDeg: 180, stops: ['accent', 'primary'] },
+      gradient: { angleDeg: 180, stops: ['#0f9d6e', '#f5e6a3'] },
     })
     expect(style).toContain('color: transparent')
     expect(style).not.toContain('color: #ffffff')

@@ -10,7 +10,15 @@ import path from 'node:path'
  */
 
 export type Root = 'sites' | 'sandbox'
-export type RenderChannel = 'draft' | 'published'
+/**
+ * The channels a site renders to. `draft` and `published` are the two DOC-12
+ * artifacts; `edit` (REQ-116) is the third render of the SAME draft definition —
+ * the page the builder's editor works on. It gets its own directory for the same
+ * reason draft and published do (DOC-12 principle 4): every rendered artifact has
+ * its own address, so a non-functional page can never be served from a working
+ * page's URL. It is never published and never enters `history.json`.
+ */
+export type RenderChannel = 'draft' | 'published' | 'edit'
 
 export interface StoreContext {
   /** Directory the site/dist trees are resolved against (default: process cwd). */

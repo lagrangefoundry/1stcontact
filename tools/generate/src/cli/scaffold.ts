@@ -37,8 +37,15 @@ export function starterSiteJson(slug: string): Record<string, unknown> {
   }
 }
 
+/**
+ * REQ-114 — a scaffolded page's colours are hex literals, not token roles. The
+ * literal is always a valid colour (DOC-23 §5), so a starter page needs no
+ * palette; `1c colors --assign` derives one from whatever the author paints.
+ */
+const STARTER_BACKGROUND = '#ffffff'
+const STARTER_TEXT = '#111827'
+
 export function starterHomePage(slug: string): Record<string, unknown> {
-  const { palette } = defaultTokens
   return {
     id: 'home',
     slug: 'home',
@@ -50,7 +57,8 @@ export function starterHomePage(slug: string): Record<string, unknown> {
     modules: [],
     l1: {
       widths: [...STARTER_WIDTHS],
-      background: palette.bg,
+      background: STARTER_BACKGROUND,
+      textColor: STARTER_TEXT,
       // A flowed root — no geometry track. A scaffolded page has nothing to pin
       // to: keyframes are what a *capture* folds to, and inventing a set here
       // would hand the author six absolute boxes to unpick before their first
@@ -69,7 +77,7 @@ export function starterHomePage(slug: string): Record<string, unknown> {
             id: 'placeholder',
             text: slug,
             axes: {
-              color: palette.text,
+              color: STARTER_TEXT,
               fontSizePx: 48,
               fontWeight: 700,
               lineHeightPx: 56,

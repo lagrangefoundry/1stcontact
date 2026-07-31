@@ -27,9 +27,11 @@ import {
   l1NodeAxisGroupsSchema,
   l1SlotSchema,
   l1TextSchema,
+  resolveL1Palette,
   validateL1,
   type L1Document,
   type L1Node,
+  type L1Palette,
   type L1Slot,
 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
@@ -237,6 +239,12 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
     for (const path of pages) {
       const page = JSON.parse(readFileSync(path, 'utf8')) as { l1?: L1Document }
       if (!page.l1) continue
+      // REQ-114 — a colour on disk may be a palette reference, and a reference
+      // resolves against the site. Resolve to literals here so this scan sees the
+      // document the renderer sees (the same pass `loadSite` runs).
+      const sitePath = path.replace(/pages\/[^/]+\.json$/, 'site.json')
+      const palette = (JSON.parse(readFileSync(sitePath, 'utf8')) as { palette?: L1Palette }).palette
+      page.l1 = resolveL1Palette(page.l1, palette)
       const report = validateL1(page.l1)
       expect(report.ok, `${path}: ${JSON.stringify(report.ok ? [] : report.errors)}`).toBe(true)
       const { html, css } = renderL1Document(page.l1)

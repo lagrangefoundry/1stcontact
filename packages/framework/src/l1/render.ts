@@ -11,7 +11,7 @@
  * lower keyframe's value until the next breakpoint. Text height is natural (the
  * glyph box); only box/image leaves pin a height.
  */
-import { isSafeUrl, type L1Link } from '@1stcontact/site-schema'
+import { isSafeUrl, resolveL1Palette, type L1Color, type L1Link, type L1Palette } from '@1stcontact/site-schema'
 import type {
   L1AxisSizing,
   L1Border,
@@ -55,9 +55,17 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
-/** A colour is emitted only if it is a valid hex literal, else dropped. */
-function cssColor(v: string | undefined): string | null {
-  return v && HEX.test(v) ? v : null
+/**
+ * A colour is emitted only if it is a valid hex literal, else dropped.
+ *
+ * REQ-114 — a colour axis is `hex | PaletteRef`, and {@link renderL1Document}
+ * resolves every reference at its entry, so by the time a value reaches this
+ * sink it is always a literal. An unresolved reference arriving here therefore
+ * means a consumer bypassed resolution; it is dropped rather than emitted,
+ * keeping the sink fail-closed the way every other value check here is.
+ */
+function cssColor(v: L1Color | undefined): string | null {
+  return typeof v === 'string' && HEX.test(v) ? v : null
 }
 
 /** A finite number → `${n}px`, else null. Numbers cannot carry an injection. */
@@ -227,7 +235,7 @@ function deg(v: number | undefined): string | null {
  * Fold an opacity (0..1) into a hex colour → `#rrggbbaa`. The colour's own alpha
  * (if `#rrggbbaa`) is dropped and replaced. Returns null for a non-hex colour.
  */
-function withAlpha(color: string, opacity: number | undefined): string | null {
+function withAlpha(color: L1Color, opacity: number | undefined): string | null {
   const c = cssColor(color)
   if (!c) return null
   // Expand #rgb → #rrggbb, strip any existing alpha to the 6-digit base.
@@ -1572,6 +1580,45 @@ function layoutDecls(mode: L1LayoutMode, node: L1Container): string[] {
   return decls
 }
 
+// ── REQ-116 the edit render ──────────────────────────────────────────────────
+//
+// A third render channel (DOC-28 §5): the same document and the same emitter,
+// rendered so the page deliberately does NOT work — no link target, no behaviour
+// or motion script — and every editable region is addressable.
+//
+// The address is a **render-scoped structural path**. The emitter is already
+// walking the tree, so it stamps the child indices it walked; a client would
+// otherwise have to rebuild that mapping from the rendered DOM and keep it
+// valid. It is indexed from the render's root node LIST — `[doc.root]` for a
+// document, the subtree array for a fragment — so one resolution rule covers
+// both: index the list, then `children` at each later step.
+//
+// Nothing is persisted and nothing in the definition changes. The path only has
+// to stay valid for the lifetime of the one render the client is displaying,
+// because every edit re-renders and regenerates it — which is why the usual
+// objection (reordering siblings breaks a structural path) does not apply here.
+//
+// L1's own `id` is deliberately NOT reused for this: REQ-106 made it the real
+// DOM id, so it is optional, sparse, and user-visible in URLs.
+export const L1_EDIT_PATH_ATTR = 'data-l1-path'
+export const L1_EDIT_SEGMENT_ATTR = 'data-l1-segment'
+/** Document-level marker the page assembler sets on `<body>` in the edit channel. */
+export const L1_EDIT_MARKER_ATTR = 'data-fc-edit'
+
+/** The kinds of region the editor exposes controls for (DOC-28 §6.2). */
+export type L1SegmentKind = 'copy' | 'image' | 'container' | 'module'
+
+/**
+ * The edit channel's own stylesheet — one faint outline per segment, drawn by
+ * the renderer because the renderer is what knows which boxes are segments.
+ *
+ * `outline` rather than `border`: it is painted outside the layout, so the edit
+ * render's geometry stays the draft render's geometry and a segment cannot shift
+ * merely by becoming outlined. The hover treatment (a brighter outline, a small
+ * movement) belongs to the client and lands with the modals in T3.
+ */
+export const L1_EDIT_CSS = `[${L1_EDIT_SEGMENT_ATTR}] { outline: 1px solid rgba(99, 102, 241, 0.35); outline-offset: -1px }`
+
 interface RenderState {
   n: number
   rules: Rule[]
@@ -1589,9 +1636,53 @@ interface RenderState {
   hasReveal?: boolean
   /** REQ-108 — set once any node accents, so a page with no accent ships no script. */
   hasPointerAccent?: boolean
+  /** REQ-116 — render the edit channel: addresses stamped, the page inert. */
+  edit?: boolean
 }
 
-function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string {
+/**
+ * Which editable region, if any, this node IS (DOC-28 §6.2). Segmentation is
+ * **derived from the tree**, never declared on it: no schema change, no author
+ * burden, and no page silently uneditable because an annotation was forgotten.
+ *
+ * Returning `null` is load-bearing — a node with nothing to edit carries no
+ * address and gets no outline, so the outlines themselves are the user's map of
+ * what the editor can do.
+ */
+function segmentKind(node: L1Node, state: RenderState): L1SegmentKind | null {
+  switch (node.kind) {
+    case 'text':
+      return 'copy'
+    case 'image':
+      return 'image'
+    case 'slot':
+      // A seam with a behavior mounted in it is the module segment; the instance
+      // itself stays addressed by the `data-fc-module` hook already stamped on
+      // its root (CHAT-9 M1). An UNMOUNTED slot is the inert placeholder — it
+      // renders nothing and has nothing to edit.
+      return state.mounts?.[node.name] ? 'module' : null
+    case 'box':
+    case 'container':
+      // "Carries paint" is answered by asking the paint emitter, not by keeping a
+      // second list of axis names in step with it by hand. A box is a container
+      // segment exactly when it would emit a surface declaration — so every axis
+      // added to `surfaceDecls` in future is covered without touching this.
+      return surfaceDecls(node.axes ?? {}).length > 0 ? 'container' : null
+    default:
+      // `control` — a leaf whose element, attributes and behaviour belong to the
+      // mounted module (REQ-96). It holds no copy to edit and no asset to swap,
+      // so phase 1 offers no control for it and it is not outlined.
+      return null
+  }
+}
+
+function emitNode(
+  node: L1Node,
+  state: RenderState,
+  /** REQ-116 — the child indices walked to reach this node from the render root. */
+  path: readonly number[],
+  staggerDelayMs = 0,
+): string {
   const name = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
   const selector = `.${name}`
   // REQ-108 — the accent overlay. Resolved here, before the class attribute, so
@@ -1599,14 +1690,25 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
   // returns nothing for a node whose axis names no texture to redraw, and a class
   // on such a node would make the script write custom properties every frame for
   // an overlay that does not exist.
-  const accentRules = pointerAccentRules(selector, (node.axes ?? {}) as L1SurfaceAxes)
+  //
+  // REQ-116 — the edit render draws none of it. The accent is a pointer-driven
+  // decoration whose script the edit channel does not emit, so its overlay would
+  // sit at its `--l1-pto` default of 0 forever: identical pixels, minus a
+  // pseudo-element and a stack of gradients per node.
+  const accentRules = state.edit
+    ? []
+    : pointerAccentRules(selector, (node.axes ?? {}) as L1SurfaceAxes)
 
   // REQ-100 — a revealing node carries a second, fixed class purely as the
   // observer's handle; REQ-108's accent adds a third the same way. Splitting the
   // *attribute value* from the *selector name* here means every node kind's markup
   // picks them up without any of them re-litigating how a class attribute is built.
+  //
+  // REQ-116 — the edit render emits neither. The reveal handle exists only for
+  // the observer to find, and the edit channel ships no observer; leaving it on
+  // would advertise a motion the page cannot perform.
   const marks = [name]
-  if (node.reveal) marks.push(REVEAL_CLASS)
+  if (node.reveal && !state.edit) marks.push(REVEAL_CLASS)
   if (accentRules.length) marks.push(POINTER_CLASS)
   const cls = marks.join(' ')
 
@@ -1615,6 +1717,14 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
   // breaks both anchor navigation and the `for`<->`id` association the `control`
   // contract depends on), which is why this can be emitted unconditionally here.
   const idAttr = node.id ? ` id="${escapeHtml(node.id)}"` : ''
+
+  // REQ-116 — the edit bridge: this node's segment kind and its render-scoped
+  // address, stamped together and only on a node the editor offers a control
+  // for. Both are absent from the published and draft-preview renders.
+  const segment = state.edit ? segmentKind(node, state) : null
+  const editAttrs = segment
+    ? ` ${L1_EDIT_PATH_ATTR}="${path.join('.')}" ${L1_EDIT_SEGMENT_ATTR}="${segment}"`
+    : ''
 
   // REQ-106 — the navigation role. The renderer RETAGS the node's own element as
   // an `<a>` rather than wrapping it, so the class, every paint axis and the
@@ -1630,11 +1740,19 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
   const nodeLink: L1Link | undefined = (node as { link?: L1Link }).link
   const href =
     nodeLink && isSafeUrl(nodeLink.href) ? relativizeUrl(nodeLink.href.trim()) : undefined
-  const linkAttrs = href
-    ? ` href="${escapeHtml(href)}"` +
-      (nodeLink?.newTab ? ' target="_blank" rel="noopener noreferrer"' : '') +
-      (nodeLink?.ariaLabel ? ` aria-label="${escapeHtml(nodeLink.ariaLabel)}"` : '')
-    : ''
+  //
+  // REQ-116 — in the edit render a link has no target: clicking it opens its copy
+  // editor, it does not navigate. The `<a>` ELEMENT is kept (only the navigable
+  // attributes are dropped) so the edit render differs from the draft render by
+  // the missing target and nothing else — same tag, same class, same declarations,
+  // same box. An `<a>` without `href` is not a link: it is unfocusable,
+  // unnavigable, and picks up none of the UA's link chrome.
+  const linkAttrs =
+    href && !state.edit
+      ? ` href="${escapeHtml(href)}"` +
+        (nodeLink?.newTab ? ' target="_blank" rel="noopener noreferrer"' : '') +
+        (nodeLink?.ariaLabel ? ` aria-label="${escapeHtml(nodeLink.ariaLabel)}"` : '')
+      : ''
   /** The element name to emit — the anchor when linked, else the node's own. */
   const tag = (own: string): string => (href ? 'a' : own)
   const base: string[] = []
@@ -1733,7 +1851,7 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       // REQ-106 — a retagged run needs the block behaviour `<p>` had, and must not
       // inherit UA link chrome. Unshifted so any authored colour/decoration wins.
       if (href) base.unshift('display: block', 'text-decoration: none', 'color: inherit')
-      html = `<${tag('p')} class="${cls}"${idAttr}${linkAttrs}>${escapeHtml(node.text)}</${tag('p')}>`
+      html = `<${tag('p')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}>${escapeHtml(node.text)}</${tag('p')}>`
       break
     }
     case 'control': {
@@ -1784,7 +1902,7 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')
       const src = isSafeUrl(node.src) ? relativizeUrl(node.src.trim()) : ''
-      const img = `<img class="${cls}"${idAttr} src="${escapeHtml(src)}" alt="${escapeHtml(node.alt)}" />`
+      const img = `<img class="${cls}"${idAttr}${editAttrs} src="${escapeHtml(src)}" alt="${escapeHtml(node.alt)}" />`
       html = href ? `<a${linkAttrs} style="display:contents">${img}</a>` : img
       break
     }
@@ -1803,7 +1921,7 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       // that carries nothing but the number.
       base.push(...axisSizingCss(node.sizing))
       const mounted = state.mounts?.[node.name] ?? ''
-      html = `<div class="${cls}"${idAttr} data-l1-slot="${escapeHtml(node.name)}"${
+      html = `<div class="${cls}"${idAttr}${editAttrs} data-l1-slot="${escapeHtml(node.name)}"${
         node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
       }>${mounted}</div>`
       break
@@ -1812,9 +1930,11 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       base.push(...surfaceDecls(node.axes ?? {}))
       base.push(...axisSizingCss(node.sizing))
       if (!node.geometry) base.push('position: relative')
-      const inner = (node.children ?? []).map((child) => emitNode(child, state)).join('')
+      const inner = (node.children ?? [])
+        .map((child, i) => emitNode(child, state, [...path, i]))
+        .join('')
       if (href) base.unshift('text-decoration: none', 'color: inherit')
-      html = `<${tag('div')} class="${cls}"${idAttr}${linkAttrs}>${inner}</${tag('div')}>`
+      html = `<${tag('div')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}>${inner}</${tag('div')}>`
       break
     }
     case 'container': {
@@ -1845,13 +1965,13 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
       // itself a slot and desynchronise everything after it.
       let revealIndex = 0
       const inner = node.children
-        .map((child) => {
+        .map((child, i) => {
           const share = node.staggerMs && child.reveal ? revealIndex++ * node.staggerMs : 0
-          return emitNode(child, state, share)
+          return emitNode(child, state, [...path, i], share)
         })
         .join('')
       if (href) base.unshift('text-decoration: none', 'color: inherit')
-      html = `<${tag('div')} class="${cls}"${idAttr}${linkAttrs}>${inner}</${tag('div')}>`
+      html = `<${tag('div')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}>${inner}</${tag('div')}>`
       break
     }
   }
@@ -1907,7 +2027,13 @@ function emitNode(node: L1Node, state: RenderState, staggerDelayMs = 0): string 
   // REQ-100 — scroll entrance. Emitted after `interaction` so both features'
   // transitions reach `transitionDecls` together (see its doc comment: two
   // independent emissions would leave only the last one standing).
-  if (node.reveal) {
+  //
+  // REQ-116 — the edit render emits no reveal at all, which is what puts the
+  // content in its SETTLED state rather than its initial one. Dropping only the
+  // observer script would be the trap: the pre-state rule would still hold at
+  // `opacity: 0`, so a page that fades its copy in on scroll would render that
+  // copy invisible — and a segment nobody can see is a segment nobody can click.
+  if (node.reveal && !state.edit) {
     const settledOpacity = node.kind === 'slot' ? 1 : (node.axes?.opacity ?? 1)
     const { rules, transitions: t } = revealRules(
       selector,
@@ -2023,24 +2149,55 @@ export interface L1RenderOptions {
    * own — so the caller renders first and hands the finished HTML in here.
    */
   mounts?: Readonly<Record<string, string>>
+  /**
+   * REQ-114 — the site palette any colour reference in `doc` resolves against
+   * (DOC-23 §5). Omit it for a literal-only document, which is every document the
+   * capture→L1 fold produces.
+   *
+   * Resolution happens once, here at the entry, rather than at each of the dozen
+   * colour sinks: the emitter then sees exactly the document it would have seen
+   * had the colours been written as literals, which is what makes converting a
+   * site's literals to references **pixel-identical by construction**. An
+   * unresolvable reference throws — there is no render-time fallback.
+   */
+  palette?: L1Palette
+  /**
+   * REQ-116 — render the **edit** channel (DOC-28 §5): the same document, with
+   * every editable region stamped with its segment kind and render-scoped
+   * address, and the page deliberately non-functional — links carry no target,
+   * no motion is emitted, and content therefore renders in its settled state.
+   *
+   * It is a render MODE, not a new artifact: never published, never
+   * content-addressed, and never entered in `history.json` (DOC-12 §11).
+   */
+  edit?: boolean
 }
 
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
-export function renderL1Document(doc: L1Document, opts: L1RenderOptions = {}): L1RenderResult {
+export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}): L1RenderResult {
+  const doc = resolveL1Palette(input, opts.palette)
   const state: RenderState = {
     n: 0,
     rules: [],
     column: doc.column,
     minWidth: Math.min(...doc.widths),
     mounts: opts.mounts,
+    edit: opts.edit,
   }
-  const body = emitNode(doc.root, state)
+  // The document's root node list is the single `doc.root`, so its address is
+  // `0` — the same "index the list, then walk `children`" rule a fragment uses.
+  const body = emitNode(doc.root, state, [0])
   const reset = [
     '*, *::before, *::after { box-sizing: border-box }',
     'html, body { margin: 0; padding: 0 }',
   ]
   const bg = cssColor(doc.background)
   if (bg) reset.push(`body { background-color: ${bg} }`)
+  // REQ-114 — the page's inherited text colour. Its former home was the
+  // `--color-text` theme token, which went with the legacy palette; a page-level
+  // colour is a property of the L1 document, not of a token surface.
+  const fg = cssColor(doc.textColor)
+  if (fg) reset.push(`body { color: ${fg} }`)
   // REQ-90 — @font-face rules first so every family handle is bound before any
   // rule references it (no serif fallback while the CSS is parsed top-down).
   const faces = fontFaceRules(doc.resources)
@@ -2076,9 +2233,15 @@ export function renderL1Fragment(
   nodes: L1Node[],
   prefix = 'fc',
   controls?: Readonly<Record<string, L1ControlElement>>,
+  opts: { palette?: L1Palette; edit?: boolean } = {},
 ): L1FragmentResult {
-  const state: RenderState = { n: 0, rules: [], prefix, controls }
-  const htmls = nodes.map((node) => emitNode(node, state))
+  const state: RenderState = { n: 0, rules: [], prefix, controls, edit: opts.edit }
+  // REQ-116 — a fragment's addresses are rooted at the SUBTREE ARRAY, so they are
+  // relative to the mounted instance rather than to the document. The client
+  // reads which instance and which seam off the enclosing `data-fc-module` /
+  // `data-l1-slot`, so copy inside a behavior module's slot is addressable
+  // without the module having to know anything about the page it sits on.
+  const htmls = resolveL1Palette(nodes, opts.palette).map((node, i) => emitNode(node, state, [i]))
   return { htmls, css: serializeRules(state.rules) }
 }
 

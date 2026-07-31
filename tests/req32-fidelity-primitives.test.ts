@@ -42,13 +42,8 @@ describe('REQ-32 primitive 2 — callout / left-bar treatment', () => {
   })
 })
 
-describe('REQ-32 primitive 4 — cool-neutral palette role', () => {
-  it('test_UAT_FC_REQ-32_theme_emits_neutral_cool_custom_property', () => {
-    // Default is filled even when a theme omits it (like `secondary`).
-    expect(defaultTokens.palette.neutralCool).toBeDefined()
-    expect(generateThemeCss()).toContain('--color-neutral-cool:')
-    // And a site-supplied value flows through.
-    const css = generateThemeCss({ palette: { neutralCool: '#334155' } })
-    expect(css).toContain('--color-neutral-cool: #334155;')
-  })
-})
+// REQ-114 — primitive 4 was the `neutralCool` *palette role*. The closed colour
+// token group it belonged to is retired: colour is now the arbitrary-size L1
+// palette (DOC-23 §5), where a cool neutral is an ordinary entry a site declares
+// and needs no framework slot. Nothing replaces this test because nothing in the
+// framework is left to pin — the coverage moved to the palette model's own UATs.

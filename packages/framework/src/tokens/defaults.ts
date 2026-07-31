@@ -2,39 +2,14 @@ import type { ThemeTokens } from './contract'
 
 /**
  * Sane default values for every theme-token slot (DOC-7 §4 / REQ-4 superset).
- * A neutral palette, system fonts, and a standard scale. Used by the CSS
- * generator to fill any slot a site omits, so generated CSS always declares the
- * full custom-property surface regardless of how sparse the site's theme is.
+ * System fonts and a standard scale. Used by the CSS generator to fill any slot
+ * a site omits, so generated CSS always declares the full custom-property
+ * surface regardless of how sparse the site's theme is.
+ *
+ * REQ-114 — no colour defaults: colour left the token surface for the L1 palette
+ * model (DOC-23 §5), where a literal hex is always valid and needs no default.
  */
 export const defaultTokens: ThemeTokens = {
-  palette: {
-    bg: '#ffffff',
-    surface: '#f9fafb',
-    surfaceSubtle: '#f3f4f6',
-    surfaceInverse: '#111827',
-    text: '#111827',
-    muted: '#6b7280',
-    primary: '#2563eb',
-    accent: '#f59e0b',
-    secondary: '#3b82f6',
-    neutralCool: '#64748b',
-    // Warm companions to `accent` (REQ-33): a lighter and a deeper amber, so the
-    // `--color-accent-light` / `--color-accent-deep` custom properties are always
-    // declared even when a site omits them.
-    accentLight: '#fcd34d',
-    accentDeep: '#b45309',
-    // `accentMid` (REQ-20/REQ-36) — a muted, less-saturated gold sitting between
-    // `accent` (#f59e0b) and `accentDeep` (#b45309). Declared here for the same
-    // reason as accentLight/accentDeep: so `--color-accent-mid` always resolves
-    // even when a site omits it. Backs the footer `accent-muted` surface dial and
-    // the mid stop of a warm brand gradient; a site overrides for its exact gold.
-    accentMid: '#d98324',
-    // Hero legibility scrim (REQ-36) — a near-black so the `scrim` dial darkens a
-    // background image for text contrast, independent of `surfaceInverse` (which
-    // a theme may set to a mid neutral). A site can override for a tinted scrim.
-    scrim: '#0a0a0a',
-    border: '#e5e7eb',
-  },
   typography: {
     family: {
       heading: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',

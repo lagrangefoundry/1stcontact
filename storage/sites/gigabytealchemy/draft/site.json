@@ -5,23 +5,6 @@
     "tagline": ""
   },
   "theme": {
-    "palette": {
-      "bg": "#ffffff",
-      "surface": "#f9fafb",
-      "surfaceSubtle": "#f3f4f6",
-      "surfaceInverse": "#111827",
-      "text": "#111827",
-      "muted": "#6b7280",
-      "primary": "#2563eb",
-      "accent": "#f59e0b",
-      "secondary": "#3b82f6",
-      "neutralCool": "#64748b",
-      "accentLight": "#fcd34d",
-      "accentDeep": "#b45309",
-      "accentMid": "#d98324",
-      "scrim": "#0a0a0a",
-      "border": "#e5e7eb"
-    },
     "typography": {
       "family": {
         "heading": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
@@ -127,5 +110,67 @@
     "pattern": "top-tabs",
     "entries": []
   },
-  "assets": []
+  "assets": [],
+  "palette": {
+    "neutral": {
+      "value": "#000000",
+      "steps": {
+        "50": "#ffffff"
+      }
+    },
+    "green": {
+      "value": "#00bc7d",
+      "steps": {
+        "100": "#d0fae5",
+        "600": "#00d492",
+        "700": "#009966",
+        "800": "#007a55"
+      }
+    },
+    "slate": {
+      "value": "#314158",
+      "steps": {
+        "50": "#f1f5f9",
+        "100": "#dbeafe",
+        "125": "#e2e8f0",
+        "700": "#45556c",
+        "800": "#1d293d",
+        "900": "#0f172b",
+        "925": "#111827",
+        "950": "#030717"
+      }
+    },
+    "blue": {
+      "value": "#90a1b9",
+      "steps": {
+        "300": "#50a2ff",
+        "400": "#2b7fff",
+        "500": "#1447e6",
+        "525": "#62748e"
+      }
+    },
+    "sand": {
+      "value": "#e8dfd3",
+      "steps": {
+        "50": "#f8f5f2",
+        "100": "#ece6dd",
+        "200": "#d9ccba"
+      }
+    },
+    "amber": {
+      "value": "#f5e6a3",
+      "steps": {
+        "500": "#ffb900"
+      }
+    },
+    "orange": {
+      "value": "#fbba72",
+      "steps": {
+        "400": "#ff8c42"
+      }
+    },
+    "orange-2": {
+      "value": "#ff6b35"
+    }
+  }
 }

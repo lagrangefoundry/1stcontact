@@ -9,9 +9,7 @@ export {
   resolveSurfaceGradient,
   TEXT_STYLE_ALIASES,
   GRADIENT_DIRECTION_ALIASES,
-  PALETTE_ROLE_ALIASES,
   isColorLiteral,
-  isPaletteRole,
 } from './text-style'
 export type { TextRun, TextRunGradient, GradientStop } from './text-style'
 export {

@@ -138,7 +138,11 @@ export function expectedTextManifest(doc: L1Document, viewport: Viewport): Value
       const el: ValueElement = {
         text: node.text,
         role: 'body',
-        color: a.color ?? '#000000',
+        // REQ-114 — the manifest's unit is a painted literal. A document reaching
+        // the round-trip gate has been resolved (`loadSite`) or was never
+        // referenced (the fold emits literals), so a ref here is not a colour we
+        // can project and falls back to the same default an absent axis takes.
+        color: typeof a.color === 'string' ? a.color : '#000000',
         fontFamily: a.fontFamily ?? '',
         fontSizePx: resolve(node, 'fontSizePx') ?? 16,
         fontWeight: a.fontWeight ?? 400,

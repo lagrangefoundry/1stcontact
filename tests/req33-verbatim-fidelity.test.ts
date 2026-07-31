@@ -85,24 +85,11 @@ describe('REQ-33 callout is medium-weight emphasis (AC9)', () => {
   })
 })
 
-describe('REQ-33 warm palette roles accent-light / accent-deep (AC4)', () => {
-  it('test_UAT_FC_REQ-33_warm_roles_in_treatment_vocabulary', () => {
-    // Both roles are selectable anywhere a treatment role is (gradient stops,
-    // callouts, subhead colour).
-    expect(TREATMENT_ROLE_DIAL).toContain('accent-light')
-    expect(TREATMENT_ROLE_DIAL).toContain('accent-deep')
-  })
-
-  it('test_UAT_FC_REQ-33_warm_roles_emit_color_custom_properties', () => {
-    // A site declaring the roles gets `--color-accent-light` / `--color-accent-deep`.
-    const css = generateThemeCss({
-      ...defaultTokens,
-      palette: { ...defaultTokens.palette, accentLight: '#f5e6a3', accentDeep: '#ff6b35' },
-    })
-    expect(css).toContain('--color-accent-light: #f5e6a3;')
-    expect(css).toContain('--color-accent-deep: #ff6b35;')
-  })
-})
+// REQ-114 — AC4's `accentLight` / `accentDeep` were two slots of the closed
+// 15-role token palette, and they are the exact shape DOC-23 §5.4 rejects: a ramp
+// baked into sibling *role names*. The replacement is a palette entry carrying
+// named `steps`, so a warm ramp is one role with positions rather than three
+// unrelated roles. Coverage moved to the palette model's own UATs.
 
 describe('REQ-71 styled inline runs in markdown body prose', () => {
   it('test_UAT_FC_REQ-71_span_carries_colour_size_and_emphasis', async () => {
@@ -117,10 +104,15 @@ describe('REQ-71 styled inline runs in markdown body prose', () => {
     expect(html).not.toContain('{emphasis=italic')
   })
 
-  it('test_UAT_FC_REQ-71_colour_role_and_bold_emphasis', async () => {
-    const html = await renderMarkdown('[key phrase]{color=primary emphasis=bold}')
-    expect(html).toContain('color: var(--color-primary)')
+  it('test_UAT_FC_REQ-71_colour_literal_and_bold_emphasis', async () => {
+    // REQ-114 — `color=primary` named a slot of the retired token palette and
+    // resolved to `var(--color-primary)`. A literal is the surviving form (colour
+    // reaches prose as a painted value, never through a custom property), and the
+    // emphasis half of this AC is unchanged.
+    const html = await renderMarkdown('[key phrase]{color=#0f9d6e emphasis=bold}')
+    expect(html).toContain('color: #0f9d6e')
     expect(html).toContain('font-weight: 700')
+    expect(html).not.toContain('--color-')
   })
 
   it('test_UAT_FC_REQ-71_unknown_key_is_left_literal', async () => {

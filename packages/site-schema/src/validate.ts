@@ -1,7 +1,7 @@
 import { siteSchema } from './schema'
 import { projectIssues } from './issues'
 import type { Site } from './types'
-import { validateL1 } from './l1/validate'
+import { checkPaletteRefs, validateL1 } from './l1/validate'
 
 /** A single structural validation failure. */
 export interface ValidationError {
@@ -45,12 +45,23 @@ export function validateSite(input: unknown): Result<Site, ValidationError[]> {
   const site = parsed.data
   const errors: ValidationError[] = []
   site.pages.forEach((page, i) => {
-    if (!page.l1) return
-    const envelope = validateL1(page.l1)
-    if (envelope.ok) return
-    for (const error of envelope.errors) {
-      errors.push({ path: `/pages/${i}/l1${error.path}`, message: error.message })
+    if (page.l1) {
+      const envelope = validateL1(page.l1, { palette: site.palette })
+      if (!envelope.ok) {
+        for (const error of envelope.errors) {
+          errors.push({ path: `/pages/${i}/l1${error.path}`, message: error.message })
+        }
+      }
     }
+    // REQ-114 — a behavior module's `slots` are L1 subtrees too (DOC-25 §1), so a
+    // colour reference can live there just as easily as in the page's own L1
+    // document. They are not envelope-validated here (the framework's
+    // `validateBehaviorSlots` owns that), but a dangling reference must still be
+    // caught before render: `resolveL1Color` throws rather than falling back.
+    page.modules.forEach((instance, m) => {
+      if (!instance.slots) return
+      checkPaletteRefs(instance.slots, site.palette, `/pages/${i}/modules/${m}/slots`, errors)
+    })
   })
 
   return errors.length === 0 ? { ok: true, value: site } : { ok: false, errors }

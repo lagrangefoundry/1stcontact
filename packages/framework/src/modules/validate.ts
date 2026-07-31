@@ -3,7 +3,6 @@ import {
   GRADIENT_DIRECTION_ALIASES,
   TEXT_STYLE_ALIASES,
   isColorLiteral,
-  isPaletteRole,
 } from './text-style'
 import { isLength } from './dials'
 
@@ -87,19 +86,23 @@ function validateTextRun(
     })
   }
 
-  // `color` is a `#hex` literal (report unit) or a known palette-role alias.
+  // `color` is a `#hex` literal (the report's unit).
   if (run.color !== undefined) validateColor(`${path}.color`, run.color, errors)
 
   // `gradient` mirrors the report's TextGradient: an angle + colour stops.
   if (run.gradient !== undefined) validateGradient(`${path}.gradient`, run.gradient, errors)
 }
 
-/** A `color` value: a `#hex` literal or a known palette-role alias, else an error. */
+/**
+ * A `color` value: a `#hex` literal, else an error. REQ-114 removed the
+ * palette-role alias — colour is the L1 palette model's now (DOC-23 §5), and a
+ * module's own colour fields carry the absolute value.
+ */
 function validateColor(path: string, value: unknown, errors: ContentValidationError[]): void {
-  if (typeof value === 'string' && (isColorLiteral(value) || isPaletteRole(value))) return
+  if (typeof value === 'string' && isColorLiteral(value)) return
   errors.push({
     field: path,
-    message: `styled-text field '${path}' must be a #hex colour or a palette-role alias, got '${String(value)}'`,
+    message: `styled-text field '${path}' must be a #hex colour, got '${String(value)}'`,
   })
 }
 
