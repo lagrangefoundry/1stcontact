@@ -114,10 +114,31 @@ const CSS_URL_ALLOWED = /^[A-Za-z0-9\-._~:/?#[\]@!$&*+,;=%]+$/
  */
 function relativizeUrl(v: string): string {
   if (!v.startsWith('/') || v.startsWith('//')) return v
-  // A bare `/` is the site root; document-relative that is the snapshot's own
-  // directory. `''` would resolve to the current *page*, which is a different
-  // target once the page is not `index.html`.
-  return v.slice(1) || './'
+  const rest = v.slice(1)
+  /**
+   * BUG-30 — dropping the slash is only a change of SHAPE while the remainder
+   * still reads as a relative *path* reference. RFC-3986 gives it a different
+   * meaning in exactly two cases, and both are diagnosed by the same question:
+   * is the first path segment non-empty and colon-free?
+   *
+   *   - **Empty first segment** (`/`, `/#how`, `/?q=1`). With no path the
+   *     reference resolves against the current DOCUMENT rather than its
+   *     directory, so `/#how` — "the `how` anchor on the site root" — becomes
+   *     "…on whatever page this is". Identical on a single-page site, which is
+   *     why it survived until a second page existed.
+   *   - **A colon in the first segment** (`/javascript:x`, `/a:b/c`). A leading
+   *     `scheme:` is parsed as a scheme, so the strip would promote a path into
+   *     a URL scheme. `isSafeUrl` clears `/javascript:…` precisely *because* the
+   *     leading slash makes it relative; removing the slash behind its back
+   *     would hand back the live `javascript:` URL it just refused.
+   *
+   * An explicit `./` fixes both: it forces a path segment, so the reference
+   * resolves against the snapshot DIRECTORY — which is what the root-relative
+   * URL meant — and can no longer be read as a scheme. Still document-relative,
+   * so relocatability is untouched.
+   */
+  const firstSegment = rest.split(/[/?#]/, 1)[0]
+  return firstSegment === '' || firstSegment.includes(':') ? `./${rest}` : rest
 }
 
 /**
