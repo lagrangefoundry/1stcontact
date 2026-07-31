@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-07-31T18:38:29.084033+00:00'
+updated_at: '2026-07-31T18:48:57.466138+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -544,5 +544,17 @@ I'd start derived and see whether the segmentation it produces actually feels li
 **On your phases** — they read well, and they're a sharper cut than what I put in the doc. One note: your hero example spans two of them. The title's *text* is phase 1; the "parameters" half of that two-stage editor is phase 2. Which is fine, it just means phase 1's modal is single-stage. And your phase-2 example of editing the response email for email capture lands cleanly on existing rails — that's a behaviour module's `config`, which is defined as data-only and non-aesthetic, so an email body is exactly the sort of thing it's allowed to hold.
 
 I'd like to settle the segment question (derived vs declared) before I write any of this into DOC-28, since everything else hangs off it. Want me to work up what derived segmentation would actually produce on your `xgd` home page — the real list of segments off those 62 text nodes — so you can judge it against your hero example rather than in the abstract?
+
+<!-- xgd-turn id="5e844120-c5a3-4d7d-b174-7f84eb0225db-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T18:48:57.437988+00:00" -->
+#### You
+Lets start with derived segments and iterate if its not working - derived is preferable
+
+Nested segments - is this really a problem for phase 1? The situation in which it is a problem is when the inner segment completely occludes the outer segment will that happen often - the fix would be a UI treatment e.g. shift-hover would cause the segments to move/resize so that they separate enough for the user to click on the one they want.
+
+2. You tell me? We could preserve the animation if you like? End state is the obvious place to go.
+
+3. So here's the thing - the focus here is to let the user enter the text they want to see and make very basic tweaks to the style. If it looks ugly when they finish they work with the AI to tidy it up
 
 <!-- xgd-chat-end -->
