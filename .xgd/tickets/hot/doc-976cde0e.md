@@ -5,9 +5,9 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-07-31T01:03:15.038551+00:00'
+updated_at: '2026-07-31T18:51:36.654162+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -28,8 +28,7 @@ app around it: topology, preview rendering, the pipeline, validation, chrome. Re
 **Why it exists as its own document:** the editor is where a hard product
 constraint (non-technical users must never meet the implementation) meets a hard
 architectural constraint (every edit is a validated structured diff). Getting the
-two to coexist is the whole design, and it has enough surface — hooks, hotspots,
-modals, editor semantics per field type — to deserve its own home.
+two to coexist is the whole design.
 
 ---
 
@@ -44,6 +43,12 @@ The design consequence: *"I want to edit that piece of text right there on the
 webpage, so I want to click on it and change it."* Every decision below serves
 that sentence.
 
+**The AI remains the primary mode of interaction and the only way a page is
+created.** The editor exists because routing every comma, typo and font-size nudge
+through a conversation is painful — not because direct manipulation is the better
+authoring model. It is the fast path for small tweaks, and an escalation to the AI
+for everything else.
+
 ---
 
 ## 3. The exposure rule
@@ -57,9 +62,7 @@ that sentence.
 | friendly parameters — *a colour picker*, a size, a basic image adjustment | the value the picker actually writes |
 
 The user picks a background colour; they never learn that a token exists or what it
-is called. **Anything sophisticated is done by the AI**, in chat. The editor is
-deliberately shallow: it is the fast path for the two things a site owner changes
-constantly, and an escalation to the AI for everything else.
+is called. **Anything sophisticated is done by the AI.**
 
 This is a *product* rule with an architectural payoff: because the exposed surface
 is small and hand-picked, every control can be a known-safe structured edit (§4).
@@ -83,158 +86,256 @@ No editor writes raw HTML or CSS. No editor has a "raw" mode. This is what let
 
 ---
 
-## 5. The edit bridge — how a clicked pixel becomes a field
+## 5. Edit mode is a *render*, not an overlay
 
-### 5.1 The problem
+This is the load-bearing architectural decision, and it is what makes everything
+else cheap.
 
-Rendered HTML carries no link back to the definition that produced it. Before
-CHAT-9 M1, a rendered module carried only Astro's `data-astro-cid-*` scoping
-hashes — nothing tying a `<section>` back to its instance id. Without such a link
-there is no bridge from *"the pixel the user clicked"* to *"the field to change"*.
-This is the load-bearing piece of the whole editor.
+### 5.1 A third render channel
 
-### 5.2 The behavior-module hook (landed — CHAT-9 M1)
+[[DOC-8]] §4.1 has two render channels (published, draft preview). Edit mode is a
+**third**: the same L1 document and the same renderer, rendered *differently*.
 
-Every behavior-module instance renders with an edit hook on its **root element**:
+| Channel | Renders | For |
+|---|---|---|
+| published | at publish, build time | the public site |
+| draft preview | on request | View mode in the iframe; "open in new tab" |
+| **edit** | on request | **Edit mode in the iframe** |
 
-```html
-<section data-fc-module="gallery"      data-fc-type="carousel">…</section>
-<section data-fc-module="get-in-touch" data-fc-type="contact-form">…</section>
-```
+In the edit render, **the page deliberately does not work**:
 
-Contract:
+- **links have no target** — clicking a link edits its copy, it does not navigate;
+- **forms have no action** and behaviour scripts are not emitted — nothing submits,
+  nothing fetches;
+- **no motion** — see §5.3;
+- **segment handles are stamped** on every editable node (§5.2);
+- **segment outlines are drawn by the renderer**, which knows each segment's box,
+  rather than hit-tested and computed by the client.
 
-- **Keyed by the stable instance `id`, not the type** — two instances of the same
-  module on a page stay distinct edit targets.
-- **One hook per instance, on the module's own root tag.**
-- **Stamped once, centrally**, in the render loop
-  (`tools/generate/src/render/render.ts` → `stampEditHook`) — not per component, so
-  it covers the whole catalog with no per-module churn.
-- **Inert.** Plain `data-*` metadata: no effect on layout, and harmless on the
-  published site.
-- **Resolution is one call:** a click anywhere inside a block resolves to its
-  instance via `closest('[data-fc-module]')`.
+### 5.2 The edit bridge — how a clicked pixel becomes a field
 
-Tests: `test_UAT_FC_CHAT-9_*` in `tests/chat9-edit-hooks.test.ts`.
+Rendered HTML carries no link back to the definition that produced it. A
+`<p class="l1-12">` does not say where it came from. Bridging that gap is the whole
+problem, and the edit render solves it almost for free: **the renderer is walking
+the L1 tree, so it already knows which node it is emitting.** It stamps the address
+as it goes.
 
-### 5.3 The L1 gap (open — blocks the copy editor on real pages)
+Two address spaces, because content has two homes:
 
-**The hook addresses behavior-module instances only, and since the framework pivot
-that is no longer where most copy lives.** A page body is now either an L1 document
-([[DOC-23]], REQ-88) or a module stack, and increasingly both — modules mount into
-`slot`s inside an L1 page (REQ-93). Copy on a reproduced or authored page lives in
-**L1 `text` nodes** (`{kind:'text', text: …}`) and images in **L1 `image` nodes**
-(`src`/`alt`), neither of which the M1 hook reaches.
+| Content lives in | Address | Status |
+|---|---|---|
+| a behavior-module instance | `data-fc-module="<instance id>"` + `data-fc-type` on the module root | **landed** — CHAT-9 M1 |
+| an L1 node | a structural path from the document root, stamped in the edit render only | to build |
 
-L1 nodes *do* have an optional `id`, but it is not an edit hook — REQ-106 gives it
-a different job: it becomes a real DOM `id` so `href="#how"` resolves and so a
-`control`'s `for`↔`id` association wires up. It is optional, sparse, and
-user-visible in URLs; overloading it as the editor's addressing scheme would couple
-two unrelated concerns.
+The L1 address is a **path of child indices** (the renderer's own walk), resolvable
+by walking the same indices in the definition. Content inside a module slot is
+reached the same way, rooted at the instance rather than the document.
 
-So the editor needs an **L1-node addressing scheme** — a stable, dense way to name
-the node a rendered element came from. Options, unresolved:
+**The address is render-scoped, not persistent.** It only has to stay valid for the
+lifetime of the one rendered document the client is displaying. Every edit
+re-renders, which regenerates the addresses. This is why the classic objection —
+*"a structural path breaks when nodes are reordered"* — does not apply: reordering
+produces a new render, and the client always resolves against the render in front
+of it. Consequences:
 
-- a **structural path** from the document root (no schema change; brittle under
-  reordering, which is exactly what edits do);
-- a **synthesized per-node edit id** emitted by the L1 renderer alongside
-  `id` (dense and stable, costs bytes on every element — possibly draft-channel
-  only, since [[DOC-8]] §4.1 renders draft and published separately);
-- a **minted persistent id** on editable L1 nodes in the definition itself
-  (stable across re-render and reorder; a schema change and a burden on every
-  author, human or AI).
+- **no schema change** — L1 nodes need no new field;
+- **no author burden** — nothing for the AI or a human to maintain;
+- **no persistent identity to keep in sync** — because none is needed.
 
-This is the first thing to settle before M3. Until it is settled, the copy editor
-can only reach copy inside behavior-module slots.
+**L1's existing `id` is deliberately not used for this.** REQ-106 gave it a
+different job: it becomes the real DOM `id`, so `href="#how"` resolves and a
+`control`'s `for`↔`id` association wires up. It is optional and sparse (34 of 128
+elements on `xgd/home`), and it is user-visible in URLs — so overloading it would
+both fail to address most nodes and make the editor's needs dictate anchor names.
 
----
+**Handles cost nothing on real pages.** They exist only in the edit render;
+published and draft-preview bytes are untouched.
 
-## 6. Interaction model
+### 5.3 No motion; content renders in its settled state
 
-### 6.1 View / Edit toggle
+The edit render emits no motion script, and — critically — **emits content in its
+final, settled state, not its initial one**. Some pages fade text in on scroll;
+simply dropping the script would leave that copy invisible and its segment
+unclickable, which is worse than the animation.
 
-Two modes, one toggle in the toolbar:
+The same principle generalises: **the edit render shows all content
+simultaneously**, because nothing is interactive to reveal it. A carousel is the
+worked example — its slides are all present in the DOM (a scroll track, not
+`display:none`), so their copy is reachable, but with behaviour disabled they sit
+scrolled out of view and are awkward to click. The edit render lets the track stack
+so every slide is visible at once.
 
-- **View** — the iframe behaves exactly as the published page would. Links work,
-  behaviours run, nothing is decorated. This is what the site *is*.
-- **Edit** — editable regions are made evident on hover (outline or overlay), and
-  clicking one opens its editor modal.
-
-The toggle exists because a builder that is permanently in edit mode is a builder
-you cannot use to *look at* your site.
-
-### 6.2 A modal editor — explicitly not WYSIWYG
-
-Click a highlighted region → **a modal opens** → edit in a form → save. There is
-**no inline HTML editing, no contenteditable surface, no WYSIWYG**. The modal is a
-form over structured fields; that is precisely what makes §4 hold, and it is what
-keeps the framework out of the user's face.
-
-### 6.3 The overlay is computed over the preview document
-
-Hit-testing and outlining happen against the same-origin iframe's DOM
-([[DOC-8]] §4.2). The overlay logic should be written as **pure functions over a
-document** — resolve element → target, compute the outline rect — so it is testable
-in jsdom, with the live glue (listeners, mode state, modal launch) as a thin layer
-on top.
+Preserving animation in edit mode is rejected for phase 1: untriggered reveals hide
+segments, motion competes with the outline/highlight signal that edit mode depends
+on, and a segment mid-transition has no stable box to outline.
 
 ---
 
-## 7. Hotspot granularity
+## 6. The segment model
 
-**What counts as one clickable region?** Two answers, and they are a genuine
-product choice, not a technical one:
+### 6.1 What a segment is
 
-- **Block granularity (v1):** the whole section is one hotspot; clicking it opens a
-  modal listing *all of that block's* copy fields together. Needs only block-level
-  addressing, is less fiddly to build, and arguably reads better — all the copy for
-  a section in one place.
-- **Field granularity (later):** each run is its own hotspot; click the heading, get
-  a modal for the heading.
+In edit mode the page **segments into a series of nested regions** — the logical
+divisions that have user-editable controls. Regions with nothing editable are not
+outlined at all, so the outlines themselves tell the user what is available.
 
-v1 is block granularity. Field-level precision is additive and does not change the
-edit vocabulary — only the hotspot map. Both are "click → modal editor"; nothing
-about §6.2 changes either way.
+Note the vocabulary trap: since the pivot, a **module** means a *behavioural*
+widget (carousel, contact-form). A "hero" is not a module — it is an L1 box that
+happens to look like one. L1 is a low-level tree of boxes within boxes with no
+notion of "section", so the segment map must be **derived** from the tree.
+
+### 6.2 Segments are derived, not declared
+
+**Decision: derive.** A node becomes a segment by what it *is*, not by an
+annotation:
+
+| L1 node | Segment kind | Controls |
+|---|---|---|
+| `text` | copy segment | the words (phase 1); text properties (phase 2) |
+| `image` | image segment | which image, basic framing (phase 1) |
+| `box`/`container` carrying paint (background, fill, border…) | container segment | background colour/image, default text parameters (phase 2) |
+| behavior-module instance | module segment | its `config` — e.g. the response email body (phase 2) |
+
+Declared segmentation — the AI marking nodes as editable when it authors a page —
+was considered and rejected for now: it is a schema change, it burdens every
+author, and any page the AI forgets to annotate is silently uneditable. Derivation
+needs none of that. **Revisit if the derived map does not match what users
+perceive as sections** (§6.4).
+
+### 6.3 What derivation actually produces
+
+Measured on `storage/sites/xgd/draft/pages/home.json`:
+
+| | count |
+|---|---|
+| copy segments | 62 |
+| container segments | 10 |
+| module slots | 1 |
+| **total** | **73**, nested 2–5 deep |
+
+This is the shape the design assumes: container segments with copy segments inside
+them.
+
+### 6.4 Known weakness
+
+The container rule ("a box carrying paint") may land on a *wrapper* rather than the
+section a user means. This is the specific thing to watch, and the trigger for
+reconsidering declared segmentation.
+
+### 6.5 Nesting and occlusion — measured, and deferred
+
+Nested segments mean a click can land in several at once; innermost-wins is the
+default. The problem case is an inner segment that fully occludes its parent,
+leaving nothing to click for the outer one.
+
+**Measured: 1 of 10 container segments on `xgd/home` wraps a lone text run** — the
+only occlusion-prone shape. Rare enough that phase 1 needs no mechanism. If it
+bites, the fix is a UI treatment rather than a model change: **shift-hover
+separates overlapping segments** (a small shift/resize) so the user can pick the
+one they want.
 
 ---
 
-## 8. The editors
+## 7. Interaction model
 
-### 8.1 Copy editor
+### 7.1 View / Edit toggle
 
-A **generic form over the block's copy fields** — read the structured content and
-render an input per text field. Because content is introspectable, this needs no
-per-module editor code.
+- **View** — the draft preview render. The page behaves exactly as published:
+  links work, behaviours run, nothing is decorated.
+- **Edit** — the edit render (§5). Segments are faintly outlined; hovering a
+  segment strengthens its outline with a small movement; clicking opens its editor.
 
-Styled text is a block-tree with inline runs ([[DOC-22]]). For v1, honour the
-framing *"a tool for editing copy, not formatting"*:
+The toggle exists because a builder permanently in edit mode is a builder you
+cannot use to *look at* your site.
 
-- **edit the run text**, preserving structure and styling;
-- expose **block-level** properties as friendly parameters (background colour, text
-  colour, size, family, weight) — via a colour picker and simple choosers, never a
-  token name;
-- **per-run in-text restyling stays with the AI.** Getting there properly means a
-  semantic rich-text engine (ProseMirror / TipTap / Lexical) in which the user never
-  sees notation — a real piece of work, and the one place [[DOC-8]] §9 allows a
-  React island inside a modal. Not day one.
+### 7.2 A modal editor — explicitly not WYSIWYG
 
-### 8.2 Image editor and asset selection
+Click a segment → **a modal opens** → edit in a form → save. There is **no inline
+HTML editing, no contenteditable surface, no WYSIWYG**. The modal is a form over
+structured fields; that is what makes §4 hold and what keeps the framework out of
+the user's face.
 
-Clicking an image block opens an asset picker plus basic adjustments. Everything is
-**non-destructive and structured** — parameters the renderer applies, never a newly
-baked file:
+Where a segment has both copy and parameters, the modal is **two-stage**: a
+parameters area and a text area. In phase 1 only the text stage exists, so the
+modal is single-stage; phase 2 adds the parameters stage.
+
+### 7.3 Structure is not editable
+
+**In v1 there is no way to change page structure** from the editor — no adding,
+removing, reordering, resizing or repositioning segments. Structure is the AI's
+job. This is a deliberate scope wall, not a temporary gap (§8, phase 3).
+
+---
+
+## 8. Phases
+
+Ordered by how much better direct manipulation is than conversation for that task.
+
+### Phase 1 — copy and image selection
+
+The two things that are far easier interactively than by describing them in prose,
+and the two things a site owner changes constantly.
+
+- **Copy editing** — click a copy segment, edit the words in a plain form field.
+- **Image selection** — click an image segment, choose a different asset.
+
+### Phase 2 — properties
+
+- **Text properties** — size, colour, weight, family, and the container's
+  background colour; exposed as friendly controls (a colour picker), never as token
+  names.
+- **Simple module properties** — a behavior module's `config`, e.g. the body of the
+  response email for email capture. This lands cleanly on existing rails:
+  [[DOC-25]] defines `config` as data-only and never aesthetic, which is exactly
+  what an email body is.
+
+### Phase 3 — structure (may never happen)
+
+Explicit resizing, positioning, adding and removing segments. Recorded so the scope
+wall in §7.3 is understood as a decision with a possible future, not an oversight.
+
+---
+
+## 9. The editors
+
+### 9.1 Copy editor (phase 1)
+
+A **plain form field per copy field** in the segment. Because content is
+introspectable, this needs no per-segment editor code.
+
+Styled text is a block-tree with inline runs ([[DOC-22]]). Phase 1 honours the
+framing *"a tool for editing copy, not formatting"*: edit the run text, preserve
+structure and styling. **Per-run in-text restyling stays with the AI.** Doing it
+properly means a semantic rich-text engine (ProseMirror / TipTap / Lexical) in
+which the user never sees notation — real work, and the one place [[DOC-8]] §9
+allows a React island inside a modal. Not day one.
+
+**On copy that no longer fits.** L1 pins a run's width and can pin it to
+`nowrapFromPx` so it will not wrap; vertical position is flow-based, so longer copy
+generally pushes content down rather than overlapping, but a no-wrap headline can
+run out of its box. **This is accepted:** the goal is to let the user enter the text
+they want; if the result looks ugly they work with the AI to tidy it. One mitigation
+is free and required — because the modal edits the text in a plain form field, **the
+full string is always legible there** regardless of what the render does to it. Ugly
+is acceptable; *silently clipped so the user cannot see what they typed* is not.
+
+### 9.2 Image editor and asset selection
+
+Phase 1 is **selection**: click an image segment, pick a different asset. Framing
+controls follow. Everything is **non-destructive and structured** — parameters the
+renderer applies, never a newly baked file:
 
 | Control | Structured field |
 |---|---|
-| choose a different image | `asset-ref` / the L1 `image` node's `src` |
+| choose a different image | the L1 `image` node's `src` / an `asset-ref` |
 | crop | crop rect (x / y / w / h) |
 | scale | fit / scale field |
-| translucent overlay (**scrim** — the right word; already first-class in the capture model, [[DOC-13]] §4) | `overlay {color, opacity}` |
+| translucent overlay (**scrim** — already first-class in the capture model, [[DOC-13]] §4) | `overlay {color, opacity}` |
 | rotation, edge effects (circle → radius, soft → radial mask, torn → pre-torn asset), free positioning | L1 axes |
 
-Non-destructive matters for two reasons: it keeps edits round-trippable and
-undoable like every other structured edit, and it keeps the asset store clean —
-one uploaded asset, many framings, rather than a new blob per crop.
+Non-destructive matters twice: edits stay round-trippable and undoable like every
+other structured edit, and the asset store stays clean — one uploaded asset, many
+framings, rather than a new blob per crop.
 
 The **Asset tab** is the same asset store surfaced as a tab; the image editor
 invokes it as a modal picker. That shared surface is also how the two tabs may
@@ -242,82 +343,79 @@ eventually collapse into one screen ([[DOC-8]] §3.2).
 
 ---
 
-## 9. The toolbar
+## 10. The toolbar
 
 Above the preview, in no fixed order:
 
 | Control | Behaviour |
 |---|---|
 | **Site selector** | choose which site's draft the iframe shows |
-| **Edit / View toggle** | §6.1 |
+| **Edit / View toggle** | swaps render channel (§5.1, §7.1) |
 | **Open in new tab** | the *same* draft render URL the iframe loads ([[DOC-8]] §4.3) — an iframe can distort layout, so a real tab is the honest view |
 | **Publish** | snapshot the draft into a new immutable revision and render it live — a thin call over [[DOC-12]] §5's existing `publish` machinery |
 
 ---
 
-## 10. The edit loop
+## 11. The edit loop
 
 ```
-click region → resolve to structured target (§5)
-  → modal form over that target's exposed fields (§3, §8)
+click segment → resolve to its structured target via the stamped address (§5.2)
+  → modal form over that segment's exposed fields (§3, §9)
   → save → structured diff
   → validate (the shared validator — [[DOC-8]] §7 layer 1)
        ├─ invalid: surface the error, revert; nothing is applied
        └─ valid:   apply to the draft definition
-  → re-render the draft (server-side — [[DOC-8]] §4.1)
-  → refresh the iframe
+  → re-render (edit channel) → refresh the iframe
 ```
 
-Two properties worth naming: the loop is **the same one the AI drives** (only the
-first two steps differ), and the re-render is **server-side**, so what the user sees
-after an edit is the same artifact the published site would be.
+Two properties worth naming: this is **the same loop the AI drives** — only the
+first two steps differ — and the re-render is **server-side**, so what the user sees
+is produced by the same renderer that produces the published site.
 
 ---
 
-## 11. Milestones
+## 12. Milestones
 
 Tracked under CHAT-9.
 
 | | Scope | Status |
 |---|---|---|
-| **M1** | Render edit hooks — `data-fc-module` / `data-fc-type` per instance (§5.2) | **done**, tested, landed |
-| **M2** | Builder panel — shell → Design tab; toolbar (site selector · Edit/View · open in new tab); iframe of the served draft render; edit mode outlines blocks | next |
-| **M3** | Copy editor — click block → modal of its copy fields → validated structured edit → re-render → refresh | blocked on §5.3 for L1 pages |
-| **M4** | Asset selector + image editor (§8.2) | after M3 |
+| **M1** | Module edit hooks — `data-fc-module` / `data-fc-type` per instance (§5.2) | **done**, tested, landed |
+| **M2** | Builder panel — shell → Design tab; toolbar; iframe of the served draft render; Edit/View toggle | next |
+| **M3** | The edit render — segment derivation (§6), L1 address stamping (§5.2), settled-state/no-motion rules (§5.3), outlines | |
+| **M4** | Copy editor — click segment → modal → validated structured edit → re-render → refresh (phase 1) | |
+| **M5** | Image selection (phase 1), then the framing controls (§9.2) | |
 
 M2 needs a decision on how the builder is served locally and how `webui-*` is
 consumed ([[DOC-8]] §13 Q1) — neither is an editor-design question.
 
 ---
 
-## 12. Open Questions
+## 13. Open Questions
 
-1. **L1 node addressing (§5.3)** — the blocking one. Structural path, synthesized
-   render-time edit id, or minted persistent id?
-2. **Does the hook ship on the published channel?** It is inert and harmless, but
-   draft and published render separately ([[DOC-8]] §4.1), so draft-only is
-   available and would keep published bytes minimal. Decide together with (1),
-   since a dense per-node id makes the byte cost real.
-3. **Hotspot granularity beyond v1 (§7)** — when, and driven by what evidence?
-4. **Nested hotspots** — a text node inside a module slot inside an L1 box has
-   several plausible targets. Innermost-wins, or a way to step out to the parent?
-5. **Rich-text editing (§8.1)** — which engine, and when does per-run styling stop
+1. **Does derived segmentation match perception?** Specifically the container rule
+   landing on wrappers (§6.4). Judge it on a real page in M3, not in the abstract.
+2. **Address encoding** — the exact form of the L1 structural path, and how a path
+   into a module slot is written (§5.2).
+3. **Nested-segment separation** — build shift-hover only if occlusion actually
+   bites (§6.5).
+4. **Rich-text editing (§9.1)** — which engine, and when does per-run styling stop
    being AI-only?
-6. **Non-destructive image params vs the capture/fold model** — the repro pipeline
-   already folds crops and scrims into L1; the editor should write the *same*
-   fields rather than a parallel vocabulary. Confirm they are identical.
-7. **Undo affordance in the editor** — does the modal have Cancel only, or does the
-   Design view expose the diff-log undo directly?
+5. **Image params vs the capture/fold model** — the repro pipeline already folds
+   crops and scrims into L1; the editor must write the *same* fields, not a
+   parallel vocabulary. Confirm they are identical before building §9.2.
+6. **Undo affordance** — does the modal have Cancel only, or does the Design view
+   expose the diff-log undo directly?
 
 ---
 
-## 13. Related Tickets
+## 14. Related Tickets
 
 - [[DOC-8]] — builder UI architecture (the app around this editor)
 - [[DOC-2]] — security policy (the structured-only boundary §4 preserves)
 - [[DOC-12]] — storage, versioning, publish (what the toolbar's Publish does)
 - [[DOC-13]] — reference capture model (scrim / overlay as first-class)
 - [[DOC-22]] — styled text content model (what the copy editor edits)
-- [[DOC-23]] — L1 substrate (where copy now lives — §5.3)
-- [[DOC-25]] — behavior modules (what M1's hook currently addresses)
-- CHAT-9 — the design discussion and the M1–M4 milestones
+- [[DOC-23]] — L1 substrate (the tree segments are derived from)
+- [[DOC-25]] — behavior modules (module segments and their `config`)
+- CHAT-9 — the design discussion and the milestones
