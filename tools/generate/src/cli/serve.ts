@@ -34,7 +34,8 @@ export interface ServeHandle {
 /**
  * Serve a site's rendered output as static files for browser viewing. Resolves
  * once the server is listening; the caller keeps the process alive. A bare
- * directory request resolves to `index.html`.
+ * directory request resolves to `index.html`, and an extensionless path falls
+ * back to the sibling `.html` file (REQ-113) so preview URLs match production.
  */
 export function startServe(slug: string, opts: ServeOptions = {}): Promise<ServeHandle> {
   const root: Root = opts.sandbox ? 'sandbox' : 'sites'
@@ -71,8 +72,28 @@ async function serveRequest(
       return
     }
     const info = await stat(abs).catch(() => null)
-    const file = info?.isDirectory() ? path.join(abs, 'index.html') : abs
-    const finalInfo = info?.isDirectory() ? await stat(file).catch(() => null) : info
+    let file = info?.isDirectory() ? path.join(abs, 'index.html') : abs
+    let finalInfo = info?.isDirectory() ? await stat(file).catch(() => null) : info
+    /**
+     * REQ-113 — extensionless → sibling `.html`. `renderSite` emits a page at
+     * `<slug>.html`, and Cloudflare Pages serves that at `/<slug>`. Without this
+     * the preview server disagrees with production on the very URL the author
+     * writes into the nav, and the tempting "fix" is to bake `.html` into the
+     * site — wrong environment, permanent cost.
+     *
+     * Applied to `abs`, which is already confined to `rootDir`, so appending a
+     * suffix cannot widen reach. Gated on there being no extension, so a missing
+     * asset still 404s instead of silently returning HTML with the wrong MIME.
+     * Runs last, so a real directory's `index.html` always wins over `<dir>.html`.
+     */
+    if (!finalInfo && !path.extname(abs)) {
+      const htmlPath = `${abs}.html`
+      const htmlInfo = await stat(htmlPath).catch(() => null)
+      if (htmlInfo?.isFile()) {
+        file = htmlPath
+        finalInfo = htmlInfo
+      }
+    }
     if (!finalInfo) {
       res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
       return
