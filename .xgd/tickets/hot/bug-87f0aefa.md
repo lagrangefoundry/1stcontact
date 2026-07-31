@@ -5,9 +5,9 @@ type: bug
 title: relativizeUrl turns /#frag into a same-page anchor, breaking cross-page links
 created_by: xgd
 created_at: '2026-07-31T00:45:39.331427+00:00'
-updated_at: '2026-07-31T01:02:37.806476+00:00'
+updated_at: '2026-07-31T01:02:38.545646+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -95,3 +95,5 @@ the broader question is worth answering once rather than per-symptom:
 
 xgd.dev's whitepapers page authors `/index.html#how` and `/index.html#signup`, which relativize to
 `index.html#how` and resolve correctly. Remove once this lands.
+
+-
