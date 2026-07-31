@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-31T00:56:23.126170+00:00'
+updated_at: '2026-07-31T00:57:49.881123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -594,5 +594,27 @@ The fix is small: put the root in the key prefix and have the Worker resolve onl
 <!-- xgd-chat role="user" ts="2026-07-31T00:56:23.097752+00:00" -->
 #### You
 please create a bug for the sandbox clash
+
+<!-- xgd-turn id="db7f3253-5c1a-44ff-a31d-70040d0b7e4d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T00:57:49.817505+00:00" -->
+#### Claude
+**BUG-31** created at `draft`, priority high, 2 points.
+
+It documents four consequences ranked by severity. The one I'd flag as the reason it's `high` rather than `medium`:
+
+> `1c deploy --sandbox <slug> --channel published` computes `live` from the *sandbox* history and uploads to `sites/<slug>/rev/NNNN/`, then sets `manifest.live`. Sandbox revision 1 overwrites the real site's revision 1 bytes, and `/site/<slug>/` starts serving throwaway content.
+
+And the one that needs no collision at all to bite: any `--sandbox` deploy makes gitignored scratch content world-readable at `1stcontact.io/site/<slug>/draft/<sha>/`.
+
+It's latent — no sandbox site shares a slug with a real one, and no `--sandbox` deploy has ever run — but silent when it isn't.
+
+The ticket records that **REQ-110's spec was the root cause, not the implementation**. My R2 layout had no root component, so the code is faithful to what I wrote. DOC-12 §7 inherited the same omission and is listed as part of the fix.
+
+The proposed fix is to namespace keys by root (`sites/…` / `sandbox/…`) and have `SiteStore` resolve only `sites/`, so no route can reach a sandbox key. I left one thing as your call rather than deciding it in the ticket: once sandbox can't be served, `1c deploy --sandbox` either refuses and points you at a throwaway slug in the real root, or uploads under `sandbox/` and tells you it isn't reachable. I recommended refusing — the alternative preserves a way to exercise upload/manifest/prune, but it's a feature with no consumer.
+
+Worth noting neither option gives you a sandbox route to testing the *serving* path. That still needs `harbor-cafe` or similar.
+
+Nothing else changed — BUG-31 is at `draft` for you to promote, and `storage/sites/xgd/draft/pages/home.json` is still the other session's uncommitted copy edit.
 
 <!-- xgd-chat-end -->
