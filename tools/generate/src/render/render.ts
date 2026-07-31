@@ -6,6 +6,8 @@ import path from 'node:path'
 import type { experimental_AstroContainer as AstroContainerType } from 'astro/container'
 import {
   CALLOUT_CSS,
+  L1_EDIT_CSS,
+  L1_EDIT_MARKER_ATTR,
   generateThemeCss,
   getModule,
   getModuleCss,
@@ -32,6 +34,17 @@ export interface RenderSiteOptions {
   resolveModule?: ModuleResolver
   /** Extra CSS appended to `theme.css` — lets injected modules ship their own rules. */
   extraCss?: string
+  /**
+   * REQ-116 — render the **edit** channel (DOC-28 §5) rather than the ordinary
+   * one: the same site and the same renderer, producing the page the editor
+   * works on. Deliberately non-functional (no link target, no form action, no
+   * behaviour or motion script), showing all content at once, with every
+   * editable region outlined and stamped with its address.
+   *
+   * It is a render mode, not a new artifact: an edit render is never published,
+   * never content-addressed, and never entered in `history.json` (DOC-12 §11).
+   */
+  edit?: boolean
 }
 
 /**
@@ -78,6 +91,7 @@ async function renderModuleInstances(
   container: Container | undefined,
   page: Page,
   resolveModule: ModuleResolver,
+  edit: boolean,
 ): Promise<string[]> {
   const parts: string[] = []
   for (const m of page.modules) {
@@ -88,8 +102,12 @@ async function renderModuleInstances(
       throw new Error('internal: Astro container required to render behavior-module pages')
     }
     const { Component } = resolveModule(m.type, m.version)
+    // REQ-116 — `edit` reaches the module as a prop rather than being patched out
+    // of its markup afterwards. Only the module knows which of its attributes
+    // carry behaviour (an endpoint, a submit verb) and which are presentation, so
+    // only the module can say what it looks like with that behaviour switched off.
     const rendered = await container.renderToString(Component, {
-      props: { config: m.config, slots: m.slots, instanceId: m.id },
+      props: { config: m.config, slots: m.slots, instanceId: m.id, edit },
     })
     // Stamp the builder edit hook onto the module root so the web editor's preview can
     // target this instance.
@@ -104,6 +122,7 @@ async function renderPage(
   site: Site,
   page: Page,
   resolveModule: ModuleResolver,
+  edit: boolean,
 ): Promise<string> {
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
@@ -117,12 +136,12 @@ async function renderPage(
   // first (async, through the Astro container) and are handed to the pure L1
   // emitter as finished fragments; the page schema has already proved every
   // binding resolves to exactly one existing slot.
-  const rendered = await renderModuleInstances(container, page, resolveModule)
+  const rendered = await renderModuleInstances(container, page, resolveModule, edit)
   const mounts: Record<string, string> = {}
   page.modules.forEach((m, i) => {
     if (m.slot) mounts[m.slot] = rendered[i]
   })
-  const l1 = page.l1 ? renderL1Document(page.l1, { mounts }) : null
+  const l1 = page.l1 ? renderL1Document(page.l1, { mounts, edit }) : null
   const body = l1 ? l1.html : rendered.join('\n')
 
   const head = [
@@ -131,20 +150,34 @@ async function renderPage(
     `<title>${escapeHtml(title)}</title>`,
     description ? `<meta name="description" content="${escapeHtml(description)}" />` : '',
     ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : '',
-    // Theme tokens (fonts, palette, spacing) are declared as custom properties
-    // in theme.css; the base style below binds the document to them.
+    // Theme tokens (fonts, spacing, scales) are declared as custom properties in
+    // theme.css; the base style below binds the document to them.
+    //
+    // REQ-114 — the page's background and text colour are NOT set here any more.
+    // They came from `--color-bg` / `--color-text`, which went with the legacy
+    // token palette; their home is the L1 document's own `background` /
+    // `textColor` (DOC-23 §2), emitted by the sole L1 emitter below.
     '<link rel="stylesheet" href="./theme.css" />',
     '<style>',
     '  *, *::before, *::after { box-sizing: border-box; }',
-    '  body { margin: 0; font-family: var(--font-family-body); background: var(--color-bg); color: var(--color-text); }',
+    '  body { margin: 0; font-family: var(--font-family-body); }',
     '  h1, h2, h3, h4 { font-family: var(--font-family-heading); }',
     '</style>',
     // REQ-88: the folded L1 document's self-contained css (absolute geometry
     // keyframes + typed axes). Only present for a raw-L1 page.
     l1 ? `<style>\n${l1.css}\n</style>` : '',
+    // REQ-116 — the edit channel's own stylesheet: the faint per-segment outline.
+    // It rides here, at the page level, rather than inside the L1 emitter's
+    // per-node css, so it covers a module-only page too and is emitted exactly
+    // once per document.
+    edit ? `<style>${L1_EDIT_CSS}</style>` : '',
     // Behavior client behaviour (REQ-85): one deferred module, emitted only
     // when a behavior ships a `client.js`. Self-wires on load.
-    getModuleClientJs() ? '<script type="module" src="./capabilities.js"></script>' : '',
+    //
+    // REQ-116 — never in the edit channel. Behaviour scripts are exactly what
+    // makes the page work, and the edit render's contract is that it does not:
+    // nothing submits, nothing fetches, nothing autoplays.
+    !edit && getModuleClientJs() ? '<script type="module" src="./capabilities.js"></script>' : '',
   ]
     .filter(Boolean)
     .map((line) => `  ${line}`)
@@ -155,7 +188,7 @@ async function renderPage(
 <head>
 ${head}
 </head>
-<body>
+<body${edit ? ` ${L1_EDIT_MARKER_ATTR}` : ''}>
 ${body}
 </body>
 </html>
@@ -179,6 +212,7 @@ export async function renderSite(
 ): Promise<string[]> {
   const { site, sourceDir } = loaded
   const resolveModule = opts.resolveModule ?? getModule
+  const edit = opts.edit === true
   emptyDir(outDir)
 
   // theme.css = design-token :root variables + the module component CSS. The
@@ -195,7 +229,10 @@ export async function renderSite(
   // capabilities.js = every catalog behavior's vetted client behaviour (REQ-85),
   // folded into one deferred module. Written only when non-empty; the page head
   // references it only then. Ships the client JS the container render omits.
-  const clientJs = getModuleClientJs()
+  // REQ-116 — the edit channel writes no client bundle at all. No page in it
+  // references one, so shipping the file would leave live behaviour sitting in
+  // the directory one stray <script> away from making the page work again.
+  const clientJs = edit ? '' : getModuleClientJs()
   if (clientJs) writeText(path.join(outDir, 'capabilities.js'), `${clientJs}\n`)
 
   // Astro is only needed to render behavior modules. A pure folded-L1
@@ -225,7 +262,7 @@ export async function renderSite(
           'snapshot root, because emitted asset URLs are relative to it (REQ-109)',
       )
     }
-    const html = await renderPage(container, site, page, resolveModule)
+    const html = await renderPage(container, site, page, resolveModule, edit)
     const file = `${page.slug}.html`
     writeText(path.join(outDir, file), html)
     written.push(file)
@@ -233,7 +270,7 @@ export async function renderSite(
 
   const home = homePage(site)
   if (home) {
-    const html = await renderPage(container, site, home, resolveModule)
+    const html = await renderPage(container, site, home, resolveModule, edit)
     writeText(path.join(outDir, 'index.html'), html)
     written.push('index.html')
   }

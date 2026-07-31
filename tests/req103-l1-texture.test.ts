@@ -16,7 +16,8 @@
  * pattern renders exactly as it did before.
  */
 import { describe, expect, it } from 'vitest'
-import { readFileSync, globSync } from 'node:fs'
+import { existsSync, readFileSync, globSync } from 'node:fs'
+import path from 'node:path'
 import {
   l1ContainerSchema,
   l1GradientSchema,
@@ -24,6 +25,7 @@ import {
   validateL1,
   type L1Document,
   type L1Node,
+  type L1Palette,
   type L1SurfaceAxes,
 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
@@ -84,6 +86,18 @@ function commaList(value: string): string[] {
   }
   if (cur.trim()) out.push(cur.trim())
   return out
+}
+
+/**
+ * REQ-114 — a stored page's colours may be palette references, so validating or
+ * rendering one needs the site's palette (DOC-23 §5). Reading it from the
+ * sibling `site.json` is what `1c render` does; without it a reference cannot
+ * resolve, and it must not silently fall back.
+ */
+function sitePaletteFor(pagePath: string): L1Palette | undefined {
+  const siteJson = path.join(path.dirname(path.dirname(pagePath)), 'site.json')
+  if (!existsSync(siteJson)) return undefined
+  return (JSON.parse(readFileSync(siteJson, 'utf8')) as { palette?: L1Palette }).palette
 }
 
 describe('REQ-103 — a surface can carry a repeating texture', () => {
@@ -279,13 +293,14 @@ describe('REQ-103 — a surface can carry a repeating texture', () => {
 
     const pages = globSync('storage/sites/*/draft/pages/*.json')
     expect(pages.length, 'shipped L1 pages to re-render').toBeGreaterThan(0)
-    for (const path of pages) {
-      const page = JSON.parse(readFileSync(path, 'utf8')) as { l1?: L1Document }
+    for (const pagePath of pages) {
+      const page = JSON.parse(readFileSync(pagePath, 'utf8')) as { l1?: L1Document }
       if (!page.l1) continue
-      const report = validateL1(page.l1)
-      expect(report.ok, `${path}: ${JSON.stringify(report.ok ? [] : report.errors)}`).toBe(true)
-      const { html, css } = renderL1Document(page.l1)
-      expect(html.length, `${path} rendered markup`).toBeGreaterThan(0)
+      const palette = sitePaletteFor(pagePath)
+      const report = validateL1(page.l1, { palette })
+      expect(report.ok, `${pagePath}: ${JSON.stringify(report.ok ? [] : report.errors)}`).toBe(true)
+      const { html, css } = renderL1Document(page.l1, { palette })
+      expect(html.length, `${pagePath} rendered markup`).toBeGreaterThan(0)
       // Every `background-size` on a page whose surfaces declare no pattern is
       // still the single `cover` value BUG-13 emits — the positional list form
       // appears only where a texture asked for it.

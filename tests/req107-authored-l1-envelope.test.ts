@@ -34,7 +34,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import type { L1Document, L1Node, ValidationError } from '@1stcontact/site-schema'
+import type { L1Document, L1Node, L1Palette, ValidationError } from '@1stcontact/site-schema'
 import { L1_ENVELOPE, validateL1, validateSite } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/l1/render'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli'
@@ -220,13 +220,20 @@ describe('REQ-107 — the authoring path clears the L1 envelope', () => {
       for (const source of sources) {
         const pagesDir = path.join(source, 'pages')
         if (!existsSync(pagesDir)) continue
+        // REQ-114 — a page's colours may be palette references, and a reference
+        // resolves against the *site*, not the page. The palette therefore has to
+        // travel with the document, exactly as `validateSite` threads it in.
+        const sitePath = path.join(source, 'site.json')
+        const palette = existsSync(sitePath)
+          ? (JSON.parse(readFileSync(sitePath, 'utf8')) as { palette?: L1Palette }).palette
+          : undefined
         for (const file of readdirSync(pagesDir).filter((f) => f.endsWith('.json'))) {
           const rel = path.relative(root, path.join(pagesDir, file))
           const page = JSON.parse(readFileSync(path.join(pagesDir, file), 'utf8')) as {
             l1?: unknown
           }
           if (page.l1 === undefined) continue
-          const result = validateL1(page.l1)
+          const result = validateL1(page.l1, { palette })
           const detail = result.ok
             ? ''
             : result.errors.map((e) => `${e.path}: ${e.message}`).join('\n')

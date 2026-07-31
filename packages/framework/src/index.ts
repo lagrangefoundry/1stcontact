@@ -9,14 +9,12 @@
 export { defaultTokens, generateThemeCss } from './tokens'
 export type {
   ThemeTokens,
-  PaletteTokens,
   TypographyTokens,
   SpacingTokens,
   RadiusTokens,
   ShadowTokens,
   ContainerTokens,
   BreakpointTokens,
-  PartialPalette,
   DeepPartial,
 } from './tokens'
 
@@ -39,9 +37,7 @@ export {
   normalizeStyledText,
   TEXT_STYLE_ALIASES,
   GRADIENT_DIRECTION_ALIASES,
-  PALETTE_ROLE_ALIASES,
   isColorLiteral,
-  isPaletteRole,
   validateModuleContent,
   validateBehaviorConfig,
   validateBehaviorSlots,
@@ -102,6 +98,12 @@ export {
   renderL1Fragment,
   L1_REVEAL_SCRIPT,
   L1_POINTER_SCRIPT,
+  // REQ-116 — the edit channel's vocabulary: the two stamped attributes, the
+  // document-level marker, and the channel's own stylesheet.
+  L1_EDIT_PATH_ATTR,
+  L1_EDIT_SEGMENT_ATTR,
+  L1_EDIT_MARKER_ATTR,
+  L1_EDIT_CSS,
 } from './l1/render'
 export type {
   L1RenderResult,
@@ -109,6 +111,7 @@ export type {
   L1RenderOptions,
   L1ControlElement,
   L1ControlTag,
+  L1SegmentKind,
 } from './l1/render'
 
 // L2 — the optional library of vetted L1 designs (REQ-96): a default look a site

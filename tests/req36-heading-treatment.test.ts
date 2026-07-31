@@ -13,19 +13,10 @@ import { generateThemeCss } from '../packages/framework/src/tokens/index'
  *     accent-mid, the Tailwind container scale, and the label font family.
  */
 
-describe('REQ-36 scrim token', () => {
-  it('test_UAT_FC_REQ-36_scrim_token_defaults_to_a_near_black', () => {
-    // The generated theme always declares --color-scrim, defaulting dark so a
-    // scrim darkens for contrast even when the site omits the role.
-    const css = generateThemeCss({ palette: { primary: '#ff0000' } })
-    const m = css.match(/--color-scrim:\s*(#[0-9a-fA-F]{6})/)
-    expect(m).not.toBeNull()
-    const hex = m![1]
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
-    // Luminance well below mid-grey — a genuine darkening tint, not a wash.
-    expect((r + g + b) / 3).toBeLessThan(40)
-  })
-})
+// REQ-114 — the `scrim` token went with the colour group. A scrim is a painted
+// overlay on an L1 node (`axes.overlay {color, opacity}`, DOC-28 §9.2), so its
+// colour is an ordinary palette entry or literal the site declares; there is no
+// framework default to pin because there is no framework slot.
 
 describe('REQ-36 extended spacing scale — airy sections', () => {
   it('test_UAT_FC_REQ-36_spacing_steps_carry_2xl_3xl', () => {
@@ -42,14 +33,10 @@ describe('REQ-36 extralight weight token', () => {
   })
 })
 
-describe('REQ-36 theme token surface — container scale, accent-mid, label font', () => {
-  it('test_UAT_FC_REQ-36_accent_mid_declared_out_of_the_box', () => {
-    // The default palette declares `--color-accent-mid` in :root even when a site
-    // omits accentMid, so a surface referencing it never renders undefined.
-    const css = generateThemeCss({})
-    expect(css).toMatch(/:root\s*\{[^}]*--color-accent-mid:/)
-  })
-
+// REQ-114 — `accent-mid` was a slot of the retired colour token group (and, like
+// accent-light/deep, a ramp position wearing a role name). The container scale and
+// label font below are non-colour groups and are untouched by that retirement.
+describe('REQ-36 theme token surface — container scale, label font', () => {
   it('test_UAT_FC_REQ-36_theme_emits_tailwind_container_scale', () => {
     // REQ-55: the container scale is Tailwind's `max-w` steps; each is a
     // default-filled optional slot, so every theme emits the whole scale.

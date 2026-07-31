@@ -204,12 +204,16 @@ describe('@1stcontact/site-schema validateSite', () => {
   })
 
   it('test_UAT_FC_REQ-3_invalid_color_format_rejected', () => {
+    // REQ-114 — colour moved off `theme.palette` (the retired closed token group)
+    // onto the site-level L1 palette. The invariant this AC pins is unchanged and
+    // still enforced: a colour that is not a hex literal is rejected, and the error
+    // names the offending entry.
     const site = minimalSite() as Record<string, any>
-    site.theme.palette.primary = 'blue' // not a hex color
+    site.palette = { primary: { value: 'blue' } } // not a hex color
     const result = validateSite(site)
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.errors.some((e) => e.path === '/theme/palette/primary')).toBe(true)
+      expect(result.errors.some((e) => e.path === '/palette/primary/value')).toBe(true)
     }
   })
 

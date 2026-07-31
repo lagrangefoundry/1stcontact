@@ -117,6 +117,12 @@ export function cmdRevisions(slug: string, opts: GlobalOptions = {}) {
 export interface RenderOptions extends GlobalOptions {
   source?: SiteSource
   out?: string
+  /**
+   * REQ-116 — render the **edit** channel: the page the builder's editor works
+   * on (DOC-28 §5). Always rendered from `draft/`, because the editor edits the
+   * draft; a revision is immutable and there is nothing on it to edit.
+   */
+  edit?: boolean
 }
 
 export interface RenderResult {
@@ -127,11 +133,16 @@ export interface RenderResult {
 /** Render a site (default `--source draft`) to its private preview directory. */
 export async function cmdRender(slug: string, opts: RenderOptions = {}): Promise<RenderResult> {
   const ctx = ctxOf(opts)
-  const source = opts.source ?? 'draft'
+  const edit = opts.edit === true
+  // REQ-116 — the edit channel renders the draft, and only the draft. `--edit`
+  // therefore SETTLES the source rather than combining with it: a revision is
+  // immutable, so an edit render of one would be a page offering to change
+  // something that cannot change.
+  const source = edit ? 'draft' : (opts.source ?? 'draft')
   const loaded = loadOrThrow(ctx, slug, source)
-  const channel: RenderChannel = source === 'draft' ? 'draft' : 'published'
+  const channel: RenderChannel = edit ? 'edit' : source === 'draft' ? 'draft' : 'published'
   const outDir = opts.out ?? distDir(ctx, slug, channel)
-  const files = await renderSite(loaded, outDir)
+  const files = await renderSite(loaded, outDir, { edit })
   return { outDir, files }
 }
 

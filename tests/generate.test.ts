@@ -115,7 +115,10 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     // A linked theme.css that actually exists on disk.
     expect(html).toContain('href="./theme.css"')
     expect(existsSync(path.join(outDir, 'theme.css'))).toBe(true)
-    expect(readFileSync(path.join(outDir, 'theme.css'), 'utf8')).toContain('--color-primary')
+    // REQ-114 retired the colour token group, so a surviving group is the honest
+    // proxy for "the theme actually emitted": colour now reaches the page from
+    // the L1 document via the site palette, never from a custom property.
+    expect(readFileSync(path.join(outDir, 'theme.css'), 'utf8')).toContain('--space-4')
   })
 
   it('test_UAT_FC_BUG-1_theme_css_carries_module_component_styles', async () => {
@@ -128,8 +131,9 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     const themeCss = readFileSync(path.join(outDir, 'theme.css'), 'utf8')
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
 
-    // The design tokens are still present…
-    expect(themeCss).toContain('--color-primary')
+    // The design tokens are still present… (REQ-114: the colour group is gone,
+    // so this pins a surviving group.)
+    expect(themeCss).toContain('--space-4')
     // …but theme.css must ALSO carry the module component rules — the bug was
     // that it contained ONLY :root tokens and no class selectors. Post-REQ-96
     // what is left to fold in is behavioural mechanics and invariant elements

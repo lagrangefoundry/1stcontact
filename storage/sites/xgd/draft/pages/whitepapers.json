@@ -1,0 +1,1776 @@
+{
+  "id": "whitepapers",
+  "slug": "whitepapers",
+  "title": "Whitepapers — XGD",
+  "seoMeta": {
+    "title": "Whitepapers — XGD",
+    "description": "Two papers on generative development: the structural wall AI-assisted projects run into, and XGD — a governor built to get past it, reported over nine months of building itself."
+  },
+  "modules": [
+    {
+      "id": "signup",
+      "type": "contact-form",
+      "version": 4,
+      "slot": "signup-form",
+      "config": {
+        "action": "/api/lead",
+        "fields": [
+          {
+            "name": "email",
+            "label": "Email address",
+            "labelMode": "placeholder",
+            "type": "email",
+            "required": true
+          }
+        ],
+        "submitLabel": "Send me both papers",
+        "successMessage": "On their way — check your inbox."
+      },
+      "slots": {
+        "form": {
+          "kind": "container",
+          "layout": "stack",
+          "gapPx": 12,
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          },
+          "children": [
+            {
+              "kind": "control",
+              "control": "email",
+              "axes": {
+                "color": {
+                  "ref": "text"
+                },
+                "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                "fontSizePx": 15,
+                "surfaceFill": {
+                  "ref": "neutral"
+                },
+                "borderRadiusPx": 6,
+                "border": {
+                  "widthPx": 1,
+                  "color": {
+                    "ref": "text",
+                    "step": "200"
+                  },
+                  "style": "solid"
+                }
+              },
+              "padding": {
+                "topPx": 14,
+                "bottomPx": 14,
+                "leftPx": 16,
+                "rightPx": 16
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                },
+                "height": {
+                  "mode": "fixed",
+                  "px": 50
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 140,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "border": {
+                    "widthPx": 1,
+                    "color": {
+                      "ref": "primary",
+                      "step": "500"
+                    },
+                    "style": "solid"
+                  }
+                },
+                "focus": {
+                  "border": {
+                    "widthPx": 1,
+                    "color": {
+                      "ref": "primary"
+                    },
+                    "style": "solid"
+                  },
+                  "ring": {
+                    "widthPx": 2,
+                    "color": {
+                      "ref": "primary",
+                      "alpha": 0.3333333333333333
+                    },
+                    "offsetPx": 1
+                  }
+                }
+              }
+            },
+            {
+              "kind": "control",
+              "control": "submit",
+              "axes": {
+                "color": {
+                  "ref": "neutral"
+                },
+                "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                "fontSizePx": 15,
+                "fontWeight": 600,
+                "textAlign": "center",
+                "surfaceFill": {
+                  "ref": "primary"
+                },
+                "borderRadiusPx": 6
+              },
+              "padding": {
+                "topPx": 15,
+                "bottomPx": 15,
+                "leftPx": 26,
+                "rightPx": 26
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                },
+                "height": {
+                  "mode": "fixed",
+                  "px": 50
+                }
+              },
+              "interaction": {
+                "transition": {
+                  "durationMs": 160,
+                  "easing": "ease-out"
+                },
+                "hover": {
+                  "surfaceFill": {
+                    "ref": "primary",
+                    "step": "700"
+                  },
+                  "motion": {
+                    "offsetYPx": -2
+                  },
+                  "boxShadow": {
+                    "offsetXPx": 0,
+                    "offsetYPx": 8,
+                    "blurPx": 24,
+                    "color": {
+                      "ref": "neutral",
+                      "step": "950",
+                      "alpha": 0.34901960784313724
+                    }
+                  }
+                },
+                "focus": {
+                  "ring": {
+                    "widthPx": 2,
+                    "color": {
+                      "ref": "primary"
+                    },
+                    "offsetPx": 2
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "l1": {
+    "widths": [
+      320,
+      375,
+      768,
+      1024,
+      1280,
+      1440
+    ],
+    "background": {
+      "ref": "surface"
+    },
+    "textColor": {
+      "ref": "text",
+      "step": "900"
+    },
+    "resources": {
+      "fonts": [
+        {
+          "family": "Satoshi",
+          "src": "/assets/satoshi-400.woff2",
+          "weight": 400,
+          "style": "normal"
+        },
+        {
+          "family": "Satoshi",
+          "src": "/assets/satoshi-500.woff2",
+          "weight": 500,
+          "style": "normal"
+        },
+        {
+          "family": "Satoshi",
+          "src": "/assets/satoshi-700.woff2",
+          "weight": 700,
+          "style": "normal"
+        },
+        {
+          "family": "Satoshi",
+          "src": "/assets/satoshi-900.woff2",
+          "weight": 900,
+          "style": "normal"
+        },
+        {
+          "family": "JetBrains Mono",
+          "src": "/assets/jetbrains-mono.woff2",
+          "weight": 400,
+          "style": "normal"
+        }
+      ]
+    },
+    "root": {
+      "kind": "container",
+      "id": "root",
+      "layout": "stack",
+      "align": "center",
+      "sizing": {
+        "width": {
+          "mode": "fluid"
+        }
+      },
+      "children": [
+        {
+          "kind": "container",
+          "id": "nav",
+          "layout": "row",
+          "distribution": "between",
+          "align": "center",
+          "sizing": {
+            "width": {
+              "mode": "fluid",
+              "maxPx": 1200
+            }
+          },
+          "padding": {
+            "topPx": 28,
+            "bottomPx": 28,
+            "leftPx": 32,
+            "rightPx": 32
+          },
+          "children": [
+            {
+              "kind": "container",
+              "id": "lockup",
+              "layout": "stack",
+              "align": "center",
+              "axes": {
+                "backgroundImageUrl": "/assets/xgd-grid-mark.svg"
+              },
+              "sizing": {
+                "width": {
+                  "mode": "fixed",
+                  "px": 54
+                },
+                "height": {
+                  "mode": "fixed",
+                  "px": 28
+                }
+              },
+              "padding": {
+                "topPx": 10
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "id": "wordmark",
+                  "text": "xgd",
+                  "axes": {
+                    "color": {
+                      "ref": "text"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 22,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -0.5,
+                    "lineHeightPx": 22
+                  }
+                }
+              ],
+              "link": {
+                "href": "/index.html"
+              }
+            },
+            {
+              "kind": "container",
+              "id": "nav-links",
+              "layout": "row",
+              "align": "center",
+              "gapPx": 32,
+              "visibility": {
+                "fromPx": 768
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "text": "Whitepapers",
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 15,
+                    "fontWeight": 400,
+                    "lineHeightPx": 22
+                  },
+                  "link": {
+                    "href": "/whitepapers"
+                  },
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 140,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "color": {
+                        "ref": "text"
+                      }
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": {
+                          "ref": "primary"
+                        },
+                        "offsetPx": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "How it works",
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 15,
+                    "fontWeight": 400,
+                    "lineHeightPx": 22
+                  },
+                  "link": {
+                    "href": "/index.html#how"
+                  },
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 140,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "color": {
+                        "ref": "text"
+                      }
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": {
+                          "ref": "primary"
+                        },
+                        "offsetPx": 3
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "id": "nav-cta",
+                  "link": {
+                    "href": "/index.html#signup"
+                  },
+                  "axes": {
+                    "surfaceFill": {
+                      "ref": "primary"
+                    },
+                    "borderRadiusPx": 6
+                  },
+                  "padding": {
+                    "topPx": 9,
+                    "bottomPx": 9,
+                    "leftPx": 16,
+                    "rightPx": 16
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "Join the beta",
+                      "axes": {
+                        "color": {
+                          "ref": "surface"
+                        },
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 600,
+                        "lineHeightPx": 22,
+                        "nowrapFromPx": 0
+                      }
+                    }
+                  ],
+                  "interaction": {
+                    "transition": {
+                      "durationMs": 160,
+                      "easing": "ease-out"
+                    },
+                    "hover": {
+                      "surfaceFill": {
+                        "ref": "primary",
+                        "step": "700"
+                      }
+                    },
+                    "focus": {
+                      "ring": {
+                        "widthPx": 2,
+                        "color": {
+                          "ref": "primary"
+                        },
+                        "offsetPx": 2
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "reveal": {
+            "yPx": 0,
+            "fromOpacity": 0,
+            "durationMs": 600,
+            "easing": "ease-out"
+          }
+        },
+        {
+          "kind": "container",
+          "layout": "stack",
+          "children": [
+            {
+              "kind": "text",
+              "id": "eyebrow",
+              "text": "Whitepapers",
+              "axes": {
+                "color": {
+                  "ref": "text",
+                  "step": "500"
+                },
+                "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                "fontSizePx": 13,
+                "fontWeight": 400,
+                "letterSpacingPx": 1.6,
+                "lineHeightPx": 20,
+                "textTransform": "uppercase"
+              },
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 90
+              }
+            },
+            {
+              "kind": "container",
+              "id": "h1-block",
+              "layout": "stack",
+              "gapPx": 0,
+              "sizing": {
+                "width": {
+                  "mode": "fluid"
+                }
+              },
+              "padding": {
+                "topPx": 34,
+                "bottomPx": 34
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "id": "h1-a",
+                  "text": "Two papers.",
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "400"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 78,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -2.4,
+                    "lineHeightPx": 84
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 38
+                        },
+                        {
+                          "at": 768,
+                          "value": 58
+                        },
+                        {
+                          "at": 1440,
+                          "value": 78
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 42
+                        },
+                        {
+                          "at": 768,
+                          "value": 63
+                        },
+                        {
+                          "at": 1440,
+                          "value": 84
+                        }
+                      ]
+                    },
+                    "letterSpacingPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": -1.2
+                        },
+                        {
+                          "at": 1440,
+                          "value": -2.4
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "id": "h1-b",
+                  "text": "One argument.",
+                  "axes": {
+                    "color": {
+                      "ref": "text"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 78,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -2.4,
+                    "lineHeightPx": 84
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 38
+                        },
+                        {
+                          "at": 768,
+                          "value": 58
+                        },
+                        {
+                          "at": 1440,
+                          "value": 78
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 42
+                        },
+                        {
+                          "at": 768,
+                          "value": 63
+                        },
+                        {
+                          "at": 1440,
+                          "value": 84
+                        }
+                      ]
+                    },
+                    "letterSpacingPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": -1.2
+                        },
+                        {
+                          "at": 1440,
+                          "value": -2.4
+                        }
+                      ]
+                    }
+                  }
+                }
+              ],
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 190
+              }
+            },
+            {
+              "kind": "text",
+              "id": "sub",
+              "text": "The first makes the case that generative development runs into a structural wall, and that no better model removes it. The second describes what we built instead, and reports nine months of using it to build itself.",
+              "sizing": {
+                "width": {
+                  "mode": "fluid",
+                  "maxPx": 620
+                }
+              },
+              "axes": {
+                "color": {
+                  "ref": "text",
+                  "step": "700"
+                },
+                "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                "fontSizePx": 19,
+                "fontWeight": 400,
+                "lineHeightPx": 31
+              },
+              "responsive": {
+                "fontSizePx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 17
+                    },
+                    {
+                      "at": 1440,
+                      "value": 19
+                    }
+                  ]
+                },
+                "lineHeightPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 28
+                    },
+                    {
+                      "at": 1440,
+                      "value": 31
+                    }
+                  ]
+                }
+              },
+              "reveal": {
+                "yPx": 20,
+                "durationMs": 640,
+                "easing": "ease-out",
+                "delayMs": 300
+              }
+            }
+          ],
+          "id": "papers-header",
+          "align": "start",
+          "sizing": {
+            "width": {
+              "mode": "fluid",
+              "maxPx": 1200
+            }
+          },
+          "padding": {
+            "topPx": 96,
+            "bottomPx": 108,
+            "leftPx": 32,
+            "rightPx": 32
+          },
+          "responsivePadding": {
+            "topPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 88
+                },
+                {
+                  "at": 1440,
+                  "value": 160
+                }
+              ]
+            },
+            "bottomPx": {
+              "keyframes": [
+                {
+                  "at": 320,
+                  "value": 96
+                },
+                {
+                  "at": 1440,
+                  "value": 180
+                }
+              ]
+            }
+          },
+          "axes": {
+            "backgroundImageUrl": "/assets/xgd-grid-hero.svg?v=3",
+            "pointerAccent": {
+              "color": {
+                "ref": "primary"
+              },
+              "radiusPx": 95,
+              "softnessPx": 14,
+              "roughness": 0.65
+            }
+          }
+        },
+        {
+          "kind": "box",
+          "axes": {
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "125"
+            }
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            },
+            "height": {
+              "mode": "fixed",
+              "px": 1
+            }
+          }
+        },
+        {
+          "kind": "container",
+          "id": "papers",
+          "layout": "stack",
+          "align": "center",
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          },
+          "children": [
+            {
+              "kind": "container",
+              "id": "papers-inner",
+              "layout": "stack",
+              "align": "start",
+              "gapPx": 0,
+              "staggerMs": 90,
+              "sizing": {
+                "width": {
+                  "mode": "fluid",
+                  "maxPx": 1200
+                }
+              },
+              "padding": {
+                "topPx": 140,
+                "bottomPx": 140,
+                "leftPx": 32,
+                "rightPx": 32
+              },
+              "responsivePadding": {
+                "topPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 96
+                    },
+                    {
+                      "at": 1440,
+                      "value": 140
+                    }
+                  ]
+                },
+                "bottomPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 96
+                    },
+                    {
+                      "at": 1440,
+                      "value": 140
+                    }
+                  ]
+                },
+                "leftPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 20
+                    },
+                    {
+                      "at": 768,
+                      "value": 32
+                    }
+                  ]
+                },
+                "rightPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 20
+                    },
+                    {
+                      "at": 768,
+                      "value": 32
+                    }
+                  ]
+                }
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "text": "The papers",
+                  "reveal": {
+                    "yPx": 14,
+                    "durationMs": 500,
+                    "easing": "ease-out"
+                  },
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
+                    "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                    "fontSizePx": 13,
+                    "fontWeight": 400,
+                    "letterSpacingPx": 1.6,
+                    "lineHeightPx": 20,
+                    "textTransform": "uppercase"
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 20
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "One frames the problem. One answers it.",
+                  "reveal": {
+                    "yPx": 22,
+                    "durationMs": 640,
+                    "easing": "ease-out"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 760
+                    }
+                  },
+                  "axes": {
+                    "color": {
+                      "ref": "text"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 48,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -1.4,
+                    "lineHeightPx": 56
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 30
+                        },
+                        {
+                          "at": 768,
+                          "value": 40
+                        },
+                        {
+                          "at": 1440,
+                          "value": 48
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 36
+                        },
+                        {
+                          "at": 768,
+                          "value": 46
+                        },
+                        {
+                          "at": 1440,
+                          "value": 56
+                        }
+                      ]
+                    },
+                    "letterSpacingPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": -0.8
+                        },
+                        {
+                          "at": 1440,
+                          "value": -1.4
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 22
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "Both are written for people building real systems this way, not for a general audience. They assume you have hit some of this yourself.",
+                  "reveal": {
+                    "yPx": 18,
+                    "durationMs": 640,
+                    "easing": "ease-out"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 640
+                    }
+                  },
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "700"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 18,
+                    "fontWeight": 400,
+                    "lineHeightPx": 30
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 16
+                        },
+                        {
+                          "at": 1440,
+                          "value": 18
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 27
+                        },
+                        {
+                          "at": 1440,
+                          "value": 30
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 56
+                    }
+                  }
+                },
+                {
+                  "kind": "container",
+                  "id": "paper-items",
+                  "layout": "row",
+                  "responsiveLayout": {
+                    "keyframes": [
+                      {
+                        "at": 0,
+                        "value": "stack"
+                      },
+                      {
+                        "at": 768,
+                        "value": "row"
+                      }
+                    ]
+                  },
+                  "align": "stretch",
+                  "distribution": "start",
+                  "gapPx": 20,
+                  "staggerMs": 80,
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    }
+                  },
+                  "children": [
+                    {
+                      "kind": "container",
+                      "layout": "stack",
+                      "align": "start",
+                      "gapPx": 12,
+                      "reveal": {
+                        "yPx": 20,
+                        "durationMs": 560,
+                        "easing": "ease-out",
+                        "delayMs": 140
+                      },
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid"
+                        }
+                      },
+                      "children": [
+                        {
+                          "kind": "text",
+                          "text": "01",
+                          "axes": {
+                            "color": {
+                              "ref": "primary"
+                            },
+                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                            "fontSizePx": 12,
+                            "fontWeight": 400,
+                            "letterSpacingPx": 1.2,
+                            "lineHeightPx": 18
+                          }
+                        },
+                        {
+                          "kind": "text",
+                          "text": "How Can You Trust the Code Your AI Writes?",
+                          "axes": {
+                            "color": {
+                              "ref": "text"
+                            },
+                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                            "fontSizePx": 19,
+                            "fontWeight": 600,
+                            "letterSpacingPx": -0.3,
+                            "lineHeightPx": 26
+                          }
+                        },
+                        {
+                          "kind": "text",
+                          "text": "Four waves of AI-assisted development, and the wall the third one runs into. Why the problem is structural rather than a limit of model capability, what better models will and won’t fix, and the case for behavioural identity — an explicit, maintained record of what software is supposed to do. Introduces the Software Artificer.",
+                          "axes": {
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
+                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                            "fontSizePx": 15,
+                            "fontWeight": 400,
+                            "lineHeightPx": 25
+                          }
+                        }
+                      ],
+                      "axes": {
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
+                        "borderRadiusPx": 10,
+                        "border": {
+                          "widthPx": 1,
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
+                          "style": "solid"
+                        }
+                      },
+                      "padding": {
+                        "topPx": 26,
+                        "bottomPx": 28,
+                        "leftPx": 24,
+                        "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
+                          "border": {
+                            "widthPx": 1,
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "container",
+                      "layout": "stack",
+                      "align": "start",
+                      "gapPx": 12,
+                      "reveal": {
+                        "yPx": 20,
+                        "durationMs": 560,
+                        "easing": "ease-out",
+                        "delayMs": 140
+                      },
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid"
+                        }
+                      },
+                      "children": [
+                        {
+                          "kind": "text",
+                          "text": "02",
+                          "axes": {
+                            "color": {
+                              "ref": "primary"
+                            },
+                            "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                            "fontSizePx": 12,
+                            "fontWeight": 400,
+                            "letterSpacingPx": 1.2,
+                            "lineHeightPx": 18
+                          }
+                        },
+                        {
+                          "kind": "text",
+                          "text": "Extreme Generative Development",
+                          "axes": {
+                            "color": {
+                              "ref": "text"
+                            },
+                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                            "fontSizePx": 19,
+                            "fontWeight": 600,
+                            "letterSpacingPx": -0.3,
+                            "lineHeightPx": 26
+                          }
+                        },
+                        {
+                          "kind": "text",
+                          "text": "The companion paper. XGD as a governor for generative development: the Capability Matrix as target state, automated agentic engineering as the correction mechanism, and the Artificer’s control surface. Reports nine months of building XGD with XGD — the velocity, the regression rate, and what we still don’t know.",
+                          "axes": {
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
+                            "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                            "fontSizePx": 15,
+                            "fontWeight": 400,
+                            "lineHeightPx": 25
+                          }
+                        }
+                      ],
+                      "axes": {
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
+                        "borderRadiusPx": 10,
+                        "border": {
+                          "widthPx": 1,
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
+                          "style": "solid"
+                        }
+                      },
+                      "padding": {
+                        "topPx": 26,
+                        "bottomPx": 28,
+                        "leftPx": 24,
+                        "rightPx": 24
+                      },
+                      "interaction": {
+                        "transition": {
+                          "durationMs": 180,
+                          "easing": "ease-out"
+                        },
+                        "hover": {
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
+                          "border": {
+                            "widthPx": 1,
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
+                            "style": "solid"
+                          },
+                          "motion": {
+                            "offsetYPx": -3
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "axes": {
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "100"
+            },
+            "pattern": {
+              "shape": "grid",
+              "spacingPx": 32,
+              "thicknessPx": 1,
+              "color": {
+                "ref": "accent",
+                "alpha": 0
+              }
+            },
+            "pointerAccent": {
+              "color": {
+                "ref": "primary",
+                "alpha": 0.6509803921568628
+              },
+              "radiusPx": 95,
+              "softnessPx": 14,
+              "roughness": 0.65
+            }
+          }
+        },
+        {
+          "kind": "container",
+          "id": "get",
+          "layout": "stack",
+          "align": "center",
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          },
+          "children": [
+            {
+              "kind": "container",
+              "id": "get-inner",
+              "layout": "stack",
+              "align": "start",
+              "gapPx": 0,
+              "staggerMs": 90,
+              "sizing": {
+                "width": {
+                  "mode": "fluid",
+                  "maxPx": 1200
+                }
+              },
+              "padding": {
+                "topPx": 140,
+                "bottomPx": 140,
+                "leftPx": 32,
+                "rightPx": 32
+              },
+              "responsivePadding": {
+                "topPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 96
+                    },
+                    {
+                      "at": 1440,
+                      "value": 140
+                    }
+                  ]
+                },
+                "bottomPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 96
+                    },
+                    {
+                      "at": 1440,
+                      "value": 140
+                    }
+                  ]
+                },
+                "leftPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 20
+                    },
+                    {
+                      "at": 768,
+                      "value": 32
+                    }
+                  ]
+                },
+                "rightPx": {
+                  "keyframes": [
+                    {
+                      "at": 320,
+                      "value": 20
+                    },
+                    {
+                      "at": 768,
+                      "value": 32
+                    }
+                  ]
+                }
+              },
+              "children": [
+                {
+                  "kind": "text",
+                  "text": "Get the papers",
+                  "reveal": {
+                    "yPx": 14,
+                    "durationMs": 500,
+                    "easing": "ease-out"
+                  },
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
+                    "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                    "fontSizePx": 13,
+                    "fontWeight": 400,
+                    "letterSpacingPx": 1.6,
+                    "lineHeightPx": 20,
+                    "textTransform": "uppercase"
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 20
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "Where should we send them?",
+                  "reveal": {
+                    "yPx": 22,
+                    "durationMs": 640,
+                    "easing": "ease-out"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 820
+                    }
+                  },
+                  "axes": {
+                    "color": {
+                      "ref": "text"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 48,
+                    "fontWeight": 700,
+                    "letterSpacingPx": -1.4,
+                    "lineHeightPx": 56
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 30
+                        },
+                        {
+                          "at": 768,
+                          "value": 40
+                        },
+                        {
+                          "at": 1440,
+                          "value": 48
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 36
+                        },
+                        {
+                          "at": 768,
+                          "value": 46
+                        },
+                        {
+                          "at": 1440,
+                          "value": 56
+                        }
+                      ]
+                    },
+                    "letterSpacingPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": -0.8
+                        },
+                        {
+                          "at": 1440,
+                          "value": -1.4
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 22
+                    }
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "Both papers are free. We ask for an email because that is how we send them — a link to each, straight back. We will only use your address to email you about XGD.",
+                  "reveal": {
+                    "yPx": 18,
+                    "durationMs": 640,
+                    "easing": "ease-out"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 660
+                    }
+                  },
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "700"
+                    },
+                    "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                    "fontSizePx": 18,
+                    "fontWeight": 400,
+                    "lineHeightPx": 30
+                  },
+                  "responsive": {
+                    "fontSizePx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 16
+                        },
+                        {
+                          "at": 1440,
+                          "value": 18
+                        }
+                      ]
+                    },
+                    "lineHeightPx": {
+                      "keyframes": [
+                        {
+                          "at": 320,
+                          "value": 27
+                        },
+                        {
+                          "at": 1440,
+                          "value": 30
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 44
+                    }
+                  }
+                },
+                {
+                  "kind": "box",
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid"
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 52
+                    }
+                  }
+                },
+                {
+                  "kind": "container",
+                  "id": "signup",
+                  "layout": "stack",
+                  "align": "stretch",
+                  "gapPx": 0,
+                  "sizing": {
+                    "width": {
+                      "mode": "fluid",
+                      "maxPx": 520
+                    }
+                  },
+                  "reveal": {
+                    "yPx": 22,
+                    "durationMs": 640,
+                    "easing": "ease-out",
+                    "delayMs": 120
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "Both papers, one email.",
+                      "axes": {
+                        "color": {
+                          "ref": "text"
+                        },
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 19,
+                        "fontWeight": 600,
+                        "letterSpacingPx": -0.3,
+                        "lineHeightPx": 27
+                      }
+                    },
+                    {
+                      "kind": "box",
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid"
+                        },
+                        "height": {
+                          "mode": "fixed",
+                          "px": 10
+                        }
+                      }
+                    },
+                    {
+                      "kind": "text",
+                      "text": "We’ll send a link to each paper. The beta waitlist is separate — you can join that any time from the home page.",
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid",
+                          "maxPx": 460
+                        }
+                      },
+                      "axes": {
+                        "color": {
+                          "ref": "text",
+                          "step": "500"
+                        },
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 15,
+                        "fontWeight": 400,
+                        "lineHeightPx": 25
+                      }
+                    },
+                    {
+                      "kind": "box",
+                      "sizing": {
+                        "width": {
+                          "mode": "fluid"
+                        },
+                        "height": {
+                          "mode": "fixed",
+                          "px": 26
+                        }
+                      }
+                    },
+                    {
+                      "kind": "slot",
+                      "id": "signup-slot",
+                      "name": "signup-form",
+                      "behavior": "contact-form"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "axes": {
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "100"
+            },
+            "pattern": {
+              "shape": "grid",
+              "spacingPx": 32,
+              "thicknessPx": 1,
+              "color": {
+                "ref": "accent",
+                "alpha": 0
+              }
+            },
+            "pointerAccent": {
+              "color": {
+                "ref": "primary",
+                "alpha": 0.6509803921568628
+              },
+              "radiusPx": 95,
+              "softnessPx": 14,
+              "roughness": 0.65
+            }
+          }
+        },
+        {
+          "kind": "box",
+          "axes": {
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "125"
+            }
+          },
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            },
+            "height": {
+              "mode": "fixed",
+              "px": 1
+            }
+          }
+        },
+        {
+          "kind": "container",
+          "id": "footer",
+          "layout": "stack",
+          "align": "center",
+          "sizing": {
+            "width": {
+              "mode": "fluid"
+            }
+          },
+          "axes": {
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "100"
+            }
+          },
+          "children": [
+            {
+              "kind": "container",
+              "id": "footer-inner",
+              "layout": "row",
+              "distribution": "between",
+              "align": "center",
+              "gapPx": 20,
+              "sizing": {
+                "width": {
+                  "mode": "fluid",
+                  "maxPx": 1200
+                }
+              },
+              "padding": {
+                "topPx": 36,
+                "bottomPx": 36,
+                "leftPx": 32,
+                "rightPx": 32
+              },
+              "children": [
+                {
+                  "kind": "container",
+                  "id": "footer-lockup",
+                  "layout": "stack",
+                  "align": "center",
+                  "axes": {
+                    "backgroundImageUrl": "/assets/xgd-grid-mark.svg"
+                  },
+                  "sizing": {
+                    "width": {
+                      "mode": "fixed",
+                      "px": 48
+                    },
+                    "height": {
+                      "mode": "fixed",
+                      "px": 24
+                    }
+                  },
+                  "padding": {
+                    "topPx": 9
+                  },
+                  "children": [
+                    {
+                      "kind": "text",
+                      "text": "xgd",
+                      "axes": {
+                        "color": {
+                          "ref": "text",
+                          "step": "500"
+                        },
+                        "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
+                        "fontSizePx": 17,
+                        "fontWeight": 700,
+                        "letterSpacingPx": -0.4,
+                        "lineHeightPx": 22
+                      }
+                    }
+                  ],
+                  "link": {
+                    "href": "/index.html"
+                  }
+                },
+                {
+                  "kind": "text",
+                  "text": "© 2026 GenDev Labs",
+                  "axes": {
+                    "color": {
+                      "ref": "text",
+                      "step": "400"
+                    },
+                    "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
+                    "fontSizePx": 12,
+                    "fontWeight": 400,
+                    "lineHeightPx": 18
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

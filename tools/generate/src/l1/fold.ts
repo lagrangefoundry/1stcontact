@@ -2004,8 +2004,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // they are the only honest evidence of what the page is mostly painted in.
   const bandHeightByFill = new Map<string, number>()
   for (const b of [...bandNodes, ...backdropNodes]) {
+    // REQ-114 — a colour axis is `hex | PaletteRef`; the fold only ever emits
+    // literals (palette assignment is a separate, re-runnable pass over a folded
+    // site), so a non-literal here is not this code's to interpret.
     const fill = b.axes?.surfaceFill
-    if (!fill || !b.geometry) continue
+    if (typeof fill !== 'string' || !b.geometry) continue
     const kf = b.geometry.keyframes[b.geometry.keyframes.length - 1]
     bandHeightByFill.set(fill, (bandHeightByFill.get(fill) ?? 0) + (kf.height ?? 0))
   }

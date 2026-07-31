@@ -63,48 +63,16 @@ export const GRADIENT_DIRECTION_ALIASES = Object.keys(
   GRADIENT_DIRECTIONS,
 ) as readonly (keyof typeof GRADIENT_DIRECTIONS)[]
 
-/**
- * The palette-role aliases a `color` (or gradient stop) may name — the closed
- * kebab-case set the token CSS emits as `--color-<role>`. A `color` value is
- * therefore either a `#rrggbb`/`#rgb`/`#rrggbbaa` literal (the report's unit) or
- * one of these roles. Mirrors the site-schema palette + layer-role contract;
- * kept here so validation and resolution share one source of truth.
- */
-export const PALETTE_ROLE_ALIASES = [
-  'bg',
-  'surface',
-  'surface-subtle',
-  'surface-inverse',
-  'text',
-  'muted',
-  'border',
-  'primary',
-  'accent',
-  'secondary',
-  'neutral-cool',
-  'accent-light',
-  'accent-mid',
-  'accent-deep',
-  'scrim',
-] as const
-
 /** True when `value` is a `#hex` colour literal (the report's `color` unit). */
 export function isColorLiteral(value: string): boolean {
   return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(value)
 }
 
-/** True when `value` is a known palette-role alias (camelCase or kebab accepted). */
-export function isPaletteRole(value: string): boolean {
-  return (PALETTE_ROLE_ALIASES as readonly string[]).includes(kebab(value))
-}
-
 /**
- * One gradient colour-stop. `color` is a `#rrggbb` literal (the report's unit)
- * or a palette-role alias (`accent` → `var(--color-accent)`) — the same
- * literal-or-alias rule as {@link TextRun.color}. `position` is an optional
- * 0..100 percentage; stops are evenly distributed across the sweep when omitted.
- * The report's `TextGradient.stops` are bare `#rrggbb` strings, so a reproduction
- * pastes them straight into the `color` field.
+ * One gradient colour-stop. `color` is a `#rrggbb` literal — the report's unit,
+ * and (REQ-114) the *only* form a module colour takes now that the closed
+ * palette-role vocabulary is gone. `position` is an optional 0..100 percentage;
+ * stops are evenly distributed across the sweep when omitted.
  */
 export interface GradientStop {
   color: string
@@ -169,11 +137,6 @@ export interface TextRun {
   position?: Position
 }
 
-/** camelCase palette role → kebab CSS-var segment (`surfaceInverse` → `surface-inverse`). */
-function kebab(role: string): string {
-  return role.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
-}
-
 /** A px length: a number → `<n>px`; a string is assumed already a length. */
 function px(value: number | string): string {
   return typeof value === 'number' ? `${value}px` : value
@@ -190,15 +153,17 @@ function numberOrVar(value: number | string, varPrefix: string): string {
 }
 
 /**
- * Resolve a colour VALUE to CSS: a `#rrggbb` literal (an absolute value) is used
- * as-is; anything else is a palette-role alias (the overlay of constants) →
- * `var(--color-<kebab(role)>)`. This is the absolute-or-overlay seam every colour
- * dial should route through, so a site can be reproduced with exact absolute
- * values, not just the restricted role vocabulary. Exported for reuse by any
- * module's colour dial (card accent, checklist tick, footer link, …).
+ * Resolve a colour VALUE to CSS.
+ *
+ * REQ-114 — a module colour is a `#hex` literal, full stop. The old
+ * `var(--color-<role>)` branch was the last consumer of the closed 15-role theme
+ * palette; colour is now the L1 palette model's (DOC-23 §5), where an author
+ * writes either a literal or a *site* palette reference that L1 resolves back to
+ * a literal before anything is emitted. A non-literal reaching here is dropped
+ * rather than emitted, keeping the sink fail-closed.
  */
-export function resolveColor(value: string): string {
-  return value.startsWith('#') ? value : `var(--color-${kebab(value)})`
+export function resolveColor(value: string): string | null {
+  return isColorLiteral(value) ? value : null
 }
 
 /** Family role alias → `var(--font-family-<role>)`, else a literal family name.
@@ -222,22 +187,23 @@ function resolveDirection(angleDeg: number | string): string {
  * Resolve a {@link TextRunGradient} to the `background-clip: text` declaration
  * block that clips the sweep to a run's glyphs, or `''` when under-specified
  * (fewer than two stops) so the caller keeps the run's flat `color`. Each stop's
- * colour resolves literal-or-alias exactly like `color`; positions are emitted
- * verbatim, else evenly distributed across 0..100 so the sweep spans the run.
+ * colour is a `#hex` literal (REQ-114); positions are emitted verbatim, else
+ * evenly distributed across 0..100 so the sweep spans the run. A stop whose
+ * colour is not a literal drops the whole gradient — a partial sweep would paint
+ * a colour the author never chose.
  */
 function gradientImage(gradient: TextRunGradient): string {
   const stops = gradient.stops
   if (stops.length < 2) return ''
   const last = stops.length - 1
-  const rendered = stops
-    .map((stop, i) => {
-      const color = typeof stop === 'string' ? stop : stop.color
-      const position = typeof stop === 'string' ? undefined : stop.position
-      const pct = position ?? Math.round((i / last) * 100)
-      return `${resolveColor(color)} ${pct}%`
-    })
-    .join(', ')
-  return `linear-gradient(${resolveDirection(gradient.angleDeg)}, ${rendered})`
+  const rendered: string[] = []
+  for (const [i, stop] of stops.entries()) {
+    const color = resolveColor(typeof stop === 'string' ? stop : stop.color)
+    if (!color) return ''
+    const position = typeof stop === 'string' ? undefined : stop.position
+    rendered.push(`${color} ${position ?? Math.round((i / last) * 100)}%`)
+  }
+  return `linear-gradient(${resolveDirection(gradient.angleDeg)}, ${rendered.join(', ')})`
 }
 
 function resolveGradient(gradient: TextRunGradient): string {
@@ -248,7 +214,7 @@ function resolveGradient(gradient: TextRunGradient): string {
 
 /**
  * Resolve a {@link TextRunGradient} to a panel/card `background-image` declaration
- * (REQ-62) — the SAME `angleDeg` + literal-or-alias stops as the text-fill
+ * (REQ-62) — the SAME `angleDeg` + literal stops as the text-fill
  * gradient, but painted as the element's *surface* (no `background-clip: text`, no
  * forced transparent text). `''` when under-specified (fewer than two stops), so
  * the caller keeps its solid fill. Exported so any module with a panel/card
@@ -277,7 +243,10 @@ export function resolveTextStyle(run: TextRun | undefined | null): string {
   // the gradient is absent or under-specified).
   const gradientDecl = run.gradient ? resolveGradient(run.gradient) : ''
   if (gradientDecl) decls.push(gradientDecl)
-  else if (run.color !== undefined) decls.push(`color: ${resolveColor(run.color)}`)
+  else if (run.color !== undefined) {
+    const color = resolveColor(run.color)
+    if (color) decls.push(`color: ${color}`)
+  }
   if (run.letterSpacingPx !== undefined)
     decls.push(...axisDecls(run.letterSpacingPx, 'letter-spacing', 'ls', 'tracking'))
   if (run.lineHeightPx !== undefined)

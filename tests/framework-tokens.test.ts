@@ -25,10 +25,6 @@ describe('@1stcontact/framework theme tokens', () => {
     expect(css).toContain(':root {')
     // One representative variable per token group, with the deterministic names.
     for (const name of [
-      '--color-bg',
-      '--color-surface-subtle',
-      '--color-surface-inverse',
-      '--color-text',
       '--font-family-heading',
       '--font-family-display',
       '--font-size-5xl',
@@ -43,41 +39,49 @@ describe('@1stcontact/framework theme tokens', () => {
     ]) {
       expect(css, `missing ${name}`).toContain(`${name}:`)
     }
-    // The full token surface is 80 custom properties. Prior additions: REQ-24
-    // --font-family-display; REQ-20 --color-secondary; REQ-32 --color-neutral-cool
-    // + (cap 5) --shadow-xl; REQ-33 --color-accent-light + --color-accent-deep;
-    // REQ-45 the three --tracking-* steps; REQ-49 --font-weight-light,
-    // --line-height-snug, --space-32/48/64/80; REQ-36 --color-scrim,
-    // --font-weight-extralight, --font-family-label. REQ-55 replaced the six
-    // idiosyncratic --container-* keys (xnarrow/narrow/readable/default/wide/bleed)
-    // with the eleven-step Tailwind max-w scale (sm..7xl + bleed): a net +5.
-    // REQ-56 added the component subscale surface: --subscale-badge-* and
-    // --subscale-checklist-* (font-size/font-weight/line-height/letter-spacing
-    // each), a net +8. REQ-20/REQ-36 --color-accent-mid backs the footer
-    // `accent-muted` surface + a warm-gradient mid stop: a net +1.
+    // The full token surface is 74 custom properties. Prior additions: REQ-24
+    // --font-family-display; REQ-32 (cap 5) --shadow-xl; REQ-45 the three
+    // --tracking-* steps; REQ-49 --font-weight-light, --line-height-snug,
+    // --space-32/48/64/80; REQ-36 --font-weight-extralight, --font-family-label.
+    // REQ-55 replaced the six idiosyncratic --container-* keys
+    // (xnarrow/narrow/readable/default/wide/bleed) with the eleven-step Tailwind
+    // max-w scale (sm..7xl + bleed): a net +5. REQ-56 added the component
+    // subscale surface: --subscale-badge-* and --subscale-checklist-*
+    // (font-size/font-weight/line-height/letter-spacing each), a net +8.
+    // REQ-114 retired the colour group outright — the closed 15-slot palette is
+    // replaced by the arbitrary-size L1 palette (DOC-23 §5), which is site data
+    // resolved to literals at load, not a token: a net -15.
     const declCount = (rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length
-    expect(declCount).toBe(89)
+    expect(declCount).toBe(74)
   })
 
   it('test_UAT_FC_REQ-4_generate_css_substitutes_defaults_for_missing_slots', () => {
     // Only one slot supplied; every other slot must be filled from defaults.
-    const css = generateThemeCss({ palette: { primary: '#ff0000' } })
-    expect(css).toContain('--color-primary: #ff0000;') // the override
-    expect(css).toContain('--color-bg: #ffffff;') // default-filled palette slot
-    expect(css).toContain('--space-4: 1rem;') // default-filled non-palette slot
-    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(89)
+    const css = generateThemeCss({ spacing: { '4': '9rem' } })
+    expect(css).toContain('--space-4: 9rem;') // the override
+    expect(css).toContain('--space-8: 2rem;') // default-filled slot in the same group
+    expect(css).toContain('--radius-md: 0.375rem;') // default-filled slot in another group
+    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(74)
   })
 
-  it('test_UAT_FC_REQ-4_generate_css_emits_dark_mode_block_when_dark_palette_provided', () => {
-    const css = generateThemeCss(defaultTokens, {
-      dark: { bg: '#000000', text: '#ffffff' },
-    })
-    expect(css).toContain('@media (prefers-color-scheme: dark)')
-    const darkBlock = css.slice(css.indexOf('@media'))
-    expect(darkBlock).toContain('--color-bg: #000000;')
-    expect(darkBlock).toContain('--color-text: #ffffff;')
-    // No dark block when no dark palette is supplied.
-    expect(generateThemeCss(defaultTokens)).not.toContain('@media')
+  it('test_UAT_FC_REQ-114_theme_css_emits_no_colour_custom_property', () => {
+    // REQ-114 AC-9 — the colour token group is retired, not merely unused: no
+    // rendered stylesheet may emit a `--color-*` custom property, and nothing may
+    // reference one. Colour reaches the page from the L1 document (its own
+    // `background` / `textColor` and its nodes' typed colour axes), resolved
+    // through the site palette — never through a token.
+    const css = generateThemeCss(defaultTokens)
+    expect(css).not.toMatch(/--color-/)
+
+    // AC-10 — the dark-mode palette override went with the palette rather than
+    // being ported forward. It had no callers; a later dark mode is designed
+    // against the palette model, not resurrected from the closed token set.
+    expect(css).not.toContain('@media')
+
+    // AC-11 — the non-colour groups are untouched and still emit as before.
+    for (const group of ['--font-family-', '--font-size-', '--space-', '--radius-', '--shadow-']) {
+      expect(css, `missing ${group} group`).toContain(group)
+    }
   })
 })
 
