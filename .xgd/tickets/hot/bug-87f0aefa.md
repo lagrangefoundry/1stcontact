@@ -5,7 +5,7 @@ type: bug
 title: relativizeUrl turns /#frag into a same-page anchor, breaking cross-page links
 created_by: xgd
 created_at: '2026-07-31T00:45:39.331427+00:00'
-updated_at: '2026-07-31T01:02:38.545646+00:00'
+updated_at: '2026-07-31T01:16:31.976043+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -97,3 +97,15 @@ xgd.dev's whitepapers page authors `/index.html#how` and `/index.html#signup`, w
 `index.html#how` and resolve correctly. Remove once this lands.
 
 -
+
+
+### Update — the adjacent gap above is now closed
+
+The extensionless-URL disagreement flagged in "NOT fixed here" was folded into **REQ-113**, whose
+stated goal (preview and production agree on the URL the author writes) it turned out to be. That
+ticket's premise — "Cloudflare Pages is the deployment target" — was false; the `public-site`
+Worker serves everything. Fixed in `f782ae74a3` (REQ-113, v0.1.10): the Worker now performs the
+same extensionless → `.html` mapping, with a trailing slash deliberately excluded to preserve
+REQ-109 relative-asset resolution.
+
+`test_UAT_FC_REQ-109_served_under_path_prefix` is green again.
