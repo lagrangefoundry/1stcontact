@@ -5,7 +5,7 @@ type: doc
 title: Website Framework Architecture Principles
 created_by: xgd
 created_at: '2026-06-30T01:01:58.435922+00:00'
-updated_at: '2026-07-20T22:04:40.893815+00:00'
+updated_at: '2026-07-31T20:28:26.070283+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -468,3 +468,25 @@ These are not blocking v1 but should be revisited in subsequent REQs as the prod
 - [[DOC-8]] — Builder UI architecture principles (chat-left / preview-right layout, in-browser preview, chat → AI → diff → state → render pipeline, AI tool surface, validator consumption).
 - First framework REQ (forthcoming) — concrete v1 framework scope: module list for Phase 0, theme token surface, contact form lead-capture pipeline, 1st Contact marketing site target.
 - Validator REQ (forthcoming) — concrete v1 validator scope per §6.5: schema, module-meta, theme-token, referential integrity, uniqueness, content-field safety. Shipped before or alongside the first builder REQ.
+
+
+---
+
+## Reconciliation — the control app after CHAT-9 (2026-07-31)
+
+Two statements in §9 are superseded. The rest of §9 stands.
+
+- **§9.2 (control app stack)** — *"Astro shell + React islands + Tailwind + shadcn"*
+  is **withdrawn**. The builder's chrome is vanilla ES modules on the
+  `@gendevlabs/webui-*` components from `xgd-framework` (zero deps, no build step);
+  React is reserved for a specific editor mounted as an island inside a modal. See
+  [[DOC-8]] §9.
+- **§9.1 (sites deploy "via Workers Static Assets")** — superseded by [[DOC-12]] §9
+  (REQ-111): one shared `public-site` Worker serving R2 by slug. Static Assets binds
+  artifacts to a Worker *deployment*, which does not go multi-tenant.
+
+Also note, for readers arriving here from the builder: the control app now hosts a
+**direct-manipulation page editor** as well as the chat surface. That does not
+weaken §6.2's structured-only boundary — the editor emits the same validated
+structured diffs the AI emits, through the same validator ([[DOC-8]] §5.2,
+[[DOC-28]] §4).
