@@ -5,7 +5,7 @@ import path from 'node:path'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 
 /**
- * CHAT-9 M1 — render edit-hooks. The Weber editor's preview overlay maps a
+ * CHAT-9 M1 — render edit-hooks. The web editor's preview overlay maps a
  * hovered/clicked region in the iframe back to the module instance to edit via
  * the `data-fc-module` / `data-fc-type` hook stamped per instance at render time.
  * These UATs pin that hook onto every module's *root* element, once per instance,

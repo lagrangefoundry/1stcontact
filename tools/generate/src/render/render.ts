@@ -52,7 +52,7 @@ function escapeHtml(s: string): string {
 
 /**
  * Stamp the builder's edit hook onto a module instance's root element (CHAT-9 M1).
- * The Weber editor's preview overlay maps a hovered/clicked region in the iframe
+ * The web editor's preview overlay maps a hovered/clicked region in the iframe
  * back to the module instance to edit via `data-fc-module`; without it there is no
  * bridge from a rendered element to its structured content. The attributes go on
  * the module's own root tag (the first opening tag of its markup). The hook is
@@ -91,7 +91,7 @@ async function renderModuleInstances(
     const rendered = await container.renderToString(Component, {
       props: { config: m.config, slots: m.slots, instanceId: m.id },
     })
-    // Stamp the builder edit hook onto the module root so the Weber preview can
+    // Stamp the builder edit hook onto the module root so the web editor's preview can
     // target this instance.
     parts.push(stampEditHook(rendered, m.id, m.type))
   }
