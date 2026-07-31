@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-31T00:35:43.905115+00:00'
+updated_at: '2026-07-31T00:44:21.605761+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -426,5 +426,11 @@ Worked around by authoring `/index.html#how` on the whitepapers page. Home keeps
 **Paper 02's card says "Extreme Generative Development"** — I dropped the "An Experiment in AI Software Development" subtitle for the card. The abstract covers it, but the PDF they receive will carry the longer title, so confirm that's the trade you want.
 
 Nothing committed — two files (`home.json` modified, `whitepapers.json` new). And I still can't screenshot to check how it actually looks, so this is verified as structure, links and copy, not as composition.
+
+<!-- xgd-turn id="21cca147-d7f8-42dc-8966-531c4e6e155d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:44:21.574258+00:00" -->
+#### You
+lets fix the URL, create a ticket to fix the whole relocatable URL thing.
 
 <!-- xgd-chat-end -->
