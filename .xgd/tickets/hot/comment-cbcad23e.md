@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-31T00:29:51.076750+00:00'
+updated_at: '2026-07-31T00:31:09.787009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -551,5 +551,42 @@ Publishing `gigabytealchemy` would exercise both gaps at once, if you want the c
 <!-- xgd-chat role="user" ts="2026-07-31T00:29:51.044696+00:00" -->
 #### You
 This thing is VERY draft - there's a lot of time needed on it before I would want to publish it.
+
+<!-- xgd-turn id="289f7cf5-590a-4aab-9589-0d97b6b1b8ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T00:31:09.710895+00:00" -->
+#### Claude
+Fair — I shouldn't have framed publishing as a way to get test coverage. That's a product call and the content isn't ready; the coverage gap is my problem to solve another way.
+
+Let me check whether the sandbox root can exercise it instead.
+
+Checking `harbor-cafe`, which looked like a throwaway:
+
+Understood — dropping the publish suggestion. Your call on when xgd or gigabytealchemy is ready, and "not for a while" is a fine answer.
+
+The coverage gap doesn't need a real site anyway. **`harbor-cafe`** is a fictional demo ("Harbor Café — coffee, brunch, and harbour views") and it already has a published revision from June:
+
+```json
+{ "revisions": [ { "id": 1, "publishedAt": "2026-06-30T22:36:54Z", "message": "Initial published revision" } ] }
+```
+
+So `./bin/1c deploy harbor-cafe --channel published` exercises the entire untested half — `manifest.live`, the `/site/<slug>/` route, the TTL behaviour — in one command, with no bearing on anything you care about. No `1c publish` needed; the revision exists. Say the word, or leave it and it'll get covered whenever something real ships.
+
+**While looking for a safe route I found a bug you should know about.** I went looking at `--sandbox`, since `storage/sandbox/` is exactly the throwaway space for this. It's a real flag and it works locally — `commands.ts:36` switches `root` to `'sandbox'`. But every R2 key is built with no root component:
+
+```
+tools/generate/src/deploy/manifest.ts:39    `sites/${slug}/manifest.json`
+tools/generate/src/deploy/deploy.ts:131     `sites/${slug}/preview/${sha}`
+tools/generate/src/deploy/deploy.ts:132     `sites/${slug}/rev/${padRevision(live)}`
+apps/public-site/src/site-store.ts:89       `sites/${slug}/preview/${preview.sha}/out`
+```
+
+`1c deploy --sandbox` reads from `storage/sandbox/<slug>/` and writes to the identical R2 keyspace as a real site. So for a sandbox slug that collides with a real one, sandbox bytes land in the real site's namespace and get appended to its manifest as a legitimate preview — publicly servable at `/site/<slug>/draft/<sha>/`. On the published channel it's worse: `--sandbox --channel published` would upload to `sites/<slug>/rev/NNNN/` and set `live`, **replacing what `/site/<slug>/` serves**.
+
+This is from reading the key construction, not from running it — I wasn't going to test a destructive path against your live bucket.
+
+It also breaks an invariant DOC-12 §3.1 states explicitly: sites and sandbox are separate roots, one tracked and one throwaway, and rendered output is namespaced `storage/dist/<root>/<slug>/`. The R2 layout flattens that distinction, and I missed it when I specced REQ-110 — my layout in the ticket had no root component either, so the implementation is faithful to a spec that was wrong.
+
+The fix is small: put the root in the key prefix and have the Worker resolve only `sites/`. Want a ticket for it? It's latent right now — nothing is broken until someone runs `--sandbox`, and no sandbox site currently shares a slug with a real one — but it's the kind of thing that bites silently much later.
 
 <!-- xgd-chat-end -->
