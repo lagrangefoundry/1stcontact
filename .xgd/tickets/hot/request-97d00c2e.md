@@ -5,15 +5,20 @@ type: request
 title: '1c serve: extensionless URLs 404 (preview disagrees with Cloudflare Pages)'
 created_by: xgd
 created_at: '2026-07-31T00:45:14.603733+00:00'
-updated_at: '2026-07-31T00:45:14.603733+00:00'
+updated_at: '2026-07-31T00:50:28.355655+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 1
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 4d7515c953faa762d9fa567c56ad30693f273839
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.8
 ---
 
 ## Scope
