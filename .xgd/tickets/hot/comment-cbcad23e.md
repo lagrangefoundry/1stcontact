@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-31T00:31:09.787009+00:00'
+updated_at: '2026-07-31T00:56:23.126170+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -588,5 +588,11 @@ This is from reading the key construction, not from running it — I wasn't goin
 It also breaks an invariant DOC-12 §3.1 states explicitly: sites and sandbox are separate roots, one tracked and one throwaway, and rendered output is namespaced `storage/dist/<root>/<slug>/`. The R2 layout flattens that distinction, and I missed it when I specced REQ-110 — my layout in the ticket had no root component either, so the implementation is faithful to a spec that was wrong.
 
 The fix is small: put the root in the key prefix and have the Worker resolve only `sites/`. Want a ticket for it? It's latent right now — nothing is broken until someone runs `--sandbox`, and no sandbox site currently shares a slug with a real one — but it's the kind of thing that bites silently much later.
+
+<!-- xgd-turn id="db7f3253-5c1a-44ff-a31d-70040d0b7e4d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:56:23.097752+00:00" -->
+#### You
+please create a bug for the sandbox clash
 
 <!-- xgd-chat-end -->
