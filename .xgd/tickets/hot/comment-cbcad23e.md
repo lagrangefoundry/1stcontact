@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-11
 created_by: xgd
 created_at: '2026-07-29T19:29:56.387350+00:00'
-updated_at: '2026-07-30T23:26:13.312259+00:00'
+updated_at: '2026-07-31T00:29:51.076750+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -545,5 +545,11 @@ CHAT-11 now records the verification results and what's still untested:
 - **Nothing has been published on any site.** `1c publish` → `1c deploy --channel published` is the whole other half of REQ-110/111 and hasn't been exercised against R2 once. The `/site/<slug>/` route, `manifest.live` resolution, and the published-channel TTL behaviour are all still theory. The draft path working doesn't tell us much about that path — it resolves through a different branch of `SiteStore`.
 
 Publishing `gigabytealchemy` would exercise both gaps at once, if you want the coverage.
+
+<!-- xgd-turn id="289f7cf5-590a-4aab-9589-0d97b6b1b8ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:29:51.044696+00:00" -->
+#### You
+This thing is VERY draft - there's a lot of time needed on it before I would want to publish it.
 
 <!-- xgd-chat-end -->
