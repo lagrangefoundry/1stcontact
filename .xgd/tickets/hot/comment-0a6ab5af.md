@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-07-31T19:31:14.304256+00:00'
+updated_at: '2026-07-31T19:33:08.524944+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -731,5 +731,15 @@ Where to record it: this is an L1 data-model decision, so **DOC-23** is its home
 <!-- xgd-chat role="user" ts="2026-07-31T19:31:14.274754+00:00" -->
 #### You
 Yes create the section in DOC-23 and can you create and REQ to implement it and retrofit our exisiting sites with pallets?
+
+<!-- xgd-turn id="88429e85-1b12-4193-84ba-aa89a9aedfbb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T19:33:08.493814+00:00" -->
+#### You
+Yes create the section in DOC-23 and can you create and REQ to implement it and retrofit our exisiting sites with pallets?
+
+It would be good for the design stage to have a "standard" inital set of pallet names to work from.
+
+And honestly I'm rather surprised by your comment that reproduction leads to ugly pallets - I would expect Wix to be fairly rigid on being pallet driven (but maybe its pallet + effects?)
 
 <!-- xgd-chat-end -->
