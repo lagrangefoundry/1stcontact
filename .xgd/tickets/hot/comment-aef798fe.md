@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-31T00:44:21.605761+00:00'
+updated_at: '2026-07-31T00:51:40.349640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -432,5 +432,66 @@ Nothing committed — two files (`home.json` modified, `whitepapers.json` new). 
 <!-- xgd-chat role="user" ts="2026-07-31T00:44:21.574258+00:00" -->
 #### You
 lets fix the URL, create a ticket to fix the whole relocatable URL thing.
+
+<!-- xgd-turn id="21cca147-d7f8-42dc-8966-531c4e6e155d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T00:51:40.318958+00:00" -->
+#### Claude
+Two separate things then: the serve fix is code, so it needs its own scope ticket and UATs. Let me look at the server first.
+
+Creating both tickets — the scope ticket for the serve fix, and the relocatable-URL bug you asked for.
+
+Now the serve fix (REQ-113) — RED first.
+
+Fixture path is wrong — let me check what `distDir` actually resolves to.
+
+Clean RED — only AC1 fails; the other three pass, confirming they're real regression guards. Now GREEN.
+
+Green. Now the full suite plus a typecheck, since a stale `dist` can mask type drift.
+
+All four pre-exist my change — identical failures against HEAD's `serve.ts`. Let me characterise them briefly so you can judge.
+
+Pre-existing fold/schema drift (an `InvalidDefinitionError` plus three fold-residual mismatches) — unrelated to the server. Committing REQ-113 under the free-coding protocol.
+
+Now the clean URLs the fix was for.
+
+I killed the long-running preview server with that pattern match — restarting it on 8792.
+
+Both done. **`localhost:8792/whitepapers`** now works.
+
+## REQ-113 — the URL fix (shipped)
+
+`free_coded`, commit `4d7515c95`, v0.1.8. A request that resolves to nothing and has no extension now falls back to `<path>.html`. Three constraints in the implementation:
+
+- Applied to the **already-confined** absolute path, so appending a suffix can't widen reach.
+- **Gated on having no extension** — otherwise a missing `/assets/x.svg` would silently return HTML under the wrong MIME.
+- **Ordered last**, so a real directory's `index.html` still beats `<dir>.html`.
+
+4 UATs driven over loopback against the real server rather than unit-testing a path helper — the defect was in request resolution, so the contract that matters is the status and bytes a browser actually receives. RED was clean: only the AC1 test failed; the three regression guards passed before the fix as well as after, which is what makes them worth having.
+
+Site links restored to `/whitepapers`, re-rendered, verified end-to-end.
+
+## BUG-30 — the relocatable-URL bug (filed, not implemented)
+
+I scoped it wider than the symptom, as you asked. Beyond the `/#frag` fix (`./#frag`, preserving relocatability), the ticket asks for the whole relativization sink to be answered once:
+
+- **Query strings** — `?v=3` cache-busting is live on the grid assets.
+- **The flat-snapshot invariant** — the docstring says stripping the slash "is only correct because every page sits FLAT at the snapshot root; `renderSite` asserts that invariant." Sites genuinely have more than one page now, so that assertion wants re-checking.
+- **A current document that isn't `index.html`** — every relative-base argument in that function changes meaning under this condition, and it was literally unreachable until this week.
+
+AC4 requires the UAT to cover the two-page case specifically, since a single-page site can't distinguish correct from incorrect behaviour here.
+
+## Two things you should know
+
+**Four pre-existing test failures on `xgd-working`.** Full suite is 954 passed, 4 failed. I verified they're not mine by reverting `serve.ts` and re-running — identical failures. They're fold/schema drift:
+
+- `InvalidDefinitionError: Invalid site definition 'acme'`
+- three leaf-kind mismatches where a `field` or `slot` leaf appears or disappears (AC-733, AC-737, AC-705)
+
+The common shape suggests one schema change moved fold's output and these expectations weren't updated with it. Not this session's scope, but it wants looking at — those are reconciliation gate tests.
+
+**I killed your preview server.** Cleaning up a temporary verification server, I ran `pkill -f "1c.mjs serve xgd"` and the pattern also matched the long-running one on :8792. Restarted on the same port and confirmed it's serving. Nothing lost — it's a static file server — but the pattern was too broad and I should have matched on the port.
+
+Still uncommitted: both site JSON files, since you're mid-review on the copy. The `/index.html#how` workaround stays in the whitepapers nav until BUG-30 lands.
 
 <!-- xgd-chat-end -->
