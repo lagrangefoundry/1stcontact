@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-30T23:07:10.138071+00:00'
+updated_at: '2026-07-31T00:25:56.970083+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -324,5 +324,11 @@ One new candidate gap: an L1 text leaf carries a single style, so both paper tit
 And the two structural items from my first review are untouched, because they're layout not copy: six identical section shapes, and the proof section still being physically small for the weight it now carries.
 
 Uncommitted — I'd guess you'll want a pass over the wording first. CHAT-12 has the full record.
+
+<!-- xgd-turn id="4c0897b6-1129-4e47-81af-b0778bca26af-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:25:56.939350+00:00" -->
+#### You
+I think the white papers probably deserve a page of their own. the title for each, a paragraph about what they say and an email capture form. Do you agree/
 
 <!-- xgd-chat-end -->
