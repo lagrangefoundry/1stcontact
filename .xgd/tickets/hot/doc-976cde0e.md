@@ -5,7 +5,7 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-07-31T20:36:57.843478+00:00'
+updated_at: '2026-07-31T20:43:55.179114+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -418,8 +418,8 @@ is produced by the same renderer that produces the published site.
 
 ## 12. Implementation plan
 
-Five tickets deliver phase 1. CHAT-9 is the discussion home and the free-coding
-scope for anything not yet split out; each **T** below becomes a REQ.
+Five tickets deliver phase 1 — **REQ-115 … REQ-119**, with `depends_on` wired to
+match the graph below. CHAT-9 remains the discussion home.
 
 **Landed already:** module edit hooks — `data-fc-module` / `data-fc-type` per
 instance (§5.2), CHAT-9 M1, tested.
@@ -432,11 +432,11 @@ T2 edit render ────┴────────────────�
 
 | | Ticket | Delivers | Depends on |
 |---|---|---|---|
-| **T1** | **Builder shell** | The consumption decision for `@gendevlabs/webui-*` ([[DOC-8]] §9.5) and the wiring; the shell inside `control-app` with the **`site` tab**; `split` (panel \| chat placeholder); the **multi-mode display panel** and its mode contract ([[DOC-8]] §3.2); the **mode-aware** toolbar (site selector · View/Edit toggle · open-in-new-tab · Publish); persistence via `shell.storage`. View mode shows the **already-rendered** draft served statically, so this lands with no new render work. **The tab label is a single configuration value (default `"Site"`)** — id `site` is stable, the label is never a repeated literal ([[DOC-8]] §3.1). | — |
-| **T2** | **The edit render** | The third render channel ([[DOC-8]] §4.1) complete: links/forms/behaviour/motion off with content in its **settled state** and all content shown at once (§5.1, §5.3); **derived segmentation** (§6); **L1 address stamping** — render-scoped structural paths (§5.2); renderer-drawn outlines. Renderer-side, no UI — testable on rendered output alone. | — (parallel with T1) |
-| **T3** | **Copy editing — the first end-to-end edit** | The whole loop (§11): click segment → derive field descriptors → `mountFields` modal in **buffered** commit so Save is the flush and one modal is one diff ([[DOC-8]] §9.3) → shared validator (layer 1, [[DOC-8]] §7) → apply to the draft → re-render → refresh. Includes the structured-edit write path, which has no value without a consumer and no correctness without the validator. | T1, T2 |
-| **T4** | **Image selection** | Click image segment → asset picker → `asset-ref` / `src` edit, reusing T3's loop. Framing controls (crop / scale / scrim, §9.2) follow once Q5 is closed. | T3 |
-| **T5** | **Deploy it for real** | Replace T1's static serving with **request-time draft and edit renders inside `control-app`** via the Astro Cloudflare adapter ([[DOC-8]] §4.1). Deliberately last — it changes *where* the render runs, not *what* it produces, so everything above is built and proven before the runtime moves. | T3 (contingent on [[DOC-8]] §13 Q3) |
+| **T1** — REQ-115 | **Builder shell** | The consumption decision for `@gendevlabs/webui-*` ([[DOC-8]] §9.5) and the wiring; the shell inside `control-app` with the **`site` tab**; `split` (panel \| chat placeholder); the **multi-mode display panel** and its mode contract ([[DOC-8]] §3.2); the **mode-aware** toolbar (site selector · View/Edit toggle · open-in-new-tab · Publish); persistence via `shell.storage`. View mode shows the **already-rendered** draft served statically, so this lands with no new render work. **The tab label is a single configuration value (default `"Site"`)** — id `site` is stable, the label is never a repeated literal ([[DOC-8]] §3.1). | — |
+| **T2** — REQ-116 | **The edit render** | The third render channel ([[DOC-8]] §4.1) complete: links/forms/behaviour/motion off with content in its **settled state** and all content shown at once (§5.1, §5.3); **derived segmentation** (§6); **L1 address stamping** — render-scoped structural paths (§5.2); renderer-drawn outlines. Renderer-side, no UI — testable on rendered output alone. | — (parallel with T1) |
+| **T3** — REQ-117 | **Copy editing — the first end-to-end edit** | The whole loop (§11): click segment → derive field descriptors → `mountFields` modal in **buffered** commit so Save is the flush and one modal is one diff ([[DOC-8]] §9.3) → shared validator (layer 1, [[DOC-8]] §7) → apply to the draft → re-render → refresh. Includes the structured-edit write path, which has no value without a consumer and no correctness without the validator. | T1, T2 |
+| **T4** — REQ-118 | **Image selection** | Click image segment → asset picker → `asset-ref` / `src` edit, reusing T3's loop. Framing controls (crop / scale / scrim, §9.2) follow once Q5 is closed. | T3 |
+| **T5** — REQ-119 | **Deploy it for real** | Replace T1's static serving with **request-time draft and edit renders inside `control-app`** via the Astro Cloudflare adapter ([[DOC-8]] §4.1). Deliberately last — it changes *where* the render runs, not *what* it produces, so everything above is built and proven before the runtime moves. | T3 (contingent on [[DOC-8]] §13 Q3) |
 
 ### Notes on sequencing
 
