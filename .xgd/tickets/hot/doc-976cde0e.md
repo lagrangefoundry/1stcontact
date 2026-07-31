@@ -5,7 +5,7 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-07-31T20:28:13.218628+00:00'
+updated_at: '2026-07-31T20:29:35.754876+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -416,20 +416,53 @@ is produced by the same renderer that produces the published site.
 
 ---
 
-## 12. Milestones
+## 12. Implementation plan
 
-Tracked under CHAT-9.
+The authoritative ticket breakdown. CHAT-9 is the discussion home and the
+free-coding scope for anything not yet split out; each **T** below becomes a REQ.
 
-| | Scope | Status |
-|---|---|---|
-| **M1** | Module edit hooks — `data-fc-module` / `data-fc-type` per instance (§5.2) | **done**, tested, landed |
-| **M2** | Composition — shell → `site` tab → split → **multi-mode display panel** with View mode; toolbar; iframe of the served draft render ([[DOC-8]] §3.1–§3.3) | next |
-| **M3** | The edit render — segment derivation (§6), L1 address stamping (§5.2), settled-state/no-motion rules (§5.3), outlines | |
-| **M4** | Copy editor — click segment → modal → validated structured edit → re-render → refresh (phase 1) | |
-| **M5** | Image selection (phase 1), then the framing controls (§9.2) | |
+**Landed already:** module edit hooks — `data-fc-module` / `data-fc-type` per
+instance (§5.2), CHAT-9 M1, tested.
 
-M2 needs a decision on how the builder is served locally and how `webui-*` is
-consumed ([[DOC-8]] §13 Q1) — neither is an editor-design question.
+### Dependency shape
+
+```
+T1 consumption + shell ─┬─ T2 panel + toolbar (View) ──┬─ T6 copy editor ── T7 image selection
+                        │                              │
+                        └─ T3 edit render ── T4 segments + addresses ──┘
+                                                       │
+                                             T5 structured-edit API ──┘
+
+later / parallel:  T8 request-time SSR · T9 chat pane · T10 phase 2 properties
+```
+
+### The tickets
+
+| | Ticket | Delivers | Depends on |
+|---|---|---|---|
+| **T1** | **Component consumption + builder shell** | Settle publish-vs-submodule for `@gendevlabs/webui-*` ([[DOC-8]] §9.5) and wire it in; mount the shell inside `control-app` with the **`site` tab**; serve the builder locally. **The tab label is a single configuration value (default `"Site"`)** — id `site` is stable, the label is never a repeated literal ([[DOC-8]] §3.1). | — |
+| **T2** | **Display panel + toolbar, View mode** | `split` (panel \| chat placeholder); the **multi-mode display panel** with its mode contract — register a mode, switch without tearing down the pane ([[DOC-8]] §3.2); the **mode-aware** toolbar (site selector · View/Edit toggle · open-in-new-tab · Publish); persistence via `shell.storage`. View mode shows the **already-rendered** draft served statically, so this lands without any new render work. | T1 |
+| **T3** | **The edit render channel** | The third channel ([[DOC-8]] §4.1): same document, rendered with links/forms/behaviour/motion off and content in its **settled state**; all content shown simultaneously (§5.1, §5.3). Renderer-side, no UI. | — (renderer work; parallel with T1/T2) |
+| **T4** | **Segments, addresses, outlines** | Derived segmentation (§6); **L1 address stamping** — render-scoped structural paths (§5.2); renderer-drawn segment outlines. Completes the edit render's content. | T3 |
+| **T5** | **Structured-edit API** | The write path: an edit arrives → shared validator (layer 1, [[DOC-8]] §7) → apply to the draft definition → re-render → the client refreshes. No UI; this is what makes the editor a *second producer* rather than a second path (§4). | — (server work; parallel) |
+| **T6** | **Copy editor (phase 1)** | Click segment → derive field descriptors → `mountFields` modal in **buffered** commit so Save is the flush and one modal is one diff ([[DOC-8]] §9.3) → T5 → refresh. | T2, T4, T5 |
+| **T7** | **Image selection (phase 1)** | Click image segment → asset picker → `asset-ref` / `src` edit. Framing controls (crop / scale / scrim, §9.2) follow once Q5 is closed. | T6 |
+| **T8** | **Request-time draft SSR** | Productionise serving: render the draft on request inside `control-app` via the Astro Cloudflare adapter, replacing T2's static serving ([[DOC-8]] §4.1). Deliberately late — it changes *where* the render runs, not *what* it produces. | T2 |
+| **T9** | **Chat pane** | Fill the split's secondary pane — `webui-chat` + `webui-markdown` + `webui-scroll`, and the card registry as the seam for rendering AI edits. | T2 |
+| **T10** | **Phase 2 — properties** | Text properties and container background from the site palette; simple module `config`. Needs **REQ-114** (palette model) and **`xgd-framework` REQ-55** (colour control). Includes the palette-editor surface (§13 Q7). | T6, REQ-114, REQ-55 |
+
+### Notes on sequencing
+
+- **T1 is the only hard blocker** and its real content is a decision, not code
+  ([[DOC-8]] §13 Q1). Everything downstream waits on it.
+- **T3/T4 and T5 are off the critical path of T1/T2** — renderer and server work
+  that can proceed in parallel with the chrome.
+- **T2 deliberately avoids the render question.** Pointing the iframe at the
+  already-rendered draft on disk gets a real page on screen immediately; T8 swaps
+  the source later without touching the panel.
+- **T3 before T4** because "the page does not work" is independently testable and
+  is what makes edit mode safe; segmentation is what makes it useful.
+- **Phase 1 is complete at T7.** T8–T10 are productionisation and phase 2.
 
 ---
 
