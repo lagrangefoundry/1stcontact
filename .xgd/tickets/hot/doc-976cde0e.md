@@ -5,7 +5,7 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-07-31T19:01:06.838269+00:00'
+updated_at: '2026-07-31T19:15:32.949378+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -292,6 +292,24 @@ and the two things a site owner changes constantly.
 - **Text properties** — size, colour, weight, family, and the container's
   background colour; exposed as friendly controls (a colour picker), never as token
   names.
+
+  **A colour here is a value in the *site* definition — not shell theming.** The
+  shell's tokens and themes style the *builder's own chrome*; setting a theme
+  changes what the builder looks like, not what the customer's site looks like.
+  The two never meet. What the editor needs is a **colour-valued field control**,
+  a peer of the text and number controls — raised upstream as `xgd-framework`
+  REQ-55 ([[DOC-8]] §9.4.1).
+
+  **Open: free colour, or a palette role?** The site has its own palette, and the
+  established principle is that absolute values are the base while a palette is an
+  overlay of constants — every value takes a literal *or* a role. For a
+  non-technical user, *"pick one of your site's colours"* is both friendlier and
+  far more likely to keep the site coherent than a free colour wheel; it is also
+  more faithful to the exposure rule, since a role is the user-meaningful thing and
+  a hex is the implementation. But roles-only blocks *"my brand colour is exactly
+  this hex"*. The likely answer is **roles first, free entry as the escape hatch**,
+  which is why REQ-55 covers both the free (`string`) and constrained (`enum`)
+  shapes. Settle before building phase 2 (§13 Q7).
 - **Simple module properties** — a behavior module's `config`, e.g. the body of the
   response email for email capture. This lands cleanly on existing rails:
   [[DOC-25]] defines `config` as data-only and never aesthetic, which is exactly
@@ -421,6 +439,9 @@ consumed ([[DOC-8]] §13 Q1) — neither is an editor-design question.
    parallel vocabulary. Confirm they are identical before building §9.2.
 6. **Undo affordance** — does the modal have Cancel only, or does the Design view
    expose the diff-log undo directly?
+7. **Palette roles vs free colours** in phase 2 (§8) — roles-first with a free-entry
+   escape hatch is the working assumption; confirm before building. Depends on
+   `xgd-framework` REQ-55 landing either way.
 
 ---
 
