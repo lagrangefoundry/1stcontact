@@ -5,9 +5,9 @@ type: request
 title: '1c serve: extensionless URLs 404 (preview disagrees with Cloudflare Pages)'
 created_by: xgd
 created_at: '2026-07-31T00:45:14.603733+00:00'
-updated_at: '2026-07-31T00:50:28.355655+00:00'
+updated_at: '2026-07-31T01:11:37.336909+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -68,3 +68,60 @@ When the requested path does not resolve to a file or directory, and has no exte
 ## Out of scope
 
 The authored `.html` links on xgd.dev stay until this lands, then get cleaned up.
+
+
+---
+
+## Scope extension (2026-07-30) — the production half was never fixed
+
+The original ticket rested on a premise that is **false**:
+
+> Cloudflare Pages — the deployment target — serves `whitepapers.html` at `/whitepapers`
+> automatically. So the clean URL is correct in production and broken in preview.
+
+There is no Cloudflare Pages anywhere in the serving path. `apps/public-site/wrangler.toml` binds
+the **`public-site` Worker** (REQ-111) to both `1stcontact.io` and `*.1stcontact.io/*`, and it
+serves every byte out of R2. `parseRoute` passes the path tail straight through as an object key
+(`routes.ts:120`, `routes.ts:130`), and a missing key is a flat 404 (`index.ts:134`).
+
+So the actual state is the **inverse** of what the ticket described: the clean URL now works in
+preview and 404s in production. The ticket's stated goal — the preview server and the viewer's
+environment agree on the URL the author writes — was never reached, because only one of the two
+environments was changed.
+
+Surfaced by BUG-30: xgd.dev's home page links `/whitepapers`, which relativizes to `whitepapers`
+(correctly), and `test_UAT_FC_REQ-109_served_under_path_prefix` went red against a server modelled
+on the real Worker.
+
+### Additional behaviour — the Worker gains the same mapping
+
+When a snapshot object does not exist, and the requested path has no extension, try `<path>.html`
+before answering 404. Exact keys always win, so nothing that resolves today changes.
+
+**The trailing slash must NOT be eligible**, and this is load-bearing rather than tidiness. Pages
+reference their assets document-relatively (REQ-109), so the directory of the request URL is what
+every `theme.css` and `./#frag` resolves against:
+
+- `/site/acme/draft/<sha>/whitepapers` -> directory is `.../<sha>/` -> `theme.css` resolves correctly.
+- `/site/acme/draft/<sha>/whitepapers/` -> directory is `.../whitepapers/` -> every asset resolves
+  one level too low and the page loads unstyled.
+
+That is the same failure the `redirect` route already exists to prevent for the snapshot root. A
+trailing-slash path therefore keeps its current behaviour (404 unless a real object matches).
+
+Eligibility is a pure function of the pathname — no trailing slash, and the last segment contains
+no `.` — so it stays in `parseRoute` and remains testable without a bucket, per the module's
+existing design note. Only the *lookup* of the fallback key happens in the request path.
+
+### Additional acceptance criteria
+
+- **AC5** — the Worker serves `<slug>.html` for an extensionless path, on both the draft and the
+  published channel, for `GET` and `HEAD`.
+- **AC6** — `content-type` is derived from the key actually served, not the requested path, so a
+  fallback hit returns `text/html` rather than a guess from an extensionless name.
+- **AC7** — an exact object still wins over the fallback, and a path carrying an extension never
+  triggers it (a missing `.svg` still 404s rather than silently returning HTML).
+- **AC8** — a trailing-slash path is never eligible, so no URL can serve a page from a directory
+  its relative asset references would resolve against incorrectly (REQ-109).
+- **AC9** — the route grammar's existing guards are unchanged: traversal, percent-encoding and slug
+  validation all still reject before any fallback is considered.
