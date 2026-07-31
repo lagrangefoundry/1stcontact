@@ -5,7 +5,7 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-07-31T18:51:36.654162+00:00'
+updated_at: '2026-07-31T19:01:06.838269+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -238,12 +238,20 @@ one they want.
 
 ## 7. Interaction model
 
-### 7.1 View / Edit toggle
+### 7.1 Edit is a *mode of the display panel*
+
+The editor does not own the left pane. The pane is a **multi-mode display panel**
+([[DOC-8]] §3.2) and edit is one of its modes, a peer of view:
 
 - **View** — the draft preview render. The page behaves exactly as published:
   links work, behaviours run, nothing is decorated.
 - **Edit** — the edit render (§5). Segments are faintly outlined; hovering a
   segment strengthens its outline with a small movement; clicking opens its editor.
+
+Switching between them swaps the iframe's source; it does not rebuild the pane.
+Other modes (template chooser, asset browser, revision diff) are peers again — so
+the editor must not assume it is the only thing that can occupy the pane, and the
+toolbar must not assume an iframe is always beneath it.
 
 The toggle exists because a builder permanently in edit mode is a builder you
 cannot use to *look at* your site.
@@ -302,6 +310,13 @@ wall in §7.3 is understood as a decision with a possible future, not an oversig
 
 A **plain form field per copy field** in the segment. Because content is
 introspectable, this needs no per-segment editor code.
+
+**Built on `webui-fields`, not hand-rolled** ([[DOC-8]] §9.3). `mountFields` is a
+schema-driven property panel — descriptors + values in, typed controls, per-field
+validation, and a settled confirm/cancel gesture model out. So the editor's job is
+to **derive a field descriptor list from a segment** and hand confirmed values to
+the structured-edit validator; it does not build forms. Use `buffered` commit so
+the modal's Save is the flush point and one modal produces one structured diff.
 
 Styled text is a block-tree with inline runs ([[DOC-22]]). Phase 1 honours the
 framing *"a tool for editing copy, not formatting"*: edit the run text, preserve
@@ -381,7 +396,7 @@ Tracked under CHAT-9.
 | | Scope | Status |
 |---|---|---|
 | **M1** | Module edit hooks — `data-fc-module` / `data-fc-type` per instance (§5.2) | **done**, tested, landed |
-| **M2** | Builder panel — shell → Design tab; toolbar; iframe of the served draft render; Edit/View toggle | next |
+| **M2** | Composition — shell → Design tab → split → **multi-mode display panel** with View mode; toolbar; iframe of the served draft render ([[DOC-8]] §3.1–§3.3) | next |
 | **M3** | The edit render — segment derivation (§6), L1 address stamping (§5.2), settled-state/no-motion rules (§5.3), outlines | |
 | **M4** | Copy editor — click segment → modal → validated structured edit → re-render → refresh (phase 1) | |
 | **M5** | Image selection (phase 1), then the framing controls (§9.2) | |
