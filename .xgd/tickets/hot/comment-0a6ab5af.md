@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-07-19T01:51:29.485663+00:00'
+updated_at: '2026-07-31T00:28:00.831740+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -379,5 +379,11 @@ There's **no research fork and no gating spike.** What I mislabeled as risk is j
 The only *real* design choice left — and it's a normal one, not a scary one — is: **published sites render at build/publish time (static); the builder's live preview renders request-time (SSR draft).** That split is exactly right for a builder and matches your Jamstack instinct for the public side.
 
 Does that resolution sit right with you? If so, the model is now: **1C = `control-app` Worker (SSR draft preview + builder API, D1 + R2); publish → static render served by `public-site`.** And we can go back to the step you actually wanted — the builder's own structure inside `control-app` — without me inventing obstacles.
+
+<!-- xgd-turn id="c7a2a9ee-be9f-47af-8687-df7c0d099a61-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:28:00.801595+00:00" -->
+#### You
+ok do we have a design doc that captures the design for this web editor?
 
 <!-- xgd-chat-end -->
