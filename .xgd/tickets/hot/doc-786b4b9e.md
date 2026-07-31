@@ -5,7 +5,7 @@ type: doc
 title: L1 Layout Substrate — the typed element tree
 created_by: xgd
 created_at: '2026-07-20T20:51:27.239081+00:00'
-updated_at: '2026-07-31T19:35:52.576397+00:00'
+updated_at: '2026-07-31T20:20:21.357830+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -170,7 +170,7 @@ Two notes on shape:
   structure). Otherwise one colour occupies N entries and the entry stops being the
   unit of change.
 
-### 5.5 Relationship to the legacy theme tokens
+### 5.5 The legacy theme palette is replaced, not coexisted with
 
 `paletteTokensSchema` is a **closed set of exactly 15 roles**, each resolving to
 `var(--color-<role>)`. It predates the pivot and does not reach L1 — which is why
@@ -179,6 +179,14 @@ no keywords"*), and therefore why **every colour in every site is currently an
 individually chosen literal**. The palette model generalises that closed set
 (arbitrary size, extensible names, steps) and connects it to L1, rather than
 introducing a parallel vocabulary.
+
+**It is deleted, not deprecated** (REQ-114 §4). Two colour systems is precisely
+the legacy-mode state the project forbids, and the legacy one is barely load-bearing:
+the only live `--color-*` consumption on the L1 path is a single `body` rule (two
+uses in a rendered page), whose replacement — the L1 document's own `background`
+field (§2) — already exists. The dark-mode palette override has no callers at all.
+The retirement covers the colour group only: typography, spacing, radius, shadow
+and breakpoint tokens are a different axis family and stay.
 
 `l1Color` is a single type alias used in **12 places** in the L1 schema (gradient
 stops, shadows, borders, textures, link states, surface fills…). Widening it once
