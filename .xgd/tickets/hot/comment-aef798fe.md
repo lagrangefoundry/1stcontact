@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-12
 created_by: xgd
 created_at: '2026-07-30T20:45:09.110078+00:00'
-updated_at: '2026-07-31T00:27:10.843316+00:00'
+updated_at: '2026-07-31T00:30:53.868237+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -368,5 +368,11 @@ The backend gap doesn't change: still no PDFs anywhere, still no `/api/lead`. A 
 3. **Slug** — `/papers` or `/whitepapers`? And I'd build the layout to take a third, since DOC-8 lands later.
 
 Nothing built yet. If those land, I'll write the page and file the shared-chrome gap.
+
+<!-- xgd-turn id="9d477ae5-c200-462a-951d-c0625c784309-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:30:53.837761+00:00" -->
+#### You
+one form. Agree on 2. /whitepapers
 
 <!-- xgd-chat-end -->
