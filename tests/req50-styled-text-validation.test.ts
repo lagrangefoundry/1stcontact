@@ -36,7 +36,9 @@ describe('REQ-50 styled-text validation — accepts literals and known aliases',
 
   it('test_UAT_FC_REQ-50_valid_alias_run_passes', () => {
     const errors = validateModuleContent(meta, {
-      heading: { text: 'x', fontSizePx: '5xl', fontWeight: 'medium', color: 'primary', lineHeightPx: 'snug' },
+      // REQ-114 — `color` no longer takes a palette-role alias; the surviving
+      // non-colour alias groups are what this AC pins.
+      heading: { text: 'x', fontSizePx: '5xl', fontWeight: 'medium', color: '#0f9d6e', lineHeightPx: 'snug' },
     })
     expect(errors).toEqual([])
   })
@@ -49,7 +51,7 @@ describe('REQ-50 styled-text validation — accepts literals and known aliases',
       },
       subhead: {
         text: 'y',
-        gradient: { angleDeg: 'to-right', stops: [{ color: 'accent-light' }, { color: 'accent-deep', position: 80 }] },
+        gradient: { angleDeg: 'to-right', stops: [{ color: '#f5e6a3' }, { color: '#ff6b35', position: 80 }] },
       },
     })
     expect(errors).toEqual([])

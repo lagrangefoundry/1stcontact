@@ -14,6 +14,8 @@
  * value that could hang or break a browser.
  */
 import { l1DocumentSchema } from './schema'
+import { collectL1PaletteRefs } from './palette'
+import type { L1Palette } from './palette'
 import type { L1Document, L1Geometry, L1Node, L1ScalarTrack } from './types'
 import type { Result, ValidationError } from '../validate'
 
@@ -565,12 +567,61 @@ function walk(
   children.forEach((child, i) => walk(child, widths, `${path}/children/${i}`, depth + 1, counter, errors))
 }
 
+/** Options for {@link validateL1}. */
+export interface ValidateL1Options {
+  /**
+   * REQ-114 — the palette every colour reference in the document must resolve
+   * against. Omitting it does not relax the rule: a document carrying a
+   * reference with no palette in scope is rejected, because the alternative is a
+   * render-time fallback and DOC-23 §6 has none.
+   */
+  palette?: L1Palette
+}
+
+/**
+ * REQ-114 — every palette reference in `input` must name an entry (and, when it
+ * carries one, a step) the palette actually declares. This is the *whole* of the
+ * "no render-time fallback" guarantee: {@link resolveL1Color} throws on a miss,
+ * so the only thing standing between a dangling reference and a crashed render
+ * is this check running first.
+ */
+export function checkPaletteRefs(
+  input: unknown,
+  palette: L1Palette | undefined,
+  basePath: string,
+  errors: ValidationError[],
+): void {
+  for (const { path, ref } of collectL1PaletteRefs(input)) {
+    const entry = palette?.[ref.ref]
+    if (!entry) {
+      errors.push({
+        path: `${basePath}${path}/ref`,
+        message: palette
+          ? `palette reference '${ref.ref}' is not declared by the palette [${Object.keys(palette).join(', ')}]`
+          : `palette reference '${ref.ref}' cannot resolve: the site declares no palette`,
+      })
+      continue
+    }
+    if (ref.step !== undefined && entry.steps?.[ref.step] === undefined) {
+      errors.push({
+        path: `${basePath}${path}/step`,
+        message: `palette entry '${ref.ref}' has no step '${ref.step}' (declares [${Object.keys(
+          entry.steps ?? {},
+        ).join(', ')}])`,
+      })
+    }
+  }
+}
+
 /**
  * Validate an L1 document against the schema **and** the envelope. Returns the
  * typed document on success, or the full list of machine-readable errors — so an
  * AI caller can self-correct — on failure.
  */
-export function validateL1(input: unknown): Result<L1Document, ValidationError[]> {
+export function validateL1(
+  input: unknown,
+  options: ValidateL1Options = {},
+): Result<L1Document, ValidationError[]> {
   const parsed = l1DocumentSchema.safeParse(input)
   if (!parsed.success) {
     return {
@@ -584,6 +635,9 @@ export function validateL1(input: unknown): Result<L1Document, ValidationError[]
 
   const doc = parsed.data
   const errors: ValidationError[] = []
+
+  // REQ-114 — colour references resolve, or the document does not validate.
+  checkPaletteRefs(doc, options.palette, '', errors)
 
   // Widths must be strictly ascending and unique (the ladder is an ordered set).
   for (let i = 1; i < doc.widths.length; i++) {

@@ -1,24 +1,13 @@
 {
   "id": "harbor-cafe",
   "config": {
-    "businessName": "Harbor Café",
+    "businessName": "Harbor Caf\u00e9",
     "tagline": "Coffee, brunch, and harbour views.",
     "contact": {
       "phone": "+44 117 555 0142"
     }
   },
   "theme": {
-    "palette": {
-      "bg": "#fffdf7",
-      "surface": "#f9fafb",
-      "surfaceSubtle": "#fdf2e0",
-      "surfaceInverse": "#1c1408",
-      "text": "#111827",
-      "muted": "#6b7280",
-      "primary": "#b45309",
-      "accent": "#0ea5e9",
-      "border": "#e5e7eb"
-    },
     "typography": {
       "family": {
         "heading": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",

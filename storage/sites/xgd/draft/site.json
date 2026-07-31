@@ -5,23 +5,6 @@
     "tagline": "xgd — built with 1st Contact"
   },
   "theme": {
-    "palette": {
-      "bg": "#ffffff",
-      "surface": "#f9fafb",
-      "surfaceSubtle": "#f3f4f6",
-      "surfaceInverse": "#111827",
-      "text": "#111827",
-      "muted": "#6b7280",
-      "primary": "#2563eb",
-      "accent": "#f59e0b",
-      "secondary": "#3b82f6",
-      "neutralCool": "#64748b",
-      "accentLight": "#fcd34d",
-      "accentDeep": "#b45309",
-      "accentMid": "#d98324",
-      "scrim": "#0a0a0a",
-      "border": "#e5e7eb"
-    },
     "typography": {
       "family": {
         "heading": "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
@@ -127,5 +110,43 @@
     "pattern": "top-tabs",
     "entries": []
   },
-  "assets": []
+  "assets": [],
+  "palette": {
+    "neutral": {
+      "value": "#ffffff",
+      "steps": {
+        "950": "#000000"
+      }
+    },
+    "text": {
+      "value": "#1f2937",
+      "steps": {
+        "200": "#d1d5db",
+        "400": "#9ca3af",
+        "500": "#6b7280",
+        "700": "#4b5563",
+        "900": "#111827"
+      }
+    },
+    "primary": {
+      "value": "#2e86a3",
+      "steps": {
+        "500": "#4aafc9",
+        "700": "#236d87"
+      }
+    },
+    "accent": {
+      "value": "#8b5c2a"
+    },
+    "surface": {
+      "value": "#fffef8",
+      "steps": {
+        "100": "#f5f4ec",
+        "125": "#e5e2d5"
+      }
+    },
+    "surface-accent": {
+      "value": "#eaf5f8"
+    }
+  }
 }

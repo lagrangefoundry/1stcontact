@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { l1DocumentSchema, l1NodeSchema } from './l1/schema'
+import { l1PaletteSchema } from './l1/palette'
 import { l1DocumentSlotNames } from './l1/slots'
 
 /**
@@ -276,41 +277,21 @@ export const responsiveDialValueSchema = z
   })
   .strict()
 
-/**
- * Palette-role names selectable as a layer treatment colour (REQ-32 cap 5). The
- * closed set of theme palette roles in kebab-case — each resolves to
- * `var(--color-<role>)`, so a border/text colour is always token-backed and no
- * raw colour reaches the page. Mirrors the `--color-*` names emitted by the
- * token CSS.
- */
-export const layerColorRoleSchema = z.enum([
-  'bg',
-  'surface',
-  'surface-subtle',
-  'surface-inverse',
-  'text',
-  'muted',
-  'border',
-  'primary',
-  'accent',
-  'secondary',
-  'neutral-cool',
-  'accent-light',
-  'accent-deep',
-])
 
 /** Shadow step for a layer image child (REQ-32 cap 5) — a theme shadow token. */
 export const layerShadowSchema = z.enum(['none', 'sm', 'md', 'lg', 'xl'])
 
 /**
- * Token-backed border for a layer image child (REQ-32 cap 5): a width step
- * (mapped to px by the framework) and a palette-role colour. `.strict()` rejects
- * a raw CSS border string.
+ * Token-backed border for a layer image child (REQ-32 cap 5): a width step,
+ * mapped to px by the framework. `.strict()` rejects a raw CSS border string.
+ *
+ * REQ-114 — the `color` field went with `layerColorRoleSchema`, the second closed
+ * colour-role enum. Colour is the L1 palette model's (DOC-23 §5), and a layer is
+ * not an L1 node.
  */
 export const layerBorderSchema = z
   .object({
     width: z.enum(['none', 'thin', 'medium', 'thick']),
-    color: layerColorRoleSchema,
   })
   .strict()
 
@@ -341,9 +322,12 @@ export const imageTreatmentSchema = z
  * A positioned text run otherwise renders at the inherited body size, so a
  * wordmark/label in an art-directed layer can't be scaled. Every field is a
  * closed enum resolving to a theme token custom property (`--font-size-*`,
- * `--font-weight-*`, `--color-*`, `--font-family-*`) or a fixed framework value
+ * `--font-weight-*`, `--font-family-*`) or a fixed framework value
  * (`tracking` → em, `shadow` → a legibility text-shadow) — no raw CSS. `.strict()`
  * rejects a smuggled style field.
+ *
+ * REQ-114 — the `color` field went with `layerColorRoleSchema` (see
+ * {@link layerBorderSchema}).
  */
 export const layerTextTypographySchema = z
   .object({
@@ -351,7 +335,6 @@ export const layerTextTypographySchema = z
       .enum(['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl'])
       .optional(),
     weight: z.enum(['regular', 'medium', 'semibold', 'bold', 'black']).optional(),
-    color: layerColorRoleSchema.optional(),
     font: z.enum(['heading', 'body', 'display']).optional(),
     tracking: z.enum(['normal', 'wide', 'wider']).optional(),
     // Line-height (REQ-32 cap 5) — a theme line-height token. Controls the run's
@@ -665,53 +648,6 @@ export const navConfigSchema = z.object({
  * precise types per group.
  */
 
-/**
- * Palette roles. `text` is the foreground role (replaced REQ-3's `fg`).
- * `secondary` (REQ-20) is an optional second functional accent — a hue distinct
- * from the brand `accent`, used where a site marks a second status/category
- * (e.g. gigabytealchemy's blue "coming soon" cards). Optional so existing 9-role
- * themes keep validating; the token defaults fill it when omitted.
- */
-export const paletteTokensSchema = z.object({
-  bg: hexColor,
-  surface: hexColor,
-  surfaceSubtle: hexColor,
-  surfaceInverse: hexColor,
-  text: hexColor,
-  muted: hexColor,
-  primary: hexColor,
-  accent: hexColor,
-  secondary: hexColor.optional(),
-  // `neutralCool` (REQ-32) is an optional cool neutral (slate) distinct from the
-  // often-warm `muted`, so a site can tint panels/borders cool independent of
-  // its neutral text colour. Optional so existing themes keep validating; the
-  // token defaults fill it when omitted.
-  neutralCool: hexColor.optional(),
-  // `accentLight` / `accentDeep` (REQ-33) are optional warm companions to the
-  // brand `accent` — a lighter and a deeper warm hue. A site declares them to
-  // build a multi-stop warm brand gradient (e.g. gigabytealchemy's gold→orange
-  // wordmark) or a solid warm highlight from palette roles rather than raw
-  // colour. Optional so existing themes keep validating; the token defaults
-  // fill them when omitted.
-  accentLight: hexColor.optional(),
-  accentDeep: hexColor.optional(),
-  // `accentMid` (REQ-20) is an optional third warm companion sitting between
-  // `accentLight` and `accentDeep` — it lets a warm brand gradient carry a
-  // distinct mid-stop hue (e.g. gigabytealchemy's gold→orange wordmark whose
-  // sweep passes through a lighter orange before the deep orange) as a palette
-  // role rather than a raw colour. Optional so existing themes keep validating.
-  accentMid: hexColor.optional(),
-  // `scrim` (REQ-36) is the legibility-tint colour painted over a hero
-  // background image (the `scrim` dial sets its opacity). Decoupled from
-  // `surfaceInverse`: a scrim exists to *darken* an image for text contrast, so
-  // it defaults to a near-black — whereas `surfaceInverse` is a band background
-  // that a site may legitimately set to a mid neutral (joyfulculinary's grey
-  // inverse bands), which would turn a surface-inverse-keyed scrim into a grey
-  // wash that lightens rather than darkens. Optional so existing themes keep
-  // validating; the token defaults fill it when omitted.
-  scrim: hexColor.optional(),
-  border: hexColor,
-})
 
 /**
  * A site-declared web font (REQ-24). Structured — never raw `@font-face` CSS
@@ -910,8 +846,18 @@ export const breakpointTokensSchema = z.object({
   xl: cssValue,
 })
 
+/**
+ * The theme-token surface (DOC-7 §4).
+ *
+ * REQ-114 — the **colour** group is gone. Colour now lives in the L1 palette
+ * model (DOC-23 §5, `site.palette`), which is arbitrary-size, extensible and
+ * step-carrying where `paletteTokensSchema` was a closed set of 15 roles that
+ * never reached L1. Two colour systems is the legacy-mode state the project
+ * forbids, so the old one is deleted rather than deprecated. Typography,
+ * spacing, radius, shadow, container and breakpoint tokens are a different axis
+ * family with no replacement here and are untouched.
+ */
 export const themeTokensSchema = z.object({
-  palette: paletteTokensSchema,
   typography: typographyTokensSchema,
   spacing: spacingTokensSchema,
   radius: radiusTokensSchema,
@@ -952,6 +898,16 @@ export const siteSchema = z
     id: z.string(),
     config: siteConfigSchema,
     theme: themeTokensSchema,
+    /**
+     * REQ-114 — the site's colour palette (DOC-23 §5). Site-level rather than
+     * per-page because the whole point is that a palette entry is the *unit of
+     * change*: editing one conceptual colour has to make every use across the
+     * site follow, and a per-page palette would make that N edits.
+     *
+     * Optional, because a literal hex is always a valid colour: a site with no
+     * palette is exactly as valid — and renders exactly as it does today.
+     */
+    palette: l1PaletteSchema.optional(),
     nav: navConfigSchema,
     pages: z.array(pageSchema),
     assets: z.array(assetRefSchema).optional(),

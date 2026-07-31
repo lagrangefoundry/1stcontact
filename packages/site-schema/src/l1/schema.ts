@@ -15,14 +15,14 @@
  * file is the shape, `validate.ts` is the envelope.
  */
 import { z } from 'zod'
+import { l1ColorSchema } from './palette'
 
-/** A painted colour — hex only. No `url()`, no `rgb(var(--…))`, no keywords. */
-const l1Color = z
-  .string()
-  .regex(
-    /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
-    'must be a hex color (#rgb, #rrggbb, or #rrggbbaa)',
-  )
+/**
+ * A painted colour — a hex literal or a palette reference (REQ-114 / DOC-23 §5).
+ * Never a `url()`, an `rgb(var(--…))` or a keyword. One alias, used at every
+ * colour axis, so the literal-base/palette-overlay model reaches all of them.
+ */
+const l1Color = l1ColorSchema
 
 /** Finite number guard — rejects NaN / ±Infinity that `z.number()` alone admits. */
 const finite = z.number().refine((n) => Number.isFinite(n), 'must be a finite number')
@@ -1226,13 +1226,21 @@ export const l1ResourcesSchema = z
 
 /**
  * An L1 document: the viewport ladder it is authored against, an optional page
- * background colour, an optional resource table (handle→substance), and the root
- * node.
+ * background and inherited text colour, an optional resource table
+ * (handle→substance), and the root node.
  */
 export const l1DocumentSchema = z
   .object({
     widths: z.array(finite.positive()).min(1),
     background: l1Color.optional(),
+    /**
+     * REQ-114 — the page's inherited text colour. Every text leaf paints its own
+     * colour, so this is the floor a leaf that declares none falls back to. It
+     * lives here, beside `background`, because a page-level colour is a property
+     * of the document (DOC-23 §2) — the theme token that used to carry it
+     * (`--color-text`) went with the legacy palette.
+     */
+    textColor: l1Color.optional(),
     resources: l1ResourcesSchema.optional(),
     /** REQ-88 — the shared centred content column `geometry.anchor` refers to. */
     column: l1ColumnSchema.optional(),

@@ -62,23 +62,6 @@ export const GAP_DIAL = ['tight', 'normal', 'loose', 'airy'] as const
 export const CARD_SURFACE_DIAL = ['default', 'bare'] as const
 
 /**
- * Palette roles usable as a closed, token-backed role treatment (e.g. the
- * contact-form submit fill). A closed set — each resolves to `var(--color-<role>)`
- * — so no raw colour ever reaches the output. Kebab-cased to match the emitted
- * custom-property names (`neutral-cool` → `--color-neutral-cool`).
- */
-export const TREATMENT_ROLE_DIAL = [
-  'primary',
-  'accent',
-  'secondary',
-  'muted',
-  'neutral-cool',
-  'accent-light',
-  'accent-deep',
-  'accent-mid',
-] as const
-
-/**
  * Contact-form submit-button *fill* treatment (REQ-33). `primary` (default)
  * fills the button with the brand primary; `neutral` fills it with the dark
  * neutral text colour and a near-white label — a high-contrast dark button on a

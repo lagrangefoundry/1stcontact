@@ -5,7 +5,6 @@
  */
 export type {
   ThemeTokens,
-  PaletteTokens,
   TypographyTokens,
   SpacingTokens,
   RadiusTokens,
@@ -13,11 +12,6 @@ export type {
   ContainerTokens,
   BreakpointTokens,
 } from '@1stcontact/site-schema'
-
-import type { PaletteTokens } from '@1stcontact/site-schema'
-
-/** A subset of palette roles — used for the optional dark-mode override. */
-export type PartialPalette = Partial<PaletteTokens>
 
 /** Deep-partial of any token group, for callers that supply only some slots. */
 export type DeepPartial<T> = {

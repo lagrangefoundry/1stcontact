@@ -136,10 +136,12 @@ describe('story-82eb6908 — gradients as a first-class value', () => {
   })
 
   it('test_UAT_AC638_gradient_field_accepts_wellformed_rejects_malformed', () => {
-    // A well-formed gradient object — a direction alias plus colour stops, each an
-    // absolute hex or a palette-role alias — produces no validation error.
+    // A well-formed gradient object — a direction alias plus absolute colour
+    // stops — produces no validation error. (REQ-114: a stop is a hex literal; the
+    // palette-role alias went with the retired colour token group, and an L1
+    // palette reference resolves to a literal before validation sees it.)
     const wellFormed = validateModuleContent(gradientMeta, {
-      panelGradient: { angleDeg: 'to-br', stops: ['#f1f5f9', 'accent'] },
+      panelGradient: { angleDeg: 'to-br', stops: ['#f1f5f9', '#0f9d6e'] },
     })
     expect(wellFormed).toEqual([])
 

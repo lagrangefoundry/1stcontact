@@ -34,8 +34,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import type { L1Container, L1Document, L1Node } from '@1stcontact/site-schema'
-import { resolveLayoutMode, validateL1 } from '../packages/site-schema/src/index'
+import type { L1Container, L1Document, L1Node, L1Palette } from '@1stcontact/site-schema'
+import { resolveL1Palette, resolveLayoutMode, validateL1 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/l1/render'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli'
 import { evaluateLayout } from '../tools/generate/src/l1'
@@ -274,7 +274,13 @@ describe('REQ-104 — responsive layout track + wrapping rows', () => {
     const page = JSON.parse(
       readFileSync(path.join('storage', 'sites', 'xgd', 'draft', 'pages', 'home.json'), 'utf8'),
     ) as { l1: L1Document }
-    const l1 = page.l1
+    // REQ-114 — on disk a colour may be a palette reference; every consumer
+    // downstream of `loadSite` reads the resolved literal. Resolve here so this
+    // test sees the same document the renderer and evaluator do.
+    const site = JSON.parse(
+      readFileSync(path.join('storage', 'sites', 'xgd', 'draft', 'site.json'), 'utf8'),
+    ) as { palette?: L1Palette }
+    const l1 = resolveL1Palette(page.l1, site.palette)
 
     const nodes: L1Node[] = []
     const walk = (n: L1Node): void => {

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import type { Site, ValidationError } from '@1stcontact/site-schema'
-import { validateSite } from '@1stcontact/site-schema'
+import { resolveL1Palette, validateSite } from '@1stcontact/site-schema'
 import type { StoreContext } from './paths'
 import { draftDir, revisionDir } from './paths'
 import { listFilesRel, pathExists, readJson } from './fsutil'
@@ -81,6 +81,19 @@ export function loadSite(ctx: StoreContext, slug: string, source: SiteSource = '
     return { ok: false, errors: result.errors }
   }
 
+  // REQ-114 — a *loaded* site has literal colours. The palette (DOC-23 §5) is an
+  // authoring overlay: it is the unit of change on disk, but every consumer
+  // downstream of here — the renderer, the analytic evaluator, the round-trip
+  // gate, values-diff — reads a colour as the value it paints. Resolving once,
+  // at this boundary, is what makes converting a site's literals to references
+  // pixel-identical: nothing downstream can tell which form was authored.
+  //
+  // Validation ran first, so every reference is known to resolve; `resolveL1Palette`
+  // throws rather than substituting a default if one somehow does not.
+  // Structured-edit commands read and write the raw JSON, never this object, so
+  // the on-disk references survive a round-trip through the CLI untouched.
+  const site = resolveL1Palette(result.value, result.value.palette)
+
   const assetFiles = listFilesRel(path.join(sourceDir, 'assets'))
-  return { ok: true, value: { slug, sourceDir, site: result.value, assetFiles } }
+  return { ok: true, value: { slug, sourceDir, site, assetFiles } }
 }

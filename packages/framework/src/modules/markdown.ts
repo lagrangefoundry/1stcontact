@@ -1,5 +1,4 @@
 import { createMarkdownProcessor, type MarkdownRenderer } from '@astrojs/markdown-remark'
-import { TREATMENT_ROLE_DIAL } from './dials'
 import { assertSafeHtml } from './safety'
 import { resolveTextStyle, type TextRun } from './text-style'
 
@@ -8,14 +7,28 @@ import { resolveTextStyle, type TextRun } from './text-style'
  *
  * A blockquote opened with a GFM-style alert marker — `> [!accent] …`, or
  * `> [!secondary italic] …` — renders as a semantic **left-bar callout**
- * (accent border + indent, optionally italic) rather than markdown's plain
- * quote. The accent is a palette **role** (closed set), never a raw colour, so a
- * pull-quote's emphasis is structured and token-backed. Available in any
- * `markdown` content field, since the transform runs in the shared renderer.
+ * (left bar + indent, optionally italic) rather than markdown's plain quote. The
+ * emphasis name is drawn from a closed set, never a raw value, so a pull-quote's
+ * emphasis stays structured. Available in any `markdown` content field, since
+ * the transform runs in the shared renderer.
+ *
+ * REQ-114 — these names used to be *palette roles* backing a per-role bar
+ * colour. Colour left the token surface for the L1 palette model (DOC-23 §5), so
+ * the bar now paints `currentColor` and the set below is a closed emphasis
+ * vocabulary rather than a colour one.
  */
 
-/** Palette roles a callout marker may name (the shared token-backed set). */
-const CALLOUT_ROLES = new Set<string>(TREATMENT_ROLE_DIAL)
+/** Emphasis names a callout marker may carry (a closed set). */
+const CALLOUT_ROLES = new Set<string>([
+  'primary',
+  'accent',
+  'secondary',
+  'muted',
+  'neutral-cool',
+  'accent-light',
+  'accent-deep',
+  'accent-mid',
+])
 
 /**
  * A rendered blockquote whose first paragraph opens with `[!<role>]` or
@@ -39,13 +52,17 @@ function transformCallouts(html: string): string {
  * Static CSS backing the callout treatment (REQ-32). Folded into the per-site
  * stylesheet after the module component CSS so the two-class `blockquote.fc-*`
  * selectors win the specificity tie against a module's own `:global(blockquote)`
- * rule by source order. Each role border resolves to a semantic token; nothing
- * here is site-specific.
+ * rule by source order. Nothing here is site-specific.
+ *
+ * REQ-114 — the bar takes `currentColor` and there are no per-role colour rules.
+ * They were the last `--color-*` consumers outside the retired token palette; a
+ * bar that follows the text colour needs no token at all, and a colour a site
+ * actually wants to choose belongs in its L1 palette (DOC-23 §5).
  */
 export const CALLOUT_CSS = `/* callout / left-bar treatment (REQ-32) */
 blockquote.fc-callout {
   margin: 0;
-  border-inline-start: var(--space-1) solid var(--color-muted);
+  border-inline-start: var(--space-1) solid currentColor;
   padding-inline-start: var(--space-6);
   color: inherit;
   /* A callout is a weight-emphasised statement — medium (500), a subtle step
@@ -53,13 +70,6 @@ blockquote.fc-callout {
      callout's weight is defined; a site-def never sets a raw font-weight. */
   font-weight: var(--font-weight-medium);
 }
-blockquote.fc-callout--primary { border-inline-start-color: var(--color-primary); }
-blockquote.fc-callout--accent { border-inline-start-color: var(--color-accent); }
-blockquote.fc-callout--secondary { border-inline-start-color: var(--color-secondary); }
-blockquote.fc-callout--muted { border-inline-start-color: var(--color-muted); }
-blockquote.fc-callout--neutral-cool { border-inline-start-color: var(--color-neutral-cool); }
-blockquote.fc-callout--accent-light { border-inline-start-color: var(--color-accent-light); }
-blockquote.fc-callout--accent-deep { border-inline-start-color: var(--color-accent-deep); }
 blockquote.fc-callout--italic { font-style: italic; }`
 
 /**
