@@ -1,20 +1,22 @@
 import type { FontFace } from '@1stcontact/site-schema'
-import type { DeepPartial, PartialPalette, ThemeTokens } from './contract'
+import type { DeepPartial, ThemeTokens } from './contract'
 import { defaultTokens } from './defaults'
 
 /**
  * Generate the site's theme CSS: a `:root` block declaring one CSS custom
- * property per theme token (DOC-7 §4.2), plus an optional
- * `@media (prefers-color-scheme: dark)` block overriding palette roles.
+ * property per theme token (DOC-7 §4.2).
  *
  * Any slot the caller omits is filled from {@link defaultTokens}, so the output
  * always covers the full token surface. Variable naming is deterministic (see
- * REQ-4): `--color-<role>`, `--font-size-<step>`, `--space-<step>`, etc.
+ * REQ-4): `--font-size-<step>`, `--space-<step>`, etc.
+ *
+ * REQ-114 — no `--color-*` property is emitted any more, and there is no
+ * dark-mode override hook. Colour left the token surface for the L1 palette
+ * model (DOC-23 §5); the dark override existed only to re-declare palette roles
+ * and had no callers, so it went with them rather than being ported to a model
+ * it was not designed against.
  */
-export function generateThemeCss(
-  tokens?: DeepPartial<ThemeTokens>,
-  options?: { dark?: PartialPalette },
-): string {
+export function generateThemeCss(tokens?: DeepPartial<ThemeTokens>): string {
   const t = mergeTokens(defaultTokens, tokens)
 
   // The display family (REQ-24) falls back to the heading family when a site
@@ -27,7 +29,6 @@ export function generateThemeCss(
   const labelFamily = t.typography.family.label ?? t.typography.family.body
 
   const vars: string[] = [
-    ...paletteVars(t.palette),
     `--font-family-heading: ${t.typography.family.heading};`,
     `--font-family-body: ${t.typography.family.body};`,
     `--font-family-display: ${displayFamily};`,
@@ -50,16 +51,6 @@ export function generateThemeCss(
   // so the families are registered before any custom property references them.
   const faces = fontFaceRules(t.fonts)
   if (faces) css = `${faces}\n\n${css}`
-
-  if (options?.dark) {
-    const darkVars = paletteVars(options.dark)
-    if (darkVars.length > 0) {
-      css +=
-        `\n\n@media (prefers-color-scheme: dark) {\n  :root {\n` +
-        darkVars.map((v) => `    ${v}`).join('\n') +
-        `\n  }\n}`
-    }
-  }
 
   return css
 }
@@ -97,13 +88,6 @@ function formatHint(src: string): string {
             ? 'opentype'
             : undefined
   return fmt ? ` format("${fmt}")` : ''
-}
-
-/** Palette roles → `--color-<kebab-role>` declarations. */
-function paletteVars(palette: Partial<Record<string, string>>): string[] {
-  return Object.entries(palette)
-    .filter(([, value]) => value !== undefined)
-    .map(([role, value]) => `--color-${kebab(role)}: ${value};`)
 }
 
 /** Flat record → `<prefix><key>: <value>;` declarations, keys used verbatim. */
@@ -152,11 +136,6 @@ function subScaleVars(
     if (scale.lineHeightPx !== undefined) out.push(`--subscale-${name}-line-height: ${pxAxis(scale.lineHeightPx)};`)
   }
   return out
-}
-
-/** camelCase → kebab-case (`surfaceSubtle` → `surface-subtle`). */
-function kebab(s: string): string {
-  return s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
 }
 
 /** Recursively overlay `override` onto `base`, returning a complete tokens object. */

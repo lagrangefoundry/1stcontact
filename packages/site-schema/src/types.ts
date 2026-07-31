@@ -12,7 +12,6 @@ import type {
   imageTreatmentSchema,
   layerBorderSchema,
   layerChildSchema,
-  layerColorRoleSchema,
   layerReflowSchema,
   layerSchema,
   layerShadowSchema,
@@ -30,7 +29,6 @@ import type {
   navPatternSchema,
   navTargetSchema,
   pageSchema,
-  paletteTokensSchema,
   radiusTokensSchema,
   seoMetaSchema,
   shadowTokensSchema,
@@ -54,7 +52,6 @@ import type {
 export type Site = z.infer<typeof siteSchema>
 export type SiteConfig = z.infer<typeof siteConfigSchema>
 export type ThemeTokens = z.infer<typeof themeTokensSchema>
-export type PaletteTokens = z.infer<typeof paletteTokensSchema>
 export type TypographyTokens = z.infer<typeof typographyTokensSchema>
 export type FontFace = z.infer<typeof fontFaceSchema>
 export type SpacingTokens = z.infer<typeof spacingTokensSchema>
@@ -79,7 +76,6 @@ export type BreakpointName = z.infer<typeof breakpointNameSchema>
 export type Position = z.infer<typeof positionSchema>
 export type PositionOverride = z.infer<typeof positionOverrideSchema>
 export type ImageTreatment = z.infer<typeof imageTreatmentSchema>
-export type LayerColorRole = z.infer<typeof layerColorRoleSchema>
 export type LayerShadow = z.infer<typeof layerShadowSchema>
 export type LayerBorder = z.infer<typeof layerBorderSchema>
 export type LayerTextTypography = z.infer<typeof layerTextTypographySchema>

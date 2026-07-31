@@ -1,9 +1,9 @@
 {
   "id": "home",
   "slug": "home",
-  "title": "XGD — AI writes it. XGD keeps it working.",
+  "title": "XGD \u2014 AI writes it. XGD keeps it working.",
   "seoMeta": {
-    "title": "XGD — AI writes it. XGD keeps it working.",
+    "title": "XGD \u2014 AI writes it. XGD keeps it working.",
     "description": "XGD maintains a living spec of your software's intended behavior and tests the running system against it on every change. You own that intent and the architecture; XGD owns the implementation."
   },
   "modules": [
@@ -30,8 +30,8 @@
             "required": false
           }
         ],
-        "submitLabel": "Send me the whitepapers",
-        "successMessage": "Thanks — the papers are on their way."
+        "submitLabel": "Join the waitlist",
+        "successMessage": "You\u2019re on the list \u2014 we\u2019ll be in touch."
       },
       "slots": {
         "form": {
@@ -48,14 +48,21 @@
               "kind": "control",
               "control": "email",
               "axes": {
-                "color": "#1F2937",
+                "color": {
+                  "ref": "text"
+                },
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 15,
-                "surfaceFill": "#FFFFFF",
+                "surfaceFill": {
+                  "ref": "neutral"
+                },
                 "borderRadiusPx": 6,
                 "border": {
                   "widthPx": 1,
-                  "color": "#D1D5DB",
+                  "color": {
+                    "ref": "text",
+                    "step": "200"
+                  },
                   "style": "solid"
                 }
               },
@@ -82,19 +89,27 @@
                 "hover": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#4AAFC9",
+                    "color": {
+                      "ref": "primary",
+                      "step": "500"
+                    },
                     "style": "solid"
                   }
                 },
                 "focus": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#2E86A3",
+                    "color": {
+                      "ref": "primary"
+                    },
                     "style": "solid"
                   },
                   "ring": {
                     "widthPx": 2,
-                    "color": "#2E86A355",
+                    "color": {
+                      "ref": "primary",
+                      "alpha": 0.3333333333333333
+                    },
                     "offsetPx": 1
                   }
                 }
@@ -104,14 +119,21 @@
               "kind": "control",
               "control": "message",
               "axes": {
-                "color": "#1F2937",
+                "color": {
+                  "ref": "text"
+                },
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 15,
-                "surfaceFill": "#FFFFFF",
+                "surfaceFill": {
+                  "ref": "neutral"
+                },
                 "borderRadiusPx": 6,
                 "border": {
                   "widthPx": 1,
-                  "color": "#D1D5DB",
+                  "color": {
+                    "ref": "text",
+                    "step": "200"
+                  },
                   "style": "solid"
                 }
               },
@@ -138,19 +160,27 @@
                 "hover": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#4AAFC9",
+                    "color": {
+                      "ref": "primary",
+                      "step": "500"
+                    },
                     "style": "solid"
                   }
                 },
                 "focus": {
                   "border": {
                     "widthPx": 1,
-                    "color": "#2E86A3",
+                    "color": {
+                      "ref": "primary"
+                    },
                     "style": "solid"
                   },
                   "ring": {
                     "widthPx": 2,
-                    "color": "#2E86A355",
+                    "color": {
+                      "ref": "primary",
+                      "alpha": 0.3333333333333333
+                    },
                     "offsetPx": 1
                   }
                 }
@@ -160,12 +190,16 @@
               "kind": "control",
               "control": "submit",
               "axes": {
-                "color": "#FFFFFF",
+                "color": {
+                  "ref": "neutral"
+                },
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 15,
                 "fontWeight": 600,
                 "textAlign": "center",
-                "surfaceFill": "#2E86A3",
+                "surfaceFill": {
+                  "ref": "primary"
+                },
                 "borderRadiusPx": 6
               },
               "padding": {
@@ -189,7 +223,10 @@
                   "easing": "ease-out"
                 },
                 "hover": {
-                  "surfaceFill": "#236D87",
+                  "surfaceFill": {
+                    "ref": "primary",
+                    "step": "700"
+                  },
                   "motion": {
                     "offsetYPx": -2
                   },
@@ -197,13 +234,19 @@
                     "offsetXPx": 0,
                     "offsetYPx": 8,
                     "blurPx": 24,
-                    "color": "#00000059"
+                    "color": {
+                      "ref": "neutral",
+                      "step": "950",
+                      "alpha": 0.34901960784313724
+                    }
                   }
                 },
                 "focus": {
                   "ring": {
                     "widthPx": 2,
-                    "color": "#2E86A3",
+                    "color": {
+                      "ref": "primary"
+                    },
                     "offsetPx": 2
                   }
                 }
@@ -223,7 +266,13 @@
       1280,
       1440
     ],
-    "background": "#FFFEF8",
+    "background": {
+      "ref": "surface"
+    },
+    "textColor": {
+      "ref": "text",
+      "step": "900"
+    },
     "resources": {
       "fonts": [
         {
@@ -315,7 +364,9 @@
                   "id": "wordmark",
                   "text": "xgd",
                   "axes": {
-                    "color": "#1F2937",
+                    "color": {
+                      "ref": "text"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 22,
                     "fontWeight": 700,
@@ -339,14 +390,17 @@
                   "kind": "text",
                   "text": "Whitepapers",
                   "axes": {
-                    "color": "#6B7280",
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 15,
                     "fontWeight": 400,
                     "lineHeightPx": 22
                   },
                   "link": {
-                    "href": "#papers"
+                    "href": "whitepapers"
                   },
                   "interaction": {
                     "transition": {
@@ -354,12 +408,16 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "color": "#1F2937"
+                      "color": {
+                        "ref": "text"
+                      }
                     },
                     "focus": {
                       "ring": {
                         "widthPx": 2,
-                        "color": "#2E86A3",
+                        "color": {
+                          "ref": "primary"
+                        },
                         "offsetPx": 3
                       }
                     }
@@ -369,7 +427,10 @@
                   "kind": "text",
                   "text": "How it works",
                   "axes": {
-                    "color": "#6B7280",
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 15,
                     "fontWeight": 400,
@@ -384,12 +445,16 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "color": "#1F2937"
+                      "color": {
+                        "ref": "text"
+                      }
                     },
                     "focus": {
                       "ring": {
                         "widthPx": 2,
-                        "color": "#2E86A3",
+                        "color": {
+                          "ref": "primary"
+                        },
                         "offsetPx": 3
                       }
                     }
@@ -402,7 +467,9 @@
                     "href": "#signup"
                   },
                   "axes": {
-                    "surfaceFill": "#2E86A3",
+                    "surfaceFill": {
+                      "ref": "primary"
+                    },
                     "borderRadiusPx": 6
                   },
                   "padding": {
@@ -416,7 +483,9 @@
                       "kind": "text",
                       "text": "Join the beta",
                       "axes": {
-                        "color": "#FFFEF8",
+                        "color": {
+                          "ref": "surface"
+                        },
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 600,
@@ -431,12 +500,17 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "surfaceFill": "#236D87"
+                      "surfaceFill": {
+                        "ref": "primary",
+                        "step": "700"
+                      }
                     },
                     "focus": {
                       "ring": {
                         "widthPx": 2,
-                        "color": "#2E86A3",
+                        "color": {
+                          "ref": "primary"
+                        },
                         "offsetPx": 2
                       }
                     }
@@ -461,7 +535,10 @@
               "id": "eyebrow",
               "text": "Extreme Generative Development",
               "axes": {
-                "color": "#6B7280",
+                "color": {
+                  "ref": "text",
+                  "step": "500"
+                },
                 "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                 "fontSizePx": 13,
                 "fontWeight": 400,
@@ -496,7 +573,10 @@
                   "id": "h1-a",
                   "text": "AI writes it.",
                   "axes": {
-                    "color": "#9CA3AF",
+                    "color": {
+                      "ref": "text",
+                      "step": "400"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 78,
                     "fontWeight": 700,
@@ -555,7 +635,9 @@
                   "id": "h1-b",
                   "text": "XGD keeps it working.",
                   "axes": {
-                    "color": "#1F2937",
+                    "color": {
+                      "ref": "text"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 78,
                     "fontWeight": 700,
@@ -620,7 +702,7 @@
             {
               "kind": "text",
               "id": "sub",
-              "text": "XGD maintains a living spec of your software's intended behavior and tests the running system against it on every change. You own that intent and the architecture; XGD owns the implementation.",
+              "text": "Work at conversational speed. Behind you, XGD maintains a living spec of what your software should do, tests the running system against it on every change, and repairs what breaks. You keep product, architecture and quality.",
               "sizing": {
                 "width": {
                   "mode": "fluid",
@@ -628,7 +710,10 @@
                 }
               },
               "axes": {
-                "color": "#4B5563",
+                "color": {
+                  "ref": "text",
+                  "step": "700"
+                },
                 "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                 "fontSizePx": 19,
                 "fontWeight": 400,
@@ -693,7 +778,9 @@
                   "kind": "box",
                   "id": "cta-primary",
                   "axes": {
-                    "surfaceFill": "#2E86A3",
+                    "surfaceFill": {
+                      "ref": "primary"
+                    },
                     "borderRadiusPx": 6
                   },
                   "padding": {
@@ -707,7 +794,9 @@
                       "kind": "text",
                       "text": "Join the beta waitlist",
                       "axes": {
-                        "color": "#FFFFFF",
+                        "color": {
+                          "ref": "neutral"
+                        },
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 600,
@@ -723,7 +812,10 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "surfaceFill": "#236D87",
+                      "surfaceFill": {
+                        "ref": "primary",
+                        "step": "700"
+                      },
                       "motion": {
                         "offsetYPx": -2
                       },
@@ -731,13 +823,19 @@
                         "offsetXPx": 0,
                         "offsetYPx": 8,
                         "blurPx": 24,
-                        "color": "#00000059"
+                        "color": {
+                          "ref": "neutral",
+                          "step": "950",
+                          "alpha": 0.34901960784313724
+                        }
                       }
                     },
                     "focus": {
                       "ring": {
                         "widthPx": 2,
-                        "color": "#2E86A3",
+                        "color": {
+                          "ref": "primary"
+                        },
                         "offsetPx": 2
                       }
                     }
@@ -753,7 +851,10 @@
                     "borderRadiusPx": 6,
                     "border": {
                       "widthPx": 1,
-                      "color": "#D1D5DB",
+                      "color": {
+                        "ref": "text",
+                        "step": "200"
+                      },
                       "style": "solid"
                     }
                   },
@@ -766,9 +867,11 @@
                   "children": [
                     {
                       "kind": "text",
-                      "text": "Read the whitepaper",
+                      "text": "See the evidence",
                       "axes": {
-                        "color": "#1F2937",
+                        "color": {
+                          "ref": "text"
+                        },
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 500,
@@ -784,10 +887,15 @@
                       "easing": "ease-out"
                     },
                     "hover": {
-                      "surfaceFill": "#EAF5F8",
+                      "surfaceFill": {
+                        "ref": "surface-accent"
+                      },
                       "border": {
                         "widthPx": 1,
-                        "color": "#4AAFC9",
+                        "color": {
+                          "ref": "primary",
+                          "step": "500"
+                        },
                         "style": "solid"
                       },
                       "motion": {
@@ -797,13 +905,15 @@
                     "focus": {
                       "ring": {
                         "widthPx": 2,
-                        "color": "#2E86A3",
+                        "color": {
+                          "ref": "primary"
+                        },
                         "offsetPx": 2
                       }
                     }
                   },
                   "link": {
-                    "href": "#papers"
+                    "href": "#proof"
                   }
                 }
               ],
@@ -863,7 +973,9 @@
           "axes": {
             "backgroundImageUrl": "/assets/xgd-grid-hero.svg?v=3",
             "pointerAccent": {
-              "color": "#2e86a3",
+              "color": {
+                "ref": "primary"
+              },
               "radiusPx": 95,
               "softnessPx": 14,
               "roughness": 0.65
@@ -873,7 +985,10 @@
         {
           "kind": "box",
           "axes": {
-            "surfaceFill": "#E5E2D5"
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "125"
+            }
           },
           "sizing": {
             "width": {
@@ -975,7 +1090,10 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#6B7280",
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -998,7 +1116,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "Code got cheap. Confidence didn't.",
+                  "text": "Code got cheap. Confidence didn\u2019t.",
                   "reveal": {
                     "yPx": 22,
                     "durationMs": 640,
@@ -1011,7 +1129,9 @@
                     }
                   },
                   "axes": {
-                    "color": "#1F2937",
+                    "color": {
+                      "ref": "text"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -1079,7 +1199,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "An agent can produce a thousand lines before lunch. What it cannot tell you is whether the ninety thousand already there still do what you promised. Velocity moved; verification stayed exactly where it was.",
+                  "text": "An agent can produce a thousand lines before lunch. What it cannot tell you is whether the ninety thousand it wrote last month still do what you promised. So you reach for discipline \u2014 specs first, a review on every diff, a full cycle per change \u2014 and a two-minute question becomes an afternoon.",
                   "reveal": {
                     "yPx": 18,
                     "durationMs": 640,
@@ -1092,7 +1212,10 @@
                     }
                   },
                   "axes": {
-                    "color": "#4B5563",
+                    "color": {
+                      "ref": "text",
+                      "step": "700"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -1184,7 +1307,9 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#2E86A3",
+                            "color": {
+                              "ref": "primary"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1194,9 +1319,11 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Intent evaporates",
+                          "text": "Regressions arrive quietly",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1206,9 +1333,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "The reason a behaviour exists lives in a conversation that scrolls away, not in anything the build can check.",
+                          "text": "Every change can break something that already worked. With no record of what was intended, nothing can tell you whether a behaviour moved by design or by accident.",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1217,11 +1347,16 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -1237,10 +1372,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -1270,7 +1410,9 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#2E86A3",
+                            "color": {
+                              "ref": "primary"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1280,9 +1422,11 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Tests drift",
+                          "text": "Discipline costs cadence",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1292,9 +1436,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Suites grow around the implementation they were written against, so they keep passing long after the behaviour they describe has moved.",
+                          "text": "Specs up front, a diff to review, a full generated cycle for a one-line fix. All of it correct, and all of it sitting between you and the result.",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1303,11 +1450,16 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -1323,10 +1475,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -1356,7 +1513,9 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#2E86A3",
+                            "color": {
+                              "ref": "primary"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1366,9 +1525,11 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Review stops scaling",
+                          "text": "So you route around it",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1378,9 +1539,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Reading every diff was always the weakest link. At generated volume it stops being a link at all.",
+                          "text": "A process you skip protects nothing. The only governance that counts is the kind that survives contact with a real working day.",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1389,11 +1553,16 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -1409,10 +1578,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -1427,15 +1601,24 @@
             }
           ],
           "axes": {
-            "surfaceFill": "#F5F4EC",
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "100"
+            },
             "pattern": {
               "shape": "grid",
               "spacingPx": 32,
               "thicknessPx": 1,
-              "color": "#8b5c2a00"
+              "color": {
+                "ref": "accent",
+                "alpha": 0
+              }
             },
             "pointerAccent": {
-              "color": "#2e86a3a6",
+              "color": {
+                "ref": "primary",
+                "alpha": 0.6509803921568628
+              },
               "radiusPx": 95,
               "softnessPx": 14,
               "roughness": 0.65
@@ -1532,7 +1715,10 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#6B7280",
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -1555,7 +1741,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "A living spec, tested on every change.",
+                  "text": "You keep working. XGD reconciles behind you.",
                   "reveal": {
                     "yPx": 22,
                     "durationMs": 640,
@@ -1568,7 +1754,9 @@
                     }
                   },
                   "axes": {
-                    "color": "#1F2937",
+                    "color": {
+                      "ref": "text"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -1636,7 +1824,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "XGD maintains a capability matrix: a traceable chain running from what your software is for, down to executable proof that it still does it. Every change is checked against that chain before it lands.",
+                  "text": "You work with the AI the way you already do \u2014 ask, see it run, adjust. In the background, XGD folds what you built into a capability matrix: a traceable chain from what your software is for down to executable proof that it still does it. Nothing waits on it.",
                   "reveal": {
                     "yPx": 18,
                     "durationMs": 640,
@@ -1649,7 +1837,10 @@
                     }
                   },
                   "axes": {
-                    "color": "#4B5563",
+                    "color": {
+                      "ref": "text",
+                      "step": "700"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -1741,7 +1932,9 @@
                           "kind": "text",
                           "text": "01",
                           "axes": {
-                            "color": "#2E86A3",
+                            "color": {
+                              "ref": "primary"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1751,9 +1944,11 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Capability",
+                          "text": "You build",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1763,9 +1958,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "A durable slice of what your system does — finite, named, and stable across refactors.",
+                          "text": "Interactive, at conversational cadence. An intent ticket is opened, tests are written, the commit carries its traceability. Five to ten minutes, not an afternoon.",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1774,11 +1972,16 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -1794,10 +1997,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -1827,7 +2035,9 @@
                           "kind": "text",
                           "text": "02",
                           "axes": {
-                            "color": "#2E86A3",
+                            "color": {
+                              "ref": "primary"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1837,9 +2047,11 @@
                         },
                         {
                           "kind": "text",
-                          "text": "User story",
+                          "text": "XGD reconciles",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1849,9 +2061,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Why that behaviour exists, in plain English. Derived from your intent, never loose free text.",
+                          "text": "In the background, the change is folded into the matrix \u2014 capability, story, acceptance criteria, and an executable test for each. You are never waiting on this.",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1860,11 +2075,16 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -1880,10 +2100,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -1913,7 +2138,9 @@
                           "kind": "text",
                           "text": "03",
                           "axes": {
-                            "color": "#2E86A3",
+                            "color": {
+                              "ref": "primary"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -1923,9 +2150,11 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Acceptance criteria",
+                          "text": "The record can\u2019t go stale",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -1935,9 +2164,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "What correct means for the story. Behavioural, not bound to any one implementation.",
+                          "text": "Every criterion is pinned by a test that runs against the live system. A specification document drifts silently; this one fails the moment the code stops matching it.",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -1946,11 +2178,16 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -1966,10 +2203,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -1999,7 +2241,9 @@
                           "kind": "text",
                           "text": "04",
                           "axes": {
-                            "color": "#2E86A3",
+                            "color": {
+                              "ref": "primary"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2009,9 +2253,11 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Verification",
+                          "text": "Regressions get repaired",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 19,
                             "fontWeight": 600,
@@ -2021,9 +2267,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "An executable test per criterion. Passing tests are the evidence; missing ones are reported, not hidden.",
+                          "text": "Free coding on a complex codebase throws roughly one regression for every two tickets \u2014 that is the going rate for the practice, not a fault of the tool. XGD catches them against the recorded intent, and fixes them.",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 15,
                             "fontWeight": 400,
@@ -2032,11 +2281,16 @@
                         }
                       ],
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -2052,10 +2306,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -2072,7 +2331,9 @@
           "axes": {
             "backgroundImageUrl": "/assets/xgd-echo-1.svg?v=3",
             "pointerAccent": {
-              "color": "#2e86a3",
+              "color": {
+                "ref": "primary"
+              },
               "radiusPx": 95,
               "softnessPx": 14,
               "roughness": 0.65
@@ -2081,7 +2342,7 @@
         },
         {
           "kind": "container",
-          "id": "papers",
+          "id": "proof",
           "layout": "stack",
           "align": "center",
           "sizing": {
@@ -2090,15 +2351,24 @@
             }
           },
           "axes": {
-            "surfaceFill": "#F5F4EC",
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "100"
+            },
             "pattern": {
               "shape": "grid",
               "spacingPx": 32,
               "thicknessPx": 1,
-              "color": "#8b5c2a00"
+              "color": {
+                "ref": "accent",
+                "alpha": 0
+              }
             },
             "pointerAccent": {
-              "color": "#2e86a3a6",
+              "color": {
+                "ref": "primary",
+                "alpha": 0.6509803921568628
+              },
               "radiusPx": 95,
               "softnessPx": 14,
               "roughness": 0.65
@@ -2184,7 +2454,10 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#6B7280",
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -2220,7 +2493,9 @@
                     }
                   },
                   "axes": {
-                    "color": "#1F2937",
+                    "color": {
+                      "ref": "text"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 44,
                     "fontWeight": 700,
@@ -2289,7 +2564,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "Its creator has not read a single line of its source — and has never stopped holding its architecture, reminding the system cycle after cycle of the decisions that shaped it.",
+                  "text": "Nine months, one person: 130,000 lines of production code and 300,000 lines of tests, not one line of it read by a human. We built the fully autonomous version first \u2014 then noticed we were avoiding it, because waiting hours for a small change cost more than it saved. Free coding exists because of what we found out about ourselves.",
                   "reveal": {
                     "yPx": 18,
                     "durationMs": 640,
@@ -2302,7 +2577,10 @@
                     }
                   },
                   "axes": {
-                    "color": "#4B5563",
+                    "color": {
+                      "ref": "text",
+                      "step": "700"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -2369,7 +2647,9 @@
                   "axes": {
                     "borderLeft": {
                       "widthPx": 2,
-                      "color": "#2E86A3",
+                      "color": {
+                        "ref": "primary"
+                      },
                       "style": "solid"
                     }
                   },
@@ -2395,9 +2675,11 @@
                   "children": [
                     {
                       "kind": "text",
-                      "text": "“I built a platform I’ve never read the source of — but I never stopped being its engineer.”",
+                      "text": "\u201cI built a platform I\u2019ve never read the source of \u2014 but I never stopped being its engineer.\u201d",
                       "axes": {
-                        "color": "#1F2937",
+                        "color": {
+                          "ref": "text"
+                        },
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 26,
                         "fontWeight": 500,
@@ -2441,9 +2723,12 @@
                     },
                     {
                       "kind": "text",
-                      "text": "Martin Westhead · GenDev Labs",
+                      "text": "Martin Westhead \u00b7 GenDev Labs",
                       "axes": {
-                        "color": "#6B7280",
+                        "color": {
+                          "ref": "text",
+                          "step": "500"
+                        },
                         "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                         "fontSizePx": 12,
                         "fontWeight": 400,
@@ -2547,7 +2832,10 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#6B7280",
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -2570,7 +2858,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "You own the intent. XGD owns the implementation.",
+                  "text": "You\u2019re out of the code. Not out of the project.",
                   "reveal": {
                     "yPx": 22,
                     "durationMs": 640,
@@ -2583,7 +2871,9 @@
                     }
                   },
                   "axes": {
-                    "color": "#1F2937",
+                    "color": {
+                      "ref": "text"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -2651,7 +2941,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "The split is deliberate and it does not move. You stay responsible for the decisions only you can make; XGD takes the work that scales badly with human attention.",
+                  "text": "The split is deliberate and it does not move. You are out of the coding loop \u2014 not writing it, not reading it, not reviewing diffs. Everywhere else, you are still the engineer.",
                   "reveal": {
                     "yPx": 18,
                     "durationMs": 640,
@@ -2664,7 +2954,10 @@
                     }
                   },
                   "axes": {
-                    "color": "#4B5563",
+                    "color": {
+                      "ref": "text",
+                      "step": "700"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -2752,11 +3045,16 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -2771,7 +3069,9 @@
                           "kind": "text",
                           "text": "You own",
                           "axes": {
-                            "color": "#1F2937",
+                            "color": {
+                              "ref": "text"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2794,9 +3094,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Product intent and priorities",
+                          "text": "Product design and priorities",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2809,9 +3112,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "The architecture and its constraints",
+                          "text": "Architecture, technology and API choices",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2824,9 +3130,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "What done means for each behaviour",
+                          "text": "What correct means for each behaviour",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2839,9 +3148,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "The decision to ship",
+                          "text": "Quality \u2014 the judgment that it is right",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2859,10 +3171,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -2888,11 +3205,16 @@
                         }
                       },
                       "axes": {
-                        "surfaceFill": "#FFFEF8",
+                        "surfaceFill": {
+                          "ref": "surface"
+                        },
                         "borderRadiusPx": 10,
                         "border": {
                           "widthPx": 1,
-                          "color": "#E5E2D5",
+                          "color": {
+                            "ref": "surface",
+                            "step": "125"
+                          },
                           "style": "solid"
                         }
                       },
@@ -2907,7 +3229,10 @@
                           "kind": "text",
                           "text": "XGD owns",
                           "axes": {
-                            "color": "#6B7280",
+                            "color": {
+                              "ref": "text",
+                              "step": "500"
+                            },
                             "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                             "fontSizePx": 12,
                             "fontWeight": 400,
@@ -2930,9 +3255,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Technical design and sprint planning",
+                          "text": "Detailed design and task planning",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2947,7 +3275,10 @@
                           "kind": "text",
                           "text": "The code, and the tests that pin it",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2960,9 +3291,12 @@
                         },
                         {
                           "kind": "text",
-                          "text": "Regression, reconciliation, repair",
+                          "text": "Regression detection, reconciliation, repair",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2977,7 +3311,10 @@
                           "kind": "text",
                           "text": "Evidence that all of it still holds",
                           "axes": {
-                            "color": "#4B5563",
+                            "color": {
+                              "ref": "text",
+                              "step": "700"
+                            },
                             "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                             "fontSizePx": 16,
                             "fontWeight": 400,
@@ -2995,10 +3332,15 @@
                           "easing": "ease-out"
                         },
                         "hover": {
-                          "surfaceFill": "#FFFFFF",
+                          "surfaceFill": {
+                            "ref": "neutral"
+                          },
                           "border": {
                             "widthPx": 1,
-                            "color": "#4AAFC9",
+                            "color": {
+                              "ref": "primary",
+                              "step": "500"
+                            },
                             "style": "solid"
                           },
                           "motion": {
@@ -3015,7 +3357,9 @@
           "axes": {
             "backgroundImageUrl": "/assets/xgd-echo-3.svg?v=3",
             "pointerAccent": {
-              "color": "#2e86a3",
+              "color": {
+                "ref": "primary"
+              },
               "radiusPx": 95,
               "softnessPx": 14,
               "roughness": 0.65
@@ -3112,7 +3456,10 @@
                     "easing": "ease-out"
                   },
                   "axes": {
-                    "color": "#6B7280",
+                    "color": {
+                      "ref": "text",
+                      "step": "500"
+                    },
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 13,
                     "fontWeight": 400,
@@ -3148,7 +3495,9 @@
                     }
                   },
                   "axes": {
-                    "color": "#1F2937",
+                    "color": {
+                      "ref": "text"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 48,
                     "fontWeight": 700,
@@ -3216,7 +3565,7 @@
                 },
                 {
                   "kind": "text",
-                  "text": "XGD does not claim your software is correct. It guarantees that every claim of correctness is backed by inspectable evidence — and that every gap in that evidence is visible rather than quietly absent.",
+                  "text": "XGD does not claim your software is correct. It guarantees that every claim of correctness is backed by inspectable evidence \u2014 and that every gap in that evidence is visible rather than quietly absent.",
                   "reveal": {
                     "yPx": 18,
                     "durationMs": 640,
@@ -3229,7 +3578,10 @@
                     }
                   },
                   "axes": {
-                    "color": "#4B5563",
+                    "color": {
+                      "ref": "text",
+                      "step": "700"
+                    },
                     "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                     "fontSizePx": 18,
                     "fontWeight": 400,
@@ -3307,9 +3659,11 @@
                   "children": [
                     {
                       "kind": "text",
-                      "text": "Join the beta — and get the whitepapers.",
+                      "text": "Join the beta waitlist.",
                       "axes": {
-                        "color": "#1F2937",
+                        "color": {
+                          "ref": "text"
+                        },
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 19,
                         "fontWeight": 600,
@@ -3331,7 +3685,7 @@
                     },
                     {
                       "kind": "text",
-                      "text": "One email. We’ll send the papers straight back and let you know when the beta opens. Tell us what you’re building if you want a reply.",
+                      "text": "The beta opens when the system is stable, not before \u2014 leave your email and we\u2019ll tell you the moment it does. Tell us what you\u2019re building if you\u2019d like a reply.",
                       "sizing": {
                         "width": {
                           "mode": "fluid",
@@ -3339,7 +3693,10 @@
                         }
                       },
                       "axes": {
-                        "color": "#6B7280",
+                        "color": {
+                          "ref": "text",
+                          "step": "500"
+                        },
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 15,
                         "fontWeight": 400,
@@ -3370,15 +3727,24 @@
             }
           ],
           "axes": {
-            "surfaceFill": "#F5F4EC",
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "100"
+            },
             "pattern": {
               "shape": "grid",
               "spacingPx": 32,
               "thicknessPx": 1,
-              "color": "#8b5c2a00"
+              "color": {
+                "ref": "accent",
+                "alpha": 0
+              }
             },
             "pointerAccent": {
-              "color": "#2e86a3a6",
+              "color": {
+                "ref": "primary",
+                "alpha": 0.6509803921568628
+              },
               "radiusPx": 95,
               "softnessPx": 14,
               "roughness": 0.65
@@ -3388,7 +3754,10 @@
         {
           "kind": "box",
           "axes": {
-            "surfaceFill": "#E5E2D5"
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "125"
+            }
           },
           "sizing": {
             "width": {
@@ -3411,7 +3780,10 @@
             }
           },
           "axes": {
-            "surfaceFill": "#F5F4EC"
+            "surfaceFill": {
+              "ref": "surface",
+              "step": "100"
+            }
           },
           "children": [
             {
@@ -3460,7 +3832,10 @@
                       "kind": "text",
                       "text": "xgd",
                       "axes": {
-                        "color": "#6B7280",
+                        "color": {
+                          "ref": "text",
+                          "step": "500"
+                        },
                         "fontFamily": "Satoshi, Helvetica Neue, Arial, sans-serif",
                         "fontSizePx": 17,
                         "fontWeight": 700,
@@ -3475,9 +3850,12 @@
                 },
                 {
                   "kind": "text",
-                  "text": "© 2026 GenDev Labs",
+                  "text": "\u00a9 2026 GenDev Labs",
                   "axes": {
-                    "color": "#9CA3AF",
+                    "color": {
+                      "ref": "text",
+                      "step": "400"
+                    },
                     "fontFamily": "JetBrains Mono, ui-monospace, Menlo, monospace",
                     "fontSizePx": 12,
                     "fontWeight": 400,

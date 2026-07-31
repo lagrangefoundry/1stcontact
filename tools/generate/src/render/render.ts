@@ -131,12 +131,17 @@ async function renderPage(
     `<title>${escapeHtml(title)}</title>`,
     description ? `<meta name="description" content="${escapeHtml(description)}" />` : '',
     ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : '',
-    // Theme tokens (fonts, palette, spacing) are declared as custom properties
-    // in theme.css; the base style below binds the document to them.
+    // Theme tokens (fonts, spacing, scales) are declared as custom properties in
+    // theme.css; the base style below binds the document to them.
+    //
+    // REQ-114 — the page's background and text colour are NOT set here any more.
+    // They came from `--color-bg` / `--color-text`, which went with the legacy
+    // token palette; their home is the L1 document's own `background` /
+    // `textColor` (DOC-23 §2), emitted by the sole L1 emitter below.
     '<link rel="stylesheet" href="./theme.css" />',
     '<style>',
     '  *, *::before, *::after { box-sizing: border-box; }',
-    '  body { margin: 0; font-family: var(--font-family-body); background: var(--color-bg); color: var(--color-text); }',
+    '  body { margin: 0; font-family: var(--font-family-body); }',
     '  h1, h2, h3, h4 { font-family: var(--font-family-heading); }',
     '</style>',
     // REQ-88: the folded L1 document's self-contained css (absolute geometry

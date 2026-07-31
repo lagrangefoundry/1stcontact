@@ -9,14 +9,12 @@
 export { defaultTokens, generateThemeCss } from './tokens'
 export type {
   ThemeTokens,
-  PaletteTokens,
   TypographyTokens,
   SpacingTokens,
   RadiusTokens,
   ShadowTokens,
   ContainerTokens,
   BreakpointTokens,
-  PartialPalette,
   DeepPartial,
 } from './tokens'
 
@@ -39,9 +37,7 @@ export {
   normalizeStyledText,
   TEXT_STYLE_ALIASES,
   GRADIENT_DIRECTION_ALIASES,
-  PALETTE_ROLE_ALIASES,
   isColorLiteral,
-  isPaletteRole,
   validateModuleContent,
   validateBehaviorConfig,
   validateBehaviorSlots,

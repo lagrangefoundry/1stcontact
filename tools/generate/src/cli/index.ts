@@ -29,6 +29,7 @@ import {
 import { cmdCapturePage } from './capture'
 import { cmdDeploy, formatDeployReport } from '../deploy'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
+import { cmdColors, cmdColorsAssign, formatAssign, formatCensus } from './colors'
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
@@ -257,6 +258,15 @@ Adopt-gaps (REQ-74) — close section-boundary vertical GAP deltas by inverting 
   1c adopt-gaps <slug> --ref <captureBundleDir> [--apply] [--json] [--sandbox]
     A gap is linear in one knob: new spacingTop = current + (ref_gap - our_gap); a too-tight gap also
     reduces the previous section's spacingBottom. Dry-run by default. Pairs with the REQ-73 gap axis.
+
+Colours (REQ-114) — the palette colour model (DOC-23 §5): literal base, palette overlay:
+  1c colors <slug> [--json] [--sandbox]
+    Census the site's colour literals: distinct colours, distinct RGB ignoring alpha, and the
+    alpha families (one RGB used at several opacities) that collapse to one entry exactly.
+  1c colors <slug> --assign [--names <derived>=<chosen>,…] [--json] [--sandbox]
+    Retrofit the site onto a derived palette: alpha collapse first (exact), then hue-family ramp
+    grouping (reviewable). Writes site.palette and rewrites every colour literal as a reference.
+    Refuses to write unless every reference resolves back to the byte it replaced.
 
 Fonts (REQ-101) — licence provenance for every font file in the project:
   1c fonts check [--json]
@@ -855,6 +865,30 @@ export async function run(argv: string[]): Promise<void> {
       } catch (err) {
         fail(err, json)
       }
+      return
+    }
+
+    case 'colors': {
+      const slug = requireSlug(rest[0])
+      if (flags.assign) {
+        // `--names slate=text,teal=primary` renames derived families to DOC-23
+        // §5.4's role vocabulary, keeping the retrofit reproducible from the
+        // command line rather than finishing it by hand.
+        const names: Record<string, string> = {}
+        if (typeof flags.names === 'string') {
+          for (const pair of flags.names.split(',')) {
+            const [from, to] = pair.split('=')
+            if (from && to) names[from.trim()] = to.trim()
+          }
+        }
+        const result = cmdColorsAssign(slug, global, names)
+        if (flags.json) console.log(JSON.stringify(result.palette, null, 2))
+        else console.log(formatAssign(result))
+        return
+      }
+      const census = cmdColors(slug, global)
+      if (flags.json) console.log(JSON.stringify(census, null, 2))
+      else console.log(formatCensus(census))
       return
     }
 

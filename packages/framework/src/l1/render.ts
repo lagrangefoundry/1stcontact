@@ -11,7 +11,7 @@
  * lower keyframe's value until the next breakpoint. Text height is natural (the
  * glyph box); only box/image leaves pin a height.
  */
-import { isSafeUrl, type L1Link } from '@1stcontact/site-schema'
+import { isSafeUrl, resolveL1Palette, type L1Color, type L1Link, type L1Palette } from '@1stcontact/site-schema'
 import type {
   L1AxisSizing,
   L1Border,
@@ -55,9 +55,17 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
-/** A colour is emitted only if it is a valid hex literal, else dropped. */
-function cssColor(v: string | undefined): string | null {
-  return v && HEX.test(v) ? v : null
+/**
+ * A colour is emitted only if it is a valid hex literal, else dropped.
+ *
+ * REQ-114 — a colour axis is `hex | PaletteRef`, and {@link renderL1Document}
+ * resolves every reference at its entry, so by the time a value reaches this
+ * sink it is always a literal. An unresolved reference arriving here therefore
+ * means a consumer bypassed resolution; it is dropped rather than emitted,
+ * keeping the sink fail-closed the way every other value check here is.
+ */
+function cssColor(v: L1Color | undefined): string | null {
+  return typeof v === 'string' && HEX.test(v) ? v : null
 }
 
 /** A finite number → `${n}px`, else null. Numbers cannot carry an injection. */
@@ -227,7 +235,7 @@ function deg(v: number | undefined): string | null {
  * Fold an opacity (0..1) into a hex colour → `#rrggbbaa`. The colour's own alpha
  * (if `#rrggbbaa`) is dropped and replaced. Returns null for a non-hex colour.
  */
-function withAlpha(color: string, opacity: number | undefined): string | null {
+function withAlpha(color: L1Color, opacity: number | undefined): string | null {
   const c = cssColor(color)
   if (!c) return null
   // Expand #rgb → #rrggbb, strip any existing alpha to the 6-digit base.
@@ -2023,10 +2031,23 @@ export interface L1RenderOptions {
    * own — so the caller renders first and hands the finished HTML in here.
    */
   mounts?: Readonly<Record<string, string>>
+  /**
+   * REQ-114 — the site palette any colour reference in `doc` resolves against
+   * (DOC-23 §5). Omit it for a literal-only document, which is every document the
+   * capture→L1 fold produces.
+   *
+   * Resolution happens once, here at the entry, rather than at each of the dozen
+   * colour sinks: the emitter then sees exactly the document it would have seen
+   * had the colours been written as literals, which is what makes converting a
+   * site's literals to references **pixel-identical by construction**. An
+   * unresolvable reference throws — there is no render-time fallback.
+   */
+  palette?: L1Palette
 }
 
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
-export function renderL1Document(doc: L1Document, opts: L1RenderOptions = {}): L1RenderResult {
+export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}): L1RenderResult {
+  const doc = resolveL1Palette(input, opts.palette)
   const state: RenderState = {
     n: 0,
     rules: [],
@@ -2041,6 +2062,11 @@ export function renderL1Document(doc: L1Document, opts: L1RenderOptions = {}): L
   ]
   const bg = cssColor(doc.background)
   if (bg) reset.push(`body { background-color: ${bg} }`)
+  // REQ-114 — the page's inherited text colour. Its former home was the
+  // `--color-text` theme token, which went with the legacy palette; a page-level
+  // colour is a property of the L1 document, not of a token surface.
+  const fg = cssColor(doc.textColor)
+  if (fg) reset.push(`body { color: ${fg} }`)
   // REQ-90 — @font-face rules first so every family handle is bound before any
   // rule references it (no serif fallback while the CSS is parsed top-down).
   const faces = fontFaceRules(doc.resources)
@@ -2076,9 +2102,10 @@ export function renderL1Fragment(
   nodes: L1Node[],
   prefix = 'fc',
   controls?: Readonly<Record<string, L1ControlElement>>,
+  palette?: L1Palette,
 ): L1FragmentResult {
   const state: RenderState = { n: 0, rules: [], prefix, controls }
-  const htmls = nodes.map((node) => emitNode(node, state))
+  const htmls = resolveL1Palette(nodes, palette).map((node) => emitNode(node, state))
   return { htmls, css: serializeRules(state.rules) }
 }
 
