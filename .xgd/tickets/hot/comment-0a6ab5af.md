@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-07-31T00:28:00.831740+00:00'
+updated_at: '2026-07-31T00:28:45.636334+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -385,5 +385,27 @@ Does that resolution sit right with you? If so, the model is now: **1C = `contro
 <!-- xgd-chat role="user" ts="2026-07-31T00:28:00.801595+00:00" -->
 #### You
 ok do we have a design doc that captures the design for this web editor?
+
+<!-- xgd-turn id="c7a2a9ee-be9f-47af-8687-df7c0d099a61-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T00:28:45.608368+00:00" -->
+#### Claude
+I'll check the session's prior context and the doc tickets.
+
+Not for the Weber editor as we've designed it, no. Here's the state of play:
+
+**What exists**
+
+- **DOC-8 — Builder UI Architecture Principles** is the only builder-facing design doc. It's the closest thing, but it's pre-pivot and now contradicts the CHAT-9 decisions in three material ways:
+  - §3.1 commits to **in-browser rendering** via `packages/framework` ("preview cannot drift from production because it's the same code"). Withdrawn — DOC-7 §2.4 is server-side-only, and CHAT-9 pins the preview as server-rendered HTML in an iframe.
+  - §9 lists **"click-to-edit inline in the preview — permanently out of scope; AI-mediated only."** That is precisely what the Design view is. The whole direct-manipulation premise (second producer of the same validated structured edits) is unrecorded and formally forbidden by the doc as written.
+  - §9.2 pins the stack as **Astro + React islands + Tailwind + shadcn**; CHAT-9 says vanilla ES modules on the vendored `webui-shell`.
+  - Its only post-pivot amendment is the REQ-85 footer, which rebases the *tool surface* onto L1 + behavior modules but leaves everything above untouched.
+
+- The actual Weber design lives **only in the CHAT-9 ticket body** (architecture decisions + M1–M4 milestones) and its chat-transcript comment. Grep confirms "Weber" appears nowhere else except `tools/generate/src/render/render.ts` and `tests/chat9-edit-hooks.test.ts` — i.e. the M1 code, no prose.
+
+**What's missing**, and worth writing down: the direct-manipulation-as-second-producer principle and why it doesn't breach the structured-edit guarantee; the per-module `data-fc-module` hook as the editing-granularity contract between renderer and builder; the iframe/same-origin overlay model; the "friendly parameters only, sophistication delegated to the AI" exposure rule; and the edit → validate → re-render → refresh loop (which replaces DOC-8's live in-browser re-render).
+
+My recommendation: amend DOC-8 rather than start a new doc — same surface, and its §3.1/§9 claims need explicit withdrawal anyway, otherwise the next reader takes "click-to-edit is permanently out of scope" at face value. Doc changes need no ticket, so I can do it now. Want me to draft the amendment?
 
 <!-- xgd-chat-end -->
