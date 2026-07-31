@@ -5,7 +5,7 @@ type: chat
 title: XGD website copy
 created_by: xgd
 created_at: '2026-07-30T20:42:45.219423+00:00'
-updated_at: '2026-07-31T00:35:22.184240+00:00'
+updated_at: '2026-07-31T00:51:22.997404+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -130,6 +130,55 @@ in both. A three-line serve fix would allow the clean URL; not filed.
   copy does not promise one. Deliberate — no copy written for a control that cannot render.
 - Paper 02 is titled "Extreme Generative Development" on the card; the full title carries the
   subtitle "An Experiment in AI Software Development". Shortened for the card, worth confirming.
+
+
+## URL fix shipped; relocatable-URL bug filed
+
+**REQ-113 — `1c serve` extensionless URLs** (`free_coded`, `4d7515c95`, v0.1.8).
+A request that resolves to nothing and carries no extension now falls back to `<path>.html`.
+Applied to the already-confined absolute path so reach cannot widen; gated on having no extension
+so a missing asset still 404s rather than returning HTML under the wrong MIME; ordered last so a
+real directory's `index.html` still wins over `<dir>.html`.
+
+4 UATs (`tests/req113-serve-extensionless.test.ts`), driven over loopback against the real server
+rather than a path helper — the defect was in request resolution, so the contract that matters is
+the status and bytes a browser receives. RED was clean: only the AC1 test failed, the three
+regression guards passed before the fix as well as after.
+
+Site links restored to `/whitepapers`. Verified end-to-end: `/`, `/whitepapers`,
+`/whitepapers.html` and assets all 200; `/nope` still 404s.
+
+**BUG-30 — `relativizeUrl` turns `/#frag` into a same-page anchor.** Filed, not implemented.
+`render.ts:115` strips one leading slash for relocatability, which is right for `/assets/x.svg` and
+wrong for `/#how` — it changes the base the fragment resolves against. Undetectable on a
+single-page site. Ticket also asks for the whole relativization sink to be reviewed at once:
+query-string handling, whether `renderSite`'s flat-snapshot assertion still holds and still fires
+now that sites have more than one page, and the general case of a current document that is not
+`index.html` — a condition unreachable until this week.
+
+Workaround still in the site: the whitepapers page authors `/index.html#how` and
+`/index.html#signup`. Remove when BUG-30 lands.
+
+## Pre-existing test failures on xgd-working (NOT from this work)
+
+Full suite: **954 passed, 4 failed**. All four fail identically against HEAD's `serve.ts`, verified
+by reverting the change and re-running. Untouched by REQ-113 and unrelated to it — they are fold /
+schema drift:
+
+- `reconciliation-1c-astro-free-render` — `InvalidDefinitionError: Invalid site definition 'acme'`
+- `reconciliation-l1-fold-full-language` (AC-733) — `['Expressible Heading', 'slot']` vs `['Expressible Heading']`
+- `reconciliation-3probe-gate-evaluator` (AC-737) — `['image','text']` vs `['field','image','text']`
+- `reconciliation-3probe-gate` (AC-705) — a 4-element vs 4-element leaf-kind mismatch
+
+The shape of all three assertion failures is a `field`/`slot` leaf appearing or disappearing, which
+suggests one schema change moved fold's output and these expectations were not updated with it.
+Worth its own investigation; not this session's scope.
+
+## Operational note
+
+While cleaning up a temporary verification server I ran `pkill -f "1c.mjs serve xgd"`, which also
+matched the long-running preview server on :8792 and killed it. Restarted on the same port and
+confirmed serving. No data affected — it is a static file server — but the pattern was too broad.
 
 
 <!-- xgd-chat-end -->
