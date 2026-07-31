@@ -5,9 +5,9 @@ type: request
 title: '1c serve: extensionless URLs 404 (preview disagrees with Cloudflare Pages)'
 created_by: xgd
 created_at: '2026-07-31T00:45:14.603733+00:00'
-updated_at: '2026-07-31T01:16:07.500545+00:00'
+updated_at: '2026-07-31T01:16:21.324822+00:00'
 completed_at: null
-last_field_updated: commits
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -128,3 +128,42 @@ existing design note. Only the *lookup* of the fallback key happens in the reque
   its relative asset references would resolve against incorrectly (REQ-109).
 - **AC9** — the route grammar's existing guards are unchanged: traversal, percent-encoding and slug
   validation all still reject before any fallback is considered.
+
+
+### Resolution of the extension (2026-07-30)
+
+Landed in commit `f782ae74a3`, version `0.1.10`.
+
+- `apps/public-site/src/routes.ts` — `htmlFallbackFor(path, trailingSlash)` decides eligibility as
+  a pure function of the URL and hangs the candidate key on the `asset` route as `htmlFallback`.
+  Only the last segment is examined for a `.`, so `v1.2/page` stays eligible.
+- `apps/public-site/src/index.ts` — `serve` walks `[path, htmlFallback]` in order for both `GET`
+  and `HEAD`, setting `content-type` from the key that answered.
+
+`tests/req113-worker-extensionless-urls.test.ts` — 6 UATs driving the Worker's real entry point
+over bytes a real `1c deploy` wrote, on a genuinely two-page site:
+
+| UAT | Covers |
+|---|---|
+| `test_UAT_FC_REQ-113_worker_serves_extensionless_draft_page` | AC5, AC6 |
+| `test_UAT_FC_REQ-113_worker_serves_extensionless_published_page` | AC5 (published channel) |
+| `test_UAT_FC_REQ-113_worker_head_matches_get` | AC5 (HEAD branch) |
+| `test_UAT_FC_REQ-113_exact_keys_win_and_extensions_never_fall_back` | AC7 |
+| `test_UAT_FC_REQ-113_trailing_slash_is_never_eligible` | AC8 |
+| `test_UAT_FC_REQ-113_fallback_eligibility_is_a_pure_url_rule` | AC9 |
+
+Verified RED: with the two source files stashed, 5 of the 6 fail and the survivor is exactly the
+AC7 regression-guard — so they discriminate rather than rubber-stamp.
+
+`tests/req109-relocatable-output.test.ts` also updated: its in-test server now models the same
+mapping. It had gone red not as a stale fixture but because it resolved strictly *less* than
+production does, which was the honest signal that this half of the ticket was missing.
+
+`tsc --noEmit` clean for `apps/public-site`. Full suite 965 passed / 4 failed, all 4 pre-existing
+and unrelated (reconciliation capture fixtures).
+
+### Follow-up now unblocked
+
+The "Out of scope" note above — xgd.dev's authored `.html` links — can now be cleaned up, together
+with BUG-30's `/index.html#how` workaround, since both environments finally agree. Not done here:
+the xgd page JSON is uncommitted in-flight authoring.
