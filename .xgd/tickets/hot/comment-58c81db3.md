@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-13
 created_by: xgd
 created_at: '2026-07-31T00:38:16.056694+00:00'
-updated_at: '2026-07-31T00:42:12.951058+00:00'
+updated_at: '2026-07-31T00:52:23.254122+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -124,5 +124,18 @@ Capture without delivery doesn't meet your stated ask, so β follows α closely 
 The checkbox change is small enough to fold into α if you want consent in the first cut; otherwise it's a third small ticket later.
 
 Which of the six decisions do you want to settle first?
+
+<!-- xgd-turn id="ab9e64b8-09c0-4625-b205-0a82447c19e5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:52:23.225428+00:00" -->
+#### You
+We need the ability to add and collect the results of multiple checkboxes (1) we need mailing list consent (2) interest in the closed beta (3) there might be T&Cs too - can we make the module flexible?
+
+Abuse - could every load of the form contain a new SHA that works one time and expires? That would simplify things no?
+
+1. Yes absolutely
+2. The email must come from the site - in this case xgd.dev
+3. 1stcontact is the website builder, sites are drafted there and then published to their own domains
+5. yes DOC-4 and DOC-5 in ../xgd-biz
 
 <!-- xgd-chat-end -->
