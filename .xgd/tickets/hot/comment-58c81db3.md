@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-13
 created_by: xgd
 created_at: '2026-07-31T00:38:16.056694+00:00'
-updated_at: '2026-07-31T00:53:22.114289+00:00'
+updated_at: '2026-07-31T00:56:30.430129+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,90 @@ Abuse - could every load of the form contain a new SHA that works one time and e
    
    1. yes DOC-4 and DOC-5 in ../xgd-biz
       6. Per above checkbox config required - we can discuss the details
+
+<!-- xgd-turn id="a743940b-fd5c-461e-9ed9-59e409d59c89-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T00:56:30.395695+00:00" -->
+#### Claude
+Let me check the papers and the custom-domain path, since point 3 changes the architecture materially.
+
+Good answers — several of these change the shape more than the checkboxes do. Taking them in order of impact.
+
+## Checkboxes: yes, and the module barely has to change
+
+Rendering and submission are identical for all three of your cases. What differs is *server-side meaning*. So the module stays dumb and the meaning lives in the form config.
+
+**Module change (→ v5), the whole of it:**
+- Add `'checkbox'` to the `fields.type` enum (`meta.ts:48`).
+- It renders as a `control` node like every other field — L1 owns the look entirely.
+- `required: true` already means "must be checked" in HTML. That's your T&Cs gate, no new config.
+- Reject `labelMode: 'placeholder'` for checkboxes — there's no placeholder attribute on a checkbox. Forcing `visible` is right anyway: these labels are sentences that usually contain a link ("I accept the [Terms]"), and `visible` means the words are an authored L1 text run, so the link is authorable.
+
+That gives you N checkboxes, any names, any labels, any required-ness, purely from `config.fields`. No new config surface at all.
+
+**What deliberately stays out of the module:** the meaning. "This box grants marketing consent", "that one is terms v3", "that one is a beta segment" — all server-side, keyed by field name. Three reasons:
+
+1. The site definition renders to a **public static snapshot**. Declaring "this checkbox grants consent" there is both leaky and unenforceable — the server has to decide regardless.
+2. T&Cs need the **terms version recorded at consent time**, and that version changes independently of the page. A stale cached page must not record consent to terms the visitor never saw.
+3. It keeps `config` data-only per DOC-25 §2. A `consent: true` flag in the module would be a promise the module can't keep.
+
+**Server-side semantics** — a small typed enum per field in `form_configs`:
+
+| kind | Effect |
+|---|---|
+| `list_consent` | Insert `list_memberships` with `consented_at`, `consent_source`, IP/UA. Unchecked → no row, ever. No soft opt-in. |
+| `interest` | Set a segment flag on the subscriber (`beta_interest`). Not consent — carries no mailing rights. |
+| `terms` | Record `terms_accepted(subscriber, version, at)`. Server rejects if the configured terms box is absent/false; the client `required` is a UX affordance, never the enforcement. |
+
+One trap worth naming now: **an unchecked checkbox is omitted entirely from `FormData`**, so the key is simply absent from the JSON. `client.js:65` already serializes that way. The server must treat absent as `false` and must never distinguish the two.
+
+## The nonce: it helps, but there's a catch specific to this system
+
+**The catch:** pages are static snapshots served from R2 and edge-cached (`IMMUTABLE_CACHE`, `apps/public-site/src/index.ts:23`). A SHA baked in at render time is baked into the *cached artifact* — every visitor gets the same one, so "works one time" means the first submitter burns it for everyone. Self-DoS.
+
+So it has to be **fetched at runtime**, not rendered: `GET /api/f/<site>/<form>/nonce`, called by `client.js` on load. That works, and I'd do it. Two notes:
+
+- **Make it stateless.** Don't store issued nonces — sign them: `HMAC(secret, form_id ‖ issued_at ‖ ip_prefix)`, verify signature and freshness. Single-use then needs only a small KV set of *spent* nonces with a TTL matching the window, rather than a row per issue.
+- **It requires JS**, and the no-JS `<form method=post>` baseline is a vetted module obligation. I'd keep the baseline and treat "valid nonce" as a *trust signal that relaxes rate limits*, not a hard gate — otherwise the obligation breaks.
+
+**But it doesn't simplify away the control that matters most.** A fresh nonce still buys one email to an attacker-chosen address, so it does nothing about amplification. Per-address send dedupe is what kills that, and it's *simpler* than the nonce — one index, one check.
+
+Recommended v1 stack, cheapest first: **per-address dedupe** → **honeypot** (shipped) → **stateless HMAC nonce** → **IP-prefix rate limit**. And **Turnstile drops out of v1** — it's an unwired mount div today and it taxes conversion on your primary capture form. Keep it as the escalation lever; the mount point is already there.
+
+So yes: your idea does simplify things, just not in the place you expected. It buys us deferring Turnstile, which was the expensive part.
+
+## "From xgd.dev" is the big one
+
+This reshapes more than the rest combined.
+
+- Each published site needs its **own verified sending identity** on a domain the *customer* controls — SPF/DKIM/DMARC on xgd.dev's DNS.
+- Resend and Postmark both do multi-domain with a provisioning API, so 1stcontact can create the domain, surface the exact records, and poll for verification. **That's a builder feature** — "add these three records to your domain" is a screen someone has to build — not a detail of this endpoint.
+- Needs `site_email_identities`: from address, from name, reply-to, provider domain id, verified status.
+- **Fail visibly when unverified.** Don't silently fall back to a 1stcontact-owned sender — it trains people to skip setup and it poisons your shared domain reputation.
+- **Download links must be on xgd.dev too.** An email from `hello@xgd.dev` linking to `1stcontact.io/d/<token>` reads as phishing and will get filtered. So `/d/<token>` is a route on the published site's host.
+
+**Which surfaces a prerequisite gap I should flag rather than assume past:** `parseRoute` is pathname-only and requires `/site/<slug>/…` (`apps/public-site/src/routes.ts:104`). There is **no host→slug mapping**, and no ticket for one — REQ-110/111 cover R2 and serving, nothing covers custom domains. Sites publishing to their own domains isn't implemented yet.
+
+The good news: it's a **release** dependency, not a **build** dependency. Since the site is in the path (`/api/f/xgd/whitepapers`), the endpoint code is host-agnostic — it works at `1stcontact.io/site/xgd/` today and at `xgd.dev` unchanged once custom domains land. Only the end-to-end demo on xgd.dev is gated.
+
+## One thing I couldn't verify
+
+The `xgd` CLI pins its workspace — running it from `../xgd-biz` prints `→ Changed to XGD workspace: /Users/martin/Projects/1stcontact` and returns *this* repo's tickets. So I couldn't read xgd-biz's DOC-4/DOC-5, and I'm not switching your active workspace to do it. Note that this repo's DOC-4/DOC-5 are "Webcaretaker" and "Gendev Website Caretaker Architecture" — product/architecture docs for the builder, whereas CHAT-12 describes the papers as being about the structural wall and XGD-as-governor. Possibly different tickets with the same numbers in the other store.
+
+It doesn't block the design — delivery is the same either way. What I do need eventually: are they **markdown ticket bodies needing a render-to-PDF step**, or already-built PDFs I just put in R2?
+
+## Proposed tickets
+
+Three, with the checkbox folded in rather than standing alone:
+
+| Ticket | Scope | Pts |
+|---|---|---|
+| **REQ-α — capture backend + checkbox** | D1 migration, `POST /api/f/<site>/<form>`, form-config lookup, checkbox field type (module v5), consent/terms/interest semantics, nonce + dedupe + rate limit | ~10 |
+| **REQ-β — sending identity + delivery** | `site_email_identities`, provider seam, domain provisioning + verification, Queue, templates, `download_tokens`, `/d/<token>` | ~10 |
+| **REQ-γ — custom-domain routing** | host→slug resolution in public-site | ~5 |
+
+γ is a separate concern that publishing needs anyway — I'd file it even if email never happened, and it doesn't block α or β.
+
+Want me to create α and β now and start on α? And should γ be filed as a standalone request, or do you already have that planned elsewhere?
 
 <!-- xgd-chat-end -->
