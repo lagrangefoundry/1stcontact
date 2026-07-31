@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-07-31T01:08:22.812853+00:00'
+updated_at: '2026-07-31T18:37:04.359761+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -485,5 +485,29 @@ M1's hook reaches that 1. All 62 pieces of copy — everything a user would actu
 3. **Minted persistent id in the definition** — a separate editing key on editable nodes, distinct from `id`. Genuinely stable across re-render and reorder, but it's a schema change and something every author, human or AI, now has to maintain.
 
 My instinct is (2) with the id derived from stable structure rather than counters, but I'd want to think about the reorder case properly before committing. That's the decision I flagged — it's the one thing standing between M2 (which is unaffected) and a copy editor that can actually edit copy.
+
+<!-- xgd-turn id="a565d975-ac33-4ca7-9ca7-e157fb17d026-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T18:37:04.330290+00:00" -->
+#### You
+So lets take this a step at a time. I am not a web developer so you need to keep me honest. Here is what I imagine:
+
+We put the page in a special mode "editing". In this mode the page no longer "works". All links, forms, animation etc everything is disabled. I imagine this as a "special render" of the page.
+
+In edit mode the page "segments" into a series of nested regions. The user experience might be that these segments are outlined feightly on the page but mousing over a segment highlights it (e.g. outline becomes brighter, small movement animation).
+
+The segments are the logical divisions of the page that have user defined controls (we don't highlight the ones that don't allow changes).
+
+Example: Hero section might have (1) a module level segment - basic controls like background color, back ground image, default text parameters (2) Hero title - click on this and it opens up a two stage editor - an area for parameters and a text editor for the text. (3) "Read the whitepaper" button - an editor like (2) change the text, font parameters etc,
+
+The goal is absolutely NOT to expose everything. AI is the primary mode of interaction and page creation. In the web editor there is (at least in v1) no way to edit or change page structure. But if I want to make small tweaks to the copy, grammar, font size/color it can get painful to go through the AI every time.
+
+In my mind the biggest things we need to expose (phase 1) are (1) copy editing (2) image selection - these are much more easily done interactively than through conversational text.  
+
+Phase 2 - text properties (including background color), simple module properties (e.g. edit the contents of the response email for email capture)
+
+Phase 3 (we may never get here) - explicit resizing, positioning, adding new segments, removing segments
+
+Does that help?
 
 <!-- xgd-chat-end -->
