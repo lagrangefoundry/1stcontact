@@ -176,6 +176,8 @@ Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
     (publish mints the revision, deploy ships it).
     --dry-run prints the full plan and writes nothing. --prune deletes snapshot objects the
     manifest does not reference — the orphans an interrupted deploy leaves behind.
+    --sandbox deploys under the sandbox/ R2 root, which nothing serves: the snapshot is uploaded
+    and indexed but has no URL. To exercise the serving path, use a throwaway slug in storage/sites/.
 
 Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
   1c capture page <url>

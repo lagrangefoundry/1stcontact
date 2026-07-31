@@ -65,7 +65,7 @@ function setPageText(marker: string): void {
 }
 
 async function manifest(): Promise<SiteManifest> {
-  const raw = await client.get(manifestKey(SLUG))
+  const raw = await client.get(manifestKey('sites', SLUG))
   if (raw === null) throw new Error('no manifest in R2')
   return JSON.parse(raw) as SiteManifest
 }
@@ -187,7 +187,7 @@ describe('REQ-110 — R2 artifact store + 1c deploy', () => {
     expect(result.uploadedKeys).toEqual([])
     expect(client.objects.size).toBe(0)
     expect(await client.list('')).toEqual([])
-    expect(await client.get(manifestKey(SLUG))).toBeNull()
+    expect(await client.get(manifestKey('sites', SLUG))).toBeNull()
 
     // …but the plan is fully printed, URL included.
     const report = formatDeployReport(result)
@@ -223,7 +223,7 @@ describe('REQ-110 — R2 artifact store + 1c deploy', () => {
 
     // Everything the manifest references is untouched.
     expect(await client.get(`sites/${SLUG}/preview/${live.sha}/out/index.html`)).toBeTruthy()
-    expect(await client.get(manifestKey(SLUG))).toBeTruthy()
+    expect(await client.get(manifestKey('sites', SLUG))).toBeTruthy()
     expect((await manifest()).previews.map((p) => p.sha)).toEqual([live.sha])
 
     // A second prune has nothing left to collect.

@@ -8,6 +8,7 @@ import {
   readHistory,
   revisionDir,
   type RenderChannel,
+  type Root,
 } from '../store'
 import {
   assertNoReservedSegment,
@@ -54,6 +55,8 @@ export interface DeployStage {
 
 export interface DeployResult {
   slug: string
+  /** Site tree the snapshot came from — and the R2 root it was written under. */
+  root: Root
   channel: RenderChannel
   /** Content-addressed id of the deployed bytes. */
   sha: string
@@ -61,8 +64,14 @@ export interface DeployResult {
   revision: number | null
   /** Key prefix the snapshot lives under, e.g. `sites/acme/preview/a1b2c3d4e5f6`. */
   prefix: string
-  /** The shareable URL the deploy resolves to. */
-  url: string
+  /**
+   * The shareable URL the deploy resolves to, or `null` for a sandbox deploy.
+   *
+   * Sandbox snapshots are deliberately unreachable: the Worker resolves only the
+   * `sites/` root, so no request path can name one (BUG-31). Reporting a URL
+   * would be reporting a lie.
+   */
+  url: string | null
   stages: DeployStage[]
   /** Object keys written this run (empty when unchanged or on `--dry-run`). */
   uploadedKeys: string[]
@@ -126,10 +135,12 @@ export async function cmdDeploy(slug: string, opts: DeployOptions = {}): Promise
   const files = collectSnapshotFiles(outDir, sourceDir)
   assertNoReservedSegment(files)
   const sha = snapshotSha(files)
+  // Every key carries the root the definition came from, so a sandbox deploy can
+  // never land on — or even read — a real site's keyspace (BUG-31).
   const prefix =
     channel === 'draft'
-      ? `sites/${slug}/preview/${sha}`
-      : `sites/${slug}/rev/${padRevision(live as number)}`
+      ? `${ctx.root}/${slug}/preview/${sha}`
+      : `${ctx.root}/${slug}/rev/${padRevision(live as number)}`
 
   const outFiles = files.filter((f) => f.rel.startsWith('out/'))
   stages.push({
@@ -138,7 +149,7 @@ export async function cmdDeploy(slug: string, opts: DeployOptions = {}): Promise
     note: fileCount(outFiles),
   })
 
-  const { manifest, raw } = await readManifest(client, slug)
+  const { manifest, raw } = await readManifest(client, ctx.root, slug)
   let current: SiteManifest = manifest
   const alreadyDeployed =
     channel === 'draft'
@@ -192,16 +203,16 @@ export async function cmdDeploy(slug: string, opts: DeployOptions = {}): Promise
             note: `(live = ${live})`,
           },
     )
-    if (!dryRun) await writeManifest(client, slug, next, raw)
+    if (!dryRun) await writeManifest(client, ctx.root, slug, next, raw)
     current = next
   }
 
   // ── prune ─────────────────────────────────────────────────────────────────
   const prunedKeys: string[] = []
   if (opts.prune === true) {
-    const unreferenced = await unreferencedKeys(client, slug, current)
+    const unreferenced = await unreferencedKeys(client, ctx.root, slug, current)
     for (const key of unreferenced) {
-      stages.push({ label: 'prune', target: `- ${shortKey(slug, key)}` })
+      stages.push({ label: 'prune', target: `- ${shortKey(ctx.root, slug, key)}` })
       if (!dryRun) await client.delete(key)
       prunedKeys.push(key)
     }
@@ -210,13 +221,17 @@ export async function cmdDeploy(slug: string, opts: DeployOptions = {}): Promise
     }
   }
 
+  // A sandbox snapshot has no address: the Worker serves the `sites/` root only.
   const url =
-    channel === 'draft'
-      ? `${baseUrl}/site/${slug}/draft/${sha}/`
-      : `${baseUrl}/site/${slug}/`
+    ctx.root !== 'sites'
+      ? null
+      : channel === 'draft'
+        ? `${baseUrl}/site/${slug}/draft/${sha}/`
+        : `${baseUrl}/site/${slug}/`
 
   return {
     slug,
+    root: ctx.root,
     channel,
     sha,
     revision: channel === 'published' ? (live as number) : null,
@@ -271,18 +286,23 @@ function applyToManifest(
  * The manifest itself is never a candidate — only keys under a `preview/` or
  * `rev/` prefix are, so a stray object elsewhere under the slug is left alone
  * rather than swept up by a garbage collector that does not understand it.
+ *
+ * Scoped to `root`, so a sandbox prune enumerates sandbox keys only: listing the
+ * shared slug prefix would have walked — and deleted from — a real site whose
+ * manifest this run never even read (BUG-31).
  */
 async function unreferencedKeys(
   client: R2Client,
+  root: Root,
   slug: string,
   manifest: SiteManifest,
 ): Promise<string[]> {
   const referenced = [
-    ...manifest.previews.map((p) => `sites/${slug}/preview/${p.sha}/`),
-    ...manifest.revisions.map((r) => `sites/${slug}/rev/${padRevision(r.id)}/`),
+    ...manifest.previews.map((p) => `${root}/${slug}/preview/${p.sha}/`),
+    ...manifest.revisions.map((r) => `${root}/${slug}/rev/${padRevision(r.id)}/`),
   ]
-  const snapshotRoots = [`sites/${slug}/preview/`, `sites/${slug}/rev/`]
-  const keys = await client.list(`sites/${slug}/`)
+  const snapshotRoots = [`${root}/${slug}/preview/`, `${root}/${slug}/rev/`]
+  const keys = await client.list(`${root}/${slug}/`)
   return keys.filter(
     (k) => snapshotRoots.some((r) => k.startsWith(r)) && !referenced.some((r) => k.startsWith(r)),
   )
@@ -299,8 +319,9 @@ function shortPrefix(prefix: string): string {
   return prefix.split('/').slice(2).join('/')
 }
 
-function shortKey(slug: string, key: string): string {
-  return key.startsWith(`sites/${slug}/`) ? key.slice(`sites/${slug}/`.length) : key
+function shortKey(root: Root, slug: string, key: string): string {
+  const scope = `${root}/${slug}/`
+  return key.startsWith(scope) ? key.slice(scope.length) : key
 }
 
 function basedOnLabel(basedOn: number | null): string {
@@ -315,6 +336,11 @@ export function formatDeployReport(result: DeployResult): string {
       (s.note ? `   ${s.note}` : '')).trimEnd(),
   )
   if (result.dryRun) lines.push('', '  (dry-run — nothing was uploaded)')
-  lines.push('', `  →  ${result.url}`)
+  lines.push(
+    '',
+    result.url === null
+      ? `  →  ${result.prefix}/   (sandbox — not publicly reachable)`
+      : `  →  ${result.url}`,
+  )
   return lines.join('\n')
 }

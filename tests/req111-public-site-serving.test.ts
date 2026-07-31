@@ -135,13 +135,13 @@ async function get(pathAndQuery: string): Promise<Response> {
 }
 
 async function manifest(): Promise<SiteManifest> {
-  const raw = await client.get(manifestKey(SLUG))
+  const raw = await client.get(manifestKey('sites', SLUG))
   if (raw === null) throw new Error('no manifest in R2')
   return JSON.parse(raw) as SiteManifest
 }
 
 function putManifest(m: SiteManifest): void {
-  client.objects.set(manifestKey(SLUG), Buffer.from(JSON.stringify(m, null, 2) + '\n', 'utf8'))
+  client.objects.set(manifestKey('sites', SLUG), Buffer.from(JSON.stringify(m, null, 2) + '\n', 'utf8'))
 }
 
 /** Every document-relative URL the page asks the browser to load. */
