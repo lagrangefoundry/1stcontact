@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-13
 created_by: xgd
 created_at: '2026-07-31T00:38:16.056694+00:00'
-updated_at: '2026-07-31T01:10:32.496195+00:00'
+updated_at: '2026-07-31T01:11:41.050366+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -244,5 +244,54 @@ Want me to create α and β now and start on α? And should γ be filed as a sta
 <!-- xgd-chat role="user" ts="2026-07-31T01:10:32.467068+00:00" -->
 #### You
 please explain γ
+
+<!-- xgd-turn id="7f73783a-0bfc-4db6-b296-42b8a5b90a28-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T01:11:41.022341+00:00" -->
+#### Claude
+Confirmed it's an anticipated follow-on, not something I invented: DOC-12 §163 says subdomain and custom-domain serving are "later and additive", and REQ-111's Non-goals list "No custom domains, no subdomain routing, no D1." So the design already expects γ — nobody's filed it.
+
+## What γ is
+
+Today `public-site` decides which site to serve **entirely from the pathname**. `parseRoute(url.pathname)` never reads the hostname (`apps/public-site/src/index.ts:79`), and the grammar requires `/site/<slug>/…`:
+
+```
+1stcontact.io/site/xgd/whitepapers.html   →  serves the xgd site      ✓
+xgd.dev/whitepapers.html                  →  parts[0] !== 'site'      ✗ not-found
+```
+
+The wildcard route `*.1stcontact.io/*` is already declared in `wrangler.toml`, but xgd.dev isn't in it at all — and even if it were, the path grammar would reject every URL. So "sites published to their own domains" currently has no mechanism.
+
+γ adds two things:
+
+**1. A host→slug mapping.** `xgd.dev` → slug `xgd`. I'd put it behind the existing `SiteStore` seam as a `slugForHost(host)` method — that seam exists precisely so "no other part of the Worker knows where the truth lives" (`site-store.ts:9`), so an R2 reverse-index now (`domains/<host>.json`, mirroring `manifestKey`) and a D1 `site_domains` table later costs one class. If α lands first, it can go straight to D1.
+
+**2. A root-relative route grammar for custom-domain hosts.** On its own domain the site lives at the root: `xgd.dev/` → `index.html`, `xgd.dev/whitepapers.html` → that page, no `/site/<slug>` prefix. Drafts would need `xgd.dev/draft/<sha>/…`, making `draft` a reserved top-level segment there too — which deploy already enforces via `assertNoReservedSegment`.
+
+## Why it's ~5 points and not a one-liner
+
+The routing change itself is small. The surrounding work isn't:
+
+- **TLS is the real cost.** Cloudflare has to terminate HTTPS for a domain in someone else's account. That's **Cloudflare for SaaS / Custom Hostnames**: call the API to register the hostname, the customer adds a CNAME, Cloudflare issues the cert, you poll until verified and surface the state. Worth noticing that this is **structurally the same workflow as β's email-domain verification** — customer adds DNS records, we poll, we show status. Two instances of one mechanism; they should probably share it.
+- **Apex CNAME.** `xgd.dev` at the apex needs CNAME flattening or an A record — the usual wrinkle, and it's the customer's DNS, not yours.
+- **The `apex` route branch becomes host-dependent.** Today `/` returns the `APEX_BODY` placeholder. After γ, `/` means "marketing site" on 1stcontact.io and "the customer's home page" on xgd.dev.
+- **Reserved hosts.** A customer must not be able to claim a hostname that shadows `app.1stcontact.io` or the apex.
+- **A decision, not a given:** do draft previews exist on custom domains at all? I'd argue no — drafts are a builder concern, and serving unfinished work on the customer's brand is a downside with no upside. Keeping drafts on 1stcontact.io simplifies the grammar too.
+
+## Why it's separate from the email tickets
+
+Two reasons.
+
+**It's needed for publishing regardless.** The product is "sites published to their own domains." Today none can be. This ticket exists whether or not email capture ever ships — bundling it into an email ticket would hide a core publishing capability inside a feature ticket.
+
+**But it doesn't block α or β.** This was deliberate in the endpoint design: the site is in the *path* (`/api/f/xgd/whitepapers`), not derived from the host, so the endpoint behaves identically on both hosts and needs no change when γ lands. What's gated is only the end-to-end demo — you can't actually send from `hello@xgd.dev` with links to `xgd.dev/d/<token>` until xgd.dev serves anything.
+
+One payoff worth naming: γ is what keeps the form and its endpoint **same-origin**. Without it, a form on xgd.dev posting to 1stcontact.io is a cross-origin POST needing CORS — more moving parts and a worse security posture. With it, there's no CORS story at all.
+
+## So the ordering is
+
+α and β can start now and be verified against `1stcontact.io/site/xgd/`. γ is what flips the whole thing onto xgd.dev at the end — and if it slips, α and β still ship and still work, just on the builder domain.
+
+Shall I file all three and start on α? If you'd rather keep the ticket count down, γ is the one I'd defer filing — though I'd rather file it than leave a known publishing gap untracked.
 
 <!-- xgd-chat-end -->
