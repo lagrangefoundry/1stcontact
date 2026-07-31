@@ -5,7 +5,7 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-07-31T19:36:50.786127+00:00'
+updated_at: '2026-07-31T20:28:13.218628+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -17,7 +17,8 @@ fields:
 
 ## 1. Purpose
 
-The page editor is the builder's **Design view**: the user edits a site's copy and
+The page editor is the builder's **site view** (the `site` tab — its label is a
+configuration value, default `"Site"`, [[DOC-8]] §3.1): the user edits a site's copy and
 images **on the page itself** — hover a region, click it, edit it in a modal, see
 it re-render. This document specifies that surface.
 
@@ -422,7 +423,7 @@ Tracked under CHAT-9.
 | | Scope | Status |
 |---|---|---|
 | **M1** | Module edit hooks — `data-fc-module` / `data-fc-type` per instance (§5.2) | **done**, tested, landed |
-| **M2** | Composition — shell → Design tab → split → **multi-mode display panel** with View mode; toolbar; iframe of the served draft render ([[DOC-8]] §3.1–§3.3) | next |
+| **M2** | Composition — shell → `site` tab → split → **multi-mode display panel** with View mode; toolbar; iframe of the served draft render ([[DOC-8]] §3.1–§3.3) | next |
 | **M3** | The edit render — segment derivation (§6), L1 address stamping (§5.2), settled-state/no-motion rules (§5.3), outlines | |
 | **M4** | Copy editor — click segment → modal → validated structured edit → re-render → refresh (phase 1) | |
 | **M5** | Image selection (phase 1), then the framing controls (§9.2) | |
@@ -445,7 +446,7 @@ consumed ([[DOC-8]] §13 Q1) — neither is an editor-design question.
 5. **Image params vs the capture/fold model** — the repro pipeline already folds
    crops and scrims into L1; the editor must write the *same* fields, not a
    parallel vocabulary. Confirm they are identical before building §9.2.
-6. **Undo affordance** — does the modal have Cancel only, or does the Design view
+6. **Undo affordance** — does the modal have Cancel only, or does the site view
    expose the diff-log undo directly?
 7. **The palette editor** — phase 2 needs a surface for editing the palette itself
    (§8), which is a *site-level* tool, not a segment editor. Is it another display
