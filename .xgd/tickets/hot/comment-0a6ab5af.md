@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-07-31T00:28:45.636334+00:00'
+updated_at: '2026-07-31T00:57:55.829628+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -407,5 +407,13 @@ Not for the Weber editor as we've designed it, no. Here's the state of play:
 **What's missing**, and worth writing down: the direct-manipulation-as-second-producer principle and why it doesn't breach the structured-edit guarantee; the per-module `data-fc-module` hook as the editing-granularity contract between renderer and builder; the iframe/same-origin overlay model; the "friendly parameters only, sophistication delegated to the AI" exposure rule; and the edit → validate → re-render → refresh loop (which replaces DOC-8's live in-browser re-render).
 
 My recommendation: amend DOC-8 rather than start a new doc — same surface, and its §3.1/§9 claims need explicit withdrawal anyway, otherwise the next reader takes "click-to-edit is permanently out of scope" at face value. Doc changes need no ticket, so I can do it now. Want me to draft the amendment?
+
+<!-- xgd-turn id="7db97d18-fdab-4125-b795-fc573e01c642-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:57:55.775805+00:00" -->
+#### You
+ok please upddate DOC-8 - to reflect the currect reality.
+
+I think we need a new doc to capture the details of the webpage editor itself though, don't you?
 
 <!-- xgd-chat-end -->
