@@ -5,7 +5,7 @@ type: chat
 title: XGD website copy
 created_by: xgd
 created_at: '2026-07-30T20:42:45.219423+00:00'
-updated_at: '2026-07-30T23:06:48.807674+00:00'
+updated_at: '2026-07-31T00:35:22.184240+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -77,6 +77,59 @@ invited brownfield readers that DOC-7 says we cannot yet serve.
 - **Structural, not done:** section shape is still eyebrow → headline → paragraph → grid, six
   times; the proof section is still small for what it carries. Both are layout work, not copy.
 - DOC-5 §4 is titled "Three Modes of Working" and describes two.
+
+
+## /whitepapers — second page authored
+
+`storage/sites/xgd/draft/pages/whitepapers.json`. Operator decisions: one form, paper request as
+the primary ask with mailing list and waitlist secondary, slug `whitepapers`.
+
+Structure: nav → header → the two papers → capture → footer. Built by deep-copying the home page's
+chrome and band structures so the visual system is inherited rather than re-derived; `paper-items`
+is the home page's 3-card row with two children, so DOC-8 drops in later without new structure.
+Form is email-only (the `message` field and its matching `control` node both removed) — this page
+is the low-friction ask.
+
+Home page adjusted: nav "Whitepapers" now leaves for the real page, and the close section drops the
+two-title sentence it was carrying, so it asks for the waitlist and nothing else.
+
+### Framework findings — both only reachable with a second page
+
+**1. No shared chrome (expected, now confirmed).** A page is a self-contained L1 document
+(`widths`, `background`, `resources`, `root`). There is no partial, layout or include mechanism, so
+nav and footer are duplicated across the two pages. **Every future nav edit must be made in both or
+they diverge silently.** Same duplication-tax family as the REQ-95 CTA workaround, one level up.
+Wants a ticket.
+
+**2. `relativizeUrl` breaks cross-page anchors (new, a real defect).** REQ-109
+(`packages/framework/src/l1/render.ts:115`) strips a single leading slash so a rendered snapshot is
+relocatable. Correct for `/assets/x.svg`. **Wrong for `/#how`**, which becomes `#how` — "the `how`
+anchor on *this* page" rather than on the site root. On a one-page site the two are
+indistinguishable; on `/whitepapers` the nav silently pointed at anchors that do not exist there.
+
+The function's own docstring contains the argument against its behaviour: it explains that `''`
+would resolve to the current *page*, "which is a different target once the page is not
+`index.html`" — and that reasoning applies verbatim to `/#frag`. Suggested fix: when the remainder
+after the slash begins with `#`, emit `./#frag` rather than `#frag`. Relocatability is preserved;
+the cross-page target stops being wrong.
+
+Worked around in the site by authoring `/index.html#how` and `/index.html#signup` on the
+whitepapers page, which relativize to `index.html#how` and resolve correctly from any page. The
+home page keeps bare `#how` because there the same-page anchor is the correct target.
+
+### Routing
+
+`1c serve` (`tools/generate/src/cli/serve.ts:66-74`) resolves directories to `index.html` and
+otherwise requires an exact path — there is no extensionless `.html` fallback, so `/whitepapers`
+404s locally while Cloudflare Pages would serve it. Links point at `/whitepapers.html`, which works
+in both. A three-line serve fix would allow the clean URL; not filed.
+
+### Still open
+
+- **Mailing-list checkbox is not on the page.** `contact-form` has no checkbox field type, so the
+  copy does not promise one. Deliberate — no copy written for a control that cannot render.
+- Paper 02 is titled "Extreme Generative Development" on the card; the full title carries the
+  subtitle "An Experiment in AI Software Development". Shortened for the card, worth confirming.
 
 
 <!-- xgd-chat-end -->
