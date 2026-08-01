@@ -5,10 +5,10 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-07-31T20:43:32.395678+00:00'
+updated_at: '2026-08-01T17:43:03.378511+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   depends_on:
@@ -16,6 +16,11 @@ fields:
   - request-41796766
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 1dd851d39bfbbf1c2f28642cc7b0f82b95462483
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.14
 ---
 
 ## What this builds
