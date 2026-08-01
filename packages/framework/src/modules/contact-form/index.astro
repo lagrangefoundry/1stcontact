@@ -77,7 +77,15 @@ const honeypotName = 'hp_company_url'
       page. `data-contact-form` stays: it is only the handle `client.js` binds its
       fetch upgrade to, and the edit channel ships no client script at all.
     */}
-    <form class="contact-form__form" data-contact-form action={edit ? undefined : assertSafeUrl(action, 'contact-form action')} method={edit ? undefined : 'post'}>
+    {/*
+      REQ-117 — the seam marker. Copy inside a slot is addressed relative to the
+      INSTANCE, so an address alone is ambiguous: the editor needs to know which
+      of the module's slots the subtree array belongs to. Only the module knows
+      which of its elements is which seam — the same reason it, and not the
+      channel, owns what "my behaviour is off" looks like — so it says so here.
+      `carousel` marks its slide `<li>` the same way.
+    */}
+    <form class="contact-form__form" data-contact-form data-l1-slot="form" action={edit ? undefined : assertSafeUrl(action, 'contact-form action')} method={edit ? undefined : 'post'}>
       {/*
         Invariant — the programmatic label for every control, whatever the
         reference rendered visually. A control's *visible* words (a label above

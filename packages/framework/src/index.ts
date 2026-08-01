@@ -103,6 +103,7 @@ export {
   L1_EDIT_PATH_ATTR,
   L1_EDIT_SEGMENT_ATTR,
   L1_EDIT_MARKER_ATTR,
+  L1_EDIT_HOT_CLASS,
   L1_EDIT_CSS,
 } from './l1/render'
 export type {
@@ -113,6 +114,10 @@ export type {
   L1ControlTag,
   L1SegmentKind,
 } from './l1/render'
+// REQ-117 — the edit bridge's client half: a clicked element back to the address
+// the emitter above stamped on it. Beside the emitter so the two cannot drift.
+export { resolveEditTarget, mountL1EditBridge } from './l1/edit-client'
+export type { L1EditHit, L1EditBridge } from './l1/edit-client'
 
 // L2 — the optional library of vetted L1 designs (REQ-96): a default look a site
 // can drop into a behavior's slot when it has no capture to transcribe.

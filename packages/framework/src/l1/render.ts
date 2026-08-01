@@ -11,7 +11,18 @@
  * lower keyframe's value until the next breakpoint. Text height is natural (the
  * glyph box); only box/image leaves pin a height.
  */
-import { isSafeUrl, resolveL1Palette, type L1Color, type L1Link, type L1Palette } from '@1stcontact/site-schema'
+import {
+  isSafeUrl,
+  resolveL1Palette,
+  L1_EDIT_HOT_CLASS,
+  L1_EDIT_MARKER_ATTR,
+  L1_EDIT_PATH_ATTR,
+  L1_EDIT_SEGMENT_ATTR,
+  type L1Color,
+  type L1Link,
+  type L1Palette,
+  type L1SegmentKind,
+} from '@1stcontact/site-schema'
 import type {
   L1AxisSizing,
   L1Border,
@@ -1600,13 +1611,18 @@ function layoutDecls(mode: L1LayoutMode, node: L1Container): string[] {
 //
 // L1's own `id` is deliberately NOT reused for this: REQ-106 made it the real
 // DOM id, so it is optional, sparse, and user-visible in URLs.
-export const L1_EDIT_PATH_ATTR = 'data-l1-path'
-export const L1_EDIT_SEGMENT_ATTR = 'data-l1-segment'
-/** Document-level marker the page assembler sets on `<body>` in the edit channel. */
-export const L1_EDIT_MARKER_ATTR = 'data-fc-edit'
-
-/** The kinds of region the editor exposes controls for (DOC-28 §6.2). */
-export type L1SegmentKind = 'copy' | 'image' | 'container' | 'module'
+//
+// REQ-117 — the attribute names and the segment vocabulary are the *contract*,
+// not the rendering of it, so they are defined once in `@1stcontact/site-schema`
+// alongside the resolution rule that reads them. Re-exported here because this
+// is where the stamp is written and where consumers already look for it.
+export {
+  L1_EDIT_MARKER_ATTR,
+  L1_EDIT_PATH_ATTR,
+  L1_EDIT_SEGMENT_ATTR,
+  L1_EDIT_HOT_CLASS,
+  type L1SegmentKind,
+} from '@1stcontact/site-schema'
 
 /**
  * The edit channel's own stylesheet — one faint outline per segment, drawn by
@@ -1614,10 +1630,20 @@ export type L1SegmentKind = 'copy' | 'image' | 'container' | 'module'
  *
  * `outline` rather than `border`: it is painted outside the layout, so the edit
  * render's geometry stays the draft render's geometry and a segment cannot shift
- * merely by becoming outlined. The hover treatment (a brighter outline, a small
- * movement) belongs to the client and lands with the modals in T3.
+ * merely by becoming outlined.
+ *
+ * REQ-117 adds the hover treatment. The rule is here, with the outline it
+ * strengthens; which segment is hot is the client's to decide, and it says so by
+ * putting {@link L1_EDIT_HOT_CLASS} on the element. The "small movement" DOC-28
+ * §7.1 asks for is the outline lifting OFF the box — a change of `outline-offset`
+ * and nothing else. Moving the element itself would reflow the page under the
+ * pointer and, worse, make the edit render's geometry differ from the draft's the
+ * moment a user hovers.
  */
-export const L1_EDIT_CSS = `[${L1_EDIT_SEGMENT_ATTR}] { outline: 1px solid rgba(99, 102, 241, 0.35); outline-offset: -1px }`
+export const L1_EDIT_CSS = [
+  `[${L1_EDIT_SEGMENT_ATTR}] { outline: 1px solid rgba(99, 102, 241, 0.35); outline-offset: -1px; transition: outline-color 120ms, outline-width 120ms, outline-offset 120ms }`,
+  `[${L1_EDIT_SEGMENT_ATTR}].${L1_EDIT_HOT_CLASS} { outline: 2px solid rgba(99, 102, 241, 0.9); outline-offset: 3px }`,
+].join('\n')
 
 interface RenderState {
   n: number
