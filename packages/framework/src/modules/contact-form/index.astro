@@ -25,9 +25,15 @@ interface Props {
   config?: Record<string, unknown>
   slots?: { form?: L1Node }
   instanceId?: string
+  /**
+   * REQ-116 — the edit channel. The module owns its own behaviour, so it owns
+   * what "my behaviour is off" looks like: the form keeps its shape and its copy
+   * but loses the endpoint it would post to.
+   */
+  edit?: boolean
 }
 
-const { config = {}, slots = {}, instanceId = 'contact-form' } = Astro.props as Props
+const { config = {}, slots = {}, instanceId = 'contact-form', edit = false } = Astro.props as Props
 
 const action = typeof config.action === 'string' ? config.action : ''
 // Isolation (REQ-85): coerce the field schema defensively — a malformed entry is
@@ -56,7 +62,7 @@ const controls = contactFormControls(fields, submitLabel)
 // The form's presentation, as one L1 subtree in its own class namespace so two
 // instances on a page never collide.
 const formNode = slots.form && typeof slots.form === 'object' ? [slots.form] : []
-const form = renderL1Fragment(formNode, `${instanceId}-form`, controls)
+const form = renderL1Fragment(formNode, `${instanceId}-form`, controls, { edit })
 
 // Honeypot: hidden from humans, tempting to bots. The server rejects any
 // submission where this is filled (wired in REQ-7).
@@ -65,7 +71,13 @@ const honeypotName = 'hp_company_url'
 
 <section class="contact-form">
   <div class="contact-form__inner" data-contact-form-root>
-    <form class="contact-form__form" data-contact-form action={assertSafeUrl(action, 'contact-form action')} method="post">
+    {/*
+      REQ-116 — in the edit render the form has no action and no method: there is
+      nothing to post to and no verb to post with, so a submit cannot leave the
+      page. `data-contact-form` stays: it is only the handle `client.js` binds its
+      fetch upgrade to, and the edit channel ships no client script at all.
+    */}
+    <form class="contact-form__form" data-contact-form action={edit ? undefined : assertSafeUrl(action, 'contact-form action')} method={edit ? undefined : 'post'}>
       {/*
         Invariant — the programmatic label for every control, whatever the
         reference rendered visually. A control's *visible* words (a label above
