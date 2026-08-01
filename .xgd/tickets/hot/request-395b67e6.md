@@ -5,9 +5,9 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-01T17:43:36.435263+00:00'
+updated_at: '2026-08-01T17:43:36.575289+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -127,3 +127,99 @@ clipped so the user cannot see what they typed* is not.
    reopening the modal.
 9. Nested segments resolve innermost-first.
 10. View mode is unaffected: no handles, no click interception, no modal.
+
+
+---
+
+## What landed (2026-08-01, commit `1dd851d`)
+
+The **definition half** of the loop, complete and driven by real entry points.
+The **modal and the shell wiring are blocked on T1**, not descoped — see below.
+
+### The edit-address contract moved to `site-schema`
+
+`packages/site-schema/src/l1/edit.ts` is new and now owns the attribute names
+(`data-l1-path`, `data-l1-segment`, `data-fc-edit`, `data-fc-module`,
+`data-l1-slot`, plus the hover class), the segment vocabulary, the address type,
+and the **one** resolution rule — index the render's root node LIST, then
+`children` at each later step. REQ-116 had these in the renderer; they are the
+*contract*, not the rendering of it, so the emitter that writes the stamp and the
+client that reads it now share one definition site and cannot drift.
+`packages/framework` re-exports the names it used to own, so nothing downstream
+moved.
+
+The same module derives a segment's exposed fields (`copyFieldsOf`) and applies a
+change map (`applyCopyFields`). `type` is `'string'` and only `'string'` — DOC-28
+§3's exposure rule expressed as a type.
+
+### The write path is the AI's surface, not a second one
+
+`1c copy get|set` lands in `tools/generate/src/cli/edit.ts` beside
+`page`/`config`/`asset`. DOC-28 §4's invariant is that the editor and the chat AI
+are **peers, not two mechanisms** — peers share a surface. A copy edit therefore
+inherits that module's atomicity (assemble and validate the *resulting*
+definition before a byte hits disk) and runs the same `validateSite` +
+`validateL1` call the other commands run.
+
+- `1c copy get <slug> <pageId> <path> [--module <id> --slot <name>]` → the
+  `mountFields` descriptors + current values. An empty field list is the answer
+  for a segment with no phase-1 control, which is what makes "clicking it opens
+  nothing" a property of the derivation.
+- `1c copy set … --values '<json>'` → **one change map is one diff**: applied,
+  validated and written together, then the edit channel is re-rendered so the
+  host has only to refresh the iframe.
+
+### The client half reads the stamp
+
+`packages/framework/src/l1/edit-client.ts` — `resolveEditTarget` (innermost-wins
+via `closest`, module/slot scoping) and `mountL1EditBridge` (click + hover, and a
+guard that **refuses to bind on anything without `data-fc-edit`**, so a host that
+forgets to unmount on a mode switch still cannot break View mode). It answers one
+question — *which segment is this, and where in the definition does it live?* —
+and hands the answer to a host.
+
+### Two gaps the consumer revealed
+
+- **`contact-form` marked no seam.** Copy in its `form` slot carried an address
+  with no scope, and instance-rooted and document-rooted paths reuse the same
+  short forms by design — so it was unresolvable. It now marks the slot the way
+  `carousel` already marked its slide. Only the module knows which of its
+  elements is which seam.
+- **The hover treatment had no home.** The rule joins the outline it strengthens
+  in `L1_EDIT_CSS`; the client only says which segment is hot. The "small
+  movement" is the outline lifting *off* the box — moving the element itself
+  would reflow the page under the pointer and make the edit render's geometry
+  differ from the draft's.
+
+### Evidence
+
+`tests/req117-copy-editing.test.ts` — 10 UATs, one per AC, across both real entry
+points: jsdom over the bytes `1c render --edit` actually wrote, and `1c` itself
+(argv in, `{ok,data}` envelope and exit code out).
+
+AC5 is demonstrated by consequence: an unrelated part of the page's L1 is pushed
+past the envelope, and `copy set` and `config set` refuse for the *identical*
+reason — which `copy set` could not do if it validated only what it touched.
+
+AC3's "one Save, one diff" is demonstrated by atomicity: a change map whose
+second entry is bad writes neither half, and `1c status` reports zero modified
+files after it; a well-formed map moves exactly one.
+
+## Blocked on T1 (REQ-115), not descoped
+
+Two pieces of this ticket's scope cannot be built yet:
+
+1. **The `mountFields` modal.** The ticket is explicit that it is `mountFields`
+   and not hand-rolled — and REQ-115's Deliverable 0, *how `@gendevlabs/webui-*`
+   is consumed*, is unsettled. Nothing in `node_modules`, no submodule, no
+   published package. Hand-rolling a form to fill the gap is exactly what the
+   ticket forbids.
+2. **The shell wiring** — mounting the bridge on the iframe's document, refreshing
+   it after a save, and the View/Edit toggle. REQ-115 is still `draft`:
+   `apps/control-app` is a "Hello from app.1stcontact.io" stub, so there is no
+   host, no iframe and no mode to bind to.
+
+What T1 has to wire is small and named: `mountL1EditBridge(iframe.contentDocument,
+hit => …)`, then `1c copy get` for the descriptors, `mountFields` in **buffered**
+commit so Save is the flush point, then `1c copy set` with the confirmed values,
+then reload the iframe. Every piece but the modal itself is landed and tested.
