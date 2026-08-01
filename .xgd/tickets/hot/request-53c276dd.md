@@ -6,10 +6,10 @@ title: '1c structured-edit commands: validated page/config/asset CRUD + get + st
   (AI tool surface)'
 created_by: xgd
 created_at: '2026-06-30T21:22:22.178162+00:00'
-updated_at: '2026-07-02T00:19:10.068226+00:00'
-completed_at: null
-last_field_updated: body
-status: free_coded
+updated_at: '2026-07-29T18:42:10.416031+00:00'
+completed_at: '2026-07-29T18:42:10.416031+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   story_points: 3
   priority: medium

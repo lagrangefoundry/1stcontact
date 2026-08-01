@@ -6,10 +6,10 @@ title: 'values-diff: adjacent-gap axis (relative vertical spacing) + drop sectio
   band-padding noise'
 created_by: xgd
 created_at: '2026-07-18T20:25:38.831919+00:00'
-updated_at: '2026-07-18T20:36:35.254967+00:00'
-completed_at: null
+updated_at: '2026-07-29T18:42:15.746612+00:00'
+completed_at: '2026-07-29T18:42:15.746612+00:00'
 last_field_updated: status
-status: free_coded
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
