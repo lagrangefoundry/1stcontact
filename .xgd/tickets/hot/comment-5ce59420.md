@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-116
 created_by: xgd
 created_at: '2026-07-31T22:44:11.056997+00:00'
-updated_at: '2026-08-01T00:29:57.298043+00:00'
+updated_at: '2026-08-01T00:35:13.297779+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -126,5 +126,62 @@ Two things I should flag: the full-suite run I did straddled the reset, so its 1
 <!-- xgd-chat role="user" ts="2026-08-01T00:29:57.266194+00:00" -->
 #### You
 REQ-115 was running, but is finished
+
+<!-- xgd-turn id="89bfded8-1141-470f-b6fe-0927e7e0be21-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-01T00:35:13.270169+00:00" -->
+#### Claude
+REQ-115 finishing explains it. Let me check what moved before restoring, so I don't clobber ticket state.
+
+Tree state has changed again. Let me check what's actually on disk now rather than assume:
+
+My REQ-116 work is intact on disk — and mostly already **committed**, swept into REQ-115's `git add -A` bookkeeping commits. Let me confirm exactly which:
+
+My REQ-116 code was swept into REQ-114's commit `f6b53e3fc`. Typecheck is clean. Let me verify the tests:
+
+All green. Now the full suite to confirm no regressions:
+
+4 failures. Let me determine whether they're mine or came in with the REQ-114 sweep:
+
+Same 4 fail without my changes — they're pre-existing at HEAD, from the REQ-114 palette commit. Restoring my edits:
+
+Restored and green. Now the ticket — reading the current body first to preserve it:
+
+All 9 ACs map to my 8 UATs. Committing the remaining files:
+
+Now updating the ticket — appending to the body, preserving everything already there:
+
+The gate requires `move-to-free-coded` with a version bump. Let me check the project's bump script:
+
+My commit is unpushed and the bump touches only `package.json`, so I'll fold it in:
+
+The amend hit the ticket auto-commit, not mine. Let me unwind that carefully:
+
+Now fold only the version bump into my REQ-116 commit, leaving the ticket file for `xgd` to commit:
+
+Clean. Now the free-coding gate:
+
+The tooling enforces one-commit-one-ticket, and REQ-114 already owns that sha. Recording only my own commit:
+
+REQ-116 is done and free-coded. Working tree is clean.
+
+## What landed
+
+The edit render as a **mode threaded through the existing single emitter** — no second renderer, no overlay, no schema change.
+
+- **Framework** — `emitNode` carries the child-index path it walks. `segmentKind()` derives segments from the tree: `text`→copy, `image`→image, painted `box`/`container`→container, mounted `slot`→module. "Carries paint" is answered by asking `surfaceDecls` rather than a hand-kept axis list, so future paint axes are covered for free; unpainted containers, unmounted slots and `control` leaves get nothing. Edit mode drops `href`/`target` (keeping the `<a>` element, so only the target differs), the reveal rules *and* the `l1-rv` class, and the pointer-accent rules.
+- **Modules** own their own settled state, since only they know which attributes carry behaviour: `contact-form` drops `action`/`method`; `carousel` wraps its track via a rule keyed on a document-level `data-fc-edit` marker — so the channel needs no knowledge of what a carousel is, and future modules declare theirs the same way.
+- **Channel** — `1c render <slug> --edit` → `dist/<slug>/edit/`, always from `draft/`. No `capabilities.js` referenced or written.
+- **Addresses** — dot-joined indices rooted at the render's root node *list*, so one resolution rule serves both documents and module-slot fragments. `id` untouched.
+
+8 UATs covering all 9 ACs, driven through the CLI and asserting on bytes written to disk. One caught a real gap: suppressing the reveal rules while leaving `l1-rv` on would have advertised a motion the page can't perform.
+
+## Two things need your decision
+
+**1. REQ-116's code is attributed to REQ-114's commit.** While this work was in flight, REQ-115's `git add -A` swept my renderer/pipeline/store/CLI changes into `f6b53e3fc` — REQ-114's free-coded commit. I tried to record that sha on REQ-116 and the gate correctly refused: one commit, one ticket. So REQ-116 records only `47e5bc65f` (the two modules, the UATs, the version bump), and the bulk of its code sits inside REQ-114's bundle. I've documented this in both the commit message and the ticket body, but reconcile will attribute that code to REQ-114 — worth deciding how you want it handled before the next reconcile. I didn't attempt to split `f6b53e3fc`, since rewriting it would invalidate the sha REQ-114 has already recorded.
+
+**2. Four pre-existing test failures.** Full suite: 992 passed, 4 failed — `reconciliation-1c-astro-free-render`, `reconciliation-3probe-gate-evaluator`, `reconciliation-3probe-gate`, `reconciliation-l1-fold-full-language`. I confirmed all four fail identically at HEAD with my changes reverted, so they're not from REQ-116; they arrived with the REQ-114 palette commit. The assertions are about fold residuals (`'field'` and `'slot'` appearing/missing in expected element lists).
+
+The two `rescue/*` tags from the earlier reset are still in place. Everything they hold is now on disk or committed, so say the word and I'll delete them.
 
 <!-- xgd-chat-end -->
