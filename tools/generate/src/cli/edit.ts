@@ -1,6 +1,13 @@
 import { copyFileSync } from 'node:fs'
 import path from 'node:path'
-import { validateSite } from '@1stcontact/site-schema'
+import {
+  applyCopyFields,
+  copyFieldsOf,
+  parseL1Path,
+  resolveL1Node,
+  validateSite,
+  type L1Node,
+} from '@1stcontact/site-schema'
 import type { Root, StoreContext } from '../store'
 import {
   diffSnapshots,
@@ -228,6 +235,218 @@ function assetReferences(files: PageFile[], assetName: string): AssetRefSite[] {
     }
   }
   return out
+}
+
+// ── copy commands (REQ-117) ──────────────────────────────────────────────────
+//
+// The editor's write path, and it is deliberately *these* commands rather than a
+// path of its own. DOC-28 §4's invariant is that every edit the page editor makes
+// is a structured, validated diff through the same validator the AI's edits use —
+// the editor and the chat AI are peers, not two mechanisms. Peers share a surface;
+// they do not each get one. So a copy edit lands here, beside `page`/`config`/
+// `asset`, inheriting this module's two load-bearing properties unchanged:
+// atomic (validate the *resulting* definition before a byte hits disk) and
+// structured failures.
+//
+// The whole exposed vocabulary is a change map of plain strings. There is no
+// argument this surface accepts that could carry raw HTML or CSS, because the
+// only thing it can write is an L1 `text` run's words — and the renderer escapes
+// those (DOC-2). "No raw-editing mode" is therefore a property of the surface's
+// shape, not a rule it has to remember.
+
+/** A segment address on the CLI: the page, the path, and the scope it indexes. */
+export interface CopyTargetOptions extends GlobalOptions {
+  /** The behavior-module instance whose slot roots the address, if any. */
+  module?: string
+  /** The named slot within that instance. */
+  slot?: string
+}
+
+/**
+ * The node list the address indexes — `[doc.root]` for the page's own L1, or a
+ * behavior instance's slot subtrees. This mirrors what the renderer handed to
+ * `renderL1Fragment` when it stamped the address, which is why the same path
+ * resolves in both spaces.
+ */
+function segmentRoots(
+  page: Record<string, unknown>,
+  pageId: string,
+  target: CopyTargetOptions,
+): L1Node[] {
+  if (target.module === undefined) {
+    const l1 = page.l1 as { root?: L1Node } | undefined
+    if (!l1?.root) {
+      throw new CommandError({
+        code: 'NOT_FOUND',
+        message: `Page '${pageId}' has no L1 document.`,
+        path: pageId,
+        hint: 'Only an L1 page carries editable segments.',
+      })
+    }
+    return [l1.root]
+  }
+
+  const modules = Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
+  const instance = modules.find((m) => m.id === target.module)
+  if (!instance) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no module instance '${target.module}'.`,
+      path: `${pageId}/${target.module}`,
+      hint: `Inspect the page with '1c page get <slug> ${pageId}'.`,
+    })
+  }
+  if (target.slot === undefined) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: 'An address inside a module instance must name the slot it indexes.',
+      path: String(target.module),
+      hint: 'Pass --slot <name>; the edit render stamps it as data-l1-slot.',
+    })
+  }
+  const slots = (instance.slots ?? {}) as Record<string, unknown>
+  const raw = slots[target.slot]
+  if (raw === undefined) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Module '${String(target.module)}' has no slot '${target.slot}'.`,
+      path: `${pageId}/${String(target.module)}/${target.slot}`,
+    })
+  }
+  // A repeated slot holds one subtree per item; a single slot holds one subtree.
+  // The emitter renders both as a node LIST, so both resolve identically here.
+  return Array.isArray(raw) ? (raw as L1Node[]) : [raw as L1Node]
+}
+
+/** The page file, the (possibly cloned) page, and the addressed node within it. */
+interface ResolvedSegment {
+  file: PageFile
+  page: Record<string, unknown>
+  node: L1Node
+}
+
+function resolveSegment(
+  ctx: StoreContext,
+  slug: string,
+  pageId: string,
+  rawPath: string,
+  target: CopyTargetOptions,
+  /** Resolve against a deep clone, so a write can be abandoned without a trace. */
+  clone: boolean,
+): { files: PageFile[] } & ResolvedSegment {
+  const files = readPageFiles(ctx, slug)
+  const file = findPageFile(files, pageId)
+  if (!file) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' not found in site '${slug}'.`,
+      path: pageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+  const path = parseL1Path(rawPath)
+  if (!path) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${rawPath}' is not a segment address.`,
+      path: rawPath,
+      hint: 'An address is dotted child indices, e.g. 0.2.1 — read it off data-l1-path.',
+    })
+  }
+  const page = clone ? structuredClone(file.page) : file.page
+  const node = resolveL1Node(segmentRoots(page, pageId, target), path)
+  if (!node) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Address '${rawPath}' resolves to no node in page '${pageId}'.`,
+      path: rawPath,
+      hint: 'Addresses are render-scoped: re-read it from the current edit render.',
+    })
+  }
+  return { files, file, page, node }
+}
+
+/**
+ * The modal's input: the descriptors and current values for one segment, or an
+ * empty field list when the segment exposes nothing (DOC-28 §6.2). An empty list
+ * is a legitimate answer — a container or a module instance is a real segment
+ * with no phase-1 control — so it reads as "nothing to edit here", not an error.
+ */
+export function editCopyGet(
+  slug: string,
+  pageId: string,
+  rawPath: string,
+  opts: CopyTargetOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  requireDraft(ctx, slug)
+  const { node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
+  const derived = copyFieldsOf(node)
+  const data = {
+    target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
+    kind: node.kind,
+    fields: derived?.fields ?? [],
+    values: derived?.values ?? {},
+  }
+  const human = derived
+    ? derived.fields
+        .map((f) => `${f.name}\t${JSON.stringify(derived.values[f.name] ?? '')}`)
+        .join('\n')
+    : `(no editable copy on this ${node.kind} segment)`
+  return { data, human }
+}
+
+/**
+ * Apply one modal's worth of copy changes.
+ *
+ * **One invocation is one diff** (DOC-28 §11): the whole change map is applied,
+ * validated and written together, however many fields it names. That is why the
+ * modal runs `mountFields` in `buffered` commit — `auto` would emit a diff per
+ * field and this command would be called once per keystroke-settle, producing a
+ * re-render each time and a history the user never asked for.
+ *
+ * Nothing is written unless the resulting definition validates. On failure the
+ * clone is discarded and the draft is byte-unchanged, so the iframe still shows
+ * exactly the state the user was editing.
+ */
+export function editCopySet(
+  slug: string,
+  pageId: string,
+  rawPath: string,
+  values: Record<string, unknown>,
+  opts: CopyTargetOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const { files, file, page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, true)
+
+  const applied = applyCopyFields(node, values)
+  if (!applied.ok) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: applied.message,
+      path: applied.field ? `${rawPath}/${applied.field}` : rawPath,
+      hint: `Read the segment's fields with '1c copy get ${slug} ${pageId} ${rawPath}'.`,
+    })
+  }
+
+  // The shared validator, layer 1 (DOC-8 §7) — the same call `page`, `config` and
+  // `asset` make, and the same one the AI's tool surface will. It runs the site
+  // schema AND the L1 envelope over the whole resulting definition.
+  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+
+  writeJson(file.abs, page)
+  return {
+    data: {
+      target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
+      changed: applied.changed,
+      values,
+    },
+    human:
+      applied.changed.length === 0
+        ? `No change at ${rawPath} (value already current).`
+        : `Updated ${applied.changed.join(', ')} at ${rawPath} in page '${pageId}'.`,
+  }
 }
 
 // ── page commands ────────────────────────────────────────────────────────────

@@ -15,6 +15,8 @@ import {
   editAssetGet,
   editAssetList,
   editAssetRm,
+  editCopyGet,
+  editCopySet,
   editConfigGet,
   editConfigSet,
   editPageAdd,
@@ -293,6 +295,18 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c asset get <slug> <assetName>
   1c asset add <slug> <file> [--as <name>]
   1c asset rm <slug> <assetName> [--force]
+
+The page editor's write path (REQ-117) — the same surface, same validator:
+  1c copy get <slug> <pageId> <path> [--module <id> --slot <name>]
+    The mountFields descriptors + current values for one segment. An empty field
+    list means the segment exposes no phase-1 control (a container, a module).
+  1c copy set <slug> <pageId> <path> --values <json> [--module <id> --slot <name>]
+    Apply one modal's worth of changes as ONE diff, then re-render the edit
+    channel. Nothing is written unless the resulting definition validates.
+
+  <path> is the dotted child-index address the edit render stamps as
+  data-l1-path; --module/--slot are its data-fc-module / data-l1-slot scope, and
+  are needed only for copy inside a behavior module's slot.
 
 Every command defaults to the git-tracked sites/ tree; --sandbox targets the
 gitignored sandbox/ scratch tree. Rendered output always lands in
@@ -914,6 +928,71 @@ export async function run(argv: string[]): Promise<void> {
           console.log(formatFontsReport(report))
         }
         if (!report.pass) process.exitCode = 1
+      } catch (err) {
+        fail(err, json)
+      }
+      return
+    }
+
+    // REQ-117 — the editor's loop, end to end in one command: apply a validated
+    // diff, then re-render the channel the editor is displaying so the host has
+    // only to refresh the iframe. It is its own case rather than part of
+    // `dispatchEdit` because that re-render is async, and because a failed
+    // validation must stop BEFORE it — an invalid edit leaves both the draft and
+    // the rendered bytes exactly as the user left them.
+    case 'copy': {
+      const json = flags.json === true
+      try {
+        const sub = rest[0]
+        const slug = requireArg(rest[1], 'slug')
+        const pageId = requireArg(rest[2], 'pageId')
+        const addr = requireArg(rest[3], 'path')
+        const scope = {
+          ...global,
+          module: typeof flags.module === 'string' ? flags.module : undefined,
+          slot: typeof flags.slot === 'string' ? flags.slot : undefined,
+        }
+        if (sub === 'get') {
+          emit(editCopyGet(slug, pageId, addr, scope), json)
+          return
+        }
+        if (sub !== 'set') throw unknownSub('copy', sub)
+
+        const raw = flags.values
+        if (typeof raw !== 'string') {
+          throw new CommandError({
+            code: 'SCHEMA_INVALID',
+            message: 'copy set requires --values <json>.',
+            hint: 'Pass the change map, e.g. --values \'{"text":"New heading"}\'.',
+          })
+        }
+        let values: unknown
+        try {
+          values = JSON.parse(raw)
+        } catch {
+          throw new CommandError({
+            code: 'SCHEMA_INVALID',
+            message: '--values is not valid JSON.',
+            path: 'values',
+            hint: 'It is one modal\'s change map: {"<field>":"<text>"}.',
+          })
+        }
+        if (values === null || typeof values !== 'object' || Array.isArray(values)) {
+          throw new CommandError({
+            code: 'SCHEMA_INVALID',
+            message: '--values must be a JSON object of field → string.',
+            path: 'values',
+          })
+        }
+        const out = editCopySet(slug, pageId, addr, values as Record<string, unknown>, scope)
+        const { outDir } = await cmdRender(slug, { ...global, edit: true })
+        emit(
+          {
+            data: { ...(out.data as Record<string, unknown>), rendered: outDir },
+            human: `${out.human}\nRe-rendered edit channel → ${outDir}`,
+          },
+          json,
+        )
       } catch (err) {
         fail(err, json)
       }

@@ -27,3 +27,25 @@ export { l1SlotNames, l1DocumentSlotNames, l1ControlNames } from './slots'
 // REQ-104 — the one place the renderer and the analytic evaluator agree on which
 // layout mode a container is in at a given width.
 export { resolveLayoutMode } from './layout'
+// REQ-116/117 — the edit bridge's definition half: the stamp's attribute names,
+// the address and its one resolution rule, and a segment's exposed copy fields.
+export {
+  L1_EDIT_PATH_ATTR,
+  L1_EDIT_SEGMENT_ATTR,
+  L1_EDIT_MARKER_ATTR,
+  L1_EDIT_MODULE_ATTR,
+  L1_EDIT_SLOT_ATTR,
+  L1_EDIT_HOT_CLASS,
+  parseL1Path,
+  formatL1Path,
+  resolveL1Node,
+  copyFieldsOf,
+  applyCopyFields,
+} from './edit'
+export type {
+  L1SegmentKind,
+  L1EditTarget,
+  L1FieldDescriptor,
+  L1SegmentFields,
+  L1CopyEditResult,
+} from './edit'
