@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-02T23:34:54.694687+00:00'
+updated_at: '2026-08-02T23:44:37.484236+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -126,5 +126,11 @@ Worth trying for the shape of it:
 **Hover highlight and the modal.** The client bridge (`mountL1EditBridge`) resolves a clicked pixel to that address and is tested, but nothing mounts it — `apps/control-app` is still a `Hello from app.1stcontact.io` stub and the `@gendevlabs/webui-*` consumption route is T1's unsettled decision. So there's no iframe to bind to and no `mountFields` to open.
 
 What T1 has to wire is one line plus the two commands above: `mountL1EditBridge(iframe.contentDocument, hit => …)` → `copy get` for descriptors → `mountFields` buffered → `copy set` → reload.
+
+<!-- xgd-turn id="3f182d1c-774a-460c-9629-52c59c85f43a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-02T23:44:37.377476+00:00" -->
+#### You
+Is this ticket fully implemented - when do we get editing and highlighting?
 
 <!-- xgd-chat-end -->
