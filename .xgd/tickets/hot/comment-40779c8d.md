@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-01T17:43:56.276672+00:00'
+updated_at: '2026-08-02T23:32:38.206781+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -78,5 +78,11 @@ Two gaps the consumer revealed: `contact-form` marked no slot seam, so copy in i
 - **The shell wiring** — mounting on the iframe document, refreshing after save, the View/Edit toggle. No host to bind to.
 
 What T1 has to wire is small and named: `mountL1EditBridge(iframe.contentDocument, hit => …)` → `1c copy get` for descriptors → `mountFields` in `buffered` commit → `1c copy set` → reload. Everything but the modal is landed and tested. Both blockers are written up on the ticket.
+
+<!-- xgd-turn id="cd0b6d98-a169-4546-8558-c8774fc5611d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-02T23:32:38.111515+00:00" -->
+#### You
+Does this ticket give me something I can see? How do I try it?
 
 <!-- xgd-chat-end -->
