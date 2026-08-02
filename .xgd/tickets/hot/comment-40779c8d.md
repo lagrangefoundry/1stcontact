@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-02T23:44:37.484236+00:00'
+updated_at: '2026-08-02T23:45:55.955889+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -132,5 +132,44 @@ What T1 has to wire is one line plus the two commands above: `mountL1EditBridge(
 <!-- xgd-chat role="user" ts="2026-08-02T23:44:37.377476+00:00" -->
 #### You
 Is this ticket fully implemented - when do we get editing and highlighting?
+
+<!-- xgd-turn id="3f182d1c-774a-460c-9629-52c59c85f43a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-02T23:45:55.855459+00:00" -->
+#### Claude
+## Is it fully implemented?
+
+No — about two-thirds. All 10 UATs pass (just ran them: `10 passed`), one per acceptance criterion, but the ACs were tested at the seam *below* the UI:
+
+| AC | What it says | What's actually tested |
+|---|---|---|
+| 1 | clicking a segment **opens a modal** | `copy get` returns field descriptors; a container returns `[]` |
+| 2 | iframe shows the new copy | `copy set` writes the draft and re-renders the bytes |
+| 4 | invalid edit leaves iframe at pre-edit state | rejected write leaves draft + rendered files byte-identical |
+
+So the loop's machinery is real and proven — address resolution, descriptor derivation, atomic diff, shared validator, re-render. Three things from the ticket's own §2/§1 scope did not land: **the `mountFields` modal**, **click wiring to a live iframe**, and **mounting the hover treatment**. The CSS rule for hover exists (`[data-l1-segment].fc-edit-hot`) and `resolveEditTarget` exists and is tested against real rendered bytes — nothing puts them together, because there's no document to attach to.
+
+## Why
+
+REQ-117 is **T3** in DOC-28 §12, and its graph is `T1 + T2 → T3`. T2 (REQ-116, the edit render) is `free_coded`. **T1 (REQ-115, the builder shell) is still `draft`** — so T3 landed out of order and could only build the half that doesn't need a host. That's the honest status: the ticket is marked `free_coded` but its body doesn't record the deferred scope; only the commit message does.
+
+## When you get editing and highlighting
+
+Both arrive with **REQ-115**, plus a wiring step measured in a handful of lines:
+
+```
+mountL1EditBridge(iframe.contentDocument, hit => …)   ← hover highlight, immediately
+  → 1c copy get   → descriptors
+  → mountFields   (buffered)
+  → 1c copy set   → reload iframe
+```
+
+The gating item isn't code. DOC-28 says it plainly: *"T1's real content is a decision, not code"* — the `@gendevlabs/webui-*` consumption route (DOC-8 §13 Q1). Until that's settled there's no shell, no display panel, no View/Edit toggle, no iframe. Everything downstream (T4 image selection, T5 request-time renders) queues behind it too.
+
+After that it's short: T1 deliberately avoids the render question by pointing the iframe at the already-rendered draft on disk, so no new render work is needed to get a real page on screen.
+
+Two things I can do now — say which:
+1. **Work Q1** — lay out the webui consumption options with a recommendation, so REQ-115 can leave `draft`.
+2. **Update REQ-117's body** to record the blocked scope (modal, click wiring, hover mount) against REQ-115, so the gap is visible on the ticket and not just in a commit message. Doc change, no code.
 
 <!-- xgd-chat-end -->
