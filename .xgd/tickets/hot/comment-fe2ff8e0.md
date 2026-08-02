@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-115
 created_by: xgd
 created_at: '2026-07-31T22:44:01.633854+00:00'
-updated_at: '2026-07-31T23:05:09.236015+00:00'
+updated_at: '2026-08-02T23:46:01.350162+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,11 @@ So the shape I'd propose (for your confirmation once the blocker clears): a Node
 One knock-on worth flagging: serving the builder at `/` supersedes the `Hello from app.1stcontact.io` placeholder, so `test_UAT_FC_REQ-1_control_app_returns_placeholder` gets rewritten rather than kept alongside.
 
 **Question for you:** push/reconcile `xgd-framework`'s working branch so I can pin a submodule to a ref that has `webui-split` — or would you rather I build the shell-only slice now (tab, storage seam, display panel, mode contract, toolbar, serving) and add the split in a follow-up session?
+
+<!-- xgd-turn id="cc6be7e2-4487-491e-9856-f1be0a5c5e8d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-02T23:46:01.221165+00:00" -->
+#### You
+xgd-framework is now lagrange-framework, I have installed it into the venv, is that what you need?
 
 <!-- xgd-chat-end -->
