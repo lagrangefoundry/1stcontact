@@ -6,10 +6,10 @@ title: A run is declared unbreakable from the smallest captured width whose enti
   wider suffix was single-line
 created_by: xgd
 created_at: '2026-08-03T02:08:30.940287+00:00'
-updated_at: '2026-08-03T02:08:30.940287+00:00'
+updated_at: '2026-08-03T02:23:34.466032+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
