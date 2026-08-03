@@ -6,10 +6,10 @@ title: Repeated projections at one (width, state) key are partitioned into ladde
   and evidence, so a height probe cannot drain the fidelity measure
 created_by: xgd
 created_at: '2026-08-03T02:48:38.849536+00:00'
-updated_at: '2026-08-03T02:48:38.849536+00:00'
+updated_at: '2026-08-03T03:16:07.849023+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-24098299
   kind: behavior
