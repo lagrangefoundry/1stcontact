@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T02:09:22.328638+00:00'
+updated_at: '2026-08-03T02:29:18.884293+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -289,7 +289,7 @@ fields:
       there is one. These are more instances of the same contract (a matched axis
       is not proof; a mismatched axis can actively misdirect), not a new capability.
       Reuse-first: extend the existing story rather than open a parallel diff story.'
-    story_uid: null
+    story_uid: story-d5de22a5
     target_story_ids:
     - story-d5de22a5
     intent_delta_summary: 'STORY-75 widens from ''capture blind spots on a conventionally-nested
