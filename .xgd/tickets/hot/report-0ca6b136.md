@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-24098299'
 created_by: xgd
 created_at: '2026-08-03T03:01:19.798092+00:00'
-updated_at: '2026-08-03T03:01:19.798092+00:00'
+updated_at: '2026-08-03T03:13:15.936332+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-24098299
@@ -24,6 +24,7 @@ fields:
     instructions: ''
     test_scope: AC-705 (orphaned acceptance criterion) or AC-737 (orphaned acceptance
       criterion) or test_UAT_AC737 or test_UAT_AC705
+  batches_pending: false
 ---
 
 {
