@@ -6,9 +6,9 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-03T01:27:44.449316+00:00'
+updated_at: '2026-08-03T02:07:07.273445+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -73,6 +73,31 @@ ride on the text leaf itself and it contributes no card row, so a pill is never
 duplicated by a box behind it. An accent rule is drawn on the captured bearing
 element's rect, not on the run that wrapper insets.
 
+**The responsive model is fitted from the ladder, not pinned to its widest
+sample.** A numeric type axis (font size, line height, letter spacing) and each
+padding side earn a **per-width track** only where they actually vary across the
+sampled widths; an axis that holds one value everywhere stays a plain scalar, so a
+static page is never bloated into a responsive one. A **text** leaf rounds its
+width UP — a shrink-to-fit run's captured box *is* its glyph extent, and pinning it
+a fraction short makes CSS answer by wrapping — while box and image leaves keep
+nearest rounding so a surface cannot creep outward a pixel per pass. A run is
+declared unbreakable from the smallest captured width whose *entire wider suffix*
+the reference set on one line, so the pin never claims more than the reference
+showed and a genuinely wrapping paragraph is never pinned. The two viewport
+functions the width ladder alone cannot express are fitted and verified rather than
+guessed: a **viewport-height response** is read only from the capture's height
+probe — a ladder width re-shot at a second height, which makes `100vh` a finite
+difference instead of a correlation with width — and expressed as a derivative (a
+hero's height factor with a matching y factor on everything the hero pushes down,
+a band taking its response from its own section edges rather than from the runs it
+contains); and the page's **centred column** is recovered from the modal left edge
+of the content that actually sits in it, then each node anchors its `x` and its
+`width` to that column *independently* in closed form — with a capped term for a
+nested narrower maximum, and a keyframed in-column offset where the layout mode
+itself changes. Every such fit must reproduce every captured sample or it is not
+emitted at all: a page with no centred column and no viewport-height block folds to
+exactly the keyframes it always did.
+
 Anything the fold still cannot express is **signalled, not dropped**: each such
 element becomes a typed residual naming its kind, the reason, the painted axes it
 carried and the widths it appeared at, so a folder-power gap reads as a framework
@@ -91,13 +116,21 @@ renders as a complete reproduction on its own.
 **In scope:** the fold to one L1 document in the full language (text, image, box,
 the section-band → card → chip surface hierarchy, section background images and
 scrims, page band, font table), oracle retention, geometry keyframes +
-interpolate/snap classification + visibility rules, the typed residual signal for
+interpolate/snap classification + visibility rules, the fitting of the responsive
+model across the ladder (per-axis type and padding tracks, glyph-safe text widths,
+nowrap thresholds, the viewport-height response read from the height probe, and the
+centred-column fit with per-axis anchoring), the typed residual signal for
 unexpressed elements, the advisory hint sidecar, and supersession of the pre-L1
 `adopt-values` reproduction command.
 
 **Out of scope:** the L1 typed tree / envelope / renderer themselves, including the
-axis vocabulary (`borderLeft`, the text self-surface, `overlay`, padding) and the
-resource-table form (owned by the L1 Layout Substrate capability); binding and
+axis vocabulary (`borderLeft`, the text self-surface, `overlay`, padding, the
+per-width scalar track, `nowrapFromPx`, `viewportResponse`, `document.column` +
+`geometry.anchor`) and the resource-table form, and how any of them render (all
+owned by the L1 Layout Substrate capability — this story owns only *which* of them
+the ladder's evidence supports and with what values); the capture's own recording
+of that evidence, including shooting the height probe (owned by the capture
+recording contract); binding and
 validating a behavior-module instance against a slot seam, and mounting it at
 render (owned by the page-composition capability — this story owns only the fold to
 the seam); the end-to-end reproduction acceptance gate, its fidelity pairing of
@@ -152,12 +185,69 @@ story); how the gate presents the residual channel; the values-diff axis coverag
   wide-gamut serialization residual (≤1 level per channel on `color-mix(in oklab)`)
   that is invisible at the authored opacity and self-cancelling across both sides of
   a values-diff, so it is accepted rather than chased here.
+- A track earns its place only by varying: an axis identical at every sampled width
+  stays single-valued. Tracks are emitted without segment flags, so they inherit
+  the fluid default that geometry keyframes already use.
+- Rounding is asymmetric **by kind**, not by taste: a text leaf ceils its width
+  (the smallest integer that still contains the measured glyphs — the hero title
+  measured 685.31 and, pinned at 685, reflowed onto a second line the reference
+  never had), while box and image leaves round to nearest because they have no
+  reflow constraint and a repeated ceil would grow a surface a pixel per pass.
+- `Math.ceil` alone left the outcome to a fifth of a pixel and to per-engine glyph
+  metrics — six checklist items, the CTA and the footer wrapped in Gecko but not in
+  Chromium. The nowrap threshold states the reference's own line count structurally
+  instead. It is a **width, not a flag**: the same runs are one line on desktop and
+  three at 320px, so a flag could only ever be set for runs that never wrap at any
+  width — precisely the ones that were not breaking. An *unmeasurable* line count
+  breaks the single-line suffix rather than reading as one line, because the wrong
+  reading pins a real paragraph and overprints the run below it.
+- The height probe is read as **evidence and never as a keyframe**: the ladder
+  defines the keyframes, screenshots and diff cells, and a duplicate width would
+  perturb all three. The response is measured at the probe width and applied at
+  every width — the rule producing it (`min-h-screen`) is not itself width-varying,
+  and re-probing at every width would multiply capture cost by the ladder length.
+  Measured ratios are snapped to eighths to absorb sub-pixel layout noise; a ratio
+  indistinguishable from zero emits no axis at all. Without a probe the fold emits
+  nothing rather than guessing from a width correlation — and both existing gates
+  are blind to this axis by construction, since capture and shot share a viewport
+  height, so the error is identically zero on every probe.
+- A band's response comes from its **section edges**, not its runs, and both edges
+  must agree at every width or the band is not describable as one height rule.
+- The centred-column origin is the **modal** content left edge, not the minimum: a
+  real page has more than one gutter (this reference sets its header 8px wider than
+  its content) and the extreme is whichever happens to be widest, not the column the
+  page is laid out in. Taking the minimum made the fit fail outright.
+- Anchoring is **per axis** because alignment is a shared property while width is a
+  private one. Coupling them was a real defect: on the hero exactly one line's width
+  equalled the column extent, so that line followed the column while its three
+  neighbours kept absolute keyframes, splitting text the reference keeps flush by
+  31px at 1150 — worse than not anchoring at all.
+- Three guards keep a fit from being coincidence: a capped fit must be
+  over-determined (a two-point fit through two points is interpolation — the hero
+  title's shrink-to-fit width fits *any* two samples and then "verifies" against its
+  own cap, yielding `-684px + 3.14 × extent`); every fraction is bounded to a
+  plausible share of the column, since a steep coefficient means the axis is
+  tracking responsive type or a glyph extent that merely correlates with the
+  column's growth over the samples; and a full-bleed band is never anchored, because
+  writing `x = 0` as `origin + (−origin)` and interpolating the residual walks it to
+  a negative x between samples.
+- Where no closed form fits an `x`, the in-column offset is keyframed instead of the
+  absolute position, and that track inherits the node's own geometry segments — a
+  3-up grid that stacks below `md` changes layout MODE, and interpolating an inset
+  across a mode change slid the third column 42px off the right edge.
+- The document declares its column only when at least one node actually anchors to
+  it, so an unfitted page carries no dead constant.
+- `accentBox` and the height probe are capture-side data: on a bundle captured
+  before them the fold degrades cleanly — no height response is emitted and nothing
+  else regresses — rather than inventing a value.
 
 ## Dependencies
 Plan item 1 — L1 Layout Substrate + Safety Envelope (CAP-70), whose axis vocabulary
-(`borderLeft`, text self-surface, `overlay`) and document-level font resource table
-this fold populates; and the capture recording contract, whose surface shapes,
-accent bearer rects and section boxes this reconstruction reads as measured fact.
+(`borderLeft`, text self-surface, `overlay`, padding, per-width scalar tracks,
+`nowrapFromPx`, `viewportResponse`, `document.column` + `geometry.anchor`) and
+document-level font resource table this fold populates; and the capture recording
+contract, whose surface shapes, accent bearer rects, section boxes, per-run glyph
+extents and viewport-height probe this fold reads as measured fact.
 
 ## Story Points
 3
