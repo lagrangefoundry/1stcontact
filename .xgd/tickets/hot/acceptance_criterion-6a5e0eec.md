@@ -2,13 +2,13 @@
 uid: acceptance_criterion-6a5e0eec
 id: AC-731
 type: acceptance_criterion
-title: Run-composited surfaces are reconstructed as a page background band plus backing
-  box leaves
+title: Run-composited surfaces are reconstructed as a section-band -> card -> on-band
+  hierarchy
 created_by: xgd
 created_at: '2026-07-29T04:05:20.467187+00:00'
-updated_at: '2026-08-03T00:57:26.266388+00:00'
+updated_at: '2026-08-03T00:57:39.913289+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-8acc338d
