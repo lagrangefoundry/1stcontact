@@ -5,10 +5,10 @@ type: request
 title: 'R2 artifact store + 1c deploy: ship rendered snapshots to Cloudflare'
 created_by: xgd
 created_at: '2026-07-30T19:34:53.952227+00:00'
-updated_at: '2026-07-30T20:35:03.467577+00:00'
+updated_at: '2026-08-03T00:15:06.896590+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 3
