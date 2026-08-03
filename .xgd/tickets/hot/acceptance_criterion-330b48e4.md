@@ -6,7 +6,7 @@ title: Sample-fidelity probe matches reproduced leaf boxes to the oracle at ever
   captured width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-07-29T05:10:31.837826+00:00'
+updated_at: '2026-08-03T02:49:26.255766+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -24,6 +24,12 @@ exactly when, at every captured width, each oracle sample's box (x, y, width) is
 the per-axis tolerance (default 2px) of the box of the reproduced leaf it is paired
 with.
 
+**Which projections are measured.** The oracle is the capture's **width ladder**: the
+first projection at a given `(width, state)` key defines that width's samples and any
+later projection at the same key — a height probe re-shooting a ladder width at a
+second viewport height — is evidence and contributes no samples. Non-resting states are
+outside the measure.
+
 **Which oracle samples are measured.** Each captured element is classified through the
 same element classifier the fold uses, so an oracle sample exists exactly where the
 fold emits a leaf: text runs with non-empty text, images, and painted surface boxes.
@@ -38,7 +44,9 @@ order** on both sides, within a key:
 - **Image and box leaves** carry no text, so they key on leaf **kind**: the k-th
   image (respectively box) oracle sample pairs with the k-th reproduced leaf of that
   kind. A non-text residual or unmatched entry is labelled by its kind when the
-  element has no text.
+  element has no text. Surfaces the fold synthesizes to back text runs (bands, section
+  images, cards) have no oracle counterpart and are excluded from the non-text queues,
+  so they do not shift the pairing of the leaves that do.
 
 Consequences, all observable in the report:
 
@@ -55,13 +63,19 @@ Consequences, all observable in the report:
   nearest-box or last-writer match.
 - Pairing is order-defined on both sides, so the verdict is reproducible run to run.
 
+**What the measure excludes.** Regions of the page a mounted behaviour renders are not
+L1's to grade: an unpairable oracle sample whose box sits inside a behaviour slot's
+evaluated rect is set aside into its own reported class and counted, rather than
+graded as a coverage gap. It is excluded from this measure and reported separately.
+
 Report shape:
 - Any paired leaf whose box exceeds tolerance on any axis is reported as a residual
   carrying the leaf's text (or kind label), the width, and the per-axis deltas
   (dx, dy, dw).
-- Any oracle sample with no reproduced leaf left to pair with is reported as an
-  unmatched entry (text or kind label, width).
-- If either the residual list or the unmatched list is non-empty, pass = false.
+- Any oracle sample with no reproduced leaf left to pair with, and not covered by a
+  mounted behaviour slot, is reported as an unmatched entry (text or kind label, width).
+- If either the residual list or the unmatched list is non-empty, pass = false. The
+  set-aside (mounted) list does not affect the verdict.
 - The report also exposes the largest observed per-axis delta, across text and non-text
   comparisons alike.
 
@@ -82,6 +96,10 @@ that label at one width and assert exactly one unmatched entry (that text, that 
 with no residuals and the three genuine occurrences still clean. Shift only the middle
 occurrence of that label at the widest width by 30px and assert exactly one residual,
 naming that text and width, with dy = 30.
+
+Ladder scope: add a second projection at an already-sampled width (a different viewport
+height) to that same capture and assert the report is unchanged — same residuals, same
+unmatched, same max delta — rather than reporting the page's runs as coverage gaps.
 
 Non-text leaves and measured scope: fold a capture spanning every leaf kind the
 classifier distinguishes — a text run, two images at well-separated y, a painted
