@@ -3,12 +3,12 @@ uid: acceptance_criterion-0d993a36
 id: AC-733
 type: acceptance_criterion
 title: 'No captured element is silently dropped: an unexpressed element becomes a
-  typed residual, and a form control always does'
+  typed residual; a control with no geometry does too'
 created_by: xgd
 created_at: '2026-07-29T04:05:44.833337+00:00'
-updated_at: '2026-08-03T00:57:27.740503+00:00'
+updated_at: '2026-08-03T00:57:40.666874+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-8acc338d
