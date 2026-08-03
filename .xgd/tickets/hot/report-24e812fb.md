@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T03:36:39.707784+00:00'
+updated_at: '2026-08-03T03:48:00.618583+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -482,7 +482,7 @@ fields:
       That self-containment property is what makes the perceptual gate measure the
       pipeline instead of the network, so it is a user-visible capability in its own
       right.
-    story_uid: null
+    story_uid: story-8b2f295c
 ---
 
 # Reconciliation Plan — BUNDLE-10
