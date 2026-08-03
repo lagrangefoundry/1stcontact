@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T00:59:50.752507+00:00'
+updated_at: '2026-08-03T01:35:16.954286+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -158,7 +158,7 @@ fields:
       fields; malformed and out-of-range documents are rejected); these are new axis
       families inside that same contract, added in L1 per the project rule rather
       than as raw-CSS holes or new modules. No new capability bucket.
-    story_uid: null
+    story_uid: story-d0a8cfad
     target_story_ids:
     - story-d0a8cfad
     intent_delta_summary: STORY-83's axis vocabulary and envelope grow to cover padding,
