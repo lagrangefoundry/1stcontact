@@ -6,10 +6,10 @@ title: A reproduced page is its L1 layout plus the behaviours mounted into it, e
   bound to a named seam
 created_by: xgd
 created_at: '2026-08-03T03:19:56.678668+00:00'
-updated_at: '2026-08-03T03:19:56.678668+00:00'
+updated_at: '2026-08-03T03:33:05.783303+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-4ff83a8b
   capability_uid: capability-68df54bd
