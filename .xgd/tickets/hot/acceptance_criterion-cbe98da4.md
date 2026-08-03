@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A text leaf paints its own chip surface under the box axes' bounds
 created_by: xgd
 created_at: '2026-08-03T01:33:30.554379+00:00'
-updated_at: '2026-08-03T01:33:30.554379+00:00'
+updated_at: '2026-08-03T02:03:12.573484+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
