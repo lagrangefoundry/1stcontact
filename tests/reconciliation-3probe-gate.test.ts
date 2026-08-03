@@ -384,15 +384,21 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     const mixedCap = mixedKindOracle()
     const mixedDoc = foldToL1(mixedCap)
 
-    // Scope: an oracle sample exists exactly where the fold emits a leaf. The
-    // control and the empty run are in the capture but produce no leaf — the
-    // reproduced tree carries one text, two images and one box, nothing else.
+    // Scope: an oracle sample exists exactly where the fold emits a *measurable*
+    // leaf. The capture's four measurable elements yield one text, two images and
+    // one box. The empty run paints nothing and yields no node at all. The form
+    // control yields no measurable leaf either — it is a behavior-module seam, so
+    // REQ-93 mounts it as a `slot` node at its captured rect rather than faking an
+    // `<input>`; `slot` is not one of the kinds this probe grades.
     const mixedLeaves = evaluateLayout(mixedDoc, 1440).leaves
     const kinds = mixedLeaves.map((l) => l.kind).sort()
-    expect(kinds).toEqual(['box', 'image', 'image', 'text'])
+    expect(kinds).toEqual(['box', 'image', 'image', 'slot', 'text'])
     const capturedAt1440 = mixedCap.projections.find((p) => p.viewport.width === 1440)!.manifest.elements
     expect(capturedAt1440.some((e) => e.a11yRole === 'textbox')).toBe(true) // control present…
     expect(capturedAt1440.some((e) => !e.textless && e.text === '')).toBe(true) // …and an empty run
+    // The control became a mount seam, not a graded leaf: no text/image/box leaf
+    // stands in for it, so it cannot enter either pairing queue.
+    expect(mixedLeaves.filter((l) => l.kind === 'slot')).toHaveLength(1)
 
     // …and because they are excluded from the measure rather than counted as
     // coverage gaps, the probe gates clean: no residual, and crucially no

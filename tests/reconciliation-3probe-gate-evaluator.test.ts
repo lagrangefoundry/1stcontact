@@ -481,8 +481,13 @@ describe('story-24098299 — painted backing surfaces', () => {
 // ── AC-737 — the gate's fold-residual channel ─────────────────────────────────
 
 /** A roomy three-band page (all three probes pass) carrying three elements the
- * fold cannot yet express: text-free media with no geometry, a form control, and
- * a geometry-less text run. */
+ * fold cannot yet express: text-free media with no geometry, a form control the
+ * fold has nowhere to mount, and a geometry-less text run.
+ *
+ * It also carries a *boxed* form control as the discriminator: REQ-93 mounts a
+ * control that has geometry into a `contact-form` slot at its rect, so it is
+ * expressible and must NOT appear in the fold-residual channel. Only the control
+ * with no box at any sampled width — nothing to mount at — is a folder-power gap. */
 function gapCapture(): MultiStateCapture {
   return multiFromLadder((w) => [
     {
@@ -527,7 +532,9 @@ function gapCapture(): MultiStateCapture {
       objectFit: 'cover',
       intrinsicAspect: 1.5,
     },
-    // A form control — a behavior-module seam, never a raw L1 leaf.
+    // A form control WITH geometry — a behavior-module seam, never a raw L1 leaf,
+    // but expressible: REQ-93 mounts it into a `contact-form` slot pinned at this
+    // rect. Expressed, therefore NOT a folder-power gap.
     {
       text: '',
       role: 'field',
@@ -539,6 +546,20 @@ function gapCapture(): MultiStateCapture {
       a11yRole: 'textbox',
       accessibleName: 'Email',
       box: { x: 20, y: 1300, width: 240, height: 40 },
+    },
+    // A form control with NO geometry at any sampled width — the fold has no rect
+    // to pin a slot at, so there is nothing to mount the behaviour into. This one
+    // IS a folder-power gap, and the `field` residual the assertions below name.
+    {
+      text: '',
+      role: 'field',
+      color: '#000000',
+      fontFamily: 'Inter',
+      fontSizePx: 16,
+      fontWeight: 400,
+      textless: true,
+      a11yRole: 'textbox',
+      accessibleName: 'Phone',
     },
     // A run present at every width but never boxed → no geometry → no leaf.
     {
@@ -615,6 +636,15 @@ describe('story-24098299 — gate fold-residual channel', () => {
       'accessibleName',
     )
     expect(report.foldResiduals.find((r) => r.kind === 'text')!.reason).toMatch(/geometry/i)
+
+    // The `field` gap is the control the fold had nowhere to mount — NOT the
+    // boxed one beside it. The page captures two controls; exactly one is a
+    // folder-power gap, and its reason names the missing slot geometry. Reporting
+    // the mountable control here would launder an expressed behaviour seam into
+    // the gap channel and overstate the folder's shortfall.
+    const fieldGaps = report.foldResiduals.filter((r) => r.kind === 'field')
+    expect(fieldGaps).toHaveLength(1)
+    expect(fieldGaps[0].reason).toMatch(/no geometry at any sampled width/i)
 
     // Those same elements never appear as a fidelity residual or an unmatched
     // entry — the folder-power gap is not laundered into the mispairing bucket.
