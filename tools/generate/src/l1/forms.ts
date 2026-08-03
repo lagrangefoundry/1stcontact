@@ -178,10 +178,12 @@ export function clusterControls(rows: ControlRow[]): ControlRow[][] {
  * unbreakable-line pin all survive, because those are the button's appearance.
  */
 export function submitSlotFrom(node: L1Node): L1Node {
-  const rest: Record<string, unknown> = { ...(node as unknown as Record<string, unknown>) }
-  delete rest.geometry
-  delete rest.visibility
-  return rest as unknown as L1Node
+  // `geometry` / `visibility` are optional on every variant of the node union,
+  // so a rest-destructure drops them while each variant keeps its `kind`
+  // discriminant — no cast through `unknown`, and a variant that gains a field
+  // carries it here automatically.
+  const { geometry: _geometry, visibility: _visibility, ...rest } = node
+  return rest
 }
 
 /** Shortest distance between two rects — exported for the fold's submit matching. */

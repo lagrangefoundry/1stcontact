@@ -31,6 +31,20 @@ const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
  * Bounded throughout — a face that genuinely 404s/times out cannot hang the
  * capture; it stays unresolved and is honestly reported `fontLoaded:false`.
  */
+/**
+ * Ceiling on the forced per-face load pass. Generous enough that a cold webfont
+ * fetch over a slow link still lands inside it, short enough that a face which
+ * genuinely 404s or stalls cannot hold the capture open.
+ */
+const FONT_LOAD_BUDGET_MS = 4000
+
+/**
+ * Ceiling on the trailing `document.fonts.ready` await. Shorter than {@link
+ * FONT_LOAD_BUDGET_MS} because by this point every face the page paints has
+ * already been requested — this only drains what is still in flight.
+ */
+const FONTS_READY_BUDGET_MS = 2000
+
 const FONT_BARRIER = `(async () => {
   if (!(document.fonts && document.fonts.ready)) return true;
   var generic = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-|inherit|initial|unset|-apple-system|blinkmacsystemfont)/i;
@@ -61,9 +75,9 @@ const FONT_BARRIER = `(async () => {
       seen[key] = 1;
       try { loads.push(document.fonts.load(shorthand, text)); } catch (e) {}
     }
-    await bounded(Promise.allSettled(loads), 4000);
+    await bounded(Promise.allSettled(loads), ${FONT_LOAD_BUDGET_MS});
   }
-  await bounded(document.fonts.ready, 2000);
+  await bounded(document.fonts.ready, ${FONTS_READY_BUDGET_MS});
   return true;
 })()`
 

@@ -580,7 +580,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -657,7 +659,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -747,7 +751,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -1033,7 +1039,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -1109,7 +1117,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -1564,7 +1574,9 @@
               "interpolate"
             ],
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -1761,7 +1773,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -1833,7 +1847,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -1905,7 +1921,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -1978,7 +1996,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -2109,7 +2129,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -2182,7 +2204,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -2255,9 +2279,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 28,
-              "widthPx": -28,
-              "widthFraction": 1
+              "x": {
+                "px": 28
+              },
+              "width": {
+                "px": -28,
+                "fraction": 1
+              }
             }
           }
         },
@@ -2805,7 +2833,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -2878,7 +2908,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -3100,9 +3132,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3174,9 +3210,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3398,9 +3438,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3472,9 +3516,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -3547,8 +3595,12 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": 13.55
+              }
             }
           }
         },
@@ -3621,8 +3673,12 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": 13.55
+              }
             }
           }
         },
@@ -3695,8 +3751,12 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": 13.55
+              }
             }
           }
         },
@@ -3769,8 +3829,12 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": 13.55
+              }
             }
           }
         },
@@ -3843,8 +3907,12 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": 13.55
+              }
             }
           }
         },
@@ -3917,8 +3985,12 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": 13.55
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": 13.55
+              }
             }
           }
         },
@@ -4201,9 +4273,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4275,9 +4351,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4351,9 +4431,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 36,
-              "widthPx": -68,
-              "widthFraction": 1
+              "x": {
+                "px": 36
+              },
+              "width": {
+                "px": -68,
+                "fraction": 1
+              }
             }
           }
         },
@@ -4694,7 +4778,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -4766,7 +4852,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -4838,7 +4926,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -4910,7 +5000,9 @@
               "yFactor": 1
             },
             "anchor": {
-              "widthFraction": 1
+              "width": {
+                "fraction": 1
+              }
             }
           }
         },
@@ -4984,9 +5076,13 @@
               "yFactor": 1
             },
             "anchor": {
-              "startPx": 28,
-              "widthPx": -28,
-              "widthFraction": 1
+              "x": {
+                "px": 28
+              },
+              "width": {
+                "px": -28,
+                "fraction": 1
+              }
             }
           }
         },

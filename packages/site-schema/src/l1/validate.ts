@@ -285,6 +285,7 @@ function walk(
   depth: number,
   counter: { n: number },
   errors: ValidationError[],
+  hasColumn: boolean,
 ): void {
   counter.n += 1
   if (depth > L1_ENVELOPE.maxDepth) {
@@ -293,6 +294,21 @@ function walk(
   }
 
   if (node.geometry) checkGeometry(node.geometry, widths, `${path}/geometry`, errors)
+
+  // REQ-88 — a column anchor is meaningless without the column it refers to, and
+  // silently falling back to the keyframes would hide the dangling reference
+  // behind geometry that merely looks plausible. Reject it instead.
+  //
+  // Checked here, on the one traversal, rather than in a pre-pass with its own
+  // copy of the child-recursion rule: a second walker would keep its own idea of
+  // which node kinds bear children, and a kind added to one and not the other
+  // would let a dangling anchor through unreported.
+  if (node.geometry?.anchor && !hasColumn) {
+    errors.push({
+      path: `${path}/geometry/anchor`,
+      message: 'geometry.anchor requires the document to declare a `column`',
+    })
+  }
 
   if (node.kind === 'text' && node.axes) {
     const { fontSizePx, fontWeight, lineHeightPx, letterSpacingPx } = node.axes
@@ -345,7 +361,9 @@ function walk(
   checkEffects(node, path, errors)
 
   const children = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-  children.forEach((child, i) => walk(child, widths, `${path}/children/${i}`, depth + 1, counter, errors))
+  children.forEach((child, i) =>
+    walk(child, widths, `${path}/children/${i}`, depth + 1, counter, errors, hasColumn),
+  )
 }
 
 /**
@@ -400,27 +418,8 @@ export function validateL1(input: unknown): Result<L1Document, ValidationError[]
     }
   })
 
-  // REQ-88 — a column anchor is meaningless without the column it refers to, and
-  // silently falling back to the keyframes would hide the dangling reference
-  // behind geometry that merely looks plausible. Reject it instead.
-  if (!doc.column) {
-    const dangling: string[] = []
-    const scan = (node: L1Node, path: string): void => {
-      if (node.geometry?.anchor) dangling.push(path)
-      const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-      kids.forEach((c, i) => scan(c, `${path}/children/${i}`))
-    }
-    scan(doc.root, '/root')
-    for (const path of dangling) {
-      errors.push({
-        path: `${path}/geometry/anchor`,
-        message: 'geometry.anchor requires the document to declare a `column`',
-      })
-    }
-  }
-
   const counter = { n: 0 }
-  walk(doc.root, doc.widths, '/root', 1, counter, errors)
+  walk(doc.root, doc.widths, '/root', 1, counter, errors, doc.column !== undefined)
   if (counter.n > L1_ENVELOPE.maxNodes) {
     errors.push({ path: '/root', message: `node count ${counter.n} exceeds cap ${L1_ENVELOPE.maxNodes}` })
   }

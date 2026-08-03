@@ -25,6 +25,8 @@
  * `100vh` obligation of AC-764, and the cross-engine half of AC-763) run on a
  * real engine and skip cleanly where none is installed.
  */
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { validateL1, type L1Document } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
@@ -945,6 +947,57 @@ describe('AC-765 a document column plus a per-node anchor place x and width inde
       }
     }
   }, 180000)
+
+  // The anchor shape is only real if the reproductions committed alongside it
+  // actually speak it. When this axis landed, the schema moved from
+  // `{startPx, widthFraction, …}` to `{x, width}` terms but the checked-in
+  // gigabytealchemy fold was never regenerated — 33 of its nodes kept the
+  // retired keys, `validateL1` returned `ok: false`, and `1c render` exited 1
+  // while the whole suite stayed green, because nothing asserted that the
+  // committed artifacts still parse.
+  //
+  // This walks every stored site document and holds the envelope over it. It
+  // guards the class, not the instance: any future envelope change that
+  // outruns a committed reproduction fails here rather than on the operator's
+  // first render.
+  it('test_UAT_AC765_committed_site_documents_satisfy_the_l1_envelope', () => {
+    function jsonDocs(dir: string): string[] {
+      const out: string[] = []
+      for (const entry of readdirSync(dir)) {
+        const full = path.join(dir, entry)
+        if (statSync(full).isDirectory()) out.push(...jsonDocs(full))
+        else if (entry.endsWith('.json')) out.push(full)
+      }
+      return out
+    }
+
+    const root = path.join(process.cwd(), 'storage/sites')
+    const files = jsonDocs(root)
+    expect(files.length, 'stored site documents must be discoverable').toBeGreaterThan(0)
+
+    const l1Docs = files.filter((f) => {
+      const doc = JSON.parse(readFileSync(f, 'utf8')) as { l1?: unknown }
+      return doc?.l1 !== undefined
+    })
+    // Guard against the guard going vacuous: if every L1 reproduction is dropped
+    // from storage this test must fail loudly rather than pass over an empty set.
+    expect(l1Docs.length, 'at least one committed page must carry an L1 tree').toBeGreaterThan(0)
+
+    for (const file of l1Docs) {
+      const doc = JSON.parse(readFileSync(file, 'utf8')) as { l1: unknown }
+      const result = validateL1(doc.l1)
+      const detail = result.ok
+        ? ''
+        : result.errors
+            .slice(0, 5)
+            .map((e) => `${e.path} :: ${e.message}`)
+            .join('\n  ')
+      expect(
+        result.ok,
+        `${path.relative(process.cwd(), file)} must satisfy the L1 envelope:\n  ${detail}`,
+      ).toBe(true)
+    }
+  })
 })
 
 describe('AC-766 anchored placement is emitted as a valid expression', () => {
