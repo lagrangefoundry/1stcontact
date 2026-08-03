@@ -292,7 +292,9 @@ describe('AC-740 — a cross-origin-declared font family reaches the bundle as m
 // faces have loaded (including content revealed only after the page settles)
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('AC-741 / AC-742 — fonts as painted', () => {
+// The suite title carries no AC id: each test's own name is the sole link to
+// its criterion, so a block covering two ACs cannot shadow the second one.
+describe('fonts as painted', () => {
   let capture: Capture
   let missingFace: Capture
   let missingFaceMs = 0
@@ -546,7 +548,8 @@ describe('AC-746 — an accent rule carries its bearing rect across the ladder',
 // AC-747 / AC-748 — section rects, and translucent veils
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('AC-747 / AC-748 — section geometry and scrims', () => {
+// Suite title carries no AC id — see the note on `fonts as painted` above.
+describe('section geometry and scrims', () => {
   let manifest: ValueManifest
   let capture: Capture
 
