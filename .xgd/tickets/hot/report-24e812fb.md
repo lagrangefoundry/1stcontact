@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T02:29:18.884293+00:00'
+updated_at: '2026-08-03T02:50:50.292334+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -344,7 +344,7 @@ fields:
       gate's reporting channels (AC-705, AC-724, AC-737 already state the fidelity
       pairing and the residual channels). These are corrections and extensions to
       that same evaluator and its reporting, not a new gate. No new capability bucket.
-    story_uid: null
+    story_uid: story-24098299
     target_story_ids:
     - story-24098299
     intent_delta_summary: STORY-86's evaluator and sample-fidelity probe are extended
