@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-02T23:45:55.955889+00:00'
+updated_at: '2026-08-03T00:02:29.114316+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,11 @@ After that it's short: T1 deliberately avoids the render question by pointing th
 Two things I can do now — say which:
 1. **Work Q1** — lay out the webui consumption options with a recommendation, so REQ-115 can leave `draft`.
 2. **Update REQ-117's body** to record the blocked scope (modal, click wiring, hover mount) against REQ-115, so the gap is visible on the ticket and not just in a commit message. Doc change, no code.
+
+<!-- xgd-turn id="69c65d16-35b9-471f-9ded-ba17460969d1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-03T00:02:29.025258+00:00" -->
+#### You
+OK 115 should be finished, do you have what you need to finish up?
 
 <!-- xgd-chat-end -->
