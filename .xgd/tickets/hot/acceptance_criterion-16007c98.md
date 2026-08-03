@@ -6,10 +6,10 @@ title: Anchored placement is emitted as a valid expression, so anchored nodes la
   at their rule position
 created_by: xgd
 created_at: '2026-08-03T01:34:33.018115+00:00'
-updated_at: '2026-08-03T01:34:33.018115+00:00'
+updated_at: '2026-08-03T02:03:11.939072+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
