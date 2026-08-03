@@ -6,9 +6,9 @@ title: Contact-form renders a functional form from config with L1-authored intro
   presentation
 created_by: xgd
 created_at: '2026-07-22T19:54:45.992184+00:00'
-updated_at: '2026-07-24T10:08:02.907509+00:00'
+updated_at: '2026-08-03T03:34:49.958579+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-179b8c06
@@ -26,12 +26,19 @@ submits with no JavaScript, plus the anti-spam surface — a visually-hidden,
 off-tab-order honeypot field and a Turnstile mount point. The decorative framing
 is authored as L1: an optional `intro` slot renders above the fields and an
 optional `submit` slot supplies the submit button's look; absent slots leave a
-plain functional intro/button. Field labels remain part of the functional core
-(an accessibility obligation), not a presentation slot.
+plain functional intro/button, and a supplied `submit` subtree **replaces** the
+module's default button content rather than rendering beside or inside a second
+painted button. Field labels remain part of the functional core (an accessibility
+obligation), not a presentation slot — but *where* a label is rendered is a
+config-driven behavioural mode (see the labelling-mode criterion), not a fixed
+choice: every field is always programmatically labelled, whether that label sits
+above the control or inside it as its placeholder.
 
 ## Verification
 Render a contact-form with a multi-field config and assert: a labelled control
 per field with the correct input type and required attribute; a post-method form
 pointing at the endpoint that works without JS; a hidden honeypot field and a
 Turnstile mount present. Render with and without `intro`/`submit` L1 slots and
-assert the L1 content appears when supplied and a plain baseline appears when not.
+assert the L1 content appears when supplied and a plain baseline appears when
+not, and that a supplied `submit` subtree leaves no second default button in the
+rendered markup.
