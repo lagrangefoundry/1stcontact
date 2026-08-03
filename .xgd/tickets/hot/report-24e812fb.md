@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T00:25:51.696660+00:00'
+updated_at: '2026-08-03T00:59:50.752507+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -87,7 +87,7 @@ fields:
       a three-level hierarchy instead of one band plus per-run boxes). No new bucket:
       the fold still emits box leaves for painted surfaces; only the reconstruction
       rule changed. Extending AC-730/731 in place is exactly the reuse-first case.'
-    story_uid: null
+    story_uid: story-8acc338d
     target_story_ids:
     - story-8acc338d
     intent_delta_summary: STORY-84's surface reconstruction moves from 'the dominant
