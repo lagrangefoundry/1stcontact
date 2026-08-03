@@ -19,7 +19,8 @@
  *           geometry-affecting ones deliberately do not, and the document font
  *           table keeps only the families a folded text leaf actually paints
  *   AC-733  nothing is silently dropped: every unexpressed element becomes a typed
- *           residual, a form control always does, and the channel is opt-in
+ *           residual; a form control routes to a behavior-module seam instead, and
+ *           is a residual only when it has no geometry to mount at; opt-in channel
  *
  * Every probe drives the real `foldToL1` / `validateL1` / `renderL1Document` entry
  * points over synthetic multi-viewport captures — real components, no mocks.
@@ -27,7 +28,7 @@
 import { describe, expect, it } from 'vitest'
 import { validateL1 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
-import { foldToL1, type FoldResidual } from '../tools/generate/src'
+import { foldToL1, type FoldedForm, type FoldResidual } from '../tools/generate/src'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
 
 /** The fixed sampled width ladder `1c capture page` walks. */
@@ -461,8 +462,12 @@ describe('AC-732 the fold carries the text pixel-mover families and populates th
 
 // ── AC-733: nothing silently dropped — typed residuals, opt-in channel ────────
 
-describe('AC-733 no captured element is silently dropped: an unexpressed element becomes a typed residual, and a form control always does', () => {
-  /** A capture mixing one expressible run with every currently-unexpressed shape. */
+describe('AC-733 no captured element is silently dropped: an unexpressed element becomes a typed residual; a control with no geometry does too', () => {
+  /**
+   * A capture mixing one expressible run with every currently-unexpressed shape,
+   * plus the two form-control cases the AC separates: one with geometry (a seam,
+   * NOT a residual) and one with none (a residual — nothing to mount at).
+   */
   const unexpressible = (): MultiStateCapture =>
     multiFrom((w) => [
       run('Expressible Heading', { x: 20, y: 40, width: w - 40, height: 48 }),
@@ -478,7 +483,8 @@ describe('AC-733 no captured element is silently dropped: an unexpressed element
       run('Ghost Run', undefined),
       // (c) an empty-string run
       run('', { x: 20, y: 480, width: 120, height: 20 }),
-      // (d) a form control — painting a surface the language could express
+      // (d) a form control WITH geometry — routed to a behavior-module seam, so
+      //     it is not a residual on account of being a control
       textless({
         role: 'field',
         a11yRole: 'textbox',
@@ -488,18 +494,34 @@ describe('AC-733 no captured element is silently dropped: an unexpressed element
         border: { widthPx: 1, color: '#cbd5e1', style: 'solid' },
         box: { x: 20, y: 520, width: 240, height: 40 },
       }),
-      // (e) a text-free element that is neither media, a painted surface, nor a
+      // (e) a form control with NO geometry at any width — no seam to mount at,
+      //     so it stays a residual
+      textless({
+        role: 'field',
+        a11yRole: 'textbox',
+        accessibleName: 'Phone',
+        surfaceFill: '#ffffff',
+        borderRadiusPx: 6,
+        border: { widthPx: 1, color: '#cbd5e1', style: 'solid' },
+        box: undefined,
+      }),
+      // (f) a text-free element that is neither media, a painted surface, nor a
       //     known control
       textless({ role: 'generic', box: { x: 20, y: 600, width: 100, height: 10 } }),
     ])
 
   it('test_UAT_AC733_unexpressed_elements_are_typed_residuals_and_the_channel_is_opt_in', () => {
     const residuals: FoldResidual[] = []
-    const doc = foldToL1(unexpressible(), { residuals })
+    const forms: FoldedForm[] = []
+    const doc = foldToL1(unexpressible(), { residuals, forms })
     expect(validateL1(doc).ok).toBe(true)
 
-    // Only the expressible run became a leaf — nothing was synthesized.
-    expect(leavesOf(doc).map((n) => (n.kind === 'text' ? n.text : n.kind))).toEqual(['Expressible Heading'])
+    // Only the expressible run became a leaf, plus the mountable control's seam —
+    // no captured element was synthesized into anything else.
+    expect(leavesOf(doc).map((n) => (n.kind === 'text' ? n.text : n.kind))).toEqual([
+      'Expressible Heading',
+      'slot',
+    ])
 
     // One typed residual per unexpressed element, each naming its object kind…
     expect(residuals).toHaveLength(5)
@@ -509,7 +531,7 @@ describe('AC-733 no captured element is silently dropped: an unexpressed element
     const media = byKind('image', /src/i)
     const ghost = byKind('text', /geometry/i)
     const empty = byKind('text', /empty/i)
-    const field = byKind('field', /behavior module/i)
+    const field = byKind('field', /no geometry at any sampled width — no slot to mount at/)
     const unknown = byKind('box', /neither media/i)
     for (const [name, r] of Object.entries({ media, ghost, empty, field, unknown })) {
       expect(r, `${name} residual`).toBeDefined()
@@ -524,9 +546,27 @@ describe('AC-733 no captured element is silently dropped: an unexpressed element
       expect.arrayContaining(['surfaceFill', 'borderRadiusPx', 'border', 'accessibleName']),
     )
 
-    // A form control is ALWAYS routed to a residual — a behavior-module seam — even
-    // though it painted a fill/radius/border the language could otherwise express.
-    expect(leavesOf(doc).some((n) => n.kind === 'box' || n.kind === 'slot')).toBe(false)
+    // The control that HAD geometry is not a residual at all: it is a behavior-module
+    // seam, clustered into the form it visibly belongs to…
+    expect(residuals.some((r) => r.capturedAxes.includes('accessibleName') && r !== field)).toBe(false)
+    const slots = leavesOf(doc).filter((n) => n.kind === 'slot')
+    expect(slots).toHaveLength(1)
+    const seam = slots[0]
+    if (seam.kind !== 'slot') throw new Error('expected a slot seam')
+    expect(seam.name).toBe('form-0')
+    expect(seam.behavior).toBe('contact-form')
+    // …pinned at the control's own captured rect at every sampled width.
+    expect(seam.geometry?.keyframes.map((k) => [k.at, k.x, k.y, k.width, k.height])).toEqual(
+      LADDER.map((w) => [w, 20, 520, 240, 40]),
+    )
+    // …carrying the config that mounts a real form there, derived from the capture.
+    expect(forms.map((f) => f.slot)).toEqual(['form-0'])
+    expect(forms[0].behavior).toBe('contact-form')
+    expect(forms[0].fields.map((f) => f.label)).toEqual(['Email'])
+
+    // A control is still NEVER synthesized into a raw L1 leaf: the surface it
+    // painted (fill/radius/border) became no box, image or text leaf.
+    expect(leavesOf(doc).some((n) => n.kind === 'box' || n.kind === 'image')).toBe(false)
 
     // An element the fold CAN express produces no residual.
     const expressible = multiFrom((w) => [
