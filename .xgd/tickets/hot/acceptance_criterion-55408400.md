@@ -6,10 +6,10 @@ title: A centred column is fitted from the modal content edge and emitted only i
   it reproduces every sampled width
 created_by: xgd
 created_at: '2026-08-03T02:08:38.594012+00:00'
-updated_at: '2026-08-03T02:08:38.594012+00:00'
+updated_at: '2026-08-03T02:23:34.155977+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
