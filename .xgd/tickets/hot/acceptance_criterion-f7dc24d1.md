@@ -6,10 +6,10 @@ title: A capture shoots a viewport-height probe re-sampling one ladder width at 
   second height, without adding a ladder width
 created_by: xgd
 created_at: '2026-08-03T00:25:19.153830+00:00'
-updated_at: '2026-08-03T00:25:19.153830+00:00'
+updated_at: '2026-08-03T00:53:39.600738+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-244827df
   kind: behavior
