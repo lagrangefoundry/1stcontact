@@ -6,7 +6,7 @@ title: Sample-fidelity probe matches reproduced leaf boxes to the oracle at ever
   captured width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-08-03T02:49:26.255766+00:00'
+updated_at: '2026-08-03T03:07:20.267608+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -32,9 +32,17 @@ outside the measure.
 
 **Which oracle samples are measured.** Each captured element is classified through the
 same element classifier the fold uses, so an oracle sample exists exactly where the
-fold emits a leaf: text runs with non-empty text, images, and painted surface boxes.
-Elements that never become leaves — form controls and empty runs — are excluded from
-the fidelity measure entirely, rather than counting as coverage gaps.
+fold emits a **graded** leaf: text runs with non-empty text, images, and painted surface
+boxes. Elements that never become a graded leaf — form controls and empty runs — are
+excluded from the fidelity measure entirely, rather than counting as coverage gaps.
+
+Exclusion is not erasure, and the two excluded classes differ in what the fold does with
+them. An empty run paints nothing and yields no node at all. A form control is a
+behavior-module seam: the fold never fakes an `<input>`, but where the control carries
+geometry it emits a `slot` node pinned at the control's captured rect for a behavior
+module to mount into. `slot` is not one of the kinds this probe grades, so a mounted
+control enters neither pairing queue — it is the seam that makes the set-aside class
+below meaningful, not a leaf competing for a box.
 
 **Pairing rule (per captured width).** Pairing is by **occurrence index in document
 order** on both sides, within a key:
@@ -103,16 +111,17 @@ unmatched, same max delta — rather than reporting the page's runs as coverage 
 
 Non-text leaves and measured scope: fold a capture spanning every leaf kind the
 classifier distinguishes — a text run, two images at well-separated y, a painted
-surface panel, plus a form control and an empty run — and assert the reproduced tree
-carries exactly four leaves (one text, two images, one box), the control and the empty
-run having produced none. Assert the probe gates clean on that capture: keying the
-images by kind alone rather than by kind AND document-order occurrence would compare
-the first image against the second's box and report a phantom delta, so a clean report
-is the occurrence-pairing discriminator, and an empty unmatched list is the observable
-proof that the control and the empty run were excluded from the measure rather than
-counted as coverage gaps. Perturb one image's oracle box beyond tolerance at one width
-and assert exactly one residual, labelled by kind, at that width with the correct
-delta. Append a surplus oracle occurrence of a kind at one width — exhausting the
-reproduced leaves of that kind — and assert exactly one unmatched entry labelled by
-that kind at that width, with no residuals and the remaining occurrences still pairing
-cleanly; assert this for the image kind and for the box kind alike.
+surface panel, plus a boxed form control and an empty run — and assert the reproduced
+tree carries exactly four graded leaves (one text, two images, one box) alongside the
+single `slot` node the control mounts into, the empty run having produced no node at
+all. Assert the probe gates clean on that capture: keying the images by kind alone
+rather than by kind AND document-order occurrence would compare the first image against
+the second's box and report a phantom delta, so a clean report is the occurrence-pairing
+discriminator, and an empty unmatched list is the observable proof that the control and
+the empty run were excluded from the measure rather than counted as coverage gaps.
+Perturb one image's oracle box beyond tolerance at one width and assert exactly one
+residual, labelled by kind, at that width with the correct delta. Append a surplus
+oracle occurrence of a kind at one width — exhausting the reproduced leaves of that
+kind — and assert exactly one unmatched entry labelled by that kind at that width, with
+no residuals and the remaining occurrences still pairing cleanly; assert this for the
+image kind and for the box kind alike.
