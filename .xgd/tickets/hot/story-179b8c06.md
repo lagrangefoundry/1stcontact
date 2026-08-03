@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-07-24T23:15:26.186749+00:00'
+updated_at: '2026-08-03T03:36:14.938743+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -67,6 +67,28 @@ The two survivors of the pivot are reframed onto this contract:
   JSON-fetch progressive enhancement); the decorative intro and submit-button
   look move to L1 `intro` / `submit` slots.
 
+### The module must not override facts the reference records
+
+Once a behavior is mounted into a reproduced page, two of the module's defaults
+were silently overriding facts the source page states — so they became typed
+parts of the contract rather than module opinions:
+
+- **Labelling is config, not a fixed choice.** Each field carries an optional
+  labelling mode (`visible` | `placeholder`, default `visible`). A page that
+  names its controls with a placeholder is reproduced by putting the words inside
+  the box; a label row above every field is not just the wrong look, it pushes
+  each successive field down the page. The `<label>` is **kept** in the DOM and
+  kept programmatically associated — the a11y obligation is moved out of flow,
+  never traded away for the look. The witness for the difference is the a11y
+  tree's name source, since a label above a box and the same words inside it are
+  both just text near a box.
+- **An authored submit chip is the button.** When the `submit` slot is filled,
+  the module surrenders its own decoration (padding, fill, radius, colour,
+  weight) so the authored subtree is not nested inside a second,
+  differently-coloured button, and the default `Send` button does not appear
+  alongside it. The element stays a real `<button type="submit">`: only its paint
+  is surrendered.
+
 Behavior **client behaviour** is a first-class shipped asset: each behavior
 authors a self-contained, defensive `client.js`; the render pipeline folds them
 into one page-referenced module script so autoplay/loop and form enhancement
@@ -75,14 +97,19 @@ island scripts).
 
 **In scope**: the behavior contract (config/slots/conformance) and its published
 `Behavior*` naming, instance validation incl. the slot-as-L1 security line, the
-two reframed survivor behavior modules and their observable behaviour, the
+two reframed survivor behavior modules and their observable behaviour — including
+the contact-form's typed labelling mode and its submit-paint surrender — the
 shipped-client-JS asset, and the isolation conformance dimension.
 
 **Out of scope**: the L1 substrate itself (STORY-83 / CAP-70) — including the L1
 slot leaf's own renamed field, which STORY-83 owns; the capture→L1 fold
-(STORY-84 / CAP-71); future behavior modules (payments, auth, email-capture); the
-deleted pre-pivot layout modules and their dials (superseded — tracked as
-upgrades to STORY-80/81/82).
+(STORY-84 / CAP-71), including how a captured control cluster becomes a form seam
+and how a captured button is claimed into one; page-level composition (binding a
+module instance to a slot in an L1 page and mounting it at render) and the
+derivation of a module's config from a capture, which belong to the page
+composition and reproduction-import capabilities; future behavior modules
+(payments, auth, email-capture); the deleted pre-pivot layout modules and their
+dials (superseded — tracked as upgrades to STORY-80/81/82).
 
 ## Technical Context
 - The contract lives in the framework module layer (`BehaviorMeta`,
@@ -95,6 +122,25 @@ upgrades to STORY-80/81/82).
   Module versions bumped by the pivot: carousel v1→v2, contact-form v2→v3.
   (REQ-87's rename is mechanical and bumped no module version — the contract
   shape is unchanged, only its identifiers.)
+- The labelling mode is an **additive optional** config field on the existing
+  per-field item schema, so contact-form's version is deliberately unchanged at
+  v3: a config that never states a mode renders exactly as it did. An
+  unrecognised value is a config violation (the enum is closed); the renderer
+  additionally treats anything other than `placeholder` as `visible`, so a
+  bypassed validation cannot produce an unlabelled control.
+- Placeholder labelling is implemented as a visually-hidden (not removed, not
+  `display:none`) label so it remains in the accessibility tree; the submit
+  surrender is a decoration-only reset applied when — and only when — the slot is
+  filled.
+- **Recorded fidelity trade (deliberate, reversible).** A button claimed into the
+  `submit` slot loses its page-absolute geometry on the way in: the module places
+  its own button, and page-absolute keyframes would resolve against the slot's
+  origin rather than the page's. The button's exact per-width position therefore
+  becomes flow-approximate within its seam — accepted for one working control
+  instead of two (one inert), and handed to REQ-96 along with the leaf-control
+  contract gap (an `<input>` is void, so DOC-25 §1.3's "every behavioural element
+  is a container L1 can fill" does not hold for leaf controls, leaving field
+  surface and height decided by the module's stylesheet rather than the capture).
 - The shipped client asset mirrors the existing module-CSS folding
   (`getModuleCss` → `theme.css`; `getModuleClientJs` → `capabilities.js`),
   referenced once per page as `<script type="module">`.
@@ -125,6 +171,9 @@ declare `kind: 'behavior'`. The repair was test-only — no runtime code changed
 ## Dependencies
 - Plan item 1 — L1 Layout Substrate + Safety Envelope (STORY-83 / CAP-70): slot
   content is validated and rendered as L1 subtrees.
+- Page composition (modules bound to slots in an L1 page and mounted at render):
+  the labelling mode and the submit surrender are only observable on a mounted
+  form.
 
 ## Story Points
 3
