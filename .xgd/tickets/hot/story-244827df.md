@@ -6,10 +6,10 @@ title: 'A capture records the page as painted: real web fonts, who paints each s
   per-run geometry, control behaviour and a viewport-height probe'
 created_by: xgd
 created_at: '2026-08-03T00:23:22.764226+00:00'
-updated_at: '2026-08-03T00:23:22.764226+00:00'
+updated_at: '2026-08-03T00:53:37.996169+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-4ff83a8b
   capability_uid: capability-d9d373d6
