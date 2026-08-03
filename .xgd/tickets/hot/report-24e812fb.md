@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T03:21:41.097332+00:00'
+updated_at: '2026-08-03T03:36:39.707784+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -428,7 +428,7 @@ fields:
       L1-authored presentation slots (AC-701 already covers intro/submit presentation);
       labelMode is a new typed config field on that same contract and the submit surrender
       is a change to that same slot's rendering. No new capability bucket.
-    story_uid: null
+    story_uid: story-179b8c06
     target_story_ids:
     - story-179b8c06
     intent_delta_summary: STORY-85's contact-form contract gains a typed labelling
