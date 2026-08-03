@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Contact-form surrenders its own submit paint to an authored submit subtree
 created_by: xgd
 created_at: '2026-08-03T03:35:31.999307+00:00'
-updated_at: '2026-08-03T03:35:31.999307+00:00'
+updated_at: '2026-08-03T03:42:21.644254+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
