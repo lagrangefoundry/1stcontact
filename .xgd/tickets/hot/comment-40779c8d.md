@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-03T00:16:26.330675+00:00'
+updated_at: '2026-08-03T00:18:06.394302+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -213,5 +213,29 @@ Say go and I'll start with the framework build (it's the only piece with any cha
 <!-- xgd-chat role="user" ts="2026-08-03T00:16:26.207792+00:00" -->
 #### You
 Lets see what we have, is it ready for demo?
+
+<!-- xgd-turn id="56586ecd-9e8f-4eb7-a9b2-e3ca2297edc7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-03T00:18:06.292251+00:00" -->
+#### Claude
+**Yes for the chrome and both renders. No for editing.** The builder is running now — I backgrounded it:
+
+```
+http://localhost:4173/          # stop it with: pkill -f "1c builder"
+```
+
+**What's actually on screen:** the `Site` tab, the toolbar (site selector · View/Edit · open-in-new-tab · Publish), and the split with the chat placeholder. View shows the draft render; Edit shows the edit render with every editable region outlined and the page inert. Toggling swaps the frame `src` without rebuilding the pane, and open-in-new-tab tracks it exactly. All routes verified 200: chrome, `/api/sites`, `/builder/*`, `/webui/*`, both preview channels. 19/19 REQ-115 tests pass against the *real* webui components (they'd have skipped with a visible reason if the artifact store were missing — they didn't).
+
+**Demo on `xgd` or `gigabytealchemy`.** 87 and 70 stamped segments respectively. I pre-rendered their edit channels just now.
+
+Two things I hit while checking, both worth knowing before you show anyone:
+
+1. **Edit mode needs the channel pre-rendered on disk.** The site selector defaults to `1stcontact`, and `/preview/1stcontact/edit/` was a 404 until rendered. That's T1's static-serving model working as designed — REQ-119 (T5) is what replaces it with request-time renders. Until then, `1c render <slug> --edit` is a prerequisite for the demo.
+
+2. **`1stcontact` and `harbor-cafe` can't render an edit channel at all** — both fail with `Module not found in catalog: 'header' v2`. Their definitions still reference the layout modules the framework pivot deleted (REQ-84); the draft renders sitting on disk are pre-pivot leftovers, which is why View still looks fine for them. That's stale site content, unrelated to REQ-115 or REQ-117 — but it means those two sites are broken for *any* re-render, not just edit. Worth its own ticket; say the word and I'll file one.
+
+**What you won't be able to do:** click anything. No hover highlight, no modal, nothing writes. The outlines are the renderer's, drawn statically.
+
+That's the gap the five pieces close — framework browser build, `/api/copy`, the `<dialog>` + `mountFields`, bridge mount/unmount on mode change, UATs. Ready to start on your go.
 
 <!-- xgd-chat-end -->
