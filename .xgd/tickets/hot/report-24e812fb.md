@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T00:18:37.675264+00:00'
+updated_at: '2026-08-03T00:25:51.696660+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-4ff83a8b
@@ -53,7 +53,7 @@ fields:
       gate), which is precisely why they belong in their own story rather than being
       duplicated as capture clauses inside each consumer's story. This is a genuinely
       uncovered capability bucket, not an extension of the fold's.
-    story_uid: null
+    story_uid: story-244827df
   - index: 2
     component: Capture-to-L1 fold — surface hierarchy reconstruction
     item_type: upgrade
