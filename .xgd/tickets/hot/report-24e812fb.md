@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T02:50:50.292334+00:00'
+updated_at: '2026-08-03T03:21:41.097332+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -399,7 +399,7 @@ fields:
       instance to a seam inside the page body, validating that binding, folding to
       it and mounting into it is a genuinely new capability bucket that supersedes
       those three statements (each modified under items 2 and 3).
-    story_uid: null
+    story_uid: story-02f21b8a
   - index: 8
     component: contact-form behavior module — reproducing captured labelling and the
       reference's own submit control
