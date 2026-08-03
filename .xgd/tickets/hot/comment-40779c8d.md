@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-03T00:02:29.114316+00:00'
+updated_at: '2026-08-03T00:04:43.087904+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -177,5 +177,35 @@ Two things I can do now — say which:
 <!-- xgd-chat role="user" ts="2026-08-03T00:02:29.025258+00:00" -->
 #### You
 OK 115 should be finished, do you have what you need to finish up?
+
+<!-- xgd-turn id="69c65d16-35b9-471f-9ded-ba17460969d1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-03T00:04:42.996002+00:00" -->
+#### Claude
+Yes — REQ-115 landed as `0647b9de3` and is `ready_to_reconcile` (it was still `draft` when I looked earlier). I'm unblocked. I checked the seams rather than assuming:
+
+**What T1 actually gives me**
+- `edit` is already a registered mode pointing at `/preview/<slug>/edit/` — so the pane shows the edit render with its outlines today. The stub is the *editing*, not the mode.
+- Same-origin iframe by construction, `panel.frame`, and `panel.on('mode')` for mount/unmount — which is exactly what AC10 (View untouched) needs.
+- `/api/sites` + `/api/publish` establish the Node-side route pattern.
+
+**webui-fields is installed** in the shared artifact store (`/Users/martin/lagrangefoundry/node_modules/@gendevlabs/webui-fields`) and fits without an adapter: `commit: 'buffered'`, host-owned flush via `commit()`, `onCommit` rejection rolls back — and its descriptor shape is `{name, label, type}`, which is byte-for-byte what `1c copy get` already emits. `widget: 'textarea'` covers AC8.
+
+**One decision I have to make, and my call**
+
+`mountL1EditBridge` lives in `packages/framework/src/l1/edit-client.ts`, and `@1stcontact/framework` has no build — its `exports` point at `.ts`, fine for Astro/vitest, unusable from a browser. The bridge must run host-side (the iframe's document is passed in; there's no postMessage), and I won't inject it into the edit render — T2 makes that channel deliberately script-free.
+
+So: **give the framework the same `tsc`→`dist/` build `@1stcontact/site-schema` already has**, serve it from a `/framework/*` route, and add the two import-map entries. No new tooling, no copied source, mirrors the existing pattern.
+
+**Then the work is five pieces**
+1. Framework browser build + `/framework/*` route + import map.
+2. `GET/POST /api/copy` on the builder origin, wrapping the existing `editCopyGet` / `editCopySet` — the validator and atomicity come along unchanged.
+3. Modal chrome — there's no webui dialog component, so a small `<dialog>` with Save/Cancel; `mountFields` supplies everything inside it (the ticket's "derive descriptors, don't build forms").
+4. Mount the bridge on mode→`edit`, tear it down on mode→`view`; hover class + click → `copy get` → modal → `commit()` → `copy set` → reload frame; error surfaced, nothing applied.
+5. UATs `test_UAT_FC_REQ-117_*` over the mounted path, and the ticket body updated to record that the deferred half is now landing.
+
+**One thing I'll flag, not silently fix:** `copy set` re-renders only the `edit` channel, so after an edit the View mode shows a stale draft until something re-renders it. The ticket scopes the re-render to the edit channel, so I'll leave the behaviour as specified and note it — unless you want View refreshed too.
+
+Say go and I'll start with the framework build (it's the only piece with any chance of a surprise).
 
 <!-- xgd-chat-end -->
