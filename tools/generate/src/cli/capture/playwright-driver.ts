@@ -19,19 +19,6 @@ import type {
 const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
 
 /**
- * BUG-16 — the pre-extraction web-font barrier. The early `document.fonts.ready`
- * await in {@link PlaywrightDriver.navigate} runs *before* {@link
- * PlaywrightDriver.settlePage} scrolls and reveals below-fold content, so a face
- * first needed by a revealed run starts loading only afterwards and is still a
- * fallback (FOUT) at measure time — corrupting both `font-family` and the
- * glyph-derived box metrics of that run. This barrier runs right *before*
- * extraction/screenshot: it force-loads the exact face of every visible text run
- * (family + real weight + style + the run's own text, so a subsetted webfont
- * fetches the subset it actually paints), then awaits `document.fonts.ready`.
- * Bounded throughout — a face that genuinely 404s/times out cannot hang the
- * capture; it stays unresolved and is honestly reported `fontLoaded:false`.
- */
-/**
  * Ceiling on the forced per-face load pass. Generous enough that a cold webfont
  * fetch over a slow link still lands inside it, short enough that a face which
  * genuinely 404s or stalls cannot hold the capture open.
@@ -45,6 +32,19 @@ const FONT_LOAD_BUDGET_MS = 4000
  */
 const FONTS_READY_BUDGET_MS = 2000
 
+/**
+ * BUG-16 — the pre-extraction web-font barrier. The early `document.fonts.ready`
+ * await in {@link PlaywrightDriver.navigate} runs *before* {@link
+ * PlaywrightDriver.settlePage} scrolls and reveals below-fold content, so a face
+ * first needed by a revealed run starts loading only afterwards and is still a
+ * fallback (FOUT) at measure time — corrupting both `font-family` and the
+ * glyph-derived box metrics of that run. This barrier runs right *before*
+ * extraction/screenshot: it force-loads the exact face of every visible text run
+ * (family + real weight + style + the run's own text, so a subsetted webfont
+ * fetches the subset it actually paints), then awaits `document.fonts.ready`.
+ * Bounded throughout — a face that genuinely 404s/times out cannot hang the
+ * capture; it stays unresolved and is honestly reported `fontLoaded:false`.
+ */
 const FONT_BARRIER = `(async () => {
   if (!(document.fonts && document.fonts.ready)) return true;
   var generic = /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-|inherit|initial|unset|-apple-system|blinkmacsystemfont)/i;

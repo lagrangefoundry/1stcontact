@@ -15,7 +15,7 @@
  *
  * All probes are deterministic (validator + emitter + fold); no browser required.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { validateL1, type L1Document, type L1Node } from '../packages/site-schema/src/index'
@@ -112,7 +112,11 @@ describe('BUG-17 L1 padding axis — renderer safe sink', () => {
 
 describe('BUG-17 L1 padding axis — design check against real captures', () => {
   it('test_UAT_FC_BUG-17_fold_gigabytealchemy_badge_padding', () => {
+    // `storage/references` is gitignored — the bundle only exists after a local
+    // `1c capture page`. Skip cleanly when it is absent (the same convention the
+    // REQ-90/REQ-91/REQ-92 real-capture UATs use) rather than failing on a clean checkout.
     const bundle = path.resolve(__dirname, '../storage/references/gigabytealchemy.ai/index/multistate.json')
+    if (!existsSync(bundle)) return
     const multiState = JSON.parse(readFileSync(bundle, 'utf8')) as MultiStateCapture
     const doc = foldToL1(multiState)
 
