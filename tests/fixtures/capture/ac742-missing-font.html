@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AC-742 — a face whose file can never be retrieved</title>
+    <style>
+      /* The src 404s from the fixture server, so this face genuinely never
+         resolves. The capture must report that honestly (`fontLoaded: false`)
+         and must not stall waiting for a face that will never arrive. */
+      @font-face {
+        font-family: 'NeverArrives';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/no-such-face.ttf') format('truetype');
+      }
+      body { margin: 0; font-family: system-ui, sans-serif; }
+      .hero { padding: 80px 24px; }
+      h1 { margin: 0; font-family: 'NeverArrives', serif; font-weight: 600; font-size: 72px; }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Unretrievable Face</h1>
+    </section>
+  </body>
+</html>

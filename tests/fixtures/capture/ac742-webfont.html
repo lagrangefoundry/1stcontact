@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AC-742 — a resolvable web font above AND below the fold, plus a fallback control</title>
+    <style>
+      /* Declared ONLY at weight 600 — the hosted-font shape (Cinzel@600). A bare
+         `<size> "family"` load check implies weight 400 and would report the face
+         as resolved when the painted face is a different weight. */
+      @font-face {
+        font-family: 'Alchemy';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/heading-font.ttf') format('truetype');
+      }
+      body { margin: 0; font-family: system-ui, sans-serif; }
+      .hero { padding: 80px 24px; }
+      h1 { margin: 0; font-family: 'Alchemy', serif; font-weight: 600; font-size: 72px; }
+
+      /* The glyph-metrics control: the SAME text at the SAME size and weight in
+         the system fallback the face would degrade to. If measurement happened
+         against the fallback, the two glyph extents would coincide. */
+      h2.fallback { margin: 24px 0 0; font-family: serif; font-weight: 600; font-size: 72px; }
+
+      /* Below-fold content the capture only reveals by scrolling: its face is
+         first needed AFTER the initial document.fonts.ready await. */
+      .spacer { height: 220vh; }
+      h3.below { margin: 0; font-family: 'Alchemy', serif; font-weight: 600; font-size: 48px; }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>Gigabyte Alchemy</h1>
+      <h2 class="fallback">Gigabyte Alchemy</h2>
+    </section>
+    <div class="spacer"></div>
+    <section class="deep">
+      <h3 class="below">Deep Below Fold Heading</h3>
+    </section>
+  </body>
+</html>

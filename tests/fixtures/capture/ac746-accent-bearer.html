@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AC-746 — a left accent rule painted by a WRAPPER of the run</title>
+    <style>
+      /* The common authored pattern the AC is about: the bar is painted on a
+         bordered WRAPPER (`border-l-4 pl-6`), and the wrapper's padding insets
+         the paragraph inside it. A capture that records only the bar's width and
+         colour forces a reproduction to draw the rule on the run's own box —
+         indented from where the reference paints it, and overlapping the first
+         glyph, since a border paints INSIDE its own border box. */
+      body { margin: 0; background: #ffffff; font-family: system-ui, sans-serif; }
+
+      .quote {
+        margin: 40px;
+        background: #f1efe8;
+        border-left: 6px solid #00d492;
+        padding: 24px 24px 24px 32px;
+      }
+      .quote p { margin: 0; color: #1d293d; font-size: 20px; }
+
+      /* Control: the run's OWN element carries the accent, so there is no
+         separate bearing box to record — the rect is the run's own. */
+      .own-accent {
+        margin: 40px;
+        background: #f1efe8;
+        border-left: 4px solid #ffb900;
+        padding: 16px 16px 16px 20px;
+        color: #1d293d;
+        font-size: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <blockquote class="quote">
+      <p>Wrapper painted accent</p>
+    </blockquote>
+
+    <p class="own-accent">Self painted accent</p>
+  </body>
+</html>

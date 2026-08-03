@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AC-750 — authored control types and enclosing-form endpoints</title>
+    <style>
+      * { margin: 0; box-sizing: border-box; }
+      body { font-family: system-ui, sans-serif; color: #0f172a; background: #ffffff; }
+      section { padding: 40px 48px; }
+      .field {
+        display: block;
+        margin-bottom: 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 16px;
+        width: 360px;
+      }
+      textarea.field { height: 120px; }
+      button { border: 0; border-radius: 8px; padding: 12px 24px; background: #2563eb; color: #fff; }
+    </style>
+  </head>
+  <body>
+    <!-- A form declaring a real endpoint: each control must record its own
+         authored type AND this form's resolved absolute action. -->
+    <section>
+      <h1>Get in touch</h1>
+      <form action="/subscribe" method="post">
+        <input class="field" type="email" placeholder="Your email address" />
+        <!-- No `type` attribute: a single-line control defaults to plain text. -->
+        <input class="field" placeholder="Your full name" />
+        <textarea class="field" placeholder="Your message"></textarea>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <!-- A control with NO enclosing form: no endpoint may be fabricated.
+         Beside it, a NON-control rendered element (an image) — it has no
+         authored control type at all. -->
+    <section>
+      <input class="field" type="search" placeholder="Search the site" />
+      <img src="logo.png" alt="Site logo" width="80" height="80" />
+    </section>
+
+    <!-- A form declaring an EMPTY endpoint: still no endpoint, not "". -->
+    <section>
+      <form action="">
+        <input class="field" type="tel" placeholder="Your phone number" />
+      </form>
+    </section>
+  </body>
+</html>
