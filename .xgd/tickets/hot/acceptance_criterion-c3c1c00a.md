@@ -6,10 +6,10 @@ title: 'The import reports what it produced: node count, localized handles, and 
   mounted behaviour with its residuals'
 created_by: xgd
 created_at: '2026-08-03T03:47:33.541600+00:00'
-updated_at: '2026-08-03T03:47:33.541600+00:00'
+updated_at: '2026-08-03T04:01:07.489301+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8b2f295c
   kind: behavior
