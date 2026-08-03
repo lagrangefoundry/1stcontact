@@ -6,10 +6,10 @@ title: 'Behavior modules must be layout-agnostic by construction: an L1 `control
   node for leaf elements'
 created_by: xgd
 created_at: '2026-07-26T00:46:55.683452+00:00'
-updated_at: '2026-07-26T05:56:23.476136+00:00'
+updated_at: '2026-08-03T00:14:48.843973+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
