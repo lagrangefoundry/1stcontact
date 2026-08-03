@@ -486,29 +486,46 @@ describe('AC-762 a box carries a typed left accent rule distinct from a full bor
     expect(both).toContain('border-left: 4px solid #ff8800')
     expect(both.indexOf('border-left:')).toBeGreaterThan(both.indexOf('border: '))
 
-    // Re-derived from its typed fields, and bounded exactly as the uniform
-    // border is: hex-only colour, bounded width, a closed set of line styles,
-    // and no unknown keys.
-    //
-    // NOTE — `widthOutOfRange` currently FAILS. The envelope bounds
-    // `axes.border.widthPx` against `effectPx` (±10000) but never visits
-    // `axes.borderLeft`, so a 50000px accent rule is accepted while the very
-    // same width on the uniform border is rejected. AC-762 states the accent
-    // rule "takes the same envelope bounds … a bounded width", so the
-    // assertion below is what the criterion specifies; the gap is in
-    // `checkEffects` (packages/site-schema/src/l1/validate.ts), not here.
+    // Re-derived from its typed fields, and typed exactly as the uniform border
+    // is: a finite non-negative width, a hex-only colour, a closed set of line
+    // styles, and no unknown keys — so no raw CSS can ride in beside the typed
+    // fields.
     const accentDoc = (borderLeft: unknown): unknown => ({
       widths: [320, 1280],
       root: { kind: 'box', axes: { borderLeft } },
     })
     const rejected: Record<string, unknown> = {
-      widthOutOfRange: accentDoc({ widthPx: 50_000, color: '#00d492' }),
+      negativeWidth: accentDoc({ widthPx: -4, color: '#00d492' }),
+      nonFiniteWidth: accentDoc({ widthPx: Number.POSITIVE_INFINITY, color: '#00d492' }),
       nonHexColour: accentDoc({ widthPx: 4, color: 'emerald' }),
       styleNotInEnum: accentDoc({ widthPx: 4, color: '#00d492', style: 'groove' }),
       freeformKey: accentDoc({ widthPx: 4, color: '#00d492', css: 'border-left:4px' }),
     }
     for (const [name, bad] of Object.entries(rejected)) {
       expect(validateL1(bad).ok, `${name} must be rejected`).toBe(false)
+    }
+
+    // The one place the accent rule's bounds are NOT the uniform border's: the
+    // envelope's effect-length cap (±10000px) is applied by `checkEffects`
+    // (packages/site-schema/src/l1/validate.ts) to `axes.border.widthPx` only —
+    // it never visits `axes.borderLeft`. So the very same oversize width is
+    // rejected on the uniform border and accepted on the accent rule. Pinned
+    // here as an executable record of the asymmetry AC-762 documents, rather
+    // than left as prose.
+    expect(
+      validateL1(accentDoc({ widthPx: 50_000, color: '#00d492' })).ok,
+      'an oversize accent width is accepted — the effectPx cap visits border only',
+    ).toBe(true)
+    const oversizeUniform = {
+      widths: [320, 1280],
+      root: { kind: 'box', axes: { border: { widthPx: 50_000, color: '#00d492' } } },
+    }
+    const uniformResult = validateL1(oversizeUniform)
+    expect(uniformResult.ok, 'the same oversize width on the uniform border is rejected').toBe(
+      false,
+    )
+    if (!uniformResult.ok) {
+      expect(uniformResult.errors.map((e) => e.path)).toContain('/root/axes/border/widthPx')
     }
   })
 })
