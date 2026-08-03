@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-10 (BUG-12..BUG-25 + REQ-88 + REQ-93) — fi
   real page reproduction'
 created_by: xgd
 created_at: '2026-08-03T00:18:37.675264+00:00'
-updated_at: '2026-08-03T01:35:16.954286+00:00'
+updated_at: '2026-08-03T02:09:22.328638+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -227,7 +227,7 @@ fields:
       the keyframe/interpolate/visibility model; this extends that model to per-axis
       tracks, viewport height, and the column. It is split from item 2 purely on size:
       combined they exceed 3 points.'
-    story_uid: null
+    story_uid: story-8acc338d
     target_story_ids:
     - story-8acc338d
     intent_delta_summary: STORY-84's per-width model widens from geometry keyframes
