@@ -6,10 +6,10 @@ title: Oracle text covered by a mounted behaviour slot is set aside and counted 
   the gate report, not graded and not dropped
 created_by: xgd
 created_at: '2026-08-03T02:48:57.003567+00:00'
-updated_at: '2026-08-03T02:48:57.003567+00:00'
+updated_at: '2026-08-03T03:16:07.701112+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-24098299
   kind: behavior
