@@ -6,10 +6,10 @@ title: A bundle whose layout seams and behaviour bindings disagree fails the imp
   naming the mismatch
 created_by: xgd
 created_at: '2026-08-03T03:47:03.459623+00:00'
-updated_at: '2026-08-03T03:47:03.459623+00:00'
+updated_at: '2026-08-03T04:01:07.941137+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8b2f295c
   kind: behavior
