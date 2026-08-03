@@ -1,0 +1,166 @@
+/**
+ * The builder toolbar (DOC-28 §10) — mode-aware by construction.
+ *
+ * The toolbar does not assume an iframe beneath it. It renders the controls the
+ * ACTIVE MODE declares (`mode.actions`), so a mode that shows something other
+ * than a document simply does not list "open in new tab" and the control is not
+ * rendered. Adding a control is registering an action spec and naming it from a
+ * mode; nothing here branches on which mode is active.
+ *
+ * The root element is created once and reused: a mode change re-populates the
+ * strip, it never replaces the toolbar (which would drop it out of the layout
+ * and lose focus).
+ */
+
+/**
+ * @typedef {object} ActionSpec
+ * @property {string} id
+ * @property {(ctx: ActionContext) => HTMLElement} create
+ */
+
+/** @typedef {{ panel: object, api: object }} ActionContext */
+
+export function createToolbar(options) {
+  const { panel, actions, context = {} } = options
+
+  const element = document.createElement('div')
+  element.className = 'builder-toolbar'
+  element.setAttribute('role', 'toolbar')
+
+  /** @type {Map<string, ActionSpec>} */
+  const registry = new Map()
+  for (const spec of actions ?? []) registry.set(spec.id, spec)
+
+  /** Live handles keyed by action id, so actions can refresh themselves. */
+  const mounted = new Map()
+
+  function render() {
+    const mode = panel.getModes().find((m) => m.id === panel.getMode())
+    const ids = mode?.actions ?? []
+    mounted.clear()
+    element.replaceChildren()
+    for (const id of ids) {
+      const spec = registry.get(id)
+      if (!spec) throw new Error(`toolbar: mode "${mode?.id}" names unknown action "${id}"`)
+      const el = spec.create({ panel, ...context, toolbar: api })
+      el.dataset.action = id
+      mounted.set(id, el)
+      element.append(el)
+    }
+  }
+
+  const api = {
+    element,
+    render,
+    get: (id) => mounted.get(id) ?? null,
+    ids: () => [...mounted.keys()],
+  }
+
+  // Re-render on every mode change; the strip is derived state, never manual.
+  panel.on('mode', render)
+  panel.on('site', render)
+  render()
+
+  return api
+}
+
+// ── the T1 action set ────────────────────────────────────────────────────────
+
+/**
+ * Site selector — switches which site's draft the pane shows. Populated from
+ * the sites the store actually holds, never a hardcoded list.
+ *
+ * `label` is injected rather than written here: it names the same thing the tab
+ * names, and that name has exactly one definition (`config.js`). Taking it as a
+ * parameter also keeps this module free of app-specific naming.
+ */
+export function siteSelectorAction(sites, label) {
+  return {
+    id: 'site-selector',
+    create({ panel }) {
+      const select = document.createElement('select')
+      select.className = 'builder-toolbar__site'
+      select.setAttribute('aria-label', label)
+      for (const { slug } of sites) {
+        const opt = document.createElement('option')
+        opt.value = slug
+        opt.textContent = slug
+        select.append(opt)
+      }
+      if (panel.getSite()) select.value = panel.getSite()
+      select.addEventListener('change', () => panel.setSite(select.value))
+      return select
+    },
+  }
+}
+
+/** View/Edit toggle — one button per registered mode; swaps the render channel. */
+export function modeToggleAction() {
+  return {
+    id: 'mode-toggle',
+    create({ panel }) {
+      const group = document.createElement('div')
+      group.className = 'builder-toolbar__modes'
+      group.setAttribute('role', 'group')
+      for (const mode of panel.getModes()) {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.dataset.mode = mode.id
+        btn.textContent = mode.label
+        btn.setAttribute('aria-pressed', String(mode.id === panel.getMode()))
+        btn.addEventListener('click', () => panel.setMode(mode.id))
+        group.append(btn)
+      }
+      return group
+    },
+  }
+}
+
+/**
+ * Open in new tab — points at the SAME url the iframe loads. An iframe can
+ * distort layout, so a real tab is the honest view (DOC-28 §10); it is only
+ * meaningful for a mode that shows a document, which is why modes opt in.
+ */
+export function openInNewTabAction() {
+  return {
+    id: 'open-new-tab',
+    create({ panel }) {
+      const link = document.createElement('a')
+      link.className = 'builder-toolbar__open'
+      link.target = '_blank'
+      link.rel = 'noopener'
+      link.textContent = 'Open in new tab'
+      const sync = () => link.setAttribute('href', panel.getSrc())
+      sync()
+      panel.on('src', sync)
+      return link
+    },
+  }
+}
+
+/**
+ * Publish — a thin call over the existing `publish` (DOC-12 §5): snapshot, diff,
+ * append to history, render. No new publish semantics live here.
+ */
+export function publishAction(publish) {
+  return {
+    id: 'publish',
+    create({ panel }) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'builder-toolbar__publish'
+      btn.textContent = 'Publish'
+      btn.addEventListener('click', async () => {
+        const slug = panel.getSite()
+        if (!slug) return
+        btn.disabled = true
+        try {
+          await publish(slug)
+        } finally {
+          btn.disabled = false
+        }
+      })
+      return btn
+    },
+  }
+}
