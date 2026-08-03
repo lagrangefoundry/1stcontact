@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-03T00:04:43.087904+00:00'
+updated_at: '2026-08-03T00:16:26.330675+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -207,5 +207,11 @@ So: **give the framework the same `tsc`→`dist/` build `@1stcontact/site-schema
 **One thing I'll flag, not silently fix:** `copy set` re-renders only the `edit` channel, so after an edit the View mode shows a stale draft until something re-renders it. The ticket scopes the re-render to the edit channel, so I'll leave the behaviour as specified and note it — unless you want View refreshed too.
 
 Say go and I'll start with the framework build (it's the only piece with any chance of a surprise).
+
+<!-- xgd-turn id="56586ecd-9e8f-4eb7-a9b2-e3ca2297edc7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-03T00:16:26.207792+00:00" -->
+#### You
+Lets see what we have, is it ready for demo?
 
 <!-- xgd-chat-end -->
