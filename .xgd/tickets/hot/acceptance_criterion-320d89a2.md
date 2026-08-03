@@ -6,10 +6,10 @@ title: Captured form controls fold to one behaviour seam per form, pinned at the
   own union rect at every sampled width
 created_by: xgd
 created_at: '2026-08-03T03:20:26.332927+00:00'
-updated_at: '2026-08-03T03:20:26.332927+00:00'
+updated_at: '2026-08-03T03:33:08.106478+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-02f21b8a
   kind: behavior
