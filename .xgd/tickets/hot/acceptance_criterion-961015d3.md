@@ -6,10 +6,10 @@ title: A responsive type-axis track resolves per viewport in the analytic model,
   the rendered cascade
 created_by: xgd
 created_at: '2026-08-03T02:48:17.932255+00:00'
-updated_at: '2026-08-03T02:48:17.932255+00:00'
+updated_at: '2026-08-03T03:16:07.995696+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-24098299
   kind: behavior
