@@ -6,10 +6,10 @@ title: Rendered reproduction contains no remote handle and every handle it emits
   to a file it ships
 created_by: xgd
 created_at: '2026-08-03T03:46:34.792119+00:00'
-updated_at: '2026-08-03T03:46:34.792119+00:00'
+updated_at: '2026-08-03T04:01:08.565178+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8b2f295c
   kind: behavior
