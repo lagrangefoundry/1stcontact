@@ -6,10 +6,10 @@ title: A node anchors x and width to the column independently, with a capped ter
   for a nested maximum and a keyframed in-column offset across a layout mode change
 created_by: xgd
 created_at: '2026-08-03T02:08:42.456248+00:00'
-updated_at: '2026-08-03T02:08:42.456248+00:00'
+updated_at: '2026-08-03T02:23:34.000181+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
