@@ -6,10 +6,10 @@ title: Controls cluster into the forms they visibly belong to, separating side-b
   forms at the widest sampled width
 created_by: xgd
 created_at: '2026-08-03T03:20:49.799271+00:00'
-updated_at: '2026-08-03T03:20:49.799271+00:00'
+updated_at: '2026-08-03T03:33:07.970156+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-02f21b8a
   kind: behavior
