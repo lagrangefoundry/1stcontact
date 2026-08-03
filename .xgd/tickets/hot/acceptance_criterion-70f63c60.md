@@ -2,12 +2,13 @@
 uid: acceptance_criterion-70f63c60
 id: AC-730
 type: acceptance_criterion
-title: A text-free element that paints a standalone surface folds to a box leaf
+title: A text-free element that paints a standalone surface folds to a box leaf; an
+  unsafe-scheme surface paints nothing
 created_by: xgd
 created_at: '2026-07-29T04:05:06.541745+00:00'
-updated_at: '2026-08-03T00:57:26.999127+00:00'
+updated_at: '2026-08-03T00:57:41.440521+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-8acc338d
