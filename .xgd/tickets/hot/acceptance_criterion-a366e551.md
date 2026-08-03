@@ -6,10 +6,10 @@ title: A run whose own element paints its surface folds as a chip on the text le
   and contributes no card box
 created_by: xgd
 created_at: '2026-08-03T00:58:36.945625+00:00'
-updated_at: '2026-08-03T00:58:36.945625+00:00'
+updated_at: '2026-08-03T01:27:46.561879+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
