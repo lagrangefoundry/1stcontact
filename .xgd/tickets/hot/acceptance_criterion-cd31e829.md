@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A saturated radius is compared as a pill, not a magnitude
 created_by: xgd
 created_at: '2026-08-03T02:28:40.290677+00:00'
-updated_at: '2026-08-03T02:28:40.290677+00:00'
+updated_at: '2026-08-03T02:44:35.011098+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5de22a5
   kind: behavior
