@@ -5,9 +5,9 @@ type: request
 title: 'Builder shell: webui consumption, `site` tab, multi-mode display panel + toolbar'
 created_by: xgd
 created_at: '2026-07-31T20:43:18.854053+00:00'
-updated_at: '2026-08-03T00:00:26.961494+00:00'
+updated_at: '2026-08-03T00:01:16.461049+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.15
+  story_points: 8
 ---
 
 ## What this builds
