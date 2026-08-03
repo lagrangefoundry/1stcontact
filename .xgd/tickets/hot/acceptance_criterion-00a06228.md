@@ -6,10 +6,10 @@ title: A repeated projection at a seen (engine, width, state) key is evidence, n
   a second ladder cell
 created_by: xgd
 created_at: '2026-08-03T02:28:44.130626+00:00'
-updated_at: '2026-08-03T02:28:44.130626+00:00'
+updated_at: '2026-08-03T02:44:34.851920+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5de22a5
   kind: behavior
