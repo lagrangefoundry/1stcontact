@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-d0a8cfad'
 created_by: xgd
 created_at: '2026-08-03T01:49:38.154842+00:00'
-updated_at: '2026-08-03T01:49:38.154842+00:00'
+updated_at: '2026-08-03T02:00:08.988131+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-d0a8cfad
@@ -20,6 +20,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: AC-688 (orphaned acceptance criterion) or test_UAT_AC762
+  batches_pending: false
 ---
 
 {
