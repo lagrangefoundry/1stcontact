@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Behavioural control facts are excluded from the painted comparison
 created_by: xgd
 created_at: '2026-08-03T02:28:48.106660+00:00'
-updated_at: '2026-08-03T02:28:48.106660+00:00'
+updated_at: '2026-08-03T02:44:34.689601+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5de22a5
   kind: behavior
