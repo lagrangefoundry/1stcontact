@@ -6,10 +6,10 @@ title: An imported reproduction serves the reference's own bytes and configures 
   behaviours only from what the capture recorded
 created_by: xgd
 created_at: '2026-08-03T03:46:07.871166+00:00'
-updated_at: '2026-08-03T03:46:07.871166+00:00'
+updated_at: '2026-08-03T04:01:05.852463+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-4ff83a8b
   capability_uid: capability-cbc62ad9
