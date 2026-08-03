@@ -7,7 +7,7 @@ import { distDir } from '../store'
 import type { GlobalOptions } from './commands'
 
 /** Minimal MIME map for the static-preview server. */
-const MIME: Record<string, string> = {
+export const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -56,6 +56,58 @@ export function startServe(slug: string, opts: ServeOptions = {}): Promise<Serve
   })
 }
 
+/**
+ * Resolve a URL path to a file inside `rootDir`, or a sentinel.
+ *
+ * Split out of the request handler (REQ-115) because the builder origin serves
+ * several static trees — the rendered channels, the builder's own source, the
+ * installed webui components — and every one of them needs the identical
+ * confinement, directory-index and extensionless rules. One implementation, so
+ * a traversal guard can never be present on one tree and missing on another.
+ */
+export async function resolveStaticFile(
+  rootDir: string,
+  pathname: string,
+): Promise<string | null | 'forbidden'> {
+  let rel = decodeURIComponent(pathname)
+  if (rel.endsWith('/')) rel += 'index.html'
+  // Resolve and confine to rootDir (no path traversal).
+  const abs = path.join(rootDir, path.normalize(rel))
+  if (!abs.startsWith(rootDir)) return 'forbidden'
+  const info = await stat(abs).catch(() => null)
+  let file = info?.isDirectory() ? path.join(abs, 'index.html') : abs
+  let finalInfo = info?.isDirectory() ? await stat(file).catch(() => null) : info
+  /**
+   * REQ-113 — extensionless → sibling `.html`. `renderSite` emits a page at
+   * `<slug>.html`, and Cloudflare Pages serves that at `/<slug>`. Without this
+   * the preview server disagrees with production on the very URL the author
+   * writes into the nav, and the tempting "fix" is to bake `.html` into the
+   * site — wrong environment, permanent cost.
+   *
+   * Applied to `abs`, which is already confined to `rootDir`, so appending a
+   * suffix cannot widen reach. Gated on there being no extension, so a missing
+   * asset still 404s instead of silently returning HTML with the wrong MIME.
+   * Runs last, so a real directory's `index.html` always wins over `<dir>.html`.
+   */
+  if (!finalInfo && !path.extname(abs)) {
+    const htmlPath = `${abs}.html`
+    const htmlInfo = await stat(htmlPath).catch(() => null)
+    if (htmlInfo?.isFile()) {
+      file = htmlPath
+      finalInfo = htmlInfo
+    }
+  }
+  return finalInfo ? file : null
+}
+
+/** Stream a resolved file with its content type. */
+export function sendFile(res: http.ServerResponse, file: string): void {
+  res.writeHead(200, {
+    'content-type': MIME[path.extname(file)] ?? 'application/octet-stream',
+  })
+  createReadStream(file).pipe(res)
+}
+
 async function serveRequest(
   rootDir: string,
   req: http.IncomingMessage,
@@ -63,43 +115,16 @@ async function serveRequest(
 ): Promise<void> {
   try {
     const url = new URL(req.url ?? '/', 'http://localhost')
-    let rel = decodeURIComponent(url.pathname)
-    if (rel.endsWith('/')) rel += 'index.html'
-    // Resolve and confine to rootDir (no path traversal).
-    const abs = path.join(rootDir, path.normalize(rel))
-    if (!abs.startsWith(rootDir)) {
+    const file = await resolveStaticFile(rootDir, url.pathname)
+    if (file === 'forbidden') {
       res.writeHead(403).end('Forbidden')
       return
     }
-    const info = await stat(abs).catch(() => null)
-    let file = info?.isDirectory() ? path.join(abs, 'index.html') : abs
-    let finalInfo = info?.isDirectory() ? await stat(file).catch(() => null) : info
-    /**
-     * REQ-113 — extensionless → sibling `.html`. `renderSite` emits a page at
-     * `<slug>.html`, and Cloudflare Pages serves that at `/<slug>`. Without this
-     * the preview server disagrees with production on the very URL the author
-     * writes into the nav, and the tempting "fix" is to bake `.html` into the
-     * site — wrong environment, permanent cost.
-     *
-     * Applied to `abs`, which is already confined to `rootDir`, so appending a
-     * suffix cannot widen reach. Gated on there being no extension, so a missing
-     * asset still 404s instead of silently returning HTML with the wrong MIME.
-     * Runs last, so a real directory's `index.html` always wins over `<dir>.html`.
-     */
-    if (!finalInfo && !path.extname(abs)) {
-      const htmlPath = `${abs}.html`
-      const htmlInfo = await stat(htmlPath).catch(() => null)
-      if (htmlInfo?.isFile()) {
-        file = htmlPath
-        finalInfo = htmlInfo
-      }
-    }
-    if (!finalInfo) {
+    if (!file) {
       res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
       return
     }
-    res.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' })
-    createReadStream(file).pipe(res)
+    sendFile(res, file)
   } catch {
     res.writeHead(500, { 'content-type': 'text/plain' }).end('Internal error')
   }

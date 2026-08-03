@@ -36,6 +36,7 @@ import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
 import { startServe } from './serve'
+import { startBuilder } from './builder'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import {
   cmdValuesDiff,
@@ -76,8 +77,18 @@ export type {
 } from './fonts'
 export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
-export { startServe } from './serve'
+export { startServe, resolveStaticFile, sendFile, MIME } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
+export { startBuilder, handleBuilderRequest, chromeHtml } from './builder'
+export type { BuilderOptions, BuilderHandle } from './builder'
+export {
+  webuiPackageDir,
+  webuiExports,
+  webuiRoots,
+  WEBUI_PACKAGES,
+  WEBUI_SCOPE,
+  MissingWebuiComponentError,
+} from './webui'
 export { cmdShot, VIEWPORTS } from './shot'
 export type { ShotOptions, ShotResult, ViewportName } from './shot'
 export {
@@ -171,6 +182,10 @@ Usage:
   1c checkout <slug> [<revId>] [--force] [--sandbox]
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
+  1c builder [--sandbox] [--port <n>]
+    The builder's dev origin (REQ-115): the shell chrome, the installed webui components,
+    /api/sites, /api/publish, and every rendered channel at /preview/<slug>/<channel>/.
+    The control-app Worker proxies to it, so the whole builder is one same-origin host.
 
 Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
   1c deploy <slug> [--channel draft|published] [--dry-run] [--prune] [--sandbox] [--json]
@@ -439,6 +454,17 @@ export async function run(argv: string[]): Promise<void> {
         port: typeof flags.port === 'string' ? Number(flags.port) : undefined,
       })
       console.log(`Serving ${rootDir}\n  ${url}`)
+      // Keep the process alive until the server closes.
+      await new Promise<void>(() => {})
+      return
+    }
+
+    case 'builder': {
+      const { url } = await startBuilder({
+        ...global,
+        port: typeof flags.port === 'string' ? Number(flags.port) : 8790,
+      })
+      console.log(`Builder origin\n  ${url}`)
       // Keep the process alive until the server closes.
       await new Promise<void>(() => {})
       return
