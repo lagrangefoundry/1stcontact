@@ -5,10 +5,10 @@ type: request
 title: 'Builder shell: webui consumption, `site` tab, multi-mode display panel + toolbar'
 created_by: xgd
 created_at: '2026-07-31T20:43:18.854053+00:00'
-updated_at: '2026-08-03T00:01:17.306306+00:00'
+updated_at: '2026-08-03T00:02:06.423028+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
