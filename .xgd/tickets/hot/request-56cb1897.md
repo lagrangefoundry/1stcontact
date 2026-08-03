@@ -5,9 +5,9 @@ type: request
 title: '1c new scaffolds no L1 document: authored sites start from nothing'
 created_by: xgd
 created_at: '2026-07-26T01:27:13.225254+00:00'
-updated_at: '2026-07-29T06:06:53.479809+00:00'
+updated_at: '2026-08-03T00:05:06.010046+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: bundled
 fields:
   priority: low
@@ -15,9 +15,6 @@ fields:
   needs_review: false
   commits:
   - working_sha: c165c1f7152bd40d91dfc56fb1b2195585e97f72
-    reconcile_sha: null
-    main_sha: null
-  - working_sha: 028784f941574150f0b80bfb88e9e8a56a2b7be8
     reconcile_sha: null
     main_sha: null
   version: 0.0.223
