@@ -5,9 +5,9 @@ type: capability
 title: Framework Responsive Per-Breakpoint Dials
 created_by: xgd
 created_at: '2026-07-19T03:19:55.309934+00:00'
-updated_at: '2026-08-05T17:30:21.910033+00:00'
+updated_at: '2026-08-05T17:30:22.265798+00:00'
 completed_at: null
-last_field_updated: merged_into
+last_field_updated: body
 status: superseded
 fields:
   name: framework_responsive_dials
@@ -53,3 +53,13 @@ Originating intent BUNDLE-6 (REQ-58/59/61/62) landed responsive per-breakpoint
 modules plus a header `navCollapse` dial, extending the absolute-or-overlay value
 system (CAP-67 / [[framework_value_system]]). All of it was retired by BUNDLE-7
 above.
+
+
+
+---
+
+**ABSORBED 2026-08-05 (structural rebalance).** All stories previously under this
+capability were reassigned to **Framework Substrate: L1 Layout, Values & Behavior Modules** (`capability-ae9d65d6`).
+This capability now holds zero stories and is retained only as a historical
+pointer. It could not be set to `status: deprecated` in this run — see the
+rebalance report for the blocking index defect.
