@@ -5,13 +5,14 @@ type: capability
 title: 1c CLI Argument Parsing & Output Hygiene
 created_by: xgd
 created_at: '2026-07-19T03:00:57.934830+00:00'
-updated_at: '2026-07-24T08:19:09.161449+00:00'
+updated_at: '2026-08-05T17:30:18.019355+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: merged_into
 status: active
 fields:
   name: 1c CLI Argument Parsing & Output Hygiene
   uat_coverage: pass
+  merged_into: capability-aa030c83
 ---
 
 # Capability: 1c CLI Argument Parsing & Output Hygiene
