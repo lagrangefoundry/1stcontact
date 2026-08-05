@@ -6,13 +6,13 @@ title: 'Responsive dials: length parameters vary per breakpoint and the nav coll
   point is configurable'
 created_by: xgd
 created_at: '2026-07-19T03:20:16.873338+00:00'
-updated_at: '2026-07-23T09:34:52.050075+00:00'
+updated_at: '2026-08-05T17:24:19.133208+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: capability_uid
 status: archived
 fields:
   intent_uid: bundle-ab9e0cb6
-  capability_uid: capability-bd0b722e
+  capability_uid: capability-ae9d65d6
   story_kind: upgrade
   story_points: 3
   updated_by: bundle-31e474b9
