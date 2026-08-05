@@ -6,9 +6,9 @@ title: 'Isolation conformance: degenerate input degrades inertly; a throwing cor
   is flagged'
 created_by: xgd
 created_at: '2026-07-22T19:55:05.237152+00:00'
-updated_at: '2026-07-24T22:41:40.394961+00:00'
+updated_at: '2026-08-05T21:03:40.981547+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
