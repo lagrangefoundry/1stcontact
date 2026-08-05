@@ -5,9 +5,9 @@ type: report
 title: Resync anchor
 created_by: xgd
 created_at: '2026-08-05T03:01:34.483131+00:00'
-updated_at: '2026-08-05T03:06:55.679280+00:00'
+updated_at: '2026-08-05T17:40:38.481057+00:00'
 completed_at: null
-last_field_updated: blocked_by_dirty_working
+last_field_updated: result
 fields:
   report_kind: resync_run
   subject_uid: resync-anchor
@@ -48,9 +48,10 @@ fields:
     new_sha: 6cac24fb0c686832583563f7e9dd891ca55b8d06
   - old_sha: 67483d807292fbc58f5287407c5b846fad45cfeb
     new_sha: e28735bd0b52ff50c6424e01362970d6a111ee0b
+result: running
 ---
 
 {
   "status": "running",
-  "message": "Resync anchor created"
+  "message": "Resync anchor resumed"
 }
