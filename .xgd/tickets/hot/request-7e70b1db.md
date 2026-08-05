@@ -5,10 +5,10 @@ type: request
 title: 'L1 paint axes are arbitrary across node kinds: make the surface group uniform'
 created_by: xgd
 created_at: '2026-07-26T01:25:42.552217+00:00'
-updated_at: '2026-07-27T19:41:09.622310+00:00'
+updated_at: '2026-08-05T19:32:18.409867+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   auto_merge_back: true
@@ -19,6 +19,7 @@ fields:
     main_sha: null
   version: 0.0.210
   story_points: 3
+  bundled_in: bundle-ee56a66e
 ---
 
 ## The gap
