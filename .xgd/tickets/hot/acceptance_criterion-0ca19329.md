@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Partitions nodes into changed vs steady and flags presence flips
 created_by: xgd
 created_at: '2026-07-19T02:51:01.023090+00:00'
-updated_at: '2026-07-24T07:46:34.388294+00:00'
+updated_at: '2026-08-05T19:57:04.391641+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
