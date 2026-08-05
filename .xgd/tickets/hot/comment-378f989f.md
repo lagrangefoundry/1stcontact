@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-05T23:02:27.343028+00:00'
+updated_at: '2026-08-05T23:11:43.176687+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -104,5 +104,48 @@ I can draft the body from the commit trail. I need one fact from you that isn't 
 3. **Is "marketing brainstorm" a goal or a tool?** The other four are shippable capabilities; that one reads like an activity. If it's "the app helps you brainstorm marketing", it's a capability and I'll file it. If it's something you do, it doesn't belong on the map.
 
 Answer those and I'll create the six goals with provenance set at creation, wire the three `depends_on` edges, and draft the decision for your correction.
+
+<!-- xgd-chat role="user" ts="2026-08-05T23:10:50.363699+00:00" -->
+#### You
+Ok I proposed 4 major goals. One of my major goals (the app) has 5 sub goals.
+
+We have created an xgd website without completing the webbuilder so the dependency is soft there.
+
+Please read the design docs for this project so you know what is going on.
+
+1. These are now essentially test sites
+2. No we need to do the planning
+3. Its part of the app - read the docs
+
+<!-- xgd-chat role="assistant" ts="2026-08-05T23:11:41.397513+00:00" -->
+#### Claude
+Docs live in the ticket store, and CLAUDE.md is explicit that tickets are API-only — so I need the `xgd ticket` CLI. It asked for approval earlier; requesting again.
+
+Corrections taken. Four roots, not six — and I'll drop the `depends_on` edge from the xgd website entirely: you built it without a complete builder, so that's not a hard ordering, and the guide's `depends_on` only means "cannot start until realized." A soft relation belongs in the body prose, not as an edge that would falsely park the site off the ready frontier.
+
+I can't read the design docs. They're DOC tickets, and CLAUDE.md is explicit that tickets are API-only — no direct `.md` reads. `xgd ticket list --type doc` and the `--format json` variant were both denied at the permission prompt, and the root `README.md` is still the untouched stub. **Please approve `xgd ticket` (list/get) and I'll read DOC-17, DOC-19, DOC-23/24/25/26 and whatever else the index shows before I touch the map.**
+
+What's settled regardless of the docs — the four roots:
+
+| Goal | State | Provenance | Why |
+|---|---|---|---|
+| **1stcontact app** | `in_progress` | `planned` | Roll-up rule 3: builder is in progress |
+| **web builder** (child) | `in_progress` | `planned` | 68 requirements, 23 bug regressions, deploy path live |
+| **web monitoring** (child) | `concept` | `planned` | No code |
+| **marketing brainstorm** (child) | `concept` | `planned` | No code — docs may move this |
+| **CRM** (child) | `concept` | `planned` | No code |
+| **payments** (child) | `aspiration` | `planned` | Seam designed — `l1/schema.ts:1064` names it as a slot consumer |
+| **xgd website** | `in_progress` | `planned` | Site store exists, site built |
+| **lagrange foundry website** | `concept` | `planned` | No store, no commits |
+| **1stcontact site** | ? | `planned` | Store exists — is the REQ-108 PROOF work this, or the xgd site? |
+
+Nothing goes to `planned` and nothing gets a `target_date`, since planning is the work not yet done. `gigabytealchemy` and `harbor-cafe` won't be filed — test sites.
+
+Two things I still need, and neither is recall:
+
+1. **Approval for `xgd ticket`** so I can read the docs.
+2. **Which site is the REQ-108 PROOF work** — 1stcontact or xgd? It's the difference between one of those roots being `in_progress` and being untouched.
+
+The builder-first decision record still stands as the highest-value thing here, and I'd guess the docs contain its actual rationale — another reason to read them before drafting rather than after.
 
 <!-- xgd-chat-end -->
