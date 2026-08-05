@@ -5,10 +5,10 @@ type: request
 title: L1 pages must be able to host behavior modules in their slots
 created_by: xgd
 created_at: '2026-07-25T20:23:19.017752+00:00'
-updated_at: '2026-07-29T18:35:43.487560+00:00'
-completed_at: null
+updated_at: '2026-08-05T17:38:10.028693+00:00'
+completed_at: '2026-08-05T17:38:10.028693+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 8
