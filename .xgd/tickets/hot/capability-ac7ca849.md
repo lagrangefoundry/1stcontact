@@ -5,9 +5,9 @@ type: capability
 title: 1c CLI Argument Parsing & Output Hygiene
 created_by: xgd
 created_at: '2026-07-19T03:00:57.934830+00:00'
-updated_at: '2026-08-05T17:30:18.019355+00:00'
+updated_at: '2026-08-05T17:30:18.247314+00:00'
 completed_at: null
-last_field_updated: merged_into
+last_field_updated: body
 status: active
 fields:
   name: 1c CLI Argument Parsing & Output Hygiene
@@ -30,3 +30,13 @@ compose and script:
 
 This capability documents behavior reconciled from bundle-ab9e0cb6
 (REQ-58 pass-3), plan item 5.
+
+
+
+---
+
+**ABSORBED 2026-08-05 (structural rebalance).** All stories previously under this
+capability were reassigned to **1c Capture & Diff Fidelity** (`capability-aa030c83`).
+This capability now holds zero stories and is retained only as a historical
+pointer. It could not be set to `status: deprecated` in this run — see the
+rebalance report for the blocking index defect.
