@@ -5,13 +5,14 @@ type: capability
 title: 1c Size-Aware Diffing
 created_by: xgd
 created_at: '2026-07-19T02:36:14.319634+00:00'
-updated_at: '2026-07-24T07:47:08.374006+00:00'
+updated_at: '2026-08-05T17:30:16.924239+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: merged_into
 status: active
 fields:
   name: size_aware_diffing
   uat_coverage: pass
+  merged_into: capability-aa030c83
 ---
 
 # 1c Size-Aware Diffing
