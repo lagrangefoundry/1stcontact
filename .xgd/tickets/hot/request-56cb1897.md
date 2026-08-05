@@ -5,10 +5,10 @@ type: request
 title: '1c new scaffolds no L1 document: authored sites start from nothing'
 created_by: xgd
 created_at: '2026-07-26T01:27:13.225254+00:00'
-updated_at: '2026-08-05T19:31:34.232764+00:00'
+updated_at: '2026-08-05T19:32:19.406716+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: low
   auto_merge_back: true
@@ -19,6 +19,7 @@ fields:
     main_sha: null
   version: 0.0.223
   story_points: 2
+  bundled_in: bundle-ee56a66e
 ---
 
 ## The gap
