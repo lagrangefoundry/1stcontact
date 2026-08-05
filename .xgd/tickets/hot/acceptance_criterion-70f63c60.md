@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A text-free element that paints a standalone surface folds to a box leaf
 created_by: xgd
 created_at: '2026-07-29T04:05:06.541745+00:00'
-updated_at: '2026-07-29T04:14:05.348613+00:00'
+updated_at: '2026-08-05T22:27:36.230801+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
