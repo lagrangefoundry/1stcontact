@@ -6,10 +6,10 @@ title: 'L1 cannot express texture: typed pattern axis (dot-grid, hairline grid, 
   and radial gradients'
 created_by: xgd
 created_at: '2026-07-27T21:23:15.235392+00:00'
-updated_at: '2026-07-29T06:06:55.092232+00:00'
+updated_at: '2026-08-05T19:31:32.673477+00:00'
 completed_at: null
 last_field_updated: status
-status: bundled
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
@@ -20,7 +20,6 @@ fields:
     main_sha: null
   version: 0.0.224
   story_points: 4
-  bundled_in: bundle-b486324c
 ---
 
 ## The gap
