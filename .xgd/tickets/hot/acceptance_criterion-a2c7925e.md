@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Behavior client behaviour ships as one page-referenced asset
 created_by: xgd
 created_at: '2026-07-22T19:54:48.716204+00:00'
-updated_at: '2026-07-24T22:41:31.185398+00:00'
+updated_at: '2026-08-05T21:03:39.998704+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
