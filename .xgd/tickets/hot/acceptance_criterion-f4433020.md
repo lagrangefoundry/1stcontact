@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Malformed structured axes are rejected by the envelope
 created_by: xgd
 created_at: '2026-07-29T03:50:06.355848+00:00'
-updated_at: '2026-07-29T04:02:26.584395+00:00'
+updated_at: '2026-08-05T21:03:23.283437+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
