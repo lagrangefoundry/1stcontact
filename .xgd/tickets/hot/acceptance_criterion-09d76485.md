@@ -6,9 +6,9 @@ title: Demand-driven recovery promotes only the colliding regions to flow, recur
   and returns a valid L1 document
 created_by: xgd
 created_at: '2026-07-22T20:07:38.473705+00:00'
-updated_at: '2026-07-29T05:09:42.250923+00:00'
+updated_at: '2026-08-05T22:27:25.727850+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-24098299
