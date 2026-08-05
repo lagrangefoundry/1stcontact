@@ -7,10 +7,10 @@ title: Reproduction hotlinks the captured origin instead of its mirrored local a
   gate
 created_by: xgd
 created_at: '2026-07-24T22:51:03.848182+00:00'
-updated_at: '2026-07-29T18:35:42.905669+00:00'
-completed_at: null
+updated_at: '2026-08-05T17:38:12.148866+00:00'
+completed_at: '2026-08-05T17:38:12.148866+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   severity: high
   priority: high
