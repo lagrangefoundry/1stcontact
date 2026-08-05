@@ -20,6 +20,8 @@ fields:
     new_sha: d07149d757f426f4112725ac315fa1f43e89a239
   - old_sha: da80b2b669ff8bd637bdd158bdad557e702265e6
     new_sha: 1e2a256b86b8102b15ba399c42152b047587b695
+  - old_sha: b888c2d577e6b1b4cdc7e9f2ecb6720f3bcdf659
+    new_sha: 06ed9fad8f2e452635b677dc57cb99ddef354d9b
 ---
 
 {
