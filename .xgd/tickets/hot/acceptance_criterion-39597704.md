@@ -6,14 +6,15 @@ title: A text-free media element folds to an image leaf with its resolved source
   alternative text
 created_by: xgd
 created_at: '2026-07-29T04:04:57.769004+00:00'
-updated_at: '2026-07-29T04:14:05.511170+00:00'
+updated_at: '2026-08-05T22:27:35.254748+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
