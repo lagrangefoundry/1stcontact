@@ -5,10 +5,10 @@ type: request
 title: 'L1 has no interaction-state vocabulary: typed hover / focus axes'
 created_by: xgd
 created_at: '2026-07-26T01:26:05.669620+00:00'
-updated_at: '2026-07-27T19:58:37.442523+00:00'
+updated_at: '2026-08-05T19:32:18.673258+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   auto_merge_back: true
@@ -19,6 +19,7 @@ fields:
     main_sha: null
   version: 0.0.211
   story_points: 3
+  bundled_in: bundle-ee56a66e
 ---
 
 ## The gap
