@@ -5,15 +5,15 @@ type: acceptance_criterion
 title: Injection payloads in content values are inert in the rendered output
 created_by: xgd
 created_at: '2026-07-22T19:32:11.016150+00:00'
-updated_at: '2026-07-29T03:49:04.645183+00:00'
+updated_at: '2026-08-05T21:03:26.067682+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
-  uat_coverage: pass
+  uat_coverage: fail
 ---
 
 ## Criterion
