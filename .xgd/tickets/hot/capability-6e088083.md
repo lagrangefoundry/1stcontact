@@ -5,9 +5,9 @@ type: capability
 title: Framework Absolute-or-Overlay Value System
 created_by: xgd
 created_at: '2026-07-19T03:08:58.653511+00:00'
-updated_at: '2026-08-05T17:30:20.568184+00:00'
+updated_at: '2026-08-05T17:30:20.865617+00:00'
 completed_at: null
-last_field_updated: merged_into
+last_field_updated: body
 status: active
 fields:
   name: framework_value_system
@@ -45,3 +45,13 @@ currently delivered anywhere: L1 carries only the absolute literal (REQ-79 #2, "
 value = one literal field — no theme-role indirection in L1"), never an
 `absolute OR role` union. If ever built, the overlay is an authoring-layer
 convenience layered above the L1 substrate, not part of the safe substrate itself.
+
+
+
+---
+
+**ABSORBED 2026-08-05 (structural rebalance).** All stories previously under this
+capability were reassigned to **Framework Substrate: L1 Layout, Values & Behavior Modules** (`capability-ae9d65d6`).
+This capability now holds zero stories and is retained only as a historical
+pointer. It could not be set to `status: deprecated` in this run — see the
+rebalance report for the blocking index defect.
