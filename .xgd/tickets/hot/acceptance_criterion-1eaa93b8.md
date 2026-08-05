@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: L1 leaf axes carry the absolute (literal) value, validated by the envelope
 created_by: xgd
 created_at: '2026-07-22T20:28:07.019876+00:00'
-updated_at: '2026-07-24T08:34:00.957986+00:00'
+updated_at: '2026-08-05T21:03:32.277476+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
