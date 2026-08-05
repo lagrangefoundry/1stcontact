@@ -6,10 +6,10 @@ title: 'contact-form: a mailto:/tel: action validates but client.js kills the su
   blocking the no-JS baseline'
 created_by: xgd
 created_at: '2026-07-27T21:22:42.547000+00:00'
-updated_at: '2026-07-29T06:06:54.471103+00:00'
+updated_at: '2026-08-05T19:31:29.070923+00:00'
 completed_at: null
 last_field_updated: status
-status: bundled
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
@@ -19,7 +19,6 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.219
-  bundled_in: bundle-b486324c
 ---
 
 ## The defect
