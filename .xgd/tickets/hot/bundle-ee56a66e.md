@@ -5,10 +5,10 @@ type: bundle
 title: BUG-27 + REQ-94 + REQ-96 + REQ-97 + REQ-98 + 10 more
 created_by: xgd
 created_at: '2026-08-05T19:32:15.373956+00:00'
-updated_at: '2026-08-05T19:32:15.373956+00:00'
+updated_at: '2026-08-05T19:50:30.758765+00:00'
 completed_at: null
-last_field_updated: created_at
-status: ready_to_reconcile
+last_field_updated: status
+status: reconciling
 fields:
   commits:
   - working_sha: ed2df25b2bf44ff98898a411b1ffac7b62becf00
