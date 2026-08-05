@@ -5,9 +5,9 @@ type: capability
 title: End-to-End Reproduction Gate (3-Probe)
 created_by: xgd
 created_at: '2026-07-22T20:06:21.233054+00:00'
-updated_at: '2026-08-05T17:30:19.521166+00:00'
+updated_at: '2026-08-05T19:17:51.835385+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   name: reproduction-gate-3probe
