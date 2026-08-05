@@ -5,9 +5,9 @@ type: capability
 title: 1c Size-Aware Diffing
 created_by: xgd
 created_at: '2026-07-19T02:36:14.319634+00:00'
-updated_at: '2026-08-05T17:30:16.924239+00:00'
+updated_at: '2026-08-05T17:30:17.160352+00:00'
 completed_at: null
-last_field_updated: merged_into
+last_field_updated: body
 status: active
 fields:
   name: size_aware_diffing
@@ -29,3 +29,13 @@ downstream stories — the standalone cross-size analysis command
 Reproduced from the bundle-ab9e0cb6 reconciliation (REQ-61). Related:
 `1c Values-Diff Fidelity` (CAP-63) supplies the single-width value comparison
 this generalizes across widths.
+
+
+
+---
+
+**ABSORBED 2026-08-05 (structural rebalance).** All stories previously under this
+capability were reassigned to **1c Capture & Diff Fidelity** (`capability-aa030c83`).
+This capability now holds zero stories and is retained only as a historical
+pointer. It could not be set to `status: deprecated` in this run — see the
+rebalance report for the blocking index defect.
