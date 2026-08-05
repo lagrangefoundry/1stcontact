@@ -6,10 +6,10 @@ title: 'Authored L1 bypasses the envelope validator: validateL1 never runs outsi
   the reproduction path'
 created_by: xgd
 created_at: '2026-07-27T23:31:36.175745+00:00'
-updated_at: '2026-07-29T06:06:54.626540+00:00'
+updated_at: '2026-08-05T19:31:38.620001+00:00'
 completed_at: null
 last_field_updated: status
-status: bundled
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
@@ -20,7 +20,6 @@ fields:
     main_sha: null
   version: 0.0.220
   story_points: 2
-  bundled_in: bundle-b486324c
 ---
 
 ## The gap
