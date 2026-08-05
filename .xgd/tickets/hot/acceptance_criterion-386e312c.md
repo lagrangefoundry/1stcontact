@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: --classify labels changed nodes and groups structural moves first
 created_by: xgd
 created_at: '2026-07-19T02:51:28.378017+00:00'
-updated_at: '2026-07-24T07:46:36.452732+00:00'
+updated_at: '2026-08-05T19:57:06.282454+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
