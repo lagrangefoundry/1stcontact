@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Well-formed L1 document is accepted as a typed layout tree
 created_by: xgd
 created_at: '2026-07-22T19:31:43.320246+00:00'
-updated_at: '2026-07-24T23:15:44.952786+00:00'
+updated_at: '2026-08-05T21:03:15.510673+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
