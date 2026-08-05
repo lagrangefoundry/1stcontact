@@ -6,9 +6,9 @@ title: Survivor behavior modules declare the full five-dimension conformance obl
   set
 created_by: xgd
 created_at: '2026-07-22T19:55:07.909196+00:00'
-updated_at: '2026-07-24T22:41:33.851830+00:00'
+updated_at: '2026-08-05T21:03:41.924831+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
