@@ -6,10 +6,10 @@ title: 'Behavior modules must be layout-agnostic by construction: an L1 `control
   node for leaf elements'
 created_by: xgd
 created_at: '2026-07-26T00:46:55.683452+00:00'
-updated_at: '2026-08-03T00:14:48.843973+00:00'
+updated_at: '2026-08-05T19:32:17.072271+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   auto_merge_back: true
   needs_review: false
@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.0.208
   story_points: 13
+  bundled_in: bundle-ee56a66e
 ---
 
 ## The gap
