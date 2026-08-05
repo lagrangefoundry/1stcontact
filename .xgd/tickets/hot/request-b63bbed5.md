@@ -5,10 +5,10 @@ type: request
 title: 'No font-acquisition path or licence provenance: font registry + 1c fonts check'
 created_by: xgd
 created_at: '2026-07-26T01:26:56.621937+00:00'
-updated_at: '2026-08-05T19:31:40.538838+00:00'
+updated_at: '2026-08-05T19:32:19.232854+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
@@ -22,6 +22,7 @@ fields:
     main_sha: null
   version: 0.0.225
   story_points: 3
+  bundled_in: bundle-ee56a66e
 ---
 
 ## The gap
