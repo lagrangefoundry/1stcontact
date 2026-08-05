@@ -5,15 +5,15 @@ type: capability
 title: Framework Reproduction Module Treatments
 created_by: xgd
 created_at: '2026-07-19T03:33:43.924201+00:00'
-updated_at: '2026-08-05T17:30:23.576177+00:00'
+updated_at: '2026-08-05T18:43:31.752889+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   name: reproduction-module-treatments
   intent_uid: bundle-ab9e0cb6
   updated_by: bundle-31e474b9
-  uat_coverage: pass
+  uat_coverage: fail
   merged_into: capability-ae9d65d6
 ---
 
