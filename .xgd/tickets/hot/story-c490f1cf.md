@@ -6,13 +6,13 @@ title: 'Absolute values re-homed in L1: every colour, length, and radius is carr
   as a validated literal (named overlay parked in L2)'
 created_by: xgd
 created_at: '2026-07-19T03:09:25.918607+00:00'
-updated_at: '2026-07-24T08:34:02.277511+00:00'
+updated_at: '2026-08-05T17:24:18.181497+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: capability_uid
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
-  capability_uid: capability-6e088083
+  capability_uid: capability-ae9d65d6
   story_kind: upgrade
   story_points: 3
   updated_by: bundle-31e474b9
