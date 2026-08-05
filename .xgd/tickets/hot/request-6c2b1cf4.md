@@ -5,10 +5,10 @@ type: request
 title: 'L1 text leaves cannot declare a measure: add sizing to l1TextSchema'
 created_by: xgd
 created_at: '2026-07-26T01:25:20.200206+00:00'
-updated_at: '2026-07-29T06:06:53.991742+00:00'
+updated_at: '2026-08-05T19:31:37.254600+00:00'
 completed_at: null
 last_field_updated: status
-status: bundled
+status: ready_to_reconcile
 fields:
   priority: medium
   auto_merge_back: true
@@ -19,7 +19,6 @@ fields:
     main_sha: null
   version: 0.0.209
   story_points: 2
-  bundled_in: bundle-b486324c
 ---
 
 ## The gap
