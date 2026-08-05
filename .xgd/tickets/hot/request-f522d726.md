@@ -5,10 +5,10 @@ type: request
 title: 'L1 has no motion: typed scroll-reveal and stagger axes (evidence-gated)'
 created_by: xgd
 created_at: '2026-07-26T01:26:28.363459+00:00'
-updated_at: '2026-07-27T20:26:55.114005+00:00'
+updated_at: '2026-08-05T19:32:18.994436+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   auto_merge_back: true
@@ -19,6 +19,7 @@ fields:
     main_sha: null
   version: 0.0.212
   story_points: 5
+  bundled_in: bundle-ee56a66e
 ---
 
 ## The gap
