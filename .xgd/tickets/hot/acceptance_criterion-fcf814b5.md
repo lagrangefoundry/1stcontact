@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: An Astro container is constructed only for pages that carry behavior modules
 created_by: xgd
 created_at: '2026-07-29T04:33:06.638626+00:00'
-updated_at: '2026-07-29T04:37:23.058577+00:00'
+updated_at: '2026-08-05T23:13:30.442118+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 Rendering a site constructs the Astro container only when the site actually has
