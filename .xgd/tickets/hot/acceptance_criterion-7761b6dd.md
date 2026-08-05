@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Slot presentation is validated as L1 subtrees (structured-only security line)
 created_by: xgd
 created_at: '2026-07-22T19:54:03.556652+00:00'
-updated_at: '2026-07-24T22:41:21.762432+00:00'
+updated_at: '2026-08-05T21:03:35.972208+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
