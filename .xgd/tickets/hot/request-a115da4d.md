@@ -5,10 +5,10 @@ type: request
 title: 'L1 cannot express a link: typed link role + DOM id emission'
 created_by: xgd
 created_at: '2026-07-27T22:57:19.236802+00:00'
-updated_at: '2026-07-29T06:06:54.277193+00:00'
+updated_at: '2026-08-05T19:31:39.583182+00:00'
 completed_at: null
 last_field_updated: status
-status: bundled
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
@@ -18,7 +18,6 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.218
-  bundled_in: bundle-b486324c
 ---
 
 ## The gap
