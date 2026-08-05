@@ -6,14 +6,15 @@ title: A painted backing surface is not a sibling overlap, but is still subject 
   the horizontal-clip check
 created_by: xgd
 created_at: '2026-07-29T04:20:06.192885+00:00'
-updated_at: '2026-07-29T04:30:52.319590+00:00'
+updated_at: '2026-08-05T22:27:30.454380+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-24098299
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
