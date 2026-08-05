@@ -5,9 +5,9 @@ type: capability
 title: End-to-End Reproduction Gate (3-Probe)
 created_by: xgd
 created_at: '2026-07-22T20:06:21.233054+00:00'
-updated_at: '2026-08-05T17:30:19.217811+00:00'
+updated_at: '2026-08-05T17:30:19.521166+00:00'
 completed_at: null
-last_field_updated: merged_into
+last_field_updated: body
 status: active
 fields:
   name: reproduction-gate-3probe
@@ -40,3 +40,13 @@ deterministic evidence. Every residual a probe reports names a framework gap
 (a missing axis, a missing hint, a region needing promotion) to feed back — so
 "zero residuals" is a trustworthy verdict that a reproduction is faithful *and*
 robust, not merely pixel-matched at capture time.
+
+
+
+---
+
+**ABSORBED 2026-08-05 (structural rebalance).** All stories previously under this
+capability were reassigned to **L1 Reproduction Pipeline: Fold & Acceptance Gate** (`capability-2049c9ec`).
+This capability now holds zero stories and is retained only as a historical
+pointer. It could not be set to `status: deprecated` in this run — see the
+rebalance report for the blocking index defect.
