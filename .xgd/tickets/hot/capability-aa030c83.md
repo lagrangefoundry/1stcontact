@@ -5,13 +5,13 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-08-05T17:24:35.282574+00:00'
+updated_at: '2026-08-05T23:13:49.496911+00:00'
 completed_at: null
-last_field_updated: name
+last_field_updated: uat_coverage
 status: active
 fields:
   name: 1c_capture_diff_fidelity
-  uat_coverage: pass
+  uat_coverage: fail
 ---
 
 # Capability: 1c Capture & Diff Fidelity
