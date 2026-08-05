@@ -5,9 +5,9 @@ type: capability
 title: Framework Reproduction Module Treatments
 created_by: xgd
 created_at: '2026-07-19T03:33:43.924201+00:00'
-updated_at: '2026-08-05T17:30:23.349722+00:00'
+updated_at: '2026-08-05T17:30:23.576177+00:00'
 completed_at: null
-last_field_updated: merged_into
+last_field_updated: body
 status: active
 fields:
   name: reproduction-module-treatments
@@ -54,3 +54,13 @@ literals/roles consume belongs to the Absolute-or-Overlay Value System
 capability (CAP-67); the L1 substrate and the capability-module contract that
 host these surfaces are owned by their own capabilities (L1 Layout Substrate;
 Capability Modules).
+
+
+
+---
+
+**ABSORBED 2026-08-05 (structural rebalance).** All stories previously under this
+capability were reassigned to **Framework Substrate: L1 Layout, Values & Behavior Modules** (`capability-ae9d65d6`).
+This capability now holds zero stories and is retained only as a historical
+pointer. It could not be set to `status: deprecated` in this run — see the
+rebalance report for the blocking index defect.
