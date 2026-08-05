@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-05T23:13:09.347099+00:00'
+updated_at: '2026-08-05T23:54:41.635623+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -183,5 +183,54 @@ Then either restart the session or re-run — and I'll read the doc index and ev
 Say the word and I'll create the four roots and five children now, with provenance set at creation and no `planned` states or target dates — leaving the map ready for the planning pass, which is itself the obvious next objective. Or if you'd rather I read first and file once, I'll wait for the permission.
 
 One question still open from before, answerable from the repo but not by me: **the REQ-108 PROOF work — 1stcontact site or xgd site?** It decides which of those two roots is `in_progress`.
+
+<!-- xgd-chat role="user" ts="2026-08-05T23:53:11.649592+00:00" -->
+#### You
+Try now
+
+<!-- xgd-chat role="assistant" ts="2026-08-05T23:54:40.817953+00:00" -->
+#### Claude
+Through. And note: this project's DOC-17/19 are *not* the goal-map guide's — here they're a Design Lessons Log and a reproduction runbook. Reading the ones that bear on goal structure.
+
+Docs read. One thing I had backwards, and it's the most important fact in them:
+
+**DOC-16 §4, verbatim: "We do NOT build the builder first."** The stated build order is (1) framework primitives, (2) the two flagship sites — Gen Dev Labs and 1stcontact.io — built by hand with Claude to Tier-1 "expensive, template-free", (3) the builder, later, once the framework *and the design intelligence* are proven. The flagship sites are the R&D vehicle that generates the design intelligence; the Design Lessons Log (DOC-17) is the capture practice. So the decision record I wanted to draft — "built the builder instead of the site" — described the opposite of the actual plan. Scrapping it.
+
+That also inverts the dependency I proposed. It isn't that the sites wait on the builder. **The builder waits on the sites.** Your "the dependency is soft there" is the doc's plan working as written.
+
+And PROOF is the **xgd** site — `storage/sites/xgd/draft/pages/home.json`. So REQ-108 was the xgd website, which makes it `in_progress`.
+
+## What I'd file
+
+**Roots (4):**
+
+| Goal | State | Note |
+|---|---|---|
+| **1stcontact app** | `in_progress` | Roll-up rule 3 |
+| **xgd website** | `in_progress` | PROOF work, site store, revisions |
+| **lagrange foundry website** | `aspiration` | No store yet |
+| **1stcontact site** | `in_progress` | Store + 1 revision + README |
+
+**Children of the app (5):**
+
+| Goal | State | Why not `concept` |
+|---|---|---|
+| **web builder** | `in_progress` | Shell landed (REQ-115), most recent feature commit |
+| **web monitoring** | `aspiration` | DOC-4 Monitoring MVP + DOC-5 architecture both spec it |
+| **CRM** | `aspiration` | DOC-4 §3 + DOC-5 lead lifecycle, "user never sees tickets" |
+| **payments** | `aspiration` | DOC-4 §4 + DOC-5: Stripe chosen, no card storage |
+| **marketing brainstorm** | ? | See below |
+
+I moved monitoring/CRM/payments up from `concept` — they have written architecture, which is more than "an idea exists." Nothing goes to `planned`, nothing gets a target date; that's the planning pass you said is still owed.
+
+## Three things the docs didn't settle
+
+1. **"Marketing brainstorm" isn't in DOC-4's MVP scope.** The MVP five are framework, chat builder, CRM Lite, invoicing/payments, and *user portal & subscription support* — marketing sits under "Future Expansion Opportunities," deliberately deferred. The closest MVP match is DOC-4's onboarding being "part website creation and part business consultation." Is marketing brainstorm that consultation flow, or is it the deferred marketing bundle promoted into MVP? And **user portal & subscription** is in the docs' MVP but not in your five — dropped, or a sixth child?
+
+2. **The docs separate framework from builder; your list merges them.** All 68 requirements went into the framework; the builder has a shell and little else. As one goal, "web builder" reads `in_progress` and hides that the deep work is a different thing than the barely-started thing. Worth splitting into two children, or keep as one?
+
+3. **Gen Dev Labs vs Lagrange Foundry.** DOC-4/5/16 say "GenDev Labs" throughout; you say Lagrange Foundry and the repo lives under `lagrangefoundry/`. Same company, renamed? If so the docs are stale on it, and the rename may itself be worth a decision record.
+
+Answer 1 and 2 and I'll file all nine (or ten) immediately — 3 only affects the title.
 
 <!-- xgd-chat-end -->
