@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A rejected document returns the full list of per-field errors
 created_by: xgd
 created_at: '2026-07-22T19:32:29.199138+00:00'
-updated_at: '2026-07-24T09:24:53.177866+00:00'
+updated_at: '2026-08-05T21:03:19.600438+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
