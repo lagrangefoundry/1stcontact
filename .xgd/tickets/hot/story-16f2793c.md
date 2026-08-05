@@ -6,9 +6,9 @@ title: 'Size-aware diffing: compare a captured site at a chosen viewport across 
   persisted ladder'
 created_by: xgd
 created_at: '2026-07-19T02:36:39.277949+00:00'
-updated_at: '2026-08-05T17:24:11.077187+00:00'
+updated_at: '2026-08-05T19:57:14.739915+00:00'
 completed_at: null
-last_field_updated: capability_uid
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
