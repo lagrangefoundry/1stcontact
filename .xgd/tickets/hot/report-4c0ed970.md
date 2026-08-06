@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T03:15:05.071917+00:00'
+updated_at: '2026-08-06T03:31:52.565018+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -533,7 +533,7 @@ fields:
     item_type: feature
     story_points: 3
     dependencies: []
-    story_uid: null
+    story_uid: story-8685be2d
     description: 'Document the font provenance registry and its gate (REQ-101). fonts/registry.yaml
       is a project-level index over every font file in the repo, recording family,
       foundry, source URL, download date, licence (name, URL, commercial_use, self_host,
