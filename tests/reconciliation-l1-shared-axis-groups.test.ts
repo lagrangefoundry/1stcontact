@@ -208,7 +208,7 @@ describe('AC-685 injection payloads in content values are inert in the rendered 
     // quoted into the one rule that survives.
     const faces = [...css.matchAll(/@font-face \{([^}]*)\}/g)].map((m) => m[1])
     expect(faces).toHaveLength(1)
-    expect(faces[0]).toContain('src: url("/fonts/ok.woff2")')
+    expect(faces[0]).toContain('src: url("fonts/ok.woff2")')
     expect(/font-family: "[A-Za-z0-9 -]+"/.test(faces[0])).toBe(true)
   })
 })
@@ -613,7 +613,7 @@ describe('AC-805 a background image on any node kind binds to the mirrored asset
     const { html, css } = renderL1Document(out.doc)
     expect(css).not.toContain('example.test')
     expect(html).not.toContain('example.test')
-    expect(css).toContain('url("/assets/card.png")')
+    expect(css).toContain('url("assets/card.png")')
 
     // A handle with no mirrored counterpart is REPORTED as a gap rather than
     // silently left pointing at the origin.

@@ -116,11 +116,19 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
    * for real: activating the link navigates the browser to the declared target.
    */
   it('test_UAT_AC839_run_box_and_container_become_the_navigable_element', async () => {
-    const cases: Array<{ label: string; own: string; node: L1Node; paint: string }> = [
+    /**
+     * `emitted` is the href the renderer publishes for this case's authored
+     * target. It is stated as a literal per case rather than derived, so the
+     * assertion still pins an exact byte sequence: an absolute target survives
+     * untouched, while a root-relative one is published document-relative so the
+     * snapshot resolves under a path prefix (REQ-109).
+     */
+    const cases: Array<{ label: string; own: string; node: L1Node; paint: string; emitted: string }> = [
       {
         label: 'text run',
         own: 'p',
         paint: '#0A7D3B',
+        emitted: 'https://example.com/beta',
         node: {
           kind: 'text',
           text: 'Join the beta',
@@ -132,6 +140,7 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
         label: 'painted box',
         own: 'div',
         paint: '#123456',
+        emitted: 'pricing',
         node: {
           kind: 'box',
           link: { href: '/pricing', ariaLabel: 'See pricing' },
@@ -142,6 +151,7 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
         label: 'laid-out container',
         own: 'div',
         paint: '#654321',
+        emitted: 'https://example.com/paper',
         node: {
           kind: 'container',
           layout: 'row',
@@ -152,14 +162,14 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
       },
     ]
 
-    for (const { label, own, node, paint } of cases) {
+    for (const { label, own, node, paint, emitted } of cases) {
       const link = (node as { link: { href: string; ariaLabel?: string } }).link
       expect(validateL1(doc(node)).ok, `${label} declaring a link validates`).toBe(true)
       const { html, css } = render(node)
 
       // It is a link to the declared target, carrying the authored accessible name.
       expect(html, label).toContain(`<a class=`)
-      expect(html, label).toContain(`href="${link.href}"`)
+      expect(html, label).toContain(`href="${emitted}"`)
       expect(html, label).toContain(`aria-label="${link.ariaLabel}"`)
 
       // Retagged, not wrapped: the node's own element type is gone for this node,
@@ -216,7 +226,7 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
     const plain = render(image(false))
 
     // The image sits inside a link carrying the target…
-    expect(linked.html).toMatch(/<a href="\/gallery" style="display:contents"><img /)
+    expect(linked.html).toMatch(/<a href="gallery" style="display:contents"><img /)
     // …and the enclosure carries no styling identity of its own, so nothing about
     // the image's own box moved into it.
     expect(/<a[^>]*class=/.test(linked.html)).toBe(false)
@@ -226,7 +236,7 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
     expect(cls).toBe(/<img class="([^"]+)"/.exec(plain.html)![1])
     expect(openingTag(linked.html, cls)).toBe(openingTag(plain.html, cls))
     expect(linked.html).toContain('id="hero-shot"')
-    expect(linked.html).toContain('src="/assets/hero.png"')
+    expect(linked.html).toContain('src="assets/hero.png"')
     expect(linked.html).toContain('alt="The product in use"')
 
     // …and so are its published style declarations — object-fit, measure, paint.
@@ -308,12 +318,22 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
       expect(html).toContain('<p class=')
     }
 
-    // The permitted forms all validate and publish as live links.
-    for (const href of ['https://example.com/docs', 'http://example.com/docs', '/pricing', '#how']) {
+    // The permitted forms all validate and publish as live links. Each authored
+    // target is paired with the exact href published for it: the two absolute
+    // forms and the fragment survive byte-identical, while the root-relative one
+    // is published document-relative (REQ-109). Stated as literals so widening
+    // the emitted shape cannot pass unnoticed.
+    const permitted: Array<[authored: string, emitted: string]> = [
+      ['https://example.com/docs', 'https://example.com/docs'],
+      ['http://example.com/docs', 'http://example.com/docs'],
+      ['/pricing', 'pricing'],
+      ['#how', '#how'],
+    ]
+    for (const [href, emitted] of permitted) {
       const node = { kind: 'text', text: 'Go', link: { href } } as L1Node
       expect(validateL1(doc(node)).ok, `${href} is permitted`).toBe(true)
       expect(render(node).html).toContain(`<a class=`)
-      expect(render(node).html).toContain(`href="${href}"`)
+      expect(render(node).html, href).toContain(`href="${emitted}"`)
     }
   })
 
@@ -614,14 +634,14 @@ describe('story-2e4e2c45 — the L1 navigation role', () => {
         '<p class="l1-1">Hello</p>' +
         '<div class="l1-2"></div>' +
         '<div class="l1-3"><p class="l1-4">Inner</p></div>' +
-        '<img class="l1-5" src="/assets/a.png" alt="A" />' +
+        '<img class="l1-5" src="assets/a.png" alt="A" />' +
         '</div>',
     )
 
     // Adopt the role on exactly one node.
     const linked = render(page(true))
     expect(validateL1(doc(page(true))).ok).toBe(true)
-    expect(linked.html).toContain('<a class="l1-2" href="/pricing">')
+    expect(linked.html).toContain('<a class="l1-2" href="pricing">')
     expect(linked.html).not.toMatch(/<div[^>]*class="l1-2"/)
 
     // Every other node's markup and style declarations are byte-identical.

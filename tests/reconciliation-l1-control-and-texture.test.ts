@@ -534,7 +534,7 @@ describe('AC-831 texture composes with fill, gradient, scrim and image in a defi
     expect(layers[0]).toContain('#00000033') // the scrim, alpha-folded
     expect(layers[1]).toContain('radial-gradient(circle at center') // the texture's disc
     expect(layers[2]).toContain('radial-gradient(at top') // the gradient wash
-    expect(layers[3]).toBe('url("/assets/hero.png")')
+    expect(layers[3]).toBe('url("assets/hero.png")')
 
     // Because a tiled texture and a `cover` backdrop want different treatment,
     // the sizing triple is emitted POSITIONALLY — one value per layer, in layer
