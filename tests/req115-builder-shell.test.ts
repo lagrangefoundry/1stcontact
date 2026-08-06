@@ -262,7 +262,10 @@ function requireConfig(): { SITE_TAB: { id: string; label: string } } {
     path.join(REPO, 'apps/control-app/src/builder/config.js'),
     'utf8',
   )
-  const m = /export const SITE_TAB = \{ id: '([^']+)', label: '([^']+)' \}/.exec(src)!
+  // Only `id` and `label` are captured, but the object is free to carry more
+  // (REQ-117 added `fill`). Anchoring on `' }` made an unrelated tab option a
+  // failure in the NAMING suite, which is not what this test is about.
+  const m = /export const SITE_TAB = \{ id: '([^']+)', label: '([^']+)'/.exec(src)!
   return { SITE_TAB: { id: m[1], label: m[2] } }
 }
 

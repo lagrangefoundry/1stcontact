@@ -27,7 +27,10 @@ export function mountBuilder(root, options = {}) {
 
   const shell = mountShell(root, {
     appId: APP_ID,
-    tabs: TABS.map(({ id, label }) => ({ id, label })),
+    // Passed straight through: a TABS entry IS a shell tab spec, and narrowing
+    // it here to `{id, label}` silently dropped `fill` (and would drop `badge`
+    // next). The shell validates the shape, so there is nothing to guard.
+    tabs: TABS,
     tabStyle: 'underline',
     about: {
       title: '1st Contact builder',

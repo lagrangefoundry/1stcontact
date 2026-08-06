@@ -12,8 +12,19 @@
 /** Storage namespace for every `shell.storage(...)` handle (DOC-8 §9.2). */
 export const APP_ID = '1c-builder'
 
-/** The site tab. `id` is the stable address; `label` is provisional chrome. */
-export const SITE_TAB = { id: 'site', label: 'Site' }
+/**
+ * The site tab. `id` is the stable address; `label` is provisional chrome.
+ *
+ * `fill` is the shell's own opt-in for a VIEWPORT-HEIGHT panel instead of a
+ * content-height one. It is not cosmetic: `.shell` ships `min-height: 100%` and
+ * no height, so without it every `flex: 1` beneath — the split, and therefore
+ * the preview frame — resolves against CONTENT and collapses to a few lines.
+ * This tab hosts an app-shaped thing (a split with an iframe in it), which is
+ * precisely the case `fill` exists for, and it is the reason the height chain
+ * below is allowed to be pure `flex`. Upstream's affordance, not an override:
+ * the alternative is reaching into three of the shell's internal elements.
+ */
+export const SITE_TAB = { id: 'site', label: 'Site', fill: true }
 
 /** Every tab the shell mounts, in order. One today; the list is the seam. */
 export const TABS = [SITE_TAB]

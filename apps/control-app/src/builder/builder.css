@@ -3,20 +3,45 @@
  * design tokens, so the builder themes with the shell rather than beside it.
  */
 
+/*
+ * THE HEIGHT CHAIN. The preview frame is sized by the WINDOW, not by its
+ * content, and that only holds if every box from the viewport down to the frame
+ * has a definite height. One `height: auto` anywhere in the chain and the frame
+ * collapses to a few lines, because an iframe's intrinsic height is 150px and
+ * nothing below can recover a height its ancestor never had.
+ *
+ * The chain is: html/body (100%) → #app (viewport) → .shell (made definite by
+ * the shell's own `fill` rule, opted into via `SITE_TAB.fill` — see config.js)
+ * → .builder-layout → .builder-split → .split → .builder-panel → the iframe.
+ * Every link below #app is `flex: 1` + `min-height: 0`; the `min-height` is not
+ * decoration, since a flex item defaults to `min-height: auto` and would refuse
+ * to shrink below its content.
+ */
+
 html,
 body {
   height: 100%;
   margin: 0;
+  /* Everything scrolls INTERNALLY (the frame, the chat pane). A page-level
+     scrollbar here would mean the chain above has leaked, so forbid it. */
+  overflow: hidden;
 }
 
 #app {
   height: 100vh;
+  /* Mobile browser chrome makes 100vh taller than what you can actually see;
+     dvh tracks the visible viewport. Ignored by browsers without it, which
+     keeps the 100vh above as the fallback rather than a competing rule. */
+  height: 100dvh;
 }
 
 .builder-layout {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* `flex: 1` rather than `height: 100%`: this is a flex item of the shell's
+     fill panel, so it grows into whatever that panel resolves to instead of
+     depending on a percentage against it. */
+  flex: 1 1 auto;
   min-height: 0;
 }
 
