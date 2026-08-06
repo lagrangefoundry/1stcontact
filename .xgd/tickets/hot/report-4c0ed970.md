@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T03:04:53.472421+00:00'
+updated_at: '2026-08-06T03:15:05.071917+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -474,7 +474,7 @@ fields:
     story_points: 3
     dependencies:
     - 3
-    story_uid: null
+    story_uid: story-24098299
     target_story_ids:
     - story-24098299
     description: Document 1c gate <slug> --ref <bundle>, the verb that reconciles
