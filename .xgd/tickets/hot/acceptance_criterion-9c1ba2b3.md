@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Texture composes with fill, gradient, scrim and image in a defined layer order
 created_by: xgd
 created_at: '2026-08-06T02:21:23.146734+00:00'
-updated_at: '2026-08-06T02:21:23.146734+00:00'
+updated_at: '2026-08-06T02:32:03.807826+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
