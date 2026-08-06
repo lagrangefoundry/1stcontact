@@ -6,9 +6,9 @@ title: 'Tooling hygiene: pnpm install after lockfile change; fail loud on out-of
   node_modules'
 created_by: xgd
 created_at: '2026-07-03T23:31:56.269585+00:00'
-updated_at: '2026-08-06T19:19:05.940705+00:00'
+updated_at: '2026-08-06T19:20:33.824223+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -65,3 +65,8 @@ Commands gated (each declares only what it actually loads, so an offline verb is
 
 ## Evidence
 Surfaced during the faelan reproduction ([[REQ-21]]); related tooling: [[REQ-38]] (`1c diff`, added `sharp`), the generate CLI.
+
+
+## XGD-side ticket
+
+The install-after-manifest-change half is filed as **REQ-745** in the `lagrangefoundry/xgd` repo: "Re-install dependencies after a workflow commit changes a manifest (plugin-delegated, core stays language-agnostic)". It proposes two new `TestFrameworkPlugin` methods — `dependency_manifest_paths()` and `sync_dependencies()` — so XGD core detects the change from plugin-declared paths and delegates the install, learning nothing about pnpm.
