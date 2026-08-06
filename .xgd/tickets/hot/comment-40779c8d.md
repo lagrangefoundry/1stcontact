@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T21:01:43.301737+00:00'
+updated_at: '2026-08-06T21:08:35.575461+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -516,5 +516,67 @@ Three things worth knowing:
 I tried editing gigabyte and got this error: Could not edit
 
 Page 'null' not found in site 'gigabytealchemy'. — List pages with '1c page list gigabytealchemy'.
+
+<!-- xgd-turn id="3b63acc0-6069-4e9c-9301-708b3c330248-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T21:08:35.444209+00:00" -->
+#### Claude
+I'll investigate rather than guess — the stamp is either missing from that site's render or the client is reading it wrong.
+
+Found it. `gigabytealchemy`'s edit render is a **stale artifact** — it was built at 12:38, before I fixed the stale `dist` that made the attribute-name constant resolve to `undefined`:
+
+| site | body tag |
+|---|---|
+| xgd (12:51) | `<body data-fc-edit data-fc-page="home">` |
+| gigabytealchemy (12:38) | `<body data-fc-edit undefined="home">` |
+
+The client reads `data-fc-page`, finds nothing, and sends `null`. Let me confirm the current code is correct and see how that `undefined` got emitted silently.
+
+Re-render fixes it. But the dist grep found nothing, so my prior diagnosis needs checking — let me establish how that `undefined` was actually possible before deciding what to harden.
+
+Both sites are correct now. The client reads the attribute as a literal, so no `dist` dependency there — and the stale `dist/l1/edit.js` isn't consumed (`exports` point at `src`). Let me confirm that last point and see the error path the user hit.
+
+Diagnosis is complete. **Cause**: `gigabytealchemy`'s edit render on disk was built at 12:38 — mid-session, before the `L1_EDIT_PAGE_ATTR` export chain was complete. The renderer interpolated `undefined` as the *attribute name*, emitting `undefined="home"`. The client found no `data-fc-page`, sent `page: null`, and the server truthfully reported no such page. Committed code is correct; the re-render proves it.
+
+One durable gap remains: `pageIdOf` returns `null` and the loop proceeds anyway, producing a message that sends you to `1c page list` — the one place the answer isn't. Stale edit renders recur by construction until REQ-119 replaces on-disk renders with request-time ones. Let me look at the client before deciding.
+
+Everything I need is confirmed. Adding the guard — a click on a stale render should name the actual problem instead of sending you to `1c page list`.
+
+jsdom is available and `mountEditor` takes an injectable bridge. I'll test the guard against a **real** edit render with the stamp stripped — the user's exact artifact — rather than a hand-written fixture.
+
+Now the tests.
+
+1.1s is fast — I need to confirm these actually catch the bug rather than passing vacuously. Mutation-checking both.
+
+The guard test genuinely fails without the guard — and shows it posting instead. Now the renderer assertion, reproducing the exact `undefined=` corruption.
+
+Both mutation-checked, and the second reproduced `undefined="home"` byte-for-byte. Verifying restoration and running the regression scope.
+
+Now the browser suite plus the full sweep, since I touched the editor's click path.
+
+Back to the exact pre-existing baseline — same 10 failures in 5 `reconciliation-*` files (`theme.palette.bg` undefined), 1110 passing (up 2, my new tests). Committing.
+
+Now the ticket — reading the current body first so I preserve it.
+
+Fixed — and `gigabytealchemy` is editable now. **Hard-reload** (`Cmd+Shift+R`); the client is served off disk so there's nothing to restart, but your browser has the old `editor.js`.
+
+**What happened.** That site's edit render on disk was built at 12:38 — mid-session, before the `data-fc-page` export chain was complete. The renderer interpolated `undefined` into the attribute *name*:
+
+| site | body tag |
+|---|---|
+| xgd (12:51) | `<body data-fc-edit data-fc-page="home">` |
+| gigabytealchemy (12:38) | `<body data-fc-edit undefined="home">` |
+
+That's silently valid HTML, so nothing failed at render time. The client found no stamp, sent `page: null`, and the origin correctly reported no such page. Committed code was already right — re-rendering proved it and fixed your instance.
+
+**Why it still needed code.** The message was truthful and useless: it sent you to `1c page list`, the one place the answer wasn't. And stale edit renders recur *by construction* until REQ-119 replaces on-disk renders with request-time ones — every site needs a manual `1c render <slug> --edit` until then. So the client now checks the stamp before fetching and names the remedy instead of letting the origin answer a question that was never asked.
+
+Two UATs in `tests/req117-stale-edit-render.test.ts`. The stale document under test is a **real** edit render with the stamp stripped, not a fixture — your artifact, reproduced. One pins the attribute *name* as well as its value, because a value-only assertion is blind to this bug by construction; the other asserts the guidance and that nothing reached the origin. Mutation-checked both: disabling the guard makes the client post instead, and breaking the stamp reproduces `undefined="home"` byte-for-byte.
+
+Full suite is back to its pre-existing baseline — 1110 passing, the same 10 `reconciliation-*` palette failures I'd confirmed aren't mine.
+
+Commit `2119b6dd`, version 0.1.19, recorded on REQ-117 (now 4 commits, still `free_coded`).
+
+Two carry-overs unchanged: **`1stcontact` and `harbor-cafe` still can't render an edit channel at all** (`Module not found in catalog: 'header' v2` — pre-pivot definitions, and `1stcontact` is the selector's default, so pick `xgd` or `gigabytealchemy`). And only copy is editable; images and containers correctly report "nothing to edit yet" — phase 1 as scoped.
 
 <!-- xgd-chat-end -->
