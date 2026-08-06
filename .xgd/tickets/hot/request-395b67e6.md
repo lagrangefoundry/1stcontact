@@ -5,9 +5,9 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-06T21:08:09.661630+00:00'
+updated_at: '2026-08-06T21:08:19.097125+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -33,7 +33,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.19
-  story_points: 3
+  story_points: 4
 ---
 
 ## What this builds
