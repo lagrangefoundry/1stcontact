@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:58:53.559042+00:00'
+updated_at: '2026-08-06T23:05:28.621092+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -875,5 +875,11 @@ The caching and un-rendered-View bugs I fixed earlier were real and on this path
 3. **Keep the pinned width, warn on save** when the value doesn't fit.
 
 I'd go with (1): overlapping is visible and fixable, silent disappearance isn't. But it's a fidelity decision across all captured sites, so tell me which you want and I'll implement it. Your `Gigabyte Alchemy 4` is restored in the draft meanwhile.
+
+<!-- xgd-turn id="ba5764fb-d585-48e7-832f-d5819b00461d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T23:05:28.480523+00:00" -->
+#### You
+Lets go with 1
 
 <!-- xgd-chat-end -->
