@@ -5,9 +5,9 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-06T21:36:45.059771+00:00'
+updated_at: '2026-08-06T21:36:59.054091+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: free_coded
 fields:
   priority: high
@@ -32,7 +32,11 @@ fields:
   - working_sha: 2119b6dd59a389d3471b1ff0a87de6c32297908b
     reconcile_sha: null
     main_sha: null
-  version: 0.1.19
+    working_sha_history: []
+  - working_sha: 887010bf4e7b2f13fdd393c60c5a48dbcf1f40b8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.20
   story_points: 4
 ---
 
