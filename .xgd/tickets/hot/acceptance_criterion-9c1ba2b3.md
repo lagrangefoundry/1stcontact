@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Texture composes with fill, gradient, scrim and image in a defined layer order
 created_by: xgd
 created_at: '2026-08-06T02:21:23.146734+00:00'
-updated_at: '2026-08-06T02:32:03.807826+00:00'
+updated_at: '2026-08-06T18:26:30.279729+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -33,6 +33,14 @@ texture present, a background image still emits the single-valued
 cares about sizing emits no sizing declarations at all. This holds across every
 shipped page: no untextured page's rendered CSS changes by a byte.
 
+**The claim is about a node's own authored surface.** It is scoped to the
+presentation that a node's declared axes produce, and does not extend to
+presentation the renderer owns on its own account — a pointer-tracked accent
+paints a renderer-owned overlay whose background is legitimately a stack of
+region layers, and it is gated behind the reader's pointer. Reading that overlay
+as though it were an authored surface would fail a page that declares no texture
+at all, which is the opposite of what this criterion protects.
+
 ## Verification
 Render one node declaring fill + texture + surface gradient + scrim + background
 image and observe four background layers in the stated order, the fill emitted as
@@ -41,4 +49,5 @@ matching the layers (the texture tiled on its period, the image `cover`/`center`
 `no-repeat`). Then render an untextured backdrop node and observe the single-valued
 triple; render an untextured scrim+gradient node and observe no sizing declarations.
 Re-render every shipped L1 page that declares no texture and assert each emitted
-`background-size` is still a single value.
+`background-size` that styles a node's authored surface is still a single value,
+excluding the renderer-owned pointer-gated overlay rules.
