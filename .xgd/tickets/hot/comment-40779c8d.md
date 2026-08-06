@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:54:42.092638+00:00'
+updated_at: '2026-08-06T21:01:43.301737+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -508,5 +508,13 @@ Three things worth knowing:
 - **I briefly broke the entire suite and reverted it.** I added a `vitest.config.ts` to resolve the bridge's browser URLs; merely having that file disables the Astro transform this repo depends on, and 131 suites failed. The real fix was better anyway — the bridge is now *injected*, so `main.js` is the only module that ever resolves a browser-only URL.
 - **A copy edit rewrites the whole page JSON** with different unicode escaping (`\u2014` → `—`), so a one-word change makes a large diff. Pre-existing in `writeJson`, cosmetic. I reverted that churn rather than committing it, and noted it on the ticket as deserving its own.
 - **Only copy is editable.** Images, containers and module instances are real segments that correctly report "nothing to edit yet" — that's phase 1 as scoped, not a failure. And `1stcontact`/`harbor-cafe` still won't render an edit channel at all.
+
+<!-- xgd-turn id="3b63acc0-6069-4e9c-9301-708b3c330248-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T21:01:43.159456+00:00" -->
+#### You
+I tried editing gigabyte and got this error: Could not edit
+
+Page 'null' not found in site 'gigabytealchemy'. — List pages with '1c page list gigabytealchemy'.
 
 <!-- xgd-chat-end -->
