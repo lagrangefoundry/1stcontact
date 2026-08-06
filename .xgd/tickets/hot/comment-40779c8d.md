@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:55:29.543988+00:00'
+updated_at: '2026-08-06T22:58:53.559042+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -820,5 +820,60 @@ I still am not seeing it, when I open the text editor I see Gigabyte Alchemy 4 b
 <!-- xgd-chat role="user" ts="2026-08-06T22:55:29.412180+00:00" -->
 #### You
 I still am not seeing it, when I open the text editor I see Gigabyte Alchemy 4 but the page is still just showing Gigabyte Alchemy I have used `Cmd+Shift+R` I have even loaded into a different browser
+
+<!-- xgd-turn id="f88ebe6e-44bc-4c94-a75d-ac34d1f942b5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T22:58:53.428939+00:00" -->
+#### Claude
+That changes the diagnosis completely — modal shows the new text, page shows the old, in a fresh browser. That's not caching. Let me look at the actual bytes and both modes.
+
+All three renders contain `Gigabyte Alchemy 4`, and there's no plain "Gigabyte Alchemy" anywhere. So the bytes are right and something is hiding the `4` visually. Let me measure the element in a browser.
+
+The text overflows its box: `width: 686px` fixed, `white-space: nowrap`, but `scrollWidth: 743px`. The box width is pinned from the original capture, so longer text runs past it. Let me see what that looks like and what's covering it.
+
+Reproduced. The DOM says `Gigabyte Alchemy 4`; the page renders only `Gigabyte Alchemy`. Let me confirm the mechanism.
+
+Root cause found, and it's neither caching nor the edit loop. Let me prove it.
+
+Definitive. Same box, two lengths:
+
+- `"Gigabyte Alch"` — 686px content in a 686px box → **renders fully** (image above).
+- `"Gigabyte Alchemy 4"` — 743px content in the same 686px box → the overflowing ` 4` is **invisible**.
+
+Restoring your text and recording the finding.
+
+Found it. It's not caching, and not the edit loop — your edit **is** being applied. The page is only painting part of it, and the missing part is invisible rather than clipped, so it reads as "nothing happened."
+
+Your own observation is what cracked it: the modal showed `Gigabyte Alchemy 4` while the page showed `Gigabyte Alchemy`. Same document, same request — no cache can produce that. So the text was arriving and not being drawn.
+
+**The mechanism.** The captured title paints its glyphs *only* through a gradient clipped to the text:
+
+```css
+.l1-16 { color: transparent; -webkit-text-fill-color: transparent;
+         background-image: linear-gradient(90deg, #f5e6a3 0%, …, #ff6b35 100%);
+         background-clip: text;
+         width: 686px; white-space: nowrap }
+```
+
+That `width: 686px` is the width **measured from the original text at capture**. `Gigabyte Alchemy 4` needs 743px. The 57px that don't fit fall outside the gradient's painting area — and since the element's own `color` is `transparent`, those glyphs get no paint from anywhere. They aren't clipped, aren't ellipsised, aren't overflowing. They're just not drawn.
+
+I proved it both directions on the same element, same box, same browser — the only variable is whether the string fits:
+
+| text | needs | box | result |
+|---|---|---|---|
+| `Gigabyte Alchemy 4` | 743px | 686px | ` 4` invisible |
+| `Gigabyte Alch` | 686px | 686px | renders in full (screenshot above) |
+
+So **any edit that makes text longer than the original silently truncates**, on every gradient-filled captured element. Shorter edits have worked all along.
+
+The caching and un-rendered-View bugs I fixed earlier were real and on this path, but they weren't this. I over-trusted the cache hypothesis after verifying the server; your detail is what disproved it.
+
+**What I haven't changed, because it's your call.** The fix is what L1 emits for a text node's width, and it affects every reproduced site:
+
+1. **`min-width` instead of `width`** — box grows to fit, gradient grows with it, all glyphs paint. Smallest change that makes the editor's promise true. Risk: on an absolutely-positioned reproduction, longer text can now *overlap* a neighbour instead of vanishing.
+2. **Allow wrapping** — siblings don't move under absolute positioning, so line two overlaps whatever is beneath.
+3. **Keep the pinned width, warn on save** when the value doesn't fit.
+
+I'd go with (1): overlapping is visible and fixable, silent disappearance isn't. But it's a fidelity decision across all captured sites, so tell me which you want and I'll implement it. Your `Gigabyte Alchemy 4` is restored in the draft meanwhile.
 
 <!-- xgd-chat-end -->
