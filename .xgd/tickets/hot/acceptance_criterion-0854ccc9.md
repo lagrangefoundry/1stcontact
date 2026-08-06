@@ -3,12 +3,12 @@ uid: acceptance_criterion-0854ccc9
 id: AC-892
 type: acceptance_criterion
 title: A draft deploy ships the complete artifact under a content-addressed preview
-  location and returns its shareable URL
+  location and returns its shareable URL when the tree is servable
 created_by: xgd
 created_at: '2026-08-06T18:39:17.424059+00:00'
-updated_at: '2026-08-06T20:14:50.618548+00:00'
+updated_at: '2026-08-06T20:16:36.174114+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-5349d01f
