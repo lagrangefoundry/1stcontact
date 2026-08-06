@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:27:34.167360+00:00'
+updated_at: '2026-08-06T22:55:15.039232+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -808,5 +808,11 @@ A tab opened before that fix can still hold pre-`no-store` entries, and those on
 Server restarted and both channels serve `Gigabyte Alchemy 4`. I've restored that text — my UI probe had overwritten it with "UI FLOW PROBE" while testing the save path.
 
 If a fresh tab still shows the old title, tell me what it says and I'll keep digging — but at that point the next thing I'd want is your browser, since everything on this side is verified working.
+
+<!-- xgd-turn id="1a3e3b43-3359-42e4-ae67-48eca0093005-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T22:55:14.907150+00:00" -->
+#### You
+I still am not seeing it, when I open the text editor I see Gigabyte Alchemy 4 but the page is still just showing Gigabyte Alchemy I have used `Cmd+Shift+R` I have even loaded into a new browser
 
 <!-- xgd-chat-end -->
