@@ -7,10 +7,10 @@ title: 'The pointer accent admits typed values only: an out-of-range reach or so
   with a message naming the offending field'
 created_by: xgd
 created_at: '2026-08-06T18:09:49.419665+00:00'
-updated_at: '2026-08-06T18:09:49.419665+00:00'
+updated_at: '2026-08-06T18:25:08.676795+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
