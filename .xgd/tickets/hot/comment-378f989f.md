@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-05T23:54:41.635623+00:00'
+updated_at: '2026-08-06T00:07:45.825929+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -232,5 +232,69 @@ I moved monitoring/CRM/payments up from `concept` — they have written architec
 3. **Gen Dev Labs vs Lagrange Foundry.** DOC-4/5/16 say "GenDev Labs" throughout; you say Lagrange Foundry and the repo lives under `lagrangefoundry/`. Same company, renamed? If so the docs are stale on it, and the rename may itself be worth a decision record.
 
 Answer 1 and 2 and I'll file all nine (or ten) immediately — 3 only affects the title.
+
+<!-- xgd-chat role="user" ts="2026-08-06T00:04:44.001794+00:00" -->
+#### You
+Its deferred from the inital design doc, but our tracking starts with "concept" - that's the whole point we track everything. Its part of the product.
+
+Framework is a separate project, it will have its own goals that we will create dependencies against. But this is the project for 1stcontact that USES those components
+
+Gendev labs -> Lagrange Foundry new branding
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T00:07:44.851475+00:00" -->
+#### Claude
+All three taken. That changes the shape materially: the framework isn't a child here at all — this project *consumes* it, so "web builder" stays one child and the framework dependency becomes a cross-project reference once that map exists.
+
+Filing now. Starting with one goal to confirm the field shape before doing the rest.
+
+Shape confirmed — `status` top-level, `provenance` in `fields`. Creating the remaining eight.
+
+Now wiring the five children onto the app root.
+
+The digest caught a real error: eight goals landed at `concept`. On the first create I nested `status` inside `fields` and the CLI hoisted it; on the rest I put it top-level as a sibling, where it was silently ignored and defaulted. Provenance took correctly on all nine. Fixing the seven wrong states.
+
+Map is filed and clean — no roll-up disagreements. Nine goals:
+
+**§ 1stcontact app** — `in_progress`
+- Web builder — `in_progress`
+- Payments — `aspiration`
+- CRM — `aspiration`
+- Web monitoring — `aspiration`
+- Marketing brainstorm — `concept`
+
+**XGD website** — `in_progress` · **1st Contact site** — `in_progress` · **Lagrange Foundry website** — `aspiration`
+
+No `depends_on` edges filed. The builder/site relationship is soft by design — DOC-16 puts the flagship sites *before* the builder as the R&D vehicle — and a hard edge would have wrongly parked both sites off the ready frontier.
+
+## Two caveats on what the digest will tell you
+
+**Provenance reads 100% `planned`, and that number is meaningless right now.** It's a genesis artifact: we transcribed an existing plan in one sitting, so of course everything is "planned." The provenance split only starts earning its keep when goals arrive the way they actually arrive — `discovered`, `bug`, `hidden_dependency`. Give it a few weeks of real capture before reading anything into it.
+
+**The ready frontier lists all four `in_progress` goals, which isn't yet a frontier.** With no dependencies and nothing at `planned`, "ready" currently means "started." It becomes a real answer to *what next* after the planning pass.
+
+## The accumulation register, which the map doesn't yet show
+
+The map has no `realized` goals, so it will read as zero progress. That is wrong, and worth saying plainly. In **five weeks and one day** since 2026-06-29 you have:
+
+- **68 distinct requirements** under test, plus **23 numbered bug regressions** held permanently
+- A complete framework pivot — L1 typed substrate, layout modules stripped, palette colour model in, token palette retired
+- A live delivery path: R2 artifact store, `1c deploy`, Worker serving drafts and published sites
+- The editor: L1-addressed edit render, click-to-address copy editing
+- The builder shell, landed days ago
+- Two flagship sites underway and three reference sites captured
+
+None of that is on the map because we filed goals, not history. If you want the accumulation register to be real, the next pass is filing the `realized` goals for work already done — each needs a `completed_date`, which is the one thing I'd need from you.
+
+## Next objectives — a small set
+
+1. **The planning pass.** Nothing is at `planned` and nothing has a target date. Until that happens the map answers "am I making progress" but not "what next."
+2. **Wire the framework cross-project dependency.** Once that project has a goal map, the builder gets a real `depends_on`. Note it'll then read as *not ready* — an unresolvable dependency counts as not-ready, which is correct but will look like a regression if it surprises you.
+3. **Resolve marketing brainstorm's scope.** Filed at `concept` with the ambiguity recorded in its body: onboarding consultation flow, the deferred DOC-4 marketing bundle, or something distinct. It changes the size of that goal a lot.
+
+## Three loose ends
+
+- **User portal & subscription support** is DOC-4 MVP item 5 and is *not* on the map — you said five children, so I didn't add a sixth silently. Say the word and it's filed.
+- **The rebrand** GenDev Labs → Lagrange Foundry leaves DOC-4, DOC-5 and DOC-16 stale on the name. I noted it in the Lagrange goal's body. Worth a decision record? I'd need `decided_at`.
+- **The framework becoming a separate project** is the more interesting one. DOC-4 has it as MVP item 1 *of the app*; it's now its own project with its own map. That's a root changing shape materially — a decision-record signature. Also needs `decided_at`.
 
 <!-- xgd-chat-end -->
