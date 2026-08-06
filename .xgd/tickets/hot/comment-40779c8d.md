@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:55:15.039232+00:00'
+updated_at: '2026-08-06T22:55:29.543988+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -814,5 +814,11 @@ If a fresh tab still shows the old title, tell me what it says and I'll keep dig
 <!-- xgd-chat role="user" ts="2026-08-06T22:55:14.907150+00:00" -->
 #### You
 I still am not seeing it, when I open the text editor I see Gigabyte Alchemy 4 but the page is still just showing Gigabyte Alchemy I have used `Cmd+Shift+R` I have even loaded into a new browser
+
+<!-- xgd-turn id="f88ebe6e-44bc-4c94-a75d-ac34d1f942b5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T22:55:29.412180+00:00" -->
+#### You
+I still am not seeing it, when I open the text editor I see Gigabyte Alchemy 4 but the page is still just showing Gigabyte Alchemy I have used `Cmd+Shift+R` I have even loaded into a different browser
 
 <!-- xgd-chat-end -->
