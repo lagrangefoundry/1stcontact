@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A behavior module ships no CSS beyond its declared invariant elements
 created_by: xgd
 created_at: '2026-08-06T01:33:13.159031+00:00'
-updated_at: '2026-08-06T01:34:34.908143+00:00'
+updated_at: '2026-08-06T01:40:36.765094+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
