@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-14 (BUG-31 + REQ-114 + REQ-116)'
 created_by: xgd
 created_at: '2026-08-06T20:12:29.411088+00:00'
-updated_at: '2026-08-06T20:17:03.670877+00:00'
+updated_at: '2026-08-06T20:26:47.776404+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -76,7 +76,7 @@ fields:
       confinement is the same guarantee one level up — the key space a request may
       address at all — so it belongs in that story''s AC set. No new capability bucket
       and no second server; the reachability rules simply gain their outermost gate.'
-    story_uid: null
+    story_uid: story-d34eccd8
     target_story_ids:
     - story-d34eccd8
     intent_delta_summary: 'Reachability is gated twice: the server addresses exactly
