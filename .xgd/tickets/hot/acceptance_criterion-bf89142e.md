@@ -6,9 +6,9 @@ title: The deploy report names each stage on its own labelled line and terminate
   in the shareable URL
 created_by: xgd
 created_at: '2026-08-06T18:39:53.516354+00:00'
-updated_at: '2026-08-06T18:46:00.588757+00:00'
+updated_at: '2026-08-06T20:15:10.028777+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-5349d01f
@@ -25,7 +25,8 @@ half, named separately), the index update, and any prune — with the stage labe
 first, its subject next, and a trailing detail where one applies (file count and
 total size for the file-moving stages, and, when nothing needed uploading, an
 explicit note on the hash line that the content was already deployed). The final
-line of the report is the shareable URL.
+line of the report is the deploy's destination: the shareable URL where there is
+one, and otherwise the snapshot's storage prefix with its reason.
 
 ## Verification
 
