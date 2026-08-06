@@ -6,10 +6,10 @@ title: 'L1 cannot express texture: typed pattern axis (dot-grid, hairline grid, 
   and radial gradients'
 created_by: xgd
 created_at: '2026-07-27T21:23:15.235392+00:00'
-updated_at: '2026-08-05T19:32:20.332289+00:00'
-completed_at: null
+updated_at: '2026-08-06T04:54:57.581904+00:00'
+completed_at: '2026-08-06T04:54:57.581904+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
