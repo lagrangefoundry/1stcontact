@@ -7,10 +7,10 @@ title: The accent works for both kinds of texture a node can carry — a typed r
   accent weight rather than being capped by its own faintness
 created_by: xgd
 created_at: '2026-08-06T18:09:16.351129+00:00'
-updated_at: '2026-08-06T18:09:16.351129+00:00'
+updated_at: '2026-08-06T18:25:10.494656+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
