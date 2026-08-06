@@ -6,9 +6,9 @@ title: 'Responsive layout: a container''s layout mode varies per breakpoint and 
   row can wrap'
 created_by: xgd
 created_at: '2026-07-19T03:20:16.873338+00:00'
-updated_at: '2026-08-06T02:38:18.073772+00:00'
+updated_at: '2026-08-06T02:38:47.844613+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
