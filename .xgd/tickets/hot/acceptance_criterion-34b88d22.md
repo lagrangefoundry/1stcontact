@@ -6,10 +6,10 @@ title: A freshly created site renders to HTML with no editing, painting the plac
   run as a centred, flowed element on the document background
 created_by: xgd
 created_at: '2026-08-06T03:42:32.246473+00:00'
-updated_at: '2026-08-06T03:42:32.246473+00:00'
+updated_at: '2026-08-06T03:49:37.463427+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-86c7c21b
   kind: behavior
