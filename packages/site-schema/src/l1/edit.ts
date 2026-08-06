@@ -32,6 +32,19 @@ export const L1_EDIT_PATH_ATTR = 'data-l1-path'
 export const L1_EDIT_SEGMENT_ATTR = 'data-l1-segment'
 /** Set on `<body>` in the edit channel — the client's "am I in edit mode?" test. */
 export const L1_EDIT_MARKER_ATTR = 'data-fc-edit'
+/**
+ * REQ-117 — the definition `id` of the page this document was rendered from.
+ *
+ * An address is only half a coordinate: `copy get`/`copy set` need the page too,
+ * and the client cannot derive it from the URL. `index.html` is an ALIAS for the
+ * home page, so the file name is not the id; resolving it would mean the client
+ * re-implementing the renderer's home-page rule and drifting from it. The render
+ * already carries every other part of the address, so it carries this part too.
+ *
+ * It is the `id`, never the `slug`: the slug names the file, the id is what
+ * `findPageFile` matches, and the two are free to differ.
+ */
+export const L1_EDIT_PAGE_ATTR = 'data-fc-page'
 /** Names the behavior-module instance an address is rooted in (CHAT-9 M1). */
 export const L1_EDIT_MODULE_ATTR = 'data-fc-module'
 /** Names the slot within that instance whose subtree array the address indexes. */

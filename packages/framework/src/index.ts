@@ -103,6 +103,9 @@ export {
   L1_EDIT_PATH_ATTR,
   L1_EDIT_SEGMENT_ATTR,
   L1_EDIT_MARKER_ATTR,
+  // REQ-117 — the page half of an address, so a click resolves to a definition
+  // node without the client re-deriving the renderer's home-page rule.
+  L1_EDIT_PAGE_ATTR,
   L1_EDIT_HOT_CLASS,
   L1_EDIT_CSS,
 } from './l1/render'

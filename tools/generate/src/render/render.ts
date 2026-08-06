@@ -8,6 +8,7 @@ import {
   CALLOUT_CSS,
   L1_EDIT_CSS,
   L1_EDIT_MARKER_ATTR,
+  L1_EDIT_PAGE_ATTR,
   generateThemeCss,
   getModule,
   getModuleCss,
@@ -188,7 +189,7 @@ async function renderPage(
 <head>
 ${head}
 </head>
-<body${edit ? ` ${L1_EDIT_MARKER_ATTR}` : ''}>
+<body${edit ? ` ${L1_EDIT_MARKER_ATTR} ${L1_EDIT_PAGE_ATTR}="${escapeHtml(page.id)}"` : ''}>
 ${body}
 </body>
 </html>

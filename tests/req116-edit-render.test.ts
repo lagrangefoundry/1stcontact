@@ -253,7 +253,9 @@ describe('REQ-116 — the edit render', () => {
     // The edit render sets the document marker, which is what arms the
     // carousel's own settled-state rule: the track wraps, so every slide is on
     // screen — and clickable — at once.
-    expect(editHtml).toMatch(/<body\s+data-fc-edit>/)
+    // The marker, not the whole tag: REQ-117 added the page stamp alongside it,
+    // and this assertion is about the marker arming the rule below.
+    expect(editHtml).toMatch(/<body\s+data-fc-edit[\s>]/)
     const editCss = cssOf('edit')
     expect(editCss).toMatch(/\[data-fc-edit\]\s*\.carousel__track\s*{[^}]*flex-wrap:\s*wrap/)
     expect(editCss).toMatch(/\[data-fc-edit\]\s*\.carousel__track\s*{[^}]*scroll-snap-type:\s*none/)
@@ -261,7 +263,7 @@ describe('REQ-116 — the edit render', () => {
     // The rule is keyed on the document marker, so it is inert in every other
     // channel even though the stylesheet is shared.
     expect(cssOf('draft')).toMatch(/\[data-fc-edit\]\s*\.carousel__track/)
-    expect(draftHtml).not.toMatch(/<body\s+data-fc-edit>/)
+    expect(draftHtml).not.toMatch(/<body\s+data-fc-edit[\s>]/)
   })
 
   // AC4 — derived segmentation: what is a segment, and what is deliberately not.

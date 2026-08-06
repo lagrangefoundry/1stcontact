@@ -23,6 +23,63 @@ export async function fetchSites(fetchImpl = fetch) {
   return res.json()
 }
 
+/**
+ * The error a `/api/copy` call failed with.
+ *
+ * The origin answers a rejected edit with a 400 carrying the validator's own
+ * `message`/`path`/`hint`, and that text is the only useful thing the modal can
+ * show. Collapsing it to "request failed" would leave the user staring at a
+ * form with no idea which field was refused.
+ */
+export class CopyError extends Error {
+  constructor(envelope, status) {
+    super(envelope?.message || envelope?.error || `copy request failed (${status})`)
+    this.name = 'CopyError'
+    this.code = envelope?.code
+    this.path = envelope?.path
+    this.hint = envelope?.hint
+    this.status = status
+  }
+}
+
+async function copyEnvelope(res) {
+  if (res.ok) return res.json()
+  let body = null
+  try {
+    body = await res.json()
+  } catch {
+    /* a non-JSON failure still has a status worth reporting */
+  }
+  throw new CopyError(body, res.status)
+}
+
+/** The descriptors and current values for one segment — the modal's input. */
+export async function fetchCopy(target, fetchImpl = fetch) {
+  const q = new URLSearchParams({ slug: target.slug, page: target.page, path: target.path })
+  if (target.module) q.set('module', target.module)
+  if (target.slot) q.set('slot', target.slot)
+  return copyEnvelope(await fetchImpl(`/api/copy?${q}`))
+}
+
+/**
+ * Apply one modal's worth of changes.
+ *
+ * One call is one diff (DOC-28 §11), which is why the modal runs `mountFields`
+ * in `buffered` commit — `auto` would fire this per field and re-render the site
+ * on every settled keystroke. The origin re-renders the edit channel before it
+ * answers, so a resolved promise means the bytes on disk are already current and
+ * the caller only has to refresh the frame.
+ */
+export async function saveCopy(target, values, fetchImpl = fetch) {
+  return copyEnvelope(
+    await fetchImpl('/api/copy', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...target, values }),
+    }),
+  )
+}
+
 /** Snapshot the draft into a new revision and render it (DOC-12 §5). */
 export async function publishSite(slug, fetchImpl = fetch) {
   const res = await fetchImpl('/api/publish', {

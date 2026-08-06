@@ -33,7 +33,7 @@ const require = createRequire(import.meta.url)
 export const WEBUI_SCOPE = '@gendevlabs'
 
 /** The components the builder mounts. Extend as later phases consume more. */
-export const WEBUI_PACKAGES = ['webui-shell', 'webui-split'] as const
+export const WEBUI_PACKAGES = ['webui-shell', 'webui-split', 'webui-fields'] as const
 export type WebuiPackage = (typeof WEBUI_PACKAGES)[number]
 
 /**

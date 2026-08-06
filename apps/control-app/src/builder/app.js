@@ -1,6 +1,7 @@
 import { mountShell } from '@gendevlabs/webui-shell'
 import { mountSplit } from '@gendevlabs/webui-split'
 import { APP_ID, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
+import { mountEditor } from './editor.js'
 import { createDisplayPanel } from './panel.js'
 import {
   createToolbar,
@@ -23,7 +24,7 @@ import { previewUrl } from './api.js'
  * free to do now.
  */
 export function mountBuilder(root, options = {}) {
-  const { sites = [], publish = async () => {}, storage } = options
+  const { sites = [], publish = async () => {}, storage, editBridge = null } = options
 
   const shell = mountShell(root, {
     appId: APP_ID,
@@ -90,6 +91,39 @@ export function mountBuilder(root, options = {}) {
   layout.append(toolbar.element, splitHost)
   shell.getPanel(SITE_TAB.id).append(layout)
 
+  /**
+   * Bind the edit loop to whatever the frame is currently showing (REQ-117).
+   *
+   * It re-binds on every `load` rather than once at mount, because the document
+   * inside the iframe is REPLACED on each navigation — switching site, switching
+   * mode, and the refresh after a save all produce a new `contentDocument`, and
+   * a bridge holding the old one is bound to a document nobody can see.
+   *
+   * View mode needs no guard here: `mountL1EditBridge` refuses to bind on a
+   * document without the edit marker, so this is a no-op there by construction
+   * rather than by us remembering to check (DOC-28 §7.1).
+   */
+  let editor = null
+  const rebind = () => {
+    editor?.destroy()
+    editor = null
+    // No bridge supplied → no editing. The browser entry always supplies one;
+    // a host that does not (a test mounting only the chrome) gets the pane and
+    // the toolbar with no edit loop, rather than a module that fails to load.
+    if (!editBridge) return
+    const doc = panel.frame.contentDocument
+    if (!doc) return
+    editor = mountEditor(doc, {
+      slug: panel.getSite(),
+      bridge: editBridge,
+      // The origin has already re-rendered the edit channel by the time a save
+      // resolves, so the frame only has to reload — and reloading fires `load`,
+      // which re-binds against the new document.
+      onSaved: () => panel.frame.contentWindow?.location.reload(),
+    })
+  }
+  panel.frame.addEventListener('load', rebind)
+
   const split = mountSplit(splitHost, {
     id: STORAGE_KEYS.split,
     primary: panel.element,
@@ -105,6 +139,8 @@ export function mountBuilder(root, options = {}) {
     panel,
     toolbar,
     destroy() {
+      panel.frame.removeEventListener('load', rebind)
+      editor?.destroy()
       split.destroy()
       panel.destroy()
       shell.destroy()

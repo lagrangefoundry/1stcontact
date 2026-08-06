@@ -95,6 +95,90 @@ body {
   overflow: auto;
 }
 
+/* --- the edit modal (REQ-117) -------------------------------------------------
+ *
+ * The dialog AROUND `mountFields`, and nothing more — the controls, their
+ * validation and their confirm gesture are the component's. Colours come from
+ * the shell's tokens so the modal themes with everything else.
+ */
+
+.builder-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+}
+
+.builder-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--shell-overlay, rgba(0, 0, 0, 0.4));
+}
+
+.builder-modal__panel {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  /* The modal must never outgrow the window — a long copy field would otherwise
+     push the footer, and therefore Save, off the bottom with no way to reach it. */
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--shell-border, #e5e7eb);
+  border-radius: var(--shell-radius, 8px);
+  background: var(--shell-bg, #fff);
+  color: var(--shell-fg, #18181b);
+}
+
+.builder-modal__title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.builder-modal__message {
+  margin: 0;
+  color: var(--shell-muted, #6b7280);
+}
+
+.builder-modal__error {
+  margin: 12px 0 0;
+  color: #b91c1c;
+}
+
+.builder-modal__error[hidden] {
+  display: none;
+}
+
+.builder-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.builder-modal__btn {
+  appearance: none;
+  padding: 6px 14px;
+  border: 1px solid var(--shell-border, #e5e7eb);
+  border-radius: var(--shell-radius, 8px);
+  background: var(--shell-bg, #fff);
+  color: var(--shell-fg, #18181b);
+  font: inherit;
+  cursor: pointer;
+}
+
+.builder-modal__btn--primary {
+  border-color: var(--shell-accent, #2563eb);
+  background: var(--shell-accent, #2563eb);
+  color: #fff;
+}
+
+.builder-modal__btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .builder-chat-placeholder {
   display: grid;
   height: 100%;

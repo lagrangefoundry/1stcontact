@@ -1618,6 +1618,7 @@ function layoutDecls(mode: L1LayoutMode, node: L1Container): string[] {
 // is where the stamp is written and where consumers already look for it.
 export {
   L1_EDIT_MARKER_ATTR,
+  L1_EDIT_PAGE_ATTR,
   L1_EDIT_PATH_ATTR,
   L1_EDIT_SEGMENT_ATTR,
   L1_EDIT_HOT_CLASS,

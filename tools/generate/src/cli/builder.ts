@@ -1,10 +1,13 @@
 import fs from 'node:fs'
 import http from 'node:http'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { RenderChannel, StoreContext } from '../store'
 import { distDir } from '../store'
-import { cmdList, cmdPublish, ctxOf, type GlobalOptions } from './commands'
+import { cmdList, cmdPublish, cmdRender, ctxOf, type GlobalOptions } from './commands'
+import { editCopyGet, editCopySet } from './edit'
+import { CommandError } from './errors'
 import { resolveStaticFile, sendFile } from './serve'
 import { WEBUI_PACKAGES, webuiExports, webuiPackageDir } from './webui'
 
@@ -87,6 +90,42 @@ ${styles.map((href) => `<link rel="stylesheet" href="${href}">`).join('\n')}
 `
 }
 
+/**
+ * Locate a file that ships with the CODE, not with the site store.
+ *
+ * `ctx.cwd` is the store root — the thing holding `storage/sites/…` — and it is
+ * a temp directory under test and an arbitrary directory in use. Source that
+ * ships with the tool is only found there when the two happen to coincide, so
+ * this prefers the store copy (a repo checkout, where it is the live file) and
+ * otherwise falls back to this module's own location, exactly as
+ * {@link clientDirOf} does for the builder's browser source.
+ */
+function repoFile(ctx: StoreContext, rel: string): string {
+  const inCwd = path.join(ctx.cwd, rel)
+  if (fs.existsSync(inCwd)) return inCwd
+  return path.resolve(HERE, '../../../..', rel)
+}
+
+/**
+ * Strip the types off one module and point its package import at the sibling
+ * this origin serves. `transpileModule` is per-file and does no checking, which
+ * is what makes it safe to do per request — correctness is the typechecker's
+ * job, and it has already run over these files in CI.
+ */
+function transpileForBrowser(absPath: string): string {
+  // Required lazily: `typescript` is a devDependency, and a packaged install
+  // that never opens the builder should not fail to load this module over it.
+  const require = createRequire(import.meta.url)
+  const ts = require('typescript') as typeof import('typescript')
+  const out = ts.transpileModule(fs.readFileSync(absPath, 'utf8'), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  })
+  return out.outputText.replace(
+    /(['"])@1stcontact\/site-schema\1/g,
+    "'/framework/site-schema-edit.js'",
+  )
+}
+
 function json(res: http.ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
   res
@@ -147,6 +186,60 @@ export async function handleBuilderRequest(
       return
     }
 
+    /**
+     * The modal's two calls (REQ-117 / DOC-28 §4).
+     *
+     * Both are thin transports over `editCopyGet` / `editCopySet` — the SAME
+     * functions `1c copy get|set` dispatch to, not a parallel implementation.
+     * That is the whole point of the loop: the editor is a second *producer* of
+     * structured edits, not a second write path. Validation, atomicity and the
+     * re-render all stay where they already live, and nothing here can bypass
+     * them because nothing here does any of that work itself.
+     */
+    if (p === '/api/copy') {
+      const scope = (q: URLSearchParams | Record<string, unknown>) => {
+        const read = (k: string): string | undefined => {
+          const v = q instanceof URLSearchParams ? q.get(k) : q[k]
+          return typeof v === 'string' && v !== '' ? v : undefined
+        }
+        return { ...opts, module: read('module'), slot: read('slot') }
+      }
+
+      if (req.method === 'GET') {
+        const q = url.searchParams
+        const [slug, page, addr] = [q.get('slug'), q.get('page'), q.get('path')]
+        if (!slug || !page || !addr) {
+          json(res, 400, { error: 'slug, page and path are required' })
+          return
+        }
+        json(res, 200, editCopyGet(slug, page, addr, scope(q)).data)
+        return
+      }
+
+      if (req.method === 'POST') {
+        const body = (await readJsonBody(req)) as Record<string, unknown>
+        const [slug, page, addr] = [body.slug, body.page, body.path]
+        if (typeof slug !== 'string' || typeof page !== 'string' || typeof addr !== 'string') {
+          json(res, 400, { error: 'slug, page and path are required' })
+          return
+        }
+        const values = body.values
+        if (values === null || typeof values !== 'object' || Array.isArray(values)) {
+          json(res, 400, { error: 'values must be an object of field → string' })
+          return
+        }
+        // Write first, re-render second, and only report success once BOTH have
+        // happened. `editCopySet` throws on an invalid edit before writing a
+        // byte, so a failure here leaves the draft and the rendered bytes
+        // exactly as the user left them — the iframe they are looking at is
+        // still accurate, which is what makes "surface the error" safe.
+        const out = editCopySet(slug, page, addr, values as Record<string, unknown>, scope(body))
+        await cmdRender(slug, { ...opts, edit: true })
+        json(res, 200, out.data)
+        return
+      }
+    }
+
     // /preview/<slug>/<channel>/<...>  — a rendered channel, straight off disk.
     const preview = p.match(/^\/preview\/([^/]+)\/([^/]+)(\/.*)?$/)
     if (preview) {
@@ -157,6 +250,44 @@ export async function handleBuilderRequest(
         return
       }
       await serveTree(res, distDir(ctx, slug, channel), preview[3] ?? '/')
+      return
+    }
+
+    /**
+     * The edit bridge, as browser JS (REQ-117).
+     *
+     * The bridge is TypeScript in `packages/framework`, and it must STAY the one
+     * implementation: it reads the same stamp the renderer writes, and a second
+     * hand-written copy in `apps/control-app` would be free to drift from the
+     * markup — the exact coupling `edit-client.ts` says it exists to prevent. So
+     * the source is served, type-stripped, rather than reimplemented.
+     *
+     * Type-stripping is enough here, and bundling is not needed, because BOTH
+     * files' only runtime import is each other: `l1/edit.ts` imports nothing at
+     * runtime (its one import is `import type`), and `edit-client.ts` imports
+     * only `@1stcontact/site-schema`, rewritten below to the sibling URL. Two
+     * files, one rewrite — if that ever stops being true this route should
+     * become a real build step rather than growing a resolver.
+     */
+    const fw = p.match(/^\/framework\/(edit-client|site-schema-edit)\.js$/)
+    if (fw) {
+      const js = transpileForBrowser(
+        repoFile(
+          ctx,
+          fw[1] === 'edit-client'
+            ? 'packages/framework/src/l1/edit-client.ts'
+            : 'packages/site-schema/src/l1/edit.ts',
+        ),
+      )
+      res
+        .writeHead(200, {
+          'content-type': 'text/javascript; charset=utf-8',
+          'content-length': Buffer.byteLength(js),
+          // Read off disk every time: this is a dev origin, and a cached bridge
+          // after an edit to the source is a confusing way to lose an afternoon.
+          'cache-control': 'no-store',
+        })
+        .end(js)
       return
     }
 
@@ -180,6 +311,16 @@ export async function handleBuilderRequest(
 
     res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
   } catch (err) {
+    // A CommandError is the EXPECTED answer to a bad edit — the validator
+    // refusing a change map, an address that resolves to nothing. It is the
+    // user's mistake, not the server's, so it carries its own code/path/hint
+    // envelope out to the modal at 400. Reporting it as 500 would tell the
+    // client "the builder broke" for a rejected heading, and would throw away
+    // the message that says which field was wrong and why.
+    if (err instanceof CommandError) {
+      json(res, 400, { error: err.message, ...err.toEnvelope() })
+      return
+    }
     const message = err instanceof Error ? err.message : String(err)
     json(res, 500, { error: message })
   }
