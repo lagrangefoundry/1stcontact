@@ -1,0 +1,101 @@
+---
+uid: story-5349d01f
+id: STORY-94
+type: story
+title: 'Ship a site off the laptop: a content-addressed snapshot deploy that returns
+  a shareable URL'
+created_by: xgd
+created_at: '2026-08-06T18:38:28.628910+00:00'
+updated_at: '2026-08-06T18:38:28.628910+00:00'
+completed_at: null
+last_field_updated: created_at
+status: unplanned
+fields:
+  intent_uid: bundle-e0143ffa
+  capability_uid: capability-a12e557f
+  story_kind: feature
+  story_points: 3
+---
+
+## Story
+
+**As a** site operator, **I want** to ship a rendered site to shared storage in one
+command and get back a URL, **so that** someone other than me — a client, a
+reviewer, a visitor — can see it, and so that shipping the same site twice costs
+nothing while shipping a changed site never destroys what came before.
+
+## Description
+
+Before this capability a site existed only on the operator's machine: rendering
+wrote bytes to a local directory and publishing froze a draft into a revision,
+but nothing put either where anyone else could look. This story is the operator
+half of delivery — the act of shipping. The visitor half (what a URL serves) is
+a separate story in the same capability.
+
+In scope:
+
+- **One command, two channels.** A *draft* deploy mints an immutable, shareable
+  **preview** of the current working draft. A *published* deploy ships the site's
+  current latest published revision and moves the live pointer.
+- **Rendering is not optional.** Every deploy renders first. Previously-rendered
+  output on disk is never trusted as an input, so stale bytes cannot be shipped.
+- **The artifact is complete.** What ships is both the rendered output *and* the
+  site definition it was rendered from, so the shipped snapshot is a whole
+  revision rather than only its render — which makes a later migration of the
+  store an import rather than a re-derivation from someone's laptop.
+- **Content addressing.** A snapshot's identity is a digest of its contents.
+  Redeploying identical bytes is a no-op that returns the same URL; changed bytes
+  land *beside* the previous snapshot, never on top of it.
+- **Previews are not revisions.** A draft deploy never mints a revision number
+  and never enters publish history, so previews can be shared freely without
+  polluting the publish record.
+- **Rehearsal and cleanup.** A dry run prints the complete plan and writes
+  nothing. A prune deletes only stored snapshot objects that the site's deploy
+  index does not reference — the orphans an interrupted deploy leaves behind.
+- **A legible report.** Every stage names itself on its own line and the report
+  terminates in the shareable URL.
+
+Out of scope (explicit non-goals from the intent): moving the canonical site
+store off the operator's machine, custom domains, and per-site subdomain
+routing. Serving the deployed bytes to a visitor, and the refusal of a snapshot
+whose contents would collide with the preview route, belong to the serving story.
+
+## Technical Context
+
+- **Delivery migrates serving, not storing.** Site definitions remain canonical
+  on the operator's machine and authoring is unchanged; only the artifact crosses
+  the wire. Moving canonical storage while authoring is local would create a
+  bidirectional sync problem that no planned end state has (see DOC-5, REQ-7).
+- **Shared storage sits behind a client seam**, so the whole deploy pipeline is
+  exercisable end-to-end without network access. The shipping implementation adds
+  no new dependencies; because that mechanism cannot enumerate stored objects, a
+  write-ahead record of the keys a deploy is about to write is what makes an
+  interrupted deploy's orphans collectable. Both are implementation choices the
+  acceptance criteria deliberately do not name.
+- **Known divergence from intent (flag for regression).** The intent specifies a
+  *conditional write* (compare-and-swap on the stored deploy index) so a lost
+  update fails loudly. The chosen upload mechanism does not expose conditional
+  writes, so the implementation compares a re-read of the index against the bytes
+  it started from. That preserves the property the intent asked for — a lost
+  update fails loudly rather than silently clobbering — but narrows rather than
+  closes the race window. Single-operator today; the later database phase removes
+  the concern.
+- **Preview URLs are unguessable-private by decision, not access-controlled.**
+  There is no authentication on a preview link. A content-derived snapshot id is
+  in principle computable by anyone who can reproduce the exact rendered bytes;
+  this is an accepted v1 trade-off, and the stated fix (a random token in the
+  index pointing at the content-addressed location) needs no layout change.
+- The deploy command's machine-readable output hygiene is owned by STORY-79
+  (1c CLI flag parsing and clean `--json` documents), not by this story.
+- Delivery depends on rendered output being relocatable — a snapshot served from
+  a path prefix rather than a host root — which STORY-83 owns.
+
+## Dependencies
+
+None. (Pairs with the public-site serving story, which consumes the storage
+layout this story defines; the two were designed to be built in parallel against
+that layout as a shared spec.)
+
+## Story Points
+
+3
