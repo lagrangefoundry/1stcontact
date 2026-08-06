@@ -6,14 +6,14 @@ title: 'Ship a site off the laptop: a content-addressed snapshot deploy that ret
   a shareable URL'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-08-06T18:45:59.727179+00:00'
+updated_at: '2026-08-06T20:14:39.312983+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-e0143ffa
   capability_uid: capability-a12e557f
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
 ---
 
@@ -43,6 +43,18 @@ In scope:
   site definition it was rendered from, so the shipped snapshot is a whole
   revision rather than only its render — which makes a later migration of the
   store an import rather than a re-derivation from someone's laptop.
+- **Shipping is scoped to the store tree the site came from.** The operator's
+  machine keeps real sites and throwaway scratch in two separate store trees, and
+  that separation survives the crossing: the tree a definition was loaded from is
+  part of the address its snapshot ships to. Every key a deploy writes carries it,
+  each tree keeps its own deploy index, and a prune enumerates only the tree being
+  pruned. Two sites that share a slug across the trees therefore never touch each
+  other's bytes, index or live pointer.
+- **A snapshot that nothing can serve says so.** Only one store tree is publicly
+  servable. A deploy from the other ships and indexes exactly as normal but
+  returns no shareable URL, and its report terminates in the snapshot's storage
+  prefix with an explicit note that it is not publicly reachable — rather than a
+  URL that could never resolve.
 - **Content addressing.** A snapshot's identity is a digest of its contents.
   Redeploying identical bytes is a no-op that returns the same URL; changed bytes
   land *beside* the previous snapshot, never on top of it.
@@ -53,12 +65,19 @@ In scope:
   nothing. A prune deletes only stored snapshot objects that the site's deploy
   index does not reference — the orphans an interrupted deploy leaves behind.
 - **A legible report.** Every stage names itself on its own line and the report
-  terminates in the shareable URL.
+  terminates in the shareable URL, or — where there is none — in the storage
+  prefix and the reason.
 
 Out of scope (explicit non-goals from the intent): moving the canonical site
 store off the operator's machine, custom domains, and per-site subdomain
-routing. Serving the deployed bytes to a visitor, and the refusal of a snapshot
-whose contents would collide with the preview route, belong to the serving story.
+routing. Serving the deployed bytes to a visitor, the confinement of what a URL
+may address to the one servable store tree, and the refusal of a snapshot whose
+contents would collide with the preview route, belong to the serving story.
+
+Also out of scope: making the non-servable tree servable. A snapshot shipped from
+it is uploaded and indexed but unreachable by design; exercising the serving path
+means using a throwaway slug in the servable tree instead, which the command's
+own help says.
 
 ## Technical Context
 
@@ -72,6 +91,14 @@ whose contents would collide with the preview route, belong to the serving story
   write-ahead record of the keys a deploy is about to write is what makes an
   interrupted deploy's orphans collectable. Both are implementation choices the
   acceptance criteria deliberately do not name.
+- **Root-scoping was a correction, and the resolution chosen was to namespace
+  rather than refuse** (BUG-31). The store-tree distinction existed locally from
+  the start; the shared-storage layout originally flattened it, so a scratch
+  deploy could read, rewrite and overwrite a real site's index and published bytes
+  whenever the two shared a slug. Refusing to deploy the scratch tree outright was
+  the considered alternative; namespacing was chosen because it keeps the flag
+  uniform across every command instead of adding a one-command refusal, and it
+  remains a small follow-on to withdraw the scratch root if it proves dead weight.
 - **Known divergence from intent (flag for regression).** The intent specifies a
   *conditional write* (compare-and-swap on the stored deploy index) so a lost
   update fails loudly. The chosen upload mechanism does not expose conditional
