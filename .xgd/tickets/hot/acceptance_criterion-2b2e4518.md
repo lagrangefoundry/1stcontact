@@ -7,10 +7,10 @@ title: A site declaring product distribution fails when a font it serves is not 
   clears the gate
 created_by: xgd
 created_at: '2026-08-06T03:30:04.901453+00:00'
-updated_at: '2026-08-06T03:30:04.901453+00:00'
+updated_at: '2026-08-06T03:38:16.203894+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8685be2d
   kind: behavior
