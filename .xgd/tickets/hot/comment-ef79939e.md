@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-44
 created_by: xgd
 created_at: '2026-08-06T18:59:56.858068+00:00'
-updated_at: '2026-08-06T19:38:02.726883+00:00'
+updated_at: '2026-08-06T19:39:23.740527+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,33 @@ Cross-references are in place: REQ-745 (xgd core) now scopes down to change dete
 <!-- xgd-chat role="user" ts="2026-08-06T19:38:02.583606+00:00" -->
 #### You
 ok so what order do these tickets need to be implemented in?
+
+<!-- xgd-turn id="6bd8045a-ea5e-4cea-9398-7c783b4fa758-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T19:39:23.600563+00:00" -->
+#### Claude
+Checked the actual coupling rather than assuming it — the ordering is forced by one fact.
+
+The order is forced, and by a sharper constraint than "SDK before core."
+
+**The blocking fact:** the SDK plugins do `from sdk import TestFrameworkPlugin` — they subclass the SDK's ABC, not core's copy in `xgd_source/quality/framework.py`. So the `[]`/no-op defaults added to core's copy protect only core's *own* built-in plugins (`python_core`, `rust_core`, `swift_core`, `quality/plugins/python`). They do nothing for the SDK ones. Core calling `dependency_manifest_paths()` against SDK 0.1.33 is an `AttributeError` — an **error** in your taxonomy, not a failure, so immediate termination — and it fires inside worktree provisioning, meaning at the start of every develop / reconcile / regression run.
+
+## Sequence
+
+1. **REQ-22 item 1 — the ABC** (plugin SDK). Both methods with defaults. This is the only hard gate.
+2. **Release SDK 0.1.34.**
+3. **REQ-745** (xgd core) — change detection, delegation, loud failure.
+
+**REQ-22 items 2–5** (JS refactor, `--ignore-scripts`, other plugins' manifest paths, conformance) depend only on item 1, not on core — they can run in parallel with step 2 or after.
+
+**One thing that can go first, standalone:** removing `_repair_source_node_module_symlinks()` from core. It repairs damage from a symlink strategy the JS plugin already abandoned, so it has no dependency on any of the above.
+
+**Settle `--ignore-scripts` early** — before writing item 2. It decides what `sync_dependencies()` actually does, and the other items are written against that answer.
+
+## One gap worth knowing about
+
+xgd does not declare `ai.gendevlabs.plugin-sdk` in its `pyproject.toml` dependencies at all. It's in the venv at 0.1.33, unpinned. So there is currently nothing that could enforce this ordering mechanically — a core deploy ahead of an SDK upgrade would just break at provisioning time. I've put adding `ai.gendevlabs.plugin-sdk>=0.1.34` into REQ-745 as part of that work; it's a dependency constraint, not a compatibility shim, so core doesn't need `getattr`-shaped capability probes for a version it can simply require.
+
+REQ-44 sits outside all of this — it's landed and needs nothing from either.
 
 <!-- xgd-chat-end -->
