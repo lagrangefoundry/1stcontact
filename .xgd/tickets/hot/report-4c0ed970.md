@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T01:18:24.921522+00:00'
+updated_at: '2026-08-06T01:35:03.250115+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -84,7 +84,7 @@ fields:
     item_type: upgrade
     story_points: 3
     dependencies: []
-    story_uid: null
+    story_uid: story-179b8c06
     target_story_ids:
     - story-179b8c06
     - story-d0a8cfad
