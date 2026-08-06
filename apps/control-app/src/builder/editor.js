@@ -60,6 +60,21 @@ export function mountEditor(doc, options = {}) {
   })
 
   async function openSegment(target, hit) {
+    // An address is only half a coordinate: without the page id there is nothing
+    // to resolve it against. The stamp is absent only when the render on disk
+    // predates the editor, so say that rather than posting `page: null` — the
+    // server can then only report the page missing, which sends the reader to
+    // `1c page list` looking for a page that was never the problem. Stale edit
+    // renders recur by construction until REQ-119 replaces on-disk renders with
+    // request-time ones, so this is a standing failure mode, not a one-off.
+    if (!target.page) {
+      openModal({
+        kind: 'error',
+        message: `This edit render was built before the editor and carries no page stamp.`,
+        hint: `Re-render it with '1c render ${slug} --edit', then reload`,
+      })
+      return
+    }
     let loaded
     try {
       loaded = await fetchCopy(target)
