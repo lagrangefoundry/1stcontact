@@ -66,6 +66,8 @@ fields:
     new_sha: f85029c8bb14e1337173c35da13a9c8937413396
   - old_sha: 72fb6387d782fc453625f3a2a31cff14fe4a44a2
     new_sha: bd068d6b0201bbcfb7c7bb2d1d090aa163924d6e
+  - old_sha: ea48b8603850172e38e346ecbd95803e0bf65ad2
+    new_sha: c43ca453000bb6aa5f24dd2c97a7690399e46e99
 result: running
 ---
 
