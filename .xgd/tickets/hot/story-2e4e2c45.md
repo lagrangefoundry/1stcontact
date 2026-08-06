@@ -6,10 +6,10 @@ title: 'L1 navigation: a typed link role any subtree can take, with real DOM ids
   in-page anchors'
 created_by: xgd
 created_at: '2026-08-06T02:46:53.703289+00:00'
-updated_at: '2026-08-06T02:46:53.703289+00:00'
+updated_at: '2026-08-06T02:59:35.597947+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-ee56a66e
   capability_uid: capability-ae9d65d6
