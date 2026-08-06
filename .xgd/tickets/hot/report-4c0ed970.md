@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T03:31:52.565018+00:00'
+updated_at: '2026-08-06T03:43:58.659058+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -576,7 +576,7 @@ fields:
     item_type: feature
     story_points: 1
     dependencies: []
-    story_uid: null
+    story_uid: story-86c7c21b
     description: 'Document that 1c new scaffolds a minimal valid L1 document (REQ-102).
       The starter page was { modules: [] } with no l1 block, so authoring began by
       hand-writing the whole document — the width ladder, the background, the root
