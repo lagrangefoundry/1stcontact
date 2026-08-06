@@ -7,10 +7,10 @@ title: Every focusable control presents a visible focus indicator on keyboard fo
   in, and no site definition can express its removal
 created_by: xgd
 created_at: '2026-08-06T02:03:14.046104+00:00'
-updated_at: '2026-08-06T02:03:14.046104+00:00'
+updated_at: '2026-08-06T02:18:11.755203+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
