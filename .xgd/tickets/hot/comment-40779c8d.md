@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:13:27.087588+00:00'
+updated_at: '2026-08-06T19:15:26.040814+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -275,5 +275,11 @@ Two carry-overs, unchanged:
 - **Edit mode requires the channel pre-rendered** (`./bin/1c render <slug> --edit`). That's T1's static-serving model as designed; REQ-119 replaces it with request-time renders.
 
 The definition half of this ticket is fully drivable from the CLI if you want to see an edit actually take effect — `1c copy get/set` against a `data-l1-path` you read off the DOM, then reload the frame. Say the word and I'll walk it, or say go and I'll build the modal.
+
+<!-- xgd-turn id="a2e8c228-0126-4d11-b924-c0573ea4452d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:15:25.848140+00:00" -->
+#### You
+ok the view/edit area is tiny. I can only see about 4 lines. It needs to be tied to the browser window size. Can you fix that first please
 
 <!-- xgd-chat-end -->
