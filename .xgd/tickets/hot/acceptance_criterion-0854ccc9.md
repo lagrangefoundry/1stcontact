@@ -6,9 +6,9 @@ title: A draft deploy ships the complete artifact under a content-addressed prev
   location and returns its shareable URL
 created_by: xgd
 created_at: '2026-08-06T18:39:17.424059+00:00'
-updated_at: '2026-08-06T18:46:03.034984+00:00'
+updated_at: '2026-08-06T20:14:50.618548+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-5349d01f
@@ -25,8 +25,13 @@ stylesheet) and the site definition it was rendered from (at minimum the site
 record and each page record). The stored bytes are the real rendered bytes, not
 placeholders. The site's deploy index records the snapshot as a **preview**,
 carrying its content id, the time it was deployed, and which published revision
-the draft descended from (or an explicit "none"). The command returns a single
-shareable URL that addresses that preview by its content id.
+the draft descended from (or an explicit "none").
+
+The returned shareable URL is qualified by the store tree the definition came
+from. A draft deploy from the servable tree returns a single shareable URL that
+addresses the preview by its content id. A draft deploy from the non-servable
+tree ships and indexes identically — same halves, same content addressing, same
+preview entry — but returns no URL at all, because nothing can serve it.
 
 ## Verification
 
@@ -35,4 +40,6 @@ that both the rendered-output and definition halves are present under the
 content-addressed preview location, that reading back the entry page yields real
 rendered markup, that the deploy index lists exactly one preview entry with the
 returned content id and a "based on" value, and that the returned URL contains
-the slug and that same content id.
+the slug and that same content id. Repeat for a site in the non-servable tree and
+assert both artifact halves and the preview entry are present exactly as before
+while no URL is returned.
