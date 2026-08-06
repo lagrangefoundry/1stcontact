@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-06T03:10:37.087537+00:00'
+updated_at: '2026-08-06T18:28:37.865695+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -138,6 +138,37 @@ emits one `@font-face` rule per entry through the same sole safe sink, ahead of
 the rules that reference the family. Images need no entry: an image leaf already
 carries its own source.
 
+### Where the output lands — a relocatable snapshot
+The emitter also decides, at every place a URL reaches the browser, **what a
+root-relative reference becomes**. A site keeps *authoring* its assets
+root-relatively (`/assets/…`), but what is emitted is **document-relative**:
+relative to the snapshot the page sits in rather than to a serving host's root. One
+rule governs all three sinks — the `url()` values in the stylesheet (fonts,
+background images, texture masks), an image's source, and a link's target — and it
+runs *after* each sink's safety check, so it reshapes an already-vetted value and
+can never admit one.
+
+The consequence is that a rendered snapshot is **relocatable**: the same bytes
+serve correctly from a host root and from any path prefix, so the serving location
+is not baked into the artifact and the renderer needs no base-path or host
+configuration. Only a root-relative reference changes: absolute URLs, a
+protocol-relative remote host, a bare fragment and an already-relative value all
+emerge byte-identical, and no emitted reference ever reintroduces a leading slash.
+
+Two remainders stop reading as relative *path* references once the slash is
+dropped, and both keep their base by being emitted as explicitly relative paths: a
+reference with an **empty first segment** (`/#how`, `/?q=1`, bare `/`), which would
+otherwise resolve against the current page instead of the snapshot root; and one
+whose **first segment carries a colon** (`/javascript:…`), which would otherwise be
+read as a URL scheme and hand back the live scheme the safety check had cleared
+only because the leading slash made it relative.
+
+All of this rests on every page sitting **flat at the snapshot root** — a page one
+directory down would resolve every reference it carries against its own
+subdirectory. Rendering therefore fails loudly, before writing anything, on a nested
+page slug, naming the invariant rather than emitting a page whose every reference is
+silently wrong.
+
 ### The safety envelope
 The substrate's value is a **safety envelope by construction** — security,
 robustness, and cross-browser fidelity, not aesthetic constraint. Two layers
@@ -191,9 +222,10 @@ cross-browser check confirms equivalent layout across the three engines.
 leaf, and the document resource table), the envelope validator **and its
 enforcement on every validated site definition, authored or reproduced**, the
 safe renderer
-(including geometry keyframe compilation, `@font-face` emission, and the control
-emitter's zero-look baseline / inert degradation / attribute refusal), and the
-round-trip / cross-browser fidelity guarantees.
+(including geometry keyframe compilation, `@font-face` emission, the control
+emitter's zero-look baseline / inert degradation / attribute refusal, and
+relocatable document-relative URL emission with its flat-snapshot invariant), and
+the round-trip / cross-browser fidelity guarantees.
 
 **Out of scope**: mechanically folding a multi-viewport capture into an L1
 document — including *populating* the new axes and the resource table from a
@@ -354,6 +386,56 @@ its target behavior-module id, with no module code and no behaviour attached.
   `storage/sites/**` rather than as a criterion here: it asserts a property of
   this repository's content, not of the substrate's behaviour, and site
   definition data is not capability surface.
+
+- **REQ-109 / BUG-30 — relocatable emission (this reconciliation).** The intent
+  is a hosting one stated as an artifact property: root-absolute `/assets/…`
+  references 404 the moment a snapshot is served under a path prefix, and
+  `<base href>` is not a fix because it does not reach `url()` inside CSS, which
+  is exactly where the fonts and grid images live. Relocatability is also the
+  precondition for the immutable content-addressed snapshot model (DOC-12) —
+  with the serving URL baked in, promoting a draft to published would need a
+  re-render rather than a pointer flip. The intent's declared boundary was
+  explicit and was held: **no change to the authored L1 schema, no change to any
+  site definition, and no base-path or host configuration on the renderer**.
+  BUG-30 then found the rewrite carrying two cases where dropping the slash
+  changes *meaning* rather than shape. Its fragment case was the reported
+  symptom; the colon case was found while answering the ticket's own request to
+  check the rest of the sink, and is a **security** finding rather than a
+  cosmetic one — `isSafeUrl` clears `/javascript:…` *because* the leading slash
+  makes it relative, so an unconditional strip handed back the live scheme it had
+  just refused. Both are recorded here, under this story's
+  independent-lines-of-defence claim (AC-851), rather than on the navigation
+  story: the emitter re-admitting a value its own sink declined is an emitter
+  obligation, and one rule guards all three sinks.
+- **The flat-snapshot invariant became reachable.** Every argument about
+  resolving against a snapshot directory breaks at once if a page sits below the
+  root, and that condition was unreachable until a real site grew a second page.
+  The assertion in the site renderer is the guard, and BUG-30's evidence pins
+  that it still fires, and fires before anything is written.
+- **Re-baselined expectations, not weakened ones.** Because emitted bytes
+  changed shape, nine expectations across eight existing suites were updated to
+  the new URL form. Each still pins the same behaviour it pinned before
+  (safe-only sink, font-face binding, layer order, anchor retagging,
+  self-contained reproduction); only the URL's shape moved. No criterion in this
+  story was relaxed as a consequence.
+- **Gate verification carried forward from the intent.** The analytic 3-probe
+  gate is evaluated over the L1 *document*, never over emitted URLs, so it does
+  not see the change; capture resolves `url()` values to absolute URLs in the
+  browser and the local preview server mounts a snapshot at its root, where the
+  two URL shapes resolve identically. The intent records that a full reproduction
+  gate re-run against `gigabytealchemy` was **not** possible in session (its
+  in-repo reference bundle predates multi-state capture); rendering and shooting
+  the site with every face loaded and every grid painting was the evidence taken
+  instead. That gap is the intent's, carried here unresolved rather than papered
+  over.
+- **REQ-108 re-scoped one texture invariant (AC-831).** REQ-103's shipped-page
+  `background-size` scan read every rule in the stylesheet. The pointer accent
+  paints a renderer-owned overlay that legitimately carries a stack of region
+  layers, so the scan started failing pages that declare no texture at all — the
+  opposite of what the invariant protects. The claim was always about a node's
+  **authored surface**, and is now scoped to say so. This narrows an assertion's
+  reach, not the substrate's behaviour: no untextured authored surface may emit a
+  multi-valued sizing triple, exactly as before.
 
 ## Dependencies
 None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on it).
