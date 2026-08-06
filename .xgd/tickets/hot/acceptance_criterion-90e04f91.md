@@ -6,10 +6,10 @@ title: Copy that a visitor's scrolling would reveal renders visible and editable
   the edit render
 created_by: xgd
 created_at: '2026-08-06T21:25:53.547527+00:00'
-updated_at: '2026-08-06T21:25:53.547527+00:00'
+updated_at: '2026-08-06T21:39:10.120194+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
