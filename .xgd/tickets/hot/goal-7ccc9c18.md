@@ -5,7 +5,7 @@ type: goal
 title: 1stcontact app
 created_by: xgd
 created_at: '2026-08-06T00:05:21.612213+00:00'
-updated_at: '2026-08-06T00:28:53.160876+00:00'
+updated_at: '2026-08-06T00:35:34.696433+00:00'
 completed_at: null
 last_field_updated: children
 status: in_progress
@@ -17,6 +17,7 @@ fields:
   - goal-026f16b5
   - goal-f3141c51
   - goal-08c4289b
+  - goal-80d0e882
 ---
 
 The AI Website Caretaker platform (DOC-4). An AI-powered platform for creating and operating small-business web presences, targeting ~$50/month against the $150-400 agency band. Product positioning: not hosting, not a website builder, not an agency -- an AI Website Caretaker. Customer promise: stop worrying about your website.
