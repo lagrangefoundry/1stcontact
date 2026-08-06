@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T02:22:54.339965+00:00'
+updated_at: '2026-08-06T02:38:48.366585+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -330,7 +330,7 @@ fields:
     item_type: upgrade
     story_points: 2
     dependencies: []
-    story_uid: null
+    story_uid: story-3569e1a4
     target_story_ids:
     - story-3569e1a4
     description: 'Document per-width layout variation in L1 (REQ-104). container.responsiveLayout
