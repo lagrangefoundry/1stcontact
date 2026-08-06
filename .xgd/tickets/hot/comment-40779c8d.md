@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-03T00:18:06.394302+00:00'
+updated_at: '2026-08-06T19:12:12.912216+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -237,5 +237,11 @@ Two things I hit while checking, both worth knowing before you show anyone:
 **What you won't be able to do:** click anything. No hover highlight, no modal, nothing writes. The outlines are the renderer's, drawn statically.
 
 That's the gap the five pieces close — framework browser build, `/api/copy`, the `<dialog>` + `mountFields`, bridge mount/unmount on mode change, UATs. Ready to start on your go.
+
+<!-- xgd-turn id="3598edc5-3927-4bfb-be09-38a7d0a372d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:12:12.675091+00:00" -->
+#### You
+Can I see the demo now? Please tell me how to run it
 
 <!-- xgd-chat-end -->
