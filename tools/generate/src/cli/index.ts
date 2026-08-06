@@ -35,6 +35,7 @@ import { cmdColors, cmdColorsAssign, formatAssign, formatCensus } from './colors
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
+import { assertInstall } from './preflight'
 import { startServe } from './serve'
 import { startBuilder } from './builder'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
@@ -167,6 +168,16 @@ export type {
 } from './gate'
 export { parseArgs } from './args'
 export { withCleanStdout } from './stdio'
+export {
+  assertInstall,
+  checkInstall,
+  COMMAND_DEPS,
+  INSTALL_COMMAND,
+  GENERATE_PKG_REL,
+  LOCKFILE_REL,
+  INSTALLED_LOCKFILE_REL,
+} from './preflight'
+export type { PreflightFinding, PreflightReport, PreflightOptions, Resolver } from './preflight'
 
 const USAGE = `1c — file-backed site storage, versioning & server-side render (REQ-9)
 
@@ -330,7 +341,17 @@ dist/<root>/<slug>/<channel>/.
 In --json mode, structured-edit commands emit {"ok":true,"data":...} on success
 or {"ok":false,"error":{code,message,path?,hint?}} on failure. Exit codes:
 0 success, 2 schema-invalid, 3 not-found, 4 referential-integrity, 5 conflict,
-1 unexpected/internal.`
+6 environment (see below), 1 unexpected/internal.
+
+Install preflight (REQ-44) — commands that load a declared runtime dependency
+(capture, shot, values-diff, adopt-gaps, crop, diff, gate, aligned-crops) check
+the installed tree before doing any work, and refuse with exit 6 when a declared
+package does not resolve or when pnpm-lock.yaml differs from the copy pnpm wrote
+at last install. Declaring a dependency does not materialize it: a tree that lags
+the lockfile is one prune away from losing a package it still declares. The
+remedy is always \`pnpm install\` at the repo root. Offline commands (render,
+serve, builder, repro, refold, l1-gate, responsive-diff, the structured-edit
+verbs) are never gated.`
 
 /** Parse a revision positional (`0001` or `1`) to a number, or undefined. */
 function parseRev(tok: string | undefined): number | undefined {
@@ -350,6 +371,20 @@ export async function run(argv: string[]): Promise<void> {
   const { positionals, flags } = parseArgs(argv)
   const [command, ...rest] = positionals
   const global: GlobalOptions = { sandbox: flags.sandbox === true }
+
+  // REQ-44 — check the installed tree before the command does anything. Here
+  // rather than inside each handler because the failure is about the workspace,
+  // not the verb: one gate covers every present and future command through
+  // COMMAND_DEPS, and no half-done work (a render, a launched browser, a written
+  // file) precedes the refusal. Ungated commands return immediately.
+  if (command !== undefined) {
+    try {
+      assertInstall(command)
+    } catch (err) {
+      fail(err, flags.json === true)
+      return
+    }
+  }
 
   switch (command) {
     case undefined:

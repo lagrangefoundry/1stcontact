@@ -15,6 +15,7 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'REFERENTIAL_INTEGRITY'
   | 'CONFLICT'
+  | 'ENVIRONMENT'
   | 'INTERNAL'
 
 /** Stable process exit codes, identical in `--json` and human mode. `0` = success. */
@@ -23,6 +24,11 @@ export const EXIT_CODES: Record<ErrorCode, number> = {
   NOT_FOUND: 3,
   REFERENTIAL_INTEGRITY: 4,
   CONFLICT: 5,
+  // REQ-44 — the workspace is not installed as declared (a pruned dependency, a
+  // lockfile the tree was never installed at). Its own code because the command
+  // and its input were both fine: nothing about the invocation can fix it, so a
+  // caller should re-install and retry rather than re-form the request.
+  ENVIRONMENT: 6,
   INTERNAL: 1,
 }
 
