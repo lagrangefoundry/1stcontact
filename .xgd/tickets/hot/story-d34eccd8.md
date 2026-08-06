@@ -6,10 +6,10 @@ title: 'Serve a deployed snapshot: shareable previews and live published sites r
   a visitor'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-08-06T18:47:52.197635+00:00'
+updated_at: '2026-08-06T18:59:28.397793+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-e0143ffa
   capability_uid: capability-a12e557f
