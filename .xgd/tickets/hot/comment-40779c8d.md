@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T21:37:17.670161+00:00'
+updated_at: '2026-08-06T22:06:16.534479+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -674,5 +674,11 @@ I verified the installed copy is byte-identical to the repo source, so it's live
 One thing worth knowing: `XGD_PROJECT_ROOT` pins this session's `xgd` to 1stcontact regardless of `cd`, so my first `ticket list` in the framework repo was silently reading *this* store. I filed via an explicit override and confirmed REQ-64 landed in lagrange-framework with 1stcontact's 50 tickets untouched.
 
 Until REQ-64 lands, the divider is workable if you release the button over the right-hand pane.
+
+<!-- xgd-turn id="79e19abd-0242-437a-9244-86f6c3161339-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T22:06:16.126297+00:00" -->
+#### You
+When I make an edit, it doesn't show on the page - is that expected at this point?
 
 <!-- xgd-chat-end -->
