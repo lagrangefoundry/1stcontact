@@ -7,7 +7,7 @@
  * UATs pin its acceptance through the real command:
  *
  *   AC-892  a draft deploy ships both artifact halves under a content-addressed
- *           preview prefix and returns the shareable URL
+ *           preview prefix and returns the shareable URL — when the tree is servable
  *   AC-893  the snapshot id is a pure function of the bytes: identical is a
  *           no-op, changed lands *beside* the previous snapshot
  *   AC-894  every deploy renders first, so stale `dist/` can never be shipped
@@ -15,19 +15,35 @@
  *   AC-896  `--channel published` ships the latest revision and moves `live`
  *   AC-897  …and refuses, by name, a site with no revisions
  *   AC-898  `--dry-run` prints the whole plan and writes nothing
- *   AC-899  `--prune` collects only unreferenced snapshot objects
+ *   AC-899  `--prune` collects only unreferenced snapshot objects, per store tree
  *   AC-900  the report labels every stage and terminates in the URL
  *   AC-901  a deploy whose index moved underneath it fails loudly, unclobbered
+ *   AC-924  every key a deploy writes is scoped to the store tree it came from
+ *   AC-925  a deploy from the non-servable tree reports no URL, and says why
+ *   AC-926  each store tree keeps its own deploy index
+ *
+ * The operator's machine keeps two store trees — the git-tracked `sites/` tree
+ * and the gitignored `sandbox/` scratch tree — and that separation survives the
+ * crossing into shared storage (BUG-31): the tree a definition was loaded from
+ * is part of the address its snapshot ships to.
  *
  * Shared storage is faked at the upload boundary (`MemoryR2Client`) — the whole
  * pipeline runs end-to-end with no network.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { run } from '../tools/generate/src/cli'
 import { cmdNew, cmdPublish } from '../tools/generate/src/cli/commands'
-import { distDir, draftDir, readHistory, readJson, writeJson } from '../tools/generate/src/store'
+import {
+  distDir,
+  draftDir,
+  readHistory,
+  readJson,
+  writeJson,
+  type Root,
+} from '../tools/generate/src/store'
 import {
   cmdDeploy,
   formatDeployReport,
@@ -38,8 +54,14 @@ import {
   type SiteManifest,
 } from '../tools/generate/src/deploy'
 
+/** One slug, deliberately shared across both store trees — the collision that
+ * makes root-scoping observable rather than theoretical. */
 const SLUG = 'acme'
 const NOW = '2026-07-30T12:00:00.000Z'
+
+/** The tree the public Worker serves, and the throwaway scratch tree it does not. */
+const SERVABLE: Root = 'sites'
+const SCRATCH: Root = 'sandbox'
 
 let cwd: string
 let client: MemoryR2Client
@@ -53,31 +75,37 @@ afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
-const ctx = {
+const ctxFor = (root: Root) => ({
   get cwd() {
     return cwd
   },
-  root: 'sites' as const,
-}
+  root,
+})
+const ctx = ctxFor(SERVABLE)
 
 /** Deploy through the real command, with shared storage faked at the boundary. */
 function deploy(opts: Parameters<typeof cmdDeploy>[1] = {}) {
   return cmdDeploy(SLUG, { cwd, client, now: NOW, ...opts })
 }
 
-/** Set the home page's single L1 text leaf — the marker rendered into the HTML. */
-function setPageText(marker: string): void {
-  const file = path.join(draftDir(ctx, SLUG), 'pages', 'home.json')
+/** Create the same slug in the scratch tree, so both trees hold a site called `acme`. */
+function newScratchSite(): void {
+  cmdNew(SLUG, { cwd, sandbox: true })
+}
+
+/** Set a tree's home-page single L1 text leaf — the marker rendered into the HTML. */
+function setPageText(marker: string, root: Root = SERVABLE): void {
+  const file = path.join(draftDir(ctxFor(root), SLUG), 'pages', 'home.json')
   const page = readJson<Record<string, unknown>>(file)
   const l1 = page.l1 as { root: { children: Array<{ text: string }> } }
   l1.root.children[0].text = marker
   writeJson(file, page)
 }
 
-/** The site's deploy index, read back out of shared storage. */
-async function deployIndex(): Promise<SiteManifest> {
-  const raw = await client.get(manifestKey(SLUG))
-  if (raw === null) throw new Error('no deploy index in shared storage')
+/** The site's deploy index for one store tree, read back out of shared storage. */
+async function deployIndex(root: Root = SERVABLE): Promise<SiteManifest> {
+  const raw = await client.get(manifestKey(root, SLUG))
+  if (raw === null) throw new Error(`no deploy index in shared storage under ${root}/`)
   return JSON.parse(raw) as SiteManifest
 }
 
@@ -86,12 +114,17 @@ function stageLines(report: string, label: string): string[] {
   return report.split('\n').filter((l) => l.trim().startsWith(label))
 }
 
+/** The last line of a report that carries anything — the deploy's destination. */
+function lastNonEmptyLine(report: string): string {
+  return report.split('\n').filter((l) => l.trim() !== '').at(-1) as string
+}
+
 describe('STORY — ship a site off the laptop (1c deploy)', () => {
   it('test_UAT_AC892_draft_deploy_ships_complete_artifact_to_content_addressed_preview', async () => {
     const result = await deploy()
 
-    const prefix = `sites/${SLUG}/preview/${result.sha}`
-    const keys = await client.list(`sites/${SLUG}/`)
+    const prefix = `${SERVABLE}/${SLUG}/preview/${result.sha}`
+    const keys = await client.list(`${SERVABLE}/${SLUG}/`)
 
     // Both halves of the artifact land under the content-addressed location:
     // the rendered output…
@@ -121,6 +154,22 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     expect(result.url).toContain(SLUG)
     expect(result.url).toContain(result.sha)
     expect(result.url).toBe(`https://1stcontact.io/site/${SLUG}/draft/${result.sha}/`)
+
+    // The same site in the NON-servable tree ships and indexes identically —
+    // same halves, same content addressing, same preview entry…
+    newScratchSite()
+    const scratch = await deploy({ sandbox: true })
+    const scratchPrefix = `${SCRATCH}/${SLUG}/preview/${scratch.sha}`
+    for (const rel of ['out/index.html', 'out/theme.css', 'source/site.json', 'source/pages/home.json']) {
+      expect(await client.get(`${scratchPrefix}/${rel}`)).toBeTruthy()
+    }
+    expect(await client.get(`${scratchPrefix}/out/index.html`)).toMatch(/^<!DOCTYPE html>/i)
+    expect((await deployIndex(SCRATCH)).previews).toEqual([
+      { sha: scratch.sha, createdAt: NOW, basedOn: null },
+    ])
+
+    // …but returns no URL at all, because nothing can serve it.
+    expect(scratch.url).toBeNull()
   })
 
   it('test_UAT_AC893_identical_bytes_are_a_noop_and_changed_bytes_land_beside', async () => {
@@ -145,10 +194,10 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     const third = await deploy()
     expect(third.sha).not.toBe(first.sha)
 
-    const oldPage = await client.get(`sites/${SLUG}/preview/${first.sha}/out/index.html`)
+    const oldPage = await client.get(`${SERVABLE}/${SLUG}/preview/${first.sha}/out/index.html`)
     expect(oldPage).toBeTruthy()
     expect(oldPage).not.toContain('THIRD-PASS')
-    expect(await client.get(`sites/${SLUG}/preview/${third.sha}/out/index.html`)).toContain(
+    expect(await client.get(`${SERVABLE}/${SLUG}/preview/${third.sha}/out/index.html`)).toContain(
       'THIRD-PASS',
     )
 
@@ -170,12 +219,14 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     const result = await deploy()
 
     // The uploaded bytes reflect the *current* definition.
-    const html = await client.get(`sites/${SLUG}/preview/${result.sha}/out/index.html`)
+    const html = await client.get(`${SERVABLE}/${SLUG}/preview/${result.sha}/out/index.html`)
     expect(html).toContain('MARKER-TWO')
     expect(html).not.toContain('MARKER-ONE')
 
     // The uploaded render and the uploaded definition agree with each other.
-    const source = await client.get(`sites/${SLUG}/preview/${result.sha}/source/pages/home.json`)
+    const source = await client.get(
+      `${SERVABLE}/${SLUG}/preview/${result.sha}/source/pages/home.json`,
+    )
     expect(source).toContain('MARKER-TWO')
     expect(source).not.toContain('MARKER-ONE')
 
@@ -202,7 +253,9 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     for (const result of [first, second]) {
       expect(result.revision).toBeNull()
       expect(result.url).toBe(`https://1stcontact.io/site/${SLUG}/draft/${result.sha}/`)
-      expect(await client.get(`sites/${SLUG}/preview/${result.sha}/out/index.html`)).toBeTruthy()
+      expect(
+        await client.get(`${SERVABLE}/${SLUG}/preview/${result.sha}/out/index.html`),
+      ).toBeTruthy()
     }
   })
 
@@ -212,10 +265,10 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     const result = await deploy({ channel: 'published' })
 
     // Both artifact halves are readable under the revision's own location.
-    expect(result.prefix).toBe(`sites/${SLUG}/rev/0001`)
-    expect(await client.get(`sites/${SLUG}/rev/0001/out/index.html`)).toContain('<title>')
-    expect(await client.get(`sites/${SLUG}/rev/0001/source/site.json`)).toBeTruthy()
-    expect(await client.get(`sites/${SLUG}/rev/0001/source/pages/home.json`)).toBeTruthy()
+    expect(result.prefix).toBe(`${SERVABLE}/${SLUG}/rev/0001`)
+    expect(await client.get(`${SERVABLE}/${SLUG}/rev/0001/out/index.html`)).toContain('<title>')
+    expect(await client.get(`${SERVABLE}/${SLUG}/rev/0001/source/site.json`)).toBeTruthy()
+    expect(await client.get(`${SERVABLE}/${SLUG}/rev/0001/source/pages/home.json`)).toBeTruthy()
 
     // The index lists the revision with its own id, its *publish* timestamp,
     // its publish message and the content id of the bytes shipped…
@@ -231,6 +284,22 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     expect(result.revision).toBe(1)
     expect(result.url).toBe(`https://1stcontact.io/site/${SLUG}/`)
     expect(result.url).not.toContain(result.sha)
+
+    // A published deploy from the NON-servable tree ships and indexes the same
+    // way in its own tree, and returns no URL.
+    newScratchSite()
+    await cmdPublish(SLUG, { cwd, sandbox: true, message: 'scratch', now: NOW })
+    const scratch = await deploy({ sandbox: true, channel: 'published' })
+    expect(scratch.prefix).toBe(`${SCRATCH}/${SLUG}/rev/0001`)
+    expect(await client.get(`${SCRATCH}/${SLUG}/rev/0001/out/index.html`)).toContain('<title>')
+    expect(await client.get(`${SCRATCH}/${SLUG}/rev/0001/source/site.json`)).toBeTruthy()
+    const scratchIndex = await deployIndex(SCRATCH)
+    expect(scratchIndex.live).toBe(1)
+    expect(scratchIndex.revisions).toEqual([
+      { id: 1, publishedAt: NOW, message: 'scratch', sha: scratch.sha },
+    ])
+    expect(scratch.revision).toBe(1)
+    expect(scratch.url).toBeNull()
   })
 
   it('test_UAT_AC897_published_deploy_without_revisions_is_refused_by_name_and_writes_nothing', async () => {
@@ -245,7 +314,7 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     // and no deploy index was created.
     expect(await client.list('')).toEqual([])
     expect(client.objects.size).toBe(0)
-    expect(await client.get(manifestKey(SLUG))).toBeNull()
+    expect(await client.get(manifestKey(SERVABLE, SLUG))).toBeNull()
   })
 
   it('test_UAT_AC898_dry_run_prints_the_plan_writes_nothing_and_leaves_the_real_deploy_intact', async () => {
@@ -256,7 +325,7 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     expect(rehearsal.uploadedKeys).toEqual([])
     expect(client.objects.size).toBe(0)
     expect(await client.list('')).toEqual([])
-    expect(await client.get(manifestKey(SLUG))).toBeNull()
+    expect(await client.get(manifestKey(SERVABLE, SLUG))).toBeNull()
 
     // …but the whole plan is reported, upload groups and URL included, and it
     // states plainly that it was a rehearsal.
@@ -264,7 +333,7 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     expect(report).toContain('dry-run')
     expect(report).toMatch(/upload\s+preview\/[0-9a-f]{12}\/out/)
     expect(report).toMatch(/upload\s+preview\/[0-9a-f]{12}\/source/)
-    expect(report).toContain(rehearsal.url)
+    expect(report).toContain(rehearsal.url as string)
 
     // The real deploy that follows is unaffected by the rehearsal: same content
     // id, NOT reported as already deployed, and this time it really writes.
@@ -280,14 +349,14 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
 
     // An orphan: objects written and recorded under a snapshot location that no
     // index entry names — what an interrupted deploy leaves behind.
-    const orphan = `sites/${SLUG}/preview/deadbeef0000`
+    const orphan = `${SERVABLE}/${SLUG}/preview/deadbeef0000`
     await client.record([`${orphan}/out/index.html`])
     await client.putText(`${orphan}/out/index.html`, '<!doctype html>orphan')
     await client.putText(`${orphan}/source/site.json`, '{}')
 
     // A non-snapshot object under the site, which prune must leave alone rather
     // than sweep up.
-    const bystander = `sites/${SLUG}/notes.txt`
+    const bystander = `${SERVABLE}/${SLUG}/notes.txt`
     await client.putText(bystander, 'operator notes')
 
     const result = await deploy({ prune: true })
@@ -304,8 +373,8 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
 
     // Everything the index references is untouched — as are the index itself
     // and the object that is not a snapshot object.
-    expect(await client.get(`sites/${SLUG}/preview/${kept.sha}/out/index.html`)).toBeTruthy()
-    expect(await client.get(manifestKey(SLUG))).toBeTruthy()
+    expect(await client.get(`${SERVABLE}/${SLUG}/preview/${kept.sha}/out/index.html`)).toBeTruthy()
+    expect(await client.get(manifestKey(SERVABLE, SLUG))).toBeTruthy()
     expect((await deployIndex()).previews.map((p) => p.sha)).toEqual([kept.sha])
     expect(await client.get(bystander)).toBe('operator notes')
 
@@ -315,11 +384,26 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     expect(stageLines(formatDeployReport(again), 'prune')).toEqual([
       expect.stringContaining('nothing unreferenced'),
     ])
+
+    // The candidates a prune considers are scoped to the store tree being
+    // pruned, not to the slug alone. With an orphan planted in each tree under
+    // the shared slug, pruning one never enumerates — and so never deletes —
+    // anything stored under the other.
+    newScratchSite()
+    await deploy({ sandbox: true })
+    const servableOrphan = `${SERVABLE}/${SLUG}/preview/aaaaaaaaaaaa/out/index.html`
+    const scratchOrphan = `${SCRATCH}/${SLUG}/preview/bbbbbbbbbbbb/out/index.html`
+    await client.putText(servableOrphan, '<!doctype html>servable orphan')
+    await client.putText(scratchOrphan, '<!doctype html>scratch orphan')
+
+    const scratchPrune = await deploy({ sandbox: true, prune: true })
+    expect(scratchPrune.prunedKeys).toEqual([scratchOrphan])
+    expect(await client.get(scratchOrphan)).toBeNull()
+    expect(await client.get(servableOrphan)).toBe('<!doctype html>servable orphan')
   })
 
   it('test_UAT_AC900_report_labels_every_stage_and_terminates_in_the_shareable_url', async () => {
     const report = formatDeployReport(await deploy())
-    const lines = report.split('\n')
 
     // A line begins with each stage label that ran.
     for (const label of ['render', 'hash', 'upload', 'manifest']) {
@@ -333,8 +417,7 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     expect(report).toMatch(/upload\s+preview\/[0-9a-f]{12}\/source\s+\d+ files/)
 
     // The final non-empty line is the shareable URL.
-    const lastNonEmpty = lines.filter((l) => l.trim() !== '').at(-1)
-    expect(lastNonEmpty).toMatch(
+    expect(lastNonEmptyLine(report)).toMatch(
       new RegExp(`→\\s+https://1stcontact\\.io/site/${SLUG}/draft/[0-9a-f]{12}/$`),
     )
 
@@ -361,7 +444,7 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
         await inner.put(key, localPath, contentType)
         if (!raced) {
           raced = true
-          await inner.putText(manifestKey(SLUG), serializeManifest(otherDeploy))
+          await inner.putText(manifestKey(SERVABLE, SLUG), serializeManifest(otherDeploy))
         }
       },
       putText: (key, body, contentType) => inner.putText(key, body, contentType),
@@ -386,5 +469,121 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
     const stored = await deployIndex()
     expect(stored).toEqual(otherDeploy)
     expect(stored.previews.map((p) => p.sha)).toEqual(['aaaaaaaaaaaa'])
+  })
+
+  it('test_UAT_AC924_every_key_a_deploy_writes_is_scoped_to_its_store_tree', async () => {
+    // Two sites, same slug, one per store tree, with distinguishable content.
+    newScratchSite()
+    setPageText('REAL-SITE-CONTENT', SERVABLE)
+    setPageText('SCRATCH-CONTENT', SCRATCH)
+
+    const scratch = await deploy({ sandbox: true })
+
+    // Nothing whatsoever exists under the real-sites tree: no snapshot object,
+    // no index write, and the deploy never read the other tree's index either
+    // (a read that fed the write would have created one).
+    expect(await client.list(`${SERVABLE}/`)).toEqual([])
+    expect(await client.get(manifestKey(SERVABLE, SLUG))).toBeNull()
+
+    // Every key the deploy reports having written is under the scratch tree…
+    expect(scratch.root).toBe(SCRATCH)
+    expect(scratch.uploadedKeys.length).toBeGreaterThan(0)
+    for (const key of scratch.uploadedKeys) {
+      expect(key.startsWith(`${SCRATCH}/${SLUG}/`), key).toBe(true)
+    }
+    // …including the deploy index itself.
+    expect(await client.get(manifestKey(SCRATCH, SLUG))).toBeTruthy()
+
+    // …and the snapshot prefix the result reports names that tree.
+    expect(scratch.prefix).toBe(`${SCRATCH}/${SLUG}/preview/${scratch.sha}`)
+
+    // This is namespacing, not a no-op: the scratch site's real rendered markup
+    // reads back under the scratch prefix.
+    const html = await client.get(`${scratch.prefix}/out/index.html`)
+    expect(html).toMatch(/^<!DOCTYPE html>/i)
+    expect(html).toContain('SCRATCH-CONTENT')
+    expect(html).not.toContain('REAL-SITE-CONTENT')
+  })
+
+  it('test_UAT_AC925_non_servable_tree_deploy_reports_no_url_and_says_why', async () => {
+    newScratchSite()
+    const scratch = await deploy({ sandbox: true })
+
+    // An explicit absence — not an empty string, not a URL that would 404.
+    expect(scratch.url).toBeNull()
+    expect(scratch.url).not.toBe('')
+
+    // The upload, the content addressing and the index update are otherwise
+    // exactly what a servable deploy does.
+    expect(scratch.uploadedKeys.length).toBeGreaterThan(0)
+    expect(scratch.sha).toMatch(/^[0-9a-f]{12}$/)
+    expect((await deployIndex(SCRATCH)).previews.map((p) => p.sha)).toEqual([scratch.sha])
+
+    // The report ends in the snapshot's storage prefix followed by a statement
+    // that it is not publicly reachable — rather than in an origin.
+    const last = lastNonEmptyLine(formatDeployReport(scratch))
+    expect(last).toContain(`${SCRATCH}/${SLUG}/preview/${scratch.sha}/`)
+    expect(last).toContain('not publicly reachable')
+    expect(last).not.toContain('https://')
+
+    // The corresponding servable-tree deploy of the same site still ends in a URL.
+    const servable = await deploy()
+    expect(servable.url).toBe(`https://1stcontact.io/site/${SLUG}/draft/${servable.sha}/`)
+    expect(lastNonEmptyLine(formatDeployReport(servable))).toContain(servable.url as string)
+
+    // The command's own help says the same thing, and points at the workaround
+    // for exercising the serving path.
+    const printed: string[] = []
+    const spy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      printed.push(args.join(' '))
+    })
+    try {
+      await run(['help'])
+    } finally {
+      spy.mockRestore()
+    }
+    const help = printed.join('\n')
+    expect(help).toContain('--sandbox')
+    expect(help).toMatch(/nothing serves|has no URL/)
+    expect(help).toContain('throwaway slug in storage/sites/')
+  })
+
+  it('test_UAT_AC926_each_store_tree_keeps_its_own_deploy_index', async () => {
+    // A real site, published and deployed, with distinguishable content.
+    newScratchSite()
+    setPageText('REAL-SITE-CONTENT', SERVABLE)
+    await cmdPublish(SLUG, { cwd, message: 'real', now: '2026-07-30T11:00:00.000Z' })
+    const real = await deploy({ channel: 'published' })
+    const realIndexBytes = await client.get(manifestKey(SERVABLE, SLUG))
+    const realRevisionBytes = await client.get(`${SERVABLE}/${SLUG}/rev/0001/out/index.html`)
+    expect(realRevisionBytes).toContain('REAL-SITE-CONTENT')
+
+    // The scratch site mints revision 1 too and deploys it on the published
+    // channel: same slug, same revision number, same channel — the collision.
+    setPageText('SCRATCH-CONTENT', SCRATCH)
+    await cmdPublish(SLUG, { cwd, sandbox: true, message: 'scratch', now: NOW })
+    const scratch = await deploy({ sandbox: true, channel: 'published' })
+    expect(scratch.sha).not.toBe(real.sha)
+
+    // The real site's index is byte-identical: same previews, same revisions,
+    // same live pointer — no entry was appended and the pointer did not move.
+    expect(await client.get(manifestKey(SERVABLE, SLUG))).toBe(realIndexBytes)
+    const realIndex = await deployIndex(SERVABLE)
+    expect(realIndex.live).toBe(1)
+    expect(realIndex.revisions).toEqual([
+      { id: 1, publishedAt: '2026-07-30T11:00:00.000Z', message: 'real', sha: real.sha },
+    ])
+
+    // The real site's published bytes were not overwritten by the scratch site's.
+    const afterBytes = await client.get(`${SERVABLE}/${SLUG}/rev/0001/out/index.html`)
+    expect(afterBytes).toBe(realRevisionBytes)
+    expect(afterBytes).toContain('REAL-SITE-CONTENT')
+    expect(afterBytes).not.toContain('SCRATCH-CONTENT')
+
+    // Each index lists exactly the snapshot ids deployed from its own tree.
+    const scratchIndex = await deployIndex(SCRATCH)
+    expect(realIndex.revisions.map((r) => r.sha)).toEqual([real.sha])
+    expect(scratchIndex.revisions.map((r) => r.sha)).toEqual([scratch.sha])
+    expect(scratchIndex.live).toBe(1)
   })
 })
