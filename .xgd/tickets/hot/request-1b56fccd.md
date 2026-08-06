@@ -5,7 +5,7 @@ type: request
 title: 'R2 artifact store + 1c deploy: ship rendered snapshots to Cloudflare'
 created_by: xgd
 created_at: '2026-07-30T19:34:53.952227+00:00'
-updated_at: '2026-08-06T04:56:50.011625+00:00'
+updated_at: '2026-08-06T05:11:58.674918+00:00'
 completed_at: null
 last_field_updated: status
 status: bundled
@@ -19,7 +19,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.6
-  bundled_in: bundle-0e41ff44
+  bundled_in: bundle-e0143ffa
 ---
 
 ## The gap
