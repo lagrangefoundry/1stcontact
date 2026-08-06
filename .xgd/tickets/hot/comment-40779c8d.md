@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:16:34.903730+00:00'
+updated_at: '2026-08-06T22:20:02.163964+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -760,5 +760,11 @@ Two things that will still bite, neither fixed:
 
 - **The divider** — `lagrange-framework` REQ-64. Release the mouse over the right-hand pane to end a drag.
 - **Restart the builder after any code change.** It loads its modules at boot, so anything I commit is invisible to a running instance. That's what made these last three fixes look ineffective until I restarted it. If something seems not to have taken effect, that's the first thing to check.
+
+<!-- xgd-turn id="478d94cd-d8c4-4109-ab38-2a4878274c68-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T22:20:02.011055+00:00" -->
+#### You
+I'm not seeing the change
 
 <!-- xgd-chat-end -->
