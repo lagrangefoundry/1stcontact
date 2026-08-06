@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T02:38:48.366585+00:00'
+updated_at: '2026-08-06T02:48:54.656418+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -386,7 +386,7 @@ fields:
     item_type: feature
     story_points: 2
     dependencies: []
-    story_uid: null
+    story_uid: story-2e4e2c45
     description: 'Document L1''s link role and DOM id emission (REQ-106). A link is
       a role any subtree can take rather than a seventh node kind, so link (href,
       newTab, ariaLabel) is a node-level field. The renderer RETAGS the element the
