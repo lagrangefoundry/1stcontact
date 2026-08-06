@@ -421,6 +421,26 @@ describe('AC-931 references resolve once at the load boundary, so the authoring 
     expect(loadedLiterals.value.site.palette).toBeUndefined()
     expect(errorsOf(siteWith(literal))).toEqual([])
     expect(b.css).toContain('#4aafc9')
+
+    // ── the precondition resolution-at-the-boundary places on the render seam ──
+    // Because resolution happens at the boundary, the palette is an INPUT to
+    // rendering and not something the renderer can recover. A caller entering
+    // below the boundary — handing the renderer the stored document directly —
+    // must supply that document's palette with it.
+    const stored = JSON.parse(onDisk) as { l1: L1Document }
+
+    // Without it, rendering RAISES. It does not fall back to a default colour or
+    // silently drop the axis: an unresolvable reference is loud wherever it is
+    // met, which is the same rule that makes a dangling reference a validation
+    // failure rather than a render-time substitution.
+    expect(() => renderL1Document(stored.l1)).toThrow(/palette/i)
+
+    // With it, the same document renders exactly as the load boundary's own
+    // output does — so the requirement is only that the palette travel with the
+    // document, not that the seam behave differently.
+    const direct = renderL1Document(stored.l1, { palette: PALETTE })
+    expect(direct.css).toBe(a.css)
+    expect(direct.html).toBe(a.html)
   })
 })
 

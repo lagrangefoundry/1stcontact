@@ -13,7 +13,8 @@
  *   AC-870  `1c render` paints it with no intervening edit.
  *   AC-871  `1c shot` screenshots it with no intervening edit.
  *   AC-872  the seeded ladder IS the capture ladder — derived, not restated.
- *   AC-873  colour comes from the site's own theme, not invented literals.
+ *   AC-873  colour is stated as literals in the page's own layout document, and
+ *           creation declares no palette (REQ-114 retired the theme's).
  *   AC-874  the root is flowed, not pinned — no per-width geometry track.
  *   AC-875  one shape, no opt-in: creation takes a slug and the shared
  *           workspace-root selector, and the documented usage advertises none.
@@ -39,6 +40,9 @@ import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+/** The hex grammar an L1 colour literal is written in (DOC-23 §5). */
+const HEX = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/
 
 const browserOk = await chromiumAvailable()
 const itB = it.runIf(browserOk)
@@ -157,9 +161,13 @@ describe('story-86c7c21b — a created site renders unedited', () => {
     expect(html).toContain('display: flex')
     expect(html).toContain('align-items: center')
 
-    // …painted on the document background the site's OWN theme declares.
-    const theme = readSiteJson(draftDir).theme as { palette: { bg: string } }
-    expect(html).toContain(`background-color: ${theme.palette.bg}`)
+    // …painted on the document background the created page's OWN layout document
+    // declares. Read back off disk, not restated here: the render is being shown
+    // to carry the seeded colour through, which a hard-coded literal would not
+    // demonstrate.
+    const doc = readHome(draftDir).l1 as L1Document
+    expect(doc.background).toMatch(HEX)
+    expect(html).toContain(`background-color: ${doc.background}`)
   })
 })
 
@@ -205,31 +213,50 @@ describe('story-86c7c21b — the starting ladder is the capture ladder', () => {
   })
 })
 
-// ── AC-873 — colour comes from the site's own theme ──────────────────────────
+// ── AC-873 — colour is stated as literals in the page's own document ──────────
 
-describe('story-86c7c21b — the starting colours come from the theme', () => {
-  it('test_UAT_AC873_document_and_placeholder_colours_come_from_the_site_theme', () => {
+describe('story-86c7c21b — the starting colours live in the page document', () => {
+  it('test_UAT_AC873_document_and_placeholder_colours_are_literals_in_the_page_document', () => {
     const cwd = freshCwd()
     const { draftDir } = cmdNew('themed', { cwd })
 
     // Both artifacts creation writes, read back off disk.
-    const theme = readSiteJson(draftDir).theme as { palette: { bg: string; text: string } }
+    const site = readSiteJson(draftDir)
     const doc = readHome(draftDir).l1 as L1Document
 
-    // Compared against the theme read from the created site, not against a
-    // hard-coded literal — the theme stays the single place colour is stated.
-    expect(doc.background).toBe(theme.palette.bg)
+    // REQ-114 — the page document is where a fresh site's colour is stated. Both
+    // page-level colours are plain hex literals: a literal is always a valid
+    // colour (DOC-23 §5), so a starting page needs no palette to be complete.
+    expect(doc.background).toMatch(HEX)
+    expect(doc.textColor).toMatch(HEX)
 
     const placeholder = walk(doc.root).find((n) => n.kind === 'text') as
       | { axes?: { color?: string } }
       | undefined
     expect(placeholder).toBeDefined()
-    expect(placeholder?.axes?.color).toBe(theme.palette.text)
+    // The run inherits the document's own text colour rather than restating a
+    // third value, so the page keeps ONE statement of each colour.
+    expect(placeholder?.axes?.color).toBe(doc.textColor)
 
-    // The scaffold introduces no colour value the theme does not already state.
-    const themeColours = new Set(Object.values(theme.palette).map((c) => c.toLowerCase()))
-    const seeded = [doc.background, placeholder?.axes?.color].filter(Boolean) as string[]
-    for (const c of seeded) expect(themeColours.has(c.toLowerCase())).toBe(true)
+    // Creation declares no palette anywhere — neither a site-level one nor a
+    // theme colour surface. The colour group left the token surface with the
+    // legacy palette; the theme a created site carries is the non-colour groups
+    // only, and every one of those still arrives.
+    expect(site.palette).toBeUndefined()
+    const theme = site.theme as Record<string, unknown>
+    expect(theme.palette).toBeUndefined()
+    expect(Object.keys(theme).sort()).toEqual(
+      ['breakpoints', 'container', 'radius', 'shadow', 'spacing', 'typography'].sort(),
+    )
+
+    // The scaffold invents no third colour: every colour value anywhere in the
+    // seeded document is one of the two the document itself declares.
+    const declared = new Set([doc.background, doc.textColor].map((c) => c.toLowerCase()))
+    const seeded = walk(doc.root)
+      .flatMap((n) => Object.values(((n as { axes?: Record<string, unknown> }).axes ?? {}) as object))
+      .filter((v): v is string => typeof v === 'string' && HEX.test(v))
+    expect(seeded.length).toBeGreaterThan(0)
+    for (const c of seeded) expect(declared.has(c.toLowerCase())).toBe(true)
   })
 })
 

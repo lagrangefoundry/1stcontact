@@ -41,6 +41,7 @@ import path from 'node:path'
 import worker from '../apps/public-site/src/index'
 import { parseRoute } from '../apps/public-site/src/routes'
 import { contentTypeFor as servedTypeFor } from '../apps/public-site/src/content-type'
+import { SERVABLE_ROOT } from '../apps/public-site/src/site-store'
 import { cmdNew, cmdPublish } from '../tools/generate/src/cli/commands'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
 import { distDir, draftDir, readJson, writeJson } from '../tools/generate/src/store'
@@ -247,15 +248,24 @@ async function withEdgeCache(body: () => Promise<void>): Promise<void> {
   }
 }
 
-/** The site's deploy index, read back out of shared storage. */
+/**
+ * The site's deploy index, read back out of shared storage.
+ *
+ * Addressed under the root the Worker actually serves (BUG-31) rather than a
+ * bare literal: the index is keyed by root on both sides, so a test that read
+ * some other root would be asserting against a manifest nothing serves.
+ */
 async function deployIndex(): Promise<SiteManifest> {
-  const raw = await client.get(manifestKey(SLUG))
+  const raw = await client.get(manifestKey(SERVABLE_ROOT, SLUG))
   if (raw === null) throw new Error('no deploy index in shared storage')
   return JSON.parse(raw) as SiteManifest
 }
 
 function putDeployIndex(m: SiteManifest): void {
-  client.objects.set(manifestKey(SLUG), Buffer.from(JSON.stringify(m, null, 2) + '\n', 'utf8'))
+  client.objects.set(
+    manifestKey(SERVABLE_ROOT, SLUG),
+    Buffer.from(JSON.stringify(m, null, 2) + '\n', 'utf8'),
+  )
 }
 
 /**
@@ -449,7 +459,7 @@ describe('STORY — serve a deployed snapshot to a visitor', () => {
     // The identifier from the URL was only ever looked UP in the index; the
     // orphan's location was never read.
     expect(orphan.bucket.snapshotReads).toEqual([])
-    expect(orphan.bucket.readKeys).toEqual([manifestKey(SLUG)])
+    expect(orphan.bucket.readKeys).toEqual([manifestKey(SERVABLE_ROOT, SLUG)])
     // …and the indexed snapshot for the same site is unaffected.
     expect((await get(indexedUrl)).status).toBe(200)
 

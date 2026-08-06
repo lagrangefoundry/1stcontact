@@ -26,6 +26,7 @@ import {
   validateL1,
   type L1Document,
   type L1Node,
+  type L1Palette,
   type L1SurfaceAxes,
 } from '../packages/site-schema/src/index'
 import {
@@ -570,7 +571,12 @@ describe('AC-831 texture composes with fill, gradient, scrim and image in a defi
       const page = JSON.parse(readFileSync(file, 'utf8')) as { l1?: L1Document }
       if (!page.l1 || patternedNodes(page.l1.root) > 0) continue
       checked++
-      const { css } = renderL1Document(page.l1)
+      // REQ-114 — a shipped page may author its colours as palette references, so
+      // it is rendered against its own site's palette, exactly as the load
+      // boundary supplies it. Resolution is what makes the reference form
+      // invisible here: the emitter sees the same document either way, which is
+      // the point being asserted (no untextured page's CSS moved a byte).
+      const { css } = renderL1Document(page.l1, { palette: paletteFor(file) })
       for (const [, value] of css.matchAll(/background-size:\s*([^;}]+)/g)) {
         expect(commaList(value.trim()), `${file} background-size`).toHaveLength(1)
       }
@@ -578,6 +584,19 @@ describe('AC-831 texture composes with fill, gradient, scrim and image in a defi
     expect(checked, 'at least one shipped page declares no texture').toBeGreaterThan(0)
   })
 })
+
+/**
+ * The palette declared by the site owning `pageFile`, or `undefined` for a
+ * literal-only site. This is the site-level palette a page's colour references
+ * resolve against (REQ-114); `renderL1Document` requires it whenever the
+ * document it is handed carries a reference, since an unresolvable reference
+ * throws rather than falling back.
+ */
+function paletteFor(pageFile: string): L1Palette | undefined {
+  const siteFile = pageFile.replace(/[/\\]pages[/\\][^/\\]+$/, '/site.json')
+  const site = JSON.parse(readFileSync(siteFile, 'utf8')) as { palette?: L1Palette }
+  return site.palette
+}
 
 /** How many nodes in the tree declare the texture axis. */
 function patternedNodes(node: L1Node): number {

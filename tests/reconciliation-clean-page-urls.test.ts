@@ -43,6 +43,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import worker from '../apps/public-site/src/index'
 import { parseRoute } from '../apps/public-site/src/routes'
+import { SERVABLE_ROOT } from '../apps/public-site/src/site-store'
 import { cmdNew, cmdPublish, cmdRender } from '../tools/generate/src/cli/commands'
 import { startServe, type ServeHandle } from '../tools/generate/src/cli'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
@@ -290,7 +291,10 @@ async function deployPublished(): Promise<void> {
     now: '2026-07-30T12:00:00.000Z',
     channel: 'published',
   })
-  const raw = await client.get(manifestKey(SLUG))
+  // Keyed by the root the Worker serves (BUG-31) — the deploy index is addressed
+  // by root on both sides, so reading any other root reads a manifest that
+  // nothing on the serving path would ever consult.
+  const raw = await client.get(manifestKey(SERVABLE_ROOT, SLUG))
   const manifest = JSON.parse(raw as string) as SiteManifest
   // Guard the guard: a published channel with no live revision would 404 for
   // reasons that have nothing to do with this story.

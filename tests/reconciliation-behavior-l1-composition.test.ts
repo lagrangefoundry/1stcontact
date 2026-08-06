@@ -9,6 +9,7 @@ import {
   contactFormMeta,
   contactFormPreset,
   getModuleCss,
+  L1_EDIT_MARKER_ATTR,
   resolveControlNames,
   validateBehaviorControls,
   validateBehaviorInstance,
@@ -59,6 +60,39 @@ function moduleCss(slug: string): string {
 }
 
 /** Every `selector { … }` rule in a stylesheet, split to one entry per selector. */
+/**
+ * The closed set of properties a **settled-state** rule may set (REQ-116).
+ *
+ * These are the flow- and scroll-release properties: they undo the module's own
+ * behavioural mechanics so content the behaviour was holding out of view becomes
+ * visible in the edit render. None of them paints, and none of them is an axis an
+ * L1 subtree owns — which is what keeps this a second bounded carve-out on the
+ * zero-CSS obligation rather than a hole in it.
+ */
+const SETTLED_STATE_PROPERTIES = [
+  'display',
+  'flex-wrap',
+  'overflow',
+  'overflow-x',
+  'overflow-y',
+  'position',
+  'scroll-snap-type',
+  'visibility',
+]
+
+/** Is `selector` scoped to the edit channel by the document-level marker? */
+function isEditScoped(selector: string): boolean {
+  return selector.includes(`[${L1_EDIT_MARKER_ATTR}]`)
+}
+
+/** The property names a rule body sets. */
+function propertiesOf(body: string): string[] {
+  return body
+    .split(';')
+    .map((d) => d.split(':')[0].trim().toLowerCase())
+    .filter(Boolean)
+}
+
 function rulesOf(css: string): Array<{ selector: string; body: string }> {
   return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap((m) =>
     m[1]
@@ -261,8 +295,10 @@ describe('story-179b8c06 — behavior modules paint only their invariant element
       expect(
         ['.carousel__track', '.carousel__track::-webkit-scrollbar', '.carousel__slide'].includes(
           selector,
-        ) || /^\[data-carousel-dot\]/.test(selector),
-        `carousel selector ${selector} is mechanics or the current-slide signal`,
+        ) ||
+          /^\[data-carousel-dot\]/.test(selector) ||
+          isEditScoped(selector),
+        `carousel selector ${selector} is mechanics, the current-slide signal, or a settled state`,
       ).toBe(true)
     }
     // A slide's width and the rhythm between slides are the slide subtrees' own.
@@ -280,6 +316,34 @@ describe('story-179b8c06 — behavior modules paint only their invariant element
     // The mechanics without which the behaviour does not work are still there.
     expect(carouselCss).toMatch(/scroll-snap-type/)
     expect(carouselCss).toMatch(/scroll-snap-align/)
+
+    // ── the settled-state carve-out (REQ-116) ─────────────────────────────────
+    // A module whose behaviour keeps content out of view declares its own
+    // behaviour-off state, because only the module knows what its behaviour was
+    // holding back. That is a second declared carve-out on the zero-CSS rule, and
+    // it is bounded exactly like the first: the rule is scoped to the edit
+    // channel, and it RELEASES rather than PAINTS.
+    const settled = [...rulesOf(carouselCss), ...rulesOf(moduleCss('contact-form'))].filter((r) =>
+      isEditScoped(r.selector),
+    )
+    expect(settled.length, 'a settled-state rule exists to be bounded').toBeGreaterThan(0)
+    for (const { selector, body } of settled) {
+      // Scoped by the DOCUMENT-level marker, which only the edit render sets, so
+      // the rule cannot reach a published or draft-preview page at all. This is
+      // what keeps AC-809's zero-CSS guarantee intact where it is load-bearing.
+      expect(selector, `settled rule ${selector}`).toMatch(
+        new RegExp(`^\\[${L1_EDIT_MARKER_ATTR}\\]\\s`),
+      )
+      // It touches only the closed set of flow-release properties — the ones that
+      // undo the module's own mechanics. Nothing here decides how anything looks.
+      for (const prop of propertiesOf(body)) {
+        expect(SETTLED_STATE_PROPERTIES, `settled rule ${selector} sets '${prop}'`).toContain(prop)
+      }
+      // Stated as a negative too, against the same screen the paint rules face.
+      expect(body, `settled rule ${selector}`).not.toMatch(
+        /background|color|border|font|gap|flex-basis|width|height|padding|margin|box-shadow/,
+      )
+    }
 
     // ── Rendered: every invariant element carries the marker attribute ────────
     const formHtml = await render(ContactForm, {
