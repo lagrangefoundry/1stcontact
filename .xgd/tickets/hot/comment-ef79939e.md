@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-44
 created_by: xgd
 created_at: '2026-08-06T18:59:56.858068+00:00'
-updated_at: '2026-08-06T19:00:24.755045+00:00'
+updated_at: '2026-08-06T19:10:57.610800+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -33,5 +33,11 @@ It's both — the ticket as written bundles two asks that live in different repo
 The root cause you diagnosed is the XGD half; the 1stcontact half is defence-in-depth that catches the drift regardless of what caused it. Worth keeping both — the preflight is useful even if XGD never installs anything, because a stale tree can also come from a plain `git pull`.
 
 Suggested split: narrow REQ-44 to the `1c` preflight, and file the install-after-manifest-change ask as an XGD ticket. Want me to rewrite the body to that scope? I won't create the XGD-side ticket unless you ask.
+
+<!-- xgd-turn id="47fa9184-6992-4123-ad25-4c05843fc64e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:10:57.463702+00:00" -->
+#### You
+note that xgd core MUST NOT do anything language specific - it needs to call the plugin - can you implement 1c part of this and create a ticket in xgd for the other piece please
 
 <!-- xgd-chat-end -->
