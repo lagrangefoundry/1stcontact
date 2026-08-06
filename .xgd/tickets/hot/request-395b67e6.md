@@ -5,7 +5,7 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-06T19:27:02.051798+00:00'
+updated_at: '2026-08-06T19:51:52.665667+00:00'
 completed_at: null
 last_field_updated: commits
 status: ready_to_reconcile
@@ -23,7 +23,10 @@ fields:
   - working_sha: 94ae6feed6e5a07bc1074c2ac4ed38b3388e0874
     reconcile_sha: null
     main_sha: null
-  version: 0.1.17
+  - working_sha: cda7fe4dba15b7da70cdbad837517e3a68af1fff
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.18
   story_points: 3
 ---
 
