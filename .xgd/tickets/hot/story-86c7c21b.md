@@ -6,10 +6,10 @@ title: 'A newly created site is a page that already renders: creation seeds a co
   valid layout document'
 created_by: xgd
 created_at: '2026-08-06T03:42:07.316109+00:00'
-updated_at: '2026-08-06T03:42:07.316109+00:00'
+updated_at: '2026-08-06T03:49:35.524918+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-ee56a66e
   capability_uid: capability-ccac1b1d
