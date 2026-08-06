@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A retained bundle can be re-folded offline, rewriting only what the fold derived
 created_by: xgd
 created_at: '2026-08-06T01:45:30.379113+00:00'
-updated_at: '2026-08-06T01:45:30.379113+00:00'
+updated_at: '2026-08-06T01:59:30.850232+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
