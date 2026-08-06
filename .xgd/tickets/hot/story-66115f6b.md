@@ -6,10 +6,10 @@ title: 'Clean page URLs: the link an author writes resolves the same in local pr
   and on the deployed site'
 created_by: xgd
 created_at: '2026-08-06T19:02:03.988902+00:00'
-updated_at: '2026-08-06T19:02:03.988902+00:00'
+updated_at: '2026-08-06T19:13:55.971007+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-e0143ffa
   capability_uid: capability-a12e557f
