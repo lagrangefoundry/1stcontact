@@ -1392,7 +1392,11 @@ function columnOriginCss(col: L1Column): string {
  * are *static* declarations: the column function is exact at every viewport width,
  * so unlike a keyframe track it needs no media queries and no extrapolation.
  */
-function anchorDecls(anchor: L1ColumnAnchor, col: L1Column): string[] {
+function anchorDecls(
+  anchor: L1ColumnAnchor,
+  col: L1Column,
+  widthProp: 'width' | 'min-width' = 'width',
+): string[] {
   const extent = columnExtentCss(col)
   const decls: string[] = []
 
@@ -1419,7 +1423,7 @@ function anchorDecls(anchor: L1ColumnAnchor, col: L1Column): string[] {
   // A tracked constant is emitted per-breakpoint by the caller (it needs media
   // rules); the static declaration is only for a term whose constant is constant.
   if (anchor.x && !anchor.x.pxTrack) decls.push(`left: ${termCss(anchor.x, columnOriginCss(col))}`)
-  if (anchor.width && !anchor.width.pxTrack) decls.push(`width: ${termCss(anchor.width)}`)
+  if (anchor.width && !anchor.width.pxTrack) decls.push(`${widthProp}: ${termCss(anchor.width)}`)
   return decls
 }
 
@@ -1431,7 +1435,7 @@ function anchorDecls(anchor: L1ColumnAnchor, col: L1Column): string[] {
  */
 function anchorTrackRules(
   selector: string,
-  prop: 'left' | 'width',
+  prop: 'left' | 'width' | 'min-width',
   term: L1ColumnTerm,
   col: L1Column,
 ): Rule[] {
@@ -1477,7 +1481,12 @@ function viewportResponsive(base: string, factor: number, atHeight: number): str
  * media query happened to sort last winning. The keyframes remain in the document
  * as the captured record of what the function evaluates to at the sampled widths.
  */
-function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Rule[] {
+function geometryRules(
+  selector: string,
+  geo: L1Geometry,
+  column?: L1Column,
+  nowrapFromPx?: number,
+): Rule[] {
   const frames = geo.keyframes
   const rules: Rule[] = []
   // REQ-88 — suppression is PER AXIS: a node may take its left edge from the
@@ -1488,22 +1497,69 @@ function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Ru
   const yF = geo.viewportResponse?.yFactor ?? 0
   const hF = geo.viewportResponse?.heightFactor ?? 0
 
+  /**
+   * REQ-117 — the captured width of a run that cannot wrap is a FLOOR, not a cap.
+   *
+   * The fold pins `width` to what the reference text measured. That is exactly
+   * right while the text is the reference text, and silently destructive the
+   * moment anyone edits it: a longer string overflows the box, and where the
+   * run is painted by a gradient clipped to its glyphs (`background-clip: text`
+   * with a transparent `color` — the common treatment for a display heading)
+   * the overflow falls outside the background's painting area and is drawn with
+   * NOTHING. Not clipped, not ellipsised, not spilling — absent. The editor
+   * reports a successful save and the page shows the old words.
+   *
+   * `min-width` keeps the captured geometry as the floor while letting the box
+   * grow with its content, so the paint area grows with it.
+   *
+   * This applies ONLY where `white-space: nowrap` is in force. For a wrapping
+   * run the fixed width is load-bearing — it is what decides the line breaks —
+   * and relaxing it to a floor would let an absolutely-positioned run stretch
+   * to its shrink-to-fit width and reflow every line. So the swap is keyed to
+   * the breakpoint at which the reference stopped wrapping (`nowrapFromPx`):
+   * at or above it the width cannot affect breaking, below it still can.
+   */
+  const relaxed = (atPx: number): boolean => nowrapFromPx !== undefined && atPx >= nowrapFromPx
+
+  /**
+   * The width declaration(s) for one rung.
+   *
+   * `width: auto` is not decoration — it is what keeps the ladder working. The
+   * rungs are cumulative overrides of the SAME property: the rule at 320px stays
+   * in force at 1280px and is simply overridden by the rules above it. Renaming
+   * the upper rungs to `min-width` stops them overriding anything, which leaves
+   * the lowest rung's *interpolation* live far outside the segment it was fitted
+   * to — `calc(-836.545px + 314.545vw)` is 343px at 375px wide and 3190px at
+   * 1280px. Resetting `width` to `auto` on the same rung restores the override
+   * and hands sizing to shrink-to-fit, with the captured value as the floor.
+   */
+  const widthDecls = (atPx: number, value: string): string[] =>
+    relaxed(atPx) ? [`width: auto`, `min-width: ${value}`] : [`width: ${value}`]
+
   /** Held (non-interpolated) declarations for one keyframe. */
   const decls = (kf: L1Geometry['keyframes'][number]): string[] => {
     const h = kf.atHeight
     const d: string[] = [`top: ${h ? viewportResponsive(`${kf.y}px`, yF, h) : `${kf.y}px`}`]
     if (!anchoredX) d.push(`left: ${kf.x}px`)
-    if (!anchoredWidth) d.push(`width: ${kf.width}px`)
+    if (!anchoredWidth) d.push(...widthDecls(kf.at, `${kf.width}px`))
     if (kf.height !== undefined) {
       d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hF, h) : `${kf.height}px`}`)
     }
     return d
   }
 
+  // The anchored-width declarations carry no media query of their own, so they
+  // may only relax to a floor when the run cannot wrap ANYWHERE on the ladder —
+  // otherwise the floor would also apply below the wrap threshold.
+  // An anchored width owns the axis alone (keyframe widths are suppressed), so
+  // there is no earlier `width` to reset — the prop is all that is needed.
+  const anchorWidthProp: 'width' | 'min-width' = relaxed(frames[0].at) ? 'min-width' : 'width'
   const staticDecls: string[] = ['position: absolute']
-  if (anchor) staticDecls.push(...anchorDecls(anchor, column!))
+  if (anchor) staticDecls.push(...anchorDecls(anchor, column!, anchorWidthProp))
   if (anchor?.x?.pxTrack) rules.push(...anchorTrackRules(selector, 'left', anchor.x, column!))
-  if (anchor?.width?.pxTrack) rules.push(...anchorTrackRules(selector, 'width', anchor.width, column!))
+  if (anchor?.width?.pxTrack) {
+    rules.push(...anchorTrackRules(selector, anchorWidthProp, anchor.width, column!))
+  }
 
   // Base: the smallest-width keyframe held statically (covers below-ladder widths).
   rules.push({ selector, decls: [...staticDecls, ...decls(frames[0])] })
@@ -1530,7 +1586,7 @@ function geometryRules(selector: string, geo: L1Geometry, column?: L1Column): Ru
       }
       const d = [`top: ${respond(lerpCalc(a.y, a.at, b.y, b.at), yF)}`]
       if (!anchoredX) d.push(`left: ${lerpCalc(a.x, a.at, b.x, b.at)}`)
-      if (!anchoredWidth) d.push(`width: ${lerpCalc(a.width, a.at, b.width, b.at)}`)
+      if (!anchoredWidth) d.push(...widthDecls(a.at, lerpCalc(a.width, a.at, b.width, b.at)))
       if (a.height !== undefined && b.height !== undefined) {
         d.push(`height: ${respond(lerpCalc(a.height, a.at, b.height, b.at), hF)}`)
       }
@@ -1785,7 +1841,12 @@ function emitNode(
   const base: string[] = []
 
   if (node.geometry) {
-    state.rules.push(...geometryRules(selector, node.geometry, state.column))
+    // REQ-117 — only a run that cannot wrap hands its width over as a floor
+    // (see `geometryRules`). A `control` is a text leaf on the same axes, so it
+    // qualifies on the same terms; a box's width is structure and never does.
+    const nowrapFromPx =
+      node.kind === 'text' || node.kind === 'control' ? node.axes?.nowrapFromPx : undefined
+    state.rules.push(...geometryRules(selector, node.geometry, state.column, nowrapFromPx))
   }
   /**
    * The text-axis bag → CSS, shared by the `text` run and the REQ-96 `control`
