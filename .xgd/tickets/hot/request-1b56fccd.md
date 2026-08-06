@@ -15,7 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 4399328388088777ccc173a3ceb085a43af01eb1
+  - working_sha: e045ea6cf6c6663068ab155694842f63b72c1e6f
     reconcile_sha: null
     main_sha: null
   version: 0.1.6
