@@ -6,10 +6,10 @@ title: 'Authored L1 bypasses the envelope validator: validateL1 never runs outsi
   the reproduction path'
 created_by: xgd
 created_at: '2026-07-27T23:31:36.175745+00:00'
-updated_at: '2026-08-05T19:32:19.882724+00:00'
-completed_at: null
+updated_at: '2026-08-06T04:54:59.003344+00:00'
+completed_at: '2026-08-06T04:54:59.003344+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
