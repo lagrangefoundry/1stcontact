@@ -6,9 +6,9 @@ title: Sample-fidelity probe matches reproduced leaf boxes to the oracle at ever
   captured width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-08-05T22:27:24.783438+00:00'
+updated_at: '2026-08-06T04:25:17.546889+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -26,9 +26,13 @@ with.
 
 **Which oracle samples are measured.** Each captured element is classified through the
 same element classifier the fold uses, so an oracle sample exists exactly where the
-fold emits a leaf: text runs with non-empty text, images, and painted surface boxes.
-Elements that never become leaves — form controls and empty runs — are excluded from
-the fidelity measure entirely, rather than counting as coverage gaps.
+fold emits a **measurable** leaf: text runs with non-empty text, images, and painted
+surface boxes. Two kinds of captured element contribute no oracle sample and are
+excluded from the fidelity measure entirely rather than counting as coverage gaps: an
+empty run, which never becomes a leaf at all; and a form control, which since REQ-96
+is no longer dropped but binds to its behavior module — it folds into that module's
+mount seam rather than into a painted L1 leaf of its own, so the module owns its box
+and the probe has nothing of its own to measure against.
 
 **Pairing rule (per captured width).** Pairing is by **occurrence index in document
 order** on both sides, within a key:
@@ -86,13 +90,15 @@ naming that text and width, with dy = 30.
 Non-text leaves and measured scope: fold a capture spanning every leaf kind the
 classifier distinguishes — a text run, two images at well-separated y, a painted
 surface panel, plus a form control and an empty run — and assert the reproduced tree
-carries exactly four leaves (one text, two images, one box), the control and the empty
-run having produced none. Assert the probe gates clean on that capture: keying the
+carries five leaves: one text, two images, one box, and the module mount seam the
+control folded into, the empty run having produced none. Assert the probe gates clean on that capture: keying the
 images by kind alone rather than by kind AND document-order occurrence would compare
 the first image against the second's box and report a phantom delta, so a clean report
 is the occurrence-pairing discriminator, and an empty unmatched list is the observable
 proof that the control and the empty run were excluded from the measure rather than
-counted as coverage gaps. Perturb one image's oracle box beyond tolerance at one width
+counted as coverage gaps — the control's seam is present in the tree yet contributes
+no sample, so it can neither be measured nor be missed. Perturb one image's oracle box
+beyond tolerance at one width
 and assert exactly one residual, labelled by kind, at that width with the correct
 delta. Append a surplus oracle occurrence of a kind at one width — exhausting the
 reproduced leaves of that kind — and assert exactly one unmatched entry labelled by
