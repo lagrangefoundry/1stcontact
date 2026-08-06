@@ -5,9 +5,9 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-05T18:11:19.125379+00:00'
+updated_at: '2026-08-06T19:26:31.450344+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: high
@@ -223,3 +223,53 @@ What T1 has to wire is small and named: `mountL1EditBridge(iframe.contentDocumen
 hit => …)`, then `1c copy get` for the descriptors, `mountFields` in **buffered**
 commit so Save is the flush point, then `1c copy set` with the confirmed values,
 then reload the iframe. Every piece but the modal itself is landed and tested.
+
+
+## Follow-up: the builder did not fill the browser window (94ae6fee)
+
+Found on first operator use of the T1 chrome. The preview pane rendered about
+**four lines tall at any window size** — both View and Edit, every site.
+
+**Cause.** An iframe's intrinsic height is 150px, and nothing inside it can
+recover a height its ancestors never had. The height chain from the viewport to
+the frame had one `auto` link: `.shell` ships `min-height: 100%` and *no*
+height, so every `flex: 1` beneath it resolved against **content**. The frame
+sat at exactly its intrinsic 150px.
+
+**Fix** — the shell's own `tabs[].fill` opt-in, which exists for precisely this
+case (a tab hosting an app-shaped thing that scrolls internally). No override
+and no reaching into shell internals; the alternative would have meant
+re-styling three of the shell's own elements.
+
+Two changes were needed, because declaring the option was not sufficient:
+
+- `config.js` — `SITE_TAB` declares `fill: true`.
+- `app.js` — the mount was rebuilding each tab as `{id, label}` and **silently
+  dropping `fill`**. Nothing threw and nothing warned. `TABS` now passes
+  straight through: a `TABS` entry *is* a shell tab spec.
+- `builder.css` — `.builder-layout` grows as a flex item instead of depending on
+  a percentage against the fill panel; `body` forbids a page-level scrollbar,
+  since one appearing means the chain has leaked again.
+
+**Evidence** — `tests/req117-builder-viewport-fill.test.ts`, 3 UATs:
+
+- `test_UAT_FC_REQ-117_site_panel_opts_into_the_shell_fill_chain`
+- `test_UAT_FC_REQ-117_tab_spec_reaches_the_shell_unnarrowed` — guards the exact
+  regression above, asserting on *every* declared tab key so the next option
+  added cannot be dropped the same silent way.
+- `test_UAT_FC_REQ-117_preview_frame_tracks_the_window_height` — a real browser,
+  because jsdom does no layout and cannot tell a filled pane from a collapsed
+  one. Measures 789/1089/489px frames at 900/1200/600px viewports, follows a
+  live resize, and asserts the page itself never scrolls.
+
+Mutation-checked: with `fill: true` removed all three fail, the measurement
+reporting the collapsed `expected 150 to be greater than 700`. Where no browser
+can be launched the measurement **warns loudly** rather than skipping silently —
+a quiet skip is indistinguishable from a pass.
+
+Also widened the REQ-115 naming test's `config.js` parser, which anchored on the
+closing brace and so turned any added tab option into a *naming* failure.
+
+**Scope note.** This is T1 (REQ-115) chrome, not copy editing. It was committed
+against REQ-117 because that is this session's scope ticket; move it if the
+reconcile wants the fix attributed to T1.
