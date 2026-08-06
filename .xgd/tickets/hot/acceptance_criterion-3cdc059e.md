@@ -6,10 +6,10 @@ title: A recorded family whose entry does not list the particular file a site se
   fails the check, naming that file
 created_by: xgd
 created_at: '2026-08-06T03:29:36.366074+00:00'
-updated_at: '2026-08-06T03:29:36.366074+00:00'
+updated_at: '2026-08-06T03:38:16.712583+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8685be2d
   kind: behavior
