@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-06T00:35:59.217640+00:00'
+updated_at: '2026-08-06T00:49:27.785447+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -398,5 +398,30 @@ If you'd rather invoicing not be its own goal — it's the thinnest of the three
 **Marketing support**'s rename reads like it resolves my earlier ambiguity toward the DOC-4 marketing bundle rather than an onboarding consultation flow, but it's still at `concept` with a body written for the old title. Want me to rewrite that body to match?
 
 And the map still has **nothing at `planned`** and **no dependency edges** — so the "ready frontier" (app, Builder, XGD website) remains just "what's started." That's the planning pass, still outstanding.
+
+<!-- xgd-turn id="5acc43cb-9c81-43c4-9f1e-f0128a4360ab-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T00:49:27.626483+00:00" -->
+#### You
+Lets talk about Site (formerly Web Builder). It needs some children: 
+Web editor: which in turn has children: REQ-114-119 and blog module, user portal module, payments module    
+Editor chat - no REQ yet
+Email capture backend
+Debugging
+Deployment
+
+XGD Website has children:
+ - Phase 1 (which has children):
+  -- Draft site (done)
+  -- Draft site served from cloudflare (done)
+  -- Finalize copy -depends on-> Web editor deployment
+  -- Email capture deployed -depends on->  Email capture backend
+  -- Finalize first two white papers
+  -- Launch site
+- Phase 2
+   -- blog
+   -- xgd install
+   -- user portal (depends on app feature)
+   -- subscription payments (depends on app feature)
 
 <!-- xgd-chat-end -->
