@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-08-06T04:00:53.197757+00:00'
+updated_at: '2026-08-06T22:03:31.856362+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -74,7 +74,7 @@ violation, and a required declared element with no L1 node bound to it is a
 violation. The whole-instance check reports the union of config, slot and control
 violations.
 
-### A behavior module ships zero CSS — with one declared carve-out
+### A behavior module ships zero CSS — with two declared carve-outs
 Neither survivor may paint any longer. Not less — none. The one exception is a
 small **declared set of invariant elements**, whose presentation is fixed by an
 **obligation rather than by taste**: the honeypot must stay invisible (a designer
@@ -88,6 +88,32 @@ so downstream consumers can tell repro-only chrome from reference content.
 
 The line is not "L1 owns everything"; it is **"L1 owns everything the reference
 can legitimately vary."**
+
+The second carve-out is the **settled state**, and it exists because the edit
+render (the non-functional channel the editor works on) turns every behaviour
+off. A module whose behaviour holds content out of view must declare its own
+behaviour-off state, because only the module knows what its behaviour was holding
+back: a carousel's slides are all in the DOM — a scroll track, not
+`display: none` — but with behaviour off they sit scrolled out of view, where
+their copy cannot be read or clicked. The edit channel must not have to know what
+a carousel is, so the knowledge stays with the module that owns the behaviour.
+
+It is bounded exactly as the invariant-element carve-out is, and for the same
+reason — a carve-out with no stated limit is not a carve-out but a hole:
+
+- **Scoped to the edit channel** by the document-level edit marker, which only the
+  edit render sets. The rule is inert in the published and draft-preview channels,
+  so the zero-CSS obligation is undiminished everywhere it is load-bearing: what
+  a visitor is served is unchanged.
+- **It releases; it does not paint.** It may set only flow- and scroll-release
+  properties — the ones that undo the module's own mechanics — and no property an
+  L1 subtree owns. A settled state can make content *visible*; it can never decide
+  how that content *looks*.
+
+So the contract's line holds in the edit channel too: L1 still owns everything the
+reference can legitimately vary, and the module owns only what an obligation
+fixes — here, the obligation that every editable region be reachable in the
+channel built for editing it.
 
 ### The two survivors on this contract
 - **carousel** (v3) — a pure-CSS `scroll-snap` track (swipeable with no JS);
@@ -142,7 +168,8 @@ island scripts).
 **In scope**: the behavior contract (config / slots / controls / conformance) and
 its published `Behavior*` naming, instance validation incl. the slot-as-L1
 security line and the two-directional control check, the zero-CSS obligation and
-its declared invariant carve-out, the two reframed survivor behavior modules and
+its two declared carve-outs (invariant elements, and the edit-channel settled
+state), the two reframed survivor behavior modules and
 their observable behaviour, the L2 default-look preset, the shipped-client-JS
 asset, and the isolation conformance dimension — including its client-side half,
 that an enhancement never cancels a baseline it cannot itself complete.
@@ -233,6 +260,18 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   input must render without throwing and still emit a structurally-intact page
   band; it always runs (needs no browser). The other four dimensions
   (safety/security/x-browser/responsive) are the DOC-20 universal ACs.
+- **The settled-state carve-out was added by the edit-render work, and is
+  recorded here deliberately.** The edit render is owned by another story, but the
+  *obligation it places on a behavior module* is a change to this contract, so it
+  belongs to this story rather than to the channel that motivated it. It was
+  flagged as such when the edit render landed; the resolution is this: the
+  contract admits the carve-out, bounded and declared, instead of the matrix
+  holding both "a module ships no CSS beyond its invariant elements" and "a
+  carousel declares its own behaviour-off state" as unreconciled propositions. The
+  alternative considered — narrowing the zero-CSS guarantee to the served channels
+  only — was rejected as weaker: it would have withdrawn the criterion from a
+  channel rather than stating what the criterion permits there, leaving a module
+  free to paint in the edit render with nothing to check it.
 - The contract is a framework runtime notion ("behavior module"), deliberately
   distinct from the XGD capability matrix — REQ-87 renamed the type precisely to
   end that collision. The operator confirmed the slot-attachment seam as Option A
