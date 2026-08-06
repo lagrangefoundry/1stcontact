@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T23:05:28.621092+00:00'
+updated_at: '2026-08-06T23:23:21.589955+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -881,5 +881,99 @@ I'd go with (1): overlapping is visible and fixable, silent disappearance isn't.
 <!-- xgd-chat role="user" ts="2026-08-06T23:05:28.480523+00:00" -->
 #### You
 Lets go with 1
+
+<!-- xgd-turn id="ba5764fb-d585-48e7-832f-d5819b00461d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T23:23:21.456324+00:00" -->
+#### Claude
+Implementing option 1. Let me find where L1 emits the width axis.
+
+I need the node kind at this call site. Let me find the caller.
+
+`node` is in scope there. But before I change this, one thing must be checked: a fixed width is load-bearing for *wrapping* text, so blanket `min-width` would reflow every paragraph. Let me see how nowrap is scoped.
+
+My parser lost the media context. Let me read it from the definition instead — that's authoritative.
+
+The draft reverted to the original and git is clean — something rolled it back. Let me find out what.
+
+A concurrent session is running `xgd quality run --all-tests` in this repo right now (PID 11697, from a different Claude session) — that's what reverted the draft. I'll flag it, and proceed. Let me read the anchor path before changing anything.
+
+Now implementing. Let me check how control nodes share the text axes.
+
+Both `text` and `control` share the same axes. Implementing.
+
+Now the two anchor helpers and the call site.
+
+Now the call site — passing the run's nowrap threshold.
+
+Now a UAT that pins the behaviour in both directions.
+
+Now the UAT. Let me check the emitted CSS format so I can assert on media context precisely.
+
+Now writing the UATs.
+
+Mutation-checking, and verifying test 3 isn't vacuous.
+
+Tests 1–2 catch it. Now verifying test 3 isn't vacuous — mutating in the opposite direction.
+
+Test 3 is vacuous — it passes even when boxes get `min-width`. Fixing it to assert what it claims.
+
+Test 3 still doesn't catch the escape. Let me see what the fixture actually emits.
+
+The fixture's root box emits no width at all, so test 3 *cannot* fail — it's structurally vacuous. Let me build a box that actually has width.
+
+Sections produce real boxes with geometry. Rewriting test 3 so it can actually fail.
+
+Test 3 can't be made to fail without substantial fixture work — `foldToL1` doesn't emit a container from that section. A test that cannot fail advertises coverage that doesn't exist, so I'm removing it rather than keeping it green.
+
+Now the real test: does it fix the actual site, and does the unedited page stay pixel-identical?
+
+Exactly the intended shape: `width` below 375, `min-width` from 375 up (the run's `nowrapFromPx`). Now the two things that matter — does longer text show, and is the unedited page unchanged?
+
+Overflow is gone, but the box is now **3190px** wide — it should be ~686. That's wrong; let me find out why before claiming this works.
+
+16 characters at 72px cannot be 3190px wide — my model of the cascade is wrong. Let me enumerate the rules that actually match.
+
+Found it. The ladder's later rules *override* the earlier `width`; switching them to `min-width` left the 320-segment's interpolation in force, and at 1280px `calc(-836.545px + 314.545vw)` extrapolates to 3190px. The override chain has to be reset explicitly.
+
+The file changed on disk (concurrent session). Let me re-read before further edits.
+
+Now switching the three call sites to the new helper.
+
+Now re-verifying against the real site.
+
+The `4` renders, gradient and all. Now the regression that matters — is the *unedited* page pixel-identical? Let me diff every element's box against the pre-change render.
+
+The diff is contaminated — my verify loop left the text as "Gigabyte Alchemy Laboratories". Resetting to the original and re-running.
+
+**Zero differences across all 70 nodes at every ladder width** — the unedited page is byte-for-byte identical, and longer text now renders. Updating the tests to pin the `width: auto` reset I initially missed.
+
+Mutation-checking all three failure modes, including the `width: auto` reset that I got wrong first time.
+
+All three failure modes caught. Running the full suite.
+
+Same count, but my change touches L1 rendering — I need to confirm the 10 failures are the same pre-existing ones and not repro-fidelity regressions.
+
+Same five files as the baseline. Let me prove they're unrelated to my change by stashing it and re-running just those.
+
+Identical 10 failures without my change — pre-existing, unrelated. Committing.
+
+Done — option 1 is in (`38e43c7d`). **Hard-reload the builder tab**; the server is already restarted.
+
+A run that can't wrap now emits `min-width` instead of `width`, so the box grows with its content and the gradient's painting area grows with it. Your `Gigabyte Alchemy 4` renders in full, gradient carrying through the `4`.
+
+**The gate is the substance of the change.** Only runs that can't wrap get the floor, and only at and above the width where the reference stopped wrapping. For a *wrapping* run the fixed width is load-bearing — it's what decides the line breaks — so relaxing it would let an absolutely-positioned paragraph stretch to shrink-to-fit and reflow every line. Boxes never get it; a container's width is structure.
+
+**One thing I nearly shipped broken.** The ladder's rungs are cumulative overrides of the *same* property. Renaming the upper rungs to `min-width` stopped them overriding anything, which left the lowest rung's fitted interpolation live far outside its segment — `calc(-836.545px + 314.545vw)`, which is 343px at 375px wide and **3190px** at 1280px. The title box ballooned to 3190px. Types passed, my first UATs passed; it only showed up when I measured the rendered page. Each floored rung now also emits `width: auto`, and there's a mutation test specifically for that reset.
+
+**Fidelity check, since this touches every reproduced site:** on gigabytealchemy with the text unedited, all **70 nodes have identical bounding boxes before and after at all six ladder widths**. Nothing moved.
+
+Two UATs, mutation-checked against three distinct regressions. Full suite at baseline (1117 passing); I confirmed the 10 `reconciliation-*` failures are unrelated by stashing this change and re-running those five files — identical failures without it.
+
+Worth flagging plainly:
+
+- **One coverage gap.** That the floor never reaches a container rests on a single `node.kind` gate and has no test. I wrote one, found it passed identically with the gate removed — `foldToL1` emits no container with captured geometry for any cheap fixture — and deleted it rather than leave green paint over nothing. Noted in the test file and the ticket.
+- **Another session is active in this repo.** It ran `xgd quality run --all-tests` mid-task and reverted your draft edit to `Gigabyte Alchemy` at one point. That's why the text kept resetting. It's finished now, but worth knowing two agents are working here.
+- The **divider** is still `lagrange-framework` REQ-64.
 
 <!-- xgd-chat-end -->
