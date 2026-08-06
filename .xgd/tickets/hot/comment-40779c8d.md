@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:15:26.040814+00:00'
+updated_at: '2026-08-06T19:27:33.371576+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -281,5 +281,74 @@ The definition half of this ticket is fully drivable from the CLI if you want to
 <!-- xgd-chat role="user" ts="2026-08-06T19:15:25.848140+00:00" -->
 #### You
 ok the view/edit area is tiny. I can only see about 4 lines. It needs to be tied to the browser window size. Can you fix that first please
+
+<!-- xgd-turn id="a2e8c228-0126-4d11-b924-c0573ea4452d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T19:27:33.224840+00:00" -->
+#### Claude
+Let me look at the layout before touching anything.
+
+Found it — the shell ships a supported affordance for exactly this. Let me confirm the config key.
+
+Now the fix. The shell ships a supported affordance for exactly this — we just never opted in.
+
+All three of my edits were reverted on disk — and the measurement confirms it (`panelIsFill: false`, frame stuck at the iframe's intrinsic 150px). Let me find out what undid them before re-applying.
+
+My edits are intact on disk — the browser was serving cached JS/CSS. Re-measuring with the cache bypassed:
+
+Layout now tracks the viewport. Let me confirm it follows a live window resize, and check how the repo runs browser-based tests.
+
+Playwright isn't resolvable from `tests/` — vite resolves the bare specifier at transform time. I'll anchor resolution at the package that actually owns the dependency.
+
+3 tests pass — but 1.34s is too fast for a browser launch. Let me confirm whether the measurement test actually ran or skipped silently.
+
+Confirmed — it was skipping silently (CJS interop returns `undefined`, and the cached browser build doesn't match this playwright version). Fixing both, and making any skip loud rather than silent.
+
+No skip warning, so it ran. The only trustworthy proof is that it fails when the fix is absent — let me verify it actually catches the bug.
+
+The measurement is real — without the fix it reports `expected 150 to be greater than 700`, exactly the collapsed intrinsic iframe height. All 3 fail without the fix, pass with it. Now the full suite:
+
+One is definitively mine. Let me get the full failure list and check the rest against a clean baseline.
+
+Those reconciliation failures are pre-existing — they fail identically with my changes stashed. Now the builder suites:
+
+All 22 builder tests green. Running the project quality gate before committing:
+
+Typecheck is pre-existing noise (379 errors repo-wide; the neighbouring REQ-115 tests share the same classes — no DOM lib in `tsconfig.base.json`). But two of mine are self-inflicted by copying a `never` return type, so let me not add sloppiness:
+
+Committing only my files — there's a concurrent session with unrelated changes in `tools/generate/` that I must not sweep in.
+
+Now the ticket. Reading the current body first so I preserve it:
+
+The appended entry landed as a string, not a dict — inconsistent with the first and likely to break reconcile parsing. Fixing:
+
+Fixed and committed as `94ae6fee`.
+
+**Reload the page — hard-reload it** (`Cmd+Shift+R`). The server serves the client straight off disk so there's nothing to restart, but your browser has the old CSS and JS cached. That caching bit me mid-investigation: my first measurement reported the frame still collapsed, and I briefly misread that as my edits having been reverted. They hadn't — it was the cache.
+
+**The cause.** An iframe's intrinsic height is 150px, and nothing inside it can recover a height its ancestors never had. Your "about four lines" was exactly that 150px. The height chain from the viewport down to the frame had one `auto` link: `.shell` ships `min-height: 100%` and *no* height, so every `flex: 1` beneath it resolved against content instead of the window.
+
+**The fix** is the shell's own `tabs[].fill` opt-in, which exists for precisely this case — a tab hosting an app-shaped thing that must scroll internally. No override, no reaching into shell internals. Declaring it wasn't enough, though: `app.js` was rebuilding each tab as `{id, label}` and **silently dropping `fill`** — nothing threw, nothing warned, the option just never arrived. So `TABS` now passes straight through. Plus `.builder-layout` grows as a flex item rather than leaning on a percentage, and `body` forbids a page-level scrollbar, since one appearing means the chain has leaked again.
+
+**Measured in a real browser**, not asserted in jsdom (which does no layout and would happily report a collapsed pane as fine):
+
+| viewport | frame | page scroll |
+|---|---|---|
+| 1440×900 | 789px | 0 |
+| 1024×1200 | 1089px | 0 |
+| 1440×600 | 489px | 0 |
+
+Live resize tracks too: 1000px window → 889px frame, drag to 500 → 389, back to 1000 → 889.
+
+Three UATs in `tests/req117-builder-viewport-fill.test.ts`, including one that guards the exact silent-drop regression by asserting on *every* declared tab key. I mutation-checked them: with `fill: true` removed, all three fail and the measurement reports `expected 150 to be greater than 700`. Worth noting because my first version of that test was passing green while never launching a browser at all — CJS interop returned `undefined` and it skipped itself. It now falls back to system Chrome and warns loudly if it can't measure.
+
+Two things to flag:
+
+- **This is T1 (REQ-115) chrome, not copy editing.** I committed it against REQ-117 because that's this session's scope ticket, and noted in the ticket body that reconcile may want it attributed to T1 instead. Your call.
+- **The full suite has 10 pre-existing failures** across 5 `reconciliation-*` L1/palette files (`theme.palette.bg` undefined). Not mine — I confirmed by stashing my changes and reproducing them identically. I also left `tools/generate/src/cli/{errors,index,preflight}.ts` and `tests/req44-install-preflight.test.ts` unstaged; those are uncommitted work from another Claude session running in this repo right now (PID 3368), so I kept them out of my commit.
+
+Version bumped 0.1.16 → 0.1.17; ticket updated with the commit.
+
+Still unchanged from before: pick **xgd** or **gigabytealchemy** in the selector (1stcontact and harbor-cafe still fail to render their edit channel), and clicking a segment still does nothing — that's the five pieces I scoped last time, unstarted.
 
 <!-- xgd-chat-end -->
