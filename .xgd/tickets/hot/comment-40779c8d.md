@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:27:33.371576+00:00'
+updated_at: '2026-08-06T19:30:24.680754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -350,5 +350,11 @@ Two things to flag:
 Version bumped 0.1.16 → 0.1.17; ticket updated with the commit.
 
 Still unchanged from before: pick **xgd** or **gigabytealchemy** in the selector (1stcontact and harbor-cafe still fail to render their edit channel), and clicking a segment still does nothing — that's the five pieces I scoped last time, unstarted.
+
+<!-- xgd-turn id="7d02ebfb-c93c-492e-bac5-48ad19b2c743-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:30:24.546744+00:00" -->
+#### You
+ok good - so now in edit mode, I see the segments outlined, but there is no highlighting or editing happening. What should I expect?
 
 <!-- xgd-chat-end -->
