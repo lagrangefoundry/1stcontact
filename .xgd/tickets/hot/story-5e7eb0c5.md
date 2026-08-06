@@ -6,10 +6,10 @@ title: 'Colour census and repeatable palette retrofit: measure a site''s colours
   then migrate it onto a palette without moving a pixel'
 created_by: xgd
 created_at: '2026-08-06T21:06:52.787637+00:00'
-updated_at: '2026-08-06T21:06:52.787637+00:00'
+updated_at: '2026-08-06T21:21:58.476564+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-0385746c
   capability_uid: capability-e382c142
