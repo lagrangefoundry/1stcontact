@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Out-of-range, oversize, and freeform documents are rejected by the envelope
 created_by: xgd
 created_at: '2026-07-22T19:32:24.574998+00:00'
-updated_at: '2026-08-05T21:03:18.622010+00:00'
+updated_at: '2026-08-06T03:02:38.400647+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -26,6 +26,16 @@ hatch such as `style`); a geometry keyframe whose width is not one of the
 document's declared widths, or keyframes not strictly ascending; a viewport
 ladder not strictly ascending; a tree deeper than the depth cap (32); and a
 document whose node count exceeds the cap (2000).
+
+**The rejection is guaranteed for an authored document, not only for one
+produced by the fold.** The envelope is not a stage of the reproduction
+pipeline: it runs wherever a site definition is validated, so a page whose L1
+body a person or an AI free-typed into a definition file is held to exactly the
+bounds above, on the same path that renders, publishes, edits and imports a
+site. A document that clears only the *shape* check — typed axes, closed enums,
+no unknown keys — is not accepted; the numeric bounds, the URL-scheme
+allowlist, the node-count cap, geometry-track well-formedness and the unique-id
+rule apply to it identically.
 
 The unknown-key rule admits no grandfathered exceptions, including for renamed
 fields. A `slot` leaf authored with the pre-REQ-87 `capability` key instead of
@@ -49,4 +59,6 @@ validator returns a "not ok" result (rejection) for each; submit the equivalent
 in-range document and observe acceptance, confirming the boundary is the range
 and not the property. For the rename case, submit the same slot twice — once
 keyed `behavior` and once keyed `capability` — and observe acceptance of the
-former and rejection of the latter.
+former and rejection of the latter. Repeat a representative violation as an
+**authored page inside a site definition** and observe the same rejection there,
+confirming the envelope is not conditioned on how the document was produced.
