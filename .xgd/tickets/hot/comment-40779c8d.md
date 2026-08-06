@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:32:01.313917+00:00'
+updated_at: '2026-08-06T19:54:42.092638+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -397,5 +397,116 @@ Want me to build the wiring? It's the five pieces from before, unchanged. Say go
 <!-- xgd-chat role="user" ts="2026-08-06T19:32:01.102232+00:00" -->
 #### You
 So when do I get to see editing?
+
+<!-- xgd-turn id="dbe703f8-7e15-47bc-9d9b-58955f9656d3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T19:54:41.961863+00:00" -->
+#### Claude
+You've asked twice — building it now.
+
+`webui-fields` is installed — the blocker recorded in the ticket is gone. Reading its API:
+
+Everything I need exists and the descriptor shape already matches `webui-fields`. One open question — how the client learns which *page* it's editing:
+
+`index.html` is an alias for the home page, so the client can't reliably guess the page id from the URL. The edit render already carries the addressing metadata — the page id belongs there too. Let me see where the marker is emitted:
+
+Everything's confirmed. Building now — starting with the page id the client needs to address edits.
+
+Now emit it in the edit render:
+
+Now serve `webui-fields`, and add the copy API to the builder origin:
+
+Now the copy routes:
+
+A validation failure must not surface as a 500 — let me fix the error envelope:
+
+Now the chrome must load the fields stylesheet. Checking how the import map handles it:
+
+Same shape, so `chromeHtml()` picks up the stylesheet and import-map entry automatically. Now the client:
+
+The bridge lives in TypeScript, but the builder client is served raw with no bundler. Checking whether a built JS exists:
+
+TypeScript is a declared root devDependency — `transpileModule` strips types with no extra install, keeping one bridge implementation. Checking what the bridge imports:
+
+The bridge's only runtime import is `@1stcontact/site-schema`, whose `l1/edit` module is itself type-only internally. So two files transpiled with one import rewritten gets the real bridge into the browser — no bundler, no duplicate implementation:
+
+Now the editor client itself:
+
+Now wiring it into the panel lifecycle — the bridge must bind on each frame load and unbind on mode switch:
+
+Now the modal chrome:
+
+Now re-render the edit channels so they carry the page stamp, and restart the origin:
+
+Import resolved to `undefined` — site-schema is consumed via its built `dist`, which is stale:
+
+The import is from `@1stcontact/framework`, which re-exports these — I only added it to site-schema:
+
+The stamp is correct — `index.html` reports `home`, not its filename. Now restart the origin and check the new routes:
+
+Everything's wired. Now the real test — driving the whole loop in a browser:
+
+Hover works. The fetch 400s — let me see the actual message and the failing URLs:
+
+The address is an array of indices, not a dotted string — `formatL1Path` exists for exactly that:
+
+Two shape bugs: the path needs formatting, and the scope field is `moduleId` not `module`:
+
+Now the full loop — click, edit, save, verify it persisted:
+
+The full loop works. Restoring the text, then checking that an invalid edit is refused and never lands:
+
+Invalid is refused with the validator's own message and nothing lands. Now the tests:
+
+Real bug the test caught: I resolved the bridge source from `ctx.cwd` — the *store* root, not the repo. It only worked interactively because those happened to coincide.
+
+Now the browser half — the part that proves clicking actually works:
+
+No skip warning, so the browser ran. Mutation-checking that these actually catch a broken loop:
+
+The three loop tests genuinely fail without the bridge; the View-mode test correctly still passes since it asserts absence. Now the full suite — I changed the render output, so let me check for fallout:
+
+Two fixes. First, vitest can't resolve the browser URLs — an alias makes jsdom tests exercise the same bridge source the browser gets:
+
+That broke nearly everything — my config file must be overriding defaults. Let me see the actual error:
+
+The mere presence of a config file disables the Astro transform this repo depends on. Removing it — the right fix is to not import browser URLs from a module tests load. Injecting the bridge instead:
+
+Now `main.js` — the browser-only entry — supplies the served bridge:
+
+Now the browser test must inject the real bridge source. Updating it to mount through the same path:
+
+All 40 pass. Restarting the origin and re-confirming the live loop after the refactor:
+
+Now the full suite, to be sure nothing else regressed:
+
+Back to exactly the 10 pre-existing failures — same baseline, with 1108 passing. Committing:
+
+A copy edit rewrote the whole page file with different unicode escaping (`\u2014` → `—`) — semantically identical, pure churn. Reverting that from the commit:
+
+The append landed (the lock contention is the other session; the index self-rebuilds). Verifying:
+
+Editing works. Committed as `cda7fe4d`.
+
+**Go and try it** at `http://localhost:4173/` — **hard-reload** (`Cmd+Shift+R`), the origin restarted with new client code. Pick **xgd** or **gigabytealchemy**, switch to **Edit**, then hover a segment and click it.
+
+What you'll get: hover brightens the outline and lifts it off the box. Click opens a modal over that segment's fields with the full text legible. Save writes the draft, re-renders, and the page under you updates. I drove exactly this in a real browser — clicked the wordmark on `xgd/home`, changed it, watched it land, and confirmed `1c copy get` read the new value back. I've restored it to `xgd`.
+
+**The two blockers your ticket recorded as "blocked on T1" are both gone** — `webui-fields` is in the artifact store now, and T1 shipped the shell. So I built it rather than asking a third time.
+
+The load-bearing decisions:
+
+- **`/api/copy` is a thin transport over `editCopyGet`/`editCopySet`** — the same functions `1c copy get|set` call. Not a parallel implementation. Validation, atomicity and the re-render stay where they already live, so the editor is a second *producer* of edits, not a second write path.
+- **The bridge is served by type-stripping the TypeScript source**, not reimplemented in the client. It reads the stamp the renderer writes; a hand-written browser copy would be free to drift from the markup — the exact coupling `edit-client.ts` says it exists to prevent.
+- **`data-fc-page` is new.** An address is only half a coordinate, and `index.html` is an *alias* for the home page, so the client can't derive the page from the URL without re-implementing the renderer's home-page rule.
+- **Invalid never lands.** I verified directly: posting an unknown field returns 400 with `Unknown copy field 'nope'` and the draft reads byte-identical afterwards. The modal stays open holding your text.
+
+**10 UATs** — 6 over the real origin, 4 in a real browser (jsdom can't click inside an iframe). Mutation-checked: unbinding the bridge fails 3 of the 4 browser tests, and the View-mode one correctly still passes since it asserts absence. Full suite is back to its **pre-existing** baseline: 1108 passing, the same 10 reconciliation/palette failures I confirmed earlier are not mine.
+
+Three things worth knowing:
+
+- **I briefly broke the entire suite and reverted it.** I added a `vitest.config.ts` to resolve the bridge's browser URLs; merely having that file disables the Astro transform this repo depends on, and 131 suites failed. The real fix was better anyway — the bridge is now *injected*, so `main.js` is the only module that ever resolves a browser-only URL.
+- **A copy edit rewrites the whole page JSON** with different unicode escaping (`\u2014` → `—`), so a one-word change makes a large diff. Pre-existing in `writeJson`, cosmetic. I reverted that churn rather than committing it, and noted it on the ticket as deserving its own.
+- **Only copy is editable.** Images, containers and module instances are real segments that correctly report "nothing to edit yet" — that's phase 1 as scoped, not a failure. And `1stcontact`/`harbor-cafe` still won't render an edit channel at all.
 
 <!-- xgd-chat-end -->
