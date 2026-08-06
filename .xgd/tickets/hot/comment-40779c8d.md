@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:16:13.385988+00:00'
+updated_at: '2026-08-06T22:16:34.903730+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -745,5 +745,20 @@ Two housekeeping notes: I briefly overwrote your heading with probe text while d
 <!-- xgd-chat role="user" ts="2026-08-06T22:16:13.072068+00:00" -->
 #### You
 So what do I need to do to see the edit?
+
+<!-- xgd-turn id="cb90970c-c670-4f58-8faf-83c87e71f6c4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T22:16:34.547755+00:00" -->
+#### Claude
+Just one thing: **hard-reload the builder tab** — `Cmd+Shift+R` on http://localhost:4173/, then pick `gigabytealchemy`.
+
+Everything server-side is already done. I just re-checked live: the origin is up on the new build, both channels serve `Gigabyte Alchemy 2`, and the fixed `editor.js` is being served. The only stale copy left is the JavaScript and iframe bytes your browser cached from the 12:49 server.
+
+After that reload, new edits should just work — save, and the frame refreshes showing the change in both View and Edit.
+
+Two things that will still bite, neither fixed:
+
+- **The divider** — `lagrange-framework` REQ-64. Release the mouse over the right-hand pane to end a drag.
+- **Restart the builder after any code change.** It loads its modules at boot, so anything I commit is invisible to a running instance. That's what made these last three fixes look ineffective until I restarted it. If something seems not to have taken effect, that's the first thing to check.
 
 <!-- xgd-chat-end -->
