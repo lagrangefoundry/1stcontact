@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: An L2 preset supplies a vetted default look for an uncaptured contact form
 created_by: xgd
 created_at: '2026-08-06T01:33:52.802713+00:00'
-updated_at: '2026-08-06T01:33:52.802713+00:00'
+updated_at: '2026-08-06T01:40:37.067121+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
