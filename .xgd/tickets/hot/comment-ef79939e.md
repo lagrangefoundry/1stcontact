@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-44
 created_by: xgd
 created_at: '2026-08-06T18:59:56.858068+00:00'
-updated_at: '2026-08-06T19:34:28.642257+00:00'
+updated_at: '2026-08-06T19:35:20.468064+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,11 @@ Yes — and less than I implied. I checked the plugin code rather than the ABC d
 The other core hits are benign by comparison — `node_modules` in directory-skip lists (`state.py:602`, `workflow_v2/dependencies.py:861`, `config/discoverer.py:38`) — though they're the same smell in miniature.
 
 Both findings are now in REQ-745. Want a separate ticket in `xgd-plugin-sdk` for the plugin-side work, or is tracking it under REQ-745 enough?
+
+<!-- xgd-turn id="b2bb0d19-d3d9-4b38-82f2-de9203b081cc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:35:20.328279+00:00" -->
+#### You
+I need a ticket in the plugin project too, if there is work there
 
 <!-- xgd-chat-end -->
