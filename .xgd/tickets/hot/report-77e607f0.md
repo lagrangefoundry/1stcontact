@@ -48,6 +48,8 @@ fields:
     new_sha: 6cac24fb0c686832583563f7e9dd891ca55b8d06
   - old_sha: 67483d807292fbc58f5287407c5b846fad45cfeb
     new_sha: e28735bd0b52ff50c6424e01362970d6a111ee0b
+  - old_sha: b29a357c2ba2fbc7a9a292239a5dac925a842e50
+    new_sha: 4d875c45fdfd2a9223124b3d84b7c26bb03ac9b2
 result: running
 ---
 
