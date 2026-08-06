@@ -165,6 +165,12 @@ export async function handleBuilderRequest(
         .writeHead(200, {
           'content-type': 'text/html; charset=utf-8',
           'content-length': Buffer.byteLength(html),
+          // The shell was the last cacheable response on this origin — every
+          // other route goes through `sendFile`, which is `no-store`. A hole in
+          // exactly one response is worse than none, because the symptom it
+          // produces (a tab that keeps running yesterday's chrome while every
+          // asset around it is current) looks like anything except caching.
+          'cache-control': 'no-store, must-revalidate',
         })
         .end(html)
       return

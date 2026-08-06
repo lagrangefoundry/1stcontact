@@ -185,10 +185,19 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     // no validator, the browser may serve a post-save reload from cache — the
     // edit is on disk and correct, and the screen shows the old page. There is
     // nothing to trade away on a dev origin serving live-rebuilt artifacts.
-    for (const p of ['/preview/alpha/edit/', '/preview/alpha/draft/']) {
+    // The shell and the client JS are on the list too: a stale tab running
+    // yesterday's chrome against current assets produces a symptom that looks
+    // like anything except caching, and one exempt response is enough to do it.
+    for (const p of [
+      '/',
+      '/builder/editor.js',
+      '/framework/edit-client.js',
+      '/preview/alpha/edit/',
+      '/preview/alpha/draft/',
+    ]) {
       const res = await get(p)
-      expect(res.status).toBe(200)
-      expect(res.headers.get('cache-control')).toContain('no-store')
+      expect(res.status, p).toBe(200)
+      expect(res.headers.get('cache-control'), p).toContain('no-store')
     }
   })
 })
