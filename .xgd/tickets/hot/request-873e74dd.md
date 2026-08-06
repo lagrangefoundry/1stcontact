@@ -6,10 +6,10 @@ title: 'public-site Worker: serve draft previews and published sites from R2 (Si
   seam)'
 created_by: xgd
 created_at: '2026-07-30T19:35:00.276283+00:00'
-updated_at: '2026-08-06T05:11:59.197204+00:00'
-completed_at: null
+updated_at: '2026-08-06T19:46:27.785148+00:00'
+completed_at: '2026-08-06T19:46:27.785148+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
