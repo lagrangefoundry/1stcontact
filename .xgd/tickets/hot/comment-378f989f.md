@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-06T00:27:32.339168+00:00'
+updated_at: '2026-08-06T00:29:36.617391+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -312,5 +312,45 @@ So I saw the tickets you have created - lets correct a few things:
 ⏳Web monitoring2026-08-06 <-- these are CHILDREN of 1stcontact app (I thought that was clear)
 
 1stcontact site is not in progress it has not yet been planned
+
+<!-- xgd-turn id="b9daf9e2-d8d1-4e7d-af48-d8bb3c76dbf3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T00:29:36.494290+00:00" -->
+#### Claude
+I'll pull the current map state before changing anything.
+
+Found it: the parent wiring never landed — no goal has a `children` field at all, which is why all five app sub-goals render at top level. Fixing.
+
+Both corrections landed, and the cause of the first one is worth naming: **no goal had a `children` field at all** — the parent wiring I reported filing last session never actually persisted. All five app sub-goals were sitting as roots, not just the three you flagged.
+
+## What changed
+
+**`1stcontact app`** now carries all five children:
+
+| Child | State |
+|---|---|
+| Web builder | `in_progress` |
+| Web monitoring | `aspiration` |
+| CRM | `aspiration` |
+| Payments | `aspiration` |
+| Marketing brainstorm | `concept` |
+
+**`1st Contact site`** → `aspiration` (was `in_progress`), with the rationale appended to its body: the store contents are scaffolding, not the start of a build; it moves to `planned` when the planning pass gives it a target date.
+
+Digest recomputes clean — **no roll-up disagreements**. The app still derives `in_progress` via rule 3 (web builder has started), which matches its declared state.
+
+## One thing I did not change, and want to check
+
+**Lagrange Foundry website is still a root.** You pasted it in that block of four, but it's a top-level bullet in your own original list, and a company marketing site isn't part of the 1stcontact product. I think the block was an artifact of the display: those four were *exactly* the goals at `aspiration`, so you were likely looking at a status group, not a parent group.
+
+If I've read that wrong, say so and I'll move it — but I wasn't willing to reparent a root on an inference.
+
+## Where the map stands
+
+Four roots: **1stcontact app** (`in_progress`, 5 children) · **XGD website** (`in_progress`) · **1st Contact site** (`aspiration`) · **Lagrange Foundry website** (`aspiration`).
+
+Ready frontier is now three: the app, XGD website, web builder. Still not a real frontier — with nothing at `planned` and no dependency edges, "ready" just means "started." That resolves with the planning pass, which is the outstanding objective.
+
+Two loose ends from last session, still open: **user portal & subscription support** (DOC-4 MVP item 5) isn't on the map — you specified five children, so I haven't added a sixth. And **marketing brainstorm**'s scope is still ambiguous — onboarding consultation flow, or the deferred DOC-4 marketing bundle.
 
 <!-- xgd-chat-end -->
