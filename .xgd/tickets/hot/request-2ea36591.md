@@ -5,10 +5,10 @@ type: request
 title: 'Rendered output is not relocatable: normalise asset URLs to document-relative'
 created_by: xgd
 created_at: '2026-07-30T19:34:47.469373+00:00'
-updated_at: '2026-08-03T00:15:06.097389+00:00'
+updated_at: '2026-08-06T04:56:49.518725+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 2
@@ -19,6 +19,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.5
+  bundled_in: bundle-0e41ff44
 ---
 
 ## The gap
