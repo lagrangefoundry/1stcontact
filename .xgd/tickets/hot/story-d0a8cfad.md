@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-06T01:35:02.946824+00:00'
+updated_at: '2026-08-06T02:20:36.184665+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -53,7 +53,7 @@ shape, by every kind that renders a box (`box`, `container`, `text`, `image`,
 
 | Group | Axes |
 |---|---|
-| **surface (paint)** | solid fill, surface gradient, background image (scheme-checked), translucent scrim overlay, uniform border, left-accent border, corner radius, drop shadow, backdrop blur, opacity, blend mode |
+| **surface (paint)** | solid fill, surface gradient (linear or radial), repeating texture pattern, background image (scheme-checked), translucent scrim overlay, uniform border, left-accent border, corner radius, drop shadow, backdrop blur, opacity, blend mode |
 | **node-level** | per-width geometry, sizing, viewport-range visibility, transform, mask, padding, per-width padding, interaction state, scroll reveal |
 
 A kind declares only what is genuinely its own: a run adds its type axes
@@ -105,14 +105,28 @@ script sink, and the behavioural attributes (`type` / `name` / `required`, the
 label association, the endpoint) stay module-authored.
 
 Each non-scalar family is carried as a **typed structured form** — a gradient is
-an angle plus hex stops; a shadow is offsets/blur/spread/hex colour/inset; a
-border is width/hex colour/line style; a mask is a named shape plus a feather
-width; a transform is rotation and scale; a scrim is a hex colour plus opacity.
+either linear (an angle plus hex stops) or radial (a typed origin drawn from the
+nine box positions plus an extent keyword, never an `at 30% 40%` string), and the
+two branches do not mix; a texture is a named shape (dot grid, hairline grid,
+rules) plus a tile period, a line width, a hex colour and a tilt; a shadow is
+offsets/blur/spread/hex colour/inset; a border is width/hex colour/line style; a
+mask is a named shape plus a feather width; a transform is rotation and scale; a
+scrim is a hex colour plus opacity.
 The renderer re-derives the CSS from those numeric, enum, and hex fields, so a
 structured axis is never a passthrough style string, and an identity or no-op
 value (unit transform, `normal` blend, `none` decoration/marker) is omitted
-rather than emitted. A node's scrim, gradient, and background image composite as
-ordered background layers over the solid fill.
+rather than emitted.
+
+**Texture is drawn, not fetched.** The repeating-surface family — the dot grid,
+the hairline grid, the rule set that separates a premium page from a flat one —
+is compiled by the renderer into repeating gradient layers, so it costs no binary
+asset, distorts at no viewport, and puts no design decision back into a
+hand-authored file. A node's background composites as an ordered layer stack,
+top-most first: **scrim → texture → gradient wash → image → solid fill**. Because
+a tiled texture and a `cover` backdrop want different sizing, the sizing triple is
+emitted **per layer** whenever a texture is present, and stays the single value it
+always was when none is — so an untextured surface renders byte-for-byte as
+before.
 
 ### Language form — handles bound to substance
 L1 also carries a **document-level resource table** that closes the *form* hole
@@ -143,9 +157,14 @@ border colours, runs a background image **and every font-face source** through
 the same URL allowlist as an image source, bounds a declared font weight to the
 CSS range, and — because every structured form is closed — refuses an unknown key
 rather than ignoring it. Because the surface group is shared, **the envelope
-bounds it once for every kind**: a background-image URL is scheme-checked and a
-left-accent border's width is bounded wherever they are declared, rather than
-only on the kinds that were checked by hand. The renderer drops a non-hex colour,
+bounds it once for every kind**: a background-image URL is scheme-checked, a
+left-accent border's width is bounded, and a texture's tile period and line width
+are bounded wherever they are declared, rather than only on the kinds that were
+checked by hand. The texture's period carries a **floor** as well as a ceiling —
+a sub-pixel period tiles a full-bleed band millions of times, which is a way to
+hang a compositor rather than a matter of taste — and because the check is shared,
+an interaction-state texture delta is bounded by the identical rule as the base
+node. The renderer drops a non-hex colour,
 an off-allowlist URL, and an unsanitisable font name instead of emitting them, so
 no raw CSS escapes the sink through any of the new families.
 
@@ -258,6 +277,28 @@ its target behavior-module id, with no module code and no behaviour attached.
   height is naturally from flow. Correspondingly, **no envelope change was made
   for sizing** — sizing is unbounded for every kind alike, so a run is consistent
   with the rest rather than a special case.
+- **REQ-103 — texture is a typed axis, not an asset (this reconciliation).** The
+  substrate could paint only flat colour or one *linear* gradient, and a
+  background image was pinned to `cover`/`no-repeat` (BUG-13), so a 24×24 dot-grid
+  could not tile. The only workaround was a full-bleed raster per section, which
+  distorts at every unauthored viewport, costs a binary, and pushes the design
+  decision out of L1 — precisely what the substrate exists to prevent (DOC-23,
+  DOC-24). The intent chose the typed `pattern` axis plus the radial gradient
+  branch, and explicitly **rejected** a `backgroundRepeat`/`backgroundSizePx` pair:
+  that route re-opens BUG-13's default *and* still needs a real asset per texture.
+  Linear-by-default is likewise a decision, not a shim — linear is the shape a
+  capture folds to, so a discriminator every folded gradient would have to restate
+  is noise on the common case; the fold is typed to the linear branch.
+- **REQ-103 residual — the warped grid stays an asset.** The intent's framing
+  ("the brand's defining graphic cannot be drawn by the substrate") is only partly
+  answered: xgd.dev's hero and echo grids are a *perspective projection* with a
+  fade mask, and a repeating gradient tiles a constant cell by construction. This
+  axis reaches the motif at rest, not the motif in perspective; whether a
+  projected/warped primitive is warranted is a separate design question, not a gap
+  in this axis. Grain/noise remains out of scope for the original reason — it needs
+  a generated asset, not an axis. Site-content use of the axis (the two cream
+  bands on xgd.dev) is site definition data, not capability surface, and no
+  criterion here is written against it.
 - **Deliberately not in scope: merging `box` into `container`.** Once a container
   can paint, `box` is a strict subset of it, which by the project's
   no-duplicate-mechanisms rule argues for a merge. The intent explicitly defers
