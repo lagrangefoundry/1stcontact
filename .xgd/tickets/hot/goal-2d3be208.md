@@ -5,10 +5,10 @@ type: goal
 title: Subscriptions
 created_by: xgd
 created_at: '2026-08-06T00:35:21.882736+00:00'
-updated_at: '2026-08-06T00:35:21.882736+00:00'
+updated_at: '2026-08-06T00:35:33.666359+00:00'
 completed_at: null
-last_field_updated: created_at
-status: concept
+last_field_updated: status
+status: aspiration
 fields:
   provenance: planned
 ---
