@@ -6,10 +6,10 @@ title: A control row reflows to a column with one input per field, and stagger c
   no phantom peers
 created_by: xgd
 created_at: '2026-08-06T02:37:02.135777+00:00'
-updated_at: '2026-08-06T02:37:02.135777+00:00'
+updated_at: '2026-08-06T02:44:02.368872+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3569e1a4
   kind: behavior
