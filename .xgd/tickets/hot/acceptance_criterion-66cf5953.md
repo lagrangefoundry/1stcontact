@@ -6,10 +6,10 @@ title: Module-invariant elements and the names they would source are excluded fr
   capture and pairing
 created_by: xgd
 created_at: '2026-08-06T01:46:18.506624+00:00'
-updated_at: '2026-08-06T01:46:18.506624+00:00'
+updated_at: '2026-08-06T04:24:37.406219+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5de22a5
   kind: behavior
