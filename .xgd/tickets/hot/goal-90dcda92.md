@@ -5,10 +5,10 @@ type: goal
 title: Web monitoring
 created_by: xgd
 created_at: '2026-08-06T00:05:43.073934+00:00'
-updated_at: '2026-08-06T00:05:43.073934+00:00'
+updated_at: '2026-08-06T00:06:56.664170+00:00'
 completed_at: null
-last_field_updated: created_at
-status: concept
+last_field_updated: status
+status: aspiration
 fields:
   provenance: planned
 ---
