@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-06T02:32:03.109795+00:00'
+updated_at: '2026-08-06T03:04:20.764530+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -168,12 +168,29 @@ node. The renderer drops a non-hex colour,
 an off-allowlist URL, and an unsanitisable font name instead of emitting them, so
 no raw CSS escapes the sink through any of the new families.
 
+**The envelope holds the authoring path, not only the reproduction path.** It is
+not a stage of the capture pipeline: it runs wherever a site definition is
+validated, so every page carrying an L1 body clears it — a body folded from a
+capture and a body typed into a definition file by a person or an AI meet the
+identical bounds. That matters most for the classes with **no second line of
+defence at all**: an out-of-range numeric axis, a node count past the cap, a
+duplicate node id and a geometry track anchored to a column the document never
+declares are invisible to the emitter, which renders them without complaint. A
+violation is reported against the page that carries it, so the error names the
+offending node in the file being edited rather than a detached document-local
+path, and because one validation stands behind every consuming operation, the
+same answer is given whether the site is rendered, published, edited or
+imported. The renderer keeps its **own independent** neutralisation at every URL
+sink regardless — this is a line of defence added, never one replaced.
+
 A **round-trip identity gate** wired to the existing capture/values-diff spine
 measures `capture(render(L1)) ≈ L1` on the authored (literal) axes, and a
 cross-browser check confirms equivalent layout across the three engines.
 
 **In scope**: the typed L1 shape (including the shared axis groups, the `control`
-leaf, and the document resource table), the envelope validator, the safe renderer
+leaf, and the document resource table), the envelope validator **and its
+enforcement on every validated site definition, authored or reproduced**, the
+safe renderer
 (including geometry keyframe compilation, `@font-face` emission, and the control
 emitter's zero-look baseline / inert degradation / attribute refusal), and the
 round-trip / cross-browser fidelity guarantees.
@@ -309,6 +326,34 @@ its target behavior-module id, with no module code and no behaviour attached.
   wrapper nodes were removable, but deliberately not committed under those
   tickets (it belongs to REQ-95's session). Site definition data is not
   capability surface; no criterion here is written against that site's content.
+- **REQ-107 — the envelope was wired to the authoring path (this
+  reconciliation).** The envelope validator had exactly two callers, both on the
+  reproduction path (the fold and the layout probe), so an authored page cleared
+  only the shape check. The intent's argument is that this was backwards: a
+  reproduced document derives its values mechanically from a capture, while the
+  authoring path is the one with a human or an AI free-typing numbers and URLs
+  into a JSON file. It was observed rather than theorised — seven passes of
+  authored xgd.dev documents bypassed the envelope entirely, and when REQ-106
+  added the unique-id rule an authored page with two nodes claiming `signup`
+  rendered without complaint; the rule existed and never fired, and was caught by
+  reading emitted HTML, which is not a control. This is **not** a security hole
+  closed: the renderer independently re-checks and degrades at every URL sink, and
+  the intent is explicit that defence-in-depth is the argument for *keeping* that
+  check, not for skipping the validator. The classes with no second line of
+  defence at all — an out-of-range axis, a node-count blowout, a duplicate id, a
+  dangling geometry anchor — are what the wiring actually buys, along with the
+  envelope's error messages finally reaching the caller written to consume them
+  (DOC-8 §6).
+- **REQ-107 triage — no document was fixed and no bound relaxed.** The intent
+  named the triage as the real work (turning an unenforced check on will fail
+  documents that were out of envelope all along) and forbade resolving any
+  failure by weakening the check. In the event every `storage/sites/**` document
+  and every hand-written test fixture was already inside the envelope, so intent
+  criteria 4 and 5 were satisfied vacuously rather than by change. The standing
+  control that the committed corpus stays in envelope is carried as a test over
+  `storage/sites/**` rather than as a criterion here: it asserts a property of
+  this repository's content, not of the substrate's behaviour, and site
+  definition data is not capability surface.
 
 ## Dependencies
 None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on it).
