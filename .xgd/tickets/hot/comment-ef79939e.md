@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-44
 created_by: xgd
 created_at: '2026-08-06T18:59:56.858068+00:00'
-updated_at: '2026-08-06T19:32:43.903011+00:00'
+updated_at: '2026-08-06T19:34:28.642257+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -90,5 +90,35 @@ Two notes on the working tree: `apps/control-app/src/builder/{app,builder.css,co
 <!-- xgd-chat role="user" ts="2026-08-06T19:32:43.711828+00:00" -->
 #### You
 Are there any changes required to the plugins?
+
+<!-- xgd-turn id="38526eb1-8900-4293-9c58-e60cc30f9548-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T19:34:28.516213+00:00" -->
+#### Claude
+Correcting one thing I said earlier first — let me verify against the code rather than the ABC docstring.
+
+Yes — and less than I implied. I checked the plugin code rather than the ABC docstrings, and one thing I said last turn was wrong.
+
+**Correction:** the JS plugin does not symlink `node_modules` from xgd-working. That strategy was removed — pnpm rewrote hoisted symlinks *through* the link into xgd-working, leaving stale broken entries after teardown. `javascript_vitest_open.setup_worktree_dependencies()` now runs a real `pnpm install --frozen-lockfile --prefer-offline --ignore-scripts` in the new worktree, so worktrees are self-contained. REQ-745 is updated; the shared-mutable-install concern is gone.
+
+## What the plugins need
+
+**`javascript_vitest_open` — refactoring, not new capability.** Both halves already exist, triggered at the wrong moment:
+- `config_files_for_main_sync()` already computes the manifest set (`package.json`, detected lockfile, `pnpm-workspace.yaml`) via `_package_manager.detect_package_manager` — Corepack, lockfile precedence and monorepo walk-up all handled. `dependency_manifest_paths()` is that plus `**/package.json` for workspace members, which is exactly where `sharp` landed.
+- `sync_dependencies()` is the install body of `setup_worktree_dependencies` lifted into a `cwd`-parameterised helper. `setup_worktree_dependencies` then becomes the same install against a different directory.
+
+**`--ignore-scripts` is a live problem for this exact bug.** The worktree install passes it. `sharp` and `playwright` both do real work in `postinstall` — a native binary and a browser download — so a tree installed that way has the package directory and not the artifact. Resolution succeeds, use fails, and my REQ-44 preflight cannot see it (it resolves the module, not the artifact). Either `sync_dependencies()` runs scripts, bounded by the project's existing `allowBuilds`, or the plugin declares which packages need them. Worth deciding rather than inheriting the flag by copy-paste.
+
+**The ABC exists twice** — `xgd/xgd_source/quality/framework.py` and `xgd-plugin-sdk/src/sdk/framework.py`, drifted but overlapping. Both need the new methods, with `[]` / no-op defaults.
+
+**The other four plugins** (`python_open`, `java_junit5_open`, `swift_xctest_open`, `example`) implement `setup_worktree_dependencies` nowhere — they inherit the no-op. Defaults keep them compiling, but leaving them there just relocates the bug to those languages.
+
+## One core cleanup this exposes
+
+`xgd_source/quality/worktree_setup.py:97` still has `_repair_source_node_module_symlinks()` — a pnpm-specific algorithm walking `node_modules/@*/` to rewrite hoisted symlinks — called unconditionally on every worktree setup. It exists solely to repair damage from the symlink strategy the JS plugin already abandoned. That is precisely the language-specific-code-in-core you want gone; it should move into the plugin or be deleted.
+
+The other core hits are benign by comparison — `node_modules` in directory-skip lists (`state.py:602`, `workflow_v2/dependencies.py:861`, `config/discoverer.py:38`) — though they're the same smell in miniature.
+
+Both findings are now in REQ-745. Want a separate ticket in `xgd-plugin-sdk` for the plugin-side work, or is tracking it under REQ-745 enough?
 
 <!-- xgd-chat-end -->
