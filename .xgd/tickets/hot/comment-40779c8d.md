@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:31:41.419762+00:00'
+updated_at: '2026-08-06T19:32:01.313917+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -391,5 +391,11 @@ The gap is one call in `apps/control-app/src/builder/` — mount the bridge on `
 That validates, writes the draft, and re-renders the edit channel; then reload the frame. Read the address off any outlined element — `data-l1-path` in the DOM, e.g. `0.0.0.0` is the wordmark on `xgd/home`.
 
 Want me to build the wiring? It's the five pieces from before, unchanged. Say go and I'll do it under REQ-117 — though as with the sizing fix, the mount itself is arguably T1 territory.
+
+<!-- xgd-turn id="dbe703f8-7e15-47bc-9d9b-58955f9656d3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:32:01.102232+00:00" -->
+#### You
+So when do I get to see editing?
 
 <!-- xgd-chat-end -->
