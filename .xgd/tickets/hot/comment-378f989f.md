@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-06T00:29:36.617391+00:00'
+updated_at: '2026-08-06T00:34:47.299400+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -352,5 +352,12 @@ Four roots: **1stcontact app** (`in_progress`, 5 children) · **XGD website** (`
 Ready frontier is now three: the app, XGD website, web builder. Still not a real frontier — with nothing at `planned` and no dependency edges, "ready" just means "started." That resolves with the planning pass, which is the outstanding objective.
 
 Two loose ends from last session, still open: **user portal & subscription support** (DOC-4 MVP item 5) isn't on the map — you specified five children, so I haven't added a sixth. And **marketing brainstorm**'s scope is still ambiguous — onboarding consultation flow, or the deferred DOC-4 marketing bundle.
+
+<!-- xgd-turn id="72f29c44-5db3-4de2-b0f4-49343c0d90d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T00:34:47.175531+00:00" -->
+#### You
+user portal is another child of the app
+subscriptions is a child of payments, so is invoice
 
 <!-- xgd-chat-end -->
