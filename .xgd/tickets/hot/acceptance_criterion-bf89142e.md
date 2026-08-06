@@ -3,12 +3,12 @@ uid: acceptance_criterion-bf89142e
 id: AC-900
 type: acceptance_criterion
 title: The deploy report names each stage on its own labelled line and terminates
-  in the shareable URL
+  in the deploy's destination
 created_by: xgd
 created_at: '2026-08-06T18:39:53.516354+00:00'
-updated_at: '2026-08-06T20:15:10.028777+00:00'
+updated_at: '2026-08-06T20:16:35.027508+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-5349d01f
