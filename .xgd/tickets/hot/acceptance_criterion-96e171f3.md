@@ -6,10 +6,10 @@ title: The published and preview renders are byte-identical to what they were be
   the edit channel existed, and still work
 created_by: xgd
 created_at: '2026-08-06T21:27:03.522157+00:00'
-updated_at: '2026-08-06T21:27:03.522157+00:00'
+updated_at: '2026-08-06T21:39:07.941332+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
