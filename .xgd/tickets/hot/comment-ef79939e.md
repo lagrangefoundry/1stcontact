@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-44
 created_by: xgd
 created_at: '2026-08-06T18:59:56.858068+00:00'
-updated_at: '2026-08-06T19:20:55.692697+00:00'
+updated_at: '2026-08-06T19:32:43.903011+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,11 @@ The ticket proposes `dependency_manifest_paths()` and `sync_dependencies()` on `
 One thing I flagged there as needing an explicit decision: the JS plugin implements `setup_worktree_dependencies` by **symlinking `node_modules` from xgd-working**, so all worktrees share one install — which is the mechanism that turned one stale tree into a repo-wide outage. A `sync_dependencies()` in any worktree would write through to that shared install.
 
 Two notes on the working tree: `apps/control-app/src/builder/{app,builder.css,config}.js` and an untracked `tests/req117-builder-viewport-fill.test.ts` are not mine and are not in either commit — they appeared during the session, likely from a background XGD workflow. I briefly stashed and restored them while confirming the pre-existing failures; `git status` shows them intact.
+
+<!-- xgd-turn id="38526eb1-8900-4293-9c58-e60cc30f9548-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:32:43.711828+00:00" -->
+#### You
+Are there any changes required to the plugins?
 
 <!-- xgd-chat-end -->
