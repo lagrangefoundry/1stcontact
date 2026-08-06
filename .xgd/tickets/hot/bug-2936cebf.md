@@ -5,10 +5,10 @@ type: bug
 title: CSS background images and lazy-loaded media are not captured
 created_by: xgd
 created_at: '2026-07-25T21:14:17.767631+00:00'
-updated_at: '2026-08-05T19:32:16.247528+00:00'
-completed_at: null
+updated_at: '2026-08-06T04:55:05.299998+00:00'
+completed_at: '2026-08-06T04:55:05.299998+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
