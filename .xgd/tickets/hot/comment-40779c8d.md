@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T21:08:35.575461+00:00'
+updated_at: '2026-08-06T21:27:05.247308+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -578,5 +578,15 @@ Full suite is back to its pre-existing baseline — 1110 passing, the same 10 `r
 Commit `2119b6dd`, version 0.1.19, recorded on REQ-117 (now 4 commits, still `free_coded`).
 
 Two carry-overs unchanged: **`1stcontact` and `harbor-cafe` still can't render an edit channel at all** (`Module not found in catalog: 'header' v2` — pre-pivot definitions, and `1stcontact` is the selector's default, so pick `xgd` or `gigabytealchemy`). And only copy is editable; images and containers correctly report "nothing to edit yet" — phase 1 as scoped.
+
+<!-- xgd-turn id="8c64bda5-07d4-41f0-bef2-5a69e0eb8e1a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T21:27:05.080214+00:00" -->
+#### You
+## Edit container
+
+Nothing to edit on this box segment yet. <-- I'm seeeing this message pop up - the "Close " CTA doesn't work it can't be dismissed.
+
+There is a problem with the 2 panel divider, (1) Once I start dragging it it has been difficult to drop (2) It gets stuck in a mode where it will only move right. If these are problems with the component we should post a ticket in lagrange-framework to fix.
 
 <!-- xgd-chat-end -->
