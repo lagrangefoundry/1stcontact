@@ -159,6 +159,15 @@ function defaultModal(spec) {
   backdrop.className = 'builder-modal__backdrop'
   host.append(backdrop, panel)
 
+  // Declared BEFORE `close` and assigned later, never `const` after it. A
+  // message/error modal returns before the form is built, so a `const fields`
+  // below this point stays in the temporal dead zone for the life of the modal
+  // — and `fields?.destroy()` would then throw ReferenceError rather than
+  // reading undefined, because optional chaining guards null, not TDZ. That
+  // throw lands before `host.remove()`, so the dialog cannot be dismissed by
+  // any route: button, Escape or backdrop.
+  let fields = null
+
   const close = () => {
     fields?.destroy()
     host.remove()
@@ -189,7 +198,7 @@ function defaultModal(spec) {
   const formHost = document.createElement('div')
   panel.append(formHost)
 
-  const fields = mountFields(formHost, {
+  fields = mountFields(formHost, {
     schema: spec.schema,
     values: spec.values,
     commit: 'buffered',
