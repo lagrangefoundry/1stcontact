@@ -6,9 +6,9 @@ title: Deploying the published channel ships the site's current latest revision 
   moves the live pointer
 created_by: xgd
 created_at: '2026-08-06T18:39:35.857429+00:00'
-updated_at: '2026-08-06T18:46:01.900748+00:00'
+updated_at: '2026-08-06T20:15:17.374469+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-5349d01f
@@ -23,8 +23,10 @@ published revision — both its rendered output and its definition — to a loca
 named by that revision, and updates the deploy index so that: the revision is
 listed with its own identifier, its publish timestamp, its publish message and
 the content id of the bytes shipped; and the index's live pointer names that
-revision. The returned result carries the revision number, and the returned URL
-is the site's plain published URL (no snapshot id segment).
+revision. The returned result carries the revision number, and — for a site in
+the servable store tree — the returned URL is the site's plain published URL (no
+snapshot id segment). A published deploy from the non-servable tree ships and
+indexes the same way in its own tree, and returns no URL.
 
 ## Verification
 
