@@ -6,10 +6,10 @@ title: Every preview-channel response asks crawlers not to index it, including i
   redirect and its not-found
 created_by: xgd
 created_at: '2026-08-06T18:49:35.867698+00:00'
-updated_at: '2026-08-06T18:49:35.867698+00:00'
+updated_at: '2026-08-06T18:59:30.067318+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
