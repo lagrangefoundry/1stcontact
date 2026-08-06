@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-14 (BUG-31 + REQ-114 + REQ-116)'
 created_by: xgd
 created_at: '2026-08-06T20:12:29.411088+00:00'
-updated_at: '2026-08-06T20:26:47.776404+00:00'
+updated_at: '2026-08-06T20:38:49.217521+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -118,7 +118,7 @@ fields:
       the absolute literal — still true, now as the base of a two-form model. Creating
       a separate ''palette'' story would split one value model across two stories
       and leave STORY-80 asserting a parking decision that no longer holds.'
-    story_uid: null
+    story_uid: story-c490f1cf
     target_story_ids:
     - story-c490f1cf
     intent_delta_summary: 'The overlay half of the value model lands, for colour,
