@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-14 (BUG-31 + REQ-114 + REQ-116)'
 created_by: xgd
 created_at: '2026-08-06T20:12:29.411088+00:00'
-updated_at: '2026-08-06T20:12:29.411088+00:00'
+updated_at: '2026-08-06T20:17:03.670877+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-0385746c
@@ -34,7 +34,7 @@ fields:
       capability bucket: this is the same command, same index, same report, with the
       root threaded through. Extending STORY-94 keeps one story describing what a
       deploy writes rather than creating a parallel ''sandbox deploy'' story.'
-    story_uid: null
+    story_uid: story-5349d01f
     target_story_ids:
     - story-5349d01f
     intent_delta_summary: 'Shipping becomes root-scoped: the store tree a site was
