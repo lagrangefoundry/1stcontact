@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-06T01:26:00.576536+00:00'
+updated_at: '2026-08-06T01:31:00.646677+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -29,14 +29,15 @@ malicious content.
 This story documents the **L1 layout substrate** — the one low-level,
 CSS-faithful layout representation introduced by the framework pivot (REQ-79) to
 replace the former semantic layout modules. A site's layout is a typed element
-tree: `box`, `text`, `image`, and `slot` leaves plus `stack | row | grid`
-containers. Each node carries typed literals or closed enums — never a freeform
-CSS/HTML/JS string. Responsive layout is expressed as **per-viewport geometry
-keyframes** with a per-segment `interpolate | snap` flag; per-axis sizing
-(`fixed | fluid | hug`), distribution, alignment, and viewport-range visibility
-are the structure primitives that capture leaves empty and an author recovers.
-The `slot` leaf is the Phase-D seam: it carries a required name and an optional
-**`behavior`** field naming the behavior module intended to mount there.
+tree: `box`, `text`, `image`, `slot` and `control` leaves plus
+`stack | row | grid` containers. Each node carries typed literals or closed enums
+— never a freeform CSS/HTML/JS string. Responsive layout is expressed as
+**per-viewport geometry keyframes** with a per-segment `interpolate | snap` flag;
+per-axis sizing (`fixed | fluid | hug`), distribution, alignment, and
+viewport-range visibility are the structure primitives that capture leaves empty
+and an author recovers. The `slot` leaf is the Phase-D seam: it carries a required
+name and an optional **`behavior`** field naming the behavior module intended to
+mount there.
 
 ### Language power — a typed axis for every pixel-mover
 The axis vocabulary has grown to cover every captured **pixel-mover** the
@@ -58,7 +59,8 @@ shape, by every kind that renders a box (`box`, `container`, `text`, `image`,
 A kind declares only what is genuinely its own: a run adds its type axes
 (gradient fill painting the glyphs, decoration line, glyph shadow, small-caps,
 list marker), an image adds `object-fit`, a container adds its layout, a slot its
-seam name. Three consequences follow directly:
+seam name, a control the name of the module element it paints. Three consequences
+follow directly:
 
 - **A painted, internally laid-out element is ONE node**, not a painted box
   wrapped around a laying-out container.
@@ -67,6 +69,40 @@ seam name. Three consequences follow directly:
   purpose is to carry a `max-width`.
 - **A mounted behavior module is sized through its slot**, so a seam can be
   measured as well as painted.
+
+### The control leaf — the seam where L1 wraps the module
+A `slot` is the module rendering its chrome *around* an L1 subtree, which works
+only when the behavioural element is a container. It is structurally unreachable
+for a **leaf**: an `<input>` is a void element and a `<textarea>`'s content is its
+value, so no L1 subtree can go inside one. Under the slot model alone a behavior
+module therefore *had* to paint its own controls, and no validator could catch it
+— the language had no vocabulary for "this element's look belongs to L1", which
+is precisely the hole a zero-CSS module contract cannot tolerate.
+
+The `control` leaf is that vocabulary. It names one element the mounted behavior
+declared and carries the same paint and node-level axis bags a text run does, and
+the sole emitter renders **the module's element with L1's class, geometry and
+every paint axis** while the module contributes only its attribute bundle. Three
+emitter obligations make the inversion safe rather than merely possible:
+
+- **A zero-look baseline.** A form control arrives with user-agent chrome —
+  border, fill, padding, its own font and colour — that paints *through* an L1
+  subtree which simply declined to set those axes. The emitter neutralises it once,
+  ahead of the authored axes (so any axis the instance did author still wins),
+  rather than every module carrying a reset stylesheet.
+- **The placeholder follows the authored colour.** A placeholder is painted by a
+  pseudo-element that does not inherit `color`, so a placeholder-labelled field
+  would keep the browser's grey inside the box; the emitter re-points it at the
+  element's own colour.
+- **An unbound name renders nothing.** A control naming an element no mounted
+  module declares emits no element at all — the isolation-correct degradation,
+  since a bare `<input>` would paint UA chrome and collect a field nothing submits.
+
+The inversion moves presentation and nothing else: the emitter escapes every
+attribute value and refuses `class`, `style` and `on*` attribute names outright,
+whoever declared them, so there is no freeform route back to raw CSS or to a
+script sink, and the behavioural attributes (`type` / `name` / `required`, the
+label association, the endpoint) stay module-authored.
 
 Each non-scalar family is carried as a **typed structured form** — a gradient is
 an angle plus hex stops; a shadow is offsets/blur/spread/hex colour/inset; a
@@ -117,15 +153,18 @@ A **round-trip identity gate** wired to the existing capture/values-diff spine
 measures `capture(render(L1)) ≈ L1` on the authored (literal) axes, and a
 cross-browser check confirms equivalent layout across the three engines.
 
-**In scope**: the typed L1 shape (including the shared axis groups and the
-document resource table), the envelope validator, the safe renderer (including
-geometry keyframe compilation and `@font-face` emission), and the round-trip /
-cross-browser fidelity guarantees.
+**In scope**: the typed L1 shape (including the shared axis groups, the `control`
+leaf, and the document resource table), the envelope validator, the safe renderer
+(including geometry keyframe compilation, `@font-face` emission, and the control
+emitter's zero-look baseline / inert degradation / attribute refusal), and the
+round-trip / cross-browser fidelity guarantees.
 
 **Out of scope**: mechanically folding a multi-viewport capture into an L1
 document — including *populating* the new axes and the resource table from a
-capture (REQ-83 / REQ-92, a separate story), behavior-module mounting into
-`slot` leaves (REQ-85, a separate story), and the end-to-end 3-probe
+capture, and folding a captured form control into a `control` node (REQ-83 /
+REQ-92 / REQ-96's reproduction half, a separate story); the behavior-module
+*contract* that declares which control elements exist, which are invariant, and
+what a valid binding is (REQ-85 / REQ-96, STORY-85); and the end-to-end 3-probe
 reproduction gate (REQ-86, a separate story). In L1, a `slot` renders as an
 inert labelled placeholder — a `div` carrying its slot name and, when declared,
 its target behavior-module id, with no module code and no behaviour attached.
@@ -159,6 +198,17 @@ its target behavior-module id, with no module code and no behaviour attached.
   obligation of the L1 emitter itself, asserted directly by this story's
   reconciliation UATs rather than left to the incidental coverage they had in the
   CAP-72 / generate tests.
+- **REQ-96 — the `control` leaf is L1's half of a two-directional contract.**
+  The intent's argument is that a module which must paint its own leaf controls
+  can never be layout-agnostic *by construction*, only by discipline — and
+  discipline is not something a contract can enforce. The division of ownership is
+  deliberate and narrow: L1 contributes class, geometry and paint and **only**
+  those, so the safety envelope does not degrade from "guaranteed by construction"
+  to "hopefully validated". The emitter is where the guarantee is constructed
+  rather than assumed, which is why the attribute refusal (`class` / `style` /
+  `on*`) is defence in depth over framework-authored modules. The module side of
+  the seam — which elements are declared, which are required, which are
+  obligation-pinned invariants, and how a binding is validated — is STORY-85's.
 - **REQ-91 / REQ-90 — language power and form.** The two extensions were
   deliberately sequenced *before* the folder rebuild (REQ-88's "language first,
   then rebuild the folder once"): the folder is only worth rebuilding against a
