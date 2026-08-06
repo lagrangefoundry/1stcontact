@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-08-06T01:40:36.348007+00:00'
+updated_at: '2026-08-06T03:52:08.040264+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -100,8 +100,9 @@ can legitimately vary."**
   dot's size and colour are now L1 axes on the subtrees themselves.
 - **contact-form** (v4) — keeps its functional core (field schema, a11y label
   association, honeypot + Turnstile anti-spam surface, no-JS `<form method=post>`
-  baseline, JSON-fetch progressive enhancement) and **ships no stylesheet beyond
-  its invariants**. Its whole presentation is one L1 subtree in a single
+  baseline, JSON-fetch progressive enhancement over **only the endpoints that
+  enhancement can actually complete**) and **ships no stylesheet beyond its
+  invariants**. Its whole presentation is one L1 subtree in a single
   **required** `form` slot; each field's control and the submit button are
   `control` leaves inside it. The slot is required deliberately: a form with no
   authored presentation has no visible controls at all, and failing that loudly at
@@ -143,7 +144,8 @@ its published `Behavior*` naming, instance validation incl. the slot-as-L1
 security line and the two-directional control check, the zero-CSS obligation and
 its declared invariant carve-out, the two reframed survivor behavior modules and
 their observable behaviour, the L2 default-look preset, the shipped-client-JS
-asset, and the isolation conformance dimension.
+asset, and the isolation conformance dimension — including its client-side half,
+that an enhancement never cancels a baseline it cannot itself complete.
 
 **Out of scope**: the L1 substrate itself (STORY-83 / CAP-70) — including the
 `control` node kind, its emitter and the emitter's own safety properties, and the
@@ -213,6 +215,20 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   English-word uses of "capability" (driver capability negotiation in the capture
   layer; "schema-only capability" in the site schema) are correct English and are
   not the renamed type.
+- **Isolation has a client-side half (BUG-28).** The contact-form enhancement
+  previously suppressed the native submit unconditionally and then attempted the
+  submission itself. The module's safety check accepts `mailto:` and `tel:` as
+  legitimate endpoints, and the browser cannot send a submission to either — so
+  those forms reported a connection failure on a page that would have worked by
+  native submit, with the baseline already cancelled. That is the declared
+  isolation obligation inverted, and it is the default state of any authored site
+  with no backend yet. The enhancement now decides from the endpoint's scheme
+  *before* suppressing the submit: `http(s)`, relative and empty endpoints are
+  intercepted exactly as before; every other scheme, and anything unreadable,
+  keeps the user agent's own submit. Deliberately **no** config field was added —
+  the endpoint already determines the answer, and a dial for that would be the
+  escape hatch DOC-25 §2 rules out. The guard is an allowlist, so a schemeless
+  (relative) value still enhances rather than being mistaken for unparseable.
 - Isolation is a render-level conformance dimension: degenerate-but-schema-valid
   input must render without throwing and still emit a structurally-intact page
   band; it always runs (needs no browser). The other four dimensions
