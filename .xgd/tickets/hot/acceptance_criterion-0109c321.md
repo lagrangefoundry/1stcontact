@@ -7,10 +7,10 @@ title: The region is deterministically rough and bounded by the reach the author
   its feathered edge
 created_by: xgd
 created_at: '2026-08-06T18:09:40.197313+00:00'
-updated_at: '2026-08-06T18:09:40.197313+00:00'
+updated_at: '2026-08-06T18:25:09.178898+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
