@@ -5,9 +5,9 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-06T19:51:52.665667+00:00'
+updated_at: '2026-08-06T19:53:14.477811+00:00'
 completed_at: null
-last_field_updated: commits
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   priority: high
@@ -279,3 +279,67 @@ closing brace and so turned any added tab option into a *naming* failure.
 **Scope note.** This is T1 (REQ-115) chrome, not copy editing. It was committed
 against REQ-117 because that is this session's scope ticket; move it if the
 reconcile wants the fix attributed to T1.
+
+
+## The loop is closed (cda7fe4d) — "blocked on T1" no longer applies
+
+Both blockers recorded above are gone. `@gendevlabs/webui-fields` is in the
+shared artifact store, and T1 (REQ-115) shipped the shell the bridge had nothing
+to bind to. Everything the section above described as "small and named" is built.
+
+**What now works, in a real browser**: hover brightens a segment's outline →
+click resolves it to its definition node → a `mountFields` modal opens over that
+segment's derived fields → Save posts one change map → the origin validates,
+writes the draft and re-renders → the frame refreshes showing the edit.
+
+### What was added
+
+- **`L1_EDIT_PAGE_ATTR`** (`data-fc-page`, stamped on `<body>` in the edit
+  channel). An address is only half a coordinate. `index.html` is an *alias* for
+  the home page, so the file name is not the page id, and deriving it client-side
+  would mean re-implementing the renderer's home-page rule and drifting from it.
+  It is the `id`, never the `slug` — `findPageFile` matches on `id`.
+- **`/api/copy` GET/POST** on the builder origin — a thin transport over
+  `editCopyGet`/`editCopySet`, the *same* functions `1c copy get|set` dispatch
+  to. A `CommandError` is the **expected** answer to a bad edit, so it returns
+  **400** carrying the validator's own `code`/`path`/`hint`; a 500 would read as
+  "the builder broke" and throw away the message naming the field.
+- **`/framework/edit-client.js`** — the bridge served to the browser by
+  type-stripping the TypeScript source. It stays **one** implementation: it reads
+  the stamp the renderer writes, and a hand-written browser copy would be free to
+  drift from the markup. Type-stripping suffices because both files' only runtime
+  import is each other.
+- **`editor.js`** — the host half: modal, save, refresh. The bridge is
+  **injected**, not imported: its URL is browser-only, so a module-scope import
+  would make the file unloadable in any test. `main.js` is the sole module that
+  resolves those URLs.
+- **`mountFields` in `buffered` commit** — one modal is one diff. `auto` would
+  post per field and re-render the site on every settled keystroke.
+
+### Two shape bugs the browser found
+
+- `hit.target.path` is the parsed **index array**; the wire speaks the dotted
+  form. A bare `String(path)` yields `0,0,0,0`, which the parser correctly
+  refuses. Now formatted through `formatL1Path` — one definition of an address.
+- The bridge calls it `moduleId`, the CLI flag is `--module`. The rename happens
+  in one place. Getting it wrong is **silent**: an instance-rooted address
+  resolved against the document root still lands on *a* node, just the wrong one.
+
+### Evidence
+
+- `tests/req117-edit-loop.test.ts` — 6 UATs over the real origin.
+- `tests/req117-edit-loop-browser.test.ts` — 4 UATs in a real browser, because
+  jsdom does no layout and cannot click inside an iframe.
+
+Mutation-checked: unbinding the bridge fails 3 of the 4 browser UATs; the
+View-mode UAT correctly still passes, since it asserts *absence*. A skip where no
+browser can launch warns loudly rather than passing quietly.
+
+Also widened two REQ-116 assertions that pinned `<body data-fc-edit>` as a whole
+tag and so broke on the added page stamp.
+
+### Known, not fixed here
+
+A copy edit rewrites the whole page JSON with different unicode escaping
+(`—` → `—`), so a one-word change produces a large diff. Pre-existing in
+`writeJson`, cosmetic, and worth its own ticket.
