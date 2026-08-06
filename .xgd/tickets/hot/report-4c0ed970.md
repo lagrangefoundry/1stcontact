@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T01:47:03.085990+00:00'
+updated_at: '2026-08-06T02:05:12.775824+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -233,7 +233,7 @@ fields:
     story_points: 3
     dependencies:
     - 1
-    story_uid: null
+    story_uid: story-d2b5cb1c
     description: 'Document L1''s typed vocabulary for interaction state and scroll-driven
       motion (REQ-99 + REQ-100). node.interaction carries a transition (durationMs
       plus a closed easing enum) and hover / focus state deltas drawn from the shared
