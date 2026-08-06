@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-05T21:03:50.474428+00:00'
+updated_at: '2026-08-06T01:17:51.641623+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -30,28 +30,43 @@ This story documents the **L1 layout substrate** — the one low-level,
 CSS-faithful layout representation introduced by the framework pivot (REQ-79) to
 replace the former semantic layout modules. A site's layout is a typed element
 tree: `box`, `text`, `image`, and `slot` leaves plus `stack | row | grid`
-containers. Each leaf carries a subset of the captured style axes (colour,
-font family/size/weight, line-height, letter-spacing, alignment, transform,
-style; surface fill, radius, opacity; object-fit) as **typed literals or closed
-enums** — never a freeform CSS/HTML/JS string. Responsive layout is expressed as
-**per-viewport geometry keyframes** with a per-segment `interpolate | snap`
-flag; per-axis sizing (`fixed | fluid | hug`), distribution, alignment, and
-viewport-range visibility are the structure primitives that capture leaves empty
-and an author recovers. The `slot` leaf is the Phase-D seam: it carries a
-required name and an optional **`behavior`** field naming the behavior module
-intended to mount there.
+containers. Each node carries typed literals or closed enums — never a freeform
+CSS/HTML/JS string. Responsive layout is expressed as **per-viewport geometry
+keyframes** with a per-segment `interpolate | snap` flag; per-axis sizing
+(`fixed | fluid | hug`), distribution, alignment, and viewport-range visibility
+are the structure primitives that capture leaves empty and an author recovers.
+The `slot` leaf is the Phase-D seam: it carries a required name and an optional
+**`behavior`** field naming the behavior module intended to mount there.
 
 ### Language power — a typed axis for every pixel-mover
 The axis vocabulary has grown to cover every captured **pixel-mover** the
 substrate previously had no way to express (the DOC-27 rule: an axis earns its
-place iff it moves a pixel). Beyond the original scalars, a document may carry:
+place iff it moves a pixel).
 
-| Target | Axes |
+**The vocabulary is shared, not parcelled out per node kind.** It was once a
+table of which kind was permitted which axis — `box` painted but did not lay out,
+`container` laid out but did not paint, `slot` carried neither, and each new kind
+re-litigated the question by hand. Two groups are now carried, with the identical
+shape, by every kind that renders a box (`box`, `container`, `text`, `image`,
+`slot`, and the `control` leaf):
+
+| Group | Axes |
 |---|---|
-| **text** | gradient fill (glyphs painted by a text-clipped gradient), decoration line, glyph shadow, small-caps, list marker |
-| **box** | surface gradient, background image (scheme-checked), translucent scrim overlay, border, drop shadow, backdrop blur, blend mode |
-| **image** | blend mode, border, drop shadow |
-| **any node** | transform (rotation + uniform scale), mask (circular / elliptical crop, feathered edge) |
+| **surface (paint)** | solid fill, surface gradient, background image (scheme-checked), translucent scrim overlay, uniform border, left-accent border, corner radius, drop shadow, backdrop blur, opacity, blend mode |
+| **node-level** | per-width geometry, sizing, viewport-range visibility, transform, mask, padding, per-width padding, interaction state, scroll reveal |
+
+A kind declares only what is genuinely its own: a run adds its type axes
+(gradient fill painting the glyphs, decoration line, glyph shadow, small-caps,
+list marker), an image adds `object-fit`, a container adds its layout, a slot its
+seam name. Three consequences follow directly:
+
+- **A painted, internally laid-out element is ONE node**, not a painted box
+  wrapped around a laying-out container.
+- **A text run declares its own measure** — the max line length that is the most
+  fundamental control in typography — with no wrapper container whose only
+  purpose is to carry a `max-width`.
+- **A mounted behavior module is sized through its slot**, so a seam can be
+  measured as well as painted.
 
 Each non-scalar family is carried as a **typed structured form** — a gradient is
 an angle plus hex stops; a shadow is offsets/blur/spread/hex colour/inset; a
@@ -60,7 +75,7 @@ width; a transform is rotation and scale; a scrim is a hex colour plus opacity.
 The renderer re-derives the CSS from those numeric, enum, and hex fields, so a
 structured axis is never a passthrough style string, and an identity or no-op
 value (unit transform, `normal` blend, `none` decoration/marker) is omitted
-rather than emitted. A box's scrim, gradient, and background image composite as
+rather than emitted. A node's scrim, gradient, and background image composite as
 ordered background layers over the solid fill.
 
 ### Language form — handles bound to substance
@@ -88,18 +103,21 @@ enforce it:
 
 Both layers grew with the vocabulary rather than beside it: the envelope bounds
 the structured effect lengths and the transform scale, requires hex stops and
-border colours, runs a box background image **and every font-face source**
-through the same URL allowlist as an image source, bounds a declared font
-weight to the CSS range, and — because every structured form is closed — refuses
-an unknown key rather than ignoring it. The renderer drops a non-hex colour, an
-off-allowlist URL, and an unsanitisable font name instead of emitting them, so
+border colours, runs a background image **and every font-face source** through
+the same URL allowlist as an image source, bounds a declared font weight to the
+CSS range, and — because every structured form is closed — refuses an unknown key
+rather than ignoring it. Because the surface group is shared, **the envelope
+bounds it once for every kind**: a background-image URL is scheme-checked and a
+left-accent border's width is bounded wherever they are declared, rather than
+only on the kinds that were checked by hand. The renderer drops a non-hex colour,
+an off-allowlist URL, and an unsanitisable font name instead of emitting them, so
 no raw CSS escapes the sink through any of the new families.
 
 A **round-trip identity gate** wired to the existing capture/values-diff spine
 measures `capture(render(L1)) ≈ L1` on the authored (literal) axes, and a
 cross-browser check confirms equivalent layout across the three engines.
 
-**In scope**: the typed L1 shape (including the grown axis vocabulary and the
+**In scope**: the typed L1 shape (including the shared axis groups and the
 document resource table), the envelope validator, the safe renderer (including
 geometry keyframe compilation and `@font-face` emission), and the round-trip /
 cross-browser fidelity guarantees.
@@ -141,14 +159,14 @@ its target behavior-module id, with no module code and no behaviour attached.
   obligation of the L1 emitter itself, asserted directly by this story's
   reconciliation UATs rather than left to the incidental coverage they had in the
   CAP-72 / generate tests.
-- **REQ-91 / REQ-90 — language power and form (this reconciliation).** The two
-  extensions were deliberately sequenced *before* the folder rebuild (REQ-88's
-  "language first, then rebuild the folder once"): the folder is only worth
-  rebuilding against a completed language. Both were **co-designed against real
-  captures** rather than invented — the gigabytealchemy gold→orange wordmark
-  gradient, its `#00d492` accent bar and panel gradient, a joyful drop shadow, a
-  faelan hero scrim, and a joyful Oswald webfont were folded through the new
-  axes as the design check and reused verbatim as test fixtures.
+- **REQ-91 / REQ-90 — language power and form.** The two extensions were
+  deliberately sequenced *before* the folder rebuild (REQ-88's "language first,
+  then rebuild the folder once"): the folder is only worth rebuilding against a
+  completed language. Both were **co-designed against real captures** rather than
+  invented — the gigabytealchemy gold→orange wordmark gradient, its `#00d492`
+  accent bar and panel gradient, a joyful drop shadow, a faelan hero scrim, and a
+  joyful Oswald webfont were folded through the new axes as the design check and
+  reused verbatim as test fixtures.
 - **Where the new capability stops at this story's boundary.** Populating the new
   axes and the resource table *from a capture* is the folder's job and is
   documented on the capture→L1 fold story, not here. At the time REQ-91 landed
@@ -161,6 +179,45 @@ its target behavior-module id, with no module code and no behaviour attached.
   re-derived at emit time. This is the DOC-7 §6.3 rule in practice: when a design
   could not be expressed, a typed primitive was added to L1 rather than a
   passthrough style string opened.
+- **REQ-98 / REQ-97 / REQ-105 — the axis groups became shared (this
+  reconciliation).** The three intents state one argument and are documented as
+  one capability: since REQ-96 made L1 the sole owner of appearance and a
+  behavior module ships zero CSS, *an axis L1 cannot carry on the node that needs
+  it is an axis a module must paint* — so a per-kind axis table is a hole in the
+  REQ-96 contract, not an ergonomics complaint. The surface group and the
+  node-level groups are each declared once and spread into every kind, so a kind
+  added later inherits them rather than re-deriving its slice. The change is
+  strictly additive: capture never populates these fields on the kinds that
+  gained them, and the gigabytealchemy and joyful reproductions render unchanged.
+- **Why the asymmetry existed.** It was an artefact of which face was exercised
+  first, not a decision: capture folds text as absolutely positioned with a
+  geometry track, so the *transcription* face never needed a measure on a run or
+  a size on a seam. The *authoring* face does — both gaps were found while
+  authoring a real page (REQ-95), each having cost a wrapper node that carries no
+  content, no paint and no semantic role.
+- **The analytic layout gate mirrors sizing for every kind, by necessity.** A
+  text leaf's height is a function of its width, so a run declaring a measure
+  wraps to more lines than its frame alone predicts; a gate that ignored the
+  measure would report phantom drift against the browser. Making the narrowing
+  generic rather than text-only also closes a pre-existing mirror gap — a wrapper
+  container's `max-width` was previously invisible to the gate, so the wrapper
+  form and the direct form did not evaluate identically. Recorded in AC-803.
+- **`height` on a text run is admitted, not forbidden** (a design decision the
+  intent left open): the shared sizing shape is accepted whole rather than a
+  width-only variant minted for one kind, and the schema documents that a run's
+  height is naturally from flow. Correspondingly, **no envelope change was made
+  for sizing** — sizing is unbounded for every kind alike, so a run is consistent
+  with the rest rather than a special case.
+- **Deliberately not in scope: merging `box` into `container`.** Once a container
+  can paint, `box` is a strict subset of it, which by the project's
+  no-duplicate-mechanisms rule argues for a merge. The intent explicitly defers
+  it — the merge touches the fold, the renderer and both passing reproductions,
+  and the evidence does not yet justify the risk.
+- **Site content edited outside the commits.** REQ-97 and REQ-105 both record
+  that `storage/sites/xgd/**` was collapsed in the working tree to prove the
+  wrapper nodes were removable, but deliberately not committed under those
+  tickets (it belongs to REQ-95's session). Site definition data is not
+  capability surface; no criterion here is written against that site's content.
 
 ## Dependencies
 None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on it).
