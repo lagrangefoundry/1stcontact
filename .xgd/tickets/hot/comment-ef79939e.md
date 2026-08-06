@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-44
 created_by: xgd
 created_at: '2026-08-06T18:59:56.858068+00:00'
-updated_at: '2026-08-06T19:35:20.468064+00:00'
+updated_at: '2026-08-06T19:37:00.426432+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -126,5 +126,23 @@ Both findings are now in REQ-745. Want a separate ticket in `xgd-plugin-sdk` for
 <!-- xgd-chat role="user" ts="2026-08-06T19:35:20.328279+00:00" -->
 #### You
 I need a ticket in the plugin project too, if there is work there
+
+<!-- xgd-turn id="b2bb0d19-d3d9-4b38-82f2-de9203b081cc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T19:37:00.204632+00:00" -->
+#### Claude
+Filed **REQ-22** in `lagrangefoundry/xgd-plugin-sdk` — there is real work there, in five places:
+
+1. **The ABC** (`src/sdk/framework.py`) — `dependency_manifest_paths()` and `sync_dependencies()`, both with `[]`/no-op defaults. `config_files_for_main_sync()` (their REQ-20) is the precedent for the shape, down to the "SDK base default is empty" UAT. The ABC exists twice, so this stays in step with the copy in xgd core.
+
+2. **`javascript_vitest_open`** — refactoring only. `config_files_for_main_sync()` already computes the manifest set via `detect_package_manager`; `setup_worktree_dependencies()` already runs the install. The work is lifting that install body into a `cwd`-parameterised helper and adding `**/package.json` for workspace members — the root-only list would not have caught the originating bug, since `sharp` landed in a member manifest.
+
+3. **The `--ignore-scripts` decision**, which I think is the sharpest finding. The worktree install passes it, and `sharp` and `playwright` both do real work in `postinstall`. That yields a tree where the package directory exists and its artifact does not — resolution succeeds, use fails. Invisible to `check_dependencies()` and invisible to the REQ-44 preflight I just landed, because the module still resolves. Either `sync_dependencies()` runs scripts bounded by the project's existing `allowBuilds`, or the plugin declares which packages need them.
+
+4. **The other four plugins** — none implement `setup_worktree_dependencies` today. Defaults keep them compiling, but the ticket assigns manifest paths per language so the gap doesn't just relocate. `example` stays `[]` as the reference for opting out.
+
+5. **Conformance** — `tests/conformance/_suites.py` already has `test_UAT_FC_REQ_640_lifecycle_hooks_are_safe_noop`, which is the same guarantee these hooks need. Extended to assert list-of-str, relative paths only, and a safe no-op `sync_dependencies()` when no manifests are declared.
+
+Cross-references are in place: REQ-745 (xgd core) now scopes down to change detection, the delegation call site, loud failure, and deleting `_repair_source_node_module_symlinks()`. REQ-44 (here) carries the `--ignore-scripts` note, since it's a limit of the preflight I built — the module resolves, so the check passes, and the artifact is still missing.
 
 <!-- xgd-chat-end -->
