@@ -5,10 +5,10 @@ type: bundle
 title: REQ-108 + REQ-109 + REQ-110 + REQ-111 + REQ-113 + 1 more
 created_by: xgd
 created_at: '2026-08-06T04:56:48.616857+00:00'
-updated_at: '2026-08-06T17:55:59.743191+00:00'
+updated_at: '2026-08-06T17:56:12.217263+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: abandoned
 fields:
   commits:
   - working_sha: 7676a1a7651b5a75f3ea2c9b97649d0fcc04783b
