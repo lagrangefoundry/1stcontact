@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-06T00:49:27.785447+00:00'
+updated_at: '2026-08-06T00:55:53.300550+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -423,5 +423,45 @@ XGD Website has children:
    -- xgd install
    -- user portal (depends on app feature)
    -- subscription payments (depends on app feature)
+
+<!-- xgd-turn id="5acc43cb-9c81-43c4-9f1e-f0128a4360ab-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T00:55:53.152459+00:00" -->
+#### Claude
+Structure is clear. One schema find that changes the shape of what you asked for: goal tickets have an **`implemented_by`** field, and the map's tree "runs down to the tickets" through it — so REQ-114–119 hang off Web editor as ticket refs rather than as six duplicate goals. Building now.
+
+Status, children and ticket refs all took. Now the XGD website tree.
+
+Twenty goals filed, both trees wired. One roll-up disagreement, and it's a real one — details below.
+
+## What I changed from your spec, and why
+
+**REQ-114–119 are ticket refs, not child goals.** Goal tickets carry an `implemented_by` field, and the map's tree deliberately "runs down to the tickets" through it — a referenced ticket renders as a leaf node and opens read-only. Six goals mirroring six requests would have been duplicate state to keep in sync, and the map explicitly doesn't own tickets. So Web editor carries all six as refs, and keeps blog/user-portal/payments as real child goals.
+
+**"Web editor deployment" resolved to the `Deployment` goal.** You listed Deployment as a sibling of Web editor under Site, then had Finalize copy depend on "Web editor deployment". I read that as one thing — the editor being reachable — and pointed the edge at `Deployment`. Note REQ-119 (request-time renders inside `control-app`) is DOC-28's T5 "deploy it for real", so it sits in both goals' stories; it's filed under Web editor as you specified, and named in Deployment's body.
+
+**Two dates I derived rather than asked for.** `realized` requires a `completed_date`; I set both Draft site and Draft site served from Cloudflare to **2026-07-31** from the commit trail (last site-affecting change was the palette retrofit; the R2 root-namespacing fix landed the same day). Correct either if you have a truer date — that's a one-field edit.
+
+**Two `depends_on` edges I read literally and want checked.** Phase 2's User portal → the app-level **User portal**, and Subscription payments → **Subscriptions**, following your "(depends on app feature)". The other honest reading is the editor's **User portal module** / **Payments module** — the site needs the module to *place* the thing, and the app feature to *back* it. Both are arguably true; I wired one and recorded the alternative in each body rather than inventing a second edge.
+
+## The disagreement
+
+**Web editor: declared `in_progress`, derived `concept`.**
+
+Roll-up follows `children` only, and all three module children are `concept` — rule 4 gives the parent its least-committed child. But the editor's actual work (REQ-114/115/116/117, landed) hangs off `implemented_by`, which roll-up ignores by design.
+
+I think the **declared value is right and the derivation is misleading here**, so I haven't touched it. But it will sit as a permanent flag until a module starts, which is noise. The clean fix is a modelling question you should answer, not me: are blog/user-portal/payments modules *part of* the web editor, or things the editor must be able to place? If the latter, they belong as siblings under Site, Web editor becomes a leaf, and the disagreement disappears honestly rather than being suppressed.
+
+## Two goals filed thin, on purpose
+
+**Debugging** — I couldn't pin the scope. Editor-side validator errors surfaced legibly? Diagnosing a wrong render? Tracing a structured edit click→diff→re-render? The capture/values-diff instrumentation? Body lists the candidates; it needs a scope pass before it can leave `concept`.
+
+**XGD install** — same problem, smaller. Install instructions, the package itself, or the whole distribution story?
+
+## Where the map stands
+
+Ready frontier is six, but still not a frontier: nothing is at `planned`, so "ready" continues to mean "started". Provenance is 32/32 `planned` — expected for a transcription, meaningless until goals start arriving as `discovered` or `bug`.
+
+The planning pass is now the obvious next move, and it's more tractable than it was an hour ago: **Launch site** is the natural first `planned` goal with a target date, and it pulls four Phase 1 children up the ladder behind it. I left Launch site without hard `depends_on` edges to copy/whitepapers/email-capture because that ordering is editorial judgement rather than mechanical blocking — say so and I'll make them real.
 
 <!-- xgd-chat-end -->
