@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-06T00:34:47.299400+00:00'
+updated_at: '2026-08-06T00:35:59.217640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -359,5 +359,44 @@ Two loose ends from last session, still open: **user portal & subscription suppo
 #### You
 user portal is another child of the app
 subscriptions is a child of payments, so is invoice
+
+<!-- xgd-turn id="72f29c44-5db3-4de2-b0f4-49343c0d90d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T00:35:59.090552+00:00" -->
+#### Claude
+Three goals created and wired. Note the uids I parented are intact, but two titles changed under me while I worked — presumably you edited them in the dashboard: **Web builder → "Builder"**, **Marketing brainstorm → "Marketing support"**. I've left both as you renamed them.
+
+## Map now
+
+**1stcontact app** (`in_progress`) — 6 children:
+
+| Child | State |
+|---|---|
+| Builder | `in_progress` |
+| Web monitoring | `aspiration` |
+| CRM | `aspiration` |
+| Payments | `aspiration` → 2 children |
+| User portal | `aspiration` *(new)* |
+| Marketing support | `concept` |
+
+**Payments** (`aspiration`) — 2 children: **Subscriptions** and **Invoicing**, both `aspiration` *(new)*.
+
+Digest is clean — **no roll-up disagreements**. Payments derives `aspiration` from its two children, matching its declared state.
+
+## Scope boundaries I wrote in
+
+The three new bodies are anchored to DOC-4/DOC-5, and two of them needed a boundary drawn to avoid overlap:
+
+- **User portal** owns the account shell and magic-link session surface; it *renders* subscription state but doesn't own it. Flagged in its body as part of the control app, which DOC-5 keeps off the framework renderer path.
+- **Subscriptions** owns plan lifecycle and the entitlement signal.
+- **Invoicing** owns the billing document — issue, deliver, mark paid. Split from subscriptions because DOC-4 item 4 bundles "invoicing and payments" as one line, and recurring-plan state and billing documents are genuinely different things.
+
+If you'd rather invoicing not be its own goal — it's the thinnest of the three — it collapses into Subscriptions cleanly.
+
+## Still open
+
+**Marketing support**'s rename reads like it resolves my earlier ambiguity toward the DOC-4 marketing bundle rather than an onboarding consultation flow, but it's still at `concept` with a body written for the old title. Want me to rewrite that body to match?
+
+And the map still has **nothing at `planned`** and **no dependency edges** — so the "ready frontier" (app, Builder, XGD website) remains just "what's started." That's the planning pass, still outstanding.
 
 <!-- xgd-chat-end -->
