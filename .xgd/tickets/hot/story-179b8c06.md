@@ -5,7 +5,7 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-08-06T03:52:32.691624+00:00'
+updated_at: '2026-08-06T04:00:53.197757+00:00'
 completed_at: null
 last_field_updated: status
 status: updated
