@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:13:48.543730+00:00'
+updated_at: '2026-08-06T22:16:13.385988+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -739,5 +739,11 @@ Two UATs over the real origin; the first asserts the edit channel *alongside* dr
 **One thing you should know:** your builder on :4173 had been running since **12:49** — it loads its modules at boot, so it predated every fix from this session and was still serving old code regardless of what I committed. I restarted it, and verified the loop end-to-end against the new build: one save, both channels updated, `no-store` on the responses. Worth remembering for the earlier fixes too — the modal and stale-render work only reached you after that restart.
 
 Two housekeeping notes: I briefly overwrote your heading with probe text while diagnosing against the live server, and have restored it to `Gigabyte Alchemy 2` — both channels confirm it. And the divider is still `lagrange-framework` REQ-64, untouched here.
+
+<!-- xgd-turn id="cb90970c-c670-4f58-8faf-83c87e71f6c4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T22:16:13.072068+00:00" -->
+#### You
+So what do I need to do to see the edit?
 
 <!-- xgd-chat-end -->
