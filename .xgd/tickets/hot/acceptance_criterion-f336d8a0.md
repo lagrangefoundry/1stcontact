@@ -6,10 +6,10 @@ title: A page is only ever served at its slash-free URL, so its document-relativ
   asset references resolve against the snapshot root
 created_by: xgd
 created_at: '2026-08-06T19:03:19.148429+00:00'
-updated_at: '2026-08-06T19:03:19.148429+00:00'
+updated_at: '2026-08-06T19:13:57.006600+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-66115f6b
   kind: behavior
