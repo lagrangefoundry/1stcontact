@@ -6,15 +6,17 @@ title: 'Ship a site off the laptop: a content-addressed snapshot deploy that ret
   a shareable URL'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-08-06T20:17:03.088337+00:00'
+updated_at: '2026-08-06T20:17:03.400817+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
   capability_uid: capability-a12e557f
   story_kind: upgrade
   story_points: 3
+  updated_by:
+  - bundle-0385746c
 ---
 
 ## Story
