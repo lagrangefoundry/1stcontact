@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:12:12.912216+00:00'
+updated_at: '2026-08-06T19:13:27.087588+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -243,5 +243,37 @@ That's the gap the five pieces close — framework browser build, `/api/copy`, t
 <!-- xgd-chat role="user" ts="2026-08-06T19:12:12.675091+00:00" -->
 #### You
 Can I see the demo now? Please tell me how to run it
+
+<!-- xgd-turn id="3598edc5-3927-4bfb-be09-38a7d0a372d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T19:13:26.923667+00:00" -->
+#### Claude
+I'll verify the current state and get it running.
+
+The builder is already running — it survived from the earlier session (node, PID 28730). Just open it:
+
+```
+http://localhost:4173/
+```
+
+If it isn't up, start it from the repo root:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+./bin/1c builder --port 4173      # stop with: kill 28730   (or: lsof -ti:4173 | xargs kill)
+```
+
+**Pick `xgd` or `gigabytealchemy` in the site selector** — those two have their edit channels rendered on disk (87 and 70 stamped segments). Both are 200 right now; I probed every route before writing this.
+
+**What you'll see:** the `Site` tab, the toolbar (site selector · View/Edit · open-in-new-tab · Publish), and the split with the chat placeholder. **View** shows the draft render — the page behaving normally. **Edit** shows the edit render: every editable region faintly outlined in indigo, links dead, forms inert, no motion, all content shown at once. Toggling swaps the frame `src` without rebuilding the pane; open-in-new-tab resolves to the identical URL.
+
+**What you still can't do: click anything.** No hover highlight, no modal, nothing writes. Those outlines are drawn statically by the renderer. I confirmed nothing has landed since we last spoke — the last code commit is still `4cb83ec68` (T1), and `apps/control-app/src/builder/` has no reference to `mountL1EditBridge`, `mountFields`, or `/api/copy`. The five pieces I scoped last time are unstarted; you said "say go" was next and we went to demo instead.
+
+Two carry-overs, unchanged:
+
+- **`1stcontact` is the selector's default and its Edit mode 404s.** Its edit directory holds only `theme.css` — the render fails on `Module not found in catalog: 'header' v2`. Same for `harbor-cafe`. Both definitions still reference layout modules the pivot deleted (REQ-84); their View renders look fine only because they're pre-pivot leftovers on disk. Not a REQ-115/117 problem — stale site content — but it means those two are broken for *any* re-render. Still worth its own ticket.
+- **Edit mode requires the channel pre-rendered** (`./bin/1c render <slug> --edit`). That's T1's static-serving model as designed; REQ-119 replaces it with request-time renders.
+
+The definition half of this ticket is fully drivable from the CLI if you want to see an edit actually take effect — `1c copy get/set` against a `data-l1-path` you read off the DOM, then reload the frame. Say the word and I'll walk it, or say go and I'll build the modal.
 
 <!-- xgd-chat-end -->
