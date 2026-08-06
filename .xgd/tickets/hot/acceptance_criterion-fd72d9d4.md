@@ -6,9 +6,9 @@ title: Gate report carries fold residuals as a channel distinct from probe resid
   and unmatched entries
 created_by: xgd
 created_at: '2026-07-29T04:20:20.495518+00:00'
-updated_at: '2026-08-05T22:27:31.419224+00:00'
+updated_at: '2026-08-06T04:25:18.459122+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -28,6 +28,10 @@ the sample-fidelity probe's residuals and its unmatched entries.
 - Each fold residual identifies what could not be expressed and why (its kind, the
   reason, and the captured axes that were carried), so it is actionable as a framework
   gap rather than an anonymous count.
+- The channel reports only what the folder genuinely cannot express. An element the
+  framework has since learned to express leaves the channel rather than lingering in it:
+  a captured form control binds to its behavior module (REQ-96) and is therefore no
+  longer a fold residual.
 - The gate's human-readable output reports the fold-residual count on its own line,
   labelled as folder-power gaps and itemised, alongside — not merged into — the
   per-probe residual and unmatched counts.
@@ -37,9 +41,12 @@ the sample-fidelity probe's residuals and its unmatched entries.
 
 ## Verification
 Run the gate against a retained capture bundle containing elements the fold cannot yet
-express (text-free media, form fields, geometry-less runs) and assert the returned report
-exposes a non-empty fold-residual list whose entries each carry a kind and a reason,
-while those same elements produce no fidelity residuals and no unmatched entries. Assert
+express (text-free media never boxed at any sampled width, geometry-less runs) and assert
+the returned report exposes a non-empty fold-residual list whose entries each carry a kind
+and a reason, while those same elements produce no fidelity residuals and no unmatched
+entries. Assert a captured form control in that same bundle is absent from the channel:
+since REQ-96 it binds to its behavior module through a `control` seam, so it is no longer
+a folder-power gap and must not be reported as one. Assert
 the human-readable output states the fold-residual count separately from the
 sample-fidelity residual and unmatched counts and itemises the residuals. Assert a gate
 whose three probes all pass still reports its fold residuals and still passes.
