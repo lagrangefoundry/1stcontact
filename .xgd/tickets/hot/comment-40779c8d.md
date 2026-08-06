@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:06:16.534479+00:00'
+updated_at: '2026-08-06T22:13:48.543730+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -680,5 +680,64 @@ Until REQ-64 lands, the divider is workable if you release the button over the r
 <!-- xgd-chat role="user" ts="2026-08-06T22:06:16.126297+00:00" -->
 #### You
 When I make an edit, it doesn't show on the page - is that expected at this point?
+
+<!-- xgd-turn id="79e19abd-0242-437a-9244-86f6c3161339-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T22:13:48.398222+00:00" -->
+#### Claude
+No, that's not expected — the whole point of the ticket is edit → save → the page shows it, and there's a passing browser UAT asserting exactly that. Let me find where it breaks for your site.
+
+The write **and** the re-render both landed at 14:22 — your edit is in the draft. Checking whether it reached the rendered HTML.
+
+`grep -c` is unreliable here — "Gigabyte Alchemy 2" also matches a "2024" string. Let me check precisely.
+
+Now I can see it precisely:
+
+- **edit** render (14:22) — contains `Gigabyte Alchemy 2`. Your edit landed and rendered.
+- **draft/view** render (Jul 31 13:46) — does not. It hasn't been rebuilt since July 31.
+
+So the save re-renders only the edit channel. Let me confirm that's the mechanism and check the Edit-mode refresh too.
+
+Confirmed the mechanism at `tools/generate/src/cli/builder.ts:237` — save re-renders **only** the edit channel. Now the two remaining candidates: whether the frame refreshes, and whether it's served from cache.
+
+`onSaved` reloads the iframe, so Edit mode should update. Rather than theorise about caching, let me drive the live loop against your running server and watch what the browser would actually receive.
+
+The loop works on the live server — POST returned 200 and a fresh request immediately shows the new text. But two things stand out. Let me pin both.
+
+Both defects are now pinned. Let me check the render cost before deciding how to fix the stale View channel.
+
+Each render is ~2.4s. Now I have everything. Two real defects, both breaking the loop's promise:
+
+Now the fixes.
+
+Now UATs for both, driving the real origin.
+
+Mutation-checking both — reverting each fix must fail its test.
+
+Both fail without the fixes — and note the draft channel returned `Not found`, meaning for a fresh site View was never rendered at all. Running the full suite.
+
+Baseline holds (same 10 pre-existing `reconciliation-*` failures), 1115 passing. Committing and restoring your site.
+
+The draft channel carries no L1 addresses by design — only the edit channel does. Checking the text itself, and I need to undo my probe: I overwrote your heading during diagnosis.
+
+The running server is still the **old build** — started before my changes, so it neither re-rendered draft nor sent the cache header. Let me confirm and restart it.
+
+Started 12:49, before every fix today. Restarting it so the changes actually take effect.
+
+Now verifying the full loop against the restarted server — the real end-to-end check.
+
+Not expected — that's a real bug, and there were two of them. Fixed in `fd22712b`.
+
+Your edit *did* land. `"Gigabyte Alchemy" → "Gigabyte Alchemy 2"` was written to the draft and rendered at 14:22. What was broken is what you were shown afterwards.
+
+**1. Only the edit channel was re-rendered.** The save handler did `cmdRender(slug, {edit: true})` and stopped. View mode reads the **draft** channel — which on `gigabytealchemy` hadn't been rebuilt since **July 31**, six days older than the page JSON. So if you checked in View, you were looking at a week-old page, and it would have stayed that way indefinitely: nothing signalled staleness, it just looked like a working page that ignored you. On a site whose draft channel has never been rendered it 404s outright — which is what the new test reports without the fix. An edit changes the page, not one rendering of it, so both channels now re-render.
+
+**2. Preview responses were cacheable with nothing to revalidate.** `sendFile` sent `content-type` and nothing else — no `Cache-Control`, no `ETag`, no `Last-Modified`. That's the worst combination: the browser may cache heuristically, and the post-save `location.reload()` has nothing to revalidate *with*, so the iframe can answer from cache. Correct bytes on disk, old page on screen. Now `no-store`.
+
+Two UATs over the real origin; the first asserts the edit channel *alongside* draft so a fix that merely swapped channels can't pass. Mutation-checked both. Suite at baseline, 1115 passing.
+
+**One thing you should know:** your builder on :4173 had been running since **12:49** — it loads its modules at boot, so it predated every fix from this session and was still serving old code regardless of what I committed. I restarted it, and verified the loop end-to-end against the new build: one save, both channels updated, `no-store` on the responses. Worth remembering for the earlier fixes too — the modal and stale-render work only reached you after that restart.
+
+Two housekeeping notes: I briefly overwrote your heading with probe text while diagnosing against the live server, and have restored it to `Gigabyte Alchemy 2` — both channels confirm it. And the divider is still `lagrange-framework` REQ-64, untouched here.
 
 <!-- xgd-chat-end -->
