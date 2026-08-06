@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-06T18:35:52.109258+00:00'
+updated_at: '2026-08-06T20:49:58.893037+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -138,6 +138,36 @@ emits one `@font-face` rule per entry through the same sole safe sink, ahead of
 the rules that reference the family. Images need no entry: an image leaf already
 carries its own source.
 
+### Page colour is the document's, and there is exactly one colour system
+The substrate carries the **page-level** colours as fields of the L1 document
+itself: a `background` and an inherited **text colour**, both validated as
+ordinary colour axes and both emitted by the sole emitter as body-level rules.
+Every text leaf paints its own colour, so the document's is the floor a leaf that
+declares none falls back to — a leaf declaring no colour emits no colour
+declaration at all and inherits.
+
+Their previous home was the **theme token palette** — a closed 15-role colour
+group emitted as `--color-*` custom properties, with the page bound to
+`--color-bg` / `--color-text` by a stylesheet rule outside L1. That group is
+**deleted, not deprecated**: a closed role set that never reached L1 alongside
+L1's own palette model would be two colour systems, which is the legacy-mode
+state the project forbids. Deleted with it are the second closed colour-role
+vocabulary a *layer* treatment could name for its border and its text, the
+scheme-conditioned dark-mode override that existed only to re-declare those
+roles, and the module-side resolvers that turned a role name into
+`var(--color-<role>)` in a callout bar, a text run and a gradient stop.
+
+The observable guarantee is a **negative one, asserted rather than assumed**: no
+stylesheet the renderer emits — the theme stylesheet, the document's own L1 CSS,
+or the CSS a behavior module ships — declares or references a colour custom
+property, and no site definition carries a theme palette. A module colour is a
+hex literal and nothing else; a value that is not one is dropped rather than
+emitted, so the sink stays fail-closed.
+
+The cut is **the colour group only**. Typography, spacing, radius, shadow,
+container and breakpoint tokens are a different axis family with no replacement
+here: they validate and emit exactly as before.
+
 ### Where the output lands — a relocatable snapshot
 The emitter also decides, at every place a URL reaches the browser, **what a
 root-relative reference becomes**. A site keeps *authoring* its assets
@@ -219,12 +249,14 @@ measures `capture(render(L1)) ≈ L1` on the authored (literal) axes, and a
 cross-browser check confirms equivalent layout across the three engines.
 
 **In scope**: the typed L1 shape (including the shared axis groups, the `control`
-leaf, and the document resource table), the envelope validator **and its
+leaf, the document resource table, and the document's page-level background and
+text colour), the envelope validator **and its
 enforcement on every validated site definition, authored or reproduced**, the
 safe renderer
 (including geometry keyframe compilation, `@font-face` emission, the control
 emitter's zero-look baseline / inert degradation / attribute refusal, and
-relocatable document-relative URL emission with its flat-snapshot invariant), and
+relocatable document-relative URL emission with its flat-snapshot invariant), the
+one-colour-system guarantee over everything the renderer emits, and
 the round-trip / cross-browser fidelity guarantees.
 
 **Out of scope**: mechanically folding a multi-viewport capture into an L1
@@ -233,7 +265,12 @@ capture, and folding a captured form control into a `control` node (REQ-83 /
 REQ-92 / REQ-96's reproduction half, a separate story); the behavior-module
 *contract* that declares which control elements exist, which are invariant, and
 what a valid binding is (REQ-85 / REQ-96, STORY-85); and the end-to-end 3-probe
-reproduction gate (REQ-86, a separate story). In L1, a `slot` renders as an
+reproduction gate (REQ-86, a separate story); the **colour value model** itself —
+what forms a colour axis admits, the site palette's shape, reference resolution
+and dangling-reference rejection (REQ-114, STORY-80), of which this story carries
+only the page-level document fields and the absence of any second colour system;
+and the census/retrofit tooling that converts an existing site's literals to
+palette references (REQ-114's `1c colors`, a separate story). In L1, a `slot` renders as an
 inert labelled placeholder — a `div` carrying its slot name and, when declared,
 its target behavior-module id, with no module code and no behaviour attached.
 
@@ -436,6 +473,55 @@ its target behavior-module id, with no module code and no behaviour attached.
   **authored surface**, and is now scoped to say so. This narrows an assertion's
   reach, not the substrate's behaviour: no untextured authored surface may emit a
   multi-valued sizing triple, exactly as before.
+- **REQ-114 — the token colour palette was retired and page colour re-homed on
+  the document (this reconciliation).** The intent's argument is the project's
+  own no-legacy-modes rule applied to colour: L1's palette model and a closed
+  15-slot theme colour group cannot both survive, because two colour systems is
+  exactly the state the rule forbids. The intent named each retirement target by
+  file and line and required each to be *cut*, not stubbed — so this is a
+  deletion documented as a guarantee, not a deprecation with a grace period. The
+  ticket's own words: "Delete it and everything that exists only to serve it."
+- **Why the guarantee is stated as a negative, and stated here.** "No colour
+  custom property is emitted or referenced" is a property of the whole rendered
+  output — cheap to satisfy once and easy to reintroduce silently, which is why
+  it is a criterion rather than the ticket's one-off grep. It lives on this story
+  because this is where page emission and the sole safe emitter live: the
+  criterion is about what a rendered page may contain, which is this substrate's
+  question. The colour *value model* it depends on is STORY-80's.
+- **The deleted palette had no surviving criterion of its own.** Its delivery was
+  already superseded by the REQ-79 pivot, and an AC sweep for palette / token /
+  colour-role across the matrix found nothing asserting it. So nothing was
+  removed in this upgrade — what was missing was the positive statement of the
+  post-cut state, which the four added criteria now carry.
+- **The dark-mode override was confirmed callerless before deletion, not
+  ported.** It existed only to re-declare palette roles under
+  `prefers-color-scheme: dark`; the intent is explicit that if dark mode is
+  wanted later it is designed against the palette model rather than resurrected
+  from the closed token set. The emitted stylesheet consequently carries no
+  scheme-conditioned colour block at all.
+- **What the module-side cut actually changed.** Deleting the colour-role
+  resolvers narrowed a module colour from "a hex literal *or* one of fifteen role
+  aliases" to a hex literal alone: content validation now rejects a role name,
+  and the renderer drops a non-literal rather than emitting it (a gradient stop
+  that is not a literal drops the whole gradient rather than painting a colour
+  the author never chose). The callout bar, whose per-role rules were the last
+  `--color-*` consumers outside the token palette, paints `currentColor`; the
+  callout marker vocabulary survives as a closed *emphasis* set rather than a
+  colour one. This is inside REQ-114 §4's declared scope, which named these three
+  files as retirement targets.
+- **Two footprint facts worth recording.** (1) A *revision* snapshot under
+  `storage/sites/*/revisions/**` still carries a `theme.palette`, and correctly
+  so: a published revision is immutable, and the criterion is written against
+  what a site *declares* — the four drafts — not against frozen history. (2) The
+  no-colour-custom-property claim is about **stylesheets the renderer emits**. A
+  site's own mirrored assets may contain a captured third-party stylesheet that
+  declares `--color-*` of its own (gigabytealchemy's imported blog CSS does);
+  that is site content, not capability surface, and no criterion here is written
+  against it.
+- **Two of the four sites carry no palette, and that is the model working.**
+  `1stcontact` and `harbor-cafe` hold pre-L1 module pages with no L1 colour axes,
+  so dropping `theme.palette` left them with no palette at all — which validates,
+  because a literal hex is always a valid colour and the palette is optional.
 
 ## Dependencies
 None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on it).
