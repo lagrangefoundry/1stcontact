@@ -6,10 +6,10 @@ title: No closed colour-role vocabulary survives in the schema, in a definition,
   on a layer
 created_by: xgd
 created_at: '2026-08-06T20:51:02.923927+00:00'
-updated_at: '2026-08-06T20:52:10.802355+00:00'
+updated_at: '2026-08-06T21:01:44.045314+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
