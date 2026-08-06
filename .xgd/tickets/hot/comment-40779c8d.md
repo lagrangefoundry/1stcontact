@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T22:20:02.163964+00:00'
+updated_at: '2026-08-06T22:27:34.167360+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -766,5 +766,47 @@ Two things that will still bite, neither fixed:
 <!-- xgd-chat role="user" ts="2026-08-06T22:20:02.011055+00:00" -->
 #### You
 I'm not seeing the change
+
+<!-- xgd-turn id="478d94cd-d8c4-4109-ab38-2a4878274c68-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T22:27:33.821356+00:00" -->
+#### Claude
+Let me look at what's actually happening rather than assume the bytes reach your screen.
+
+A save landed **15:20:19**, seconds ago, and both channels re-rendered at the same second — the pipeline is working. Let me see what you actually changed.
+
+Data and both renders are current. So the question is whether that element is visible on screen. Checking its styling.
+
+`.l1-16` is the 36px site title, absolutely positioned at top-left — it should be plainly visible. Let me stop reasoning about the markup and actually load the page in a browser to see what renders.
+
+Direct preview renders correctly — visible, topmost, no errors. So the problem is in the builder shell around it. Let me drive the actual UI.
+
+Fresh browser, both modes, correct text — the system works end to end. So your browser is running stale assets. Let me check which responses actually carry the no-cache header.
+
+All assets carry no-store except the shell `/` itself. Let me test the exact flow you're doing — edit and save through the UI, then check whether the frame updates on its own.
+
+The full flow works in a fresh browser — save, modal closes, frame auto-refreshes to the new text, no errors. So let me check whether you're actually talking to this server.
+
+Only one server (PID 70063, started 15:12:45 with all fixes) and your 15:20 save went through it. Everything server-side checks out, so let me actually *look* at what the builder renders.
+
+The builder renders it correctly — that's a clean browser hitting your server, showing the edit as the page title with segment outlines. So the pipeline is genuinely working; something in your browser is pinning old content. Let me find what could do that.
+
+No service worker, and one real gap left: the shell at `/` is the only response still cacheable. Closing it — leaving a hole in a "never serve from cache" fix is how this recurs.
+
+Baseline holds. Committing, restarting, and restoring your text — my UI probe overwrote it.
+
+**Open a brand-new tab** to http://localhost:4173/ — don't reuse the existing one.
+
+I couldn't reproduce your symptom, and I checked hard rather than assuming. Your save at **15:20:19** wrote the draft and re-rendered both channels in the same second. Then I drove the real UI in a clean browser — select site → Edit → click the title → type → Save — and the modal closed and the frame refreshed to the new text, no console errors. The screenshot above is that run: your edit rendering as the page title, segment outlines and all. Only one builder is running, on the restarted build.
+
+So the loop is working; your tab is holding old bytes.
+
+I did find one real cause and fixed it (`65b9be7a`). My earlier fix gave `no-store` to every route that goes through `sendFile` — but the shell at `/` is written by hand, not streamed, so it was missed. That left exactly **one** cacheable response on this origin. That's enough for a tab to keep running old chrome while every asset around it is current, and it's a nasty symptom precisely because it looks like anything except caching: saves land, disk is right, screen disagrees. The test now covers `/`, the client JS and the bridge alongside both preview channels, so the next route added without a directive fails in CI instead of in your browser.
+
+A tab opened before that fix can still hold pre-`no-store` entries, and those only clear with a fresh tab or an explicit cache-empty — a normal reload may reuse them. Once you've loaded against this build the problem can't recur, since `no-store` forbids storing the response at all.
+
+Server restarted and both channels serve `Gigabyte Alchemy 4`. I've restored that text — my UI probe had overwritten it with "UI FLOW PROBE" while testing the save path.
+
+If a fresh tab still shows the old title, tell me what it says and I'll keep digging — but at that point the next thing I'd want is your browser, since everything on this side is verified working.
 
 <!-- xgd-chat-end -->
