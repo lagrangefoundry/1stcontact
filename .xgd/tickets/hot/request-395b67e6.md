@@ -5,7 +5,7 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-06T19:53:14.477811+00:00'
+updated_at: '2026-08-06T21:08:00.149155+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -343,3 +343,5 @@ tag and so broke on the added page stamp.
 A copy edit rewrites the whole page JSON with different unicode escaping
 (`—` → `—`), so a one-word change produces a large diff. Pre-existing in
 `writeJson`, cosmetic, and worth its own ticket.
+
+-
