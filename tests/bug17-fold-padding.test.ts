@@ -15,7 +15,7 @@
  *
  * All probes are deterministic (validator + emitter + fold); no browser required.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { validateL1, type L1Document, type L1Node } from '../packages/site-schema/src/index'
@@ -111,7 +111,11 @@ describe('BUG-17 L1 padding axis — renderer safe sink', () => {
 })
 
 describe('BUG-17 L1 padding axis — design check against real captures', () => {
-  it('test_UAT_FC_BUG-17_fold_gigabytealchemy_badge_padding', () => {
+  // Read off the REAL retained capture, which is a gitignored working artifact
+  // (`.gitignore` — `/storage/references/`), so this design check runs only where
+  // the oracle was captured. The padding axis itself is proven on fixtures above.
+  it.skipIf(!existsSync(path.resolve(__dirname, '../storage/references/gigabytealchemy.ai/index/multistate.json')))(
+    'test_UAT_FC_BUG-17_fold_gigabytealchemy_badge_padding', () => {
     const bundle = path.resolve(__dirname, '../storage/references/gigabytealchemy.ai/index/multistate.json')
     const multiState = JSON.parse(readFileSync(bundle, 'utf8')) as MultiStateCapture
     const doc = foldToL1(multiState)

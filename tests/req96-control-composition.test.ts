@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import path from 'node:path'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import { renderL1Fragment, type L1ControlElement } from '../packages/framework/src/l1/render'
 import { contactFormControls } from '../packages/framework/src/modules/contact-form/controls'
@@ -36,6 +36,15 @@ import type { MultiStateCapture } from '../tools/generate/src/cli/capture'
  */
 
 const GA_BUNDLE = path.join('storage', 'references', 'gigabytealchemy.ai', 'index')
+
+/**
+ * The retained capture oracle is a gitignored working artifact (`.gitignore` —
+ * `/storage/references/`), so it is present only in a worktree that has captured
+ * it. These two measurements are read off the REAL reference rather than a
+ * fixture, so they gate on its presence: the durable, reproducible form of the
+ * same claim is AC-813's synthetic-fixture UAT, which runs everywhere.
+ */
+const HAVE_GA_ORACLE = existsSync(path.join(GA_BUNDLE, 'multistate.json'))
 
 /**
  * The CSS a module actually contributes to the generated `theme.css`, with
@@ -313,7 +322,7 @@ describe('REQ-96 — L1 wraps the module (control leaves)', () => {
 
   // ── 4. The value gate no longer pairs against invariant elements ───────────
 
-  it('test_UAT_FC_REQ-96_capture_skips_module_invariant_elements', () => {
+  it('test_UAT_AC818_capture_skips_module_invariant_elements', () => {
     // The honeypot, the visually-hidden label and the Turnstile mount exist only
     // on OUR side of a reproduction. Pairing against them slides the whole control
     // queue, so every field mispairs against its neighbour — 15 repro-only objects
@@ -344,7 +353,7 @@ describe('REQ-96 — L1 wraps the module (control leaves)', () => {
 
   // ── 5. The gigabytealchemy deltas the ticket names actually close ──────────
 
-  it('test_UAT_FC_REQ-96_gigabyte_fields_reproduce_the_measured_height_not_a_stylesheet_default', () => {
+  it.skipIf(!HAVE_GA_ORACLE)('test_UAT_FC_REQ-96_gigabyte_fields_reproduce_the_measured_height_not_a_stylesheet_default', () => {
     // The ticket's first two deltas. The module's stylesheet decided a field was
     // `padding: var(--space-3)` tall — 44px, and 116px for the textarea — against
     // a reference the capture had already measured at 50px and 146px. The numbers
@@ -362,7 +371,7 @@ describe('REQ-96 — L1 wraps the module (control leaves)', () => {
     expect(at(message, 1280).height).toBe(146)
   })
 
-  it('test_UAT_FC_REQ-96_gigabyte_submit_recovers_its_per_width_position', () => {
+  it.skipIf(!HAVE_GA_ORACLE)('test_UAT_FC_REQ-96_gigabyte_submit_recovers_its_per_width_position', () => {
     // The ticket's third delta, and the regression REQ-88 knowingly accepted.
     // Under the slot-only model the captured chip's page-absolute geometry had to
     // be DROPPED (it would have resolved against the slot's origin), so the module

@@ -72,11 +72,16 @@ function seedModules(cwd: string, slug: string): void {
     {
       id: 'gallery',
       type: 'carousel',
-      version: 2,
-      config: { view: 'single', controls: 'dots' },
+      version: 3,
+      // REQ-96 — a behavior module mounts into a NAMED L1 slot (appearance is
+      // L1's; `config` carries no aesthetic dial, so no `view` here), so the
+      // page's L1 tree must carry the seam the module names.
+      slot: 'gallery',
+      config: {},
       slots: { slide: [{ kind: 'text', text: 'A great experience.' }] },
     },
   ]
+  home.l1.root.children.push({ kind: 'slot', name: 'gallery' })
   writeFileSync(homePath, JSON.stringify(home, null, 2))
 }
 

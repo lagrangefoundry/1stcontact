@@ -14,6 +14,7 @@
  * value that could hang or break a browser.
  */
 import { l1DocumentSchema } from './schema'
+import { projectIssues } from '../issues'
 import type { L1Document, L1Geometry, L1Node, L1ScalarTrack } from './types'
 import type { Result, ValidationError } from '../validate'
 
@@ -549,13 +550,11 @@ function walk(
 export function validateL1(input: unknown): Result<L1Document, ValidationError[]> {
   const parsed = l1DocumentSchema.safeParse(input)
   if (!parsed.success) {
-    return {
-      ok: false,
-      errors: parsed.error.issues.map((issue) => ({
-        path: '/' + issue.path.map((seg) => String(seg)).join('/'),
-        message: issue.message,
-      })),
-    }
+    // The node vocabulary is a `kind`-tagged union, so a shape failure inside a
+    // node would otherwise collapse to a bare `/root — Invalid input`. Localise
+    // it to the branch the author meant, so the report names the offending field
+    // (REQ-107 / DOC-8 §6 — the message is what an AI author self-corrects from).
+    return { ok: false, errors: projectIssues(parsed.error.issues) }
   }
 
   const doc = parsed.data

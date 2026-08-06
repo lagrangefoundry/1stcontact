@@ -1,4 +1,5 @@
 import { siteSchema } from './schema'
+import { projectIssues } from './issues'
 import type { Site } from './types'
 import { validateL1 } from './l1/validate'
 
@@ -38,11 +39,7 @@ export type Result<T, E> = { ok: true; value: T } | { ok: false; errors: E }
 export function validateSite(input: unknown): Result<Site, ValidationError[]> {
   const parsed = siteSchema.safeParse(input)
   if (!parsed.success) {
-    const errors: ValidationError[] = parsed.error.issues.map((issue) => ({
-      path: '/' + issue.path.map((seg) => String(seg)).join('/'),
-      message: issue.message,
-    }))
-    return { ok: false, errors }
+    return { ok: false, errors: projectIssues(parsed.error.issues) }
   }
 
   const site = parsed.data

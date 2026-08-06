@@ -392,7 +392,11 @@ describe('REQ-101 — font provenance registry', () => {
     )
   })
 
-  it('test_UAT_FC_REQ-101_shipped_registry_accounts_for_every_font_file_in_the_repo', () => {
+  // The registry tracks capture-derived faces under `storage/references/`, which
+  // is gitignored, so both directions can only agree in a worktree that holds the
+  // captures. AC-867 carries the same rule on a constructed tree, everywhere.
+  it.skipIf(!existsSync(path.join(REPO_ROOT, 'storage', 'references')))(
+    'test_UAT_FC_REQ-101_shipped_registry_accounts_for_every_font_file_in_the_repo', () => {
     // Acceptance criterion 4 as a live gate rather than a sampled list: the real
     // repo's font bytes and the real registry must agree in BOTH directions, so
     // neither a new capture bundle nor a deleted face can drift the record.

@@ -57,7 +57,7 @@ const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
 
 // ── Part A — the capture sees the backdrops and the collapsed header ──────────
 
-describe('BUG-27 capture reads nested backdrops and collapsed bands (real Chromium)', () => {
+describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole subtrees (real Chromium)', () => {
   let server: { origin: string; close: () => Promise<void> }
   let capture: Capture | undefined
   const tmpDirs: string[] = []
@@ -83,7 +83,7 @@ describe('BUG-27 capture reads nested backdrops and collapsed bands (real Chromi
       fn(capture.sections.flatMap((s) => s.fields ?? []), capture)
     })
 
-  itA('test_UAT_FC_BUG-27_nested_background_image_is_captured', (fields) => {
+  itA('test_UAT_AC816_nested_background_image_is_captured', (fields) => {
     // The hero photograph is a background-image on a nested element. Pre-fix no
     // field carried it and the manifest had no record of the image at all.
     const backdrops = fields.filter((f) => f.backgroundImageUrl)
@@ -94,7 +94,7 @@ describe('BUG-27 capture reads nested backdrops and collapsed bands (real Chromi
     expect(Math.round(backdrops[0].box?.height ?? 0)).toBe(600)
   })
 
-  itA('test_UAT_FC_BUG-27_backdrop_carries_the_fill_beneath_its_image', (fields) => {
+  itA('test_UAT_AC816_backdrop_carries_the_fill_beneath_its_image', (fields) => {
     // The hero layers its photograph over its own black fill at opacity .49 —
     // that black is what darkens it. Capturing the image without the fill under
     // it reproduces the photograph at full brightness.
@@ -103,7 +103,7 @@ describe('BUG-27 capture reads nested backdrops and collapsed bands (real Chromi
     expect(hero.opacity).toBeCloseTo(0.49, 2)
   })
 
-  itA('test_UAT_FC_BUG-27_full_bleed_panel_fill_is_captured_but_a_card_is_not', (fields) => {
+  itA('test_UAT_AC816_full_bleed_panel_fill_is_captured_but_a_card_is_not', (fields) => {
     // A nested full-bleed panel is a band: its fill is measured, not inferred.
     const fills = fields.filter((f) => !f.backgroundImageUrl && f.surfaceFill)
     expect(fills.map((f) => f.surfaceFill)).toContain('#7a7a7a')
@@ -112,7 +112,7 @@ describe('BUG-27 capture reads nested backdrops and collapsed bands (real Chromi
     expect(fills.map((f) => f.surfaceFill)).not.toContain('#ece6dd')
   })
 
-  itA('test_UAT_FC_BUG-27_translucent_scrim_is_not_indexed_as_a_backdrop', (fields) => {
+  itA('test_UAT_AC816_translucent_scrim_is_not_indexed_as_a_backdrop', (fields) => {
     // A full-bleed translucent fill is a veil, and `overlayOf` already records it
     // as the band's `overlay` — which the fold layers ABOVE the image it veils.
     // Indexing it here as well would paint it twice and, because a fill's alpha
@@ -121,7 +121,7 @@ describe('BUG-27 capture reads nested backdrops and collapsed bands (real Chromi
     expect(fills).not.toContain('#030717')
   })
 
-  itA('test_UAT_FC_BUG-27_collapsed_header_subtree_is_captured', (_fields, cap) => {
+  itA('test_UAT_AC815_collapsed_header_subtree_is_captured', (_fields, cap) => {
     // The header's own box is 0px tall; its nav bar is not. Pre-fix the whole
     // subtree was dropped, so neither the links nor the logo existed anywhere.
     // Read through `flattenCapture` — the nav links are a detected repeated
@@ -134,7 +134,7 @@ describe('BUG-27 capture reads nested backdrops and collapsed bands (real Chromi
     expect(logo?.src).toMatch(/logo\.png$/)
   })
 
-  itA('test_UAT_FC_BUG-27_offscreen_block_does_not_become_or_inflate_a_band', (_fields, cap) => {
+  itA('test_UAT_AC815_offscreen_block_does_not_become_or_inflate_a_band', (_fields, cap) => {
     // A block hidden at left:-33554430px paints nothing on the page. It must not
     // become a band, and the subtree walk must not union its box into one: an
     // unclamped union handed the page a section 33 million pixels wide.
@@ -209,15 +209,15 @@ function manifest(elements: ValueElement[]): ValueManifest {
   return { source: 't', elements, sections: [], viewport: { width: 1280, height: 900 } }
 }
 
-describe('BUG-27 — a captured backdrop folds to a box beneath content', () => {
-  it('test_UAT_FC_BUG-27_fold_emits_backdrop_box_with_url', () => {
+describe('story-d5de22a5 — AC-816 a captured backdrop travels to the reproduction beneath content', () => {
+  it('test_UAT_AC816_fold_emits_backdrop_box_with_url', () => {
     const doc = foldToL1(multiFrom((w) => [backdrop(w), run(w)]))
     const boxes = childrenOf(doc).filter((c) => c.kind === 'box' && c.axes?.backgroundImageUrl)
     expect(boxes).toHaveLength(1)
     expect(boxes[0].axes?.backgroundImageUrl).toBe(HERO)
   })
 
-  it('test_UAT_FC_BUG-27_fold_paints_backdrop_beneath_content', () => {
+  it('test_UAT_AC816_fold_paints_backdrop_beneath_content', () => {
     // The manifest lists every text-free element AFTER the runs of its band, so
     // a backdrop left in document order would paint the hero image OVER the
     // hero's own headline. It belongs in the background layer.
@@ -229,14 +229,14 @@ describe('BUG-27 — a captured backdrop folds to a box beneath content', () => 
     expect(textIndex).toBeGreaterThan(bgIndex)
   })
 
-  it('test_UAT_FC_BUG-27_fold_carries_the_fill_and_veil_of_a_backdrop', () => {
+  it('test_UAT_AC816_fold_carries_the_fill_and_veil_of_a_backdrop', () => {
     const doc = foldToL1(multiFrom((w) => [backdrop(w, { surfaceFill: '#000000', opacity: 0.49 }), run(w)]))
     const box = childrenOf(doc).find((c) => c.axes?.backgroundImageUrl)!
     expect(box.axes?.surfaceFill).toBe('#000000')
     expect(box.axes?.opacity).toBeCloseTo(0.49, 2)
   })
 
-  it('test_UAT_FC_BUG-27_fold_bounds_a_band_at_a_backdrop_edge', () => {
+  it('test_UAT_AC816_fold_bounds_a_band_at_a_backdrop_edge', () => {
     // Style-scope segmentation only ever sees top-level bands, so a page whose
     // panels are all nested yields ONE section and no interior edge for the band
     // clamp to use. A backdrop marks a real surface change, so its edges bound a
@@ -261,8 +261,8 @@ describe('BUG-27 — a captured backdrop folds to a box beneath content', () => 
   })
 })
 
-describe('BUG-27 — a missing backdrop is a counted defect', () => {
-  it('test_UAT_FC_BUG-27_values_diff_counts_a_missing_background_image', () => {
+describe('story-d5de22a5 — AC-817 a background image is compared by mirrored basename', () => {
+  it('test_UAT_AC817_values_diff_counts_a_missing_background_image', () => {
     // With nothing captured there was nothing to compare, so a page reproduced
     // as flat colour scored zero defects on this axis.
     const expected = manifest([backdrop(1280)])
@@ -273,7 +273,7 @@ describe('BUG-27 — a missing backdrop is a counted defect', () => {
     expect(deltas[0].actual).toBe('(none)')
   })
 
-  it('test_UAT_FC_BUG-27_values_diff_matches_the_mirrored_asset_by_basename', () => {
+  it('test_UAT_AC817_values_diff_matches_the_mirrored_asset_by_basename', () => {
     // The two sides legitimately name the same bytes differently: the reference
     // carries the captured origin URL, our render the site-local mirror that
     // `localizeAssets` wrote. Comparing them verbatim would report every
@@ -284,7 +284,7 @@ describe('BUG-27 — a missing backdrop is a counted defect', () => {
     expect(deltas).toHaveLength(0)
   })
 
-  it('test_UAT_FC_BUG-27_values_diff_counts_the_wrong_asset', () => {
+  it('test_UAT_AC817_values_diff_counts_the_wrong_asset', () => {
     const expected = manifest([backdrop(1280)])
     const actual = manifest([backdrop(1280, { backgroundImageUrl: '/assets/other.jpg' })])
     const deltas = diffManifests(expected, actual).deltas.filter((d) => d.property === 'backgroundImage')

@@ -288,53 +288,86 @@ describe('AC-726 malformed structured axes are rejected by the envelope', () => 
 
     // A structured form carrying a freeform key is *refused*, not silently
     // ignored — so no raw-CSS escape hatch can be smuggled in beside a typed
-    // field. (The node schema is a union, so the reported path locates the
-    // offending node rather than the individual key.)
-    const extraKeyForms: Record<string, unknown> = {
+    // field. The node schema is a union, but the report is still localised to
+    // the branch the author meant, so the path names the offending *structure*
+    // — `/root/axes/surfaceGradient`, not a bare `/root`.
+    const extraKeyForms: Record<string, { doc: unknown; at: string; key: string }> = {
       gradient: {
-        widths: WIDTHS,
-        root: {
-          kind: 'box',
-          axes: {
-            surfaceGradient: {
-              stops: [{ color: '#000000' }, { color: '#ffffff' }],
-              sheen: 'x',
+        at: '/root/axes/surfaceGradient',
+        key: 'sheen',
+        doc: {
+          widths: WIDTHS,
+          root: {
+            kind: 'box',
+            axes: {
+              surfaceGradient: {
+                stops: [{ color: '#000000' }, { color: '#ffffff' }],
+                sheen: 'x',
+              },
             },
           },
         },
       },
       gradientStop: {
-        widths: WIDTHS,
-        root: {
-          kind: 'box',
-          axes: {
-            surfaceGradient: { stops: [{ color: '#000000', glow: 1 }, { color: '#ffffff' }] },
+        at: '/root/axes/surfaceGradient/stops/0',
+        key: 'glow',
+        doc: {
+          widths: WIDTHS,
+          root: {
+            kind: 'box',
+            axes: {
+              surfaceGradient: { stops: [{ color: '#000000', glow: 1 }, { color: '#ffffff' }] },
+            },
           },
         },
       },
       shadow: {
-        widths: WIDTHS,
-        root: {
-          kind: 'box',
-          axes: { boxShadow: { offsetXPx: 0, offsetYPx: 0, color: '#000000', css: 'x' } },
+        at: '/root/axes/boxShadow',
+        key: 'css',
+        doc: {
+          widths: WIDTHS,
+          root: {
+            kind: 'box',
+            axes: { boxShadow: { offsetXPx: 0, offsetYPx: 0, color: '#000000', css: 'x' } },
+          },
         },
       },
       border: {
-        widths: WIDTHS,
-        root: { kind: 'box', axes: { border: { widthPx: 1, color: '#000000', style2: 'x' } } },
+        at: '/root/axes/border',
+        key: 'style2',
+        doc: {
+          widths: WIDTHS,
+          root: { kind: 'box', axes: { border: { widthPx: 1, color: '#000000', style2: 'x' } } },
+        },
       },
-      mask: { widths: WIDTHS, root: { kind: 'box', mask: { shape: 'circle', raw: 'x' } } },
-      transform: { widths: WIDTHS, root: { kind: 'box', transform: { rotateDeg: 1, skew: 2 } } },
+      mask: {
+        at: '/root/mask',
+        key: 'raw',
+        doc: { widths: WIDTHS, root: { kind: 'box', mask: { shape: 'circle', raw: 'x' } } },
+      },
+      transform: {
+        at: '/root/transform',
+        key: 'skew',
+        doc: { widths: WIDTHS, root: { kind: 'box', transform: { rotateDeg: 1, skew: 2 } } },
+      },
       scrim: {
-        widths: WIDTHS,
-        root: { kind: 'box', axes: { overlay: { color: '#000000', blur: 2 } } },
+        at: '/root/axes/overlay',
+        key: 'blur',
+        doc: {
+          widths: WIDTHS,
+          root: { kind: 'box', axes: { overlay: { color: '#000000', blur: 2 } } },
+        },
       },
     }
-    for (const [name, doc] of Object.entries(extraKeyForms)) {
+    for (const [name, { doc, at, key }] of Object.entries(extraKeyForms)) {
       const result = validateL1(doc)
       expect(result.ok, `${name} with an extra key must be rejected`).toBe(false)
       if (result.ok) continue
-      expect(result.errors.map((e) => e.path), `${name} names the offending node`).toContain('/root')
+      // The report locates the offending structure AND names the key it refused,
+      // which is what an author self-corrects from.
+      const named = result.errors.find((e) => e.path === at)
+      expect(named, `${name} names the offending path (got ${result.errors.map((e) => e.path).join(', ')})`).toBeDefined()
+      expect(named?.message, `${name} names the refused key`).toContain(key)
     }
 
     // Positive control — every structured family at once, in range, hex-coloured

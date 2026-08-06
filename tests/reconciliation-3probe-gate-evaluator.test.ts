@@ -602,7 +602,11 @@ describe('story-24098299 — gate fold-residual channel', () => {
 
     // Each folder-power gap is actionable: a kind, a reason, the captured axes it
     // carried, and the widths it appeared at — never an anonymous count.
-    expect(report.foldResiduals.map((r) => r.kind).sort()).toEqual(['field', 'image', 'text'])
+    // Since REQ-96 a captured control is no longer a folder-power gap: it binds
+    // to its behavior module through a `control` seam, so what remains here are
+    // the two genuine gaps — media the fold never boxed, and a run with no
+    // geometry to place it at.
+    expect(report.foldResiduals.map((r) => r.kind).sort()).toEqual(['image', 'text'])
     for (const r of report.foldResiduals) {
       expect(r.reason.length, JSON.stringify(r)).toBeGreaterThan(0)
       expect(Array.isArray(r.capturedAxes)).toBe(true)
@@ -611,9 +615,9 @@ describe('story-24098299 — gate fold-residual channel', () => {
     expect(report.foldResiduals.find((r) => r.kind === 'image')!.capturedAxes).toEqual(
       expect.arrayContaining(['objectFit']),
     )
-    expect(report.foldResiduals.find((r) => r.kind === 'field')!.capturedAxes).toContain(
-      'accessibleName',
-    )
+    // …and the control the fixture carries is absent from the channel entirely,
+    // rather than being reported as a gap the folder could not close.
+    expect(report.foldResiduals.some((r) => r.kind === 'field')).toBe(false)
     expect(report.foldResiduals.find((r) => r.kind === 'text')!.reason).toMatch(/geometry/i)
 
     // Those same elements never appear as a fidelity residual or an unmatched
@@ -638,7 +642,7 @@ describe('story-24098299 — gate fold-residual channel', () => {
     // The fold-residual count gets its own line, labelled as folder-power gaps.
     const foldLine = lines.find((l) => l.includes('fold residuals'))
     expect(foldLine, out).toBeDefined()
-    expect(foldLine).toContain('fold residuals (folder-power gaps): 3')
+    expect(foldLine).toContain('fold residuals (folder-power gaps): 2')
     // …alongside, NOT merged into, the per-probe residual / unmatched counts.
     expect(foldLine).not.toMatch(/unmatched/)
     const fidelityLine = lines.find((l) => l.includes('sample-fidelity'))!
@@ -647,15 +651,15 @@ describe('story-24098299 — gate fold-residual channel', () => {
 
     // …and the residuals are itemised, each naming its kind and reason.
     expect(out).toMatch(/- image: .+/)
-    expect(out).toMatch(/- field: .+/)
     expect(out).toMatch(/- text: .+/)
+    expect(out).not.toMatch(/- field: .+/)
 
     // The JSON form carries the same three channels side by side.
     const json = await runCli(['l1-gate', '--ref', ref, '--json'])
     expect(json.code).toBe(0)
     const parsed = JSON.parse(json.out)
     expect(parsed.pass).toBe(true)
-    expect(parsed.foldResiduals).toHaveLength(3)
+    expect(parsed.foldResiduals).toHaveLength(2)
     expect(parsed.sampleFidelity.residuals).toEqual([])
     expect(parsed.sampleFidelity.unmatched).toEqual([])
     expect(parsed.promoted).toEqual([])

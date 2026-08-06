@@ -384,12 +384,14 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     const mixedCap = mixedKindOracle()
     const mixedDoc = foldToL1(mixedCap)
 
-    // Scope: an oracle sample exists exactly where the fold emits a leaf. The
-    // control and the empty run are in the capture but produce no leaf — the
-    // reproduced tree carries one text, two images and one box, nothing else.
+    // Scope: an oracle sample exists exactly where the fold emits a leaf. Since
+    // REQ-96 a captured control is no longer dropped *and* is never painted as a
+    // raw L1 field: it folds into the behavior module's mount seam, so the
+    // reproduced tree carries one text, two images, one box and that `slot`. The
+    // empty run still produces no leaf at all.
     const mixedLeaves = evaluateLayout(mixedDoc, 1440).leaves
     const kinds = mixedLeaves.map((l) => l.kind).sort()
-    expect(kinds).toEqual(['box', 'image', 'image', 'text'])
+    expect(kinds).toEqual(['box', 'image', 'image', 'slot', 'text'])
     const capturedAt1440 = mixedCap.projections.find((p) => p.viewport.width === 1440)!.manifest.elements
     expect(capturedAt1440.some((e) => e.a11yRole === 'textbox')).toBe(true) // control present…
     expect(capturedAt1440.some((e) => !e.textless && e.text === '')).toBe(true) // …and an empty run
