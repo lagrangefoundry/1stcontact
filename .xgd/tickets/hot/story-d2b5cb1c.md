@@ -2,13 +2,13 @@
 uid: story-d2b5cb1c
 id: STORY-90
 type: story
-title: 'L1 interaction state and scroll motion: typed hover, focus and entrance axes
-  with a renderer-owned safety floor'
+title: 'L1 interaction state, scroll motion and pointer accent: typed hover, focus,
+  entrance and cursor-tracked axes with a renderer-owned safety floor'
 created_by: xgd
 created_at: '2026-08-06T02:02:27.445968+00:00'
-updated_at: '2026-08-06T18:07:48.199203+00:00'
+updated_at: '2026-08-06T18:07:56.633598+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: title
 status: completed
 fields:
   intent_uid: bundle-ee56a66e
