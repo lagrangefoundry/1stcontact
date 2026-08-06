@@ -5,10 +5,10 @@ type: request
 title: '1c serve: extensionless URLs 404 (preview disagrees with Cloudflare Pages)'
 created_by: xgd
 created_at: '2026-07-31T00:45:14.603733+00:00'
-updated_at: '2026-08-06T05:11:59.851845+00:00'
-completed_at: null
+updated_at: '2026-08-06T19:46:27.251877+00:00'
+completed_at: '2026-08-06T19:46:27.251877+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 2
