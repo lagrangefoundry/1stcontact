@@ -5,19 +5,15 @@ type: goal
 title: Phase 1
 created_by: xgd
 created_at: '2026-08-06T00:54:44.207291+00:00'
-updated_at: '2026-08-06T00:54:44.207291+00:00'
+updated_at: '2026-08-06T21:22:44.352823+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: children
 status: in_progress
 fields:
   provenance: planned
   children:
   - goal-458795ea
   - goal-62c64646
-  - goal-c8ce5614
-  - goal-c7efabf5
-  - goal-23018e87
-  - goal-df2619cb
 ---
 
 Get the XGD site live: a real page, on a real URL, with final copy, working email
