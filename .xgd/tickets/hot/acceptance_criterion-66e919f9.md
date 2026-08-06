@@ -6,10 +6,10 @@ title: 'A retrofit that cannot be proved lossless writes nothing: the command fa
   with a diagnostic and every file is left untouched'
 created_by: xgd
 created_at: '2026-08-06T21:08:29.338855+00:00'
-updated_at: '2026-08-06T21:08:29.338855+00:00'
+updated_at: '2026-08-06T21:21:59.527225+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5e7eb0c5
   kind: behavior
