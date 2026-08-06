@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T21:27:05.247308+00:00'
+updated_at: '2026-08-06T21:37:17.670161+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -588,5 +588,91 @@ Two carry-overs unchanged: **`1stcontact` and `harbor-cafe` still can't render a
 Nothing to edit on this box segment yet. <-- I'm seeeing this message pop up - the "Close " CTA doesn't work it can't be dismissed.
 
 There is a problem with the 2 panel divider, (1) Once I start dragging it it has been difficult to drop (2) It gets stuck in a mode where it will only move right. If these are problems with the component we should post a ticket in lagrange-framework to fix.
+
+<!-- xgd-turn id="8c64bda5-07d4-41f0-bef2-5a69e0eb8e1a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T21:37:17.415526+00:00" -->
+#### Claude
+Two separate things. Let me look at both.
+
+Confirmed a real bug, and it's mine from this session. Now the divider — first, whether it's ours or the framework's.
+
+No drag code in our builder at all — so the divider is the shell's. Let me confirm where it lives.
+
+Not a symlink — an installed copy, so the source of truth is the `lagrange-framework` repo. Reading the drag logic to diagnose precisely.
+
+Now I have both. Let me confirm the divider diagnosis — which pane holds the iframe, and whether anything shields it during drag.
+
+Both diagnoses confirmed, and they're in different repos.
+
+**The Close button** is ours and it's a temporal-dead-zone bug I introduced the error path into: `close()` (line 163) reads `fields`, but `fields` is `const`-declared at line 192 — *after* the `spec.kind !== 'fields'` branch returns. For message and error modals it's never initialized, so `fields?.destroy()` throws `ReferenceError` before `host.remove()`. Optional chaining doesn't guard TDZ. That kills Close, Escape **and** backdrop-click on every non-form modal — including the stale-render error I added last turn.
+
+**The divider** is the component's, and the symptom you described pins it exactly:
+
+Now a UAT that dismisses the modal by all three routes.
+
+The message-kind path is reachable deterministically — let me check what `fetchCopy` expects so I can reproduce the user's exact modal.
+
+Now the test — reproducing the user's exact modal ("Nothing to edit on this box segment yet") and asserting all three dismissal routes.
+
+The starter render has only `copy` segments. The fieldless answer comes from the origin, not the clicked element, so I'll click what exists and keep the comment honest about which half is stubbed.
+
+Now mutation-checking: reverting to `const fields` below the early return must reproduce the ReferenceError.
+
+`ReferenceError: Cannot access 'fields' before initialization` — the diagnosis exactly. Running the surrounding suites.
+
+Same baseline (10 pre-existing `reconciliation-*` failures), 1113 passing — up 3. Committing.
+
+Now the divider. Let me confirm the ticketing setup in the framework repo before filing.
+
+Installed copy is byte-identical to the framework source, so the bug is live there. Filing the ticket as you asked.
+
+Those results look like 1stcontact's tickets, which is suspicious. Let me confirm which store I'd be writing to before creating anything.
+
+The CLI auto-switched workspace back to 1stcontact — that's why those tickets looked familiar. `cd` alone doesn't retarget the store. Finding the right mechanism.
+
+Cross-project create isn't supported, so I need to be sure which workspace a create would land in. Checking without writing.
+
+Even from that directory the CLI force-switches to 1stcontact, so a `create` there would land in the **wrong** store. Finding what pins the workspace.
+
+`XGD_PROJECT_ROOT` pins the workspace regardless of cwd. Verifying the override targets the right store — read-only first.
+
+Correct store now. Checking for an existing ticket before adding a duplicate.
+
+Let me check whether the sibling component shares the pattern, so the ticket covers it.
+
+Three components share the pattern and none use pointer capture. Filing.
+
+Now recording the modal fix on REQ-117, with a pointer to the framework ticket.
+
+Both fixed, in the two different places they belonged.
+
+**1. Close button — ours, now fixed** (`887010bf`, hard-reload to pick it up).
+
+A temporal dead zone. `close()` reads `fields`, but `fields` was `const`-declared *below* the `spec.kind !== 'fields'` early return — so for a message or error modal it was never initialised and sat in TDZ for the dialog's life. `fields?.destroy()` therefore **threw `ReferenceError`** rather than reading undefined (optional chaining guards null, not TDZ), and the throw landed before `host.remove()`. Close, Escape and backdrop all funnel through that one function, so all three died together.
+
+The form modal was immune — it initialises `fields` before you can click — which is why the fields suite stayed green and this reached you. It also means the stale-render error modal I added last turn was undismissable from the moment it shipped.
+
+Three UATs drive the **real** `defaultModal`; every existing modal test injects its own `openModal` double, and that double is exactly what hid this. Mutation-checked — restoring the `const` fails all three with the precise `ReferenceError`. Full suite at baseline, 1113 passing.
+
+**2. The divider — the component's, filed as `lagrange-framework` REQ-64.**
+
+You were right to suspect it. `webui-split` binds the drag to `document` with no pointer capture and no shield:
+
+```js
+document.addEventListener('mousemove', onMove)
+document.addEventListener('mouseup', onUp)
+```
+
+An iframe is a separate document, so while the pointer is over one, those events go to *it* and the parent never sees them. The pointer leaves the 8px handle constantly during a drag, because the repaint lags the cursor. That's both your symptoms from one cause:
+
+- **Won't drop** — the `mouseup` happens over the iframe, so `cleanup()` never runs and the gesture stays live.
+- **Only moves right** — the dead direction is whichever pane holds the iframe. The builder mounts `primary` = the iframe preview (left), `secondary` = a plain div (right). So left dies, right works. The geometry is symmetric and correct; the asymmetry is purely which side eats events.
+
+I verified the installed copy is byte-identical to the repo source, so it's live there, not a stale install. The ticket carries the root cause, the recommended `setPointerCapture` fix, and flags two siblings with the same pattern (`chat/pane-resize.js`, `chat/tool-pane.js`) — worth fixing as a family.
+
+One thing worth knowing: `XGD_PROJECT_ROOT` pins this session's `xgd` to 1stcontact regardless of `cd`, so my first `ticket list` in the framework repo was silently reading *this* store. I filed via an explicit override and confirmed REQ-64 landed in lagrange-framework with 1stcontact's 50 tickets untouched.
+
+Until REQ-64 lands, the divider is workable if you release the button over the right-hand pane.
 
 <!-- xgd-chat-end -->
