@@ -6,10 +6,10 @@ title: A reader who jumps straight to the foot of the page finds every band jump
   over settled and visible, not left blank while occupying space
 created_by: xgd
 created_at: '2026-08-06T02:04:21.743897+00:00'
-updated_at: '2026-08-06T02:04:21.743897+00:00'
+updated_at: '2026-08-06T02:18:10.325403+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
