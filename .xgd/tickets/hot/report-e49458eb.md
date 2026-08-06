@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-14 (BUG-31 + REQ-114 + REQ-116)'
 created_by: xgd
 created_at: '2026-08-06T20:12:29.411088+00:00'
-updated_at: '2026-08-06T20:53:08.196492+00:00'
+updated_at: '2026-08-06T21:09:19.087710+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -218,7 +218,7 @@ fields:
       This is a genuinely new capability bucket — a measurement-and-migration tool
       over stored site definitions — and it is what makes the palette model adoptable
       on sites that already exist rather than only on new ones.'
-    story_uid: null
+    story_uid: story-5e7eb0c5
   - index: 6
     component: 'The edit render: a third channel, deliberately inert, derived segments
       and addresses'
