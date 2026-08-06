@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-117
 created_by: xgd
 created_at: '2026-08-01T17:24:47.971677+00:00'
-updated_at: '2026-08-06T19:30:24.680754+00:00'
+updated_at: '2026-08-06T19:31:41.419762+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -356,5 +356,40 @@ Still unchanged from before: pick **xgd** or **gigabytealchemy** in the selector
 <!-- xgd-chat role="user" ts="2026-08-06T19:30:24.546744+00:00" -->
 #### You
 ok good - so now in edit mode, I see the segments outlined, but there is no highlighting or editing happening. What should I expect?
+
+<!-- xgd-turn id="7d02ebfb-c93c-492e-bac5-48ad19b2c743-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-06T19:31:41.139211+00:00" -->
+#### Claude
+You're seeing exactly what's built. Let me confirm the precise inventory rather than describe it from memory.
+
+Both `copy get` and `copy set` exist. Let me pull a real address off the page so I can hand you a command that works.
+
+What you're seeing is exactly right — static outlines and nothing else. That's the whole of what's built.
+
+**Why there's no hover or click.** The outlines are painted by the *renderer*, baked into the HTML `1c render --edit` wrote. They're inert decoration. Everything that makes them interactive lives in a browser-side bridge that nothing currently mounts.
+
+The pieces are all there, which is the frustrating part:
+
+- `mountL1EditBridge(doc, onSegment)` — exported from `packages/framework/src/index.ts:119`. Binds click + `pointerover`, resolves innermost-wins, and refuses to bind unless `<body data-fc-edit>` is present so it can never leak into View mode.
+- The hover rule ships **in the page already** — `[data-l1-segment].l1-edit-hot { outline: 2px solid rgba(99,102,241,0.9); outline-offset: 3px }`. I confirmed it's in the served bytes. The bridge adds `l1-edit-hot`; nothing adds it today, so the rule never fires.
+- 89 stamped segments on that page, `<body data-fc-edit>` set, `1c copy get/set` both working.
+
+The gap is one call in `apps/control-app/src/builder/` — mount the bridge on `frame.contentDocument` when the mode is `edit`, unmount on switch. `grep` for `mountL1EditBridge` across the builder client returns nothing.
+
+**What you'd expect once it's wired** (the five pieces I scoped earlier): hover brightens the outline and lifts it off the box — deliberately not moving the element, since reflowing under the pointer would make the edit render's geometry disagree with the draft's. Click opens a `mountFields` modal in buffered commit, so one Save is one diff. Save validates through the same validator the AI's edits go through; invalid never lands, and the iframe re-renders on success.
+
+**You can drive the loop today from the CLI.** This is the real path — the modal only replaces the first two steps:
+
+```bash
+./bin/1c copy get xgd home 0.0.0.0
+#   text	"xgd"
+
+./bin/1c copy set xgd home 0.0.0.0 --values '{"text":"XGD"}'
+```
+
+That validates, writes the draft, and re-renders the edit channel; then reload the frame. Read the address off any outlined element — `data-l1-path` in the DOM, e.g. `0.0.0.0` is the wordmark on `xgd/home`.
+
+Want me to build the wiring? It's the five pieces from before, unchanged. Say go and I'll do it under REQ-117 — though as with the sizing fix, the mount itself is arguably T1 territory.
 
 <!-- xgd-chat-end -->
