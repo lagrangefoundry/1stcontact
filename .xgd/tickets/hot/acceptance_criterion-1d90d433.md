@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Each store tree keeps its own deploy index, referencing only its own snapshots
 created_by: xgd
 created_at: '2026-08-06T20:15:51.667155+00:00'
-updated_at: '2026-08-06T20:15:51.667155+00:00'
+updated_at: '2026-08-06T20:23:04.695445+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
