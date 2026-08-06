@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T01:11:35.745903+00:00'
+updated_at: '2026-08-06T01:18:24.921522+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-ee56a66e
@@ -19,7 +19,7 @@ fields:
     item_type: upgrade
     story_points: 3
     dependencies: []
-    story_uid: null
+    story_uid: story-d0a8cfad
     target_story_ids:
     - story-d0a8cfad
     description: 'Document that L1''s paint group and its node-level axis groups are
