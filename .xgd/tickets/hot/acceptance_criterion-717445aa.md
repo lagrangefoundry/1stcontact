@@ -7,10 +7,10 @@ title: A texture whose colour is fully transparent paints nothing at rest and is
   reader is pointing
 created_by: xgd
 created_at: '2026-08-06T18:09:20.935714+00:00'
-updated_at: '2026-08-06T18:09:20.935714+00:00'
+updated_at: '2026-08-06T18:25:10.224032+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
