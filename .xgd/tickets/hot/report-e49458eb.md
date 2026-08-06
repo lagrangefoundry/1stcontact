@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-14 (BUG-31 + REQ-114 + REQ-116)'
 created_by: xgd
 created_at: '2026-08-06T20:12:29.411088+00:00'
-updated_at: '2026-08-06T21:09:19.087710+00:00'
+updated_at: '2026-08-06T21:28:05.892351+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -257,7 +257,7 @@ fields:
       (a module declares what its own behaviour-off state looks like) is asserted
       here, with the modules'' settled state, rather than split across the behavior-module
       contract story, so REQ-116''s acceptance criteria stay under one owner.'
-    story_uid: null
+    story_uid: story-af36c2cb
 ---
 
 # Reconciliation Plan — BUNDLE-14
