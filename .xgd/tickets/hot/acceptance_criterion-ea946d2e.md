@@ -6,10 +6,10 @@ title: 'A page whose definition declares no links publishes exactly as it did be
   navigation existed: no links, and every node in its own element type'
 created_by: xgd
 created_at: '2026-08-06T02:48:29.376969+00:00'
-updated_at: '2026-08-06T02:48:29.376969+00:00'
+updated_at: '2026-08-06T02:59:35.986269+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-2e4e2c45
   kind: behavior
