@@ -6,9 +6,9 @@ title: 'A newly created site is a page that already renders: creation seeds a co
   valid layout document'
 created_by: xgd
 created_at: '2026-08-06T03:42:07.316109+00:00'
-updated_at: '2026-08-06T03:49:35.524918+00:00'
+updated_at: '2026-08-06T22:02:02.600702+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-ee56a66e
@@ -45,9 +45,14 @@ Three properties are load-bearing beyond "something exists":
   authored against are the same widths a reproduction keyframes at. An authored
   site and a reproduced one therefore vary at identical widths by construction,
   and the author never has to learn or transcribe the convention.
-- **Colour comes from the site's own theme.** The document background and the
-  placeholder's colour are the theme's own values, so a theme change remains the
-  single place colour is stated and the starting page carries no invented literal.
+- **Colour is stated in the page's own document, as literals.** The document
+  background and the inherited page text colour are hex literals on the seeded
+  layout document, and the placeholder run takes the document's text colour rather
+  than restating a third value — so the page is the single place a fresh site's
+  colour is stated and the scaffold invents no colour beyond the two it declares.
+  Creation declares **no palette**: a literal is always a valid colour, so a
+  starting page needs none, and a palette is the refinement a site adopts later
+  from the colours it actually carries.
 - **The root is flowed, not pinned.** A per-width geometry track is what a
   *capture* folds to; a page with nothing to pin to gains nothing from one. Six
   absolute boxes would be the author's first chore, where flow centres itself at
@@ -59,15 +64,32 @@ mode selection between an old and a new form is exactly what the project's
 standing rule forbids.
 
 In scope: what a created site's page carries, that it validates, renders and
-screenshots unedited, the ladder and colour provenance, and the guarantee that a
-reproduction import replaces the page document wholesale so a seeded skeleton
-cannot contaminate a reproduced site.
+screenshots unedited, the ladder and colour provenance — including where a fresh
+site's colour is stated now that the theme has no colour surface — and the
+guarantee that a reproduction import replaces the page document wholesale so a
+seeded skeleton cannot contaminate a reproduced site.
 
 Out of scope: the layout language itself and every axis in it (owned by the
 framework substrate story), the reproduction pipeline, and anything the author
 does after the first render.
 
 ## Technical Context
+- **Colour provenance moved when the colour token group was retired.** The
+  scaffold originally sourced both starting colours from the theme's closed
+  colour palette, and the story recorded "a theme change is the single place
+  colour is stated" as the load-bearing property. That palette no longer exists:
+  the colour group was deleted outright rather than kept alongside a replacement,
+  and the theme a created site carries is now the non-colour groups only. The
+  property did not survive the cut, so it is restated rather than quietly
+  reinterpreted — the single place a fresh site's colour is stated is the page's
+  own layout document. What is preserved is the *substance* of the original
+  criterion (no invented literal floating free of a declaration, one statement per
+  colour); what changed is which artifact holds the declaration.
+- **A scaffolded page is deliberately literal-only.** It declares no palette, in
+  step with the rule that the capture→L1 fold also emits literals: palette
+  assignment is a separate, re-runnable pass over a document that already has
+  colours, not something seeded ahead of them. Creating a site therefore needs no
+  palette to exist and cannot produce a dangling reference.
 - **The seeded document must clear the safety envelope.** The envelope now runs on
   every authored page, not only on documents produced by a fold, so the starting
   document is held to the same numeric bounds, URL allowlist, node cap and unique
