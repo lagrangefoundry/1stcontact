@@ -6,10 +6,10 @@ title: 'L1 rows cannot wrap or reflow: responsive layout track (no workaround ex
   for control nodes)'
 created_by: xgd
 created_at: '2026-07-27T21:23:58.990576+00:00'
-updated_at: '2026-08-05T19:32:20.030060+00:00'
-completed_at: null
+updated_at: '2026-08-06T04:54:58.553405+00:00'
+completed_at: '2026-08-06T04:54:58.553405+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
