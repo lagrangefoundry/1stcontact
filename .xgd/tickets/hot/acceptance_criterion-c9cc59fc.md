@@ -6,10 +6,10 @@ title: Derived family names describe the colour, and can be renamed to role voca
   from the command line
 created_by: xgd
 created_at: '2026-08-06T21:08:34.173073+00:00'
-updated_at: '2026-08-06T21:08:34.173073+00:00'
+updated_at: '2026-08-06T21:21:59.254416+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5e7eb0c5
   kind: behavior
