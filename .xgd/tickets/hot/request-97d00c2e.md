@@ -5,7 +5,7 @@ type: request
 title: '1c serve: extensionless URLs 404 (preview disagrees with Cloudflare Pages)'
 created_by: xgd
 created_at: '2026-07-31T00:45:14.603733+00:00'
-updated_at: '2026-08-06T04:56:51.128302+00:00'
+updated_at: '2026-08-06T05:11:59.851845+00:00'
 completed_at: null
 last_field_updated: status
 status: bundled
@@ -22,7 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.10
-  bundled_in: bundle-0e41ff44
+  bundled_in: bundle-e0143ffa
 ---
 
 ## Scope
