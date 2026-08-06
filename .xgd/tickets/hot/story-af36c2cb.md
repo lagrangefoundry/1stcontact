@@ -6,9 +6,9 @@ title: 'The edit render: a third channel that deliberately does not work, showin
   all content at once with every editable region outlined and addressable'
 created_by: xgd
 created_at: '2026-08-06T21:25:04.945391+00:00'
-updated_at: '2026-08-06T21:39:06.871136+00:00'
+updated_at: '2026-08-06T22:03:49.927568+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-0385746c
@@ -113,13 +113,21 @@ needs a third: the page the editor is built on.
   concurrent `git add -A` while it was in flight; the behavior-module half and
   the tests landed separately. Both are inside this bundle, so no third intent's
   territory is involved, but attribution by commit will be misleading.
-- **Placement note — the behavior-module obligation is asserted here.** "A
-  behavior module declares what its own behaviour-off state looks like" does
-  extend the behavior-module contract, which another story owns. It is kept
-  under this story so the intent's criteria stay with one owner and the
-  inert-page and settled-state criteria are not duplicated across two stories;
-  the obligation is also unintelligible without the channel that gives it
-  meaning. Flagged so a reviewer can move it if they disagree.
+- **Placement note — the behavior-module obligation is asserted here, and the
+  contract now states it too (resolved).** "A behavior module declares what its
+  own behaviour-off state looks like" extends the behavior-module contract, which
+  another story owns. It was flagged for a reviewer, and the ruling was that
+  flagging alone was not enough: the contract story asserted that a module ships
+  no CSS beyond its declared invariant elements, so with the carousel shipping an
+  edit-scoped rule the matrix held a proposition and its negation at once. The
+  contract story now carries the **settled state as a second declared carve-out**,
+  bounded to the edit channel and to release-not-paint properties.
+
+  The criteria stay split along ownership rather than being duplicated: this story
+  owns what the *channel* requires (the page is inert, and content — a carousel's
+  slides included — is visible in its settled state), and the contract story owns
+  what a *module* is permitted to ship in service of it. Neither restates the
+  other, and the obligation is no longer asserted in only one direction.
 
 ## Dependencies
 
