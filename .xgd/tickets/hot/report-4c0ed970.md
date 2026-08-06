@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-11 free-coded commits (L1 substrate, behavio
   modules, reproduction pipeline)'
 created_by: xgd
 created_at: '2026-08-06T01:11:35.745903+00:00'
-updated_at: '2026-08-06T02:48:54.656418+00:00'
+updated_at: '2026-08-06T03:04:53.472421+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -424,7 +424,7 @@ fields:
     story_points: 2
     dependencies:
     - 7
-    story_uid: null
+    story_uid: story-d0a8cfad
     target_story_ids:
     - story-d0a8cfad
     description: Document that the L1 safety envelope now runs on authored pages,
