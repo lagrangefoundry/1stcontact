@@ -5,10 +5,10 @@ type: request
 title: 'No font-acquisition path or licence provenance: font registry + 1c fonts check'
 created_by: xgd
 created_at: '2026-07-26T01:26:56.621937+00:00'
-updated_at: '2026-08-05T19:32:19.232854+00:00'
-completed_at: null
+updated_at: '2026-08-06T04:55:00.936129+00:00'
+completed_at: '2026-08-06T04:55:00.936129+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   auto_merge_back: true
