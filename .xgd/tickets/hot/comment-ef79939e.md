@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-44
 created_by: xgd
 created_at: '2026-08-06T18:59:56.858068+00:00'
-updated_at: '2026-08-06T19:37:00.426432+00:00'
+updated_at: '2026-08-06T19:38:02.726883+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,11 @@ Filed **REQ-22** in `lagrangefoundry/xgd-plugin-sdk` — there is real work ther
 5. **Conformance** — `tests/conformance/_suites.py` already has `test_UAT_FC_REQ_640_lifecycle_hooks_are_safe_noop`, which is the same guarantee these hooks need. Extended to assert list-of-str, relative paths only, and a safe no-op `sync_dependencies()` when no manifests are declared.
 
 Cross-references are in place: REQ-745 (xgd core) now scopes down to change detection, the delegation call site, loud failure, and deleting `_repair_source_node_module_symlinks()`. REQ-44 (here) carries the `--ignore-scripts` note, since it's a limit of the preflight I built — the module resolves, so the check passes, and the artifact is still missing.
+
+<!-- xgd-turn id="6bd8045a-ea5e-4cea-9398-7c783b4fa758-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T19:38:02.583606+00:00" -->
+#### You
+ok so what order do these tickets need to be implemented in?
 
 <!-- xgd-chat-end -->
