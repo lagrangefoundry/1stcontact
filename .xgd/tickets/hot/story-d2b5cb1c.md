@@ -6,10 +6,10 @@ title: 'L1 interaction state and scroll motion: typed hover, focus and entrance 
   with a renderer-owned safety floor'
 created_by: xgd
 created_at: '2026-08-06T02:02:27.445968+00:00'
-updated_at: '2026-08-06T02:02:27.445968+00:00'
+updated_at: '2026-08-06T02:18:09.359791+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-ee56a66e
   capability_uid: capability-ae9d65d6
