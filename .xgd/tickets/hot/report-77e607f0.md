@@ -5,9 +5,9 @@ type: report
 title: Resync anchor
 created_by: xgd
 created_at: '2026-08-05T03:01:34.483131+00:00'
-updated_at: '2026-08-06T00:57:11.760853+00:00'
+updated_at: '2026-08-06T01:05:01.771869+00:00'
 completed_at: null
-last_field_updated: result
+last_field_updated: blocked_by_dirty_working
 fields:
   report_kind: resync_run
   subject_uid: resync-anchor
