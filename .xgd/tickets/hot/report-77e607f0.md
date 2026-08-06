@@ -80,6 +80,8 @@ fields:
     new_sha: 2c2f37d5284393a7384474055035f396987c53c6
   - old_sha: 6cac24fb0c686832583563f7e9dd891ca55b8d06
     new_sha: e9a96d4dbbcec9fd1bd5df518bd96ebd2ae3bf2e
+  - old_sha: e28735bd0b52ff50c6424e01362970d6a111ee0b
+    new_sha: 5e5c61b3ed7556ab9ea7fc2545eda9545a2bd1d7
 result: running
 ---
 
