@@ -158,4 +158,37 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     expect(schema).toContain('export function parseL1Path')
     expect(schema).toContain('export function formatL1Path')
   })
+
+  it('test_UAT_FC_REQ-117_one_save_rerenders_the_view_channel_too', async () => {
+    // An edit changes the PAGE, not one rendering of it. Re-rendering only the
+    // edit channel left View — the mode you switch to in order to see the page
+    // as a visitor would — showing whatever the last manual `1c render`
+    // produced. Nothing signalled it: View looked like a working page, just an
+    // old one, and it stayed old indefinitely.
+    const res = await post({
+      slug: 'alpha',
+      page: pageId,
+      path: addr,
+      values: { text: 'Visible in view mode' },
+    })
+    expect(res.status).toBe(200)
+
+    // Both channels, from one save. The edit channel is asserted alongside so a
+    // fix that swapped which one gets re-rendered cannot pass.
+    expect(await (await get('/preview/alpha/edit/')).text()).toContain('Visible in view mode')
+    expect(await (await get('/preview/alpha/draft/')).text()).toContain('Visible in view mode')
+  })
+
+  it('test_UAT_FC_REQ-117_preview_bytes_are_never_served_from_cache', async () => {
+    // The origin rewrites these bytes underneath the browser: a save re-renders
+    // the very channel the iframe is displaying. With no freshness directive AND
+    // no validator, the browser may serve a post-save reload from cache — the
+    // edit is on disk and correct, and the screen shows the old page. There is
+    // nothing to trade away on a dev origin serving live-rebuilt artifacts.
+    for (const p of ['/preview/alpha/edit/', '/preview/alpha/draft/']) {
+      const res = await get(p)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('cache-control')).toContain('no-store')
+    }
+  })
 })

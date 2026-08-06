@@ -100,10 +100,25 @@ export async function resolveStaticFile(
   return finalInfo ? file : null
 }
 
-/** Stream a resolved file with its content type. */
+/**
+ * Stream a resolved file with its content type.
+ *
+ * `no-store` because every byte this serves is a build artifact that the origin
+ * itself rewrites underneath the browser — a save re-renders the channel the
+ * preview iframe is currently showing. Without it the response carries no
+ * freshness directive AND no validator (no `ETag`, no `Last-Modified`), which
+ * is the worst combination available: the browser is free to apply heuristic
+ * freshness, and a reload has nothing to revalidate *with*, so the iframe can
+ * answer a post-save reload from cache and show the edit as having silently
+ * failed. Correct bytes on disk, stale bytes on screen.
+ *
+ * This is a dev origin serving live-rebuilt artifacts, so there is nothing to
+ * trade away: caching buys no meaningful speed here and costs correctness.
+ */
 export function sendFile(res: http.ServerResponse, file: string): void {
   res.writeHead(200, {
     'content-type': MIME[path.extname(file)] ?? 'application/octet-stream',
+    'cache-control': 'no-store, must-revalidate',
   })
   createReadStream(file).pipe(res)
 }

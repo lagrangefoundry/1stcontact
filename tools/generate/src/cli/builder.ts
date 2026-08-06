@@ -234,7 +234,20 @@ export async function handleBuilderRequest(
         // exactly as the user left them — the iframe they are looking at is
         // still accurate, which is what makes "surface the error" safe.
         const out = editCopySet(slug, page, addr, values as Record<string, unknown>, scope(body))
+        // BOTH channels, because an edit changes the page — not one rendering of
+        // it. Re-rendering only `edit` left View showing whatever the last
+        // manual `1c render` produced, so an edit made in the builder was
+        // invisible in the mode the user switches to in order to see the page
+        // as a visitor would. Nothing signalled the staleness: View looked like
+        // a working page, just an old one, and it stayed old indefinitely.
+        //
+        // The cost is one extra render per save on a dev origin. Rendering the
+        // channel lazily on request would buy that back, but it is machinery
+        // with its own staleness rule, and DOC-28 §12 T5 deletes this whole
+        // static-serving path in favour of request-time renders — so the cheap
+        // correct thing now is to keep the two channels in step.
         await cmdRender(slug, { ...opts, edit: true })
+        await cmdRender(slug, { ...opts, edit: false })
         json(res, 200, out.data)
         return
       }
