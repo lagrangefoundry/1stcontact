@@ -6,10 +6,10 @@ title: Content inside a behavior module's seam is addressable, rooted at the ins
   rather than the page
 created_by: xgd
 created_at: '2026-08-06T21:26:42.282183+00:00'
-updated_at: '2026-08-06T21:26:42.282183+00:00'
+updated_at: '2026-08-06T21:39:08.534637+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
