@@ -6,10 +6,10 @@ title: A perceptual breach fails the run regardless of the value gates, and the 
   it was held to is echoed into the report
 created_by: xgd
 created_at: '2026-08-06T03:12:47.195006+00:00'
-updated_at: '2026-08-06T03:12:47.195006+00:00'
+updated_at: '2026-08-06T03:24:16.170530+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-24098299
   kind: behavior
