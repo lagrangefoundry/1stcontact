@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-06T00:07:45.825929+00:00'
+updated_at: '2026-08-06T00:27:32.339168+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -296,5 +296,21 @@ None of that is on the map because we filed goals, not history. If you want the 
 - **User portal & subscription support** is DOC-4 MVP item 5 and is *not* on the map — you said five children, so I didn't add a sixth silently. Say the word and it's filed.
 - **The rebrand** GenDev Labs → Lagrange Foundry leaves DOC-4, DOC-5 and DOC-16 stale on the name. I noted it in the Lagrange goal's body. Worth a decision record? I'd need `decided_at`.
 - **The framework becoming a separate project** is the more interesting one. DOC-4 has it as MVP item 1 *of the app*; it's now its own project with its own map. That's a root changing shape materially — a decision-record signature. Also needs `decided_at`.
+
+<!-- xgd-turn id="b9daf9e2-d8d1-4e7d-af48-d8bb3c76dbf3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-06T00:27:32.157281+00:00" -->
+#### You
+So I saw the tickets you have created - lets correct a few things:
+
+⏳Lagrange Foundry website2026-08-06
+
+⏳Payments2026-08-06
+
+⏳CRM2026-08-06
+
+⏳Web monitoring2026-08-06 <-- these are CHILDREN of 1stcontact app (I thought that was clear)
+
+1stcontact site is not in progress it has not yet been planned
 
 <!-- xgd-chat-end -->
