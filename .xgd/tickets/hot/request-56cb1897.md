@@ -5,10 +5,10 @@ type: request
 title: '1c new scaffolds no L1 document: authored sites start from nothing'
 created_by: xgd
 created_at: '2026-07-26T01:27:13.225254+00:00'
-updated_at: '2026-08-05T19:32:19.406716+00:00'
-completed_at: null
+updated_at: '2026-08-06T04:55:00.468771+00:00'
+completed_at: '2026-08-06T04:55:00.468771+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: low
   auto_merge_back: true
