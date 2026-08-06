@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-14 (BUG-31 + REQ-114 + REQ-116)'
 created_by: xgd
 created_at: '2026-08-06T20:12:29.411088+00:00'
-updated_at: '2026-08-06T20:38:49.217521+00:00'
+updated_at: '2026-08-06T20:53:08.196492+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -172,7 +172,7 @@ fields:
       superseded by the REQ-79 pivot), so there is nothing to remove elsewhere — but
       the guarantee that a page carries no colour custom property must be asserted
       somewhere, and STORY-83 is where page emission lives.'
-    story_uid: null
+    story_uid: story-d0a8cfad
     target_story_ids:
     - story-d0a8cfad
     intent_delta_summary: 'The substrate carries exactly one colour system: a rendered
