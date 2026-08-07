@@ -6,10 +6,10 @@ title: Every name the workspace shows for the site surface has exactly one defin
   site
 created_by: xgd
 created_at: '2026-08-07T01:43:51.151373+00:00'
-updated_at: '2026-08-07T01:43:51.151373+00:00'
+updated_at: '2026-08-07T01:58:20.927936+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
