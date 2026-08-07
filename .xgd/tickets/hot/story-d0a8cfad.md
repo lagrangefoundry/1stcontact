@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-07T03:10:38.597181+00:00'
+updated_at: '2026-08-07T03:36:31.936430+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -326,10 +326,14 @@ its target behavior-module id, with no module code and no behaviour attached.
   documented here because the behaviour is renderer-side and observable on
   rendered output. Its evidence covers the emission, the wrap-threshold gate and
   the per-rung reset over folded documents; that the relaxation never reaches a
-  **container** is enforced at the single emission site but is not exercised by
-  those fixtures, because no fold fixture cheap enough to build there produces a
-  container carrying captured geometry — closing it needs an authored or
-  reproduction-pipeline document with a real geometry-tracked container.
+  **container** is covered by a hand-authored document — no fold fixture cheap
+  enough to build there produces a container carrying captured geometry — in
+  which a geometry-tracked container wraps a floored run, and the container
+  keeps a fixed width at every rung while the run inside it floors. Two
+  independent layers are asserted there: the emitter reads the axis only for
+  `text` / `control`, and the `.strict()` surface group refuses `nowrapFromPx`
+  on a container as an unknown key, so a container cannot even reach the
+  relaxation.
 - The implementation matches the intent closely; no divergence between the
   REQ-82 spec and the code was found. Browser-dependent acceptance (round-trip,
   cross-browser) is proven with a real engine and skips cleanly where engines
