@@ -6,14 +6,15 @@ title: Asking an image region what it exposes returns which image goes there —
   list of the site's images — alongside its alt text
 created_by: xgd
 created_at: '2026-08-07T04:40:50.004278+00:00'
-updated_at: '2026-08-07T04:51:25.614644+00:00'
+updated_at: '2026-08-07T19:40:48.080352+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
