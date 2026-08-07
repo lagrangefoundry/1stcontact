@@ -433,7 +433,7 @@ export interface AssignResult {
   /** Distinct colours before, palette entries after. */
   before: number
   after: number
-  /** Files rewritten (relative page names, plus `site.json`). */
+  /** Files rewritten, site-relative (`pages/<name>.json`, plus `site.json`). */
   written: string[]
 }
 
@@ -501,7 +501,7 @@ export function cmdColorsAssign(
     palette,
     before: census.colors.length,
     after: Object.keys(palette).length,
-    written: [...pages.map((p) => p.rel), 'site.json'],
+    written: [...pages.map((p) => `pages/${p.rel}`), 'site.json'],
   }
 }
 
@@ -515,6 +515,7 @@ export function formatAssign(result: AssignResult): string {
     const steps = entry.steps ? ` + ${Object.keys(entry.steps).length} step(s)` : ''
     lines.push(`  ${name}: ${entry.value}${steps}`)
   }
-  lines.push(`  wrote ${result.written.length} file(s)`)
+  lines.push(`  wrote ${result.written.length} file(s):`)
+  for (const rel of result.written) lines.push(`    ${rel}`)
   return lines.join('\n')
 }

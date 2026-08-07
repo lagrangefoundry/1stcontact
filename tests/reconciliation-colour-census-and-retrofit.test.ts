@@ -365,22 +365,29 @@ describe('story-5e7eb0c5 — the retrofit writes a palette and reports the conve
       )
     }
 
-    // … and the files it wrote: every rewritten page plus the site definition.
+    // … and the files it wrote: every rewritten page plus the site definition,
+    // each named in the report, not merely counted.
     const pages = pageFiles(siteDir)
-    expect(run.stdout).toContain(`wrote ${pages.length + 1} file(s)`)
+    expect(run.stdout).toContain(`wrote ${pages.length + 1} file(s):`)
+    const reported = run.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line === 'site.json' || line.startsWith('pages/'))
+    expect(reported.slice().sort(), run.stdout).toEqual(
+      ['site.json', ...pages.map((p) => `pages/${path.basename(p)}`)].sort(),
+    )
 
     // No colour literal is left behind in any page.
     for (const file of pages) {
       expect(collectColorLiterals(readJsonFile(file)), file).toEqual([])
     }
 
-    // Exactly those files differ; nothing else under the site was touched.
+    // Every file named in the report differs from its pre-retrofit content, and
+    // no other file under the site was touched.
     const after = hashTree(draft)
     const changed = Object.keys(after).filter((rel) => after[rel] !== before[rel])
     expect(Object.keys(after).sort()).toEqual(Object.keys(before).sort())
-    expect(changed.sort()).toEqual(
-      ['site.json', ...pages.map((p) => `pages/${path.basename(p)}`)].sort(),
-    )
+    expect(changed.sort()).toEqual(reported.slice().sort())
     expect(changed).toHaveLength(pages.length + 1)
 
     // The palette is also obtainable as a single machine-readable document, and
