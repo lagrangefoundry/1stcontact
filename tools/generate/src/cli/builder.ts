@@ -126,12 +126,26 @@ function transpileForBrowser(absPath: string): string {
   )
 }
 
+/** Every response this origin returns carries it; see `sendFile` for why. */
+const NO_STORE = 'no-store, must-revalidate'
+
+/**
+ * The one place a JSON response leaves this origin — so `no-store` is stated
+ * once here rather than at each route, and a route added later inherits it.
+ *
+ * These answers are as perishable as the served bytes: `/api/copy` GET is the
+ * field values the modal is about to display, and `/api/sites` is the selector's
+ * listing. Without a directive AND without a validator they carry the worst
+ * combination available (heuristic freshness permitted, nothing to revalidate
+ * with) — a modal opening on values a save already replaced.
+ */
 function json(res: http.ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
   res
     .writeHead(status, {
       'content-type': 'application/json; charset=utf-8',
       'content-length': Buffer.byteLength(payload),
+      'cache-control': NO_STORE,
     })
     .end(payload)
 }
@@ -165,12 +179,12 @@ export async function handleBuilderRequest(
         .writeHead(200, {
           'content-type': 'text/html; charset=utf-8',
           'content-length': Buffer.byteLength(html),
-          // The shell was the last cacheable response on this origin — every
-          // other route goes through `sendFile`, which is `no-store`. A hole in
-          // exactly one response is worse than none, because the symptom it
-          // produces (a tab that keeps running yesterday's chrome while every
-          // asset around it is current) looks like anything except caching.
-          'cache-control': 'no-store, must-revalidate',
+          // The shell is hand-written and travels neither `sendFile` nor
+          // `json`, so it states the directive itself. A hole in exactly one
+          // response is worse than none, because the symptom it produces (a tab
+          // that keeps running yesterday's chrome while every asset around it
+          // is current) looks like anything except caching.
+          'cache-control': NO_STORE,
         })
         .end(html)
       return
@@ -285,7 +299,9 @@ export async function handleBuilderRequest(
       const slug = decodeURIComponent(preview[1])
       const channel = decodeURIComponent(preview[2]) as RenderChannel
       if (!CHANNELS.includes(channel)) {
-        res.writeHead(404, { 'content-type': 'text/plain' }).end('Unknown channel')
+        res
+          .writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE })
+          .end('Unknown channel')
         return
       }
       await serveTree(res, distDir(ctx, slug, channel), preview[3] ?? '/')
@@ -324,7 +340,7 @@ export async function handleBuilderRequest(
           'content-length': Buffer.byteLength(js),
           // Read off disk every time: this is a dev origin, and a cached bridge
           // after an edit to the source is a confusing way to lose an afternoon.
-          'cache-control': 'no-store',
+          'cache-control': NO_STORE,
         })
         .end(js)
       return
@@ -336,7 +352,9 @@ export async function handleBuilderRequest(
     if (webui) {
       const name = decodeURIComponent(webui[1])
       if (!(WEBUI_PACKAGES as readonly string[]).includes(name)) {
-        res.writeHead(404, { 'content-type': 'text/plain' }).end('Unknown component')
+        res
+          .writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE })
+          .end('Unknown component')
         return
       }
       await serveTree(res, webuiPackageDir(name), webui[2] ?? '/')
@@ -348,7 +366,7 @@ export async function handleBuilderRequest(
       return
     }
 
-    res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
+    res.writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE }).end('Not found')
   } catch (err) {
     // A CommandError is the EXPECTED answer to a bad edit — the validator
     // refusing a change map, an address that resolves to nothing. It is the
@@ -372,11 +390,11 @@ async function serveTree(
 ): Promise<void> {
   const file = await resolveStaticFile(rootDir, rel)
   if (file === 'forbidden') {
-    res.writeHead(403, { 'content-type': 'text/plain' }).end('Forbidden')
+    res.writeHead(403, { 'content-type': 'text/plain', 'cache-control': NO_STORE }).end('Forbidden')
     return
   }
   if (!file) {
-    res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
+    res.writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE }).end('Not found')
     return
   }
   sendFile(res, file)

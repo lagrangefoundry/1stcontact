@@ -253,19 +253,47 @@ describe('story-e674c60a builder origin', () => {
     // AC-977 — the origin rewrites its own bytes underneath the browser, so a
     // single cacheable response leaves an operator looking at a stale page that
     // appears to be working. There is no exempt response.
-    const noStore = async (route: string) => {
-      const res = await get(route)
-      expect(res.status, route).toBe(200)
+    // Asserted on the header alone, and deliberately NOT on the status: the
+    // claim is about every response, and the refusals (a bad address, an
+    // unknown channel, a route that does not exist) are exactly the ones a
+    // 200-only probe would skip past.
+    const noStore = async (route: string, init?: RequestInit) => {
+      const res = await get(route, init)
       expect(res.headers.get('cache-control'), route).toMatch(/no-store/)
+      return res
+    }
+    const ok = async (route: string, init?: RequestInit) => {
+      const res = await noStore(route, init)
+      expect(res.status, route).toBe(200)
     }
 
     // The browser source, and a rendered page in EACH channel.
-    await noStore('/builder/main.js')
-    await noStore('/builder/builder.css')
-    await noStore('/preview/alpha/draft/')
-    await noStore('/preview/alpha/edit/')
+    await ok('/builder/main.js')
+    await ok('/builder/builder.css')
+    await ok('/preview/alpha/draft/')
+    await ok('/preview/alpha/edit/')
     await cmdPublish('alpha', { cwd })
-    await noStore('/preview/alpha/published/')
+    await ok('/preview/alpha/published/')
+
+    // The bridge served to the browser: its own route, transpiled per request,
+    // travelling neither the file-sending path nor the JSON one.
+    await ok('/framework/edit-client.js')
+    await ok('/framework/site-schema-edit.js')
+
+    // The operations, which answer JSON rather than bytes off disk. They are as
+    // perishable as the renders: `/api/copy` GET is the field values the modal
+    // is about to display, and `/api/sites` is the selector's listing.
+    await ok('/api/sites')
+    await ok('/api/assets?slug=alpha')
+    await ok('/api/copy?slug=alpha&page=home&path=0')
+
+    // And the refusals — the error envelope the modal reads, and the plain-text
+    // dead ends. A stale refusal is a refusal the operator cannot clear.
+    expect((await noStore('/api/assets')).status, '/api/assets no slug').toBe(400)
+    expect((await noStore('/api/copy?slug=alpha')).status, '/api/copy no page').toBe(400)
+    expect((await noStore('/preview/alpha/nosuchchannel/')).status).toBe(404)
+    expect((await noStore('/no/such/route')).status).toBe(404)
+    expect((await noStore('/builder/no-such-file.js')).status).toBe(404)
 
     if (!WEBUI_INSTALLED) {
       unverified('the no-store directive on the workspace document and a served component')
@@ -275,10 +303,11 @@ describe('story-e674c60a builder origin', () => {
     // The workspace document explicitly: it is hand-written and does NOT travel
     // the same file-sending path as everything else, so it is exactly the
     // response a blanket assumption would miss.
-    await noStore('/')
+    await ok('/')
     for (const name of WEBUI_PACKAGES) {
-      await noStore(`/webui/${name}/${webuiExports(name)['.'].replace(/^\.\//, '')}`)
+      await ok(`/webui/${name}/${webuiExports(name)['.'].replace(/^\.\//, '')}`)
     }
+    expect((await noStore('/webui/no-such-component/index.js')).status).toBe(404)
   })
 
   it('test_UAT_AC961_components_are_served_byte_identical_from_outside_this_repo', async () => {
