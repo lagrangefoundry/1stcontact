@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-16 (REQ-117 + REQ-115 + REQ-44) — builder 
   the copy-edit loop, install preflight'
 created_by: xgd
 created_at: '2026-08-07T01:38:01.780482+00:00'
-updated_at: '2026-08-07T02:44:11.734965+00:00'
+updated_at: '2026-08-07T02:58:17.902645+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -206,7 +206,7 @@ fields:
       subject; this changes which CSS property one keyframe axis emits under one stated
       condition. No new capability bucket: no new axis, node kind or authoring concept
       is introduced, and the change is invisible for unedited text by construction.'
-    story_uid: null
+    story_uid: story-d0a8cfad
   - index: 6
     component: 1c CLI install preflight
     item_type: upgrade
