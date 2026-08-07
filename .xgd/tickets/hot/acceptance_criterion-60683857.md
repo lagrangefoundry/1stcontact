@@ -6,10 +6,10 @@ title: The toolbar renders exactly the controls the active mode declares, and re
   them when the mode changes
 created_by: xgd
 created_at: '2026-08-07T01:44:36.665871+00:00'
-updated_at: '2026-08-07T01:44:36.665871+00:00'
+updated_at: '2026-08-07T01:58:17.517424+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
