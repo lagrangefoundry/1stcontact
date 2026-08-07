@@ -6,10 +6,10 @@ title: Each command is gated on exactly what it loads; the offline verbs are nev
   gated
 created_by: xgd
 created_at: '2026-08-07T03:13:38.664103+00:00'
-updated_at: '2026-08-07T03:13:38.664103+00:00'
+updated_at: '2026-08-07T03:22:03.713425+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
