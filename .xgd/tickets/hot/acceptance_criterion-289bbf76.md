@@ -6,14 +6,15 @@ title: Any edit through this surface is validated over the whole resulting defin
   by the same validator every other structured edit runs
 created_by: xgd
 created_at: '2026-08-07T02:02:31.368889+00:00'
-updated_at: '2026-08-07T04:39:59.385171+00:00'
+updated_at: '2026-08-07T19:40:41.439868+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
