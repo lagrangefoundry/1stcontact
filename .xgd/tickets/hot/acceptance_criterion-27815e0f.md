@@ -6,14 +6,15 @@ title: Only snapshots the site's deploy index references are servable; an orphan
   snapshot is unreachable
 created_by: xgd
 created_at: '2026-08-06T18:48:54.054985+00:00'
-updated_at: '2026-08-07T21:56:18.085199+00:00'
+updated_at: '2026-08-07T22:18:20.815388+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
