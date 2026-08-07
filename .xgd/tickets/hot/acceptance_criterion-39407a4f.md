@@ -6,10 +6,10 @@ title: The edit render names the page it was rendered from, so a region address 
   a complete coordinate
 created_by: xgd
 created_at: '2026-08-07T02:42:41.948019+00:00'
-updated_at: '2026-08-07T02:42:41.948019+00:00'
+updated_at: '2026-08-07T02:53:52.179395+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
