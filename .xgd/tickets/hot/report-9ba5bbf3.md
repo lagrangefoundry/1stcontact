@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-16 (REQ-117 + REQ-115 + REQ-44) — builder 
   the copy-edit loop, install preflight'
 created_by: xgd
 created_at: '2026-08-07T01:38:01.780482+00:00'
-updated_at: '2026-08-07T01:45:40.467273+00:00'
+updated_at: '2026-08-07T02:03:25.075040+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -84,7 +84,7 @@ fields:
       3 because the write path is independently useful and independently proven (driven
       by `1c` itself, argv in / envelope and exit code out) and is the surface the
       AI shares; item 3 is the browser gesture that produces its input.
-    story_uid: null
+    story_uid: story-37a3921b
   - index: 3
     component: Click-to-edit loop in the builder
     item_type: feature
