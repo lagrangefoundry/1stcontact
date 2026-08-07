@@ -6,9 +6,9 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-07T02:36:26.611265+00:00'
+updated_at: '2026-08-07T17:02:23.896864+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-15c1f647
@@ -33,11 +33,12 @@ for. The workspace that shows the page is a separate capability, and the
 validated write path that applies the change is another; this one is the loop
 that joins them and the thing the operator actually performs.
 
-The loop, as the operator experiences it: *hover a piece of copy and it lights
-up → click it and a form opens over exactly the words in it → change them and
-Save → the page reloads showing the new words, still editable.* The same loop
-the AI drives on the operator's instruction; only the first two steps — pointing
-and typing into a form — are the operator's.
+The loop, as the operator experiences it: *hover an editable region and it
+lights up → click it and a form opens over exactly what that region exposes —
+the words in a run of copy, which image goes in an image region → change it and
+Save → the page reloads showing the change, still editable.* The same loop the
+AI drives on the operator's instruction; only the first two steps — pointing and
+filling in a form — are the operator's.
 
 **In scope**
 
@@ -53,16 +54,22 @@ and typing into a form — are the operator's.
   presentation seam, the region is named relative to that instance and seam,
   because an instance's regions and the page's own regions reuse the same short
   addresses by design and are otherwise indistinguishable.
-- **A form over that region's fields.** The form is built from the fields the
-  region exposes and the words currently in the draft. It is a **form over
-  structured fields** — not editing on the page itself, not a rich-text surface,
-  and with no route to markup or styling. One confirmed form is **one change**
-  no matter how many fields it held, so the operator's Save is the single moment
-  anything is written.
+- **A form over that region's fields.** The form is built from whatever fields
+  the region exposes and the values currently in the draft: a run of copy
+  exposes its words; an image region exposes **which image goes here** — a
+  closed picker of the site's own assets, always including the handle already in
+  place — alongside its alt text. It is a **form over structured fields** — not
+  editing on the page itself, not a rich-text surface, and with no route to
+  markup or styling. The gesture is deliberately **kind-agnostic**: it resolves
+  a click to a region and opens a form over whatever that region exposes, so a
+  region kind that gains fields reaches the operator through this same loop with
+  nothing here to change — which is exactly how image selection arrived. One
+  confirmed form is **one change** no matter how many fields it held, so the
+  operator's Save is the single moment anything is written.
 - **The page updating.** A successful Save leaves the operator looking at their
-  page with the new words on it, with no further step to take, and the gesture
-  still live on the page they are now looking at — the page was replaced, and
-  clicking again must work.
+  page with the change on it — the new words, the chosen image — with no further
+  step to take, and the gesture still live on the page they are now looking at:
+  the page was replaced, and clicking again must work.
 - **Being told no, without losing anything.** A refused edit keeps the form open
   holding exactly what the operator typed, showing the reason the edit was
   refused, with their page and their draft untouched. This is the one failure
@@ -82,10 +89,12 @@ and typing into a form — are the operator's.
   holds as a property of the gesture itself — it attaches only to an editable
   rendering — rather than depending on the workspace remembering to detach it.
 
-**Out of scope** (the intent's declared non-goals): text properties (size,
-colour, weight, family, background); per-run restyling inside a passage; images;
-structural editing — adding, removing, reordering, resizing or repositioning
-anything; and undo beyond cancelling the open form.
+**Out of scope** (the intents' declared non-goals): text properties (size,
+colour, weight, family, background); per-run restyling inside a passage; image
+**framing** — crop, scale, scrim, rotation, edge effects and free positioning —
+together with asset upload and any image processing; structural editing —
+adding, removing, reordering, resizing or repositioning anything; and undo
+beyond cancelling the open form.
 
 ## Technical Context
 
@@ -97,10 +106,19 @@ anything; and undo beyond cancelling the open form.
   of that: it produces the change map and renders whatever the write path
   answers, which is what keeps the editor a second *producer* of structured
   edits and not a second write path.
-- **Depends on the edit rendering** (CAP-84) for the region addresses, the page
-  coordinate stamped on the rendering, the marker that identifies a rendering as
-  editable, and what a highlighted region looks like. The gesture only says
-  *which* region is live; the rendering says how live looks.
+- **Depends on the edit rendering** (STORY-98, in this capability) for the
+  region addresses, the page coordinate stamped on the rendering, the marker
+  that identifies a rendering as editable, and what a highlighted region looks
+  like. The gesture only says *which* region is live; the rendering says how
+  live looks.
+- **Kind-agnosticism proved, not merely claimed.** Image selection reached the
+  operator without a single change to this gesture: the loaded field list is
+  handed straight to the shared component, which already handled the
+  closed-option control the derivation returned for an image's `src`. The
+  derivation — one function on the write-path side — is the only place a region
+  kind is taught what it exposes; the gesture reads that list and knows nothing
+  about kinds. Enum membership is re-checked on the write side, so the closed
+  picker is a property of the surface rather than of this UI.
 - **The form is a shared component, not hand-rolled.** The intent is explicit
   that typed controls and the confirm/cancel model come from the shared UI
   component set; this story's job is deriving the field list from a region. The
@@ -118,7 +136,10 @@ anything; and undo beyond cancelling the open form.
   the intended behaviour, and the ACs here follow it. The first version of that
   message could not be dismissed at all — by button, Escape or backdrop — which
   is why dismissal is its own criterion rather than an assumed property of a
-  dialog.
+  dialog. The worked example of "a region with nothing to edit" is now the
+  painted container, not the image: once an image exposed fields, it stopped
+  being a dead end. The property is unchanged — a region with no fields offers
+  none, by derivation.
 - **A standing failure mode, not a one-off.** Renderings live on disk, so one
   built before the page coordinate existed stays clickable-looking. The guard
   is stated as a criterion because stale renderings recur by construction until
@@ -130,6 +151,10 @@ anything; and undo beyond cancelling the open form.
   loud on purpose — a quiet skip on the only test of the actual gesture is
   indistinguishable from a pass — but the gesture is genuinely unverified there
   until a private registry exists.
+- **Known limitation, upstream.** The shared enum control renders each option's
+  text as its value verbatim, so an image picker shows the asset's handle rather
+  than a friendly name or a thumbnail. Per the component policy this is closed
+  upstream, never patched or wrapped here.
 - **Known defect, deliberately not fixed here**: saving a copy change rewrites
   the whole page definition with different unicode escaping, so a one-word
   change produces a large diff. Pre-existing, cosmetic, and carried as its own
