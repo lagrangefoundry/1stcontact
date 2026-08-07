@@ -6,14 +6,15 @@ title: A refused edit reports a machine-readable fault code, the path at fault a
   a hint naming what to do, with a failing exit status
 created_by: xgd
 created_at: '2026-08-07T02:02:26.847011+00:00'
-updated_at: '2026-08-07T02:12:05.950662+00:00'
+updated_at: '2026-08-07T19:40:40.312037+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
