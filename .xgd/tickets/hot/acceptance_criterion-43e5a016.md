@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Closing a form in which nothing was changed writes nothing and re-renders nothing
 created_by: xgd
 created_at: '2026-08-07T02:16:47.041598+00:00'
-updated_at: '2026-08-07T02:36:29.404794+00:00'
+updated_at: '2026-08-07T18:00:31.568889+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
