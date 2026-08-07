@@ -6,7 +6,7 @@ title: The retrofit writes a palette onto the site, rewrites every colour litera
   as a reference to it, and reports the before/after counts and the files it wrote
 created_by: xgd
 created_at: '2026-08-06T21:07:37.822422+00:00'
-updated_at: '2026-08-07T16:50:09.898046+00:00'
+updated_at: '2026-08-07T18:44:48.119355+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
