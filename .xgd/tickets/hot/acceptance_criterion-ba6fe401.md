@@ -6,14 +6,15 @@ title: 'Every created site carries the layout document: creation takes only a sl
   offers no mode selection, and produces one starter shape'
 created_by: xgd
 created_at: '2026-08-06T03:43:19.257394+00:00'
-updated_at: '2026-08-06T03:49:36.178414+00:00'
+updated_at: '2026-08-07T18:44:44.232888+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-86c7c21b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
