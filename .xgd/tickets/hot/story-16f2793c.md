@@ -6,7 +6,7 @@ title: 'Size-aware diffing: compare a captured site at a chosen viewport across 
   persisted ladder'
 created_by: xgd
 created_at: '2026-07-19T02:36:39.277949+00:00'
-updated_at: '2026-08-05T23:13:46.214697+00:00'
+updated_at: '2026-08-07T23:13:33.278070+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: completed
