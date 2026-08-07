@@ -7,14 +7,15 @@ title: Every recorded font family states its origin, its licence terms and the f
   offending entry and field
 created_by: xgd
 created_at: '2026-08-06T03:29:27.952196+00:00'
-updated_at: '2026-08-06T03:38:17.223226+00:00'
+updated_at: '2026-08-07T18:44:55.046455+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8685be2d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
