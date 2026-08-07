@@ -5,12 +5,13 @@ type: capability
 title: 'Site Asset Store: What This Site Can Reference'
 created_by: xgd
 created_at: '2026-08-07T04:28:35.542064+00:00'
-updated_at: '2026-08-07T04:28:35.542064+00:00'
+updated_at: '2026-08-07T18:53:49.472960+00:00'
 completed_at: null
-last_field_updated: created_at
-status: active
+last_field_updated: status
+status: superseded
 fields:
   name: site-asset-store
+  superseded_by_uid: capability-b4ac88fc
 ---
 
 # Capability: Site Asset Store
