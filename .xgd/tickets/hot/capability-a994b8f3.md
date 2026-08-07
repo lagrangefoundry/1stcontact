@@ -5,9 +5,9 @@ type: capability
 title: 'Builder Workspace: Chrome, Origin & Display Panel'
 created_by: xgd
 created_at: '2026-08-07T01:41:35.258770+00:00'
-updated_at: '2026-08-07T01:41:35.258770+00:00'
+updated_at: '2026-08-07T19:54:04.783042+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: active
 fields:
   name: builder_workspace
@@ -40,7 +40,11 @@ repository holding a private fork of them.
 - **The workspace origin** — one host serving the workspace document, its
   components, its browser source, and any rendered channel of any site in the
   store, plus the operations the workspace performs (listing the store,
-  publishing). Every tree it serves is confined, and every response it returns
+  publishing, and carrying the write path's read/apply operations as a thin
+  transport that adds no semantics of its own, so that a refused edit arrives as
+  an expected refusal in the write path's own terms). An unconfigured origin and
+  an unreachable one are distinct, self-explanatory failures rather than a blank
+  page. Every tree it serves is confined, and every response it returns
   is treated as stale-on-arrival because it rewrites its own bytes underneath
   the browser.
 - **The chrome** — a single-tab workspace whose displayed area fills the browser
@@ -59,6 +63,10 @@ repository holding a private fork of them.
 - **The editing gesture** — clicking a segment, the field modal, and the write
   path behind it. Those are separate capabilities; this one owns only the
   surface they are hosted on.
+- **Edit semantics** — what the write path validates, writes and refuses, and
+  what a refusal carries, belong to the write-path capability. This one owns
+  only that those operations are reachable over the workspace origin, as a
+  transport that changes none of it.
 - **The renderings themselves** — the draft, published and edit channels are
   produced elsewhere; the workspace displays them and never produces them.
 - **Publish semantics** — the workspace invokes the existing publish behaviour
