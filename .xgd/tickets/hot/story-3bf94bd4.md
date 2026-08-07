@@ -6,9 +6,9 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-07T17:25:14.523398+00:00'
+updated_at: '2026-08-07T18:00:59.771119+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-15c1f647
@@ -16,6 +16,7 @@ fields:
   story_kind: feature
   story_points: 3
   updated_by: request-66e4c630
+  uat_coverage: pass
 ---
 
 ## Story
