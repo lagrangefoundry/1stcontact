@@ -5,9 +5,9 @@ type: capability
 title: 'Site Materials & Starting Point: Scaffold, Assets, Provenance & Palette'
 created_by: xgd
 created_at: '2026-08-07T15:26:37.596731+00:00'
-updated_at: '2026-08-07T15:26:37.596731+00:00'
+updated_at: '2026-08-07T18:17:12.877414+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: active
 fields:
   name: site-materials-and-start-point
@@ -32,7 +32,7 @@ carries enough independent evidence to stand alone.
 What a newly created site *is*, before anyone edits it: a complete layout document
 — width ladder, document background, a laid-out root and one visible run — that
 validates, renders and screenshots immediately, on the same width ladder a
-reproduction keyframes at, in the site's own theme colours. One shape, no mode
+reproduction keyframes at, in colours the page's own document declares. One shape, no mode
 selection and no second starter form; and a reproduction import replaces the page
 document wholesale, so a scaffolded skeleton cannot leak into a reproduced site.
 
