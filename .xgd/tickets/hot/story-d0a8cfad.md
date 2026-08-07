@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-06T22:06:01.512952+00:00'
+updated_at: '2026-08-07T02:56:45.697348+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -168,6 +168,42 @@ The cut is **the colour group only**. Typography, spacing, radius, shadow,
 container and breakpoint tokens are a different axis family with no replacement
 here: they validate and emit exactly as before.
 
+### A captured width is a floor once the words can change
+Geometry is captured from a reference page, so a keyframe's width is what the
+**reference text** measured. That is exact while the text is the reference text
+and silently destructive the moment anyone edits it: a longer string overflows a
+box pinned to the old string. Where a display run is painted the way display
+headings usually are — a gradient clipped to the glyphs, with the run's own
+colour transparent — the overflow is not clipped, not ellipsised and not
+spilling. It falls outside the painting area and the run's own colour paints
+nothing, so it is never drawn at all: an edit that landed correctly in the
+definition and in the rendered bytes reads on the page as an edit that failed.
+
+So a **text-like run that cannot wrap** hands its captured width over as a
+**floor** rather than a cap — the box keeps the captured geometry as its minimum
+and grows with its content, and the painting area grows with it. A `control` leaf
+is a text leaf on the same axes and qualifies on the same terms.
+
+The relaxation is **gated in two directions**. A run that still wraps at a given
+width keeps its hard width there, because that width is what decides its line
+breaks — relaxing it would let an absolutely-positioned run stretch to its
+shrink-to-fit width and reflow every line — so the floor begins at and above the
+width from which the reference stopped wrapping, and nowhere below it. And a
+**container never relaxes at all**: a box's width is structure, sizing its
+children and bounding its background.
+
+The rungs of a geometry ladder are **cumulative overrides of one property**: the
+rule fitted to the smallest segment stays in force at the largest and is merely
+overridden above it. A rung that relaxes to a floor therefore also **resets the
+fixed width on that same rung** — without the reset the upper rungs stop
+overriding anything, and the lowest rung's interpolation stays live far outside
+the segment it was fitted to, sizing a run by a line fitted for a phone at
+desktop widths.
+
+The whole change is **pixel-neutral for text that has not been edited**: the
+floor's value is the captured width, so a page rendered from its reference
+content lays out identically at every width on the ladder.
+
 ### Where the output lands — a relocatable snapshot
 The emitter also decides, at every place a URL reaches the browser, **what a
 root-relative reference becomes**. A site keeps *authoring* its assets
@@ -284,6 +320,16 @@ its target behavior-module id, with no module code and no behaviour attached.
   STORY-80 / STORY-81 / STORY-82 upgrades in this same reconciliation.
 - The round-trip gate reuses the capture + values-diff pipeline (CAP-63); this
   story adds the L1 render→capture wiring, not new diff axes.
+- The nowrap width floor was reached through the copy-editing work (REQ-117)
+  rather than declared by this story's own intent: an operator's rename was
+  invisible on the rendered page and the cause lay in geometry emission. It is
+  documented here because the behaviour is renderer-side and observable on
+  rendered output. Its evidence covers the emission, the wrap-threshold gate and
+  the per-rung reset over folded documents; that the relaxation never reaches a
+  **container** is enforced at the single emission site but is not exercised by
+  those fixtures, because no fold fixture cheap enough to build there produces a
+  container carrying captured geometry — closing it needs an authored or
+  reproduction-pipeline document with a real geometry-tracked container.
 - The implementation matches the intent closely; no divergence between the
   REQ-82 spec and the code was found. Browser-dependent acceptance (round-trip,
   cross-browser) is proven with a real engine and skips cleanly where engines
