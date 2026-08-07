@@ -6,10 +6,10 @@ title: L1 palette colour model (literal base, palette overlay) + retrofit existi
   sites
 created_by: xgd
 created_at: '2026-07-31T19:36:30.336865+00:00'
-updated_at: '2026-08-06T20:04:23.028008+00:00'
-completed_at: null
+updated_at: '2026-08-07T00:45:25.607144+00:00'
+completed_at: '2026-08-07T00:45:25.607144+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   auto_merge_back: true
@@ -20,7 +20,7 @@ fields:
     main_sha: null
   version: 0.1.12
   story_points: 13
-  bundled_in: bundle-7985e0d1
+  bundled_in: bundle-0385746c
 ---
 
 ## What this builds
