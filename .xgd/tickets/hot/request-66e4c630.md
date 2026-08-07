@@ -21,6 +21,9 @@ fields:
     main_sha: null
   version: 0.1.24
   story_points: 3
+  orphan_commits:
+  - old_sha: 1431216353b511fc6b51f5cfabcfdad6a10276d4
+    new_sha: c99b072e0e5efe2ecc660202447ca14d8094d698
 ---
 
 ## What this builds
