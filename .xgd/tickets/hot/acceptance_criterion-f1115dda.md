@@ -6,14 +6,15 @@ title: The workspace registers an editable mode, and selecting it displays that 
   edit channel
 created_by: xgd
 created_at: '2026-08-07T20:47:47.552688+00:00'
-updated_at: '2026-08-07T20:47:47.552688+00:00'
+updated_at: '2026-08-07T21:19:51.381540+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
