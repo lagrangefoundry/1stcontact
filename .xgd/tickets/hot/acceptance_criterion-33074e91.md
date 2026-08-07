@@ -6,14 +6,15 @@ title: A malformed region address is refused outright and never resolved to a ne
   region
 created_by: xgd
 created_at: '2026-08-07T02:02:36.080857+00:00'
-updated_at: '2026-08-07T02:12:05.362510+00:00'
+updated_at: '2026-08-07T19:40:42.497989+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
