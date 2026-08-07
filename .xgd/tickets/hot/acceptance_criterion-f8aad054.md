@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The pre-L1 adopt-values reproduction command is removed
 created_by: xgd
 created_at: '2026-07-22T19:42:41.206847+00:00'
-updated_at: '2026-08-05T22:27:42.220999+00:00'
+updated_at: '2026-08-07T23:54:03.214851+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
