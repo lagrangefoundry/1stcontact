@@ -6,14 +6,15 @@ title: A URL component that is empty, dot-shaped, separator-bearing or malformed
   not-found and reaches no stored bytes
 created_by: xgd
 created_at: '2026-08-06T18:49:03.282127+00:00'
-updated_at: '2026-08-06T18:59:30.934092+00:00'
+updated_at: '2026-08-07T22:18:23.234194+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
