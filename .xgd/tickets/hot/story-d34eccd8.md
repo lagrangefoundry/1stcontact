@@ -6,9 +6,9 @@ title: 'Serve a deployed snapshot: shareable previews and live published sites r
   a visitor'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-08-06T20:33:49.783715+00:00'
+updated_at: '2026-08-07T21:38:19.721880+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -55,6 +55,11 @@ In scope:
   unlinked but not yet swept — is unreachable rather than quietly live. No
   component of the requested URL names stored bytes unless the index vouched for
   it first.
+- **The address grammar rejects before it reads.** A URL whose components are
+  empty, dot-shaped, separator-bearing, or otherwise outside the shapes the
+  addressing scheme admits is answered not-found with no stored bytes looked up
+  at all, so a traversal-shaped address cannot steer a request at another site,
+  another snapshot, or the store's own bookkeeping.
 - **The trailing slash is correctness, not tidiness.** Rendered pages reference
   their assets document-relatively so a snapshot can be served from any path
   prefix. A directory-shaped URL served without its trailing slash would resolve
@@ -70,9 +75,18 @@ In scope:
   that does not exist at all.
 - **A read-only surface.** Fetching and header-only fetching are served;
   anything that would write is refused and says what is allowed.
-- **Freshness policy that matches addressing.** Snapshot-addressed bytes can
-  never change, so they are cacheable indefinitely; published addresses are not
-  revision-scoped, so they carry a short lifetime instead.
+- **Responses are typed from what answered them.** A served object's content
+  type is derived from its own extension — markup, stylesheets, scripts, JSON,
+  text, XML, images and web fonts, with text formats carrying a charset — and an
+  extension the server does not recognise, or none at all, is served as generic
+  binary rather than guessed at or taken from what the uploader recorded.
+- **Freshness policy that matches addressing, and a cache that follows it.**
+  Snapshot-addressed bytes can never change, so they are cacheable indefinitely;
+  published addresses are not revision-scoped, so they carry a short lifetime
+  instead. A repeat request for an address that already answered is served
+  without reading the store again, while a not-found is never retained — an
+  address that answered not-found begins serving the moment a deploy makes it
+  real, with no wait and no manual invalidation.
 - **A reserved first segment.** The preview channel occupies one path segment
   inside a site, so a published snapshot may not contain a top-level entry of
   that name; shipping one is refused at deploy time rather than silently
@@ -126,9 +140,10 @@ using a throwaway slug in the servable tree instead.
   gate cannot be triggered by any site definition today, because rendered pages
   are emitted flat. It is verified at its own entry point and starts earning its
   keep the day rendered output gains nesting.
-- The public preview-privacy wording in the product documentation ([[DOC-12]])
-  still describes previews as "author only (private)", which the no-authentication
-  decision supersedes; the divergence is documentation, not behaviour.
+- [[DOC-12]]'s preview-privacy wording was amended to "link-private, not
+  authenticated" (§2 principle 4, and the audience row in §7) to match the
+  no-authentication decision (REQ-111). Documentation and behaviour now agree;
+  the divergence this note previously recorded is closed.
 
 ## Dependencies
 
