@@ -6,10 +6,10 @@ title: An install that lags the committed lockfile is reported even when every d
   still resolves
 created_by: xgd
 created_at: '2026-08-07T03:12:53.439318+00:00'
-updated_at: '2026-08-07T03:12:53.439318+00:00'
+updated_at: '2026-08-07T03:22:04.613118+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
