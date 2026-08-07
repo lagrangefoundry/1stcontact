@@ -6,14 +6,15 @@ title: A file present in the site's assets is listed even when the site definiti
   never declared it
 created_by: xgd
 created_at: '2026-08-07T04:29:35.825531+00:00'
-updated_at: '2026-08-07T04:36:50.958266+00:00'
+updated_at: '2026-08-07T18:45:06.783228+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c46abfa6
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
