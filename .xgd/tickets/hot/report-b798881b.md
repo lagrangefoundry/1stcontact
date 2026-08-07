@@ -5,9 +5,9 @@ type: report
 title: 'Intent Plan: bug-5cabb340'
 created_by: xgd
 created_at: '2026-08-07T23:13:01.605239+00:00'
-updated_at: '2026-08-07T23:13:01.605239+00:00'
+updated_at: '2026-08-07T23:16:43.907821+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: intent_plan
   subject_uid: bug-5cabb340
@@ -82,7 +82,7 @@ fields:
       reconciliation-builder-workspace-chrome, reconciliation-copy-edit-gesture*)
       are deliberately unchanged, since their subject is mount behaviour, not scope
       identity.'
-    story_uid: null
+    story_uid: story-e674c60a
   consolidation_hints:
   - category: scenario_helper_duplication
     pressure: Import-map extraction from chromeHtml() output is already parsed ad
