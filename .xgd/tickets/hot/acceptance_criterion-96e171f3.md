@@ -2,13 +2,13 @@
 uid: acceptance_criterion-96e171f3
 id: AC-956
 type: acceptance_criterion
-title: The published and preview renders are byte-identical to what they were before
-  the edit channel existed, and still work
+title: The shipped channels carry no edit-channel artefacts, are unchanged by rendering
+  the edit channel, and still work
 created_by: xgd
 created_at: '2026-08-06T21:27:03.522157+00:00'
-updated_at: '2026-08-07T17:02:38.378408+00:00'
+updated_at: '2026-08-07T17:02:43.420590+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-af36c2cb
