@@ -6,7 +6,7 @@ title: Each probe residual/finding is diagnostic — it identifies the offending
   and the magnitude of the violation
 created_by: xgd
 created_at: '2026-07-22T20:07:41.211438+00:00'
-updated_at: '2026-08-05T22:27:33.350893+00:00'
+updated_at: '2026-08-07T23:54:17.856780+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
