@@ -687,6 +687,12 @@ function assetKind(name: string): SiteAssetKind {
 }
 
 /**
+ * A reference that is already complete: an absolute URL, or a protocol-relative
+ * one. Deliberately the same shape `l1/assets.ts` treats as "not site-local".
+ */
+const COMPLETE_REFERENCE = /^([a-z][a-z0-9+.-]*:|\/\/)/i
+
+/**
  * The site-local handle an L1 node references, from any way of naming the asset.
  *
  * The registry stores a bare filename (`editAssetAdd` writes `src: name`) while
@@ -694,9 +700,19 @@ function assetKind(name: string): SiteAssetKind {
  * normalize to the fold's form — that is the vocabulary already in the pages,
  * and the picker must write it rather than a second one (DOC-28 §13 Q5). The
  * leading-`./`-or-`/` strip is the same rule `l1/assets.ts` applies.
+ *
+ * A reference that is ALREADY complete is passed through untouched. It names a
+ * byte that is not under `draft/assets/`, so prefixing it would manufacture a
+ * handle (`/assets/https://cdn.example/x.png`) that resolves to nothing and that
+ * no page holds — a listing has to report what the site actually references, not
+ * a rewrite of it. Whether such a handle may be *written* into a node stays the
+ * envelope validator's call: its URL-scheme allowlist is the security boundary
+ * (DOC-2), and normalising here must not quietly stand in for it.
  */
 function assetHandle(src: string): string {
-  const local = src.trim().replace(/^\.?\//, '')
+  const trimmed = src.trim()
+  if (COMPLETE_REFERENCE.test(trimmed)) return trimmed
+  const local = trimmed.replace(/^\.?\//, '')
   return local.startsWith('assets/') ? `/${local}` : `/assets/${local}`
 }
 

@@ -44,6 +44,16 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const HEADLINE = 'A painted band.'
 
+/**
+ * The address of the region that exposes nothing — the painted container the
+ * headline sits in. Named once because two criteria pin the same dead end, and
+ * they must pin the *same* one for AC-1002's dismissals to be about the dialog
+ * AC-1001 opened.
+ */
+const NOTHING_TO_EDIT_PATH = '0.0'
+/** The segment selector for that region, as the edit render stamps it. */
+const NOTHING_TO_EDIT_SEGMENT = `[${L1_EDIT_SEGMENT_ATTR}="container"]`
+
 if (!WEBUI_INSTALLED) console.warn(`story-3bf94bd4 form suite: ${WEBUI_SKIP_REASON}`)
 
 /** A loud report for evidence this machine genuinely cannot produce. */
@@ -51,7 +61,15 @@ function unverified(what: string): void {
   console.warn(`story-3bf94bd4: ${what} NOT VERIFIED here — ${WEBUI_SKIP_REASON}`)
 }
 
-/** Copy nested in a painted container, plus a region that exposes nothing. */
+/**
+ * Copy nested in a painted container, plus a region that exposes nothing.
+ *
+ * The painted container is BOTH: it is a segment in its own right (paint is what
+ * makes it one) and it exposes no phase-1 field, so it is the "nothing to edit"
+ * specimen. The image beside it is the deliberate contrast — since REQ-118 an
+ * image exposes which image goes there and its alt text, so the empty answer
+ * below is a fact about the container, not about everything that is not copy.
+ */
 function seedPage(cwd: string, slug: string): void {
   const homePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
   const home = JSON.parse(fs.readFileSync(homePath, 'utf8')) as Record<string, unknown>
@@ -66,7 +84,7 @@ function seedPage(cwd: string, slug: string): void {
         axes: { surfaceFill: '#101822' },
         children: [{ kind: 'text', text: HEADLINE, axes: { fontSizePx: 32 } }], // [0.0.0]
       },
-      // [0.1] a real region with no editable copy — the "nothing to edit" case.
+      // [0.1] an image — editable since REQ-118, kept here as the contrast.
       { kind: 'image', src: 'assets/hero.jpg', alt: 'A hero image' },
     ],
   }
@@ -249,22 +267,29 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
   })
 
   it('test_UAT_AC1001_a_region_with_nothing_editable_says_so_and_names_its_kind', async () => {
-    // AC-1001 — a plain message, not an empty form and not silence.
+    // AC-1001 — a plain message, not an empty form and not silence. The
+    // specimen is the painted CONTAINER: paint is what makes it a segment, and
+    // its background is phase 2, so it is a real region that genuinely exposes
+    // nothing today.
     display()
-    const image = document.querySelector(`[${L1_EDIT_SEGMENT_ATTR}="image"]`)!
-    expect(image.getAttribute(L1_EDIT_PATH_ATTR)).toBe('0.1')
+    const container = document.querySelector(`[${L1_EDIT_SEGMENT_ATTR}="container"]`)!
+    expect(container.getAttribute(L1_EDIT_PATH_ATTR)).toBe(NOTHING_TO_EDIT_PATH)
 
     // The region is real and resolves; it simply exposes nothing — so there is
     // no form to build, and the kind is what the answer can name.
     const loaded = (await (
       await fetch(
         new URL(
-          `/api/copy?${new URLSearchParams({ slug: 'acme', page: pageId, path: '0.1' })}`,
+          `/api/copy?${new URLSearchParams({
+            slug: 'acme',
+            page: pageId,
+            path: NOTHING_TO_EDIT_PATH,
+          })}`,
           builder.url,
         ),
       )
     ).json()) as { kind: string; fields: unknown[]; values: Record<string, string> }
-    expect(loaded.kind).toBe('image')
+    expect(loaded.kind).toBe('container')
     expect(loaded.fields).toEqual([])
     expect(loaded.values).toEqual({})
 
@@ -281,7 +306,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       document
-        .querySelector(`[${L1_EDIT_SEGMENT_ATTR}="image"]`)!
+        .querySelector(NOTHING_TO_EDIT_SEGMENT)!
         .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
       await settle()
 
@@ -289,7 +314,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       const modal = modals()[0]
       // The operator's answer is "not this one", stated plainly and naming the
       // kind of region they clicked.
-      expect(modal.textContent).toContain('Nothing to edit on this image segment yet.')
+      expect(modal.textContent).toContain('Nothing to edit on this container segment yet.')
       // And it is a message, not an empty form.
       expect(modal.querySelectorAll('input, textarea, select, .fields')).toHaveLength(0)
     } finally {
@@ -314,7 +339,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
             bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
           })
           document
-            .querySelector(`[${L1_EDIT_SEGMENT_ATTR}="image"]`)!
+            .querySelector(NOTHING_TO_EDIT_SEGMENT)!
             .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
           await settle()
           expect(modals()).toHaveLength(1)

@@ -292,6 +292,23 @@ describe('story-c46abfa6 — the site asset store', () => {
     expect(assets.map((a) => a.src)).toEqual([...assets.map((a) => a.src)].sort())
     const again = entriesOf(await askForAssets(cwd, 'acme'))
     expect(again.map((a) => a.src)).toEqual(assets.map((a) => a.src))
+
+    // The BOUNDARY of that normalisation: a declaration naming a byte that is
+    // not the site's own is already a complete reference, and is reported as it
+    // stands. Prefixing it would manufacture `/assets/https://…` — a handle no
+    // page holds and no file answers, which is precisely the translation step
+    // this criterion says a listed handle must not need.
+    cmdNew('remote', { cwd })
+    seedSite(cwd, 'remote', {
+      files: { 'local.png': 'bytes:local' },
+      registry: [{ id: 'cdn', src: 'https://cdn.example/far.png', alt: 'Off-site' }],
+    })
+    const offsite = entriesOf(await askForAssets(cwd, 'remote'))
+    expect(offsite.map((a) => a.src)).toEqual([
+      '/assets/local.png',
+      'https://cdn.example/far.png',
+    ])
+    expect(offsite.find((a) => a.id === 'cdn')!.kind).toBe('image')
   })
 
   it('test_UAT_AC1021_each_asset_reports_what_it_can_be_used_for', async () => {
@@ -375,5 +392,21 @@ describe('story-c46abfa6 — the site asset store over the builder origin', () =
     const err = (await bad.json()) as { error?: string; assets?: unknown }
     expect(err.error).toMatch(/slug/i)
     expect(err.assets).toBeUndefined()
+
+    // And the builder reaches it through its OWN client, not by hand-writing the
+    // URL a second time — DOC-28 §9.2's asset browser mode is a consumer of this
+    // module, so the module is what the criterion is asserted against. The only
+    // shim is the one a browser supplies for free: a relative path resolved
+    // against the origin it was served from.
+    const { fetchAssets } = await import('../apps/control-app/src/builder/api.js')
+    const browserFetch = (p: string): Promise<Response> => fetch(new URL(p, builder.url))
+
+    const viaClient = (await fetchAssets('acme', browserFetch)) as { assets: StoreEntry[] }
+    // The same list, entry for entry — one store, however it is reached.
+    expect(viaClient.assets).toEqual(MIXED_STORE)
+
+    // The caller fault survives the client too. Returning an empty list here
+    // would put "this site has no assets" in front of a user whose site is full.
+    await expect(fetchAssets('', browserFetch)).rejects.toThrow(/\/api\/assets/)
   })
 })

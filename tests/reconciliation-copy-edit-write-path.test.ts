@@ -239,7 +239,12 @@ describe('story-37a3921b — the copy-edit write path', () => {
   it('test_UAT_AC981_a_region_with_nothing_editable_succeeds_with_an_empty_field_list', async () => {
     // AC-981 — "there is nothing to edit here" is a property of the region,
     // answered once, not a failure every caller has to special-case.
-    for (const addr of [A_CONTAINER, A_MODULE, A_IMAGE]) {
+    //
+    // WHICH regions those are is the derivation's to decide, not the caller's: a
+    // painted container and a behavior-module instance expose nothing in phase 1.
+    // An image is NOT one of them — it exposes which image goes there and its alt
+    // text (REQ-118) — which is why it appears below as a contrast, not here.
+    for (const addr of [A_CONTAINER, A_MODULE]) {
       const got = await cli(cwd, 'copy', 'get', 'acme', 'home', addr)
       expect(got.ok, addr).toBe(true)
       expect(got.exitCode, addr).toBe(0)
@@ -253,10 +258,27 @@ describe('story-37a3921b — the copy-edit write path', () => {
       expect(human.output, addr).toContain('no editable copy')
     }
 
-    // The contrast that makes the empty list meaningful: a copy region on the
-    // same page, addressed the same way, returns exactly one field.
+    // The contrast that makes the empty list meaningful: read the same way, on
+    // the same page, a copy region returns exactly one field...
     const copy = await cli(cwd, 'copy', 'get', 'acme', 'home', A_SHORT)
     expect((copy.data!.fields as unknown[]).length).toBe(1)
+
+    // ...and an image region returns exactly two — which image goes there, and
+    // its alt text. An empty list is therefore an answer about THAT region, not
+    // the surface's standing answer for anything that is not copy.
+    const image = await cli(cwd, 'copy', 'get', 'acme', 'home', A_IMAGE)
+    expect(image.ok).toBe(true)
+    const imageFields = image.data!.fields as Array<{
+      name: string
+      type: string
+      enum?: string[]
+    }>
+    expect(imageFields.map((f) => f.name)).toEqual(['src', 'alt'])
+    expect(imageFields.map((f) => f.type)).toEqual(['enum', 'string'])
+    // The picker always offers the handle the node points at now, so a user who
+    // opens the form to change only the alt text cannot swap the image by saving.
+    expect(imageFields[0].enum).toContain('assets/hero.jpg')
+    expect(image.data!.values).toEqual({ src: 'assets/hero.jpg', alt: 'A hero image' })
   })
 
   // ── writing ────────────────────────────────────────────────────────────────
@@ -549,9 +571,10 @@ describe('story-37a3921b — the copy-edit write path', () => {
     ])
   })
 
-  it('test_UAT_AC991_markup_saved_as_copy_stays_literal_text_and_every_field_is_plain_string', async () => {
+  it('test_UAT_AC991_markup_saved_as_text_stays_literal_and_every_field_is_plain_text_or_a_closed_list', async () => {
     // AC-991 — "there is no raw-editing mode" is a property of the surface's
-    // shape. The only thing it can write is a run's words.
+    // SHAPE: there are exactly two kinds of control it can offer, a plain-text
+    // one and a closed-list one, and neither can carry code.
     const { outDir } = await cmdRender('acme', { cwd, edit: true })
     const beforeDoc = new JSDOM(readFileSync(path.join(outDir, 'index.html'), 'utf8')).window
       .document
@@ -582,9 +605,27 @@ describe('story-37a3921b — the copy-edit write path', () => {
     ).toBe(false)
     expect(doc.querySelector('b')).toBeNull()
 
+    // The SAME guarantee for the surface's other plain-text field: an image's
+    // alt text (REQ-118). It leaves the renderer as an ATTRIBUTE rather than as
+    // a run of words, so it is a different escape path and earns its own
+    // evidence rather than inheriting the one above.
+    const altSaved = await cli(cwd, ...setArgs(A_IMAGE, { alt: payload }))
+    expect(altSaved.ok).toBe(true)
+    const altDoc = new JSDOM(
+      readFileSync(path.join(String(altSaved.data!.rendered), 'index.html'), 'utf8'),
+    ).window.document
+    const img = altDoc.querySelector(`img[data-l1-path="${A_IMAGE}"]`)
+    expect(img, 'the image region renders').toBeTruthy()
+    // The literal string, whole — the markup is the alt text, not markup.
+    expect(img!.getAttribute('alt')).toBe(payload)
+    expect(altDoc.querySelectorAll('script').length).toBe(scriptsBefore)
+    expect(altDoc.querySelectorAll('style').length).toBe(stylesBefore)
+    expect(altDoc.querySelector('b')).toBeNull()
+
     // And no descriptor this surface emits could have carried markup as code in
     // the first place: read EVERY region the render stamps, and every offered
-    // field is a plain string.
+    // field is either a plain-text field or a closed list of values the surface
+    // itself supplied.
     const pageRooted = [...doc.querySelectorAll('[data-l1-path]')]
       .filter((n) => n.closest('[data-fc-module]') === null)
       .map((n) => n.getAttribute('data-l1-path')!)
@@ -596,16 +637,32 @@ describe('story-37a3921b — the copy-edit write path', () => {
       ['copy', 'get', 'acme', 'home', A_FORM_INTRO, '--module', 'get-in-touch', '--slot', 'form'],
     ]
     let fieldsSeen = 0
+    let closedListsSeen = 0
     for (const argv of reads) {
       const got = await cli(cwd, ...argv)
       expect(got.ok, argv.join(' ')).toBe(true)
-      for (const field of got.data!.fields as Array<{ type: string }>) {
-        expect(field.type, argv.join(' ')).toBe('string')
+      for (const field of got.data!.fields as Array<{ type: string; enum?: unknown }>) {
+        // Two shapes, and no third — no freeform mode, no rich-text control, no
+        // escape hatch that would let markup through as code.
+        expect(['string', 'enum'], argv.join(' ')).toContain(field.type)
+        if (field.type === 'enum') {
+          // A closed list is only NARROWER than a string if the caller is told
+          // what it may return, so the options travel with the descriptor. A
+          // list-typed field with no list would be a free string wearing a
+          // narrower label.
+          expect(Array.isArray(field.enum), argv.join(' ')).toBe(true)
+          const options = field.enum as unknown[]
+          expect(options.length, argv.join(' ')).toBeGreaterThan(0)
+          for (const option of options) expect(typeof option, argv.join(' ')).toBe('string')
+          closedListsSeen += 1
+        }
         fieldsSeen += 1
       }
     }
-    // The sweep actually saw fields — an all-empty page would prove nothing.
+    // The sweep actually saw fields of BOTH shapes — an all-empty page would
+    // prove nothing, and an all-string one would never enter the branch above.
     expect(fieldsSeen).toBeGreaterThan(0)
+    expect(closedListsSeen).toBeGreaterThan(0)
   })
 })
 
