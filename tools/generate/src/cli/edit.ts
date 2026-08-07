@@ -7,6 +7,7 @@ import {
   resolveL1Node,
   validateSite,
   type L1Node,
+  type L1SegmentFieldOptions,
 } from '@1stcontact/site-schema'
 import type { Root, StoreContext } from '../store'
 import {
@@ -367,6 +368,21 @@ function resolveSegment(
 }
 
 /**
+ * What the derivation needs beyond the node itself (REQ-118).
+ *
+ * Only an image segment has choices that come from the site rather than the
+ * node, and reading the asset directory for a text run would be pure waste — so
+ * the listing is fetched for the kind that uses it and skipped for the rest.
+ */
+function segmentOptions(
+  node: L1Node,
+  slug: string,
+  opts: GlobalOptions,
+): L1SegmentFieldOptions | undefined {
+  return node.kind === 'image' ? { assets: imageHandles(slug, opts) } : undefined
+}
+
+/**
  * The modal's input: the descriptors and current values for one segment, or an
  * empty field list when the segment exposes nothing (DOC-28 §6.2). An empty list
  * is a legitimate answer — a container or a module instance is a real segment
@@ -381,7 +397,7 @@ export function editCopyGet(
   const ctx = ctxOf(opts)
   requireDraft(ctx, slug)
   const { node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
-  const derived = copyFieldsOf(node)
+  const derived = copyFieldsOf(node, segmentOptions(node, slug, opts))
   const data = {
     target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
     kind: node.kind,
@@ -420,7 +436,7 @@ export function editCopySet(
   const base = readBase(ctx, slug)
   const { files, file, page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, true)
 
-  const applied = applyCopyFields(node, values)
+  const applied = applyCopyFields(node, values, segmentOptions(node, slug, opts))
   if (!applied.ok) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',
@@ -657,14 +673,103 @@ function assetRegistry(base: Record<string, unknown>): Record<string, unknown>[]
   return Array.isArray(assets) ? (assets as Record<string, unknown>[]) : []
 }
 
-export function editAssetList(slug: string, opts: GlobalOptions = {}): EditOutput {
+/** What an asset can be used for, derived from its extension. */
+export type SiteAssetKind = 'image' | 'font' | 'other'
+
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif'])
+const FONT_EXTENSIONS = new Set(['woff2', 'woff', 'ttf', 'otf'])
+
+function assetKind(name: string): SiteAssetKind {
+  const ext = name.split(/[?#]/)[0].split('.').pop()?.toLowerCase() ?? ''
+  if (IMAGE_EXTENSIONS.has(ext)) return 'image'
+  if (FONT_EXTENSIONS.has(ext)) return 'font'
+  return 'other'
+}
+
+/**
+ * The site-local handle an L1 node references, from any way of naming the asset.
+ *
+ * The registry stores a bare filename (`editAssetAdd` writes `src: name`) while
+ * the capture fold writes `/assets/<name>`. Both name the same byte, so both
+ * normalize to the fold's form — that is the vocabulary already in the pages,
+ * and the picker must write it rather than a second one (DOC-28 §13 Q5). The
+ * leading-`./`-or-`/` strip is the same rule `l1/assets.ts` applies.
+ */
+function assetHandle(src: string): string {
+  const local = src.trim().replace(/^\.?\//, '')
+  return local.startsWith('assets/') ? `/${local}` : `/assets/${local}`
+}
+
+/** One asset a site can reference, whether or not the registry knows about it. */
+export interface SiteAsset {
+  /** The registry id, or the filename when the file is unregistered. */
+  id: string
+  /** The handle to write into an L1 node — always `/assets/<name>`. */
+  src: string
+  alt: string
+  kind: SiteAssetKind
+  /** A file for it exists under `draft/assets/`. */
+  onDisk: boolean
+  /** `site.json`'s `assets` array carries an entry for it. */
+  registered: boolean
+}
+
+/**
+ * Every asset the site can reference (REQ-118 AC-7).
+ *
+ * Exported and free of any UI, because the image picker is not its only caller:
+ * DOC-28 §9.2 has the same store surfaced as an asset browser mode, and `1c
+ * asset list` reads it too. One listing, three consumers — the alternative is
+ * three ideas of what a site's assets are.
+ *
+ * It is the UNION of two sources that genuinely disagree. The registry carries
+ * metadata (`alt`, `focalPoint`) but every real site in `storage/` has an empty
+ * one, so a registry-only picker offers nothing on the sites we actually build.
+ * The directory carries the bytes but no metadata. Reporting both, with
+ * provenance, is the honest answer: the picker can offer what exists, and a
+ * future browser mode can show which files are undeclared.
+ */
+export function listSiteAssets(slug: string, opts: GlobalOptions = {}): SiteAsset[] {
   const ctx = ctxOf(opts)
   const base = readBase(ctx, slug)
-  const assets = assetRegistry(base)
+  const byHandle = new Map<string, SiteAsset>()
+
+  for (const rel of listFilesRel(assetsDirOf(ctx, slug))) {
+    const src = assetHandle(rel)
+    const kind = assetKind(rel)
+    byHandle.set(src, { id: rel, src, alt: '', kind, onDisk: true, registered: false })
+  }
+  for (const entry of assetRegistry(base)) {
+    const id = String(entry.id ?? '')
+    const src = assetHandle(String(entry.src ?? id))
+    const existing = byHandle.get(src)
+    byHandle.set(src, {
+      id: id || existing?.id || src,
+      src,
+      alt: typeof entry.alt === 'string' ? entry.alt : (existing?.alt ?? ''),
+      kind: assetKind(String(entry.src ?? id)),
+      onDisk: existing?.onDisk ?? false,
+      registered: true,
+    })
+  }
+  return [...byHandle.values()].sort((a, b) => a.src.localeCompare(b.src))
+}
+
+/** The handles an image picker may offer — the listing, narrowed to images. */
+function imageHandles(slug: string, opts: GlobalOptions): string[] {
+  return listSiteAssets(slug, opts)
+    .filter((a) => a.kind === 'image')
+    .map((a) => a.src)
+}
+
+export function editAssetList(slug: string, opts: GlobalOptions = {}): EditOutput {
+  const assets = listSiteAssets(slug, opts)
   const human =
     assets.length === 0
       ? '(no assets)'
-      : assets.map((a) => `${String(a.id)}\t${String(a.src)}`).join('\n')
+      : assets
+          .map((a) => `${a.id}\t${a.src}\t${a.kind}${a.registered ? '' : '\t(unregistered)'}`)
+          .join('\n')
   return { data: { assets }, human }
 }
 

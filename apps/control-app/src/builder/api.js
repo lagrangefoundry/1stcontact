@@ -24,6 +24,20 @@ export async function fetchSites(fetchImpl = fetch) {
 }
 
 /**
+ * Every asset the site can reference (REQ-118 / DOC-28 §9.2).
+ *
+ * Deliberately not used by the image modal — `fetchCopy` already carries the
+ * picker's options, so the modal makes the same two calls it always did. This is
+ * here because the listing is the asset *store's* surface, not the modal's: the
+ * asset browser mode is the same store shown as a tab, and it calls this.
+ */
+export async function fetchAssets(slug, fetchImpl = fetch) {
+  const res = await fetchImpl(`/api/assets?slug=${encodeURIComponent(slug)}`)
+  if (!res.ok) throw new Error(`GET /api/assets → ${res.status}`)
+  return res.json()
+}
+
+/**
  * The error a `/api/copy` call failed with.
  *
  * The origin answers a rejected edit with a 400 carrying the validator's own

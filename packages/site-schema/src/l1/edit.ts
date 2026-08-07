@@ -18,9 +18,10 @@
  *   document (`[doc.root]`) and a behavior module's slot (the subtree array)
  *   alike, which is why a slot's copy needs no second addressing scheme.
  * - **The exposed fields of a segment.** DOC-28 §3's exposure rule in code: the
- *   user sees copy, and the derivation is what decides that. Phase 1 exposes the
- *   words and nothing else — no axis, no dial, no token name — so there is no
- *   path through this module that can produce anything but a plain string.
+ *   user sees copy and which image goes here, and the derivation is what decides
+ *   that. Phase 1 exposes the words and the choice of asset and nothing else —
+ *   no axis, no dial, no token name — so there is no path through this module
+ *   that can produce anything but a plain string or a pick from a closed list.
  */
 import type { L1Node } from './types'
 
@@ -121,15 +122,29 @@ export function resolveL1Node(
  * modal is that widget, not a hand-rolled form, so this module's whole job is to
  * produce this list — deriving it is the work; rendering it is not ours.
  *
- * `type` is `'string'` and only `'string'`. That is the exposure rule (DOC-28
- * §3) expressed as a type: there is no descriptor this module can emit whose
- * control could produce raw HTML or CSS, because there is no such control.
+ * `type` is `'string'` or `'enum'`, and nothing else. That is the exposure rule
+ * (DOC-28 §3) expressed as a type: a string control writes plain text, which the
+ * renderer escapes (DOC-2), and an enum control can only return one of the
+ * options this module put in front of the user. Neither can produce raw HTML or
+ * CSS, because there is no such control — and `'enum'` is the *narrower* of the
+ * two, not a widening of the surface. Every later phase's parameters (a colour
+ * from the site palette, a module `config` value) are the same closed-list
+ * shape, which is why this is the axis the vocabulary grows along.
  */
 export interface L1FieldDescriptor {
   /** Value key — also the key of the change map a Save produces. */
   name: string
   label: string
-  type: 'string'
+  type: 'string' | 'enum'
+  /**
+   * The closed option list, present iff `type === 'enum'`. `mountFields` renders
+   * it as a select and refuses anything outside it; {@link applyCopyFields}
+   * enforces the same membership on the write side, so a stale client cannot
+   * post an option the segment never offered.
+   */
+  enum?: readonly string[]
+  /** Suppresses the widget's empty option — the field must hold a value. */
+  required?: boolean
   /** `'textarea'` selects `mountFields`' multi-line control. */
   widget?: 'textarea'
 }
@@ -141,6 +156,23 @@ export interface L1SegmentFields {
 }
 
 /**
+ * What the derivation needs that the node itself cannot supply (REQ-118).
+ *
+ * A `text` run carries its whole editable state; an `image` node carries only
+ * the handle it currently points at, and the *choices* are a property of the
+ * site, not of the node. Passing them in keeps this module pure data — it never
+ * reads a directory — while still letting the picker be a closed list.
+ */
+export interface L1SegmentFieldOptions {
+  /**
+   * The site-local image handles a picker may offer, in the exact form an L1
+   * `image.src` holds them (`/assets/<name>` — the same vocabulary the capture
+   * fold writes, never a parallel one; DOC-28 §13 Q5).
+   */
+  assets?: readonly string[]
+}
+
+/**
  * A run wide enough that a single-line control would hide most of it. The full
  * string is present either way — a form field never truncates its value — but
  * DOC-28 §9.1's guard is that the user can *see* what they typed, and a textarea
@@ -148,30 +180,73 @@ export interface L1SegmentFields {
  */
 const MULTILINE_AT = 80
 
+/** `widget: 'textarea'` for a value a single-line control would hide most of. */
+function widgetFor(value: string): { widget?: 'textarea' } {
+  return value.length > MULTILINE_AT || value.includes('\n') ? { widget: 'textarea' } : {}
+}
+
 /**
- * The copy fields of a segment, or `null` when it has none — which is what makes
- * "clicking a segment with no editable fields opens nothing" a property of the
- * derivation rather than a check the client has to remember.
+ * The options an image picker offers: the site's assets, plus whatever the node
+ * points at now.
  *
- * Phase 1 is copy. An image segment's asset and framing are T4; a container's
+ * Including the current handle is not a convenience — it is what stops the modal
+ * changing the image behind the user's back. A folded reproduction can hold a
+ * handle that is not in `draft/assets/` (a remote URL the fold could not
+ * mirror), and a select whose options omit its own value renders with the FIRST
+ * option selected. Saving would then silently swap the image for an unrelated
+ * one, with the user having touched only the alt text.
+ */
+function imageChoices(assets: readonly string[], current: string): string[] {
+  const seen = new Set(assets)
+  if (current !== '') seen.add(current)
+  return [...seen].sort()
+}
+
+/**
+ * The exposed fields of a segment, or `null` when it has none — which is what
+ * makes "clicking a segment with no editable fields opens nothing" a property of
+ * the derivation rather than a check the client has to remember.
+ *
+ * Phase 1 is copy (REQ-117) and image selection (REQ-118). A container's
  * background and a module's `config` are phase 2. Each arrives by extending this
  * one function, so every editor surface keeps deriving from the node rather than
  * accumulating its own idea of what is editable.
+ *
+ * An image exposes *which image* and its alt text — and deliberately nothing
+ * else. Framing (crop, scale, scrim, rotation) is blocked on DOC-28 §13 Q5:
+ * the capture fold already writes those fields, and the editor must write the
+ * same ones rather than inventing a parallel vocabulary, so they wait until that
+ * is confirmed. Everything here is a structured field on the node; no control on
+ * this surface touches a file, so choosing an asset can never bake a new one.
  */
-export function copyFieldsOf(node: L1Node): L1SegmentFields | null {
-  if (node.kind !== 'text') return null
-  const text = node.text
-  return {
-    fields: [
-      {
-        name: 'text',
-        label: 'Text',
-        type: 'string',
-        ...(text.length > MULTILINE_AT || text.includes('\n') ? { widget: 'textarea' as const } : {}),
-      },
-    ],
-    values: { text },
+export function copyFieldsOf(
+  node: L1Node,
+  opts: L1SegmentFieldOptions = {},
+): L1SegmentFields | null {
+  if (node.kind === 'text') {
+    const text = node.text
+    return {
+      fields: [{ name: 'text', label: 'Text', type: 'string', ...widgetFor(text) }],
+      values: { text },
+    }
   }
+  if (node.kind === 'image') {
+    const { src, alt } = node
+    return {
+      fields: [
+        {
+          name: 'src',
+          label: 'Image',
+          type: 'enum',
+          enum: imageChoices(opts.assets ?? [], src),
+          required: true,
+        },
+        { name: 'alt', label: 'Alt text', type: 'string', ...widgetFor(alt) },
+      ],
+      values: { src, alt },
+    }
+  }
+  return null
 }
 
 /** Applying an edit either succeeds, naming what changed, or explains why not. */
@@ -180,7 +255,7 @@ export type L1CopyEditResult =
   | { ok: false; field?: string; message: string }
 
 /**
- * Apply one modal's worth of copy changes to `node`, in place.
+ * Apply one modal's worth of changes to `node`, in place.
  *
  * Whole-or-nothing: every value is checked before any is written, so a rejected
  * change map leaves the node byte-identical. The caller holds a clone of the
@@ -190,25 +265,51 @@ export type L1CopyEditResult =
  * Unknown keys are refused rather than ignored. A change map naming a field this
  * segment does not have means the client resolved against a different node than
  * the one it is now writing to; silently dropping it would land a partial edit.
+ *
+ * An `enum` field's value must be one of the options the derivation offered
+ * (REQ-118). The shared validator would already refuse an unsafe handle, but it
+ * cannot refuse a *safe* one the site does not have — a client holding a stale
+ * asset listing would otherwise point the node at a file that is not there and
+ * get a broken image with no error. Checking membership here fails it at the
+ * field, naming what was refused.
  */
-export function applyCopyFields(node: L1Node, values: Record<string, unknown>): L1CopyEditResult {
-  const derived = copyFieldsOf(node)
+export function applyCopyFields(
+  node: L1Node,
+  values: Record<string, unknown>,
+  opts: L1SegmentFieldOptions = {},
+): L1CopyEditResult {
+  const derived = copyFieldsOf(node, opts)
   if (!derived) {
-    return { ok: false, message: `Node of kind '${node.kind}' has no editable copy.` }
+    return { ok: false, message: `Node of kind '${node.kind}' has no editable fields.` }
   }
-  const known = new Set(derived.fields.map((f) => f.name))
+  const known = new Map(derived.fields.map((f) => [f.name, f]))
   for (const [name, value] of Object.entries(values)) {
-    if (!known.has(name)) {
-      return { ok: false, field: name, message: `Unknown copy field '${name}' for this segment.` }
+    const field = known.get(name)
+    if (!field) {
+      return { ok: false, field: name, message: `Unknown field '${name}' for this segment.` }
     }
     if (typeof value !== 'string') {
-      return { ok: false, field: name, message: `Copy field '${name}' must be a string.` }
+      return { ok: false, field: name, message: `Field '${name}' must be a string.` }
+    }
+    if (field.type === 'enum' && !field.enum?.includes(value)) {
+      return {
+        ok: false,
+        field: name,
+        message: `'${value}' is not one of this segment's ${name} options.`,
+      }
     }
   }
   const changed: string[] = []
   for (const [name, value] of Object.entries(values)) {
-    if (name === 'text' && node.kind === 'text' && node.text !== value) {
-      node.text = value as string
+    const next = value as string
+    if (node.kind === 'text' && name === 'text' && node.text !== next) {
+      node.text = next
+      changed.push(name)
+    } else if (node.kind === 'image' && name === 'src' && node.src !== next) {
+      node.src = next
+      changed.push(name)
+    } else if (node.kind === 'image' && name === 'alt' && node.alt !== next) {
+      node.alt = next
       changed.push(name)
     }
   }

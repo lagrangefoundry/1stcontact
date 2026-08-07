@@ -48,5 +48,6 @@ export type {
   L1EditTarget,
   L1FieldDescriptor,
   L1SegmentFields,
+  L1SegmentFieldOptions,
   L1CopyEditResult,
 } from './edit'

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import type { RenderChannel, StoreContext } from '../store'
 import { distDir } from '../store'
 import { cmdList, cmdPublish, cmdRender, ctxOf, type GlobalOptions } from './commands'
-import { editCopyGet, editCopySet } from './edit'
+import { editAssetList, editCopyGet, editCopySet } from './edit'
 import { CommandError } from './errors'
 import { resolveStaticFile, sendFile } from './serve'
 import { WEBUI_PACKAGES, webuiExports, webuiPackageDir } from './webui'
@@ -189,6 +189,26 @@ export async function handleBuilderRequest(
       }
       const result = await cmdPublish(body.slug, { ...opts, message: body.message })
       json(res, 200, { id: result.id, changes: result.changes })
+      return
+    }
+
+    /**
+     * The site's assets (REQ-118 AC-7).
+     *
+     * The image modal does NOT need this: `editCopyGet` already embeds the
+     * choices in the `src` descriptor, so a picker costs zero extra round trips
+     * and cannot render options that disagree with what the write path will
+     * accept. The route exists because the listing is genuinely independent of
+     * the modal — DOC-28 §9.2's asset browser mode is the same store surfaced
+     * as a tab, and it reaches it here rather than growing its own.
+     */
+    if (p === '/api/assets' && req.method === 'GET') {
+      const slug = url.searchParams.get('slug')
+      if (!slug) {
+        json(res, 400, { error: 'slug is required' })
+        return
+      }
+      json(res, 200, editAssetList(slug, opts).data)
       return
     }
 

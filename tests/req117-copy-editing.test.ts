@@ -202,13 +202,19 @@ describe('REQ-117 — copy editing, end to end', () => {
     expect(copy.data!.fields).toEqual([{ name: 'text', label: 'Text', type: 'string' }])
     expect(copy.data!.values).toEqual({ text: HEADLINE })
 
-    // The image is a real segment — it is outlined and it resolves — but phase 1
-    // exposes no control for it (its asset and framing are T4), so the field list
-    // is empty and the host has nothing to open.
-    const image = dom.window.document.querySelector('[data-l1-segment="image"]')!
-    const imageHit = resolveEditTarget(image)
-    expect(imageHit!.kind).toBe('image')
-    const bare = await cli(cwd, 'copy', 'get', 'acme', 'home', imageHit!.target.path.join('.'))
+    // The painted container is a real segment — it is outlined and it resolves —
+    // but phase 1 exposes no control for it (its background is phase 2), so the
+    // field list is empty and the host has nothing to open.
+    //
+    // The image used to stand here, and REQ-118 (T4) took the role away by giving
+    // it a picker and an alt field. The property under test is the derivation's,
+    // not the image's: a segment with nothing to edit offers nothing, so "click
+    // it and no modal opens" stays true by derivation rather than by a rule the
+    // client has to remember.
+    const container = dom.window.document.querySelector('[data-l1-segment="container"]')!
+    const containerHit = resolveEditTarget(container)
+    expect(containerHit!.kind).toBe('container')
+    const bare = await cli(cwd, 'copy', 'get', 'acme', 'home', containerHit!.target.path.join('.'))
     expect(bare.ok).toBe(true)
     expect(bare.data!.fields).toEqual([])
   })
