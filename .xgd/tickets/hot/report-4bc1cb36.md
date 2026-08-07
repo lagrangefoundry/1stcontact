@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: REQ-118 image selection through the copy edit loop'
 created_by: xgd
 created_at: '2026-08-07T04:26:09.619817+00:00'
-updated_at: '2026-08-07T04:30:52.517993+00:00'
+updated_at: '2026-08-07T04:42:21.759117+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -129,7 +129,7 @@ fields:
       — and it is a narrowing of what a control can return, so AC-991 (no edit can
       produce raw HTML or CSS) survives untouched. Depends on item 1 because the closed
       list a region offers is the image-narrowed asset listing.'
-    story_uid: null
+    story_uid: story-37a3921b
 ---
 
 # Reconciliation Plan — REQ-118 (request-66e4c630)
