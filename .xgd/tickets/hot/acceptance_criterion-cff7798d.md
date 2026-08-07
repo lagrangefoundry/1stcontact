@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Prune deletes only stored snapshot objects the deploy index does not reference
 created_by: xgd
 created_at: '2026-08-06T18:39:49.163342+00:00'
-updated_at: '2026-08-06T20:14:59.477454+00:00'
+updated_at: '2026-08-07T22:18:13.332997+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
