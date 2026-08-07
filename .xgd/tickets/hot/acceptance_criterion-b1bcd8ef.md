@@ -6,14 +6,15 @@ title: The shared UI components are served byte-identical from an installed copy
   lives outside this repository
 created_by: xgd
 created_at: '2026-08-07T01:43:56.030367+00:00'
-updated_at: '2026-08-07T01:58:20.542749+00:00'
+updated_at: '2026-08-07T21:19:34.141000+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
