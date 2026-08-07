@@ -6,14 +6,15 @@ title: The browser runs one implementation of the click-to-address resolution, d
   from the same source the rendering's stamping is defined against
 created_by: xgd
 created_at: '2026-08-07T02:17:14.258807+00:00'
-updated_at: '2026-08-07T02:36:27.162100+00:00'
+updated_at: '2026-08-07T18:00:37.247760+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
