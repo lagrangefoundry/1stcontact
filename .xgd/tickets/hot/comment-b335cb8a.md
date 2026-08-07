@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-119
 created_by: xgd
 created_at: '2026-08-06T19:37:27.321745+00:00'
-updated_at: '2026-08-06T19:38:48.303452+00:00'
+updated_at: '2026-08-07T22:57:46.236303+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -52,5 +52,11 @@ And it's sequenced last for a good reason: it changes *where* the render happens
 The ticket carries its own contingency, and I think it's the honest answer: **if v1 of the builder runs against the file-backed store on your machine, phase 1 is functionally complete at T4 and T5 is deferred, not dropped.** The trigger is the first time someone who isn't sitting at your laptop needs to open the builder. DOC-12 §7 splits the Cloudflare migration the same way — serving moves first, the store moves later, and moving the store while authoring is local is the genuinely throwaway work.
 
 One thing worth fixing before this gets scheduled: the contingency says "presumes an answer to DOC-8 §13 Q3", but DOC-8's open questions are **§10**, and none of the seven is *"does v1 run against the file-backed store locally first?"*. So the decision this ticket is gated on isn't recorded anywhere. That question probably belongs in DOC-8 (or DOC-28) explicitly — say the word and I'll add it.
+
+<!-- xgd-turn id="cc2cbf7c-e587-4d0f-905e-40176d33e303-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-07T22:57:45.956142+00:00" -->
+#### You
+ok please can you implement this?
 
 <!-- xgd-chat-end -->
