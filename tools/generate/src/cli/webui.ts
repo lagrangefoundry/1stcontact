@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /**
  * Resolution of the `@gendevlabs/webui-*` components (REQ-115 Deliverable 0,
@@ -28,7 +29,57 @@ import path from 'node:path'
  * is the single resolution point, and its failure names the command to run.
  */
 
-const require = createRequire(import.meta.url)
+/**
+ * The repository's MAIN CHECKOUT — the directory the shared store was installed
+ * to sit beside.
+ *
+ * `bin/install` never infers its target from a working directory; the operator
+ * names one, and for this repo that is the directory the checkout lives under.
+ * "The consumer" in that sentence is the repository, not the process's happened
+ * -to-be file location — and a `git worktree` checkout is the same repository
+ * parked outside that directory. Anchoring resolution here therefore computes
+ * what the consumption route already means, instead of what an accident of
+ * layout implies: a linked worktree reads the identical store the main checkout
+ * does, and a build or a test run from one is not silently evidence-free.
+ *
+ * Found by walking up to the `.git` entry. A directory is the main checkout's
+ * own; a FILE is a linked worktree's pointer, whose `commondir` names the main
+ * `.git` — its parent is the main checkout. Outside a checkout entirely (an
+ * extracted tarball) there is nothing to anchor to and this file's own location
+ * is the only honest answer.
+ */
+function mainCheckout(from: string): string {
+  let dir = from
+  for (;;) {
+    const dotGit = path.join(dir, '.git')
+    if (fs.existsSync(dotGit)) {
+      if (fs.statSync(dotGit).isDirectory()) return dir
+      const gitdir = path.resolve(dir, fs.readFileSync(dotGit, 'utf8').replace(/^gitdir:/, '').trim())
+      const commondir = path.join(gitdir, 'commondir')
+      if (!fs.existsSync(commondir)) return dir
+      return path.dirname(path.resolve(gitdir, fs.readFileSync(commondir, 'utf8').trim()))
+    }
+    const up = path.dirname(dir)
+    if (up === dir) return from
+    dir = up
+  }
+}
+
+/**
+ * Where to start the walk. Normally this file; when a bundler has inlined it
+ * (Vite bundles its own config and everything the config imports) `import.meta`
+ * no longer describes a real file, and the running directory is the only thing
+ * left that is genuinely inside the checkout.
+ */
+function walkOrigin(): string {
+  try {
+    return path.dirname(fileURLToPath(import.meta.url))
+  } catch {
+    return process.cwd()
+  }
+}
+
+const require = createRequire(path.join(mainCheckout(walkOrigin()), 'package.json'))
 
 export const WEBUI_SCOPE = '@gendevlabs'
 
