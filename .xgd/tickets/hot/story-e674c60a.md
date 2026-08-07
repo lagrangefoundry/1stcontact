@@ -6,7 +6,7 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-07T21:25:39.661467+00:00'
+updated_at: '2026-08-07T21:28:47.779117+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: completed
