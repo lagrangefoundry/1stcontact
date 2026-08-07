@@ -6,14 +6,15 @@ title: Which regions are editable is derived from the definition's structure, an
   a region with nothing to edit is neither stamped nor outlined
 created_by: xgd
 created_at: '2026-08-06T21:26:16.830197+00:00'
-updated_at: '2026-08-06T21:39:09.459594+00:00'
+updated_at: '2026-08-07T18:00:49.651075+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
