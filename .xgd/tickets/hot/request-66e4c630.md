@@ -5,7 +5,7 @@ type: request
 title: 'Image selection: click image segment → asset picker → structured src edit'
 created_by: xgd
 created_at: '2026-07-31T20:43:35.481921+00:00'
-updated_at: '2026-08-07T04:19:42.971728+00:00'
+updated_at: '2026-08-07T04:19:50.597332+00:00'
 completed_at: null
 last_field_updated: status
 status: reconciling
@@ -16,16 +16,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: b892d91dfbaf02bec68bc8ccdfabf4e94d2a36ef
+  - working_sha: 6638691e3385b331b9789a1c6647093f42987591
     reconcile_sha: null
     main_sha: null
-    working_sha_history:
-    - 6638691e3385b331b9789a1c6647093f42987591
   version: 0.1.24
   story_points: 3
-  orphan_commits:
-  - old_sha: 1431216353b511fc6b51f5cfabcfdad6a10276d4
-    new_sha: c99b072e0e5efe2ecc660202447ca14d8094d698
 ---
 
 ## What this builds
