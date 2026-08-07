@@ -6,14 +6,15 @@ title: Workspace opens as a single tab hosting the display panel, addressed by a
   id
 created_by: xgd
 created_at: '2026-08-07T01:43:46.576788+00:00'
-updated_at: '2026-08-07T01:58:21.275679+00:00'
+updated_at: '2026-08-07T21:19:32.386938+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
