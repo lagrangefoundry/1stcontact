@@ -5,12 +5,13 @@ type: capability
 title: 'Structured Copy Editing: One Validated, Atomic Write Path'
 created_by: xgd
 created_at: '2026-08-07T02:00:22.295360+00:00'
-updated_at: '2026-08-07T02:00:22.295360+00:00'
+updated_at: '2026-08-07T19:40:57.352575+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: Structured Copy Editing
+  uat_coverage: pass
 ---
 
 Changing the words on a page is a **structured, whole-or-nothing, validated
