@@ -5,58 +5,18 @@ type: bundle
 title: REQ-117 + REQ-115 + REQ-44
 created_by: xgd
 created_at: '2026-08-07T01:30:25.518467+00:00'
-updated_at: '2026-08-07T01:30:52.758322+00:00'
-completed_at: null
+updated_at: '2026-08-07T04:16:33.258360+00:00'
+completed_at: '2026-08-07T04:16:33.258360+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   commits:
-  - working_sha: 2b71c662f6db0cc2f2a6f540f9dcceabf19f55c1
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: fb4b08e99c5ccc54ac289aad74fcca4797a501cc
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: b37afa2cccec1e11501cd5735b7ecf2d81e3a2a1
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 6493570b7e572628b6e5ec0c65db13f3ccb521a1
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: b7e5519aaa57ce4730cfd23434fc31c9662f79c1
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: c1023ddd4b7ceb821774f630ceed3f10a687f7ea
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: a21f9e4d89ccb62718f6b5e957b9ce33f0361d54
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 34fe00649fa085765460e30577570e8da3daf50a
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: f24952a477cca9bf0bd9ae285358359f650aec09
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: f1f46c73e5071499d0963d55e957f2d8894b31eb
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: bfa18fbab9e51801fe7b980a9a7e565d0e37ea99
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 1741ee5d1d20eb5ff9bb81564ed3c088ff47731f
   auto_merge_back: true
   priority: medium
+  merged_at_commit: 1741ee5d1d20eb5ff9bb81564ed3c088ff47731f
 ---
 
 # Bundle
