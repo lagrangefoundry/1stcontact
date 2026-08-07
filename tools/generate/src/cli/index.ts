@@ -82,6 +82,8 @@ export { startServe, resolveStaticFile, sendFile, MIME } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
 export { startBuilder, handleBuilderRequest, chromeHtml } from './builder'
 export type { BuilderOptions, BuilderHandle } from './builder'
+export { PreviewRenderer, fsDraftStore } from './preview'
+export type { PreviewChannel, PreviewFile, DraftStore, DraftSnapshot } from './preview'
 export {
   webuiPackageDir,
   webuiExports,

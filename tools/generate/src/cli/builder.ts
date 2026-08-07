@@ -5,24 +5,29 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { RenderChannel, StoreContext } from '../store'
 import { distDir } from '../store'
-import { cmdList, cmdPublish, cmdRender, ctxOf, type GlobalOptions } from './commands'
+import { cmdList, cmdPublish, ctxOf, InvalidDefinitionError, type GlobalOptions } from './commands'
 import { editAssetList, editCopyGet, editCopySet } from './edit'
 import { CommandError } from './errors'
+import { fsDraftStore, PreviewRenderer, type PreviewChannel } from './preview'
 import { NO_STORE, resolveStaticFile, sendFile } from './serve'
 import { WEBUI_PACKAGES, WEBUI_SCOPE, webuiExports, webuiPackageDir } from './webui'
 
 /**
  * The builder's dev origin (REQ-115 / DOC-28 §12 T1).
  *
- * WHY NODE AND NOT THE WORKER. Everything the builder needs beyond its own
- * chrome is filesystem-bound: the rendered draft under `storage/dist/…`, the
- * `storage/sites/` listing behind the site selector, and `publish`. A Worker has
- * no filesystem, and both bundler routes that could inline the bytes (an
- * `[assets]` binding, and `Text` module rules) make `unstable_dev` hang, so
- * taking either would cost us the ability to test `control-app` at all. So the
- * origin is Node and `control-app` fronts it — which is precisely the "T1 static
- * serving" that DOC-28 §12 T5 replaces with request-time renders inside the
- * Worker. T5 deletes the proxy; nothing above it changes.
+ * WHY NODE AND NOT THE WORKER. Everything the builder needs is bound to the
+ * operator's machine: the `storage/sites/` listing behind the site selector,
+ * `publish`, the draft definitions themselves, and the Vite/Astro transform the
+ * render path runs through (`bin/1c.mjs`). A Worker has none of those. Moving
+ * the render into workerd therefore needs the store to be reachable from
+ * workerd, which is DOC-12 §7's *phase 2* — explicitly not this ticket. So the
+ * origin stays Node and `control-app` fronts it.
+ *
+ * REQ-119 / DOC-28 §12 T5 has nonetheless landed the part that was actually
+ * load-bearing: `draft` and `edit` are rendered **at request time** from the
+ * definition (see `preview.ts`), through the one render `1c render` also uses.
+ * No pre-rendered artifact is required, and a save no longer re-materialises two
+ * whole channels to disk. What remains of T5 is only the runtime relocation.
  *
  * Everything is served same-origin from this one server, so the preview iframe
  * is never cross-origin and "open in new tab" resolves to the identical URL.
@@ -281,26 +286,26 @@ export async function handleBuilderRequest(
         // exactly as the user left them — the iframe they are looking at is
         // still accurate, which is what makes "surface the error" safe.
         const out = editCopySet(slug, page, addr, values as Record<string, unknown>, scope(body))
-        // BOTH channels, because an edit changes the page — not one rendering of
-        // it. Re-rendering only `edit` left View showing whatever the last
-        // manual `1c render` produced, so an edit made in the builder was
-        // invisible in the mode the user switches to in order to see the page
-        // as a visitor would. Nothing signalled the staleness: View looked like
-        // a working page, just an old one, and it stayed old indefinitely.
-        //
-        // The cost is one extra render per save on a dev origin. Rendering the
-        // channel lazily on request would buy that back, but it is machinery
-        // with its own staleness rule, and DOC-28 §12 T5 deletes this whole
-        // static-serving path in favour of request-time renders — so the cheap
-        // correct thing now is to keep the two channels in step.
-        await cmdRender(slug, { ...opts, edit: true })
-        await cmdRender(slug, { ...opts, edit: false })
+        // REQ-119 — and nothing else. The save used to re-render BOTH channels
+        // to disk here, because whichever one it skipped would go on serving the
+        // page as it used to be, with nothing to signal the staleness. Rendering
+        // on request retires the whole question: the next fetch of either
+        // channel renders the definition this write just produced, so there is
+        // no artifact left for a save to have to keep in step.
         json(res, 200, out.data)
         return
       }
     }
 
-    // /preview/<slug>/<channel>/<...>  — a rendered channel, straight off disk.
+    /**
+     * /preview/<slug>/<channel>/<...> — a rendered channel.
+     *
+     * `draft` and `edit` are rendered ON REQUEST from the draft definition
+     * (REQ-119). `published` is not: it is the immutable artifact `publish`
+     * produced from a locked revision, and re-deriving it from today's draft
+     * would make the published channel show unpublished work — so it is still
+     * served off disk, from exactly the bytes `public-site` will serve.
+     */
     const preview = p.match(/^\/preview\/([^/]+)\/([^/]+)(\/.*)?$/)
     if (preview) {
       const slug = decodeURIComponent(preview[1])
@@ -309,7 +314,12 @@ export async function handleBuilderRequest(
         res.writeHead(404, { 'content-type': 'text/plain' }).end('Unknown channel')
         return
       }
-      await serveTree(res, distDir(ctx, slug, channel), preview[3] ?? '/')
+      const rel = preview[3] ?? '/'
+      if (channel === 'published') {
+        await serveTree(res, distDir(ctx, slug, channel), rel)
+        return
+      }
+      await servePreview(ctx, res, slug, channel, rel)
       return
     }
 
@@ -386,6 +396,83 @@ export async function handleBuilderRequest(
     const message = err instanceof Error ? err.message : String(err)
     json(res, 500, { error: message })
   }
+}
+
+/**
+ * One {@link PreviewRenderer} per store, so the render cache survives across
+ * requests instead of being rebuilt per call. Keyed by the store the context
+ * names rather than held on the server, because {@link handleBuilderRequest} is
+ * exported and callable without one. A cache entry can never go stale: the
+ * renderer re-checks the definition's stamp before reading it.
+ */
+const PREVIEWS = new Map<string, PreviewRenderer>()
+
+function previewRenderer(ctx: StoreContext): PreviewRenderer {
+  const key = `${ctx.cwd} ${ctx.root}`
+  let renderer = PREVIEWS.get(key)
+  if (!renderer) {
+    renderer = new PreviewRenderer(fsDraftStore(ctx))
+    PREVIEWS.set(key, renderer)
+  }
+  return renderer
+}
+
+/** Render `rel` out of a draft-side channel and answer with it (REQ-119). */
+async function servePreview(
+  ctx: StoreContext,
+  res: http.ServerResponse,
+  slug: string,
+  channel: PreviewChannel,
+  rel: string,
+): Promise<void> {
+  let file
+  try {
+    file = await previewRenderer(ctx).file(slug, channel, rel)
+  } catch (err) {
+    // A definition that no longer validates is the one failure this route can
+    // hit that the OPERATOR can fix, and it is now visible the moment it
+    // happens rather than hidden behind the last good render. It answers in the
+    // iframe, as a page, because that is where they are looking — a JSON
+    // envelope would render as a wall of escaped text.
+    if (!(err instanceof InvalidDefinitionError)) throw err
+    const body = `<!doctype html><meta charset="utf-8"><title>Invalid draft</title>
+<body style="font:14px/1.6 ui-monospace,monospace;padding:2rem;color:#b00">
+<h1 style="font-size:1rem">This draft does not validate</h1>
+<pre>${escapeHtml(err.errors.map((e) => `${e.path}: ${e.message}`).join('\n'))}</pre>
+</body>`
+    res
+      .writeHead(500, {
+        'content-type': 'text/html; charset=utf-8',
+        'content-length': Buffer.byteLength(body),
+        'cache-control': 'no-store, must-revalidate',
+      })
+      .end(body)
+    return
+  }
+
+  if (!file) {
+    res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
+    return
+  }
+  if (file.kind === 'file') {
+    sendFile(res, file.file)
+    return
+  }
+  res
+    .writeHead(200, {
+      'content-type': file.contentType,
+      'content-length': Buffer.byteLength(file.body),
+      // `no-store` for the same reason every other byte on this origin is: the
+      // definition underneath changes while the iframe is pointed at it, and a
+      // reload that answered from cache would show the edit as having silently
+      // failed.
+      'cache-control': 'no-store, must-revalidate',
+    })
+    .end(file.body)
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 async function serveTree(

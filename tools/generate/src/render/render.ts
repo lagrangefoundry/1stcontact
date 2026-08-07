@@ -202,19 +202,38 @@ function homePage(site: Site): Page | undefined {
 }
 
 /**
- * Render `loaded` to `outDir`. The directory is emptied first so stale pages
- * never linger. Writes `<slug>.html` per page, an `index.html` alias for the
- * home page, the per-site `theme.css`, and copies `assets/` through.
+ * A rendered channel, in memory (REQ-119).
+ *
+ * Every text artifact the channel contains, keyed by its path relative to the
+ * channel root — exactly the paths {@link renderSite} writes and exactly the
+ * paths a URL under `/preview/<slug>/<channel>/` names. Asset bytes are NOT
+ * here: they are copied through unchanged and belong to whatever is serving,
+ * not to the render.
  */
-export async function renderSite(
+export interface RenderedSite {
+  /** Relative path → its UTF-8 content (`theme.css`, `capabilities.js`, `*.html`). */
+  files: ReadonlyMap<string, string>
+  /** The HTML page files, sorted — {@link renderSite}'s report of what it wrote. */
+  pages: string[]
+}
+
+/**
+ * Render `loaded` to a set of files, touching no filesystem (REQ-119).
+ *
+ * This is **the** render. {@link renderSite} is a writer over it, and the
+ * builder's request-time preview is a reader of it — so the build-time and
+ * request-time paths cannot disagree, because there is nothing for them to
+ * disagree about: adding an L1 axis or a head tag changes this function and
+ * both paths move together (DOC-28 §12 T5, AC-3).
+ */
+export async function renderSiteFiles(
   loaded: LoadedSite,
-  outDir: string,
   opts: RenderSiteOptions = {},
-): Promise<string[]> {
-  const { site, sourceDir } = loaded
+): Promise<RenderedSite> {
+  const { site } = loaded
   const resolveModule = opts.resolveModule ?? getModule
   const edit = opts.edit === true
-  emptyDir(outDir)
+  const files = new Map<string, string>()
 
   // theme.css = design-token :root variables + the module component CSS. The
   // container render (renderModules) emits module HTML but drops each module's
@@ -222,8 +241,8 @@ export async function renderSite(
   // renders unstyled (BUG-1). An optional `extraCss` tail lets an injected
   // catalog (REQ-39) ship rules the framework module CSS does not carry.
   const extraCss = opts.extraCss ? `\n\n${opts.extraCss}` : ''
-  writeText(
-    path.join(outDir, 'theme.css'),
+  files.set(
+    'theme.css',
     `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}${extraCss}\n`,
   )
 
@@ -234,7 +253,7 @@ export async function renderSite(
   // references one, so shipping the file would leave live behaviour sitting in
   // the directory one stray <script> away from making the page work again.
   const clientJs = edit ? '' : getModuleClientJs()
-  if (clientJs) writeText(path.join(outDir, 'capabilities.js'), `${clientJs}\n`)
+  if (clientJs) files.set('capabilities.js', `${clientJs}\n`)
 
   // Astro is only needed to render behavior modules. A pure folded-L1
   // reproduction (REQ-88) — or the empty starter — needs no container, so we
@@ -248,7 +267,7 @@ export async function renderSite(
     const { experimental_AstroContainer } = await import('astro/container')
     container = await experimental_AstroContainer.create()
   }
-  const written: string[] = []
+  const pages: string[] = []
 
   for (const page of site.pages) {
     // REQ-109 — the flatness invariant. Emitted asset URLs are document-relative
@@ -265,21 +284,47 @@ export async function renderSite(
     }
     const html = await renderPage(container, site, page, resolveModule, edit)
     const file = `${page.slug}.html`
-    writeText(path.join(outDir, file), html)
-    written.push(file)
+    files.set(file, html)
+    pages.push(file)
   }
 
   const home = homePage(site)
   if (home) {
-    const html = await renderPage(container, site, home, resolveModule, edit)
-    writeText(path.join(outDir, 'index.html'), html)
-    written.push('index.html')
+    // `index.html` is an ALIAS for the home page, so it is the same bytes rather
+    // than a second render of them. `renderPage` is deterministic, so this was
+    // always true; taking the copy makes it true by construction and halves the
+    // work of the request-time path, where the home page is what the iframe asks
+    // for on every reload.
+    files.set('index.html', files.get(`${home.slug}.html`)!)
+    pages.push('index.html')
   }
 
-  const assetsSrc = path.join(sourceDir, 'assets')
+  return { files, pages: pages.sort() }
+}
+
+/**
+ * Render `loaded` to `outDir`. The directory is emptied first so stale pages
+ * never linger. Writes `<slug>.html` per page, an `index.html` alias for the
+ * home page, the per-site `theme.css`, and copies `assets/` through.
+ *
+ * A thin writer over {@link renderSiteFiles} — every byte it emits is decided
+ * there, so `1c render` and the builder's request-time preview cannot drift.
+ */
+export async function renderSite(
+  loaded: LoadedSite,
+  outDir: string,
+  opts: RenderSiteOptions = {},
+): Promise<string[]> {
+  const rendered = await renderSiteFiles(loaded, opts)
+  emptyDir(outDir)
+  for (const [rel, text] of rendered.files) {
+    writeText(path.join(outDir, rel), text)
+  }
+
+  const assetsSrc = path.join(loaded.sourceDir, 'assets')
   if (pathExists(assetsSrc)) {
     copyDir(assetsSrc, path.join(outDir, 'assets'))
   }
 
-  return written.sort()
+  return rendered.pages
 }

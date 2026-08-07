@@ -721,16 +721,23 @@ describe('story-37a3921b — the copy-edit write path over the builder origin', 
     expect(badBody.message).toBe(cliRefusal.error!.message)
     expect(draftBytes(cwd)).toBe(draftBefore)
 
-    // A successful save re-renders BOTH ways of viewing the page before it
-    // reports success — an edit changes the page, not one rendering of it.
+    // A successful save reaches BOTH ways of viewing the page — an edit changes
+    // the page, not one rendering of it.
+    //
+    // REQ-119 moved WHERE that is observed, not whether it holds. The save used
+    // to re-render both channels to disk before replying, and the claim was
+    // read off `storage/dist`. The channels are now rendered on request, so
+    // there is no artifact to inspect and the honest observable is the origin
+    // itself: fetch both and see the new words, with no render step in between.
     const words = 'Saved through the origin.'
     const good = await post({ slug: 'acme', page: 'home', path: A_SHORT, values: { text: words } })
     expect(good.status).toBe(200)
     expect(((await good.json()) as Record<string, unknown>).changed).toEqual(['text'])
 
     for (const channel of ['edit', 'draft'] as const) {
-      expect(renderedBytes(cwd, channel), channel).toContain(words)
-      expect(renderedBytes(cwd, channel), channel).not.toContain(SHORT_COPY)
+      const html = await (await api(`/preview/acme/${channel}/`)).text()
+      expect(html, channel).toContain(words)
+      expect(html, channel).not.toContain(SHORT_COPY)
     }
   })
 })

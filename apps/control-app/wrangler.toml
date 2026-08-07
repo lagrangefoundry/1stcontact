@@ -4,9 +4,11 @@ compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# The builder's Node dev origin (REQ-115). A plain var, deliberately not an
+# The builder's Node origin (REQ-115). A plain var, deliberately not an
 # [assets] binding — an assets binding makes `unstable_dev` hang, which would
-# cost us the ability to test this Worker at all. DOC-28 §12 T5 removes this.
+# cost us the ability to test this Worker at all. This goes when the store is
+# reachable from a Worker (DOC-12 §7 phase 2) and the render can run here; see
+# src/index.ts for what REQ-119 moved and what it left.
 [vars]
 BUILDER_ORIGIN = "http://localhost:8790"
 

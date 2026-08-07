@@ -211,9 +211,15 @@ const readFields = async (cwd: string, ...rest: string[]): Promise<CliResult> =>
 /** The draft page document, byte for byte — the thing a failed edit must not touch. */
 const draftBytes = (cwd: string): string => readFileSync(homeJsonPath(cwd), 'utf8')
 
-/** A rendered channel's document, straight off disk — no re-render. */
-const renderedBytes = (cwd: string, channel: 'edit' | 'draft'): string =>
-  readFileSync(path.join(cwd, 'storage', 'dist', 'sites', 'acme', channel, 'index.html'), 'utf8')
+/**
+ * A rendered channel's document, as the builder's iframe would receive it.
+ *
+ * REQ-119 renders the draft-side channels on request, so there is no artifact on
+ * disk to read and the origin IS the observable — which is the stronger one
+ * anyway: it is the bytes the operator's browser is shown.
+ */
+const servedBytes = async (builder: BuilderHandle, channel: 'edit' | 'draft'): Promise<string> =>
+  (await fetch(new URL(`/preview/acme/${channel}/`, builder.url))).text()
 
 /** The addressed node, read out of the draft definition by page-rooted address. */
 function draftNode(cwd: string, addr: string): Record<string, unknown> {
@@ -403,8 +409,9 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       expect(res.status).toBe(200)
       expect(((await res.json()) as Record<string, unknown>).changed).toEqual(['src'])
       for (const channel of ['edit', 'draft'] as const) {
-        expect(renderedBytes(cwd, channel), channel).toContain('assets/hero.png')
-        expect(renderedBytes(cwd, channel), channel).not.toContain('assets/logo.svg')
+        const html = await servedBytes(builder, channel)
+        expect(html, channel).toContain('assets/hero.png')
+        expect(html, channel).not.toContain('assets/logo.svg')
       }
     })
   })
@@ -677,13 +684,13 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       }
 
       // A valid edit of each kind: both the editable and the plain draft
-      // renderings on disk reflect it.
+      // renderings reflect it, with no render step in between.
       const words = 'Saved through the origin.'
       expect((await post({ slug: 'acme', page: 'home', path: A_COPY, values: { text: words } })).status).toBe(200)
       expect((await post({ slug: 'acme', page: 'home', path: A_IMAGE, values: { src: BETA } })).status).toBe(200)
 
       for (const channel of ['edit', 'draft'] as const) {
-        const html = renderedBytes(cwd, channel)
+        const html = await servedBytes(builder, channel)
         expect(html, channel).toContain(words)
         expect(html, channel).not.toContain(SHORT_COPY)
         expect(html, channel).toContain('assets/beta.png')
@@ -696,13 +703,12 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
 /**
  * Run `fn` against a live builder origin over the site already seeded in `cwd`.
  *
- * Both channels are rendered first, because the origin serves what is on disk
- * and "a save leaves both current" is only meaningful against a starting state
- * that was current.
+ * No pre-render: since REQ-119 the origin renders each draft-side channel from
+ * the definition when it is asked for one, so "a save leaves both current" is
+ * measured against whatever the definition says at that moment rather than
+ * against an artifact someone had to remember to refresh.
  */
 async function withOrigin(cwd: string, fn: (builder: BuilderHandle) => Promise<void>): Promise<void> {
-  await cmdRender('acme', { cwd, edit: true })
-  await cmdRender('acme', { cwd })
   const builder = await startBuilder({ cwd })
   try {
     await fn(builder)

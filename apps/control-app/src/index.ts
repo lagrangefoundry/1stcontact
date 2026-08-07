@@ -1,18 +1,24 @@
 /**
  * `app.1stcontact.io` — the control app.
  *
- * Today it is a single same-origin front over the builder's Node dev origin
- * (REQ-115 / DOC-28 §12 T1). Everything the builder needs beyond its own chrome
- * is filesystem-bound — the rendered channels, the `storage/sites/` listing, and
- * `publish` — and a Worker has no filesystem, so the origin runs in Node and
- * this Worker proxies to it. Serving both through one host is what makes the
- * preview iframe same-origin and lets "open in new tab" resolve to the identical
- * URL the iframe loads.
+ * A single same-origin front over the builder's Node origin (REQ-115 / DOC-28
+ * §12 T1). Serving both through one host is what makes the preview iframe
+ * same-origin and lets "open in new tab" resolve to the identical URL the iframe
+ * loads.
  *
- * This proxy is deliberately temporary. DOC-28 §12 T5 moves draft and edit
- * renders into this Worker at request time via the Astro Cloudflare adapter, and
- * deletes it. It is last on purpose: it changes WHERE the render runs, not what
- * it produces, so everything above it is built and proven first.
+ * WHAT REQ-119 CHANGED, AND WHAT IT DID NOT. The draft and edit channels are now
+ * rendered at REQUEST TIME rather than served off `storage/dist/…`, through the
+ * one render `1c render` writes with (`tools/generate/src/cli/preview.ts`). No
+ * pre-rendered artifact is required and a save no longer materialises two whole
+ * channels to disk — the substance of DOC-28 §12 T5.
+ *
+ * The render still executes in Node, not here. It reads the definition from the
+ * operator's file-backed store and runs through the Vite/Astro transform that
+ * compiles the framework's behavior modules; workerd has neither. Relocating it
+ * therefore needs the store reachable from a Worker, which is DOC-12 §7's phase
+ * 2 (D1 + R2) and explicitly outside REQ-119's scope. When that lands, this
+ * Worker gains a store binding and mounts the same preview handler; the proxy
+ * goes then, and nothing above it changes either time.
  */
 
 export interface Env {
