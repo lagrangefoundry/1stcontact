@@ -6,7 +6,7 @@ title: The deploy report names each stage on its own labelled line and terminate
   in the deploy's destination
 created_by: xgd
 created_at: '2026-08-06T18:39:53.516354+00:00'
-updated_at: '2026-08-07T22:18:14.502017+00:00'
+updated_at: '2026-08-07T22:31:10.250130+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
