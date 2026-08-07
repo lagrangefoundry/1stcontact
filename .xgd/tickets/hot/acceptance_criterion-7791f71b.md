@@ -6,10 +6,10 @@ title: 'One save is one change: a change map is applied whole or not at all, and
   half-written'
 created_by: xgd
 created_at: '2026-08-07T02:02:17.629189+00:00'
-updated_at: '2026-08-07T02:02:17.629189+00:00'
+updated_at: '2026-08-07T02:12:06.546005+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
