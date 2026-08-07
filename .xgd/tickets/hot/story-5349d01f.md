@@ -6,7 +6,7 @@ title: 'Ship a site off the laptop: a content-addressed snapshot deploy that ret
   a shareable URL'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-08-07T21:38:20.642104+00:00'
+updated_at: '2026-08-07T21:56:53.291951+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -59,6 +59,10 @@ In scope:
 - **Content addressing.** A snapshot's identity is a digest of its contents.
   Redeploying identical bytes is a no-op that returns the same URL; changed bytes
   land *beside* the previous snapshot, never on top of it.
+- **Two deploys do not silently overwrite each other.** A deploy whose stored
+  deploy index changed underneath it fails by name and writes no index of its
+  own, leaving the index exactly as the other deploy left it — a concurrent
+  deploy loses loudly rather than clobbering the winner's record.
 - **Previews are not revisions.** A draft deploy never mints a revision number
   and never enters publish history, so previews can be shared freely without
   polluting the publish record.
