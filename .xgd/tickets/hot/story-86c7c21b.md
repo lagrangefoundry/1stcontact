@@ -6,7 +6,7 @@ title: 'A newly created site is a page that already renders: creation seeds a co
   valid layout document'
 created_by: xgd
 created_at: '2026-08-06T03:42:07.316109+00:00'
-updated_at: '2026-08-07T18:17:11.918355+00:00'
+updated_at: '2026-08-07T18:18:31.556577+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
@@ -22,9 +22,9 @@ fields:
 ## Story
 **As an** author starting a new site, **I want** the site to be created as a page
 that already renders — a complete layout document on the standard width ladder,
-in colours the page's own document declares — **so that** my first command produces a pixel
-instead of a blank file I must fill in from memory before anything can be looked
-at.
+in colours the page's own document declares — **so that** my first command
+produces a pixel instead of a blank file I must fill in from memory before
+anything can be looked at.
 
 ## Description
 This story documents **what a newly created site is**. Creating a site used to
