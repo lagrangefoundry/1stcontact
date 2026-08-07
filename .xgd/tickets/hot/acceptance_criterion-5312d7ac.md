@@ -6,14 +6,15 @@ title: A published site URL serves whatever revision the site currently calls li
   and follows it when that changes
 created_by: xgd
 created_at: '2026-08-06T18:48:21.095289+00:00'
-updated_at: '2026-08-06T18:59:32.067161+00:00'
+updated_at: '2026-08-07T22:18:18.146910+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
