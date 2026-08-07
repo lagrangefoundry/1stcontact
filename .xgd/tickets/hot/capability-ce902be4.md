@@ -5,10 +5,10 @@ type: capability
 title: Behavior Module Contract & Catalog
 created_by: xgd
 created_at: '2026-07-22T19:53:07.405647+00:00'
-updated_at: '2026-08-05T18:24:44.441909+00:00'
+updated_at: '2026-08-07T15:27:46.593200+00:00'
 completed_at: null
-last_field_updated: uat_coverage
-status: active
+last_field_updated: status
+status: deprecated
 fields:
   name: capability-modules
   uat_coverage: pass
