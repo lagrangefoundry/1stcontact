@@ -6,14 +6,15 @@ title: Every deploy renders first, so previously rendered output on disk can nev
   be shipped
 created_by: xgd
 created_at: '2026-08-06T18:39:26.493395+00:00'
-updated_at: '2026-08-06T18:46:02.478366+00:00'
+updated_at: '2026-08-07T22:18:06.826313+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
