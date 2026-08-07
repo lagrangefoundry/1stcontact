@@ -2,13 +2,13 @@
 uid: acceptance_criterion-56334082
 id: AC-873
 type: acceptance_criterion
-title: A newly created site's document background and placeholder colour come from
-  the site's own theme tokens, not from literals invented by the scaffold
+title: A newly created site states its document background and placeholder colour
+  as hex literals in its own layout document, and declares no palette
 created_by: xgd
 created_at: '2026-08-06T03:42:59.130974+00:00'
-updated_at: '2026-08-06T22:01:31.742512+00:00'
+updated_at: '2026-08-07T18:16:51.986810+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-86c7c21b
