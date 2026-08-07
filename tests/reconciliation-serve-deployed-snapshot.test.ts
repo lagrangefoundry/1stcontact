@@ -855,7 +855,6 @@ describe('STORY — serve a deployed snapshot to a visitor', () => {
     expect(() => assertNoReservedSegment(real)).not.toThrow()
 
     const file = (rel: string): SnapshotFile => ({ rel, abs: path.join(cwd, rel), bytes: 1 })
-    const storedBefore = [...client.objects.keys()].sort()
 
     // A top-level entry of the reserved name is refused, and the refusal names
     // the offending entry, names the reserved segment, and says why the entry
@@ -876,9 +875,6 @@ describe('STORY — serve a deployed snapshot to a visitor', () => {
       expect(message, clash).toContain('unreachable')
       expect(message, clash).toContain(`/site/<slug>/draft/<sha>/`)
     }
-
-    // Refused before any bytes ship: the store is exactly as it was.
-    expect([...client.objects.keys()].sort()).toEqual(storedBefore)
 
     // The name one level deeper, and a top-level entry that merely SHARES the
     // prefix, proceed normally — the guard is one exact top-level segment.
@@ -921,6 +917,23 @@ describe('STORY — serve a deployed snapshot to a visitor', () => {
     const base = `/site/${SLUG}/draft/${next.sha}/`
     expect((await get(`${base}draft.html`)).status).toBe(200)
     expect((await get(`${base}assets/draft/logo.svg`)).status).toBe(200)
+
+    // WHY the gate is stated and proved at its own entry point rather than
+    // through a deploy attempt, pinned rather than assumed: the deploy's own
+    // render refuses nested output outright (REQ-109 flatness), so no site
+    // definition can put a top-level `draft/` DIRECTORY into `out/` for the gate
+    // to catch. This is a real deploy attempt through the real command, and it
+    // ships nothing. The day rendered output gains nesting this assertion fails —
+    // which is the signal to prove the reserved-segment gate end-to-end instead.
+    writeJson(path.join(draftDir(ctx, SLUG), 'pages', 'nested.json'), {
+      ...page,
+      id: 'nested-page',
+      slug: 'draft/index',
+      title: 'Nested',
+    })
+    const storedBefore = [...client.objects.keys()].sort()
+    await expect(deploy()).rejects.toThrow(/slug 'draft\/index' is nested/)
+    expect([...client.objects.keys()].sort()).toEqual(storedBefore)
   })
 })
 

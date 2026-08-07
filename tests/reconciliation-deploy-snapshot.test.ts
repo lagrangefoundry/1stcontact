@@ -410,11 +410,12 @@ describe('STORY — ship a site off the laptop (1c deploy)', () => {
       expect(stageLines(report, label).length).toBeGreaterThan(0)
     }
 
-    // The file-moving stages carry a trailing file-count + size detail…
+    // The file-moving stages carry a trailing file-count + size detail — every
+    // one of them, not just the render line.
     expect(stageLines(report, 'render')[0]).toMatch(/\d+ files\s+[\d.]+ (B|KB|MB)/)
     // …and both upload halves are named distinctly.
-    expect(report).toMatch(/upload\s+preview\/[0-9a-f]{12}\/out\s+\d+ files/)
-    expect(report).toMatch(/upload\s+preview\/[0-9a-f]{12}\/source\s+\d+ files/)
+    expect(report).toMatch(/upload\s+preview\/[0-9a-f]{12}\/out\s+\d+ files\s+[\d.]+ (B|KB|MB)/)
+    expect(report).toMatch(/upload\s+preview\/[0-9a-f]{12}\/source\s+\d+ files\s+[\d.]+ (B|KB|MB)/)
 
     // The final non-empty line is the shareable URL.
     expect(lastNonEmptyLine(report)).toMatch(
