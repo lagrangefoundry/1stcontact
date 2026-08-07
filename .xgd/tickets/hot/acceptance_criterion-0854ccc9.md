@@ -6,14 +6,15 @@ title: A draft deploy ships the complete artifact under a content-addressed prev
   location and returns its shareable URL when the tree is servable
 created_by: xgd
 created_at: '2026-08-06T18:39:17.424059+00:00'
-updated_at: '2026-08-07T21:56:25.762734+00:00'
+updated_at: '2026-08-07T22:18:04.475525+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
