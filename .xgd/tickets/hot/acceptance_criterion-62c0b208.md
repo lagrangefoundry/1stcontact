@@ -6,14 +6,15 @@ title: One colour used at several opacities becomes one palette entry, with the 
   carried on each reference
 created_by: xgd
 created_at: '2026-08-06T21:07:43.103029+00:00'
-updated_at: '2026-08-06T21:22:00.460075+00:00'
+updated_at: '2026-08-07T16:50:12.024794+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5e7eb0c5
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
