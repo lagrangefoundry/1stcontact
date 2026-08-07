@@ -6,14 +6,15 @@ title: Every listed asset is named in the same site-local handle form a page alr
   holds
 created_by: xgd
 created_at: '2026-08-07T04:29:45.354526+00:00'
-updated_at: '2026-08-07T04:36:50.453944+00:00'
+updated_at: '2026-08-07T18:45:08.742735+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c46abfa6
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
