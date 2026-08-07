@@ -6,15 +6,15 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-08-05T23:13:47.408546+00:00'
+updated_at: '2026-08-07T03:12:28.151803+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-aa030c83
   story_kind: upgrade
-  story_points: 1
+  story_points: 2
   updated_by: bundle-cceaba25
   uat_coverage: fail
 ---
@@ -22,13 +22,16 @@ fields:
 ## Story
 **As a** user scripting the `1c` CLI, **I want** flags to be parsed correctly, to
 propagate into the commands a sub-command drives, `--json` output to be a single
-clean JSON document, and every command to boot quietly, **so that** I can invoke
-`1c` commands in any flag order, trust that a store-selecting flag reaches the
-render/serve it triggers, and pipe machine-readable output straight into other
-tools without it breaking or being buried in setup noise.
+clean JSON document, every command to boot quietly, and a command that needs a
+declared runtime dependency to refuse loudly on an installed tree that does not
+match what is declared, **so that** I can invoke `1c` commands in any flag order,
+trust that a store-selecting flag reaches the render/serve it triggers, pipe
+machine-readable output straight into other tools without it breaking or being
+buried in setup noise, and get a named remedy instead of a stack trace from deep
+inside a browser launch.
 
 ## Description
-Four CLI-correctness guarantees for the `1c` command line:
+Five CLI-correctness guarantees for the `1c` command line:
 
 1. **Boolean flag parsing.** The `--multi-viewport` flag is a boolean toggle, not
    a value-taking option. Invoking `values-diff --multi-viewport <slug>` (or
@@ -71,14 +74,53 @@ Four CLI-correctness guarantees for the `1c` command line:
    creates the container on demand and renders identically to before: module
    markup, theme CSS, and client script all present.
 
+5. **A gated command refuses before doing any work on a mismatched install.**
+   Declaring a dependency does not materialize it: `package.json` plus
+   `pnpm-lock.yaml` say what *should* be on disk, and only an install puts it
+   there. A command that loads a declared runtime dependency therefore probes the
+   installed tree first, and refuses rather than dying deep inside a browser
+   launch with `Cannot find module 'playwright'`.
+
+   Two independent checks run, and **both** are reported in one refusal rather
+   than one at a time:
+
+   - **resolution** — every package the command actually loads resolves from
+     disk. This is the pruned-declared-package case directly.
+   - **drift** — the committed `pnpm-lock.yaml` still matches the copy the
+     package manager writes verbatim at install time. Byte-inequality is an
+     exact statement that the tree was never installed at the committed
+     lockfile — an oracle, not an mtime heuristic. A tree with no such copy at
+     all has never been installed and counts as drift; a project with no
+     committed lockfile is a different project shape and is not drift.
+
+   Drift fails **on its own**, even while every dependency still happens to
+   resolve, because that is precisely the state the next prune turns into the
+   crash.
+
+   Gating is per command, on exactly what that command loads: the
+   browser-driving verbs (`capture`, `shot`, `values-diff`, `adopt-gaps`), the
+   imaging verb (`crop`), and the verbs needing both (`diff`, `gate`,
+   `aligned-crops`). The offline verbs — `render`, `serve`, `builder`, `repro`,
+   `refold`, `l1-gate`, `responsive-diff` and the structured-edit commands — are
+   never gated, so a verb is never blocked by a dependency it does not use.
+
+   The refusal travels the CLI's existing failure contract (guarantee: REQ-11's
+   structured failures): an `ENVIRONMENT` code with its own exit status,
+   distinct from the internal-error status because neither the command nor its
+   input was wrong; the standard `{"ok":false,"error":{code,message,hint}}`
+   envelope under `--json`; a message naming which check failed and which
+   packages; and a hint that is the literal install command to run.
+
 In scope: argument-parsing correctness for boolean flags, propagation of
 store-selecting flags into the render/serve a sub-command triggers, stdout/stderr
-separation and bootstrap quiet for scriptable output, and whether the render path
-engages Astro at all. Out of scope: the content/shape of the diff or crop
+separation and bootstrap quiet for scriptable output, whether the render path
+engages Astro at all, and the pre-command check that the installed tree matches
+the declared dependencies. Out of scope: the content/shape of the diff or crop
 artifacts themselves (covered by the values-diff, size-aware diff, and
-aligned-crops capabilities), and the L1 reproduction pipeline whose output the
+aligned-crops capabilities), the L1 reproduction pipeline whose output the
 Astro-free render path serves (covered by the L1 substrate, fold, and
-reproduction-gate capabilities).
+reproduction-gate capabilities), and *performing* an install — the preflight
+reports and names the remedy, it never runs it.
 
 ## Technical Context
 - Guarantees 1–2 reconciled from bundle-ab9e0cb6 (REQ-58 pass-3), plan item 5,
@@ -106,14 +148,43 @@ reproduction-gate capabilities).
 - Diagnostic handling now happens at three levels: render-time chatter during a
   command (routed to stderr), residual bootstrap chatter (diverted at setup),
   and the specific pages-directory warning (suppressed at its source).
+- Guarantee 5 reconciled from bundle-15c1f647 (BUNDLE-16), plan item 6 (REQ-44).
+  Triggered by an observed failure: a workflow commit added a dependency to the
+  manifests, no install followed, a later prune removed `playwright` — a
+  *declared* package — and `1c shot` / `1c diff` / `1c capture` all died with
+  `Cannot find module 'playwright'`. A manual install fixed it and changed no
+  tracked file, confirming the manifests were right all along and only the
+  on-disk tree was stale.
+- The check is placed at dispatch, ahead of the command switch, rather than
+  inside each handler: the fault is about the workspace and not the verb, so one
+  gate covers every present and future command through the per-command
+  dependency map, and no half-done work (a render, a launched browser, a written
+  file) can precede the refusal.
+- Both checks are pure functions of a root directory and a resolver, so they are
+  provable against synthetic trees without mutating a real install; one check
+  against this repo's real tree with real resolution keeps the synthetic seams
+  honest about being pointed at the right files.
+- The gated set is pinned as a whole in evidence, so adding a browser-driving
+  command without gating it is a visible regression rather than a silent
+  reopening of the hole.
+- **Deliberately out of this repo (intent split by REQ-44 itself).** The
+  "re-install after a commit changes a dependency manifest" rule belongs to the
+  workflow engine and is filed as REQ-745 (`lagrangefoundry/xgd`) with its
+  plugin-contract half as REQ-22 (`lagrangefoundry/xgd-plugin-sdk`). The
+  preflight here is defence in depth: it catches a stale tree whatever caused it
+  — a workflow commit, a plain pull, an interrupted install.
+- **Known blind spot, recorded by intent, not fixed here.** Worktree installs run
+  with install scripts skipped, so a package directory can exist while its native
+  binary or downloaded browser does not. The module still resolves, so the
+  resolution check cannot see it; that decision is carried by REQ-22.
 - Related capabilities: CAP-63 (1c Values-Diff Fidelity), CAP-65 (1c
-  Size-Aware Diffing) — the commands whose output this hygiene protects; the
-  aligned-crops perceptual pipeline whose store routing guarantee 3 protects;
-  the L1 substrate/fold/gate capabilities that produce the L1-only pages
-  guarantee 4 lets render without Astro.
+  Size-Aware Diffing) — the commands whose output this hygiene protects, and the
+  same commands guarantee 5 gates; the aligned-crops perceptual pipeline whose
+  store routing guarantee 3 protects; the L1 substrate/fold/gate capabilities
+  that produce the L1-only pages guarantee 4 lets render without Astro.
 
 ## Dependencies
 None.
 
 ## Story Points
-1
+2
