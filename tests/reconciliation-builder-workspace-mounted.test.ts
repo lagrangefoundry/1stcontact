@@ -2,12 +2,13 @@
 /**
  * story-e674c60a — **the workspace mounted against its own real origin**.
  *
- * Two criteria need both halves at once: a workspace mounted out of the REAL
+ * Three criteria need both halves at once: a workspace mounted out of the REAL
  * `@gendevlabs/webui-*` components, and a live builder origin serving a real
  * store. The chrome suite (jsdom) has no origin, and the origin suite (node)
  * has no DOM, so the criteria whose subject is the seam between them —
  * AC-1029's registered editable mode, AC-972's publish of the *displayed*
- * site — live here.
+ * site, AC-967's selector listing the store the origin actually holds — live
+ * here.
  *
  * The discipline is the one the sibling suites follow (story Technical
  * Context): the components arrive from an out-of-band install, so the half of
@@ -83,6 +84,9 @@ async function makeWorkspace(): Promise<string> {
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
 let previewUrl: (slug: string, channel: string) => string
 let publishSite: (slug: string, fetchImpl?: typeof fetch) => Promise<{ id: number }>
+let fetchSites: (
+  fetchImpl?: typeof fetch,
+) => Promise<Array<{ slug: string; latest: number | null }>>
 
 describe('story-e674c60a workspace mounted over its origin', () => {
   let cwd: string
@@ -93,11 +97,12 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     if (WEBUI_INSTALLED) {
       ;({ mountBuilder } = await import('../apps/control-app/src/builder/app.js'))
     }
-    ;({ previewUrl, publishSite } = (await import(
+    ;({ previewUrl, publishSite, fetchSites } = (await import(
       '../apps/control-app/src/builder/api.js'
     )) as {
       previewUrl: typeof previewUrl
       publishSite: typeof publishSite
+      fetchSites: typeof fetchSites
     })
     // jsdom ships neither; the split primitive observes its container.
     globalThis.ResizeObserver ??= class {
@@ -283,6 +288,62 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     expect(cmdRevisions('alpha', { cwd })).toHaveLength(1)
     // …and the published channel of the displayed site is re-rendered and served.
     expect((await get('/preview/beta/published/')).status).toBe(200)
+
+    app.destroy()
+  })
+
+  /**
+   * Last in the file on purpose: it adds a site to the store, and every test
+   * above is written against the two `makeWorkspace` created.
+   */
+  it('test_UAT_AC967_the_site_selector_lists_exactly_the_store_and_switches_the_site', async () => {
+    // AC-967 — "neither a hardcoded list nor a subset" is a claim about the
+    // chain store → `/api/sites` → selector, so no link in it is written by
+    // hand here: the expected set is READ OFF THE STORE, the listing is
+    // obtained by the app's own `fetchSites` over the real origin, and that
+    // listing (never a literal) is what the workspace is mounted over.
+    const inStore = () =>
+      fs
+        .readdirSync(path.join(cwd, 'storage/sites'), { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name)
+        .sort()
+
+    // Non-vacuity: the store is genuinely non-empty and holds more than one site,
+    // so "exactly" below has something to be wrong about.
+    expect(inStore()).toEqual(['alpha', 'beta'])
+    expect((await fetchSites(originFetch)).map((s) => s.slug).sort()).toEqual(inStore())
+
+    // A site created AFTER the origin started is listed too. A hardcoded list, a
+    // boot-time snapshot, or a filter that drops sites without revisions (only
+    // `beta` and `alpha` have any by now, and `gamma` never will) all fail here.
+    cmdNew('gamma', { cwd })
+    await cmdRender('gamma', { cwd, source: 'draft' })
+    expect(inStore()).toEqual(['alpha', 'beta', 'gamma'])
+
+    const listing = await fetchSites(originFetch)
+    expect(listing.map((s) => s.slug).sort()).toEqual(inStore())
+
+    if (!WEBUI_INSTALLED) {
+      unverified('the SELECTOR built from that listing (the chrome needs the components)')
+      return
+    }
+
+    // The chrome half, mounted over the listing that just came off the origin.
+    const app = mountBuilder(root, { sites: listing, storage: memoryStorage() })
+    const select = app.toolbar.get('site-selector') as HTMLSelectElement
+    expect([...select.options].map((o) => o.value).sort()).toEqual(inStore())
+
+    // Choosing a different option changes the displayed document to that site's
+    // rendering IN THE CURRENT MODE…
+    const modeBefore = app.panel.getMode()
+    select.value = 'gamma'
+    select.dispatchEvent(new Event('change'))
+    expect(app.panel.getSite()).toBe('gamma')
+    expect(app.panel.getMode()).toBe(modeBefore)
+    expect(app.panel.frame.getAttribute('src')).toBe(previewUrl('gamma', 'draft'))
+    // …and that address serves that site's real rendered page over this origin.
+    expect(await (await get(app.panel.getSrc())).text()).toBe(onDisk('gamma', 'draft'))
 
     app.destroy()
   })

@@ -373,24 +373,9 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar', () => {
     expect((app.toolbar.get('open-new-tab') as HTMLAnchorElement).target).toBe('_blank')
   })
 
-  it('test_UAT_AC967_the_site_selector_lists_exactly_the_store_and_switches_the_site', () => {
-    const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
-    const select = app.toolbar.get('site-selector') as HTMLSelectElement
-
-    // AC-967 — the options ARE the store's sites, identified by slug: neither a
-    // hardcoded list nor a subset.
-    expect([...select.options].map((o) => o.value)).toEqual(SITES.map((s) => s.slug))
-
-    const modeBefore = app.panel.getMode()
-    select.value = 'beta'
-    select.dispatchEvent(new Event('change'))
-
-    // Choosing a different option changes the displayed document to that site's
-    // rendering IN THE CURRENT MODE.
-    expect(app.panel.getSite()).toBe('beta')
-    expect(app.panel.getMode()).toBe(modeBefore)
-    expect(app.panel.frame.getAttribute('src')).toBe('/preview/beta/draft/')
-  })
+  // AC-967 lives in the MOUNTED suite: its subject is the store→origin→selector
+  // chain, and a jsdom mount handed a literal listing stands in for the very
+  // thing the criterion is about ("neither a hardcoded list nor a subset").
 })
 
 // ── the split, and what it remembers ─────────────────────────────────────────
