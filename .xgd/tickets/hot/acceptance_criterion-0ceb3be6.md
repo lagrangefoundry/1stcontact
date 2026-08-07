@@ -6,14 +6,15 @@ title: The edit render carries the same content as the preview render, and the p
   deliberately does not work
 created_by: xgd
 created_at: '2026-08-06T21:25:35.172889+00:00'
-updated_at: '2026-08-06T21:39:10.435645+00:00'
+updated_at: '2026-08-07T18:00:46.642553+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
