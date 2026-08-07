@@ -6,14 +6,15 @@ title: After a successful save the operator's page shows the new words with no f
   step, and stays editable
 created_by: xgd
 created_at: '2026-08-07T02:16:37.837461+00:00'
-updated_at: '2026-08-07T02:36:30.031968+00:00'
+updated_at: '2026-08-07T18:00:29.782437+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
