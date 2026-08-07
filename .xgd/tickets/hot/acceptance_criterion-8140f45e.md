@@ -6,7 +6,7 @@ title: 'The server is read-only: header-only requests are served bodiless and an
   writing method is refused with its allowed set'
 created_by: xgd
 created_at: '2026-08-06T18:49:44.747210+00:00'
-updated_at: '2026-08-07T22:18:29.197436+00:00'
+updated_at: '2026-08-07T22:31:24.052787+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
