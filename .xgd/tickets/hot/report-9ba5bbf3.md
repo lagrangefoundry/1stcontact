@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-16 (REQ-117 + REQ-115 + REQ-44) — builder 
   the copy-edit loop, install preflight'
 created_by: xgd
 created_at: '2026-08-07T01:38:01.780482+00:00'
-updated_at: '2026-08-07T02:58:17.902645+00:00'
+updated_at: '2026-08-07T03:14:14.315486+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -251,7 +251,7 @@ fields:
       a structured code instead of crashing mid-render is the same guarantee applied
       to the environment; no new capability bucket and no parallel command surface
       is introduced.
-    story_uid: null
+    story_uid: story-e15a19ef
 ---
 
 # Reconciliation Plan — BUNDLE-16 (REQ-117 + REQ-115 + REQ-44)
