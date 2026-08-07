@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-07T01:58:14.161676+00:00'
+updated_at: '2026-08-07T03:36:19.239947+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-15c1f647
@@ -82,8 +82,11 @@ the surface where an operator *sees* the site instead.
   a stale page that appears to be working.
 - **Confinement.** Several distinct file trees are served — rendered channels,
   the installed components, the workspace's own browser source — and a request
-  that tries to escape any of them is refused rather than answered, uniformly:
-  the guard cannot be present on one tree and missing on another.
+  that tries to escape any of them is never satisfied: none of the targeted
+  file's contents come back, and every tree behaves identically, so the
+  confinement cannot be present on one tree and missing on another. It works by
+  clamping an escaping path back inside the tree, so such a request is answered
+  as *not found* rather than singled out as forbidden.
 
 **Out of scope**
 
@@ -132,6 +135,17 @@ the surface where an operator *sees* the site instead.
 - **Superseded:** the control app's placeholder response at its root is removed —
   the workspace occupies that route now. No story owned the placeholder, so this
   carries no matrix debt.
+- **Confinement clamps rather than detects, and that is why the refusal reads
+  as "not found".** Every path the origin serves arrives root-relative, and
+  normalising a root-relative path drops its leading traversal segments — so an
+  escaping request resolves to a path that does not exist *inside* the tree and
+  is answered as not found. The shared resolver's explicit forbidden branch is
+  consequently unreachable for URL-derived paths. Security is intact: the
+  targeted file is never served, on any tree. Only the shape of the refusal
+  differs from the more obvious detect-and-reject, and the criterion is written
+  about non-delivery rather than about a status code so that it documents what
+  ships. Making the escape detected explicitly would be a new ticket against
+  this story, not a reconciliation change.
 - **Same-origin is load-bearing for what comes next.** The editing gesture reads
   and binds inside the frame's document; that is only possible because the frame
   is same-origin, which this story establishes.
