@@ -6,9 +6,9 @@ title: A draft deploy ships the complete artifact under a content-addressed prev
   location and returns its shareable URL when the tree is servable
 created_by: xgd
 created_at: '2026-08-06T18:39:17.424059+00:00'
-updated_at: '2026-08-06T20:16:36.174114+00:00'
+updated_at: '2026-08-07T21:56:25.762734+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-5349d01f
@@ -28,18 +28,16 @@ carrying its content id, the time it was deployed, and which published revision
 the draft descended from (or an explicit "none").
 
 The returned shareable URL is qualified by the store tree the definition came
-from. A draft deploy from the servable tree returns a single shareable URL that
-addresses the preview by its content id. A draft deploy from the non-servable
-tree ships and indexes identically — same halves, same content addressing, same
-preview entry — but returns no URL at all, because nothing can serve it.
+from: a draft deploy from the servable tree returns a single shareable URL that
+addresses the preview by its content id. What a deploy from the non-servable tree
+returns instead — the same shipping and indexing, no URL, and a report that says
+why — is AC-925's criterion and is not restated here.
 
 ## Verification
 
-Run the deploy command for a freshly created site against shared storage. Assert
-that both the rendered-output and definition halves are present under the
-content-addressed preview location, that reading back the entry page yields real
-rendered markup, that the deploy index lists exactly one preview entry with the
-returned content id and a "based on" value, and that the returned URL contains
-the slug and that same content id. Repeat for a site in the non-servable tree and
-assert both artifact halves and the preview entry are present exactly as before
-while no URL is returned.
+Run the deploy command for a freshly created site in the servable tree against
+shared storage. Assert that both the rendered-output and definition halves are
+present under the content-addressed preview location, that reading back the entry
+page yields real rendered markup, that the deploy index lists exactly one preview
+entry with the returned content id and a "based on" value, and that the returned
+URL contains the slug and that same content id.
