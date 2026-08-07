@@ -6,14 +6,15 @@ title: 'No edit through this surface can produce raw HTML or CSS: every control 
   either plain text or a pick from a list the surface itself supplied'
 created_by: xgd
 created_at: '2026-08-07T02:02:54.192416+00:00'
-updated_at: '2026-08-07T04:40:28.237674+00:00'
+updated_at: '2026-08-07T19:40:46.126507+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
