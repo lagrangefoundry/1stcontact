@@ -175,7 +175,7 @@ describe('REQ-118 — image selection', () => {
   // assets. The click resolves through the SAME bridge a copy segment uses, and
   // the picker is a closed list of the site's images: a select the user chooses
   // from, never a URL they type.
-  it('test_UAT_FC_REQ-118_clicking_an_image_segment_offers_a_picker_of_the_sites_assets', async () => {
+  it('test_UAT_AC1028_clicking_an_image_segment_offers_a_picker_of_the_sites_assets', async () => {
     const dom = new JSDOM(await editHtml(cwd, 'acme'))
     const img = dom.window.document.querySelector('[data-l1-segment="image"]')!
     const hit = resolveEditTarget(img)!
@@ -390,7 +390,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-118 image selection over the builder orig
 
   const get = (p: string) => fetch(new URL(p, builder.url))
 
-  it('test_UAT_FC_REQ-118_the_modal_reads_its_picker_from_the_same_copy_transport', async () => {
+  it('test_UAT_AC1028_the_modal_reads_its_picker_from_the_same_copy_transport', async () => {
     // AC1/AC3 at the origin: the modal's descriptors for an image arrive over the
     // SAME `/api/copy` call a copy segment uses, carrying the picker's options —
     // so a picker costs no extra round trip and cannot show options that
