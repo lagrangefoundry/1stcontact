@@ -6,14 +6,15 @@ title: An install that lags the committed lockfile is reported even when every d
   still resolves
 created_by: xgd
 created_at: '2026-08-07T03:12:53.439318+00:00'
-updated_at: '2026-08-07T03:22:04.613118+00:00'
+updated_at: '2026-08-07T23:11:09.283020+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 Lockfile drift is a fault in its own right, reported independently of whether the
