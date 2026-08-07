@@ -6,14 +6,15 @@ title: Each response is typed from the object that answered, with unknown extens
   served as generic binary
 created_by: xgd
 created_at: '2026-08-06T18:49:07.892587+00:00'
-updated_at: '2026-08-06T18:59:30.651721+00:00'
+updated_at: '2026-08-07T22:18:24.396749+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
