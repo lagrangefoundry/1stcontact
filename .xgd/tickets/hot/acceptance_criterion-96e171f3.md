@@ -6,14 +6,15 @@ title: The shipped channels carry no edit-channel artefacts, are unchanged by re
   the edit channel, and still work
 created_by: xgd
 created_at: '2026-08-06T21:27:03.522157+00:00'
-updated_at: '2026-08-07T17:02:43.420590+00:00'
+updated_at: '2026-08-07T18:00:54.824781+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
