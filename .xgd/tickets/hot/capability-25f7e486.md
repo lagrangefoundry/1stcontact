@@ -5,12 +5,13 @@ type: capability
 title: 'Edit Render Channel: The Editable Page Surface'
 created_by: xgd
 created_at: '2026-08-06T21:24:28.756773+00:00'
-updated_at: '2026-08-06T21:24:28.756773+00:00'
+updated_at: '2026-08-07T16:03:48.647383+00:00'
 completed_at: null
-last_field_updated: created_at
-status: active
+last_field_updated: status
+status: superseded
 fields:
   name: edit_render_channel
+  superseded_by_uid: capability-12fee326
 ---
 
 # Capability: Edit Render Channel — The Editable Page Surface
