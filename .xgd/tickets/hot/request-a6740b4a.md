@@ -14,9 +14,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: 4cb83ec68b9d4dd7d5090a8ed1aae97b39392e7e
+  - working_sha: fb4b08e99c5ccc54ac289aad74fcca4797a501cc
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - 4cb83ec68b9d4dd7d5090a8ed1aae97b39392e7e
   version: 0.1.15
   story_points: 8
 ---
