@@ -1,0 +1,289 @@
+// @vitest-environment jsdom
+/**
+ * story-e674c60a — **the workspace mounted against its own real origin**.
+ *
+ * Two criteria need both halves at once: a workspace mounted out of the REAL
+ * `@gendevlabs/webui-*` components, and a live builder origin serving a real
+ * store. The chrome suite (jsdom) has no origin, and the origin suite (node)
+ * has no DOM, so the criteria whose subject is the seam between them —
+ * AC-1029's registered editable mode, AC-972's publish of the *displayed*
+ * site — live here.
+ *
+ * The discipline is the one the sibling suites follow (story Technical
+ * Context): the components arrive from an out-of-band install, so the half of
+ * each criterion that needs no components is asserted UNCONDITIONALLY against
+ * the real origin, and the half that needs the mounted chrome reports itself as
+ * unverified out loud rather than passing quietly. Components are never mocked
+ * and no stand-in panel is ever substituted — a stand-in would prove nothing
+ * about the mode the shipped workspace actually registers.
+ */
+
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import {
+  cmdNew,
+  cmdPublish,
+  cmdRender,
+  cmdRevisions,
+  startBuilder,
+  type BuilderHandle,
+} from '../tools/generate/src/cli'
+
+const REPO = path.resolve(__dirname, '..')
+
+/** The listing the workspace is mounted over — `alpha` first, so it opens there. */
+const SITES = [
+  { slug: 'alpha', latest: null },
+  { slug: 'beta', latest: null },
+]
+
+if (!WEBUI_INSTALLED) console.warn(`story-e674c60a mounted suites: ${WEBUI_SKIP_REASON}`)
+
+/** A loud report for evidence this machine genuinely cannot produce. */
+function unverified(what: string): void {
+  console.warn(`story-e674c60a: ${what} NOT VERIFIED here — ${WEBUI_SKIP_REASON}`)
+}
+
+/** A `Storage`-shaped map, so a mount never leaks state into the next one. */
+function memoryStorage() {
+  const map = new Map<string, string>()
+  return {
+    map,
+    getItem: (k: string) => map.get(k) ?? null,
+    setItem: (k: string, v: string) => void map.set(k, String(v)),
+    removeItem: (k: string) => void map.delete(k),
+    clear: () => map.clear(),
+    key: (i: number) => [...map.keys()][i] ?? null,
+    get length() {
+      return map.size
+    },
+  }
+}
+
+/** Two real sites, each rendered in the draft and edit channels. */
+async function makeWorkspace(): Promise<string> {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-e674c60a-mounted-'))
+  for (const slug of ['alpha', 'beta']) {
+    cmdNew(slug, { cwd })
+    await cmdRender(slug, { cwd, source: 'draft' })
+    await cmdRender(slug, { cwd, edit: true })
+  }
+  return cwd
+}
+
+/**
+ * `app.js` imports the components by bare specifier, so it is loaded
+ * dynamically: on a machine without them a static import would fail the whole
+ * file at transform time rather than reporting a skip. `api.js` imports
+ * nothing, so the address helpers load everywhere.
+ */
+let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
+let previewUrl: (slug: string, channel: string) => string
+let publishSite: (slug: string, fetchImpl?: typeof fetch) => Promise<{ id: number }>
+
+describe('story-e674c60a workspace mounted over its origin', () => {
+  let cwd: string
+  let builder: BuilderHandle
+  let root: HTMLElement
+
+  beforeAll(async () => {
+    if (WEBUI_INSTALLED) {
+      ;({ mountBuilder } = await import('../apps/control-app/src/builder/app.js'))
+    }
+    ;({ previewUrl, publishSite } = (await import(
+      '../apps/control-app/src/builder/api.js'
+    )) as {
+      previewUrl: typeof previewUrl
+      publishSite: typeof publishSite
+    })
+    // jsdom ships neither; the split primitive observes its container.
+    globalThis.ResizeObserver ??= class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as never
+    globalThis.matchMedia ??= ((q: string) => ({
+      matches: false,
+      media: q,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      onchange: null,
+      dispatchEvent: () => false,
+    })) as never
+
+    cwd = await makeWorkspace()
+    builder = await startBuilder({
+      cwd,
+      clientDir: path.join(REPO, 'apps/control-app/src/builder'),
+    })
+  }, 180000)
+
+  afterAll(async () => {
+    await builder?.close()
+    if (cwd) fs.rmSync(cwd, { recursive: true, force: true })
+  })
+
+  beforeEach(() => {
+    document.body.replaceChildren()
+    root = document.createElement('div')
+    document.body.append(root)
+  })
+
+  /** The workspace's own addresses are root-relative; jsdom is not that origin. */
+  const get = (p: string, init?: RequestInit) => fetch(new URL(p, builder.url), init)
+  /** The real client publish call, aimed at the real origin over real HTTP. */
+  const originFetch = ((input: string, init?: RequestInit) =>
+    get(input, init)) as unknown as typeof fetch
+
+  const onDisk = (slug: string, channel: string) =>
+    fs.readFileSync(path.join(cwd, `storage/dist/sites/${slug}/${channel}/index.html`), 'utf8')
+
+  it('test_UAT_AC1029_workspace_registers_an_editable_mode_showing_the_edit_channel', async () => {
+    // AC-1029 — the shipped workspace registers an EDITABLE mode of its own.
+    // AC-968 and AC-969 are deliberately mode-agnostic and a workspace shipping
+    // no editable mode would satisfy both; this is what makes the mode contract
+    // true of two real modes rather than one real and one hypothetical.
+    //
+    // First the half that needs no components: the address such a mode points
+    // at is a distinct channel, and this origin serves that site's real edit
+    // rendering there.
+    const editUrl = previewUrl('alpha', 'edit')
+    const viewUrl = previewUrl('alpha', 'draft')
+    expect(editUrl).not.toBe(viewUrl)
+
+    const editRes = await get(editUrl)
+    expect(editRes.status).toBe(200)
+    const editBody = await editRes.text()
+    expect(editBody).toBe(onDisk('alpha', 'edit'))
+    // Genuinely the edit rendering, not the ordinary channel served twice.
+    const viewBody = await (await get(viewUrl)).text()
+    expect(editBody).not.toBe(viewBody)
+    expect(viewBody).toBe(onDisk('alpha', 'draft'))
+
+    if (!WEBUI_INSTALLED) {
+      unverified(
+        "the workspace's OWN registration of the editable mode (the chrome needs the components)",
+      )
+      return
+    }
+
+    // …and now the claim itself, against the shipped workspace. No mode is
+    // registered here: every mode below came out of `mountBuilder`.
+    const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
+    const offered = app.panel.getModes().map((m: { id: string }) => m.id)
+    expect(offered).toContain('view')
+    expect(offered).toContain('edit')
+
+    expect(app.panel.getMode()).toBe('view')
+    expect(app.panel.getSite()).toBe('alpha')
+    expect(app.panel.getSrc()).toBe(viewUrl)
+
+    // Selecting it displays the current site's edit channel — a different
+    // address from the one the view mode shows for that same site…
+    app.panel.setMode('edit')
+    expect(app.panel.getMode()).toBe('edit')
+    expect(app.panel.getSrc()).toBe(editUrl)
+    expect(app.panel.frame.getAttribute('src')).toBe(editUrl)
+    expect(app.panel.getSrc()).not.toBe(viewUrl)
+    // …and fetching the address the pane is DISPLAYING over the workspace
+    // origin returns that site's edit rendering.
+    expect(await (await get(app.panel.getSrc())).text()).toBe(onDisk('alpha', 'edit'))
+
+    // Mode and site COMPOSE: with the editable mode still active, choosing a
+    // different site follows to that site's edit channel.
+    app.panel.setSite('beta')
+    expect(app.panel.getMode()).toBe('edit')
+    expect(app.panel.getSrc()).toBe(previewUrl('beta', 'edit'))
+    expect(await (await get(app.panel.getSrc())).text()).toBe(onDisk('beta', 'edit'))
+
+    // Switching back returns to the ordinary channel of the site now selected.
+    app.panel.setMode('view')
+    expect(app.panel.getSrc()).toBe(previewUrl('beta', 'draft'))
+    expect(await (await get(app.panel.getSrc())).text()).toBe(onDisk('beta', 'draft'))
+
+    app.destroy()
+  })
+
+  it('test_UAT_AC972_publish_creates_a_revision_for_the_displayed_site', async () => {
+    // AC-972 — publish acts on the site currently displayed, not a default, and
+    // adds no semantics of its own.
+    //
+    // The transport half first, on every machine: the origin's publish
+    // operation is the platform's own `publish`, reached over HTTP.
+    expect(cmdRevisions('beta', { cwd })).toHaveLength(0)
+    expect(cmdRevisions('alpha', { cwd })).toHaveLength(0)
+
+    const res = await get('/api/publish', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug: 'beta', message: 'from the workspace' }),
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ id: 1 })
+
+    // A new entry in THAT site's history — and the other site is untouched.
+    const revisions = cmdRevisions('beta', { cwd })
+    expect(revisions).toHaveLength(1)
+    expect(revisions[0]).toMatchObject({ id: 1, message: 'from the workspace' })
+    expect(cmdRevisions('alpha', { cwd })).toHaveLength(0)
+
+    // Locked in the same form a command-line publish produces: an immutable
+    // snapshot directory holding the draft as it was. Proven by publishing
+    // `alpha` through the CLI path and comparing the two revisions' shapes.
+    const viaWorkspace = path.join(cwd, 'storage/sites/beta/revisions/0001')
+    expect(fs.existsSync(viaWorkspace)).toBe(true)
+    await cmdPublish('alpha', { cwd, message: 'from the cli' })
+    const viaCli = path.join(cwd, 'storage/sites/alpha/revisions/0001')
+    expect(fs.readdirSync(viaWorkspace).sort()).toEqual(fs.readdirSync(viaCli).sort())
+    expect(Object.keys(cmdRevisions('beta', { cwd })[0]).sort()).toEqual(
+      Object.keys(cmdRevisions('alpha', { cwd })[0]).sort(),
+    )
+
+    // The published channel was rendered, and the workspace origin serves it.
+    const published = path.join(cwd, 'storage/dist/sites/beta/published/index.html')
+    expect(fs.existsSync(published)).toBe(true)
+    const servedRes = await get('/preview/beta/published/')
+    expect(servedRes.status).toBe(200)
+    expect(await servedRes.text()).toBe(fs.readFileSync(published, 'utf8'))
+
+    if (!WEBUI_INSTALLED) {
+      unverified(
+        'the DISPLAYED-site half — publish invoked from the mounted workspace toolbar ' +
+          '(the chrome needs the components)',
+      )
+      return
+    }
+
+    // …and the load-bearing clause: the slug reaching the platform's publish
+    // path is the one the PANE IS DISPLAYING. The control is clicked, not
+    // called; the publish handed to the workspace is the app's own
+    // `publishSite`, aimed at the real origin — nothing about the request is
+    // written by hand here, so a regression sending `sites[0].slug` or a stale
+    // captured slug would publish `alpha` and fail below.
+    const app = mountBuilder(root, {
+      sites: SITES,
+      storage: memoryStorage(),
+      publish: (slug: string) => publishSite(slug, originFetch),
+    })
+    // The workspace opens on the FIRST site, so `beta` below is a selection the
+    // operator made rather than the default.
+    expect(app.panel.getSite()).toBe('alpha')
+    app.panel.setSite('beta')
+    expect(app.panel.getSite()).toBe('beta')
+
+    ;(app.toolbar.get('publish') as HTMLButtonElement).click()
+
+    await vi.waitFor(() => expect(cmdRevisions('beta', { cwd })).toHaveLength(2))
+    // The site the workspace was NOT displaying gained nothing.
+    expect(cmdRevisions('alpha', { cwd })).toHaveLength(1)
+    // …and the published channel of the displayed site is re-rendered and served.
+    expect((await get('/preview/beta/published/')).status).toBe(200)
+
+    app.destroy()
+  })
+})

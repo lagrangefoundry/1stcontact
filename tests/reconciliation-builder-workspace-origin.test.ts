@@ -31,7 +31,6 @@ import {
   cmdNew,
   cmdPublish,
   cmdRender,
-  cmdRevisions,
   startBuilder,
   webuiExports,
   webuiPackageDir,
@@ -113,47 +112,15 @@ describe('story-e674c60a builder origin', () => {
     }
   })
 
-  it('test_UAT_AC972_publish_creates_a_revision_for_the_displayed_site', async () => {
-    // AC-972 — publish acts on the site currently displayed, not a default, and
-    // adds no semantics of its own. `beta` is deliberately NOT the site the
-    // panel opens on (`alpha` is first in the listing), so a publish that
-    // ignored the selection would be caught here.
-    expect(cmdRevisions('beta', { cwd })).toHaveLength(0)
-    expect(cmdRevisions('alpha', { cwd })).toHaveLength(0)
-
-    const res = await get('/api/publish', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ slug: 'beta', message: 'from the workspace' }),
-    })
-    expect(res.status).toBe(200)
-    expect(await res.json()).toMatchObject({ id: 1 })
-
-    // A new entry in THAT site's history — and the other site is untouched.
-    const revisions = cmdRevisions('beta', { cwd })
-    expect(revisions).toHaveLength(1)
-    expect(revisions[0]).toMatchObject({ id: 1, message: 'from the workspace' })
-    expect(cmdRevisions('alpha', { cwd })).toHaveLength(0)
-
-    // Locked in the same form a command-line publish produces: an immutable
-    // snapshot directory holding the draft as it was. Proven by publishing
-    // `alpha` through the CLI path and comparing the two revisions' shapes.
-    const viaWorkspace = path.join(cwd, 'storage/sites/beta/revisions/0001')
-    expect(fs.existsSync(viaWorkspace)).toBe(true)
-    await cmdPublish('alpha', { cwd, message: 'from the cli' })
-    const viaCli = path.join(cwd, 'storage/sites/alpha/revisions/0001')
-    expect(fs.readdirSync(viaWorkspace).sort()).toEqual(fs.readdirSync(viaCli).sort())
-    expect(Object.keys(cmdRevisions('beta', { cwd })[0]).sort()).toEqual(
-      Object.keys(cmdRevisions('alpha', { cwd })[0]).sort(),
-    )
-
-    // The published channel was rendered, and the workspace origin serves it.
-    const published = path.join(cwd, 'storage/dist/sites/beta/published/index.html')
-    expect(fs.existsSync(published)).toBe(true)
-    const servedRes = await get('/preview/beta/published/')
-    expect(servedRes.status).toBe(200)
-    expect(await servedRes.text()).toBe(fs.readFileSync(published, 'utf8'))
-  })
+  /**
+   * AC-972 lives in `reconciliation-builder-workspace-mounted.test.ts`.
+   *
+   * Its load-bearing clause is that publish acts on the site the pane is
+   * DISPLAYING, which cannot be shown from here: proving it means clicking the
+   * workspace's own control, and this file has no DOM. That suite starts the
+   * same real origin under jsdom and keeps every assertion this one used to
+   * make, so nothing moved out of the unconditional path.
+   */
 
   it('test_UAT_AC979_unknown_channel_or_component_is_answered_as_not_found', async () => {
     // AC-979 — never satisfied from a neighbouring directory, never a success
