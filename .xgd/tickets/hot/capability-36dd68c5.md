@@ -5,7 +5,7 @@ type: capability
 title: 1c Gradient Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:27:46.207925+00:00'
-updated_at: '2026-08-07T15:27:38.052143+00:00'
+updated_at: '2026-08-07T15:31:49.210795+00:00'
 completed_at: null
 last_field_updated: status
 status: deprecated
