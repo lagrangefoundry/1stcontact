@@ -29,6 +29,10 @@ import {
   L1_EDIT_SEGMENT_ATTR as FW_SEGMENT_ATTR,
 } from '../packages/framework/src/index'
 import type { L1Node } from '../packages/site-schema/src/index'
+// The behavior catalog itself — AC-954's obligation is on it, so the seam test
+// iterates the registry rather than a hand-maintained list of module names.
+import { registry } from '../packages/framework/src/modules/registry'
+import type { BehaviorDefinition } from '../packages/framework/src/modules/behavior'
 
 /**
  * story-af36c2cb — **the edit render**: a third render channel that deliberately
@@ -167,8 +171,13 @@ function seedPage(cwd: string, slug: string): Record<string, unknown> {
 // ── the catalog's presentation seams ─────────────────────────────────────────
 //
 // AC-954 is an obligation on the CATALOG, not on the first module that happened
-// to need it: every module exposing a seam marks it. This table is the catalog's
-// seams, so a module added later without a marker fails the criterion rather
+// to need it: every module exposing a seam marks it, "and for any module added
+// after them". A hand-maintained table cannot say that on its own — a third
+// module with no entry would simply never be exercised, which is silence, not
+// evidence. So the table below carries only what a fixture genuinely cannot
+// derive (the config a module requires, the shape of its seam value, and the
+// resulting addresses), and {@link seamCaseFor} makes the CATALOG the index:
+// the test iterates `registry`, and a module without a case fails loudly rather
 // than quietly shipping copy nobody can address.
 
 /** The two items of copy mounted into whichever seam is under test. */
@@ -230,6 +239,36 @@ const SEAM_CASES: SeamCase[] = [
     addresses: ['0.0', '0.1'],
   },
 ]
+
+/**
+ * The seam case for one catalog entry — the point at which the CATALOG, not this
+ * file, decides what gets exercised.
+ *
+ * A module in `registry` that declares a slot and has no case here throws, so
+ * adding a behavior module to the catalog without extending this table fails
+ * AC-954 instead of passing it by omission. The declared-slot check is the same
+ * guard pointed the other way: a case naming a seam its module does not declare
+ * would exercise nothing while looking like coverage.
+ */
+function seamCaseFor(def: BehaviorDefinition): SeamCase {
+  const { id, version, slots } = def.meta
+  const found = SEAM_CASES.find((c) => c.type === id && c.version === version)
+  if (!found) {
+    throw new Error(
+      `AC-954: behavior '${id}@${version}' exposes seam(s) ${Object.keys(slots)
+        .map((s) => `'${s}'`)
+        .join(', ')} but has no SEAM_CASES entry, so its seam marker is unproven. ` +
+        `Add one — the criterion holds "for any module added after" the first two.`,
+    )
+  }
+  if (!(found.slot in slots)) {
+    throw new Error(
+      `AC-954: SEAM_CASES entry for '${id}@${version}' names seam '${found.slot}', ` +
+        `which the module does not declare (declared: ${Object.keys(slots).join(', ')}).`,
+    )
+  }
+  return found
+}
 
 /** A fresh site whose home page mounts `seam`'s module with two items of copy. */
 function seedSeamPage(cwd: string, slug: string, seam: SeamCase): Record<string, unknown> {
@@ -590,7 +629,32 @@ describe('story-af36c2cb — the edit render channel', () => {
   // inside an unmarked seam carries an address that cannot be told apart from a
   // page-rooted one and is therefore unresolvable.
   it('test_UAT_AC954_seam_content_is_addressable_rooted_at_the_behavior_instance', async () => {
-    for (const seam of SEAM_CASES) {
+    // "For each module in the catalog that exposes a presentation seam" — read
+    // from the catalog itself, so the loop's membership is the registry's and
+    // not this file's. Every entry currently declares slots; a future behavior
+    // with none is legitimately not a seam case and drops out here.
+    const catalog = [...registry.values()].filter((d) => Object.keys(d.meta.slots).length > 0)
+    expect(catalog.length, 'the catalog must expose at least one seam to prove').toBeGreaterThan(0)
+
+    // The guard discriminates before it is relied on: a module the catalog could
+    // hold tomorrow, with a seam and no case, fails here rather than passing by
+    // never being iterated. Without this, "every module in the catalog" is a
+    // claim the loop cannot make.
+    const newcomer = {
+      meta: { ...catalog[0].meta, id: 'a-module-added-after-them', version: 1 },
+      Component: catalog[0].Component,
+    } as BehaviorDefinition
+    expect(() => seamCaseFor(newcomer)).toThrow(/no SEAM_CASES entry/)
+    // And a case pointed at a seam its module does not declare is caught too, so
+    // an entry cannot survive a module renaming its slot out from under it.
+    const drifted = {
+      meta: { ...catalog[0].meta, slots: { 'renamed-seam': { required: true } } },
+      Component: catalog[0].Component,
+    } as BehaviorDefinition
+    expect(() => seamCaseFor(drifted)).toThrow(/does not declare/)
+
+    for (const def of catalog) {
+      const seam = seamCaseFor(def)
       const site = `seam-${seam.type}`
       const page = seedSeamPage(cwd, site, seam)
       const render = await cmdRender(site, { cwd, edit: true })

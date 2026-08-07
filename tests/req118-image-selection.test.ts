@@ -26,7 +26,6 @@ import { run } from '../tools/generate/src/cli'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli'
 import { resolveEditTarget } from '../packages/framework/src/l1/edit-client'
 import type { L1Node } from '@1stcontact/site-schema'
-import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const REPO = path.resolve(__dirname, '..')
 
@@ -362,9 +361,23 @@ describe('REQ-118 — image selection', () => {
   })
 })
 
-if (!WEBUI_INSTALLED) console.warn(`REQ-118 origin suite skipped: ${WEBUI_SKIP_REASON}`)
-
-describe.skipIf(!WEBUI_INSTALLED)('REQ-118 image selection over the builder origin', () => {
+/**
+ * Deliberately UNGATED on `WEBUI_INSTALLED`.
+ *
+ * Every test below is a plain fetch against the builder origin — `/api/copy`,
+ * `/api/assets`, `/preview/…` — and `startBuilder` binds a port without touching
+ * a component. The only route in `handleBuilderRequest` that needs
+ * `@gendevlabs/webui-*` is `GET /`, which builds the chrome document via
+ * `chromeHtml()`; nothing here requests it. Gating the whole suite on the
+ * components therefore withheld evidence this machine can produce for a reason
+ * that does not apply to it — in particular AC-1028's transport clause ("the
+ * modal obtains these choices over the same copy transport a copy edit uses"),
+ * which is measured by a bare `GET /api/copy` and needs no mounted modal.
+ *
+ * If a test in here ever mounts a real component or fetches `/`, gate THAT test
+ * with `it.skipIf(!WEBUI_INSTALLED)` — not the describe.
+ */
+describe('REQ-118 image selection over the builder origin', () => {
   let cwd: string
   let builder: BuilderHandle
   let pageId: string
