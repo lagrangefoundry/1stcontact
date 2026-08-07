@@ -6,14 +6,15 @@ title: A change map naming a field the region does not have, a value that is not
   or a choice the region never offered, is refused rather than ignored
 created_by: xgd
 created_at: '2026-08-07T02:02:40.679901+00:00'
-updated_at: '2026-08-07T04:40:08.788578+00:00'
+updated_at: '2026-08-07T19:40:43.410494+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
