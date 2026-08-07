@@ -6,7 +6,7 @@ title: Deploying the published channel ships the site's current latest revision 
   moves the live pointer
 created_by: xgd
 created_at: '2026-08-06T18:39:35.857429+00:00'
-updated_at: '2026-08-06T20:15:17.374469+00:00'
+updated_at: '2026-08-07T21:56:33.715493+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -25,14 +25,14 @@ listed with its own identifier, its publish timestamp, its publish message and
 the content id of the bytes shipped; and the index's live pointer names that
 revision. The returned result carries the revision number, and — for a site in
 the servable store tree — the returned URL is the site's plain published URL (no
-snapshot id segment). A published deploy from the non-servable tree ships and
-indexes the same way in its own tree, and returns no URL.
+snapshot id segment). The non-servable tree behaves as AC-925 states, on this
+channel as on the draft one.
 
 ## Verification
 
-Create a site, publish a revision with a message, then deploy with the published
-channel. Assert that both artifact halves are readable under the revision's
-location, that the deploy index's live pointer names that revision, that the
-index's revision entry carries the original publish timestamp and message plus
-the shipped content id, that the result reports the revision number, and that the
-returned URL is the site URL with no snapshot segment.
+Create a site in the servable tree, publish a revision with a message, then
+deploy with the published channel. Assert that both artifact halves are readable
+under the revision's location, that the deploy index's live pointer names that
+revision, that the index's revision entry carries the original publish timestamp
+and message plus the shipped content id, that the result reports the revision
+number, and that the returned URL is the site URL with no snapshot segment.
