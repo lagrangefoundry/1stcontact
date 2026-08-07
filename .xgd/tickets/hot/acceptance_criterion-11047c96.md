@@ -6,14 +6,15 @@ title: The check spans every site tree, including the scratch tree where capture
   sites land, and attributes each violation to the tree and site that caused it
 created_by: xgd
 created_at: '2026-08-06T03:30:40.978869+00:00'
-updated_at: '2026-08-06T03:38:15.143567+00:00'
+updated_at: '2026-08-07T18:45:02.869124+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8685be2d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
