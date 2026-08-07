@@ -6,14 +6,15 @@ title: A region that exposes nothing answers with an empty field list and succee
   rather than failing
 created_by: xgd
 created_at: '2026-08-07T02:02:08.300539+00:00'
-updated_at: '2026-08-07T04:40:34.407022+00:00'
+updated_at: '2026-08-07T19:40:36.383862+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
