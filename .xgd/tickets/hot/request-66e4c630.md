@@ -5,9 +5,9 @@ type: request
 title: 'Image selection: click image segment → asset picker → structured src edit'
 created_by: xgd
 created_at: '2026-07-31T20:43:35.481921+00:00'
-updated_at: '2026-08-07T01:09:24.289383+00:00'
+updated_at: '2026-08-07T01:09:29.377964+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.24
+  story_points: 3
 ---
 
 ## What this builds
