@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-121
 created_by: xgd
 created_at: '2026-08-07T23:27:57.846264+00:00'
-updated_at: '2026-08-07T23:38:49.217109+00:00'
+updated_at: '2026-08-07T23:43:22.669005+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -92,5 +92,38 @@ Agree on size - lets see how it translates -  we can also make the model bigger 
 
 1. Sure show me and we can iterate
 2. See my note - try the reduced size, but I think the current box is too small for any decent sized text chunk
+
+<!-- xgd-turn id="fb5f4263-e290-4b57-981d-44fbbe6450ac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-07T23:43:22.538710+00:00" -->
+#### Claude
+Good — let me check that repo's ticketing conventions before filing.
+
+The ticket landed in the wrong store — the session pins the workspace to 1stcontact. Let me fix that.
+
+That's the right store now. Creating both tickets there:
+
+Both filed upstream, and I cleaned up the stray. Now the scope ticket:
+
+Filed upstream in `lagrange-framework`, as two tickets — the two gaps are in different components with different shapes, and one of them is bigger than I first described:
+
+**REQ-68 — `webui-shell`: `font` / `fontMono` tokens.** The one you flagged. `TOKEN_NAMES` is nine entries, all colour/metric, none typographic, while `shell.css` pins `font-family: system-ui…` outright. Asks for the current stacks as defaults so nothing changes for a host that supplies neither. I threw in `fontMono` because `fields.css` hardcodes a mono stack in two places (hex swatches, uids).
+
+**REQ-69 — `webui-fields`: control typography + a label-less layout.** This one grew once I looked properly. `fields.css` is already *almost* right by design — `.fields-control` is `font: inherit` + `color: inherit`, background is `var(--fields-bg, …)` — so family, colour and background already follow the host wrapper with no API at all. Four literals stop short:
+
+- `.fields { font-size: 13px }` — pinned, so `font: inherit` on the control can never deliver a size. This is the one that actually blocks item 5: previewing a headline and body copy at the same 13px defeats the point.
+- `.fields-control { border-radius: 4px }` — literal, doesn't reach for `--shell-radius`.
+- `.fields-control-textarea { min-height: 4.5rem }` — literal, and right for a property sheet but far too small for a copy editor. This is your "current box is too small".
+- `index.js:173` always emits the label into a `minmax(4.5rem, 7.5rem)` column — no way to suppress it. Asked for `layout: 'stacked'`, with the label kept as the accessible name.
+
+I asked for wrapper-level tokens rather than per-field styling, and said so explicitly — our text segment has one field, and the image segment's `src`/`alt` don't want page typography.
+
+One correction to log: the first create landed in the 1stcontact store as REQ-124, because the session pins `XGD_PROJECT_ROOT` and `cd` doesn't move it. I archived it and re-created both with the env overridden.
+
+**REQ-121** is now scoped with the full behaviour — including your sizing note (panel grows, editing area tall and resizable, footer stays reachable) and both upstream tickets recorded as blocking.
+
+**Fonts** — I've opened `/tmp/req121-font-preview.html` in your browser. It's the proposed modal (no heading, no label column, accent-bordered box, themed CTAs) rendered in IBM Plex Sans / General Sans / Geist, plus a fourth panel showing what it looks like today, and a theme toggle. The editing box is deliberately in a *page* face (Playfair) so you can see the chrome/content contrast — and the headline sample is clamped from a notional 56px down to 30px, which is the clamp behaviour in the flesh. There's a body-copy panel at the bottom at a more realistic box size.
+
+Tell me which font, and whether the clamp reads right, and I'll hold until REQ-68/69 land.
 
 <!-- xgd-chat-end -->
