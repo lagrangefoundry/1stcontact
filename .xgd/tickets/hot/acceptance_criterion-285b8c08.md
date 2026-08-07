@@ -6,14 +6,15 @@ title: Publishing from the workspace produces a new revision of the displayed si
   through the platform's existing publish path, and the published result is served
 created_by: xgd
 created_at: '2026-08-07T01:44:45.365275+00:00'
-updated_at: '2026-08-07T01:58:16.844609+00:00'
+updated_at: '2026-08-07T21:19:43.776902+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
