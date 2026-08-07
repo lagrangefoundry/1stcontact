@@ -6,9 +6,9 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-07T17:02:27.588087+00:00'
+updated_at: '2026-08-07T17:25:14.523398+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-15c1f647
@@ -66,7 +66,10 @@ filling in a form — are the operator's.
   region kind that gains fields reaches the operator through this same loop with
   nothing here to change — which is exactly how image selection arrived. One
   confirmed form is **one change** no matter how many fields it held, so the
-  operator's Save is the single moment anything is written.
+  operator's Save is the single moment anything is written — and a form the
+  operator changed nothing in is not an edit at all: confirming it and
+  cancelling it are the same answer, with nothing written and nothing
+  re-rendered. Opening a form to look is not an edit.
 - **The page updating.** A successful Save leaves the operator looking at their
   page with the change on it — the new words, the chosen image — with no further
   step to take, and the gesture still live on the page they are now looking at:
