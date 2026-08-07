@@ -6,10 +6,10 @@ title: 'A page being viewed behaves exactly as published: nothing is highlighted
   nothing is intercepted, no form opens'
 created_by: xgd
 created_at: '2026-08-07T02:17:09.671496+00:00'
-updated_at: '2026-08-07T02:17:09.671496+00:00'
+updated_at: '2026-08-07T02:36:27.643403+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
