@@ -6,14 +6,15 @@ title: The nothing-to-edit message is dismissible by its button, by Escape and b
   clicking the backdrop, leaving nothing behind
 created_by: xgd
 created_at: '2026-08-07T02:16:56.041410+00:00'
-updated_at: '2026-08-07T02:36:28.758287+00:00'
+updated_at: '2026-08-07T18:00:33.379534+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
