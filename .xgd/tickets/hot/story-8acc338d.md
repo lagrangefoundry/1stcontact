@@ -6,16 +6,16 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-06T01:59:30.480231+00:00'
+updated_at: '2026-08-07T23:54:28.638205+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: updated
 fields:
   intent_uid: bundle-31e474b9
   capability_uid: capability-2049c9ec
   story_kind: upgrade
   story_points: 3
-  uat_coverage: needs_review
+  uat_coverage: stale
   updated_by: bundle-ee56a66e
 ---
 
