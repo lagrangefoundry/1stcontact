@@ -15,12 +15,16 @@ fields:
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 10771a22bcdb05d24caf990feb41e3c34bd00c3f
+  - working_sha: b37afa2cccec1e11501cd5735b7ecf2d81e3a2a1
     reconcile_sha: null
     main_sha: null
-  - working_sha: a7fbde3b3be9bfd1d9efb0815172f62f1e0f2552
+    working_sha_history:
+    - 10771a22bcdb05d24caf990feb41e3c34bd00c3f
+  - working_sha: 6493570b7e572628b6e5ec0c65db13f3ccb521a1
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - a7fbde3b3be9bfd1d9efb0815172f62f1e0f2552
   version: 0.1.16
 ---
 
