@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: REQ-118 image selection through the copy edit loop'
 created_by: xgd
 created_at: '2026-08-07T04:26:09.619817+00:00'
-updated_at: '2026-08-07T04:26:09.619817+00:00'
+updated_at: '2026-08-07T04:30:52.517993+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-66e4c630
@@ -42,7 +42,7 @@ fields:
       copy-editing story without inventing a bucket there. User-visible capability
       documented: the operator (and DOC-28 §9.2''s asset browser mode) can ask a site
       what assets it has, and get the truth rather than the registry''s partial view.'
-    story_uid: null
+    story_uid: story-c46abfa6
   - index: 2
     component: Structured Copy Editing — image selection through the same write path
     item_type: upgrade
