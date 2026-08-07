@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Terminal-fails on a stale reference with re-capture guidance
 created_by: xgd
 created_at: '2026-07-19T02:51:32.220234+00:00'
-updated_at: '2026-08-05T23:13:23.552174+00:00'
+updated_at: '2026-08-07T23:11:34.572736+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
