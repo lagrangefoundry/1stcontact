@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-16 (REQ-117 + REQ-115 + REQ-44) — builder 
   the copy-edit loop, install preflight'
 created_by: xgd
 created_at: '2026-08-07T01:38:01.780482+00:00'
-updated_at: '2026-08-07T01:38:01.780482+00:00'
+updated_at: '2026-08-07T01:45:40.467273+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-15c1f647
@@ -51,7 +51,7 @@ fields:
       servers, not a builder origin, a shell, a mode registry or a toolbar. This is
       a genuinely new capability bucket: the operator-facing surface on which a site
       is edited.'
-    story_uid: null
+    story_uid: story-e674c60a
   - index: 2
     component: Structured copy-edit write path (`1c copy`, /api/copy)
     item_type: feature
