@@ -6,10 +6,10 @@ title: A declared asset contributes its identity and description, and is listed 
   with no file present
 created_by: xgd
 created_at: '2026-08-07T04:29:40.678466+00:00'
-updated_at: '2026-08-07T04:29:40.678466+00:00'
+updated_at: '2026-08-07T04:36:50.711055+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c46abfa6
   kind: behavior
