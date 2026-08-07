@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: An extensionless path with no page behind it still returns not-found
 created_by: xgd
 created_at: '2026-08-06T19:02:55.412840+00:00'
-updated_at: '2026-08-06T19:13:57.636170+00:00'
+updated_at: '2026-08-07T22:18:36.998001+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-66115f6b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
