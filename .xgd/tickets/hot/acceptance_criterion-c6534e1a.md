@@ -6,7 +6,7 @@ title: values-diff --size compares at the selected viewport width (reference fro
   ladder, actual rendered there)
 created_by: xgd
 created_at: '2026-07-19T02:37:04.031386+00:00'
-updated_at: '2026-08-05T23:13:35.212711+00:00'
+updated_at: '2026-08-07T23:11:51.240837+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -14,7 +14,7 @@ fields:
   story_uid: story-16f2793c
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
