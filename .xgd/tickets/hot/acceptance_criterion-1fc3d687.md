@@ -6,14 +6,15 @@ title: The server addresses exactly one store tree, fixed in the server and neve
   derived from a request
 created_by: xgd
 created_at: '2026-08-06T20:25:46.791904+00:00'
-updated_at: '2026-08-06T20:33:50.160521+00:00'
+updated_at: '2026-08-07T22:18:46.409185+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
