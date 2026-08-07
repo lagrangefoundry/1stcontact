@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-16 (REQ-117 + REQ-115 + REQ-44) — builder 
   the copy-edit loop, install preflight'
 created_by: xgd
 created_at: '2026-08-07T01:38:01.780482+00:00'
-updated_at: '2026-08-07T02:17:41.029225+00:00'
+updated_at: '2026-08-07T02:44:11.734965+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -164,7 +164,7 @@ fields:
       — the editor UI that consumes these stamps is items 1–3, and the edit render
       itself gains no new purpose, only the remaining coordinate and vocabulary its
       own ACs (AC-953, AC-954) already presuppose.
-    story_uid: null
+    story_uid: story-af36c2cb
   - index: 5
     component: L1 geometry — a nowrap run's captured width is a floor
     item_type: upgrade
