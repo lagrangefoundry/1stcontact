@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-16 (REQ-117 + REQ-115 + REQ-44) — builder 
   the copy-edit loop, install preflight'
 created_by: xgd
 created_at: '2026-08-07T01:38:01.780482+00:00'
-updated_at: '2026-08-07T02:03:25.075040+00:00'
+updated_at: '2026-08-07T02:17:41.029225+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -118,7 +118,7 @@ fields:
       hosts it (item 1) and the write path it drives (item 2): its failure modes (stale
       render, fieldless segment, undismissable modal, View-mode interception, innermost
       resolution) are observable only at the gesture.'
-    story_uid: null
+    story_uid: story-3bf94bd4
   - index: 4
     component: Edit render channel — page stamp, hover vocabulary, module seams
     item_type: upgrade
