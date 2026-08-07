@@ -6,15 +6,15 @@ title: A deploy whose output would collide with the reserved preview segment is 
   by name and ships nothing
 created_by: xgd
 created_at: '2026-08-06T18:50:06.214162+00:00'
-updated_at: '2026-08-07T22:24:12.521014+00:00'
+updated_at: '2026-08-07T22:24:16.524352+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
