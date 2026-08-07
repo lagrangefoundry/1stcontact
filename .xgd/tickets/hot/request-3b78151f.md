@@ -6,10 +6,10 @@ title: 'Tooling hygiene: pnpm install after lockfile change; fail loud on out-of
   node_modules'
 created_by: xgd
 created_at: '2026-07-03T23:31:56.269585+00:00'
-updated_at: '2026-08-07T01:30:28.456002+00:00'
-completed_at: null
+updated_at: '2026-08-07T04:16:35.381020+00:00'
+completed_at: '2026-08-07T04:16:35.381020+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
