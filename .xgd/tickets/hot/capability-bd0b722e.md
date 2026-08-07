@@ -5,10 +5,10 @@ type: capability
 title: Framework Responsive Per-Breakpoint Dials
 created_by: xgd
 created_at: '2026-07-19T03:19:55.309934+00:00'
-updated_at: '2026-08-05T17:30:22.265798+00:00'
+updated_at: '2026-08-07T15:27:47.744854+00:00'
 completed_at: null
-last_field_updated: body
-status: superseded
+last_field_updated: status
+status: deprecated
 fields:
   name: framework_responsive_dials
   superseded_by_uid: capability-ae9d65d6
