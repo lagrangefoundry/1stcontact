@@ -6,14 +6,15 @@ title: A rejected edit leaves the draft and the already-rendered page byte-for-b
   unchanged
 created_by: xgd
 created_at: '2026-08-07T02:02:22.269537+00:00'
-updated_at: '2026-08-07T02:12:06.255597+00:00'
+updated_at: '2026-08-07T19:40:39.264216+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
