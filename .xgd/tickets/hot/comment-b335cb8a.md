@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-119
 created_by: xgd
 created_at: '2026-08-06T19:37:27.321745+00:00'
-updated_at: '2026-08-07T22:57:46.236303+00:00'
+updated_at: '2026-08-07T23:13:58.425966+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -58,5 +58,45 @@ One thing worth fixing before this gets scheduled: the contingency says "presume
 <!-- xgd-chat role="user" ts="2026-08-07T22:57:45.956142+00:00" -->
 #### You
 ok please can you implement this?
+
+<!-- xgd-turn id="cc2cbf7c-e587-4d0f-905e-40176d33e303-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-07T23:13:58.277792+00:00" -->
+#### Claude
+Now I'll implement. Starting with the render seam.
+
+Now the preview route and the edit write path:
+
+Now the `servePreview` helper and the renderer cache:
+
+Now updating `control-app`'s doc comment to match reality:
+
+Now the full suite again to confirm no other regressions:
+
+Done. REQ-119 is at `free_coded`, commit `c1bc8d1`, version `0.1.26`.
+
+## What landed
+
+**One render, in memory.** `renderSiteFiles(loaded, opts)` in `tools/generate/src/render/render.ts` returns every text artifact of a channel keyed by relative path, touching no filesystem. `renderSite` is now a thin writer over it; the request-time path is a reader. A byte is decided in exactly one function, so adding an L1 axis moves both paths together — AC-3, and the thing the ticket called its actual substance.
+
+**Request-time serving.** `tools/generate/src/cli/preview.ts` — `PreviewRenderer` resolves one preview URL to one artifact, rendering on demand behind a `DraftStore` seam (the shape `public-site/src/site-store.ts` already uses, and the one DOC-12 §7 names for D1). Renders are memoised per channel, invalidated by a stamp over the definition, so an out-of-band `1c copy set` shows on the next request. The two `cmdRender` calls in the save path are gone. `published` still comes off disk from the publish-time render.
+
+Two side-effects worth naming: an invalid draft now surfaces as a 500 page naming the field, where before it left the last good render in place indefinitely with nothing signalling it; and `index.html` became a genuine alias of the home page's bytes rather than a second render of them.
+
+## Where I did not do what the ticket asked
+
+**AC-1 as written — "served by `control-app` at request time" — is unreachable while the non-goals hold, and I did not attempt it.** workerd has no filesystem and no Vite/Astro transform, and the render resolves `.astro` behavior modules through `bin/1c.mjs`'s Vite SSR server. Executing it inside the Worker needs the store reachable from workerd, which is DOC-12 §7 **phase 2** — and this ticket's non-goals say "no storage migration". So the ticket contains an internal tension; I built the reachable, load-bearing half and recorded the rest in `control-app/src/index.ts` and `wrangler.toml` so the proxy's remaining reason is accurate. What's left is a small change: a store binding plus mounting the same handler.
+
+This also settles the contingency: **v1 runs file-backed locally.** The ticket said that question lives at DOC-8 §13 Q3 — DOC-8's open questions are §10 and none of them is this one, so the decision existed nowhere. It's now in the ticket body.
+
+## Supersession — declared, not silent
+
+REQ-119 contradicts **AC-992** and **AC-1026**, which pin "a successful save re-renders both channels *to disk* before reporting success." The claim survives (an edit changes the page, not one rendering of it); only the observable moves to the origin. I updated those two UATs in place and declared the supersession explicitly in the ticket body so reconciliation updates the entries rather than test_fix reverting the code.
+
+## Tests
+
+`tests/req119-request-time-render.test.ts` — 8 UATs over HTTP against `storage/sites/xgd` (two pages, L1, a `contact-form` module, real assets; the scaffold has neither a module nor an asset so it would exercise neither the Astro path nor asset serving). The load-bearing ones are equalities: the writer's disk output vs the render's memory output file-set-and-every-byte, and `1c render`'s artifacts vs what the origin serves, for both channels.
+
+Full suite: **1240 passed, 6 failed** — all six pre-existing and unrelated (`reconciliation-copy-edit-gesture-modal` ×5, `req115-builder-composition` ×1), confirmed by running them against a stashed tree.
 
 <!-- xgd-chat-end -->
