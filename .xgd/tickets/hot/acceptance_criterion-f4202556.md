@@ -6,14 +6,15 @@ title: Copy that overflows the box it renders into is still legible in full in t
   form field
 created_by: xgd
 created_at: '2026-08-07T02:17:04.964342+00:00'
-updated_at: '2026-08-07T02:36:28.066071+00:00'
+updated_at: '2026-08-07T18:00:35.271532+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
