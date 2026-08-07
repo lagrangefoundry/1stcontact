@@ -5,10 +5,10 @@ type: request
 title: 'Image selection: click image segment → asset picker → structured src edit'
 created_by: xgd
 created_at: '2026-07-31T20:43:35.481921+00:00'
-updated_at: '2026-08-07T01:30:01.598142+00:00'
+updated_at: '2026-08-07T04:19:42.971728+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: reconciling
 fields:
   priority: medium
   depends_on:
