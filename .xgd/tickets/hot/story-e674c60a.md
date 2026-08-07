@@ -6,7 +6,7 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-07T03:36:19.239947+00:00'
+updated_at: '2026-08-07T19:53:38.452355+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
@@ -39,7 +39,22 @@ the surface where an operator *sees* the site instead.
   every site in the store are all reachable from one origin. That is not a
   convenience: it is why the frame showing the site is not a foreign document,
   and why "open this properly in a new tab" lands on the identical URL the frame
-  is already displaying rather than a lookalike.
+  is already displaying rather than a lookalike. The same origin also carries
+  the operations the workspace performs on a site — listing the store,
+  publishing, and the read-and-apply steps of the write path behind the editing
+  gesture — the last of these as a thin transport that adds no semantics of its
+  own: the same operations the command line drives, not a second way of doing
+  them. Because it is a transport and not a second write path, a refused edit
+  arrives as an *expected* refusal carrying the write path's own code, path and
+  hint — the operator is told which field was wrong and why — rather than as a
+  generic failure of the workspace. What those operations mean, and what a
+  refusal contains, belong to the write path's own story; this one owns only
+  that they are reachable over this origin, in that form.
+- **An origin that is missing is not a blank page.** A workspace whose origin is
+  not configured and one whose origin is configured but not answering are two
+  different, self-explanatory failures, distinguishable from each other and from
+  a working page: the first names how to start the origin, the second names the
+  address that was tried.
 - **Chrome built from shared components, consumed not copied.** The workspace is
   assembled from the shared UI components the wider system already ships. They
   are consumed from an installed copy that lives outside this repository, and
@@ -92,7 +107,9 @@ the surface where an operator *sees* the site instead.
 
 - Editing of any kind: clicking a segment, the field modal, and the write path
   behind it are separate stories. The editable *mode* is registered here and
-  shows the editable rendering; the gesture that changes anything is not.
+  shows the editable rendering; the gesture that changes anything is not. This
+  story adds only that the write path is *reachable* over this origin and in
+  what shape its answers arrive — never what it validates, writes or refuses.
 - The assistant pane (a placeholder here) and any chat behaviour.
 - Producing the renderings. The workspace displays channels other capabilities
   render, and never renders one itself.
@@ -101,12 +118,20 @@ the surface where an operator *sees* the site instead.
 ## Technical Context
 
 - **Displays, never produces.** The workspace shows the draft, published and
-  editable channels produced by CAP-82 (Site Delivery) and CAP-84 (Edit Render
-  Channel), lists the store, and invokes the existing publish path. It adds no
-  rendering and no publish semantics.
+  editable channels produced by CAP-82 (Site Delivery) and CAP-87 (In-Page Copy
+  Editing), lists the store, invokes the existing publish path, and carries the
+  write path's read/apply operations as a transport. It adds no rendering, no
+  publish semantics and no edit semantics.
 - **The editable mode is registered, not implemented, here.** Registering it is
   what proves the mode contract with two real modes; the editable render belongs
-  to CAP-84 and the editing gesture to its own story.
+  to CAP-87 (STORY-98) and the editing gesture to its own story.
+- **The edit transport is one seam, claimed once.** The write path's operations
+  are defined by CAP-86 / STORY-100, which states that this workspace exposes
+  that same surface over its origin as a thin transport rather than a parallel
+  implementation. This story holds the other half of that sentence — the
+  reachability and the shape of the answer at this origin — so the behaviour is
+  claimed by the matrix exactly once from each side, and by neither as the
+  owner of the semantics.
 - **The origin runs outside the edge Worker, and that is deliberate and
   temporary.** Everything the workspace needs beyond its own chrome is
   filesystem-bound (rendered output, the store listing, publish), which the edge
