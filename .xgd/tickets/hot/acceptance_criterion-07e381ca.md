@@ -6,14 +6,15 @@ title: The store answers from the builder's own origin with the same list, and a
   without a site is refused as a caller fault
 created_by: xgd
 created_at: '2026-08-07T04:30:10.978017+00:00'
-updated_at: '2026-08-07T04:36:49.590772+00:00'
+updated_at: '2026-08-07T18:45:11.698093+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c46abfa6
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
