@@ -6,7 +6,7 @@ title: A directory-shaped URL missing its trailing slash permanently redirects t
   the slashed form, preserving the query
 created_by: xgd
 created_at: '2026-08-06T18:48:25.789845+00:00'
-updated_at: '2026-08-07T22:18:19.591990+00:00'
+updated_at: '2026-08-07T22:31:14.881483+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
