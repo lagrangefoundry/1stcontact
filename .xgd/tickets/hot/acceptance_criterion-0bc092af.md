@@ -6,10 +6,10 @@ title: 'Choosing an image bakes nothing: no asset file is touched and every othe
   parameter the region carries survives untouched'
 created_by: xgd
 created_at: '2026-08-07T04:41:27.360466+00:00'
-updated_at: '2026-08-07T04:41:27.360466+00:00'
+updated_at: '2026-08-07T04:51:24.649232+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
