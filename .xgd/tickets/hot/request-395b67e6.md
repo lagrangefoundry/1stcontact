@@ -17,37 +17,46 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: bb0954bfe62cf07af5981390c9bcf77ada041f09
+  - working_sha: 2b71c662f6db0cc2f2a6f540f9dcceabf19f55c1
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
-  - working_sha: 94ae6feed6e5a07bc1074c2ac4ed38b3388e0874
+    working_sha_history:
+    - bb0954bfe62cf07af5981390c9bcf77ada041f09
+  - working_sha: b7e5519aaa57ce4730cfd23434fc31c9662f79c1
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
-  - working_sha: cda7fe4dba15b7da70cdbad837517e3a68af1fff
+    working_sha_history:
+    - 94ae6feed6e5a07bc1074c2ac4ed38b3388e0874
+  - working_sha: c1023ddd4b7ceb821774f630ceed3f10a687f7ea
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
-  - working_sha: 2119b6dd59a389d3471b1ff0a87de6c32297908b
+    working_sha_history:
+    - cda7fe4dba15b7da70cdbad837517e3a68af1fff
+  - working_sha: a21f9e4d89ccb62718f6b5e957b9ce33f0361d54
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
-  - working_sha: 887010bf4e7b2f13fdd393c60c5a48dbcf1f40b8
+    working_sha_history:
+    - 2119b6dd59a389d3471b1ff0a87de6c32297908b
+  - working_sha: 34fe00649fa085765460e30577570e8da3daf50a
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
-  - working_sha: fd22712bc733620d3276180a0c0bc7380ae59d17
+    working_sha_history:
+    - 887010bf4e7b2f13fdd393c60c5a48dbcf1f40b8
+  - working_sha: f24952a477cca9bf0bd9ae285358359f650aec09
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
-  - working_sha: 65b9be7a143da0bfb1eed1b23b4104e3bc46a240
+    working_sha_history:
+    - fd22712bc733620d3276180a0c0bc7380ae59d17
+  - working_sha: f1f46c73e5071499d0963d55e957f2d8894b31eb
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
-  - working_sha: 38e43c7dbfdc044314ce96297ae7b318c3301f3a
+    working_sha_history:
+    - 65b9be7a143da0bfb1eed1b23b4104e3bc46a240
+  - working_sha: bfa18fbab9e51801fe7b980a9a7e565d0e37ea99
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - 38e43c7dbfdc044314ce96297ae7b318c3301f3a
   version: 0.1.23
   story_points: 4
 ---
