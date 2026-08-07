@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: stdout is restored after the command runs, including when its computation fails
 created_by: xgd
 created_at: '2026-07-19T03:01:50.845026+00:00'
-updated_at: '2026-08-05T23:13:32.371198+00:00'
+updated_at: '2026-08-07T23:11:11.367126+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
