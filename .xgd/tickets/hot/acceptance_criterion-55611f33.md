@@ -6,9 +6,9 @@ title: Each response is typed from the object that answered, with unknown extens
   served as generic binary
 created_by: xgd
 created_at: '2026-08-06T18:49:07.892587+00:00'
-updated_at: '2026-08-07T22:24:30.596653+00:00'
+updated_at: '2026-08-07T22:31:19.439550+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d34eccd8
