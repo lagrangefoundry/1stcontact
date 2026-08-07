@@ -6,14 +6,15 @@ title: A run reports what it examined — families recorded, references found ac
   sites, and font files on disk — so a pass cannot come from an empty scan
 created_by: xgd
 created_at: '2026-08-06T03:31:07.330845+00:00'
-updated_at: '2026-08-06T03:38:14.591199+00:00'
+updated_at: '2026-08-07T18:45:04.807100+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8685be2d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
