@@ -6,14 +6,15 @@ title: Asking a copy region what it exposes returns one plain-text field carryin
   the words currently in the draft
 created_by: xgd
 created_at: '2026-08-07T02:02:03.774970+00:00'
-updated_at: '2026-08-07T02:12:07.451474+00:00'
+updated_at: '2026-08-07T19:40:35.441411+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
