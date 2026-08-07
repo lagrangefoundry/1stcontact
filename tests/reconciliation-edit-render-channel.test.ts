@@ -3,7 +3,32 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { cmdNew, cmdPublish, cmdRender, cmdRevisions } from '../tools/generate/src/cli/commands'
-import type { L1Node } from '@1stcontact/site-schema'
+import { editCopyGet } from '../tools/generate/src/cli/edit'
+// The stamp vocabulary as the SITE DEFINITION SCHEMA publishes it (AC-1008) —
+// the one contract the render writes and a client reads.
+import {
+  L1_EDIT_HOT_CLASS,
+  L1_EDIT_MARKER_ATTR,
+  L1_EDIT_MODULE_ATTR,
+  L1_EDIT_PAGE_ATTR,
+  L1_EDIT_PATH_ATTR,
+  L1_EDIT_SEGMENT_ATTR,
+  L1_EDIT_SLOT_ATTR,
+  formatL1Path,
+  parseL1Path,
+  resolveL1Node,
+} from '../packages/site-schema/src/index'
+// ...and the same names as the RENDERER's published surface offers them, so the
+// test can assert the two are the same values rather than equal-looking ones.
+import {
+  L1_EDIT_CSS,
+  L1_EDIT_HOT_CLASS as FW_HOT_CLASS,
+  L1_EDIT_MARKER_ATTR as FW_MARKER_ATTR,
+  L1_EDIT_PAGE_ATTR as FW_PAGE_ATTR,
+  L1_EDIT_PATH_ATTR as FW_PATH_ATTR,
+  L1_EDIT_SEGMENT_ATTR as FW_SEGMENT_ATTR,
+} from '../packages/framework/src/index'
+import type { L1Node } from '../packages/site-schema/src/index'
 
 /**
  * story-af36c2cb — **the edit render**: a third render channel that deliberately
@@ -133,6 +158,101 @@ function seedPage(cwd: string, slug: string): Record<string, unknown> {
           ],
         },
       },
+    },
+  ]
+  writeFileSync(homePath, JSON.stringify(home, null, 2))
+  return home
+}
+
+// ── the catalog's presentation seams ─────────────────────────────────────────
+//
+// AC-954 is an obligation on the CATALOG, not on the first module that happened
+// to need it: every module exposing a seam marks it. This table is the catalog's
+// seams, so a module added later without a marker fails the criterion rather
+// than quietly shipping copy nobody can address.
+
+/** The two items of copy mounted into whichever seam is under test. */
+const SEAM_COPY_ONE = 'The first thing in the seam.'
+const SEAM_COPY_TWO = 'The second thing in the seam.'
+/** A page-rooted run, so the page namespace is non-empty in every seam fixture. */
+const PAGE_COPY = 'Page copy, outside every module.'
+
+interface SeamCase {
+  type: string
+  version: number
+  /** The behavior instance's id — the scope a seam-rooted address is read in. */
+  instance: string
+  /** The module's presentation seam. */
+  slot: string
+  config: Record<string, unknown>
+  /** The seam's value, carrying two items of copy plus whatever the module needs. */
+  slotValue: unknown
+  /** The first and second addresses of the seam's own namespace. */
+  addresses: [string, string]
+}
+
+const SEAM_CASES: SeamCase[] = [
+  {
+    type: 'carousel',
+    version: 3,
+    instance: 'gallery',
+    slot: 'slide',
+    config: {},
+    // A REPEATED seam: one subtree per item, so the items are the node list
+    // itself and their addresses are the bare `0` and `1`.
+    slotValue: [
+      { kind: 'text', text: SEAM_COPY_ONE },
+      { kind: 'text', text: SEAM_COPY_TWO },
+    ],
+    addresses: ['0', '1'],
+  },
+  {
+    type: 'contact-form',
+    version: 4,
+    instance: 'get-in-touch',
+    slot: 'form',
+    config: {
+      action: FORM_ACTION,
+      fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
+    },
+    // A SINGLE-subtree seam: the node list is that one subtree, so the items are
+    // its first two children. Same rule, one step deeper.
+    slotValue: {
+      kind: 'container',
+      layout: 'stack',
+      children: [
+        { kind: 'text', text: SEAM_COPY_ONE },
+        { kind: 'text', text: SEAM_COPY_TWO },
+        { kind: 'control', control: 'email' },
+        { kind: 'control', control: 'submit' },
+      ],
+    },
+    addresses: ['0.0', '0.1'],
+  },
+]
+
+/** A fresh site whose home page mounts `seam`'s module with two items of copy. */
+function seedSeamPage(cwd: string, slug: string, seam: SeamCase): Record<string, unknown> {
+  cmdNew(slug, { cwd })
+  const homePath = homeJsonPath(cwd, slug)
+  const home = JSON.parse(readFileSync(homePath, 'utf8'))
+  home.l1.root = {
+    kind: 'container',
+    id: 'root',
+    layout: 'stack',
+    children: [
+      { kind: 'text', text: PAGE_COPY, axes: { fontSizePx: 20 } },
+      { kind: 'slot', name: 'seam' },
+    ],
+  }
+  home.modules = [
+    {
+      id: seam.instance,
+      type: seam.type,
+      version: seam.version,
+      slot: 'seam',
+      config: seam.config,
+      slots: { [seam.slot]: seam.slotValue },
     },
   ]
   writeFileSync(homePath, JSON.stringify(home, null, 2))
@@ -306,14 +426,14 @@ describe('story-af36c2cb — the edit render channel', () => {
 
     // The preview does not set the document-level marker, and its track
     // scrolls and snaps — so the second slide sits off-screen until a swipe.
-    expect(previewHtml).not.toMatch(/<body\s+data-fc-edit>/)
+    expect(previewHtml).not.toMatch(/<body[^>]*\sdata-fc-edit(?=[\s>])/)
     expect(previewCss).toContain('overflow-x: auto')
     expect(previewCss).toContain('scroll-snap-type: x mandatory')
 
     // The edit render sets the marker, which is what arms the carousel's own
     // settled-state declaration: the track wraps and stops snapping, so every
     // slide is on screen — and clickable — at once.
-    expect(editHtml).toMatch(/<body\s+data-fc-edit>/)
+    expect(editHtml).toMatch(/<body[^>]*\sdata-fc-edit(?=[\s>])/)
     expect(editCss).toMatch(/\[data-fc-edit\]\s*\.carousel__track\s*\{[^}]*flex-wrap:\s*wrap/)
     expect(editCss).toMatch(/\[data-fc-edit\]\s*\.carousel__track\s*\{[^}]*scroll-snap-type:\s*none/)
 
@@ -381,35 +501,53 @@ describe('story-af36c2cb — the edit render channel', () => {
   })
 
   // ── AC-952 ────────────────────────────────────────────────────────────────
-  // The renderer draws the outline; becoming a segment cannot move a box.
+  // The renderer draws the outline — resting AND hot — and neither becoming a
+  // segment nor being hovered can move a box.
   it('test_UAT_AC952_every_segment_is_outlined_by_the_render_without_reserving_layout_space', async () => {
     const { previewHtml, editHtml } = await renderBoth(cwd, 'acme')
 
-    // Exactly one outline treatment is emitted by the render itself — the
+    // Exactly two outline treatments are emitted by the render itself — the
     // renderer knows which boxes are segments, so no client hit-tests for them.
-    const treatments = editHtml.match(/\[data-l1-segment\]\s*\{[^}]*\}/g) ?? []
-    expect(treatments).toHaveLength(1)
-    const rule = treatments[0]
+    const treatments = editHtml.match(/\[data-l1-segment\][^{]*\{[^}]*\}/g) ?? []
+    expect(treatments).toHaveLength(2)
+    const [resting, hot] = treatments
 
-    // It is selected on the presence of a region stamp, so it applies to
-    // precisely the stamped set and to nothing else.
-    expect(rule).toMatch(/^\[data-l1-segment\]\s*\{/)
+    // The resting treatment is selected on the presence of a region stamp
+    // ALONE, so it applies to precisely the stamped set and to nothing else...
+    expect(resting).toMatch(/^\[data-l1-segment\]\s*\{/)
+    // ...and the hot one on that same stamp TOGETHER WITH the marker a client
+    // puts on the one region under the pointer. The render owns what a hot
+    // segment looks like; the client only says which segment is hot.
+    expect(hot).toMatch(/^\[data-l1-segment\]\.l1-edit-hot\s*\{/)
+    // Both apply to a set the page actually has members of.
     expect(stampedSegments(editHtml).length).toBeGreaterThan(0)
 
-    // It is applied in a way that reserves no space in the layout: `outline` is
-    // painted outside the box, and the rule declares no box-model property that
-    // could displace anything.
-    expect(rule).toMatch(/outline:\s*1px solid/)
-    expect(rule).toContain('outline-offset: -1px')
-    expect(rule).not.toMatch(/(^|[^-])border\s*:/)
-    expect(rule).not.toMatch(/\bmargin\s*:/)
-    expect(rule).not.toMatch(/\bpadding\s*:/)
-    expect(rule).not.toMatch(/\bwidth\s*:/)
-    expect(rule).not.toMatch(/\bheight\s*:/)
+    // Both are painted OUTSIDE the page's layout: `outline` reserves no space,
+    // and neither rule declares a box-model property that could displace
+    // anything. So a region's box in the edit render is its box in the preview
+    // render, and stays so while it is hot — the movement in the hot treatment
+    // is the outline lifting off the box, never the box moving.
+    expect(resting).toMatch(/outline:\s*1px solid/)
+    expect(resting).toContain('outline-offset: -1px')
+    expect(hot).toMatch(/outline:\s*2px solid/)
+    expect(hot).toMatch(/outline-offset:\s*3px/)
+    for (const rule of treatments) {
+      expect(rule).not.toMatch(/(^|[^-])border\s*:/)
+      expect(rule).not.toMatch(/\bmargin\s*:/)
+      expect(rule).not.toMatch(/\bpadding\s*:/)
+      expect(rule).not.toMatch(/\bwidth\s*:/)
+      expect(rule).not.toMatch(/\bheight\s*:/)
+      // Only outline properties are declared — nothing that repositions a box.
+      const decls = /\{([^}]*)\}/.exec(rule)?.[1] ?? ''
+      for (const decl of decls.split(';').map((d) => d.trim()).filter(Boolean)) {
+        expect(decl).toMatch(/^(outline|outline-offset|transition):/)
+      }
+    }
 
-    // The preview render of the same page carries no such treatment.
+    // The preview render of the same page carries neither treatment.
     expect(previewHtml).not.toContain('[data-l1-segment]')
     expect(previewHtml).not.toContain('outline-offset: -1px')
+    expect(previewHtml).not.toContain('l1-edit-hot')
   })
 
   // ── AC-953 ────────────────────────────────────────────────────────────────
@@ -447,54 +585,89 @@ describe('story-af36c2cb — the edit render channel', () => {
   })
 
   // ── AC-954 ────────────────────────────────────────────────────────────────
-  // Seam content is addressable, rooted at the instance rather than the page.
+  // Seam content is addressable, rooted at the instance rather than the page —
+  // and EVERY module in the catalog that exposes a seam marks it, because copy
+  // inside an unmarked seam carries an address that cannot be told apart from a
+  // page-rooted one and is therefore unresolvable.
   it('test_UAT_AC954_seam_content_is_addressable_rooted_at_the_behavior_instance', async () => {
-    const page = seedPage(cwd, 'acme')
-    const { editHtml } = await renderBoth(cwd, 'acme')
+    for (const seam of SEAM_CASES) {
+      const site = `seam-${seam.type}`
+      const page = seedSeamPage(cwd, site, seam)
+      const render = await cmdRender(site, { cwd, edit: true })
+      const editHtml = readFileSync(path.join(render.outDir, 'index.html'), 'utf8')
+      const where = `module '${seam.type}', seam '${seam.slot}'`
 
-    // Copy placed into a behavior module's presentation seam is an editable
-    // region like any other, and each item mounted into the seam is rooted
-    // INDEPENDENTLY — first item `0`, second `1` — rather than continuing the
-    // page's numbering (which by then is already four levels deep).
-    expect(editHtml).toMatch(
-      new RegExp(`<p[^>]*data-l1-path="0"[^>]*data-l1-segment="copy"[^>]*>${SLIDE_ONE}</p>`),
-    )
-    expect(editHtml).toMatch(
-      new RegExp(`<p[^>]*data-l1-path="1"[^>]*data-l1-segment="copy"[^>]*>${SLIDE_TWO}</p>`),
-    )
+      // Copy placed into a behavior module's presentation seam is an editable
+      // region like any other: stamped with a region kind and an address. Each
+      // item is rooted at the INSTANCE — the first and second addresses of the
+      // seam's own namespace — rather than continuing the page's numbering.
+      for (const [i, copy] of [SEAM_COPY_ONE, SEAM_COPY_TWO].entries()) {
+        expect(
+          editHtml,
+          `${where}: ${copy} must be stamped at '${seam.addresses[i]}'`,
+        ).toMatch(
+          new RegExp(
+            `<p[^>]*data-l1-path="${seam.addresses[i]}"[^>]*data-l1-segment="copy"[^>]*>${copy}</p>`,
+          ),
+        )
+      }
 
-    // The surrounding markup names both the behavior instance and the seam, so
-    // an address inside a module and an identical-looking address on the page
-    // are distinguishable.
-    expect(editHtml).toContain('data-fc-module="gallery"')
-    expect(editHtml).toContain('data-fc-type="carousel"')
-    expect(editHtml).toMatch(/data-l1-slot="slide"[^>]*>\s*<p[^>]*data-l1-path="0"/)
+      // The surrounding markup names both the behavior instance and the seam —
+      // the module's own declaration, in every channel — so an address inside a
+      // module and an identical-looking address on the page are distinguishable
+      // and the scope of a seam-rooted address is recoverable from the markup
+      // around it.
+      expect(editHtml, `${where}: instance must be named`).toContain(
+        `data-fc-module="${seam.instance}"`,
+      )
+      expect(editHtml, `${where}: type must be named`).toContain(`data-fc-type="${seam.type}"`)
+      expect(editHtml, `${where}: the seam itself must be marked`).toContain(
+        `data-l1-slot="${seam.slot}"`,
+      )
+      // The seam marker encloses the stamped copy: the copy sits inside the
+      // element that names the seam, not beside it.
+      const seamScope = new RegExp(
+        `data-l1-slot="${seam.slot}"[\\s\\S]*?${SEAM_COPY_ONE}`,
+      )
+      expect(editHtml, `${where}: seam marker must enclose its copy`).toMatch(seamScope)
 
-    // One resolution rule serves both: index the render's root node LIST, then
-    // walk `children`. Against the seam's own subtree array, `0` and `1` are
-    // the two slides...
-    const slideRoots = (
-      (page.modules as Array<{ id: string; slots: { slide: L1Node[] } }>).find(
-        (m) => m.id === 'gallery',
-      ) as { slots: { slide: L1Node[] } }
-    ).slots.slide
-    expect((resolveAddress(slideRoots, '0') as { text?: string }).text).toBe(SLIDE_ONE)
-    expect((resolveAddress(slideRoots, '1') as { text?: string }).text).toBe(SLIDE_TWO)
+      // One resolution rule serves both whole pages and mounted fragments:
+      // index the render's root node LIST, then walk `children`. The seam's own
+      // node list is its subtree array (repeated) or its single subtree.
+      const raw = (
+        page.modules as Array<{ id: string; slots: Record<string, unknown> }>
+      ).find((m) => m.id === seam.instance)!.slots[seam.slot]
+      const seamRoots = (Array.isArray(raw) ? raw : [raw]) as L1Node[]
+      expect((resolveAddress(seamRoots, seam.addresses[0]) as { text?: string }).text).toBe(
+        SEAM_COPY_ONE,
+      )
+      expect((resolveAddress(seamRoots, seam.addresses[1]) as { text?: string }).text).toBe(
+        SEAM_COPY_TWO,
+      )
 
-    // ...and the page-rooted addresses resolve against the definition without
-    // the module's regions being drawn into that namespace: the document's own
-    // stamps are exactly the seven page regions, none of them a slide.
-    const roots = [(page.l1 as { root: L1Node }).root]
-    const docSegments = stampedSegments(documentOnly(editHtml))
-    for (const seg of docSegments) {
-      const node = resolveAddress(roots, seg.path)
-      expect(node, `page address '${seg.path}' must resolve`).toBeDefined()
-      expect((node as { text?: string }).text).not.toBe(SLIDE_ONE)
-      expect((node as { text?: string }).text).not.toBe(SLIDE_TWO)
+      // And the page-rooted addresses resolve against the definition without
+      // the module's regions being drawn into that namespace.
+      const roots = [(page.l1 as { root: L1Node }).root]
+      const docSegments = stampedSegments(documentOnly(editHtml))
+      expect(docSegments.length, `${where}: the page has its own regions`).toBeGreaterThan(0)
+      for (const seg of docSegments) {
+        const node = resolveAddress(roots, seg.path)
+        expect(node, `${where}: page address '${seg.path}' must resolve`).toBeDefined()
+        expect((node as { text?: string }).text).not.toBe(SEAM_COPY_ONE)
+        expect((node as { text?: string }).text).not.toBe(SEAM_COPY_TWO)
+      }
+      // The two namespaces are separate even where their addresses LOOK the
+      // same — which is the whole reason the seam has to be marked. Resolving a
+      // seam address against the page yields something other than the seam's
+      // copy (or nothing at all), so a bare address is ambiguous and the
+      // enclosing instance/seam markup is what disambiguates it.
+      for (const addr of seam.addresses) {
+        const inPage = resolveAddress(roots, addr) as { text?: string } | undefined
+        expect(inPage?.text, `${where}: '${addr}' must not mean the seam's copy on the page`)
+          .not.toBe(SEAM_COPY_ONE)
+        expect(inPage?.text).not.toBe(SEAM_COPY_TWO)
+      }
     }
-    // `0` and `1` are the slides' addresses, and belong to no page region.
-    expect(docSegments.map((s) => s.path)).not.toContain('0')
-    expect(docSegments.map((s) => s.path)).not.toContain('1')
   })
 
   // ── AC-955 ────────────────────────────────────────────────────────────────
@@ -565,11 +738,14 @@ describe('story-af36c2cb — the edit render channel', () => {
 
     for (const html of [previewHtml, publishedHtml]) {
       // Nothing belonging to the edit channel appears: no address, no region
-      // stamp, no document-level edit marker, no outline treatment.
+      // stamp, no page stamp, no document-level edit marker, and neither
+      // outline treatment — resting or hot.
       expect(html).not.toContain('data-l1-path')
       expect(html).not.toContain('data-l1-segment')
+      expect(html).not.toContain('data-fc-page')
       expect(html).not.toContain('data-fc-edit')
       expect(html).not.toContain('outline-offset: -1px')
+      expect(html).not.toContain('l1-edit-hot')
       // And both remain fully functional.
       expect(html).toContain(`href="${LINK_HREF}"`)
       expect(html).toContain(`action="${FORM_ACTION}"`)
@@ -664,5 +840,170 @@ describe('story-af36c2cb — the edit render channel', () => {
     )
     expect(history.revisions).toHaveLength(1)
     expect(JSON.stringify(history)).not.toContain('edit')
+  })
+
+  // ── AC-1007 ───────────────────────────────────────────────────────────────
+  // The document names the page it came from, so an address is a complete
+  // coordinate — and it is the definition id, never the slug or the file name.
+  it('test_UAT_AC1007_edit_render_stamps_the_definition_id_of_the_page_it_came_from', async () => {
+    // A site whose home page's definition id differs from BOTH its slug and the
+    // file name it is emitted under: slug `home` emits `home.html` plus the
+    // `index.html` alias, and the id is neither.
+    cmdNew('stamped', { cwd })
+    const homePath = homeJsonPath(cwd, 'stamped')
+    const home = JSON.parse(readFileSync(homePath, 'utf8'))
+    home.id = 'landing'
+    home.slug = 'home'
+    home.l1.root = {
+      kind: 'container',
+      layout: 'stack',
+      children: [{ kind: 'text', text: BAND_COPY, axes: { fontSizePx: 24 } }],
+    }
+    home.modules = []
+    writeFileSync(homePath, JSON.stringify(home, null, 2))
+
+    // ...plus one non-home page, whose id likewise differs from its slug.
+    const second = {
+      ...home,
+      id: 'contact-us',
+      slug: 'contact',
+      title: 'Contact',
+      seoMeta: { title: 'Contact', description: 'Say hello.' },
+      l1: {
+        ...home.l1,
+        root: {
+          kind: 'container',
+          layout: 'stack',
+          children: [{ kind: 'text', text: LINKED_COPY, axes: { fontSizePx: 24 } }],
+        },
+      },
+    }
+    writeFileSync(
+      path.join(cwd, 'storage', 'sites', 'stamped', 'draft', 'pages', 'contact.json'),
+      JSON.stringify(second, null, 2),
+    )
+
+    const edit = await cmdRender('stamped', { cwd, edit: true })
+
+    // Each page's rendered document carries the page stamp under the PUBLISHED
+    // attribute name, on the same element as the edit-mode marker — and its
+    // value is that page's definition id.
+    const stamped: Array<[string, string, string]> = [
+      // file, definition id, the slug/file name it must NOT be
+      ['index.html', 'landing', 'home'],
+      ['home.html', 'landing', 'home'],
+      ['contact.html', 'contact-us', 'contact'],
+    ]
+    for (const [file, id, notThis] of stamped) {
+      const html = readFileSync(path.join(edit.outDir, file), 'utf8')
+      // One element carries both: the marker and the page stamp together.
+      expect(html, `${file}: marker and stamp on the same element`).toMatch(
+        new RegExp(`<body[^>]*\\s${L1_EDIT_MARKER_ATTR}\\s+${L1_EDIT_PAGE_ATTR}="[^"]*"`),
+      )
+      const value = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]*)"`).exec(html)?.[1]
+      expect(value, `${file}: stamp is the definition id`).toBe(id)
+      // Never the slug, and never the file name the page was emitted under —
+      // `index.html` is an ALIAS, so the file on screen does not name the page.
+      expect(value).not.toBe(notThis)
+      expect(value).not.toBe(path.basename(file, '.html'))
+    }
+
+    // The stamped id together with a stamped address from the SAME document
+    // identifies the region the address was derived from: the two halves of the
+    // coordinate resolve, through the published address form, to that copy.
+    const indexHtml = readFileSync(path.join(edit.outDir, 'index.html'), 'utf8')
+    const pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]*)"`).exec(indexHtml)![1]
+    const address = addressOf(indexHtml, BAND_COPY)
+    expect(address).not.toBe('')
+    const resolved = editCopyGet('stamped', pageId, address, { cwd }).data as {
+      kind: string
+      values: Record<string, string>
+    }
+    expect(resolved.kind).toBe('text')
+    expect(resolved.values.text).toBe(BAND_COPY)
+
+    // The shipped channels carry no such stamp.
+    const preview = await cmdRender('stamped', { cwd })
+    const published = await cmdPublish('stamped', { cwd, now: '2026-01-01T00:00:00.000Z' })
+    for (const dir of [preview.outDir, published.outDir]) {
+      for (const file of ['index.html', 'home.html', 'contact.html']) {
+        expect(readFileSync(path.join(dir, file), 'utf8')).not.toContain(L1_EDIT_PAGE_ATTR)
+      }
+    }
+  })
+
+  // ── AC-1008 ───────────────────────────────────────────────────────────────
+  // One published vocabulary: the render writes it, a client reads it, and a
+  // rename lands on both sides at once.
+  it('test_UAT_AC1008_the_stamp_vocabulary_is_one_published_contract_the_render_and_a_client_share', async () => {
+    // The site definition schema publishes every name a client needs in order
+    // to read a stamped render.
+    const published = {
+      marker: L1_EDIT_MARKER_ATTR,
+      page: L1_EDIT_PAGE_ATTR,
+      segment: L1_EDIT_SEGMENT_ATTR,
+      path: L1_EDIT_PATH_ATTR,
+      module: L1_EDIT_MODULE_ATTR,
+      slot: L1_EDIT_SLOT_ATTR,
+      hot: L1_EDIT_HOT_CLASS,
+    }
+    for (const [name, value] of Object.entries(published)) {
+      expect(typeof value, `${name} is published`).toBe('string')
+      expect(value.length, `${name} is non-empty`).toBeGreaterThan(0)
+    }
+    // ...including the dotted form an address is written in — read and write.
+    expect(parseL1Path('0.1.2')).toEqual([0, 1, 2])
+    expect(formatL1Path([0, 1, 2])).toBe('0.1.2')
+    expect(parseL1Path('nope')).toBeNull()
+
+    // The renderer's own surface RE-EXPORTS the contract rather than declaring
+    // its own, so the two are the same values and not merely equal-looking ones.
+    expect(FW_MARKER_ATTR).toBe(L1_EDIT_MARKER_ATTR)
+    expect(FW_PAGE_ATTR).toBe(L1_EDIT_PAGE_ATTR)
+    expect(FW_SEGMENT_ATTR).toBe(L1_EDIT_SEGMENT_ATTR)
+    expect(FW_PATH_ATTR).toBe(L1_EDIT_PATH_ATTR)
+    expect(FW_HOT_CLASS).toBe(L1_EDIT_HOT_CLASS)
+
+    const { previewHtml, editHtml } = await renderBoth(cwd, 'acme')
+
+    // Every stamp the edit channel emits is named by a published value: the
+    // attributes the edit render adds over the preview render of the same
+    // definition are exactly members of the vocabulary above, so there is no
+    // markup a reader holding the contract cannot parse.
+    const attrsOf = (html: string): Set<string> =>
+      new Set((html.match(/\sdata-[a-z0-9-]+/g) ?? []).map((a) => a.trim()))
+    const previewAttrs = attrsOf(previewHtml)
+    const editOnly = [...attrsOf(editHtml)].filter((a) => !previewAttrs.has(a))
+    expect(editOnly.length).toBeGreaterThan(0)
+    for (const attr of editOnly) {
+      expect(Object.values(published), `'${attr}' must be published vocabulary`).toContain(attr)
+    }
+    // And the ones the criterion names are all actually emitted.
+    for (const attr of [published.marker, published.page, published.segment, published.path]) {
+      expect(editHtml).toContain(attr)
+    }
+    // The seam's names are the module's declaration, and are emitted too.
+    for (const attr of [published.module, published.slot]) {
+      expect(editHtml).toContain(attr)
+    }
+
+    // The hot treatment's selector is COMPOSED from the published region-stamp
+    // name together with the published hot class — the render says what a hot
+    // segment looks like, a client says which segment is hot, neither owns the
+    // name, and the stylesheet the page carries is the one the renderer
+    // publishes.
+    expect(L1_EDIT_CSS).toContain(`[${L1_EDIT_SEGMENT_ATTR}].${L1_EDIT_HOT_CLASS} {`)
+    expect(editHtml).toContain(L1_EDIT_CSS)
+
+    // An address read off the output THROUGH the published form addresses the
+    // node it was derived from, using the published resolution rule.
+    const page = readHome(cwd, 'acme')
+    const raw = new RegExp(`${L1_EDIT_PATH_ATTR}="([^"]*)"[^>]*>${BAND_COPY}<`).exec(editHtml)?.[1]
+    expect(raw).toBeDefined()
+    const parsed = parseL1Path(raw!)
+    expect(parsed).not.toBeNull()
+    const node = resolveL1Node([(page.l1 as { root: L1Node }).root], parsed!)
+    expect((node as { kind?: string; text?: string }).kind).toBe('text')
+    expect((node as { text?: string }).text).toBe(BAND_COPY)
   })
 })
