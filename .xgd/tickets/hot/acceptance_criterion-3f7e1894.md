@@ -7,14 +7,15 @@ title: A lightness ramp of one hue becomes one entry with steps, a vivid colour 
   own entry
 created_by: xgd
 created_at: '2026-08-06T21:08:03.756062+00:00'
-updated_at: '2026-08-06T21:22:00.154228+00:00'
+updated_at: '2026-08-07T16:50:13.966036+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5e7eb0c5
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
