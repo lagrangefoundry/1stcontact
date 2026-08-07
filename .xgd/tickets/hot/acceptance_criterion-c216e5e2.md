@@ -6,9 +6,9 @@ title: A path whose last segment carries an extension never triggers the mapping
   and only the last segment is examined
 created_by: xgd
 created_at: '2026-08-06T19:02:50.974498+00:00'
-updated_at: '2026-08-07T22:24:34.362034+00:00'
+updated_at: '2026-08-07T22:31:30.788147+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-66115f6b
