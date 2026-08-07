@@ -5,12 +5,13 @@ type: capability
 title: 'Site Delivery: Deploy & Public Serving'
 created_by: xgd
 created_at: '2026-08-06T18:38:00.342753+00:00'
-updated_at: '2026-08-06T18:38:00.342753+00:00'
+updated_at: '2026-08-07T22:18:59.756100+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: site-delivery-deploy-and-public-serving
+  uat_coverage: fail
 ---
 
 # Capability: Site Delivery: Deploy & Public Serving
