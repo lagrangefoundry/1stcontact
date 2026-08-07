@@ -5,12 +5,13 @@ type: capability
 title: Site Colour Census & Palette Retrofit
 created_by: xgd
 created_at: '2026-08-06T21:06:18.185843+00:00'
-updated_at: '2026-08-06T21:06:18.185843+00:00'
+updated_at: '2026-08-07T15:59:27.996471+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: merged_into
 status: active
 fields:
   name: site_colour_census_and_retrofit
+  merged_into: capability-b4ac88fc
 ---
 
 # Capability: Site Colour Census & Palette Retrofit
