@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A captured form control folds to a control leaf rebased to its form's seam
 created_by: xgd
 created_at: '2026-08-06T01:45:25.189720+00:00'
-updated_at: '2026-08-06T01:59:31.125118+00:00'
+updated_at: '2026-08-07T23:54:01.349559+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
