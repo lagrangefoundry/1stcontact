@@ -5,7 +5,7 @@ type: capability
 title: 'Builder Workspace: Chrome, Origin & Display Panel'
 created_by: xgd
 created_at: '2026-08-07T01:41:35.258770+00:00'
-updated_at: '2026-08-07T19:54:04.783042+00:00'
+updated_at: '2026-08-07T20:12:31.754438+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -38,7 +38,9 @@ repository holding a private fork of them.
   points, never vendored, with a single point of failure that names how to
   install a missing one.
 - **The workspace origin** — one host serving the workspace document, its
-  components, its browser source, and any rendered channel of any site in the
+  components, its browser source, the shared client code the editing gesture
+  runs in the displayed page (served from the same source the renderer is built
+  from, so the two cannot drift), and any rendered channel of any site in the
   store, plus the operations the workspace performs (listing the store,
   publishing, and carrying the write path's read/apply operations as a thin
   transport that adds no semantics of its own, so that a refused edit arrives as
@@ -66,7 +68,9 @@ repository holding a private fork of them.
 - **Edit semantics** — what the write path validates, writes and refuses, and
   what a refusal carries, belong to the write-path capability. This one owns
   only that those operations are reachable over the workspace origin, as a
-  transport that changes none of it.
+  transport that changes none of it. Likewise what the editing gesture's client
+  code *does* once the browser runs it belongs to the editing capability; this
+  one owns only that those bytes are served from this origin.
 - **The renderings themselves** — the draft, published and edit channels are
   produced elsewhere; the workspace displays them and never produces them.
 - **Publish semantics** — the workspace invokes the existing publish behaviour
