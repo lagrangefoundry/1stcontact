@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: The store answers from the command line without any editing gesture
 created_by: xgd
 created_at: '2026-08-07T04:30:06.593528+00:00'
-updated_at: '2026-08-07T04:36:49.891572+00:00'
+updated_at: '2026-08-07T18:45:10.733557+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c46abfa6
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
