@@ -6,9 +6,9 @@ title: The stamp vocabulary is one published contract, so the render that writes
   and the client that reads it cannot drift
 created_by: xgd
 created_at: '2026-08-07T02:42:57.244108+00:00'
-updated_at: '2026-08-07T02:42:57.244108+00:00'
+updated_at: '2026-08-07T02:43:16.779699+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-af36c2cb
@@ -39,11 +39,10 @@ says which segment is hot, so both need the name and neither owns it.
 ## Verification
 
 Assert the site definition schema publishes each stamp name, the hot-segment
-class, and the parse and format of the dotted address form; assert the renderer's
+class, and the dotted address form's reading and writing; assert the renderer's
 published surface exposes the same names with values identical to the schema's
 rather than independently declared ones. Render the edit channel and assert every
 stamp emitted on the output is named by those published values, that the hot
 treatment's selector is composed from the published region-stamp name together
-with the published hot class, and that an address parsed from the output through
-the published parser resolves to the node it was derived from while a malformed
-one is refused rather than resolved.
+with the published hot class, and that an address read off the output through the
+published form addresses the node it was derived from.
