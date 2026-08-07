@@ -8,14 +8,25 @@
  * into a handler directly: every claim here is about bytes a browser is handed.
  *
  * THE COMPONENT DEPENDENCY IS IMPLICIT, and that is a stated coverage gap
- * (story Technical Context). The `@gendevlabs/webui-*` components arrive from an
- * out-of-band install into a shared artifact store, so a fresh clone has none of
- * them. Suites that need them skip with a reported reason; the criteria with a
- * substantial component-independent core (AC-961, AC-977, AC-978) assert that
- * core unconditionally and warn LOUDLY about the part they could not reach —
- * a green run that silently proved nothing would be worse than a reported gap.
- * Components are never mocked: mocking them would prove nothing about the
- * consumption route, which is most of this story's risk.
+ * (story Technical Context). The shared webui components arrive from an
+ * out-of-band install into a shared artifact store, so a fresh clone has none
+ * of them.
+ *
+ * TWO KINDS OF EVIDENCE SIT ON TOP OF THAT, AND THEY BEHAVE DIFFERENTLY ON
+ * PURPOSE. Evidence about *consumption* — that each component resolves, that
+ * the copy resolved declares itself under the scope this repository uses, and
+ * that the generated document agrees with that scope (AC-961, AC-963) — is
+ * UNCONDITIONAL: on a machine without the install it fails and says which
+ * component it could not account for. Evidence about *mounting* real components
+ * still skips with a stated, reported reason; its subject is mount behaviour,
+ * not which copy was consumed.
+ *
+ * The split matters because `WEBUI_INSTALLED` is presence-only: used as a skip
+ * gate it reports "renamed upstream and not renamed here" and "never installed"
+ * identically, so a rename that has broken the browser would read as a clean
+ * green run. Components are never mocked, aliased or vendored in either kind of
+ * evidence: doing so would prove nothing about the consumption route, which is
+ * most of this story's risk.
  */
 
 import fs from 'node:fs'
@@ -35,10 +46,18 @@ import {
   webuiExports,
   webuiPackageDir,
   WEBUI_PACKAGES,
+  WEBUI_SCOPE,
   type BuilderHandle,
 } from '../tools/generate/src/cli'
 
 const REPO = path.resolve(__dirname, '..')
+
+/**
+ * Scopes the components were previously published under. Split-and-joined so
+ * this suite does not itself restate a name the tree guard
+ * (`bug32-webui-scope-rebrand`) forbids in any tracked file.
+ */
+const SUPERSEDED_SCOPES = [['@gendev', 'labs'].join('')]
 
 if (!WEBUI_INSTALLED) console.warn(`story-e674c60a origin suites: ${WEBUI_SKIP_REASON}`)
 
@@ -278,9 +297,14 @@ describe('story-e674c60a builder origin', () => {
   })
 
   it('test_UAT_AC961_components_are_served_byte_identical_from_outside_this_repo', async () => {
-    // AC-961 — consumed, never copied. The scan below is independent of whether
-    // anything is installed, so it runs on every machine: it is the half that
-    // catches a component being vendored in.
+    // AC-961 — consumed, never copied, and the copy consumed must be the RIGHT
+    // one rather than merely one with the right name.
+    //
+    // THIS IS ASSERTED, NOT SKIPPED. `WEBUI_INSTALLED` is presence-only, so
+    // gating here would report "renamed upstream and not renamed here" and
+    // "never installed" identically — and a one-sided rename that has broken
+    // the browser would read as a clean green run. `WEBUI_INSTALLED` is
+    // therefore an OUTCOME of this check, never a precondition for running it.
     const offenders: string[] = []
     for (const root of ['apps', 'packages', 'tools']) {
       for (const file of walk(path.join(REPO, root))) {
@@ -291,32 +315,51 @@ describe('story-e674c60a builder origin', () => {
         }
       }
     }
-    expect(offenders).toEqual([])
-
-    if (!WEBUI_INSTALLED) {
-      unverified('the byte-identity of served components against the installed copy')
-      return
-    }
+    expect(offenders, 'a component is defined inside this repository').toEqual([])
 
     for (const name of WEBUI_PACKAGES) {
+      // Per component, so a failure names WHICH one could not be accounted for.
+      const dir = webuiPackageDir(name)
+
+      // IDENTITY, not presence: the resolved package declares itself, in its
+      // own published identity, as this component under the scope in use. A
+      // same-named package left behind under a superseded scope resolves and
+      // mounts perfectly well — only this assertion rejects it.
+      const declared = (
+        JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')) as { name?: string }
+      ).name
+      expect(declared, `${name} resolved to a package declaring a different identity`).toBe(
+        `${WEBUI_SCOPE}/${name}`,
+      )
+      for (const superseded of SUPERSEDED_SCOPES) {
+        expect(
+          declared!.startsWith(`${superseded}/`),
+          `${name} resolved to a copy left behind under a superseded scope`,
+        ).toBe(false)
+      }
+
+      // The installed copy lives OUTSIDE this repository, so resolution was not
+      // redirected, aliased or stubbed to reach a copy inside it.
+      expect(dir.startsWith(REPO + path.sep), `${name} resolved inside this repository`).toBe(false)
+
       const entry = webuiExports(name)['.'].replace(/^\.\//, '')
       const res = await get(`/webui/${name}/${entry}`)
       expect(res.status, name).toBe(200)
-      const installed = path.join(webuiPackageDir(name), entry)
-      expect(await res.text(), name).toBe(fs.readFileSync(installed, 'utf8'))
-      // The installed copy lives OUTSIDE this repository.
-      expect(webuiPackageDir(name).startsWith(REPO + path.sep), name).toBe(false)
+      expect(await res.text(), name).toBe(fs.readFileSync(path.join(dir, entry), 'utf8'))
     }
+
+    // Reported as installed as an outcome of the check above, not as the gate
+    // that decided whether to run it.
+    expect(WEBUI_INSTALLED, WEBUI_SKIP_REASON).toBe(true)
   })
 
   it('test_UAT_AC963_chrome_references_each_component_by_its_declared_entry_point', async () => {
     // AC-963 — derived from each package's own `exports`, never a hardcoded
     // path, so an upstream file move is reported at the origin rather than
-    // becoming a 404 in the browser.
-    if (!WEBUI_INSTALLED) {
-      unverified('the chrome import map (it cannot be built without the components)')
-      return
-    }
+    // becoming a 404 in the browser. The NAMES those references are made under
+    // are equally derived, which is why this no longer skips: an import map
+    // keyed under a superseded scope resolves nowhere in the browser and
+    // nowhere else would observe it.
     const res = await get('/')
     expect(res.status).toBe(200)
     const html = await res.text()
@@ -332,7 +375,7 @@ describe('story-e674c60a builder origin', () => {
       for (const [subpath, target] of Object.entries(webuiExports(name))) {
         const url = `/webui/${name}/${target.replace(/^\.\//, '')}`
         declared.add(url)
-        if (subpath === '.') expect(map.imports[`@gendevlabs/${name}`]).toBe(url)
+        if (subpath === '.') expect(map.imports[`${WEBUI_SCOPE}/${name}`]).toBe(url)
         const served = await get(url)
         expect(served.status, url).toBe(200)
         expect(await served.text()).toBe(
@@ -348,6 +391,23 @@ describe('story-e674c60a builder origin', () => {
     // declarations — a hardcoded `src/index.js` would show up right here.
     for (const ref of html.match(/\/webui\/[^"']+/g) ?? []) {
       expect(declared.has(ref), `${ref} is not a declared entry point`).toBe(true)
+    }
+
+    // The names are derived too. On this same freshly produced document —
+    // fetched from the origin just now, never a copy committed to the repo,
+    // which compared against itself would prove nothing about what an operator
+    // is served.
+    const keys = Object.keys(map.imports)
+    expect(keys.length, 'the document declares no component references').toBeGreaterThan(0)
+    for (const key of keys) {
+      expect(key.startsWith(`${WEBUI_SCOPE}/`), `${key} is not under the scope in use`).toBe(true)
+      for (const superseded of SUPERSEDED_SCOPES) {
+        expect(key.startsWith(`${superseded}/`), `${key} names a superseded scope`).toBe(false)
+      }
+    }
+    // Every component the workspace consumes has a reference.
+    for (const name of WEBUI_PACKAGES) {
+      expect(keys, `no reference for ${name}`).toContain(`${WEBUI_SCOPE}/${name}`)
     }
   })
 })

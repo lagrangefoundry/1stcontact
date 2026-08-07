@@ -16,7 +16,7 @@
  * is exactly what hid the temporal-dead-zone bug this story records.
  *
  * KNOWN COVERAGE CAVEAT (story Technical Context). The form is a shared
- * `@gendevlabs/webui-fields` component, consumed from an out-of-band install
+ * shared `webui-fields` component, consumed from an out-of-band install
  * that nothing in this repository's manifests records. On a machine that has
  * not run it, each criterion below asserts whatever core does not need the
  * component and reports the rest as UNVERIFIED — loudly, because a quiet skip

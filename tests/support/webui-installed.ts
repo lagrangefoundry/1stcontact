@@ -1,7 +1,13 @@
 import { webuiPackageDir, WEBUI_PACKAGES } from '../../tools/generate/src/cli/webui'
 
 /**
- * Whether the `@gendevlabs/webui-*` components are present.
+ * Whether the shared `webui-*` components are present.
+ *
+ * PRESENCE ONLY. This cannot tell "never installed" from "installed under a
+ * scope the components are no longer published under", so it is a legitimate
+ * gate for MOUNT-behaviour suites and never for identity or wiring evidence —
+ * see `bug32-webui-scope-rebrand` and AC-961, which assert this value rather
+ * than branching on it.
  *
  * The chosen consumption route (REQ-115 Deliverable 0, DOC-8 §9.5) is a shared
  * artifact store populated by `lagrange-framework`'s `bin/install`. Upstream

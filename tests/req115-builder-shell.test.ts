@@ -3,7 +3,7 @@
  *
  * Exercised through real entry points: the builder origin over HTTP, the
  * `control-app` Worker under `unstable_dev`, and the browser composition mounted
- * against the actually-installed `@gendevlabs/webui-*` components in jsdom. No
+ * against the actually-installed shared `webui-*` components in jsdom. No
  * webui component is mocked — mocking them would prove nothing about the
  * consumption route, which is most of this ticket's risk.
  */
@@ -23,6 +23,7 @@ import {
   webuiExports,
   webuiPackageDir,
   WEBUI_PACKAGES,
+  WEBUI_SCOPE,
   type BuilderHandle,
 } from '../tools/generate/src/cli'
 
@@ -107,9 +108,12 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 builder origin', () => {
     ) as { imports: Record<string, string> }
     for (const name of WEBUI_PACKAGES) {
       const declared = webuiExports(name)['.'].replace(/^\.\//, '')
-      expect(map.imports[`@gendevlabs/${name}`]).toBe(`/webui/${name}/${declared}`)
+      // Composed from the single scope declaration, not restated: AC-960
+      // (story-e674c60a) brings the component scope under the one-definition
+      // rule, so a literal here would be a second copy free to drift.
+      expect(map.imports[`${WEBUI_SCOPE}/${name}`]).toBe(`/webui/${name}/${declared}`)
       // The map points at something that actually resolves.
-      expect((await get(map.imports[`@gendevlabs/${name}`])).status).toBe(200)
+      expect((await get(map.imports[`${WEBUI_SCOPE}/${name}`])).status).toBe(200)
     }
     expect(chromeHtml()).toBe(html)
   })

@@ -3,7 +3,7 @@
  * story-e674c60a — **the builder workspace, chrome side**: the tab, the display
  * panel and its modes, the mode-declared toolbar, the split, and what persists.
  *
- * Mounted against the ACTUALLY-INSTALLED `@gendevlabs/webui-*` components, never
+ * Mounted against the ACTUALLY-INSTALLED shared `webui-*` components, never
  * stand-ins. The consumption route is most of this story's risk and a mocked
  * shell would prove nothing about it, so these suites SKIP with a reported
  * reason on a machine that has not run the out-of-band install (story Technical

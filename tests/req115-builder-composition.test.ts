@@ -2,7 +2,7 @@
 /**
  * REQ-115 — the browser composition (DOC-28 §7.1, §12 T1).
  *
- * Mounted against the ACTUALLY-INSTALLED `@gendevlabs/webui-*` components, not
+ * Mounted against the ACTUALLY-INSTALLED shared `webui-*` components, not
  * stand-ins: the consumption route is most of this ticket's risk, and a mocked
  * shell would prove nothing about it.
  */

@@ -14,7 +14,7 @@
  * events; the reads and writes go over HTTP to the real builder origin, which
  * is what the browser talks to. Nothing internal is stubbed.
  *
- * KNOWN COVERAGE CAVEAT (story Technical Context). The `@gendevlabs/webui-*`
+ * KNOWN COVERAGE CAVEAT (story Technical Context). The shared `webui-*`
  * components arrive from an out-of-band install that nothing in this
  * repository's manifests records, so a machine that has not run it has none of
  * them. The builder chrome cannot mount there, so the criteria whose remaining
