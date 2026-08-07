@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Produces N-way per-node table with default size columns
 created_by: xgd
 created_at: '2026-07-19T02:50:53.282543+00:00'
-updated_at: '2026-08-05T23:13:28.594727+00:00'
+updated_at: '2026-08-07T23:11:40.424489+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
