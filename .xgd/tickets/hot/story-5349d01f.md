@@ -6,9 +6,9 @@ title: 'Ship a site off the laptop: a content-addressed snapshot deploy that ret
   a shareable URL'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-08-06T20:23:04.133287+00:00'
+updated_at: '2026-08-07T21:38:20.642104+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -62,6 +62,10 @@ In scope:
 - **Previews are not revisions.** A draft deploy never mints a revision number
   and never enters publish history, so previews can be shared freely without
   polluting the publish record.
+- **Publish mints, deploy ships.** The published channel carries no such
+  shortcut: a published deploy of a site whose publish history is empty is
+  refused by name and writes nothing, directing the operator at the publish
+  command rather than shipping an empty channel or minting a revision itself.
 - **Rehearsal and cleanup.** A dry run prints the complete plan and writes
   nothing. A prune deletes only stored snapshot objects that the site's deploy
   index does not reference — the orphans an interrupted deploy leaves behind.
