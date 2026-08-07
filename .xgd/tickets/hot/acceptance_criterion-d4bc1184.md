@@ -6,10 +6,10 @@ title: Choosing an image updates the draft and the rendered page shows it, with 
   alt text landing in the same single diff
 created_by: xgd
 created_at: '2026-08-07T04:41:14.082548+00:00'
-updated_at: '2026-08-07T04:41:14.082548+00:00'
+updated_at: '2026-08-07T04:51:24.962662+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
