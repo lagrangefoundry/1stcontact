@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-121
 created_by: xgd
 created_at: '2026-08-07T23:27:57.846264+00:00'
-updated_at: '2026-08-07T23:31:22.283379+00:00'
+updated_at: '2026-08-07T23:38:49.217109+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -81,5 +81,16 @@ One thing I want to decide deliberately: **size**. A 72px display headline repro
 2. **Size clamp** — clamp as above, or reproduce exact size and let the box scroll?
 
 Answer those and I'll populate REQ-121 with the scope and implement. Everything here is one ticket: it's one intent (make the copy modal elegant), and items 1–5 share the mount-inside-the-shell fix.
+
+<!-- xgd-turn id="fb5f4263-e290-4b57-981d-44fbbe6450ac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-07T23:38:49.090966+00:00" -->
+#### You
+he complication: `webui-shell` hardcodes `font-family: system-ui…` in its stylesheet and its token vocabulary (`bg fg muted accent surface border overlay radius gap`) has **no font token**. That's a genuine upstream gap worth raising, but I'd set it locally in `builder.css` now rather than block on it. <-- very easy to fix, please create a ticket in lagrange-framework asking for what you need and I will have it before we proceed with this implementation
+
+Agree on size - lets see how it translates -  we can also make the model bigger / felxibly sized - I think it will need to be larger than what we have
+
+1. Sure show me and we can iterate
+2. See my note - try the reduced size, but I think the current box is too small for any decent sized text chunk
 
 <!-- xgd-chat-end -->
