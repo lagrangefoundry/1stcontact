@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Every key a deploy writes is scoped to the store tree the definition came from
 created_by: xgd
 created_at: '2026-08-06T20:15:29.091038+00:00'
-updated_at: '2026-08-06T20:23:05.448386+00:00'
+updated_at: '2026-08-07T22:18:42.813742+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
