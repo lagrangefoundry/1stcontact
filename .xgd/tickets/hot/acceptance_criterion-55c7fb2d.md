@@ -6,10 +6,10 @@ title: The stamp vocabulary is one published contract, so the render that writes
   and the client that reads it cannot drift
 created_by: xgd
 created_at: '2026-08-07T02:42:57.244108+00:00'
-updated_at: '2026-08-07T02:43:16.779699+00:00'
+updated_at: '2026-08-07T02:53:51.642460+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
