@@ -6,14 +6,15 @@ title: A site serving a font family that no record accounts for fails the check,
   names the family and where to record it, and exits non-zero
 created_by: xgd
 created_at: '2026-08-06T03:29:32.163376+00:00'
-updated_at: '2026-08-06T03:38:16.967773+00:00'
+updated_at: '2026-08-07T18:44:56.038033+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8685be2d
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
