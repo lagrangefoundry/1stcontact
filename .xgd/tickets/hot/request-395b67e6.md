@@ -5,10 +5,10 @@ type: request
 title: 'Copy editing end-to-end: click segment → fields modal → validated diff → re-render'
 created_by: xgd
 created_at: '2026-07-31T20:43:32.395678+00:00'
-updated_at: '2026-08-07T01:30:10.843887+00:00'
+updated_at: '2026-08-07T01:30:26.558404+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   depends_on:
@@ -59,6 +59,7 @@ fields:
     - 38e43c7dbfdc044314ce96297ae7b318c3301f3a
   version: 0.1.23
   story_points: 4
+  bundled_in: bundle-15c1f647
 ---
 
 ## What this builds
