@@ -6,14 +6,15 @@ title: The site selector lists exactly the sites the store holds, and choosing o
   changes the displayed site
 created_by: xgd
 created_at: '2026-08-07T01:44:23.282193+00:00'
-updated_at: '2026-08-07T01:58:18.602068+00:00'
+updated_at: '2026-08-07T21:19:23.312132+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: fail
 ---
 
 ## Criterion
