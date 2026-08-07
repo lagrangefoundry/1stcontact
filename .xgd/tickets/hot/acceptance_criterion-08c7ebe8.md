@@ -6,10 +6,10 @@ title: 'No edit through this surface can produce raw HTML or CSS: markup in the 
   stays literal text'
 created_by: xgd
 created_at: '2026-08-07T02:02:54.192416+00:00'
-updated_at: '2026-08-07T02:02:54.192416+00:00'
+updated_at: '2026-08-07T02:12:04.018125+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
