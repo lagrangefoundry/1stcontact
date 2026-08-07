@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: --json emits machine-readable output; --ref is required
 created_by: xgd
 created_at: '2026-07-19T02:51:39.975404+00:00'
-updated_at: '2026-08-05T23:13:21.697149+00:00'
+updated_at: '2026-08-07T23:11:42.738508+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
