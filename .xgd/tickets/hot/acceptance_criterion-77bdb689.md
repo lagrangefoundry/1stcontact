@@ -6,14 +6,15 @@ title: Redeploying identical bytes is a no-op returning the same URL; changed by
   land beside the previous snapshot, never on top of it
 created_by: xgd
 created_at: '2026-08-06T18:39:22.280276+00:00'
-updated_at: '2026-08-06T18:46:02.757339+00:00'
+updated_at: '2026-08-07T22:18:05.640428+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
