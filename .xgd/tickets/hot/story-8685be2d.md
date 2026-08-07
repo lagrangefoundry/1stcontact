@@ -6,13 +6,13 @@ title: 'Font provenance: every font file in the project is accounted for, and an
   licence cannot ship as product'
 created_by: xgd
 created_at: '2026-08-06T03:29:03.843623+00:00'
-updated_at: '2026-08-06T03:38:13.876120+00:00'
+updated_at: '2026-08-07T15:26:44.929960+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: capability_uid
 status: completed
 fields:
   intent_uid: bundle-ee56a66e
-  capability_uid: capability-745b9a6c
+  capability_uid: capability-b4ac88fc
   story_kind: feature
   story_points: 3
 ---
