@@ -18,7 +18,7 @@
  * @property {(ctx: ActionContext) => HTMLElement} create
  */
 
-/** @typedef {{ panel: object, api: object }} ActionContext */
+/** @typedef {{ panel: object, api: object, subscribe: (event: string, cb: Function) => Function }} ActionContext */
 
 export function createToolbar(options) {
   const { panel, actions, context = {} } = options
@@ -34,31 +34,71 @@ export function createToolbar(options) {
   /** Live handles keyed by action id, so actions can refresh themselves. */
   const mounted = new Map()
 
+  /**
+   * Panel unsubscribes owned by the CURRENT set of rendered actions.
+   *
+   * An action that keeps itself in sync (the "open in new tab" href tracks
+   * `src`) has to subscribe to the panel, but `render` throws its element away
+   * on every mode and site change. Subscribing directly would leave the old
+   * callback registered against a detached node — and since the strip re-renders
+   * on exactly the events those callbacks listen for, the pile grows for as long
+   * as the builder is open, every entry writing to an element no longer in the
+   * document. Routing through {@link subscribe} makes the subscription's
+   * lifetime the element's lifetime, which is what it was always meant to be.
+   */
+  let actionCleanups = []
+
+  /** Subscribe on behalf of the action being created; disposed with it. */
+  function subscribe(event, cb) {
+    const off = panel.on(event, cb)
+    actionCleanups.push(off)
+    return off
+  }
+
+  function disposeActions() {
+    for (const off of actionCleanups) off()
+    actionCleanups = []
+    mounted.clear()
+    element.replaceChildren()
+  }
+
   function render() {
     const mode = panel.getModes().find((m) => m.id === panel.getMode())
     const ids = mode?.actions ?? []
-    mounted.clear()
-    element.replaceChildren()
+    disposeActions()
     for (const id of ids) {
       const spec = registry.get(id)
       if (!spec) throw new Error(`toolbar: mode "${mode?.id}" names unknown action "${id}"`)
-      const el = spec.create({ panel, ...context, toolbar: api })
+      const el = spec.create({ panel, ...context, toolbar: api, subscribe })
       el.dataset.action = id
       mounted.set(id, el)
       element.append(el)
     }
   }
 
+  /** Toolbar-level subscriptions — released by {@link api.destroy}, not by a render. */
+  let offPanel = []
+
   const api = {
     element,
     render,
     get: (id) => mounted.get(id) ?? null,
     ids: () => [...mounted.keys()],
+    /**
+     * Release everything this toolbar holds. Called by the composition's own
+     * `destroy` so a remount does not stack a second strip's worth of listeners
+     * on a panel that outlives it.
+     */
+    destroy() {
+      for (const off of offPanel) off()
+      offPanel = []
+      disposeActions()
+      element.remove()
+    },
   }
 
   // Re-render on every mode change; the strip is derived state, never manual.
-  panel.on('mode', render)
-  panel.on('site', render)
+  offPanel = [panel.on('mode', render), panel.on('site', render)]
   render()
 
   return api
@@ -124,7 +164,7 @@ export function modeToggleAction() {
 export function openInNewTabAction() {
   return {
     id: 'open-new-tab',
-    create({ panel }) {
+    create({ panel, subscribe }) {
       const link = document.createElement('a')
       link.className = 'builder-toolbar__open'
       link.target = '_blank'
@@ -132,7 +172,9 @@ export function openInNewTabAction() {
       link.textContent = 'Open in new tab'
       const sync = () => link.setAttribute('href', panel.getSrc())
       sync()
-      panel.on('src', sync)
+      // Through the toolbar, so the subscription dies with this element rather
+      // than outliving it on the panel — see `actionCleanups`.
+      subscribe('src', sync)
       return link
     },
   }

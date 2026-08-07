@@ -1,7 +1,7 @@
 import { mountBuilder } from './app.js'
 import { fetchSites, publishSite } from './api.js'
 import { mountL1EditBridge } from '/framework/edit-client.js'
-import { formatL1Path } from '/framework/site-schema-edit.js'
+import { formatL1Path, L1_EDIT_PAGE_ATTR } from '/framework/site-schema-edit.js'
 
 /**
  * Browser entry point. Kept separate from `app.js` so the composition can be
@@ -24,5 +24,5 @@ const sites = await fetchSites()
 mountBuilder(root, {
   sites,
   publish: (slug) => publishSite(slug),
-  editBridge: { mountL1EditBridge, formatL1Path },
+  editBridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
 })

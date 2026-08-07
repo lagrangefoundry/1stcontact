@@ -43,9 +43,11 @@
  * `reconciliation-1c-astro-free-render.test.ts`.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   assertInstall,
   checkInstall,
@@ -125,6 +127,88 @@ async function runCli(args: string[]): Promise<{ out: string; err: string; code:
   return { out: logs.join('\n'), err: errs.join('\n'), code }
 }
 
+// ── staging a genuinely absent package, for the real `1c` binary ─────────────
+
+const repoRoot = fileURLToPath(new URL('..', import.meta.url))
+const BIN = path.join(repoRoot, 'tools', 'generate', 'bin', '1c.mjs')
+
+/**
+ * A subprocess shim that makes packages behave exactly as if they had been
+ * pruned off disk — the REQ-44 scenario itself.
+ *
+ * Both resolution paths must fail together, because the two halves of the
+ * failure live on different ones. `require.resolve` is what the preflight
+ * probes, so hiding it there is what makes the gate *fire*; `import` is what the
+ * CLI's own module graph uses, so hiding it there is what proves the gate is
+ * *reachable* — a static import of a hidden package throws while the CLI module
+ * is still loading, strictly before dispatch can call `assertInstall`.
+ *
+ * Hiding only the ESM side would be the weaker test that misses the defect: the
+ * package directory would still resolve, the preflight would report a healthy
+ * tree, and the run would die later on the import anyway.
+ *
+ * A shim rather than a real prune because this repo's own `node_modules` is not
+ * the test's to mutate — a rename would race every other suite and outlive a
+ * failed run. Nothing on disk changes.
+ */
+const HIDE_HOOK = `
+import { registerHooks } from 'node:module'
+import Module from 'node:module'
+
+const HIDDEN = JSON.parse(process.env.FC_HIDDEN_PACKAGES)
+const hidden = (s) =>
+  HIDDEN.includes(s) ||
+  HIDDEN.some((p) => s.startsWith(p + '/')) ||
+  HIDDEN.some((p) => s.includes('/node_modules/' + p + '/'))
+
+// CJS — the path \`require.resolve\` takes, which is what the preflight probes.
+const realResolve = Module._resolveFilename
+Module._resolveFilename = function (request, ...rest) {
+  if (hidden(request)) {
+    const err = new Error("Cannot find module '" + request + "'")
+    err.code = 'MODULE_NOT_FOUND'
+    throw err
+  }
+  return realResolve.call(this, request, ...rest)
+}
+
+// ESM — the path a static or dynamic \`import\` takes. Both the bare specifier
+// and the resolved URL are checked: the bundler resolves some of these itself
+// and hands Node the file path.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const reject = () => {
+      const err = new Error("Cannot find package '" + specifier + "'")
+      err.code = 'ERR_MODULE_NOT_FOUND'
+      throw err
+    }
+    if (hidden(specifier)) reject()
+    const r = nextResolve(specifier, context)
+    if (hidden(r.url)) reject()
+    return r
+  },
+})
+`
+
+/** Run the real `1c` binary with `hidden` packages unresolvable, from the repo root. */
+function runBinWithout(hidden: string[], args: string[]): { out: string; err: string; code: number } {
+  const dir = mkdtempSync(path.join(tmpdir(), 'fc-hide-'))
+  const hook = path.join(dir, 'hide.mjs')
+  writeFileSync(hook, HIDE_HOOK)
+  try {
+    const res = spawnSync('node', ['--import', hook, BIN, ...args], {
+      // The repo root, like every real invocation: the launcher roots its Vite
+      // server there, and the preflight reads the lockfile relative to cwd.
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: { ...process.env, FC_HIDDEN_PACKAGES: JSON.stringify(hidden) },
+    })
+    return { out: res.stdout ?? '', err: res.stderr ?? '', code: res.status ?? -1 }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
 /** Capture the CommandError a gated command refuses with. */
 function refusalOf(command: string, opts: { repoRoot: string; resolve?: Resolver }): CommandError {
   try {
@@ -178,6 +262,43 @@ describe('story-e15a19ef — a gated command refuses on an unresolvable declared
     // The human refusal is stderr's business; stdout stays clean.
     expect(cli.out).toBe('')
   })
+
+  it(
+    'test_UAT_AC1013_gate_is_reachable_when_the_package_is_genuinely_absent',
+    () => {
+      // The test above drives `run()` in-process, where the CLI module is
+      // already loaded — so it can prove the gate *refuses*, but not that
+      // dispatch can still be reached at all in the state the gate exists for.
+      // That gap is not hypothetical: a static `import playwright from
+      // 'playwright'` anywhere in the CLI's module graph throws while the module
+      // is loading, which is strictly before `assertInstall` is called, and
+      // turns this refusal back into the raw `Cannot find module 'playwright'`
+      // crash REQ-44 was filed to remove. Only the real binary, against a
+      // genuinely unresolvable package, can tell the two apart.
+      const gated = runBinWithout(['playwright'], ['shot', 'demo'])
+
+      // The gate fired: exit 6, naming the command, the package and the remedy —
+      // not a module-resolution crash at exit 1.
+      expect(gated.code).toBe(EXIT_CODES.ENVIRONMENT)
+      expect(gated.err).toContain("'1c shot' cannot run")
+      expect(gated.err).toContain('playwright')
+      expect(gated.err).toContain(INSTALL_COMMAND)
+      expect(gated.err).not.toContain('Cannot find module')
+      expect(gated.err).not.toContain('Cannot find package')
+
+      // "Before doing any work": the browser is never launched and no shot is
+      // written, so the refusal cannot have come from inside the command.
+      expect(gated.out).toBe('')
+
+      // The other half of the same property. `list` loads neither package and
+      // the ticket states it is never gated — but a load-time import makes the
+      // whole CLI unloadable, so an ungated verb fails too. It must still run.
+      const ungated = runBinWithout(['playwright', 'sharp'], ['list'])
+      expect(ungated.code).toBe(0)
+      expect(ungated.err).not.toContain('Cannot find package')
+    },
+    240_000,
+  )
 })
 
 // ── AC-1014: drift is reported even when every dependency still resolves ─────
@@ -312,6 +433,31 @@ describe('story-e15a19ef — the refusal travels the CLI failure contract', () =
     // Same message either way — the JSON caller is not told a different story.
     expect(human.err).toContain(envelope.error.message.split('\n')[0])
   })
+
+  it(
+    'test_UAT_AC1016_real_binary_emits_the_envelope_on_a_genuinely_absent_package',
+    () => {
+      // The envelope is a promise to a *caller of the binary*, and the fault it
+      // most has to survive is the one where the missing package is missing for
+      // real. In-process, the CLI module is already loaded and cannot express
+      // that; through the binary it can. `sharp` here rather than `playwright`
+      // so both gated dependencies are covered across the two entry-point UATs.
+      const res = runBinWithout(['sharp'], ['crop', '--input', 'nope.png', '--box', '0,0,1,1', '--json'])
+
+      expect(res.code).toBe(EXIT_CODES.ENVIRONMENT)
+      // Exactly one document on stdout, and it is the standard failure envelope.
+      const envelope = JSON.parse(res.out) as {
+        ok: boolean
+        error: { code: string; message: string; hint: string }
+      }
+      expect(envelope.ok).toBe(false)
+      expect(envelope.error.code).toBe('ENVIRONMENT')
+      expect(envelope.error.message).toContain("'1c crop' cannot run")
+      expect(envelope.error.message).toContain('sharp')
+      expect(envelope.error.hint).toContain(INSTALL_COMMAND)
+    },
+    240_000,
+  )
 })
 
 // ── AC-1017: gated on exactly what each command loads; offline verbs never ───

@@ -227,7 +227,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       display()
       editor = mountEditor(document, {
         slug: 'acme',
-        bridge: { mountL1EditBridge, formatL1Path },
+        bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       elementShowing(HEADLINE).dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
       await settle()
@@ -278,7 +278,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       display()
       editor = mountEditor(document, {
         slug: 'acme',
-        bridge: { mountL1EditBridge, formatL1Path },
+        bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       document
         .querySelector(`[${L1_EDIT_SEGMENT_ATTR}="image"]`)!
@@ -311,7 +311,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
           display()
           const editor = mountEditor(document, {
             slug: 'acme',
-            bridge: { mountL1EditBridge, formatL1Path },
+            bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
           })
           document
             .querySelector(`[${L1_EDIT_SEGMENT_ATTR}="image"]`)!
@@ -387,7 +387,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
         display()
         editor = mountEditor(document, {
           slug: 'acme',
-          bridge: { mountL1EditBridge, formatL1Path },
+          bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
         })
         elementShowing(HEADLINE).dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
         await settle()
@@ -438,7 +438,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     try {
       editor = mountEditor(document, {
         slug: 'acme',
-        bridge: { mountL1EditBridge, formatL1Path },
+        bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
       elementShowing(HEADLINE).dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
       await settle()

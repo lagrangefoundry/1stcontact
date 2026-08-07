@@ -19,7 +19,6 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'no
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import sharp from 'sharp'
 import type { GlobalOptions } from './commands'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import { readLadderScreenshotPath, type BrowserDriverFactory } from './capture'
@@ -281,8 +280,31 @@ export function deriveRegions(
 
 // ── image codec (sharp) ────────────────────────────────────────────────────────
 
+/**
+ * `sharp` is loaded on first use, never at module scope (REQ-44).
+ *
+ * This module is reachable from the CLI's own module graph, so a static
+ * `import sharp from 'sharp'` makes *every* `1c` verb — including the offline
+ * ones the preflight deliberately leaves ungated — fail at load time when the
+ * package is not installed. That load happens strictly before dispatch, so it
+ * also pre-empts {@link assertInstall}: the operator gets a raw
+ * `Cannot find module 'sharp'` at exit 1 instead of the `ENVIRONMENT` refusal
+ * naming `pnpm install`, which is precisely the failure REQ-44 exists to
+ * replace. Deferring the load to the first call keeps the check reachable.
+ *
+ * The same pattern as `capture/playwright-driver.ts`. Cached, so the repeated
+ * calls a diff makes pay the resolution cost once.
+ */
+type SharpFactory = typeof import('sharp').default
+let sharpModule: SharpFactory | undefined
+async function loadSharp(): Promise<SharpFactory> {
+  sharpModule ??= (await import('sharp')).default
+  return sharpModule
+}
+
 /** Decode a PNG (or any sharp-readable image) file into a {@link Raster}. */
 export async function decodeImage(file: string): Promise<Raster> {
+  const sharp = await loadSharp()
   const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true })
   return { data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength), width: info.width, height: info.height, channels: info.channels }
 }
@@ -293,6 +315,7 @@ export async function decodeImage(file: string): Promise<Raster> {
  * perceptual backstop, which diffs engine screenshots it never writes to disk.
  */
 export async function decodeImageBytes(bytes: Uint8Array): Promise<Raster> {
+  const sharp = await loadSharp()
   const { data, info } = await sharp(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength))
     .raw()
     .toBuffer({ resolveWithObject: true })
@@ -306,6 +329,7 @@ export async function decodeImageBytes(bytes: Uint8Array): Promise<Raster> {
 
 /** Encode an RGB/RGBA raster to a PNG file (fixture + diagnostic helper). */
 export async function writeRasterPng(src: Raster, outFile: string): Promise<string> {
+  const sharp = await loadSharp()
   const channels = src.channels as 1 | 2 | 3 | 4
   const png = await sharp(Buffer.from(src.data.buffer, src.data.byteOffset, src.data.byteLength), {
     raw: { width: src.width, height: src.height, channels },
@@ -332,6 +356,7 @@ export function cropRaster(src: Raster, w: number, h: number): Raster {
 
 /** Encode a 0..255 grayscale raster (row-major, `width`×`height`) to a PNG file. */
 async function writeGrayPng(values: Uint8Array, width: number, height: number, outFile: string): Promise<void> {
+  const sharp = await loadSharp()
   const png = await sharp(Buffer.from(values.buffer, values.byteOffset, values.byteLength), {
     raw: { width, height, channels: 1 },
   })
@@ -355,6 +380,7 @@ export interface CropOptions {
 export async function cmdCrop(opts: CropOptions): Promise<{ outFile: string; box: RegionBox }> {
   const { input, box } = opts
   if (!existsSync(input)) throw new Error(`crop: input image not found: ${input}`)
+  const sharp = await loadSharp()
   const meta = await sharp(input).metadata()
   const iw = meta.width ?? 0
   const ih = meta.height ?? 0

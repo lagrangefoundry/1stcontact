@@ -1046,11 +1046,21 @@ export async function run(argv: string[]): Promise<void> {
           })
         }
         const out = editCopySet(slug, pageId, addr, values as Record<string, unknown>, scope)
+        // BOTH channels, for the same reason `/api/copy` POST renders both: an
+        // edit changes the page, not one rendering of it. Re-rendering only
+        // `edit` leaves the draft showing whatever the last `1c render`
+        // produced, so the change is invisible everywhere the page is read as a
+        // visitor would read it — and nothing signals the staleness, because a
+        // stale draft looks like a working page, just an old one.
+        //
+        // The editor and the AI are peers on this surface (DOC-28 §4), so they
+        // cannot leave the store in different states after the same edit.
         const { outDir } = await cmdRender(slug, { ...global, edit: true })
+        const { outDir: draftDir } = await cmdRender(slug, { ...global, edit: false })
         emit(
           {
-            data: { ...(out.data as Record<string, unknown>), rendered: outDir },
-            human: `${out.human}\nRe-rendered edit channel → ${outDir}`,
+            data: { ...(out.data as Record<string, unknown>), rendered: outDir, renderedDraft: draftDir },
+            human: `${out.human}\nRe-rendered edit channel → ${outDir}\nRe-rendered draft channel → ${draftDir}`,
           },
           json,
         )

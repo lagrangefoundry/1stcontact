@@ -17,9 +17,19 @@ import { fetchCopy, saveCopy } from './api.js'
  * endpoint; only the first two steps of the loop differ.
  */
 
-/** The page id the render stamped on `<body>` — see `L1_EDIT_PAGE_ATTR`. */
-function pageIdOf(doc) {
-  return doc?.body?.getAttribute('data-fc-page') ?? null
+/**
+ * The page id the render stamped on `<body>`.
+ *
+ * The attribute NAME arrives with the bridge rather than being written here.
+ * `L1_EDIT_PAGE_ATTR` is part of the edit-address contract in
+ * `site-schema/src/l1/edit.ts`, which is the module the renderer stamps *from* —
+ * so a literal here would be a second definition site, free to drift from the
+ * markup it reads. Drift is silent in exactly the way that matters: a stale name
+ * reads back `null`, and a `null` page id is indistinguishable from a document
+ * that was never stamped.
+ */
+function pageIdOf(doc, pageAttr) {
+  return doc?.body?.getAttribute(pageAttr) ?? null
 }
 
 /**
@@ -33,7 +43,7 @@ function pageIdOf(doc) {
 /**
  * @param {Document} doc
  * @param {object} options
- * @param {{mountL1EditBridge: Function, formatL1Path: Function}} options.bridge
+ * @param {{mountL1EditBridge: Function, formatL1Path: Function, L1_EDIT_PAGE_ATTR: string}} options.bridge
  *   The edit bridge module. INJECTED rather than imported, because the browser
  *   reaches it at `/framework/edit-client.js` — a URL this origin serves by
  *   type-stripping the TypeScript source — and a module-scope import of that URL
@@ -43,8 +53,8 @@ function pageIdOf(doc) {
  */
 export function mountEditor(doc, options = {}) {
   const { slug, bridge: api, onSaved = () => {}, openModal = defaultModal } = options
-  const { mountL1EditBridge, formatL1Path } = api
-  const pageId = pageIdOf(doc)
+  const { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR } = api
+  const pageId = pageIdOf(doc, L1_EDIT_PAGE_ATTR)
 
   const bridge = mountL1EditBridge(doc, (hit) => {
     // A segment with no exposed fields is a legitimate answer, not an error (a
@@ -217,8 +227,13 @@ function defaultModal(spec) {
     save.disabled = true
     error.hidden = true
     try {
-      // `commit()` flushes the buffer through mountFields' own onCommit path,
-      // but the values are what we post — so read them before it clears staged.
+      // `getValues()` rather than `commit()`: in `buffered` mode both read the
+      // same staged buffer, but `commit` also flushes it through mountFields'
+      // own onCommit path — a second notification for an edit this Save is
+      // already carrying, and one that clears the buffer before the post it
+      // would have to be replayed from if the origin refuses. Reading leaves
+      // the staged text intact, which is what lets the modal stay open holding
+      // it when validation fails below.
       const values = fields.getValues()
       await spec.onSave(values)
       close()

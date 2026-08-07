@@ -30,7 +30,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli'
 import { mountL1EditBridge } from '../packages/framework/src/l1/edit-client'
-import { formatL1Path } from '../packages/site-schema/src/l1/edit'
+import { formatL1Path, L1_EDIT_PAGE_ATTR } from '../packages/site-schema/src/l1/edit'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-117 stale-render suite skipped: ${WEBUI_SKIP_REASON}`)
@@ -91,7 +91,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 stale edit render', () => {
     try {
       const editor = mountEditor(document, {
         slug: 'alpha',
-        bridge: { mountL1EditBridge, formatL1Path },
+        bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
         openModal: (spec: { kind: string; message?: string; hint?: string }) => modals.push(spec),
       })
 

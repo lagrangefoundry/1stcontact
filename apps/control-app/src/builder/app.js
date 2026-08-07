@@ -50,8 +50,9 @@ export function mountBuilder(root, options = {}) {
    * in the same registry — View is not privileged in the panel's internals, it
    * is simply the one registered first.
    *
-   * Edit is a registered stub: the mode exists and the pane switches to it, but
-   * the edit RENDER is REQ-116 (T2) and the editing itself is REQ-117 (T3).
+   * Edit points at the `edit` channel, whose render stamps the segment
+   * addresses (T2) the bridge resolves clicks against; `rebind` below mounts
+   * the edit loop (T3) on the document the pane loads there.
    */
   panel
     .registerMode({
@@ -141,6 +142,7 @@ export function mountBuilder(root, options = {}) {
     destroy() {
       panel.frame.removeEventListener('load', rebind)
       editor?.destroy()
+      toolbar.destroy()
       split.destroy()
       panel.destroy()
       shell.destroy()

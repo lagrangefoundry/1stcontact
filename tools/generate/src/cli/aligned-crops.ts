@@ -17,8 +17,6 @@
  */
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
-import playwright from 'playwright'
-import sharp from 'sharp'
 import { cmdRender } from './commands'
 import { startServe } from './serve'
 import type { GlobalOptions } from './commands'
@@ -132,8 +130,29 @@ function refScreenshot(bundleDir: string, viewportWidth: number): string {
   return full
 }
 
+/**
+ * `playwright` and `sharp` are loaded on first use, never at module scope
+ * (REQ-44).
+ *
+ * `cli/index.ts` imports this module to dispatch `1c aligned-crops`, so a static
+ * import here is a load-time dependency for *every* verb — and it resolves
+ * before dispatch, so it fires ahead of {@link assertInstall} and replaces the
+ * `ENVIRONMENT` refusal that names `pnpm install` with a raw
+ * `Cannot find module` crash at exit 1. That is the failure REQ-44 was filed to
+ * remove, so the gate must be reachable first: the packages load only once the
+ * command that needs them actually runs. Same pattern as
+ * `capture/playwright-driver.ts`.
+ */
+async function loadPlaywright(): Promise<typeof import('playwright')> {
+  return await import('playwright')
+}
+async function loadSharp(): Promise<typeof import('sharp').default> {
+  return (await import('sharp')).default
+}
+
 /** Clamp a crop rect to the image so a bottom-edge window never overruns. */
 async function cropTo(srcPng: string | Buffer, left: number, top: number, width: number, height: number, out: string): Promise<void> {
+  const sharp = await loadSharp()
   const img = sharp(srcPng)
   const meta = await img.metadata()
   const iw = meta.width ?? width
@@ -177,6 +196,7 @@ export async function cmdAlignedCrops(opts: AlignedCropsOptions): Promise<{ area
   const sub = subRenderOptions(opts)
   await cmdRender(slug, sub)
   const serve = await startServe(slug, sub)
+  const playwright = await loadPlaywright()
   const browser = await playwright.chromium.launch()
   let oursPng: Buffer
   const oursBoxByText = new Map<string, Box>()
