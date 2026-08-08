@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-07T23:44:43.847530+00:00'
+updated_at: '2026-08-08T00:30:05.480515+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: in_progress
 fields:
   intent_uid: bundle-15c1f647
@@ -160,12 +160,30 @@ the surface where an operator *sees* the site instead.
   check used as a skip gate reports "renamed upstream and not renamed here" and
   "never installed" identically — the two must be distinguishable, or a rename
   that has broken the browser reads as a clean green run. Components are never
-  mocked, aliased or vendored in either kind of evidence: doing so would prove
+  mocked, faked or vendored in either kind of evidence: a stand-in would prove
   nothing about the consumption route, which is most of this story's risk. It
   follows that the artifact store must be resolvable from wherever the evidence
   runs — including a detached working tree of this repository, which does not
-  inherit the main checkout's neighbours. That is an environment precondition,
-  not a code defect, and a failure to resolve should be read as one.
+  inherit the main checkout's neighbours.
+- **Resolving the store from a detached working tree is a route correction, and
+  it is made at the one resolution point.** The precondition above was not
+  self-satisfying: a linked working tree is the same repository parked outside
+  the directory the store sits beside, so the ordinary upward walk reached
+  nothing and every component looked absent — which is indistinguishable from
+  "the out-of-band install was never run", and that is a skip by design. Nine of
+  this story's criteria therefore lost their evidence in every working tree
+  *while reporting green*. So resolution is anchored at the main checkout, and
+  the test runner is pointed at the identical packages by aliases **derived from
+  that same single resolution point** rather than from a second guess at where
+  the store lives. This is not the substitution the paragraph above forbids and
+  cannot decay into one: every alias target comes from the resolver production
+  uses, every alias key is composed from the one scope declaration — so a
+  one-sided rename still fails loudly in both directions — and with no install
+  there is nothing to alias and the mount evidence skips exactly as before. The
+  alternative, an undocumented install into a directory outside every checkout,
+  was rejected because its failure mode is the silent green rather than a loud
+  one. Beyond that correction, a failure to resolve remains an environment
+  precondition to be read as such, not a code defect.
 - **Divergence flagged, not absorbed: the local preview server's freshness
   changed too.** The non-cacheable directive was added to the shared file-sending
   path, which the standalone local preview server (STORY-95 / STORY-96) also
