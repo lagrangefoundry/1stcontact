@@ -6,14 +6,15 @@ title: References resolve once at the load boundary, so authoring form is invisi
   downstream
 created_by: xgd
 created_at: '2026-08-06T20:37:50.582708+00:00'
-updated_at: '2026-08-06T22:02:15.576809+00:00'
+updated_at: '2026-08-08T00:43:57.460086+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c490f1cf
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
