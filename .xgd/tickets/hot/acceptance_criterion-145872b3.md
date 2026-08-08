@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Behavioural config is validated against the behavior's typed contract
 created_by: xgd
 created_at: '2026-07-22T19:54:00.901253+00:00'
-updated_at: '2026-08-05T21:03:35.058816+00:00'
+updated_at: '2026-08-08T00:42:03.168591+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
