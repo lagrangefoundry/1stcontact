@@ -6,9 +6,9 @@ title: 'Rebranding gap: WEBUI_SCOPE still resolves @gendevlabs — components va
   silently after the framework rename'
 created_by: xgd
 created_at: '2026-08-05T22:28:10.455514+00:00'
-updated_at: '2026-08-07T22:58:53.662241+00:00'
+updated_at: '2026-08-08T00:30:19.378621+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: in_progress
 fields:
   priority: medium
@@ -66,8 +66,11 @@ resolved package's own `package.json` `name` is under the new scope.
   cannot import the constant and are renamed in place. This surface was **not**
   in the original scope list and is the one that fails at runtime only — a
   specifier the map does not key throws in the browser and nowhere else.
-- `index.html` (a tracked chrome artifact at the repo root) — scope updated so it
-  does not sit stale against the generator that produces it.
+- `index.html` (a tracked chrome artifact at the repo root) — **deleted**, not
+  updated. A committed copy of the generator's output is itself a second
+  definition site: renaming the scope inside it would leave exactly the drift
+  this ticket exists to close, one rename away. Nothing read the file, and the
+  origin serves `chromeHtml()` at `/`.
 - `tests/req115-builder-shell.test.ts`,
   `tests/reconciliation-builder-workspace-origin.test.ts` — assertions now use
   `WEBUI_SCOPE` rather than restating the literal.
