@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A control leaf renders the module's element painted entirely by L1
 created_by: xgd
 created_at: '2026-08-06T01:32:20.057180+00:00'
-updated_at: '2026-08-06T02:32:04.903367+00:00'
+updated_at: '2026-08-08T00:42:35.459193+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
