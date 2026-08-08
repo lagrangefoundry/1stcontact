@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A gradient is linear or radial and the branches cannot be mixed
 created_by: xgd
 created_at: '2026-08-06T02:21:08.231495+00:00'
-updated_at: '2026-08-06T02:32:04.088903+00:00'
+updated_at: '2026-08-08T00:43:12.099803+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
