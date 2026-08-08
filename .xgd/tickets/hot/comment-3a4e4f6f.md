@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-122
 created_by: xgd
 created_at: '2026-08-07T23:31:42.328406+00:00'
-updated_at: '2026-08-07T23:50:13.743753+00:00'
+updated_at: '2026-08-08T00:31:14.239727+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -179,5 +179,11 @@ My recommendation: build the **declaration** here first, as data that compiles d
 - **`ANTHROPIC_API_KEY`** on the builder process — new environment requirement, I'll name it in the ticket.
 
 Once you're happy with the tool shape I'll write the REQ-122 body and start on the transport + panel, which is the uncontroversial half.
+
+<!-- xgd-turn id="5ae4888e-e745-44ca-a624-78dfe4ca18b3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T00:31:13.956348+00:00" -->
+#### You
+I'd rehydrate the panel from the session transcript (`parseTranscript` is in the protocol entry) — otherwise the AI answers with context the user can't see, which reads as spooky rather than clever. <-- yes required, do you need a change in the framework for this? If so can you create a ticket please?
 
 <!-- xgd-chat-end -->
