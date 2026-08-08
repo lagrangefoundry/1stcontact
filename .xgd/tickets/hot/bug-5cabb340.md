@@ -6,10 +6,10 @@ title: 'Rebranding gap: WEBUI_SCOPE still resolves @gendevlabs — components va
   silently after the framework rename'
 created_by: xgd
 created_at: '2026-08-05T22:28:10.455514+00:00'
-updated_at: '2026-08-08T00:30:19.378621+00:00'
+updated_at: '2026-08-08T02:07:36.636220+00:00'
 completed_at: null
-last_field_updated: body
-status: in_progress
+last_field_updated: status
+status: fixed
 fields:
   priority: medium
   story_points: 2
