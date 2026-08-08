@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-122
 created_by: xgd
 created_at: '2026-08-07T23:31:42.328406+00:00'
-updated_at: '2026-08-08T17:32:32.898397+00:00'
+updated_at: '2026-08-08T17:57:49.556069+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -253,5 +253,49 @@ Say if you want to adjust the declarations before I wire them up; otherwise I'll
 <!-- xgd-chat role="user" ts="2026-08-08T17:32:32.718763+00:00" -->
 #### You
 Please proceed
+
+<!-- xgd-turn id="d1bcbc24-b05b-4ed1-8d25-586e84b0acc1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T17:57:49.405803+00:00" -->
+#### Claude
+Now the host.
+
+Now the SSE writer:
+
+Now the chat panel client:
+
+Now wire it into `app.js`:
+
+Now update the two suites that asserted on the placeholder:
+
+Now the panel UAT:
+
+The chat panel is in and working end to end. Committed as `7f447ee55`, ticket at `free_coded`, 13 new UATs passing (8 host + 5 panel), and 1279/1348 across the full suite.
+
+## What landed
+
+**The host** (`tools/generate/src/cli/ai/host.ts`). Three things bind a session to a site, and none of them is a value the model can get wrong: the tools close over the slug, the backend is registered under `claude+site:<slug>` (the registry is global and a backend carries its tool set — the same shape the reference host uses for `+fs`), and the session id is *derived* rather than minted, so a reload resumes with no index to keep in step.
+
+That last one paid off further than expected: because the id is derivable, `/api/ai/prompt` takes `{slug, text}` rather than a session id. The browser has nothing to hold, nothing to send stale, and no "open then send" ordering to get wrong on a site switch.
+
+**Priming is three layers and only one is hand-written.** The preamble (identity and working style), the generated tool manual through the `ContextSource` seam, and the per-turn reminder. The preamble deliberately does not list the tools — that's the text that's still describing last month's surface six weeks later. A UAT asserts the model actually receives `# Your tools`, `describe_page`, the declared-absent section, and `the site "studio"` in its system channel.
+
+**The panel** (`chat.js`). A site switch is a remount keyed `builder-chat:<slug>`, which turned out to be better than the `clearMessages` I'd wanted upstream: it also keys the composer's draft per site, so a half-typed message survives a trip to another site and back.
+
+## Two things worth your attention
+
+**Failure reporting is split deliberately.** The transcript is read *before* the backend is touched, so a missing API key costs an explanation, not the history. `/api/ai/session` answers 200 with `{turns, ready: false, error}` and the panel shows both. Smoke-tested against the real origin:
+
+> `The assistant is not switched on: this builder was started without an Anthropic API key. Set ANTHROPIC_API_KEY in the environment and restart it.`
+
+**Six pre-existing test failures, none mine.** I verified each against stashed HEAD:
+- `req115-builder-composition` — `open_in_new_tab` holds a stale `<a>` across a mode change that rebuilds the toolbar. The reconciled counterpart (AC-964) re-reads it and passes, so the criterion is green; the stale free-coded file is the one that's red.
+- `req117-edit-loop-browser` (2) and `reconciliation-copy-edit-gesture` (3) — real-browser modal tests, `expected 'CancelSave' to contain 'alpha'` and a missing `.fields-value`. That's REQ-121's modal rework (`86dce8ffe`) changing the DOM those tests locate. Not mine to fix, but it's your modal, so you probably want a follow-up.
+
+I also cleared two pre-existing violations of the one-scope-literal guard (AC-960) — prose in `declare.ts` (this ticket's own earlier commit) and a comment in `req121-copy-modal-elegance.test.ts`. Comment-only.
+
+## What the chat can and can't do
+
+It can change words, swap images, add/rename/remove pages, set config, and publish. It cannot touch appearance — no L1 write tool exists — and the declared `absent:` list says so, so it answers cleanly instead of flailing. First real conversation you have with it will tell you fairly quickly whether the L1 write tool or the system KB is the more urgent next ticket.
 
 <!-- xgd-chat-end -->
