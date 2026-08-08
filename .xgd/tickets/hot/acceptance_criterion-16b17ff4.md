@@ -6,14 +6,15 @@ title: A link paints from the substrate rather than from user-agent link chrome,
   an authored colour or underline still wins
 created_by: xgd
 created_at: '2026-08-06T02:48:12.043662+00:00'
-updated_at: '2026-08-06T02:59:37.043413+00:00'
+updated_at: '2026-08-08T00:43:31.492071+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2e4e2c45
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
