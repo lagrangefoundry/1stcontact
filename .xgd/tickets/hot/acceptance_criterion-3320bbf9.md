@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Typed pixel-mover axes render as CSS re-derived from their typed fields
 created_by: xgd
 created_at: '2026-07-29T03:49:52.334772+00:00'
-updated_at: '2026-08-06T02:22:19.069109+00:00'
+updated_at: '2026-08-08T00:42:15.015344+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
