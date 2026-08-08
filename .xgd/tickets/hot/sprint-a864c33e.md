@@ -6,9 +6,9 @@ title: 'Sprint 2: Prove the component-resolution anchor — a linked working tre
   the main checkout''s installed store'
 created_by: xgd
 created_at: '2026-08-08T01:09:07.561131+00:00'
-updated_at: '2026-08-08T01:30:19.407578+00:00'
+updated_at: '2026-08-08T01:30:39.390449+00:00'
 completed_at: null
-last_field_updated: goals
+last_field_updated: story_order
 status: in_progress
 fields:
   number: 2
