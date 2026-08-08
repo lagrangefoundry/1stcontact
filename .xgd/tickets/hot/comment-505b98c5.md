@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-121
 created_by: xgd
 created_at: '2026-08-07T23:27:57.846264+00:00'
-updated_at: '2026-08-08T00:21:56.242756+00:00'
+updated_at: '2026-08-08T00:51:57.236908+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,37 @@ Tell me which font, and whether the clamp reads right, and I'll hold until REQ-6
 <!-- xgd-chat role="user" ts="2026-08-08T00:21:56.080155+00:00" -->
 #### You
 Sure lets go with IBM. 68 and 69 are done and launched
+
+<!-- xgd-turn id="aa5717b0-0f78-4b27-9952-5b522dd8ab92-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T00:51:56.840687+00:00" -->
+#### Claude
+Both landed. Let me read the new contracts precisely before coding.
+
+Now implementing. Starting with the module that reads the page's own presentation:
+
+Now the modal itself:
+
+Now the modal body:
+
+Now the stylesheet — fonts, modal, and the preview box:
+
+Now the modal section of the stylesheet:
+
+Now the woff2 MIME type, then tests:
+
+Now the test suite:
+
+Both failures pre-date my changes. The modal suite is the surface I'm touching, so I need it green — same fixed-tick defect I already hit:
+
+The screenshot shows a real bug: the mirrored background is a light cream, not the dark photo behind the text. The ancestor walk is wrong for this renderer — the backdrop is an absolutely-positioned sibling, not an ancestor.
+
+Now re-verify in the real browser:
+
+The result is right. One remaining flaw is upstream — the text occupies only the left half, because the component flips to two columns at 44rem. Filing that:
+
+Now updating the ticket to match what was actually built, then committing:
+
+A commit landed on the branch during the session (`b05dcdce4`), which bumped the version. I need my own bump inside my commit:
 
 <!-- xgd-chat-end -->
