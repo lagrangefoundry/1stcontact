@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-18
 created_by: xgd
 created_at: '2026-08-08T18:19:32.882303+00:00'
-updated_at: '2026-08-08T20:10:01.910861+00:00'
+updated_at: '2026-08-08T20:11:10.666892+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,51 @@ L1 needs a proper fully documented and maintained API
 I'm not married to any terms here just trying to convey a concept that you had missed: generic tooling capability + configuration + client handler
 
 This is a design session - no coding here please
+
+<!-- xgd-turn id="1ac2e493-da6d-4324-ac60-b4e927e2b695-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T20:11:10.455682+00:00" -->
+#### Claude
+Understood — design only, and I've got the concept: generic tooling capability + configuration + client handler, terms negotiable.
+
+## The recurring security class, stated generally
+
+Injection isn't one bug, it's the shape of the whole thing. Every call descriptor is a template with holes an LLM fills, and the danger in each hole is proportional to the **expressive power of whatever interprets it downstream**. A shell interprets metacharacters, so you get command injection. A URL param interprets host names, so you get SSRF. A path interprets `..`, so you get traversal. A function signature interprets nothing — which is why direct invocation is the safest binding available and shelling out is the most dangerous.
+
+The design consequence: **call types must be a closed, vetted set, not an open extension point.** Each one is its own hardening problem. Config picks among them; config cannot invent one. That's structurally the same rule this project already applies to behavior modules — a small vetted set, high bar to add, hardened before publish — and for the same reason.
+
+There's a second class in the same framework, and it's the one people forget: **results are an injection vector too.** Tool output goes into the model's context. A tool that reads a ticket body, fetches a page, or returns site copy is piping text someone else authored into the conversation. If the tooling object is the one place results come back through, it's the natural — and only — place to mark provenance and untrusted spans. I'd scope that in from the start rather than bolt it on.
+
+And a third, which is really the first two's precondition: params are model-authored, so **policy must run before substitution**, against a declared schema. That's only possible because the surface is data. It's the concrete payoff of your whole proposal.
+
+## L1 needs a real API — and that changes the config's job
+
+Agreed, and I think it's the load-bearing item. Today `edit.ts` is the de-facto API: the CLI, the click-to-edit modal, and the AI tools all dispatch to the same functions, which is genuinely good — one write path, one validator, one re-render. But it's an internal module surface, not an API. No declared operation schemas, no stability contract, no generated docs, no versioning.
+
+The moment a config file names into it, an internal function name becomes a wire-visible identifier that config, docs, and model priming all depend on. So the tooling framework doesn't *create* the need for an L1 API; it exposes that we've been running without one. What it has to become: named operations with declared input/output schemas (declared as data, not TS types, since config must reference them), documented semantics maintained beside the code, a declared error taxonomy — `ErrorCode` is a decent start — read/write classification per operation, a stable addressing model, and a version.
+
+Here's the part I think matters most for your design. **If L1 has that API, the config should be a projection over it, not a parallel description of it.**
+
+If the config restates parameters and descriptions, you've recreated the drift problem one layer up — the API grows a field, the config doesn't, and the model is told something false by the document meant to make it accurate. That's the exact failure `declare.ts` was built to make unrepresentable, and it would come straight back.
+
+So the config's job is narrower and better: *which* operations are exposed, to *which* role, under *what* policy, bound to *which* call type. Selection, policy, binding. The descriptions, schemas, enums and error codes come from the API declaration. Documentation and wire specs are both projections of that one source.
+
+Which means your three-part concept has a fourth element that was implicit:
+
+**generic tooling capability** (framework — knows tools in general) + **a declared API** (project — the source of truth for what exists) + **configuration** (project — selection, policy, binding) + **client handler** (project — execution).
+
+## What the framework object then owns
+
+Concretely, and none of it knowing what a ticket or an L1 node is: ingest an API declaration and a config; project the selected operations into wire tool specs; project the same into the manual, including declared absences and what policy forbids; on a call, validate params against the declared schema, apply policy, build the call descriptor **structurally**, and dispatch by call type to the registered handler; normalize the result and mark its provenance; and log every tool, params, policy decision and outcome.
+
+That last one is nearly free once everything is data, and it's exactly what you want behind an AI that edits customer sites.
+
+One property worth designing for deliberately: since the manual is projected per-role-and-policy, a read-only session's manual simply never describes writes. The model isn't told about capabilities it doesn't have, so it can't propose them, apologise for them, or probe for them.
+
+## Where I'd want your call
+
+Three questions I can't answer from the outside. Does the API declaration live co-located with the L1 code and get validated against it in CI, or is it a separate maintained artifact — I'd argue strongly for the former, since a separate one drifts by construction. Is the client handler a single port or a registry keyed by call type — I lean registry. And do you want the API declaration format to cross the py/js peer boundary in the framework, which is another argument for data-only, or is this js-first with that stated?
+
+Happy to write this up as a design doc ticket in lagrange-framework whenever you want it captured. Nothing coded, nothing scoped.
 
 <!-- xgd-chat-end -->
