@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-118
 created_by: xgd
 created_at: '2026-08-07T00:53:06.580220+00:00'
-updated_at: '2026-08-08T21:18:18.885538+00:00'
+updated_at: '2026-08-08T21:23:06.788507+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -170,5 +170,34 @@ REQ-118 is `free_and_reconciled` — past the reconcile pipeline, so I can't app
 <!-- xgd-chat role="user" ts="2026-08-08T21:18:18.702269+00:00" -->
 #### You
 Yes, and it sounds like this ticket was not completed?? If so can you add the missing requirements to the new ticket
+
+<!-- xgd-turn id="07e623c1-ee6b-42e0-9468-5102d606cd87-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T21:23:06.652335+00:00" -->
+#### Claude
+Let me read the rest of REQ-118 — its acceptance criteria and the non-goals section that got truncated.
+
+Q5 is still open, so framing remains genuinely blocked. Creating the ticket now.
+
+**REQ-128** created (`request-de67e1a1`), status `draft`, 2 points, depends on REQ-118.
+
+On the premise, though — REQ-118 *was* completed. It shipped 7 ACs and 11 UATs and is `free_and_reconciled`. Background images were never in its scope: DOC-28 §6.2's segment table assigns the container segment's "background colour/image" to phase 2, and §12 states "phase 1 is functionally complete at T4." REQ-118's own test suite even repurposed the painted container as its example of *a segment with nothing to edit yet*.
+
+What's actually true is subtler, and it's what REQ-128 argues: **phase 2's gate is colour, not images.** Colour needs the palette (REQ-114) and a colour-valued control (`xgd-framework` REQ-55). A background image needs neither — it's a handle from a closed asset list, which is precisely what REQ-118 built. So one axis can move forward a phase without dragging the rest of phase 2 with it.
+
+I checked DOC-28 §13 Q5 directly rather than trusting REQ-118's note: still open. It asks about image *params* — crops and scrims against the capture/fold vocabulary — so it correctly blocks framing but doesn't touch a background *handle*.
+
+## Deferred requirements carried into REQ-128
+
+I recorded these as explicit non-goals rather than folding them into the ACs, since none are unblocked:
+
+- **Framing** (crop, scale, scrim, rotation, edge effects, free positioning) — still blocked on Q5, verified.
+- **Asset upload** — the picker lists what exists.
+- **Background colour**, and the rest of the surface group (`pattern`, `overlay`, `surfaceGradient`) — genuinely phase 2.
+- **Enum option labels/thumbnails** — the `webui-fields` gap REQ-118 logged. It bites harder here, since a background is exactly the case where you're choosing by look and `/assets/hero.png` tells you least. Per DOC-8 §9.4 that's closed upstream, never wrapped locally, so it strengthens the existing REQ-55 ask rather than changing this ticket.
+
+The two design calls from my last message are written in as decisions: **selection only, no "none" option** (removal would make a background-only box stop being a segment and vanish), and **change-never-add** (an unpainted container has no address to click). AC-7 pins that second one so it's a tested property rather than an accident.
+
+Ticket's at `draft` and I haven't written code. Want me to implement it?
 
 <!-- xgd-chat-end -->
