@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Every node kind admits the same shared axis groups
 created_by: xgd
 created_at: '2026-08-06T01:16:02.599467+00:00'
-updated_at: '2026-08-06T01:26:01.808372+00:00'
+updated_at: '2026-08-08T00:42:24.240539+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
