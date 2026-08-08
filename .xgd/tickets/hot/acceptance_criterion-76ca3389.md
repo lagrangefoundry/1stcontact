@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A row lays out as a stack below an authored breakpoint, as one subtree
 created_by: xgd
 created_at: '2026-08-06T02:36:44.974312+00:00'
-updated_at: '2026-08-06T02:44:02.629779+00:00'
+updated_at: '2026-08-08T00:43:19.584117+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3569e1a4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
