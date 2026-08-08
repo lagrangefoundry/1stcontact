@@ -1,5 +1,6 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchCopy, saveCopy } from './api.js'
+import { copyFontFaces, readPageStyle } from './page-style.js'
 
 /**
  * The edit loop's host half (REQ-117 / DOC-28 §4, §11).
@@ -51,8 +52,20 @@ function pageIdOf(doc, pageAttr) {
  *   the served copy; a test supplies the same source directly. Either way there
  *   is exactly one implementation of the bridge.
  */
+/**
+ * @param {Element} [options.host]
+ *   Where the modal is appended. It MUST be inside the shell root, because the
+ *   shell owns both halves of the modal's appearance: the `--shell-*` tokens are
+ *   declared on `.shell`, and so is the app font every descendant inherits.
+ *   Appended to `document.body` — a sibling of the shell, which is what this
+ *   used to do — the dialog resolves neither: it renders in the browser's
+ *   default serif and falls through to the stylesheet's hardcoded fallback
+ *   hexes, so it merely resembles the current theme and does not follow a theme
+ *   switch at all. Defaults to `document.body` for a host that has no shell (the
+ *   suites that drive `mountEditor` against a bare document).
+ */
 export function mountEditor(doc, options = {}) {
-  const { slug, bridge: api, onSaved = () => {}, openModal = defaultModal } = options
+  const { slug, bridge: api, host = null, onSaved = () => {}, openModal = defaultModal } = options
   const { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR } = api
   const pageId = pageIdOf(doc, L1_EDIT_PAGE_ATTR)
 
@@ -80,6 +93,7 @@ export function mountEditor(doc, options = {}) {
     if (!target.page) {
       openModal({
         kind: 'error',
+        host,
         message: `This edit render was built before the editor and carries no page stamp.`,
         hint: `Re-render it with '1c render ${slug} --edit', then reload`,
       })
@@ -89,12 +103,13 @@ export function mountEditor(doc, options = {}) {
     try {
       loaded = await fetchCopy(target)
     } catch (err) {
-      openModal({ kind: 'error', message: err.message, hint: err.hint })
+      openModal({ kind: 'error', host, message: err.message, hint: err.hint })
       return
     }
     if (!loaded.fields.length) {
       openModal({
         kind: 'message',
+        host,
         title: labelOf(hit),
         message: `Nothing to edit on this ${loaded.kind} segment yet.`,
       })
@@ -102,9 +117,16 @@ export function mountEditor(doc, options = {}) {
     }
     openModal({
       kind: 'fields',
+      host,
       title: labelOf(hit),
       schema: loaded.fields,
       values: loaded.values,
+      // How the page renders this copy, so the box can render it the same way.
+      // Derived ONLY for a copy segment: `src` and `alt` on an image are
+      // metadata about the page rather than words on it, and showing an alt
+      // string in the headline's 32px display face would be a lie about where
+      // that text ends up (REQ-118 leaves the picker alone).
+      preview: previewOf(hit, loaded, doc),
       // The modal's Save is the flush point, so this runs once per Save with
       // the whole change map — one modal, one diff.
       onSave: async (values) => {
@@ -143,6 +165,32 @@ function labelOf(hit) {
 }
 
 /**
+ * The page's own presentation of a copy segment, or `null` for anything else.
+ *
+ * The gate is the SEGMENT KIND rather than the field count. A copy segment is
+ * words on the page, and reproducing how they look is the point; an image's
+ * `src` and `alt` are metadata *about* the page, and rendering an alt string in
+ * the surrounding headline's display face would assert something false about
+ * where that text ends up.
+ *
+ * Copying the faces happens here, next to the read that needs them, because the
+ * two are one fact: naming a family the parent document cannot resolve is worse
+ * than not naming it, since the box then previews a system font while claiming
+ * to preview the page's.
+ */
+function previewOf(hit, loaded, doc) {
+  // `'copy'` is the segment kind the renderer stamps for a text run — the
+  // vocabulary is `L1SegmentKind` in `site-schema/src/l1/edit.ts` ('copy' |
+  // 'image' | 'container' | 'module'), NOT the L1 node kind ('text'), which is
+  // the neighbouring word and the easy one to write here by mistake. Getting it
+  // wrong is silent in the worst way: every branch still works, the modal still
+  // opens, and the box simply never dresses itself.
+  if (hit.kind !== 'copy' || !hit.element) return null
+  copyFontFaces(doc)
+  return readPageStyle(hit.element)
+}
+
+/**
  * The modal.
  *
  * `mountFields` supplies the typed controls, per-field validation and the
@@ -156,10 +204,15 @@ function labelOf(hit) {
  * never asked for. Buffered makes Save the single flush point.
  */
 function defaultModal(spec) {
+  const mountPoint = spec.host ?? document.body
   const host = document.createElement('div')
   host.className = 'builder-modal'
   host.setAttribute('role', 'dialog')
   host.setAttribute('aria-modal', 'true')
+  // The title survives as the ACCESSIBLE name even where it is no longer drawn.
+  // Dropping the visible heading (below) is a statement about redundant chrome,
+  // not about the dialog being anonymous — a dialog with no name is announced as
+  // "dialog" and nothing else.
   host.setAttribute('aria-label', spec.title ?? 'Edit')
 
   const panel = document.createElement('div')
@@ -189,30 +242,52 @@ function defaultModal(spec) {
   document.addEventListener('keydown', onKey)
   backdrop.addEventListener('click', close)
 
-  const heading = document.createElement('h2')
-  heading.className = 'builder-modal__title'
-  heading.textContent = spec.title ?? (spec.kind === 'error' ? 'Could not edit' : 'Edit')
-  panel.append(heading)
-
+  // A HEADING ONLY WHERE IT IS THE CONTENT. On an error or a message the
+  // heading names the answer ("Could not edit"); on the form it named the
+  // control immediately below it, which a box you can obviously type in does not
+  // need. The row it occupied is the row the editing box now gets.
   if (spec.kind !== 'fields') {
+    const heading = document.createElement('h2')
+    heading.className = 'builder-modal__title'
+    heading.textContent = spec.title ?? (spec.kind === 'error' ? 'Could not edit' : 'Edit')
     const body = document.createElement('p')
     body.className =
       spec.kind === 'error' ? 'builder-modal__error' : 'builder-modal__message'
     body.textContent = [spec.message, spec.hint].filter(Boolean).join(' — ')
     const ok = button('Close', 'builder-modal__btn', close)
-    panel.append(body, footer([ok]))
-    document.body.append(host)
+    panel.append(heading, body, footer([ok]))
+    mountPoint.append(host)
     return
   }
 
+  // The visible box. The border, the radius and the clipping live on THIS
+  // element rather than on the control, so the mirrored background can be a
+  // sized layer behind the text (see `page-style.js`) with the box clipping it
+  // to the region that sits behind the copy on the page.
+  const box = document.createElement('div')
+  box.className = 'builder-modal__box'
+
   const formHost = document.createElement('div')
-  panel.append(formHost)
+  formHost.className = 'builder-modal__form'
+  // The form goes in FIRST: the layers are inserted before it, so it has to be
+  // a child of the box for there to be anything to insert before.
+  box.append(formHost)
+  applyPreview(box, formHost, spec.preview)
+  panel.append(box)
 
   fields = mountFields(formHost, {
     schema: spec.schema,
     values: spec.values,
     commit: 'buffered',
+    // `stacked` drops the label column (upstream REQ-69). For a single copy
+    // field the label read "Text" in a column ~40% as wide as the dialog, next
+    // to a box already full of the words it was labelling. The label is not
+    // discarded — the component moves it onto the control as its accessible
+    // name — and it stays in the descriptor, which is what the CLI and the AI
+    // surfaces read.
+    layout: 'stacked',
   })
+  openLoneControl(formHost, spec.schema)
 
   const error = document.createElement('p')
   error.className = 'builder-modal__error'
@@ -248,7 +323,72 @@ function defaultModal(spec) {
   })
 
   panel.append(error, footer([cancel, save]))
-  document.body.append(host)
+  mountPoint.append(host)
+}
+
+/**
+ * Put a one-field form straight into its control, ready to type.
+ *
+ * `mountFields` renders a VIEW that becomes a control on click, which is right
+ * for a property sheet — most rows are being read, and a stray click must not
+ * start an edit. This dialog is not that: it opened *because* the operator
+ * clicked the words, so the value is not being read, and the extra click buys
+ * nothing. It also undercuts the reason the heading could go — a box you can
+ * obviously type in needs no label saying "Edit text", and until the control
+ * exists the box is not one.
+ *
+ * ONE FIELD ONLY. With two (an image's `src` and `alt`) there is no "the" field,
+ * and opening the first would silently privilege it.
+ *
+ * `.fields-value-editable` is the component's own click-to-edit affordance, and
+ * this fires the same gesture the operator would — it does not restyle or
+ * replace anything. It is still a class dependency, and the reason it is
+ * tolerable is that its failure mode is inert: if the class moves, the box stays
+ * click-to-edit exactly as it is today. Upstream is being asked for the real
+ * seam (an `autoEdit` option, or `edit(name)` on the handle).
+ */
+function openLoneControl(formHost, schema) {
+  if (schema?.length !== 1) return
+  const cell = formHost.querySelector('.fields-value-editable')
+  cell?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+}
+
+/**
+ * Dress the editing box in the page's own presentation.
+ *
+ * EVERYTHING GOES THROUGH TOKENS. The typography lands as `--preview-*` custom
+ * properties that `builder.css` feeds into the component's own `--fields-*`
+ * vocabulary (`--fields-font-size`, `--fields-radius`, `--fields-bg`,
+ * `--fields-accent`), so the control is restyled through the seams upstream
+ * exposes rather than by out-specifying its stylesheet. Nothing here reaches
+ * into a `.fields-*` class, which is what keeps this working across a component
+ * update instead of silently reverting to a form field.
+ *
+ * A segment with no preview (an image's fields, or a document that computes no
+ * styles) simply gets none of these properties, and the stylesheet's own
+ * theme-token defaults apply — the box still looks like a box.
+ */
+function applyPreview(box, formHost, preview) {
+  if (!preview) return
+  for (const [name, value] of Object.entries(preview.vars)) box.style.setProperty(name, value)
+  const bg = preview.background
+  if (!bg) return
+
+  // The flat colour goes on the box itself, so the surface is right even when
+  // there is no geometry to place a layer with — which is every document that
+  // has not been laid out, and every headless run.
+  if (bg.color) box.style.setProperty('--preview-background', bg.color)
+
+  // One element per painting layer, bottom-most first — a scrim has to composite
+  // over the photograph it dims, exactly as it does on the page. Written as
+  // declarations rather than custom properties because the layer COUNT is a
+  // property of the page, which no fixed set of variables could carry.
+  for (const style of bg.layers) {
+    const layer = document.createElement('div')
+    layer.className = 'builder-modal__box-bg'
+    for (const [prop, value] of Object.entries(style)) layer.style.setProperty(prop, value)
+    box.insertBefore(layer, formHost)
+  }
 }
 
 function footer(children) {

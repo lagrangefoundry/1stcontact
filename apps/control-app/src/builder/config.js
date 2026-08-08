@@ -13,6 +13,26 @@
 export const APP_ID = '1c-builder'
 
 /**
+ * The application typeface (REQ-121).
+ *
+ * ONE DEFINITION, APPLIED ONCE, at the shell root — everything in the chrome is
+ * `font: inherit`, so this single value decides the whole builder. It is set
+ * through the shell's `font` design token (upstream REQ-68) rather than by
+ * out-specifying `.shell` from `builder.css`: the token is the component's own
+ * extension point, and an override would be invisible to it and free to break
+ * silently when upstream refactors the selector.
+ *
+ * It is deliberately NOT part of a theme. Themes swap palettes — colour is the
+ * half that varies between light and dark; the typeface is the half that does
+ * not, and binding it to a theme would mean re-declaring it in every future one.
+ *
+ * The faces are self-hosted and declared in `builder.css`; the fallbacks are
+ * what renders for the moment before they load and on the machine where they
+ * 404.
+ */
+export const APP_FONT = "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
+
+/**
  * The site tab. `id` is the stable address; `label` is provisional chrome.
  *
  * `fill` is the shell's own opt-in for a VIEWPORT-HEIGHT panel instead of a

@@ -177,8 +177,22 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
 
   const modals = () => [...document.querySelectorAll('.builder-modal')]
 
-  /** Flush the gesture's `fetch`-and-open, which is a microtask chain. */
-  const settle = () => new Promise((r) => setTimeout(r, 0))
+  /**
+   * Wait for the gesture's `fetch`-and-open.
+   *
+   * NOT a microtask chain, despite what this comment used to claim: opening the
+   * dialog is a real HTTP round trip to the origin, so a single macrotask is not
+   * a bound on it — it is a bound on how fast the machine happened to be. Every
+   * criterion here failed on that, and the failures compounded, because a dialog
+   * that arrived after its own test had finished was still in the document when
+   * the next one looked (AC-1001 read "A painted band.CancelSave" out of AC-994's
+   * late form). Polling for the thing actually being waited on is deterministic.
+   */
+  async function settle(): Promise<void> {
+    for (let i = 0; i < 200 && modals().length === 0; i += 1) {
+      await new Promise((r) => setTimeout(r, 5))
+    }
+  }
 
   function draftBytes(): string {
     return fs.readFileSync(path.join(cwd, 'storage/sites/acme/draft/pages/home.json'), 'utf8')
@@ -258,8 +272,13 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       expect(modal.querySelectorAll('.fields')).toHaveLength(1)
       // ...confirmed as a whole, which is what makes one Save one change.
       expect(modal.querySelector('.fields')!.getAttribute('data-commit')).toBe('buffered')
-      // ...showing the words the region displays on the page.
-      expect(modal.textContent).toContain(HEADLINE)
+      // ...showing the words the region displays on the page. Read off the
+      // CONTROL rather than the dialog's text: REQ-121 opens a one-field form
+      // straight into its control, so the words are a form value now instead of
+      // a span. What this criterion is about — the form is pre-filled with what
+      // the draft holds — is unchanged.
+      const control = modal.querySelector('.fields-control') as HTMLTextAreaElement | null
+      expect(control?.value ?? modal.textContent).toContain(HEADLINE)
     } finally {
       editor?.destroy()
       net.restore()

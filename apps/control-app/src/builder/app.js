@@ -1,6 +1,6 @@
 import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
-import { APP_ID, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
+import { APP_FONT, APP_ID, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
 import { mountEditor } from './editor.js'
 import { createDisplayPanel } from './panel.js'
 import {
@@ -33,6 +33,8 @@ export function mountBuilder(root, options = {}) {
     // next). The shell validates the shape, so there is nothing to guard.
     tabs: TABS,
     tabStyle: 'underline',
+    // The app typeface, through the shell's own token path. See APP_FONT.
+    tokens: { font: APP_FONT },
     about: {
       title: '1st Contact builder',
       body: 'Edit your site on the page itself.',
@@ -117,6 +119,10 @@ export function mountBuilder(root, options = {}) {
     editor = mountEditor(doc, {
       slug: panel.getSite(),
       bridge: editBridge,
+      // INSIDE the shell root, which is where both halves of the modal's
+      // appearance are declared: the `--shell-*` tokens and the app font. On
+      // `document.body` — a sibling of the shell — it resolved neither.
+      host: shell.element,
       // The origin has already re-rendered the edit channel by the time a save
       // resolves, so the frame only has to reload — and reloading fires `load`,
       // which re-binds against the new document.
