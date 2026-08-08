@@ -6,14 +6,15 @@ title: A contact form whose endpoint the enhancement cannot send to keeps its na
   submit
 created_by: xgd
 created_at: '2026-08-06T03:51:30.674284+00:00'
-updated_at: '2026-08-06T04:00:53.862531+00:00'
+updated_at: '2026-08-08T00:43:39.425528+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
