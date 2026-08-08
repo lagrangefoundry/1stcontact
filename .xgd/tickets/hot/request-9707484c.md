@@ -6,16 +6,19 @@ title: 'The copy-edit modal, made elegant: themed chrome, app typeface, page-fai
   editing box'
 created_by: xgd
 created_at: '2026-08-07T23:18:19.851596+00:00'
-updated_at: '2026-08-08T00:48:29.451870+00:00'
+updated_at: '2026-08-08T00:48:58.149892+00:00'
 completed_at: null
-last_field_updated: commits
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - 9ee483e85ec8e52e09c46753d2bf6c1ca0b5a714
+  - working_sha: 3173e3985dba157676d0608bb85442974d891fbc
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.28
 ---
 
 # REQ-121 — The copy-edit modal, made elegant
