@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-121
 created_by: xgd
 created_at: '2026-08-07T23:27:57.846264+00:00'
-updated_at: '2026-08-07T23:43:22.669005+00:00'
+updated_at: '2026-08-08T00:21:56.242756+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -125,5 +125,11 @@ One correction to log: the first create landed in the 1stcontact store as REQ-12
 **Fonts** — I've opened `/tmp/req121-font-preview.html` in your browser. It's the proposed modal (no heading, no label column, accent-bordered box, themed CTAs) rendered in IBM Plex Sans / General Sans / Geist, plus a fourth panel showing what it looks like today, and a theme toggle. The editing box is deliberately in a *page* face (Playfair) so you can see the chrome/content contrast — and the headline sample is clamped from a notional 56px down to 30px, which is the clamp behaviour in the flesh. There's a body-copy panel at the bottom at a more realistic box size.
 
 Tell me which font, and whether the clamp reads right, and I'll hold until REQ-68/69 land.
+
+<!-- xgd-turn id="aa5717b0-0f78-4b27-9952-5b522dd8ab92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T00:21:56.080155+00:00" -->
+#### You
+Sure lets go with IBM. 68 and 69 are done and launched
 
 <!-- xgd-chat-end -->
