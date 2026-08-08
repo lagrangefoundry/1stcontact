@@ -6,9 +6,9 @@ title: 'Background image selection: the container segment''s backgroundImageUrl 
   the phase-1 picker'
 created_by: xgd
 created_at: '2026-08-08T21:22:38.782599+00:00'
-updated_at: '2026-08-08T21:22:38.782599+00:00'
+updated_at: '2026-08-08T21:22:50.712110+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -18,7 +18,6 @@ fields:
   auto_merge_back: true
   needs_review: false
 ---
-
 
 ## What this builds
 
@@ -127,10 +126,10 @@ REQ-55 rather than changing what this ticket does.
 
 ## Test plan
 
-`tests/reqNNN-background-image-selection.test.ts`, mirroring REQ-118's two-suite shape:
+`tests/req128-background-image-selection.test.ts`, mirroring REQ-118's two-suite shape:
 the definition + CLI half over the bytes `1c render --edit` writes, and an origin half
 (`skipIf(!WEBUI_INSTALLED)`) against a real `startBuilder`. One UAT per AC, named
-`test_UAT_FC_<TICKET-ID>_*`.
+`test_UAT_FC_REQ-128_*`.
 
 Regression scope: `req118-image-selection`, `req117-copy-editing`, `req117-edit-loop`,
 `req116-edit-render`, `req11-structured-edit`, `reconciliation-edit-render-channel`,
