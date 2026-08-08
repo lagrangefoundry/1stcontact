@@ -5,9 +5,9 @@ type: request
 title: 'Builder chat panel: AI session, declared tool surface, per-site sessions'
 created_by: xgd
 created_at: '2026-08-07T23:28:11.086984+00:00'
-updated_at: '2026-08-08T17:52:36.242353+00:00'
+updated_at: '2026-08-08T17:57:22.647724+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: free_coded
 fields:
   auto_merge_back: true
@@ -20,7 +20,10 @@ fields:
     working_sha_history:
     - b05dcdce4286ad396edfc456cc1d5a0977ae591b
     - bd57c7478abaffaa3d5d335d36f8a57027189731
-  version: 0.1.27
+  - working_sha: 7f447ee55321b626021cbd2a5018c974fea6d0f0
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.29
 ---
 
 # Builder chat panel — AI session, declared tool surface, per-site sessions
