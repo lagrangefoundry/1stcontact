@@ -6,14 +6,15 @@ title: Authoring-time validation and the emitter's own neutralisation are indepe
   lines of defence, neither standing in for the other
 created_by: xgd
 created_at: '2026-08-06T03:03:37.804174+00:00'
-updated_at: '2026-08-06T03:10:37.467873+00:00'
+updated_at: '2026-08-08T00:43:38.395723+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
