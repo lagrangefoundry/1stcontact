@@ -8,7 +8,7 @@ import { distDir } from '../store'
 import { cmdList, cmdPublish, cmdRender, ctxOf, type GlobalOptions } from './commands'
 import { editAssetList, editCopyGet, editCopySet } from './edit'
 import { CommandError } from './errors'
-import { resolveStaticFile, sendFile } from './serve'
+import { NO_STORE, resolveStaticFile, sendFile } from './serve'
 import { WEBUI_PACKAGES, WEBUI_SCOPE, webuiExports, webuiPackageDir } from './webui'
 
 /**
@@ -128,26 +128,12 @@ function transpileForBrowser(absPath: string): string {
   )
 }
 
-/** Every response this origin returns carries it; see `sendFile` for why. */
-const NO_STORE = 'no-store, must-revalidate'
-
-/**
- * The one place a JSON response leaves this origin — so `no-store` is stated
- * once here rather than at each route, and a route added later inherits it.
- *
- * These answers are as perishable as the served bytes: `/api/copy` GET is the
- * field values the modal is about to display, and `/api/sites` is the selector's
- * listing. Without a directive AND without a validator they carry the worst
- * combination available (heuristic freshness permitted, nothing to revalidate
- * with) — a modal opening on values a save already replaced.
- */
 function json(res: http.ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
   res
     .writeHead(status, {
       'content-type': 'application/json; charset=utf-8',
       'content-length': Buffer.byteLength(payload),
-      'cache-control': NO_STORE,
     })
     .end(payload)
 }
@@ -174,6 +160,27 @@ export async function handleBuilderRequest(
   const url = new URL(req.url ?? '/', 'http://localhost')
   const p = url.pathname
 
+  /**
+   * FRESHNESS, SET ONCE, FOR EVERY RESPONSE THIS HANDLER CAN PRODUCE.
+   *
+   * This origin rewrites its own bytes underneath the browser — a save
+   * re-renders the very channel the frame is displaying — so a single cacheable
+   * response leaves an operator looking at a stale page that appears to be
+   * working. `setHeader` before any routing means the directive is merged into
+   * every `writeHead` below (`writeHead`'s own fields still win, and none of
+   * them names `cache-control`): the served trees, the hand-written document,
+   * every JSON envelope, and every 400/403/404/500.
+   *
+   * It is set HERE rather than restated per route because a per-route
+   * restatement is precisely how the last hole opened: `json()` was written
+   * with its own two headers and never carried the directive, so `/api/sites` —
+   * the response that populates the site selector — was cacheable, and a newly
+   * created site could stay invisible behind a workspace that looked correct.
+   * A route added tomorrow inherits the directive instead of needing to
+   * remember it.
+   */
+  res.setHeader('cache-control', NO_STORE)
+
   try {
     if (p === '/' || p === '/index.html') {
       const html = chromeHtml()
@@ -181,12 +188,10 @@ export async function handleBuilderRequest(
         .writeHead(200, {
           'content-type': 'text/html; charset=utf-8',
           'content-length': Buffer.byteLength(html),
-          // The shell is hand-written and travels neither `sendFile` nor
-          // `json`, so it states the directive itself. A hole in exactly one
-          // response is worse than none, because the symptom it produces (a tab
-          // that keeps running yesterday's chrome while every asset around it
-          // is current) looks like anything except caching.
-          'cache-control': NO_STORE,
+          // No `cache-control` here: the handler set it for every response
+          // before routing. This document used to restate it, which read as
+          // "the shell is the special case" and left the reader believing the
+          // rest of the origin was covered when the JSON routes were not.
         })
         .end(html)
       return
@@ -301,9 +306,7 @@ export async function handleBuilderRequest(
       const slug = decodeURIComponent(preview[1])
       const channel = decodeURIComponent(preview[2]) as RenderChannel
       if (!CHANNELS.includes(channel)) {
-        res
-          .writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE })
-          .end('Unknown channel')
+        res.writeHead(404, { 'content-type': 'text/plain' }).end('Unknown channel')
         return
       }
       await serveTree(res, distDir(ctx, slug, channel), preview[3] ?? '/')
@@ -339,10 +342,12 @@ export async function handleBuilderRequest(
       res
         .writeHead(200, {
           'content-type': 'text/javascript; charset=utf-8',
+          // Read off disk every time, and served uncacheable by the directive
+          // the handler already set — this is a dev origin, and a cached bridge
+          // after an edit to the source is a confusing way to lose an
+          // afternoon. (It carried its own bare `no-store` before, a
+          // near-miss of the directive every other response uses.)
           'content-length': Buffer.byteLength(js),
-          // Read off disk every time: this is a dev origin, and a cached bridge
-          // after an edit to the source is a confusing way to lose an afternoon.
-          'cache-control': NO_STORE,
         })
         .end(js)
       return
@@ -354,9 +359,7 @@ export async function handleBuilderRequest(
     if (webui) {
       const name = decodeURIComponent(webui[1])
       if (!(WEBUI_PACKAGES as readonly string[]).includes(name)) {
-        res
-          .writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE })
-          .end('Unknown component')
+        res.writeHead(404, { 'content-type': 'text/plain' }).end('Unknown component')
         return
       }
       await serveTree(res, webuiPackageDir(name), webui[2] ?? '/')
@@ -368,7 +371,7 @@ export async function handleBuilderRequest(
       return
     }
 
-    res.writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE }).end('Not found')
+    res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
   } catch (err) {
     // A CommandError is the EXPECTED answer to a bad edit — the validator
     // refusing a change map, an address that resolves to nothing. It is the
@@ -392,11 +395,11 @@ async function serveTree(
 ): Promise<void> {
   const file = await resolveStaticFile(rootDir, rel)
   if (file === 'forbidden') {
-    res.writeHead(403, { 'content-type': 'text/plain', 'cache-control': NO_STORE }).end('Forbidden')
+    res.writeHead(403, { 'content-type': 'text/plain' }).end('Forbidden')
     return
   }
   if (!file) {
-    res.writeHead(404, { 'content-type': 'text/plain', 'cache-control': NO_STORE }).end('Not found')
+    res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
     return
   }
   sendFile(res, file)

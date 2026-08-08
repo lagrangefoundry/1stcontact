@@ -101,6 +101,15 @@ export async function resolveStaticFile(
 }
 
 /**
+ * The one freshness directive this platform serves, written once.
+ *
+ * Both senders compose it from here rather than restating the string, so the
+ * two cannot drift into near-misses — `no-store` on one path and
+ * `no-store, must-revalidate` on another is the same hole in slow motion.
+ */
+export const NO_STORE = 'no-store, must-revalidate'
+
+/**
  * Stream a resolved file with its content type.
  *
  * `no-store` because every byte this serves is a build artifact that the origin
@@ -118,7 +127,7 @@ export async function resolveStaticFile(
 export function sendFile(res: http.ServerResponse, file: string): void {
   res.writeHead(200, {
     'content-type': MIME[path.extname(file)] ?? 'application/octet-stream',
-    'cache-control': 'no-store, must-revalidate',
+    'cache-control': NO_STORE,
   })
   createReadStream(file).pipe(res)
 }

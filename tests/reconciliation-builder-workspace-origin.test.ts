@@ -24,9 +24,18 @@
  * The split matters because `WEBUI_INSTALLED` is presence-only: used as a skip
  * gate it reports "renamed upstream and not renamed here" and "never installed"
  * identically, so a rename that has broken the browser would read as a clean
- * green run. Components are never mocked, aliased or vendored in either kind of
- * evidence: doing so would prove nothing about the consumption route, which is
+ * green run. Components are never mocked, faked or vendored in either kind of
+ * evidence: a stand-in would prove nothing about the consumption route, which is
  * most of this story's risk.
+ *
+ * `vitest.config.mts` DOES alias the components, and that is a route correction
+ * rather than a stand-in: Node's upward resolution reaches the store from the
+ * main checkout but not from a linked `git worktree`, so the aliases point Vite
+ * at the identical out-of-repo package by deriving every target from
+ * `webuiPackageDir`/`webuiExports` — the same single resolution point production
+ * uses — and composing every key from `WEBUI_SCOPE`. Nothing is substituted, and
+ * AC-961 below asserts the copy actually consumed lives outside this repository
+ * and declares itself under the scope in use.
  */
 
 import fs from 'node:fs'
@@ -238,62 +247,142 @@ describe('story-e674c60a builder origin', () => {
   it('test_UAT_AC977_every_response_the_origin_returns_is_non_cacheable', async () => {
     // AC-977 — the origin rewrites its own bytes underneath the browser, so a
     // single cacheable response leaves an operator looking at a stale page that
-    // appears to be working. There is no exempt response.
-    // Asserted on the header alone, and deliberately NOT on the status: the
-    // claim is about every response, and the refusals (a bad address, an
-    // unknown channel, a route that does not exist) are exactly the ones a
-    // 200-only probe would skip past.
-    const noStore = async (route: string, init?: RequestInit) => {
-      const res = await get(route, init)
-      expect(res.headers.get('cache-control'), route).toMatch(/no-store/)
-      return res
+    // appears to be working. THERE IS NO EXEMPT RESPONSE.
+    //
+    // STRUCTURAL, NOT A LIST OF REPRESENTATIVES. A hand-maintained probe list
+    // is what let the JSON class ship cacheable while this criterion reported
+    // green: `json()` wrote its own two headers and carried no directive, so
+    // `/api/sites` — the response that populates the site selector — was free
+    // to be cached, and a newly created site could stay invisible behind a
+    // workspace that looked like it was working. So the routing table is read
+    // out of the ORIGIN'S OWN SOURCE and every route it declares must be
+    // answered by a probe below: a route added tomorrow fails here until
+    // someone states what it returns.
+    const DIRECTIVE = 'no-store, must-revalidate'
+    const origin = fs.readFileSync(
+      path.join(REPO, 'tools/generate/src/cli/builder.ts'),
+      'utf8',
+    )
+    const declared = new Set<string>()
+    for (const m of origin.matchAll(/\bp === '([^']+)'/g)) declared.add(m[1])
+    for (const m of origin.matchAll(/\bp\.startsWith\('([^']+)'\)/g)) declared.add(m[1])
+    for (const m of origin.matchAll(/\bp\.match\(\/\^\\\/([A-Za-z][\w-]*)/g)) {
+      declared.add(`/${m[1]}/`)
     }
-    const ok = async (route: string, init?: RequestInit) => {
-      const res = await noStore(route, init)
-      expect(res.status, route).toBe(200)
+
+    interface Probe {
+      /** The declared route this probe stands for. */
+      route: string
+      url: string
+      init?: RequestInit
+      /** Whether a 200 is the expected answer, so error probes stay honest. */
+      ok: boolean
     }
+    const probes: Probe[] = [
+      // The workspace document. Hand-written, and it does NOT travel the
+      // file-sending path everything else uses — exactly the response a
+      // blanket assumption would miss. Without the component store installed
+      // it answers 500, which is still a response and still carries the
+      // directive, so the freshness claim is checked either way.
+      { route: '/', url: '/', ok: WEBUI_INSTALLED },
+      { route: '/index.html', url: '/index.html', ok: WEBUI_INSTALLED },
 
-    // The browser source, and a rendered page in EACH channel.
-    await ok('/builder/main.js')
-    await ok('/builder/builder.css')
-    await ok('/preview/alpha/draft/')
-    await ok('/preview/alpha/edit/')
-    await cmdPublish('alpha', { cwd })
-    await ok('/preview/alpha/published/')
+      // The JSON class, in BOTH the success and the rejection shape — the
+      // class this criterion previously had no probe for at all.
+      { route: '/api/sites', url: '/api/sites', ok: true },
+      {
+        route: '/api/publish',
+        url: '/api/publish',
+        ok: true,
+        init: {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ slug: 'alpha', message: 'freshness probe' }),
+        },
+      },
+      {
+        route: '/api/publish',
+        url: '/api/publish',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+      { route: '/api/assets', url: '/api/assets?slug=alpha', ok: true },
+      { route: '/api/assets', url: '/api/assets', ok: false },
+      { route: '/api/copy', url: '/api/copy', ok: false },
+      {
+        route: '/api/copy',
+        url: '/api/copy',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
 
-    // The bridge served to the browser: its own route, transpiled per request,
-    // travelling neither the file-sending path nor the JSON one.
-    await ok('/framework/edit-client.js')
-    await ok('/framework/site-schema-edit.js')
+      // A rendered page in EACH channel — `published` produced by the publish
+      // probe above, so it is the channel in the form the platform makes it —
+      // plus the two ways a preview request fails.
+      { route: '/preview/', url: '/preview/alpha/draft/', ok: true },
+      { route: '/preview/', url: '/preview/alpha/edit/', ok: true },
+      { route: '/preview/', url: '/preview/alpha/published/', ok: true },
+      { route: '/preview/', url: '/preview/alpha/nosuchchannel/', ok: false },
+      { route: '/preview/', url: '/preview/alpha/draft/no-such-asset.css', ok: false },
 
-    // The operations, which answer JSON rather than bytes off disk. They are as
-    // perishable as the renders: `/api/copy` GET is the field values the modal
-    // is about to display, and `/api/sites` is the selector's listing.
-    await ok('/api/sites')
-    await ok('/api/assets?slug=alpha')
-    await ok('/api/copy?slug=alpha&page=home&path=0')
+      // The edit bridge, served type-stripped rather than off a tree.
+      { route: '/framework/', url: '/framework/edit-client.js', ok: true },
+      { route: '/framework/', url: '/framework/site-schema-edit.js', ok: true },
 
-    // And the refusals — the error envelope the modal reads, and the plain-text
-    // dead ends. A stale refusal is a refusal the operator cannot clear.
-    expect((await noStore('/api/assets')).status, '/api/assets no slug').toBe(400)
-    expect((await noStore('/api/copy?slug=alpha')).status, '/api/copy no page').toBe(400)
-    expect((await noStore('/preview/alpha/nosuchchannel/')).status).toBe(404)
-    expect((await noStore('/no/such/route')).status).toBe(404)
-    expect((await noStore('/builder/no-such-file.js')).status).toBe(404)
+      // The builder's own browser source, and a miss inside that tree.
+      { route: '/builder/', url: '/builder/main.js', ok: true },
+      { route: '/builder/', url: '/builder/builder.css', ok: true },
+      { route: '/builder/', url: '/builder/no-such-file.js', ok: false },
 
-    if (!WEBUI_INSTALLED) {
+      // An unknown component: the `/webui/` route's refusal, which needs no
+      // install to reach.
+      { route: '/webui/', url: '/webui/no-such-component/index.js', ok: false },
+    ]
+
+    // Each installed component's real entry point. Reached only when the store
+    // is there; the route itself is already probed above regardless.
+    if (WEBUI_INSTALLED) {
+      for (const name of WEBUI_PACKAGES) {
+        probes.push({
+          route: '/webui/',
+          url: `/webui/${name}/${webuiExports(name)['.'].replace(/^\.\//, '')}`,
+          ok: true,
+        })
+      }
+    } else {
       unverified('the no-store directive on the workspace document and a served component')
-      return
     }
 
-    // The workspace document explicitly: it is hand-written and does NOT travel
-    // the same file-sending path as everything else, so it is exactly the
-    // response a blanket assumption would miss.
-    await ok('/')
-    for (const name of WEBUI_PACKAGES) {
-      await ok(`/webui/${name}/${webuiExports(name)['.'].replace(/^\.\//, '')}`)
+    // Nothing routes here at all — the fallthrough 404 is a response the origin
+    // returns, so it is subject to the same claim. It has no route literal to
+    // match, which is why it is not in the coverage check below.
+    const unrouted: Probe = { route: '(unrouted)', url: '/no-such-route', ok: false }
+
+    // BOTH DIRECTIONS. Declared-but-unprobed is the hole this criterion fell
+    // through. Probed-but-undeclared means the extraction above has stopped
+    // finding routes, which would otherwise let the coverage check pass over an
+    // empty set and prove nothing.
+    const probed = new Set(probes.map((probe) => probe.route))
+    expect(
+      [...declared].filter((route) => !probed.has(route)).sort(),
+      'a route the origin declares that no probe covers',
+    ).toEqual([])
+    expect(
+      [...probed].filter((route) => !declared.has(route)).sort(),
+      'a probe for a route the origin does not declare — has the extraction broken?',
+    ).toEqual([])
+
+    for (const probe of [...probes, unrouted]) {
+      const method = (probe.init?.method ?? 'GET') as string
+      const res = await get(probe.url, probe.init)
+      await res.arrayBuffer()
+      const where = `${method} ${probe.url}`
+      // The exact directive, not merely "contains no-store": one behaviour
+      // across the whole origin, never three near-misses.
+      expect(res.headers.get('cache-control'), where).toBe(DIRECTIVE)
+      if (probe.ok) expect(res.status, where).toBe(200)
+      else expect(res.status, where).toBeGreaterThanOrEqual(400)
     }
-    expect((await noStore('/webui/no-such-component/index.js')).status).toBe(404)
   })
 
   it('test_UAT_AC961_components_are_served_byte_identical_from_outside_this_repo', async () => {

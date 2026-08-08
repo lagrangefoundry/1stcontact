@@ -16,8 +16,11 @@
  * resolve. Mount-behaviour evidence may skip; identity and wiring evidence may
  * not. There is deliberately no `skipIf` in this file.
  *
- * Nothing here is mocked, aliased or vendored: the subject is the real
- * consumption route, which is most of this story's risk.
+ * Nothing here is mocked, faked or vendored: the subject is the real consumption
+ * route, which is most of this story's risk. (Vitest's `resolve.alias` entries
+ * are derived from the same `webuiPackageDir`/`WEBUI_SCOPE` this file asserts
+ * over, so they correct WHERE the real store is found from a linked worktree
+ * without substituting anything for it — see the Test Architecture Summary.)
  */
 
 import { execFileSync } from 'node:child_process'
