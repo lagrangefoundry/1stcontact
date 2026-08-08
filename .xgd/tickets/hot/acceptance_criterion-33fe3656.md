@@ -7,14 +7,15 @@ title: A node declaring the accent but carrying no texture emits nothing — no 
   silence is the honest presentation when there is none
 created_by: xgd
 created_at: '2026-08-06T18:09:25.459181+00:00'
-updated_at: '2026-08-06T18:25:09.952576+00:00'
+updated_at: '2026-08-08T00:43:44.815768+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
