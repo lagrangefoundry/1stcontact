@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-18
 created_by: xgd
 created_at: '2026-08-08T18:19:32.882303+00:00'
-updated_at: '2026-08-08T20:11:10.666892+00:00'
+updated_at: '2026-08-08T20:22:07.938775+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -196,5 +196,17 @@ One property worth designing for deliberately: since the manual is projected per
 Three questions I can't answer from the outside. Does the API declaration live co-located with the L1 code and get validated against it in CI, or is it a separate maintained artifact — I'd argue strongly for the former, since a separate one drifts by construction. Is the client handler a single port or a registry keyed by call type — I lean registry. And do you want the API declaration format to cross the py/js peer boundary in the framework, which is another argument for data-only, or is this js-first with that stated?
 
 Happy to write this up as a design doc ticket in lagrange-framework whenever you want it captured. Nothing coded, nothing scoped.
+
+<!-- xgd-turn id="fe9cf385-68f4-4751-ae68-fe727a61c24a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T20:22:07.809047+00:00" -->
+#### You
+Yes I think we need two design documents here:
+1. Created in framework describing the generic tooling object - overview, general terms, and if possible sufficient specifics on the security that we can refactor all our existing toolsets into this model - if we miss some its not a big deal we can always extend.
+2. L1 API document - describe a clean clearly identified control surface - that may need to be built
+
+Then REQs: one to build each document in their respective projects and then a third in this repo for building the L1 tooling configuration on top of the API - I also need framework REQs for refactoring each of the existing tools in this form.
+
+Agree?
 
 <!-- xgd-chat-end -->
