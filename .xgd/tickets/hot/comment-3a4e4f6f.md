@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-122
 created_by: xgd
 created_at: '2026-08-07T23:31:42.328406+00:00'
-updated_at: '2026-08-08T00:31:14.239727+00:00'
+updated_at: '2026-08-08T00:35:57.711420+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -185,5 +185,15 @@ Once you're happy with the tool shape I'll write the REQ-122 body and start on t
 <!-- xgd-chat role="user" ts="2026-08-08T00:31:13.956348+00:00" -->
 #### You
 I'd rehydrate the panel from the session transcript (`parseTranscript` is in the protocol entry) — otherwise the AI answers with context the user can't see, which reads as spooky rather than clever. <-- yes required, do you need a change in the framework for this? If so can you create a ticket please?
+
+<!-- xgd-turn id="f37ab1b6-bcc9-47bf-b5c2-f116830b848f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T00:35:57.562871+00:00" -->
+#### You
+I'd rehydrate the panel from the session transcript (`parseTranscript` is in the protocol entry) — otherwise the AI answers with context the user can't see, which reads as spooky rather than clever. <-- yes required, do you need a change in the framework for this? If so can you create a ticket please?
+
+All your delcarations are content that will be added to the KB and made available to the builder - I'm not sure what you need to add to the framework for that - can you explain. The framework does not provide the knowledge or the prompts.
+
+Yes build the core declarations now so we have enough to get started and we can expand
 
 <!-- xgd-chat-end -->
