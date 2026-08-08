@@ -6,14 +6,15 @@ title: Translucency is an axis of the reference, so one colour used at several o
   is one entry
 created_by: xgd
 created_at: '2026-08-06T20:37:46.135893+00:00'
-updated_at: '2026-08-06T20:45:40.623853+00:00'
+updated_at: '2026-08-08T00:43:56.514001+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c490f1cf
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
