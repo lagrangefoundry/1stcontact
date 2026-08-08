@@ -14,9 +14,11 @@ fields:
   needs_review: false
   priority: medium
   commits:
-  - working_sha: b05dcdce4286ad396edfc456cc1d5a0977ae591b
+  - working_sha: bd57c7478abaffaa3d5d335d36f8a57027189731
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - b05dcdce4286ad396edfc456cc1d5a0977ae591b
   version: 0.1.27
 ---
 
