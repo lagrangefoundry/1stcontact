@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-18
 created_by: xgd
 created_at: '2026-08-08T18:19:32.882303+00:00'
-updated_at: '2026-08-08T20:22:07.938775+00:00'
+updated_at: '2026-08-08T20:23:41.511525+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -208,5 +208,37 @@ Yes I think we need two design documents here:
 Then REQs: one to build each document in their respective projects and then a third in this repo for building the L1 tooling configuration on top of the API - I also need framework REQs for refactoring each of the existing tools in this form.
 
 Agree?
+
+<!-- xgd-turn id="fe9cf385-68f4-4751-ae68-fe727a61c24a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T20:23:41.389910+00:00" -->
+#### Claude
+Agree with the shape. Let me check the doc numbering so the plan lands in the right places.
+
+Agree with the shape. Four gaps in the plan worth closing before we create anything.
+
+**1. There's no REQ that builds the tooling object.** You listed doc REQs, the L1 config REQ, and the refactor REQs — but nothing implements the generic object itself. Without it, the first refactor REQ silently becomes "implement the framework *and* convert ticketing," which is a mega-REQ and, worse, lets the framework's shape fall out of whichever consumer happened to go first. That's the thing this whole design is trying to avoid. It needs its own REQ.
+
+**2. There's no REQ that builds the L1 API.** You flagged it may need building; doc 2 describes it and the config REQ consumes it, but nothing constructs it. Its scope isn't knowable until the doc lands, so I'd make doc 2 end with an explicit **gap list against today's `edit.ts`** — and scope the build REQ from that. It could be modest, since `edit.ts` is already the single write path for CLI, modal and AI. Or it could be real work once you add declared schemas, output contracts and a version.
+
+**3. The framework's DOC-13 has to be explicitly superseded.** It currently states that host tools "gate themselves inside their handler" — that's cited verbatim in `api_tools.js`, `ai_ticketing/tools.js` and `ai_knowledge/tools.py`. The new model directly contradicts it, and per the no-legacy-modes rule the new doc should supersede that clause outright rather than coexist with it. Note DOC numbering is per-repo — 1stcontact's DOC-13 is the Reference Capture Model, unrelated. I couldn't enumerate the framework's doc tickets from here (the `xgd ticket` CLI resolved to this project's store from both directories), so confirm the number on that side when you create it.
+
+**4. Does the built-in filesystem toolset convert too?** The existing toolsets are `ai_ticketing` (py + js), `ai_knowledge` (py only), and the four built-in fs tools inside `FilesystemTools`. That third one is the interesting case: it's the only toolset with a genuine permission policy today, which makes it both the strongest validation of the new model and the riskiest thing to touch — and it's entangled with the Claude Code CLI flag path, which the new model deliberately doesn't replace. I'd state the intent in the doc and sequence it last, or explicitly declare it out of scope. Either is fine; leaving it ambiguous isn't.
+
+Also on the refactors: `ai_ticketing` is two-language with a shared conformance corpus, so that's either two REQs or one two-language REQ, and the dispatch/policy behaviour probably wants fixtures rather than per-language tests.
+
+**So the full set:**
+
+*lagrange-framework* — DOC (generic tooling object) · REQ build the tooling object · REQ refactor `ai_ticketing` · REQ refactor `ai_knowledge` · optionally REQ for the fs toolset.
+
+*1stcontact* — DOC (L1 control-surface API) · REQ build/harden the L1 API · REQ build the L1 tooling configuration on top.
+
+**Ordering:** the two docs are independent and can go in parallel. Then the tooling object. Then I'd land **one refactor before the L1 config** — ticketing, it's the simplest — so the framework is proven against a second consumer before L1 shapes it.
+
+**One thing to name in the L1 config REQ:** it deletes REQ-122's `declare.ts`. The renderer half moves into the framework object, the handler-binding half becomes configuration, and there's nothing left. Per no-legacy-modes that's a removal, not a parallel path — worth stating in the REQ so it doesn't survive as a second way to declare tools.
+
+For doc 1's security section to be usable by the refactors, it needs at minimum: the closed call-type set with per-type hardening rules and the procedure for adding one; structural (never textual) substitution; param validation before substitution; the policy vocabulary — operation gating, scope predicates, read/write classification; result provenance and untrusted-span marking; and the audit record shape.
+
+Want me to create these? I'm scoped to CHAT-18 and won't file tickets without an explicit go-ahead — say the word and I'll create the two DOC tickets and the REQs, in their respective repos. Docs are exempt from the free-coding cycle, so those can be written directly.
 
 <!-- xgd-chat-end -->
