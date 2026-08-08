@@ -13,7 +13,9 @@ fields:
   subject_uid: resync-anchor
   blocked_by_dirty_working: false
   skipped_commits: []
-  orphan_commits: []
+  orphan_commits:
+  - old_sha: 92d1ab5ee9f0c8c1c35884d1bb00f01822192b6d
+    new_sha: fdef5db385f72208f9337b2b3d48ae7915365b66
 result: running
 ---
 
