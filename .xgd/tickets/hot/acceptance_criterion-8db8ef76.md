@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A slot leaf renders as an inert placeholder naming its behavior module
 created_by: xgd
 created_at: '2026-07-24T22:54:24.547238+00:00'
-updated_at: '2026-08-05T21:03:21.444240+00:00'
+updated_at: '2026-08-08T00:42:14.005926+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
