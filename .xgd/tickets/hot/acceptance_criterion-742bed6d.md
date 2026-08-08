@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: Contact-form renders a functional form whose every control is painted by L1
 created_by: xgd
 created_at: '2026-07-22T19:54:45.992184+00:00'
-updated_at: '2026-08-06T01:31:53.959286+00:00'
+updated_at: '2026-08-08T00:42:07.274554+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
