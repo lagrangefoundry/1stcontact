@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-122
 created_by: xgd
 created_at: '2026-08-07T23:31:42.328406+00:00'
-updated_at: '2026-08-08T00:35:57.711420+00:00'
+updated_at: '2026-08-08T00:45:34.841222+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -195,5 +195,57 @@ I'd rehydrate the panel from the session transcript (`parseTranscript` is in the
 All your delcarations are content that will be added to the KB and made available to the builder - I'm not sure what you need to add to the framework for that - can you explain. The framework does not provide the knowledge or the prompts.
 
 Yes build the core declarations now so we have enough to get started and we can expand
+
+<!-- xgd-turn id="f37ab1b6-bcc9-47bf-b5c2-f116830b848f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T00:45:34.711249+00:00" -->
+#### Claude
+Both answers are "no framework change" — I checked rather than guessed.
+
+**Rehydration.** Server side, `manager.store.load(sid).turns` is a public field giving `[{role, ts, content}]` — no change needed. Client side, `mountChat` has `appendMessage` but no `clearMessages`. That's fine, because the right move on a site switch is `destroy()` + remount with `id: 'builder-chat:<slug>'` — which also makes the composer's draft persistence per-site, which is the behaviour you'd want anyway. So no ticket.
+
+**The declarations.** You're right, and my split was wrong. Everything I described renders locally: `Tool.description` is an opaque string, so we compose it here; `FilesystemTools(policy, extraTools)` is already the registration seam; and `ContextSource` is duck-typed `{ documents(): string[] }`, so the generated manual is just an implementation of it in this repo returning strings in memory (`StaticDocs` reads files — ours doesn't need to). The framework supplies seams; the knowledge and the prompts are ours. Nothing goes upstream.
+
+So: one declaration in this project, two renderings — `Tool[]` for the model, markdown for the KB.
+
+Let me scope the ticket.
+
+Ticket scoped. Now building.
+
+Now the declaration format.
+
+Now the UAT test.
+
+All 13 pass. Let me read the artifact the model will actually receive.
+
+The manual reads well. One cosmetic fix — doubled blank lines for tools with no parameters.
+
+Committed as `b05dcdce4`, ticket at `free_coded`, 13 UATs passing.
+
+## What's in
+
+**`tools/generate/src/cli/ai/declare.ts`** — the declaration format and its two renderers. The anti-drift property works as intended: an enum is written once in `ToolParam.enum` and reaches the model twice, as a schema constraint and as a literal sentence — `"The shape. One of: square or circle."` — so DOC-8 §5.3's requirement is satisfied by derivation rather than by discipline. A declaration that requires a parameter it never declared throws at startup rather than mid-turn.
+
+**`tools/generate/src/cli/ai/tools.ts`** — twelve core tools over `edit.ts`, plus `BUILDER_ABSENT`. Two decisions worth flagging:
+
+- **The surface is bound to one site.** `slug` is closed over at construction, not a parameter. A session belongs to a site, so the model can't name another one — the worst class of tool error, removed for free rather than guarded against.
+- **`describe_page` is new derivation code**, not a wrapper. There was no function that enumerates a page's editable segments — `editCopyGet` needs an address you already have, and addresses come from the render's DOM stamp. So it walks the L1 tree using `formatL1Path`, the same function the renderer stamps with, which is what guarantees the addresses it hands the model are the ones the write path resolves. It walks module slots too, so copy inside a carousel slide or a contact form appears with its `module`/`slot` scope attached — hand the map entry straight back to `set_copy` and it works.
+
+The generated manual is in good shape. The section you'll care about most:
+
+> **Writing HTML, CSS or JavaScript** — Never possible, by design, and not a gap to be worked around.
+> **Changing how something looks — colour, size, spacing, position** — Not yet possible. Say so plainly, and describe what the user asked for so it can be built.
+
+That second one is the L1 gap, now stated rather than discovered by failing. It does mean v1 chat will decline appearance requests fairly often — the declaration turns that from flailing into a clean answer plus a signal about which tool to build next.
+
+## Your two questions
+
+**No framework ticket needed** for rehydration — `store.load(sid).turns` is public server-side, and client-side the right move is `destroy()` + remount with `id: 'builder-chat:<slug>'`, which also gets per-site composer drafts. **And you were right about the split**: everything I'd proposed putting upstream renders locally, because `Tool.description` is an opaque string and `ContextSource` is duck-typed. Nothing goes to lagrange-framework.
+
+## Next
+
+The host (`SessionManager` + roles + the three SSE routes), then the panel. The declarations feed the system prompt directly — the manual is generated, so the role `system` text only needs the identity and working-style layer we drafted, not a tool inventory.
+
+Say if you want to adjust the declarations before I wire them up; otherwise I'll carry on.
 
 <!-- xgd-chat-end -->
