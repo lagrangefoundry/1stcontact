@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A text run declares its own measure and the layout gate wraps against it
 created_by: xgd
 created_at: '2026-08-06T01:16:20.419101+00:00'
-updated_at: '2026-08-06T01:26:01.524903+00:00'
+updated_at: '2026-08-08T00:42:27.233747+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
