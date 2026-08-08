@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-08T00:51:27.343130+00:00'
+updated_at: '2026-08-08T01:08:09.941951+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-15c1f647
@@ -184,6 +184,27 @@ the surface where an operator *sees* the site instead.
   was rejected because its failure mode is the silent green rather than a loud
   one. Beyond that correction, a failure to resolve remains an environment
   precondition to be read as such, not a code defect.
+
+  What "anchored at the main checkout" means is now stated as a criterion of its
+  own rather than left as an implementation note. Resolution walks up from where
+  it is asked until it meets the repository's own data, and the shape it finds
+  decides the anchor: a main checkout owning that data anchors to itself; a
+  linked working tree, whose data is a pointer to a shared repository directory,
+  anchors to the main checkout that shared directory belongs to and never to the
+  working tree; a pointer naming no shared directory anchors to the directory
+  holding it; and a location under no checkout at all — an extracted archive —
+  anchors to where the walk began rather than failing or climbing to the
+  filesystem root. The equality those four cases exist to guarantee is the
+  criterion's real subject: a component's directory is the same directory whether
+  it is resolved from a working tree or from the main checkout, so the two can
+  never be reading different installed copies. The anchor is settled once, when
+  resolution is first needed in a run, so nothing a run does afterwards moves it.
+
+  This was the gap: nine of this story's criteria depend on that anchoring for
+  their evidence to exist at all, and it carried none of its own — its four
+  branches were provable only by whichever checkout the suite happened to run in,
+  which is one branch out of four. Establishing it against fixture trees is what
+  makes it evidence rather than a coincidence of layout.
 - **Divergence flagged, not absorbed: the local preview server's freshness
   changed too.** The non-cacheable directive was added to the shared file-sending
   path, which the standalone local preview server (STORY-95 / STORY-96) also
