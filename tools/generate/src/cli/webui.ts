@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 /**
  * Resolution of the shared `webui-*` components (REQ-115 Deliverable 0,
@@ -103,9 +103,45 @@ const require = createRequire(path.join(mainCheckout(walkOrigin()), 'package.jso
 /** The npm scope the components are published under. THE single definition. */
 export const WEBUI_SCOPE = '@lagrangefoundry'
 
-/** The components the builder mounts. Extend as later phases consume more. */
-export const WEBUI_PACKAGES = ['webui-shell', 'webui-split', 'webui-fields'] as const
+/**
+ * The components the builder mounts. Extend as later phases consume more.
+ *
+ * `webui-markdown` is here because `webui-chat` declares it a PEER: the chat
+ * panel renders assistant turns through it and does not carry it. A peer is the
+ * consumer's to supply, so it has to reach the browser's import map too — an
+ * import map that resolves the panel but not what the panel imports fails at the
+ * first rendered message rather than at load.
+ */
+export const WEBUI_PACKAGES = [
+  'webui-shell',
+  'webui-split',
+  'webui-fields',
+  'webui-chat',
+  'webui-markdown',
+] as const
 export type WebuiPackage = (typeof WEBUI_PACKAGES)[number]
+
+/**
+ * A module in the shared store, as a URL `import()` can take (REQ-122).
+ *
+ * The store holds more than the browser components — `@lagrangefoundry/ai` lives
+ * there too, and the builder origin loads it SERVER-side. A bare specifier would
+ * be resolved by Node walking up from the importing file, which finds the store
+ * from the main checkout and finds nothing from a linked `git worktree`; that is
+ * the same silent-skip hazard {@link webuiPackageDir} exists to close, so the
+ * server-side load goes through the same single resolution point rather than a
+ * second guess at where the store is.
+ *
+ * Returned as a URL rather than a path because it is consumed by dynamic
+ * `import()`, which resolves a bare path relative to the *importing* module.
+ */
+export function sharedModuleUrl(name: string, subpath = '.'): string {
+  const target = webuiExports(name)[subpath]
+  if (target === undefined) {
+    throw new MissingWebuiComponentError(name)
+  }
+  return pathToFileURL(path.join(webuiPackageDir(name), target.replace(/^\.\//, ''))).href
+}
 
 /**
  * Absolute directory of an installed component.

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { RenderChannel, StoreContext } from '../store'
 import { distDir } from '../store'
+import { aiStatus, openSession, streamPrompt } from './ai/host'
 import { cmdList, cmdPublish, ctxOf, InvalidDefinitionError, type GlobalOptions } from './commands'
 import { editAssetList, editCopyGet, editCopySet } from './edit'
 import { CommandError } from './errors'
@@ -153,6 +154,47 @@ async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
 const CHANNELS: RenderChannel[] = ['draft', 'published', 'edit']
 
 /**
+ * Project one assistant turn into server-sent events (REQ-122).
+ *
+ * The library's stream events (`text` / `tool_activity` / `done`) are forwarded
+ * VERBATIM, because that is exactly the shape the chat panel consumes. Anything
+ * this transport reshaped would be a second vocabulary to keep in step with the
+ * component's, for no gain.
+ *
+ * A failure mid-turn is delivered IN the stream rather than as a status code:
+ * the headers are long gone by the time a model call can fail, and a stream that
+ * simply stops leaves the panel spinning on a turn that will never arrive. So the
+ * error is written as prose the operator can read, followed by the terminal
+ * `done` that releases the composer.
+ */
+async function streamTurn(
+  res: http.ServerResponse,
+  slug: string,
+  text: string,
+  opts: BuilderOptions,
+): Promise<void> {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream; charset=utf-8',
+    connection: 'keep-alive',
+  })
+  const send = (payload: unknown): void => {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`)
+  }
+  try {
+    for await (const event of streamPrompt(slug, text, opts)) {
+      send({ kind: event.kind, content: event.content, meta: event.meta })
+    }
+  } catch (err) {
+    send({
+      kind: 'text',
+      content: `\n\n_${err instanceof Error ? err.message : String(err)}_`,
+    })
+    send({ kind: 'done' })
+  }
+  res.end()
+}
+
+/**
  * Handle one builder request. Exported so a test can drive the routing table
  * without binding a port.
  */
@@ -215,6 +257,48 @@ export async function handleBuilderRequest(
       }
       const result = await cmdPublish(body.slug, { ...opts, message: body.message })
       json(res, 200, { id: result.id, changes: result.changes })
+      return
+    }
+
+    /**
+     * The assistant (REQ-122).
+     *
+     * Three routes, mirroring the reference host contract in the AI component's
+     * own showcase (`components/ai/py/showcase/ai_host.py`) rather than inventing
+     * a shape: what is available, open a conversation, run a turn.
+     *
+     * `/api/ai/prompt` takes the SLUG and not a session id. The id is derived
+     * from the slug (`sessionIdFor`), so carrying one over the wire would add a
+     * value the client could send stale — it would have to sequence "open, then
+     * send" correctly across every site switch, and get it wrong exactly once.
+     * Naming the site instead makes a turn self-sufficient.
+     */
+    if (p === '/api/ai/roles' && req.method === 'GET') {
+      json(res, 200, await aiStatus(opts))
+      return
+    }
+
+    if (p === '/api/ai/session' && req.method === 'POST') {
+      const body = (await readJsonBody(req)) as { slug?: string }
+      if (!body.slug) {
+        json(res, 400, { error: 'slug is required' })
+        return
+      }
+      // 200 even when the assistant cannot run: the answer carries the stored
+      // transcript AND the reason, which are independent. Refusing the whole
+      // response for a missing API key would throw away the conversation as
+      // well, leaving the panel with nothing to show and nothing to explain.
+      json(res, 200, await openSession(body.slug, opts))
+      return
+    }
+
+    if (p === '/api/ai/prompt' && req.method === 'POST') {
+      const body = (await readJsonBody(req)) as { slug?: string; text?: string }
+      if (!body.slug || typeof body.text !== 'string') {
+        json(res, 400, { error: 'slug and text are required' })
+        return
+      }
+      await streamTurn(res, body.slug, body.text, opts)
       return
     }
 

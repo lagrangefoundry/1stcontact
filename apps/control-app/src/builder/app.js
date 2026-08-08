@@ -1,5 +1,6 @@
 import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
+import { createChatPanel } from './chat.js'
 import { APP_FONT, APP_ID, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
 import { mountEditor } from './editor.js'
 import { createDisplayPanel } from './panel.js'
@@ -24,7 +25,13 @@ import { previewUrl } from './api.js'
  * free to do now.
  */
 export function mountBuilder(root, options = {}) {
-  const { sites = [], publish = async () => {}, storage, editBridge = null } = options
+  const {
+    sites = [],
+    publish = async () => {},
+    storage,
+    editBridge = null,
+    chatTransport = null,
+  } = options
 
   const shell = mountShell(root, {
     appId: APP_ID,
@@ -81,10 +88,17 @@ export function mountBuilder(root, options = {}) {
     ],
   })
 
-  // The chat pane is a placeholder: webui-chat is phase-1 non-scope (DOC-28 §12).
-  const chat = document.createElement('div')
-  chat.className = 'builder-chat-placeholder'
-  chat.textContent = 'Chat arrives with the next phase.'
+  /**
+   * The assistant, in the split's secondary (REQ-122).
+   *
+   * It follows the panel's site rather than owning a selector of its own: the
+   * toolbar's selector is the one place a site is chosen, and a second control
+   * that could disagree with it is worse than no control at all.
+   */
+  const chat = createChatPanel({
+    storage: shell.storage(STORAGE_KEYS.chat),
+    ...(chatTransport ? { transport: chatTransport } : {}),
+  })
 
   const splitHost = document.createElement('div')
   splitHost.className = 'builder-split'
@@ -134,19 +148,30 @@ export function mountBuilder(root, options = {}) {
   const split = mountSplit(splitHost, {
     id: STORAGE_KEYS.split,
     primary: panel.element,
-    secondary: chat,
+    secondary: chat.element,
     initialSplit: 65,
     collapse: { side: 'secondary', style: 'rail' },
     storage: shell.storage(STORAGE_KEYS.split),
   })
+
+  /**
+   * The assistant follows the pane. Subscribed BEFORE the first `setSite` so a
+   * `restore()` that has already run and a change made a second from now take the
+   * identical path — the chat has one way to learn which site it is on.
+   */
+  const unbindSite = panel.on('site', (slug) => void chat.setSite(slug))
+  void chat.setSite(panel.getSite())
 
   return {
     shell,
     split,
     panel,
     toolbar,
+    chat,
     destroy() {
       panel.frame.removeEventListener('load', rebind)
+      unbindSite()
+      chat.destroy()
       editor?.destroy()
       toolbar.destroy()
       split.destroy()

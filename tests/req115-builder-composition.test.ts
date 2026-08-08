@@ -88,13 +88,15 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 shell + split', () => {
     expect(root.textContent).toContain(SITE_TAB.label)
   })
 
-  it('test_UAT_FC_REQ-115_split_shows_panel_and_chat_placeholder', () => {
+  it('test_UAT_FC_REQ-115_split_shows_panel_and_chat_pane', () => {
     const storage = memoryStorage()
     const app = mountBuilder(root, { sites: SITES, storage })
 
-    // AC 4 — display panel | chat placeholder, with a real divider.
+    // AC 4 — display panel | assistant pane, with a real divider. REQ-122
+    // replaced the placeholder this used to look for with the live panel; the
+    // criterion is about the split's two halves, not about what fills them.
     expect(app.split.element.contains(app.panel.element)).toBe(true)
-    expect(app.split.element.querySelector('.builder-chat-placeholder')).toBeTruthy()
+    expect(app.split.element.querySelector('.builder-chat')).toBeTruthy()
     expect(app.split.element.querySelector('.split__divider, [class*="divider"]')).toBeTruthy()
 
     // Collapse to rail and reopen to the prior width.

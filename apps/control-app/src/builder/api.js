@@ -94,6 +94,63 @@ export async function saveCopy(target, values, fetchImpl = fetch) {
   )
 }
 
+/**
+ * Open a site's conversation (REQ-122).
+ *
+ * Answers with the stored transcript AND whether the assistant can take a turn,
+ * because those are independent: a builder started without an API key still has
+ * every earlier conversation, and the panel is supposed to show it alongside the
+ * reason it is frozen rather than instead of one or the other.
+ */
+export async function openChatSession(slug, fetchImpl = fetch) {
+  const res = await fetchImpl('/api/ai/session', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ slug }),
+  })
+  if (!res.ok) throw new Error(`POST /api/ai/session → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Run one turn, as the stream of events the chat panel consumes.
+ *
+ * NAMED BY SITE, not by session id. The origin derives the session from the slug,
+ * so there is no id for this side to hold, go stale, or send for the wrong site
+ * after a switch — a turn carries everything it needs.
+ *
+ * The frames are `data: {json}` separated by a blank line; the parse is here
+ * rather than in the panel because it is transport, and the panel is deliberately
+ * transport-agnostic.
+ */
+export async function* streamChatPrompt(slug, text, fetchImpl = fetch) {
+  const res = await fetchImpl('/api/ai/prompt', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ slug, text }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    yield { kind: 'text', content: `\n\n_${body.error || `the assistant failed (${res.status})`}_` }
+    yield { kind: 'done' }
+    return
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let split
+    while ((split = buffer.indexOf('\n\n')) !== -1) {
+      const frame = buffer.slice(0, split).trim()
+      buffer = buffer.slice(split + 2)
+      if (frame.startsWith('data:')) yield JSON.parse(frame.slice(5).trim())
+    }
+  }
+}
+
 /** Snapshot the draft into a new revision and render it (DOC-12 §5). */
 export async function publishSite(slug, fetchImpl = fetch) {
   const res = await fetchImpl('/api/publish', {

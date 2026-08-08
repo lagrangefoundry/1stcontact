@@ -316,6 +316,26 @@ describe('story-e674c60a builder origin', () => {
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
 
+      // The assistant (REQ-122). Its routes answer without ever reaching a
+      // model — `/api/ai/roles` reports capability, and the two POSTs are
+      // probed in their REJECTION shape, which needs no API key and is the
+      // response an operator is most likely to be looking at when something is
+      // wrong. `/api/ai/prompt` is deliberately not probed in its success shape:
+      // that would be a live model call, and this criterion is about a header.
+      { route: '/api/ai/roles', url: '/api/ai/roles', ok: true },
+      {
+        route: '/api/ai/session',
+        url: '/api/ai/session',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+      {
+        route: '/api/ai/prompt',
+        url: '/api/ai/prompt',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
       // A rendered page in EACH channel — `published` produced by the publish
       // probe above, so it is the channel in the form the platform makes it —
       // plus the two ways a preview request fails.

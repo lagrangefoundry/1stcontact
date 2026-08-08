@@ -384,9 +384,11 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a split and persistence', () => 
   it('test_UAT_AC973_the_split_drags_collapses_to_a_rail_and_reopens_to_its_width', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
 
-    // AC-973 — the display panel is the PRIMARY, beside the assistant placeholder.
+    // AC-973 — the display panel is the PRIMARY, beside the assistant pane.
+    // REQ-122 replaced the placeholder that stood there with the live chat panel;
+    // this criterion is about the split's two halves, not what fills the second.
     expect(app.split.element.contains(app.panel.element)).toBe(true)
-    expect(app.split.element.querySelector('.builder-chat-placeholder')).toBeTruthy()
+    expect(app.split.element.querySelector('.builder-chat')).toBeTruthy()
     // …separated by a real divider the operator can drag.
     expect(app.split.element.querySelector('.split__divider, [class*="divider"]')).toBeTruthy()
 

@@ -342,11 +342,19 @@ body {
   cursor: default;
 }
 
-.builder-chat-placeholder {
-  display: grid;
+/*
+ * The assistant pane (REQ-122) — the split's secondary.
+ *
+ * Only a link in the height chain (see the chain comment above): `.chat-widget`
+ * already declares its own `height: 100%` / `min-height: 0` / internal scroll, so
+ * everything this has to do is be a definite-height box for it to fill. Anything
+ * more would be re-styling a component that ships its own look, which is what
+ * `--shell-*` tokens exist to avoid.
+ */
+.builder-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   height: 100%;
-  place-items: center;
-  padding: 16px;
-  color: var(--shell-text-muted, #71717a);
-  text-align: center;
+  overflow: hidden;
 }

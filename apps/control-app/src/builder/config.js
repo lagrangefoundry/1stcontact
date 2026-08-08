@@ -53,4 +53,5 @@ export const TABS = [SITE_TAB]
 export const STORAGE_KEYS = {
   split: `${SITE_TAB.id}:split`,
   panel: `${SITE_TAB.id}:panel`,
+  chat: `${SITE_TAB.id}:chat`,
 }

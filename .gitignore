@@ -146,6 +146,10 @@ Cargo.lock  # Remove this line if project is a binary/application
 /storage/references/
 # Scratch space: repro working files (values-diff JSON, aligned crops). Never committed.
 /storage/tmp/
+# Assistant transcripts (REQ-122) — one persisted conversation per site, written
+# by the builder's AI host. Operator-local and often verbatim business detail;
+# never committed.
+/storage/chat/
 
 # ============================================================================
 # Cloudflare Wrangler / Miniflare

@@ -14,10 +14,11 @@
  * {@link ToolParam.enum}, and both renderings are derived from it. Drift is not
  * discouraged; it is unrepresentable.
  *
- * NOTHING HERE IS A FRAMEWORK CONCERN. `@lagrangefoundry/ai` supplies the seams
- * and none of the content: `Tool.description` is an opaque string, `extraTools`
- * is the registration seam, and `ContextSource` is duck-typed. The knowledge and
- * the prompts are this project's, so they are declared in this project. A
+ * NOTHING HERE IS A FRAMEWORK CONCERN. The shared AI component supplies the
+ * seams and none of the content: `Tool.description` is an opaque string,
+ * `extraTools` is the registration seam, and `ContextSource` is duck-typed. The
+ * knowledge and the prompts are this project's, so they are declared in this
+ * project. A
  * {@link ToolSpec} is deliberately plain data rather than a constructed `Tool` —
  * this module has no dependency on the AI component, and the one-line adapter
  * that turns specs into `Tool` instances lives at the host boundary.
@@ -104,9 +105,9 @@ export interface ToolSurface {
 }
 
 /**
- * The shape `@lagrangefoundry/ai`'s `Tool` is constructed from: name,
- * description, `{properties, required}`, handler. Plain data — see the module
- * header for why this is not a `Tool` instance.
+ * The shape the AI component's `Tool` is constructed from: name, description,
+ * `{properties, required}`, handler. Plain data — see the module header for why
+ * this is not a `Tool` instance.
  */
 export interface ToolSpec {
   name: string

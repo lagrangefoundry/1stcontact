@@ -5,7 +5,7 @@
  * REAL EVERYTHING EXCEPT THE ORIGIN'S PORT, on the pattern
  * `reconciliation-copy-edit-gesture-modal.test.ts` established: the document is
  * the bytes `1c render --edit` wrote, the bridge is the one the browser runs,
- * the form is the installed `@lagrangefoundry/webui-fields`, and the reads go over
+ * the form is the installed `webui-fields` component, and the reads go over
  * HTTP to a real builder origin. `defaultModal` is driven directly — an injected
  * double would be a test of the double, and every criterion here is about what
  * the real dialog builds.
