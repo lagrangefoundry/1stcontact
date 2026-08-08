@@ -17,9 +17,11 @@ fields:
   needs_review: false
   ready_since: '2026-08-07T22:58:43.858813+00:00'
   commits:
-  - working_sha: e77b933635f00ba8470bab1e9c50056be67f832f
+  - working_sha: 92d1ab5ee9f0c8c1c35884d1bb00f01822192b6d
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - e77b933635f00ba8470bab1e9c50056be67f832f
   version: 0.1.25
 ---
 
