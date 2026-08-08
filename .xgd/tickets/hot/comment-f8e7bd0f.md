@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-18
 created_by: xgd
 created_at: '2026-08-08T18:19:32.882303+00:00'
-updated_at: '2026-08-08T20:04:20.510042+00:00'
+updated_at: '2026-08-08T20:10:01.910861+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -140,5 +140,15 @@ So the call language needs something like `{"type": "invoke", "fn": "editCopySet
 What's `action: "get ticket $id"` for? Function-calling models need a stable identifier plus a typed input schema — the model emits `{"name": "ticket_get", "input": {"id": "..."}}`, not a templated sentence. So I read `action` as a human/doc label with the params declared separately, and `$id` in both `action` and `description` referring to those declared params. If you meant something else by it, that changes the shape.
 
 No code written — this is design discussion, so nothing to scope on CHAT-18 yet. Say the word and I'll write it up as a design doc ticket in lagrange-framework.
+
+<!-- xgd-turn id="1ac2e493-da6d-4324-ac60-b4e927e2b695-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T20:10:01.761490+00:00" -->
+#### You
+Command injection - totally agree - just an example, but it does illustrate a security challenge that will reccur
+L1 needs a proper fully documented and maintained API
+I'm not married to any terms here just trying to convey a concept that you had missed: generic tooling capability + configuration + client handler
+
+This is a design session - no coding here please
 
 <!-- xgd-chat-end -->
