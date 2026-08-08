@@ -4,8 +4,27 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Resolution of the `@gendevlabs/webui-*` components (REQ-115 Deliverable 0,
+ * Resolution of the shared `webui-*` components (REQ-115 Deliverable 0,
  * DOC-8 §9.5).
+ *
+ * THE SCOPE THEY ARE PUBLISHED UNDER IS DECLARED HERE, ONCE — see
+ * {@link WEBUI_SCOPE} — and nothing else in this repository writes it as a
+ * literal. Everything that composes a component reference composes it from that
+ * declaration, so moving with an upstream rename is a one-line change.
+ *
+ * WHY THE RULE IS STRICTER THAN IT LOOKS. The dependency is implicit (below),
+ * so absence is detected by resolution failing — and a HALF-COMPLETED rename
+ * fails resolution in exactly the same way a machine that never ran the install
+ * does. A second copy of the scope anywhere would therefore not announce itself
+ * as a defect; it would read as "not installed yet" and skip green while the
+ * workspace shipped an import map nothing can resolve. That is why the scope
+ * lives at one site, why the old name is deleted outright rather than kept as a
+ * fallback, and why this prose does not spell either name.
+ *
+ * The one place that cannot compose it is the workspace's own browser source:
+ * it is served to the browser verbatim and can read no build-time value, so it
+ * names components directly. That exception is bounded and held in step by
+ * evidence, never trusted.
  *
  * THE CONSUMPTION ROUTE: a **shared artifact store**, populated by the operator
  * running `lagrange-framework`'s `bin/install`. That command packs each
@@ -81,7 +100,8 @@ function walkOrigin(): string {
 
 const require = createRequire(path.join(mainCheckout(walkOrigin()), 'package.json'))
 
-export const WEBUI_SCOPE = '@gendevlabs'
+/** The npm scope the components are published under. THE single definition. */
+export const WEBUI_SCOPE = '@lagrangefoundry'
 
 /** The components the builder mounts. Extend as later phases consume more. */
 export const WEBUI_PACKAGES = ['webui-shell', 'webui-split', 'webui-fields'] as const

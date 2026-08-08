@@ -9,7 +9,7 @@ import { cmdList, cmdPublish, cmdRender, ctxOf, type GlobalOptions } from './com
 import { editAssetList, editCopyGet, editCopySet } from './edit'
 import { CommandError } from './errors'
 import { resolveStaticFile, sendFile } from './serve'
-import { WEBUI_PACKAGES, webuiExports, webuiPackageDir } from './webui'
+import { WEBUI_PACKAGES, WEBUI_SCOPE, webuiExports, webuiPackageDir } from './webui'
 
 /**
  * The builder's dev origin (REQ-115 / DOC-28 §12 T1).
@@ -67,9 +67,11 @@ export function chromeHtml(): string {
     const exp = webuiExports(name)
     for (const [subpath, target] of Object.entries(exp)) {
       const url = `/webui/${name}/${target.replace(/^\.\//, '')}`
-      if (subpath === '.') imports[`@gendevlabs/${name}`] = url
+      // Composed from the single scope declaration, never restated: a second
+      // copy here is what let the last rename go half-completed.
+      if (subpath === '.') imports[`${WEBUI_SCOPE}/${name}`] = url
       else if (target.endsWith('.css')) styles.push(url)
-      else imports[`@gendevlabs/${name}/${subpath.replace(/^\.\//, '')}`] = url
+      else imports[`${WEBUI_SCOPE}/${name}/${subpath.replace(/^\.\//, '')}`] = url
     }
   }
   return `<!doctype html>

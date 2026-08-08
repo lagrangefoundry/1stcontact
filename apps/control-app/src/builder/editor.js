@@ -1,4 +1,4 @@
-import { mountFields } from '@gendevlabs/webui-fields'
+import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchCopy, saveCopy } from './api.js'
 
 /**

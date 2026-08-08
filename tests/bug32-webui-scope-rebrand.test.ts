@@ -173,8 +173,18 @@ describe('story-e674c60a component scope: one name, written once', () => {
   it('test_UAT_AC960_component_scope_is_written_in_exactly_one_place', () => {
     const files = trackedTextFiles()
     expect(files.length, 'the tracked-file enumeration is empty — the scan proves nothing').toBeGreaterThan(0)
-    expect(files, 'the enumeration must reach a generated artifact checked in beside its generator')
-      .toContain('index.html')
+    // The enumeration must reach BEYOND the source roots a hardcoded list would
+    // have named. `index.html` — a generated artifact checked in beside its
+    // generator — was the concrete proof that a three-root scan was wrong: it
+    // sat under none of them and carried an import map. It has since been
+    // deleted (nothing read it; a committed copy of the generator's output is
+    // itself a second definition site), so this asserts the property directly
+    // rather than naming one file that happened to have it.
+    const SOURCE_ROOTS = ['tools/', 'apps/', 'packages/']
+    expect(
+      files.filter((rel) => !SOURCE_ROOTS.some((r) => rel.startsWith(r))).length,
+      'the enumeration reaches no further than the source roots a hardcoded list would name',
+    ).toBeGreaterThan(0)
 
     // (a) No tracked file names a scope the components were previously
     //     published under. Anywhere: source, a generated artifact checked in

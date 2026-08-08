@@ -1,5 +1,5 @@
-import { mountShell } from '@gendevlabs/webui-shell'
-import { mountSplit } from '@gendevlabs/webui-split'
+import { mountShell } from '@lagrangefoundry/webui-shell'
+import { mountSplit } from '@lagrangefoundry/webui-split'
 import { APP_ID, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
 import { mountEditor } from './editor.js'
 import { createDisplayPanel } from './panel.js'
