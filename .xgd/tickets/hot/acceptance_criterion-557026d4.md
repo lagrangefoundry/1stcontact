@@ -6,14 +6,15 @@ title: The non-colour token groups validate and emit exactly as before the colou
   cut
 created_by: xgd
 created_at: '2026-08-06T20:52:26.292936+00:00'
-updated_at: '2026-08-06T21:01:43.740734+00:00'
+updated_at: '2026-08-08T00:44:02.626648+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
