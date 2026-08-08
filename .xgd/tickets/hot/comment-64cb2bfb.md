@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-118
 created_by: xgd
 created_at: '2026-08-07T00:53:06.580220+00:00'
-updated_at: '2026-08-08T21:14:01.417942+00:00'
+updated_at: '2026-08-08T21:15:35.141184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,48 @@ The ticket body is current and reflects the implementation as it stands. Promoti
 <!-- xgd-chat role="user" ts="2026-08-08T21:14:01.213190+00:00" -->
 #### You
 Image selection does not appear to support the selection of background images? Could it?
+
+<!-- xgd-turn id="aa2eeb0f-7e00-4c43-9960-6e72445813f7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T21:15:35.010372+00:00" -->
+#### Claude
+I'll check how backgrounds are expressed in L1 and what the current derivation covers.
+
+Correct — it doesn't, and the reason is structural rather than an oversight.
+
+## Why not
+
+A background image isn't an `image` node. It's `backgroundImageUrl`, one axis in the shared surface group (`packages/site-schema/src/l1/schema.ts:612`) that REQ-98 spread across every box-rendering kind. A node carrying it stamps as a **container** segment, not an image one:
+
+```ts
+// packages/framework/src/l1/render.ts:1748
+case 'box':
+case 'container':
+  return surfaceDecls(node.axes ?? {}).length > 0 ? 'container' : null
+```
+
+And `copyFieldsOf` returns `null` for those kinds, so clicking a painted container today gets you `editor.js:114` — *"Nothing to edit on this container segment yet."* The outline appears; the modal has nothing in it.
+
+DOC-28 §6.2 is where this was decided: the container segment's controls are "background colour/image, default text parameters" — all **phase 2**.
+
+## Could it — yes, and cheaply
+
+The phase-2 gate is really about *colour*, not images. Colour is blocked on two things that don't exist yet: the site palette (REQ-114) and an upstream colour-valued control (`xgd-framework` REQ-55, DOC-8 §9.4.1). A background image needs neither. It's the same "which image goes here" question phase 1 already answers, using the exact enum-over-site-assets control REQ-118 built.
+
+The change is three edits, all in the derivation:
+
+- `copyFieldsOf` — a branch for `box`/`container` returning one `backgroundImageUrl` field, `type: 'enum'`, options from the same `opts.assets` already threaded in, plus the node's current handle for the same reason images need it.
+- `applyCopyFields` — one write branch onto `node.axes`.
+- Nothing else. No new command, no new route, no `editor.js` change — the loop is kind-agnostic and `/api/copy` already carries it.
+
+## Two things worth your call first
+
+**Removal is a trap.** If a box's only paint *is* its background image, offering an empty option means removing it drops `surfaceDecls` to zero — the node stops being a segment on the next render, vanishes from the editor, and can't be re-added. I'd ship selection only (`required`, no empty option) and leave removal to the AI. Cleaner than a special case.
+
+**You can only change a background, never add one.** An unpainted container isn't a segment at all, so it has no address to click. That's a real limit of derived segmentation (DOC-28 §6.4's known weakness, from the other direction) and closing it means widening what counts as a container segment — bigger than this, and I'd keep it out.
+
+## Ticket
+
+REQ-118 is `free_and_reconciled` — past the reconcile pipeline, so I can't append commits to it. This needs its own ticket. Say the word and I'll create one (a small `request`, likely 1–2 points) with the scope above; I won't create one unprompted.
 
 <!-- xgd-chat-end -->
