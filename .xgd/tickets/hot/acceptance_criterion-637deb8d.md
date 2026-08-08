@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: The envelope rejects an incoherent layout track
 created_by: xgd
 created_at: '2026-08-06T02:37:59.940583+00:00'
-updated_at: '2026-08-06T02:44:01.282018+00:00'
+updated_at: '2026-08-08T00:43:25.196699+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3569e1a4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
