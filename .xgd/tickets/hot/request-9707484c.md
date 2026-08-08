@@ -6,9 +6,9 @@ title: 'The copy-edit modal, made elegant: themed chrome, app typeface, page-fai
   editing box'
 created_by: xgd
 created_at: '2026-08-07T23:18:19.851596+00:00'
-updated_at: '2026-08-07T23:42:12.932088+00:00'
+updated_at: '2026-08-08T00:48:03.168230+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -127,3 +127,99 @@ UATs named `test_UAT_FC_REQ-121_*`, against a real edit render in jsdom:
 - `..._control_mirrors_page_typography_and_background`
 - `..._control_font_size_is_clamped_to_editing_range`
 - `..._font_face_rules_are_copied_from_the_preview_document`
+
+
+---
+
+# As built
+
+Every item above landed. The decisions and discoveries that changed the shape of
+it, recorded because the reasons are not recoverable from the diff:
+
+## The typeface
+
+**IBM Plex Sans**, self-hosted from the builder origin — two weights, latin +
+latin-ext, four `.woff2` files totalling ~59KB in
+`apps/control-app/src/builder/fonts/`. Served by the existing `/builder/` route,
+so no routing change was needed; `serve.ts`'s MIME map gained `.woff2`/`.woff`/
+`.ttf`, which it had no entry for. No CDN: nothing to be offline for, and no
+third party told which sites the operator is editing.
+
+Applied once, as `tokens: { font: APP_FONT }` on `mountShell` — the shell's own
+token path (upstream REQ-68), never a stylesheet override of `.shell`.
+
+## The background is NOT an ancestor walk
+
+The first implementation climbed `parentElement` until something painted. That
+is the textbook answer and it is **wrong for this renderer**: an L1 fold emits
+absolutely positioned boxes (REQ-88), so a hero photograph is routinely a
+*sibling* layer beneath the copy rather than an ancestor of it. On
+`gigabytealchemy/home` the walk sailed past the photograph and landed on a
+neutral wrapper carrying a cream fill — gold copy over a dark photograph
+previewed as **gold on cream**, which is both wrong and unreadable. A preview
+whose purpose is showing contrast must never produce that.
+
+It now uses `document.elementsFromPoint` at the run's centre, which asks the
+question actually being asked — *what is under this pixel* — and answers it in
+paint order. The stack is collected down to the first opaque fill and rendered
+as one absolutely-positioned layer per painting element, bottom-most first, each
+at its own element's dimensions and offset back by the text's position within
+it, clipped by the box.
+
+Sizing each layer to its *source* element (rather than copying the shorthand
+onto a differently-sized box) is what makes it exact: every layer resolves
+against the dimensions it resolved against on the page, so a `cover` photo's
+crop and a gradient's stops are the real ones, with no intrinsic-size maths and
+correct for layer stacks this code never has to understand. Verified in Chrome
+against `gigabytealchemy/home`: two layers — an opaque `rgb(3,7,23)` base, then
+a `linear-gradient(...) , url(...)` scrim-over-photograph — composited in the
+page's own order.
+
+The ancestor walk survives as the fallback, which is correct when nothing is
+absolutely positioned and is the only thing available with no layout at all (a
+headless run measures every rect as zero).
+
+## The form opens ready to type
+
+`mountFields` renders a view that becomes a control on click. For a one-field
+editing dialog that is a wasted click, and — more to the point — it undercuts
+the reason the heading could go: a box you can obviously type in needs no label
+saying "Edit text", and until the control exists the box is not one. The modal
+now fires the component's own click-to-edit gesture on a lone field. Guarded to
+exactly one field: with two (an image's `src`/`alt`) there is no "the" field.
+
+## Known gap — upstream REQ-70 (filed, not blocking)
+
+`.fields` flips to a two-column grid at 44rem, and REQ-69's `stacked` drops only
+the *label* column. So in an 880px box a single field lays out at 409px with
+425px of nothing beside it (measured). The modal is otherwise complete; the box
+will fill its width when that lands. REQ-70 also carries the `autoEdit` ask that
+would retire the synthetic click above.
+
+## Incidental fixes made here
+
+- `reconciliation-copy-edit-gesture-modal.test.ts` (REQ-117) was failing all
+  five criteria on `main` before this ticket, in isolation and under load. Cause:
+  `settle()` waited one macrotask for what is a real HTTP round trip, and late
+  dialogs then leaked into the next test (AC-1001 read AC-994's form). Replaced
+  with a bounded poll for the dialog. AC-994's "shows the words" assertion now
+  reads the control's value rather than the dialog's `textContent`, because those
+  words are a form value now instead of a span — the criterion is unchanged.
+- `serve.ts` MIME map: `.woff2`, `.woff`, `.ttf`.
+
+## Not fixed here (pre-existing, unrelated, reported)
+
+- `req115-builder-composition.test.ts` →
+  `test_UAT_FC_REQ-115_open_in_new_tab_matches_the_iframe_exactly` fails on
+  `main` and still fails: the toolbar link does not follow `panel.setSite()`.
+  Different surface, different ticket.
+- `GET /preview/1stcontact/draft/` answers 500 in the running builder. A data or
+  render problem in that site, not the editor.
+
+## Verification
+
+`tests/req121-copy-modal-elegance.test.ts` — 9 UATs against real rendered bytes,
+a real builder origin and the installed components. Plus a real-browser pass
+(Chrome via Playwright) against `gigabytealchemy`, which is where the ancestor-walk
+defect and the two-column defect were both found — neither is visible headlessly,
+because jsdom lays nothing out.
