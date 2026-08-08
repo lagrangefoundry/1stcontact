@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-18
 created_by: xgd
 created_at: '2026-08-08T18:19:32.882303+00:00'
-updated_at: '2026-08-08T18:21:42.952829+00:00'
+updated_at: '2026-08-08T20:03:03.843823+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,24 @@ One caution: don't try to unify that with `permissions.js`. CLI-flags-to-Claude-
 Also worth naming: this is a two-repo, two-XGD-instance job — framework-side free-coding cycle, version bump, then a consumption change here. And the framework carries py/js peers with conformance fixtures, so a new primitive lands in both or is deliberately js-only with that stated.
 
 Want me to write this up as a design doc ticket in lagrange-framework, or keep iterating on the policy shape here first?
+
+<!-- xgd-turn id="8c087de0-c3b4-496f-a0df-6f2d4084fb76-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T20:03:03.704515+00:00" -->
+#### You
+I'd argue against promoting right now. `declare.ts` is a week old with one consumer, and the L1 surface is actively growing (chat panel landed yesterday). Freezing an unproven shape into a cross-repo API costs more than the duplication does. Let it take a few more L1 tools first; run the retrofit test when the shape stops moving. <-- you are misunderstanding what I am proposing here. Perhaps what I'm proposing doesn't actually make sense but let's explore it and at least make sure that you understand what I'm advocating for.
+
+I am imagining a generic "tooling" object. It is part of the ai library in my mind. It knows nothing about any tools just about tools in general.
+
+A project would configure it with a json config with calls:
+action:"get ticket $id"
+call: {type:"bash", command: "get ticket $id"} <-- this needs to be in a language that can be interpreted by the client-side that runs the tool
+description: "called to get the contents of ticket $id..." <-- this is the explanation given to the LLM
+
+The object knows nothing about the apis themselves or what they do - when called the "call" object needs to be populated and passed to a client handler for execution.
+
+The tooling object is responsible for exposing the actions to the LLM along with system documentation that explains how to use them.
+
+Thoughts?
 
 <!-- xgd-chat-end -->
