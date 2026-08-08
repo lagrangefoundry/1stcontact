@@ -6,14 +6,15 @@ title: A row can wrap, restated whole per breakpoint, and one cascade serves bot
   renderer and layout gate
 created_by: xgd
 created_at: '2026-08-06T02:37:18.809936+00:00'
-updated_at: '2026-08-06T02:44:02.101617+00:00'
+updated_at: '2026-08-08T00:43:22.042169+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3569e1a4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
