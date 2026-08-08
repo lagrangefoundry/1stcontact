@@ -6,14 +6,15 @@ title: A fetchable endpoint is enhanced exactly as before, with no config field 
   the choice
 created_by: xgd
 created_at: '2026-08-06T03:51:45.095044+00:00'
-updated_at: '2026-08-06T04:00:53.597524+00:00'
+updated_at: '2026-08-08T00:43:40.707134+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
