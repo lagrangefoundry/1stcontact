@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: Control bindings are validated in both directions
 created_by: xgd
 created_at: '2026-08-06T01:32:55.445559+00:00'
-updated_at: '2026-08-06T01:40:37.638092+00:00'
+updated_at: '2026-08-08T00:42:38.069835+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
