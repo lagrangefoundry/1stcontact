@@ -6,14 +6,15 @@ title: 'The link role is refused where it would be malformed: a behavior-bound c
   or a module mount seam declaring a link is rejected at validation'
 created_by: xgd
 created_at: '2026-08-06T02:48:24.923154+00:00'
-updated_at: '2026-08-06T02:59:36.249211+00:00'
+updated_at: '2026-08-08T00:43:34.528250+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2e4e2c45
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
