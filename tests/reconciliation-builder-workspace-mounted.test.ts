@@ -3,7 +3,7 @@
  * story-e674c60a — **the workspace mounted against its own real origin**.
  *
  * Three criteria need both halves at once: a workspace mounted out of the REAL
- * `@gendevlabs/webui-*` components, and a live builder origin serving a real
+ * `webui-*` components, and a live builder origin serving a real
  * store. The chrome suite (jsdom) has no origin, and the origin suite (node)
  * has no DOM, so the criteria whose subject is the seam between them —
  * AC-1029's registered editable mode, AC-972's publish of the *displayed*

@@ -367,7 +367,7 @@ describe('REQ-118 — image selection', () => {
  * Every test below is a plain fetch against the builder origin — `/api/copy`,
  * `/api/assets`, `/preview/…` — and `startBuilder` binds a port without touching
  * a component. The only route in `handleBuilderRequest` that needs
- * `@gendevlabs/webui-*` is `GET /`, which builds the chrome document via
+ * `webui-*` is `GET /`, which builds the chrome document via
  * `chromeHtml()`; nothing here requests it. Gating the whole suite on the
  * components therefore withheld evidence this machine can produce for a reason
  * that does not apply to it — in particular AC-1028's transport clause ("the
