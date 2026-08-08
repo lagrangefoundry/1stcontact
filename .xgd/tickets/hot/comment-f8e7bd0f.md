@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-18
 created_by: xgd
 created_at: '2026-08-08T18:19:32.882303+00:00'
-updated_at: '2026-08-08T21:09:55.482330+00:00'
+updated_at: '2026-08-08T21:15:39.235394+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -246,5 +246,47 @@ Want me to create these? I'm scoped to CHAT-18 and won't file tickets without an
 <!-- xgd-chat role="user" ts="2026-08-08T21:09:55.343169+00:00" -->
 #### You
 The prompt was a request for you to create the reqs not find them - of course they don't exist yet - yes that was a request for you to create DOCs and REQs
+
+<!-- xgd-turn id="bce10d10-90ed-42b6-8fe2-eefc43087381-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T21:15:38.613222+00:00" -->
+#### Claude
+Confirmed the landscape: framework DOC-13 is "Toolbox API: host tool-registration contract" — it's exactly the doc that says host tools self-gate, so it's the one we supersede. Next numbers are DOC-20 / REQ-73+ in framework, DOC-30 / REQ-124+ here. Writing the bodies now.
+
+DOC-20 (framework) and DOC-30 (1stcontact) created as drafts. Now the REQs.
+
+Created. All eight tickets, in draft, with substantive bodies — no code written.
+
+**lagrange-framework**
+
+| | |
+|---|---|
+| **DOC-20** | The Tooling Object — declared tool surfaces, configuration, and client-handler dispatch |
+| **REQ-73** | Complete DOC-20 |
+| **REQ-74** | Build the tooling object |
+| **REQ-75** | Refactor `ai_ticketing` (py + js) — first consumer, proves the design |
+| **REQ-76** | Refactor `ai_knowledge` (py) |
+| **REQ-77** | Refactor the built-in filesystem toolset — decision pending, sequenced last |
+
+**1stcontact**
+
+| | |
+|---|---|
+| **DOC-30** | L1 Control Surface API — the documented, maintained way to change a site |
+| **REQ-125** | Complete DOC-30 and its gap list |
+| **REQ-126** | Build the L1 control surface API |
+| **REQ-127** | L1 tooling configuration over the API (deletes `declare.ts`) |
+
+DOC-20 carries the full security frame as six numbered rules — closed call-type set, structural substitution, validate-before-substitute, one policy vocabulary, results-as-injection-vector, audit — organised around the claim that danger in a hole is proportional to the expressive power of whatever interprets it. That's the section the refactor REQs conform to, and each refactor is written to treat a policy that *doesn't* map onto the generic vocabulary as a finding against DOC-20 rather than something to work around locally. It also records the four open decisions and explicitly supersedes DOC-13's self-gating clause, with REQ-73 owning the amendment.
+
+DOC-30's deliverable is the gap list, since REQ-126's scope isn't knowable until someone measures `edit.ts` against the requirements. Both docs carry the same acceptance bar: a usable manual must generate from the API declaration with no prose in the configuration.
+
+Two things I'd flag from writing them up:
+
+**REQ-77 is a decision before it's a work item.** Whether the filesystem tools convert at all is genuinely open — they're the best validation of the model and the only place a subtle regression is a security incident. The ticket says take the decision and record it in DOC-20 before scheduling anything.
+
+**`ai_knowledge` has a behaviour worth watching.** Its kb-scope makes an *omitted* argument narrow to scope rather than search everything — so scope can't be side-stepped by omission. If the generic policy vocabulary can't express "absent means narrowed, not unrestricted", that's a real gap in S4. I noted it in REQ-76 as a conformance test rather than a footnote.
+
+One operational note: `xgd ticket` resolves its store from `XGD_PROJECT_ROOT`, not cwd — `cd`ing to lagrange-framework silently returns 1stcontact's tickets. The framework tickets were created with an env override. I saved that to memory since it'll recur in every cross-repo session.
 
 <!-- xgd-chat-end -->
