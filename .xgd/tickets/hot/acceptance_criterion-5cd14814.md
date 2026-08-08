@@ -6,14 +6,15 @@ title: A definition in which two nodes declare the same identifier is rejected, 
   the duplicate value and where it was first declared
 created_by: xgd
 created_at: '2026-08-06T02:48:20.703493+00:00'
-updated_at: '2026-08-06T02:59:36.516111+00:00'
+updated_at: '2026-08-08T00:43:33.539155+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2e4e2c45
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
