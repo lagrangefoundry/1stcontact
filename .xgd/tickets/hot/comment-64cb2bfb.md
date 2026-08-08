@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-118
 created_by: xgd
 created_at: '2026-08-07T00:53:06.580220+00:00'
-updated_at: '2026-08-08T21:15:35.141184+00:00'
+updated_at: '2026-08-08T21:18:18.885538+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -164,5 +164,11 @@ The change is three edits, all in the derivation:
 ## Ticket
 
 REQ-118 is `free_and_reconciled` — past the reconcile pipeline, so I can't append commits to it. This needs its own ticket. Say the word and I'll create one (a small `request`, likely 1–2 points) with the scope above; I won't create one unprompted.
+
+<!-- xgd-turn id="07e623c1-ee6b-42e0-9468-5102d606cd87-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T21:18:18.702269+00:00" -->
+#### You
+Yes, and it sounds like this ticket was not completed?? If so can you add the missing requirements to the new ticket
 
 <!-- xgd-chat-end -->
