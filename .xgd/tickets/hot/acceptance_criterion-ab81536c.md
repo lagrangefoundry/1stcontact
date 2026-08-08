@@ -6,14 +6,15 @@ title: A container's stagger spaces its revealing children by their position, a 
   child consumes no slot, and a child's own delay adds to its stagger share
 created_by: xgd
 created_at: '2026-08-06T02:04:36.642107+00:00'
-updated_at: '2026-08-06T02:18:10.041820+00:00'
+updated_at: '2026-08-08T00:43:01.766120+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
