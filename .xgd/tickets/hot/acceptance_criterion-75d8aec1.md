@@ -6,14 +6,15 @@ title: A node's declared identifier becomes an in-page navigation target, so a s
   link scrolls the reader to that node
 created_by: xgd
 created_at: '2026-08-06T02:48:16.267860+00:00'
-updated_at: '2026-08-06T02:59:36.781091+00:00'
+updated_at: '2026-08-08T00:43:32.497884+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-2e4e2c45
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
