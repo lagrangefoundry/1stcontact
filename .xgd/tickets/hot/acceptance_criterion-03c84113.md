@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A document font resource table binds a family handle to its served face
 created_by: xgd
 created_at: '2026-07-29T03:50:22.270897+00:00'
-updated_at: '2026-08-05T21:03:24.211884+00:00'
+updated_at: '2026-08-08T00:42:17.499382+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
