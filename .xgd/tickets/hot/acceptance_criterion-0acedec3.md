@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A painted, internally laid-out element is a single node
 created_by: xgd
 created_at: '2026-08-06T01:15:47.024695+00:00'
-updated_at: '2026-08-06T01:26:02.096003+00:00'
+updated_at: '2026-08-08T00:42:21.988934+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
