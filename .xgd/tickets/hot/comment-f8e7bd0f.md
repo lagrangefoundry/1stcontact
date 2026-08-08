@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-18
 created_by: xgd
 created_at: '2026-08-08T18:19:32.882303+00:00'
-updated_at: '2026-08-08T20:03:03.843823+00:00'
+updated_at: '2026-08-08T20:04:20.510042+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,61 @@ The object knows nothing about the apis themselves or what they do - when called
 The tooling object is responsible for exposing the actions to the LLM along with system documentation that explains how to use them.
 
 Thoughts?
+
+<!-- xgd-turn id="8c087de0-c3b4-496f-a0df-6f2d4084fb76-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-08T20:04:20.390021+00:00" -->
+#### Claude
+You're right, I was answering a different question. Let me restate yours to check I have it.
+
+## What I now think you're proposing
+
+`declare.ts` binds a **closure**: `handler: (input) => string`. That is the thing that can never be config — a JS function can't be serialized, inspected, or shipped anywhere. Your tooling object has no functions in it at all. A tool is *entirely* data: what it's called, what it takes, what it does in English, and a **description of the call to make**. The object's job is three things — expose the surface to the LLM, render the documentation, and on a tool call, fill in the call descriptor and hand it to a registered client handler for execution. It never executes anything itself and never knows what any tool does.
+
+That's not "declare.ts, later, in a different repo." It's a different design, and `declare.ts`'s renderer is at most one component inside it.
+
+## It makes sense, and the security goal specifically requires it
+
+This is the part I'd underline: **you cannot write a permission policy over closures.** There is nothing to inspect. Today's doctrine is literally "host tools gate themselves inside their handler" — which means the framework's answer to security is *trust each tool author*, three times over, differently each time. That's why `ai_ticketing` and `ai_knowledge` each grew their own bespoke policy object, and why our L1 surface has none at all (slug-closure and an unenforced `writes` flag).
+
+Once a call is *described*, policy becomes tractable: allow these call types, this argv head, these param shapes; classify read vs. write and enforce it rather than declaring it. And — the thing I was reaching for last time — the policy is now data too, so it can be **rendered into the same manual**. The model reads what it may do instead of finding out by refusal.
+
+Two existing consumers collapse into config under this, which is the strongest evidence the shape is right. `ai_ticketing` already ships a CLI and hand-builds `Bash(cmd op *)` grant strings; that whole bridge becomes a config file.
+
+## One thing in your sketch I'd push back on hard
+
+```
+call: {type:"bash", command: "get ticket $id"}
+```
+
+Interpolating an LLM-supplied value into a shell string is command injection by construction. `$id` = `abc; rm -rf ~`. A framework whose stated purpose is managing security permissions would be *generically manufacturing* injection vectors — and `Bash(cmd op *)` glob grants don't catch it, because the malicious payload is inside the argument the glob matches.
+
+The fix makes the design better rather than costing anything: **argv arrays with typed parameter slots, never interpolated strings.**
+
+```json
+{ "type": "exec", "argv": ["xgd", "ticket", "get", {"param": "id"}] }
+```
+
+No shell parses anything. Substitution is positional. And the policy layer gets to validate each param against its declared schema *before* substitution, which string templating structurally cannot do. Safe by construction beats safe-if-everyone-escapes-correctly.
+
+## The detail that decides whether this works for L1
+
+You need an **in-process call type**, or our own tool surface can't use it. Every L1 tool bottoms out in `edit.ts` in the same process as the store; shelling out to `1c copy set` to talk to a store we're already holding would be absurd.
+
+So the call language needs something like `{"type": "invoke", "fn": "editCopySet", "args": {...}}`, where `fn` is a key into a project-supplied dispatch table. Config stays fully serializable — the name is a string, the table is the project's — but dispatch goes straight to the function. That keeps the whole thing data while making it usable for the case where the tool isn't a subprocess.
+
+## Three real design items, not nits
+
+**Results.** Handlers today return a string written for the model. An exec call returns stdout, stderr and an exit code. Something must turn one into the other. If the config can't express that, every project does it in the client handler and the config is only half the surface. I'd let the handler own result rendering — simpler, and it's genuinely per-transport — but it should be a stated decision.
+
+**Errors.** `declare.ts` declares each tool's error codes so the model can correct itself mid-turn instead of giving up. Under exec dispatch, errors are exit codes and stderr noise. You need a declared mapping from those to meanings, or you lose the self-correction property that made the manual worth generating.
+
+**Typed authoring.** JSON is right for something *configured* per deployment. But the L1 surface is authored by developers next to the code it calls, and losing the compile-time link between declared params and handler signature is a real cost. I'd make the **format** data-only and serializable, but let projects author it in TypeScript and validate against the schema — configurability where you want it, type-checking where you already have it. `declare.ts` already throws at startup when `required` names an undeclared param; the same trick extends to checking `fn` against the dispatch table.
+
+## One question
+
+What's `action: "get ticket $id"` for? Function-calling models need a stable identifier plus a typed input schema — the model emits `{"name": "ticket_get", "input": {"id": "..."}}`, not a templated sentence. So I read `action` as a human/doc label with the params declared separately, and `$id` in both `action` and `description` referring to those declared params. If you meant something else by it, that changes the shape.
+
+No code written — this is design discussion, so nothing to scope on CHAT-18 yet. Say the word and I'll write it up as a design doc ticket in lagrange-framework.
 
 <!-- xgd-chat-end -->
