@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-118
 created_by: xgd
 created_at: '2026-08-07T00:53:06.580220+00:00'
-updated_at: '2026-08-07T01:09:51.496191+00:00'
+updated_at: '2026-08-08T21:14:01.417942+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -115,5 +115,11 @@ Full suite: **1215 passed, 5 skipped, 1 failed**.
 **Known upstream limitation, not worked around:** `webui-fields`' enum control renders each option's text as the value verbatim, so the picker shows `/assets/hero.png` rather than a friendly name or thumbnail. Per DOC-8 §9.4 a component gap is closed upstream, never patched here — I've recorded it in the ticket as an upstream ask alongside REQ-55 rather than wrapping the component.
 
 The ticket body is current and reflects the implementation as it stands. Promotion to `ready_to_reconcile` is yours to make.
+
+<!-- xgd-turn id="aa2eeb0f-7e00-4c43-9960-6e72445813f7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-08T21:14:01.213190+00:00" -->
+#### You
+Image selection does not appear to support the selection of background images? Could it?
 
 <!-- xgd-chat-end -->
