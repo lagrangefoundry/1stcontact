@@ -6,14 +6,15 @@ title: A rendered page emits no colour custom property, and exactly one colour s
   survives
 created_by: xgd
 created_at: '2026-08-06T20:50:32.681464+00:00'
-updated_at: '2026-08-06T21:01:44.637373+00:00'
+updated_at: '2026-08-08T00:43:59.391868+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
