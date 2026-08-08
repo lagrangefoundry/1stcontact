@@ -6,10 +6,10 @@ title: 'Sprint 1: Move the shared UI component scope to @lagrangefoundry in lock
   with one definition site'
 created_by: xgd
 created_at: '2026-08-07T23:21:51.679348+00:00'
-updated_at: '2026-08-07T23:44:42.303695+00:00'
+updated_at: '2026-08-08T01:09:01.965907+00:00'
 completed_at: null
-last_field_updated: story_order
-status: in_progress
+last_field_updated: status
+status: completed
 fields:
   number: 1
   intent_uid: bug-5cabb340
