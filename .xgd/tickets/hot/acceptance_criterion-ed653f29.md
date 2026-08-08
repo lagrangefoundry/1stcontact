@@ -7,14 +7,15 @@ title: A node declaring hover and focus deltas presents that changed paint on po
   over only the properties the states change
 created_by: xgd
 created_at: '2026-08-06T02:02:43.910900+00:00'
-updated_at: '2026-08-06T02:18:12.335245+00:00'
+updated_at: '2026-08-08T00:42:43.379331+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d2b5cb1c
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
