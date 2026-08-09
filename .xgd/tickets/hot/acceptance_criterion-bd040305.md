@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The generated site stylesheet carries module chrome and no component source
 created_by: xgd
 created_at: '2026-08-06T01:33:29.133822+00:00'
-updated_at: '2026-08-08T00:42:40.331724+00:00'
+updated_at: '2026-08-09T05:40:49.810408+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
