@@ -6,7 +6,7 @@ title: The envelope bounds the texture's period, width and colour through the sh
   surface check
 created_by: xgd
 created_at: '2026-08-06T02:21:38.575396+00:00'
-updated_at: '2026-08-08T00:43:17.605670+00:00'
+updated_at: '2026-08-09T05:41:04.478981+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
