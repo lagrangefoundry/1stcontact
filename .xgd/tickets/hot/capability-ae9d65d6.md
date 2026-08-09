@@ -5,7 +5,7 @@ type: capability
 title: 'Framework Substrate: L1 Layout, Values & Behavior Modules'
 created_by: xgd
 created_at: '2026-07-22T19:31:01.511990+00:00'
-updated_at: '2026-08-08T00:44:22.339300+00:00'
+updated_at: '2026-08-09T05:42:11.218487+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
