@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:04.869372+00:00'
+updated_at: '2026-08-09T17:42:05.125459+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -806,5 +806,11 @@ So your "palette + effects?" guess is what the data actually shows. Wix is rigid
 **DOC-28 §8 now settled rather than open**: colours come from the palette; REQ-55's two control shapes split cleanly into *pick a colour* (enum swatches, the friendly primary path) and *edit the palette* (free hex entry, a deliberate site-level act). Free colour entry isn't removed — it's relocated to where it belongs. I appended that framing to REQ-55 upstream too.
 
 One thing REQ-114 deliberately leaves alone: the legacy closed 15-slot `paletteTokensSchema` still exists and doesn't reach L1. Reconciling or retiring it is follow-up work, flagged in DOC-23 §5.5.
+
+<!-- xgd-turn id="143143f8-44e0-4633-93fe-95377a886793-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T20:15:05.768798+00:00" -->
+#### You
+Why can't the retiring be done in REQ-114
 
 <!-- xgd-chat-end -->
