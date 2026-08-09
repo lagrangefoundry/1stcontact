@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:25:54.048078+00:00'
+updated_at: '2026-08-09T22:26:23.554048+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -407,5 +407,11 @@ for l in sys.stdin:
 ```
 
 Every line gives you the operation, read-vs-write, the policy decision and which predicate made it. If you ask for a publish and see *no line at all*, that's correct — an ungranted capability is never offered, so there's nothing to refuse.
+
+<!-- xgd-turn id="f8bc1a82-6093-46dc-b09a-70e4b2e9fb02-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:26:23.397601+00:00" -->
+#### You
+But we could already do word changes before we added the tooling - what's new?
 
 <!-- xgd-chat-end -->
