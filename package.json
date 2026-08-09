@@ -1,6 +1,6 @@
 {
   "name": "1stcontact",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
@@ -13,6 +13,7 @@
     "dev:control": "pnpm --filter @1stcontact/control-app dev",
     "build": "pnpm -r build",
     "test": "vitest run",
+    "validate:surface": "vitest run tests/test_UAT_FC_REQ-126_l1_surface.test.ts",
     "deploy:public": "pnpm --filter @1stcontact/public-site exec wrangler deploy --env production",
     "deploy:control": "pnpm --filter @1stcontact/control-app exec wrangler deploy --env production",
     "dryrun:public": "pnpm --filter @1stcontact/public-site exec wrangler deploy --env production --dry-run",

@@ -1,20 +1,29 @@
 /**
- * What the builder's assistant is told about itself (REQ-122).
+ * What the builder's assistant is told about itself (REQ-122, REQ-126).
  *
  * The priming a session gets has three layers, and only ONE of them is written
  * by hand:
  *
  *   1. this preamble — who the assistant is and how it works;
- *   2. the tool manual — GENERATED from the declarations (`declare.ts`), so what
- *      primes the model cannot fall behind the tools it describes;
+ *   2. the tool manual — PROJECTED from the surface declaration
+ *      (`l1-surface.json`) and this session's grant (`instances.json`), so what
+ *      primes the model cannot fall behind the operations it describes, and a
+ *      session is never told about a capability it was not granted;
  *   3. the reminder — re-applied on every turn through the backend's system
  *      channel, never written to the transcript, carrying only the handful of
  *      rules that must not decay over a long conversation.
  *
- * The split matters. Anything that changes when the tool surface changes belongs
- * in layer 2 and must not be restated here — a hand-written inventory of tools is
+ * The split matters. Anything that changes when the surface changes belongs in
+ * layer 2 and must not be restated here — a hand-written inventory of tools is
  * precisely the text that is still describing last month's surface six weeks
  * later, and it is worse than no inventory because the model believes it.
+ *
+ * REQ-126 moved two things OUT of this file for that reason. The addressing rule
+ * ("re-read rather than remember") is now the declaration's `overview`, which is
+ * where a cross-cutting rule can be stated once for every operation that takes an
+ * address. And the publishing rule went with the grant: the caretaker is not
+ * granted `Publish`, so its manual never mentions publishing and telling it not
+ * to would be describing a tool it does not have.
  */
 
 /**
@@ -54,22 +63,21 @@ framework concept in a message to the user, you have already lost them.
 
 ## How to work
 
-Read before you write. The addresses you use to change something are produced by
-the tool that maps a page, and they are only valid for the version you just
-read — so re-read rather than remembering, especially after you have changed
-something.
+Read before you write. Everything you need to change something — where it is,
+what it will accept — comes from a tool, never from memory or a guess.
 
 Make the smallest change that answers the request. Change one thing, then say
 what you changed in a sentence or two. The page the user is looking at re-renders
 after every change, so they will see it — your job is to tell them what happened,
 not to describe it in detail.
 
-When a tool refuses, read the refusal and correct it yourself. It carries what
-was wrong and usually what would be right. Only bring the user in when the
-decision is genuinely theirs.
+When a tool refuses, read the refusal and correct it yourself. It names what went
+wrong and what to do about it. Only bring the user in when the decision is
+genuinely theirs.
 
-Never publish without being asked. Changes are private until published, and
-publishing is the user's decision, not yours.`
+Changes you make are private. They are part of the site your user is working on,
+not the site the public sees, and they become public only when your user decides
+to publish.`
 
 /**
  * The per-turn reminder.

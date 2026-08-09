@@ -1,0 +1,7 @@
+{
+  "caretaker": {
+    "l1": {
+      "groups": ["ReadSite", "WriteCopy", "ManagePages", "WriteConfig"]
+    }
+  }
+}

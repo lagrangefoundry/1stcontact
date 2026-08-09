@@ -1,0 +1,409 @@
+{
+  "surface": "l1",
+  "version": 1,
+  "surface_version": 1,
+  "title": "The site you look after",
+  "call_type": "inproc",
+  "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
+
+  "param_types": {
+    "l1_address": {
+      "base": "string",
+      "description": "The address of one place on a page, e.g. `0.2.1` — a position in the page's tree, read from the page map. It is valid only for the version of the page you read it from: every change re-renders the page and regenerates its addresses, so re-read the map rather than reusing an address across an edit."
+    },
+    "page_id": {
+      "base": "string",
+      "description": "A page's id — short, lowercase, no spaces. Not its title and not its address in the site."
+    },
+    "config_key": {
+      "base": "string",
+      "description": "A dotted key into the site's settings, e.g. `site.title`."
+    },
+    "asset_id": {
+      "base": "string",
+      "description": "The registered name of an image or font already in the site."
+    }
+  },
+
+  "shapes": {
+    "site": {
+      "config": "the site's settings object",
+      "pages": "every page, with its id, its address in the site, and its title",
+      "pending": "what has changed in the draft since the last published revision"
+    },
+    "page_list": {
+      "pages": "every page: `id`, `slug` (its address in the site), and `title`"
+    },
+    "page_map": {
+      "page": "the page's id, its address in the site, and its title",
+      "segments": "every place on the page you can change — each with the address a write takes, the kind of thing it is, the component instance and slot it sits in when it is inside one, and its current values"
+    },
+    "copy_target": {
+      "target": "the page, address and component scope this describes",
+      "kind": "what kind of element it is — a text run, an image, a box",
+      "fields": "the fields this place accepts, with their types",
+      "values": "what those fields currently hold"
+    },
+    "asset_list": {
+      "assets": "every image and font the site can use: `id`, `src`, and `kind`"
+    },
+    "asset": {
+      "asset": "one registered asset — its id, its file, and its alt text"
+    },
+    "config_value": {
+      "key": "the key you asked for",
+      "value": "what it currently holds"
+    },
+    "pending_changes": {
+      "baseRevision": "the published revision the draft is compared against, or null when nothing has been published",
+      "added": "files present in the draft and not in that revision",
+      "modified": "files that differ",
+      "removed": "files the revision has and the draft does not"
+    },
+    "change": {
+      "changed": "what the change actually altered",
+      "message": "a one-line description of what happened, in plain words"
+    },
+    "publish_result": {
+      "id": "the new revision's id",
+      "added": "paths this revision adds",
+      "modified": "paths it changes",
+      "removed": "paths it drops",
+      "message": "a one-line summary"
+    }
+  },
+
+  "errors": {
+    "NOT_FOUND": {
+      "message": "what you addressed does not exist. Re-read the listing; do not guess again."
+    },
+    "CONFLICT": {
+      "message": "the name or path is already taken. Choose a different one."
+    },
+    "SCHEMA_INVALID": {
+      "message": "the value you offered is not one this field accepts. The hint names what is."
+    },
+    "REFERENTIAL_INTEGRITY": {
+      "message": "something else still points at what you tried to remove."
+    },
+    "ENVIRONMENT": {
+      "message": "the workspace itself is not set up correctly. Nothing you send can fix this — tell the user."
+    },
+    "INTERNAL": {
+      "message": "the builder failed for a reason that is not your call. Tell the user; do not retry blindly."
+    }
+  },
+
+  "operations": [
+    {
+      "op": "describe_site",
+      "tool": "describe_site",
+      "effect": "read",
+      "summary": "Get the site's settings, its pages, and whether it has unpublished changes.",
+      "description": "The opening move when you know nothing but that there is a site.",
+      "returns": { "shape": "site", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND", "ENVIRONMENT"]
+    },
+    {
+      "op": "list_pages",
+      "tool": "list_pages",
+      "effect": "read",
+      "summary": "List every page: its id, its address in the site, and its title.",
+      "returns": { "shape": "page_list", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND"]
+    },
+    {
+      "op": "describe_page",
+      "tool": "describe_page",
+      "effect": "read",
+      "summary": "Map one page: every place on it you can change, with its address and its current content.",
+      "description": "Where addresses come from. Asking for `page: \"home\"` returns every editable place on the home page, each carrying the address that reaches it — and, when the place sits inside a component, the `module` and `slot` that address is scoped to. Hand a segment's entry straight back rather than composing an address yourself.",
+      "params": {
+        "page": { "type": "page_id", "required": true }
+      },
+      "returns": { "shape": "page_map", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND"]
+    },
+    {
+      "op": "get_copy",
+      "tool": "get_copy",
+      "effect": "read",
+      "summary": "Read exactly what one place on a page holds, and what it will accept.",
+      "description": "Read this before offering values for a place: a text run takes `text`; an image takes `src` and `alt`. A place with no editable fields is a normal answer, not an error.",
+      "params": {
+        "page": { "type": "page_id", "required": true },
+        "path": { "type": "l1_address", "required": true },
+        "module": {
+          "type": "string",
+          "description": "The component instance the address is scoped to, if it is inside one."
+        },
+        "slot": { "type": "string", "description": "The slot within that instance." }
+      },
+      "returns": { "shape": "copy_target", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "list_assets",
+      "tool": "list_assets",
+      "effect": "read",
+      "summary": "List the images and fonts this site can use.",
+      "returns": { "shape": "asset_list", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND"]
+    },
+    {
+      "op": "get_asset",
+      "tool": "get_asset",
+      "effect": "read",
+      "summary": "Read one registered image or font: its file and its alt text.",
+      "params": {
+        "asset": { "type": "asset_id", "required": true }
+      },
+      "returns": { "shape": "asset", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND"]
+    },
+    {
+      "op": "get_config",
+      "tool": "get_config",
+      "effect": "read",
+      "summary": "Read one of the site's settings.",
+      "params": {
+        "key": { "type": "config_key", "required": true }
+      },
+      "returns": { "shape": "config_value", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND"]
+    },
+    {
+      "op": "status",
+      "tool": "status",
+      "effect": "read",
+      "summary": "See what is in the draft that the public site does not have yet.",
+      "description": "The honest answer to \"what have we changed so far?\", and what your user needs to hear before they decide anything about making it public.",
+      "returns": { "shape": "pending_changes", "provenance": "untrusted" },
+      "errors": ["NOT_FOUND"]
+    },
+
+    {
+      "op": "set_copy",
+      "tool": "set_copy",
+      "effect": "write",
+      "summary": "Change the words, or swap the image, at one place on a page.",
+      "description": "One call is one change, however many fields it names — so make the whole change at once rather than a field at a time. Given `page: \"home\"`, `path: \"0.1.0\"` and `values: {\"text\": \"Welcome to the studio\"}` it rewrites that heading and the page re-renders. Never compose an address; use one you have just read.",
+      "params": {
+        "page": { "type": "page_id", "required": true },
+        "path": { "type": "l1_address", "required": true },
+        "values": {
+          "type": "object",
+          "required": true,
+          "description": "Field name to new value. The fields a place accepts come from `get_copy` — a text run takes `text`; an image takes `src` and `alt`."
+        },
+        "module": {
+          "type": "string",
+          "description": "The component instance the address is scoped to, if it is inside one."
+        },
+        "slot": { "type": "string", "description": "The slot within that instance." }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "add_page",
+      "tool": "add_page",
+      "effect": "write",
+      "summary": "Add a new, empty page to the site.",
+      "description": "The page arrives with nothing on it. Say so — the user will expect to see something.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true,
+          "description": "The new page's id — short, lowercase, no spaces."
+        },
+        "title": { "type": "string", "description": "The page's title." },
+        "path": {
+          "type": "string",
+          "description": "Its address in the site. Defaults to the page id."
+        }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "update_page",
+      "tool": "update_page",
+      "effect": "write",
+      "summary": "Change a page's title or its address in the site.",
+      "params": {
+        "page": { "type": "page_id", "required": true },
+        "title": { "type": "string", "description": "The new title." },
+        "path": { "type": "string", "description": "The new address in the site." }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "remove_page",
+      "tool": "remove_page",
+      "effect": "write",
+      "summary": "Delete a page from the site.",
+      "params": {
+        "page": { "type": "page_id", "required": true }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND", "REFERENTIAL_INTEGRITY"]
+    },
+    {
+      "op": "set_config",
+      "tool": "set_config",
+      "effect": "write",
+      "summary": "Change one of the site's settings.",
+      "params": {
+        "key": { "type": "config_key", "required": true },
+        "value": { "type": "string", "required": true, "description": "The new value." }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "add_asset",
+      "tool": "add_asset",
+      "effect": "write",
+      "summary": "Register a new image or font from a file on the machine running the builder.",
+      "description": "Takes a path on the operator's own machine, so it is not a way to accept a file from a conversation.",
+      "params": {
+        "file": {
+          "type": "string",
+          "required": true,
+          "description": "Path to a readable file on the machine running the builder."
+        },
+        "as": {
+          "type": "string",
+          "description": "The name to register it under. Defaults to the file's own name."
+        }
+      },
+      "returns": { "shape": "asset" },
+      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "remove_asset",
+      "tool": "remove_asset",
+      "effect": "write",
+      "summary": "Remove a registered image or font from the site.",
+      "params": {
+        "asset": { "type": "asset_id", "required": true },
+        "force": {
+          "type": "boolean",
+          "description": "Remove it even though something still uses it, leaving those references dangling."
+        }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND", "REFERENTIAL_INTEGRITY"]
+    },
+    {
+      "op": "publish",
+      "tool": "publish",
+      "effect": "write",
+      "summary": "Publish the site: make everything changed so far visible to the public.",
+      "description": "The one operation whose reach is the public internet. Never do it without being asked, and read `status` first so you can say what would become public.",
+      "params": {
+        "message": {
+          "type": "string",
+          "description": "A one-line note describing what changed."
+        }
+      },
+      "returns": { "shape": "publish_result" },
+      "errors": ["NOT_FOUND", "INTERNAL"]
+    }
+  ],
+
+  "groups": [
+    {
+      "group": "ReadSite",
+      "effect": "read",
+      "title": "Looking at the site",
+      "description": "Nothing here changes anything. Read before you write — addresses and field names both come from here.",
+      "operations": [
+        "describe_site",
+        "list_pages",
+        "describe_page",
+        "get_copy",
+        "list_assets",
+        "get_asset",
+        "get_config",
+        "status"
+      ]
+    },
+    {
+      "group": "WriteCopy",
+      "effect": "write",
+      "title": "Changing what a page says",
+      "description": "Change the words on a page, or which image sits in a place. This does not change how anything looks.",
+      "operations": ["set_copy"]
+    },
+    {
+      "group": "ManagePages",
+      "effect": "write",
+      "title": "Adding and removing pages",
+      "operations": ["add_page", "update_page", "remove_page"]
+    },
+    {
+      "group": "WriteConfig",
+      "effect": "write",
+      "title": "Changing the site's settings",
+      "operations": ["set_config"]
+    },
+    {
+      "group": "ManageAssets",
+      "effect": "write",
+      "title": "Managing images and fonts",
+      "description": "Register a new image or font from a file on the operator's machine, or remove one.",
+      "operations": ["add_asset", "remove_asset"]
+    },
+    {
+      "group": "Publish",
+      "effect": "write",
+      "title": "Publishing",
+      "description": "Making the draft public. Its own capability, because its reach is the public internet rather than a private draft.",
+      "operations": ["publish"]
+    }
+  ],
+
+  "sequences": [
+    {
+      "name": "Change something on a page",
+      "steps": ["describe_page", "set_copy"],
+      "note": "The map is where an address comes from; you cannot compose one."
+    },
+    {
+      "name": "Offer the right kind of value",
+      "steps": ["get_copy", "set_copy"],
+      "note": "Read the fields a place accepts before offering values for them."
+    },
+    {
+      "name": "Publish deliberately",
+      "steps": ["status", "publish"],
+      "note": "Say what would become public, get agreement, then publish."
+    }
+  ],
+
+  "absences": [
+    {
+      "name": "Writing HTML, CSS or JavaScript",
+      "note": "Never possible, by design, and not a gap to be worked around. Everything you can change is a field on an operation above."
+    },
+    {
+      "name": "Changing how something looks — colour, size, spacing, position",
+      "note": "Not yet possible. You can change what a page says and which image it shows, but not its appearance. Say so plainly, and describe what the user asked for so it can be built."
+    },
+    {
+      "name": "Adding, removing, moving or reordering things on a page",
+      "note": "Not yet possible. You can add and remove whole pages, but not rearrange what is on one."
+    },
+    {
+      "name": "Uploading a new image",
+      "note": "An image has to be a file on the machine running the builder, so you cannot take one from a conversation. Offer the user the images already in the site's asset list, and tell them uploading is done outside the chat."
+    },
+    {
+      "name": "Undoing a change",
+      "note": "There is no undo. A change can be reversed by setting the old value back, so tell the user what the previous value was whenever you change something."
+    }
+  ]
+}
