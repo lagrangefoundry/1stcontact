@@ -6,7 +6,7 @@ title: 'A preview URL renders its own snapshot complete: the page and every asse
   it references resolve'
 created_by: xgd
 created_at: '2026-08-06T18:48:16.750064+00:00'
-updated_at: '2026-08-07T22:31:12.536055+00:00'
+updated_at: '2026-08-09T13:50:09.803344+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
