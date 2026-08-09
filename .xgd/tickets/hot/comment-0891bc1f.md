@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T20:55:19.078601+00:00'
+updated_at: '2026-08-09T21:10:08.051325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -217,5 +217,58 @@ Say the word and I'll do that. If you'd rather keep it to one ticket, I'll fold 
 <!-- xgd-chat role="user" ts="2026-08-09T20:55:18.903921+00:00" -->
 #### You
 Its fine, keep it in this ticket but can you explain where we are oncve you have finished up
+
+<!-- xgd-turn id="91e6d3eb-9197-4591-819c-600e3d4c3e9e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T21:10:07.886690+00:00" -->
+#### Claude
+Understood — folding it in. Let me fix the three call sites.
+
+Both `resume` and `createSession` became async too:
+
+`getSession` resumes only when the session isn't already live — re-resuming a live session re-folds its junction, which is the fold error:
+
+The junction defaults to `~/.xgd/sessions/live` — machine-global — while the archive is per-workspace. That splits one session across two places and leaks conversations between checkouts, which is the exact hazard `sessionsDir` was written to prevent:
+
+All 7 origin UATs pass. Now the REQ-122 host suite:
+
+From 8 failures to 3. The remaining three are stale REQ-122 assertions that REQ-126 deliberately invalidated — let me look:
+
+All 44 pass across six suites. Now the full suite and quality gate:
+
+Three failures, all in the edit-modal/browser area — none touch AI. Let me check whether they're pre-existing:
+
+Identical — 6 failed, 16 passed, same tests. Zero regressions from my change. Now lint and typecheck:
+
+Build and typecheck clean. Let me check the two files I didn't author before committing:
+
+Both unrelated — site-content drift and an XGD tooling artifact. Leaving them out. Let me record the folded-in migration on the ticket:
+
+Done. REQ-127 is `free_coded` at `7347d224e`, 44/44 green across the six AI suites.
+
+## Where we are
+
+**Your instinct was right, and the framework already agreed with you.** `mountChat` takes an opaque `id` and `sendPrompt(text)`; `SessionManager` takes a `sessionId`. Neither has a site concept. This project inserted a slug into four layers on a rationale it wrote down twice — that a session id would be "a value the client could send stale." Avoiding that gave the *browser* a site identity instead, which cost more: every turn re-asserted its site, and the pane carried a `generation` token whose only job was to stop a late answer landing in a window that had switched away.
+
+Now a site becomes a session in exactly one place — `POST /api/ai/session` — and nothing above the host names a site. `app.js` does the switching, because it owns the site selector. The pane holds a conversation and can't be told about sites at all: `setSite` and `getSite` no longer exist, which is asserted directly as a UAT. The generation token moved to `app.js` with the async that needed it.
+
+**On the original ticket clause** — the scope predicate is withdrawn, not deferred. It would have handed the model a `slug` parameter to get wrong on every call. The binding didn't need declaring; it needed locating. That also means nothing is now waiting on the upstream Toolbox finding REQ-126 raised.
+
+## Two things you should know about
+
+**The upstream migration you told me to fold in was bigger than the three call sites I quoted.** Beyond `FileStore`→`FileArchive`, two more surfaced only under test:
+
+- `attach` had to move from `resume` to `getSession`. `resume` now reconciles the junction and is no longer idempotent — re-resuming a live session re-folds an already-folded record stream.
+- **`logDir` was defaulting to `~/.xgd/sessions/live`.** A session now has two tiers, and only the archive was being pointed at the workspace. One conversation was living half in `storage/chat` and half in your home directory, and two checkouts of different projects would have shared a junction keyed only by slug — the exact hazard `sessionsDir`'s own comment says must not happen. Both tiers now sit under the workspace.
+
+**Three REQ-122 assertions were stale against REQ-126** and I updated them to what REQ-126 intended. One is worth your attention: the refusal a model sees no longer contains the offending path — the Toolbox renders the declared error-class meaning instead, so `set_copy` on a bad address returns "what you addressed does not exist. Re-read the listing" without saying *which* address. REQ-126 flagged that upstream. The test now asserts correctability rather than the specific path, but the model is getting less to work with than it used to.
+
+## Not mine, still there
+
+- **6 pre-existing test failures** in `req115-builder-composition`, `req117-edit-loop-browser`, `reconciliation-copy-edit-gesture` — all edit-modal/browser. Byte-identical at `HEAD` with my work stashed; I verified before and after.
+- **`storage/sites/gigabytealchemy/draft/pages/home.json`** — uncommitted, changes "Intentional Software" to "Un**intentional** Software". Looks like a stray edit rather than a deliberate one. Left it alone.
+- **`.xgd/FAILED_update_comment-0a6ab5af`** — an XGD tooling artifact from a failed ticket-comment rename.
+
+One aside: four source files (`ai/host.ts`, `builder.ts`, `fidelity.ts`, `preview.ts`) contain **literal NUL bytes** as map-key separators. The idiom is sound, but it makes those files `data` to `file(1)`, so plain `grep` prints nothing without `-a` — that cost me a detour hunting for the route table. `\0` in a template literal is the same runtime string and stays greppable; I used the escape in new code and left the existing four alone, since three are unrelated to this ticket.
 
 <!-- xgd-chat-end -->
