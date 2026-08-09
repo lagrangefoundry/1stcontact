@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-125
 created_by: xgd
 created_at: '2026-08-09T00:45:36.241205+00:00'
-updated_at: '2026-08-09T01:02:30.365817+00:00'
+updated_at: '2026-08-09T01:04:49.293523+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -80,5 +80,32 @@ I haven't touched DOC-20 — it's another repo's design record and outside REQ-1
 Please make the changes to the doc-20
 
 Do the changes require an update to what was build in REQ-74? If so can you create and REQ for the delta?
+
+<!-- xgd-turn id="474bbef3-acbf-4881-ac3d-f3a14efb66e6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T01:04:49.094283+00:00" -->
+#### Claude
+Let me verify the two rules are actually implemented before I claim no code delta is needed.
+
+Both rules confirmed implemented in Python *and* JS. Now the DOC-20 edits.
+
+Now the 1stcontact refactor-target correction.
+
+DOC-20 amended (667 → 733 lines), three edits:
+
+1. **S4 gains the two rules REQ-74 forced** — the quantifier rule (projection = *any* admitted denotation admits the value; list parameter = *every* selection must be admitted) and the array-base requirement for optional selectors under an `allow_set`, plus the note that `when_unset` needs no matcher of its own.
+2. **The 1stcontact refactor-target bullet corrected** — the `writes` half stands; the slug half is now stated as a stronger-than-a-predicate binding, with a note that the original wording would have instructed a refactor trading a real safety property for a declarative one.
+3. **Three Deferred items added**, attributed to this surface: scope over a construction-time binding, a surface's own version, worked examples.
+
+**No REQ-74 delta is needed.** I checked the shipped code rather than trusting REQ-74's body — both rules are already implemented in both languages, each carrying its reasoning in a comment:
+
+- quantifier split — `components/ai/py/src/lagrangefoundry/ai/toolbox/policy.py:170` (projection loop: `if denotations and not (set(denotations) & set(allowed))`) vs `policy.py:183` (selections loop: `if selection not in allowed`); JS peer at `components/ai/js/src/toolbox/policy.js:155` and `:165`
+- array-base startup failure — `declaration.py:644` and `declaration.js:528`, with the "narrows to this session's scope instead of widening to everything" message
+
+So edit 1 is the document catching up to its implementation, not the reverse. Edit 2 is prose about a refactor not yet started. Nothing to build.
+
+**Where a delta would arise** is the three Deferred items — each needs code if adopted, and none is decided. The one that matters near-term is **scope over a construction-time binding**: it blocks the L1 refactor whichever way it goes, because we either get a declared way to express the slug binding or we accept it stays enforced-by-construction and undeclared. That's a design decision for lagrange-framework, not something I should settle by writing a ticket that presumes an answer. Say the word and I'll file it there as a design request with the three options laid out.
+
+REQ-125 records all of this, including the verification.
 
 <!-- xgd-chat-end -->
