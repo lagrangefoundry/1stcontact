@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-08-09T17:12:37.763534+00:00'
+updated_at: '2026-08-09T17:17:36.918885+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4337,5 +4337,119 @@ Two things worth pulling out of the write-ups:
 Also worth noting for sequencing: **BUG-21 is very likely a regression from my own `6ede6a8e`**, where I landed geometric surface attribution. It interacts with BUG-17, which correctly added the padding axis — the fold now has padding on the text node *and* outsets the surface by it again.
 
 No code touched and no commits beyond the ticket writes themselves. REQ-88 remains `free_coded` at its three recorded commits. The repair order I'd suggest is BUG-23 → re-measure → BUG-21 → BUG-22 → then confirm-or-drop BUG-24, but that's your call, and the import/pipeline commands stay yours to drive.
+
+<!-- xgd-turn id="16dcffb8-7273-4e40-b5ec-c8e5563c6b2a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-22T19:06:40.142179+00:00" -->
+#### Claude
+Authorized. I'll scope REQ-88 first (mandatory), then implement the wiring. Let me set up tracking and write the ticket body.
+
+Before writing the ticket, let me read the exact integration seams so the scope is accurate.
+
+I have a complete, accurate picture of every seam. Let me create the task list and write the REQ-88 scope ticket.
+
+All seams confirmed. Creating tasks and the REQ-88 scope ticket.
+
+Ticket scoped. Now removing the dead site content.
+
+Dead site removed. Now the schema change — let me read the exact region and current imports.
+
+Schema already imports from `./l1/schema`. Let me make the edits.
+
+Now the render wiring. Let me check render.ts imports and update `renderPage`.
+
+Render wired. Now the CLI commands. Let me study the dispatch patterns and bundle readers.
+
+Let me read the exact library signatures I'll call (fold opts, promoteToFlow return, threeProbeGate params) and how the e2e test drives them.
+
+Now I have exact call patterns. Let me read the commands.ts imports/helpers so the new commands fit the existing conventions.
+
+I'll put the L1 reproduction pipeline in a dedicated `cli/repro.ts`. Let me confirm the library export surface and bundle asset layout first.
+
+All exports confirmed. Let me check the probe report shapes for good console output, then write the commands.
+
+All shapes confirmed. First export `ctxOf` from commands.ts for reuse, then write `repro.ts`.
+
+Now writing the reproduction pipeline command module.
+
+Now I'll write the reproduction pipeline command module.
+
+Now wire the CLI cases and USAGE in index.ts. Let me read the dispatch entry and USAGE.
+
+Now add the two dispatch cases. Let me place them after the `capture` case.
+
+Now update the USAGE to document the two new verbs.
+
+Now let me typecheck before writing tests. Let me find the local toolchain (avoiding any install side-effects).
+
+Local binaries exist (no install risk). Let me typecheck the touched packages directly with the local `tsc`.
+
+site-schema is clean. Let me build it (so downstream typechecks see the new `Page` shape, not stale dist) and typecheck framework + tools/generate.
+
+site-schema built with the new `l1`/`modules` shape. Now typecheck framework and tools/generate.
+
+Framework clean, resolves from src. Now tools/generate typecheck.
+
+All three packages typecheck clean. Commands done — now the UATs.
+
+Let me read the req86 fixture builders to reuse the `MultiStateCapture` shape for my UAT fixtures.
+
+This fixture is exactly what I need. Let me check how existing tests drive `cmdRepro`-style flows (temp dirs, render) to mirror conventions.
+
+Good, clear conventions. Let me find a minimal valid module instance fixture for the schema XOR test.
+
+Minimal valid instance is `{id,type,version}`. Now writing the UAT suite.
+
+Now run the new UAT suite.
+
+The tests resolve packages by relative path, not the workspace alias. Let me check the convention and fix imports.
+
+Tests use relative source imports. Let me fix my two alias imports.
+
+All 6 pass. Now run the full suite to confirm the schema/render changes broke nothing.
+
+Expected fallout: `req55-content-width.test.ts` has one test coupled to the now-deleted gigabytealchemy on-disk site. Let me inspect it.
+
+This is an orphaned Type-A flat test coupled to the deleted site (asserts a `text-block` dial — a module the pivot also removed). Its resolver behavior is covered by the sibling `contentWidth_literal_px` test. I'll remove the orphaned block and document it. Let me get exact boundaries.
+
+req55 green (8 tests), no unused imports. The full suite was clean except that one now-fixed test. Now the free-coding finalization. Let me check the version-bump script and lint gate.
+
+Version-bump script is implemented. Let me check the lint setup and run the version bump.
+
+Version bumped to 0.0.170. No separate lint config (typecheck is the gate, clean). Let me review the full diff before committing.
+
+`dist/` is gitignored (not in the diff) — clean. Committing with the free-coded convention.
+
+Committed (`5941247`). Now the free-coding gate. Let me append a "landed" note to the ticket and run `move-to-free-coded`.
+
+Moved to `free_coded`. Let me verify the ticket state.
+
+Done. REQ-88 is `free_coded` (commit `5941247`, v0.0.170, all UATs + full suite green).
+
+## What I delivered
+
+**Doc review** — both are updated for the pivot. DOC-19 is a proper L1-world rewrite (value/gate methodology preserved, module-mapping marked superseded). DOC-21 is patched correctly *at the bottom* (REQ-85 attribution-ladder update) but its **body still reads in module-era vocabulary** — functional, but I'd recommend a body rewrite for hygiene. Offer stands if you want it (docs, no free-coding).
+
+**The tool** (this was the real gap — the L1 library existed only as vitest-exercised functions with no operator surface):
+
+1. **Schema** — a page can now *be* a raw L1 document (`pageSchema.l1`, `modules` defaults `[]`, XOR-enforced). This is what lets a pure-layout page — 100% L1 since the pivot, with no behavior module to host it — exist as a site at all.
+2. **Render** — `renderPage` branches on `page.l1`, so `1c render/serve/shot/diff/values-diff` all work on a reproduction with **no new render command**.
+3. **`1c repro <slug> --ref <bundle>`** — idempotent import of a folded `l1.json` into a servable site (this *is* the "delete + rebuild" loop, generalized).
+4. **`1c l1-gate --ref <bundle>`** — the DOC-19 3-probe acceptance gate as a verb (fold → `promoteToFlow` → sample-fidelity/off-sample/content-robustness), each residual a framework-gap signal.
+
+**Cleanup** — removed the dead module-era `storage/sites/gigabytealchemy` (it referenced pivot-deleted layout modules and could no longer render; no sandbox archive per your call), and dropped one orphaned REQ-55 UAT that read that deleted site — its resolver behavior stays covered by a sibling test.
+
+## Next step — the exemplar run
+
+The tool is built and gated, but I have **not** yet run it against the live site (that's a network capture + the iterative DOC-19 fidelity loop, which will likely surface real L1-axis gaps → their own follow-up tickets). Now that `1c repro`/`1c l1-gate` exist, that's:
+
+```
+1c capture page https://gigabytealchemy.ai   # fresh bundle w/ l1.json + oracle
+1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+1c l1-gate --ref storage/references/gigabytealchemy.ai/index
+# → render/shot/values-diff/1c diff loop, file each residual as an L1 gap
+```
+
+Want me to kick off the live re-capture and drive the first gate pass now? It's the natural validation of the tool, and it'll tell us which L1 axes gigabytealchemy actually stresses.
 
 <!-- xgd-chat-end -->
