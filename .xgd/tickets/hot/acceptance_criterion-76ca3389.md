@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A row lays out as a stack below an authored breakpoint, as one subtree
 created_by: xgd
 created_at: '2026-08-06T02:36:44.974312+00:00'
-updated_at: '2026-08-08T00:43:19.584117+00:00'
+updated_at: '2026-08-09T05:41:05.409833+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
