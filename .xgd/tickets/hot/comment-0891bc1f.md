@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:22:36.557970+00:00'
+updated_at: '2026-08-09T22:23:10.493385+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -324,5 +324,25 @@ Want me to delete those two? I'd leave the UUID-named siblings alone — those b
 <!-- xgd-chat role="user" ts="2026-08-09T22:22:36.250502+00:00" -->
 #### You
 yes
+
+<!-- xgd-turn id="a0c1efa5-3c5f-403a-bc1f-1e975400a4dd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T22:23:10.293461+00:00" -->
+#### Claude
+Let me look at them before deleting.
+
+Confirmed — the payloads contain my fixture literals (`A new headline.`, `Studio headline.`, `Remember this`) and `claude+site:studio` / `claude+site:annex`. Timestamps 20:56 UTC = 13:56 local, my pre-fix test run.
+
+Deleted. The seven UUID-named siblings are other tooling's and were left alone.
+
+Worth noting as evidence the fix holds: those two directories were last written at **13:57**, and I ran the full AI suites again at **14:09** — the second run didn't recreate or touch them. Post-fix, junctions land under each test's temp workspace and go away with it.
+
+I also re-checked that your real conversation is untouched:
+
+```
+storage/chat/site-gigabytealchemy.md    # intact, in the workspace
+```
+
+So the state now: REQ-127 is `free_coded` at `7347d224e`, 44/44 green across the six AI suites, home directory clean. Start the builder with `bin/1c builder` when you want to drive it.
 
 <!-- xgd-chat-end -->
