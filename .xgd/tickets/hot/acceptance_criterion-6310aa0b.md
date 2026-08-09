@@ -8,7 +8,7 @@ title: 'A node carrying both an entrance and interaction states keeps both: it a
   existed'
 created_by: xgd
 created_at: '2026-08-06T02:04:52.544235+00:00'
-updated_at: '2026-08-08T00:43:06.284431+00:00'
+updated_at: '2026-08-09T05:41:00.550065+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
