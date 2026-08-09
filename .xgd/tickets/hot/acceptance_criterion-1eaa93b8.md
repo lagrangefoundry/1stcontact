@@ -6,7 +6,7 @@ title: L1 leaf axes carry the absolute literal as the base of the value model, v
   by the envelope
 created_by: xgd
 created_at: '2026-07-22T20:28:07.019876+00:00'
-updated_at: '2026-08-08T00:42:11.816277+00:00'
+updated_at: '2026-08-09T05:40:32.480194+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
