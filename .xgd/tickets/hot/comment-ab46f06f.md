@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-125
 created_by: xgd
 created_at: '2026-08-09T00:45:36.241205+00:00'
-updated_at: '2026-08-09T00:50:40.445777+00:00'
+updated_at: '2026-08-09T00:59:44.421173+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -45,5 +45,11 @@ DOC-20 names us twice: we are the **first external surface** (declared in this r
 **Two findings worth taking upstream.** First, DOC-20 lumps our slug closure in with the `writes` flag. The `writes` half is fair — declared, enforced by nothing. The slug half isn't: no tool declares a `slug` parameter at all, which is stronger than a scope predicate (S2's own reasoning one level up — an absent parameter has no bad value to refuse), and `scope_axes: {applies_to: {param: …}}` can't express a construction-time binding. My recommendation in the doc is to keep the binding and propose construction-scoped declaration upstream, rather than adding a `slug` parameter just to fit the field set. Second, the missing surface version. Also noted: DOC-20 has no `examples:` field, while `declare.ts`'s structured examples are test-executable.
 
 **Size of the gap** — bigger than DOC-30's optimistic case, smaller than it looks, because most of it is upstream code we now get free. Local work: the declaration as data (JSON — REQ-74 ships no YAML parser), an `L1Toolbox` over `edit.ts`, eight declared return shapes, the builder-chat instance configuration, the author-time validator in CI, and deletion of `declare.ts` plus the local manual renderer. Predominantly deletion, as DOC-20 predicted for the ticketing and knowledge bridges.
+
+<!-- xgd-turn id="e20b5382-c521-41df-90e6-beacf2824807-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T00:59:44.266974+00:00" -->
+#### You
+Do you need to make any DOC-20 changes?
 
 <!-- xgd-chat-end -->
