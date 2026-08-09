@@ -6,7 +6,7 @@ title: Geometry resolves against half-open breakpoint intervals so a reflow at a
   breakpoint does not cascade
 created_by: xgd
 created_at: '2026-07-29T04:19:53.100508+00:00'
-updated_at: '2026-08-07T23:54:08.190148+00:00'
+updated_at: '2026-08-09T08:20:02.872358+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
