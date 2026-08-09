@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The spike renders equivalently across chromium, webkit, and firefox
 created_by: xgd
 created_at: '2026-07-22T19:32:40.672749+00:00'
-updated_at: '2026-08-08T00:42:02.180993+00:00'
+updated_at: '2026-08-09T05:40:23.486387+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
