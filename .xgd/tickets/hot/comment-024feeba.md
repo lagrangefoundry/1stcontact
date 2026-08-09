@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-08-09T17:07:33.738067+00:00'
+updated_at: '2026-08-09T17:08:34.288142+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4214,5 +4214,32 @@ Two things I have *not* done, deliberately:
 2. **Not touched any code or filed a ticket.** This is a bug in fold-side surface attribution, distinct from REQ-88's scope, and you've said tickets need your explicit go-ahead.
 
 Suggested next step, when you're ready: `1c shot gigabytealchemy` then `1c diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index`, and we read the overlay around the two buttons together. Meanwhile, say the word and I'll pin the cause in `fold.ts` (read-only) — I want to know where a 24–25px outset enters the surface box, since the two buttons differ by 1px, which argues against a hardcoded constant and for the surface being attributed to a padded wrapper element.
+
+<!-- xgd-turn id="d86fedb0-fccc-4d0d-9192-113898457c8f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-24T22:42:12.538423+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c shot gigabytealchemy 
+Shot http://localhost:53613/ @ 1280×800 → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft/shot-draft-desktop.png
+((.venv-working) ) martin@nyx 1stcontact % bin/1c diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+perceptual-diff: storage/references/gigabytealchemy.ai/index/screenshot.full.png ⇄ /var/folders/27/xt2427c97lzdk20whv0zxnz80000gn/T/req38-diff-678PND/actual.png
+  mean 5.21 / 255 · 2.8% pixels over threshold · 12 region(s)
+  bands: 18.0 14.4 10.0 0.0 0.0 2.0 1.7 2.4 5.4 5.6 3.9 0.7 0.7 0.7 14.0 4.1
+  #1 score 13287.6 (mean 83.0) @ 96,96 688×80
+  #2 score 10600.7 (mean 135.9) @ 640,4048 224×112
+  #3 score 10214.9 (mean 150.2) @ 384,3872 176×112
+  #4 score 6278.0 (mean 34.7) @ 80,2480 896×336
+  #5 score 5030.0 (mean 42.6) @ 80,2112 896×336
+  #6 score 4266.6 (mean 73.6) @ 80,320 336×80
+  #7 score 3656.3 (mean 33.2) @ 1104,32 96×320
+  #8 score 2562.7 (mean 42.7) @ 496,544 288×80
+  #9 score 1184.0 (mean 39.5) @ 768,256 96×112
+  #10 score 1003.7 (mean 91.2) @ 416,2512 160×32
+  #11 score 699.7 (mean 29.1) @ 80,2848 32×192
+  #12 score 540.6 (mean 28.4) @ 672,592 208×80
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
