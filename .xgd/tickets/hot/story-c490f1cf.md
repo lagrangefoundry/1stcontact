@@ -6,7 +6,7 @@ title: 'Absolute values re-homed in L1: every colour, length, and radius is carr
   as a validated literal, with a palette overlay for colour'
 created_by: xgd
 created_at: '2026-07-19T03:09:25.918607+00:00'
-updated_at: '2026-08-08T00:44:17.514815+00:00'
+updated_at: '2026-08-09T05:42:04.692823+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
