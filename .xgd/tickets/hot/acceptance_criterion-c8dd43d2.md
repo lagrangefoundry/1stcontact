@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Capture emits an advisory structural-hint sidecar of relationships and breakpoints
 created_by: xgd
 created_at: '2026-07-22T19:42:35.626073+00:00'
-updated_at: '2026-08-07T23:53:45.234969+00:00'
+updated_at: '2026-08-09T08:20:19.199878+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
