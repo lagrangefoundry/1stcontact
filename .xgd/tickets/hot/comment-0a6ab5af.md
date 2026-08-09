@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:37:53.622156+00:00'
+updated_at: '2026-08-09T17:37:53.834706+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -639,5 +639,27 @@ That makes M2 the composition milestone, which is how I've recorded it.
 <!-- xgd-chat role="user" ts="2026-07-31T19:06:46.252308+00:00" -->
 #### You
 Ok an important principle - xgd-framework is my project, it is a peer of this project which is its first, and currently primary consumer. IF SOMETHING ABOUT THE COMPONENTS NEEDS TO CHANGE WE CHANGE IT - we do not do unnatural acts to work around - is that clear?
+
+<!-- xgd-turn id="7d29b059-8b42-4ce2-bf7f-ab442f9a109a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T19:08:41.662581+00:00" -->
+#### Claude
+Clear, and it corrects a framing error I'd baked into DOC-8. Let me check one thing that makes it concrete.
+
+Clear. And it corrects a real error in what I wrote an hour ago — I'd been reasoning about `xgd-framework` as a fixed external dependency whose limitations we route around. That's now DOC-8 §9.4:
+
+> If something about a component needs to change, we change it — upstream, in the component. We do not perform unnatural acts in this repo to work around a gap.
+
+With the clarification that "the shell is never edited *in this repo*" is about **where** a change lands, not whether it may happen.
+
+**The first instance is already on the table, and I'd framed it wrongly.** `webui-fields` dispatches controls on `field.type`/`field.format`/`field.widget` and has **no colour control** — while phase 2's headline friendly parameter is a colour picker. Under my old framing that becomes "fields nearly fits, so hand-roll a colour modal in 1stcontact." The right answer is `format: 'color'` **in `webui-fields`** — a natural, general addition to a schema-driven property panel that every future consumer gets.
+
+Same logic applies to the **multi-mode display panel**. I'd assumed it's ours to build. But it's generic WebUI chrome, and `webui-list-detail` is the precedent — a packaged composition over `split` + `scroll`. Whether it belongs upstream is now an open question decided on generality, not on which repo is convenient.
+
+I also softened two things I'd overstated as constraints. The `workspace:*` coupling only affects `list-detail`, which we don't need — every package we want has an empty dependency set. And the unpublished-packages friction upstream is an argument *for* standing publishing up, not a reason to prefer the submodule. Packaging state is a task, not a design input.
+
+**One discipline I'd add, cutting the other way.** The components are deliberately origin-neutral — host-injected config, no ambient sources, *"the widget NEVER calls XGD."* That's what makes them reusable, and it's the bar our contributions have to meet too. So: upstream changes driven by 1stcontact should be **general capabilities**, not 1C special-casing. `format: 'color'` passes easily. If we later want something like "a segment descriptor," that's a 1C concept and belongs here, with only the generic control type going up. Worth naming now, because the pressure to push 1C-shaped things upstream will be real once we're building against a component we own.
+
+Recorded in DOC-8 §9.4–§9.5, and saved to memory so it survives this session.
 
 <!-- xgd-chat-end -->
