@@ -6,7 +6,7 @@ title: A text-free media element folds to an image leaf with its resolved source
   alternative text
 created_by: xgd
 created_at: '2026-07-29T04:04:57.769004+00:00'
-updated_at: '2026-08-07T23:53:55.329123+00:00'
+updated_at: '2026-08-09T08:19:40.833753+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
