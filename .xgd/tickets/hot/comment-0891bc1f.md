@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T23:01:27.524291+00:00'
+updated_at: '2026-08-09T23:07:08.197950+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -855,5 +855,11 @@ The four-field projection is the right granularity for someone clicking a headin
 - **Out of scope**: whole-document submission — bounding by address is what keeps it affordable and stops the model rewriting regions it didn't mean to touch.
 
 One loose end noted inside REQ-129 but deliberately not folded in: `site.json`'s `nav: {pattern, entries}` is vestigial on both sites, and the model reasons from it and states falsehoods. That deserves its own ticket — say the word.
+
+<!-- xgd-turn id="27e1c5a1-7304-496e-84c8-2544dbb2429b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T23:07:08.042786+00:00" -->
+#### You
+With that change claude could build xgd.dev?
 
 <!-- xgd-chat-end -->
