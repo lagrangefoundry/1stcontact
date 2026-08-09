@@ -5,7 +5,7 @@ type: request
 title: Complete DOC-30 — the L1 control surface API design and its gap list
 created_by: xgd
 created_at: '2026-08-08T21:14:37.419676+00:00'
-updated_at: '2026-08-09T00:50:17.357964+00:00'
+updated_at: '2026-08-09T01:04:37.039726+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -100,3 +100,34 @@ Document-only change; no code touched, so no free-coding ceremony applies. The b
 now scopeable from DOC-30's gap list — the local work is the declaration as data, an `L1Toolbox`
 class over `edit.ts`, eight declared return shapes, the builder-chat instance configuration, the
 author-time validator in CI, and deletion of `declare.ts` plus the local manual renderer.
+
+
+## DOC-20 amended (2026-08-08)
+
+Three edits to lagrange-framework **DOC-20** (`doc-5de13501`), made from this ticket's analysis.
+No code changed in either repo.
+
+1. **S4 gains the two rules REQ-74 forced** and its own body said were "worth folding back into
+   DOC-20" — the **quantifier rule** (a projection yields alternative denotations of one value,
+   so *any* admitted denotation admits it; a list parameter yields distinct selections, so
+   *every* one must be admitted) and **narrowing needs somewhere to put the values** (an optional
+   parameter read by an `allow_set` axis must declare base `array`). Plus the note that
+   `when_unset` needs no matcher of its own.
+2. **The 1stcontact refactor-target bullet is corrected.** It filed our closed-over slug
+   alongside the unenforced `writes` flag. The `writes` half stands; the slug half did not — no
+   tool declares a `slug` parameter, which is stronger than a scope predicate, and the bullet as
+   written instructed a refactor that trades a real safety property for a declarative one.
+3. **Three items added to Deferred**, attributed to this surface: scope over a construction-time
+   binding (**blocks our refactor either way**), a surface's own version, and worked examples.
+
+### No REQ-74 delta
+
+Verified in the shipped code rather than taken from REQ-74's body. Both rules are implemented in
+both languages: the quantifier split at `components/ai/py/.../toolbox/policy.py:170-187` and
+`components/ai/js/src/toolbox/policy.js:150-167`, the array-base startup failure at
+`declaration.py:644-653` and `declaration.js:528-537`, each carrying the reasoning in a comment.
+DOC-20 was behind its implementation, not ahead of it, so edit 1 is the document catching up and
+needs no code. Edit 2 is prose about a refactor not yet started.
+
+The three Deferred items would each need code if adopted, but none is decided; the
+construction-scoped binding is the one that must be resolved before the L1 refactor starts.
