@@ -5,9 +5,9 @@ type: comment
 title: Comment on request REQ-125
 created_by: xgd
 created_at: '2026-08-09T00:45:36.241205+00:00'
-updated_at: '2026-08-09T00:45:36.241205+00:00'
+updated_at: '2026-08-09T00:50:40.445777+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: request-dbdc904a
@@ -19,5 +19,31 @@ fields:
 <!-- xgd-chat role="user" ts="2026-08-09T00:45:32.088529+00:00" -->
 #### You
 Please take a look at DOC-20 and REQ-74 in lagrange-framework DOC-30 needs to be brought up to date with those
+
+<!-- xgd-turn id="78589db9-8ec4-4a73-8c16-564281d33420-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T00:50:40.298573+00:00" -->
+#### Claude
+I'll start by reading the ticket and the relevant docs.
+
+I have what I need. Now writing the updated DOC-30.
+
+DOC-30 is rewritten and REQ-125 records the change. Documentation-only, so no code, no commit ceremony.
+
+**What DOC-20 + REQ-74 changed for DOC-30.** The premise inverted. DOC-30 was written while the tooling object was *being designed*; DOC-20 now specifies the Toolbox and REQ-74 has shipped it (declaration ingest, config validation, group expansion, wire-spec + manual projection, schema validation, policy gating, provenance, audit, standalone validator — Python and JS, with a conformance corpus). So the declaration format is no longer ours to invent. DOC-30 is now "declare the L1 control surface as a Toolbox surface, and say how far `edit.ts` is from that."
+
+DOC-20 names us twice: we are the **first external surface** (declared in this repo), and a listed refactor target — *"its closed-over site slug and unenforced `writes` flag become a declared scope axis and an effect classification."* Its call-type survey already checked 1stcontact L1 and confirmed `inproc` covers us.
+
+**What the rewrite now carries:**
+
+- R1–R7 mapped onto declaration fields, with the two the format does *not* discharge called out rather than glossed: **R4** (addressing has no field — it goes in an `l1_address` param type plus the `overview`, i.e. prose in the right places, not a checkable contract) and **R6** (DOC-20's `version:` is the *format* version; a surface cannot state its own).
+- The concrete declaration: envelope, the full operation list — the surface declares everything `edit.ts` does and the *grant* narrows it, which dissolves the old "AI-facing subset only" complaint — plus param types, shapes, errors, effect-homogeneous groups (`Publish` split out deliberately), sequences, absences.
+- Inherited security obligations, with **provenance (S5)** and **audit (S6)** as genuinely new and load-bearing here: every read on this surface returns third-party prose, and `inproc` defaults it *trusted*, which is wrong for all of them.
+- REQ-74's two extra rules (quantifier; array base for optional selectors under an `allow_set`) and where they bite.
+- `declare.ts` superseded field-for-field, and the **itemised gap list** the ticket asked for.
+
+**Two findings worth taking upstream.** First, DOC-20 lumps our slug closure in with the `writes` flag. The `writes` half is fair — declared, enforced by nothing. The slug half isn't: no tool declares a `slug` parameter at all, which is stronger than a scope predicate (S2's own reasoning one level up — an absent parameter has no bad value to refuse), and `scope_axes: {applies_to: {param: …}}` can't express a construction-time binding. My recommendation in the doc is to keep the binding and propose construction-scoped declaration upstream, rather than adding a `slug` parameter just to fit the field set. Second, the missing surface version. Also noted: DOC-20 has no `examples:` field, while `declare.ts`'s structured examples are test-executable.
+
+**Size of the gap** — bigger than DOC-30's optimistic case, smaller than it looks, because most of it is upstream code we now get free. Local work: the declaration as data (JSON — REQ-74 ships no YAML parser), an `L1Toolbox` over `edit.ts`, eight declared return shapes, the builder-chat instance configuration, the author-time validator in CI, and deletion of `declare.ts` plus the local manual renderer. Predominantly deletion, as DOC-20 predicted for the ticketing and knowledge bridges.
 
 <!-- xgd-chat-end -->
