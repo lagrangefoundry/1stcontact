@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T21:10:08.051325+00:00'
+updated_at: '2026-08-09T21:32:28.560397+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -270,5 +270,11 @@ Now a site becomes a session in exactly one place — `POST /api/ai/session` —
 - **`.xgd/FAILED_update_comment-0a6ab5af`** — an XGD tooling artifact from a failed ticket-comment rename.
 
 One aside: four source files (`ai/host.ts`, `builder.ts`, `fidelity.ts`, `preview.ts`) contain **literal NUL bytes** as map-key separators. The idiom is sound, but it makes those files `data` to `file(1)`, so plain `grep` prints nothing without `-a` — that cost me a detour hunting for the route table. `\0` in a template literal is the same runtime string and stays greppable; I used the escape in new code and left the existing four alone, since three are unrelated to this ticket.
+
+<!-- xgd-turn id="82778d13-c981-4c25-b38e-8aee7c06a316-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T21:32:28.377120+00:00" -->
+#### You
+If I refresh the browser can I access the new features?
 
 <!-- xgd-chat-end -->
