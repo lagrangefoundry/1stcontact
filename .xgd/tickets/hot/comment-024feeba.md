@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-08-09T17:11:36.977939+00:00'
+updated_at: '2026-08-09T17:12:37.763534+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4297,5 +4297,45 @@ Nothing filed and no code touched. My read is four tickets — three bugs (butto
 <!-- xgd-chat role="user" ts="2026-07-24T22:48:47.804939+00:00" -->
 #### You
 Please write them up
+
+<!-- xgd-turn id="36f0d6f2-f347-4b6d-9c60-1a8f70c39441-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-24T22:52:49.325507+00:00" -->
+#### Claude
+BUG-17 is directly relevant — it recorded the target's control padding as `Send message: 12/32/12/32` and `Subscribe: 12/24/12/24`, and added a node-level `padding` axis to L1. Let me check whether that axis is still being emitted.
+
+Root cause pinned. The padding is being applied **twice**:
+
+| control | text node `padding` (correct, matches target) | surface box outset |
+|---|---|---|
+| Subscribe | 12/24/12/24 | 25px all four sides |
+| Send message | 12/32/12/32 | 24px all four sides |
+
+The outset equals **`paddingTop + paddingBottom` (=24) applied uniformly to all four sides** of the already-padded control box — plus 1px on Subscribe, which has a border (h=50 vs 48). BUG-17 correctly put padding on the text node; the card/surface reconstruction then expands the surface by it a second time. Hence exactly 2× height.
+
+Alpha check is conclusive on the capability gap: **354 `opacity` keys but zero `rgba(`, zero 8-digit hex, zero `alpha`** — element opacity is captured, colour alpha is not representable at all.
+
+All four filed. Let me fix two link defects I introduced — `[[bug-2]]` isn't a valid uid, and I used memory slugs where ticket uids belong.
+
+Four bugs filed, all scoped under REQ-88, all cross-links resolving to real uids:
+
+| | Severity | What |
+|---|---|---|
+| **BUG-21** | high | Control surface boxes double-apply padding — buttons at 2× target height, bleed past viewport edges at mobile |
+| **BUG-22** | high | `values-diff` mis-attributes split text+box controls — phantom radius delta leads the repair order while the real geometry defect goes unreported |
+| **BUG-23** | high | Reproduction hotlinks the captured origin instead of its mirrored asset — hero renders only while the target is up |
+| **BUG-24** | medium | Colour alpha not representable — translucent overlays flatten to opaque fills |
+
+Each carries the measured evidence (the six-width oracle-vs-draft table in BUG-21, the diff-region-to-node mapping, the alpha census) and explicit acceptance criteria.
+
+Two things worth pulling out of the write-ups:
+
+**BUG-23 is a hole in the gate, not just in the output.** Every `1c shot` / `1c diff` run so far has compared the target against a page that was *serving the target's own hero image over the network*. Hero fidelity has been guaranteed by hotlinking rather than earned, so the perceptual gate currently cannot detect an image-handling regression at all. That's why I filed it high rather than cosmetic, and why BUG-24's acceptance criteria say to fix BUG-23 **first** — any hero pixel measurement taken before then is measuring a partly-borrowed image.
+
+**BUG-24 is explicitly marked unconfirmed.** The capability gap is verified (0 rgba / 0 8-digit hex / 0 alpha keys against 354 opacity keys). The causal link to hero regions #7/#8/#9/#12 is a hypothesis, and the ticket says in as many words not to treat the region list as evidence of cause — only of where to look, via the aligned-crop overlay per DOC-19.
+
+Also worth noting for sequencing: **BUG-21 is very likely a regression from my own `6ede6a8e`**, where I landed geometric surface attribution. It interacts with BUG-17, which correctly added the padding axis — the fold now has padding on the text node *and* outsets the surface by it again.
+
+No code touched and no commits beyond the ticket writes themselves. REQ-88 remains `free_coded` at its three recorded commits. The repair order I'd suggest is BUG-23 → re-measure → BUG-21 → BUG-22 → then confirm-or-drop BUG-24, but that's your call, and the import/pipeline commands stay yours to drive.
 
 <!-- xgd-chat-end -->
