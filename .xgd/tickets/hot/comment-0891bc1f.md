@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:49:53.171497+00:00'
+updated_at: '2026-08-09T22:50:48.126260+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -753,5 +753,51 @@ Want me to write it? I'd scope it as `set_l1` in `edit.ts` + the surface declara
 <!-- xgd-chat role="user" ts="2026-08-09T22:49:53.017783+00:00" -->
 #### You
 Does the AI also need read APIs?
+
+<!-- xgd-turn id="171a8d19-a067-4b52-b577-c0841e840441-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T22:50:48.003772+00:00" -->
+#### Claude
+Yes — and this is the part that would bite you if `set_l1` landed alone. Let me check what the AI can currently see.
+
+Yes — and the read side is currently the worse half. Concretely, on xgd.dev's home page:
+
+| | |
+|---|---|
+| L1 nodes in the tree | **122** |
+| visible through `describe_page` | **67** (54%) |
+| nodes carrying axes | **86** — axes are exposed **nowhere** |
+
+`describe_page` returns `pageSegments()`: a flat list of `{path, kind, values}` where `values` is only those four copy fields. Pure layout containers are deliberately skipped — the comment in `toolbox.ts` says "an address the model cannot do anything with is noise," which was correct when the model could only edit words. The moment it can write a subtree, those containers are exactly what it needs to see.
+
+So today the AI is looking at a 54% shadow of the tree, with every axis stripped. Give it `set_l1` alone and it would be authoring blind — replacing a subtree it can't read, destroying the 86 nodes' worth of axes it never saw.
+
+## What the read side needs
+
+**Two tiers, not one.** This is the part worth getting right, because it's a context-economy problem: xgd home is 3,872 lines, gigabytealchemy 7,292. You don't want the model pulling the whole document to change a heading.
+
+```
+describe_page(page)        # cheap map: every node — path, kind, a label. No axes.
+get_l1(page, path)         # the real subtree at an address: axes, children, roles
+```
+
+The map's job changes from "what can I edit" to "where is everything" — so it must emit **all 122 nodes**, not the 67 with copy fields. Then the model locates, fetches just that subtree, and writes it back. Read and write become symmetric around the same address.
+
+## What survives, what doesn't
+
+| operation | after `set_l1` / `get_l1` |
+|---|---|
+| `describe_site` | **keep** — and it's better than I assumed: `editConfigGet(slug, undefined)` returns the *whole* base, so the model already sees `palette`, `theme`, `nav`, `assets`. It can write valid palette refs today. |
+| `describe_page` | **keep, widened** — the navigation index |
+| `list_assets` / `get_asset` | **keep** — image nodes reference assets by id |
+| `get_config` / `status` | **keep** |
+| `get_copy` | **redundant** — `get_l1` subsumes it |
+| `set_copy` | **redundant** — per no-legacy-modes, delete it |
+
+So the shape of the work is: one operation added on each side (`get_l1`, `set_l1`), one widened (`describe_page`), two deleted (`get_copy`, `set_copy`). Net +0 operations, and the surface goes from a 4-field copy editor to full L1 authoring.
+
+One thing I'd flag for the ticket rather than decide now: whether `get_l1` should return the subtree verbatim or resolved (palette refs expanded, responsive tracks flattened). Verbatim is what you must write back, so verbatim is almost certainly right — but the model then needs the palette from `describe_site` to know what `{ref: "orange"}` means. That's already reachable, so I'd say verbatim, and note it.
+
+Ready to write this up as one ticket covering both directions whenever you want it.
 
 <!-- xgd-chat-end -->
