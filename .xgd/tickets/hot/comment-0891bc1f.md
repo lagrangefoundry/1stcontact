@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:47:36.396301+00:00'
+updated_at: '2026-08-09T22:49:53.171497+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -747,5 +747,11 @@ That's a comparable guarantee only if L1's schema is genuinely closed — and it
 This is a small ticket, not a big one — no new validation, no new write path, no new addressing. One operation in `edit.ts`, then three lines of declaration/binding/grant on the AI side.
 
 Want me to write it? I'd scope it as `set_l1` in `edit.ts` + the surface declaration, with "give gigabytealchemy the nav bar xgd.dev already has, through the chat" as the acceptance case — and I'd note in the ticket that `set_copy`'s four fields become redundant the day it lands, per no-legacy-modes.
+
+<!-- xgd-turn id="171a8d19-a067-4b52-b577-c0841e840441-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:49:53.017783+00:00" -->
+#### You
+Does the AI also need read APIs?
 
 <!-- xgd-chat-end -->
