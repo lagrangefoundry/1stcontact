@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:35:31.061849+00:00'
+updated_at: '2026-08-09T17:36:31.571379+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -593,5 +593,17 @@ Two things I'd flag for when you next pick this up, neither blocking:
 
 - **M3 before M4** is the reordering worth noticing. The edit render is now a real piece of work in its own right — non-functional rendering, settled-state content, segment derivation, address stamping — and the copy editor is comparatively thin once it exists. The riskier half is the one nobody sees.
 - **DOC-28 §13 Q5** is the one I'd want closed before building image controls: the repro pipeline already folds crops and scrims into L1, so the editor must write those exact fields rather than invent a parallel vocabulary. Worth ten minutes of checking rather than discovering it after M5.
+
+<!-- xgd-turn id="d1f677bd-25c0-43fe-a47a-54a7edb161b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T18:58:10.954109+00:00" -->
+#### You
+Some other details - please look at the components in ../xgd-framework. We are going to be using these in our construction. 
+
+The web builder will ultimately be a tab in a shell component. It will be a 2 pane view with the left pane the editor we are describing and the right pane the AI chat (see AI chat components).
+
+In fact the left pane will be a display panel with multiple modes - web page render will be one, edit mode will be another - there may be other modes we want to support such as - template choosing?
+
+Its important that we capture these constraints up front. Would it be worth assembling that set of components before we build the edit mode?
 
 <!-- xgd-chat-end -->
