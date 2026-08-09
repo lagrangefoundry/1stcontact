@@ -6,14 +6,19 @@ title: 'L1 authoring on the control surface: verbatim get_l1 / set_l1 (click-to-
   modal unchanged)'
 created_by: xgd
 created_at: '2026-08-09T23:01:05.915932+00:00'
-updated_at: '2026-08-09T23:01:05.915932+00:00'
+updated_at: '2026-08-09T23:31:56.240805+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: e46509db9cc135d9fa181f4f5d43f0cd417c89c6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.33
 ---
 
 # L1 authoring on the control surface: verbatim `get_l1` / `set_l1`
