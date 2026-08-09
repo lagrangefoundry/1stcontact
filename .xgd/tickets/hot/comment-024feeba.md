@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-08-09T17:24:20.079248+00:00'
+updated_at: '2026-08-09T17:25:20.618994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4457,5 +4457,69 @@ Want me to kick off the live re-capture and drive the first gate pass now? It's 
 <!-- xgd-chat role="user" ts="2026-07-23T06:09:25.832462+00:00" -->
 #### You
 ok all implemented - now can you re run the pipeline please
+
+<!-- xgd-turn id="8f17cfb2-8299-4462-a744-37ce8d0d96bb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-23T06:13:44.694988+00:00" -->
+#### Claude
+Let me find the `1c` CLI and the capture bundle to run against, and check what's actually been implemented.
+
+Before I run it — the git log shows no implementation commits (last commits are ticket/workflow updates), and only `storage/sites/gigabytealchemy/` is untracked. Let me verify the code changes actually landed before I run, so I don't report stale results as if they were the new pipeline.
+
+Implementation is substantially present: REQ-90 (resource table), REQ-91 (gradient/blend/scrim axes), BUG-7, REQ-92 all have commit shas, and `probes.ts`/`schema.ts`/`render.ts` are visibly changed. Two flags I'll carry: **BUG-6 (B2) shows no commit** (may have been folded into REQ-92's commit), and **BUG-5's `probes.ts` still references `normText`** at the pairing site — I'll check the actual gate output rather than prejudge. Let me find how `1c` is invoked.
+
+Found it — `./bin/1c` launches the CLI through Vite SSR. Running the L1 gate against the gigabytealchemy bundle (it re-folds from `multistate.json` internally, so it reflects the new fold/gate/schema code):
+
+B2 residual-signalling is clearly working (each unexpressed element is reported with `kind`/`reason`/`capturedAxes`/`widths` instead of silently dropped). Let me capture the full result and parse it into a clean summary — pass/fail, each probe, and residual counts.
+
+`PASS: False` — but the picture changed meaningfully from before. Let me dig into two things: the residuals I saw in the tail didn't show up at the top level (structure mismatch in my parse), and the `maxDelta` is still exactly `1616.75` — the same number as the original failure, which means B1 may have fixed *coverage* (unmatched now 0) without touching the real geometry outlier. Let me find where that delta actually comes from.
+
+Now it's diagnostic. Let me get the `foldResiduals` breakdown (correct key) and confirm the 768 cascade pattern.
+
+The re-run is complete and, importantly, now **diagnostic** rather than opaque. But one finding needs verifying before I report: the fold residuals say *"image/box/field folding pending"* — which is REQ-92's core deliverable. Let me confirm whether the folder rebuild actually landed.
+
+Re-ran the pipeline (`1c l1-gate`) on the **gigabytealchemy** bundle — the active target. It still **fails the gate**, but the run is now *diagnostic* instead of opaque, and it surfaced two things I need to report straight, including a correction to my own earlier claim.
+
+## What the new machinery proves — working
+
+- **B1 (BUG-5) landed and works:** `unmatched = 0` (previously nodes were dropped and mis-paired). Every delta is now correctly attributed to its own element.
+- **B2 (BUG-6) landed and works:** residuals are *signalled*, not silently dropped — `foldResiduals` is a typed top-level array (`kind`/`reason`/`capturedAxes`/`widths`). This is exactly the DOC-21 completeness signal we designed.
+- **REQ-90 + REQ-91 landed:** commits confirm the resource table + `@font-face` and the pixel-mover axes (gradients/shadows/borders/transform/mask/blend/scrim); the gate ran clean against the new schema.
+
+## Correction to my earlier diagnosis — I was wrong about 1616
+
+I claimed the `1616px` fail was a text-pairing artifact that B1 would clear. **It wasn't.** B1 fixed pairing (`unmatched=0`) yet `maxDelta` is *still* `1616.75`. The 1616 was always a **real geometry divergence**, not a pairing ghost. Here's the actual structure:
+
+- **All 13 fidelity residuals are at 768px only.** Every other width (320/375/1024/1280/1440) passes.
+- At 768, a 3-card grid is mis-sized (`dw ≈ 108` on *Presence/Positivity/Connection*) and mis-placed (`dx = 0/250/501`).
+- That section's height error then **cascades**: everything below shifts down by a growing `dy` — footer social icons (*LinkedIn/GitHub*) land `1616px` off; *Send message/Subscribe* `1340–1580px` off.
+
+This is textbook *position-is-derived-shadow* (one section's height error integrates downward). It's a genuine **new** framework signal — a responsive-geometry gap at the 768 breakpoint (the grid almost certainly lacks a correct 768 keyframe, so the evaluator interpolates across the reflow) — and it's **not covered by any of the six tickets** we filed.
+
+## Honest gap — REQ-92 is only *partially* implemented
+
+Despite "all implemented," the folder rebuild's headline is **not done**. Its commit (`9e92a339`) did B2 residual-signalling + folded `textShadow`, but `fold.ts` still `continue`s past every textless element (fold.ts:329-344) — the residual reason says so literally: *"image/box/field folding pending."* So:
+
+- **No image/box/field leaves are folded yet.** Here that shows as **4 `field` residuals** (the contact-form controls), carrying `border`/`borderRadiusPx`/`accessibleName`.
+
+## Envelope probes
+
+- **off-sample:** fails at 900px (1 finding).
+- **content-robustness:** fails at *all* widths (2 findings each). The whole root was promoted to a single flow container (`promoted: ['0']`), which still overlaps under 2.5× perturbation — structure recovery is too coarse-grained.
+
+## Where that leaves us
+
+| Signal | Status | Ticket |
+|---|---|---|
+| Pairing + idempotency | ✅ fixed | BUG-5 |
+| Residual signalling | ✅ fixed | BUG-6 |
+| New axes + resource table | ✅ landed | REQ-90/91 |
+| Image/box/field folding | ❌ **not done** | REQ-92 (incomplete) |
+| 768px grid → 1616px cascade | ❌ **new finding** | *none yet* |
+| Envelope / promoteToFlow granularity | ❌ open | (B3 landed, but recovery too coarse) |
+
+Recommended next moves: (1) **finish REQ-92** (image/box/field folding) — it clears the 4 field residuals and unblocks non-text fidelity; (2) **file a new ticket** for the 768-breakpoint geometry cascade (needs a look at whether the 768 capture has the grid keyframe, i.e. capture gap vs fold gap); (3) revisit `promoteToFlow` granularity for the envelope failures.
+
+Want me to run the **joyful** bundle too for a second data point, dig into the 768 grid keyframe to pin capture-vs-fold, or file the new-finding ticket?
 
 <!-- xgd-chat-end -->
