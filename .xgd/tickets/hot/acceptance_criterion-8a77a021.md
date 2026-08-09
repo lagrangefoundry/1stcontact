@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Control bindings are validated in both directions
 created_by: xgd
 created_at: '2026-08-06T01:32:55.445559+00:00'
-updated_at: '2026-08-08T00:42:38.069835+00:00'
+updated_at: '2026-08-09T05:40:47.854166+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
