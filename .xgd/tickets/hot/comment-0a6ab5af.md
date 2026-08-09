@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:33:29.242725+00:00'
+updated_at: '2026-08-09T17:33:29.707156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -447,5 +447,43 @@ Two corrections to what I told you earlier, both from reading the stale CHAT-9 b
 Weber -> web editor please
 
 I don't understand your finding
+
+<!-- xgd-turn id="5830cd31-cf6a-459c-8b28-2917788a2ba9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T01:08:22.786035+00:00" -->
+#### Claude
+Renamed and committed (`631b1ff31`, M1 UATs still pass), and CHAT-9's naming note updated. Now let me show the finding concretely rather than describe it.
+
+Let me lay it out with the real page, since that makes it concrete.
+
+**What the editor fundamentally needs.** The user clicks a headline in the iframe. The code then has to answer: *which value in the site's JSON produced that pixel?* Rendered HTML doesn't carry that link — a `<p class="l1-12">` doesn't say where it came from. Without that answer there is no editor at all; you can't open a form over a field you can't name.
+
+**What M1 built.** It stamps the answer onto each behavior-module instance's root:
+
+```html
+<section data-fc-module="signup" data-fc-type="contact-form">…</section>
+```
+
+Click anywhere inside, run `closest('[data-fc-module]')`, get `"signup"`, look up that instance in the JSON. Solved — *for modules*.
+
+**Why that's now nearly useless.** Before the pivot, a page was a stack of modules (hero, text-block, services-grid), so "address the module" and "address the copy" were the same thing. After the pivot they're not. A page body is an L1 document, and modules are just the two behavioural widgets (carousel, contact-form) bound into slots. Your actual `xgd` home page:
+
+- **62 L1 text nodes** — the wordmark, the nav items, the eyebrow, every headline, every paragraph
+- **1 behavior module** — the signup form
+
+M1's hook reaches that 1. All 62 pieces of copy — everything a user would actually want to click and rewrite — render with no hook. So the copy editor in M3, built exactly as specced, would let the user edit the contact form and nothing else.
+
+**Why L1's `id` doesn't rescue it.** L1 nodes do have an optional `id`, so the obvious thought is "use that." Two problems, both visible in the render:
+
+- **It's sparse.** 34 of 128 rendered elements carry one. `<a class="l1-5" href="whitepapers">Whitepapers</a>` has none — nothing to address it by.
+- **It already has a job.** REQ-106 made `id` the real DOM id, so `href="#how"` scrolls and a label's `for` binds to its input. It's user-visible in URLs. Reusing it as the editor's addressing scheme means the editor's needs start dictating anchor names, and adding an id to make text editable silently adds a URL fragment.
+
+**So the gap is:** we need a stable, *dense* way to name every editable L1 node — one that survives a re-render, and survives an edit that reorders its siblings. Three candidates, none free:
+
+1. **Structural path from the root** (`body>2>1>0`) — no schema change, works today. But it breaks precisely when nodes move, and moving nodes is a thing the AI does constantly.
+2. **Render-time synthesized edit id** — the L1 renderer emits `data-fc-node="…"` on every element. Dense and needs no schema change, but it costs bytes on every element, and the id must be derived the same way on both sides of a re-render or every edit invalidates the map. Possibly draft-channel-only, since draft and published render separately anyway.
+3. **Minted persistent id in the definition** — a separate editing key on editable nodes, distinct from `id`. Genuinely stable across re-render and reorder, but it's a schema change and something every author, human or AI, now has to maintain.
+
+My instinct is (2) with the id derived from stable structure rather than counters, but I'd want to think about the reorder case properly before committing. That's the decision I flagged — it's the one thing standing between M2 (which is unaffected) and a copy editor that can actually edit copy.
 
 <!-- xgd-chat-end -->
