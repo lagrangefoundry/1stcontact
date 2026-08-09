@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:32:19.384396+00:00'
+updated_at: '2026-08-09T22:33:26.886315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -481,5 +481,63 @@ I haven't created tickets, since this session is scoped to REQ-127.
 <!-- xgd-chat role="user" ts="2026-08-09T22:32:19.146578+00:00" -->
 #### You
 I'm totally confused I thought REQ-127 gave the AI tooling to make all L1 changes - what did it actually give me?
+
+<!-- xgd-turn id="5b584033-d5a2-41d1-b0ab-0cd22eb064b5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T22:33:26.623258+00:00" -->
+#### Claude
+Let me pin down the naming, because I think that's the whole confusion.
+
+That's my fault for not flagging the name collision earlier. Here it is plainly.
+
+## "L1 control surface" is not "tooling for L1 changes"
+
+Two different things share the name **L1** in this project:
+
+- **L1, the substrate** (`packages/framework/src/l1`) — the typed element tree: containers, text runs, images, and every paint/layout axis.
+- **"the L1 control surface"** (DOC-30) — the name of the **API over the site store**. Its title is *"the documented, maintained way to change a site."*
+
+REQ-125/126/127 were all about the **second**. None of them touched the first.
+
+## What the surface can actually write into L1
+
+`set_copy` does reach L1 nodes, at real L1 addresses like `0.16` — which is exactly why it's called an L1 control surface. But the fields it can write are these, and only these:
+
+| node kind | writable fields |
+|---|---|
+| `text` | `text` |
+| `image` | `src`, `alt` |
+| `container` | `backgroundImageUrl` |
+
+Four fields. Every axis — colour, size, spacing, position, fill — and the tree structure itself are unreachable. That's `copyFieldsOf` in `packages/site-schema/src/l1/edit.ts:256`.
+
+## What each ticket actually delivered
+
+| | delivered | new operations |
+|---|---|---|
+| REQ-125 | DOC-30 design record + gap list | none (no code) |
+| REQ-126 | the surface **declared as data**, bound to `edit.ts`, audited, grant narrower than API; deleted `declare.ts` + `tools.ts` | **zero** — same 16 ops `edit.ts` always had |
+| REQ-127 | site binding moved into the session; folded-in archive migration | **zero** |
+
+REQ-126 was a *declaration* job — take what `edit.ts` could already do and make it a described, gated, audited API. REQ-127 was a *layering* job. Neither was ever going to widen what the AI can change.
+
+## Your reading was reasonable
+
+DOC-30 is titled *"L1 Control Surface API — the documented, maintained way to change a site."* Read cold, that sounds like it covers changing anything. And REQ-127's title leads with "L1 tooling," which reads as tooling *for* L1.
+
+The declaration itself is honest about the limit — REQ-126 wrote these `absences` into `l1-surface.json`:
+
+> *"Changing how something looks — colour, size, spacing, position: **Not yet possible.**"*
+> *"Adding, removing, moving or reordering things on a page: **Not yet possible.**"*
+
+So the surface has been declaring its own ceiling since REQ-126. That's why your assistant refused so precisely — it was reading those lines.
+
+## What you thought you were getting is a real, unbuilt thing
+
+An AI that can compose a page — add nodes, arrange them, set axes — needs **structural and axis-level operations on L1**. That is a different ticket from any of these, and per `CLAUDE.md` it belongs in L1 as typed operations, not as a nav module or a widened `set_config`.
+
+It's also the single thing standing between "changes words" and "builds your site," and it's what your nav-bar request ran into.
+
+Want me to write that ticket? I'd scope it as structural + axis operations on the declared surface, with the nav bar as the proving case — and I'd note that once it exists, the four-field `copyFieldsOf` limit is what needs replacing. Say the word and I'll create it.
 
 <!-- xgd-chat-end -->
