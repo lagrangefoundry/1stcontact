@@ -6,7 +6,7 @@ title: An image declaring a link is navigable while keeping its own paint and me
   and the enclosure the link needs occupies no layout box
 created_by: xgd
 created_at: '2026-08-06T02:47:55.070818+00:00'
-updated_at: '2026-08-08T00:43:27.335161+00:00'
+updated_at: '2026-08-09T05:41:12.238405+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
