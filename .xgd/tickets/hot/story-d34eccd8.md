@@ -6,7 +6,7 @@ title: 'Serve a deployed snapshot: shareable previews and live published sites r
   a visitor'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-08-07T22:31:43.089329+00:00'
+updated_at: '2026-08-09T13:50:17.053745+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
