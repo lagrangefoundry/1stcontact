@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Out-of-range, oversize, and freeform documents are rejected by the envelope
 created_by: xgd
 created_at: '2026-07-22T19:32:24.574998+00:00'
-updated_at: '2026-08-08T00:42:00.161164+00:00'
+updated_at: '2026-08-09T05:40:21.555002+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
