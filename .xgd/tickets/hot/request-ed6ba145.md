@@ -6,14 +6,19 @@ title: 'Beyond L1: structured config, module instantiation, page metadata and ge
   assets'
 created_by: xgd
 created_at: '2026-08-09T23:24:24.532382+00:00'
-updated_at: '2026-08-09T23:53:26.125221+00:00'
+updated_at: '2026-08-09T23:53:33.541292+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: e6ff11aabe1497c172ea0e8141c76fd36a8e0b6e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.34
 ---
 
 # Beyond L1: structured config, module instantiation, page metadata and generated assets
