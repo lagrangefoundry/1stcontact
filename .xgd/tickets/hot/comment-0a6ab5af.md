@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:37:54.169541+00:00'
+updated_at: '2026-08-09T17:38:24.416558+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -669,5 +669,23 @@ Recorded in DOC-8 §9.4–§9.5, and saved to memory so it survives this session
 Good and here is the mechanism, which you can also document: Please create a REQ ticket in ../xgd-framework (use XGD_PROJECT_ROOT...) for the additional field.
 
 However separate the shell is designed with a whole pallet and themes - why would need/want a single color parameter and not just set the theme/
+
+<!-- xgd-turn id="683646f7-5c63-4e7d-81e9-9f817aa1b393-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T19:15:46.486039+00:00" -->
+#### Claude
+Now documenting the mechanism itself in DOC-8 §9.4:
+
+**REQ-55 created** in `xgd-framework`: *"webui-fields: colour control (string+format:color, and enum swatches)"*. It's written in that repo's vocabulary — the hint slots into their DOC-12 §6 fallback table as the same category of per-field, non-breaking, fallback-safe upgrade as the existing `format: 'datetime'`, with 1stcontact named as *origin* rather than as justification. The mechanism itself is now DOC-8 §9.4.1, including the `XGD_PROJECT_ROOT=../xgd-framework xgd ticket create` invocation.
+
+**On your challenge — they're two unrelated colours, and I caused the confusion by saying "colour picker" without saying whose colour.**
+
+The shell's tokens and themes style the **builder's own chrome** — its tab bar, panels, modals. Setting a shell theme changes what the *builder* looks like. The colour the editor exposes is a value in the **customer's site definition** — their hero's background. Setting a shell theme would do nothing to it. Different layer, different lifetime, no overlap. So `format: 'color'` isn't a theming concept at all; it's a control type for a colour-valued *data* field, a peer of the text and number controls. `webui-fields` is origin-neutral by design — it doesn't know or care that the value lands in a site definition.
+
+**But your instinct is right one level down, and it's the better question.** Applied to the *site* rather than the shell: the site has its own palette, and our established principle is that absolute values are the base while a palette is an overlay of constants — every value takes a literal *or* a role. For a non-technical user, *"pick one of your site's colours"* is friendlier than a free colour wheel, far more likely to keep the site coherent, and more faithful to the exposure rule, since the role is the user-meaningful thing and the hex is the implementation. That's very close to "just set the theme," only aimed at the right object.
+
+The tension is that roles-only blocks *"my brand colour is exactly this hex."* So the working assumption is **roles first, free entry as the escape hatch** — which is why REQ-55 covers both shapes: `string` + `format: 'color'` for free entry, and `enum` + `format: 'color'` rendering options as swatches for role selection. One hint, two shapes; the `type` decides whether the value is free or constrained. That framing came directly out of your question and made the ticket better.
+
+Recorded in DOC-28 §8 with the reasoning, and as open question 7 — worth confirming before phase 2 is built, but it doesn't block REQ-55, which is needed either way.
 
 <!-- xgd-chat-end -->
