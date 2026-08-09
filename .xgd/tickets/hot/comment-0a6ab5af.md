@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:43:09.182023+00:00'
+updated_at: '2026-08-09T17:43:39.313502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -942,5 +942,11 @@ A few ACs I'd point at, because they're the ones that catch the failure modes we
 - **REQ-119 AC3** — one render implementation; adding an L1 axis changes it in exactly one place. The guard against the runtime move quietly reintroducing two renderers.
 
 REQ-118 explicitly defers framing controls (crop/scale/scrim) and says why: DOC-28 §13 Q5 must close first, because the capture/fold pipeline already folds crops and scrims into L1 and the editor must write those same fields rather than a parallel vocabulary. REQ-119 carries its contingency in the body — if v1 stays on the file-backed store, phase 1 is complete at REQ-118 and REQ-119 defers rather than blocks.
+
+<!-- xgd-turn id="bc27166c-7da1-4b04-afbb-f8db35f8e832-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T21:11:25.374937+00:00" -->
+#### You
+open consumption decision <-- what is that?
 
 <!-- xgd-chat-end -->
