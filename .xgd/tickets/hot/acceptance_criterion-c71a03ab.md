@@ -6,7 +6,7 @@ title: 'A linked node keeps its keyboard focus indicator: the authored focus tre
   applies to the element the reader focuses'
 created_by: xgd
 created_at: '2026-08-06T02:48:07.873619+00:00'
-updated_at: '2026-08-08T00:43:30.433522+00:00'
+updated_at: '2026-08-09T05:41:15.103147+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
