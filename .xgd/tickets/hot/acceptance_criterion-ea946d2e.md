@@ -6,7 +6,7 @@ title: 'A page whose definition declares no links publishes exactly as it did be
   navigation existed: no links, and every node in its own element type'
 created_by: xgd
 created_at: '2026-08-06T02:48:29.376969+00:00'
-updated_at: '2026-08-08T00:43:35.486174+00:00'
+updated_at: '2026-08-09T05:41:19.975937+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
