@@ -6,7 +6,7 @@ title: Deploying the published channel ships the site's current latest revision 
   moves the live pointer
 created_by: xgd
 created_at: '2026-08-06T18:39:35.857429+00:00'
-updated_at: '2026-08-07T22:31:05.806471+00:00'
+updated_at: '2026-08-09T13:50:08.311023+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
