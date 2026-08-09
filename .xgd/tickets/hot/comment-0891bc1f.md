@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:28:08.307918+00:00'
+updated_at: '2026-08-09T22:30:10.677100+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -432,5 +432,48 @@ To summarise what's possible right now:
 - ❌ I can't add nav links yet — that needs a tool that isn't available to me
 
 You'd need to add the navigation links outside of this chat for now. Would you like me to help with anything else on the site in the meantime?
+
+<!-- xgd-turn id="924891f9-e37a-44de-8483-8d7583fe6b81-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T22:30:10.544491+00:00" -->
+#### Claude
+Fair challenge. Let me check what the surface actually offers before answering.
+
+You're right, and I should be straight about it: **REQ-126/127 added no capability you didn't already have.** `set_copy`, `add_page`, `set_config` all existed before. Nothing in the operator's chair got more powerful.
+
+What changed is the shape, not the reach:
+
+- every call is audited — that file didn't exist before, which is why it's the one thing you could *see*
+- the whole API is declared while the grant is narrower (asset ops are documented and validated but withheld from chat)
+- read/write is enforced classification rather than an unchecked flag
+- reads are marked untrusted — site copy re-entering the model's context is other people's prose
+- the manual projects from the declaration, so priming can't drift from the tools
+- REQ-127: the site lives in the session, not in the request
+- ~500 lines of hand-written declaration and manual code deleted
+
+The one operator-visible improvement is in that transcript: the assistant declined *precisely* — "I can read the setting but I can't write structured list entries." That specificity comes from the declared `absences`, not from the model guessing. Before REQ-126 it was hand-written prose that would drift out of date. Real, but modest.
+
+## The transcript contains a false statement, and that's the more useful finding
+
+> *"Good news — your site already has a top navigation bar set up, it just has no entries in it yet."*
+
+**There is no top navigation bar.** I checked: `navConfigSchema` exists (`{pattern, entries: [{label, target}]}`), your `site.json` has `nav: {pattern: "top-tabs", entries: []}`, and `edit.ts` maintains `nav.entries` for referential integrity when you delete a page. But **nothing renders it** — zero hits for `nav.entries` or `navConfig` across `packages/framework`, `apps/public-site`, and `apps/control-app`.
+
+It's vestigial config. The model called `describe_site`, saw `pattern: "top-tabs"`, and reasonably inferred a nav bar exists. Nothing in the declaration tells it that key is inert. So it told you good news that isn't true — and if you'd asked me to "just add the entries," you'd have got config nobody reads.
+
+## What your ask actually needs
+
+Not a config fix. L1 already has the navigation role — REQ-106, where "the renderer is the sole `<a>` sink." A top bar is a row of L1 nodes carrying that role.
+
+So the blocker is exactly the absence the assistant declared honestly: **"Adding, removing, moving or reordering things on a page."** The AI can change words in a tree it cannot compose. Per `CLAUDE.md` that's an L1 gap — closed by structural operations over L1 primitives, not by a nav module and not by widening `set_config`.
+
+That's the real answer to "what's new": the plumbing got sound, and the ceiling didn't move. The ceiling is now *visible and declared*, which is how you found it in one conversation.
+
+Two things worth filing, if you want them — say the word and I'll create either or both:
+
+1. **`nav` config is exposed to the model but nothing renders it** — the model states falsehoods from it. Either wire it up or stop projecting it.
+2. **The control surface has no structural L1 editing** — the single biggest gap between "can change words" and "can build a page."
+
+I haven't created tickets, since this session is scoped to REQ-127.
 
 <!-- xgd-chat-end -->
