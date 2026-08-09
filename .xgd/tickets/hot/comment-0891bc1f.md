@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T23:24:47.601817+00:00'
+updated_at: '2026-08-09T23:26:45.491744+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1012,5 +1012,11 @@ With REQ-129 + REQ-130, the acceptance case is named pieces of the *actual* xgd.
 Both tickets carry the same "must not break the operator's editor" section. REQ-130 adds one beyond REQ-129's: copy inside an AI-instantiated contact form must stay clickable in the modal, since module slots are L1 subtrees and `pageSegments` already walks them.
 
 Current state: REQ-127 `free_coded` at `7347d224e`; REQ-129 and REQ-130 in draft, sequenced.
+
+<!-- xgd-turn id="addf45ad-95bb-4fce-9ea8-6515ff5f4216-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T23:26:45.226177+00:00" -->
+#### You
+I don't know what svg is can you help me understand?
 
 <!-- xgd-chat-end -->
