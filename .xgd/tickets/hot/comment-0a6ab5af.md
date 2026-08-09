@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:43:39.313502+00:00'
+updated_at: '2026-08-09T17:46:16.497331+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -948,5 +948,27 @@ REQ-118 explicitly defers framing controls (crop/scale/scrim) and says why: DOC-
 <!-- xgd-chat role="user" ts="2026-07-31T21:11:25.374937+00:00" -->
 #### You
 open consumption decision <-- what is that?
+
+<!-- xgd-turn id="bc27166c-7da1-4b04-afbb-f8db35f8e832-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T21:12:00.769981+00:00" -->
+#### Claude
+It's jargon I slipped into without unpacking — sorry. Plainly: **how does this repo get hold of the `@gendevlabs/webui-*` components at all?**
+
+They live in `../xgd-framework`, a separate git repo. Nothing in `1stcontact` can `import { mountShell } from '@gendevlabs/webui-shell'` today, because that package isn't resolvable here — it's a workspace package in the other repo, marked `private: true`, version `0.0.0`, never published anywhere. So before any builder code can be written, we need a mechanism for this repo to *consume* them. That mechanism is undecided.
+
+Three options:
+
+**Publish them.** In `xgd-framework`, flip `private: false`, add a release step, publish to a private npm registry or GitHub Packages. Then `1stcontact` adds `"@gendevlabs/webui-shell": "^0.1.0"` to its `package.json` like any other dependency, and upgrades are a version bump. Clean, versioned, and the Cloudflare build resolves it like any package. Cost: publishing infrastructure has to be stood up — registry, auth tokens in CI.
+
+**Git submodule.** Pin `xgd-framework` (or just its `components/` directory) into this repo at a specific commit. The files land on disk, checked out at build time, read-only by convention — which structurally enforces "never edited here". Works today with no new infrastructure. Cost: submodules are awkward in practice (`clone --recursive`, CI checkout config, people forget to update the pin), and your "version" is a commit SHA rather than a semver.
+
+**Copy the files in.** Rejected — that forks the shell and guarantees the divergence your peer-project principle exists to prevent.
+
+Worth noting why the obvious fourth option doesn't work: a pnpm workspace link across the two directories would resolve fine on your machine, but Cloudflare builds from a git checkout of *this* repo alone, so the deploy would break. Whatever we pick has to survive that.
+
+My recommendation is **publish** — and your own principle sharpens it. "Publishing isn't set up yet" is a task in your own project, not a constraint to design around, and the packages we need are all zero-dependency so there's nothing tangled to publish. Submodule is the honest fallback if you'd rather not spend the setup time now, and switching later is a `package.json` change, not a rewrite.
+
+It's DOC-8 §13 Q1, and Deliverable 0 of REQ-115 — the ticket can't start until you pick, which is why I flagged it as the thing gating that ticket.
 
 <!-- xgd-chat-end -->
