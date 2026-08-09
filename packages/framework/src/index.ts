@@ -126,3 +126,7 @@ export type { L1EditHit, L1EditBridge } from './l1/edit-client'
 // can drop into a behavior's slot when it has no capture to transcribe.
 export { contactFormPreset } from './l2/contact-form'
 export type { ContactFormPresetField, ContactFormPresetOptions } from './l2/contact-form'
+// REQ-130 — the same library, asked by behavior id, so a caller creating an
+// instance never has to know which module happens to have a preset.
+export { presetSlots, hasSlotPreset } from './l2/presets'
+export type { SlotPresetBuilder } from './l2/presets'

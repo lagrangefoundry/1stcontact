@@ -1,4 +1,4 @@
-import { copyFileSync } from 'node:fs'
+import { copyFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import {
   applyCopyFields,
@@ -7,9 +7,19 @@ import {
   replaceL1Node,
   resolveL1Node,
   validateSite,
+  validateSvg,
+  SVG_MAX_BYTES,
   type L1Node,
   type L1SegmentFieldOptions,
 } from '@1stcontact/site-schema'
+import {
+  latestModuleVersion,
+  presetSlots,
+  registry,
+  validateBehaviorInstance,
+  type BehaviorMeta,
+  type BehaviorSlotValue,
+} from '@1stcontact/framework'
 import type { Root, StoreContext } from '../store'
 import {
   diffSnapshots,
@@ -163,13 +173,49 @@ function setDotted(obj: Record<string, unknown>, key: string, value: unknown): R
   return clone
 }
 
-/** Parse a CLI value as JSON, falling back to the raw string when it is not JSON. */
-function parseValue(raw: string): unknown {
+/**
+ * Parse a CLI value as JSON, falling back to the raw string when it is not JSON.
+ *
+ * Exported because this is now the ONLY place a settings value is ever a string
+ * that has to be re-read as syntax, and that place is argv — where a value
+ * genuinely arrives as text and there is no other option. Every other caller
+ * hands {@link editConfigSet} a structured value directly, which is the point of
+ * REQ-130's widening: a string that is parsed as data downstream is exactly the
+ * shape DOC-20 S2 rules out for a tool surface.
+ */
+export function parseConfigValue(raw: string): unknown {
   try {
     return JSON.parse(raw)
   } catch {
     return raw
   }
+}
+
+/** A plain JSON object — not an array, not null. The only shape that merges. */
+function isMapping(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+/**
+ * Merge `patch` over `existing` (REQ-130).
+ *
+ * The rule is one sentence: **two objects merge, everything else replaces.** So
+ * naming one setting inside a group leaves its siblings alone, and a list or a
+ * scalar is written whole because there is no meaningful way to merge one.
+ *
+ * The alternative — replace at the addressed key, as this surface did before —
+ * is what makes structured config dangerous rather than useful: a caller
+ * changing a single colour in a palette family would have to resend the whole
+ * family, and any entry it forgot would be silently deleted. That failure is
+ * invisible until someone looks at the site, which is the worst kind.
+ */
+function mergeConfigValue(existing: unknown, patch: unknown): unknown {
+  if (!isMapping(existing) || !isMapping(patch)) return patch
+  const out: Record<string, unknown> = { ...existing }
+  for (const [key, value] of Object.entries(patch)) {
+    out[key] = mergeConfigValue(out[key], value)
+  }
+  return out
 }
 
 // ── reference scanning (rm integrity checks) ─────────────────────────────────
@@ -657,6 +703,17 @@ export function editPageGet(slug: string, pageId: string, opts: GlobalOptions = 
 export interface PageWriteOptions extends GlobalOptions {
   title?: string
   path?: string
+  /**
+   * REQ-130 — the page's search and share metadata (`title`, `description`, and
+   * an optional `ogImage`). Small, and the only page-level content nothing else
+   * on this surface could write: it is not part of the L1 tree, so `set_l1`
+   * cannot reach it, and it is per-page, so `set_config` cannot either.
+   *
+   * Merged rather than replaced, on the same reasoning as a settings group: an
+   * operator asking for a better description should not lose their title.
+   * Validated by `seoMetaSchema` through `validateOrThrow`, like everything else.
+   */
+  seoMeta?: Record<string, unknown>
 }
 
 export function editPageAdd(slug: string, pageId: string, opts: PageWriteOptions = {}): EditOutput {
@@ -694,6 +751,7 @@ export function editPageAdd(slug: string, pageId: string, opts: PageWriteOptions
     id: pageId,
     slug: pageSlug,
     title: opts.title ?? pageId,
+    ...(opts.seoMeta ? { seoMeta: opts.seoMeta } : {}),
     modules: [],
   }
   validateOrThrow(base, [...files.map((f) => f.page), newPage])
@@ -715,10 +773,10 @@ export function editPageUpdate(slug: string, pageId: string, opts: PageWriteOpti
       hint: `List pages with '1c page list ${slug}'.`,
     })
   }
-  if (opts.title === undefined && opts.path === undefined) {
+  if (opts.title === undefined && opts.path === undefined && opts.seoMeta === undefined) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',
-      message: 'Nothing to update; pass --title and/or --path.',
+      message: 'Nothing to update; pass --title, --path and/or --seo.',
       hint: 'Provide at least one field to change.',
     })
   }
@@ -734,6 +792,7 @@ export function editPageUpdate(slug: string, pageId: string, opts: PageWriteOpti
   const updated: Record<string, unknown> = { ...file.page }
   if (opts.title !== undefined) updated.title = opts.title
   if (opts.path !== undefined) updated.slug = opts.path
+  if (opts.seoMeta !== undefined) updated.seoMeta = mergeConfigValue(file.page.seoMeta, opts.seoMeta)
 
   const pages = files.map((f) => (f === file ? updated : f.page))
   validateOrThrow(base, pages)
@@ -785,6 +844,280 @@ export function editPageRm(slug: string, pageId: string, opts: PageRmOptions = {
   }
 }
 
+// ── behavior-module instances (REQ-130) ──────────────────────────────────────
+//
+// A behavior module is a vetted behavioural core plus typed `config` plus named
+// L1 presentation slots (DOC-25). INSTANTIATING one is configuration and belongs
+// on this surface; AUTHORING a new type is development with a vetting bar
+// (DOC-26) and is not reachable from here at all — the catalog is closed, and a
+// `type` outside it is a NOT_FOUND that names what the catalog holds.
+//
+// The division of labour with `set_l1` is deliberate and there is no overlap: an
+// instance's slots are L1 subtrees, and once the instance exists `set_l1`
+// already addresses inside them through its `module`/`slot` scope. So these
+// commands create, configure and remove an instance, and never write its
+// presentation beyond the moment of creation.
+
+/** The page file whose definition `id` is `pageId`, or NOT_FOUND. */
+function requirePageFile(files: PageFile[], slug: string, pageId: string): PageFile {
+  const file = findPageFile(files, pageId)
+  if (!file) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' not found in site '${slug}'.`,
+      path: pageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+  return file
+}
+
+/** The catalog's contract for one behavior, or NOT_FOUND naming what it holds. */
+function requireBehavior(type: string, version: number | undefined): BehaviorMeta {
+  const known = [...new Set([...registry.values()].map((d) => d.meta.id))].sort()
+  const resolved = version ?? (known.includes(type) ? latestModuleVersion(type) : undefined)
+  const def = resolved === undefined ? undefined : registry.get(`${type}@${resolved}`)
+  if (!def) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message:
+        `No behavior '${type}'${version === undefined ? '' : ` v${version}`} in the catalog.`,
+      path: type,
+      hint: `The catalog holds: ${known.join(', ')}. A new behavior is built by a developer, not configured here.`,
+    })
+  }
+  return def.meta
+}
+
+/** Turn the behavior contract's violations into one refusal the caller can act on. */
+function assertBehaviorInstance(
+  meta: BehaviorMeta,
+  instance: { config: Record<string, unknown>; slots: Record<string, BehaviorSlotValue> },
+  pageId: string,
+): void {
+  const errors = validateBehaviorInstance(meta, instance)
+  if (errors.length === 0) return
+  throw new CommandError({
+    code: 'SCHEMA_INVALID',
+    message: `${meta.id}: ${errors.map((e) => `${e.field} — ${e.message}`).join('; ')}`,
+    path: `${pageId}/${errors[0].field}`,
+    hint: `Read the behavior's contract with '1c behavior list'.`,
+  })
+}
+
+/** The instances on a page, as a mutable list. */
+function moduleList(page: Record<string, unknown>): Record<string, unknown>[] {
+  return Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
+}
+
+/**
+ * The catalog, as a caller deciding what to instantiate needs to see it: what
+ * each behavior does behaviourally, what it must be configured with, and what
+ * presentation it expects. Read-only and site-independent — the catalog is the
+ * framework's, not a site's.
+ */
+export function editBehaviorList(): EditOutput {
+  const behaviors = [...registry.values()].map(({ meta }) => ({
+    type: meta.id,
+    version: meta.version,
+    config: Object.fromEntries(
+      Object.entries(meta.config).map(([name, spec]) => [
+        name,
+        {
+          type: spec.type,
+          required: spec.required,
+          ...(spec.values ? { values: [...spec.values] } : {}),
+          ...(spec.itemSchema
+            ? {
+                items: Object.fromEntries(
+                  Object.entries(spec.itemSchema).map(([n, s]) => [
+                    n,
+                    { type: s.type, required: s.required, ...(s.values ? { values: [...s.values] } : {}) },
+                  ]),
+                ),
+              }
+            : {}),
+        },
+      ]),
+    ),
+    slots: meta.slots,
+    // Only the controls an instance may bind. An invariant control is the
+    // module's own to paint (DOC-25 §10.3) and offering it would invite a caller
+    // to try — which the contract then refuses, for a reason that reads as a bug.
+    controls: Object.fromEntries(
+      Object.entries(meta.controls ?? {})
+        .filter(([, spec]) => !spec.invariant)
+        .map(([name, spec]) => [
+          name,
+          {
+            element: spec.element,
+            required: spec.required,
+            ...(spec.perItemOf ? { onePerItemOf: spec.perItemOf } : {}),
+            ...(spec.perSubtreeOf ? { onePerSubtreeOf: spec.perSubtreeOf } : {}),
+          },
+        ]),
+    ),
+    /** Whether L2 can supply a default look, i.e. whether `slots` is optional. */
+    hasDefaultPresentation: presetSlots(meta.id, {}) !== null,
+  }))
+  return {
+    data: { behaviors },
+    human: behaviors.map((b) => `${b.type}@${b.version}\t${Object.keys(b.slots).join(', ')}`).join('\n'),
+  }
+}
+
+export interface ModuleAddOptions extends GlobalOptions {
+  /** The catalog version to pin. Defaults to the catalog's current version. */
+  version?: number
+  /** The `slot` node in the page's L1 tree this instance mounts into. */
+  slot?: string
+  config?: Record<string, unknown>
+  /** L1 presentation per slot. Omitted, the L2 preset for this behavior is used. */
+  slots?: Record<string, BehaviorSlotValue>
+}
+
+/**
+ * Add a behavior instance to a page.
+ *
+ * `slots` may be omitted, and usually is: L2 holds a vetted default look for a
+ * behavior that has one, derived from this instance's own config
+ * (`presetSlots`). That is what makes instantiation a single call rather than a
+ * demand that the caller author a whole form's presentation before the form
+ * exists — and because the result is ordinary L1, `set_l1` refines it
+ * afterwards exactly as it refines anything else. A behavior with no preset says
+ * so, naming the slots it needs.
+ */
+export function editModuleAdd(
+  slug: string,
+  pageId: string,
+  moduleId: string,
+  type: string,
+  opts: ModuleAddOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const files = readPageFiles(ctx, slug)
+  const file = requirePageFile(files, slug, pageId)
+  const meta = requireBehavior(type, opts.version)
+
+  if (moduleList(file.page).some((m) => m.id === moduleId)) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `Page '${pageId}' already has a component called '${moduleId}'.`,
+      path: `${pageId}/${moduleId}`,
+      hint: 'Choose a different name, or configure the existing one.',
+    })
+  }
+
+  const config = opts.config ?? {}
+  const slots = opts.slots ?? presetSlots(meta.id, config)
+  if (!slots) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${meta.id}' has no default presentation, so its slots must be supplied: ${Object.keys(meta.slots).join(', ')}.`,
+      path: `${pageId}/${moduleId}`,
+      hint: 'Send an L1 subtree per slot.',
+    })
+  }
+  assertBehaviorInstance(meta, { config, slots }, pageId)
+
+  const instance: Record<string, unknown> = {
+    id: moduleId,
+    type: meta.id,
+    version: meta.version,
+    ...(opts.slot === undefined ? {} : { slot: opts.slot }),
+    config,
+    slots,
+  }
+  const page = { ...file.page, modules: [...moduleList(file.page), instance] }
+  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+
+  writeJson(file.abs, page)
+  return {
+    data: { module: { id: moduleId, type: meta.id, version: meta.version, slot: opts.slot } },
+    human: `Added ${meta.id} '${moduleId}' to page '${pageId}'${opts.slot ? ` at slot '${opts.slot}'` : ''}.`,
+  }
+}
+
+/**
+ * Change an instance's behavioural configuration.
+ *
+ * Merged, so naming one setting leaves the rest alone — the same rule
+ * {@link editConfigSet} follows and for the same reason. Presentation is not
+ * reachable here: a slot is L1 and `set_l1` owns L1.
+ */
+export function editModuleConfigure(
+  slug: string,
+  pageId: string,
+  moduleId: string,
+  config: Record<string, unknown>,
+  opts: GlobalOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const files = readPageFiles(ctx, slug)
+  const file = requirePageFile(files, slug, pageId)
+
+  const page = structuredClone(file.page)
+  const instance = moduleList(page).find((m) => m.id === moduleId)
+  if (!instance) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no component called '${moduleId}'.`,
+      path: `${pageId}/${moduleId}`,
+      hint: `Read the page's components with '1c page get ${slug} ${pageId}'.`,
+    })
+  }
+  const meta = requireBehavior(String(instance.type), Number(instance.version))
+  instance.config = mergeConfigValue(instance.config, config) as Record<string, unknown>
+  assertBehaviorInstance(
+    meta,
+    {
+      config: instance.config as Record<string, unknown>,
+      slots: (instance.slots ?? {}) as Record<string, BehaviorSlotValue>,
+    },
+    pageId,
+  )
+
+  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+
+  writeJson(file.abs, page)
+  return {
+    data: { module: { id: moduleId, type: instance.type }, config: instance.config },
+    human: `Configured '${moduleId}' on page '${pageId}'.`,
+  }
+}
+
+/** Remove an instance from a page. Its `slot` node in the L1 tree is left alone. */
+export function editModuleRm(
+  slug: string,
+  pageId: string,
+  moduleId: string,
+  opts: GlobalOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const files = readPageFiles(ctx, slug)
+  const file = requirePageFile(files, slug, pageId)
+
+  const existing = moduleList(file.page)
+  if (!existing.some((m) => m.id === moduleId)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no component called '${moduleId}'.`,
+      path: `${pageId}/${moduleId}`,
+    })
+  }
+  const page = { ...file.page, modules: existing.filter((m) => m.id !== moduleId) }
+  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+
+  writeJson(file.abs, page)
+  return {
+    data: { removed: moduleId },
+    human: `Removed '${moduleId}' from page '${pageId}'.`,
+  }
+}
+
 // ── config commands ──────────────────────────────────────────────────────────
 
 export function editConfigGet(slug: string, key: string | undefined, opts: GlobalOptions = {}): EditOutput {
@@ -808,18 +1141,50 @@ export function editConfigGet(slug: string, key: string | undefined, opts: Globa
   }
 }
 
-export function editConfigSet(slug: string, key: string, rawValue: string, opts: GlobalOptions = {}): EditOutput {
+/**
+ * Write settings (REQ-130).
+ *
+ * `value` is a **typed value, not a string**. It used to be a string that this
+ * function re-read as JSON, which worked for `1c config set` and was unusable
+ * from a tool surface: a declared `string` parameter tells a caller that a
+ * string is what a setting holds, so `palette`, `theme` and `nav.entries` — the
+ * three structured settings a real site actually carries — were unreachable,
+ * and the one shape that could carry them was an undeclared re-parse.
+ *
+ * `key` addresses the group to write in, and may be omitted to write at the top
+ * level. The value merges (see {@link mergeConfigValue}), so naming a group and
+ * sending the fields to change is safe.
+ *
+ * Nothing new is validated here and nothing needs to be: `validateOrThrow` runs
+ * `siteSchema` over the whole resulting definition, and the palette, theme and
+ * nav shapes are already described there. The gap was never the validator.
+ */
+export function editConfigSet(
+  slug: string,
+  key: string | undefined,
+  value: unknown,
+  opts: GlobalOptions = {},
+): EditOutput {
   const ctx = ctxOf(opts)
   const base = readBase(ctx, slug)
-  const value = parseValue(rawValue)
-  const newBase = setDotted(base, key, value)
+  const scoped = key === undefined || key === ''
+  const merged = mergeConfigValue(scoped ? base : getDotted(base, key), value)
+  if (scoped && !isMapping(merged)) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: 'Writing the top-level settings needs an object of settings to write.',
+      hint: 'Name a key to write a single setting, e.g. key "config" with { "businessName": "…" }.',
+    })
+  }
+  const newBase = scoped ? (merged as Record<string, unknown>) : setDotted(base, key, merged)
   const files = readPageFiles(ctx, slug)
   validateOrThrow(newBase, files.map((f) => f.page))
 
   writeJson(siteJsonPath(ctx, slug), newBase)
+  const where = scoped ? '(top level)' : key
   return {
-    data: { key, value },
-    human: `Set ${key} = ${typeof value === 'string' ? value : JSON.stringify(value)}`,
+    data: { key: scoped ? null : key, value: merged },
+    human: `Set ${where} = ${typeof merged === 'string' ? merged : JSON.stringify(merged)}`,
   }
 }
 
@@ -1007,6 +1372,106 @@ export function editAssetAdd(slug: string, file: string, opts: AssetAddOptions =
   copyFileSync(file, destAbs)
   writeJson(siteJsonPath(ctx, slug), newBase)
   return { data: { asset: newAsset }, human: `Added asset '${name}'.` }
+}
+
+// ── generated assets (REQ-130) ───────────────────────────────────────────────
+//
+// `editAssetAdd` above copies a file the operator already has. This writes bytes
+// a caller COMPOSED, and that is a different kind of thing: every other asset on
+// this surface was vouched for by a human placing it on their own machine, which
+// is the whole reason an extension check was ever enough.
+//
+// It is deliberately NOT a file-write primitive that happens to be pointed at
+// `draft/assets/`. Three separate narrowings, each of which has to hold:
+//
+//   1. the NAME is generated from the caller's word, never taken from it — one
+//      path segment, one extension, no separator and no traversal to reject
+//      because there is nothing to reject;
+//   2. the FORMAT is text and there is one of it. A model cannot produce a
+//      `.woff2`, and a channel that looked as though it could is a channel
+//      someone will eventually try to use as one (fonts are REQ-101's, with
+//      provenance attached, and that is where they stay);
+//   3. the CONTENT passes `validateSvg` — a closed grammar, not an extension
+//      check. An SVG is a document the browser executes, served same-origin from
+//      the site's own `/assets/`, so the renderer's URL-scheme allowlist neither
+//      applies nor helps. Without a content validator this operation is a
+//      stored-XSS sink, which is why the ticket says it ships with one or does
+//      not ship.
+
+/** The one generated format, and the extension it is written under. */
+const GENERATED_EXTENSION = '.svg'
+
+/** A name we are prepared to generate a filename from: one plain word. */
+const GENERATED_NAME = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
+
+export interface AssetWriteOptions extends GlobalOptions {
+  /** Replace the bytes of an asset of this name that already exists. */
+  force?: boolean
+  /** Alt text recorded in the registry. */
+  alt?: string
+}
+
+export function editAssetWrite(
+  slug: string,
+  name: string,
+  content: string,
+  opts: AssetWriteOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+
+  const stem = name.toLowerCase().replace(new RegExp(`\\${GENERATED_EXTENSION}$`), '')
+  if (!GENERATED_NAME.test(stem)) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${name}' is not a name an image can be written under.`,
+      path: name,
+      hint: 'Use lowercase letters, digits and hyphens — one word, no folders, e.g. "wordmark".',
+    })
+  }
+  const filename = `${stem}${GENERATED_EXTENSION}`
+
+  const svg = validateSvg(content)
+  if (!svg.ok) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `The image was refused: ${svg.errors.map((e) => `${e.path}: ${e.message}`).join('; ')}`,
+      path: filename,
+      hint: `A generated image is drawing only — shapes, paths, gradients and text. It may carry no script, no event handler, no stylesheet and no reference to anywhere else, and must be under ${SVG_MAX_BYTES} bytes.`,
+    })
+  }
+
+  const assets = assetRegistry(base)
+  const registered = assets.find((a) => a.id === filename)
+  const destAbs = path.join(assetsDirOf(ctx, slug), filename)
+  if ((registered || pathExists(destAbs)) && opts.force !== true) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `Site '${slug}' already has an image called '${filename}'.`,
+      path: filename,
+      hint: 'Choose a different name, or pass force to replace what is there.',
+    })
+  }
+
+  const entry: Record<string, unknown> = {
+    id: filename,
+    src: filename,
+    alt: opts.alt ?? registered?.alt ?? '',
+  }
+  const newBase = {
+    ...base,
+    assets: [...assets.filter((a) => a.id !== filename), entry],
+  }
+  // The registry is validated before a byte hits disk, as everywhere else here.
+  validateOrThrow(newBase, readPageFiles(ctx, slug).map((f) => f.page))
+
+  ensureDir(assetsDirOf(ctx, slug))
+  writeFileSync(destAbs, content, 'utf8')
+  writeJson(siteJsonPath(ctx, slug), newBase)
+  return {
+    data: { asset: { ...entry, src: `/assets/${filename}` } },
+    human: `${registered ? 'Replaced' : 'Wrote'} image '${filename}' (${Buffer.byteLength(content, 'utf8')} bytes).`,
+  }
 }
 
 export interface AssetRmOptions extends GlobalOptions {

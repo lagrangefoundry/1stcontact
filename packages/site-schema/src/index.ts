@@ -17,3 +17,7 @@ export * from './l1'
 
 // Font provenance registry (REQ-101) — the licence index over every font file.
 export * from './fonts'
+
+// Generated-asset content validation (REQ-130) — the closed grammar an SVG the
+// assistant composed must satisfy before its bytes reach the site.
+export * from './svg'

@@ -15,10 +15,15 @@ import {
   editAssetGet,
   editAssetList,
   editAssetRm,
+  editAssetWrite,
+  editBehaviorList,
   editCopyGet,
   editCopySet,
   editConfigGet,
   editConfigSet,
+  editModuleAdd,
+  editModuleConfigure,
+  editModuleRm,
   editPageAdd,
   editPageGet,
   editPageList,
@@ -26,6 +31,7 @@ import {
   editPageUpdate,
   editStatus,
   cmdApplyGapFixes,
+  parseConfigValue,
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
@@ -314,15 +320,29 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
   1c page list <slug>
   1c page get <slug> <pageId>
-  1c page add <slug> <pageId> [--title <t>] [--path <p>]
-  1c page update <slug> <pageId> [--title <t>] [--path <p>]
+  1c page add <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>]
+  1c page update <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>]
   1c page rm <slug> <pageId> [--force]
   1c config get <slug> [<key>]
   1c config set <slug> <key> <value>
+    <value> is JSON when it parses as JSON, else the literal string. An object MERGES into
+    what is at <key>, so naming one setting leaves its siblings alone (REQ-130).
   1c asset list <slug>
   1c asset get <slug> <assetName>
   1c asset add <slug> <file> [--as <name>]
+  1c asset write <slug> <name> --content <svg> [--alt <t>] [--force]
+    Write a GENERATED image. SVG only, and its contents are validated against a closed
+    grammar (no script, no event handler, no stylesheet, no external reference) — an
+    extension check is not enough once the bytes are composed rather than vouched for.
   1c asset rm <slug> <assetName> [--force]
+
+Behavior modules (REQ-130) — instantiating a vetted behaviour, never authoring one:
+  1c behavior list
+  1c module add <slug> <pageId> <moduleId> <type> [--slot <name>] [--config <json>] [--slots <json>]
+    --slots is optional where L2 holds a default look for the behaviour; the result is
+    ordinary L1, refined afterwards with 1c copy set or the AI surface's set_l1.
+  1c module set <slug> <pageId> <moduleId> --config <json>
+  1c module rm <slug> <pageId> <moduleId>
 
 The page editor's write path (REQ-117) — the same surface, same validator:
   1c copy get <slug> <pageId> <path> [--module <id> --slot <name>]
@@ -1075,6 +1095,8 @@ export async function run(argv: string[]): Promise<void> {
     case 'page':
     case 'config':
     case 'asset':
+    case 'module':
+    case 'behavior':
     case 'status': {
       const json = flags.json === true
       try {
@@ -1105,15 +1127,68 @@ function dispatchEdit(
   }
   const force = flags.force === true
 
+  /** A flag whose value is a JSON document (a settings object, an L1 subtree). */
+  const jsonFlag = (name: string): Record<string, unknown> | undefined => {
+    const raw = str(name)
+    if (raw === undefined) return undefined
+    const parsed = parseConfigValue(raw)
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new CommandError({
+        code: 'SCHEMA_INVALID',
+        message: `--${name} must be a JSON object.`,
+        path: name,
+      })
+    }
+    return parsed as Record<string, unknown>
+  }
+
   if (command === 'status') {
     return editStatus(requireArg(rest[0], 'slug'), global)
+  }
+
+  // The catalog is the framework's, not a site's, so it takes no slug.
+  if (command === 'behavior') {
+    if (rest[0] !== undefined && rest[0] !== 'list') throw unknownSub('behavior', rest[0])
+    return editBehaviorList()
   }
 
   const sub = rest[0]
   const slug = requireArg(rest[1], 'slug')
 
+  if (command === 'module') {
+    const pageId = requireArg(rest[2], 'pageId')
+    switch (sub) {
+      case 'add':
+        return editModuleAdd(slug, pageId, requireArg(rest[3], 'moduleId'), requireArg(rest[4], 'type'), {
+          ...global,
+          version: str('version') === undefined ? undefined : Number(str('version')),
+          slot: str('slot'),
+          config: jsonFlag('config'),
+          slots: jsonFlag('slots') as Record<string, never> | undefined,
+        })
+      case 'set':
+        return editModuleConfigure(
+          slug,
+          pageId,
+          requireArg(rest[3], 'moduleId'),
+          jsonFlag('config') ??
+            (() => {
+              throw new CommandError({
+                code: 'SCHEMA_INVALID',
+                message: 'module set requires --config <json>.',
+              })
+            })(),
+          global,
+        )
+      case 'rm':
+        return editModuleRm(slug, pageId, requireArg(rest[3], 'moduleId'), global)
+      default:
+        throw unknownSub('module', sub)
+    }
+  }
+
   if (command === 'page') {
-    const writeOpts = { ...global, title: str('title'), path: str('path') }
+    const writeOpts = { ...global, title: str('title'), path: str('path'), seoMeta: jsonFlag('seo') }
     switch (sub) {
       case 'list':
         return editPageList(slug, global)
@@ -1135,7 +1210,14 @@ function dispatchEdit(
       case 'get':
         return editConfigGet(slug, rest[2], global)
       case 'set':
-        return editConfigSet(slug, requireArg(rest[2], 'key'), requireArg(rest[3], 'value'), global)
+        // argv is the one place a value genuinely arrives as text, so it is the
+        // one place the JSON re-read belongs (see `parseConfigValue`).
+        return editConfigSet(
+          slug,
+          requireArg(rest[2], 'key'),
+          parseConfigValue(requireArg(rest[3], 'value')),
+          global,
+        )
       default:
         throw unknownSub('config', sub)
     }
@@ -1149,6 +1231,13 @@ function dispatchEdit(
       return editAssetGet(slug, requireArg(rest[2], 'assetName'), global)
     case 'add':
       return editAssetAdd(slug, requireArg(rest[2], 'file'), { ...global, as: str('as') })
+    case 'write':
+      return editAssetWrite(
+        slug,
+        requireArg(rest[2], 'name'),
+        requireArg(str('content'), 'content'),
+        { ...global, force, alt: str('alt') },
+      )
     case 'rm':
       return editAssetRm(slug, requireArg(rest[2], 'assetName'), { ...global, force })
     default:

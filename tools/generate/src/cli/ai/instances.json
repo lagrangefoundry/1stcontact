@@ -1,7 +1,14 @@
 {
   "caretaker": {
     "l1": {
-      "groups": ["ReadSite", "AuthorPages", "ManagePages", "WriteConfig"]
+      "groups": [
+        "ReadSite",
+        "AuthorPages",
+        "ManagePages",
+        "ManageComponents",
+        "WriteConfig",
+        "DrawImages"
+      ]
     }
   }
 }

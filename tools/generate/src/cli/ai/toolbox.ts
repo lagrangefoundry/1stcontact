@@ -38,10 +38,15 @@ import {
   editAssetGet,
   editAssetList,
   editAssetRm,
+  editAssetWrite,
+  editBehaviorList,
   editConfigGet,
   editConfigSet,
   editL1Get,
   editL1Set,
+  editModuleAdd,
+  editModuleConfigure,
+  editModuleRm,
   editPageAdd,
   editPageGet,
   editPageList,
@@ -209,6 +214,9 @@ export function pageSegments(page: Record<string, unknown>): Segment[] {
 type Params = Record<string, unknown>
 const req = (p: Params, name: string): string => p[name] as string
 const opt = (p: Params, name: string): string | undefined => p[name] as string | undefined
+/** A declared `object` parameter, which the Toolbox has already shape-checked. */
+const obj = (p: Params, name: string): Record<string, unknown> | undefined =>
+  p[name] as Record<string, unknown> | undefined
 
 /** The component/slot scope an address is resolved in, read off the arguments. */
 function scopeOf(p: Params, opts: GlobalOptions): CopyTargetOptions {
@@ -242,11 +250,24 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       const page = (
         editPageGet(slug, req(p, 'page'), opts).data as { page: Record<string, unknown> }
       ).page
+      const modules = Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
       return {
-        page: { id: page.id, slug: page.slug, title: page.title },
+        page: { id: page.id, slug: page.slug, title: page.title, seoMeta: page.seoMeta ?? null },
+        // REQ-130 — the instances themselves, not only the addresses inside their
+        // slots. A caller that can add and configure a component needs to see the
+        // ones already there, and its config is what it would be changing.
+        components: modules.map((m) => ({
+          id: m.id,
+          type: m.type,
+          version: m.version,
+          slot: m.slot ?? null,
+          config: m.config ?? {},
+        })),
         segments: pageSegments(page),
       }
     },
+
+    list_behaviors: () => editBehaviorList().data,
 
     get_l1: (p) => editL1Get(slug, req(p, 'page'), req(p, 'path'), scopeOf(p, opts)).data,
 
@@ -268,6 +289,7 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
         ...opts,
         title: opt(p, 'title'),
         path: opt(p, 'path'),
+        seoMeta: obj(p, 'seo'),
       })
       return { changed: out.data, message: out.human }
     },
@@ -277,7 +299,34 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
         ...opts,
         title: opt(p, 'title'),
         path: opt(p, 'path'),
+        seoMeta: obj(p, 'seo'),
       })
+      return { changed: out.data, message: out.human }
+    },
+
+    add_component: (p) => {
+      const out = editModuleAdd(slug, req(p, 'page'), req(p, 'name'), req(p, 'behavior'), {
+        ...opts,
+        slot: opt(p, 'slot'),
+        config: obj(p, 'config'),
+        slots: obj(p, 'presentation') as never,
+      })
+      return { changed: out.data, message: out.human }
+    },
+
+    configure_component: (p) => {
+      const out = editModuleConfigure(
+        slug,
+        req(p, 'page'),
+        req(p, 'name'),
+        obj(p, 'config') ?? {},
+        opts,
+      )
+      return { changed: out.data, message: out.human }
+    },
+
+    remove_component: (p) => {
+      const out = editModuleRm(slug, req(p, 'page'), req(p, 'name'), opts)
       return { changed: out.data, message: out.human }
     },
 
@@ -287,11 +336,18 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
     },
 
     set_config: (p) => {
-      const out = editConfigSet(slug, req(p, 'key'), req(p, 'value'), opts)
+      const out = editConfigSet(slug, opt(p, 'key'), obj(p, 'settings'), opts)
       return { changed: out.data, message: out.human }
     },
 
     add_asset: (p) => editAssetAdd(slug, req(p, 'file'), { ...opts, as: opt(p, 'as') }).data,
+
+    write_image: (p) =>
+      editAssetWrite(slug, req(p, 'name'), req(p, 'svg'), {
+        ...opts,
+        alt: opt(p, 'alt'),
+        force: p.replace === true,
+      }).data,
 
     remove_asset: (p) => {
       const out = editAssetRm(slug, req(p, 'asset'), { ...opts, force: p.force === true })

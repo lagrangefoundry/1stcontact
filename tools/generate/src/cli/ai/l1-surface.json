@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 2,
+  "surface_version": 3,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -22,6 +22,18 @@
     "asset_id": {
       "base": "string",
       "description": "The registered name of an image or font already in the site."
+    },
+    "behavior_id": {
+      "base": "string",
+      "description": "The kind of component, from the list of the ones this site can use. There is no way to invent one — a new kind of component is built and vetted by a developer, never configured here."
+    },
+    "component_name": {
+      "base": "string",
+      "description": "What one component on a page is called — short, lowercase, no spaces. You choose it when you add the component, and it is how you refer to it afterwards."
+    },
+    "image_name": {
+      "base": "string",
+      "description": "A name for a drawing you have made: one word, lowercase letters, digits and hyphens. Not a filename and not a path — the site works out where it goes."
     }
   },
 
@@ -35,8 +47,15 @@
       "pages": "every page: `id`, `slug` (its address in the site), and `title`"
     },
     "page_map": {
-      "page": "the page's id, its address in the site, and its title",
+      "page": "the page's id, its address in the site, its title, and its search-and-share wording",
+      "components": "the components already on this page: what each is called, what kind it is, which seam it sits in, and how it is currently set up",
       "segments": "every element on the page, in the order it appears — each with the address a read or a write takes, the kind of thing it is, a short label to recognise it by, and the component instance and slot it sits in when it is inside one"
+    },
+    "behavior_list": {
+      "behaviors": "every kind of component this site can use: what it is called, what it must be set up with (and what each setting accepts), the seams inside it you can decorate, and whether it comes with a look of its own"
+    },
+    "image": {
+      "asset": "the drawing as the site now holds it — the name to reference it by, and its description"
     },
     "element": {
       "target": "the page, address and component scope this element was read from",
@@ -115,7 +134,7 @@
       "tool": "describe_page",
       "effect": "read",
       "summary": "Map one page: every element on it, with its address and a short label.",
-      "description": "Where addresses come from, and the cheap way to see a page's shape. Asking for `page: \"home\"` returns every element on the home page in order — the boxes and rows as well as the words and pictures inside them — each carrying the address that reaches it, and, when it sits inside a component, the `module` and `slot` that address is scoped to. A label is only enough to recognise something by; use `get_l1` to see what an element actually holds. Hand an entry's address straight back rather than composing one yourself.",
+      "description": "Where addresses come from, and the cheap way to see a page's shape. Asking for `page: \"home\"` returns every element on the home page in order — the boxes and rows as well as the words and pictures inside them — each carrying the address that reaches it, and, when it sits inside a component, the `module` and `slot` that address is scoped to. A label is only enough to recognise something by; use `get_l1` to see what an element actually holds. Hand an entry's address straight back rather than composing one yourself.\n\nIt also lists the components already on the page and how each is set up, so this is where you look before changing or removing one.",
       "params": {
         "page": { "type": "page_id", "required": true }
       },
@@ -171,6 +190,15 @@
       "errors": ["NOT_FOUND"]
     },
     {
+      "op": "list_behaviors",
+      "tool": "list_behaviors",
+      "effect": "read",
+      "summary": "List the kinds of component this site can use, and how each is set up.",
+      "description": "A component is a piece of working behaviour — a form that captures enquiries, a carousel that scrolls. This is the whole set, and it is closed: there is no way to make a new kind, because a new kind is written and vetted by a developer. If what the user wants is not here, say so plainly and describe what would be needed.\n\nRead this before adding a component: it tells you what each one must be set up with and what those settings accept, so the first attempt is the one that works.",
+      "returns": { "shape": "behavior_list" },
+      "errors": []
+    },
+    {
       "op": "status",
       "tool": "status",
       "effect": "read",
@@ -219,6 +247,10 @@
         "path": {
           "type": "string",
           "description": "Its address in the site. Defaults to the page id."
+        },
+        "seo": {
+          "type": "object",
+          "description": "How the page describes itself to a search engine or a shared link: `title` and `description`, and optionally `ogImage`. Not the same as the page's own title, and worth offering — nothing else writes it."
         }
       },
       "returns": { "shape": "change" },
@@ -228,14 +260,72 @@
       "op": "update_page",
       "tool": "update_page",
       "effect": "write",
-      "summary": "Change a page's title or its address in the site.",
+      "summary": "Change a page's title, its address in the site, or how it describes itself to a search engine.",
       "params": {
         "page": { "type": "page_id", "required": true },
         "title": { "type": "string", "description": "The new title." },
-        "path": { "type": "string", "description": "The new address in the site." }
+        "path": { "type": "string", "description": "The new address in the site." },
+        "seo": {
+          "type": "object",
+          "description": "`title`, `description`, and optionally `ogImage`. Only what you name changes — leaving out the title does not clear it."
+        }
       },
       "returns": { "shape": "change" },
       "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "add_component",
+      "tool": "add_component",
+      "effect": "write",
+      "summary": "Put a component — a form, a carousel — on a page.",
+      "description": "Read `list_behaviors` first: it says what the component must be set up with. Then give it a name of your own choosing, the kind, and its settings.\n\nA component mounts at a **seam** in the page — an element the page map shows as a `slot`. Name that seam in `slot`. If the page has no seam for it, put one there first with `set_l1` and re-read the map.\n\nYou do not have to design it. Where a component comes with a look of its own (`list_behaviors` says which do) that look is used, laid out from the settings you gave — so a form you asked for with three fields arrives with three fields. It is then ordinary page content: read it with `get_l1` and change it with `set_l1` like anything else.",
+      "params": {
+        "page": { "type": "page_id", "required": true },
+        "name": { "type": "component_name", "required": true },
+        "behavior": { "type": "behavior_id", "required": true },
+        "slot": {
+          "type": "string",
+          "description": "The seam on the page it mounts into, as the page map names it."
+        },
+        "config": {
+          "type": "object",
+          "required": true,
+          "description": "How the component is set up, in the fields `list_behaviors` declares for it."
+        },
+        "presentation": {
+          "type": "object",
+          "description": "A decorated element per seam inside the component, if you want to design it yourself instead of taking the look it comes with. Required for a component that has no look of its own."
+        }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "configure_component",
+      "tool": "configure_component",
+      "effect": "write",
+      "summary": "Change how a component on a page is set up.",
+      "description": "Only the settings you name change; the rest are left alone. This is the working half of a component — where a form sends its enquiries, what its fields are, what its button says. How it *looks* is page content, so that is `set_l1`.",
+      "params": {
+        "page": { "type": "page_id", "required": true },
+        "name": { "type": "component_name", "required": true },
+        "config": { "type": "object", "required": true, "description": "The settings to change." }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "remove_component",
+      "tool": "remove_component",
+      "effect": "write",
+      "summary": "Take a component off a page.",
+      "description": "The seam it was mounted at stays where it is, empty, so another component can go there. Remove the seam itself with `set_l1` if nothing should.",
+      "params": {
+        "page": { "type": "page_id", "required": true },
+        "name": { "type": "component_name", "required": true }
+      },
+      "returns": { "shape": "change" },
+      "errors": ["NOT_FOUND"]
     },
     {
       "op": "remove_page",
@@ -252,10 +342,18 @@
       "op": "set_config",
       "tool": "set_config",
       "effect": "write",
-      "summary": "Change one of the site's settings.",
+      "summary": "Change the site's settings — one of them, or a whole group at once.",
+      "description": "Name the group you are writing in and give an object of the settings to write in it. **Anything you do not name is left exactly as it was**, at every depth — so changing one colour in a palette does not require resending the palette, and cannot silently drop the rest of it.\n\nThat is what lets a whole group be written in one go: a colour palette, the type and spacing settings, the navigation and its entries. Read the group first — `describe_site` returns all of them — so you are amending what is there rather than guessing at its shape.\n\nOmit the group entirely to write at the top level.",
       "params": {
-        "key": { "type": "config_key", "required": true },
-        "value": { "type": "string", "required": true, "description": "The new value." }
+        "key": {
+          "type": "config_key",
+          "description": "The group to write in, e.g. `palette` or `theme.typography`. Omit it to write top-level settings."
+        },
+        "settings": {
+          "type": "object",
+          "required": true,
+          "description": "The settings to write in that group. Only what you name changes."
+        }
       },
       "returns": { "shape": "change" },
       "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
@@ -278,6 +376,31 @@
         }
       },
       "returns": { "shape": "asset" },
+      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "write_image",
+      "tool": "write_image",
+      "effect": "write",
+      "summary": "Draw an image yourself and put it in the site.",
+      "description": "For a mark, an icon, a divider, a diagram — a drawing you compose rather than a picture someone took. It is written as SVG, and once written it is an ordinary image in the site's list, referenced from a picture element like any other.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is written, and the refusal says which one. This is not a formality: the drawing is served from the site's own address, so anything executable in it would run as the site.\n\nThis is not a way to make a photograph, and it is not a way to put a file into the site — for either of those, tell the user what you need and let them add it.",
+      "params": {
+        "name": { "type": "image_name", "required": true },
+        "svg": {
+          "type": "string",
+          "required": true,
+          "description": "The drawing itself, as a complete `<svg>` document."
+        },
+        "alt": {
+          "type": "string",
+          "description": "What the drawing shows, for someone who cannot see it."
+        },
+        "replace": {
+          "type": "boolean",
+          "description": "Redraw an image of this name that already exists. Without it, a name already in use is refused."
+        }
+      },
+      "returns": { "shape": "image" },
       "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -326,6 +449,7 @@
         "list_assets",
         "get_asset",
         "get_config",
+        "list_behaviors",
         "status"
       ]
     },
@@ -343,6 +467,13 @@
       "operations": ["add_page", "update_page", "remove_page"]
     },
     {
+      "group": "ManageComponents",
+      "effect": "write",
+      "title": "Putting components on a page",
+      "description": "Add, set up and remove the working parts of a page — a form, a carousel. You choose from the kinds the site already has; making a new kind is a developer's job.",
+      "operations": ["add_component", "configure_component", "remove_component"]
+    },
+    {
       "group": "WriteConfig",
       "effect": "write",
       "title": "Changing the site's settings",
@@ -354,6 +485,13 @@
       "title": "Managing images and fonts",
       "description": "Register a new image or font from a file on the operator's machine, or remove one.",
       "operations": ["add_asset", "remove_asset"]
+    },
+    {
+      "group": "DrawImages",
+      "effect": "write",
+      "title": "Drawing images",
+      "description": "Composing an image yourself and putting it in the site. Its own capability, and deliberately separate from managing the images that are already there: every other image in a site was chosen by a person, and this is the one that was not.",
+      "operations": ["write_image"]
     },
     {
       "group": "Publish",
@@ -376,6 +514,21 @@
       "note": "Read the group it belongs in, put the new element among its children — or leave the unwanted one out — and write that group back. There is no separate way to insert or delete."
     },
     {
+      "name": "Put a component on a page",
+      "steps": ["list_behaviors", "describe_page", "add_component"],
+      "note": "The catalog says what the component needs to be set up with; the page map says what it can mount into. If the page has no seam for it, add one with `set_l1` and read the map again."
+    },
+    {
+      "name": "Change a group of settings",
+      "steps": ["describe_site", "set_config"],
+      "note": "Read the group before you write in it. You are amending what is there, so knowing its shape is what stops you inventing a field name the site does not have."
+    },
+    {
+      "name": "Draw an image and use it",
+      "steps": ["write_image", "describe_page", "set_l1"],
+      "note": "Writing the drawing only puts it in the site's images. Reference it from a picture element for it to appear on a page — `list_assets` shows the name to use."
+    },
+    {
       "name": "Publish deliberately",
       "steps": ["status", "publish"],
       "note": "Say what would become public, get agreement, then publish."
@@ -392,8 +545,16 @@
       "note": "Not possible, and not an oversight — a change is bounded by the address it names. Replace the outermost element you actually mean to change; replacing more than that rewrites regions you never looked at."
     },
     {
-      "name": "Uploading a new image",
-      "note": "An image has to be a file on the machine running the builder, so you cannot take one from a conversation. Offer the user the images already in the site's asset list, and tell them uploading is done outside the chat."
+      "name": "Uploading a picture, or any file",
+      "note": "You can DRAW an image — see `write_image` — but you cannot take a file from a conversation and put it in the site. A photograph, a logo someone sends you, a font: each has to be a file on the machine running the builder. Offer the user the images already in the site's list, and tell them adding a file is done outside the chat."
+    },
+    {
+      "name": "Making a new kind of component",
+      "note": "The set of components is closed, and `list_behaviors` is all of it. A component is working code that has been written, reviewed and tested, so a new one is built by a developer — never configured into existence here. If a user needs behaviour that is not in the list, say so plainly and describe what it would do; that description is what gets it built."
+    },
+    {
+      "name": "Changing how a component behaves",
+      "note": "Beyond the settings it declares, no. A form's fields and where it sends them are settings; how it validates, what it does on submit, and the code it runs are the component's own and are not adjustable. What you CAN change freely is how it looks, because that is ordinary page content."
     },
     {
       "name": "Undoing a change",

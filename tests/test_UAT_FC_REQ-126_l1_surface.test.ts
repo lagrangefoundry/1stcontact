@@ -432,15 +432,24 @@ describe('REQ-126 — the surface documents itself', () => {
       .filter((o) => o.effect === 'write')
       .map((o) => o.tool)
       .sort()
+    //
+    // REQ-130 added four, and this list is the reason that was a deliberate act
+    // rather than a diff nobody read: `write_image` in particular is the first
+    // operation whose bytes the model composes, and it is in `DrawImages` so it
+    // can be withheld on its own.
     expect(writes).toEqual([
       'add_asset',
+      'add_component',
       'add_page',
+      'configure_component',
       'publish',
       'remove_asset',
+      'remove_component',
       'remove_page',
       'set_config',
       'set_l1',
       'update_page',
+      'write_image',
     ])
   })
 })
