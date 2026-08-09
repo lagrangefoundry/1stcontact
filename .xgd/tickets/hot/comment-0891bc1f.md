@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T23:26:45.491744+00:00'
+updated_at: '2026-08-09T23:27:33.629496+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1018,5 +1018,73 @@ Current state: REQ-127 `free_coded` at `7347d224e`; REQ-129 and REQ-130 in draft
 <!-- xgd-chat role="user" ts="2026-08-09T23:26:45.226177+00:00" -->
 #### You
 I don't know what svg is can you help me understand?
+
+<!-- xgd-turn id="addf45ad-95bb-4fce-9ea8-6515ff5f4216-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T23:27:33.497105+00:00" -->
+#### Claude
+Sure. And the best example is one of your own — let me open it.
+
+Happy to. And your own site is the perfect example.
+
+## What SVG is
+
+**SVG = Scalable Vector Graphics.** It's an image stored as *drawing instructions* rather than as a picture.
+
+Two ways to store an image:
+
+| | how it works | example |
+|---|---|---|
+| **PNG / JPG** | a grid of coloured dots — a photograph of a drawing | a photo, a screenshot |
+| **SVG** | instructions: *"draw a line from here to there"* — the recipe for the drawing | logos, diagrams, icons |
+
+Here's the top of your own wireframe mark, `xgd-grid-mark.svg`:
+
+```svg
+<svg viewBox="0 0 392 200">
+  <g stroke="#1F2937" stroke-width="0.9">
+    <path d="M 0.00 0.00 L 0.00 3.14 L 0.00 6.27 L 0.00 9.41 ..."
+```
+
+Read it out loud and it's just: *"on a canvas 392 wide by 200 tall, using dark grey lines 0.9 thick — **M**ove to point (0,0), draw a **L**ine to (0, 3.14), then to (0, 6.27)…"*
+
+That's the whole idea. 160 `<path>` elements across your four files, each one a run of coordinates. That's your grid mark.
+
+**"Scalable"** is the payoff: because it's maths rather than dots, it's perfectly crisp at any size — favicon or billboard, same file, no blurring.
+
+## Why this matters for the ticket
+
+**SVG is text.** You can open it in a text editor. That's precisely why Claude could *make* your mark — the commit `site(xgd): rebuild the wireframe mark as parametric SVG` means Claude computed those coordinates and wrote them out. It didn't draw a picture; it wrote a recipe.
+
+A `.woff2` font or a `.png` photo is compiled binary — Claude can't produce one, which is why REQ-130 restricts asset creation to text.
+
+## And the catch
+
+Here's the part that put the ⚠️ in the ticket.
+
+An SVG isn't *only* drawing instructions. Browsers treat it as a small **document** — closer to a web page than to a photo — and a web page can contain code:
+
+```svg
+<svg>
+  <script>  ...anything at all...  </script>
+</svg>
+```
+
+A PNG can never do that; it's just dots. An SVG can, because it's a mini web page that happens to look like a picture.
+
+So "let the assistant create an SVG" is not really "let it draw something." It's **"let it write a small web page that gets embedded in your live site."** That's a much bigger thing to hand over, and it's why the ticket insists on inspecting the *contents* rather than just checking the filename ends in `.svg`.
+
+## The good news, from your own files
+
+I checked all four of your SVGs:
+
+- **Zero** occurrences of `<script>`, `onload=`, `onclick=`, `foreignObject`, or external references.
+- They use exactly **8** element types: `path`, `stop`, `svg`, `g`, `rect`, `mask`, `linearGradient`, `defs`.
+
+All eight are pure drawing. None can execute anything.
+
+That's genuinely encouraging for the decision in REQ-130: the "allowlist" it calls for — the list of things a generated SVG is permitted to contain — is small, and your real site demonstrates it's sufficient. Allow those eight or so drawing elements, reject everything else, and the assistant can make marks like yours without being able to write code into your site.
+
+So the safe version isn't hypothetical. Your existing assets are the proof it's achievable.
 
 <!-- xgd-chat-end -->
