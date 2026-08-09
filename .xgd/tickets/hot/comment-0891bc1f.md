@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:24:41.801223+00:00'
+updated_at: '2026-08-09T22:25:54.048078+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -350,5 +350,62 @@ So the state now: REQ-127 is `free_coded` at `7347d224e`, 44/44 green across the
 <!-- xgd-chat role="user" ts="2026-08-09T22:24:41.613980+00:00" -->
 #### You
 ok good - now what can I ask it to change that will prove that the new L1 tool is available?
+
+<!-- xgd-turn id="541b3df7-2b1d-43f1-831b-479083912f04-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T22:25:53.899741+00:00" -->
+#### Claude
+Let me look at your actual site so I can give you exact things to ask.
+
+The audit log already has entries, timestamped **after** my commit — let me look:
+
+It's already proven — you beat me to it. Your `storage/chat/audit.jsonl` has two entries from 15:23:
+
+```
+describe_site   effect=read  decision=allow  ok=True  params={}
+describe_page   effect=read  decision=allow  ok=True  params={"page": "home"}
+```
+
+That file is itself the proof the new path is live — nothing recorded tool calls before REQ-126, so its existence means calls are going through the declared surface, being policy-checked, and being audited.
+
+**And look at `params` — there's no slug in either call.** `describe_page` was invoked with `{"page": "home"}` and nothing else, yet it read *gigabytealchemy*. That's REQ-127 working: the site came from the session, not from the request. It's the sharpest evidence available for this specific ticket.
+
+## To prove a write, ask for this
+
+Those two are reads. Here's the one to ask, and it does double duty:
+
+> **"The line under the name says 'Unintentional Software' — it should say 'Intentional Software'."**
+
+That's the stray edit I flagged earlier, sitting at address `0.16` in your home page. Asking for it exercises the full loop — map the page, resolve the address, write through `edit.ts` — *and* repairs the drift. Verify with:
+
+```
+git diff storage/sites/gigabytealchemy/draft/pages/home.json
+```
+
+## A ladder that proves each distinct property
+
+| Ask | What it proves |
+|---|---|
+| *"Add a Contact page"* | `ManagePages` is granted — `add_page` allowed |
+| *"Set the business tagline to 'Software with intent'"* | `WriteConfig` — your `config.tagline` is currently `""` |
+| *"Change the headline on the About page"* | **refusal correctability** — there's only `home`, so you get `NOT_FOUND` and it should self-correct within the turn rather than ask you |
+| *"Publish the site"* | **the grant is narrower than the API** — `publish` is declared but not granted, so it isn't in the manual. It should say it can't publish, without attempting a tool |
+| *"Upload a new logo"* | same — asset ops are documented and validated but withheld from chat |
+| *"Make that heading red using CSS"* | **enforcement by absence** — no tool accepts CSS, so it can't route around it |
+
+The last three are the interesting ones. A model that *tries and fails* would mean the grant leaked; a model that declines cleanly and offers what it can do means `instances.json` is doing its job.
+
+## Watch it happen
+
+```
+tail -f storage/chat/audit.jsonl | python3 -c "
+import sys,json
+for l in sys.stdin:
+    r=json.loads(l)
+    print(r['operation'], r['effect'], r['policy']['decision'], r['outcome']['ok'])
+"
+```
+
+Every line gives you the operation, read-vs-write, the policy decision and which predicate made it. If you ask for a publish and see *no line at all*, that's correct — an ungranted capability is never offered, so there's nothing to refuse.
 
 <!-- xgd-chat-end -->
