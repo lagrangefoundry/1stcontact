@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The folded L1 document is a complete reproduction independent of the hint sidecar
 created_by: xgd
 created_at: '2026-07-22T19:42:38.304681+00:00'
-updated_at: '2026-08-07T23:54:02.282015+00:00'
+updated_at: '2026-08-09T08:19:38.856395+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
