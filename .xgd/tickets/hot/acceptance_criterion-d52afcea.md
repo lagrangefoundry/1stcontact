@@ -6,7 +6,7 @@ title: A single cross-gate verb reconciles geometry, reference coverage, the per
   eye and the value eye, browser-free gates first
 created_by: xgd
 created_at: '2026-08-06T03:12:32.205816+00:00'
-updated_at: '2026-08-07T23:54:19.863881+00:00'
+updated_at: '2026-08-09T08:20:05.675586+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
