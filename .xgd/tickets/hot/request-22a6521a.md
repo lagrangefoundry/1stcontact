@@ -5,14 +5,19 @@ type: request
 title: L1 tooling configuration over the control surface API (deletes declare.ts)
 created_by: xgd
 created_at: '2026-08-08T21:14:47.241627+00:00'
-updated_at: '2026-08-09T21:08:43.958813+00:00'
+updated_at: '2026-08-09T21:09:34.045124+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  commits:
+  - working_sha: 7347d224eebcb00b56146763e55d946a3304c5cc
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.32
 ---
 
 # L1 tooling configuration over the control surface API
