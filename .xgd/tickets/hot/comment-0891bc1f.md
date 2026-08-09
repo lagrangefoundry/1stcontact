@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:40:56.546854+00:00'
+updated_at: '2026-08-09T22:43:29.941004+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -613,5 +613,11 @@ The honest ordering is:
 2. **Declare + grant them** on the control surface. Small, mechanical, now that REQ-126 landed.
 
 Want me to write that first ticket? I'd scope it to `edit.ts` and use your nav bar as the proving case — it needs both halves: insert nodes, and give them the REQ-106 navigation role.
+
+<!-- xgd-turn id="41c646bb-aee5-407d-927f-debcb7dd1e45-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:43:29.784296+00:00" -->
+#### You
+**"Claude has built a site with it."** ❌ **This is the link that's wrong.** No! Claude build xgd.dev with it
 
 <!-- xgd-chat-end -->
