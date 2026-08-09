@@ -6,7 +6,7 @@ title: 'Responsive layout: a container''s layout mode varies per breakpoint and 
   row can wrap'
 created_by: xgd
 created_at: '2026-07-19T03:20:16.873338+00:00'
-updated_at: '2026-08-08T00:44:20.348999+00:00'
+updated_at: '2026-08-09T05:42:05.639975+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
