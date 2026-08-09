@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:30:10.677100+00:00'
+updated_at: '2026-08-09T22:32:19.384396+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -475,5 +475,11 @@ Two things worth filing, if you want them — say the word and I'll create eithe
 2. **The control surface has no structural L1 editing** — the single biggest gap between "can change words" and "can build a page."
 
 I haven't created tickets, since this session is scoped to REQ-127.
+
+<!-- xgd-turn id="5b584033-d5a2-41d1-b0ab-0cd22eb064b5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:32:19.146578+00:00" -->
+#### You
+I'm totally confused I thought REQ-127 gave the AI tooling to make all L1 changes - what did it actually give me?
 
 <!-- xgd-chat-end -->
