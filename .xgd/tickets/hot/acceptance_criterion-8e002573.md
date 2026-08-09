@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: 'A rendered snapshot is relocatable: asset references are emitted document-relative'
 created_by: xgd
 created_at: '2026-08-06T18:27:07.370627+00:00'
-updated_at: '2026-08-08T00:43:50.708067+00:00'
+updated_at: '2026-08-09T05:41:34.634266+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
