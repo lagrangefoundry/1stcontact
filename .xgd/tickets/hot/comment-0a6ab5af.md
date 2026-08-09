@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:34:30.640542+00:00'
+updated_at: '2026-08-09T17:35:31.061849+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -544,5 +544,54 @@ I'd start derived and see whether the segmentation it produces actually feels li
 **On your phases** — they read well, and they're a sharper cut than what I put in the doc. One note: your hero example spans two of them. The title's *text* is phase 1; the "parameters" half of that two-stage editor is phase 2. Which is fine, it just means phase 1's modal is single-stage. And your phase-2 example of editing the response email for email capture lands cleanly on existing rails — that's a behaviour module's `config`, which is defined as data-only and non-aesthetic, so an email body is exactly the sort of thing it's allowed to hold.
 
 I'd like to settle the segment question (derived vs declared) before I write any of this into DOC-28, since everything else hangs off it. Want me to work up what derived segmentation would actually produce on your `xgd` home page — the real list of segments off those 62 text nodes — so you can judge it against your hero example rather than in the abstract?
+
+<!-- xgd-turn id="5e844120-c5a3-4d7d-b174-7f84eb0225db-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T18:48:57.437988+00:00" -->
+#### You
+Lets start with derived segments and iterate if its not working - derived is preferable
+
+Nested segments - is this really a problem for phase 1? The situation in which it is a problem is when the inner segment completely occludes the outer segment will that happen often - the fix would be a UI treatment e.g. shift-hover would cause the segments to move/resize so that they separate enough for the user to click on the one they want.
+
+2. You tell me? We could preserve the animation if you like? End state is the obvious place to go.
+
+3. So here's the thing - the focus here is to let the user enter the text they want to see and make very basic tweaks to the style. If it looks ugly when they finish they work with the AI to tidy it up
+
+<!-- xgd-turn id="5e844120-c5a3-4d7d-b174-7f84eb0225db-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T18:52:40.855631+00:00" -->
+#### Claude
+Good — derived it is. Let me run the derivation on your real page so we're judging something concrete, and check the one case I think does bite.
+
+Numbers first, since two of your questions have measurable answers on your own page.
+
+**Derived segmentation on `xgd/home`:** 73 segments — 62 copy, 10 container, 1 module slot; nesting 2–5 deep. That's the shape your hero example describes: a container segment with copy segments inside it.
+
+**Nesting/occlusion — you're right, it's rare.** Of the 10 container segments, exactly **1** wraps a lone text run, which is the only genuinely occlusion-prone shape. So this isn't a phase-1 problem, and your shift-hover separation is a good fallback if it ever bites. Deferred.
+
+**Animation — my call: render the end state, no motion.** Three reasons. Scroll-triggered reveals mean a segment that hasn't triggered is invisible, so its copy is unclickable and looks like blank space. Motion plus segment outlines plus hover highlights is visual noise competing for the same signal. And a segment that's mid-transition has no stable box to outline. Preserving animation is a phase-3 nicety at best.
+
+One consequence worth knowing, smaller than I feared: carousel slides are all present in the DOM (a scroll track, not hidden), so their copy is reachable in edit mode — but with behaviour disabled they'd sit scrolled out of view and be awkward to click. Cheap fix: the edit render lets the track stack so every slide is visible at once. That's the general principle — *the edit render shows all content simultaneously, since nothing is interactive to reveal it*.
+
+**Copy length — your call, and I accept it.** One distinction to hold, though: "ends up ugly, AI tidies it" is fine, but "text is clipped so the user can't see what they typed" is a trap, because they may not notice it's cut off. That one's free to avoid: the modal edits the text in a plain form field, so the full string is always legible there regardless of what the render does to it. Beyond that, ugly is acceptable and the AI is the fix.
+
+That settles everything, so I'll fold it into the doc.
+
+Now reconciling DOC-8, since two of its statements are superseded by this — including one that's now plain wrong.
+
+All three are updated. What changed beyond recording your answers:
+
+**DOC-28** — restructured around your model. §5 "Edit mode is a *render*, not an overlay" is now the load-bearing section: third render channel, page deliberately non-functional, renderer stamps addresses as it walks the tree, renderer draws the outlines. §5.2 records *why* the render-scoped path is safe (a fresh render regenerates addresses, so reordering can't invalidate them) and why L1's `id` is deliberately not reused. §6 is the derived segment model with the measured numbers and the known weakness. §8 is your three phases as written.
+
+**DOC-8** — three reconciliations. The render table gains the edit channel. §4.2's claim that the client "hit-tests and outlines" is corrected — it now only listens for clicks and reads the address; the renderer owns outlines.
+
+And one row in the out-of-scope table was left plainly wrong by this conversation: it said *"field-level edit hotspots — v1 out, block granularity first."* Derived segmentation is field-level by construction — those 62 copy segments are individual text runs, not blocks. The block-vs-field question I raised two turns ago simply dissolved; your segment model answered it. I replaced the row with the real v1 wall, which is structural editing.
+
+**CHAT-9** — milestones re-cut to M1–M5 (the edit render is now its own milestone, ahead of the copy editor), and the M3 blocker marked resolved with the reason.
+
+Two things I'd flag for when you next pick this up, neither blocking:
+
+- **M3 before M4** is the reordering worth noticing. The edit render is now a real piece of work in its own right — non-functional rendering, settled-state content, segment derivation, address stamping — and the copy editor is comparatively thin once it exists. The riskier half is the one nobody sees.
+- **DOC-28 §13 Q5** is the one I'd want closed before building image controls: the repro pipeline already folds crops and scrims into L1, so the editor must write those exact fields rather than invent a parallel vocabulary. Worth ten minutes of checking rather than discovering it after M5.
 
 <!-- xgd-chat-end -->
