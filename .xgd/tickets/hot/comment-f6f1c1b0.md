@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-95
 created_by: xgd
 created_at: '2026-07-25T22:34:29.970587+00:00'
-updated_at: '2026-07-29T00:39:36.032426+00:00'
+updated_at: '2026-08-09T16:37:42.740610+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1657,5 +1657,11 @@ The `?v=2` → `?v=3` I've been adding is the workaround: a different URL is a d
 **The real fix** is for the renderer to either hash the content into the filename (`xgd-grid-hero.a3f9c1.svg`, changes automatically whenever the bytes change) or for the server to send an `ETag`. Either makes staleness structurally impossible instead of dependent on me remembering.
 
 That's the ticket I flagged and haven't filed — it's a renderer/server change, outside REQ-95's scope. Still happy to file it whenever you want.
+
+<!-- xgd-turn id="e73b87a3-a247-448e-8550-2499efe30496-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T21:05:07.024998+00:00" -->
+#### You
+ok your requests have all been free coded - please proceed
 
 <!-- xgd-chat-end -->
