@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { RenderChannel, StoreContext } from '../store'
 import { distDir } from '../store'
-import { aiStatus, openSession, streamPrompt } from './ai/host'
+import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
 import { cmdList, cmdPublish, ctxOf, InvalidDefinitionError, type GlobalOptions } from './commands'
 import { editAssetList, editCopyGet, editCopySet } from './edit'
 import { CommandError } from './errors'
@@ -166,31 +166,51 @@ const CHANNELS: RenderChannel[] = ['draft', 'published', 'edit']
  * simply stops leaves the panel spinning on a turn that will never arrive. So the
  * error is written as prose the operator can read, followed by the terminal
  * `done` that releases the composer.
+ *
+ * WHICH IS WHY THE HEADERS ARE WRITTEN LAZILY (REQ-127). A turn naming a session
+ * this origin never issued fails BEFORE any event exists — it is a protocol error
+ * in the caller, not a failure of the conversation, and it deserves a status code
+ * rather than an apology rendered into a chat window as though the assistant had
+ * tried. Deferring the header to the first event is what keeps both answers
+ * available from one path.
  */
 async function streamTurn(
   res: http.ServerResponse,
-  slug: string,
+  sessionId: string,
   text: string,
   opts: BuilderOptions,
 ): Promise<void> {
-  res.writeHead(200, {
-    'content-type': 'text/event-stream; charset=utf-8',
-    connection: 'keep-alive',
-  })
+  let started = false
+  const start = (): void => {
+    if (started) return
+    started = true
+    res.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      connection: 'keep-alive',
+    })
+  }
   const send = (payload: unknown): void => {
+    start()
     res.write(`data: ${JSON.stringify(payload)}\n\n`)
   }
   try {
-    for await (const event of streamPrompt(slug, text, opts)) {
+    for await (const event of streamPrompt(sessionId, text, opts)) {
       send({ kind: event.kind, content: event.content, meta: event.meta })
     }
   } catch (err) {
+    if (!started && err instanceof UnknownSessionError) {
+      json(res, 404, { error: err.message })
+      return
+    }
     send({
       kind: 'text',
       content: `\n\n_${err instanceof Error ? err.message : String(err)}_`,
     })
     send({ kind: 'done' })
   }
+  // A turn that yielded nothing at all still owes the client a well-formed
+  // response rather than a socket that closes with no head.
+  start()
   res.end()
 }
 
@@ -267,11 +287,19 @@ export async function handleBuilderRequest(
      * own showcase (`components/ai/py/showcase/ai_host.py`) rather than inventing
      * a shape: what is available, open a conversation, run a turn.
      *
-     * `/api/ai/prompt` takes the SLUG and not a session id. The id is derived
-     * from the slug (`sessionIdFor`), so carrying one over the wire would add a
-     * value the client could send stale — it would have to sequence "open, then
-     * send" correctly across every site switch, and get it wrong exactly once.
-     * Naming the site instead makes a turn self-sufficient.
+     * `/api/ai/session` IS THE ONLY ROUTE THAT NAMES A SITE (REQ-127). It is
+     * where a slug becomes a session; `/api/ai/prompt` carries the session id it
+     * answered with, and nothing above this file — not the browser transport, not
+     * the chat pane — holds a site at all.
+     *
+     * This route previously took the slug too, to save the client from holding an
+     * id it could send stale. That removed a stale id by handing the browser a
+     * site identity instead, which is the more expensive of the two: every turn
+     * re-asserted which site it was for, and the pane needed a generation token to
+     * stop a late answer landing in a window that had since switched sites. The
+     * ordering the client now has to get right — open, then send — is 1c's own
+     * job, and `streamPrompt` refuses an id it did not issue rather than starting
+     * a conversation about somewhere else.
      */
     if (p === '/api/ai/roles' && req.method === 'GET') {
       json(res, 200, await aiStatus(opts))
@@ -293,12 +321,12 @@ export async function handleBuilderRequest(
     }
 
     if (p === '/api/ai/prompt' && req.method === 'POST') {
-      const body = (await readJsonBody(req)) as { slug?: string; text?: string }
-      if (!body.slug || typeof body.text !== 'string') {
-        json(res, 400, { error: 'slug and text are required' })
+      const body = (await readJsonBody(req)) as { sessionId?: string; text?: string }
+      if (!body.sessionId || typeof body.text !== 'string') {
+        json(res, 400, { error: 'sessionId and text are required' })
         return
       }
-      await streamTurn(res, body.slug, body.text, opts)
+      await streamTurn(res, body.sessionId, body.text, opts)
       return
     }
 

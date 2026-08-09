@@ -96,12 +96,12 @@ interface StreamEvent {
   meta?: Record<string, unknown>
 }
 
-/** Run a turn and collect the SSE frames, parsed. */
-async function turn(base: string, slug: string, text: string): Promise<StreamEvent[]> {
+/** Post one turn to an open session and collect the SSE frames, parsed. */
+async function sendTurn(base: string, sessionId: string, text: string): Promise<StreamEvent[]> {
   const res = await fetch(`${base}api/ai/prompt`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ slug, text }),
+    body: JSON.stringify({ sessionId, text }),
   })
   expect(res.status).toBe(200)
   expect(res.headers.get('content-type')).toContain('text/event-stream')
@@ -111,6 +111,20 @@ async function turn(base: string, slug: string, text: string): Promise<StreamEve
     .map((frame) => frame.trim())
     .filter((frame) => frame.startsWith('data:'))
     .map((frame) => JSON.parse(frame.slice(5).trim()) as StreamEvent)
+}
+
+/**
+ * Open a site's session and run a turn in it — the browser's sequence, in one
+ * call (REQ-127).
+ *
+ * The open is not ceremony to satisfy the origin: it is the ONLY place a site is
+ * named, and every turn afterwards carries the id it returned. Doing both here
+ * keeps each case reading as "the operator said this to that site" while still
+ * exercising the real ordering `app.js` performs.
+ */
+async function turn(base: string, slug: string, text: string): Promise<StreamEvent[]> {
+  const opened = await session(base, slug)
+  return sendTurn(base, opened.sessionId, text)
 }
 
 async function session(base: string, slug: string) {
@@ -201,12 +215,20 @@ describe('REQ-122 — a turn changes the site', () => {
     expect(headline(cwd, SLUG)).toBe(HEADLINE)
 
     // The refusal reaches the model as something it can act on within the turn —
-    // a code and a path, not "request failed".
+    // a code and a stated correction, not "request failed".
+    //
+    // SINCE REQ-126 the per-call `path` and `hint` no longer reach the model: the
+    // Toolbox renders the DECLARED meaning of the error class instead, so what
+    // arrives is the taxonomy's sentence rather than the offending address. That
+    // is a loss of specificity this project did not choose and has raised
+    // upstream; the correctability the criterion is about — a named code plus
+    // what to do next — still holds, and is what is asserted.
     const refusal = String(
       (events.find((e) => e.kind === 'tool_activity')?.meta as { output?: string })?.output,
     )
     expect(refusal).toContain('NOT_FOUND')
-    expect(refusal).toContain('9.9')
+    expect(refusal).toMatch(/does not exist/i)
+    expect(refusal).toMatch(/re-read/i)
 
     // And it was handed back into the SAME turn, not surfaced as an error.
     const second = client.seen[1]
@@ -262,12 +284,15 @@ describe('REQ-122 — what the model is told', () => {
     const { system, tools } = client.seen[0]
 
     // The priming carries the GENERATED manual, not a hand-written inventory —
-    // so it cannot fall behind the tools it describes.
-    expect(system).toContain('# Your tools')
+    // so it cannot fall behind the tools it describes. Its headings are the
+    // Toolbox's projection since REQ-126, which is why they are asserted by what
+    // they say rather than by a literal this project chose.
+    expect(system).toContain('# The site you look after')
+    expect(system).toContain('## What you can do')
     expect(system).toContain('describe_page')
     // …including what deliberately has no tool, so the assistant can answer for
     // it rather than discover it by failing.
-    expect(system).toContain('What there is no tool for')
+    expect(system).toContain('## Not available')
 
     // The per-turn reminder names the site, and rides the system channel rather
     // than the transcript.
@@ -300,8 +325,11 @@ describe('REQ-122 — what the model is told', () => {
     const setCopy = client.seen[0].tools.find((t) => t.name === 'set_copy')!
     const props = setCopy.input_schema.properties as Record<string, { description: string }>
     expect(props.page.description).toBeTruthy()
-    expect(setCopy.description).toContain('Changes the site.')
-    expect(setCopy.description).toContain('describe_page')
+    // The declared summary and the declared usage note arrive as one composed
+    // description. Both halves are asserted, because a projection that dropped
+    // either would still be truthy.
+    expect(setCopy.description).toContain('Change the words')
+    expect(setCopy.description).toContain('address')
   })
 })
 

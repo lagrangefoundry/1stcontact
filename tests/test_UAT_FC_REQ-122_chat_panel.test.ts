@@ -9,8 +9,13 @@
  * The transport IS injected, and that is the correct line: it is HTTP, jsdom
  * cannot serve it, and `test_UAT_FC_REQ-122_chat_host` already drives the real
  * routes over a real port. What is under test here is what the browser does with
- * the answers — which panel it mounts, which site it asks about, what it shows
+ * the answers — which panel it mounts, which conversation it shows, what it says
  * when the answer is bad.
+ *
+ * SINCE REQ-127 the pane is handed a session rather than a slug, so the seam is
+ * split: `openSession` is `app.js`'s call (it is the only layer that knows a
+ * site) and `streamPrompt` is the pane's. The assertions below follow that —
+ * "which site" is asked at the app boundary, "which conversation" at the pane's.
  */
 
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
@@ -42,9 +47,10 @@ function memoryStorage() {
 /**
  * A transport that answers from a per-site script and records what it was asked.
  *
- * `asked` is what makes "the pane follows the panel's site" assertable: the pane
- * is supposed to name the site it is showing, and the only way to see that from
- * outside is to look at what it sent.
+ * `asked` is what makes the layering assertable from outside: `openSession`
+ * should only ever see slugs, `streamPrompt` should only ever see session ids,
+ * and a regression that reintroduced a site identity below the app would show up
+ * here as a slug where an id belongs.
  */
 function fakeTransport(
   sessions: Record<string, unknown> = {},
@@ -60,15 +66,15 @@ function fakeTransport(
       asked.openSession.push(slug)
       return sessions[slug] ?? { sessionId: `site-${slug}`, turns: [], ready: true }
     },
-    streamPrompt: async function* (slug: string, text: string) {
-      asked.streamPrompt.push([slug, text])
-      yield { kind: 'text', content: reply[slug] ?? 'ok' }
+    streamPrompt: async function* (sessionId: string, text: string) {
+      asked.streamPrompt.push([sessionId, text])
+      yield { kind: 'text', content: reply[sessionId] ?? 'ok' }
       yield { kind: 'done' }
     },
   }
 }
 
-/** Let the pane's mount-time `openSession` settle. */
+/** Let the app's site-change `openSession` settle. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 beforeAll(async () => {
@@ -114,10 +120,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the assistant is in the split', () =>
     expect(app.split.element.querySelector('.chat-widget-messages')).toBeTruthy()
 
     // Bound to the site the display panel is showing, with no selector of its
-    // own to disagree with the toolbar's.
+    // own to disagree with the toolbar's — and the binding is made ONCE, by the
+    // app, as the session it opened.
     expect(app.panel.getSite()).toBe('alpha')
     expect(transport.asked.openSession).toEqual(['alpha'])
-    expect(widget!.getAttribute('data-chat-id')).toBe(`${CHAT_ID_PREFIX}alpha`)
+    expect(widget!.getAttribute('data-chat-id')).toBe(`${CHAT_ID_PREFIX}site-alpha`)
   })
 
   it('test_UAT_FC_REQ-122_switching_site_switches_conversation', async () => {
@@ -137,10 +144,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the assistant is in the split', () =>
     app.panel.setSite('beta')
     await settle()
 
-    // The panel is a NEW instance keyed on the site — which is also what keys the
-    // composer's draft, so a half-typed message is per site rather than shared.
+    // The panel is a NEW instance keyed on the conversation — which is also what
+    // keys the composer's draft, so a half-typed message is per conversation
+    // rather than shared.
     const widget = app.split.element.querySelector('.chat-widget')!
-    expect(widget.getAttribute('data-chat-id')).toBe(`${CHAT_ID_PREFIX}beta`)
+    expect(widget.getAttribute('data-chat-id')).toBe(`${CHAT_ID_PREFIX}site-beta`)
     expect(transport.asked.openSession).toEqual(['alpha', 'beta'])
 
     // …and it shows what beta's session remembers. Without this the assistant
@@ -157,17 +165,17 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the assistant is in the split', () =>
   })
 
   it('test_UAT_FC_REQ-122_a_turn_is_sent_for_the_site_on_screen_and_streams_back_into_the_panel', async () => {
-    const transport = fakeTransport({}, { beta: 'Done — the heading is bigger.' })
+    const transport = fakeTransport({}, { 'site-beta': 'Done — the heading is bigger.' })
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage(), chatTransport: transport })
     await settle()
     app.panel.setSite('beta')
     await settle()
 
+    // The turn named beta's CONVERSATION. It reaches beta because that is the
+    // site the session was opened for, not because the pane re-asserted a slug.
     await app.chat.getChat().send('Make the heading bigger')
 
-    // The turn named the site the operator is looking at — the one thing a stale
-    // session id would get wrong after a switch.
-    expect(transport.asked.streamPrompt).toEqual([['beta', 'Make the heading bigger']])
+    expect(transport.asked.streamPrompt).toEqual([['site-beta', 'Make the heading bigger']])
     expect(app.chat.getChat().getMessages()).toEqual([
       { role: 'user', markdown: 'Make the heading bigger' },
       { role: 'assistant', markdown: 'Done — the heading is bigger.' },
@@ -176,22 +184,21 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the assistant is in the split', () =>
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the pane says what is wrong', () => {
-  it('test_UAT_FC_REQ-122_an_unavailable_assistant_is_explained_in_the_panel', async () => {
+  it('test_UAT_FC_REQ-122_an_unavailable_assistant_is_explained_in_the_panel', () => {
     const chat = createChatPanel({
       transport: {
-        openSession: async () => ({
-          sessionId: 'site-alpha',
-          turns: [{ role: 'user', markdown: 'Earlier question' }],
-          ready: false,
-          error: 'The assistant is not switched on: no ANTHROPIC_API_KEY.',
-        }),
         streamPrompt: async function* () {
           yield { kind: 'done' }
         },
       },
     })
     document.body.append(chat.element)
-    await chat.setSite('alpha')
+    chat.setSession({
+      sessionId: 'site-alpha',
+      turns: [{ role: 'user', markdown: 'Earlier question' }],
+      ready: false,
+      error: 'The assistant is not switched on: no ANTHROPIC_API_KEY.',
+    })
 
     const messages = chat.getChat().getMessages()
     // The history survives the outage — it is stored, and it is not the thing
@@ -202,8 +209,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the pane says what is wrong', () => {
   })
 
   it('test_UAT_FC_REQ-122_an_unreachable_origin_is_reported_rather_than_left_blank', async () => {
-    const chat = createChatPanel({
-      transport: {
+    // The open now happens in `app.js`, so this is asserted where the failure
+    // occurs. The operator's experience is unchanged: a mounted pane that says
+    // what went wrong, rather than an empty rail.
+    const app = mountBuilder(root, {
+      sites: SITES,
+      storage: memoryStorage(),
+      chatTransport: {
         openSession: async () => {
           throw new Error('Failed to fetch')
         },
@@ -212,13 +224,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the pane says what is wrong', () => {
         },
       },
     })
-    document.body.append(chat.element)
-    await chat.setSite('alpha')
+    await settle()
 
-    // The panel mounted BEFORE the session was opened, which is why there is
-    // somewhere for the failure to be said. A pane that waited would still be
-    // empty here.
-    expect(chat.element.querySelector('.chat-widget')).toBeTruthy()
-    expect(chat.getChat().getMessages()[0].markdown).toContain('Failed to fetch')
+    expect(app.chat.element.querySelector('.chat-widget')).toBeTruthy()
+    expect(app.chat.getChat().getMessages()[0].markdown).toContain('Failed to fetch')
   })
 })

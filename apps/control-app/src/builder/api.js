@@ -115,19 +115,20 @@ export async function openChatSession(slug, fetchImpl = fetch) {
 /**
  * Run one turn, as the stream of events the chat panel consumes.
  *
- * NAMED BY SITE, not by session id. The origin derives the session from the slug,
- * so there is no id for this side to hold, go stale, or send for the wrong site
- * after a switch — a turn carries everything it needs.
+ * NAMED BY SESSION, not by site (REQ-127). The session already knows which site
+ * it is about — it was bound to one when {@link openChatSession} created it — so
+ * a turn that also named the site would be re-asserting a fact the origin holds
+ * authoritatively, and giving this side a site identity to keep in step.
  *
  * The frames are `data: {json}` separated by a blank line; the parse is here
  * rather than in the panel because it is transport, and the panel is deliberately
  * transport-agnostic.
  */
-export async function* streamChatPrompt(slug, text, fetchImpl = fetch) {
+export async function* streamChatPrompt(sessionId, text, fetchImpl = fetch) {
   const res = await fetchImpl('/api/ai/prompt', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ slug, text }),
+    body: JSON.stringify({ sessionId, text }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

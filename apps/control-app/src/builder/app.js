@@ -11,7 +11,7 @@ import {
   publishAction,
   siteSelectorAction,
 } from './toolbar.js'
-import { previewUrl } from './api.js'
+import { openChatSession, previewUrl } from './api.js'
 
 /**
  * Mount the builder shell (REQ-115 / DOC-28 §12 T1).
@@ -94,10 +94,16 @@ export function mountBuilder(root, options = {}) {
    * It follows the panel's site rather than owning a selector of its own: the
    * toolbar's selector is the one place a site is chosen, and a second control
    * that could disagree with it is worse than no control at all.
+   *
+   * The transport seam is split the way the calls are (REQ-127): opening a
+   * session is this module's, because only this module knows a site; running a
+   * turn is the pane's, because only the pane knows when the operator sent
+   * something. A test still injects one object and overrides either half.
    */
+  const openSession = chatTransport?.openSession ?? openChatSession
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
-    ...(chatTransport ? { transport: chatTransport } : {}),
+    ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
   })
 
   const splitHost = document.createElement('div')
@@ -155,12 +161,50 @@ export function mountBuilder(root, options = {}) {
   })
 
   /**
-   * The assistant follows the pane. Subscribed BEFORE the first `setSite` so a
-   * `restore()` that has already run and a change made a second from now take the
-   * identical path — the chat has one way to learn which site it is on.
+   * The assistant follows the pane, and THIS is where a site becomes a session
+   * (REQ-127).
+   *
+   * The chat pane is handed a conversation, not a slug — so the translation has
+   * to happen somewhere, and it happens here because here is where a site is
+   * chosen. That is the layering the ticket is about: the toolbar owns the site
+   * selector, `app.js` owns the switch, and everything below holds a session.
+   *
+   * THE GENERATION TOKEN LIVES HERE NOW, for the reason it ever existed: opening
+   * a session is async, so a second switch can start before the first finishes,
+   * and without the token a slow answer for an abandoned site would be swapped
+   * into a pane the operator has already moved on from. It moved with the async;
+   * it did not disappear.
    */
-  const unbindSite = panel.on('site', (slug) => void chat.setSite(slug))
-  void chat.setSite(panel.getSite())
+  let generation = 0
+  async function showSite(slug) {
+    const mine = ++generation
+    if (!slug) {
+      chat.setSession(null)
+      return
+    }
+    try {
+      const session = await openSession(slug)
+      if (mine !== generation) return
+      chat.setSession(session)
+    } catch (err) {
+      if (mine !== generation) return
+      // A session that cannot be opened at all is reported the way an unusable
+      // one is — in the pane, with the transcript it does not have. `ready:false`
+      // is the same story the origin tells when it CAN answer, so the pane needs
+      // no second failure mode.
+      chat.setSession({
+        sessionId: `unopened:${slug}`,
+        turns: [],
+        ready: false,
+        error: `The assistant could not be reached: ${err.message}`,
+      })
+    }
+  }
+
+  // Subscribed BEFORE the first call so a `restore()` that has already run and a
+  // change made a second from now take the identical path.
+  const unbindSite = panel.on('site', (slug) => void showSite(slug))
+  void showSite(panel.getSite())
 
   return {
     shell,
