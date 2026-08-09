@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T21:32:28.560397+00:00'
+updated_at: '2026-08-09T21:33:34.430570+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -276,5 +276,47 @@ One aside: four source files (`ai/host.ts`, `builder.ts`, `fidelity.ts`, `previe
 <!-- xgd-chat role="user" ts="2026-08-09T21:32:28.377120+00:00" -->
 #### You
 If I refresh the browser can I access the new features?
+
+<!-- xgd-turn id="82778d13-c981-4c25-b38e-8aee7c06a316-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T21:33:34.229375+00:00" -->
+#### Claude
+Short answer: **no — refreshing alone will break the chat.** Let me confirm exactly how the builder serves each half.
+
+**No — and a refresh on its own would actively break the chat.** Two reasons.
+
+**First, there are no new features to see.** REQ-127 is a layering change. The operator experience is byte-for-byte what it was: pick a site, talk to the assistant, it edits that site. Everything that moved is internal.
+
+**Second, only half your change is refreshable.** The builder serves the browser source straight off disk with `cache-control: no-store, must-revalidate`, so a refresh definitely picks up the new `chat.js`, `app.js` and `api.js`. But `host.ts` and `builder.ts` are TypeScript executed by the Node builder process — a refresh doesn't touch them. You'd get:
+
+- new client posting `{sessionId, text}`
+- old server demanding `{slug, text}` → **400 on every turn**
+
+The panel would show the failure. Refresh-without-restart is strictly worse than not refreshing.
+
+**As it happens there's nothing to restart** — I checked `ps`, no builder is running. So just start it:
+
+```
+bin/1c builder        # http://localhost:8790
+```
+
+That picks up both halves and you're on the new code.
+
+## Your conversation history is fine
+
+`storage/chat/site-gigabytealchemy.md` — your real conversation — is untouched. `FileArchive` was already pointed at the workspace, so the archive never moved. On first open, `resume` finds no junction, loads that archive, and re-seeds from it. The transcript replays as normal.
+
+## One thing to clean up, and it's mine
+
+The `logDir` bug I fixed left junctions in your home directory, and two of them are **from my test runs**:
+
+```
+~/.xgd/sessions/live/site-studio
+~/.xgd/sessions/live/site-annex
+```
+
+`studio` and `annex` are the fixture slugs in the REQ-127 and REQ-122 host suites. They escaped there because until this commit the junction defaulted to the machine-global path — exactly the leak the fix closes. They're inert orphans now (nothing resolves those ids), but they're litter in your home directory and they shouldn't be there.
+
+Want me to delete those two? I'd leave the UUID-named siblings alone — those belong to other tooling, not to this project.
 
 <!-- xgd-chat-end -->
