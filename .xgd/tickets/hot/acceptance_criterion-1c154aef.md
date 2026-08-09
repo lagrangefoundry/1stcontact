@@ -7,7 +7,7 @@ title: A node declaring an entrance starts at the offset and opacity it comes fr
   restates the design
 created_by: xgd
 created_at: '2026-08-06T02:03:54.032804+00:00'
-updated_at: '2026-08-08T00:42:52.716893+00:00'
+updated_at: '2026-08-09T05:40:56.638625+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
