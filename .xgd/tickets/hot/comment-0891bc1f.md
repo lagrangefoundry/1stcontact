@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:44:43.445938+00:00'
+updated_at: '2026-08-09T22:46:17.983413+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -678,5 +678,11 @@ The gap isn't in your AI tooling. It's that **`edit.ts` has no L1 authoring in i
 That's why the assistant can't give gigabytealchemy the nav bar that xgd.dev already has: the nav bar exists as authored L1, and authoring L1 is not something any command, CLI or AI, can currently do.
 
 Want me to write that ticket now? Scope: structural + axis operations in `edit.ts`, with "reproduce xgd.dev's nav bar on another site, through the surface" as the acceptance case. Once it lands, the AI side is a declaration in `l1-surface.json`, a binding in `toolbox.ts`, and a group in `instances.json` — which is exactly the leverage REQ-126 bought.
+
+<!-- xgd-turn id="0219c20b-c337-4d71-b840-b0c208fd0c00-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:46:17.726707+00:00" -->
+#### You
+ok so I the CLI and current API are COMPLETELY pointless then. Why can we not let Claude just edit the JSON and submit it through a syntax checker?
 
 <!-- xgd-chat-end -->
