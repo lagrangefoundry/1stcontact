@@ -6,7 +6,7 @@ title: 'Gradients as a first-class value: stop positions and panel surface gradi
   — captured, authored, and diffed'
 created_by: xgd
 created_at: '2026-07-19T02:28:13.696712+00:00'
-updated_at: '2026-08-07T23:13:32.270335+00:00'
+updated_at: '2026-08-09T02:55:54.721391+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: completed
@@ -15,7 +15,7 @@ fields:
   capability_uid: capability-aa030c83
   story_kind: feature
   story_points: 3
-  uat_coverage: fail
+  uat_coverage: stale
 ---
 
 ## Story
