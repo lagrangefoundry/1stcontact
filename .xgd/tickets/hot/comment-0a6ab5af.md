@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:43:08.001981+00:00'
+updated_at: '2026-08-09T17:43:09.182023+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -910,5 +910,37 @@ Want me to write T1–T5 as REQ tickets now? T1 still shouldn't be written until
 <!-- xgd-chat role="user" ts="2026-07-31T20:40:06.359991+00:00" -->
 #### You
 yes please draft the tickets - an can you explicitly use the depends-on to identify dependencies
+
+<!-- xgd-turn id="ce80b672-a040-4ecf-b9e9-40ea880e4208-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T20:44:08.994690+00:00" -->
+#### Claude
+`depends_on` is supported (list of uids). Drafting all five and wiring the dependency chain:
+
+Now creating them in dependency order and wiring `depends_on`:
+
+Five tickets created, dependencies wired:
+
+| | Ticket | `depends_on` |
+|---|---|---|
+| T1 | **REQ-115** — Builder shell: webui consumption, `site` tab, multi-mode display panel + toolbar | — |
+| T2 | **REQ-116** — The edit render: non-functional channel, derived segments, L1 addresses, outlines | — |
+| T3 | **REQ-117** — Copy editing end-to-end | REQ-115, REQ-116 |
+| T4 | **REQ-118** — Image selection | REQ-117 |
+| T5 | **REQ-119** — Request-time draft and edit renders in `control-app` | REQ-117 |
+
+DOC-28 §12 now carries the ticket numbers, so the plan and the tickets can't drift.
+
+I drafted REQ-115 despite the open consumption decision rather than leaving it blank — the decision is written as **Deliverable 0** inside it, with both routes, the two facts that inform them (every package we need has an empty dependency set; the unpublished-package friction already bites upstream), and an AC requiring the choice be recorded in DOC-8 §9.5 and §13 Q1 closed. So the ticket is actionable the moment you pick, and the picking is visibly part of its scope rather than a hidden prerequisite.
+
+A few ACs I'd point at, because they're the ones that catch the failure modes we discussed:
+
+- **REQ-115 AC3** — a grep for the tab label returns exactly one definition site. That's the "not baked into a million places" requirement made checkable.
+- **REQ-116 AC8** — published and draft-preview renders must be **byte-identical before and after** the ticket. That's the guard against edit handles leaking into real pages.
+- **REQ-116 AC2/AC3** — scroll-revealed copy renders visible, carousel slides all visible. The settled-state trap, as tests.
+- **REQ-117 AC5** — the editor's edits pass through the *same validator function* as the AI's, demonstrated by test not inspection. That's the second-producer invariant made enforceable rather than aspirational.
+- **REQ-119 AC3** — one render implementation; adding an L1 axis changes it in exactly one place. The guard against the runtime move quietly reintroducing two renderers.
+
+REQ-118 explicitly defers framing controls (crop/scale/scrim) and says why: DOC-28 §13 Q5 must close first, because the capture/fold pipeline already folds crops and scrims into L1 and the editor must write those same fields rather than a parallel vocabulary. REQ-119 carries its contingency in the body — if v1 stays on the file-backed store, phase 1 is complete at REQ-118 and REQ-119 defers rather than blocks.
 
 <!-- xgd-chat-end -->
