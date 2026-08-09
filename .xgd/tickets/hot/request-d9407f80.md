@@ -6,9 +6,9 @@ title: 'Build the L1 control surface API: declared schemas, error taxonomy, addr
   contract, version'
 created_by: xgd
 created_at: '2026-08-08T21:14:42.246096+00:00'
-updated_at: '2026-08-09T19:30:04.916774+00:00'
+updated_at: '2026-08-09T19:30:09.001864+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -19,6 +19,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.30
+  story_points: 8
 ---
 
 # Build the L1 control surface API
