@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A node paints a repeating texture from a typed axis with no asset
 created_by: xgd
 created_at: '2026-08-06T02:20:53.736828+00:00'
-updated_at: '2026-08-08T00:43:09.137671+00:00'
+updated_at: '2026-08-09T05:41:01.597106+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
