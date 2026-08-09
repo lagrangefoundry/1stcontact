@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-08-09T17:11:35.685964+00:00'
+updated_at: '2026-08-09T17:11:36.977939+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4291,5 +4291,11 @@ Corrected picture, and it changes the priorities. The hero background is reprodu
 To settle it: `1c aligned-crops gigabytealchemy --ref storage/references/gigabytealchemy.ai/index --region hero` (or whatever region selector you prefer) and we read the overlay per [[repro-gate-on-diff-overlay]]. Yours to drive.
 
 Nothing filed and no code touched. My read is four tickets — three bugs (button outset, alpha overlay pending confirmation, local-asset rewrite) plus one tooling bug for the values-diff mis-attribution, since that one silently corrupts the repair order for every future site. Say the word and I'll write them up; the button outset is likely regression from my own commit, so I'd want that one first regardless.
+
+<!-- xgd-turn id="36f0d6f2-f347-4b6d-9c60-1a8f70c39441-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-24T22:48:47.804939+00:00" -->
+#### You
+Please write them up
 
 <!-- xgd-chat-end -->
