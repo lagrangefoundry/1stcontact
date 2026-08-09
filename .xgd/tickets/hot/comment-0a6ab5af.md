@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:37:32.024135+00:00'
+updated_at: '2026-08-09T17:37:53.622156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -633,5 +633,11 @@ Two other things worth knowing: `webui-split`'s own README names *"the editor+ch
 What I'd hold back: chat, markdown and scroll. They're the deferred pane, and pulling them in now means carrying integration cost for something phase 1 doesn't use. Fields I'd *validate* against a real segment descriptor during M2 without necessarily wiring the modal — enough to confirm the §9.3 assumption before M4 depends on it.
 
 That makes M2 the composition milestone, which is how I've recorded it.
+
+<!-- xgd-turn id="7d29b059-8b42-4ce2-bf7f-ab442f9a109a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T19:06:46.252308+00:00" -->
+#### You
+Ok an important principle - xgd-framework is my project, it is a peer of this project which is its first, and currently primary consumer. IF SOMETHING ABOUT THE COMPONENTS NEEDS TO CHANGE WE CHANGE IT - we do not do unnatural acts to work around - is that clear?
 
 <!-- xgd-chat-end -->
