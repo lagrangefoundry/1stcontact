@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-08-09T17:08:34.288142+00:00'
+updated_at: '2026-08-09T17:11:35.685964+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4241,5 +4241,55 @@ perceptual-diff: storage/references/gigabytealchemy.ai/index/screenshot.full.png
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="d86fedb0-fccc-4d0d-9192-113898457c8f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-24T22:45:11.251659+00:00" -->
+#### Claude
+The overlay confirms it — and independently. Regions **#2 and #3 are the two button surfaces**, matched to the pixel:
+
+| diff region | mean | repro node @1280 |
+|---|---|---|
+| #3 @ 384,3872 176×112 | **150.2** | `card-8` Subscribe: x=388 y=3875 w=173 h=100 |
+| #2 @ 640,4048 224×112 | **135.9** | `card-9` Send message: x=640 y=4060 w=221 h=96 |
+
+Those are the **two highest per-pixel intensities on the entire page** — well above #1's mean 83.0, which only outscores them on raw area. So the arithmetic finding and the perceptual gate agree: the outset button surfaces are the most wrong pixels on the page. `values-diff` filed that as "copy a radius value."
+
+Let me map the rest of the regions to nodes before we decide the order.
+
+Now the bigger story surfaces. **Six of the twelve diff regions (#1, #6, #7, #8, #9, #12) are all inside `section-band-0` — the hero** — and four of them (#7, #8, #9, #12) have *no reproduction node at all* except the full-viewport background box. The reproduction is painting empty background where the target has content.
+
+Found the mechanism. The hero image is a **CSS background, not an `<img>`**:
+
+```html
+<section class="relative min-h-screen bg-cover bg-center bg-no-repeat"
+         style="background-image: url('/images/AlchemistLabWithTech.png');">
+```
+
+And the capture only ever emits image nodes from `<img>` elements — `extract.ts:1076` keys `role: 'image'` off `img.className`/`img.alt`. `backgroundImage` *is* read (line 1032), but every consumer of it tests for **gradients** (REQ-62, lines 93/111/822-826). A `url(...)` background is captured as a string and then dropped: no node ever carries it.
+
+That's why the asset pipeline downloads `AlchemistLabWithTech.png` (2.5 MB, mirrored into the draft) while the document has **zero image nodes** — `{'box': 18, 'text': 55}` in both `l1.json` and the draft. The photo is on disk and referenced by nothing.
+
+Correction to what I just said: the value **is** carried through. `section-bg-0` has `backgroundImageUrl: "https://gigabytealchemy.ai/images/AlchemistLabWithTech.png"`. So capture and fold both handle it — the drop happens further down.
+
+I have to correct my last two messages: **the hero image is not missing.** It's captured (`backgroundImageUrl`), folded into `section-bg-0` (`fold.ts:612`), and rendered — `background-image: url("https://gigabytealchemy.ai/images/AlchemistLabWithTech.png")` is in the output. My "dropped on the floor" read was wrong; I grepped the L1 renderer for `surfaceImage` and concluded absence from the wrong name.
+
+Two real defects fall out of the corrected picture, though:
+
+Corrected picture, and it changes the priorities. The hero background is reproduced faithfully — `render.ts:500` emits `background-size: cover; background-position: center; background-repeat: no-repeat`, matching the target's `bg-cover bg-center bg-no-repeat` (BUG-13 already handled this). Regions #7/#8/#9/#12 are *not* missing content.
+
+**Verified defects, in priority order:**
+
+**1. Button surfaces outset ~25px on all four sides → 2× target height.** `card-8`/`card-9` vs the oracle at all six widths (table in my previous message). Confirmed independently by the overlay: diff regions #3 (mean **150.2**) and #2 (mean **135.9**) sit exactly on those two boxes and are the highest per-pixel errors on the page. Fold-side, and most likely from the geometric surface attribution I landed in `6ede6a8e`.
+
+**2. `values-diff` mis-attributes it.** The target carries fill+radius on one `role: "action"` node; the reproduction splits it into a `text` node plus a sibling `box`. The axis comparison text-matches the label, reads `borderRadiusPx` off the `text` node, finds none, and reports `radius 8px → 0px`. The radius is in fact correct in oracle, draft, and rendered CSS. So the printed repair order — "① copy the 2 Type-A flat values" — points at a no-op and stays silent about the geometry. Tooling defect, and it would misdirect the next repair pass.
+
+**3. The reproduction hotlinks the live target.** Rendered CSS points at `https://gigabytealchemy.ai/images/AlchemistLabWithTech.png` while the mirrored local copy sits unused in `draft/assets/`. The site only renders because the original is up — that's not a reproduction, and it'll go blank offline.
+
+**Open — hypothesis, not verified:** the target hero has `<div class="absolute inset-0 bg-slate-950/30">`, a 30% dark veil over the photo. A search for `rgba(`/alpha values across the whole oracle returned **nothing**, which suggests alpha overlays aren't captured at all — the veil would be dropped and the hero photo would render ~30% too bright, giving exactly the scattered mid-intensity patches (#7/#8/#9/#12, means 33–73) we see. I'm flagging this as unconfirmed because I've already been wrong once in this thread by reasoning from a grep instead of looking.
+
+To settle it: `1c aligned-crops gigabytealchemy --ref storage/references/gigabytealchemy.ai/index --region hero` (or whatever region selector you prefer) and we read the overlay per [[repro-gate-on-diff-overlay]]. Yours to drive.
+
+Nothing filed and no code touched. My read is four tickets — three bugs (button outset, alpha overlay pending confirmation, local-asset rewrite) plus one tooling bug for the values-diff mis-attribution, since that one silently corrupts the repair order for every future site. Say the word and I'll write them up; the button outset is likely regression from my own commit, so I'd want that one first regardless.
 
 <!-- xgd-chat-end -->
