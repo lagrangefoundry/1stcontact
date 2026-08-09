@@ -6,12 +6,12 @@ title: A retrofitted site's palette is materially smaller than its distinct colo
   count, with no colour lost
 created_by: xgd
 created_at: '2026-08-06T20:37:54.856029+00:00'
-updated_at: '2026-08-08T00:43:58.418801+00:00'
+updated_at: '2026-08-09T01:24:54.346321+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_uid
 status: active
 fields:
-  story_uid: story-c490f1cf
+  story_uid: story-5e7eb0c5
   kind: behavior
   regression_only: false
   uat_coverage: pass
