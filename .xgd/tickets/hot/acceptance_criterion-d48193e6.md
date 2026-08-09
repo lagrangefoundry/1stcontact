@@ -6,7 +6,7 @@ title: 'In local preview the mapping cannot widen reach: traversal is still reje
   and never exposes a page outside the served site'
 created_by: xgd
 created_at: '2026-08-06T19:03:24.047227+00:00'
-updated_at: '2026-08-07T22:31:35.273821+00:00'
+updated_at: '2026-08-09T13:50:15.109256+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
