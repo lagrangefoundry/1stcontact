@@ -7,7 +7,7 @@ title: 'A reader who asks for reduced motion gets the paint without the travel: 
   settled at its own authored opacity rather than brightened to full'
 created_by: xgd
 created_at: '2026-08-06T02:03:40.503240+00:00'
-updated_at: '2026-08-08T00:42:49.862839+00:00'
+updated_at: '2026-08-09T05:40:55.687243+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
