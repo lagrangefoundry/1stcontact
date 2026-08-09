@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:41:25.972016+00:00'
+updated_at: '2026-08-09T17:42:04.448959+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -737,5 +737,43 @@ When I say dead code I mean lets get rid of the legacy pallet
 <!-- xgd-chat role="user" ts="2026-07-31T19:31:14.274754+00:00" -->
 #### You
 Yes create the section in DOC-23 and can you create and REQ to implement it and retrofit our exisiting sites with pallets?
+
+<!-- xgd-turn id="d4189576-81ac-4dd9-bdfd-6d6b36a8275f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T20:20:35.002575+00:00" -->
+#### Claude
+Understood — the legacy palette, not a general dead-code sweep. Let me pin down exactly what belongs to it.
+
+Full picture established. Folding the retirement into REQ-114:
+
+REQ-114 now kills the legacy palette outright — new §4, and the non-goal that deferred it is gone. DOC-23 §5.5 retitled to match ("replaced, not coexisted with").
+
+The survey found more of it than the 15 slots:
+
+- **site-schema** — `paletteTokensSchema`, the `PaletteTokens` type, the required `palette:` key on `themeTokensSchema`, and a *second* closed colour-role enum I hadn't spotted: `layerColorRoleSchema` (13 names) at `schema.ts:286`, used for layer border and text colour. Layers belonged to the deleted semantic modules, so that's almost certainly dead — flagged as verify-then-delete rather than assumed.
+- **framework/tokens** — `paletteVars()`, the `t.palette` spread, the `defaults.ts` palette block, `PartialPalette`.
+- **framework/modules** — the colour-role residue only: 1 reference in `dials.ts`, 3 in `text-style.ts`, 8 callout rules in `markdown.ts`. Non-colour dials stay.
+- **tools/generate** — `render.ts:139`, the `body { background: var(--color-bg); color: var(--color-text) }` rule.
+- **the four site.jsons** — `theme.palette` (9/15/9/15 keys).
+
+Two findings worth calling out:
+
+**The dark-mode path is unused.** `css.ts` has an `options.dark` → `@media (prefers-color-scheme: dark)` palette override, and **nothing passes `dark:`**. So it goes with the palette rather than being ported. If dark mode is wanted later it should be designed against the new model, not resurrected — I made that an explicit AC so it doesn't get quietly reinstated.
+
+**The body rule already has a replacement.** The L1 document carries its own `background` field, so page background needs no token. Page-level *text* colour has no equivalent yet — I've flagged it as needing a home in L1 with an explicit instruction not to reintroduce a token to solve it. That's the one place this cut could regrow a legacy path if handled carelessly.
+
+Scope held to the colour group: typography, spacing, radius, shadow and breakpoint tokens are untouched, since they're a different axis family with nothing replacing them here.
+
+ACs 8–12 make the retirement checkable — no `--color-*` anywhere outside the new model, nothing emitted into rendered pages, non-colour groups still validating, and a clean `pnpm -r build` (the schema cut is wide enough that stale `dist/` would hide type drift).
+
+<!-- xgd-turn id="88429e85-1b12-4193-84ba-aa89a9aedfbb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T19:33:08.493814+00:00" -->
+#### You
+Yes create the section in DOC-23 and can you create and REQ to implement it and retrofit our exisiting sites with pallets?
+
+It would be good for the design stage to have a "standard" inital set of pallet names to work from.
+
+And honestly I'm rather surprised by your comment that reproduction leads to ugly pallets - I would expect Wix to be fairly rigid on being pallet driven (but maybe its pallet + effects?)
 
 <!-- xgd-chat-end -->
