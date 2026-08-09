@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:59:12.549761+00:00'
+updated_at: '2026-08-09T22:59:59.140177+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -805,5 +805,11 @@ Ready to write this up as one ticket covering both directions whenever you want 
 <!-- xgd-chat role="user" ts="2026-08-09T22:59:12.269234+00:00" -->
 #### You
 verbatim - please create the ticket
+
+<!-- xgd-turn id="9ebbf3bf-78d4-447d-a253-d7f3145c69ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:59:58.931918+00:00" -->
+#### You
+verbatim - please create the ticket - NOTE that this must not break the user's simple editor
 
 <!-- xgd-chat-end -->
