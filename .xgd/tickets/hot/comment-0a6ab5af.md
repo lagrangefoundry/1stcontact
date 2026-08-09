@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:32:03.659352+00:00'
+updated_at: '2026-08-09T17:33:04.074431+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -407,5 +407,37 @@ Not for the Weber editor as we've designed it, no. Here's the state of play:
 **What's missing**, and worth writing down: the direct-manipulation-as-second-producer principle and why it doesn't breach the structured-edit guarantee; the per-module `data-fc-module` hook as the editing-granularity contract between renderer and builder; the iframe/same-origin overlay model; the "friendly parameters only, sophistication delegated to the AI" exposure rule; and the edit → validate → re-render → refresh loop (which replaces DOC-8's live in-browser re-render).
 
 My recommendation: amend DOC-8 rather than start a new doc — same surface, and its §3.1/§9 claims need explicit withdrawal anyway, otherwise the next reader takes "click-to-edit is permanently out of scope" at face value. Doc changes need no ticket, so I can do it now. Want me to draft the amendment?
+
+<!-- xgd-turn id="7db97d18-fdab-4125-b795-fc573e01c642-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T00:57:55.775805+00:00" -->
+#### You
+ok please upddate DOC-8 - to reflect the currect reality.
+
+I think we need a new doc to capture the details of the webpage editor itself though, don't you?
+
+<!-- xgd-turn id="7db97d18-fdab-4125-b795-fc573e01c642-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T01:03:55.672593+00:00" -->
+#### Claude
+Now I have the full picture. Writing the updated DOC-8:
+
+DOC-8 rewritten, DOC-28 created. Now updating the CHAT-9 scope body, which is stale on two points the discussion later overturned:
+
+Yes — agreed, and both are done. Two docs now, because they answer different questions.
+
+**DOC-8 — Builder UI Architecture Principles** (rewritten, not appended to). It now covers the app *around* the editor: topology, preview rendering, pipeline, validation, chrome. Key changes:
+
+- **§2 topology** added — one 1C application; the builder is a feature inside the `control-app` Worker. `public-site` is the multi-tenant site server; sites are data, not apps. Also records that there is no long-running Node server on this target.
+- **§4 preview rendering** replaces the in-browser renderer: published sites render at build time in a real Node env, the draft preview renders on request via the Cloudflare adapter. §4.3 records the payoff — iframe and "open in new tab" are the same bytes, so the divergence worry that motivated browser rendering was actually *created* by it.
+- **§5.2** states the direct-manipulation reconciliation: a second producer, not a second path, with the shipping test ("could the AI have produced this edit?").
+- **§12 is a withdrawal ledger** — each dead commitment, what replaced it, and why, so nobody re-derives them from an older copy. Six entries.
+- **§14** flags that DOC-7 §9.2 (React/Tailwind/shadcn) and §9.1 (Workers Static Assets) are now stale too. I didn't edit DOC-7 — say the word if you want that.
+
+**DOC-28 — The Page Editor** covers the Design view itself: the exposure rule, the edit bridge, the overlay, hotspot granularity, the copy and image editors, the toolbar, the edit loop, M1–M4.
+
+**One substantive finding while writing it** (DOC-28 §5.3, and I've flagged it on CHAT-9): M1's `data-fc-module` hook addresses **behavior-module instances only** — but since the pivot, most copy lives in **L1 `text` nodes**, which have no hook. L1's optional `id` isn't one either; REQ-106 gave it a different job (real DOM id for `href="#how"` and `for`↔`id`), and it's sparse and URL-visible, so overloading it couples unrelated concerns. As it stands the copy editor can only reach copy inside module slots, which is nearly nothing on a folded page. So **M3 is blocked on choosing an L1 addressing scheme** — structural path, a render-time synthesized edit id, or a minted persistent id in the definition. I've written up the tradeoffs rather than picking; it's worth a decision with you.
+
+Two corrections to what I told you earlier, both from reading the stale CHAT-9 body rather than the transcript: "Weber" was a dictation artefact you dropped later in that same conversation, and vendoring `webui-shell` was rejected — the docs now say publish-or-submodule, never copied. "Weber" still appears in code comments in `render.ts` and the M1 test; that's a code change, so I've left it for the next free-coded commit here rather than touching it now.
 
 <!-- xgd-chat-end -->
