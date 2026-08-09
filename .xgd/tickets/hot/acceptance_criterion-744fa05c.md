@@ -7,7 +7,7 @@ title: A node declaring a pointer accent presents its own texture redrawn in the
   from the same texture declaration so it can never drift from the design it accents
 created_by: xgd
 created_at: '2026-08-06T18:09:11.586939+00:00'
-updated_at: '2026-08-08T00:43:42.059860+00:00'
+updated_at: '2026-08-09T05:41:25.832278+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
