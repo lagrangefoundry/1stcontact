@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-95
 created_by: xgd
 created_at: '2026-07-25T22:34:29.970587+00:00'
-updated_at: '2026-08-09T16:43:38.065901+00:00'
+updated_at: '2026-08-09T16:47:20.578070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1775,5 +1775,11 @@ My invented amber is withdrawn. The dark map is recorded in the ticket as a fait
 AC2/AC3/AC4 all re-verified after the swap and still hold, as expected since only leaf colour values moved.
 
 Two things still on my list, neither blocking: `storage/sites/xgd/import/` is still untracked (5MB of Gemini rasters — say the word and I'll commit or gitignore them), and the hero still has a lot of empty right-hand space that REQ-103's grid motif is the natural answer to.
+
+<!-- xgd-turn id="4a973bca-2813-4c6a-be7b-6447d3ec783e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-27T21:55:44.194041+00:00" -->
+#### You
+Can you incorporate the logo somewhere? It is AI generated - if you need another version with a different representation - can you create it yourself? Alternatively can you give me a prompt to use to generate it with an example from the set we have?
 
 <!-- xgd-chat-end -->
