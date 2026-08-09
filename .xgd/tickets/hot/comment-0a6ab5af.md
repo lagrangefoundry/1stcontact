@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:08.350196+00:00'
+updated_at: '2026-08-09T17:42:38.398394+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -885,5 +885,24 @@ I've left these as a plan rather than creating the REQ tickets — say the word 
 <!-- xgd-chat role="user" ts="2026-07-31T20:36:10.996715+00:00" -->
 #### You
 Whoah 10 tickets? is that really necessary - lets shoot for 5
+
+<!-- xgd-turn id="39bc4872-da96-4070-9d32-83a2cecc880f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T20:37:18.079265+00:00" -->
+#### Claude
+Fair — I was drawing boundaries where things were *separable* rather than where they were *separately valuable*. Consolidating to 5:
+
+Down to five. What merged and why:
+
+- **T1+T2 → Builder shell.** The consumption decision, the shell, the split, the display panel and the toolbar are one delivery: a working panel on screen. Splitting the decision from the wiring gave a ticket whose deliverable was a conversation.
+- **T3+T4 → The edit render.** I'd argued "the page doesn't work" was independently testable, which is true — but a non-functional page with no segments isn't independently *useful*. Testability is an AC, not a ticket boundary.
+- **T5+T6 → Copy editing.** The clean split. A structured-edit API with no consumer is speculative design; a modal with no API doesn't work. Together they're the first vertical slice where a user changes a word and sees it — which is the real milestone.
+- **T9/T10 dropped out entirely.** Chat pane and phase-2 properties aren't phase 1; they were padding the list. They're recorded as deliberately unticketed follow-on rather than as work.
+
+The five: **T1 builder shell** → **T2 edit render** (parallel, renderer-side, no UI) → **T3 copy editing** (where they meet, first visible edit) → **T4 image selection** → **T5 deploy** (request-time SSR).
+
+Two things to watch in this shape. **T3 is now the big one** — it carries the write path, the validator wiring, the modal and the refresh loop. That's the right unit because it's one vertical slice, but it's not a small ticket, and if it needs splitting later the seam is the API versus the modal. And **T5 presumes an answer to DOC-8 §13 Q3** — whether v1 runs against the file-backed store locally first. If it does, phase 1 is functionally complete at T4 and T5 defers rather than blocks.
+
+Want me to write T1–T5 as REQ tickets now? T1 still shouldn't be written until you've picked publish or submodule for `webui-*`, since that decision is most of its scope — the other four I can draft immediately.
 
 <!-- xgd-chat-end -->
