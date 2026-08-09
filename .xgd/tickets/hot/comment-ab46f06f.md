@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-125
 created_by: xgd
 created_at: '2026-08-09T00:45:36.241205+00:00'
-updated_at: '2026-08-09T00:59:44.421173+00:00'
+updated_at: '2026-08-09T01:00:37.728449+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -51,5 +51,26 @@ DOC-20 names us twice: we are the **first external surface** (declared in this r
 <!-- xgd-chat role="user" ts="2026-08-09T00:59:44.266974+00:00" -->
 #### You
 Do you need to make any DOC-20 changes?
+
+<!-- xgd-turn id="e20b5382-c521-41df-90e6-beacf2824807-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T01:00:37.501008+00:00" -->
+#### Claude
+Good question — let me check whether the fold-back REQ-74 itself flagged is still outstanding, and whether a ticket already covers it.
+
+Yes — four changes, but only one of them comes from my work. The other three are a fold-back REQ-74 already committed to and never made.
+
+**Confirmed outstanding (REQ-74's own words: "worth folding back into DOC-20"). Neither rule appears anywhere in DOC-20 today — I grepped it.**
+
+1. **The quantifier rule.** A projection yields alternative denotations of *one* value (any admitted denotation admits it); a list parameter yields *distinct* selections (every one must be admitted). REQ-74 calls conflating them "a security bug in one direction and an unusable policy in the other," and notes it's what makes `ai_ticketing`'s bare-repo/fully-spelled asymmetry fall out with no special case — which is exactly the evidence S4 asks for and doesn't have.
+2. **Array base for optional selectors under an `allow_set`.** DOC-20 S4 requires an absent optional selector to *narrow* to the scope, but a `string`-typed selector can't hold a set, so narrowing silently degrades to unconstrained — the precise hole the rule exists to close. Also worth recording REQ-74's finding that `when_unset` needs no matcher of its own (`deny` = an empty allow set).
+
+**Factual correction, from DOC-30.** The refactor-targets bullet reads *"its closed-over site slug and unenforced `writes` flag become a declared scope axis and an effect classification."* The `writes` half is right. The slug half isn't: no tool declares a `slug` parameter at all, which is stronger than a scope predicate — S2's own reasoning one level up, an absent parameter has no bad value to refuse. As written, DOC-20 instructs a refactor that trades a real safety property for a declarative one.
+
+**Genuinely open, not a correction.** `scope_axes` (`applies_to: {param: …}`) can't express a constraint over a construction-time binding; no field for a surface's own version; no `examples:`. Each needs a decision, and the first is the one that blocks our refactor either way.
+
+**What I'd do:** items 1–3 are edits DOC-20 already owes — no new decision, and leaving them out means the next surface author re-derives the quantifier rule from a bug. Item 4 is a design change to a document that's been implemented against; it wants its own lagrange-framework ticket, not an inline amendment from me.
+
+I haven't touched DOC-20 — it's another repo's design record and outside REQ-125's scope. Want me to make 1–3 now (I'd need a lagrange-framework ticket to carry them), and file item 4 as a request there?
 
 <!-- xgd-chat-end -->
