@@ -6,7 +6,7 @@ title: Backdrops are captured anywhere in the document, and excluded where they 
   report what is not painted
 created_by: xgd
 created_at: '2026-08-06T01:46:09.409406+00:00'
-updated_at: '2026-08-07T23:11:31.260509+00:00'
+updated_at: '2026-08-09T02:54:41.404651+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
