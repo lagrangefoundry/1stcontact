@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-125
 created_by: xgd
 created_at: '2026-08-09T00:45:36.241205+00:00'
-updated_at: '2026-08-09T01:00:37.728449+00:00'
+updated_at: '2026-08-09T01:02:30.365817+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,13 @@ Yes — four changes, but only one of them comes from my work. The other three a
 **What I'd do:** items 1–3 are edits DOC-20 already owes — no new decision, and leaving them out means the next surface author re-derives the quantifier rule from a bug. Item 4 is a design change to a document that's been implemented against; it wants its own lagrange-framework ticket, not an inline amendment from me.
 
 I haven't touched DOC-20 — it's another repo's design record and outside REQ-125's scope. Want me to make 1–3 now (I'd need a lagrange-framework ticket to carry them), and file item 4 as a request there?
+
+<!-- xgd-turn id="474bbef3-acbf-4881-ac3d-f3a14efb66e6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T01:02:30.187641+00:00" -->
+#### You
+Please make the changes to the doc-20
+
+Do the changes require an update to what was build in REQ-74? If so can you create and REQ for the delta?
 
 <!-- xgd-chat-end -->
