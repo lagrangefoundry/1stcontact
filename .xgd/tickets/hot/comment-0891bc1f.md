@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T19:41:10.255717+00:00'
+updated_at: '2026-08-09T20:06:52.093124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -64,5 +64,11 @@ I haven't changed the ticket or any code. Tell me which you want:
 1. **Close it** — I'll update REQ-127's body to record that REQ-126 absorbed it, cite the commit, and note the scope-axis residual with its upstream pointer. No code, no commit.
 2. **Build the scope axis anyway** — I'll do it, but I want the explicit call given the above.
 3. **Something else you had in mind for this ticket** that isn't in the body yet — the body reads as pre-REQ-126 planning, so it's plausible your intent has moved on.
+
+<!-- xgd-turn id="279b2250-2790-49ce-ba53-4bed8255ec03-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T20:06:51.946413+00:00" -->
+#### You
+There's something I don't understand here. It feels to me like the slug should be completely outside of the scope of what's going on here. Each site gets a chat window with its own session. The session is initialized to recognize that it is attached to that site. The chat window does not need to know anything about the sites. It's given a session and it's first contact job to trigger that session creation appropriately. No?
 
 <!-- xgd-chat-end -->
