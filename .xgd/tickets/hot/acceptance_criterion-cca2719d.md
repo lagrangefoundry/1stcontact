@@ -6,7 +6,7 @@ title: An out-of-range axis, an unsafe image source, an over-cap tree and a dupl
   node id are each rejected at authoring time
 created_by: xgd
 created_at: '2026-08-06T03:03:19.938860+00:00'
-updated_at: '2026-08-08T00:43:37.439730+00:00'
+updated_at: '2026-08-09T05:41:21.875059+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
