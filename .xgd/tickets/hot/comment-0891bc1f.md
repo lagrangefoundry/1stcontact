@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T20:07:13.833741+00:00'
+updated_at: '2026-08-09T20:08:08.356264+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -76,5 +76,13 @@ There's something I don't understand here. It feels to me like the slug should b
 <!-- xgd-chat role="assistant" ts="2026-08-09T20:07:13.703226+00:00" -->
 #### Claude
 Let me look at the actual wiring between the panel and the host before I answer.
+
+<!-- xgd-turn id="012fc657-ed40-41d8-b934-fd9b01fc0900-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T20:08:08.172366+00:00" -->
+#### You
+There's something I don't understand here. It feels to me like the slug should be completely outside of the scope of what's going on here. Each site gets a chat window with its own session. The session is initialized to recognize that it is attached to that site. The chat window does not need to know anything about the sites. It's given a session and it's first contact job to trigger that session creation appropriately. No?
+
+Let me put another way I'm not expecting the framework to supply a chat window that supports N sessions selected with a slug. I am expecting 1c to switch in the correct session.
 
 <!-- xgd-chat-end -->
