@@ -6,7 +6,7 @@ title: A rung relaxed to a floor also releases its fixed width, so the ladder's 
   overrides keep holding
 created_by: xgd
 created_at: '2026-08-07T02:57:37.488762+00:00'
-updated_at: '2026-08-08T00:44:05.417834+00:00'
+updated_at: '2026-08-09T05:41:48.929981+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
