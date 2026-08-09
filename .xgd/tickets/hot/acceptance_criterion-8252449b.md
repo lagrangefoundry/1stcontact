@@ -7,7 +7,7 @@ title: The region is stable while the pointer is still — costing no animation 
   back
 created_by: xgd
 created_at: '2026-08-06T18:09:44.781388+00:00'
-updated_at: '2026-08-08T00:43:48.653041+00:00'
+updated_at: '2026-08-09T05:41:32.772628+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
