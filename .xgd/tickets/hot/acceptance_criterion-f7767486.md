@@ -6,7 +6,7 @@ title: The install refusal carries the ENVIRONMENT code, exit status 6, and the 
   --json error envelope
 created_by: xgd
 created_at: '2026-08-07T03:13:19.905827+00:00'
-updated_at: '2026-08-07T23:11:16.514211+00:00'
+updated_at: '2026-08-09T02:55:41.107621+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
