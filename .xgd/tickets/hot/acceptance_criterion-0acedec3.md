@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A painted, internally laid-out element is a single node
 created_by: xgd
 created_at: '2026-08-06T01:15:47.024695+00:00'
-updated_at: '2026-08-08T00:42:21.988934+00:00'
+updated_at: '2026-08-09T05:40:40.928119+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
