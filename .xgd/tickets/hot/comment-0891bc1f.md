@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:23:10.493385+00:00'
+updated_at: '2026-08-09T22:24:41.801223+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -344,5 +344,11 @@ storage/chat/site-gigabytealchemy.md    # intact, in the workspace
 ```
 
 So the state now: REQ-127 is `free_coded` at `7347d224e`, 44/44 green across the six AI suites, home directory clean. Start the builder with `bin/1c builder` when you want to drive it.
+
+<!-- xgd-turn id="541b3df7-2b1d-43f1-831b-479083912f04-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:24:41.613980+00:00" -->
+#### You
+ok good - now what can I ask it to change that will prove that the new L1 tool is available?
 
 <!-- xgd-chat-end -->
