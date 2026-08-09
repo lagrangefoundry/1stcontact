@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Font resource entries are scheme-checked and weight-bounded by the envelope
 created_by: xgd
 created_at: '2026-07-29T03:50:35.256866+00:00'
-updated_at: '2026-08-08T00:42:19.401102+00:00'
+updated_at: '2026-08-09T05:40:39.936927+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
