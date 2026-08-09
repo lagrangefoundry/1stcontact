@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A background image on any node kind binds to the site's own mirrored asset
 created_by: xgd
 created_at: '2026-08-06T01:16:47.624035+00:00'
-updated_at: '2026-08-08T00:42:33.077535+00:00'
+updated_at: '2026-08-09T05:40:44.722299+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
