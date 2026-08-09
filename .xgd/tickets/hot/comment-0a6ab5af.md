@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:38.398394+00:00'
+updated_at: '2026-08-09T17:43:08.001981+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -904,5 +904,11 @@ The five: **T1 builder shell** → **T2 edit render** (parallel, renderer-side, 
 Two things to watch in this shape. **T3 is now the big one** — it carries the write path, the validator wiring, the modal and the refresh loop. That's the right unit because it's one vertical slice, but it's not a small ticket, and if it needs splitting later the seam is the API versus the modal. And **T5 presumes an answer to DOC-8 §13 Q3** — whether v1 runs against the file-backed store locally first. If it does, phase 1 is functionally complete at T4 and T5 defers rather than blocks.
 
 Want me to write T1–T5 as REQ tickets now? T1 still shouldn't be written until you've picked publish or submodule for `webui-*`, since that decision is most of its scope — the other four I can draft immediately.
+
+<!-- xgd-turn id="ce80b672-a040-4ecf-b9e9-40ea880e4208-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T20:40:06.359991+00:00" -->
+#### You
+yes please draft the tickets - an can you explicitly use the depends-on to identify dependencies
 
 <!-- xgd-chat-end -->
