@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:07.444707+00:00'
+updated_at: '2026-08-09T17:42:08.350196+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -879,5 +879,11 @@ Docs are consistent, and the plan is in DOC-28 §12.
 - **Phase 1 completes at T7.** T8–T10 are productionisation and phase 2, with T10 gated on REQ-114 and upstream REQ-55.
 
 I've left these as a plan rather than creating the REQ tickets — say the word and I'll create T1–T7 with proper bodies and ACs. T1 in particular shouldn't be written until you've picked publish or submodule, since that decision *is* most of its scope.
+
+<!-- xgd-turn id="39bc4872-da96-4070-9d32-83a2cecc880f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T20:36:10.996715+00:00" -->
+#### You
+Whoah 10 tickets? is that really necessary - lets shoot for 5
 
 <!-- xgd-chat-end -->
