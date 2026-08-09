@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A behavior module ships no CSS beyond its declared invariant elements
 created_by: xgd
 created_at: '2026-08-06T01:33:13.159031+00:00'
-updated_at: '2026-08-08T00:42:39.243175+00:00'
+updated_at: '2026-08-09T05:40:48.802062+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
