@@ -5,7 +5,7 @@ type: request
 title: L1 tooling configuration over the control surface API (deletes declare.ts)
 created_by: xgd
 created_at: '2026-08-08T21:14:47.241627+00:00'
-updated_at: '2026-08-09T20:11:31.448247+00:00'
+updated_at: '2026-08-09T21:08:43.958813+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -109,3 +109,39 @@ Transcripts are server-side and unaffected.
 The upstream Toolbox finding stands as REQ-126 raised it: construction-scoped bindings are not
 declarable in DOC-20's field set. This ticket makes that irrelevant here rather than fixing it
 there.
+
+
+### Folded in: the transcript-archive migration
+
+Verifying the above surfaced a PRE-EXISTING breakage, confirmed at HEAD with this ticket's work
+stashed: all 8 `test_UAT_FC_REQ-122_chat_host` UATs failed with `lib.FileStore is not a
+constructor`. Upstream `@lagrangefoundry/ai` had replaced the whole-object session store with an
+incremental transcript-archive port. It is a dependency migration rather than this ticket's
+subject, but REQ-127's origin half is unverifiable without it, so it is deliberately carried here
+(operator's call) rather than split out:
+
+- `FileStore` → `FileArchive`; `manager.store` → `manager.archive`, with `load` / `list` async.
+- `attach` uses `getSession` rather than `resume`. `resume` reconciles the junction and is no
+  longer idempotent, so re-resuming an already-live session re-folds a record stream that has
+  already been folded ("fold started mid-stream"). `getSession` resumes only when the session is
+  not live.
+- **`logDir` is now passed explicitly.** A session has two tiers — the junction is canonical while
+  it runs, the archive is what it drains into — and `logDir` defaults to `~/.xgd/sessions/live`, a
+  MACHINE path. Left alone, one conversation lives half in the workspace and half in the home
+  directory, and two checkouts share a junction keyed only by slug. That is exactly what
+  `sessionsDir` was written to prevent, so both tiers now sit under it.
+
+Three REQ-122 host assertions were also stale against REQ-126 and are updated to the behaviour
+REQ-126 intended: the refusal text (per-call `path` / `hint` no longer reach the model — the
+Toolbox renders the declared class meaning, which REQ-126 raised upstream), and two manual /
+tool-description literals that now project from the declaration rather than from a local renderer.
+
+### Evidence
+
+- `test_UAT_FC_REQ-127_session_binding` — 7 UATs, real HTTP against a real `startBuilder`.
+- `test_UAT_FC_REQ-127_session_panel` — 7 UATs, real `webui-chat` in jsdom.
+- `test_UAT_FC_REQ-122_chat_host` / `chat_panel` / `tool_surface`, `test_UAT_FC_REQ-126_l1_surface`
+  — 44 passing across the six AI suites, up from 8 failing before this work.
+- Full suite: 1307 passed. The 6 remaining failures (`req115-builder-composition`,
+  `req117-edit-loop-browser`, `reconciliation-copy-edit-gesture`) are byte-identical at HEAD with
+  this work stashed — pre-existing, in the edit-modal/browser area, untouched by this ticket.
