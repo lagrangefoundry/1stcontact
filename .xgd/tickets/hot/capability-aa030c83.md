@@ -5,7 +5,7 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-08-09T01:13:44.163061+00:00'
+updated_at: '2026-08-09T01:20:01.813593+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -32,9 +32,14 @@ render visibly differed, or fixes a pairing/false-delta bug in the other directi
   properties (rendered-text extent, composited surface fill, box border, typography
   treatments, element effects, image crop), their tolerances and severities, and the
   element-pairing rules that decide which two elements are compared.
-- **Gradients as a first-class value** — text-fill (`background-clip: text`) and
-  panel/surface gradients captured with direction and ordered colour stops
-  (including stop position offsets), authorable, and diffed as a fidelity axis.
+- **Gradients as a captured and diffed value** — text-fill (`background-clip: text`)
+  and panel/surface gradients captured with direction and ordered colour stops
+  (including stop position offsets), and diffed as fidelity axes. The authoring
+  surface retained here is the legacy *module content-field* gradient and its
+  shared `resolveSurfaceGradient` resolver, which the REQ-84 / REQ-96 pivot
+  superseded and which the L1 renderer never calls. The live L1 gradient axis
+  (linear + radial `surfaceGradient` / `gradientFill`) is **not** owned here — see
+  the value-axis ownership rule below.
 - **Size-aware and cross-size diffing** — the shared `--size` viewport selector on
   `values-diff` and pixel `diff`, the per-width reference screenshots capture
   persists, and the standalone `responsive-diff` N-way cross-size node analysis with
@@ -70,6 +75,26 @@ versus meaning:
   reports and refuses is CAP-82's. A `--json` payload contract is that verb's; the
   guarantee that nothing else lands on stdout beside it is this capability's.
 
+## Ownership rule: a value axis follows the layer that renders it
+
+A fidelity axis added here and a value axis an author writes are different
+artifacts even when they name the same design property. The rule is **the layer
+that renders it**, not the driver that demanded it:
+
+- **This capability owns the captured and compared shape** — what `1c capture`
+  records for a property, the comparison axis, its tolerance and severity. A
+  gradient's captured direction, ordered stops and stop offsets, and the
+  text-fill and surface-gradient diff axes, are owned here.
+- **The framework substrate capability owns the axis that paints it** — an L1
+  leaf axis validated by the envelope and emitted by the single safe renderer.
+  The L1 gradient axis is therefore CAP-70's, and is already filed there on the
+  L1 substrate story rather than on any story here.
+
+Reproduction is what motivates most L1 axes, so "the driver demanded it" would
+route nearly every axis into this capability and dissolve the out-of-scope
+clause below. The layer test is stable and mechanically checkable: if the value
+reaches the browser through `packages/framework/src/l1`, it is CAP-70's.
+
 ## Out of scope
 
 The L1 typed tree, its envelope validator and safe renderer, and the fold/gate
@@ -84,6 +109,11 @@ Consolidated 2026-08-05 by structural rebalance from `1c Values-Diff Fidelity`
 (CAP-65), and `1c CLI Argument Parsing & Output Hygiene` (CAP-66) — each of which
 was individually below the matrix minimum UAT threshold while covering one facet of
 the same capture-and-compare pipeline.
+
+Overlap cluster 4 (2026-08-08) confirmed STORY-76 in place and recorded the
+value-axis ownership rule above: the story's capture and diff halves are owned
+here, and its authoring half targets the superseded module resolver rather than
+the L1 axis the survey took it for.
 
 Overlap cluster 3 (2026-08-08) confirmed STORY-79 in place and recorded the
 ownership rule above. The CAP-66 merge is what made a CLI-wide story sit inside a
