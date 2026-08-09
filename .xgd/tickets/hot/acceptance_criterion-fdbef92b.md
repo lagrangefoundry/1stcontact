@@ -7,7 +7,7 @@ title: 'Interaction and entrance axes admit typed values only: a document naming
   an out-of-range duration is rejected with a message naming the offending field'
 created_by: xgd
 created_at: '2026-08-06T02:02:59.312640+00:00'
-updated_at: '2026-08-08T00:42:44.619320+00:00'
+updated_at: '2026-08-09T05:40:52.743745+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
