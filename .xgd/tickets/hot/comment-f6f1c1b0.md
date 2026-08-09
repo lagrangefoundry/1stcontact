@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-95
 created_by: xgd
 created_at: '2026-07-25T22:34:29.970587+00:00'
-updated_at: '2026-08-09T16:47:20.578070+00:00'
+updated_at: '2026-08-09T16:48:21.318491+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1781,5 +1781,43 @@ Two things still on my list, neither blocking: `storage/sites/xgd/import/` is st
 <!-- xgd-chat role="user" ts="2026-07-27T21:55:44.194041+00:00" -->
 #### You
 Can you incorporate the logo somewhere? It is AI generated - if you need another version with a different representation - can you create it yourself? Alternatively can you give me a prompt to use to generate it with an example from the set we have?
+
+<!-- xgd-turn id="4a973bca-2813-4c6a-be7b-6447d3ec783e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-27T21:59:40.336039+00:00" -->
+#### Claude
+Let me see the rest of the set before deciding how to use the mark.
+
+All six are the same lockup: a warped wireframe mesh — two ruled "sail" surfaces meeting at a point — sitting behind the `xgd` wordmark.
+
+**I can't generate images** — no image tool here. But the mesh is *parametric geometry*, so I can author it directly as SVG, which is strictly better than a raster: scalable, recolourable to the petrol teal, transparent (your PNGs have baked white/grey grounds that would show as a square on `#FFFEF8`), and ~4KB.
+
+Silhouette's too deep — the original's wings are wider and shallower. Tuning.
+
+Recognisably the same mark, now vector and in the palette. Checking the image node's axes before placing it.Placed in all three. The hero mark is a touch timid — enlarging, then verifying the narrow widths.Tablet clean, mark correctly hidden below 1024. Committing and recording.
+
+Done — the mark is in, in three places.
+
+**I can't generate images** — there's no image tool in this session. But your mark is *parametric geometry*, not illustration, so I rebuilt it directly as SVG instead, which turned out to be the better answer anyway.
+
+**Why the PNGs couldn't be used as they are** — nothing to do with their quality:
+- Every one has a **baked ground** (white, off-white, or grey). On `#FFFEF8` bone paper a white-ground PNG shows as a visible lighter square.
+- 1024² with the mark filling ~35% of the frame, so most of the box is padding.
+- **Fixed colour** — graphite or white, never the petrol teal the palette now runs on, and a raster can't be recoloured.
+- 1.1 MB each, for something that renders at 30px in the nav.
+
+**How I built it.** Each wing is a Coons patch — four cubic Bézier boundary curves (top, bottom, inner seam, outer edge), interior sampled as `ruled_u + ruled_v − bilinear_corners`. Ribs are constant-`u` polylines, arcs constant-`v`; the left wing is the right one mirrored, so the seam is exact by construction. Output is pure `<path>` data — no filters, no fonts, no raster. Two variants at ~15KB: `xgd-mesh.svg` in accent teal, `xgd-mesh-ink.svg` in graphite. Recolouring is one argument to the generator.
+
+**Placed:** nav lockup (30×13 ink + wordmark), hero right-hand side (430×186 teal at 0.6 opacity, slow reveal after the headline so it doesn't compete) — which fills the empty space I flagged last turn — and a small footer mark. Verified at 375/768/1280; the hero mark drops below 1024 rather than shrinking.
+
+Worth noting: that placement needed **no REQ-104 workaround**. Hiding a subtree composes fine — it's only *reflowing* that has no expression.
+
+**If you do want a regenerated raster**, use `Gemini_Generated_Image_8yyi678yyi678yyi.png` (cleanest of the six — black on white, tightest crop) as the style reference with:
+
+> Minimal vector logo mark, monochrome line art on a **transparent background**. Two symmetrical curved wireframe mesh surfaces, like taut sails or moth wings, meeting at a single sharp seam in the centre. Each surface is a regular quadrilateral grid of thin uniform hairlines — roughly 11 ribs by 7 arcs — deformed in perspective so the cells compress toward the central seam and open out toward the wide outer edges. No fill, no shading, no gradient, no glow, no text, no wordmark, no tagline. Wide and shallow, about 2.3:1. Even stroke weight throughout. Technical-drawing register — a finite-element mesh or a wind-tunnel surface, not an illustration.
+
+Ask for it **wordmark-free and transparent** — the wordmark is live text on the site (Satoshi 700), and baking it in would cost you the palette, the selectable text and the accessible name.
+
+One honest caveat: my redraw is a faithful *reconstruction*, not a pixel match. The original's wings arc a little more steeply at the outer tips. If you want it closer I can tune the Bézier control points — it's a two-minute loop now that the generator exists.
 
 <!-- xgd-chat-end -->
