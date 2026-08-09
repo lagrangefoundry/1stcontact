@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T22:59:59.140177+00:00'
+updated_at: '2026-08-09T23:01:27.524291+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -811,5 +811,49 @@ verbatim - please create the ticket
 <!-- xgd-chat role="user" ts="2026-08-09T22:59:58.931918+00:00" -->
 #### You
 verbatim - please create the ticket - NOTE that this must not break the user's simple editor
+
+<!-- xgd-turn id="9ebbf3bf-78d4-447d-a253-d7f3145c69ad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T23:01:27.387648+00:00" -->
+#### Claude
+That changes the removal plan — the modal is backed by the same functions. Let me verify before writing it up.
+
+Confirmed — `editCopyGet`/`editCopySet`/`copyFieldsOf` back the modal *and* `1c copy`. They stay. Writing the ticket now.
+
+Created **REQ-129** (`request-b1300473`), priority high, status draft.
+
+## What's in it
+
+**Three operations, net +0 on the surface:**
+
+| | |
+|---|---|
+| `describe_page` | **widened** — emits all 122 nodes, not the 67 with copy fields. Becomes the navigation index. |
+| `get_l1(page, path)` | **new** — the subtree verbatim: axes, children, link role, exactly as stored |
+| `set_l1(page, path, node)` | **new** — replace that subtree with validated L1 |
+| `get_copy` / `set_copy` | **retired from the AI surface only** |
+
+**Verbatim is recorded as a decision, not a default** — palette refs stay refs, responsive tracks stay tracks, because the model must be able to write back what it read and a resolved view can't be written back. Meaning comes from `describe_site`, which already returns the whole base including `palette`.
+
+**Nothing new is built for validation or addressing.** `validateOrThrow` at `edit.ts:124` already runs the full `validateL1` envelope over the assembled site before a byte is written, and returns JSON-pointer paths that `validate.ts` says exist "so callers (including AI tool-call validators per DOC-8 §6) can self-correct." REQ-107 put that on the authoring path already.
+
+## On your constraint
+
+I gave it its own section with a ⚠️, because your note changed the removal plan. I'd been saying "delete `set_copy`" — that was wrong as stated. `editCopyGet`, `editCopySet` and `copyFieldsOf` back **both** the click-to-edit modal (via `/api/copy`) and `1c copy get|set`. They are explicitly untouched.
+
+Only the AI-facing *operations* retire — their declaration in `l1-surface.json` and binding in `toolbox.ts`. The modal never called the toolbox, so it structurally can't be affected. But the ticket requires that be **demonstrated, not assumed**, with two invariants:
+
+1. After the assistant authors a subtree, the modal still opens on nodes inside it and still saves — an AI-authored `text` node must be indistinguishable to `copyFieldsOf` from a hand-authored one.
+2. Node kinds the modal doesn't expose (rows, boxes, plain containers) stay invisible to it rather than rendering an empty form. True today; must stay true once the AI can create them freely.
+
+The four-field projection is the right granularity for someone clicking a heading. That was never the mistake — the mistake was giving the AI the same surface.
+
+## Also captured
+
+- **Security**: the guarantee *moves* from "no operation accepts CSS" to "the schema rejects it." It holds because L1 is closed (`.strict()`, closed enums, URL allowlist, no raw-CSS hole by policy, plus the renderer's independent `isSafeUrl`) — but the ticket records it as a deliberate relocation, and says any hole found in L1's closure is a security finding against REQ-129 rather than a capability gap.
+- **Acceptance**: reproduce xgd.dev's nav bar on gigabytealchemy through the chat. Needs both halves, so it can't pass by accident.
+- **Out of scope**: whole-document submission — bounding by address is what keeps it affordable and stops the model rewriting regions it didn't mean to touch.
+
+One loose end noted inside REQ-129 but deliberately not folded in: `site.json`'s `nav: {pattern, entries}` is vestigial on both sites, and the model reasons from it and states falsehoods. That deserves its own ticket — say the word.
 
 <!-- xgd-chat-end -->
