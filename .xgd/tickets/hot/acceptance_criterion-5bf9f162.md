@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Every node kind admits the same shared axis groups
 created_by: xgd
 created_at: '2026-08-06T01:16:02.599467+00:00'
-updated_at: '2026-08-08T00:42:24.240539+00:00'
+updated_at: '2026-08-09T05:40:41.917409+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
