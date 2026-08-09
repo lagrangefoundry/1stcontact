@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:33:04.074431+00:00'
+updated_at: '2026-08-09T17:33:29.242725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -439,5 +439,13 @@ Yes — agreed, and both are done. Two docs now, because they answer different q
 **One substantive finding while writing it** (DOC-28 §5.3, and I've flagged it on CHAT-9): M1's `data-fc-module` hook addresses **behavior-module instances only** — but since the pivot, most copy lives in **L1 `text` nodes**, which have no hook. L1's optional `id` isn't one either; REQ-106 gave it a different job (real DOM id for `href="#how"` and `for`↔`id`), and it's sparse and URL-visible, so overloading it couples unrelated concerns. As it stands the copy editor can only reach copy inside module slots, which is nearly nothing on a folded page. So **M3 is blocked on choosing an L1 addressing scheme** — structural path, a render-time synthesized edit id, or a minted persistent id in the definition. I've written up the tradeoffs rather than picking; it's worth a decision with you.
 
 Two corrections to what I told you earlier, both from reading the stale CHAT-9 body rather than the transcript: "Weber" was a dictation artefact you dropped later in that same conversation, and vendoring `webui-shell` was rejected — the docs now say publish-or-submodule, never copied. "Weber" still appears in code comments in `render.ts` and the M1 test; that's a code change, so I've left it for the next free-coded commit here rather than touching it now.
+
+<!-- xgd-turn id="5830cd31-cf6a-459c-8b28-2917788a2ba9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T01:06:47.493684+00:00" -->
+#### You
+Weber -> web editor please
+
+I don't understand your finding
 
 <!-- xgd-chat-end -->
