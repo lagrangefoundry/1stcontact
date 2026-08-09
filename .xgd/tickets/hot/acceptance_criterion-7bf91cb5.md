@@ -6,7 +6,7 @@ title: Value deltas are evidence and do not set the exit code; a bundle with no 
   reference manifest is a hard error, not a vacuous pass
 created_by: xgd
 created_at: '2026-08-06T03:13:36.177965+00:00'
-updated_at: '2026-08-07T23:54:11.117484+00:00'
+updated_at: '2026-08-09T08:20:09.822210+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
