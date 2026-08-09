@@ -6,10 +6,10 @@ title: 'Background image selection: the container segment''s backgroundImageUrl 
   the phase-1 picker'
 created_by: xgd
 created_at: '2026-08-08T21:22:38.782599+00:00'
-updated_at: '2026-08-09T19:54:25.860933+00:00'
+updated_at: '2026-08-09T19:54:34.713687+00:00'
 completed_at: null
-last_field_updated: body
-status: in_progress
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 2
@@ -17,6 +17,11 @@ fields:
   - request-66e4c630
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 2e3f0b7c22eeea7d64b6a6dfc66fc9b5870ca5b8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.31
 ---
 
 ## What this builds
