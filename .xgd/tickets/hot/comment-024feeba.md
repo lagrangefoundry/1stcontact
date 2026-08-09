@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-08-09T17:05:33.222558+00:00'
+updated_at: '2026-08-09T17:07:33.738067+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4175,5 +4175,44 @@ values-diff --multi-viewport: 6 cell(s) across the viewport ladder
 ```
 
 Progress - it is looking better, but there is still important work to do
+
+<!-- xgd-turn id="f8de31fe-6a69-453f-89c6-44bcd30a47a0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-24T22:34:09.404496+00:00" -->
+#### Claude
+Clean-room confirmation: a fresh capture → repro → render → gate reproduces **17 deduped defects**, identical to the committed state. So those numbers aren't an artifact of an incrementally-patched bundle — the pipeline is reproducible end-to-end. Gate still PASS at 0 residuals / 0 unmatched.
+
+Let me pull the cause clustering and find the actual nodes (read-only — not touching the draft).
+
+Clustering gives us a clean picture: **17 defects → 7 causes, 3 FIX / 14 REVIEW / 0 accept.** But one thing in there doesn't add up, and it's the most interesting result of this run.
+
+Stop — there's a real defect here, and **values-diff is mislabelling it.** I compared the capture oracle against the draft directly:
+
+| | Subscribe (target) | card-8 (repro) | Send message (target) | card-9 (repro) |
+|---|---|---|---|---|
+| @320 | x=24 w=272 **h=48** | x=−1 w=322 **h=98** | x=24 w=272 **h=48** | x=0 w=320 **h=96** |
+| @768 | x=245 w=122.75 **h=50** | x=220 w=173 **h=100** | x=408 w=172.8 **h=48** | x=384 w=221 **h=96** |
+| @1440 | x=493 w=122.75 **h=50** | x=468 w=173 **h=100** | x=744 w=172.8 **h=48** | x=720 w=221 **h=96** |
+
+The button surfaces are **outset by a uniform ~25px on all four sides at every viewport** — which makes them **exactly 2× the target height** (48→98, 50→100, 48→96). On mobile card-8 lands at x=−1 with width 322 on a 320 viewport, so it bleeds past both screen edges.
+
+That reframes the repair order the tool printed. It says "① copy the 2 Type-A flat values" — but copying `borderRadiusPx: 8` would accomplish nothing, because **the radius is already correct everywhere**:
+
+- target oracle: `role: "action"`, `borderRadiusPx: 8` ✓
+- draft: `card-8`/`card-9` carry `borderRadiusPx: 8` ✓
+- rendered HTML: `border-radius: 8px` present, twice ✓
+
+values-diff reports `radius 8px → 0px` because it text-matches the target's single `action` node against the reproduction's **`text` node** ("Subscribe"), which has no radius — the radius lives on the sibling `box`. So the axis comparison is reading the wrong node. The `[A] shape` delta is an artifact; the genuine defect underneath it is geometry, and geometry is the one thing that cluster doesn't mention.
+
+This is the failure mode from [[values-diff-has-blind-spots]] repeating almost exactly: a colour-and-radius match concealing a 2×-wrong box. I'd have walked straight past it if I'd trusted the FIX/REVIEW dispositions.
+
+I also need to correct something I told you earlier: I said the radius delta was "an attribution phantom" and left it there. The phantom part is right, but I stopped too early — underneath it is a live geometric bug, and it's very likely mine, from the geometric surface attribution in `6ede6a8e`.
+
+Two things I have *not* done, deliberately:
+
+1. **Not looked at it rendered.** The numbers above are arithmetic off two sources of truth, not inference — but per [[repro-gate-on-diff-overlay]] I want the diff overlay on that region before we call the cause. That needs `1c shot` + `1c diff`, which is yours to drive.
+2. **Not touched any code or filed a ticket.** This is a bug in fold-side surface attribution, distinct from REQ-88's scope, and you've said tickets need your explicit go-ahead.
+
+Suggested next step, when you're ready: `1c shot gigabytealchemy` then `1c diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index`, and we read the overlay around the two buttons together. Meanwhile, say the word and I'll pin the cause in `fold.ts` (read-only) — I want to know where a 24–25px outset enters the surface box, since the two buttons differ by 1px, which argues against a hardcoded constant and for the surface being attributed to a padded wrapper element.
 
 <!-- xgd-chat-end -->
