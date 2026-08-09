@@ -4,6 +4,7 @@ import {
   applyCopyFields,
   copyFieldsOf,
   parseL1Path,
+  replaceL1Node,
   resolveL1Node,
   validateSite,
   type L1Node,
@@ -319,6 +320,35 @@ function segmentRoots(
   return Array.isArray(raw) ? (raw as L1Node[]) : [raw as L1Node]
 }
 
+/**
+ * Put a root list back where {@link segmentRoots} read it from (REQ-129).
+ *
+ * `segmentRoots` sometimes hands back a live reference (a repeated slot's array)
+ * and sometimes a fresh one-element list it built (`[doc.root]`, a single slot's
+ * subtree), so a caller that replaced an entry cannot know whether the page it
+ * holds already reflects the change. This writes it back in every case, which is
+ * why the two functions are read here as one pair rather than as a getter with a
+ * caveat.
+ *
+ * Reached only after `segmentRoots` succeeded on the same page and target, so
+ * every lookup it repeats is known to resolve.
+ */
+function writeSegmentRoots(
+  page: Record<string, unknown>,
+  target: CopyTargetOptions,
+  roots: L1Node[],
+): void {
+  if (target.module === undefined) {
+    ;(page.l1 as { root: L1Node }).root = roots[0]
+    return
+  }
+  const modules = page.modules as Record<string, unknown>[]
+  const instance = modules.find((m) => m.id === target.module) as Record<string, unknown>
+  const slots = instance.slots as Record<string, unknown>
+  const slot = target.slot as string
+  slots[slot] = Array.isArray(slots[slot]) ? roots : roots[0]
+}
+
 /** The page file, the (possibly cloned) page, and the addressed node within it. */
 interface ResolvedSegment {
   file: PageFile
@@ -471,6 +501,124 @@ export function editCopySet(
       applied.changed.length === 0
         ? `No change at ${rawPath} (value already current).`
         : `Updated ${applied.changed.join(', ')} at ${rawPath} in page '${pageId}'.`,
+  }
+}
+
+// ── L1 authoring: read and write one subtree, verbatim (REQ-129) ─────────────
+//
+// The copy commands above are the click-to-edit modal's contract: four fields,
+// the granularity a non-technical operator clicking a heading needs. These two
+// are the AUTHORING pair, and they are deliberately the whole language rather
+// than a projection of it — a caller that can only see `text` cannot compose a
+// nav bar, and 86 of `xgd/home`'s 122 nodes carry `axes` that no projection
+// reaches.
+//
+// VERBATIM IS THE DECISION. `editL1Get` returns what is stored, unresolved:
+// palette refs stay refs, responsive tracks stay tracks. A resolved view reads
+// better and cannot be written back, and read/write symmetry around one address
+// is the entire point of the pair.
+//
+// Nothing new is validated. `validateOrThrow` already runs the site schema AND
+// `validateL1`'s full envelope — numeric ranges, the URL-scheme allowlist, the
+// node-count cap, geometry-track well-formedness, unique ids — over the whole
+// assembled site before a byte is written, and reports JSON-pointer paths built
+// for exactly this caller. The guarantee that no HTML, CSS or JavaScript can be
+// written therefore MOVES here: it used to hold because no operation accepted
+// them, and it now holds because L1's schema is closed (`.strict()` objects,
+// closed enums, hex-only colours, no raw-CSS hole by policy). Any hole found in
+// that closure is a security finding, not a capability gap.
+
+/** Read the subtree at one address, exactly as stored. */
+export function editL1Get(
+  slug: string,
+  pageId: string,
+  rawPath: string,
+  opts: CopyTargetOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  requireDraft(ctx, slug)
+  const { node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
+  return {
+    data: {
+      target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
+      node,
+    },
+    human: JSON.stringify(node, null, 2),
+  }
+}
+
+/**
+ * Replace the subtree at one address.
+ *
+ * Bounded by address on purpose. A whole-document write would be simpler and
+ * worse: it costs the caller the entire page on every change, and it has them
+ * rewriting regions they never intended to touch.
+ *
+ * Atomic on the same terms as every other write here — the replacement lands in
+ * a clone, the resulting site is validated whole, and on refusal the clone is
+ * discarded and the draft is byte-unchanged.
+ *
+ * UPSTREAM FINDING, recorded where it bites. `validateOrThrow` reports the
+ * offending JSON pointer — `/pages/0/l1/root/children/1/axes/fontSizePx` — which
+ * is precisely what a caller needs to correct a rejected subtree within the
+ * turn, and `1c` users get it. A Toolbox caller does not: `Toolbox._renderHostError`
+ * renders a declared code as `code + the surface's declared meaning` and drops
+ * the host error's own message, with no channel for a per-call detail. That was
+ * invisible while the only write was a four-field copy edit, where the generic
+ * meaning was enough. It is not enough for a subtree, and the declared
+ * `SCHEMA_INVALID` meaning carries the fallback strategy because of it.
+ */
+export function editL1Set(
+  slug: string,
+  pageId: string,
+  rawPath: string,
+  node: unknown,
+  opts: CopyTargetOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const files = readPageFiles(ctx, slug)
+  const file = findPageFile(files, pageId)
+  if (!file) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' not found in site '${slug}'.`,
+      path: pageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+  const parsed = parseL1Path(rawPath)
+  if (!parsed) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${rawPath}' is not a segment address.`,
+      path: rawPath,
+      hint: 'An address is dotted child indices, e.g. 0.2.1 — read it off a page map.',
+    })
+  }
+
+  const page = structuredClone(file.page)
+  const roots = segmentRoots(page, pageId, opts)
+  if (!replaceL1Node(roots, parsed, node as L1Node)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Address '${rawPath}' resolves to no node in page '${pageId}'.`,
+      path: rawPath,
+      hint: 'Addresses are render-scoped: re-read the page map and use the address it gives.',
+    })
+  }
+  writeSegmentRoots(page, opts, roots)
+
+  validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
+
+  writeJson(file.abs, page)
+  return {
+    data: {
+      target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
+      changed: [rawPath],
+      node,
+    },
+    human: `Replaced the element at ${rawPath} in page '${pageId}'.`,
   }
 }
 

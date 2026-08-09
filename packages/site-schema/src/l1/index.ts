@@ -40,6 +40,7 @@ export {
   parseL1Path,
   formatL1Path,
   resolveL1Node,
+  replaceL1Node,
   copyFieldsOf,
   applyCopyFields,
 } from './edit'

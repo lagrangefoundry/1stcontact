@@ -32,7 +32,7 @@ const HEADLINE = 'A painted band.'
 const SLIDE_ONE = 'The first slide.'
 const FORM_INTRO = 'Tell us what you are building.'
 
-/** The address `set_copy` is expected to reach the headline at. */
+/** The address a write is expected to reach the headline at. */
 const HEADLINE_PATH = '0.0.0'
 
 /**
@@ -123,7 +123,7 @@ interface Segment {
   kind: string
   module?: string
   slot?: string
-  values: Record<string, string>
+  label: string
 }
 
 function homeJson(): Record<string, unknown> {
@@ -153,16 +153,22 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
 
     // The map is the only place the address comes from — nothing here computes
     // one, because the model cannot either.
-    const found = map.segments.find((s) => s.values.text === HEADLINE)
+    const found = map.segments.find((s) => s.label === HEADLINE)
     expect(found).toBeDefined()
     expect(found?.path).toBe(HEADLINE_PATH)
 
-    const result = call('set_copy', {
+    // Read the element, change the part that was asked for, write it back
+    // (REQ-129). A write is a whole element, so a read is not optional.
+    const node = callJson<{ node: Record<string, unknown> }>('get_l1', {
       page: 'home',
       path: found!.path,
-      values: { text: 'A quieter band.' },
+    }).node
+    const result = call('set_l1', {
+      page: 'home',
+      path: found!.path,
+      node: { ...node, text: 'A quieter band.' },
     })
-    expect(result).toMatch(/Updated text/)
+    expect(result).toMatch(/Replaced/)
 
     // The draft on disk is the only evidence that counts.
     const l1 = homeJson().l1 as { root: { children: { children: { text: string }[] }[] } }
@@ -174,19 +180,25 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
 
     // A slide and a form intro are editable words on the page. A model shown only
     // the page's own L1 would report them as unchangeable — they are not.
-    const slide = map.segments.find((s) => s.values.text === SLIDE_ONE)
-    const intro = map.segments.find((s) => s.values.text === FORM_INTRO)
+    const slide = map.segments.find((s) => s.label === SLIDE_ONE)
+    const intro = map.segments.find((s) => s.label === FORM_INTRO)
     expect(slide).toMatchObject({ module: 'gallery', slot: 'slide' })
     expect(intro).toMatchObject({ module: 'get-in-touch', slot: 'form' })
 
     // The scope travels with the address, so handing the map's entry straight
     // back is a valid write — which is the property that makes the map usable.
-    call('set_copy', {
+    const slideNode = callJson<{ node: Record<string, unknown> }>('get_l1', {
       page: 'home',
       path: slide!.path,
       module: slide!.module,
       slot: slide!.slot,
-      values: { text: 'Our newest work.' },
+    }).node
+    call('set_l1', {
+      page: 'home',
+      path: slide!.path,
+      module: slide!.module,
+      slot: slide!.slot,
+      node: { ...slideNode, text: 'Our newest work.' },
     })
 
     const modules = homeJson().modules as { id: string; slots: { slide: { text: string }[] } }[]
@@ -201,10 +213,10 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
     )
 
     // An address the model guessed rather than read — the most likely bad call.
-    const refusal = call('set_copy', {
+    const refusal = call('set_l1', {
       page: 'home',
       path: '9.9.9',
-      values: { text: 'nope' },
+      node: { kind: 'text', text: 'nope' },
     })
 
     // The code AND what to do about it. The second half is what lets the model
@@ -223,7 +235,7 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
     // The loop treats a throw as a broken turn. Every failure mode must resolve.
     expect(call('describe_page', { page: 'does-not-exist' })).toContain('NOT_FOUND')
     expect(call('get_config', { key: 'nope.nope' })).toContain('NOT_FOUND')
-    expect(call('set_copy', { page: 'home', path: '0.0.0', values: 'not an object' })).toMatch(
+    expect(call('set_l1', { page: 'home', path: '0.0.0', node: 'not an object' })).toMatch(
       /must be an object/i,
     )
     expect(call('no_such_tool', {})).toMatch(/unknown tool/i)

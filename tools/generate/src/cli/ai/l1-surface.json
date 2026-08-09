@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 1,
+  "surface_version": 2,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -36,13 +36,11 @@
     },
     "page_map": {
       "page": "the page's id, its address in the site, and its title",
-      "segments": "every place on the page you can change — each with the address a write takes, the kind of thing it is, the component instance and slot it sits in when it is inside one, and its current values"
+      "segments": "every element on the page, in the order it appears — each with the address a read or a write takes, the kind of thing it is, a short label to recognise it by, and the component instance and slot it sits in when it is inside one"
     },
-    "copy_target": {
-      "target": "the page, address and component scope this describes",
-      "kind": "what kind of element it is — a text run, an image, a box",
-      "fields": "the fields this place accepts, with their types",
-      "values": "what those fields currently hold"
+    "element": {
+      "target": "the page, address and component scope this element was read from",
+      "node": "the element itself, with everything inside it, exactly as stored — and therefore exactly what a replacement for it looks like"
     },
     "asset_list": {
       "assets": "every image and font the site can use: `id`, `src`, and `kind`"
@@ -81,7 +79,7 @@
       "message": "the name or path is already taken. Choose a different one."
     },
     "SCHEMA_INVALID": {
-      "message": "the value you offered is not one this field accepts. The hint names what is."
+      "message": "what you offered is not something that field or that element accepts, so the whole change was refused and nothing was written. Do not send it again unchanged. Read the element back, compare it with what you sent, and look first at anything you invented rather than copied — a field name that is not in the vocabulary, a value of the wrong kind, a link or picture address that is not a plain path or an http(s) URL."
     },
     "REFERENTIAL_INTEGRITY": {
       "message": "something else still points at what you tried to remove."
@@ -116,8 +114,8 @@
       "op": "describe_page",
       "tool": "describe_page",
       "effect": "read",
-      "summary": "Map one page: every place on it you can change, with its address and its current content.",
-      "description": "Where addresses come from. Asking for `page: \"home\"` returns every editable place on the home page, each carrying the address that reaches it — and, when the place sits inside a component, the `module` and `slot` that address is scoped to. Hand a segment's entry straight back rather than composing an address yourself.",
+      "summary": "Map one page: every element on it, with its address and a short label.",
+      "description": "Where addresses come from, and the cheap way to see a page's shape. Asking for `page: \"home\"` returns every element on the home page in order — the boxes and rows as well as the words and pictures inside them — each carrying the address that reaches it, and, when it sits inside a component, the `module` and `slot` that address is scoped to. A label is only enough to recognise something by; use `get_l1` to see what an element actually holds. Hand an entry's address straight back rather than composing one yourself.",
       "params": {
         "page": { "type": "page_id", "required": true }
       },
@@ -125,11 +123,11 @@
       "errors": ["NOT_FOUND"]
     },
     {
-      "op": "get_copy",
-      "tool": "get_copy",
+      "op": "get_l1",
+      "tool": "get_l1",
       "effect": "read",
-      "summary": "Read exactly what one place on a page holds, and what it will accept.",
-      "description": "Read this before offering values for a place: a text run takes `text`; an image takes `src` and `alt`. A place with no editable fields is a normal answer, not an error.",
+      "summary": "Read one element on a page in full — everything it holds, exactly as stored.",
+      "description": "The page map tells you where things are; this tells you what one of them *is*. Ask for the address of a box and you get that box and everything inside it: its words, its images, how it is laid out, how it looks. Nothing is resolved or tidied on the way out, so what comes back is exactly what you may write back — read an element, change the part you mean, write the whole thing back. Ask for the smallest element that contains everything you intend to change; pages are large, and asking for the whole of one to alter a heading wastes the conversation.",
       "params": {
         "page": { "type": "page_id", "required": true },
         "path": { "type": "l1_address", "required": true },
@@ -139,7 +137,7 @@
         },
         "slot": { "type": "string", "description": "The slot within that instance." }
       },
-      "returns": { "shape": "copy_target", "provenance": "untrusted" },
+      "returns": { "shape": "element", "provenance": "untrusted" },
       "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
     },
     {
@@ -183,18 +181,18 @@
     },
 
     {
-      "op": "set_copy",
-      "tool": "set_copy",
+      "op": "set_l1",
+      "tool": "set_l1",
       "effect": "write",
-      "summary": "Change the words, or swap the image, at one place on a page.",
-      "description": "One call is one change, however many fields it names — so make the whole change at once rather than a field at a time. Given `page: \"home\"`, `path: \"0.1.0\"` and `values: {\"text\": \"Welcome to the studio\"}` it rewrites that heading and the page re-renders. Never compose an address; use one you have just read.",
+      "summary": "Replace one element on a page with a new one — its words, its images, its layout, its look.",
+      "description": "Whatever sits at that address is replaced by what you send, and everything inside it goes with it. So read the element first, change the part you mean, and send the whole thing back — anything you leave out is gone.\n\nThis is how everything on a page is changed: rewriting a heading, adding something that was not there, taking something away, rearranging what is there. To add to a group, read the group, put the new element among its children, write the group back. To remove one, write the group back without it.\n\nOne call is one change, and the page re-renders after it — so **every address on the page is regenerated**. Never carry an address across your own edit; read the map again.\n\nWhat you send must be a well-formed element of the page's own vocabulary. If it is not, the whole change is refused, the page is left exactly as it was, and the refusal names the field and what it would have accepted — correct it and send it again.",
       "params": {
         "page": { "type": "page_id", "required": true },
         "path": { "type": "l1_address", "required": true },
-        "values": {
+        "node": {
           "type": "object",
           "required": true,
-          "description": "Field name to new value. The fields a place accepts come from `get_copy` — a text run takes `text`; an image takes `src` and `alt`; a box that already has a background image takes `backgroundImageUrl`."
+          "description": "The replacement element, in the same form `get_l1` returns."
         },
         "module": {
           "type": "string",
@@ -324,7 +322,7 @@
         "describe_site",
         "list_pages",
         "describe_page",
-        "get_copy",
+        "get_l1",
         "list_assets",
         "get_asset",
         "get_config",
@@ -332,11 +330,11 @@
       ]
     },
     {
-      "group": "WriteCopy",
+      "group": "AuthorPages",
       "effect": "write",
-      "title": "Changing what a page says",
-      "description": "Change the words on a page, or which image sits in a place — including the image behind a box that already has one. Beyond swapping that image, this does not change how anything looks.",
-      "operations": ["set_copy"]
+      "title": "Changing what is on a page",
+      "description": "Change any element on a page: its words, its pictures, how it is laid out, how it looks — and what is there at all. Read an element before you replace it; a replacement is the whole element, not a patch.",
+      "operations": ["set_l1"]
     },
     {
       "group": "ManagePages",
@@ -369,13 +367,13 @@
   "sequences": [
     {
       "name": "Change something on a page",
-      "steps": ["describe_page", "set_copy"],
-      "note": "The map is where an address comes from; you cannot compose one."
+      "steps": ["describe_page", "get_l1", "set_l1"],
+      "note": "The map is where an address comes from; you cannot compose one. Read the element before replacing it — you are sending the whole thing back, so anything you did not read is what you will lose."
     },
     {
-      "name": "Offer the right kind of value",
-      "steps": ["get_copy", "set_copy"],
-      "note": "Read the fields a place accepts before offering values for them."
+      "name": "Add something to a page, or take something away",
+      "steps": ["describe_page", "get_l1", "set_l1"],
+      "note": "Read the group it belongs in, put the new element among its children — or leave the unwanted one out — and write that group back. There is no separate way to insert or delete."
     },
     {
       "name": "Publish deliberately",
@@ -387,15 +385,11 @@
   "absences": [
     {
       "name": "Writing HTML, CSS or JavaScript",
-      "note": "Never possible, by design, and not a gap to be worked around. Everything you can change is a field on an operation above."
+      "note": "Never possible, by design, and not a gap to be worked around. A page is written in its own closed vocabulary of typed elements, and nothing outside that vocabulary can be sent: an element carrying markup, a stylesheet or a script is not a valid element, so the change is refused whole. Anything you want a page to do is either something that vocabulary already says, or something to describe plainly so it can be built into it."
     },
     {
-      "name": "Changing how something looks — colour, size, spacing, position",
-      "note": "Not yet possible. You can change what a page says, which image it shows, and which image sits behind a box that already has a background image — but nothing else about its appearance. Adding a background where there is none is not possible either. Say so plainly, and describe what the user asked for so it can be built."
-    },
-    {
-      "name": "Adding, removing, moving or reordering things on a page",
-      "note": "Not yet possible. You can add and remove whole pages, but not rearrange what is on one."
+      "name": "Replacing a whole page in one call",
+      "note": "Not possible, and not an oversight — a change is bounded by the address it names. Replace the outermost element you actually mean to change; replacing more than that rewrites regions you never looked at."
     },
     {
       "name": "Uploading a new image",

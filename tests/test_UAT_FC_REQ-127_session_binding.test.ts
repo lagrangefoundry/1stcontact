@@ -87,7 +87,7 @@ const calls = (name: string, input: Record<string, unknown>) => () => ({
 
 /** Rename the headline — the one write these cases use as evidence. */
 const renames = (to: string) => [
-  calls('set_copy', { page: 'home', path: HEADLINE_PATH, values: { text: to } }),
+  calls('set_l1', { page: 'home', path: HEADLINE_PATH, node: { kind: 'text', text: to } }),
   says(`Done — the headline now reads "${to}".`),
 ]
 

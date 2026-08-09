@@ -30,7 +30,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { copyFieldsOf, formatL1Path, type L1Node } from '@1stcontact/site-schema'
+import { formatL1Path, type L1Node } from '@1stcontact/site-schema'
 import type { GlobalOptions } from '../commands'
 import { cmdPublish, ctxOf } from '../commands'
 import {
@@ -40,8 +40,8 @@ import {
   editAssetRm,
   editConfigGet,
   editConfigSet,
-  editCopyGet,
-  editCopySet,
+  editL1Get,
+  editL1Set,
   editPageAdd,
   editPageGet,
   editPageList,
@@ -103,12 +103,36 @@ export interface Segment {
   /** The component instance this address is scoped to, when it is inside one. */
   module?: string
   slot?: string
-  /** Current values of whatever this segment exposes. */
-  values: Record<string, string>
+  /** Enough of the node to recognise it in a listing. Never its axes. */
+  label: string
+}
+
+/** How long a text run's own words survive into the map before being cut. */
+const LABEL_CHARS = 60
+
+/**
+ * Enough of a node to recognise it by, and no more (REQ-129).
+ *
+ * The map's job is "where is everything", so a label has to identify a node
+ * among its siblings without reproducing it — the whole reason the map and
+ * `get_l1` are separate operations is that the page is too big to pull in order
+ * to change a heading. Axes never appear here for the same reason.
+ */
+function labelOf(node: L1Node): string {
+  if (node.kind === 'text') {
+    const text = node.text.replace(/\s+/g, ' ').trim()
+    return text.length > LABEL_CHARS ? `${text.slice(0, LABEL_CHARS - 1)}…` : text
+  }
+  if (node.kind === 'image') return node.alt || node.src
+  if (node.kind === 'control') return node.control
+  if (node.kind === 'slot') return node.behavior ? `${node.name} (${node.behavior})` : node.name
+  const children = (node as { children?: L1Node[] }).children?.length ?? 0
+  const layout = node.kind === 'container' ? node.layout : 'box'
+  return `${layout}, ${children} ${children === 1 ? 'child' : 'children'}`
 }
 
 /**
- * Walk an L1 root list, emitting every node that exposes editable fields.
+ * Walk an L1 root list, emitting EVERY node.
  *
  * The addressing rule is `resolveL1Node`'s and is not re-derived here: index the
  * root list, then walk `children`. Emitting the address with `formatL1Path` — the
@@ -117,9 +141,12 @@ export interface Segment {
  * correspondence IS the addressing contract (DOC-30 R4); the declaration states
  * its render-scoped lifetime, and this walk is why the statement is true.
  *
- * Containers with nothing of their own are walked through but not emitted:
- * `copyFieldsOf` returns null for them, and an address the model cannot do
- * anything with is noise in a listing whose whole value is being scannable.
+ * REQ-129 WIDENED THIS FROM "what can I edit" TO "where is everything". It used
+ * to emit only nodes `copyFieldsOf` exposes fields for, which was right when the
+ * only write was a four-field copy edit: an address the caller could do nothing
+ * with was noise. It is exactly wrong now. On `xgd/home` that projection reached
+ * 67 of 122 nodes, and the 55 it skipped were the layout containers — precisely
+ * what a caller composing a page needs to see.
  */
 function walkSegments(
   roots: readonly L1Node[],
@@ -129,15 +156,12 @@ function walkSegments(
   const out: Segment[] = []
   roots.forEach((node, index) => {
     const at = [...prefix, index]
-    const fields = copyFieldsOf(node)
-    if (fields) {
-      out.push({
-        path: formatL1Path(at),
-        kind: node.kind,
-        ...(scope.module ? { module: scope.module, slot: scope.slot } : {}),
-        values: fields.values,
-      })
-    }
+    out.push({
+      path: formatL1Path(at),
+      kind: node.kind,
+      ...(scope.module ? { module: scope.module, slot: scope.slot } : {}),
+      label: labelOf(node),
+    })
     const children = (node as { children?: L1Node[] }).children
     if (children?.length) out.push(...walkSegments(children, scope, at))
   })
@@ -145,7 +169,7 @@ function walkSegments(
 }
 
 /**
- * Every addressable segment on a page — the page's own L1, then each behavior
+ * Every addressable node on a page — the page's own L1, then each behavior
  * module instance's slots.
  *
  * Both spaces are walked because both are addressable, and a model shown only
@@ -224,8 +248,7 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       }
     },
 
-    get_copy: (p) =>
-      editCopyGet(slug, req(p, 'page'), req(p, 'path'), scopeOf(p, opts)).data,
+    get_l1: (p) => editL1Get(slug, req(p, 'page'), req(p, 'path'), scopeOf(p, opts)).data,
 
     list_assets: () => editAssetList(slug, opts).data,
 
@@ -235,14 +258,8 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
 
     status: () => editStatus(slug, opts).data,
 
-    set_copy: (p) => {
-      const out = editCopySet(
-        slug,
-        req(p, 'page'),
-        req(p, 'path'),
-        p.values as Record<string, unknown>,
-        scopeOf(p, opts),
-      )
+    set_l1: (p) => {
+      const out = editL1Set(slug, req(p, 'page'), req(p, 'path'), p.node, scopeOf(p, opts))
       return { changed: (out.data as { changed: unknown }).changed, message: out.human }
     },
 

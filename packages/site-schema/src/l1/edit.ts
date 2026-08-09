@@ -115,6 +115,41 @@ export function resolveL1Node(
   return node
 }
 
+/**
+ * The write counterpart of {@link resolveL1Node} (REQ-129): put `replacement`
+ * where that address resolves, mutating `roots` in place, and report whether the
+ * address existed.
+ *
+ * It lives beside the read rule rather than in the caller precisely because the
+ * addressing contract is "the address a listing hands out is the address a write
+ * resolves". Two implementations of the walk are two chances for that to stop
+ * being true, so the rule stays stated once: index the root list, then walk
+ * `children`, and swap at the last step.
+ *
+ * `replacement` is deliberately untyped-at-the-edge (`L1Node` by declaration,
+ * arbitrary JSON in practice). Nothing is checked here — the envelope validator
+ * runs over the whole assembled site before a byte is written, which is both the
+ * stronger check and the only one whose paths point at the right place.
+ */
+export function replaceL1Node(
+  roots: L1Node[],
+  path: readonly number[],
+  replacement: L1Node,
+): boolean {
+  if (path.length === 0) return false
+  if (path.length === 1) {
+    if (roots[path[0]] === undefined) return false
+    roots[path[0]] = replacement
+    return true
+  }
+  const parent = resolveL1Node(roots, path.slice(0, -1))
+  const kids: L1Node[] | undefined = (parent as { children?: L1Node[] } | undefined)?.children
+  const last = path[path.length - 1]
+  if (!kids || kids[last] === undefined) return false
+  kids[last] = replacement
+  return true
+}
+
 // ── the exposed fields ───────────────────────────────────────────────────────
 
 /**

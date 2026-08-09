@@ -28,7 +28,7 @@ const OTHER = 'annex'
 const HEADLINE = 'The old headline.'
 const HEADLINE_PATH = '0.0'
 
-/** A page with one addressable text run, so `set_copy` has somewhere to land. */
+/** A page with one addressable text run, so `set_l1` has somewhere to land. */
 function seedPage(cwd: string, slug: string): void {
   const homePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
   const home = JSON.parse(readFileSync(homePath, 'utf8'))
@@ -180,7 +180,11 @@ afterEach(() => {
 describe('REQ-122 — a turn changes the site', () => {
   it('test_UAT_FC_REQ-122_a_turn_that_calls_a_tool_changes_the_draft_and_streams_what_it_did', async () => {
     const client = scriptedClient([
-      calls('set_copy', { page: 'home', path: HEADLINE_PATH, values: { text: 'A new headline.' } }),
+      calls('set_l1', {
+        page: 'home',
+        path: HEADLINE_PATH,
+        node: { kind: 'text', text: 'A new headline.', axes: { fontSizePx: 32 } },
+      }),
       says('I changed the headline for you.'),
     ])
     setModelClient(client)
@@ -188,13 +192,13 @@ describe('REQ-122 — a turn changes the site', () => {
     const events = await turn(base, SLUG, 'Change the headline to "A new headline."')
 
     // The DRAFT is the evidence — not the stream. The tool ran the real
-    // `editCopySet`, so the site on disk says what the user asked for.
+    // `editL1Set`, so the site on disk says what the user asked for.
     expect(headline(cwd, SLUG)).toBe('A new headline.')
 
     // …and the stream carries the tool activity the panel shows, then the prose,
     // then exactly one terminal `done`.
     const tool = events.find((e) => e.kind === 'tool_activity')
-    expect(tool?.meta).toMatchObject({ event: 'tool_call', name: 'set_copy' })
+    expect(tool?.meta).toMatchObject({ event: 'tool_call', name: 'set_l1' })
     expect(events.filter((e) => e.kind === 'text').map((e) => e.content).join('')).toContain(
       'I changed the headline for you.',
     )
@@ -204,14 +208,14 @@ describe('REQ-122 — a turn changes the site', () => {
   it('test_UAT_FC_REQ-122_a_refused_call_comes_back_correctable_and_leaves_the_draft_alone', async () => {
     const client = scriptedClient([
       // An address that resolves to nothing — the mistake a model actually makes.
-      calls('set_copy', { page: 'home', path: '9.9', values: { text: 'Nowhere.' } }),
+      calls('set_l1', { page: 'home', path: '9.9', node: { kind: 'text', text: 'Nowhere.' } }),
       says('Sorry — I could not find that.'),
     ])
     setModelClient(client)
 
     const events = await turn(base, SLUG, 'Change something that is not there')
 
-    // Untouched: `editCopySet` refuses before it writes a byte.
+    // Untouched: `editL1Set` refuses before it writes a byte.
     expect(headline(cwd, SLUG)).toBe(HEADLINE)
 
     // The refusal reaches the model as something it can act on within the turn —
@@ -254,7 +258,11 @@ describe('REQ-122 — one session per site', () => {
   it('test_UAT_FC_REQ-122_two_sites_are_two_conversations_over_two_tool_surfaces', async () => {
     setModelClient(
       scriptedClient([
-        calls('set_copy', { page: 'home', path: HEADLINE_PATH, values: { text: 'Annex news.' } }),
+        calls('set_l1', {
+          page: 'home',
+          path: HEADLINE_PATH,
+          node: { kind: 'text', text: 'Annex news.' },
+        }),
         says('Done.'),
       ]),
     )
@@ -301,7 +309,7 @@ describe('REQ-122 — what the model is told', () => {
     // The tool schemas the model receives are the declared ones, and no tool
     // takes a site: naming another site is not a mistake it can make.
     const names = tools.map((t) => t.name)
-    expect(names).toContain('set_copy')
+    expect(names).toContain('set_l1')
     expect(names).toContain('describe_page')
     for (const spec of tools) {
       expect(Object.keys(spec.input_schema.properties as object)).not.toContain('slug')
@@ -322,14 +330,14 @@ describe('REQ-122 — what the model is told', () => {
     // Every parameter description the model receives is COMPOSED — the declared
     // text plus whatever the schema constrains — so the two can never disagree
     // (DOC-8 §5.3). Assert the composition ran, on a real declared parameter.
-    const setCopy = client.seen[0].tools.find((t) => t.name === 'set_copy')!
-    const props = setCopy.input_schema.properties as Record<string, { description: string }>
+    const setL1 = client.seen[0].tools.find((t) => t.name === 'set_l1')!
+    const props = setL1.input_schema.properties as Record<string, { description: string }>
     expect(props.page.description).toBeTruthy()
     // The declared summary and the declared usage note arrive as one composed
     // description. Both halves are asserted, because a projection that dropped
     // either would still be truthy.
-    expect(setCopy.description).toContain('Change the words')
-    expect(setCopy.description).toContain('address')
+    expect(setL1.description).toContain('Replace one element')
+    expect(setL1.description).toContain('read the element first')
   })
 })
 

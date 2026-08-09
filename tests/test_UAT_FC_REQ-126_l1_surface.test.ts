@@ -202,7 +202,7 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
     // ...and are not offered to the builder chat, which is the point: the surface
     // declares, the grant selects. Before REQ-126 the only way to leave an
     // operation out of a session was to leave it undeclared.
-    expect(offered).toEqual(expect.arrayContaining(['describe_page', 'set_copy', 'add_page']))
+    expect(offered).toEqual(expect.arrayContaining(['describe_page', 'set_l1', 'add_page']))
     expect(offered).not.toContain('add_asset')
     expect(offered).not.toContain('remove_asset')
     expect(offered).not.toContain('publish')
@@ -246,14 +246,14 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
     )
 
     expect(box.toolNames()).toContain('describe_page')
-    expect(box.toolNames()).not.toContain('set_copy')
-    expect(box.manual()).not.toMatch(/set_copy/)
+    expect(box.toolNames()).not.toContain('set_l1')
+    expect(box.manual()).not.toMatch(/set_l1/)
 
     const before = draftBytes()
-    const answer = box.run('set_copy', {
+    const answer = box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
-      values: { text: 'nope' },
+      node: { kind: 'text', text: 'nope' },
     })
 
     expect(answer).toMatch(/not enabled|no write access/i)
@@ -271,12 +271,12 @@ describe('REQ-126 — arguments are validated before anything reaches edit.ts', 
 
     // Each of these used to be a hand-rolled check inside its own handler. They
     // are now one schema check that runs before invocation.
-    const wrongType = box.run('set_copy', {
+    const wrongType = box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
-      values: 'not an object',
+      node: 'not an object',
     })
-    const missing = box.run('set_copy', { page: 'home', values: { text: 'x' } })
+    const missing = box.run('set_l1', { page: 'home', node: { kind: 'text', text: 'x' } })
     const unknown = box.run('describe_page', { page: 'home', colour: 'red' })
 
     expect(wrongType).toMatch(/must be an object/i)
@@ -296,10 +296,10 @@ describe('REQ-126 — arguments are validated before anything reaches edit.ts', 
     const before = draftBytes()
 
     // An address the model composed rather than read — the likeliest bad call.
-    const refusal = box.run('set_copy', {
+    const refusal = box.run('set_l1', {
       page: 'home',
       path: '9.9.9',
-      values: { text: 'nope' },
+      node: { kind: 'text', text: 'nope' },
     })
 
     // The code AND what to do about it, because the code alone does not carry
@@ -319,24 +319,24 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
     const box = await caretaker()
 
     const map = JSON.parse(unwrap(box.run('describe_page', { page: 'home' }))) as {
-      segments: { path: string; values: Record<string, string> }[]
+      segments: { path: string; label: string }[]
     }
-    const found = map.segments.find((s) => s.values.text === HEADLINE)
+    const found = map.segments.find((s) => s.label === HEADLINE)
 
     // The address comes from the map and nowhere else — nothing here composes
     // one, because the model cannot either.
     expect(found?.path).toBe(HEADLINE_PATH)
 
-    const answer = box.run('set_copy', {
+    const answer = box.run('set_l1', {
       page: 'home',
       path: found!.path,
-      values: { text: 'A quieter band.' },
+      node: { kind: 'text', text: 'A quieter band.', axes: { fontSizePx: 32 } },
     })
 
     // The declared return shape: what changed, plus a line in plain words.
     const change = JSON.parse(answer) as { changed: string[]; message: string }
-    expect(change.changed).toContain('text')
-    expect(change.message).toMatch(/Updated text/)
+    expect(change.changed).toContain(HEADLINE_PATH)
+    expect(change.message).toMatch(/Replaced/)
 
     // The draft on disk is the only evidence that counts, and it was written by
     // `edit.ts` — the same function `1c copy set` and the edit modal reach.
@@ -357,10 +357,10 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
 
     // A write's confirmation is the surface's own words about the model's own
     // change, so marking it would only train the model to ignore the markers.
-    const written = box.run('set_copy', {
+    const written = box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
-      values: { text: 'Something else.' },
+      node: { kind: 'text', text: 'Something else.' },
     })
     expect(written).not.toContain(UNTRUSTED_OPEN)
 
@@ -371,8 +371,8 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
   it('test_UAT_FC_REQ_126_every_call_against_the_site_is_recorded', async () => {
     const box = await caretaker()
     box.run('describe_page', { page: 'home' })
-    box.run('set_copy', { page: 'home', path: HEADLINE_PATH, values: { text: 'Recorded.' } })
-    box.run('set_copy', { page: 'home', path: '9.9.9', values: { text: 'refused' } })
+    box.run('set_l1', { page: 'home', path: HEADLINE_PATH, node: { kind: 'text', text: 'Recorded.' } })
+    box.run('set_l1', { page: 'home', path: '9.9.9', node: { kind: 'text', text: 'refused' } })
 
     const lines = auditLines()
     expect(lines).toHaveLength(3)
@@ -382,7 +382,7 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
     // customer-facing sites". Nothing recorded any of it before REQ-126.
     const [read, write, failed] = lines
     expect(read).toMatchObject({ surface: 'l1', operation: 'describe_page', effect: 'read' })
-    expect(write).toMatchObject({ operation: 'set_copy', effect: 'write' })
+    expect(write).toMatchObject({ operation: 'set_l1', effect: 'write' })
     expect(write.params).toMatchObject({ page: 'home', path: HEADLINE_PATH })
     expect(write.policy).toEqual({ decision: 'allow', rule: null })
 
@@ -439,7 +439,7 @@ describe('REQ-126 — the surface documents itself', () => {
       'remove_asset',
       'remove_page',
       'set_config',
-      'set_copy',
+      'set_l1',
       'update_page',
     ])
   })
