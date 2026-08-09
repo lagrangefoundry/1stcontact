@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The safety envelope survives the L1-wraps-module inversion
 created_by: xgd
 created_at: '2026-08-06T01:32:38.733902+00:00'
-updated_at: '2026-08-08T00:42:36.939377+00:00'
+updated_at: '2026-08-09T05:40:46.812748+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
