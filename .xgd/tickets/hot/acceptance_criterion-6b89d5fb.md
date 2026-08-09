@@ -6,7 +6,7 @@ title: Page background and inherited text colour are L1 document fields, validat
   as colour axes
 created_by: xgd
 created_at: '2026-08-06T20:50:57.387504+00:00'
-updated_at: '2026-08-08T00:44:00.409577+00:00'
+updated_at: '2026-08-09T05:41:43.987907+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
