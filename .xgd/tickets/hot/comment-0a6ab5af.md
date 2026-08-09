@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:36:31.571379+00:00'
+updated_at: '2026-08-09T17:37:32.024135+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -605,5 +605,33 @@ The web builder will ultimately be a tab in a shell component. It will be a 2 pa
 In fact the left pane will be a display panel with multiple modes - web page render will be one, edit mode will be another - there may be other modes we want to support such as - template choosing?
 
 Its important that we capture these constraints up front. Would it be worth assembling that set of components before we build the edit mode?
+
+<!-- xgd-turn id="d1f677bd-25c0-43fe-a47a-54a7edb161b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T19:01:38.119551+00:00" -->
+#### Claude
+I'll look at the actual components rather than work from the earlier summary.
+
+Good finds — one of them changes the build plan. Let me capture the constraints while they're fresh.
+
+Now replacing DOC-8 §3 with the settled composition and the display-panel constraint:
+
+Captured in DOC-8 §3 (composition + the multi-mode constraint), §9.1–§9.3 (inventory), and DOC-28 §7.1.
+
+**The one that changes plans: `webui-fields`.** I hadn't accounted for it. `mountFields` is a schema-driven property panel — descriptors plus values in; typed controls (text, textarea, number, enum, list, boolean, datetime, JSON), per-field validation, and a settled confirm/cancel model out. It's explicitly origin-neutral (*"the widget NEVER calls XGD"*), so there's nothing to strip. That means the copy editor and the phase-2 property panel are mostly *deriving a descriptor list from a segment* and handing confirmed values to the validator — not building forms. Its buffered commit mode is the right fit: modal Save becomes the flush, so one modal produces exactly one structured diff.
+
+Two other things worth knowing: `webui-split`'s own README names *"the editor+chat showcase"* as an intended composition, so our layout is the anticipated use of the primitive rather than a bend of it. And `webui-list-detail` is a composition over `split` + `scroll` — a working precedent for how to build the display panel.
+
+**On the multi-mode display panel — agreed, and it's worth more than the tidiness.** It changes what edit mode *is*. Edit stops being a decoration applied to a preview and becomes a peer of view, where a mode is *(what's displayed, which render channel, which interaction rules)*. That maps exactly onto last turn's render-channel decision. The three consequences I've written down: the toolbar is mode-aware so it can't assume an iframe beneath it, mode changes swap the iframe source without rebuilding the pane, and modes are additive entries rather than new branches. Beyond your template chooser, the obvious candidates are a page/site navigator, a revision-diff view, and the asset browser — which supersedes the separate Asset tab and is the concrete form of "the two tabs collapse onto one screen".
+
+**On assembling first: yes, but shell + split + display panel, not all seven.** Three reasons, in order of weight:
+
+1. **It forces the consumption decision, which is the real blocker.** All seven packages are `private: true`, `version: 0.0.0`, unpublished. Two facts from the survey sharpen it: they depend on each other by `workspace:*` (list-detail → split + scroll), so a bare submodule of `components/webui` won't resolve as-is — though the six we actually want have *no* dependencies, which makes the narrow route viable. And it already bites upstream: their own showcase README warns `pnpm run` fails there because the `@gendevlabs/*` packages 404 against npm, and routes around it with a Python static server. This is the largest unknown in the whole plan and it isn't an editor question — settling it first is right.
+2. **The mode contract is cheap to prove with two trivial modes and expensive to retrofit.** Same for the split: wrapping a finished editor in a split later is worse than building the pane inside one now.
+3. **The storage seam threads through everything.** The shell owns namespacing; both split *and* fields take an injected handle. Wire `shell.storage(...)` once at the start rather than after several panels are persisting state.
+
+What I'd hold back: chat, markdown and scroll. They're the deferred pane, and pulling them in now means carrying integration cost for something phase 1 doesn't use. Fields I'd *validate* against a real segment descriptor during M2 without necessarily wiring the modal — enough to confirm the §9.3 assumption before M4 depends on it.
+
+That makes M2 the composition milestone, which is how I've recorded it.
 
 <!-- xgd-chat-end -->
