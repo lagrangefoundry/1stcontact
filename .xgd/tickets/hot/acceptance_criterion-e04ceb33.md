@@ -7,7 +7,7 @@ title: 'The accent fails visible: with no pointer, no scripting, a hoverless poi
   before the axis existed, and every declaration the axis adds waits for a real pointer'
 created_by: xgd
 created_at: '2026-08-06T18:09:30.434807+00:00'
-updated_at: '2026-08-08T00:43:45.739947+00:00'
+updated_at: '2026-08-09T05:41:29.686684+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
