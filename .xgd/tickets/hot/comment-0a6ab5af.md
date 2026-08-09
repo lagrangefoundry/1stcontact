@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:05.125459+00:00'
+updated_at: '2026-08-09T17:42:05.528512+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -812,5 +812,25 @@ One thing REQ-114 deliberately leaves alone: the legacy closed 15-slot `paletteT
 <!-- xgd-chat role="user" ts="2026-07-31T20:15:05.768798+00:00" -->
 #### You
 Why can't the retiring be done in REQ-114
+
+<!-- xgd-turn id="143143f8-44e0-4633-93fe-95377a886793-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T20:16:11.231494+00:00" -->
+#### Claude
+Fair challenge — let me check whether it's actually load-bearing rather than answer from instinct.
+
+It can be, and I was wrong to defer it. Here's what the code says.
+
+**The 15-slot palette is required but almost unused.** `themeTokensSchema` makes `palette` mandatory, so every site.json carries all 15 roles, and every render emits them into `theme.css`. But the L1 output consumes **none** of it — L1 is literal hex throughout. In a rendered `xgd` page there are exactly **two** `var(--color-*)` uses, both in one line: `body { background: var(--color-bg); color: var(--color-text) }`. That's the entire live consumption on the L1 path.
+
+**The rest of the consumers are already condemned.** The remaining colour-role references live in `modules/dials.ts` (1), `text-style.ts` (3) and `markdown.ts` (8) — which CLAUDE.md names explicitly as *"legacy being dismantled under REQ-96 — do not extend them."* So 12 references in files already scheduled for deletion, plus one body rule.
+
+**And leaving it is the banned state.** CLAUDE.md: *"When refactoring, replace fully. Do NOT create legacy/fallback modes."* A closed 15-slot palette sitting alongside an arbitrary-size palette model is two colour systems, which is exactly the confusion-and-drift the rule exists to prevent. My "follow-up work" line was reflex, not reasoning.
+
+**One real distinction I'd keep, though.** `paletteTokensSchema` is the *colour* group of a 55-token system that also covers typography, spacing, radius, shadow and breakpoints. REQ-114 replaces the colour half and nothing else — retiring the other 40 tokens would be scope creep with no replacement to put in their place. So the right cut is: **REQ-114 retires the palette group specifically**, and the other token groups stay untouched.
+
+**And one genuine ordering dependency.** REQ-96 is `free_coded`, not done — the `control` node landed, but the aesthetic resolvers didn't. So those 12 references are real code today. REQ-114 either lands after REQ-96 finishes them off, or absorbs those 12 into its own cut. That's a sequencing note, not a reason to defer.
+
+Want me to fold the retirement into REQ-114 now — palette group only, with the REQ-96 ordering called out and the four sites' `site.json` migrated as part of the retrofit?
 
 <!-- xgd-chat-end -->
