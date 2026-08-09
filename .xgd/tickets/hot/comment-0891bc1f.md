@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T23:11:46.973248+00:00'
+updated_at: '2026-08-09T23:23:13.377113+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -967,5 +967,11 @@ It's four well-defined operations, not an open-ended problem:
 Do that and the answer becomes yes for the actual site, minus the two font families, which need a licence path regardless of who's driving.
 
 Want me to file 2, 3 and 4? I'd write them as separate tickets with REQ-129 first in the sequence, and note on each that the acceptance case is a named piece of xgd.dev — the palette, the signup form, the wireframe mark — so "rebuild the actual site through the chat" becomes a checkable end state rather than a slogan.
+
+<!-- xgd-turn id="97166ab9-8141-4fe8-93c5-1fced7061fd2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T23:23:13.118185+00:00" -->
+#### You
+please write them as one ticket
 
 <!-- xgd-chat-end -->
