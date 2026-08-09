@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:40:25.361867+00:00'
+updated_at: '2026-08-09T17:41:25.972016+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -725,5 +725,17 @@ One detail to settle when we do this: `l1Color` currently permits 8-digit hex wi
 **On REQ-55** — I'd leave it standing rather than withdraw it. It's better founded now, not worse: the palette editor is precisely where *free* colour entry belongs (each entry is a free colour), and role selection is the `enum` + swatch form. Its two shapes map exactly onto "edit the palette" and "pick from the palette."
 
 Where to record it: this is an L1 data-model decision, so **DOC-23** is its home, with a pointer from DOC-28. It'll also need a REQ in *this* repo to actually widen `l1Color` and thread roles through the renderer and the fold. Want me to write the DOC-23 section and raise that REQ, or keep it as a decision noted here until you're ready to schedule it?
+
+<!-- xgd-turn id="d4189576-81ac-4dd9-bdfd-6d6b36a8275f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T20:18:57.336718+00:00" -->
+#### You
+When I say dead code I mean lets get rid of the legacy pallet
+
+<!-- xgd-turn id="d6dc2cb2-ee1c-4164-9315-c1043cf527aa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T19:31:14.274754+00:00" -->
+#### You
+Yes create the section in DOC-23 and can you create and REQ to implement it and retrofit our exisiting sites with pallets?
 
 <!-- xgd-chat-end -->
