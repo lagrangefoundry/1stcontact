@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:37:53.834706+00:00'
+updated_at: '2026-08-09T17:37:54.169541+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -661,5 +661,13 @@ I also softened two things I'd overstated as constraints. The `workspace:*` coup
 **One discipline I'd add, cutting the other way.** The components are deliberately origin-neutral — host-injected config, no ambient sources, *"the widget NEVER calls XGD."* That's what makes them reusable, and it's the bar our contributions have to meet too. So: upstream changes driven by 1stcontact should be **general capabilities**, not 1C special-casing. `format: 'color'` passes easily. If we later want something like "a segment descriptor," that's a 1C concept and belongs here, with only the generic control type going up. Worth naming now, because the pressure to push 1C-shaped things upstream will be real once we're building against a component we own.
 
 Recorded in DOC-8 §9.4–§9.5, and saved to memory so it survives this session.
+
+<!-- xgd-turn id="683646f7-5c63-4e7d-81e9-9f817aa1b393-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T19:13:22.244655+00:00" -->
+#### You
+Good and here is the mechanism, which you can also document: Please create a REQ ticket in ../xgd-framework (use XGD_PROJECT_ROOT...) for the additional field.
+
+However separate the shell is designed with a whole pallet and themes - why would need/want a single color parameter and not just set the theme/
 
 <!-- xgd-chat-end -->
