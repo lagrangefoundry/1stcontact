@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T21:33:34.430570+00:00'
+updated_at: '2026-08-09T22:22:36.557970+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -318,5 +318,11 @@ The `logDir` bug I fixed left junctions in your home directory, and two of them 
 `studio` and `annex` are the fixture slugs in the REQ-127 and REQ-122 host suites. They escaped there because until this commit the junction defaulted to the machine-global path — exactly the leak the fix closes. They're inert orphans now (nothing resolves those ids), but they're litter in your home directory and they shouldn't be there.
 
 Want me to delete those two? I'd leave the UUID-named siblings alone — those belong to other tooling, not to this project.
+
+<!-- xgd-turn id="a0c1efa5-3c5f-403a-bc1f-1e975400a4dd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-09T22:22:36.250502+00:00" -->
+#### You
+yes
 
 <!-- xgd-chat-end -->
