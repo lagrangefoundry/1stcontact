@@ -6,7 +6,7 @@ title: A reference font-fallback (FOUT) artifact does not flag a correct render 
   a defect
 created_by: xgd
 created_at: '2026-07-22T20:17:47.496315+00:00'
-updated_at: '2026-08-07T23:11:27.935774+00:00'
+updated_at: '2026-08-09T02:54:40.295383+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
