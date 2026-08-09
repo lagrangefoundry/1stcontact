@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Both install faults are reported together in one refusal, not one at a time
 created_by: xgd
 created_at: '2026-08-07T03:13:03.696072+00:00'
-updated_at: '2026-08-07T23:11:07.218805+00:00'
+updated_at: '2026-08-09T02:55:40.057435+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
