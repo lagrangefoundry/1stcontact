@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: A reference whose first segment is empty or carries a colon keeps its base
 created_by: xgd
 created_at: '2026-08-06T18:27:16.045671+00:00'
-updated_at: '2026-08-08T00:43:52.763043+00:00'
+updated_at: '2026-08-09T05:41:36.447836+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
