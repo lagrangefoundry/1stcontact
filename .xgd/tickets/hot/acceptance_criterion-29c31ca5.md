@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Rendered-text-extent comparison suppresses non-differences and honours --tolerant
 created_by: xgd
 created_at: '2026-07-19T02:17:59.716255+00:00'
-updated_at: '2026-08-07T23:11:18.871786+00:00'
+updated_at: '2026-08-09T02:54:32.991765+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
