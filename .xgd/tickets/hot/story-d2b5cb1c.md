@@ -6,7 +6,7 @@ title: 'L1 interaction state, scroll motion and pointer accent: typed hover, foc
   entrance and cursor-tracked axes with a renderer-owned safety floor'
 created_by: xgd
 created_at: '2026-08-06T02:02:27.445968+00:00'
-updated_at: '2026-08-08T00:44:18.389843+00:00'
+updated_at: '2026-08-09T05:42:08.380809+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
