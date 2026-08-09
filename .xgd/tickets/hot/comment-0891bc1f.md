@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-127
 created_by: xgd
 created_at: '2026-08-09T19:38:24.459438+00:00'
-updated_at: '2026-08-09T23:23:13.377113+00:00'
+updated_at: '2026-08-09T23:24:47.601817+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -973,5 +973,44 @@ Want me to file 2, 3 and 4? I'd write them as separate tickets with REQ-129 firs
 <!-- xgd-chat role="user" ts="2026-08-09T23:23:13.118185+00:00" -->
 #### You
 please write them as one ticket
+
+<!-- xgd-turn id="97166ab9-8141-4fe8-93c5-1fced7061fd2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-09T23:24:47.472494+00:00" -->
+#### Claude
+Let me check one thing first — SVG is the risky part of asset creation.
+
+SVG is an accepted asset extension and nothing sanitizes its *contents* — safe today because a human puts the file there, not safe once a model can author the bytes. That goes in the ticket. Writing it now.
+
+Created **REQ-130** (`request-ed6ba145`), priority high, sequenced after REQ-129.
+
+## What it covers
+
+Four capabilities, unified by "everything a site carries that isn't the element tree":
+
+1. **Structured config** — `set_config` takes a typed value, not just a string. Closes the palette, the theme, *and* the nav-entries wall your assistant hit. One defect with several faces.
+2. **Module instantiation** — `page.modules` entries `{id, type, version, slot, config}`, vetted types only. Per DOC-25 §10: *"the AI configures a behavior module; it never writes its code inline."*
+3. **Page metadata** — `seoMeta` on `add_page`/`update_page`.
+4. **Generated SVG assets** — text only.
+
+I included `seoMeta` (it was in my gap table but not the 2/3/4 list) since it's page content nothing else can write.
+
+## The part worth your attention
+
+**Item 4 is the only thing in either ticket that widens the *attack* surface rather than the expressive one**, and I've written it so it can be cut.
+
+`IMAGE_EXTENSIONS` already accepts `svg`, and the renderer's `isSafeUrl` guards URL *schemes* at every sink. Nothing sanitises SVG *contents* — which is correct today, because an asset is a file an operator put on their own machine. A human vouched for it.
+
+Once a model authors the bytes, that assumption is gone. Unsanitised SVG is stored XSS: `<script>`, `onload=`, `<foreignObject>`, external `xlink:href`. The scheme allowlist doesn't help — the file is same-origin and legitimately referenced.
+
+So it ships only with a content validator (element/attribute allowlist), size and node caps, a generated filename with no caller-supplied path, and text formats only. And the ticket says explicitly: **if that validator can't be made convincingly closed, drop item 4 and ship the other three.** Better to have that decision written down than discovered during review.
+
+## The end state it defines
+
+With REQ-129 + REQ-130, the acceptance case is named pieces of the *actual* xgd.dev — the palette, the signup form on both pages, both `seoMeta` blocks, the wireframe mark — leaving only the two licensed font families, which are REQ-101's problem and need a licence path regardless of who's driving.
+
+Both tickets carry the same "must not break the operator's editor" section. REQ-130 adds one beyond REQ-129's: copy inside an AI-instantiated contact form must stay clickable in the modal, since module slots are L1 subtrees and `pageSegments` already walks them.
+
+Current state: REQ-127 `free_coded` at `7347d224e`; REQ-129 and REQ-130 in draft, sequenced.
 
 <!-- xgd-chat-end -->
