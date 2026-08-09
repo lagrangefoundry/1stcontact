@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Aligns repeated identical text occurrence-by-occurrence in document order
 created_by: xgd
 created_at: '2026-07-19T02:51:04.847297+00:00'
-updated_at: '2026-08-07T23:11:41.616960+00:00'
+updated_at: '2026-08-09T02:55:27.319675+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
