@@ -6,7 +6,7 @@ title: A band's captured box is the painted extent of its subtree, clamped to th
   document canvas
 created_by: xgd
 created_at: '2026-08-06T01:46:04.827484+00:00'
-updated_at: '2026-08-07T23:12:08.114328+00:00'
+updated_at: '2026-08-09T02:54:12.616534+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
