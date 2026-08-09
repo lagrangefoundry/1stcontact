@@ -6,7 +6,7 @@ title: Sample-fidelity probe matches reproduced leaf boxes to the oracle at ever
   captured width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-08-07T23:54:07.164983+00:00'
+updated_at: '2026-08-09T08:19:54.543950+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
