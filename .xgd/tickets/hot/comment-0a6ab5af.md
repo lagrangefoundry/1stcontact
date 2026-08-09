@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:06.214593+00:00'
+updated_at: '2026-08-09T17:42:06.723631+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -844,5 +844,11 @@ Want me to fold the retirement into REQ-114 now — palette group only, with the
 <!-- xgd-chat role="assistant" ts="2026-07-31T20:18:41.869474+00:00" -->
 #### Claude
 Let me establish exactly what's dead versus still-called, so REQ-114 names real targets.
+
+<!-- xgd-turn id="fc6f8d91-4880-4185-bbb9-0b6c2e12b79a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T20:27:09.003322+00:00" -->
+#### You
+ok once all the docs are up to date and consistent, can you create a plan for tickets to implement the web designer. The tab name should be "Site", for now - please make it a parameter so its not baked into a million places and we can change it if needed
 
 <!-- xgd-chat-end -->
