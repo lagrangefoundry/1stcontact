@@ -6,7 +6,7 @@ title: A control row reflows to a column with one input per field, and stagger c
   no phantom peers
 created_by: xgd
 created_at: '2026-08-06T02:37:02.135777+00:00'
-updated_at: '2026-08-08T00:43:21.025340+00:00'
+updated_at: '2026-08-09T05:41:06.352432+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
