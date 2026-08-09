@@ -194,7 +194,7 @@
         "values": {
           "type": "object",
           "required": true,
-          "description": "Field name to new value. The fields a place accepts come from `get_copy` — a text run takes `text`; an image takes `src` and `alt`."
+          "description": "Field name to new value. The fields a place accepts come from `get_copy` — a text run takes `text`; an image takes `src` and `alt`; a box that already has a background image takes `backgroundImageUrl`."
         },
         "module": {
           "type": "string",
@@ -335,7 +335,7 @@
       "group": "WriteCopy",
       "effect": "write",
       "title": "Changing what a page says",
-      "description": "Change the words on a page, or which image sits in a place. This does not change how anything looks.",
+      "description": "Change the words on a page, or which image sits in a place — including the image behind a box that already has one. Beyond swapping that image, this does not change how anything looks.",
       "operations": ["set_copy"]
     },
     {
@@ -391,7 +391,7 @@
     },
     {
       "name": "Changing how something looks — colour, size, spacing, position",
-      "note": "Not yet possible. You can change what a page says and which image it shows, but not its appearance. Say so plainly, and describe what the user asked for so it can be built."
+      "note": "Not yet possible. You can change what a page says, which image it shows, and which image sits behind a box that already has a background image — but nothing else about its appearance. Adding a background where there is none is not possible either. Say so plainly, and describe what the user asked for so it can be built."
     },
     {
       "name": "Adding, removing, moving or reordering things on a page",

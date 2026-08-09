@@ -368,18 +368,27 @@ function resolveSegment(
 }
 
 /**
- * What the derivation needs beyond the node itself (REQ-118).
+ * The node kinds whose derivation offers a pick from the site's images: an
+ * `image` node's `src` (REQ-118) and a painted surface's `backgroundImageUrl`
+ * (REQ-128). Both draw from the SAME listing, so the picker for what sits in
+ * front and the picker for what sits behind can never disagree about what the
+ * site has.
+ */
+const PICKER_KINDS: ReadonlySet<L1Node['kind']> = new Set(['image', 'box', 'container'])
+
+/**
+ * What the derivation needs beyond the node itself (REQ-118, REQ-128).
  *
- * Only an image segment has choices that come from the site rather than the
- * node, and reading the asset directory for a text run would be pure waste — so
- * the listing is fetched for the kind that uses it and skipped for the rest.
+ * Only a segment with a picker has choices that come from the site rather than
+ * the node, and reading the asset directory for a text run would be pure waste —
+ * so the listing is fetched for the kinds that use it and skipped for the rest.
  */
 function segmentOptions(
   node: L1Node,
   slug: string,
   opts: GlobalOptions,
 ): L1SegmentFieldOptions | undefined {
-  return node.kind === 'image' ? { assets: imageHandles(slug, opts) } : undefined
+  return PICKER_KINDS.has(node.kind) ? { assets: imageHandles(slug, opts) } : undefined
 }
 
 /**

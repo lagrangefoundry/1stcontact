@@ -166,8 +166,11 @@ export interface L1SegmentFields {
 export interface L1SegmentFieldOptions {
   /**
    * The site-local image handles a picker may offer, in the exact form an L1
-   * `image.src` holds them (`/assets/<name>` — the same vocabulary the capture
-   * fold writes, never a parallel one; DOC-28 §13 Q5).
+   * `image.src` or a surface's `backgroundImageUrl` holds them (`/assets/<name>`
+   * — the same vocabulary the capture fold writes, never a parallel one;
+   * DOC-28 §13 Q5). One listing serves both pickers, so the image a segment can
+   * sit in front of and the image it can sit *behind* can never disagree about
+   * what the site has.
    */
   assets?: readonly string[]
 }
@@ -203,14 +206,32 @@ function imageChoices(assets: readonly string[], current: string): string[] {
 }
 
 /**
+ * The background handle a painted surface currently carries, or `undefined` when
+ * it carries none (REQ-128).
+ *
+ * The empty string is deliberately *not* a background: the renderer's `cssUrl`
+ * emits nothing for it, so the box paints no image and offering a picker there
+ * would be offering to *add* one. Adding is out of scope and unreachable by
+ * construction — an unpainted box is not a segment, so it has no address to
+ * click — and this is the same rule seen from the other side.
+ */
+function backgroundHandleOf(node: L1Node): string | undefined {
+  if (node.kind !== 'box' && node.kind !== 'container') return undefined
+  const url = (node.axes as { backgroundImageUrl?: string } | undefined)?.backgroundImageUrl
+  return typeof url === 'string' && url !== '' ? url : undefined
+}
+
+/**
  * The exposed fields of a segment, or `null` when it has none — which is what
  * makes "clicking a segment with no editable fields opens nothing" a property of
  * the derivation rather than a check the client has to remember.
  *
- * Phase 1 is copy (REQ-117) and image selection (REQ-118). A container's
- * background and a module's `config` are phase 2. Each arrives by extending this
- * one function, so every editor surface keeps deriving from the node rather than
- * accumulating its own idea of what is editable.
+ * Phase 1 is copy (REQ-117), image selection (REQ-118) and the container's
+ * background image (REQ-128). A container's background *colour* and a module's
+ * `config` are phase 2 — colour because it needs the site palette (REQ-114) and
+ * a colour-valued control, neither of which exists. Each arrives by extending
+ * this one function, so every editor surface keeps deriving from the node rather
+ * than accumulating its own idea of what is editable.
  *
  * An image exposes *which image* and its alt text — and deliberately nothing
  * else. Framing (crop, scale, scrim, rotation) is blocked on DOC-28 §13 Q5:
@@ -218,6 +239,15 @@ function imageChoices(assets: readonly string[], current: string): string[] {
  * same ones rather than inventing a parallel vocabulary, so they wait until that
  * is confirmed. Everything here is a structured field on the node; no control on
  * this surface touches a file, so choosing an asset can never bake a new one.
+ *
+ * A painted `box`/`container` exposes its background image and nothing else of
+ * its paint. The rest of the surface group (`pattern`, `overlay`,
+ * `surfaceGradient`, the fill) is phase 2 for colour's reasons; the background
+ * *handle* is a pick from a closed list of the site's assets, which is exactly
+ * the control REQ-118 already built. The axis is offered on the segment the user
+ * clicks to mean "this panel" — a `text` or `image` node can carry
+ * `backgroundImageUrl` too (REQ-98), but exposing it there would make the copy
+ * modal a paint surface and blur DOC-28 §6.2's kind→segment map.
  */
 export function copyFieldsOf(
   node: L1Node,
@@ -244,6 +274,27 @@ export function copyFieldsOf(
         { name: 'alt', label: 'Alt text', type: 'string', ...widgetFor(alt) },
       ],
       values: { src, alt },
+    }
+  }
+  const background = backgroundHandleOf(node)
+  if (background !== undefined) {
+    return {
+      fields: [
+        {
+          name: 'backgroundImageUrl',
+          label: 'Background image',
+          type: 'enum',
+          enum: imageChoices(opts.assets ?? [], background),
+          // No empty option, and not merely as a nicety. If a box's only paint IS
+          // its background image, removing it drops `surfaceDecls` to zero on the
+          // next render, the node stops being a segment, and it vanishes from the
+          // editor with no way to re-add it. `required` makes that unreachable by
+          // construction rather than by a special case; removal stays the AI's
+          // job, which addresses the axis directly.
+          required: true,
+        },
+      ],
+      values: { backgroundImageUrl: background },
     }
   }
   return null
@@ -311,6 +362,18 @@ export function applyCopyFields(
     } else if (node.kind === 'image' && name === 'alt' && node.alt !== next) {
       node.alt = next
       changed.push(name)
+    } else if (name === 'backgroundImageUrl' && backgroundHandleOf(node) !== next) {
+      // Assignment into the EXISTING axes object, never a replacement of it. The
+      // field is only ever derived for a node that already carries a background,
+      // so `axes` is present; writing one key leaves every other axis — including
+      // wherever framing parameters eventually live — byte-identical, which is
+      // what makes "choosing a background bakes nothing and disturbs nothing"
+      // true of the whole node rather than just of the asset store.
+      const axes = (node as { axes?: Record<string, unknown> }).axes
+      if (axes) {
+        axes.backgroundImageUrl = next
+        changed.push(name)
+      }
     }
   }
   return { ok: true, changed }
