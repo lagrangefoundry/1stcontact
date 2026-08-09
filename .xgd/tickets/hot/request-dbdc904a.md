@@ -5,9 +5,9 @@ type: request
 title: Complete DOC-30 — the L1 control surface API design and its gap list
 created_by: xgd
 created_at: '2026-08-08T21:14:37.419676+00:00'
-updated_at: '2026-08-08T21:14:37.419676+00:00'
+updated_at: '2026-08-09T00:50:17.357964+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -48,3 +48,55 @@ fork it.
 The addressing correspondence — `formatL1Path` stamps `data-l1-path`, `resolveL1Node` consumes
 it — becomes a stated contract rather than an implementation coincidence, including the
 render-scoped lifetime of an address.
+
+
+---
+
+## Progress — DOC-30 rewritten against DOC-20 / REQ-74 (2026-08-08)
+
+The premise of this ticket changed underneath it. When it was written, the generic tooling object
+was *being designed* in lagrange-framework. It is now **specified (DOC-20, `doc-5de13501`) and
+built (REQ-74, `request-22e5b9f3`)** — declaration ingest, config validation, group expansion,
+wire-spec and manual projection, schema validation, policy gating, provenance, audit, and a
+standalone author-time validator, in Python and JS with a conformance corpus.
+
+So DOC-30 is no longer "design an API discipline for the L1 control surface". It is **"declare
+the L1 control surface as a Toolbox surface, and state how far `edit.ts` is from that"**. The
+document has been rewritten on that basis, and now carries:
+
+- R1–R7 mapped onto the Toolbox declaration fields, with the two that are **not** discharged by
+  the format called out rather than glossed (R4 addressing; R6 a surface's own version);
+- what the L1 declaration must contain, concretely — envelope, the full operation list (the
+  surface declares everything `edit.ts` does; the *grant* narrows it, which removes the old
+  "AI-facing subset only" complaint), parameter types, shapes, errors, capability groups,
+  sequences, absences;
+- the inherited security obligations, with **provenance (S5)** and **audit (S6)** identified as
+  genuinely new and, in this product's case, load-bearing — every read on this surface returns
+  third-party prose, and `inproc` would default it *trusted*;
+- REQ-74's two extra rules (the quantifier rule; array base for optional selectors under an
+  `allow_set`) and where they bite here;
+- what `declare.ts` is replaced by, field for field;
+- the **itemised gap list** this ticket asks for, per requirement and per security obligation.
+
+### Two findings to raise upstream
+
+1. **Site binding.** DOC-20 lists our "closed-over site slug and unenforced `writes` flag"
+   together. The `writes` half is correct — declared, enforced by nothing. The slug half is not:
+   no tool declares a `slug` parameter at all, which is *stronger* than a scope predicate (S2's
+   own reasoning one level up — an absent parameter has no bad value to refuse). DOC-20's
+   `scope_axes` (`applies_to: {param: …}`) cannot express a constraint over a construction-time
+   binding. Recommendation: keep the binding, and propose construction-scoped declaration
+   upstream, rather than adding a `slug` parameter purely to fit the current field set.
+2. **A surface's own version.** DOC-20's `version:` is the declaration *format* version. R6 asked
+   for a surface version and the envelope has no field for one. Partly absorbed (configuration is
+   a projection; startup validation catches drift), not fully.
+
+Also open: DOC-20 has no `examples:` field, while `declare.ts`'s structured examples are
+test-executable and demonstrably useful for a model's first call.
+
+### Status
+
+Document-only change; no code touched, so no free-coding ceremony applies. The build request is
+now scopeable from DOC-30's gap list — the local work is the declaration as data, an `L1Toolbox`
+class over `edit.ts`, eight declared return shapes, the builder-chat instance configuration, the
+author-time validator in CI, and deletion of `declare.ts` plus the local manual renderer.
