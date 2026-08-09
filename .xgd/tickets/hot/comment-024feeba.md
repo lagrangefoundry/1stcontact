@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-88
 created_by: xgd
 created_at: '2026-07-22T18:41:25.050535+00:00'
-updated_at: '2026-07-26T00:48:38.956546+00:00'
+updated_at: '2026-08-09T17:05:33.222558+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4080,5 +4080,100 @@ The one line I'd point at if you read nothing else, from §10.6: *"inline vs sta
 Committed the regenerated site data (`f07bbe20`). GA is reproduced — cross-gate PASS, mean 2.61/255, 0 fold residuals, hero identical. REQ-88 records round-10 and hands the residual to REQ-96, including the note that `values-diff` is currently unreadable on the form region (15 phantom objects from our own scaffolding) so the perceptual eye is the only trustworthy instrument there.
 
 REQ-96 is `draft`. Say the word and I'll start on it — step 2 (the `control` node) is the one that determines whether the rest is easy or awkward, so I'd build that first and check the seam with you before touching either module.
+
+<!-- xgd-turn id="f8de31fe-6a69-453f-89c6-44bcd30a47a0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-24T22:27:56.153664+00:00" -->
+#### You
+```
+(.venv-working) ) martin@nyx 1stcontact % bin/1c capture page https://gigabytealchemy.ai                                
+
+Captured https://gigabytealchemy.ai → /Users/martin/Projects/1stcontact/storage/references/gigabytealchemy.ai/index
+  8 section(s), 5 asset(s)
+  l1.json: 72 node(s) across 6 width(s); hints.json: 109 node(s), 0 @media breakpoint(s)
+((.venv-working) ) martin@nyx 1stcontact % /bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index 
+zsh: no such file or directory: /bin/1c
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index 
+Reproduced storage/references/gigabytealchemy.ai/index → /Users/martin/Projects/1stcontact/storage/sites/gigabytealchemy/draft
+  raw-L1 home page: 73 node(s); assets copied
+  next: 1c render gigabytealchemy  ·  1c l1-gate --ref storage/references/gigabytealchemy.ai/index
+((.venv-working) ) martin@nyx 1stcontact % bin/1c render gigabytealchemy                                                   
+Rendered 2 file(s) → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft
+((.venv-working) ) martin@nyx 1stcontact % ok^C
+((.venv-working) ) martin@nyx 1stcontact % /bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index^[[A^[[B^[[A^[[A^[[A^[[A^[[A^[[A^C
+((.venv-working) ) martin@nyx 1stcontact % bin/1c capture page https://gigabytealchemy.ai                                 
+
+Captured https://gigabytealchemy.ai → /Users/martin/Projects/1stcontact/storage/references/gigabytealchemy.ai/index
+  8 section(s), 5 asset(s)
+  l1.json: 72 node(s) across 6 width(s); hints.json: 109 node(s), 0 @media breakpoint(s)
+((.venv-working) ) martin@nyx 1stcontact % bin/1c repro gigabytealchemy --ref storage/references/gigabytealchemy.ai/index
+Reproduced storage/references/gigabytealchemy.ai/index → /Users/martin/Projects/1stcontact/storage/sites/gigabytealchemy/draft
+  raw-L1 home page: 73 node(s); assets copied
+  next: 1c render gigabytealchemy  ·  1c l1-gate --ref storage/references/gigabytealchemy.ai/index
+((.venv-working) ) martin@nyx 1stcontact % bin/1c render gigabytealchemy                                   
+Rendered 2 file(s) → /Users/martin/Projects/1stcontact/storage/dist/sites/gigabytealchemy/draft
+((.venv-working) ) martin@nyx 1stcontact % bin/1c l1-gate --ref storage/references/gigabytealchemy.ai/index                                     
+3-probe gate on storage/references/gigabytealchemy.ai/index: PASS
+  sample-fidelity     PASS  (maxΔ 0.5px, 0 residual(s), 0 unmatched)
+  off-sample          PASS  (0 envelope finding(s))
+  content-robustness  PASS  (0 finding(s))
+  promoted regions: 0.17, 0.18, 0.19, 0.20, 0.23
+  fold residuals (folder-power gaps): 4
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+    - field: form control belongs to a behavior module (contact-form), not a raw L1 leaf [border, borderRadiusPx, accessibleName]
+((.venv-working) ) martin@nyx 1stcontact % bin/1c values-diff gigabytealchemy --ref storage/references/gigabytealchemy.ai/index --multi-viewport
+values-diff --multi-viewport: 6 cell(s) across the viewport ladder
+  79 delta(s), 0 missing cell(s) — worst cell first
+  repair order (REQ-64): A-flat 2 → A-structural 1 → B 14  (17 defects deduped across the ladder)
+    ① copy the 2 Type-A flat value(s); ② author the 1 Type-A structural (responsive/spacing); ③ then read the 14 Type-B as the residual
+  ✗ @320 chromium:rest  8 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] renderedTextBox  text 170×93            → text 133×86
+      [A] shape            radius 8px, shadow no  → radius 0px, shadow no
+  ✗ @375 chromium:rest  7 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] renderedTextBox  text 343×48            → text 269×41
+      [A] shape            radius 8px, shadow no  → radius 0px, shadow no
+  ✗ @768 chromium:rest  16 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1024 chromium:rest  16 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1280 chromium:rest  16 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+  ✗ @1440 chromium:rest  16 delta(s) — worst [CRITICAL] B missing "Your email address"
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] missing          present                → absent
+      [B] arrangement      beside (right-of prev) → below prev
+      [B] gap              142px                  → 149px
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Progress - it is looking better, but there is still important work to do
 
 <!-- xgd-chat-end -->
