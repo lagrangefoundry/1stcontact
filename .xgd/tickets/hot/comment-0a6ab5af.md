@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:05.528512+00:00'
+updated_at: '2026-08-09T17:42:06.214593+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -832,5 +832,17 @@ It can be, and I was wrong to defer it. Here's what the code says.
 **And one genuine ordering dependency.** REQ-96 is `free_coded`, not done — the `control` node landed, but the aesthetic resolvers didn't. So those 12 references are real code today. REQ-114 either lands after REQ-96 finishes them off, or absorbs those 12 into its own cut. That's a sequencing note, not a reason to defer.
 
 Want me to fold the retirement into REQ-114 now — palette group only, with the REQ-96 ordering called out and the four sites' `site.json` migrated as part of the retrofit?
+
+<!-- xgd-turn id="ff72fe1c-7897-4014-8e34-07daec510e0e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-07-31T20:18:25.534204+00:00" -->
+#### You
+96 is finished if there is any follow on work, please add it to REQ-114 and have REQ-114 kill the dead code
+
+<!-- xgd-turn id="ff72fe1c-7897-4014-8e34-07daec510e0e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T20:18:41.869474+00:00" -->
+#### Claude
+Let me establish exactly what's dead versus still-called, so REQ-114 names real targets.
 
 <!-- xgd-chat-end -->
