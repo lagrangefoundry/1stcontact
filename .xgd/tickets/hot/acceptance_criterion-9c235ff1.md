@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: values-diff --json prints exactly one parseable JSON document to stdout
 created_by: xgd
 created_at: '2026-07-19T03:01:41.787749+00:00'
-updated_at: '2026-08-07T23:12:04.712786+00:00'
+updated_at: '2026-08-09T02:54:15.686084+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
