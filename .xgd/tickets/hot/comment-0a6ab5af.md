@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:04.448959+00:00'
+updated_at: '2026-08-09T17:42:04.869372+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -775,5 +775,36 @@ Yes create the section in DOC-23 and can you create and REQ to implement it and 
 It would be good for the design stage to have a "standard" inital set of pallet names to work from.
 
 And honestly I'm rather surprised by your comment that reproduction leads to ugly pallets - I would expect Wix to be fairly rigid on being pallet driven (but maybe its pallet + effects?)
+
+<!-- xgd-turn id="88429e85-1b12-4193-84ba-aa89a9aedfbb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T19:37:20.940822+00:00" -->
+#### Claude
+Before I write it, let me test your Wix intuition against our actual data — it's cheap and it may overturn my caveat.
+
+Small numbers — that already undercuts my caveat. Let me test the "palette + effects" hypothesis directly.
+
+That overturns my caveat. Let me get DOC-23's structure before writing into it.
+
+Now the implementation REQ in this repo:
+
+You were right and I was wrong — I measured it before writing, and the data doesn't support what I said.
+
+**The measurement.** Distinct colours in our folded sites: `gigabytealchemy` 29, `xgd` 17, `joyful` 10, `joyfulculinary` 5. Not the sprawl I predicted. And they're *already palette-structured*, because the captured sites were themselves designed from palettes. Two structures dominate:
+
+- **Alpha variants of one base** — `xgd` has `#2e86a3`, `#2e86a3a6` (α .65), `#2e86a355` (α .33). One colour, three opacities. Collapsing those is exact and needs no inference at all: 17 → 15 for free.
+- **Lightness ramps within one hue** — `xgd`'s neutrals run hue 215–220 at lightness 17/34/46/65/84; its brand teal hue 192–196 at 33/41/54/95; its warm surfaces hue 49–53 at 87/94/99. `gigabytealchemy` shows the same across ~6 hue families.
+
+So your "palette + effects?" guess is what the data actually shows. Wix is rigid on palette because that's how designed sites are built — and reproduction inherits that structure rather than destroying it. The "reproduction yields ugly palettes" concern is withdrawn, and I've recorded the withdrawal in DOC-23 §5.3 so it doesn't resurface.
+
+**DOC-23 §5 written.** The key move is that colour takes the shape geometry already has — *absolute base, overlay*: a literal hex is always valid (so transcription stays lossless and nothing is gated on a palette existing), and a palette reference is the refinement that resolves to the same hex. That also reconciles it with §2, which explicitly forbade "theme-role indirection" — this isn't a styling layer above the substrate, it's the same discipline applied to a second axis family. I amended §2 and the §6 safety bullet accordingly, and made a missing entry a validation failure rather than a render-time fallback.
+
+**Standard vocabulary** (§5.4) — surfaces `bg`/`surface`/`surface-subtle`/`surface-inverse`; text `text`/`text-muted`/`text-inverse`; line `border`/`border-strong`; brand `primary`/`secondary`/`accent`; utility `scrim`/`shadow`; feedback `success`/`warning`/`danger`/`info`. A vocabulary, not a schema — palettes extend freely. Two shape notes: **steps belong to a role**, not to the vocabulary (the legacy set baked ramp positions into names as `accentLight`/`accentMid`/`accentDeep`; the measured ramps say a role should carry steps instead), and **alpha is not a palette entry** — entries are opaque, translucency stays a separate axis, or one colour occupies N entries and stops being the unit of change.
+
+**REQ-114 created** — the L1 palette model plus the retrofit of all four sites. Sequenced alpha-collapse first (mechanical, lossless) then ramp grouping (mild, reviewable), with the hard gate that **conversion must be pixel-identical** — any delta is a conversion bug, not an accepted cost. It also asks for the colour census to become a repeatable command rather than the ad-hoc analysis I just ran.
+
+**DOC-28 §8 now settled rather than open**: colours come from the palette; REQ-55's two control shapes split cleanly into *pick a colour* (enum swatches, the friendly primary path) and *edit the palette* (free hex entry, a deliberate site-level act). Free colour entry isn't removed — it's relocated to where it belongs. I appended that framing to REQ-55 upstream too.
+
+One thing REQ-114 deliberately leaves alone: the legacy closed 15-slot `paletteTokensSchema` still exists and doesn't reach L1. Reconciling or retiring it is follow-up work, flagged in DOC-23 §5.5.
 
 <!-- xgd-chat-end -->
