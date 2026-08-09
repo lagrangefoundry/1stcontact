@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-9
 created_by: xgd
 created_at: '2026-07-18T23:46:58.613708+00:00'
-updated_at: '2026-08-09T17:42:06.723631+00:00'
+updated_at: '2026-08-09T17:42:07.244632+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -850,5 +850,34 @@ Let me establish exactly what's dead versus still-called, so REQ-114 names real 
 <!-- xgd-chat role="user" ts="2026-07-31T20:27:09.003322+00:00" -->
 #### You
 ok once all the docs are up to date and consistent, can you create a plan for tickets to implement the web designer. The tab name should be "Site", for now - please make it a parameter so its not baked into a million places and we can change it if needed
+
+<!-- xgd-turn id="fc6f8d91-4880-4185-bbb9-0b6c2e12b79a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-07-31T20:30:10.605667+00:00" -->
+#### Claude
+Let me do the consistency pass first — checking for drift across all the docs I've touched.
+
+Now the implementation plan. Writing it into DOC-28 §12 as the single authoritative list:
+
+Docs are consistent, and the plan is in DOC-28 §12.
+
+**Consistency pass** — four fixes beyond the rename:
+
+- **DOC-7** now carries a reconciliation section: §9.2's React/Tailwind/shadcn stack is withdrawn, and §9.1's "Workers Static Assets" is superseded by DOC-12 §9 (REQ-111). It also notes for anyone arriving from the builder that the page editor doesn't weaken §6.2's structured-only boundary.
+- **DOC-12** §9 said *"AI builder and client-side preview — explicitly out of scope."* Now half-superseded: the builder is in scope and specified; client-side preview stays out. I added the two consequences that belong in the storage doc — its own §7 phase-2 D1 trigger ("a server-side builder needing to read and write it") is now real, and the edit channel is a render mode that never publishes, never content-addresses, never enters `history.json`.
+- **DOC-23** §5.5 retitled to "replaced, not coexisted with", matching REQ-114 §4.
+- **CHAT-9** no longer keeps its own milestone list — it points at DOC-28 §12, so there's one plan rather than two that drift.
+
+**Tab naming.** The id `site` is stable and is what code addresses (`shell.getPanel('site')`, mode routing, persistence keys). The **label is a single configuration value, default `"Site"`** — declared once, referenced from there, never a repeated literal. That's stated in DOC-8 §3.1 and made an explicit deliverable of T1, so it can't get baked in during the first implementation. Same rule extends to any later tab.
+
+**The plan** — ten tickets, with the dependency shape in DOC-28 §12. The sequencing decisions worth your eye:
+
+- **T1 (component consumption + shell) is the only hard blocker**, and its real content is a *decision* — publish versus submodule — not code.
+- **T2 deliberately dodges the render question.** View mode points the iframe at the already-rendered draft on disk, so a real page is on screen immediately; T8 swaps the source to request-time SSR later without touching the panel. That keeps the riskiest infrastructure work off the critical path of getting something visible.
+- **T3/T4 (edit render, then segments) and T5 (structured-edit API) run parallel** to the chrome work — renderer and server, no UI.
+- **T3 before T4** because "the page does not work" is independently testable and is what makes edit mode *safe*; segmentation is what makes it *useful*. Shipping them together would conflate the two.
+- **Phase 1 completes at T7.** T8–T10 are productionisation and phase 2, with T10 gated on REQ-114 and upstream REQ-55.
+
+I've left these as a plan rather than creating the REQ tickets — say the word and I'll create T1–T7 with proper bodies and ACs. T1 in particular shouldn't be written until you've picked publish or submodule, since that decision *is* most of its scope.
 
 <!-- xgd-chat-end -->
