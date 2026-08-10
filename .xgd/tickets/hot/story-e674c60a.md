@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-08T01:47:58.013375+00:00'
+updated_at: '2026-08-10T07:28:10.303327+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-15c1f647
@@ -89,9 +89,23 @@ the surface where an operator *sees* the site instead.
   document beneath it. The controls act on real things: the site selector lists
   the sites the store actually holds, and publish goes through the platform's
   existing publish behaviour and adds no semantics of its own.
+- **The draft-side channels are produced on request, not fetched off a shelf.**
+  The two ways of looking at a site that track today's draft — the ordinary
+  rendering and the editable one — are produced from the site's definition when
+  they are asked for. There is no rendered artifact for the workspace to serve,
+  nothing anyone has to remember to refresh, and no step between changing a site
+  and seeing it changed: a definition edited anywhere at all shows on the next
+  request. The bytes are the same bytes the platform's own render writes when it
+  is asked to write them — one production of a page, with a writer and a reader
+  over it, so the two cannot drift. A draft that no longer describes a valid site
+  says so where the operator is looking, instead of the last good rendering
+  quietly going on being shown. The **published** way of looking at a site is
+  deliberately not like this: it stays the immutable rendering that publishing
+  produced, because deriving it from today's draft would put unpublished work on
+  the published address.
 - **A split, and it remembers.** The display panel sits beside a secondary pane
-  (a placeholder for the assistant that arrives later) with a draggable divider
-  that collapses to a rail and reopens to its previous width. The divider
+  (the assistant panel) with a draggable divider that collapses to a rail and
+  reopens to its previous width. The divider
   position, the collapsed side, and which site and mode were being shown all
   survive closing and reopening the workspace, and every stored value is
   namespaced to this workspace.
@@ -100,7 +114,8 @@ the surface where an operator *sees* the site instead.
   it — so every response it returns, the workspace document included, is served
   as non-cacheable. One exempt response is enough to leave an operator looking at
   a stale page that appears to be working.
-- **Confinement.** Several distinct file trees are served — rendered channels,
+- **Confinement.** Several distinct file trees are served — everything a channel
+  address can still reach on disk (a site's own assets, the published rendering),
   the installed components, the workspace's own browser source — and a request
   that tries to escape any of them is never satisfied: none of the targeted
   file's contents come back, and every tree behaves identically, so the
@@ -113,19 +128,51 @@ the surface where an operator *sees* the site instead.
 - Editing of any kind: clicking a segment, the field modal, and the write path
   behind it are separate stories. The editable *mode* is registered here and
   shows the editable rendering; the gesture that changes anything is not.
-- The assistant pane (a placeholder here) and any chat behaviour.
-- Producing the renderings. The workspace displays channels other capabilities
-  render, and never renders one itself.
+- What the assistant pane *does*. This story owns the split's geometry and what
+  it remembers; the conversation the secondary pane hosts, and everything behind
+  it, belongs to its own capability.
+- Deciding what a rendering contains. The workspace produces the draft-side
+  channels on request, but it decides no byte of them: the page a channel
+  contains is the platform's own render, and this story adds nothing to it. The
+  published rendering it does not produce at all.
 - Any change to a shared UI component. Consuming the components under a renamed
   scope is not such a change: the components themselves stay untouched, and the
   name they are published under is owned upstream, not decided here.
 
 ## Technical Context
 
-- **Displays, never produces.** The workspace shows the draft, published and
-  editable channels produced by CAP-82 (Site Delivery) and CAP-84 (Edit Render
-  Channel), lists the store, and invokes the existing publish path. It adds no
-  rendering and no publish semantics.
+- **One production of a page, called two ways.** The workspace no longer serves
+  the draft-side channels off something CAP-82 (Site Delivery) and CAP-84 (Edit
+  Render Channel) had already written; it asks for them when a request arrives.
+  What it asks is the *same* production those capabilities own — the build-time
+  command that writes a channel to disk and this origin are a writer and a reader
+  over one implementation, so a new typed axis or a new head tag reaches both at
+  once. Two productions would reintroduce exactly the drift server-side-only
+  rendering exists to prevent. The workspace still decides no byte, adds no
+  publish semantics, and produces the published channel not at all: that one is
+  the artifact publishing wrote, served as `public-site` will serve it.
+- **The staleness rule went with the artifact.** Serving a stored rendering meant
+  a save had to re-materialise both channels before it could reply, or whichever
+  it skipped would go on showing the page as it used to be. That step is gone.
+  It also meant a change made anywhere but the workspace's own save path — a
+  command-line edit, a hand-edited page — was invisible until someone re-rendered,
+  and a definition that had stopped validating left the last good rendering in
+  place indefinitely with nothing to signal it. Both are closed by producing the
+  page from the definition that exists when the request arrives. Producing a
+  whole channel per file a page pulls would be wasteful, so a production is
+  reused until the definition moves — reuse keyed on the definition itself, never
+  on elapsed time, because a rendering held past a change is the staleness this
+  removed.
+- **Deviation, declared: the render still runs at the origin, not in the edge
+  Worker.** The intent's first criterion asked for the draft-side channels to be
+  served *by the edge Worker* at request time. That was not attempted, and this
+  matrix does not claim it. A Worker has no filesystem and cannot run the
+  transform the render path resolves behaviour modules through, so executing the
+  render there requires the canonical store to be reachable from the edge — which
+  is the storage migration the same intent's non-goals forbid. The part that was
+  both reachable and load-bearing landed: request-time production, one
+  implementation, no artifact, byte-identical. What remains is the runtime
+  relocation alone.
 - **The editable mode is registered, not implemented, here.** Registering it is
   what proves the mode contract with two real modes; the editable render belongs
   to CAP-84 and the editing gesture to its own story.
@@ -135,9 +182,11 @@ the surface where an operator *sees* the site instead.
   runtime cannot do; the two bundler routes that could have inlined the bytes
   were both spiked and both made the Worker untestable. So the origin is a local
   Node process and the Worker is a single verbatim front over it. A later phase
-  moves rendering into the Worker at request time and deletes the front. The
-  acceptance criteria here are written about *one origin* and *what an operator
-  observes*, not about a proxy, so they survive that change unaltered.
+  moves the render's *runtime* into the Worker — the render already happens at
+  request time — and deletes the front; it waits on the store being reachable
+  from the edge. The acceptance criteria here are written about *one origin* and
+  *what an operator observes*, not about a proxy, so they survive that change
+  unaltered.
 - **The scope moves in lockstep with upstream, and only forward.** The scope the
   shared components are published under belongs to the wider system, not to this
   repository. When it changes there, it changes here in a single step: the store
