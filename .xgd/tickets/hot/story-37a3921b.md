@@ -6,16 +6,18 @@ title: Change the words and choose the images on my page through one validated, 
   edit — the same path the AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-10T07:40:38.825397+00:00'
+updated_at: '2026-08-10T08:21:03.232030+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
   capability_uid: capability-f753cecd
   story_kind: upgrade
   story_points: 3
-  updated_by: request-66e4c630
+  updated_by:
+  - request-66e4c630
+  - bundle-e59210c5
   uat_coverage: pass
 ---
 
@@ -23,7 +25,8 @@ fields:
 
 **As a** person who owns a site on this platform — or the AI acting on my
 instruction — **I want** to change what a region of a page holds by naming the
-region and the new values — its words, or which image goes there — and have that
+region and the new values — its words, which image goes there, or which image
+is painted behind it — and have that
 change either land completely or not at all, **so that** I can edit my own site
 without ever being able to break it, and without it mattering whether the change
 came from me pointing at it or from me asking for it.
@@ -31,7 +34,8 @@ came from me pointing at it or from me asking for it.
 ## Description
 
 This is the **write path for a content edit**: the one place a change to a
-page's words, or to which image a region shows, is applied. It exists as a
+page's words, to which image a region shows, or to which image is painted
+behind a panel, is applied. It exists as a
 *shared* surface on purpose. The operator editing in the builder and the AI
 editing on request are **two producers of the same kind of change**, not two
 mechanisms — so there is one addressing scheme, one validator, one atomicity
@@ -45,6 +49,15 @@ endpoint. An image edit is named, read, applied, validated, refused and
 re-rendered by the identical operations a copy edit is. The whole of what image
 selection adds is in *what a region answers when asked which fields it exposes*
 — and the closed list of choices that answer carries.
+
+A **painted panel's background image** arrives the same way, and is the evidence
+that this generalises rather than having been a special case for images:
+choosing what sits *behind* a region is the same closed pick, over the same
+listing of the site's images, as choosing what sits *in front* of it. It adds no
+command, no endpoint, no second write path and nothing the client has to learn —
+only one more answer the derivation can give. It is **selection only**: the
+picker can change the image a panel already paints, never add one to a panel
+that paints none.
 
 **In scope**
 
@@ -62,8 +75,12 @@ selection adds is in *what a region answers when asked which fields it exposes*
   copy that is its words. For an image region that is **which image goes here** —
   a choice from a closed list of the site's images, narrowed to what an image can
   actually point at, and always including the handle the region holds now — plus
-  its alt text. For anything that exposes nothing — a container, a module
-  instance — the answer is an **empty list**, and an empty list is a legitimate
+  its alt text. For a **painted panel that already carries a background image**
+  it is **which image sits behind it** — one closed pick from that same listing
+  of the site's images, again always including the handle the panel holds now,
+  and nothing else of the paint the panel carries. For anything that exposes
+  nothing — a panel that paints no background image, a module instance — the
+  answer is an **empty list**, and an empty list is a legitimate
   answer rather than an error: "there is nothing to edit here" is a property of
   the region, decided once, not a check every caller has to remember.
 - **Applying one change as one change.** A change map — the fields of a single
@@ -86,12 +103,15 @@ selection adds is in *what a region answers when asked which fields it exposes*
   offered is refused at the field, before the shared validator runs, because a
   well-formed handle to something the site does not have is *safe* and would
   otherwise be accepted into a silently broken page.
-- **Making the change visible.** A successful edit is followed by re-rendering
-  the affected page so the change is visible without a further manual step.
-  Through the builder's origin this covers **both** the editable rendering and
-  the plain draft rendering, because an edit changes the page and not one
-  rendering of it — re-rendering only the editable one left the plain view
-  showing an indefinitely stale page with nothing to signal it.
+- **Making the change visible.** A successful edit is visible in the rendered
+  page without a further manual step, in **both** the editable rendering and the
+  plain draft rendering — because an edit changes the page and not one rendering
+  of it, and a change that reached only one view would leave the other showing an
+  indefinitely stale page with nothing to signal it. From the command line the
+  edit re-renders both and reports where each was written. Through the builder's
+  origin there is nothing for the save to re-render: both renderings are produced
+  from the definition when they are next requested, so the save writes the draft,
+  replies, and both views are current at the origin the operator's browser reads.
 - **Being incapable of raw code.** The only controls this surface can offer are
   a plain string and a pick from a closed list the surface itself supplied.
   Markup typed into a string is stored and rendered as literal text; it creates
@@ -99,9 +119,12 @@ selection adds is in *what a region answers when asked which fields it exposes*
   a value the surface already put in front of the caller. "There is no
   raw-editing mode" is therefore a property of the surface's shape, not a rule it
   has to enforce.
-- **Changing nothing but structured fields.** Choosing an image points the region
-  at a different handle. It writes, copies, resizes or processes no file, and it
-  leaves every other parameter the region carries untouched.
+- **Changing nothing but structured fields.** Choosing an image — the one a
+  region shows, or the one a panel is painted with — points that region at a
+  different handle. It writes, copies, resizes or processes no file, and it
+  leaves every other parameter the region carries untouched, including the fill,
+  the corner radius, the opacity and the overlay a panel holds alongside its
+  background, and including wherever framing parameters eventually land.
 
 **Out of scope**
 
@@ -117,6 +140,17 @@ selection adds is in *what a region answers when asked which fields it exposes*
   write **the same fields**, not a parallel vocabulary (DOC-28 §13 Q5).
 - Asset **upload**, and any image processing. The picker offers what already
   exists.
+- **Adding** a background image to a panel that paints none, and **removing**
+  the one a panel has. The background picker is selection only and offers no
+  empty choice. A panel is an editable region only because it paints something,
+  so a panel whose only paint was its background would stop being a region the
+  moment it was cleared, and could never be reached again to restore it.
+  Removal remains reachable through the AI's surface, which addresses the
+  parameter directly.
+- **Background colour**, and the rest of a panel's paint — pattern, overlay,
+  gradient, fill. Deferred for colour's reason: it needs the site palette and a
+  colour-valued control, neither of which exists. This surface gained one
+  handle, not a paint panel.
 - Text properties (size, colour, weight, family), per-run restyling, and any
   structural change — add, remove, reorder, resize, reposition.
 - Undo. The only reversal in phase 1 is not saving.
@@ -150,11 +184,46 @@ selection adds is in *what a region answers when asked which fields it exposes*
   page would render a broken image with no error. A client holding a stale asset
   listing is the realistic source. Membership is therefore checked at the field,
   server-side, rather than being a property of the widget.
+- **One listing serves both pickers.** What a region can sit *in front of* and
+  what a panel can sit *behind* are offered from the same enumeration of the
+  site's images, so the two can never disagree about what the site has. A region
+  with no picker at all — a run of copy — still costs no listing read.
+- **Why there is no empty option, expressed as a type rather than as a check.**
+  The background field is one that *must* hold a value. If a panel's only paint
+  were its background, offering removal would drop it out of the set of editable
+  regions on the very next rendering, with no address left to click to put it
+  back. Requiring a value puts that outcome out of reach by construction rather
+  than guarding against it with a special case. The same rule read from the
+  value side is why a panel carrying an empty handle is treated as painting no
+  background at all: a picker there would be offering to *add* one.
+- **The background is offered on the panel, not on everything that can carry
+  one.** A run of copy or an image region can carry a background parameter too,
+  but exposing it there would turn the copy form into a paint surface and blur
+  the map from the region the operator clicked to what they meant by clicking
+  it. The handle is offered on the region an operator clicks to mean "this
+  panel".
+- **Applying a background writes into the parameters the region already carries,
+  rather than over them.** The change lands on the one parameter named and
+  every other parameter on the region survives byte-identical — which is what
+  makes "choosing a background disturbs nothing" true of the whole region and
+  not merely of the asset store.
 - **The picker's choices ride the read call.** Asking a region what it exposes
   already returns the option list inside the image field's descriptor, so a
   chooser costs no extra round trip and cannot display options the write path
   would reject. The independently reachable asset listing exists for the asset
   store's own consumers, not for this surface.
+- **Where "both views are current" is now observed, and why the claim did not
+  change.** This surface's two origin-facing criteria used to be read off stored
+  renderings, because a save through the builder re-materialised both channels
+  before it replied — whichever it skipped would have gone on serving the page as
+  it used to be. The workspace now produces those two renderings from the
+  definition when they are requested, so that step is gone and there is no
+  artifact left to inspect. The claim is preserved exactly: an edit changes the
+  page, not one rendering of it. Only the observable moved, to the origin — which
+  is the stronger one anyway, being the bytes the operator's browser is actually
+  shown — and "before it reports success" falls away with the artifact it was
+  about. The command line is unaffected: it still renders both channels and
+  reports where each was written.
 - **Relationship to neighbouring capabilities.** The addresses this surface
   resolves are written by the edit render channel (CAP-84 / STORY-98), whose
   stamp vocabulary and resolution rule live in the shared definition site this
