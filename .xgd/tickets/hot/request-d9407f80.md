@@ -6,10 +6,10 @@ title: 'Build the L1 control surface API: declared schemas, error taxonomy, addr
   contract, version'
 created_by: xgd
 created_at: '2026-08-08T21:14:42.246096+00:00'
-updated_at: '2026-08-10T07:12:44.346063+00:00'
-completed_at: null
+updated_at: '2026-08-10T11:00:55.953217+00:00'
+completed_at: '2026-08-10T11:00:55.953217+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
