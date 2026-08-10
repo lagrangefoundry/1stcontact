@@ -6,10 +6,10 @@ title: 'L1 authoring on the control surface: verbatim get_l1 / set_l1 (click-to-
   modal unchanged)'
 created_by: xgd
 created_at: '2026-08-09T23:01:05.915932+00:00'
-updated_at: '2026-08-10T07:12:27.002960+00:00'
+updated_at: '2026-08-10T07:12:46.809063+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.1.33
   story_points: 5
+  bundled_in: bundle-e59210c5
 ---
 
 # L1 authoring on the control surface: verbatim `get_l1` / `set_l1`
