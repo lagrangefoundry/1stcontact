@@ -6,10 +6,10 @@ title: 'The drawing validator is closed by construction: anything its grammar do
   not name is refused rather than skipped, and size and element counts are bounded'
 created_by: xgd
 created_at: '2026-08-10T09:34:42.334586+00:00'
-updated_at: '2026-08-10T09:34:42.334586+00:00'
+updated_at: '2026-08-10T09:45:47.598082+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
