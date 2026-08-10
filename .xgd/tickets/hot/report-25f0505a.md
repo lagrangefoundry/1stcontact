@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-17 — request-time render, copy-edit modal,
   backgrounds, and the assistant''s declared control surface'
 created_by: xgd
 created_at: '2026-08-10T07:22:18.397856+00:00'
-updated_at: '2026-08-10T08:48:16.228579+00:00'
+updated_at: '2026-08-10T09:07:11.623122+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -273,7 +273,7 @@ fields:
       in the intent as newly gained. This is a new capability bucket. FC evidence
       on disk: `tests/test_UAT_FC_REQ-126_l1_surface.test.ts` (14 UATs) and `tests/test_UAT_FC_REQ-122_tool_surface.test.ts`
       (the behavioural workflows that survived the surface''s rewrite).'
-    story_uid: null
+    story_uid: story-93905de4
   - index: 7
     component: Authoring the element tree through the control surface
     item_type: feature
