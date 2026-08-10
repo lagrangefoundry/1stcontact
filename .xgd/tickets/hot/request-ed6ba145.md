@@ -6,10 +6,10 @@ title: 'Beyond L1: structured config, module instantiation, page metadata and ge
   assets'
 created_by: xgd
 created_at: '2026-08-09T23:24:24.532382+00:00'
-updated_at: '2026-08-10T07:12:26.224501+00:00'
+updated_at: '2026-08-10T07:12:47.195928+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.1.34
   story_points: 8
+  bundled_in: bundle-e59210c5
 ---
 
 # Beyond L1: structured config, module instantiation, page metadata and generated assets
