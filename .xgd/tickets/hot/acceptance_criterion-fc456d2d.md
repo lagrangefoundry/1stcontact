@@ -6,10 +6,10 @@ title: The site's own font declarations cross into the workspace so the previewe
   family resolves — and only those, replaced each time
 created_by: xgd
 created_at: '2026-08-10T07:47:45.324881+00:00'
-updated_at: '2026-08-10T07:47:45.324881+00:00'
+updated_at: '2026-08-10T08:18:28.860114+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
