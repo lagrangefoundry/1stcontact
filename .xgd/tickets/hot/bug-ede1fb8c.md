@@ -16,9 +16,11 @@ fields:
   needs_review: false
   priority: medium
   commits:
-  - working_sha: af78081b646fdb30cb70f4676afc51ad816ced7b
+  - working_sha: b86ea41c3a88fc6d40df2fa8fbabd30eadd218af
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - af78081b646fdb30cb70f4676afc51ad816ced7b
   version: 0.1.35
   story_points: 2
   orphan_commits:
