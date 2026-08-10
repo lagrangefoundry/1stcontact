@@ -6,7 +6,7 @@ title: The scaffolded width ladder is the capture ladder itself, so an authored 
   and a reproduced one vary at identical widths
 created_by: xgd
 created_at: '2026-08-06T03:42:54.795672+00:00'
-updated_at: '2026-08-07T18:44:41.120798+00:00'
+updated_at: '2026-08-10T08:16:14.088267+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
