@@ -6,10 +6,10 @@ title: 'The copy-edit modal, made elegant: themed chrome, app typeface, page-fai
   editing box'
 created_by: xgd
 created_at: '2026-08-07T23:18:19.851596+00:00'
-updated_at: '2026-08-08T00:48:58.149892+00:00'
+updated_at: '2026-08-10T07:12:19.489519+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
