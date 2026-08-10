@@ -5,7 +5,7 @@ type: capability
 title: 'Structured Copy Editing: One Validated, Atomic Write Path'
 created_by: xgd
 created_at: '2026-08-07T02:00:22.295360+00:00'
-updated_at: '2026-08-07T19:40:57.352575+00:00'
+updated_at: '2026-08-10T07:40:39.879923+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
