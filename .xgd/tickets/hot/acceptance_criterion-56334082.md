@@ -6,7 +6,7 @@ title: A newly created site states its document background and placeholder colou
   as hex literals in its own layout document, and declares no palette
 created_by: xgd
 created_at: '2026-08-06T03:42:59.130974+00:00'
-updated_at: '2026-08-07T18:44:42.118883+00:00'
+updated_at: '2026-08-10T08:16:13.097888+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
