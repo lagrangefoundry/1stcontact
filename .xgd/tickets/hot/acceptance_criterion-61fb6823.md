@@ -6,10 +6,10 @@ title: Omitting the group writes at the site's top level, and a top-level write 
   is not an object of settings is refused
 created_by: xgd
 created_at: '2026-08-10T09:33:52.728575+00:00'
-updated_at: '2026-08-10T09:33:52.728575+00:00'
+updated_at: '2026-08-10T09:45:50.606985+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
