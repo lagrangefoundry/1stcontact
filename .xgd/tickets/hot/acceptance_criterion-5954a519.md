@@ -6,7 +6,7 @@ title: A rendering too old to carry the page coordinate is refused before anythi
   is sent, naming the re-render to run
 created_by: xgd
 created_at: '2026-08-07T02:17:00.422222+00:00'
-updated_at: '2026-08-07T18:00:34.313101+00:00'
+updated_at: '2026-08-10T08:50:26.583608+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -14,7 +14,7 @@ fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
-  uat_coverage: pass
+  uat_coverage: fail
 ---
 
 ## Criterion
