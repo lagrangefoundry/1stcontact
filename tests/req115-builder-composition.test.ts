@@ -192,11 +192,10 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 display panel mode contract', () => {
 describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
   it('test_UAT_FC_REQ-115_open_in_new_tab_matches_the_iframe_exactly', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
-    // Read the LIVE control each time. The strip is derived state — a mode or
-    // site change re-renders it, and its subscriptions are disposed with the
-    // element they belong to — so a reference captured once is a detached node
-    // the operator can no longer click, and asserting on it would prove
-    // nothing about the link that is actually on screen.
+    // Re-read the control every time. `toolbar.js` re-renders the whole strip on
+    // both `mode` and `site`, so a captured handle is a detached survivor whose
+    // subscription has been disposed — it is not what an operator clicks, and
+    // asserting on it would prove nothing about the link that is on screen.
     const link = () => app.toolbar.get('open-new-tab') as HTMLAnchorElement
 
     // AC 8 — identical URL, and it stays identical as the pane changes.

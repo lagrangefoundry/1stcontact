@@ -135,14 +135,12 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 the loop in a real browser', () => {
           'buffered',
         )
         // The full string is legible in the form regardless of what the render
-        // did to it on the page. Read off the CONTROL: since REQ-121 a one-field
-        // form opens straight into its control, so the words are a form value
-        // rather than a span in the dialog's text.
-        const control = page
-          .locator('.builder-modal input[type=text], .builder-modal textarea')
-          .first()
-        await control.waitFor()
-        expect(await control.inputValue()).toContain(before!.trim())
+        // did to it on the page. It is read off the CONTROL, not the modal's
+        // text: since REQ-121 a one-field form opens straight into its control
+        // (`openLoneControl` in editor.js), so the value lives in the input.
+        const input = page.locator('.builder-modal input[type=text], .builder-modal textarea').first()
+        await input.waitFor()
+        expect(await input.inputValue()).toContain(before!.trim())
       } finally {
         await page.close()
       }

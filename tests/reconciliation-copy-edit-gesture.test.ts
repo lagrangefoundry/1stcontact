@@ -495,8 +495,10 @@ describe('story-3bf94bd4 the edit gesture', () => {
 
         await region.click()
         await page.locator('.builder-modal').waitFor()
-        // A ONE-FIELD FORM OPENS STRAIGHT INTO ITS CONTROL (REQ-121), so there
-        // is no view cell to click open first — the box is already one.
+        // No click to open the control: since REQ-121 a one-field form opens
+        // straight into it (`openLoneControl` in editor.js), so the
+        // `.fields-value` VIEW the gesture used to click is already gone. Typing
+        // into the control that is there is what the operator actually does.
         const input = page
           .locator('.builder-modal input[type=text], .builder-modal textarea')
           .first()
