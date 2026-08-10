@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Each asset reports what it can be used for, so a caller can narrow to one kind
 created_by: xgd
 created_at: '2026-08-07T04:29:50.005796+00:00'
-updated_at: '2026-08-07T18:45:09.764450+00:00'
+updated_at: '2026-08-10T08:15:41.746657+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
