@@ -6,10 +6,10 @@ title: A component is added to a page with its configuration alone, and arrives 
   laid out from that configuration
 created_by: xgd
 created_at: '2026-08-10T09:34:09.207732+00:00'
-updated_at: '2026-08-10T09:34:09.207732+00:00'
+updated_at: '2026-08-10T09:45:49.729737+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
