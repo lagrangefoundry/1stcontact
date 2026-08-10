@@ -6,7 +6,7 @@ title: Copy longer than the box it renders into reads back in full when the regi
   is reopened
 created_by: xgd
 created_at: '2026-08-07T02:02:49.903722+00:00'
-updated_at: '2026-08-07T19:40:45.244102+00:00'
+updated_at: '2026-08-10T07:40:26.763115+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
