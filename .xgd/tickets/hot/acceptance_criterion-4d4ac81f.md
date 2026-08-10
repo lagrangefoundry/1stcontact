@@ -6,10 +6,10 @@ title: An element outside the page's vocabulary is refused whole, and the draft 
   left byte-for-byte unchanged
 created_by: xgd
 created_at: '2026-08-10T09:20:07.806002+00:00'
-updated_at: '2026-08-10T09:20:07.806002+00:00'
+updated_at: '2026-08-10T09:29:36.619611+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-189fc1ac
   kind: behavior
