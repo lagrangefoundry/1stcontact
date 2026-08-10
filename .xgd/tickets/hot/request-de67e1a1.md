@@ -6,10 +6,10 @@ title: 'Background image selection: the container segment''s backgroundImageUrl 
   the phase-1 picker'
 created_by: xgd
 created_at: '2026-08-08T21:22:38.782599+00:00'
-updated_at: '2026-08-09T19:54:34.713687+00:00'
+updated_at: '2026-08-10T07:12:20.914339+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: medium
   story_points: 2
