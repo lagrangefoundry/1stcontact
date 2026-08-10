@@ -6,7 +6,7 @@ title: Clicking a copy region opens a form over that region's fields, carrying t
   words currently on the page
 created_by: xgd
 created_at: '2026-08-07T02:16:19.710210+00:00'
-updated_at: '2026-08-07T18:00:25.794164+00:00'
+updated_at: '2026-08-10T08:50:22.290212+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -14,7 +14,7 @@ fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
-  uat_coverage: pass
+  uat_coverage: fail
 ---
 
 ## Criterion
