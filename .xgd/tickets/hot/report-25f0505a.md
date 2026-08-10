@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-17 — request-time render, copy-edit modal,
   backgrounds, and the assistant''s declared control surface'
 created_by: xgd
 created_at: '2026-08-10T07:22:18.397856+00:00'
-updated_at: '2026-08-10T07:31:20.148120+00:00'
+updated_at: '2026-08-10T07:49:03.920811+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -103,7 +103,7 @@ fields:
       is written moves; only what the operator sees when the form opens. No new capability
       bucket, and no parallel modal. FC evidence on disk: `tests/req121-copy-modal-elegance.test.ts`
       (9 UATs named `test_UAT_FC_REQ-121_*`).'
-    story_uid: null
+    story_uid: story-3bf94bd4
     target_story_ids:
     - story-3bf94bd4
     intent_delta_summary: 'story-3bf94bd4 gains the modal''s presentation contract:
