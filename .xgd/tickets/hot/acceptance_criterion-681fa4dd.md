@@ -6,7 +6,7 @@ title: Censusing a site reports its distinct colour literals with use counts, it
   distinct RGB ignoring alpha, and its alpha families, and changes nothing
 created_by: xgd
 created_at: '2026-08-06T21:07:14.060835+00:00'
-updated_at: '2026-08-07T18:44:46.166032+00:00'
+updated_at: '2026-08-10T08:16:08.639725+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
