@@ -6,10 +6,10 @@ title: A turn that changes the site streams what the assistant did and said, end
   in exactly one completion, and the change is in the draft
 created_by: xgd
 created_at: '2026-08-10T08:35:43.022538+00:00'
-updated_at: '2026-08-10T08:35:43.022538+00:00'
+updated_at: '2026-08-10T08:42:34.808788+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
