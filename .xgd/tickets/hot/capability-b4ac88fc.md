@@ -5,9 +5,9 @@ type: capability
 title: 'Site Materials & Starting Point: Scaffold, Assets, Provenance & Palette'
 created_by: xgd
 created_at: '2026-08-07T15:26:37.596731+00:00'
-updated_at: '2026-08-07T18:54:21.894448+00:00'
+updated_at: '2026-08-10T08:16:23.110947+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   name: site-materials-and-start-point
