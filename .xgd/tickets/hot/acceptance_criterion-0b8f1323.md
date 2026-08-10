@@ -6,7 +6,7 @@ title: After a successful save the operator's page shows the new words with no f
   step, and stays editable
 created_by: xgd
 created_at: '2026-08-07T02:16:37.837461+00:00'
-updated_at: '2026-08-07T18:00:29.782437+00:00'
+updated_at: '2026-08-10T08:50:08.967453+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
