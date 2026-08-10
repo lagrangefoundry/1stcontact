@@ -6,21 +6,22 @@ title: 'Builder chrome tests: six red suites, one a stale DOM handle in the REQ-
   open-in-new-tab assertion'
 created_by: xgd
 created_at: '2026-08-08T00:30:55.222532+00:00'
-updated_at: '2026-08-10T11:04:02.273357+00:00'
-completed_at: null
+updated_at: '2026-08-10T11:41:56.858186+00:00'
+completed_at: '2026-08-10T11:41:56.858186+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   severity: medium
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: af78081b646fdb30cb70f4676afc51ad816ced7b
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
+    main_sha: f1664c557c5dcbac01839bac6543dc1b85c68b2f
   version: 0.1.35
   story_points: 2
+  merged_at_commit: f1664c557c5dcbac01839bac6543dc1b85c68b2f
 ---
 
 ## Symptom
