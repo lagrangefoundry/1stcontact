@@ -5,7 +5,7 @@ type: bundle
 title: REQ-119 + REQ-122 + REQ-121 + REQ-126 + REQ-128 + 3 more
 created_by: xgd
 created_at: '2026-08-10T07:12:40.891360+00:00'
-updated_at: '2026-08-10T07:12:52.355156+00:00'
+updated_at: '2026-08-10T07:13:14.698479+00:00'
 completed_at: null
 last_field_updated: status
 status: reconciling
@@ -49,9 +49,6 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
-  orphan_commits:
-  - old_sha: fdef5db385f72208f9337b2b3d48ae7915365b66
-    new_sha: c7223dd73dbd1d470dafb411fa2f32179b62fbd4
 ---
 
 # Bundle
