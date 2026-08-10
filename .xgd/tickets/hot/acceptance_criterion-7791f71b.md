@@ -6,7 +6,7 @@ title: 'One save is one change: a change map is applied whole or not at all, and
   half-written'
 created_by: xgd
 created_at: '2026-08-07T02:02:17.629189+00:00'
-updated_at: '2026-08-07T19:40:38.289004+00:00'
+updated_at: '2026-08-10T07:40:18.248160+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
