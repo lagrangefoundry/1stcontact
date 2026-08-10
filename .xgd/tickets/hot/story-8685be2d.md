@@ -6,7 +6,7 @@ title: 'Font provenance: every font file in the project is accounted for, and an
   licence cannot ship as product'
 created_by: xgd
 created_at: '2026-08-06T03:29:03.843623+00:00'
-updated_at: '2026-08-07T18:45:18.024541+00:00'
+updated_at: '2026-08-10T08:16:19.443237+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: completed
