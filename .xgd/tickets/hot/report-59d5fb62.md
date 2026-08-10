@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: BUG-33 builder control re-derivation (free-coded, test-only)'
 created_by: xgd
 created_at: '2026-08-10T11:14:17.481428+00:00'
-updated_at: '2026-08-10T11:14:17.481428+00:00'
+updated_at: '2026-08-10T11:21:21.126999+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bug-ede1fb8c
@@ -18,7 +18,7 @@ fields:
     item_type: upgrade
     story_points: 1
     dependencies: []
-    story_uid: null
+    story_uid: story-e674c60a
     target_story_ids:
     - story-e674c60a
     description: 'STORY-99 already states that the toolbar renders exactly the controls
