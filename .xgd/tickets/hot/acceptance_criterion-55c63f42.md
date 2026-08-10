@@ -6,7 +6,7 @@ title: The definition's own element identifier keeps its meaning and emission, a
   the edit address is stamped alongside it, never in place of it
 created_by: xgd
 created_at: '2026-08-06T21:27:21.986173+00:00'
-updated_at: '2026-08-07T18:00:55.783538+00:00'
+updated_at: '2026-08-10T08:49:56.856194+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
