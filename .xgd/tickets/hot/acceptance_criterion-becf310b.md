@@ -6,10 +6,10 @@ title: The surface states its own version, distinct from the version of the form
   it is declared in
 created_by: xgd
 created_at: '2026-08-10T09:05:58.796867+00:00'
-updated_at: '2026-08-10T09:05:58.796867+00:00'
+updated_at: '2026-08-10T09:15:04.833966+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-93905de4
   kind: behavior
