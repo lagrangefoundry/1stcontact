@@ -6,10 +6,10 @@ title: A turn is addressed to a conversation, not a site; naming a site instead 
   refused and changes nothing
 created_by: xgd
 created_at: '2026-08-10T08:35:34.989479+00:00'
-updated_at: '2026-08-10T08:35:34.989479+00:00'
+updated_at: '2026-08-10T08:42:35.089769+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
