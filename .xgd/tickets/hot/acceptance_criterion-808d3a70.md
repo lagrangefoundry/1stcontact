@@ -6,7 +6,7 @@ title: Reordering sibling regions and re-rendering yields addresses that still r
   to the nodes they were derived from
 created_by: xgd
 created_at: '2026-08-06T21:26:59.056293+00:00'
-updated_at: '2026-08-07T18:00:53.888596+00:00'
+updated_at: '2026-08-10T08:49:59.807954+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
