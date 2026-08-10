@@ -5,9 +5,9 @@ type: bundle
 title: REQ-119 + REQ-122 + REQ-121 + REQ-126 + REQ-128 + 3 more
 created_by: xgd
 created_at: '2026-08-10T07:12:40.891360+00:00'
-updated_at: '2026-08-10T11:00:50.583051+00:00'
+updated_at: '2026-08-10T11:03:16.292754+00:00'
 completed_at: '2026-08-10T11:00:50.583051+00:00'
-last_field_updated: status
+last_field_updated: result
 status: free_and_reconciled
 fields:
   commits:
@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   priority: medium
   merged_at_commit: 0198704b7e29db3c53cf569070042cec0eb467bc
+result: pass
 ---
 
 # Bundle
