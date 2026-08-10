@@ -6,10 +6,10 @@ title: The form is sized for real copy with a tall resizable editing area, and S
   stays reachable at every window size
 created_by: xgd
 created_at: '2026-08-10T07:48:20.976780+00:00'
-updated_at: '2026-08-10T07:48:20.976780+00:00'
+updated_at: '2026-08-10T08:18:28.247888+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
