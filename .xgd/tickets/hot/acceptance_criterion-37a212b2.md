@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Describing a page reports the components already on it with their configuration
 created_by: xgd
 created_at: '2026-08-10T09:34:23.163166+00:00'
-updated_at: '2026-08-10T09:34:23.163166+00:00'
+updated_at: '2026-08-10T09:45:48.814714+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
