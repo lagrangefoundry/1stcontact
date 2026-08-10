@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-10T07:39:47.632691+00:00'
+updated_at: '2026-08-10T11:20:12.973738+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -81,12 +81,22 @@ the surface where an operator *sees* the site instead.
   another. Registering a mode is adding an entry — there is no branch anywhere
   that a new mode must be threaded through — and switching modes changes what is
   displayed without rebuilding the pane around it.
-- **A toolbar the active mode declares.** The strip renders exactly the controls
-  the active mode names, so a mode showing something other than a document
-  simply does not offer "open in a new tab" and the strip never assumes a
-  document beneath it. The controls act on real things: the site selector lists
-  the sites the store actually holds, and publish goes through the platform's
-  existing publish behaviour and adds no semantics of its own.
+- **A toolbar the active mode declares, re-derived from what is displayed.** The
+  strip renders exactly the controls the active mode names, so a mode showing
+  something other than a document simply does not offer "open in a new tab" and
+  the strip never assumes a document beneath it. The strip is derived state, not
+  something anyone keeps in step by hand: *every* change to what the pane is
+  showing — the mode or the site — re-derives the whole strip, and each control
+  is built against the mode and site current at that moment. So a control whose
+  content depends on the site, the selector's own shown value included, follows
+  the site on screen whatever changed it: the selector, the workspace restoring
+  what it remembered, or a change made programmatically. The strip itself stays
+  where it is through this; only its contents are replaced, so it never drops out
+  of the layout. A control the strip replaces is released with it and stops
+  reacting, so a workspace held open does not accumulate updaters writing to
+  controls that have left the document. The controls act on real things: the site
+  selector lists the sites the store actually holds, and publish goes through the
+  platform's existing publish behaviour and adds no semantics of its own.
 - **The draft-side channels are produced on request, not fetched off a shelf.**
   The two ways of looking at a site that track today's draft — the ordinary
   rendering and the editable one — are produced from the site's definition when
@@ -277,6 +287,26 @@ the surface where an operator *sees* the site instead.
 - **Same-origin is load-bearing for what comes next.** The editing gesture reads
   and binds inside the frame's document; that is only possible because the frame
   is same-origin, which this story establishes.
+- **The strip is derived state, and a control's lifetime is its element's
+  lifetime.** The toolbar re-derives on every change to what is displayed, not
+  only on a mode change, because a control can depend on the site as much as on
+  the mode — and re-deriving the *whole* strip is what keeps "built against
+  current state" true of every control rather than of whichever one happened to
+  be wired for it. The consequence that is easy to miss, and that cost four
+  assertions in the suites before it was written down (BUG-33): a control the
+  strip has already replaced is a detached survivor. It is inert by design — what
+  kept it current died with it — so anything still holding it is reading a copy
+  frozen at the moment of replacement, not the control an operator can touch. The
+  behaviour under test is always the control presently in the strip. The
+  criterion for this was absent from the matrix while the property was
+  load-bearing in the code, which is why the divergence surfaced as red tests
+  rather than as a documented gap.
+- **Divergence noted, in commentary only.** The inline comment at the point where
+  the strip subscribes still reads "on every mode change" while the code
+  subscribes to both mode and site; the narrative docstring above it is correct
+  and says "on every mode and site change". No behaviour differs, and
+  reconciliation changes no runtime code — recorded so the stale comment is on
+  the record rather than mistaken for a second opinion about the trigger.
 
 ## Dependencies
 
