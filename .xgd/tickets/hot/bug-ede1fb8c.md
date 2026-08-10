@@ -21,6 +21,9 @@ fields:
     main_sha: null
   version: 0.1.35
   story_points: 2
+  orphan_commits:
+  - old_sha: fdef5db385f72208f9337b2b3d48ae7915365b66
+    new_sha: 75059a2ed65a1e87607cda457651bf50dbfbc0e6
 ---
 
 ## Symptom
