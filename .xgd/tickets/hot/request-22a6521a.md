@@ -5,10 +5,10 @@ type: request
 title: L1 tooling configuration over the control surface API (deletes declare.ts)
 created_by: xgd
 created_at: '2026-08-08T21:14:47.241627+00:00'
-updated_at: '2026-08-09T21:09:34.045124+00:00'
+updated_at: '2026-08-10T07:12:21.377581+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
