@@ -405,6 +405,14 @@ const HOSTILE: Array<[string, string]> = [
     '<svg xmlns="http://www.w3.org/2000/svg"><title>&#x3c;script&#x3e;</title></svg>',
   ],
   [
+    'an escaped script behind an allowed entity',
+    '<svg xmlns="http://www.w3.org/2000/svg"><text x="&amp;&#x3c;script&#x3e;">hi</text></svg>',
+  ],
+  [
+    'an external paint reference behind an allowed entity',
+    '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="&amp;url&#x28;http://evil.example/x&#x29;"/></svg>',
+  ],
+  [
     'a CDATA section',
     '<svg xmlns="http://www.w3.org/2000/svg"><title><![CDATA[<script>alert(1)</script>]]></title></svg>',
   ],
@@ -497,6 +505,34 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     // over the source — so being close to the limit is not itself a refusal.
     const detailed = `<svg xmlns="http://www.w3.org/2000/svg">${'<rect x="1"/>'.repeat(1500)}</svg>`
     expect(validateSvg(detailed).ok).toBe(true)
+  })
+
+  it('test_UAT_FC_REQ_130_an_allowed_entity_does_not_vouch_for_the_ones_after_it', () => {
+    // The rule is per-`&`, not per-value. A check that looked only at the first
+    // `&` would let one legitimate entity stand surety for every entity behind
+    // it — and the payload that exploits it is not the obvious one. `&#x28;` and
+    // `&#x29;` are `(` and `)`, so `fill="&amp;url&#x28;…&#x29;"` carries no
+    // literal `(` for the reference guard to see; the external reference only
+    // exists after the browser decodes it.
+    for (const smuggled of [
+      '<svg xmlns="http://www.w3.org/2000/svg"><text x="&amp;&#x3c;script&#x3e;">hi</text></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect fill="&amp;url&#x28;http://evil.example/x&#x29;"/></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect clip-path="&quot;&#x75;rl(#a)"/></svg>',
+    ]) {
+      expect(validateSvg(smuggled).ok, smuggled).toBe(false)
+    }
+
+    // ...and the rule stays a rule rather than a ban: a document whose every `&`
+    // opens one of the five XML entities is still a document that passes, in an
+    // attribute value as much as in character data.
+    expect(validateSvg('<svg xmlns="http://www.w3.org/2000/svg"><title>Bea &amp; Co</title></svg>').ok).toBe(
+      true,
+    )
+    expect(
+      validateSvg(
+        '<svg xmlns="http://www.w3.org/2000/svg"><text font-family="Bea &amp; Co &amp; Sons">hi</text></svg>',
+      ).ok,
+    ).toBe(true)
   })
 
   it('test_UAT_FC_REQ_130_the_filename_is_generated_and_never_taken_from_the_caller', async () => {

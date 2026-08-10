@@ -197,8 +197,27 @@ const LOCAL_REFERENCE = /^url\(\s*#[A-Za-z_][\w.:-]*\s*\)$/
  */
 const ALLOWED_ENTITY = /&(amp|lt|gt|quot|apos);/y
 
-/** The same set, unanchored, for checking an attribute value's `&`. */
-const ALLOWED_ENTITY_AT = /&(amp|lt|gt|quot|apos);/
+/**
+ * Every `&` in an attribute value must open one of the five XML entities.
+ *
+ * Per-`&`, not per-value, and that distinction is the whole point: one allowed
+ * entity must not vouch for whatever follows it. `fill="&amp;url&#x28;http://x&#x29;"`
+ * carries no literal `(` at validation time, so {@link REFERENCE_ATTRIBUTES}
+ * never fires on it — the external reference materialises only once the browser
+ * decodes the entities. Same rule as the character-data scanner, on the same
+ * sticky pattern: consume one entity at a time, refuse anything else. (Sticky
+ * state is safe to share — every use sets `lastIndex` immediately before its
+ * own `exec`, and neither loop reads it afterwards.)
+ */
+function entitiesAreAllowed(value: string): boolean {
+  for (let index = value.indexOf('&'); index !== -1; index = value.indexOf('&', index + 1)) {
+    ALLOWED_ENTITY.lastIndex = index
+    const entity = ALLOWED_ENTITY.exec(value)
+    if (!entity) return false
+    index += entity[0].length - 1
+  }
+  return true
+}
 
 /**
  * The whole grammar, as one alternation. Order matters: a comment and a
@@ -315,7 +334,10 @@ export function validateSvg(source: string): SvgValidationResult {
     while ((attribute = ATTRIBUTE.exec(attrs ?? '')) !== null) {
       const name = attribute[1]
       const value = attribute[2] ?? attribute[3] ?? ''
-      const where = at + (attribute.index ?? 0)
+      // `attribute.index` is an offset into `attrs`, and `attrs` begins after the
+      // `<` and the element name — so both hops are needed to land on the byte in
+      // `source` that the operator is being pointed at.
+      const where = at + 1 + opening.length + (attribute.index ?? 0)
 
       if (/^on/i.test(name)) {
         fail(where, `'${name}' is an event handler; a generated image runs no code.`)
@@ -329,10 +351,7 @@ export function validateSvg(source: string): SvgValidationResult {
         fail(where, `'${name}' may reference only an id in this same document, as url(#name).`)
         continue
       }
-      if (
-        /[<>]/.test(value) ||
-        (value.includes('&') && !ALLOWED_ENTITY_AT.test(value.slice(value.indexOf('&'))))
-      ) {
+      if (/[<>]/.test(value) || !entitiesAreAllowed(value)) {
         fail(where, `'${name}' carries markup or an entity in its value.`)
       }
     }
