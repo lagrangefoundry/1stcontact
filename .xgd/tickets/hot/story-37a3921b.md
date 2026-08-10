@@ -6,9 +6,9 @@ title: Change the words and choose the images on my page through one validated, 
   edit — the same path the AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-10T08:21:03.232030+00:00'
+updated_at: '2026-08-10T08:24:29.509655+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-15c1f647
