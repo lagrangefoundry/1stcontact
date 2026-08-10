@@ -43,6 +43,8 @@ import type { L1Node } from '@1stcontact/site-schema'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const HEADLINE = 'A painted band.'
+/** The words inside the panel that carries a background — AC-1050's contrast. */
+const BEHIND = 'Over the backdrop.'
 
 /**
  * The address of the region that exposes nothing — the painted container the
@@ -53,6 +55,34 @@ const HEADLINE = 'A painted band.'
 const NOTHING_TO_EDIT_PATH = '0.0'
 /** The segment selector for that region, as the edit render stamps it. */
 const NOTHING_TO_EDIT_SEGMENT = `[${L1_EDIT_SEGMENT_ATTR}="container"]`
+
+/** The handles the seeded site's images are referenced by. */
+const HERO = '/assets/hero.png'
+const BETA = '/assets/beta.png'
+const LOGO = '/assets/logo.svg'
+/** Every image the site can offer — sorted, images only. */
+const SITE_IMAGES = [BETA, HERO, LOGO]
+/** Safe and well-formed, and naming nothing the site has: a stale listing's pick. */
+const ABSENT = '/assets/nowhere.png'
+/** The painted panel that carries a background image — AC-1050's specimen. */
+const PAINTED_PANEL_PATH = '0.2'
+
+/** The asset files the site's own images are, beside two that are not images. */
+const ASSET_FILES: Record<string, string> = {
+  'hero.png': 'bytes:hero',
+  'beta.png': 'bytes:beta',
+  'logo.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>',
+  'body.woff2': 'bytes:font',
+}
+
+/** A field descriptor, as `/api/copy` answers with it. */
+interface Field {
+  name: string
+  label: string
+  type: string
+  enum?: string[]
+  required?: boolean
+}
 
 if (!WEBUI_INSTALLED) console.warn(`story-3bf94bd4 form suite: ${WEBUI_SKIP_REASON}`)
 
@@ -69,6 +99,11 @@ function unverified(what: string): void {
  * specimen. The image beside it is the deliberate contrast — since REQ-118 an
  * image exposes which image goes there and its alt text, so the empty answer
  * below is a fact about the container, not about everything that is not copy.
+ *
+ * Since REQ-128 there is a THIRD shape: a painted panel that carries a
+ * background image. It is what makes the dead end above a fact about *that*
+ * panel rather than about painted panels — two panels, alike in every way but
+ * one, one of which opens a form and one of which does not.
  */
 function seedPage(cwd: string, slug: string): void {
   const homePath = path.join(cwd, 'storage', 'sites', slug, 'draft', 'pages', 'home.json')
@@ -86,10 +121,32 @@ function seedPage(cwd: string, slug: string): void {
       },
       // [0.1] an image — editable since REQ-118, kept here as the contrast.
       { kind: 'image', src: 'assets/hero.jpg', alt: 'A hero image' },
+      // [0.2] a painted panel that DOES carry a background image, with a full
+      // stack of other paint beside it: "nothing else of its paint is offered"
+      // is only measurable on a panel that demonstrably carries some.
+      {
+        kind: 'container',
+        layout: 'stack',
+        axes: {
+          backgroundImageUrl: HERO,
+          surfaceFill: '#1d2733',
+          borderRadiusPx: 12,
+          opacity: 0.9,
+        },
+        children: [{ kind: 'text', text: BEHIND, axes: { fontSizePx: 20 } }], // [0.2.0]
+      },
     ],
   }
   home.l1 = { ...(home.l1 as Record<string, unknown>), root }
   fs.writeFileSync(homePath, JSON.stringify(home, null, 2))
+
+  // The site's own images, so the picker has a closed list to be closed over.
+  // The font file is a real asset and nothing a background can point at.
+  const assets = path.join(cwd, 'storage', 'sites', slug, 'draft', 'assets')
+  fs.mkdirSync(assets, { recursive: true })
+  for (const [name, bytes] of Object.entries(ASSET_FILES)) {
+    fs.writeFileSync(path.join(assets, name), bytes)
+  }
 }
 
 /**
@@ -154,10 +211,10 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
    * are restored explicitly — and `stale` is what a rendering built before the
    * coordinate existed looks like: everything else intact.
    */
-  function display({ stale = false } = {}): void {
+  function display({ stale = false, from = html }: { stale?: boolean; from?: string } = {}): void {
     const source = stale
-      ? html.replace(new RegExp(`\\s${L1_EDIT_PAGE_ATTR}="[^"]*"`), '')
-      : html
+      ? from.replace(new RegExp(`\\s${L1_EDIT_PAGE_ATTR}="[^"]*"`), '')
+      : from
     document.documentElement.innerHTML = /<html[^>]*>([\s\S]*)<\/html>/.exec(source)![1]
     // Assigning `documentElement.innerHTML` reuses the existing `<body>`, so
     // its attributes are whatever the last call left there — set them, never
@@ -194,8 +251,19 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     }
   }
 
+  const homeJson = (): string => path.join(cwd, 'storage/sites/acme/draft/pages/home.json')
+
   function draftBytes(): string {
-    return fs.readFileSync(path.join(cwd, 'storage/sites/acme/draft/pages/home.json'), 'utf8')
+    return fs.readFileSync(homeJson(), 'utf8')
+  }
+
+  /**
+   * Wait for `ready` the way `settle` waits for the dialog — by polling the
+   * thing itself. A Save is a real round trip to the origin, so any fixed number
+   * of ticks bounds how fast the machine was rather than the thing waited on.
+   */
+  async function until(ready: () => boolean): Promise<void> {
+    for (let i = 0; i < 400 && !ready(); i += 1) await new Promise((r) => setTimeout(r, 5))
   }
 
   function renderedBytes(): string {
@@ -500,5 +568,200 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       editor?.destroy()
       net.restore()
     }
+  })
+
+  it('test_UAT_AC1050_a_painted_panel_opens_its_background_picker_over_the_same_transport', async () => {
+    // AC-1050 — the gesture is kind-agnostic a SECOND time over. Nothing about
+    // it differs for a painted panel carrying a background: the same click
+    // resolution, the same form, the same `/api/copy` transport, the same
+    // one-Save-is-one-change rule. What is new is only what the region answers
+    // with when asked which fields it exposes — and a panel that answered
+    // "nothing to edit here" now opens the form purely because of that.
+
+    /** The rendering the operator is looking at, served by the origin. */
+    const servedEdit = async (): Promise<string> =>
+      (await fetch(new URL('/preview/acme/edit/', builder.url))).text()
+    const read = async (address: string) =>
+      (await (
+        await fetch(
+          new URL(
+            `/api/copy?${new URLSearchParams({ slug: 'acme', page: pageId, path: address })}`,
+            builder.url,
+          ),
+        )
+      ).json()) as { kind: string; fields: Field[]; values: Record<string, string> }
+    const post = (address: string, values: Record<string, string>) =>
+      fetch(new URL('/api/copy', builder.url), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ slug: 'acme', page: pageId, path: address, values }),
+      })
+
+    const served = await servedEdit()
+    expect(served).toMatch(/background-image:[^;}]*assets\/hero\.png/)
+    display({ from: served })
+
+    // ── the click resolves to the panel ──────────────────────────────────────
+    const panel = document.querySelector(`[${L1_EDIT_PATH_ATTR}="${PAINTED_PANEL_PATH}"]`)!
+    expect(panel.getAttribute(L1_EDIT_SEGMENT_ATTR)).toBe('container')
+
+    const seen: Array<{ kind: string; address: string }> = []
+    const bridge = mountL1EditBridge(document, (hit) => {
+      seen.push({ kind: hit.kind, address: formatL1Path(hit.target.path) })
+    })
+    panel.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }))
+    // The words INSIDE it still resolve to themselves: the panel becoming
+    // editable did not make it steal the click from its own copy.
+    elementShowing(BEHIND).dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+    bridge.destroy()
+    expect(seen).toEqual([
+      { kind: 'container', address: PAINTED_PANEL_PATH },
+      { kind: 'copy', address: `${PAINTED_PANEL_PATH}.0` },
+    ])
+
+    // ── what the form is built from ──────────────────────────────────────────
+    const loaded = await read(PAINTED_PANEL_PATH)
+    expect(loaded.kind).toBe('container')
+    // ONE field: which image sits behind it. Not the rest of its paint, which
+    // the panel demonstrably carries.
+    expect(loaded.fields.map((f) => f.name)).toEqual(['backgroundImageUrl'])
+    const [picker] = loaded.fields
+    expect(picker).toMatchObject({ label: 'Background image', type: 'enum', required: true })
+    // A CLOSED list of the site's own images — including the handle the panel
+    // paints now, so opening the form and saving cannot swap it for another.
+    expect(picker.enum).toEqual(SITE_IMAGES)
+    expect(picker.enum).toContain(loaded.values.backgroundImageUrl)
+    expect(picker.enum).not.toContain('/assets/body.woff2')
+    // Pre-filled from the draft.
+    expect(loaded.values).toEqual({ backgroundImageUrl: HERO })
+
+    // The dead end is still a dead end, on the same page and over the same
+    // read: a panel with paint but no background opens no form at all.
+    expect((await read(NOTHING_TO_EDIT_PATH)).fields).toEqual([])
+
+    // ── a choice the surface refuses comes back field-scoped ─────────────────
+    const beforeDraft = draftBytes()
+    const refused = await post(PAINTED_PANEL_PATH, { backgroundImageUrl: ABSENT })
+    expect(refused.status).toBe(400)
+    const envelope = (await refused.json()) as { code: string; message: string; path?: string }
+    // A CLIENT fault naming the field the operator was choosing in, never a
+    // generic server failure that throws the choice away.
+    expect(envelope.code).toBe('SCHEMA_INVALID')
+    expect(envelope.path).toBe(`${PAINTED_PANEL_PATH}/backgroundImageUrl`)
+    // Nothing partial landed: the draft is byte-identical and the page the
+    // operator is looking at still paints what it did.
+    expect(draftBytes()).toBe(beforeDraft)
+    expect(await servedEdit()).toMatch(/background-image:[^;}]*assets\/hero\.png/)
+
+    if (!WEBUI_INSTALLED) {
+      unverified('AC-1050 the picker the dialog builds, and the refusal it stays open holding')
+      return
+    }
+
+    // ── the dialog itself ────────────────────────────────────────────────────
+    const net = browserFetch(builder.url)
+    let editor: { destroy(): void } | undefined
+    try {
+      display({ from: served })
+      editor = mountEditor(document, {
+        slug: 'acme',
+        bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
+      })
+      const clickRegion = (address: string): void =>
+        document
+          .querySelector(`[${L1_EDIT_PATH_ATTR}="${address}"]`)!
+          .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+
+      // THE PANEL BESIDE IT IS STILL AN HONEST DEAD END. Two painted panels,
+      // alike in everything but one, and the difference is a background handle:
+      // this one says so plainly rather than opening an empty form or offering
+      // to add one.
+      clickRegion(NOTHING_TO_EDIT_PATH)
+      await settle()
+      expect(modals()).toHaveLength(1)
+      expect(modals()[0].textContent).toContain('Nothing to edit on this container segment yet.')
+      expect(modals()[0].querySelectorAll('input, textarea, select, .fields')).toHaveLength(0)
+      document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      expect(modals()).toHaveLength(0)
+
+      clickRegion(PAINTED_PANEL_PATH)
+      await settle()
+
+      // The SAME single form a copy region and an image region open...
+      expect(modals()).toHaveLength(1)
+      const modal = modals()[0]
+      expect(modal.querySelectorAll('.fields')).toHaveLength(1)
+      expect(modal.querySelector('.fields')!.getAttribute('data-commit')).toBe('buffered')
+      // ...built over exactly one row, opened straight into its control.
+      expect(modal.querySelectorAll('.fields-row')).toHaveLength(1)
+      const select = modal.querySelector('select.fields-control') as HTMLSelectElement
+      expect(select, 'the lone field opens in its closed-option control').toBeTruthy()
+      expect([...select.options].map((o) => o.value)).toEqual(SITE_IMAGES)
+      expect(select.value).toBe(HERO)
+      // A pick, never a handle the operator types: there is no free-text route
+      // to an image the site does not have.
+      expect(modal.querySelectorAll('input[type=text], textarea')).toHaveLength(0)
+      expect(modal.querySelectorAll('.fields-control')).toHaveLength(1)
+
+      // A refusal the operator can actually meet: break the page out from under
+      // the open form, so the confirm is refused by the real validator.
+      const sound = draftBytes()
+      const broken = JSON.parse(sound) as {
+        l1: { root: { children: Array<{ children: Array<{ axes: { fontSizePx: number } }> }> } }
+      }
+      broken.l1.root.children[0].children[0].axes.fontSizePx = 9999
+      fs.writeFileSync(homeJson(), JSON.stringify(broken, null, 2))
+      const brokenBytes = draftBytes()
+
+      select.value = BETA
+      select.dispatchEvent(new window.Event('change', { bubbles: true }))
+      const save = modal.querySelector('.builder-modal__btn--primary') as HTMLElement
+      save.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+      const error = () => modal.querySelector('.builder-modal__error') as HTMLElement
+      await until(() => !error().hidden)
+
+      // THE FORM STAYS OPEN, holding the choice, showing the reason — and
+      // nothing was written.
+      expect(modals()).toHaveLength(1)
+      expect(error().textContent).toContain('fontSizePx')
+      expect(modal.textContent).toContain(BETA)
+      expect(draftBytes()).toBe(brokenBytes)
+
+      // Corrected and confirmed again from the SAME open form.
+      fs.writeFileSync(homeJson(), sound)
+      save.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+      await until(() => modals().length === 0)
+      expect(modals()).toHaveLength(0)
+      expect(net.calls.filter((c) => c.method === 'POST')).toHaveLength(2)
+    } finally {
+      editor?.destroy()
+      net.restore()
+    }
+
+    // ── the page repaints, and is still editable ─────────────────────────────
+    const after = await servedEdit()
+    expect(after).toMatch(/background-image:[^;}]*assets\/beta\.png/)
+    expect(after).not.toMatch(/background-image:[^;}]*assets\/hero\.png/)
+    // Everything else the panel painted survived the swap: the chosen handle
+    // was written into the paint the panel already carried, not over it.
+    const draft = JSON.parse(draftBytes()) as {
+      l1: { root: { children: Array<{ axes: Record<string, unknown> }> } }
+    }
+    expect(draft.l1.root.children[2].axes).toEqual({
+      backgroundImageUrl: BETA,
+      surfaceFill: '#1d2733',
+      borderRadiusPx: 12,
+      opacity: 0.9,
+    })
+
+    display({ from: after })
+    expect(document.body.hasAttribute(L1_EDIT_MARKER_ATTR)).toBe(true)
+    const live: string[] = []
+    const again = mountL1EditBridge(document, (hit) => void live.push(formatL1Path(hit.target.path)))
+    document
+      .querySelector(`[${L1_EDIT_PATH_ATTR}="${PAINTED_PANEL_PATH}"]`)!
+      .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+    again.destroy()
+    expect(live).toEqual([PAINTED_PANEL_PATH])
   })
 })

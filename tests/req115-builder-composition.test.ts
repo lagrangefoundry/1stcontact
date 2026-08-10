@@ -192,15 +192,20 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 display panel mode contract', () => {
 describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
   it('test_UAT_FC_REQ-115_open_in_new_tab_matches_the_iframe_exactly', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
-    const link = app.toolbar.get('open-new-tab') as HTMLAnchorElement
+    // Read the LIVE control each time. The strip is derived state — a mode or
+    // site change re-renders it, and its subscriptions are disposed with the
+    // element they belong to — so a reference captured once is a detached node
+    // the operator can no longer click, and asserting on it would prove
+    // nothing about the link that is actually on screen.
+    const link = () => app.toolbar.get('open-new-tab') as HTMLAnchorElement
 
     // AC 8 — identical URL, and it stays identical as the pane changes.
-    expect(link.getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
+    expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
     app.panel.setMode('edit')
-    expect(link.getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
+    expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
     app.panel.setSite('beta')
-    expect(link.getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
-    expect(link.target).toBe('_blank')
+    expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
+    expect(link().target).toBe('_blank')
   })
 
   it('test_UAT_FC_REQ-115_site_selector_switches_the_displayed_site', () => {

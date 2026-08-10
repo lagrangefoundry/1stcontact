@@ -135,8 +135,14 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 the loop in a real browser', () => {
           'buffered',
         )
         // The full string is legible in the form regardless of what the render
-        // did to it on the page.
-        expect(await page.locator('.builder-modal').textContent()).toContain(before!.trim())
+        // did to it on the page. Read off the CONTROL: since REQ-121 a one-field
+        // form opens straight into its control, so the words are a form value
+        // rather than a span in the dialog's text.
+        const control = page
+          .locator('.builder-modal input[type=text], .builder-modal textarea')
+          .first()
+        await control.waitFor()
+        expect(await control.inputValue()).toContain(before!.trim())
       } finally {
         await page.close()
       }
@@ -153,8 +159,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 the loop in a real browser', () => {
         await seg(page).click()
         await page.locator('.builder-modal').waitFor()
 
-        await page.locator('.builder-modal .fields-value').first().click()
+        // Straight into its control since REQ-121 — no view cell to open first.
         const input = page.locator('.builder-modal input[type=text], .builder-modal textarea').first()
+        await input.waitFor()
         await input.fill('Edited in the browser')
         await input.press('Enter')
         await page.locator('.builder-modal__btn--primary').click()

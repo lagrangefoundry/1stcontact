@@ -202,12 +202,11 @@ describe('1c structured-edit command surface (REQ-11)', () => {
   it('test_UAT_FC_REQ-11_page_rm_blocked_by_nav', () => {
     cmdNew('acme', { cwd })
     editPageAdd('acme', 'about', { cwd, path: 'about' })
-    editConfigSet(
-      'acme',
-      'nav.entries',
-      JSON.stringify([{ label: 'About Us', target: { kind: 'page', pageId: 'about' } }]),
-      { cwd },
-    )
+    // A TYPED value, not a string (REQ-130): argv is the one place a setting
+    // arrives as text, and the JSON re-read lives there rather than here.
+    editConfigSet('acme', 'nav.entries', [{ label: 'About Us', target: { kind: 'page', pageId: 'about' } }], {
+      cwd,
+    })
 
     // Blocked: the integrity error names the offending nav entry.
     try {
@@ -264,9 +263,11 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     cmdNew('acme', { cwd })
     const before = snapshotDraft('acme')
 
-    // businessName must be a string; a numeric JSON value is schema-invalid.
+    // businessName must be a string; a numeric value is schema-invalid. Typed,
+    // not stringified (REQ-130) — the CLI check below still goes through argv,
+    // which is where the JSON re-read lives.
     try {
-      editConfigSet('acme', 'config.businessName', '123', { cwd })
+      editConfigSet('acme', 'config.businessName', 123, { cwd })
       throw new Error('expected SCHEMA_INVALID')
     } catch (e) {
       const ce = e as CommandError

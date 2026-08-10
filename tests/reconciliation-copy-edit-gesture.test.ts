@@ -495,10 +495,12 @@ describe('story-3bf94bd4 the edit gesture', () => {
 
         await region.click()
         await page.locator('.builder-modal').waitFor()
-        await page.locator('.builder-modal .fields-value').first().click()
+        // A ONE-FIELD FORM OPENS STRAIGHT INTO ITS CONTROL (REQ-121), so there
+        // is no view cell to click open first — the box is already one.
         const input = page
           .locator('.builder-modal input[type=text], .builder-modal textarea')
           .first()
+        await input.waitFor()
         await input.fill('Edited in the browser')
         await input.press('Enter')
         await page.locator('.builder-modal__btn--primary').click()
@@ -579,10 +581,11 @@ describe('story-3bf94bd4 the edit gesture', () => {
           .click()
         await page.locator('.builder-modal').waitFor()
 
-        await page.locator('.builder-modal .fields-value').first().click()
+        // Straight into its control (REQ-121) — no view cell to open first.
         const input = page
           .locator('.builder-modal input[type=text], .builder-modal textarea')
           .first()
+        await input.waitFor()
         await input.fill('Staged, not written')
         await input.press('Enter')
         // Editing a field inside the open form writes NOTHING — the widget is
@@ -697,10 +700,11 @@ describe('story-3bf94bd4 the edit gesture', () => {
           .click()
         await page.locator('.builder-modal').waitFor()
 
-        await page.locator('.builder-modal .fields-value').first().click()
+        // Straight into its control (REQ-121) — no view cell to open first.
         const input = page
           .locator('.builder-modal input[type=text], .builder-modal textarea')
           .first()
+        await input.waitFor()
         await input.fill('Typed and refused')
         await input.press('Enter')
 
