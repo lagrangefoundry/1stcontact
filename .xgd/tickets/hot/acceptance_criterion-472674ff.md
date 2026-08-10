@@ -6,10 +6,10 @@ title: A form with exactly one field opens in its control, ready to type; a form
   more opens none
 created_by: xgd
 created_at: '2026-08-10T07:48:26.505765+00:00'
-updated_at: '2026-08-10T07:48:26.505765+00:00'
+updated_at: '2026-08-10T08:18:27.906895+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
