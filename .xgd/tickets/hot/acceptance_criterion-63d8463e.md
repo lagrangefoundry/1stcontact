@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The census is available as a single machine-readable document for scripting
 created_by: xgd
 created_at: '2026-08-06T21:07:19.270443+00:00'
-updated_at: '2026-08-07T18:44:47.154726+00:00'
+updated_at: '2026-08-10T08:16:07.594721+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
