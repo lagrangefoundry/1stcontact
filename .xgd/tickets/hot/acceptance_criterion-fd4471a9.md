@@ -6,10 +6,10 @@ title: The fields form drops its heading and label column while keeping both acc
   names; refusals and dead ends keep their heading
 created_by: xgd
 created_at: '2026-08-10T07:47:00.779120+00:00'
-updated_at: '2026-08-10T07:47:00.779120+00:00'
+updated_at: '2026-08-10T08:18:29.470359+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
