@@ -6,10 +6,10 @@ title: The workspace's secondary pane is a working conversation surface for the 
   being displayed, with no action from the operator
 created_by: xgd
 created_at: '2026-08-10T08:46:25.975622+00:00'
-updated_at: '2026-08-10T08:46:25.975622+00:00'
+updated_at: '2026-08-10T09:01:24.611684+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7f437d57
   kind: behavior
