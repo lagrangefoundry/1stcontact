@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-17 — request-time render, copy-edit modal,
   backgrounds, and the assistant''s declared control surface'
 created_by: xgd
 created_at: '2026-08-10T07:22:18.397856+00:00'
-updated_at: '2026-08-10T07:49:03.920811+00:00'
+updated_at: '2026-08-10T08:24:30.145352+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -157,7 +157,7 @@ fields:
       time a region kind gained fields and reached the operator through the existing
       loop unchanged. No new capability bucket. FC evidence on disk: `tests/req128-background-image-selection.test.ts`
       (10 UATs named `test_UAT_FC_REQ-128_*`).'
-    story_uid: null
+    story_uid: story-37a3921b
     target_story_ids:
     - story-37a3921b
     - story-3bf94bd4
