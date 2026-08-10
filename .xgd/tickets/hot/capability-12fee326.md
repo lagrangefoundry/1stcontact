@@ -5,13 +5,13 @@ type: capability
 title: 'In-Page Copy Editing: The Editable Render & The Click-to-Edit Gesture'
 created_by: xgd
 created_at: '2026-08-07T02:14:29.161954+00:00'
-updated_at: '2026-08-07T18:01:01.914745+00:00'
+updated_at: '2026-08-10T08:50:29.529995+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
 fields:
   name: In-Page Copy Editing
-  uat_coverage: pass
+  uat_coverage: fail
 ---
 
 # Capability: In-Page Copy Editing — The Editable Render & The Click-to-Edit Gesture
