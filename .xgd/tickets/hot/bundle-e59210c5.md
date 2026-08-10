@@ -5,50 +5,18 @@ type: bundle
 title: REQ-119 + REQ-122 + REQ-121 + REQ-126 + REQ-128 + 3 more
 created_by: xgd
 created_at: '2026-08-10T07:12:40.891360+00:00'
-updated_at: '2026-08-10T07:13:14.698479+00:00'
-completed_at: null
+updated_at: '2026-08-10T11:00:50.583051+00:00'
+completed_at: '2026-08-10T11:00:50.583051+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   commits:
-  - working_sha: e62793292974e91f26545d970d15042e108161ca
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 9abdc0f8a9fec2e033988ab2978734873fb99585
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 86dce8ffe14501c0aad8568f4ef1002045ef7790
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 7f447ee55321b626021cbd2a5018c974fea6d0f0
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 02a9af066a7485f7192ad38d28f48feb5a38c866
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 2e3f0b7c22eeea7d64b6a6dfc66fc9b5870ca5b8
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 7347d224eebcb00b56146763e55d946a3304c5cc
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: e46509db9cc135d9fa181f4f5d43f0cd417c89c6
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: e6ff11aabe1497c172ea0e8141c76fd36a8e0b6e
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 0198704b7e29db3c53cf569070042cec0eb467bc
   auto_merge_back: true
   priority: medium
+  merged_at_commit: 0198704b7e29db3c53cf569070042cec0eb467bc
 ---
 
 # Bundle
