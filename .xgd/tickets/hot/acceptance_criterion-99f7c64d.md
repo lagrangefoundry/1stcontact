@@ -6,7 +6,7 @@ title: Saving new words updates the draft and the rendered page shows them, with
   further manual step
 created_by: xgd
 created_at: '2026-08-07T02:02:13.232194+00:00'
-updated_at: '2026-08-07T19:40:37.329900+00:00'
+updated_at: '2026-08-10T07:40:17.204967+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
