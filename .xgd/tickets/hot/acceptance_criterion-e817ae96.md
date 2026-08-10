@@ -6,7 +6,7 @@ title: Asking a copy region what it exposes returns one plain-text field carryin
   the words currently in the draft
 created_by: xgd
 created_at: '2026-08-07T02:02:03.774970+00:00'
-updated_at: '2026-08-07T19:40:35.441411+00:00'
+updated_at: '2026-08-10T07:40:15.082052+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
