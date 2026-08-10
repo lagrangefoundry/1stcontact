@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-17 — request-time render, copy-edit modal,
   backgrounds, and the assistant''s declared control surface'
 created_by: xgd
 created_at: '2026-08-10T07:22:18.397856+00:00'
-updated_at: '2026-08-10T07:22:18.397856+00:00'
+updated_at: '2026-08-10T07:31:20.148120+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-e59210c5
@@ -40,7 +40,7 @@ fields:
       body; their claim survives and is now observed at the origin, so they are modified
       in place rather than removed. FC evidence on disk: `tests/req119-request-time-render.test.ts`
       (8 UATs named `test_UAT_FC_REQ-119_*`).'
-    story_uid: null
+    story_uid: story-e674c60a
     target_story_ids:
     - story-e674c60a
     - story-37a3921b
