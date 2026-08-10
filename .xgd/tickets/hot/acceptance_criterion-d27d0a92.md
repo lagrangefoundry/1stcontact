@@ -6,10 +6,10 @@ title: A component configuration that violates its kind's own contract is refuse
   at the field, before the site's definition validator runs
 created_by: xgd
 created_at: '2026-08-10T09:34:13.878469+00:00'
-updated_at: '2026-08-10T09:34:13.878469+00:00'
+updated_at: '2026-08-10T09:45:49.406994+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
