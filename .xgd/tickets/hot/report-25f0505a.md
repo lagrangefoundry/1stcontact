@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-17 — request-time render, copy-edit modal,
   backgrounds, and the assistant''s declared control surface'
 created_by: xgd
 created_at: '2026-08-10T07:22:18.397856+00:00'
-updated_at: '2026-08-10T08:24:30.145352+00:00'
+updated_at: '2026-08-10T08:36:43.072992+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -217,7 +217,7 @@ fields:
       the operator sees, the other is the contract behind it. FC evidence on disk:
       `tests/test_UAT_FC_REQ-122_chat_host.test.ts` (8 UATs) and `tests/test_UAT_FC_REQ-127_session_binding.test.ts`
       (8 UATs).'
-    story_uid: null
+    story_uid: story-a58a0974
   - index: 5
     component: Assistant panel in the builder split
     item_type: feature
