@@ -6,7 +6,7 @@ title: A freshly created site renders to HTML with no editing, painting the plac
   run as a centred, flowed element on the document background
 created_by: xgd
 created_at: '2026-08-06T03:42:32.246473+00:00'
-updated_at: '2026-08-07T18:44:39.105424+00:00'
+updated_at: '2026-08-10T08:16:16.118430+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
