@@ -6,7 +6,7 @@ title: Copy that a visitor's scrolling would reveal renders visible and editable
   the edit render
 created_by: xgd
 created_at: '2026-08-06T21:25:53.547527+00:00'
-updated_at: '2026-08-07T18:00:47.647960+00:00'
+updated_at: '2026-08-10T08:50:00.780547+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
