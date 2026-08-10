@@ -7,7 +7,7 @@ title: 'Palette assignment is a separate, re-runnable pass: a site arrives carry
   did the first time'
 created_by: xgd
 created_at: '2026-08-06T21:08:54.276519+00:00'
-updated_at: '2026-08-07T18:44:54.037746+00:00'
+updated_at: '2026-08-10T08:15:59.803730+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
