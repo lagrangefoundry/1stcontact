@@ -6,10 +6,10 @@ title: The previewed size is clamped to an editing range while every other prese
   axis is exact — the box previews style, not layout
 created_by: xgd
 created_at: '2026-08-10T07:48:14.730623+00:00'
-updated_at: '2026-08-10T07:48:14.730623+00:00'
+updated_at: '2026-08-10T08:18:28.551969+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
