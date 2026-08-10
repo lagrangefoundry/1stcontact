@@ -6,10 +6,10 @@ title: Writing back an element exactly as it was read is accepted and leaves the
   unchanged
 created_by: xgd
 created_at: '2026-08-10T09:19:53.615748+00:00'
-updated_at: '2026-08-10T09:19:53.615748+00:00'
+updated_at: '2026-08-10T09:29:37.472062+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-189fc1ac
   kind: behavior
