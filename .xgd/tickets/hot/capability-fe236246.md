@@ -5,9 +5,9 @@ type: capability
 title: 'Page Authoring Through The Control Surface: Read & Replace The Element Tree'
 created_by: xgd
 created_at: '2026-08-10T09:17:29.931794+00:00'
-updated_at: '2026-08-10T09:17:29.931794+00:00'
+updated_at: '2026-08-10T09:17:53.008376+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: active
 fields:
   name: page_authoring_surface
@@ -22,7 +22,7 @@ its layout and its look are all changed, and how something is added to or taken 
 page.**
 
 This capability owns *what the control surface can reach inside a page*. It is distinct
-from CAP-93 (the surface declared, granted, validated and audited), which owns how that
+from CAP-92 (the surface declared, granted, validated and audited), which owns how that
 surface is stated and governed: this one owns the reach itself, and the guarantees that
 come with reaching that far.
 
@@ -50,8 +50,8 @@ come with reaching that far.
 
 ## Out of scope
 
-- How the surface is declared, granted, argument-checked and audited (CAP-93).
+- How the surface is declared, granted, argument-checked and audited (CAP-92).
 - Everything a site carries that is *not* its element tree — settings, component
   instances, page search metadata, generated images.
-- The operator's own click-to-edit form (CAP-87 / CAP-89), which is unchanged by this
+- The operator's own click-to-edit form (CAP-86 / CAP-87), which is unchanged by this
   capability and must keep working on elements the assistant authored.
