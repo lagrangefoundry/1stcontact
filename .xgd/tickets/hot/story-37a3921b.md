@@ -6,7 +6,7 @@ title: Change the words and choose the images on my page through one validated, 
   edit — the same path the AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-07T19:40:56.414268+00:00'
+updated_at: '2026-08-10T07:40:38.825397+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
