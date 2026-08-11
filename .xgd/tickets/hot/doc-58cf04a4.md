@@ -6,7 +6,7 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-11T22:27:23.655308+00:00'
+updated_at: '2026-08-11T22:36:42.707719+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -477,15 +477,32 @@ that yourself"* is never the answer to a decision-level request.
 aesthetic controls offered during Act II invite exactly the premature anchoring the plain pass
 exists to prevent.
 
-### 7.9 Read the page, never remember it
-Because the client edits between turns, **the AI's picture of the page is stale by default**. It
-must re-read state before acting on it — always after a gap in the conversation, and always at a
-stage gate (§4).
+### 7.9 Know what changed — don't re-read, and don't remember
+Because the client edits between turns, **the AI's picture of the page is stale by default**.
 
 The failure this prevents is specific and severe: the AI writes a section, the client rewords it,
 and the AI later "improves" that section and silently reverts them. A client who loses their own
 edit to the thing they are paying to help them will not report it as a bug; they will stop
 touching the editor, and the cheapest channel in the product goes dark.
+
+The naive fix — re-read the page before every action — is correct and unaffordable. What the AI
+actually needs is three questions answerable at three different costs:
+
+| Question | Should cost | When |
+|---|---|---|
+| Has anything changed since I last looked? | ~nothing | before acting, always |
+| What changed? | proportional to the change | only when the answer above is yes |
+| What is the page now? | proportional to the page | fallback only |
+
+**This is a platform requirement, not a discipline this document can impose.** It needs a change
+record on the draft — see §13 — and until it exists the AI must re-read at every stage gate and
+after any gap in the conversation, and accept the cost.
+
+Two behaviours regardless of mechanism. **Never write over a change you did not read**: if the page
+moved under you, look before you act. And **say so**: *"I see you've rewritten the headline — want
+me to bring the subhead into line with it?"* is a better session than silently working around a
+change the AI never acknowledged, and it is the difference between the client feeling the editor is
+theirs and feeling it is fighting the AI.
 
 ---
 
@@ -660,6 +677,29 @@ what has shipped, and it is what tells the AI which class a new capability falls
   images. [[DOC-28]] phase 1 scopes image segments to *"which image, basic framing"* — cropping
   and colour adjustment are past that line. The playbook must not promise a client something the
   editor cannot do, so this needs pinning to a phase before the first paid session.
-- **Divergence detection.** §7.9 requires the AI to notice at a gate that a client edit contradicts
-  a locked decision. Comparing freshly-read state against the ledger is not free, and doing it
-  well may want a diff the AI reads rather than a page it re-derives.
+- **A draft change record.** §7.9's three questions have no cheap answer today: [[DOC-12]] versions
+  the draft not at all — revisions are publish-time snapshots and `history.json` gets one entry per
+  publish — so "did anything move?" currently costs a full re-read. **This is the largest gap
+  between what the playbook assumes and what the platform provides**, and it wants its own ticket.
+  Sketch, for whoever writes it:
+
+  - A **monotone counter on the draft** plus an append-only **change log**, both written on
+    `edit.ts` — already the single write path for the CLI, the AI and the editor ([[DOC-30]]), and
+    already carrying the same validated diff vocabulary from all three ([[DOC-28]] §4). This
+    persists what exists rather than inventing a representation.
+  - **Mutating operations return the resulting counter**, so the AI's baseline advances as it
+    writes. Any gap between its baseline and current is by construction someone else's work — which
+    removes the need to filter its own edits out of the log. Same compare-and-set shape the
+    transcript archive already uses.
+  - **Not a revision.** No revision id, no `history.json` entry — [[DOC-12]] principle 3 is
+    forward-only and immutable, and §5.1's preview snapshots are the precedent for a thing that is
+    deliberately not a revision.
+  - **Records must be self-describing.** L1 addresses are render-scoped by design ([[DOC-28]]
+    §5.2), so an address alone is worthless once structure moves. Each record carries before/after
+    text and the segment's human identity — which the derived segment model already computes.
+  - **Bounded, degrading gracefully.** Keep a window; a baseline older than the window falls back
+    to a full read. No correctness cliff, and the log stays small.
+
+  Second payoff: this is also what makes divergence detection (a client edit contradicting a locked
+  decision) cheap and precise, rather than a fuzzy comparison of freshly-read state against the
+  ledger.
