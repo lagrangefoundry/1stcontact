@@ -5,7 +5,7 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-11T22:23:08.022868+00:00'
+updated_at: '2026-08-11T22:27:50.533417+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -137,6 +137,61 @@ lagrange-framework, Python indexes the XGD file store, D1 rows for the index art
 tools replacing [[DOC-10]] §5.2's four, and the DOC-10 §6/§8 supersessions. What is outstanding is
 the operator's call on its five questions (read-side location, index target, doc boundary, tenancy,
 artifact storage) — not the thinking. The empty body reflects the AI waiting on those answers.
+
+
+### Addendum — two channels: the client edits the draft directly
+
+Operator raised the page editor ([[DOC-28]]): the client can change copy, image selection, and
+basic parameters on the draft themselves, at any time, at **zero token cost**. Folded into
+[[DOC-33]] as §7.8/§7.9 plus stage-level changes.
+
+**The division is by kind of change, not by cost** — and it matches [[DOC-28]]'s own exposure rule
+("copy, asset selection, friendly parameters… anything sophisticated is done by the AI"; "structure
+is the AI's job"):
+
+| AI owns | Client owns |
+|---|---|
+| structure, architecture, page inventory | the exact words |
+| design system — palette, type, rhythm | which photo, how it's framed |
+| first draft of all copy | adjustments *within* a locked system |
+| anything changing a locked decision | anything they'd rather just try |
+
+The AI hands adjustments over because the client is better placed to judge them, not because
+they're cheap. Two guard rails: never turn a paid session into a tutorial (default is still to do
+what's asked), and never use the channel to decline work.
+
+**Fixes the weakest rule in the first draft.** §7.5's flat "two rounds then it's on the ongoing
+plan" was a bad moment to hand a paying client. Refinement now splits: *decision-level* rework
+stays capped, *adjustment-level* is unbounded and free. The things clients most want to keep
+tweaking sit almost entirely on the free side, so the cap lands on genuine rework rather than on
+the fiddling that makes someone feel heard.
+
+**Disclosure is staged, and [[DOC-28]] makes the stage-6 lock self-enforcing.** Copy controls
+handed over at stage 4 (part of the plain-pass framing); visual controls not until stage 7, because
+aesthetic controls during Act II invite exactly the premature anchoring the plain pass prevents.
+Then, because the editor picks colours *from the site's palette rather than individually*, a client
+adjusting their own page structurally cannot leave the system once stage 6 closes. Locking the
+palette well is worth more time than it looks.
+
+**New bug class, now §7.9: the AI's picture of the page is stale by default.** The client edits
+between turns, so the caretaker preamble's "read before you write, never from memory" stops being
+hygiene and becomes load-bearing. Failure mode: AI writes a section → client rewords it → AI later
+"improves" that section and silently reverts them. That is `CLAUDE.md`'s free-coded-overwrite
+problem reproduced in the product, against a customer — and the client won't report it, they'll
+just stop using the editor, which turns off the cheapest channel we have. Also constrains §4: site
+state entering a rebuilt prefix must be *freshly read*.
+
+**Cost discipline gains a new item 0** (§9): routing adjustments to the client is the largest
+single reduction available and the only one that improves the client's experience rather than
+trading against it.
+
+Also added: two failure branches (client edits contradicting a locked decision; client repeatedly
+asking for adjustments they could make); three open questions.
+
+**Flagged for confirmation:** operator described cropping and colorization as client-editable.
+[[DOC-28]] phase 1 scopes image segments to "which image, basic framing" — past that line. Needs
+pinning to a phase before the first paid session, since the playbook must not promise something the
+editor can't do.
 
 
 <!-- xgd-chat-end -->
