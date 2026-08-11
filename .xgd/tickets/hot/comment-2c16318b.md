@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T23:37:36.918735+00:00'
+updated_at: '2026-08-11T23:39:49.673186+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -473,5 +473,37 @@ I haven't written any code. Say the word if you want me to pick REQ-131 up now, 
 <!-- xgd-chat role="user" ts="2026-08-11T23:37:36.691285+00:00" -->
 #### You
 Not for the decision log - append to ticket is a supported operatino
+
+<!-- xgd-turn id="2dc5e918-ab19-4851-a70e-c2a03ce44077-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T23:39:48.986035+00:00" -->
+#### Claude
+Confirmed — and it's stronger than the XGD CLI alone: `store.js:274` exposes `append_body {uid, body}` with compare-and-set and **automatic retry on conflict**, so concurrent appends are safe rather than clobbering. That closes DOC-33 §13's ledger-write question, and better than the section-level tool I was reaching for.
+
+It does change the ledger's shape, though, and I think for the better. Append-only means entries **supersede rather than mutate**: a reopened decision appends a new entry pointing at the old one, and the latest entry wins on read. That preserves *"locked at stage 1 for this reason, reopened at stage 6 for that one"* — which is precisely what the rationale field exists to capture, so the append-only constraint is recording something the mutable version would have thrown away.
+
+Two knock-on simplifications:
+
+**Sections become tags, not structure.** §3.4's sections can't stay tidy under append, so each entry carries its section and grouping happens on read — which also answers §13's other open question, since grouped presentation is exactly what the handoff rendering is for. Two questions, one answer.
+
+**`reopened-at-<stage>` disappears as a status value.** A superseding entry *is* the reopening.
+
+And the ledger ends up the same shape as REQ-131's draft journal — append-only, read-forward, latest-wins. Two artifacts, one discipline.
+
+Growth isn't a concern at this scale: ~30–60 decisions at ~50 tokens each is ~3k in the prefix even with supersession. The cost I was worried about was the *write*, and append removes it.
+
+DOC-33 updated (§3.3 new, §3.4/3.5 renumbered, §13 question struck) and CHAT-21 records it.
+
+Verified rather than assumed: `append_body` is in the JS store with CAS and retry-on-conflict, so it's available to the product, not only the XGD CLI — which is what mattered, since the playbook targets the product.
+
+That takes the open-question list in DOC-33 §13 down to seven, and removes the only one I'd flagged as possibly needing its own REQ. What's left splits cleanly:
+
+**Blocking a first paid session:** REQ-123's five calls (no route into the product without the KB), and the image-editing scope line in DOC-28 (the playbook currently promises a client something the editor may not do).
+
+**Blocking safety rather than delivery:** REQ-131, now filed.
+
+**Wants deciding before payments is authored:** the capability catalogue's conversational half — cheap to require of a new module, expensive to retrofit onto a shipped one.
+
+**Genuinely deferrable:** gate enforcement, handoff rendering, cost constants, restraint-by-vertical.
 
 <!-- xgd-chat-end -->
