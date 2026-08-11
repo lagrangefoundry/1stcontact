@@ -6,7 +6,7 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-11T22:36:42.707719+00:00'
+updated_at: '2026-08-11T22:47:02.445695+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -677,11 +677,12 @@ what has shipped, and it is what tells the AI which class a new capability falls
   images. [[DOC-28]] phase 1 scopes image segments to *"which image, basic framing"* — cropping
   and colour adjustment are past that line. The playbook must not promise a client something the
   editor cannot do, so this needs pinning to a phase before the first paid session.
-- **A draft change record.** §7.9's three questions have no cheap answer today: [[DOC-12]] versions
-  the draft not at all — revisions are publish-time snapshots and `history.json` gets one entry per
-  publish — so "did anything move?" currently costs a full re-read. **This is the largest gap
-  between what the playbook assumes and what the platform provides**, and it wants its own ticket.
-  Sketch, for whoever writes it:
+- **A draft change record — now specified as [[REQ-131]].** §7.9's three questions have no cheap
+  answer today: [[DOC-12]] versions the draft not at all — revisions are publish-time snapshots and
+  `history.json` gets one entry per publish — so "did anything move?" currently costs a full
+  re-read. This was the largest gap between what the playbook assumes and what the platform
+  provides. The sketch below is what [[REQ-131]] was drawn from; it is kept here because §7.9's
+  interim rule stands until that ticket lands:
 
   - A **monotone counter on the draft** plus an append-only **change log**, both written on
     `edit.ts` — already the single write path for the CLI, the AI and the editor ([[DOC-30]]), and
