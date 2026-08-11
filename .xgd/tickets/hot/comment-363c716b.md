@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-20
 created_by: xgd
 created_at: '2026-08-11T20:02:18.442734+00:00'
-updated_at: '2026-08-11T21:03:46.810943+00:00'
+updated_at: '2026-08-11T21:05:39.880418+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -501,5 +501,65 @@ ok lets take stock of where we are. I think its this:
 5. Start designing the real design conversation(s) with the constraints discussed in DOC-32 at different price points
 
 Does that sound right?
+
+<!-- xgd-turn id="aa637b1b-557e-4daa-bfb6-76bd6bb2c554-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T21:05:39.753670+00:00" -->
+#### Claude
+Let me ground a couple of claims before answering — the ticket state, and what the responsive/conformance machinery actually does today.
+
+Broadly yes — the five tracks are the right decomposition. Three corrections, one of them significant.
+
+## The zero-human correction, traced through
+
+DOC-32's revision already landed (§0 is in the doc). Worth naming what it kills downstream, because two things I proposed earlier in this thread are now dead and shouldn't survive into the playbooks:
+
+- **The human review pass as a top-tier feature** — gone. DOC-32 §4.2.3 replaces it with the autonomous monitor, and that's the right substitution: a system that catches a broken form before the owner does is a *stronger* delivery of "ongoing accountability" than a human answering a support email in two business days.
+- **"15-minute consultation" as a scheduled slot** — also gone, and this is an upgrade. Your free consult isn't rationed by a calendar, so it runs at unlimited concurrency at 3am. That's a real differentiator against B12's scheduled Customer Success call, and it should be stated literally in positioning rather than implied.
+
+The thing zero-human makes *load-bearing* rather than nice-to-have is the scope classifier (§4.2.2). A human exercises scope discipline as judgment during discovery; an autonomous session will drift into $1,000-tier work at $200-tier pricing on every ambiguous request, tirelessly, at scale. That has to be a deterministic gate — classify at intake, state the band before payment, hard turn/resource budget at execution — not a prompt instruction.
+
+## Two items missing from the list
+
+**Unit economics.** DOC-32 §4.3 says explicitly it can't answer your 90%-net-positive target — that needs your own model, and it's the number you said you care most about. It's not on your list. It shouldn't block anything (it can be estimated now, refined once sessions exist), but it needs to be a named workstream, and critically it needs to be **session-level, not averaged** — a 90%-of-sessions target is a claim about the distribution's tail, so a mean token cost tells you nothing.
+
+The line most likely to quietly sink it is the one with no labour analogue to reason from: **automated QA cost per session**. That's the autonomous replacement for human review — render, capture, compare, conformance pass, and the regeneration those passes trigger. It grows with quality ambition, and it's easy to under-model.
+
+**The reference corpus / example pool.** Your list folds it into #2 implicitly, but DOC-17's distill-forward TODO is explicit that DOC-31 can't be folded into DOC-16's rubric *until* the example-pool phase builds the actual corpus. It's a gating artifact for the rubric, and DOC-31 §6 specifies its shape (two parallel sets — technical-ceiling breakers vs. taste-gap closers, with the second as the default calibration target). It deserves its own number.
+
+## One reorder: #5 before #4
+
+The free consult is a trailer for a film that doesn't exist yet. It also depends on the scope classifier, which is a paid-tier mechanism. Design the paid conversation first; the free consult is then a derivation from it (what's the cheapest slice that proves the value), not an independent design problem.
+
+## #2(b) isn't a design question — and DOC-31 probably already answers it
+
+"Should we build L2 / is it even necessary" can't be settled by argument. It's exactly the vision-only authoring diagnostic already scoped in bucket (1): give the model a target it can only *see*, let it author L1 with no DOM access, bounded self-correction over ~3 rounds. Converges → expressiveness was fine, gap was execution. Plateaus → name the axis it's stuck on.
+
+But DOC-31 gives you a strong prior on the answer, and I think it's the most strategically important finding in either report: **most differentiation among the most acclaimed sites is taste-gap, not technical-ceiling.** Restraint, locked palettes, typography as a system, invented content architecture — Wix could technically do all of it; its users don't. If that holds, then L1 expressiveness is largely sufficient and the real work is prompt, reference corpus, and rubric — which inverts the effort split you'd assume from "figure out the L1 gaps." Less primitive engineering, more taste encoding.
+
+That doesn't make #2 unnecessary — the two known gaps (no general z-index/overlap primitive; transforms rotate/scale only, no skew/3D) both sit in the ceiling-breaker category DOC-31 says to reserve for the maximal-delight end. Just don't lead with it.
+
+## #3 — grounded, and there's a specific hole
+
+I checked rather than guessed. The conformance harness (`tools/generate/src/conformance/`) implements four dimensions — `safety`, `security`, `x-browser`, `responsive`:
+
+- **x-browser**: real 3-engine box comparison plus a perceptual backstop. This one is genuinely built.
+- **responsive**: sweeps a six-rung ladder `[320, 375, 768, 1024, 1280, 1440]`, running the safety probes at each, plus mobile-band tap-target and minimum-font-size checks.
+- Safety probes detect: horizontal overflow, containers collapsed to zero height, text clipped inside `overflow: hidden`, console errors.
+
+So your instinct that responsive isn't free is right, but you have more than you think. Two real gaps:
+
+1. **No overlap/occlusion check.** Text overlapping text — the exact failure you named — is not detected by anything. Overflow, collapse and clip are all *containment* failures; two elements sitting on top of each other passes every current probe.
+2. **Between-rung risk is structural, not incidental.** L1 geometry interpolates fluidly between captured widths (`render.ts` emits `calc(v1 + dv * (100vw - w1) / dw)`), but text height is *natural* — it reflows when it reflows. So a headline that fits at 768 and fits at 1024 can wrap to an extra line at 900 and push into whatever sits below it. The ladder samples six widths; the failure lives between them.
+
+Also worth noting: DOC-25/DOC-26 declare **five** obligations — the fifth is `isolation` — and the harness's dimension union carries only four. So isolation is specified but unimplemented.
+
+That makes #3 the most *tractable* item on the list: it's a bounded engineering audit with existing infrastructure, and the fix for both gaps is additive (an overlap probe; a denser or randomized width sweep) rather than architectural.
+
+---
+
+Suggested order: **#3 (audit, independent, tractable) and the corpus can run in parallel → #5 paid conversation → #4 free consult → #2 as an experiment informed by #5's actual demands → unit economics threaded through #5 and #4.**
+
+Want me to write that up as the plan into CHAT-20's body, or push on one of them first? My instinct is #5 — the paid conversation is where the price point, the scope classifier, and the token budget all have to be reconciled at once, and everything else calibrates off it.
 
 <!-- xgd-chat-end -->
