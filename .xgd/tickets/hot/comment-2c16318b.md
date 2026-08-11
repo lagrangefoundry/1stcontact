@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T21:55:39.432305+00:00'
+updated_at: '2026-08-11T22:20:27.338723+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -274,5 +274,13 @@ Thirteen sections. The parts that carry real weight:
 **REQ-123 is still empty.** Its body says `(new ticket)` — the whole KB requirement (the five decisions the transcript asks you for: where the JS read-side lives, which store Python indexes, which docs go in, tenancy, index artifact location) is unanswered. DOC-33 assumes that KB exists as its delivery mechanism. That's the next real dependency, and it's a bigger piece of work than this playbook was.
 
 **One open question is more load-bearing than it looks** (DOC-33 §13): does the AI write the ledger through the ordinary ticket-update path, or does it need a purpose-built tool with section-level semantics? Whole-body rewrites at ten gates per session are both expensive and easy to corrupt — a section-level write would make gate commits cheap and atomic. If you want that, it's a REQ, and it probably wants to land before the first real paid session rather than after.
+
+<!-- xgd-turn id="ebe9a6b4-4646-4f61-bc6d-4f3ebde927be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T22:20:27.090150+00:00" -->
+#### You
+REQ-123 read the CHAT TRANSCRIPT int the comment NOT THE TICKET BODY.
+
+I like your idea of the modular playbook, but the reason for raising it is in many ways the site is the core. Capabilities like payments need to be built into the site so the site builder has to be aware of those capabilities and their limitations at site creation time. I'm sure we can figure out how to fold this in but I'm just calling it out now so that we're not surprised by it
 
 <!-- xgd-chat-end -->
