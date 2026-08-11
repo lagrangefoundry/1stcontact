@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T21:47:42.658112+00:00'
+updated_at: '2026-08-11T21:49:52.574184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -181,5 +181,23 @@ I agree with your critique of my stages
 I'm not sure if this is why you are going I don't see you say it explicitly but with the decision ledger, perhaps we don't need to resubmit the entire context every turn. We could start to crop aggressively. The decision ledger should maintain not just the decision but the rationale for it if we hold that in this test form then perhaps we don't need to resubmit the entire conversation every time. The conversation could be available to the AI to access if it needed to but in this way we could keep the context smaller.
 
 Perhaps we build tooling for subagents eventually to also keep the costs down.
+
+<!-- xgd-turn id="1388ebfb-b250-41a8-9308-1b3f5840a832-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T21:49:52.436671+00:00" -->
+#### You
+Read the chat transcript of REQ-123.
+
+Our chat system already has a place to store summaries. I think the right thing here for this chat is to use that as the decision ledger.
+
+I agree with your critique of my stages
+
+**The site appears ugly on purpose.** <-- lets make it PLAIN not deliberately UGLY - it should be monochrome, perhaps we can use special indicators to show that it is a draft I'm thinking of depicting things like post notes or similar to make it clear that this is not the design look. But I do want to push back on your ugly I don't think that's what you really mean.
+
+I'm not sure if this is why you are going I don't see you say it explicitly but with the decision ledger, perhaps we don't need to resubmit the entire context every turn. We could start to crop aggressively. The decision ledger should maintain not just the decision but the rationale for it if we hold that in this test form then perhaps we don't need to resubmit the entire conversation every time. The conversation could be available to the AI to access if it needed to but in this way we could keep the context smaller.
+
+Perhaps we build tooling for subagents eventually to also keep the costs down.
+
+One other thought here, we are building out first contact. It has many limbs. The web design is the first limb. There will be site monitoring, payments, marketing planning and a lightweight CRM - we should design this playbook with a eye on the fact that these features will be available at some point and will need to be folded into what the AI can offer
 
 <!-- xgd-chat-end -->
