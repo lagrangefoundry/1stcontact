@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-20
 created_by: xgd
 created_at: '2026-08-11T20:02:18.442734+00:00'
-updated_at: '2026-08-11T21:05:39.880418+00:00'
+updated_at: '2026-08-11T21:19:40.325664+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -561,5 +561,19 @@ That makes #3 the most *tractable* item on the list: it's a bounded engineering 
 Suggested order: **#3 (audit, independent, tractable) and the corpus can run in parallel → #5 paid conversation → #4 free consult → #2 as an experiment informed by #5's actual demands → unit economics threaded through #5 and #4.**
 
 Want me to write that up as the plan into CHAT-20's body, or push on one of them first? My instinct is #5 — the paid conversation is where the price point, the scope classifier, and the token budget all have to be reconciled at once, and everything else calibrates off it.
+
+<!-- xgd-turn id="cff90bf3-ef34-4958-bd4d-f901998d64a4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T21:19:40.172001+00:00" -->
+#### You
+I think the resource budgets should be expressed in "hours of conversation" - not tokens - we can estimate tokens per hour and use that to figure our costs and then say $200 buys you a 1 page website with up to 4 hours of AI consulancy time to build it. The AI prompt can be reminded of the time throughout and guide the conversation per the playbook to conclusion. The limit should be soft and generous.
+
+Agree the example pool should be on the list. I think unit economics we get to a little later.
+
+What is isolation?
+
+So how far can we get on 2 and 3 now, with the research that we have? I'd like to discuss and fill those gaps.
+
+I agree with the reordering of 4 and 5, I will start a separate chat to discuss 5
 
 <!-- xgd-chat-end -->
