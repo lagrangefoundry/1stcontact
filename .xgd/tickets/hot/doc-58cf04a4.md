@@ -6,7 +6,7 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-11T22:22:43.398478+00:00'
+updated_at: '2026-08-11T22:27:23.655308+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -147,6 +147,9 @@ system priming  +  ledger  +  current site state  +  (this stage's turns, growin
 
 Everything else — prior turns, prior screenshots, superseded site states — drops. The transcript
 remains reachable by search; the *finding* from each screenshot is in the ledger, the image is not.
+
+**The site state in a rebuilt prefix must be freshly read, never remembered.** The client edits
+directly too (§7.8), so the AI's picture of the page is stale by default at every gate.
 
 **Crop at gates, never continuously.** Prompt caching is a prefix match: rewriting the middle of
 the context invalidates everything after it. Cropping every turn would cost more than never
@@ -300,6 +303,11 @@ question answered progressively, an inventory, a walk through a process.
 
 The site becomes visible here. Undesigned, on purpose. The conversation is about words.
 
+**This is where the client is handed the copy controls** (§7.8) — part of the same framing as the
+plain pass. The AI writes the first draft of every piece of copy; the client rewords anything they
+want, in place, as often as they like. They know their own voice and the AI does not, and this is
+the cheapest possible way for them to apply it. Visual controls are *not* introduced here (§7.8).
+
 #### Stage 5 — Assets
 *Entry:* copy agreed.
 *Produces:* asset inventory; a resolution for every gap.
@@ -326,6 +334,11 @@ Again: two or three genuinely distinct directions, not one to refine. A locked s
 of [[DOC-31]]'s clearest taste-gap markers, and "locked" means it — later stages spend from this
 system rather than extending it.
 
+The lock is partly self-enforcing: the editor picks colours **from the site's palette rather than
+individually** ([[DOC-28]] §8), precisely because picking colours one at a time produces incoherent
+sites. So once this gate closes, a client adjusting their own page structurally cannot leave the
+system. Locking the palette well is therefore worth more time than it appears to be.
+
 #### Stage 7 — Layout & composition
 *Entry:* system locked.
 *Produces:* the designed pages.
@@ -333,6 +346,10 @@ system rather than extending it.
 
 Where most of the visible work happens. Vision-in-the-loop: the AI looks at what it made. Each
 render is read once, its finding goes to the ledger, and the image drops at the gate (§4).
+
+**The visual controls are handed over here**, once there is a locked system for them to move
+within (§7.8). Doing it earlier invites exactly the premature aesthetic anchoring the plain pass
+exists to prevent.
 
 #### Stage 8 — Signature moment
 *Entry:* layout agreed.
@@ -370,6 +387,11 @@ The ledger handed over is the artifact that *demonstrates* judgment was applied 
 strategic-judgment driver, honestly, without implying a person was involved. The caretaker inherits
 it, which is how the relationship persists into the ongoing tier rather than restarting cold.
 
+The handoff states the division explicitly: **what is theirs to change** — the words, the photos,
+adjustments within the system — **and what to ask for** — anything structural, anything new,
+anything that changes a decision. This is also the ongoing tier's cost model: a monthly customer
+who does their own copy edits costs nothing to serve.
+
 ---
 
 ## 7. Conversational mechanics
@@ -402,10 +424,19 @@ clearly, tied to that objective. If they reaffirm, do it, and record it under **
 both positions. Never push twice. The record is not for scoring points; it is what lets us have a
 useful conversation in three months if it underperforms.
 
-### 7.5 Bounded refinement
-Refinement is a loop inside a stage, not a stage of its own. Two rounds, then: *"we can keep
-tuning this in your ongoing plan — I'd rather spend the time we have left on the pages that aren't
-built yet."* As its own stage, refinement is an unbounded cost sink with no natural end.
+### 7.5 Bounded refinement — of decisions only
+Refinement is a loop inside a stage, not a stage of its own. As its own stage it is an unbounded
+cost sink with no natural end.
+
+But the bound applies to **decision-level rework only** — change the palette, restructure the
+section, rewrite the positioning. Two rounds, then: *"we can keep tuning this in your ongoing plan
+— I'd rather spend the time we have left on the pages that aren't built yet."*
+
+**Adjustment-level refinement is unbounded**, because the client does it themselves (§7.8). This
+matters more than it looks: the things clients most want to keep tweaking — the exact wording, that
+photo, is-that-heading-a-touch-big — are almost entirely on the free side of the line. The cap
+therefore lands on genuine rework, not on the fiddling that makes a client feel heard, which is
+what would otherwise make it a bad moment in a session someone has paid for.
 
 ### 7.6 Configuration is not design
 When a client names a behaviour we have a vetted module for, that is a **configuration**
@@ -417,6 +448,44 @@ this playbook.
 ### 7.7 Never say "we'll get back to you"
 Every decision resolves in-session or is explicitly parked in the ledger with a reason. There is no
 human in the loop and the client must never be left waiting on one.
+
+### 7.8 Two channels — the AI decides, the client adjusts
+The client is not limited to talking. They can edit the draft directly on the page ([[DOC-28]]):
+the copy, which image goes where, and — as its phases land — friendly parameters like size and
+colour, picked from the site's palette. Structure is not editable and is the AI's job.
+
+**The division is by kind of change, not by who is cheaper:**
+
+| The AI owns | The client owns |
+|---|---|
+| Structure, architecture, page inventory | The exact words |
+| The design system — palette, type, rhythm | Which photo goes here, how it's framed |
+| The first draft of every piece of copy | Adjustments *within* a locked system |
+| Anything that changes a locked decision | Anything they'd rather just try |
+
+The AI should **hand adjustments over rather than absorb them** — not because they cost tokens,
+but because the client is genuinely better placed to judge them. They know their own voice; they
+know whether that photo is the right photo. Framing it as *"that one's yours — click it and try
+it"* is a better answer than doing it for them, and it happens to be free.
+
+Two boundaries the AI must hold. It should not turn a paid consultation into a tutorial: when a
+client asks for something, the default is still to do it, with the handover offered where it
+genuinely serves them. And it should not use the channel as a way to decline work — *"you can do
+that yourself"* is never the answer to a decision-level request.
+
+**Disclosure is staged** (stage 4 for copy, stage 7 for visual controls) for the reason in §8:
+aesthetic controls offered during Act II invite exactly the premature anchoring the plain pass
+exists to prevent.
+
+### 7.9 Read the page, never remember it
+Because the client edits between turns, **the AI's picture of the page is stale by default**. It
+must re-read state before acting on it — always after a gap in the conversation, and always at a
+stage gate (§4).
+
+The failure this prevents is specific and severe: the AI writes a section, the client rewords it,
+and the AI later "improves" that section and silently reverts them. A client who loses their own
+edit to the thing they are paying to help them will not report it as a bug; they will stop
+touching the editor, and the cheapest channel in the product goes dark.
 
 ---
 
@@ -449,6 +518,9 @@ right first. It'll look like a real site later today."*
 
 Six mechanisms, in the order they bind:
 
+0. **Route adjustments to the client** (§7.8) — direct edits cost nothing, and they cover the
+   highest-frequency category of change. This is the largest single reduction available and the
+   only one that improves the client's experience rather than trading against it.
 1. **Scope band at intake** (stage 1) — the honest bound, agreed before work starts.
 2. **Stage gates** — decisions lock; locked decisions are not re-opened without an explicit,
    recorded reason.
@@ -472,6 +544,8 @@ more important than the ones that shave the average.
 | Client wants something L1 can't express | Say so; offer the nearest expressible thing; log the gap for the framework (§7.3) |
 | Client needs a capability we don't have yet | Say so plainly; park it in the ledger with the date; **do not pre-build the surface**; build for today's primary action (stage 1) |
 | A capability's limits conflict with a design decision | The capability's envelope wins; re-open the design decision, not the commitment (§11) |
+| Client's own edits contradict a locked decision | Surface it at the gate: either the decision changes or the edit does — never let them silently diverge (§7.9) |
+| Client keeps asking the AI for adjustments they could make themselves | Do it, and offer the handover once. Never decline work by pointing at the editor (§7.8) |
 | Client insists on a choice that works against their objective | One push, then their call, recorded (§7.4) |
 | Client keeps re-opening a locked decision | Name it: "we settled this in the brief for *this* reason — has that changed?" Reopen only if the reason has changed |
 | Assets missing and unobtainable | Design around the absence; offer it as a peer option, not a consolation (stage 5) |
@@ -582,3 +656,10 @@ what has shipped, and it is what tells the AI which class a new capability falls
   document.
 - **Parked capabilities as triggers.** A parked capability should surface when the capability
   ships. Is that a query over ledgers, or something the caretaker notices? Nothing does it today.
+- **Image editing scope.** §7.8 and stage 5 assume the client can reframe and adjust their own
+  images. [[DOC-28]] phase 1 scopes image segments to *"which image, basic framing"* — cropping
+  and colour adjustment are past that line. The playbook must not promise a client something the
+  editor cannot do, so this needs pinning to a phase before the first paid session.
+- **Divergence detection.** §7.9 requires the AI to notice at a gate that a client edit contradicts
+  a locked decision. Comparing freshly-read state against the ledger is not free, and doing it
+  well may want a diff the AI reads rather than a page it re-derives.
