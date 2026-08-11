@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T21:49:52.574184+00:00'
+updated_at: '2026-08-11T21:55:39.432305+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -199,5 +199,80 @@ I'm not sure if this is why you are going I don't see you say it explicitly but 
 Perhaps we build tooling for subagents eventually to also keep the costs down.
 
 One other thought here, we are building out first contact. It has many limbs. The web design is the first limb. There will be site monitoring, payments, marketing planning and a lightweight CRM - we should design this playbook with a eye on the fact that these features will be available at some point and will need to be folded into what the AI can offer
+
+<!-- xgd-turn id="1388ebfb-b250-41a8-9308-1b3f5840a832-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T21:55:39.301488+00:00" -->
+#### Claude
+Read it — and that settles the ledger question definitively.
+
+## The ledger already exists, by design
+
+`components/ai/js/src/ticket_store.js:19-21`:
+
+> **`apply` never touches the ticket *body*.** The body is the AI-maintained summary's home (REQ-35 §5); the transcript lives only in the comment.
+
+So a session is a `chat` ticket: **body = ledger, `chat_transcript` comment = raw turns**, and `Session.chatTicketUid` records where the ledger lives so a reopen finds it. The two write paths are already separated, so ledger writes don't race transcript appends. Nothing to build — it's a discipline about what goes in the body.
+
+This is also exactly the pattern CHAT-20 uses on itself: distilled body, verbatim transcript in the comment. We'd be applying our own dogfooding to the product.
+
+## You're right, and I under-stated it
+
+Yes — **the ledger's purpose is to make the transcript droppable.** I said "compaction artifact" and left it there; it deserves to be the headline. And your point about rationale is the load-bearing part:
+
+> A ledger of decisions can be *honoured* but not *defended*. A ledger of decisions-with-rationale can be reasoned from.
+
+Without the "why", the AI hits a downstream conflict, can't tell whether the earlier decision was a principle or a whim, and either re-opens it (wasting the client's time) or contradicts it (worse). With the "why", it resolves the conflict itself. That's what makes dropping the transcript safe rather than reckless.
+
+Priming becomes: **system + ledger + current site state + this stage's turns**, with the transcript reachable by search when genuinely needed. That's DOC-10 §5.1's tail-prime shape, upgraded — tail-prime alone loses decisions made two hours ago; tail + ledger doesn't.
+
+**One non-obvious constraint on cadence.** Caching is a prefix match, so cropping *mid-conversation* rewrites the prefix and invalidates everything after it — done continuously, aggressive cropping costs more than no cropping. So crop at **stage gates only**: rebuild the prefix from (system + ledger + site state), then let it grow untouched within the stage. Full cache hits inside a stage, ~10 cold writes across the session instead of 300 huge warm reads.
+
+Re-running the model with that: context holds at ~40k instead of climbing to 400k → **~$25–30/session on Opus 5**, against ~$55 without. The ledger pays for itself several times over. Screenshots ride the same mechanism: read once, finding goes to the ledger, image drops at the gate.
+
+Subagents: agreed, and they're the *only* correct way to route work to a cheaper model — switching models inside the main loop invalidates the cache, whereas a subagent is a separate call with its own prefix. Good first candidates: background ingestion, the critique pass, copy variants.
+
+## Plain, not ugly — you're right, I overstated
+
+"Ugly" was wrong. What I actually mean is **undesigned**: monochrome, one typeface, default spacing, no decoration — so that nothing on screen is a design decision yet. Nobody should look at it and think we tried and failed. Your draft-affordance idea is better than my framing, and I'd add one constraint:
+
+**Draft affordances must be chrome, not content.** Post-it markers, "copy pending" tags, structural labels — those belong to the preview surface (DOC-28), never to L1. If they're L1 nodes they become part of the site, need removing later, and can leak to publish. The plain pass is a *rendering mode*, not a version of the page.
+
+## The other limbs — this changes the spine
+
+This is the most consequential thing you've said, and it lands before I write anything down rather than after. Three implications:
+
+**1. It's not a site ledger, it's a business ledger.** Sections are limb-agnostic first (business, audience, offer, objectives, brand) and limb-specific second (site: architecture, copy, layout). When payments lands it adds a section; nothing restructures. Retro-fitting a ledger schema across live customers is the kind of pain worth ten minutes of thought now.
+
+**2. Conversion goals get a *destination*, recorded even though it doesn't exist yet.** Today "leads → email to owner". Later "leads → CRM". Capturing the destination in Act I costs one question, makes the ledger forward-compatible, and means the upsell conversation is already half-had — the AI can later say "you told me in July you were losing enquiries in your inbox" rather than cold-pitching.
+
+**3. The playbook is a shared spine plus per-limb tracks.** Act I (brief, positioning, objectives) is limb-agnostic and runs once per client, ever. Acts II–IV are the *web-design track*. A payments track, a marketing-planning track, a CRM-onboarding track hang off the same Act I and the same ledger. Same convergence trick as the four starting points, one level up.
+
+Worth noting the technical counterpart already exists: DOC-25 lists "later payments, auth, email-capture" as behavior modules. So there's a standing rule for the playbook — **when a client names a behaviour we have a module for, that's a configuration conversation, not a design one.** Today that catches contact forms; later it catches payments and email capture without the playbook changing.
+
+---
+
+Let me write it up as DOC-33.
+
+**DOC-33 — The Consultation Playbook** is written, and CHAT-21's body now carries the distilled ledger (dogfooding the pattern: distilled body, verbatim transcript in the comment).
+
+### What's in it
+
+Thirteen sections. The parts that carry real weight:
+
+- **§3 The two artifacts** — ledger schema, entry shape (Decided / **Why** / Rejected / Status), and the section ordering that makes it a *business* record rather than a site record.
+- **§4 Context economics** — the crop-at-gates rule, with the caching constraint spelled out so nobody later "optimises" it into continuous cropping and makes it worse.
+- **§5 Four starting points, one flow** — the inherited/open table.
+- **§6 The stages** — all eleven, each with entry condition, decisions produced, and exit gate. Stage 2 (positioning) is written as *interrogation, not generation*, because a plausible AI-written positioning statement is the exact generic motto DOC-31 flags, and everything downstream descends from it.
+- **§7 Mechanics** — options-not-iterations, never-a-blank-question, the one-push rule, bounded refinement, configuration-is-not-design.
+- **§8 The plain pass** — undesigned not bad, chrome-not-content, and the framing line the AI must say *before* it appears.
+- **§11 Forward compatibility** — Act I as shared spine, destinations recorded for limbs we don't operate, behaviour-as-configuration.
+- **§12** carries the `roles.ts` maintenance constraint forward: this document must never enumerate tools, or it becomes text describing last month's surface that the model believes.
+
+### Two things I'd flag
+
+**REQ-123 is still empty.** Its body says `(new ticket)` — the whole KB requirement (the five decisions the transcript asks you for: where the JS read-side lives, which store Python indexes, which docs go in, tenancy, index artifact location) is unanswered. DOC-33 assumes that KB exists as its delivery mechanism. That's the next real dependency, and it's a bigger piece of work than this playbook was.
+
+**One open question is more load-bearing than it looks** (DOC-33 §13): does the AI write the ledger through the ordinary ticket-update path, or does it need a purpose-built tool with section-level semantics? Whole-body rewrites at ten gates per session are both expensive and easy to corrupt — a section-level write would make gate commits cheap and atomic. If you want that, it's a REQ, and it probably wants to land before the first real paid session rather than after.
 
 <!-- xgd-chat-end -->
