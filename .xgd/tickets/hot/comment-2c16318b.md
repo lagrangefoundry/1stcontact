@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:23:23.060802+00:00'
+updated_at: '2026-08-11T22:24:40.023049+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -329,5 +329,11 @@ DOC-33 updated, CHAT-21's ledger extended.
 **The dependency this surfaces**, now DOC-33 §13's largest: nothing projects a capability catalogue today. DOC-25's module contract is the natural home for the machine-readable half — page requirements, invariant elements, obligations. The half with no home is the *conversational* one: what to tell a non-technical client a capability can't do. A module declaring "`config.mode` accepts these three values" doesn't answer "can I take a deposit and the balance later?", and that's the question the brief has to answer while the client is sitting there.
 
 That's probably a field on the module contract rather than anything new — but it's a DOC-25 amendment, and it wants deciding before payments is authored rather than after, since it's cheaper to require of a new module than to retrofit onto a shipped one.
+
+<!-- xgd-turn id="6a8bcb1a-6d60-4dec-9190-2feaef42ed19-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T22:24:39.489899+00:00" -->
+#### You
+Also worth noting, the draft site can be edited directly by the user. The user can make changes to copy, change basic things like font size and color, also simple image editing, image selection, image cropping and maybe some aspects of colorization for example. All of this is effectively free - the user can make those kinds of changes at any time at no cost
 
 <!-- xgd-chat-end -->
