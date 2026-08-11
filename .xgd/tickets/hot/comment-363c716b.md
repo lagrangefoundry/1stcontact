@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-20
 created_by: xgd
 created_at: '2026-08-11T20:02:18.442734+00:00'
-updated_at: '2026-08-11T21:19:40.325664+00:00'
+updated_at: '2026-08-11T21:22:48.029504+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -575,5 +575,118 @@ What is isolation?
 So how far can we get on 2 and 3 now, with the research that we have? I'd like to discuss and fill those gaps.
 
 I agree with the reordering of 4 and 5, I will start a separate chat to discuss 5
+
+<!-- xgd-turn id="cff90bf3-ef34-4958-bd4d-f901998d64a4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T21:22:47.883628+00:00" -->
+#### Claude
+Correction: I was wrong last turn — `isolation` **is** implemented (my grep truncated the union at a comment). Let me get the full picture on both.
+
+Both are further along than I expected, and the gaps are specific. First the two quick answers.
+
+## Hours, not tokens — agree
+
+Right call, and not just for legibility. It makes the budget *self-enforcing in the medium it's spent in*: the AI can be told "you're 2h10 into 4h, you have the design phase left" and adjust pacing, which is a natural instruction it will follow well. A token budget can't be reasoned about mid-conversation — it's invisible to the conversational logic.
+
+Soft and generous is right for the reason DOC-32 §4.3 implies: the cost asymmetry is brutal in your favour. A session running 5h instead of 4h costs you a fraction of the margin; a session that hard-stops at 4h with the client mid-sentence costs you the client and the refund.
+
+The one risk: hours are only a cost proxy if tokens-per-hour is roughly stable, and it isn't. A conversation-heavy hour and an hour of render-capture-critique-regenerate loops differ by a large multiple, and the second kind is exactly what the *back half* of a session is. So estimate tokens/hour separately for the conversational phase and the build/QA phase — a blended average will underprice long sessions, which are precisely your tail risk against the 90% target.
+
+## Isolation
+
+A behavior module handed **schema-valid but degenerate** config or slots must degrade inertly — render without throwing, leave the page structurally intact. Violations are `isolation.render-throws` and `isolation.empty-render`. It's render-level, needs no browser, so it always runs. It's the containment obligation: a misbehaving module can't take the page down with it. `carousel` with malformed slides drops them rather than rendering them.
+
+---
+
+# #3 — The audit: mostly built, four real gaps
+
+All five dimensions are implemented, not just specified. And the harness has its own negative-fixture self-tests (deliberately-broken modules it must flag red before delegation is trusted) — that's the part most such systems skip, and skipping it turns every conformance leaf into a rubber stamp.
+
+| Dimension | What it actually checks | State |
+|---|---|---|
+| safety | console/page errors, horizontal overflow, collapsed containers, clipped text | solid |
+| security | injection payloads derived per behavior field, unsafe URL schemes, egress allowlist | solid |
+| x-browser | 3-engine box comparison + perceptual backstop, tolerance calibrated on a real bug | strongest |
+| responsive | `[320, 375, 768, 1024, 1280, 1440]` × safety, + 44px tap targets, + 12px font floor ≤480 | has holes |
+| isolation | degenerate config renders inert | solid |
+
+**Gap 1 — no overlap/occlusion check. This is the big one.**
+
+Everything safety checks is a *containment* failure: overflow, collapse, clip. Two elements landing on top of each other passes all of it.
+
+That would be a minor omission in a flow-based system. It is not minor here, because L1's fold **converts flowed text into absolutely positioned boxes** — and the schema's own comment on `nowrapFromPx` describes the exact failure: Chromium fits a run in 414px by 0.77px, Gecko doesn't, wraps it, *"and the second line prints on top of the next absolutely-positioned run."* Overlap is the architecture's characteristic failure mode, it has already bitten once, and nothing tests for it. This is the highest-value thing on the entire list.
+
+**Gap 2 — between-rung risk is structural.**
+
+Six sampled widths; `render.ts` emits fluid `calc(v1 + dv * (100vw - w1) / dw)` between them. Geometry interpolates smoothly, but text height is natural — it wraps when it wraps. `nowrapFromPx` is derived from *captured* widths, so at 900px or 500px that guarantee simply doesn't apply. Combined with Gap 1, an unsampled width can produce exactly the overlap nothing detects.
+
+**Gap 3 — no resource ceiling anywhere.**
+
+"Won't crash a browser" on a mid-range Android is a memory and main-thread story, not an exception story. Nothing checks page weight, image bytes, font count, animation cost, or blocking time. Console-error-free and unkillable are different claims, and only the first is tested.
+
+**Gap 4 — the scope mismatch, and I think this is the one that matters most strategically.**
+
+Conformance is **module-scoped**. `assertModuleConforms(slug, fixtures, opts)` is the only entry point; every caller is a repo test; there is no site-level or per-publish equivalent. Cross-browser also runs only at `tier: 'full'` in periodic regression.
+
+So today the system certifies *the carousel*, on the repo's schedule. The promise you want to sell is about *this client's site*, at publish time. Those are different claims, and the second one — the one the customer is actually buying — has no gate behind it.
+
+That reframes #3's output: it isn't "fill in missing checks," it's **promote the harness from a component test to a publish gate**, and the missing checks come along for the ride. Under zero-human-involvement this is load-bearing rather than nice-to-have — nobody eyeballs the site before it goes live, so the gate *is* the QA function.
+
+---
+
+# #2 — L1 expressiveness: DOC-31's ten patterns, mapped
+
+I inventoried the actual axes and mapped them against DOC-31's patterns. The headline: **DOC-31's prior holds, strongly.** Every taste-gap pattern is already fully expressible.
+
+| DOC-31 pattern | DOC-31 verdict | L1 today |
+|---|---|---|
+| P7 locked restrained palette | taste gap | ✅ fully expressible |
+| P6 typography as device | taste gap | ✅ per-run `fontStyle`, weight, family, tracking, small-caps, gradient fill — mid-sentence italics work |
+| P5 bespoke content architecture | taste gap | ✅ this is L1's entire premise |
+| P10 micro-interaction density | throttled ceiling | ⚠️ mostly — two specific limits |
+| P8 interaction-as-branding | mixed | ⚠️ partial — half the ingredients present |
+| P2 scroll-linked motion | ceiling (Wix/Sqsp) | ❌ **absent** |
+| P1 live data as hero | ceiling + content-gated | ❌ absent (controllable half is ingestion, not L1) |
+| P3 WebGL as primary | ceiling | ❌ absent — and should stay absent |
+| P4 shaders/physics | ceiling | ❌ absent — and should stay absent |
+| P9 commerce fused into narrative | mixed | behavior-module territory, not L1 |
+
+Three gaps are worth arguing about. Ranked:
+
+**1. Scroll-linked motion — and L1 is currently sitting in the worst possible place.**
+
+L1 has `reveal`: `yPx`, `fromOpacity`, `durationMs`, `delayMs`, `easing`. That is *precisely* the model DOC-31 identifies as the template-platform signature — "element enters viewport → play a canned entrance." Checklist A's anti-pattern "every section fades up on scroll regardless of what it contains" is a literal description of what `reveal` makes easy.
+
+So on the single most visible differentiation axis, L1 is at parity with Wix. Not below it — at it. That's worse than being absent, because the capability is there and it produces the tell.
+
+The fix in L1 terms is a typed **scroll-progress track**: the same keyframe machinery `responsiveLayout` already uses, driven by scroll position instead of `100vw`. That's architecturally continuous with what exists — you already have keyframes, segments, and interpolation — rather than a new subsystem. It's the one place I'd spend serious L1 effort.
+
+**2. No active/pressed state, and easing is a closed 5-value enum.**
+
+`interaction` has `hover` and `focus` only. Linear's signature micro-interaction — the one DOC-31 names explicitly — is the **0.97 active-state compression**, and it's unreachable. Meanwhile easing is `linear | ease | ease-in | ease-out | ease-in-out`, so "hand-tuned spring" is unreachable too.
+
+Both are small, cheap, and hit on nearly every interactive element on every site. Best effort-to-value ratio on the list. The easing one needs care though — a closed enum is a *deliberate* security posture (no raw `cubic-bezier()` strings), so the right move is a wider named enum (`spring`, `snap`, `overshoot`), not opening the door to arbitrary strings.
+
+**3. Custom cursor — and you're closer than you'd think.**
+
+There's no `cursor` axis. But `blendMode` carries the **full CSS enum including `difference`**, and `pointerAccent` (REQ-108) is already a pointer-tracking, region-deforming, texture-substituting primitive — genuinely unusual, and something no builder has. Serotoninn's difference-blended `+` cursor is the missing half of a capability you mostly built.
+
+Also confirmed: `transform` is `rotateDeg` + `scale` only — no skew, no 3D, no base-level translate (translate exists only inside interaction `motion`).
+
+**On P3/P4 (WebGL, shaders): I'd argue these should stay permanently out.** DOC-31 calls them the moat, but they're the moat *for agencies*. Arbitrary GPU code is the exact thing DOC-24's safety envelope and DOC-2 exist to exclude, and every one of DOC-31's examples is agency self-promotion or a flagship campaign — not what any client in your actual price band wants. Ceding that ceiling deliberately costs you nothing real and keeps the security story clean.
+
+---
+
+## Where that leaves #2
+
+The honest read: **L1 expressiveness is not your bottleneck.** Three modest additions — scroll tracks, an active state plus richer easing, a cursor axis — close everything DOC-31 says matters for your customer base, and none is architecturally disruptive.
+
+Which means the answer to your "should we build L2 / is it even necessary" sub-question is probably: **not as a layout convenience layer.** If L1 can already express every taste-gap pattern, an L2 that makes L1 *easier* solves a problem you don't have. What you'd actually be buying with L2 is **taste defaults** — locked palettes, derived type scales, non-generic section architectures — and DOC-31 rec #4 names the specific danger there: if the model settles into a de facto fixed section order, you've built a template with extra steps, and you're *more* exposed to that than a hand-coded site is.
+
+That suggests the real missing capability isn't in L1 or L2 at all — it's **measuring your own output distribution**. DOC-31's Checklist B diagnostic ("strip the copy and swap the photography — is the architecture still generic?") run across your own generated sites, looking for repeated structural fingerprints. Nothing does that today, and under zero-human-involvement nobody will notice it happening by eye.
+
+---
+
+I'd start with the overlap probe — it's the highest-value, most bounded item, it's a live architectural risk rather than a theoretical one, and it needs no design decisions from you. Want me to scope that as a ticket, or keep going on the discussion first?
 
 <!-- xgd-chat-end -->
