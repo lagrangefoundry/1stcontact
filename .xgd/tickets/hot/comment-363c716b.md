@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-20
 created_by: xgd
 created_at: '2026-08-11T20:02:18.442734+00:00'
-updated_at: '2026-08-11T20:02:19.065496+00:00'
+updated_at: '2026-08-11T21:03:46.810943+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -485,5 +485,21 @@ Per the agreed sequencing, next is the example-pool phase — building the refer
 <!-- xgd-chat role="user" ts="2026-08-11T19:57:17.089634+00:00" -->
 #### You
 ok can create a copy of this chat in 1st contact - I want to pick up the conversation there. Please create a chat with the same title and an associated comment and copy this chat transcript into it
+
+<!-- xgd-turn id="aa637b1b-557e-4daa-bfb6-76bd6bb2c554-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T21:03:46.629572+00:00" -->
+#### You
+ok one important positioning correction (DOC-32 is making this change) we must design for 0 human involvement in the process. That is our aesthetic.
+
+ok lets take stock of where we are. I think its this:
+
+1. we now have our two research reports so we need to:
+2. Figure out what the significant L1 gaps are - this is (1) expressibility - can we technically do everything we need and (2) can we/should we make it easy (easier) for the AI to create great sites - this is technically possibly L2 - plus is this even necessary
+3. Audit whether L1 gives us what we originally intended: safety (sites will be secure, will not crash browsers), x-browser (sites will work on all 3 browser engines reliably), responsive (I don't think we get this for free - that would be too much) but it needs to be possible to make sites behave well at desktop and mobile sizes and to make sure that no "bad things" text overlapping/loss of controls or visibility / something really ugly happen in between
+4. Start designing the "free consultation" - this is a playbook for the LLM - it is a sales conversation
+5. Start designing the real design conversation(s) with the constraints discussed in DOC-32 at different price points
+
+Does that sound right?
 
 <!-- xgd-chat-end -->
