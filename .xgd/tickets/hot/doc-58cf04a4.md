@@ -6,7 +6,7 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-11T22:47:02.445695+00:00'
+updated_at: '2026-08-11T23:39:12.942041+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -87,16 +87,32 @@ schema, consistent with the supersessions already agreed in [[REQ-123]].)*
 Every turn, verbatim, append-only. Never summarised in place. Reachable by search when the AI
 genuinely needs to recover something the ledger doesn't carry.
 
-### 3.3 Ledger entry shape
+### 3.3 The ledger is appended, never rewritten
 
-Every entry carries four things. The **Why** is mandatory and is the whole point:
+`append_body {uid, body}` is a first-class store operation, with compare-and-set and retry on
+conflict (`components/ticketing/js/src/store.js`). So a gate commit writes **the delta, not the
+document**: cheap, unclobberable, and needing no purpose-built tooling.
+
+That makes the ledger **append-only with supersession**, not a document edited in place. A decision
+that is reopened appends a new entry naming the one it supersedes; **the latest entry for a
+decision wins on read.** This is a better record than a mutable one, not a compromise: it preserves
+*"locked at stage 1 for this reason, reopened at stage 6 for that one"*, which is exactly what the
+rationale is there to capture and exactly what an in-place edit would destroy.
+
+It also makes the ledger the same shape as the draft change journal ([[REQ-131]]) — append-only,
+read-forward, latest-wins. Two artifacts, one discipline.
+
+### 3.4 Ledger entry shape
+
+Every entry carries the **Why**, which is mandatory and is the whole point:
 
 ```
-### <decision name>
+### <decision name>            [<section>]
 - **Decided:** <the decision, in the client's language>
 - **Why:** <the reason, tied to a stated objective or constraint>
 - **Rejected:** <the alternatives that were offered and declined, briefly>
-- **Status:** open | locked | reopened-at-<stage>
+- **Status:** open | locked
+- **Supersedes:** <the earlier entry this revises, when it revises one>
 ```
 
 Rationale is what makes the transcript droppable. A ledger of bare decisions can be *honoured* but
@@ -108,9 +124,12 @@ silently contradicts it (worse). With the reason recorded, the AI resolves the c
 picks one, and ninety minutes later the AI cheerfully re-offers a rejected one. Recording the
 rejection prevents that at near-zero cost.
 
-### 3.4 Ledger sections
+### 3.5 Ledger sections
 
-Limb-agnostic sections first; limb-specific sections after. This ordering is deliberate (§11).
+Because entries are appended, a section is a **tag on an entry**, not a region of the document —
+entries arrive in the order decisions are made, and grouping happens on read. The section set is
+what matters, and it is limb-agnostic first, limb-specific after. This ordering is deliberate
+(§11), and it is the grouping the handoff document presents.
 
 ```
 ## Session          stage, act, sittings, scope band
@@ -597,7 +616,7 @@ properties of the *client*, not of any one artifact. Act I runs once per client,
 engagement — a marketing plan, a monitoring setup — starts from a ledger that already holds it.
 
 **The ledger is a business record, not a site record.** Its limb-agnostic sections come first and
-its site sections last (§3.4), so a new limb adds a section rather than restructuring the document.
+its site sections last (§3.5), so a new limb adds a section rather than restructuring the document.
 This ordering is worth getting right now: retro-fitting a ledger schema across live customers is
 considerably more expensive than choosing it carefully once.
 
@@ -648,15 +667,15 @@ what has shipped, and it is what tells the AI which class a new capability falls
 
 ## 13. Open questions
 
-- **Ledger rendering.** The body is markdown. Does the client-facing handoff render it directly, or
-  is there a second, friendlier presentation? Leaning: render directly, and write it well enough
-  that this is not a problem.
+- **Ledger rendering for handoff.** The body is an append-ordered journal; the handoff wants it
+  grouped by section (§3.5). Is that a rendering step, or does the AI write the handoff document
+  separately at stage 10? Leaning: a rendering step, so the two cannot drift.
 - **Gate enforcement.** Are stage gates a discipline the AI follows from this document, or does the
   session machinery enforce them (and therefore need to know about stages)? Leaning: discipline
   first, measure, mechanise only if it drifts.
-- **Ledger write mechanism.** Does the AI update the body through the ordinary ticket-update path,
-  or does it need a purpose-built ledger tool with section-level semantics? A section-level tool
-  would make gate commits cheap and hard to corrupt.
+- ~~**Ledger write mechanism.**~~ **Settled** (§3.3): `append_body` is a supported store operation
+  with compare-and-set and retry-on-conflict, so gate commits write the delta and no purpose-built
+  section-level tool is needed. The ledger is append-only with supersession as a consequence.
 - **Cost constants.** §4's figures are modelled, not measured. They need validating against real
   sessions before pricing depends on them.
 - **Restraint taxonomy.** [[CHAT-20]] calls for a vertical taxonomy with a default restraint level
