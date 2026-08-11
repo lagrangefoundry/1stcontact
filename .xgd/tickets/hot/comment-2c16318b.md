@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:44:27.445034+00:00'
+updated_at: '2026-08-11T22:47:54.121379+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -439,5 +439,33 @@ And REQ-123's five questions are still the thing standing between DOC-33 and bei
 <!-- xgd-chat role="user" ts="2026-08-11T22:44:27.246187+00:00" -->
 #### You
 This is important. We already have an L1 "tool" so we need a ticket to (1) add the business logic to track these things exposed as an API and (2) extend the Toolbox config to support the additional calls and data
+
+<!-- xgd-turn id="0d4b0eaa-d5c0-411c-8a69-f0f52917d444-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T22:47:53.834597+00:00" -->
+#### Claude
+Explicit ask — I'll file it. Let me read the actual surface first so the ticket is concrete rather than aspirational.
+
+Now I have what I need. The two halves land in exactly the places you'd expect: `tools/generate/src/cli/edit.ts` is the single write path (every `edit*` function), and `toolbox.ts`'s `l1Operations` binds surface ops onto it.
+
+One design point worth flagging before I write it — reading `roles.ts` again, there's a cheaper shape than polling. `caretakerReminder()` is re-applied every turn through the system channel and never enters the transcript, and `host.ts` knows turn boundaries. So the host can **push** the staleness signal ("the site changed since your last turn") for ~10 tokens, and the AI **pulls** detail only when it fires. No polling call in the common case, and no requirement for the AI to remember a baseline.
+
+**REQ-131** filed (priority high), cross-linked from DOC-33 §13 and recorded in CHAT-21.
+
+It's scoped in the two halves you named, plus a third that emerged from reading `roles.ts`:
+
+1. **Business logic + API** — `edit.ts` gains a monotone draft counter and an append-only journal, written transactionally with each mutation; mutating ops return the resulting counter; a read function returns the journal since a given counter.
+2. **Surface + toolbox** — new read op in `ReadSite` (already granted to `caretaker`, so no grant change), a new shape, `change`/`publish_result` gaining the counter, the cross-cutting rule in `overview` rather than per-op, and `provenance: "untrusted"` because the journal carries client-typed copy.
+3. **The push signal** — host records the counter at turn end, compares at turn start, and puts one line in the reminder. Zero tool calls when nothing changed.
+
+Nine behavioural ACs, four decisions left to pin during implementation, and an explicit out-of-scope list — undo is the one to watch, because the journal makes it *thinkable* and that isn't a reason to build it here.
+
+Two things in the ticket worth your eye before someone picks it up:
+
+**Where the journal lives.** `storage/sites/<slug>/draft/` is git-tracked, and a record per copy edit would churn it hard. I've leaned gitignored on the grounds that the journal is ephemeral and windowed, and losing it degrades to a full read rather than to incorrectness — but that's a DOC-12 judgement, not mine to settle unilaterally.
+
+**Actor attribution may not be cleanly available.** AC 4 deliberately doesn't depend on it — the returns-the-counter mechanism means the AI never sees its own edits regardless — so the ticket says ship without the actor field rather than block on it.
+
+I haven't written any code. Say the word if you want me to pick REQ-131 up now, or leave it queued.
 
 <!-- xgd-chat-end -->
