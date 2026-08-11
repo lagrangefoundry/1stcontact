@@ -5,7 +5,7 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-11T22:27:50.533417+00:00'
+updated_at: '2026-08-11T22:37:06.310431+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -192,6 +192,54 @@ asking for adjustments they could make); three open questions.
 [[DOC-28]] phase 1 scopes image segments to "which image, basic framing" — past that line. Needs
 pinning to a phase before the first paid session, since the playbook must not promise something the
 editor can't do.
+
+
+### Addendum — the draft change record (staleness without re-reading)
+
+Operator's proposal: the AI should know when the page last changed and when it last read it, and
+read *diffs* rather than re-reading the site. Investigated and agreed; folded into [[DOC-33]] §7.9
+(as a stated platform requirement) and §13 (as a design sketch awaiting its own ticket).
+
+**Why it's needed.** [[DOC-12]] versions the draft not at all: revisions are publish-time
+snapshots and `history.json` gets one entry per publish. So "did anything move since I last
+looked?" currently costs a full re-read — and [[DOC-28]] measured a real page at 73 segments, 62 of
+them copy.
+
+**Why it's cheap to build.** Two things are already true: `edit.ts` is the **single write path** for
+the CLI, the AI and the page editor ([[DOC-30]]), and the editor already emits *the same structured,
+validated diff vocabulary the AI emits* ([[DOC-28]] §4). This persists what already flows through
+one chokepoint; it does not invent a representation.
+
+**Three questions at three costs:**
+
+| Question | Cost | Mechanism |
+|---|---|---|
+| Has anything changed? | one integer | monotone draft counter vs. the AI's baseline |
+| What changed? | proportional to the *change* | read the log forward from the baseline |
+| What is the page now? | proportional to the *page* | full re-read — fallback only |
+
+**Design points pinned:**
+- **Mutating ops return the resulting counter**, so the AI's baseline advances as it writes. Any
+  gap is by construction someone else's work — removes the need for an actor field or to filter its
+  own edits out. Same CAS shape `ticket_store.js` already uses for transcripts.
+- **Not a revision.** No revision id, no `history.json` entry. [[DOC-12]] principle 3 is
+  forward-only/immutable; §5.1's preview snapshots are the precedent for a deliberately-not-a-revision
+  artifact.
+- **Records must be self-describing.** L1 addresses are render-scoped by design ([[DOC-28]] §5.2) —
+  a path of child indices valid only for the render that produced it — so an address alone is
+  worthless once structure moves. Each record carries before/after text and the segment's human
+  identity, which the derived segment model already computes for the editor's outlines.
+- **Bounded, degrading gracefully.** Keep a window; a baseline older than the window falls back to
+  a full read. No correctness cliff; log stays small.
+
+**Two payoffs beyond staleness.** It makes divergence detection (a client edit contradicting a
+locked decision) precise and cheap rather than a fuzzy page-vs-ledger comparison. And it lets the
+AI *narrate* the change — "I see you rewrote the headline, want me to match the subhead?" — which
+is the difference between the editor feeling like the client's and feeling like it's fighting the
+AI. The client's freedom to edit and the AI's correctness stop being in tension.
+
+**Status:** not ticketed. This is the largest gap between what [[DOC-33]] assumes and what the
+platform provides.
 
 
 <!-- xgd-chat-end -->
