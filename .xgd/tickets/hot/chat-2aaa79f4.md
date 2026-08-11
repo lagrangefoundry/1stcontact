@@ -5,7 +5,7 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-11T22:47:33.705786+00:00'
+updated_at: '2026-08-11T23:39:33.707274+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -281,6 +281,39 @@ Four decisions left to pin during implementation: where the journal lives (git-t
 churns badly — lean gitignored, since losing it degrades to a full read rather than to
 incorrectness); window size; how the write path learns the actor (ship without it if it isn't clean
 — the counter mechanism doesn't depend on it); per-site vs per-page counter (lean per-site).
+
+
+### Addendum — the ledger is appended, not rewritten
+
+Operator: append-to-ticket is a supported operation, so the decision log needs no bespoke write
+tooling. Verified — `append_body {uid, body}` in `components/ticketing/js/src/store.js:274`, with
+compare-and-set and **automatic retry on conflict**, so concurrent appends are safe rather than
+clobbering. Available on the product side, not just the XGD CLI.
+
+Closes [[DOC-33]] §13's "ledger write mechanism" question, and rules out the section-level tool
+previously floated as a possible REQ. A gate commit writes **the delta, not the document**.
+
+**Consequence: the ledger is append-only with supersession.** A reopened decision appends a new
+entry naming the one it supersedes; latest entry wins on read. This is a better record than a
+mutable one rather than a compromise — it preserves "locked at stage 1 for this reason, reopened at
+stage 6 for that one", which is precisely what the mandatory rationale exists to capture and
+precisely what an in-place edit would destroy.
+
+Knock-on simplifications:
+- **Sections become tags on entries, not regions of the document** (§3.5) — entries arrive in
+  decision order, grouping happens on read. This also answers §13's other open question: grouped
+  presentation is what the handoff rendering is for, so the remaining question narrows to "is
+  handoff a rendering step or a separately-written document" (leaning rendering, so they can't
+  drift).
+- **`reopened-at-<stage>` drops out of the status values** — a superseding entry *is* the
+  reopening. Entry shape gains `Supersedes:`.
+
+Growth is not a concern at this scale: ~30–60 decisions at ~50 tokens each is ~3k in the prefix
+even allowing for supersession. The cost worried about earlier was the *write*, and append removes
+it.
+
+Nice symmetry: the ledger now has the same shape as [[REQ-131]]'s draft change journal —
+append-only, read-forward, latest-wins. Two artifacts, one discipline.
 
 
 <!-- xgd-chat-end -->
