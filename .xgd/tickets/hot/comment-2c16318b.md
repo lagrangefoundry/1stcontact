@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:28:05.287992+00:00'
+updated_at: '2026-08-11T22:34:46.284928+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -369,5 +369,13 @@ DOC-33 and CHAT-21 both updated.
 The image scope question above — cropping and colorisation sit past DOC-28 phase 1's "which image, basic framing", and the playbook is currently written as though the client has them.
 
 And a subtler one I've logged as an open question rather than solved: §7.9 asks the AI to notice at a gate that a client edit contradicts a locked decision. Re-reading the page and diffing it against the ledger every gate isn't free, and doing it by re-derivation is exactly the kind of work the editor's structured-diff model could hand over cheaply instead — the editor already emits validated diffs, so *what changed since the last gate* is knowable without the AI reconstructing it. That's likely a small REQ against DOC-28/DOC-30 rather than anything the playbook can specify.
+
+<!-- xgd-turn id="7ce8ea28-3bfc-44e5-95df-c40b98b00103-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T22:34:46.121170+00:00" -->
+#### You
+The client can edit between turns, so the AI's picture of the page is stale by default. The caretaker preamble's *"read before you write… never from memory or a guess"* stops being hygiene and becomes load-bearing: AI writes copy → client rewords it → AI later "improves" that section and silently reverts them.
+
+I believe that we need a specific capability here - the AI needs to know when the last change was made and when it last read the side - read every time is costly in tokens but the freedom to make changes when needed is valuable - perhaps we create a diff history so the AI can just look at diffs??
 
 <!-- xgd-chat-end -->
