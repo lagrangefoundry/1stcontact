@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:24:40.023049+00:00'
+updated_at: '2026-08-11T22:28:05.287992+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -335,5 +335,39 @@ That's probably a field on the module contract rather than anything new — but 
 <!-- xgd-chat role="user" ts="2026-08-11T22:24:39.489899+00:00" -->
 #### You
 Also worth noting, the draft site can be edited directly by the user. The user can make changes to copy, change basic things like font size and color, also simple image editing, image selection, image cropping and maybe some aspects of colorization for example. All of this is effectively free - the user can make those kinds of changes at any time at no cost
+
+<!-- xgd-turn id="6a8bcb1a-6d60-4dec-9190-2feaef42ed19-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T22:28:05.148453+00:00" -->
+#### Claude
+Read DOC-28. This is a bigger deal for the playbook than it looks, and it fixes its weakest part.
+
+DOC-28 already draws the line — *"the user sees copy, asset selection, and friendly parameters… anything sophisticated is done by the AI"*, and *"structure is the AI's job… a deliberate scope wall"*. So the division maps straight onto the playbook: **the AI owns decisions and structure; the client owns adjustments inside them.** That it's free is a consequence, not the reason.
+
+Three things follow.
+
+**It dissolves my worst rule.** §7.5's "two rounds of refinement, then it's on the ongoing plan" was the weakest thing in the document — a bad moment to hand a client who has just paid £200. But the things clients most want to keep tweaking are the exact things the editor covers: the wording, which photo, is-that-a-touch-big. So refinement splits: *decision-level* rework stays capped, *adjustment-level* is unbounded and free. The cap stops being punitive.
+
+**Disclosure should be staged, and DOC-28 makes it self-enforcing.** Introduce copy editing at stage 4 when the site first appears — it belongs in the plain-pass framing. Don't mention visual controls until stage 7, because premature aesthetic fiddling is precisely what the plain pass exists to prevent (and conveniently, monochrome offers nothing to fiddle with). Then DOC-28's *"colours are picked from the site's palette, not individually"* means that once stage 6 locks the palette, the client structurally cannot wander outside it. The editor enforces the gate.
+
+**There's a real bug class here.** The client can edit between turns, so the AI's picture of the page is stale by default. The caretaker preamble's *"read before you write… never from memory or a guess"* stops being hygiene and becomes load-bearing: AI writes copy → client rewords it → AI later "improves" that section and silently reverts them. That's the free-coded-overwrite problem from `CLAUDE.md`, reproduced in the product, against a customer. It also constrains §4: the site state going into a rebuilt prefix must be *freshly read*, never the AI's last-known version.
+
+One small factual note: DOC-28 phase 1 scopes images to *"which image, basic framing"*. Cropping and colorisation are past that — worth confirming whether they're phase 1 scope creep or phase 2, since the playbook shouldn't promise a client something the editor can't do yet.
+
+DOC-33 and CHAT-21 both updated.
+
+**Landed:**
+- **§7.8 Two channels** — the ownership table, the "hand it over because they're better placed, not because it's cheap" framing, and the two guard rails (don't turn a paid session into a tutorial; never decline work by pointing at the editor).
+- **§7.9 Read the page, never remember it** — with the silent-revert failure spelled out, because the client won't report it, they'll just stop using the editor.
+- **§7.5 rewritten** — decision-level rework capped, adjustment-level unbounded.
+- **Staged disclosure** at stages 4 and 7, plus the note in stage 6 that the palette lock is self-enforcing once it closes.
+- **§9 gains item 0** — routing adjustments to the client, ahead of everything else in the cost list.
+- **Stage 10** now states the division explicitly as part of handoff, which is also the ongoing tier's cost model.
+
+**Two things now want a decision before a first paid session runs:**
+
+The image scope question above — cropping and colorisation sit past DOC-28 phase 1's "which image, basic framing", and the playbook is currently written as though the client has them.
+
+And a subtler one I've logged as an open question rather than solved: §7.9 asks the AI to notice at a gate that a client edit contradicts a locked decision. Re-reading the page and diffing it against the ledger every gate isn't free, and doing it by re-derivation is exactly the kind of work the editor's structured-diff model could hand over cheaply instead — the editor already emits validated diffs, so *what changed since the last gate* is knowable without the AI reconstructing it. That's likely a small REQ against DOC-28/DOC-30 rather than anything the playbook can specify.
 
 <!-- xgd-chat-end -->
