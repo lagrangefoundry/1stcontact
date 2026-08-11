@@ -5,11 +5,96 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-11T21:19:55.362607+00:00'
+updated_at: '2026-08-11T21:55:20.227834+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: open
 fields: {}
 ---
+
+## The design conversation — playbook for the paid consultation session
+
+Continues [[CHAT-20]]'s phase 4 (playbooks), pulled forward ahead of the example-pool phase.
+Output: **[[DOC-33]]** — The Consultation Playbook.
+
+### What was decided
+
+**Structure.** Four client-facing acts (Brief / Story / Design / Ship) over eleven AI-tracked
+stages with explicit gates. Revised from the operator's initial eight-stage sketch:
+- Restraint level moves to the **brief** (stage 1), not the end — "special effects last" is the
+  because-we-can failure [[DOC-31]] measures. Stage 8 becomes a single **signature moment**, and
+  "none" is a legitimate recorded outcome.
+- **Refinement is a bounded loop inside each stage** (2 rounds), not a stage — as a stage it is an
+  unbounded cost sink.
+- **Content architecture** added as its own gated stage — [[DOC-31]] Pattern 5, the largest
+  taste-gap lever, free technically.
+- Ship added: critique pass + publish/handoff.
+
+**Four starting points converge.** Existing site / content+assets / brand+positioning / scratch are
+not four scripts. They differ in *what is already decided*. Intake marks each ledger entry
+inherited or open; the flow visits only the open ones. The free 15-min consult is Act I truncated,
+not a second product.
+
+**The decision ledger = the `chat` ticket body.** Operator's call, and it turns out to be exactly
+what the store was built for: `chatSchemas()` leaves the body free as "the AI-maintained summary's
+home" and `TicketSessionArchive.apply` is documented to never touch it — transcript lives only in
+the `chat_transcript` comment. Two write paths already separated, no race, nothing to build.
+Confirms the [[DOC-10]] §6/§8 supersessions already agreed in [[REQ-123]].
+
+**Rationale is mandatory in the ledger.** Operator's point, and it is the load-bearing one: a
+ledger of bare decisions can be honoured but not defended, so the AI either re-opens settled
+questions or contradicts them. With the *why* recorded, the transcript becomes droppable. Entries
+also carry **rejected alternatives** (stops the AI re-offering a declined option ninety minutes
+later) and a **Client calls** section (the honest record required by the one-push rule).
+
+**Context economics.** Cost is dominated by re-read, not output — quadratic in turn count without
+cropping, and screenshots (~4,800 tokens each at high res) outweigh the transcript. The ledger
+converts this to linear by letting the prefix be rebuilt at each gate from
+`system + ledger + site state + this stage's turns`.
+- **Crop at gates, never continuously** — caching is a prefix match, so mid-conversation cropping
+  invalidates everything after it and costs more than not cropping.
+- Modelled effect: ~$50–60 → ~$25–30 per session on Opus 5. Constants need measuring; the curve
+  shape is the durable claim.
+- **Subagents** are the only correct way to route to a cheaper model — a model switch inside the
+  main loop invalidates the cache; a subagent is a separate prefix. First candidates: ingestion,
+  critique pass, copy variants, asset audit.
+
+**Plain pass, not ugly.** Operator corrected the framing and was right: *undesigned*, not bad —
+monochrome, one typeface, no decoration, with draft affordances (annotation markers, "copy
+pending") signalling scaffolding. Constraint added: **draft affordances are chrome, not content** —
+they belong to the preview surface ([[DOC-28]]), never to L1, or they become part of the site and
+can leak to publish. The AI must frame the plain pass before it appears or a non-technical client
+assumes something broke.
+
+**Multi-limb forward compatibility.** Site monitoring, payments, marketing planning and a
+lightweight CRM are coming. Consequences designed in now:
+- **Act I is a shared spine** — business, audience, offer, objectives, brand are properties of the
+  *client*, not the site. Runs once per client, ever; other limbs get their own tracks off the same
+  Act I and the same ledger.
+- **The ledger is a business record**, limb-agnostic sections first, site sections last — a new limb
+  adds a section rather than restructuring. Chosen deliberately now because retro-fitting a ledger
+  schema across live customers is expensive.
+- **Objectives carry destinations we don't yet operate** ("leads → inbox, ideally CRM"). One extra
+  question; turns a future cold pitch into a follow-through.
+- **Behaviour arrives as configuration, not design** — [[DOC-25]] already names payments, auth and
+  email capture as future behavior modules, so the playbook doesn't change when they land.
+
+**Conversational mechanics** (§7 of [[DOC-33]]): options-not-iterations at every major decision
+(refining one proposal drifts to the model's default — the templatey pull); never leave a blank
+question (propose and ask yes/no/nearest); one-push rule on strategic pushback ([[DOC-32]] §2D);
+no "we'll get back to you" anywhere.
+
+**Maintenance constraint.** The playbook is process knowledge and must not enumerate tools or
+restate anything projected from the surface declaration (`roles.ts`) — a hand-written tool
+inventory describes last month's surface and is worse than none because the model believes it.
+
+### Open (carried into DOC-33 §13)
+Ledger rendering for handoff; whether gates are discipline or machinery; whether ledger writes need
+a section-level tool; validating the cost constants against real sessions; restraint-by-vertical
+taxonomy belongs in [[DOC-16]]/[[DOC-17]]; exactly where the free tier stops inside Act I.
+
+### Not done in this session
+[[REQ-123]]'s body is still empty ("(new ticket)") — the KB requirement itself remains unwritten.
+
 
 <!-- xgd-chat-end -->
