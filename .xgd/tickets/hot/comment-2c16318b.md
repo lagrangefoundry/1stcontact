@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:37:20.108739+00:00'
+updated_at: '2026-08-11T22:44:27.445034+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -433,5 +433,11 @@ I haven't created a ticket for it — you haven't asked me to, and it isn't obvi
 3. **Image editing scope** — DOC-28 phase 1 says "which image, basic framing"; the playbook currently promises cropping and colorisation. Smallest of the three, but it's a promise made to a paying client, so it wants pinning before a first session rather than after.
 
 And REQ-123's five questions are still the thing standing between DOC-33 and being deliverable to the AI at all — the playbook has no route into the product without that KB.
+
+<!-- xgd-turn id="0d4b0eaa-d5c0-411c-8a69-f0f52917d444-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T22:44:27.246187+00:00" -->
+#### You
+This is important. We already have an L1 "tool" so we need a ticket to (1) add the business logic to track these things exposed as an API and (2) extend the Toolbox config to support the additional calls and data
 
 <!-- xgd-chat-end -->
