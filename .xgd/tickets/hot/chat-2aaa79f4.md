@@ -5,7 +5,7 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-11T22:37:06.310431+00:00'
+updated_at: '2026-08-11T22:47:33.705786+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -240,6 +240,47 @@ AI. The client's freedom to edit and the AI's correctness stop being in tension.
 
 **Status:** not ticketed. This is the largest gap between what [[DOC-33]] assumes and what the
 platform provides.
+
+
+### Ticket filed — [[REQ-131]] Draft change journal
+
+Operator's call: this needs a ticket, split as (1) business logic tracking these things, exposed as
+an API, and (2) Toolbox config extended for the additional calls and data. Filed as [[REQ-131]]
+(priority high), cross-linked from [[DOC-33]] §13.
+
+Investigation confirmed the two halves land cleanly:
+- `tools/generate/src/cli/edit.ts` — the single write path (`edit*` functions) for CLI, AI and
+  page editor. One chokepoint to instrument.
+- `tools/generate/src/cli/ai/toolbox.ts` `l1Operations()` — binds surface ops onto those functions;
+  `l1-surface.json` declares them.
+
+**Third part added during drafting: push the signal, pull the detail.** `caretakerReminder()` in
+`roles.ts` is re-applied every turn through the system channel and never enters the transcript, and
+`host.ts` knows turn boundaries — so the host can record the counter at end-of-turn, compare at
+start-of-next, and put a one-line "the site changed" in the reminder for ~10 tokens. The tool is
+then called *only* when the signal fires. In the common case (nothing changed) the cost is zero
+tool calls and the AI never has to remember a baseline. This is materially cheaper than the
+poll-every-turn design and uses infrastructure that already exists.
+
+**Confirmed `status` does not already answer this** — it reports draft vs last *published*
+revision, file-level added/modified/removed paths, with no ordering, actor, before/after, or
+"since I last looked".
+
+**Confirmed nothing versions the draft** — [[DOC-12]] revisions are publish-time snapshots;
+between publishes the draft is an unversioned mutable working copy.
+
+Surface-level details pinned in the ticket: new read op in the **ReadSite** group (already granted
+to `caretaker` in `instances.json`, so no grant change); `returns.provenance: "untrusted"` because
+the journal carries client-typed copy and is exactly the injection vector [[DOC-30]] S5 names;
+`change` and `publish_result` shapes gain the counter; the cross-cutting rule goes in `overview`
+rather than per-operation. Also flagged: the existing `absences` note on undo tells the AI to
+"tell the user what the previous value was whenever you change something" — the journal makes that
+unnecessary to carry in conversation, so the note wants adjusting (but undo stays out of scope).
+
+Four decisions left to pin during implementation: where the journal lives (git-tracked `draft/`
+churns badly — lean gitignored, since losing it degrades to a full read rather than to
+incorrectness); window size; how the write path learns the actor (ship without it if it isn't clean
+— the counter mechanism doesn't depend on it); per-site vs per-page counter (lean per-site).
 
 
 <!-- xgd-chat-end -->
