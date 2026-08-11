@@ -6,9 +6,9 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-11T21:54:36.501786+00:00'
+updated_at: '2026-08-11T22:22:43.398478+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -119,6 +119,7 @@ Limb-agnostic sections first; limb-specific sections after. This ordering is del
 ## Offer            positioning statement, proof points, differentiation
 ## Objectives       primary action + destination, secondary, success signal
 ## Inheritance      what was already decided before us, and must be honoured
+## Capabilities     what the site must *do*; what serves it; what's parked
 ## Brand            restraint level, voice, palette, typography
 ## Site             architecture, page inventory, copy, layout, signature moment
 ## Parked           raised, deliberately deferred, with the reason
@@ -212,11 +213,12 @@ rebuilt (§4).
 Runs largely before the client arrives. The live portion is short and confirmatory: *"Before we
 start — here's what I understand you've already settled. Tell me if I've got any of it wrong."*
 
-#### Stage 1 — Purpose, audience, scope, restraint
+#### Stage 1 — Purpose, audience, scope, restraint, capabilities
 *Entry:* inheritance agreed.
 *Produces:* **one primary conversion action** with a destination; a secondary action if any; a
-success signal; the audience; the scope band; the **restraint level**.
-*Gate:* all four locked. This is the constitution the rest of the session is judged against.
+success signal; the audience; the scope band; the **restraint level**; the **capability
+commitments**.
+*Gate:* all locked. This is the constitution the rest of the session is judged against.
 
 **The primary action comes from a fixed menu** — call, book, enquire, buy, subscribe, visit — and
 it is *one*. A site with three equally-weighted primary actions has none. Everything downstream
@@ -236,6 +238,22 @@ becoming "because we can".
 
 **Scope band** bounds the work: page count, complexity, revision rounds. It is the honest version
 of the meter, agreed up front rather than discovered at hour four.
+
+**Capability commitments are settled here, because in-page capabilities constrain everything
+downstream.** A primary action of *buy* is not merely a destination — it is a payment surface with
+success, failure and pending states, legal copy, and a data sink, and a page architecture chosen
+without knowing that is a page architecture that has to be redone. See §11 for which capabilities
+are in-page, which are behind-page, and which have no design consequence at all.
+
+For each objective the AI resolves *what serves it*, and records both halves — what the capability
+does **and what it cannot do**. Designing against a capability whose limits are unknown is how a
+session commits to a page the module can't support. The catalogue of what is available and what it
+constrains is consulted at this point; it is never restated in this document (§12).
+
+*When the answer is no* — the capability doesn't exist yet — say so plainly, **park it in the
+ledger with the date and the reason, and do not pre-build the surface for it.** Speculative
+structure is dead structure. Build what serves today's primary action; the parked entry is what
+turns a future launch into a specific follow-through rather than a cold pitch.
 
 #### Stage 2 — Positioning & differentiation
 *Entry:* brief locked.
@@ -452,6 +470,8 @@ more important than the ones that shave the average.
 |---|---|
 | Client can't articulate a differentiator | Reframe around execution quality; record the reason (stage 2) |
 | Client wants something L1 can't express | Say so; offer the nearest expressible thing; log the gap for the framework (§7.3) |
+| Client needs a capability we don't have yet | Say so plainly; park it in the ledger with the date; **do not pre-build the surface**; build for today's primary action (stage 1) |
+| A capability's limits conflict with a design decision | The capability's envelope wins; re-open the design decision, not the commitment (§11) |
 | Client insists on a choice that works against their objective | One push, then their call, recorded (§7.4) |
 | Client keeps re-opening a locked decision | Name it: "we settled this in the brief for *this* reason — has that changed?" Reopen only if the reason has changed |
 | Assets missing and unobtainable | Design around the absence; offer it as a peer option, not a consolation (stage 5) |
@@ -463,13 +483,27 @@ more important than the ones that shave the average.
 ## 11. Forward compatibility with the other limbs
 
 1st Contact is more than web design. Site monitoring, payments, marketing planning and a
-lightweight CRM are coming. This playbook is structured so they fold in rather than fork it.
+lightweight CRM are coming. **The site remains the core**, and that is the load-bearing fact here:
+several of these capabilities do not sit alongside the site, they are built *into* it. A site
+designed without knowing they exist is a site they cannot land in.
 
-**Act I is the shared spine.** Business, audience, offer, objectives and brand are properties of
-the *client*, not of the site. Act I runs once per client, ever; every subsequent engagement — a
-payments setup, a marketing plan, a CRM onboarding — starts from a ledger that already holds it.
-Acts II–IV are the **web-design track**; other limbs get their own tracks hanging off the same
-Act I and writing into the same ledger.
+So the limbs are not one category, and treating them as one is the mistake to avoid:
+
+| Limb | Relationship to the site | Must be known by | Consequence |
+|---|---|---|---|
+| **Payments** | **In the page** — surface, states, flow, legal copy | **Stage 1** | Constrains architecture (3), copy (4) and layout (7) |
+| **Email capture** | **In the page** — a form and its destination | **Stage 1** | Small structural footprint; still a stage-3 input |
+| **CRM** | **Behind the page** — a destination for what the page collects | Stage 1, as a destination | No structural footprint |
+| **Monitoring** | **Around the site** — invisible to the design | Stage 10 | None |
+| **Marketing planning** | **Off the site** — consumes the positioning | Post-ship | None; consumes Act I output |
+
+**In-page capabilities are stage-1 decisions, not separate engagements.** They are committed in the
+brief and built through Acts II–IV like everything else. Only the bottom two rows are genuinely
+separate tracks.
+
+**Act I is the shared spine.** Business, audience, offer, objectives, capabilities and brand are
+properties of the *client*, not of any one artifact. Act I runs once per client, ever; a later
+engagement — a marketing plan, a monitoring setup — starts from a ledger that already holds it.
 
 **The ledger is a business record, not a site record.** Its limb-agnostic sections come first and
 its site sections last (§3.4), so a new limb adds a section rather than restructuring the document.
@@ -485,6 +519,14 @@ inbox"* — rather than a cold pitch. This is the difference between an upsell a
 and email capture as future behavior modules. When they land, the playbook does not change: the
 client names a behaviour, the AI configures the module, and L1 owns how it looks.
 
+**The capability catalogue is the interface between the two.** Stage 1 needs to know, for each
+available capability, what it does, what it requires of the page (surfaces, states, invariant
+elements), what it obliges (legal copy, placement constraints), and — the half that is easiest to
+omit and most expensive to miss — **what it cannot do**. That catalogue is projected from the
+module declarations, never hand-written here (§12). A capability that ships without updating its
+declaration is invisible to the brief; a capability enumerated in prose here is a description of
+last month's catalogue.
+
 **The ongoing tier is where the other limbs naturally live.** Monitoring and marketing are
 recurring by nature. Stage 10 is therefore not only "here is your site" but the start of the
 ongoing relationship, and the ledger is what makes that relationship continuous rather than a
@@ -499,12 +541,17 @@ system knowledge base ([[REQ-123]]) as a reference document the AI consults, alo
 rubric.
 
 One hard constraint on how it is written and maintained, inherited from
-`tools/generate/src/cli/ai/roles.ts`: **it must not enumerate tools or restate anything projected
-from the surface declaration.** A hand-written tool inventory is text that describes last month's
-surface, and it is worse than no inventory because the model believes it. This document therefore
-refers to capabilities generically — "show them the page", "write the copy in" — and lets the
-projected tool manual say what the operations actually are. Anything here that starts naming
-operations is a maintenance bug.
+`tools/generate/src/cli/ai/roles.ts`: **it must not enumerate tools or capabilities, or restate
+anything projected from a declaration.** A hand-written inventory is text that describes last
+month's surface, and it is worse than no inventory because the model believes it. This document
+therefore refers to operations generically — "show them the page", "write the copy in" — and to
+capabilities by *role in the conversation* rather than by name, and lets the projected tool manual
+and capability catalogue say what actually exists. Anything here that starts naming operations or
+listing capabilities is a maintenance bug.
+
+The one exception is §11's table, which names limbs to fix their **relationship to the site** —
+in-page, behind-page, off-site. That is a structural claim about the playbook, not an inventory of
+what has shipped, and it is what tells the AI which class a new capability falls into.
 
 ---
 
@@ -527,3 +574,11 @@ operations is a maintenance bug.
 - **Free-tier boundary.** Exactly where in Act I does the free consultation stop? Leaning: after
   stage 1's primary action is identified but before the brief locks — enough to be genuinely useful
   and to demonstrate the register, not enough to substitute for the paid session.
+- **Capability catalogue.** §11 requires one and §12 requires it be projected rather than written.
+  Nothing projects it today. What declares a capability's page requirements, obligations and
+  *limits* in a form the brief can consult? [[DOC-25]]'s module contract is the natural home for
+  the machine-readable half; the conversational half (what to tell a non-technical client it can't
+  do) may need a declared field of its own. This is the largest unresolved dependency in this
+  document.
+- **Parked capabilities as triggers.** A parked capability should surface when the capability
+  ships. Is that a query over ledgers, or something the caretaker notices? Nothing does it today.
