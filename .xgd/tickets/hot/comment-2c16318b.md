@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:20:27.338723+00:00'
+updated_at: '2026-08-11T22:23:23.060802+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -282,5 +282,52 @@ Thirteen sections. The parts that carry real weight:
 REQ-123 read the CHAT TRANSCRIPT int the comment NOT THE TICKET BODY.
 
 I like your idea of the modular playbook, but the reason for raising it is in many ways the site is the core. Capabilities like payments need to be built into the site so the site builder has to be aware of those capabilities and their limitations at site creation time. I'm sure we can figure out how to fold this in but I'm just calling it out now so that we're not surprised by it
+
+<!-- xgd-turn id="ebe9a6b4-4646-4f61-bc6d-4f3ebde927be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T22:23:22.797535+00:00" -->
+#### Claude
+I did read it — COMMENT-831, the full transcript, and I quoted the five decisions it's waiting on. My closing line called REQ-123 "empty" and "unanswered", which mischaracterised it: the design work is *done* in that transcript (upstream JS read-side, Python indexes the XGD store, D1 index rows, the three KM tools replacing DOC-10's four), and what's outstanding is your calls on the five questions, not the thinking.
+
+## On payments being *in* the site
+
+That's a real correction to §11, not a footnote. I framed the limbs as parallel tracks hanging off a shared Act I. Some are. Payments isn't — it's **nested**, and if the site builder doesn't know about it at brief time it will produce a site the capability can't land in.
+
+The useful move is to stop treating "the limbs" as one category:
+
+| Limb | Relationship to the site | Must be known by |
+|---|---|---|
+| **Payments** | **In the page** — needs surface, states, flow | **Brief.** Constrains architecture and layout. |
+| **Email capture** | **In the page** — form + destination | **Brief.** Small structural footprint. |
+| **CRM** | **Behind the page** — destination for what the page collects | Brief, as a destination. No structural footprint. |
+| **Monitoring** | **Around the site** — invisible to design | Handoff. Zero design consequence. |
+| **Marketing planning** | **Off the site** — consumes the positioning | Post-ship. Consumes Act I; adds nothing to the build. |
+
+So: in-page capabilities are **stage-1 decisions with consequences through stage 7**. Behind-page ones are destinations (already covered). Only the last two are genuinely separate tracks. My §11 was right for the bottom of that table and wrong for the top.
+
+Three consequences worth designing in now:
+
+**Capability commitments are a third decision class.** Not content, not design. "This site takes deposits" ripples: a surface, success/failure/pending states, possibly auth, legal copy, a data destination. Recording it as `objective: buy` doesn't carry any of that.
+
+**The limitations matter as much as the capabilities.** The AI needs to know what payments *can't* do while it's still designing, or it commits to a page the module can't support. That's the DOC-24 safety-envelope story, but the conversational consequence is new: the AI needs a **capability catalogue** to consult during the brief, not just a module list to configure during build.
+
+**And that catalogue must be projected, not written here.** Same lesson as `roles.ts`: a hand-written capability list in the playbook describes last month's catalogue, and it's worse than none because the model believes it. The playbook says *"consult the catalogue at stage 1"* and never enumerates.
+
+The case that matters today is the one where the answer is *no*: client wants deposits, payments doesn't exist. Correct behaviour is say so plainly, **park the capability without pre-building the surface** (speculative structure is dead structure), and let the ledger entry become the trigger for a real follow-through when it ships — the same mechanism as destinations we don't yet operate, generalised.
+
+Let me fold this in.
+
+DOC-33 updated, CHAT-21's ledger extended.
+
+**What changed:**
+
+- **Stage 1 gains capability commitments** as a third decision class, alongside content and design — with the rule that *both halves* get recorded, what a capability does and what it can't. The ledger gains a `## Capabilities` section.
+- **§11 rewritten** around the in-page / behind-page / off-site taxonomy. In-page capabilities are stage-1 decisions that constrain stages 3, 4 and 7; only monitoring and marketing planning are genuinely separate tracks.
+- **The "not yet" branch** is explicit: say so, park it with a date, don't pre-build the surface.
+- **§12's projection constraint extended** to the capability catalogue, with §11's table as the declared exception — it fixes *relationships*, which is a structural claim the playbook owns, rather than an inventory of what has shipped, which it must never own.
+
+**The dependency this surfaces**, now DOC-33 §13's largest: nothing projects a capability catalogue today. DOC-25's module contract is the natural home for the machine-readable half — page requirements, invariant elements, obligations. The half with no home is the *conversational* one: what to tell a non-technical client a capability can't do. A module declaring "`config.mode` accepts these three values" doesn't answer "can I take a deposit and the balance later?", and that's the question the brief has to answer while the client is sitting there.
+
+That's probably a field on the module contract rather than anything new — but it's a DOC-25 amendment, and it wants deciding before payments is authored rather than after, since it's cheaper to require of a new module than to retrofit onto a shipped one.
 
 <!-- xgd-chat-end -->
