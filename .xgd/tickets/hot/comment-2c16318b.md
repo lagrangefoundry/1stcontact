@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:47:54.121379+00:00'
+updated_at: '2026-08-11T23:37:36.918735+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -467,5 +467,11 @@ Two things in the ticket worth your eye before someone picks it up:
 **Actor attribution may not be cleanly available.** AC 4 deliberately doesn't depend on it — the returns-the-counter mechanism means the AI never sees its own edits regardless — so the ticket says ship without the actor field rather than block on it.
 
 I haven't written any code. Say the word if you want me to pick REQ-131 up now, or leave it queued.
+
+<!-- xgd-turn id="2dc5e918-ab19-4851-a70e-c2a03ce44077-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-11T23:37:36.691285+00:00" -->
+#### You
+Not for the decision log - append to ticket is a supported operatino
 
 <!-- xgd-chat-end -->
