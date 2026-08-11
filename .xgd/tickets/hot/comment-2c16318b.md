@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T22:34:46.284928+00:00'
+updated_at: '2026-08-11T22:37:20.108739+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -377,5 +377,61 @@ And a subtler one I've logged as an open question rather than solved: §7.9 asks
 The client can edit between turns, so the AI's picture of the page is stale by default. The caretaker preamble's *"read before you write… never from memory or a guess"* stops being hygiene and becomes load-bearing: AI writes copy → client rewords it → AI later "improves" that section and silently reverts them.
 
 I believe that we need a specific capability here - the AI needs to know when the last change was made and when it last read the side - read every time is costly in tokens but the freedom to make changes when needed is valuable - perhaps we create a diff history so the AI can just look at diffs??
+
+<!-- xgd-turn id="7ce8ea28-3bfc-44e5-95df-c40b98b00103-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-11T22:37:19.923364+00:00" -->
+#### Claude
+Let me check what versioning already exists before proposing anything.
+
+Checked both. The gap is real and the fix is cheaper than it looks, because two things are already true.
+
+**DOC-12: the draft has no version at all.** Revisions are publish-time snapshots; `history.json` gets one entry per *publish*. There is nothing tracking intra-session change — so today the AI genuinely has no way to ask "did anything move?" short of re-reading.
+
+**DOC-30 §: `edit.ts` is already the single write path.** The `1c` CLI, the AI, and the page editor all go through it, and DOC-28 §4 says the editor emits *the same structured, validated diff vocabulary the AI emits*. So there is exactly one place to record a change log, and the records are already flowing through it — this is persisting something that exists, not inventing a representation.
+
+## The shape I'd propose
+
+**A draft change log on the single write path**, with three primitives layered by cost:
+
+| Question | Cost | Mechanism |
+|---|---|---|
+| Has anything changed since I last looked? | one integer — effectively free | monotone draft counter vs. the AI's baseline |
+| What changed? | proportional to *the change* | read the log forward from the baseline |
+| What is the page now? | proportional to *the page* | full re-read — fallback only |
+
+The property that makes it work: **every mutating tool returns the resulting draft revision**, so the AI's baseline advances automatically as it writes. No bookkeeping, and no need to filter its own edits out of the log — any gap between its baseline and current is, by construction, someone else's work. That's the same compare-and-set shape `ticket_store.js` already uses for transcripts.
+
+Four constraints worth pinning now:
+
+**It must not be a revision.** DOC-12 principle 3 is forward-only, immutable, live-equals-latest. A draft counter mints no revision id and never enters `history.json` — the precedent is §5.1's preview snapshots, which are deliberately not revisions for the same reason.
+
+**Records must be self-describing, because addresses aren't.** DOC-28 §5.2 makes L1 addresses render-scoped by design: a path of child indices, valid only for the render that produced it. A log entry saying `set_copy at children[3].children[0]` is worthless if structure has since changed. So each record carries the before/after text and the segment's human identity — which DOC-28's derived segment model already computes for the editor's outlines.
+
+**The log is bounded and degrades gracefully.** Keep a window (last N, or since last publish); if the AI's baseline predates it, fall back to a full read. That keeps the log small and means there's no correctness cliff.
+
+**Is it actually cheaper?** DOC-28 measured a real page at 73 segments, 62 of them copy. A between-turns client edit is typically a few reworded lines — a handful of short records against re-reading all of that. But the property that matters isn't the constant factor, it's that cost becomes proportional to *change* rather than to *page*, which holds as sites grow.
+
+## The payoff is bigger than staleness
+
+Two things fall out that I'd been treating as separate problems.
+
+**§7.9's divergence detection becomes cheap and precise.** Diffing a freshly-read page against the ledger is expensive and fuzzy. Reading *"client changed the hero headline from X to Y"* is neither.
+
+**And it makes the AI's narration honest.** *"I see you rewrote the headline — want me to bring the subhead into line with it?"* is a materially better session than silently working around a change it never noticed. Right now the client's freedom to edit and the AI's correctness are in tension; this is what resolves it rather than trading one off.
+
+Let me fold the requirement into DOC-33 — the mechanism itself belongs in its own ticket, not the playbook.
+
+Both updated. DOC-33 §7.9 now states the requirement (three questions, three costs) and is explicit that it's a platform capability rather than a discipline the playbook can impose — with an interim rule to re-read at gates and accept the cost until it exists. §13 carries the design sketch.
+
+I haven't created a ticket for it — you haven't asked me to, and it isn't obvious to me whether this is a REQ in this repo or belongs upstream, since `edit.ts` is 1stcontact's but the pattern is general. Say the word and I'll file it.
+
+**Three open items now stacked up from this session, in rough order of urgency:**
+
+1. **The draft change record** — the largest gap between what DOC-33 assumes and what exists. Blocks nothing today (the fallback is "re-read and eat the cost"), but it's the difference between the editor being safe and being a hazard.
+2. **The capability catalogue** — needs a DOC-25 amendment before payments is *authored*, since it's cheap to require of a new module and expensive to retrofit. The machine-readable half has a home; the conversational half ("what do I tell a non-technical client this can't do") doesn't.
+3. **Image editing scope** — DOC-28 phase 1 says "which image, basic framing"; the playbook currently promises cropping and colorisation. Smallest of the three, but it's a promise made to a paying client, so it wants pinning before a first session rather than after.
+
+And REQ-123's five questions are still the thing standing between DOC-33 and being deliverable to the AI at all — the playbook has no route into the product without that KB.
 
 <!-- xgd-chat-end -->
