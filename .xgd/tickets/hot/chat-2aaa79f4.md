@@ -5,7 +5,7 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-11T21:55:20.227834+00:00'
+updated_at: '2026-08-11T22:23:08.022868+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -95,6 +95,48 @@ taxonomy belongs in [[DOC-16]]/[[DOC-17]]; exactly where the free tier stops ins
 
 ### Not done in this session
 [[REQ-123]]'s body is still empty ("(new ticket)") — the KB requirement itself remains unwritten.
+
+
+### Addendum — capabilities are in the site, not alongside it
+
+Operator correction to the first pass at §11: the site is the **core**, and capabilities like
+payments are built *into* it — so the site builder must know them, and their limits, at creation
+time. The original "parallel tracks hanging off a shared Act I" framing was right for only part of
+the set. Revised into a taxonomy by *relationship to the site*:
+
+| Limb | Relationship | Known by | Consequence |
+|---|---|---|---|
+| Payments | **in the page** | stage 1 | constrains architecture, copy, layout |
+| Email capture | **in the page** | stage 1 | small structural footprint |
+| CRM | behind the page | stage 1 (destination) | none structural |
+| Monitoring | around the site | stage 10 | none |
+| Marketing planning | off the site | post-ship | none |
+
+Changes landed in [[DOC-33]]:
+- **Capability commitments become a third decision class** (alongside content and design), settled
+  in stage 1 — a primary action of *buy* is a surface with states, legal copy and a data sink, not
+  merely a destination. Ledger gains a **Capabilities** section.
+- **Both halves recorded** — what a capability does *and what it cannot do*. Designing against
+  unknown limits is how a session commits to a page the module can't support.
+- **When the answer is no** (payments doesn't exist yet): say so, park it with the date, and
+  **do not pre-build the surface** — speculative structure is dead structure. The parked entry is
+  what makes a future launch a follow-through rather than a cold pitch.
+- **Capability catalogue must be projected, not written** — same `roles.ts` lesson as the tool
+  manual. §12's constraint extended; §11's table is the declared exception (it fixes *relationships*,
+  not an inventory of what shipped).
+- Two new failure branches; two new open questions (§13).
+
+**Largest unresolved dependency:** nothing projects a capability catalogue today. [[DOC-25]]'s
+module contract is the natural home for the machine-readable half (page requirements, invariant
+elements, obligations); the conversational half — what to tell a non-technical client a capability
+*can't* do — may need a declared field of its own.
+
+### Correction on [[REQ-123]]
+Its `chat_transcript` comment carries a complete design: JS read-side upstream in
+lagrange-framework, Python indexes the XGD file store, D1 rows for the index artifact, three KM
+tools replacing [[DOC-10]] §5.2's four, and the DOC-10 §6/§8 supersessions. What is outstanding is
+the operator's call on its five questions (read-side location, index target, doc boundary, tenancy,
+artifact storage) — not the thinking. The empty body reflects the AI waiting on those answers.
 
 
 <!-- xgd-chat-end -->
