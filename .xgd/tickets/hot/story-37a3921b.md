@@ -6,9 +6,9 @@ title: Change the words and choose the images on my page through one validated, 
   edit — the same path the AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-10T08:31:09.409100+00:00'
+updated_at: '2026-08-12T16:03:26.564822+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -76,7 +76,13 @@ that paints none.
   its alt text. For a **painted panel that already carries a background image**
   it is **which image sits behind it** — one closed pick from that same listing
   of the site's images, again always including the handle the panel holds now,
-  and nothing else of the paint the panel carries. For anything that exposes
+  and nothing else of the paint the panel carries. Both of those answers say not
+  merely that the choices are a closed list but **what the choices are** — that
+  every option is one of the site's images — so a client can show a picture
+  rather than an address. That declaration is a hint about presentation and never
+  a constraint: it rides on the field, it is the same on a region's own image and
+  on a panel's background, and it changes nothing about which values may be
+  chosen or how that is enforced. For anything that exposes
   nothing — a panel that paints no background image, a module instance — the
   answer is an **empty list**, and an empty list is a legitimate
   answer rather than an error: "there is nothing to edit here" is a property of
@@ -170,6 +176,21 @@ that paints none.
   narrower than a free string. It is also the shape later phases need (a colour
   from the site palette, a behavior module's config value), which is why it is
   the axis the vocabulary grows along rather than a one-off for images.
+- **A closed list also says what its options are, and that is a hint rather than
+  a second constraint.** Knowing the choices are the site's *images* is what lets
+  a client draw them as pictures instead of as a dropdown of paths; a path is a
+  poor thing to choose a picture by, and a meaningless one once assets stop
+  living in a filesystem. The declaration is carried on the field itself so every
+  surface reading the same derivation learns the same thing, and it is attached
+  by *kind of field* rather than by kind of region — an image region's own image
+  and a painted panel's background both carry it, the alt text beside the former
+  does not. It narrows nothing: membership is still enforced against the closed
+  list alone, so a client that ignores the hint is not thereby offered a wider
+  set of values, and a client that honours it cannot commit anything the list
+  does not contain. The name and shape deliberately match the form widget's own
+  pairing for colour swatches, so the descriptor already speaks the vocabulary a
+  thumbnail control would need if that control ever moves into the widget, and an
+  unrecognised hint is inert there today.
 - **Why a region's current image is always among its own options.** A folded
   reproduction can hold a handle the site's asset directory never mirrored (a
   remote URL). A chooser whose options omit its own value presents the *first*
@@ -231,22 +252,28 @@ that paints none.
   validator's own code, path and hint rather than a generic server failure. The
   option list this surface offers for an image comes from the site asset store
   capability, narrowed to images.
-- **The browser gesture needed no change to accommodate images.** The in-page
-  editor passes the descriptors through to its form widget unchanged, and the
-  widget already understood a closed-list field. This is recorded as evidence
-  that the loop is genuinely region-kind-agnostic; it is not claimed as an
-  acceptance criterion here, because it belongs to the gesture capability and
-  no test in this change drives it with an image.
+- **The browser gesture needed no change to accommodate images.** When image
+  selection arrived, the in-page editor passed the descriptors straight through
+  to its form widget and the widget already understood a closed-list field. This
+  is recorded as evidence that the loop is genuinely region-kind-agnostic. What
+  the gesture does with a descriptor since — including reading the images hint
+  and deciding which control draws the field — is that capability's business, not
+  claimed as an acceptance criterion here.
 - **Where the intent and the implementation differ.** The intent states that
   clicking a region with no editable fields "opens nothing"; this surface's part
   of that is the empty field list, and the shipped browser behaviour instead
   shows a dismissible "nothing to edit here" message. That divergence lives with
   the editor gesture, not here.
-- **Known upstream limitation, deliberately not worked around.** The form
-  widget's closed-list control renders each option's text as the value verbatim,
-  so an image picker shows the handle (`/assets/hero.png`) rather than a friendly
-  name or a thumbnail. Per DOC-8 §9.4 a component gap is closed upstream, never
-  patched or wrapped locally, so no criterion here asserts a label or a preview.
+- **The former "picker shows the handle" limitation, and where it went.** The
+  form widget's closed-list control renders each option's text as the value
+  verbatim, so an image picker used to show the handle (`/assets/hero.png`)
+  rather than a friendly name or a thumbnail. This surface's part in closing that
+  was to make the answer say the options are images; what the operator now sees
+  in place of a dropdown of paths belongs to the gesture capability that draws
+  the control. No criterion here asserts a label, a thumbnail or any other
+  rendering of an option — only that the answer declares the kind, that both
+  image-bearing fields declare it, and that declaring it changes nothing about
+  what may be chosen.
 - **Known cosmetic defect, deliberately not fixed.** A saved edit rewrites the
   whole page document with different unicode escaping, so a one-word change
   produces a large diff. Pre-existing behaviour of the shared write helper;
