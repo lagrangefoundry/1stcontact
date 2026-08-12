@@ -6,9 +6,9 @@ title: 'The edit render: a third channel that deliberately does not work, showin
   all content at once with every editable region outlined and addressable'
 created_by: xgd
 created_at: '2026-08-06T21:25:04.945391+00:00'
-updated_at: '2026-08-10T08:50:27.570804+00:00'
+updated_at: '2026-08-12T22:01:01.444932+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-0385746c
@@ -103,6 +103,20 @@ needs a third: the page the editor is built on.
   reviewer receives: the shipped channels carry no address, no region stamp, no
   page stamp, no edit marker and no outline treatment, and they still work.
 
+- **One emitter, so an adjustment paints here exactly as it will on the page** —
+  what an operator sees while changing how a picture is framed, shaped or
+  colour-adjusted is what a visitor will be shown, because the edit channel and
+  the shipped channels are the same renderer reading the same definition rather
+  than two renderings kept in step. This is a *consequence* of the channel being
+  a render mode rather than a second renderer, not a feature maintained beside
+  it. It is asserted anyway: the day a second emitter appears — the anticipated
+  one being drag-time feedback, where a pointer-move cannot afford a server
+  round-trip and the adjustment is applied as inline style by the editing surface
+  — is the day it can stop being true, and the assertion is what would catch
+  that. Deliberately scoped to **paint** and not to the whole rule set: this
+  channel's purpose is that it does not *work*, so its behaviour differs by
+  design and only how it paints must not.
+
 **Out of scope**
 
 - **The editor UI** — click handling, modals, deciding which segment is under
@@ -184,6 +198,19 @@ needs a third: the page the editor is built on.
   other, and the obligation is no longer asserted in only one direction. The seam
   marker sits on the same seam of ownership: the channel requires that a seam be
   identifiable, and the module is what identifies it.
+
+- **Paint parity is structural rather than maintained.** One emitter reading one
+  document cannot paint a definition two ways, so this is not a property kept in
+  step by effort — it is a property that holds until someone builds the thing
+  that would break it. Asserting something true by construction earns its place
+  precisely because the construction is what is load-bearing: the assertion is a
+  tripwire on the architecture, not a check on arithmetic. The declared
+  exceptions are the interaction-driven decorations this channel already drops —
+  a pointer-driven accent overlay whose script the edit channel does not emit,
+  and an untriggered reveal whose pre-state would otherwise render copy invisible
+  (the settled-state rule above). Both are absences of *motion*, not differences
+  in how a node's own typed axes paint, which is why the parity criterion is
+  stated of a node's own paint rather than of the two channels' whole output.
 
 ## Dependencies
 
