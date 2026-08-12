@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-137
 created_by: xgd
 created_at: '2026-08-12T17:42:50.693486+00:00'
-updated_at: '2026-08-12T17:57:28.669809+00:00'
+updated_at: '2026-08-12T17:59:36.370499+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -114,5 +114,11 @@ I'd take **(a)**: 20/255 on a mid-tone is a colour change you'd notice, and the 
 - I'll update DOC-23 §5 to describe shade instead of steps (doc-only), and I'll be editing the reconciled `reconciliation-colour-*` UATs that pin `steps` — the supersession your ticket §3 already records.
 
 Say (a) or (b) and I'll cut the branch and build it.
+
+<!-- xgd-turn id="6d48d96c-62bd-4d2c-941a-56c7d508d90a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-12T17:59:36.238635+00:00" -->
+#### You
+a please
 
 <!-- xgd-chat-end -->
