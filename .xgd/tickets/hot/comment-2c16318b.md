@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-11T23:39:49.673186+00:00'
+updated_at: '2026-08-12T00:36:36.979851+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -505,5 +505,11 @@ That takes the open-question list in DOC-33 §13 down to seven, and removes the 
 **Wants deciding before payments is authored:** the capability catalogue's conversational half — cheap to require of a new module, expensive to retrofit onto a shipped one.
 
 **Genuinely deferrable:** gate enforcement, handoff rendering, cost constants, restraint-by-vertical.
+
+<!-- xgd-turn id="2307b1a3-5d3f-49df-91ef-235653dfc67a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-12T00:36:36.785983+00:00" -->
+#### You
+ok what is left for us to decide in this conversation
 
 <!-- xgd-chat-end -->
