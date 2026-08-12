@@ -6,9 +6,9 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-09T08:20:20.141498+00:00'
+updated_at: '2026-08-12T21:47:48.451307+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -44,8 +44,12 @@ The fold emits the **full language**, not text alone:
   small-caps, list marker, text shadow);
 - an **image** leaf for a text-free media element, carrying its resolved source
   and alternative text (captured onto the media field and carried through the
-  manifest), a height-bearing geometry track and its image axes;
-- a **box** leaf for a text-free element that paints a standalone surface;
+  manifest), a height-bearing geometry track and its image axes — including how
+  the picture is *seen*: which part of itself its box shows, and the colour
+  adjustment painted over it;
+- a **box** leaf for a text-free element that paints a standalone surface,
+  carrying the surface's own colour adjustment alongside the fill, border,
+  shadow and backdrop blur it already folded;
 - a **backdrop** box leaf for a captured element that paints *behind* content — a
   background photograph at any depth, or a full-bleed opaque panel fill. A
   backdrop is placed in the document's **background layer**, behind the runs of
@@ -62,6 +66,29 @@ The fold emits the **full language**, not text alone:
   over its own surface;
 - a **font resource table** binding each painted family handle to its served
   substance, populated only with the families a folded text leaf actually paints.
+
+**How a measured value becomes a typed axis.** Folding is not transcription: a
+computed CSS string is admitted only on terms that keep the folded definition
+honest and small. **The browser's own default is not worth carrying** — a value
+the browser would paint anyway (a picture centred in its own box, no colour
+adjustment at all, an adjustment function sitting at the value that changes
+nothing) folds to nothing rather than being recorded, because a definition that
+wrote it in would grow on every page with declarations that cost a composite
+layer and move no pixel. **The value that changes nothing differs per adjustment**
+— full desaturation and no desaturation are opposite ends of two differently
+oriented scales, so the skip rule is per-function rather than one constant; a
+single rule would silently fold a fully desaturated photograph to no adjustment
+at all and reproduce it in full colour. **The same value spelled two ways folds
+the same** — a ratio written as a percentage and as a decimal are one filter, and
+which spelling a browser reports is not something the reproduction should depend
+on. **An unreadable form is a gap, never a guess** — a form the fold cannot parse
+(a keyword or length pair where it expects percentages) writes no axis, so the
+definition never states a framing the page did not, and the difference stays
+visible to the comparison that gates a reproduction instead of being closed with
+an invented number. **A value past the envelope is carried at the nearest
+expressible one**, because a real treatment the target paints reproduces better
+near-missed than absent — while a value that is not a treatment at all (a
+negative amount) is skipped.
 
 **Behaviour seams and their controls.** A captured form control belongs to a
 behavior module, so the fold never synthesizes a raw `<input>`. Each cluster of
@@ -96,20 +123,23 @@ renders as a complete reproduction on its own.
 
 **In scope:** the fold to one L1 document in the full language (text, image, box,
 backdrops in the background layer, reconstructed surfaces, page band, behaviour
-seams with rebased control leaves, font table), oracle retention, the offline
-re-fold, geometry keyframes + interpolate/snap classification + visibility rules,
-the typed residual signal for unexpressed elements, the advisory hint sidecar, and
+seams with rebased control leaves, font table), the framing and colour-adjustment
+axes a captured picture or surface carries, oracle retention, the offline re-fold,
+geometry keyframes + interpolate/snap classification + visibility rules, the typed
+residual signal for unexpressed elements, the advisory hint sidecar, and
 supersession of the pre-L1 `adopt-values` reproduction command.
 
 **Out of scope:** the L1 typed tree / envelope / renderer themselves, including the
-axis vocabulary, the `control` node kind and its emitter, and the resource-table
-form (owned by the L1 Layout Substrate capability); what a behavior module declares
-and how it wires a bound control (owned by the behavior-module contract); the
-capture-side rules that decide a band's extent and index the backdrops, and the
-values-diff axis coverage (owned by the values-diff fidelity capability); the
-end-to-end reproduction acceptance gate, its fidelity pairing of non-text leaves,
-and structure recovery (owned by the 3-Probe Reproduction Gate story); how the gate
-presents the residual channel.
+axis vocabulary these folded values land in, the `control` node kind and its
+emitter, and the resource-table form (owned by the L1 Layout Substrate capability);
+what a behavior module declares and how it wires a bound control (owned by the
+behavior-module contract); the capture-side rules that decide a band's extent and
+index the backdrops, and the values-diff axis coverage (owned by the values-diff
+fidelity capability); the editor surface that writes the same framing parameters by
+hand (owned by the structured copy-editing capability); the end-to-end reproduction
+acceptance gate, its fidelity pairing of non-text leaves, and structure recovery
+(owned by the 3-Probe Reproduction Gate story); how the gate presents the residual
+channel.
 
 ## Technical Context
 - Builds on the L1 Layout Substrate (CAP-70, plan item 1): the fold emits a typed
@@ -134,10 +164,31 @@ presents the residual channel.
   receives one per unexpressed element; a caller that does not still gets the same
   reproduction document, and the elements are dropped without a signal. This kept
   the fold's published return shape unchanged.
+- The residual channel is per **element**. An unreadable *value* on an element the
+  fold can otherwise express is not a residual — the leaf is still emitted, minus
+  the axis. The gap stays findable because both framing values are axes the
+  reproduction comparison already checks: an unfolded one reports as a difference
+  rather than being silently closed with a guess. This is the value-level analogue
+  of the element-level promise, reported through the comparison instead of the
+  residual list.
+- REQ-136 — the framing pair (which part of a picture its box shows) and the
+  colour-adjustment stack were both read by the capture all along and dropped by
+  the fold, because the substrate had nowhere to put them. The adjustment was
+  already a compared axis, so before this every target that painted one reported a
+  difference that no fold could close. Only the percentage-pair form of the framing
+  value is read; keyword and length forms are left unfolded.
+- The clamp ceilings the fold applies are the envelope's own (the adjustment
+  amount, the rotation range for a hue shift, the effect-length range for a blur),
+  so a clamped fold always validates.
+- A shadow written as an adjustment function is deliberately NOT read: the
+  substrate already carries a typed shadow, and folding it here would give it two
+  ways to say one thing — the legacy-mode state the project forbids. It stays
+  unfolded until it has one home.
 - Geometry-affecting axes (transform / mask) are deliberately **not** folded: the
   captured box is post-transform, so folding them would double-apply against the
-  geometry the fold already pins. Paint-only treatments (text shadow) are
-  idempotency-safe and are folded.
+  geometry the fold already pins. Paint-only treatments (text shadow, the colour
+  adjustment) and pure framing (which part of a picture its box shows, which does
+  not move the box) are idempotency-safe and are folded.
 - The re-fold is a *derivation* refresh: a bundle with no retained ladder has no
   oracle to re-fold and is rejected with a re-capture instruction rather than
   silently producing a document from nothing.
