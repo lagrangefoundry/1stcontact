@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-132
 created_by: xgd
 created_at: '2026-08-12T00:39:19.612744+00:00'
-updated_at: '2026-08-12T00:44:30.292902+00:00'
+updated_at: '2026-08-12T01:03:54.068256+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -45,5 +45,55 @@ Say go and I'll cut the branch and build it — or tell me if you'd rather the t
 <!-- xgd-chat role="user" ts="2026-08-12T00:44:30.134810+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="721e0064-6b2e-4944-a03c-db63e9b2d6f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T01:03:53.915602+00:00" -->
+#### Claude
+Now let me implement. Starting with the descriptor.
+
+Now the asset URL helper in `api.js`:
+
+Now the picker control itself:
+
+Now wiring it into the modal:
+
+Now the styles:
+
+Now the UAT suite:
+
+Now the test suite:
+
+Three real bugs found. Fixing:
+
+All 12 pass. Now the suites that encoded the old `<select>`:
+
+Now the gesture-modal AC-1050 assertions:
+
+Now the full suite and quality gate:
+
+Pre-existing failures (they fail identically on a clean tree — those suites need a live model credential). Now the quality gate:
+
+Green. Committing:
+
+Now updating the ticket body to match what was actually built, then promoting to `free_coded`:
+
+Done. REQ-132 is at `free_coded`, commit `7ca8280`, version 0.1.36.
+
+**What shipped**
+
+The image modal — for both an image segment's `src` and a painted panel's `backgroundImageUrl` — now renders a grid of thumbnails labelled with file names instead of a `<select>` of `/assets/…` paths. The handle is still what a tile commits; only the label is a projection.
+
+Three implementation notes worth your attention:
+
+**The picker left `mountFields`, as flagged.** The modal now splits its schema by descriptor — `format: 'image'` fields draw here, everything else goes to the component untouched. Both halves flush through one Save, so one modal is still one diff.
+
+**Two bugs the tests caught, not review.** Handed the whole values map for a one-field schema, `mountFields` reports *every* key back from `getValues()` — including `src`, at the value the dialog opened with. Merged into the change map, that read as an explicit "put the old image back" and silently undid every pick. It's fixed twice over: the component is handed only the fields it renders, and the pickers are spread last where the change map is built. Separately, focusing the grid before the dialog was appended did nothing at all — focus doesn't move to a detached element, and it fails silently.
+
+**Three existing assertions encoded the `<select>`** (AC-1043, AC-1044, AC-1050). I updated them to assert the same criteria against the new control rather than adding a compatibility path — the closed list, the pre-selected current value, no free-text route. AC-1044's "two fields open none" now counts across the dialog rather than across `.fields-row`, since an image's two fields are drawn by two different controls.
+
+12 new UATs, all green; 85 tests across the 11 editor/image suites pass. The full run has 13 failures in the assistant suites (REQ-122/127, AC-105x) — I verified those fail identically on a clean tree, since they need a live model credential.
+
+One thing I did **not** do, since you didn't ask: the tiles carry no size, dimensions, or "unused" marker. Say the word if you want any of those — the tile is a single element and it's cheap to extend now.
 
 <!-- xgd-chat-end -->
