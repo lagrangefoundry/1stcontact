@@ -5,10 +5,10 @@ type: request
 title: 'Page editor: text properties — colour, size, weight, italic on the whole segment'
 created_by: xgd
 created_at: '2026-08-12T00:44:05.882887+00:00'
-updated_at: '2026-08-12T17:54:15.108746+00:00'
+updated_at: '2026-08-12T17:54:51.907438+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: reconciling
 fields:
   auto_merge_back: true
   needs_review: false
