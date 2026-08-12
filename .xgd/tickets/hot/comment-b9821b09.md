@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-12T17:53:45.375095+00:00'
+updated_at: '2026-08-12T17:55:52.224982+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -255,5 +255,21 @@ Acceptance criteria are finalized on both. Nothing coded yet — REQ-137 lands f
 137 is underway
 
 Lets just do the rewrite 210 refs is not bad
+
+<!-- xgd-turn id="864412b6-7f36-4041-b40c-bd7427048323-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T17:55:51.949731+00:00" -->
+#### Claude
+Rename is in V1 on REQ-133 (§5d), with the ACs and the command surface updated.
+
+**How it's scoped:** one atomic write — the key in `palette` plus every reference to it move together, or nothing moves. A partial rename would be an invalid site (an orphaned ref is a validation failure by DOC-23 §6, not a fallback), so it can't be two writes. Refused on collision with an existing name, since that's a *merge* — same class of decision as deleting an in-use entry, no computable default. Refused on a non-kebab name. Both guards server-side, like delete. The popup names the count it's about to rewrite, from the same census the swatch label shows.
+
+I recorded why rename is allowed where delete still isn't, so the pair doesn't read as arbitrary: rename is total and lossless — every use has exactly one correct new value and the system can compute it. Delete has no correct default for any use. It's about computability, not reference count.
+
+**One implementation consequence worth knowing.** The census has to count exactly what the rename rewrites, or the number shown and the work done can drift apart. `collectL1PaletteRefs` and `resolveL1Palette` are already two hand-kept copies of the same traversal in `packages/site-schema/src/l1/palette.ts`; rename would be a third. REQ-133 §6 now calls for collapsing them into one `mapL1PaletteRefs(input, fn)` with collect/resolve/rename expressed on top.
+
+That file is exactly what REQ-137 is editing right now (`resolveL1Color`, the entry schema, the per-step tally in the census). The consolidation is scoped to REQ-133 and lands *after* 137, on top of its version — so 137 doesn't need to absorb it or know about it. Worth a heads-up if you're driving 137 and tempted to refactor the walk there; leave it as-is and let 133 take it.
+
+REQ-133 stays blocked on 137 — no code from me. Ping me when 137 lands and I'll cut the branch.
 
 <!-- xgd-chat-end -->
