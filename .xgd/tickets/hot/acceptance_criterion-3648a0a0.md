@@ -7,10 +7,10 @@ title: The shapes a picture offers include whatever shape it already carries, ev
   reshape it
 created_by: xgd
 created_at: '2026-08-12T21:29:19.255021+00:00'
-updated_at: '2026-08-12T21:29:19.255021+00:00'
+updated_at: '2026-08-12T21:44:39.802354+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
