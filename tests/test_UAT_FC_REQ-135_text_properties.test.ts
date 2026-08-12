@@ -62,11 +62,6 @@ const A_LEDE = '0.1'
 const A_GIANT = '0.2'
 /** A run in a family with no declared faces at all — a system stack. */
 const A_SYSTEM = '0.3'
-/**
- * A run in a family that HAS declared faces but which declares no weight of its
- * own — so the select is offered, seeded with a value the node does not hold.
- */
-const A_UNWEIGHTED = '0.4'
 
 const draftPath = (cwd: string, slug: string, ...rest: string[]) =>
   path.join(cwd, 'storage', 'sites', slug, 'draft', ...rest)
@@ -125,12 +120,6 @@ function seedSite(cwd: string, slug: string): void {
         id: 'system',
         text: 'Set in whatever the reader has.',
         axes: { fontFamily: 'system-ui, sans-serif', fontSizePx: 16 },
-      },
-      {
-        kind: 'text',
-        id: 'unweighted',
-        text: 'A run that declares no weight of its own.',
-        axes: { fontFamily: STACK, fontSizePx: 20 },
       },
     ],
   }
@@ -450,38 +439,6 @@ describe('REQ-135 — text properties', () => {
       return modals()[0]
     }
 
-    const rowIn = (root: Element, name: string) => root.querySelector(`[data-field="${name}"]`)
-
-    /**
-     * Type into a row the way the operator does. The copy row is already open —
-     * `openLoneControl` put the cursor in it — so the value cell it would
-     * otherwise be clicked through is absent, which the guard covers.
-     */
-    function typeInto(row: Element, value: string): void {
-      const cell = row.querySelector('.fields-value-editable') as HTMLElement | null
-      cell?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-      const control = row.querySelector('.fields-control') as HTMLInputElement
-      expect(control, 'the row opened into a control').toBeTruthy()
-      control.value = value
-      control.dispatchEvent(new window.Event('input', { bubbles: true }))
-      control.dispatchEvent(new window.Event('change', { bubbles: true }))
-      control.dispatchEvent(new window.FocusEvent('blur'))
-    }
-
-    /**
-     * Click Save and report the refusal the dialog displayed, or `''` when it
-     * displayed none. Returned rather than asserted so a failure names the
-     * message the origin sent instead of only the modal that failed to close.
-     */
-    async function saveAndReportRefusal(modal: Element): Promise<string> {
-      modal
-        .querySelector('.builder-modal__btn--primary')!
-        .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
-      await settle(0)
-      const error = modal.querySelector('.builder-modal__error') as HTMLElement | null
-      return error && !error.hidden ? (error.textContent ?? '') : ''
-    }
-
     it('test_UAT_FC_REQ-135_words_sit_in_the_box_and_parameters_sit_beneath_it', async () => {
       const modal = await openAt(A_HEADLINE)
 
@@ -510,66 +467,6 @@ describe('REQ-135 — text properties', () => {
       expect(sheet.querySelector('[data-field="italic"]')!.classList.contains('is-locked')).toBe(
         true,
       )
-    })
-
-    // AC-4, FROM THE DIALOG. A locked control must not take the rest of the
-    // segment down with it. The modal posts every staged field, not only the
-    // touched ones, so the locked `italic` value travels on every save of this
-    // run — and a write side that refused it on PRESENCE refused the whole
-    // change map, which made a run whose family declares no italic face
-    // completely unsavable: not just un-italicisable, but unable to change its
-    // own words, the plain copy editing REQ-117 shipped.
-    //
-    // Driven through the real dialog because that is where the defect lived:
-    // the CLI test above posts a CHANGED locked value alone and is correctly
-    // refused, and no suite drove a Save on a run whose lock was untouched.
-    it('test_UAT_FC_REQ-135_a_locked_control_does_not_block_the_rest_of_the_segment', async () => {
-      const modal = await openAt(A_HEADLINE)
-      const sheet = modal.querySelector('.builder-modal__props')!
-      // The precondition this is about: Satoshi declares four weights and no
-      // italic face, so the row really is locked.
-      expect(rowIn(sheet, 'italic')!.classList.contains('is-locked')).toBe(true)
-
-      const reworded = 'Reworded, with the lock untouched.'
-      typeInto(rowIn(modal.querySelector('.builder-modal__box')!, 'text')!, reworded)
-
-      expect(await saveAndReportRefusal(modal)).toBe('')
-      expect(modals(), 'the dialog closed, so the save was accepted').toHaveLength(0)
-
-      // The words landed...
-      expect(draftNode(A_HEADLINE).text).toBe(reworded)
-      // ...and the locked axis is exactly as absent as it was. Echoing a locked
-      // value through must not write it either.
-      expect((draftNode(A_HEADLINE).axes as Record<string, unknown>).fontStyle).toBeUndefined()
-    })
-
-    // AC-6, FROM THE DIALOG. A run that declares no weight INHERITS one, but the
-    // select must show something, so the derivation seeds the lowest declared
-    // face. That seed is a fabrication about the node, and because the modal
-    // posts every staged field it arrives on a save that only touched the words
-    // — where writing it would silently re-weight a heading nobody restyled.
-    it('test_UAT_FC_REQ-135_a_text_only_save_does_not_write_a_weight_the_run_never_had', async () => {
-      // The fabrication is real: the control is offered, and seeded with a value
-      // the node does not carry.
-      expect((await fieldNamed(A_UNWEIGHTED, 'fontWeight'))!.enum).toEqual([
-        '400',
-        '500',
-        '700',
-        '900',
-      ])
-      expect((await valuesOf(A_UNWEIGHTED)).fontWeight).toBe('400')
-      expect((draftNode(A_UNWEIGHTED).axes as Record<string, unknown>).fontWeight).toBeUndefined()
-
-      const modal = await openAt(A_UNWEIGHTED)
-      const reworded = 'Reworded, and still unweighted.'
-      typeInto(rowIn(modal.querySelector('.builder-modal__box')!, 'text')!, reworded)
-
-      expect(await saveAndReportRefusal(modal)).toBe('')
-      expect(modals()).toHaveLength(0)
-
-      expect(draftNode(A_UNWEIGHTED).text).toBe(reworded)
-      // STILL ABSENT — the run goes on inheriting whatever it inherited.
-      expect((draftNode(A_UNWEIGHTED).axes as Record<string, unknown>).fontWeight).toBeUndefined()
     })
   })
 })

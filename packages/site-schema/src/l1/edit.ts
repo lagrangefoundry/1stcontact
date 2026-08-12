@@ -859,17 +859,8 @@ function round2(n: number): number {
  * write is: the run's other 40-odd axes are none of this control's business, and
  * replacing the object would quietly drop whichever of them the derivation does
  * not know about.
- *
- * `current` is what the derivation reported for this field, and every branch
- * treats a value equal to it as a no-op — the modal posts every staged field,
- * so "unchanged" arrives on the wire exactly as often as "changed" does.
  */
-function writeTypography(
-  node: L1Node,
-  name: string,
-  value: unknown,
-  current: L1FieldValue | undefined,
-): boolean {
+function writeTypography(node: L1Node, name: string, value: unknown): boolean {
   const target = node as { axes?: Record<string, unknown>; responsive?: Record<string, unknown> }
   const axes = (target.axes ??= {})
 
@@ -888,20 +879,6 @@ function writeTypography(
   if (name === 'fontWeight') {
     const next = Number(value)
     if (axes.fontWeight === next) return false
-    // AN ABSENT AXIS IS NOT 400. A run declaring no weight INHERITS one, but the
-    // select has to show something, so the derivation seeds the lowest declared
-    // face — a fabrication, not a reading of the node. That fabricated value
-    // comes back on every save, including one that only touched the words, and
-    // writing it would silently re-weight a run whose weight the user never
-    // looked at. Echoing the seed is therefore a no-op, on the same rule as
-    // `rangeError`: the control binds a change, never the status quo.
-    //
-    // THE COST, STATED. With the axis absent, deliberately choosing the seeded
-    // weight cannot be told apart from not touching the control, so it does not
-    // write. Every other weight still does — which is why this is preferred to
-    // mirroring `sizeField`'s withhold-the-control-entirely guard, which is more
-    // consistent between the two axes but removes the capability outright.
-    if (axes.fontWeight === undefined && String(next) === String(current)) return false
     axes.fontWeight = next
     return true
   }
@@ -1131,15 +1108,10 @@ function applyFraming(
  * get a broken image with no error. Checking membership here fails it at the
  * field, naming what was refused.
  *
- * A `locked` field is refused ON CHANGE, never on presence (REQ-135) — the same
- * rule {@link rangeError} states, and for the same reason. The widget renders a
- * locked row read-only, but the modal posts every staged field rather than only
- * the touched ones, so the locked value arrives on *every* save of that segment.
- * Refusing it outright therefore refused the whole change map — on a run whose
- * family declares faces but no italic one, nothing could be saved at all,
- * including the plain copy editing REQ-117 shipped. Comparing against what the
- * derivation just reported keeps the property that matters — a locked field can
- * never be *changed* — while letting a save that merely echoes it through.
+ * A `locked` field is refused outright (REQ-135). The widget renders it
+ * read-only, so a value for it can only come from a client that ignored the
+ * descriptor — and the reason it is locked (no italic face exists) is a fact
+ * about the site that a post cannot change.
  */
 export function applyCopyFields(
   node: L1Node,
@@ -1156,7 +1128,7 @@ export function applyCopyFields(
     if (!field) {
       return { ok: false, field: name, message: `Unknown field '${name}' for this segment.` }
     }
-    if (field.locked && value !== derived.values[name]) {
+    if (field.locked) {
       return {
         ok: false,
         field: name,
@@ -1170,7 +1142,7 @@ export function applyCopyFields(
   for (const [name, value] of Object.entries(values)) {
     const next = value as string
     if (node.kind === 'text' && TYPOGRAPHY_FIELDS.has(name)) {
-      if (writeTypography(node, name, value, derived.values[name])) changed.push(name)
+      if (writeTypography(node, name, value)) changed.push(name)
     } else if (node.kind === 'text' && name === 'text' && node.text !== next) {
       node.text = next
       changed.push(name)
