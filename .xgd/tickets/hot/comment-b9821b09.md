@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-12T17:40:34.426782+00:00'
+updated_at: '2026-08-12T17:43:02.676697+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -224,5 +224,28 @@ One flag worth being explicit about, since it revises a landed decision: REQ-114
    4. Continuous
    
    No big deal
+
+<!-- xgd-turn id="da1db527-b106-49aa-bca1-0455af5ecea6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T17:43:02.532749+00:00" -->
+#### Claude
+Done — and here's (3).
+
+## Rename, since you asked
+
+Renaming a palette entry's **key**: `primary` → `brand`. Every reference in every page names the entry by that key (`{ref: 'primary'}`), so a rename is really "rewrite this key and all 210 references to it, in one write, or orphan every one of them." That's a different operation from changing a color — it touches pages, not just the palette — which is why I'd keep it out of V1. The AI can already do it and can talk through the blast radius first. Recorded in REQ-133 §5(d) as a decision rather than an omission; say the word if you want it in.
+
+## What I did
+
+**REQ-137 — "L1 palette: shade on the reference replaces named steps"** (new). The model change, split out of REQ-133 §2: entry becomes one hex, `steps` deleted, reference carries a continuous `shade ∈ [-1,+1]` resolved as an Oklab mix toward black/white. Carries the measurements (15 of 22 steps reproduce within 8/255; the 7 that don't become their own entries), the re-retrofit of `xgd` and `gigabytealchemy`, and the explicit supersession of REQ-114 AC3's pixel-identity guarantee. Design discussion attached as a transcript comment.
+
+**REQ-133** now depends on REQ-137 and is the popup only. Its §8 is decisions rather than questions:
+
+- split → REQ-137
+- `1c palette` as its own command group, `/api/palette` beside it
+- rename out of V1
+- slider continuous — with the tradeoff written down, since it's the one thing continuous costs you: two segments can't be matched to the same shade by eye, so "make these two the same" becomes an AI request
+
+Acceptance criteria are finalized on both. Nothing coded yet — REQ-137 lands first, then the popup. Want me to start on REQ-137?
 
 <!-- xgd-chat-end -->
