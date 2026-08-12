@@ -770,14 +770,21 @@ export function foldObjectPosition(v: string | null | undefined): L1ObjectPositi
  * photograph would fold to no filter at all.
  */
 const FILTER_FUNCTIONS = [
-  { css: 'grayscale', axis: 'grayscale', unit: 'ratio', identity: 0, max: 1 },
-  { css: 'sepia', axis: 'sepia', unit: 'ratio', identity: 0, max: 1 },
-  { css: 'invert', axis: 'invert', unit: 'ratio', identity: 0, max: 1 },
-  { css: 'saturate', axis: 'saturate', unit: 'ratio', identity: 1, max: L1_ENVELOPE.filterAmount.max },
-  { css: 'brightness', axis: 'brightness', unit: 'ratio', identity: 1, max: L1_ENVELOPE.filterAmount.max },
-  { css: 'contrast', axis: 'contrast', unit: 'ratio', identity: 1, max: L1_ENVELOPE.filterAmount.max },
-  { css: 'hue-rotate', axis: 'hueRotateDeg', unit: 'deg', identity: 0, max: 3600 },
-  { css: 'blur', axis: 'blurPx', unit: 'px', identity: 0, max: 10_000 },
+  { css: 'grayscale', axis: 'grayscale', unit: 'ratio', identity: 0, min: 0, max: 1 },
+  { css: 'sepia', axis: 'sepia', unit: 'ratio', identity: 0, min: 0, max: 1 },
+  { css: 'invert', axis: 'invert', unit: 'ratio', identity: 0, min: 0, max: 1 },
+  { css: 'saturate', axis: 'saturate', unit: 'ratio', identity: 1, min: 0, max: L1_ENVELOPE.filterAmount.max },
+  { css: 'brightness', axis: 'brightness', unit: 'ratio', identity: 1, min: 0, max: L1_ENVELOPE.filterAmount.max },
+  { css: 'contrast', axis: 'contrast', unit: 'ratio', identity: 1, min: 0, max: L1_ENVELOPE.filterAmount.max },
+  {
+    css: 'hue-rotate',
+    axis: 'hueRotateDeg',
+    unit: 'deg',
+    identity: 0,
+    min: L1_ENVELOPE.rotateDeg.min,
+    max: L1_ENVELOPE.rotateDeg.max,
+  },
+  { css: 'blur', axis: 'blurPx', unit: 'px', identity: 0, min: 0, max: 10_000 },
 ] as const
 
 /**
@@ -803,11 +810,15 @@ export function foldFilter(v: string | null | undefined): L1Filter | undefined {
     if (!Number.isFinite(n)) continue
     // A ratio written as a percentage is the same filter written differently.
     if (fn.unit === 'ratio' && m[2] === '%') n /= 100
-    // Clamped into the envelope rather than dropped: a value past the ceiling is
-    // a real treatment the target paints, and the nearest expressible one
-    // reproduces it far better than nothing does. Negative is not a treatment.
+    // Clamped into the envelope rather than dropped: a value past a bound is a
+    // real treatment the target paints, and the nearest expressible one reproduces
+    // it far better than nothing does. Negative is not a treatment.
     if (fn.unit !== 'deg' && n < 0) continue
-    n = Math.min(n, fn.max)
+    // BOTH ENDS, from the envelope the validator enforces. A one-sided clamp let a
+    // captured `hue-rotate(-5000deg)` — negative is meaningful for a rotation, so
+    // the guard above lets it through — fold to a document `validateL1` then
+    // refuses, which is the fold emitting output its own envelope rejects.
+    n = Math.min(Math.max(n, fn.min), fn.max)
     n = Math.round(n * 1e4) / 1e4
     // The identity paints nothing, so carrying it would grow every folded
     // definition with declarations that cost a composite layer and move no pixel.

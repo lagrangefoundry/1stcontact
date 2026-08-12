@@ -188,6 +188,13 @@ describe('AC-1134 a captured colour adjustment folds to the typed stack, with on
         picture('dropshadow', 2500, { filter: 'drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.5))' }),
         // (g) no adjustment stated at all.
         picture('none', 2900, { filter: 'none' }),
+        // (i) past the envelope FLOOR. A rotation is the one function where a
+        //     negative amount is meaningful, so (e)'s skip deliberately lets it
+        //     through — which leaves this the only value that can reach the fold
+        //     below a bound. A ceiling-only clamp folded it verbatim and produced
+        //     a document `validateL1` refuses, so the assertion that matters is
+        //     the `validateL1(doc).ok` below as much as the value itself.
+        picture('underfloor', 3700, { filter: 'hue-rotate(-5000deg)' }),
         // (h) a painted SURFACE carries its own adjustment too — every painting
         //     kind holds the axis, not just pictures.
         textless({
@@ -224,6 +231,11 @@ describe('AC-1134 a captured colour adjustment folds to the typed stack, with on
     expect(axes.get('negative')).toEqual({ objectFit: 'cover' })
     expect(axes.get('negative')).not.toHaveProperty('filter')
 
+    // Past the FLOOR → the nearest expressible value, symmetrically with the
+    // ceiling above. `validateL1` accepting this document is the other half of
+    // the claim: the fold never emits what its own envelope would reject.
+    expect(axes.get('underfloor')).toEqual({ objectFit: 'cover', filter: { hueRotateDeg: -3600 } })
+
     // A shadow stated as an adjustment function is not carried in the stack.
     expect(axes.get('dropshadow')).toEqual({ objectFit: 'cover' })
     expect(axes.get('none')).toEqual({ objectFit: 'cover' })
@@ -243,8 +255,9 @@ describe('AC-1134 a captured colour adjustment folds to the typed stack, with on
     expect(emitted).toContain('filter: saturate(0.4)')
     expect(emitted).toContain('filter: grayscale(1) saturate(0)')
     expect(emitted).toContain('filter: saturate(4)')
+    expect(emitted).toContain('filter: hue-rotate(-3600deg)')
     expect(emitted).toContain('filter: grayscale(0.5) hue-rotate(90deg) blur(3px)')
     // Nothing painted an adjustment for the elements that folded none.
-    expect(emitted).toHaveLength(5)
+    expect(emitted).toHaveLength(6)
   })
 })

@@ -45,9 +45,18 @@ const A_FEATHERED = '0.1'
 const A_PILL = '0.2'
 /** A picture already panned away from centre, in both components. */
 const A_PANNED = '0.3'
+/**
+ * A picture carrying the FRACTIONS A CAPTURE PRODUCES — the shape no integer
+ * control can express. `foldObjectPosition` writes two decimal places and
+ * `foldFilter` four, so this is not an exotic fixture: it is what every folded
+ * page holds, and the only starting state from which an echo can differ from
+ * what the operator was shown.
+ */
+const A_FOLDED = '0.4'
 
 const HERO_ALT = 'The hero'
 const PORTRAIT_ALT = 'A portrait'
+const FOLDED_ALT = 'A panorama'
 
 /** The parameters `imageFramingFields` derives, after the `src` + `alt` pair. */
 const FRAMING_FIELDS = [
@@ -130,6 +139,18 @@ function seedPage(cwd: string, slug: string): void {
         src: '/assets/wide.jpg',
         alt: 'A wide shot',
         axes: { objectFit: 'cover', objectPosition: { xPct: 20, yPct: 80 } },
+      },
+      {
+        kind: 'image',
+        id: 'folded',
+        src: '/assets/panorama.jpg',
+        alt: FOLDED_ALT,
+        // Exactly the precision the fold emits: 2dp on a position, 4dp on an
+        // adjustment, and a half-degree rotation. Every one of these rounds to a
+        // DIFFERENT number than it holds, which is what makes the echo below a
+        // real test rather than a tautology.
+        axes: { objectPosition: { xPct: 33.33, yPct: 50 }, filter: { saturate: 1.405 } },
+        transform: { rotateDeg: 12.5 },
       },
     ],
   }
@@ -531,5 +552,43 @@ describe('story-37a3921b — how a picture is seen, through the same write path'
     expect(draftNode(A_PLAIN).mask).toBeUndefined()
     expect(draftNode(A_PLAIN).transform).toBeUndefined()
     expect(draftBytes()).toBe(baseline)
+
+    // AND FROM THE STARTING STATE A CAPTURE ACTUALLY PRODUCES. Everything above
+    // begins from values an integer control can hold exactly, so it cannot see
+    // the failure this guards: the form reports a HELD FRACTION rounded into the
+    // integer control that shows it, and judging the value that comes back
+    // against the raw parameter instead of against what was reported makes a
+    // plain echo read as a change. Because a save posts every staged field,
+    // rewording the alt text would then silently re-pan, re-saturate and
+    // re-rotate a picture the operator never adjusted — and record it in the
+    // history as an edit they never made.
+    const held = await valuesOf(A_FOLDED)
+    expect(held).toMatchObject({ objectPositionXPct: 33, saturatePct: 141, rotateDeg: 13 })
+
+    const reworded = await set(A_FOLDED, { ...held, alt: 'A panorama, reworded.' })
+    expect(reworded.ok).toBe(true)
+    expect(reworded.data!.changed).toEqual(['alt'])
+
+    // The three rounded parameters are byte-identical to the fractions seeded —
+    // not merely close, and not silently rewritten to what was displayed.
+    expect(draftAxes(A_FOLDED)).toEqual({
+      objectPosition: { xPct: 33.33, yPct: 50 },
+      filter: { saturate: 1.405 },
+    })
+    expect(draftNode(A_FOLDED).transform).toEqual({ rotateDeg: 12.5 })
+    expect(draftNode(A_FOLDED).alt).toBe('A panorama, reworded.')
+
+    // The control still BINDS A CHANGE: moving the pan one step off what was
+    // reported writes the integer asked for, and leaves the other component's
+    // stored precision alone rather than rounding it away in passing.
+    // Re-read the form rather than replaying the stale one: the alt text moved
+    // above, and posting the old value back would be a second edit riding along.
+    const settled = await valuesOf(A_FOLDED)
+    const panned = await set(A_FOLDED, { ...settled, objectPositionXPct: 34 })
+    expect(panned.ok).toBe(true)
+    expect(panned.data!.changed).toEqual(['objectPositionXPct'])
+    expect(draftAxes(A_FOLDED).objectPosition).toEqual({ xPct: 34, yPct: 50 })
+    expect(draftAxes(A_FOLDED).filter).toEqual({ saturate: 1.405 })
+    expect(draftNode(A_FOLDED).transform).toEqual({ rotateDeg: 12.5 })
   })
 })

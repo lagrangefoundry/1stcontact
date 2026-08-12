@@ -993,10 +993,26 @@ function fraction(pct: number, scale: number): number {
  * every save and make a no-op edit produce a diff — and, for `objectFit`
  * specifically, would put a value in the file that the fold deliberately omits,
  * so a folded page and an edited page would disagree about what "unset" looks like.
+ *
+ * `reported` is what the derivation just showed the operator for this field, and
+ * it — not the raw axis — is what an incoming value is judged against, exactly as
+ * {@link writeTypography} is handed its current. The controls here are integers
+ * while the axes they address are not (`foldObjectPosition` writes 2dp, `foldFilter`
+ * 4dp), so a captured page routinely holds a value no integer control can express.
+ * Judged against the axis, the rounded value the operator was shown would differ
+ * from it and a plain echo would overwrite it — and because the modal posts every
+ * staged field rather than only the touched ones, editing the alt text alone would
+ * quietly re-pan, re-saturate and re-rotate the picture. Judged against what was
+ * reported, an echo compares equal by construction, whatever rounding was applied.
  */
-function writeImageFraming(node: L1Node, name: string, value: unknown): boolean {
+function writeImageFraming(
+  node: L1Node,
+  name: string,
+  value: unknown,
+  reported: L1FieldValue | undefined,
+): boolean {
   const target = node as unknown as { axes?: Record<string, unknown> }
-  const changed = applyFraming(node, name, value)
+  const changed = applyFraming(node, name, value, reported)
   // An identity write on a node that carried no axes at all must not leave an
   // empty bag behind — see {@link clearKey}. The creation is unconditional above
   // because every branch needs somewhere to look; the prune is what keeps a
@@ -1006,7 +1022,19 @@ function writeImageFraming(node: L1Node, name: string, value: unknown): boolean 
 }
 
 /** {@link writeImageFraming}'s body, before the empty-bag prune. */
-function applyFraming(node: L1Node, name: string, value: unknown): boolean {
+function applyFraming(
+  node: L1Node,
+  name: string,
+  value: unknown,
+  reported: L1FieldValue | undefined,
+): boolean {
+  // THE ONLY CHANGE GATE. Every branch below writes unconditionally, because an
+  // echo of what the operator was shown has already been answered here — see
+  // {@link writeImageFraming}. A branch re-deciding this against its own axis is
+  // what let a rounded value read as a change; there is one comparison, and this
+  // is it.
+  if (value === reported) return false
+
   const target = node as unknown as {
     axes?: Record<string, unknown>
     mask?: { shape: string }
@@ -1016,7 +1044,6 @@ function applyFraming(node: L1Node, name: string, value: unknown): boolean {
 
   if (name === 'objectFit') {
     const next = value as string
-    if ((axes.objectFit ?? OBJECT_FIT_DEFAULT) === next) return false
     if (next === OBJECT_FIT_DEFAULT) delete axes.objectFit
     else axes.objectFit = next
     return true
@@ -1024,13 +1051,14 @@ function applyFraming(node: L1Node, name: string, value: unknown): boolean {
 
   if (name === 'objectPositionXPct' || name === 'objectPositionYPct') {
     const held = axes.objectPosition as { xPct: number; yPct: number } | undefined
-    const current = {
+    // The component this field does NOT name is carried over from the HELD axis,
+    // never from what was reported for it: the operator moved one slider, and the
+    // other component's stored precision is not theirs to round away.
+    const next = {
       xPct: held?.xPct ?? OBJECT_POSITION_DEFAULT,
       yPct: held?.yPct ?? OBJECT_POSITION_DEFAULT,
     }
-    const next = { ...current }
     next[name === 'objectPositionXPct' ? 'xPct' : 'yPct'] = value as number
-    if (next.xPct === current.xPct && next.yPct === current.yPct) return false
     // BOTH COMPONENTS OR NEITHER. CSS silently defaults an unspecified component
     // to 50%, so a half-written position is a 50% the document never said; the
     // axis is either absent (the browser's centre) or fully stated.
@@ -1044,7 +1072,6 @@ function applyFraming(node: L1Node, name: string, value: unknown): boolean {
 
   if (name === 'shape') {
     const next = value as string
-    if ((target.mask?.shape ?? SHAPE_NONE) === next) return false
     if (next === SHAPE_NONE) delete target.mask
     // A bare shape, because the parameters a mask carries belong to the shape
     // that names them (`slantPct` to a parallelogram, `roughness`/`seed` to a
@@ -1057,7 +1084,6 @@ function applyFraming(node: L1Node, name: string, value: unknown): boolean {
 
   if (name === 'cornerRadiusPx') {
     const next = value as number
-    if ((axes.borderRadiusPx ?? 0) === next) return false
     if (next === 0) delete axes.borderRadiusPx
     else axes.borderRadiusPx = next
     return true
@@ -1067,17 +1093,16 @@ function applyFraming(node: L1Node, name: string, value: unknown): boolean {
     const key = name === 'rotateDeg' ? 'rotateDeg' : 'scale'
     const identity = name === 'rotateDeg' ? 0 : 1
     const next = name === 'rotateDeg' ? (value as number) : fraction(value as number, 100)
-    const current = (target.transform?.[key] as number | undefined) ?? identity
-    if (current === next) return false
     setNested(target as unknown as Record<string, unknown>, 'transform', key, next === identity ? undefined : next)
     return true
   }
 
-  const control = FILTER_CONTROLS.find((c) => c.name === name)!
+  // Fail cleanly rather than throw on a field the set admits but the control table
+  // does not describe: the two are built from one list today, and this is what
+  // keeps them adding a field to only one of them a no-op instead of a crash.
+  const control = FILTER_CONTROLS.find((c) => c.name === name)
+  if (!control) return false
   const next = fraction(value as number, control.scale)
-  const filter = axes.filter as Record<string, number | undefined> | undefined
-  const current = filter?.[control.axis] ?? fraction(control.identity, control.scale)
-  if (current === next) return false
   setNested(
     axes,
     'filter',
@@ -1150,7 +1175,7 @@ export function applyCopyFields(
       node.text = next
       changed.push(name)
     } else if (node.kind === 'image' && IMAGE_FRAMING_FIELDS.has(name)) {
-      if (writeImageFraming(node, name, value)) changed.push(name)
+      if (writeImageFraming(node, name, value, derived.values[name])) changed.push(name)
     } else if (node.kind === 'image' && name === 'src' && node.src !== next) {
       node.src = next
       changed.push(name)
