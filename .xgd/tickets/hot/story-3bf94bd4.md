@@ -6,14 +6,14 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-10T08:50:28.541453+00:00'
+updated_at: '2026-08-12T16:21:21.773987+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-15c1f647
   capability_uid: capability-12fee326
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
   updated_by: request-66e4c630
   uat_coverage: fail
@@ -59,7 +59,7 @@ filling in a form — are the operator's.
 - **A form over that region's fields.** The form is built from whatever fields
   the region exposes and the values currently in the draft: a run of copy
   exposes its words; an image region exposes **which image goes here** — a
-  closed picker of the site's own assets, always including the handle already in
+  closed picker of the site's own images, always including the handle already in
   place — alongside its alt text. It is a **form over structured fields** — not
   editing on the page itself, not a rich-text surface, and with no route to
   markup or styling. The gesture is deliberately **kind-agnostic**: it resolves
@@ -71,6 +71,35 @@ filling in a form — are the operator's.
   operator changed nothing in is not an edit at all: confirming it and
   cancelling it are the same answer, with nothing written and nothing
   re-rendered. Opening a form to look is not an edit.
+- **Choosing an image by looking at it.** The closed list an image field carries
+  is presented as a **grid of thumbnails** — one tile per image the region
+  offers and nothing else in the grid, with the dropdown of paths it replaces
+  gone rather than offered alongside it. Each tile shows the picture the origin
+  actually serves for that handle, resolved the way the page being edited
+  resolves its own image sources, so the grid costs no new endpoint and copies no
+  asset. Each is labelled with the image's **file name** and nothing else: the
+  directory part of a handle is an internal address rather than a property of the
+  picture, and it stops meaning anything at all once assets are held in a store
+  rather than a filesystem. The **value is untouched** — a tile commits the full
+  handle the write path validates, and the file name is only what the operator
+  reads. The full handle survives as the tile's tooltip, which keeps two images
+  sharing a name in different sub-directories tellable apart without putting a
+  path on screen for every tile that never needed one. A handle whose bytes this
+  origin cannot serve keeps its named, selectable tile behind a placeholder
+  frame: the handle a region holds now is always offered and may name bytes that
+  are not here, so a tile that vanished would take with it the only way to keep
+  the image the region has. The grid is one single-selection group, reachable and
+  announced without a mouse, and it holds the keyboard from the moment the
+  dialog opens — on the tile the region currently holds.
+- **A dialog that composes two controls and still saves once.** The dialog
+  decides **per field** which control draws it: the image grid it draws itself,
+  everything else the shared form component draws. So an image region's picker
+  and its alt text sit in one dialog, and a region that exposes only a background
+  image gets no text-editing box at all rather than a framed void. Both halves
+  are staged and neither is committed on its own: Save merges them into a
+  **single change** carrying only what the operator touched, and a dialog closed
+  with nothing touched in **either** control still writes and re-renders nothing.
+  One dialog is one diff however many controls it took to fill in.
 - **The page updating.** A successful Save leaves the operator looking at their
   page with the change on it — the new words, the chosen image — with no further
   step to take, and the gesture still live on the page they are now looking at:
@@ -117,13 +146,17 @@ beyond cancelling the open form.
   like. The gesture only says *which* region is live; the rendering says how
   live looks.
 - **Kind-agnosticism proved, not merely claimed.** Image selection reached the
-  operator without a single change to this gesture: the loaded field list is
-  handed straight to the shared component, which already handled the
-  closed-option control the derivation returned for an image's `src`. The
-  derivation — one function on the write-path side — is the only place a region
-  kind is taught what it exposes; the gesture reads that list and knows nothing
-  about kinds. Enum membership is re-checked on the write side, so the closed
-  picker is a property of the surface rather than of this UI.
+  operator without a single change to the gesture: the derivation — one function
+  on the write-path side — is the only place a region kind is taught what it
+  exposes, and this story reads that list and knows nothing about kinds. Enum
+  membership is re-checked on the write side, so the closed picker is a property
+  of the surface rather than of this UI. The dialog now routes each field to one
+  of two controls, and it does so **by descriptor and never by region kind**: a
+  field whose descriptor declares that its options are images is drawn as the
+  grid whatever region produced it, so the day a third region kind exposes an
+  image handle it is drawn correctly with nothing here to change. An image region
+  is itself the proof — it carries a grid field and a form field at once, which
+  is why *which control* cannot be a per-region question.
 - **The form is a shared component, not hand-rolled.** The intent is explicit
   that typed controls and the confirm/cancel model come from the shared UI
   component set; this story's job is deriving the field list from a region. The
@@ -156,10 +189,31 @@ beyond cancelling the open form.
   loud on purpose — a quiet skip on the only test of the actual gesture is
   indistinguishable from a pass — but the gesture is genuinely unverified there
   until a private registry exists.
-- **Known limitation, upstream.** The shared enum control renders each option's
-  text as its value verbatim, so an image picker shows the asset's handle rather
-  than a friendly name or a thumbnail. Per the component policy this is closed
-  upstream, never patched or wrapped here.
+- **The picker is drawn by this dialog, and that is a stated staging post.** The
+  shared component's control for a closed list is a dropdown whose option text is
+  the value verbatim, and a thumbnail grid is not reachable through its seams —
+  so the dialog draws these fields itself rather than patching or wrapping a
+  component the policy says is closed upstream. The component already pairs a
+  closed list with a *this is a colour* hint to mean "swatch grid", so the
+  descriptor the derivation emits is already the shape the component would need
+  if the control moves upstream, where its honest long-term home is; an
+  unrecognised hint is inert there today, so nothing about the wire shape has to
+  change on that day.
+- **The two controls are composed, not chained.** The shared component is handed
+  only the fields it renders **and only their values**. Handed the whole map it
+  reports every key back at the value the dialog opened with, which merged into
+  the change map as an explicit "put the old image back" and silently undid every
+  pick. The staged maps are merged with the grid's reported last, so the control
+  that drew a field is the one that answers for it. This defends the existing
+  one-Save-one-change invariant at a seam that did not exist before rather than
+  extending it.
+- **The value/label distinction is load-bearing.** A tile commits the full
+  handle; only what the operator reads is the file name. Stripping the path is a
+  display projection, not a change to the vocabulary a region's field accepts,
+  which is what keeps this a change of control rather than a change to the write
+  path. Duplicate file names are therefore **tolerated rather than
+  disambiguated** — the tooltip settles them, deliberately — so that a later
+  reader does not "fix" the collision by putting paths back on every tile.
 - **Known defect, deliberately not fixed here**: saving a copy change rewrites
   the whole page definition with different unicode escaping, so a one-word
   change produces a large diff. Pre-existing, cosmetic, and carried as its own
