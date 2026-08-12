@@ -2,13 +2,13 @@
 uid: acceptance_criterion-39597704
 id: AC-729
 type: acceptance_criterion
-title: A text-free media element folds to an image leaf with its resolved source and
-  alternative text
+title: A text-free media element folds to an image leaf with its resolved source,
+  alternative text and the framing it is seen through
 created_by: xgd
 created_at: '2026-07-29T04:04:57.769004+00:00'
-updated_at: '2026-08-12T21:47:58.581789+00:00'
+updated_at: '2026-08-12T21:49:08.863077+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-8acc338d
