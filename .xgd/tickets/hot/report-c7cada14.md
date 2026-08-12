@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded — REQ-132 image picker shows thumbnail
   file names'
 created_by: xgd
 created_at: '2026-08-12T16:00:53.901473+00:00'
-updated_at: '2026-08-12T16:00:53.901473+00:00'
+updated_at: '2026-08-12T16:05:44.723181+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-5946d045
@@ -34,7 +34,7 @@ fields:
       binds. No new capability bucket: this is one optional field on an existing descriptor
       in an existing derivation, reaching an existing consumer over the existing transport.
       No new command, endpoint, or value vocabulary.'
-    story_uid: null
+    story_uid: story-37a3921b
     target_story_ids:
     - story-37a3921b
     intent_delta_summary: Extend STORY-100 so the derived field descriptor for an
