@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-12T01:40:27.398761+00:00'
+updated_at: '2026-08-12T01:44:07.526296+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -175,5 +175,43 @@ OK so I think the right approach here is that the data structure should store th
 The user should not be allowed to edit the steps directly they should get a light-dark slider that would allow them to vary the steps WRT to the original but one a linear spectrum - would that work?
 
 Then a change to the primary changes the whol family
+
+<!-- xgd-turn id="9cabeb77-b926-4c89-907f-5f78352e3bad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T01:44:07.378539+00:00" -->
+#### Claude
+Good instinct — and it mirrors a decision the codebase already took. But before I answer "would that work", let me measure whether the existing families actually *are* a linear light↔dark spectrum, because that's what decides it.
+
+That measurement changes the answer, so let me get one more before I recommend anything — whether a *tint/shade mix* (toward white/black) tracks the real ramps better than a pure lightness shift.
+
+Measured answer: **yes, with one correction.** Two findings.
+
+**The model is right, and it's the same argument the codebase already accepted once.** `alpha` deliberately lives on the *reference*, not the entry — DOC-23 §5.4's reasoning is that if an entry carried alpha, one conceptual color would occupy N entries and the entry would stop being the unit of change. Named steps are that exact mistake, one axis over. A shade slider moves lightness onto the reference for the same reason, and then "change primary, the whole family follows" is true by construction rather than by convention.
+
+**The correction: a light↔dark scalar can only ever *desaturate*.** Mixing toward white or black reduces chroma, always. I fitted every existing step to its best tint/shade mix in Oklab:
+
+- **15 of 22 reproduce within 1–8 bytes out of 255** — invisible. `text`'s five steps land within 4, `slate`'s eight within 4 (bar one), `sand`, `surface`, `primary/700`, `green/700`, `green/800` all within 5.
+- **7 fail badly**, and they fail for one reason: they are *more saturated* than their base, which no mix can reach. `amber` base `#f5e6a3` (pale sand) vs `amber/500` `#ffb900` (vivid) — 101 bytes off. `blue` base `#90a1b9` (desaturated slate) vs `blue/500` `#1447e6` (vivid) — 89. Also `blue/300`, `blue/400`, `orange/400`, `green/600`, `primary/500`.
+
+Those seven aren't shades of anything. They're distinct colors that REQ-114's retrofit swept under one name because it grouped by hue. Under your model they become their own entries — which is more honest than what's there now, and it costs nothing, because they stay exact literals.
+
+So the net cost is: the 15 genuine ramp members drift by ≤8/255 when re-expressed as shades. Not pixel-identical any more — REQ-114 AC3 was — but a deliberate, measured, one-time change to two sites rather than an unbounded one.
+
+**What I'd store.** Entry becomes a single hex; `steps` is deleted. The reference carries `shade`, a signed scalar on `[-1, +1]` — negative mixes toward black, positive toward white, in Oklab so the spectrum is perceptually even and the slider is linear. `0` is the entry itself. It sits beside `alpha` on the reference as a second, independent axis, which is exactly what it is.
+
+Let me get that into the ticket.
+
+Ticket updated with the shade model as the decided direction.
+
+The shape, in short: entry becomes `{ value: "#rrggbb" }` with `steps` deleted; the reference becomes `{ ref, shade?, alpha? }` where `shade ∈ [-1, +1]` resolves as an Oklab mix toward black or white. The slider writes `shade`. Changing an entry moves every reference to it at every shade — which is the thing you asked for, and it's now structural rather than a convention someone has to maintain.
+
+Four things left:
+
+1. **Split the ticket?** This grew a second half. The model change — schema, the Oklab resolve, re-running the retrofit on two sites, and updating `1c colors --assign` to stop emitting steps — is comparable in size to REQ-114 itself (13 points), and the popup sits on top of it. I'd split, with the popup depending on the model. Your call, and I won't file anything until you say so.
+2. **`1c palette` as its own command group, or bolt onto `config get`/`config set` plus a delete command?** Still open from before.
+3. **Rename out of V1?** Still open.
+4. **Slider granularity — continuous, or a handful of detents?** Continuous matches "linear spectrum" and is simpler. Detents make it possible to hit the same shade twice by eye, which matters if two segments are meant to match. I lean continuous, with the caveat that "make these two the same" then becomes an AI request rather than a slider skill.
+
+One flag worth being explicit about, since it revises a landed decision: REQ-114 AC3 guaranteed the palette retrofit was pixel-identical. This breaks that, by ≤8/255 on 15 colors across `xgd` and `gigabytealchemy`. Everything else stays exact, and the change is reported as a values-diff rather than assumed — but it is a real, if small, change to two live sites.
 
 <!-- xgd-chat-end -->
