@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded — REQ-132 image picker shows thumbnail
   file names'
 created_by: xgd
 created_at: '2026-08-12T16:00:53.901473+00:00'
-updated_at: '2026-08-12T16:05:44.723181+00:00'
+updated_at: '2026-08-12T16:28:24.647628+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -79,7 +79,7 @@ fields:
       the surface it already owns. No new capability bucket is introduced; nothing
       here adds a transport, a command, or a value vocabulary. Binds 11 of the 12
       REQ-132 FC UATs.'
-    story_uid: null
+    story_uid: story-3bf94bd4
     target_story_ids:
     - story-3bf94bd4
     intent_delta_summary: Extend STORY-101 so the closed list of a site's images is
