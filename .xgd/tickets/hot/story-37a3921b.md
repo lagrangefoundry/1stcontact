@@ -2,13 +2,14 @@
 uid: story-37a3921b
 id: STORY-100
 type: story
-title: Change the words, how they are set, and which images appear on my page through
-  one validated, all-or-nothing edit — the same path the AI uses
+title: Change the words, how they are set, which images appear on my page and how
+  a picture is seen — through one validated, all-or-nothing edit, the same path the
+  AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-12T18:23:15.391837+00:00'
+updated_at: '2026-08-12T21:27:36.826183+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -24,7 +25,8 @@ fields:
 **As a** person who owns a site on this platform — or the AI acting on my
 instruction — **I want** to change what a region of a page holds by naming the
 region and the new values — its words, how those words are set, which image goes
-there, or which image is painted behind it — and have that
+there and how that picture is framed, shaped and colour-adjusted, or which image
+is painted behind it — and have that
 change either land completely or not at all, **so that** I can edit my own site
 without ever being able to break it, and without it mattering whether the change
 came from me pointing at it or from me asking for it.
@@ -32,7 +34,8 @@ came from me pointing at it or from me asking for it.
 ## Description
 
 This is the **write path for a content edit**: the one place a change to a
-page's words, to how those words are set, to which image a region shows, or to
+page's words, to how those words are set, to which image a region shows and how
+that picture is seen, or to
 which image is painted behind a panel, is applied. It exists as a
 *shared* surface on purpose. The operator editing in the builder and the AI
 editing on request are **two producers of the same kind of change**, not two
@@ -70,6 +73,32 @@ width nobody looked at. Everything else stays where it was: no new command, no
 new endpoint, no new value vocabulary, one more answer the derivation can give
 and one more branch of the same write.
 
+**How a picture is seen** — where in its box it sits, what shape it is cut to,
+how it is turned and scaled, and how its colour is adjusted — arrives by that
+same route a fourth time, and is the point at which this surface stops being
+about *which* thing a region holds and becomes about the *parameters* of the
+thing it holds for images as well as for copy. It is the deferral this story
+used to carry, and the condition it was deferred under has been met: the
+controls are projections over exactly the parameters the capture pipeline
+already measures and folds into a page — the fill mode, the position within the
+box, the colour adjustment, the shape, the turn and the scale — rather than a
+parallel vocabulary invented for the editor. The whole of it is thirteen more
+answers the derivation gives and one more branch of the same write: no new
+command, no new endpoint, no new field shape, and no control that can express a
+length, a colour function or a path.
+
+**No control on this surface touches a file.** That is the load-bearing claim of
+image editing, not a side effect of it. Framing, shaping and adjusting a picture
+write structured parameters that the renderer applies; they never bake, copy,
+resize or re-encode an asset. One uploaded picture therefore serves many
+framings; an adjustment is an ordinary structured diff, gated by the same
+validator and reversible by the same means as any other edit; no
+image-decoding pipeline joins the attack surface; and the adjustment stays
+legible to the AI, which can read "saturation 40%" and cannot read pixels. The
+cost is named rather than hidden: a large picture cropped small still ships at
+its full size, which is a performance concern with an additive fix and no
+consequence for what this surface writes.
+
 **In scope**
 
 - **Naming a region of a page.** An editable region has an address, and the
@@ -92,10 +121,22 @@ and one more branch of the same write.
   be changed at all, are decided by the **faces the document itself declares** —
   the served glyphs the page ships — which is a property of the document rather
   than of the region and is supplied to the derivation exactly as the site's
-  image listing is. For an image region the answer is **which image goes here** —
+  image listing is. For an image region the answer **leads with which image goes
+  here** —
   a choice from a closed list of the site's images, narrowed to what an image can
-  actually point at, and always including the handle the region holds now — plus
-  its alt text. For a **painted panel that already carries a background image**
+  actually point at, and always including the handle the region holds now — and
+  then its alt text, in that order, because a client that opens straight into the
+  picker depends on which field comes first. After the pair comes **how that
+  picture is seen**: how it fills its box, where within the box it sits across
+  and down, what shape it is cut to, how much its corners are rounded, how far it
+  is turned and how much it is scaled, and how bright, contrasty, saturated,
+  black-and-white and hue-shifted it is, and how much it is blurred. Each of
+  those is a bounded whole number or the closed set of words the parameter itself
+  admits — never a free-form value — and each is offered on an image region
+  alone. A picture that declares none of them answers not with blanks but with
+  the values a browser would actually paint it at, because a control that cannot
+  say what a thing is now is a control nobody can use. For a **painted panel that
+  already carries a background image**
   it is **which image sits behind it** — one closed pick from that same listing
   of the site's images, again always including the handle the panel holds now,
   and nothing else of the paint the panel carries. Both of those answers say not
@@ -164,8 +205,18 @@ and one more branch of the same write.
   different handle. It writes, copies, resizes or processes no file, and it
   leaves every other parameter the region carries untouched, including the fill,
   the corner radius, the opacity and the overlay a panel holds alongside its
-  background, and including wherever framing parameters eventually land. The same
-  is true of a typography edit: the parameter named moves and no other does.
+  background, and including the framing parameters the region carries. The same
+  is true of a typography edit and of a framing edit: the parameter named moves
+  and no other does, and **adjusting** a picture bakes no file for exactly the
+  reason **choosing** one does not — every tool here writes a parameter the
+  renderer applies, and none of them is an image processor.
+- **Leaving no trace when nothing changed.** Every parameter this surface writes
+  has a value at which it says nothing, and setting a control back to it
+  *removes* the parameter rather than recording it — and if that empties the
+  group the parameter lived in, the group goes too, so a picture that arrived
+  carrying no parameters at all is left carrying none. An edit that changes
+  nothing is reported as changing nothing and leaves the stored draft
+  byte-for-byte as it found it.
 
 **Out of scope**
 
@@ -175,12 +226,29 @@ and one more branch of the same write.
 - **Listing the site's assets** as a surface in its own right — the store that
   supplies this surface's image choices is a separate capability, reachable
   without any editing gesture.
-- **Image framing** — crop, scale, scrim, rotation, edge effects, free
-  positioning. Deferred rather than forgotten: the capture/fold pipeline already
-  folds those parameters into the definition, and this surface must eventually
-  write **the same fields**, not a parallel vocabulary (DOC-28 §13 Q5).
-- Asset **upload**, and any image processing. The picker offers what already
-  exists.
+- **Zooming into a picture** — a true crop of a source rectangle, as opposed to
+  choosing which part of the picture its box shows. What this surface offers is
+  the pan; magnifying a region of the source needs a primitive the substrate does
+  not yet carry, and the obvious CSS one is not supported by all three engines.
+- **Tinting a picture with a colour**, as distinct from adjusting the colour it
+  already has. A scrim over a picture paints behind replaced content and so does
+  not tint it, and it is deferred with the rest of colour below.
+- **Framing a painted panel's background.** A panel's background is still pinned
+  to one fitting, so the same intent lands on a different family of parameters
+  there, and unpinning it is its own change. Framing is offered on an image
+  region alone.
+- **Dragging handles over the picture** to crop or reposition it. What exists is
+  a control per parameter; a direct-manipulation gesture belongs to the editor
+  gesture capability and would need a way to preview a drag without a round trip
+  per pointer move.
+- **Stylising a picture** — turning it sepia or inverting it. Both are
+  expressible in the definition and both are read back off a captured page, and
+  neither is offered as a control: they are stylisation rather than adjustment,
+  and the panel is already a full one. The AI addresses them directly.
+- Asset **upload**, and any image processing at all — including on this surface's
+  own framing controls, none of which decodes, resizes, re-encodes or bakes a
+  file. The picker offers what already exists, and the framing controls change
+  only how what already exists is seen.
 - **Adding** a background image to a panel that paints none, and **removing**
   the one a panel has. The background picker is selection only and offers no
   empty choice. A panel is an editable region only because it paints something,
@@ -188,12 +256,17 @@ and one more branch of the same write.
   moment it was cleared, and could never be reached again to restore it.
   Removal remains reachable through the AI's surface, which addresses the
   parameter directly.
-- **Colour** — a run's own colour, a panel's background colour, and the rest of a
+- **Choosing a colour** — a run's own colour, a panel's background colour, and
+  the rest of a
   panel's paint (pattern, overlay, gradient, fill). Deferred for one reason: a
   colour on this surface must be a pick from the *site's palette* rather than a
   hex a user can invent, and neither the palette control nor the colour-valued
-  field shape exists yet (REQ-133). This surface gained a run's type and a
-  panel's background handle, not a paint panel.
+  field shape exists yet (REQ-133). This surface gained a run's type, a
+  panel's background handle and a picture's colour *adjustment*, not a paint
+  panel. Adjusting a picture is deliberately not blocked on the same thing:
+  brightness, contrast, saturation, black-and-white and hue shift are bounded
+  numbers over the colour a picture already has, so they need no palette to pick
+  from and can be handed over safely today.
 - **Font family**, and a run's geometry — position, size of its box, spacing
   between its lines and letters. Family because changing it needs the site's
   served faces to be chosen, not just read; the rest because DOC-28 §3's rule is
@@ -231,6 +304,49 @@ and one more branch of the same write.
   can be *smuggled*, which is why it is the axis the vocabulary grows along
   rather than a one-off — the colour-from-the-palette control the next phase needs
   is the same move again.
+- **The vocabulary did not have to grow a third time, and that is the evidence
+  the axis was the right one.** Thirteen new controls for how a picture is seen
+  arrived without a new field shape between them: every one of them is the
+  bounded whole number or the closed pick that already existed. The client needed
+  no change either — it already routes anything that is not a plain string into
+  the parameter sheet. A growth in what an operator can *say* that costs nothing
+  in what the surface can *carry* is the whole point of narrowing the vocabulary
+  rather than widening it.
+- **A control may be a projection of the parameter it writes, and this surface is
+  the only place that knows which.** A picture's colour adjustment is held in the
+  definition the way a browser reports it — saturation as `0.4` — because that is
+  what the capture pipeline measures and must be able to write without
+  converting. What an operator means, and what the control therefore offers, is
+  "40%". The two differ deliberately and the names differ with them, exactly as
+  the italic yes/no differs from the parameter it writes. Keeping the conversion
+  in one place is what stops a second one appearing somewhere else with a
+  different rounding rule.
+- **Every one of these controls has a value at which it says nothing, and it is
+  not the same value for all of them.** A fill mode has the browser's own initial
+  fitting, a position has dead centre, a turn and a blur have zero, a scale and a
+  saturation have "unchanged". Writing any of them in rather than removing the
+  parameter would grow a page's definition on every save, turn a no-op into a
+  diff, and — for the fill mode in particular — put a value in the file that the
+  capture pipeline deliberately omits, so a folded page and an edited page would
+  disagree about what "unset" looks like. The same rule has to reach the
+  *container*: a picture that had no parameters at all must not come back with an
+  empty one, because an empty group renders as nothing while reading as
+  something.
+- **The shape list carries whatever the picture already carries — the same rule,
+  for the third time.** The offered shapes are the geometric ones a
+  non-technical operator would recognise, but a picture folded from a capture or
+  shaped by the AI can hold an edge treatment that is not among them. A chooser
+  whose options omit its own value presents the *first* option as selected, so
+  without the union an operator who opened a picture to fix its alt text and
+  saved would have silently squared it off. This is the identical correctness
+  rule as the image handle that is not in the site's directory and the weight the
+  site declares no face for.
+- **A shape is written bare, and its tuning stays with the AI.** The parameters a
+  shape carries — how far a leaning quadrilateral leans, how rough and by which
+  seed an organic outline is generated — belong to the shape that names them and
+  are meaningless on any other, so choosing a shape from this control writes the
+  shape alone and takes the renderer's own defaults for the rest. An operator who
+  wants a rougher outline asks the AI, which addresses the parameter directly.
 - **A field's value is no longer always text, and the descriptor is the authority
   on both sides.** Values travel as they are — a size as a number, italic as a
   bit — rather than being stringified out and parsed back against a descriptor
@@ -291,17 +407,23 @@ and one more branch of the same write.
   boundary. The ladder moves in the same write as the value it belongs to — never
   independently and never afterwards, because a second write path is a second
   chance to disagree about which value is representative.
-- **Why a bound binds a change and not the status quo.** A saved form carries
+- **Why a bound binds a change and not the status quo — and why that is a rule of
+  the surface rather than of the size control.** A saved form carries
   every field the region exposed, not only the ones that were touched. A run the
   page was captured with at 160px would therefore be refused, or silently
   resized, merely because someone opened it to fix a typo. So a value equal to
   the one the region just reported passes whatever it is, and only a genuinely
   new value is measured against the range. Out-of-range is refused rather than
   clamped for the same family of reason the whole surface exists: quietly
-  reshaping a page nobody edited is the worse failure, and it is invisible.
+  reshaping a page nobody edited is the worse failure, and it is invisible. The
+  rule holds of every bounded control alike, and images are where it bites
+  hardest: a fully-round picture is folded from a capture carrying a corner
+  rounding far past anything the control offers, so without this it could not be
+  opened and re-saved at all.
 - **Why absent is the default rather than the default being written in.** Turning
-  italic off on a run that never declared a style, or setting capitalisation back
-  to none, removes the parameter rather than writing the initial value into it.
+  italic off on a run that never declared a style, setting capitalisation back
+  to none, returning a picture to dead centre or its saturation to unchanged,
+  removes the parameter rather than writing the initial value into it.
   Writing it in would grow the definition on every save and turn an edit that
   changed nothing into a diff — and "a change map that changes nothing is
   reported as changing nothing" is what keeps the modal from putting a history in
@@ -394,6 +516,17 @@ and one more branch of the same write.
   in the page and a fabricated number is worse than an absent control. The
   measured folds carry a declared size on every run, so the case has no observed
   instance; the intent's version remains open rather than refuted.
+- **A framing control's resolution is the whole number it offers, and a value
+  finer than that does not survive a re-save untouched.** Every framing control
+  reports whole numbers, so a scale or an adjustment the AI set between two of
+  them is reported at the nearer one, and a save that echoes the whole form back
+  writes that nearer value and reports the field as changed. This is the one
+  place the otherwise-general "a save that changes nothing changes nothing" rule
+  is a claim about values the control can express rather than about all values.
+  It is a deliberate consequence of offering whole numbers rather than free
+  decimals, and its blast radius is a rounding, never a reshape — the alternative,
+  suppressing the write when the rounded value matches, would silently discard a
+  genuine edit made from the control.
 - **Known cosmetic defect, deliberately not fixed.** A saved edit rewrites the
   whole page document with different unicode escaping, so a one-word change
   produces a large diff. Pre-existing behaviour of the shared write helper;
