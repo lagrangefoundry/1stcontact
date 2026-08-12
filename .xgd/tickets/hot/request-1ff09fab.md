@@ -5,9 +5,9 @@ type: request
 title: 'Copy modal: parameter changes preview live in the editing box'
 created_by: xgd
 created_at: '2026-08-12T17:56:30.149389+00:00'
-updated_at: '2026-08-12T18:12:34.603557+00:00'
+updated_at: '2026-08-12T18:12:38.687798+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -18,6 +18,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.39
+  story_points: 2
 ---
 
 ## What the user sees
