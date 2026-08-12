@@ -14,11 +14,12 @@ fields:
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 508cae5b6611972d422c0334cce59c308ba0b3be
+  - working_sha: ebd789faa132a3973063e846f51081172a7269b8
     reconcile_sha: null
     main_sha: null
     working_sha_history:
     - 9a51098f52ca69e11726c6af4ae2d01222883c64
+    - 508cae5b6611972d422c0334cce59c308ba0b3be
   version: 0.1.39
   story_points: 2
 ---
