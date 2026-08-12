@@ -5,19 +5,20 @@ type: request
 title: 'Page editor: image picker shows thumbnails with file names'
 created_by: xgd
 created_at: '2026-08-12T00:37:38.714532+00:00'
-updated_at: '2026-08-12T15:54:55.435586+00:00'
-completed_at: null
+updated_at: '2026-08-12T17:21:11.726461+00:00'
+completed_at: '2026-08-12T17:21:11.726461+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 7ca82800fb6738c163d697d116c60a9e8e3fba9e
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
+    main_sha: 6cb3942fdbc8271b1142858f7546943642f53aa4
   version: 0.1.36
+  merged_at_commit: 6cb3942fdbc8271b1142858f7546943642f53aa4
 ---
 
 ## What changed for the user
