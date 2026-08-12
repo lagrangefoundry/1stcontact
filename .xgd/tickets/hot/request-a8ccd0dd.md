@@ -5,7 +5,7 @@ type: request
 title: 'Page editor: text properties — colour, size, weight, italic on the whole segment'
 created_by: xgd
 created_at: '2026-08-12T00:44:05.882887+00:00'
-updated_at: '2026-08-12T01:43:19.645121+00:00'
+updated_at: '2026-08-12T02:04:30.885408+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -187,17 +187,48 @@ have per-width tracks, and colour is a union of hex-or-reference. Consequences f
 
 ## 9. Delivery plan
 
-**Phase A — typography (no REQ-133 dependency; in progress).** Size, weight, italic, uppercase on a
-text segment. Nothing here needs a palette, so it does not wait.
+**Phase A — typography — LANDED.** Size, weight, italic and capitalisation on a text segment, with
+no palette dependency. What shipped:
 
-1. `packages/site-schema/src/l1/edit.ts` — widen the descriptor, take `fonts`, derive the four
-   fields for a `text` node.
-2. Same file — `applyCopyFields` accepts numbers/booleans, writes axes, scales the track.
-3. `tools/generate/src/cli/edit.ts` — supply the document's `resources.fonts` to the derivation.
-4. `apps/control-app/src/builder/editor.js` — the copy field stays inside the dressed box; the
-   typography fields render as a property row beneath it. The auto-open affordance must key on the
-   *copy* field rather than on "exactly one field", or clicking words stops putting the cursor in
-   them.
-5. UATs: `test_UAT_FC_REQ-135_*`.
+- `packages/site-schema/src/l1/edit.ts` — the descriptor widened to `integer`/`boolean` with
+  `min`/`max`/`locked`; `L1SegmentFieldOptions.fonts`; the four fields derived for a `text` node;
+  `applyCopyFields` accepting non-string values, writing into `node.axes`, and **scaling every
+  `responsive.fontSizePx` keyframe** rather than flattening the ladder.
+- `tools/generate/src/cli/edit.ts` — the page's `resources.fonts` supplied to the derivation.
+- `apps/control-app/src/builder/editor.js` + `builder.css` — the copy field stays in the dressed
+  box; the parameters mount as a second `mountFields` instance in a sheet beneath it. Auto-open now
+  keys on the box's fields, so clicking words still puts the cursor in them.
+- `tests/test_UAT_FC_REQ-135_text_properties.test.ts` — 7 UATs.
 
-**Phase B — colour (blocked on REQ-133).** Text colour, panel background, the escalation row.
+### 9.1 What the real data changed about the plan
+
+Three things were settled by measuring `xgd/home` (62 runs) rather than by reasoning:
+
+- **`fontFamily` is a STACK, `resources.fonts[].family` is a bare name.** Every run carries
+  `"Satoshi, Helvetica Neue, Arial, sans-serif"`; every face declares `"Satoshi"`. A whole-string
+  comparison is a guaranteed miss, not a near-miss — it would have withdrawn the weight control
+  from the entire site, silently. The derivation matches on the first family of the stack.
+- **The current weight is usually NOT a declared face.** 10 of 62 runs are set in weight 600, which
+  that site declares no face for. §5's "plus whatever the node holds" is the common case, not a
+  corner, and without it a heading re-weights itself when an unrelated field is saved.
+- **23% of runs carry a size track** (14 of 62), and every run that has one also carries the
+  representative axis value. So §4's proportional write is load-bearing on roughly one run in four,
+  and the "run declares no size" guard never fires on measured data.
+
+### 9.2 Amended: when italic is locked
+
+§5 said "locked where no italic face is declared". Implemented as **locked only on positive
+evidence of absence** — the family declares faces, and none is italic. A family with no declared
+faces at all is painted by the reader's own system font, which has real italics, so locking there
+would disable a control that works. `xgd/home` declares four Satoshi weights and no italic, so the
+lock is visible on a real site.
+
+### 9.3 Test amendments
+
+Eleven assertions across nine earlier suites asserted "a copy segment exposes exactly `[text]`",
+which REQ-135 changes by design. Each was narrowed to the claim its AC is actually about (the copy
+field is first and holds the words) rather than relaxed. Two were scoped to the box rather than the
+dialog: REQ-121 dropped a label column that said "Text" beside the words themselves, and the
+parameter sheet is the opposite case — "34" and "700" are meaningless unlabelled.
+
+**Phase B — colour (blocked on REQ-133).** Text colour, panel background, the escalation row (§2).
