@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: REQ-135 phase A — a text run''s typography, edita
   from its segment'
 created_by: xgd
 created_at: '2026-08-12T18:00:46.603366+00:00'
-updated_at: '2026-08-12T18:10:28.911616+00:00'
+updated_at: '2026-08-12T18:28:17.156136+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -117,7 +117,7 @@ fields:
       Two of its criteria are now false as written (AC-1044 counts the whole schema;
       AC-1039 asserts no label column anywhere in the modal), and one FC UAT — words_sit_in_the_box_and_parameters_sit_beneath_it
       — has no AC.
-    story_uid: null
+    story_uid: story-3bf94bd4
     target_story_ids:
     - story-3bf94bd4
     intent_delta_summary: The dialog stops being one form. It is the dressed box for
