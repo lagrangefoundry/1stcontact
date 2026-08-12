@@ -234,10 +234,16 @@ function defaultModal(spec) {
   // reading undefined, because optional chaining guards null, not TDZ. That
   // throw lands before `host.remove()`, so the dialog cannot be dismissed by
   // any route: button, Escape or backdrop.
+  // Both handles, and both up HERE for the same reason (REQ-135 added the
+  // second): `close` reads them, `close` is reachable by Escape from the moment
+  // it is bound, and a `let` further down would be in the temporal dead zone
+  // until execution reaches it — where optional chaining does not help.
   let fields = null
+  let properties = null
 
   const close = () => {
     fields?.destroy()
+    properties?.destroy()
     host.remove()
     document.removeEventListener('keydown', onKey)
   }
@@ -278,11 +284,25 @@ function defaultModal(spec) {
     mountImagePicker(panel, { field, value: spec.values[field.name], slug: spec.slug }),
   )
 
+  // WORDS IN THE BOX, PARAMETERS UNDER IT (REQ-135). The box exists to mirror
+  // the page's own presentation around the copy, which is only meaningful for
+  // the copy: a size or a weight is a thing you *set*, not a thing that gets
+  // dressed, and rendering "34" in the headline's 32px display face would say
+  // the number is part of the page.
+  //
+  // Split on the descriptor, exactly as the picker split above is. `'string'` is
+  // the words — a run's text, an image's alt — and everything else the
+  // derivation now emits is a parameter. Keying on the *type* rather than on the
+  // field name means the day a segment exposes a second string this needs no
+  // edit, and the day it exposes a second parameter it needs none either.
+  const boxFields = formFields.filter((field) => field.type === 'string')
+  const propertyFields = formFields.filter((field) => field.type !== 'string')
+
   // NO BOX WITHOUT A FORM. The box is a text-editing box — a border, a radius
   // and the page's own presentation mirrored into it — and a background picker
   // exposes no text at all. An empty one would draw a framed void under the
   // thumbnails.
-  if (formFields.length) {
+  if (boxFields.length) {
     // The visible box. The border, the radius and the clipping live on THIS
     // element rather than on the control, so the mirrored background can be a
     // sized layer behind the text (see `page-style.js`) with the box clipping it
@@ -299,12 +319,12 @@ function defaultModal(spec) {
     panel.append(box)
 
     fields = mountFields(formHost, {
-      schema: formFields,
+      schema: boxFields,
       // ONLY THE FIELDS IT RENDERS. Handed the whole map, the component reports
       // every key back from `getValues()` — including the picker's, at the value
       // the segment *opened* with. Merged into the change map that reads as an
       // explicit "put the old image back", and it silently undid every pick.
-      values: Object.fromEntries(formFields.map((field) => [field.name, spec.values[field.name]])),
+      values: Object.fromEntries(boxFields.map((field) => [field.name, spec.values[field.name]])),
       commit: 'buffered',
       // `stacked` drops the label column (upstream REQ-69). For a single copy
       // field the label read "Text" in a column ~40% as wide as the dialog, next
@@ -318,7 +338,32 @@ function defaultModal(spec) {
     // field (`alt`) but the operator clicked a picture, so opening the alt
     // control would put the cursor in the field they did not come for and leave
     // the picker — the reason the dialog is open — needing a click to reach.
-    if (!pickers.length) openLoneControl(formHost, formFields)
+    //
+    // Counted over the BOX's fields, never over the whole schema (REQ-135). The
+    // gesture being preserved is "clicking words puts the cursor in the words",
+    // and a run that now also exposes four parameters is still one field of
+    // words — counting the schema would silently retire the affordance the day
+    // typography landed.
+    if (!pickers.length) openLoneControl(formHost, boxFields)
+  }
+
+  // The parameter sheet, under the box (REQ-135). A SECOND `mountFields`
+  // instance rather than a hand-rolled row of inputs: these are typed
+  // descriptors with bounds, closed option lists and a `locked` flag, and the
+  // component already renders and enforces all three. Two instances is the
+  // cheaper seam — the alternative is one instance split across two parents,
+  // which the widget has no vocabulary for.
+  if (propertyFields.length) {
+    const sheet = document.createElement('div')
+    sheet.className = 'builder-modal__props'
+    panel.append(sheet)
+    properties = mountFields(sheet, {
+      schema: propertyFields,
+      values: Object.fromEntries(
+        propertyFields.map((field) => [field.name, spec.values[field.name]]),
+      ),
+      commit: 'buffered',
+    })
   }
 
   /**
@@ -332,9 +377,13 @@ function defaultModal(spec) {
    */
   const stagedValues = () => ({
     ...(fields?.getValues() ?? {}),
+    ...(properties?.getValues() ?? {}),
     ...Object.fromEntries(pickers.map((picker) => [picker.name, picker.getValue()])),
   })
-  const isDirty = () => pickers.some((picker) => picker.isDirty()) || (fields?.isDirty() ?? false)
+  const isDirty = () =>
+    pickers.some((picker) => picker.isDirty()) ||
+    (fields?.isDirty() ?? false) ||
+    (properties?.isDirty() ?? false)
 
   const error = document.createElement('p')
   error.className = 'builder-modal__error'

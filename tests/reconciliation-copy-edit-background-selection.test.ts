@@ -329,9 +329,15 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     const image = await readFields(cwd, A_IMAGE)
     expect((image.data!.fields as Field[]).map((f) => f.name)).toEqual(['src', 'alt'])
     expect(image.data!.values).toEqual({ src: LOGO, alt: IMAGE_ALT })
+    // A run of copy that carries a background of its own still exposes its own
+    // fields and NOT the panel's picker — which is the claim. Since REQ-135 its
+    // own fields include its typography, so the assertion is that
+    // `backgroundImageUrl` is absent rather than that `text` is alone.
     const copy = await readFields(cwd, A_PAINTED_COPY)
-    expect((copy.data!.fields as Field[]).map((f) => f.name)).toEqual(['text'])
-    expect(copy.data!.values).toEqual({ text: PAINTED_COPY })
+    const copyNames = (copy.data!.fields as Field[]).map((f) => f.name)
+    expect(copyNames).toContain('text')
+    expect(copyNames).not.toContain('backgroundImageUrl')
+    expect(copy.data!.values).toMatchObject({ text: PAINTED_COPY })
     for (const addr of [A_IMAGE, A_PAINTED_COPY]) {
       expect(
         (draftNode(cwd, addr).axes as Record<string, unknown>).backgroundImageUrl,
@@ -395,7 +401,9 @@ describe('story-37a3921b — a painted panel’s background image, through the s
 
     // The contrasts that make the empty list meaningful, on the same page and
     // through the same operation.
-    expect((await readFields(cwd, A_COPY)).data!.fields).toHaveLength(1)
+    const copyContrast = (await readFields(cwd, A_COPY)).data!.fields as Field[]
+    expect(copyContrast.length).toBeGreaterThan(0)
+    expect(copyContrast.map((f) => f.name)).not.toContain('backgroundImageUrl')
     expect((await readFields(cwd, A_IMAGE)).data!.fields).toHaveLength(2)
   })
 

@@ -48,6 +48,7 @@ export type {
   L1SegmentKind,
   L1EditTarget,
   L1FieldDescriptor,
+  L1FieldValue,
   L1SegmentFields,
   L1SegmentFieldOptions,
   L1CopyEditResult,

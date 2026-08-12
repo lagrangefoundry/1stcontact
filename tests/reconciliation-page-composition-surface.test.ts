@@ -685,7 +685,10 @@ describe("the click-to-edit gesture still works on what the assistant composed",
       values: Record<string, string>
     }
     expect(read.kind).toBe('text')
-    expect(read.fields.map((f) => f.name)).toEqual(['text'])
+    // The copy field is first and is the words. REQ-135 derives the run's
+    // typography beside it — for an assistant-authored node exactly as for a
+    // hand-written one, which is the indistinguishability this asserts.
+    expect(read.fields[0].name).toBe('text')
     expect(read.values.text).toBe('Written by the assistant.')
 
     const before = homeRoot() as { children: { children: { axes: unknown }[] }[] }

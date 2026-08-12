@@ -9,6 +9,7 @@ import {
   validateSite,
   validateSvg,
   SVG_MAX_BYTES,
+  type L1FontFace,
   type L1Node,
   type L1SegmentFieldOptions,
 } from '@1stcontact/site-schema'
@@ -453,18 +454,34 @@ function resolveSegment(
 const PICKER_KINDS: ReadonlySet<L1Node['kind']> = new Set(['image', 'box', 'container'])
 
 /**
- * What the derivation needs beyond the node itself (REQ-118, REQ-128).
+ * What the derivation needs beyond the node itself (REQ-118, REQ-128, REQ-135).
  *
- * Only a segment with a picker has choices that come from the site rather than
- * the node, and reading the asset directory for a text run would be pure waste —
- * so the listing is fetched for the kinds that use it and skipped for the rest.
+ * Both halves are properties of the site or the document rather than of the
+ * node, and both are fetched only for the kinds that consume them: reading the
+ * asset directory for a text run, or the font table for an image, would be pure
+ * waste.
+ *
+ * The fonts come from the PAGE's L1 document even when the node lives inside a
+ * behavior module's slot. That is not a shortcut — `@font-face` is emitted once
+ * per rendered document, so the faces a slotted run can actually paint in are
+ * the page's, and reading them from anywhere else would offer a weight the
+ * render cannot serve.
  */
 function segmentOptions(
   node: L1Node,
   slug: string,
+  page: Record<string, unknown>,
   opts: GlobalOptions,
 ): L1SegmentFieldOptions | undefined {
-  return PICKER_KINDS.has(node.kind) ? { assets: imageHandles(slug, opts) } : undefined
+  if (PICKER_KINDS.has(node.kind)) return { assets: imageHandles(slug, opts) }
+  if (node.kind === 'text') return { fonts: documentFonts(page) }
+  return undefined
+}
+
+/** The document's declared font faces, or none when it declares no resources. */
+function documentFonts(page: Record<string, unknown>): L1FontFace[] {
+  const l1 = page.l1 as { resources?: { fonts?: L1FontFace[] } } | undefined
+  return l1?.resources?.fonts ?? []
 }
 
 /**
@@ -481,8 +498,8 @@ export function editCopyGet(
 ): EditOutput {
   const ctx = ctxOf(opts)
   requireDraft(ctx, slug)
-  const { node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
-  const derived = copyFieldsOf(node, segmentOptions(node, slug, opts))
+  const { page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
+  const derived = copyFieldsOf(node, segmentOptions(node, slug, page, opts))
   const data = {
     target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
     kind: node.kind,
@@ -521,7 +538,7 @@ export function editCopySet(
   const base = readBase(ctx, slug)
   const { files, file, page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, true)
 
-  const applied = applyCopyFields(node, values, segmentOptions(node, slug, opts))
+  const applied = applyCopyFields(node, values, segmentOptions(node, slug, page, opts))
   if (!applied.ok) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',

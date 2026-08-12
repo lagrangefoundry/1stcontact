@@ -351,10 +351,15 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     }
 
     // The contrasts that make the empty list meaningful, on the same page and
-    // through the same operation: a copy region answers with one field, and an
-    // image region with two — an image is emphatically NOT a region that exposes
-    // nothing, because it exposes which image goes there and its alt text.
-    expect((await readFields(cwd, A_COPY)).data!.fields).toHaveLength(1)
+    // through the same operation: a copy region answers with its words, and an
+    // image region with two fields — an image is emphatically NOT a region that
+    // exposes nothing, because it exposes which image goes there and its alt
+    // text. The copy side is asserted as NON-EMPTY rather than as one field:
+    // REQ-135 put the run's typography beside its words, and EMPTY-versus-NOT is
+    // the contrast this AC is drawing.
+    const copyFields = (await readFields(cwd, A_COPY)).data!.fields as Field[]
+    expect(copyFields.length).toBeGreaterThan(0)
+    expect(copyFields.map((f) => f.name)).toContain('text')
     const image = await readFields(cwd, A_IMAGE)
     expect(image.data!.fields).toHaveLength(2)
     expect((image.data!.fields as Field[]).map((f) => f.name)).toEqual(['src', 'alt'])
@@ -501,7 +506,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     // Every existing value is intact after all of it.
     const still = await readFields(cwd, A_IMAGE)
     expect(still.data!.values).toEqual({ src: HERO, alt: HERO_ALT })
-    expect((await readFields(cwd, A_COPY)).data!.values).toEqual({ text: SHORT_COPY })
+    expect((await readFields(cwd, A_COPY)).data!.values).toMatchObject({ text: SHORT_COPY })
   })
 
   it('test_UAT_AC986_any_edit_is_validated_over_the_whole_resulting_definition', async () => {
@@ -606,7 +611,9 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       const got = await cli(cwd, ...argv)
       expect(got.ok, argv.join(' ')).toBe(true)
       for (const field of got.data!.fields as Field[]) {
-        expect(['string', 'enum'], argv.join(' ')).toContain(field.type)
+        // REQ-135 widened the set with a bounded number and a bit — both
+        // narrower than a string, so the surface is not widened with it.
+        expect(['string', 'enum', 'integer', 'boolean'], argv.join(' ')).toContain(field.type)
         if (field.type === 'enum') {
           expect(Array.isArray(field.enum), argv.join(' ')).toBe(true)
           expect(field.enum!.length, argv.join(' ')).toBeGreaterThan(0)

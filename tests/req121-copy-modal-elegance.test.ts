@@ -276,8 +276,14 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-121 the copy-edit modal', () => {
     const { modal, editor } = await openOn(elementShowing(HEADLINE))
     try {
       expect(modal.querySelector('.builder-modal__title')).toBeNull()
-      expect(modal.querySelectorAll('.fields-label')).toHaveLength(0)
-      expect(modal.querySelector('.fields')!.getAttribute('data-layout')).toBe('stacked')
+      // SCOPED TO THE BOX, and the scope is the point rather than an escape.
+      // What REQ-121 dropped was a label column saying "Text" beside the words
+      // themselves — redundant because the box IS the words. REQ-135's parameter
+      // sheet is the opposite case: "34" and "700" are meaningless unlabelled,
+      // so it keeps its labels, and it is a different form in a different place.
+      const box = modal.querySelector('.builder-modal__box')!
+      expect(box.querySelectorAll('.fields-label')).toHaveLength(0)
+      expect(box.querySelector('.fields')!.getAttribute('data-layout')).toBe('stacked')
 
       // NEITHER DROP COSTS THE DIALOG ITS NAME. The heading's real job was the
       // accessible name, which moves to the dialog; the label's was naming the

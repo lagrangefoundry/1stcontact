@@ -218,7 +218,15 @@ describe('story-37a3921b — the copy-edit write path', () => {
     // one (long OR broken by a newline) and not otherwise.
     const short = await cli(cwd, 'copy', 'get', 'acme', 'home', A_SHORT)
     expect(short.ok).toBe(true)
-    expect(short.data!.fields).toEqual([{ name: 'text', label: 'Text', type: 'string' }])
+    // The COPY field, which is what this AC is about. REQ-135 put the run's
+    // typography beside it, so the claim is about that field rather than about
+    // the list being one long — a later phase exposing one more parameter is a
+    // change to that requirement, not a regression in this one.
+    expect((short.data!.fields as unknown[])[0]).toEqual({
+      name: 'text',
+      label: 'Text',
+      type: 'string',
+    })
     // Character-for-character what stands in the draft, not a rendering of it.
     expect((short.data!.values as Record<string, string>).text).toBe(draftText(cwd, [0, 0, 0]))
     expect((short.data!.values as Record<string, string>).text).toBe(SHORT_COPY)
@@ -229,9 +237,12 @@ describe('story-37a3921b — the copy-edit write path', () => {
     ] as const) {
       const got = await cli(cwd, 'copy', 'get', 'acme', 'home', addr)
       expect(got.ok, addr).toBe(true)
-      expect(got.data!.fields, addr).toEqual([
-        { name: 'text', label: 'Text', type: 'string', widget: 'textarea' },
-      ])
+      expect((got.data!.fields as unknown[])[0], addr).toEqual({
+        name: 'text',
+        label: 'Text',
+        type: 'string',
+        widget: 'textarea',
+      })
       expect((got.data!.values as Record<string, string>).text, addr).toBe(copy)
     }
   })
@@ -261,7 +272,11 @@ describe('story-37a3921b — the copy-edit write path', () => {
     // The contrast that makes the empty list meaningful: read the same way, on
     // the same page, a copy region returns exactly one field...
     const copy = await cli(cwd, 'copy', 'get', 'acme', 'home', A_SHORT)
-    expect((copy.data!.fields as unknown[]).length).toBe(1)
+    // ...a copy region returns its words (and, since REQ-135, the type of those
+    // words). The contrast that matters is EMPTY versus NOT, not one versus four.
+    const copyFields = copy.data!.fields as Array<{ name: string }>
+    expect(copyFields.length).toBeGreaterThan(0)
+    expect(copyFields.map((f) => f.name)).toContain('text')
 
     // ...and an image region returns exactly two — which image goes there, and
     // its alt text. An empty list is therefore an answer about THAT region, not
@@ -533,7 +548,7 @@ describe('story-37a3921b — the copy-edit write path', () => {
         c.slot,
       )
       expect(got.ok, c.module).toBe(true)
-      expect(got.data!.values, c.module).toEqual({ text: c.was })
+      expect(got.data!.values, c.module).toMatchObject({ text: c.was })
 
       const saved = await cli(cwd, ...setArgs(c.addr, { text: c.now }, c))
       expect(saved.ok, c.module).toBe(true)
@@ -566,9 +581,12 @@ describe('story-37a3921b — the copy-edit write path', () => {
     // The ENTIRE string — not truncated, elided or clipped.
     expect(value).toBe(overflowing)
     expect(value.length).toBe(overflowing.length)
-    expect(reopened.data!.fields).toEqual([
-      { name: 'text', label: 'Text', type: 'string', widget: 'textarea' },
-    ])
+    expect((reopened.data!.fields as unknown[])[0]).toEqual({
+      name: 'text',
+      label: 'Text',
+      type: 'string',
+      widget: 'textarea',
+    })
   })
 
   it('test_UAT_AC991_markup_saved_as_text_stays_literal_and_every_field_is_plain_text_or_a_closed_list', async () => {
@@ -642,9 +660,11 @@ describe('story-37a3921b — the copy-edit write path', () => {
       const got = await cli(cwd, ...argv)
       expect(got.ok, argv.join(' ')).toBe(true)
       for (const field of got.data!.fields as Array<{ type: string; enum?: unknown }>) {
-        // Two shapes, and no third — no freeform mode, no rich-text control, no
-        // escape hatch that would let markup through as code.
-        expect(['string', 'enum'], argv.join(' ')).toContain(field.type)
+        // A CLOSED SET OF SHAPES, and no escape hatch — no freeform mode, no
+        // rich-text control, nothing that would let markup through as code.
+        // REQ-135 added a bounded number and a bit; both are narrower than a
+        // string, which is why widening this set does not widen the surface.
+        expect(['string', 'enum', 'integer', 'boolean'], argv.join(' ')).toContain(field.type)
         if (field.type === 'enum') {
           // A closed list is only NARROWER than a string if the caller is told
           // what it may return, so the options travel with the descriptor. A
@@ -703,7 +723,7 @@ describe('story-37a3921b — the copy-edit write path over the builder origin', 
     const fromCli = await cli(cwd, 'copy', 'get', 'acme', 'home', A_SHORT)
     expect(readBody.fields).toEqual(fromCli.data!.fields)
     expect(readBody.values).toEqual(fromCli.data!.values)
-    expect(readBody.values).toEqual({ text: SHORT_COPY })
+    expect(readBody.values).toMatchObject({ text: SHORT_COPY })
 
     // A rejected edit is the USER's fault, not the server's: a client-fault
     // status carrying the validator's own code, path and hint — not a generic

@@ -279,6 +279,34 @@ body {
   overflow: auto;
 }
 
+/* --- the parameter sheet (REQ-135) -------------------------------------------
+ *
+ * The run's typography, under the box that shows its words. Deliberately quiet:
+ * the box is what the operator came for, and a sheet with the same visual weight
+ * would turn a copy dialog into a property inspector that happens to contain
+ * some text.
+ *
+ * The rules here are LAYOUT ONLY, and every colour is the component's own
+ * `--fields-*` seam — the sheet must not out-specify `fields.css`, or a component
+ * update silently strands whichever rule was doing the work. Bounded height for
+ * the same reason the picker is: the footer, and therefore Save, stays reachable
+ * however many parameters a later phase adds.
+ */
+
+.builder-modal__props {
+  flex: 0 0 auto;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--shell-border);
+  max-height: min(38vh, 340px);
+  overflow: auto;
+  /* Through the component's own type token, not a `font-size` on this element:
+     `fields.css` sizes its rows from `--fields-font-size`, and setting the
+     property directly would move the text while leaving every control metric
+     derived from the token where it was. */
+  --fields-font-size: 13px;
+}
+
 /* --- the image picker (REQ-132) ----------------------------------------------
  *
  * A closed list of image handles, shown as what they are. The grid auto-fills,

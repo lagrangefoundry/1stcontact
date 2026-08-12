@@ -129,11 +129,14 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 the loop in a real browser', () => {
 
         // The form is `mountFields`, not hand-rolled — assert its markup, so a
         // future hand-rolled replacement fails here rather than passing quietly.
-        expect(await page.locator('.builder-modal .fields').count()).toBe(1)
+        // Scoped to the BOX: since REQ-135 the dialog mounts a second instance
+        // beneath it for the run's typography, and the claim here is about the
+        // form the copy is edited in.
+        expect(await page.locator('.builder-modal__box .fields').count()).toBe(1)
         // ...in buffered commit, which is what makes one Save one diff.
-        expect(await page.locator('.builder-modal .fields').getAttribute('data-commit')).toBe(
-          'buffered',
-        )
+        expect(
+          await page.locator('.builder-modal__box .fields').getAttribute('data-commit'),
+        ).toBe('buffered')
         // The full string is legible in the form regardless of what the render
         // did to it on the page. It is read off the CONTROL, not the modal's
         // text: since REQ-121 a one-field form opens straight into its control

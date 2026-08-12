@@ -199,8 +199,14 @@ describe('REQ-117 — copy editing, end to end', () => {
 
     const copy = await cli(cwd, 'copy', 'get', 'acme', 'home', copyHit!.target.path.join('.'))
     expect(copy.ok).toBe(true)
-    expect(copy.data!.fields).toEqual([{ name: 'text', label: 'Text', type: 'string' }])
-    expect(copy.data!.values).toEqual({ text: HEADLINE })
+    // The WORDS ARE THE FIRST FIELD, which is the property this AC is about and
+    // the one the modal keys on to put the cursor in them. It is no longer the
+    // only field: REQ-135 added the run's typography beside it, so asserting the
+    // whole list here would make this AC fail every time a later phase exposes
+    // one more parameter — which is a change to a different requirement, not a
+    // regression in this one.
+    expect(copy.data!.fields[0]).toEqual({ name: 'text', label: 'Text', type: 'string' })
+    expect((copy.data!.values as Record<string, unknown>).text).toBe(HEADLINE)
 
     // The painted container is a real segment — it is outlined and it resolves —
     // but phase 1 exposes no control for it (its background is phase 2), so the
@@ -406,11 +412,19 @@ describe('REQ-117 — copy editing, end to end', () => {
     )
 
     // And no descriptor the derivation emits could have carried markup in the
-    // first place: every exposed control is a plain string.
+    // first place: every exposed control is drawn from the closed set of types
+    // that CANNOT express markup — plain text (which the renderer escapes), a
+    // pick from a list this module wrote, a bounded whole number, or a bit.
+    // REQ-135 widened the set; the invariant is that widening it never adds a
+    // control a user can type CSS into, so the assertion is the membership rather
+    // than a single type.
+    const SAFE_TYPES = ['string', 'enum', 'integer', 'boolean']
     for (const addr of ['0.0.0', '0.0.1']) {
       const got = await cli(cwd, 'copy', 'get', 'acme', 'home', addr)
-      for (const field of got.data!.fields as Array<{ type: string }>) {
-        expect(field.type).toBe('string')
+      for (const field of got.data!.fields as Array<{ type: string; enum?: string[] }>) {
+        expect(SAFE_TYPES).toContain(field.type)
+        // An enum's options are the derivation's own words, never the user's.
+        if (field.type === 'enum') expect(Array.isArray(field.enum)).toBe(true)
       }
     }
   })
@@ -446,7 +460,12 @@ describe('REQ-117 — copy editing, end to end', () => {
         '--slot',
         c.slot,
       )
-      expect(got.data!.values).toEqual({ text: c.copy })
+      // The words read back through the module-scoped address. Only the copy is
+      // asserted: REQ-135 exposes a slotted run's typography too, and it does so
+      // through this same derivation — which is the point of the AC (one loop,
+      // whichever address space the run lives in), not a thing that varies with
+      // it.
+      expect((got.data!.values as Record<string, unknown>).text).toBe(c.copy)
 
       const saved = await cli(
         cwd,
@@ -489,9 +508,14 @@ describe('REQ-117 — copy editing, end to end', () => {
     // Re-open it, exactly as the modal would.
     const reopened = await cli(cwd, 'copy', 'get', 'acme', 'home', '0.0.1')
     expect((reopened.data!.values as Record<string, string>).text).toBe(overflowing)
-    expect(reopened.data!.fields).toEqual([
-      { name: 'text', label: 'Text', type: 'string', widget: 'textarea' },
-    ])
+    // The COPY field is the one that grew a textarea. Asserted on the field
+    // itself rather than on the whole list, which REQ-135 lengthened.
+    expect(reopened.data!.fields[0]).toEqual({
+      name: 'text',
+      label: 'Text',
+      type: 'string',
+      widget: 'textarea',
+    })
   })
 
   // AC9 — nested segments resolve innermost-first. The copy sits inside a painted

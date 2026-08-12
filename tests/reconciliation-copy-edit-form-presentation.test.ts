@@ -673,9 +673,10 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
           ),
         )
       ).json()) as { fields: Array<{ name: string; label: string }> }
-      expect(loaded.fields).toEqual([
-        expect.objectContaining({ name: 'text', label: 'Text' }),
-      ])
+      // The COPY field keeps its label in the descriptor — only its rendering
+      // as a visible column is dropped. Asserted on that field rather than on
+      // the whole list, which REQ-135 lengthened with the run's typography.
+      expect(loaded.fields[0]).toEqual(expect.objectContaining({ name: 'text', label: 'Text' }))
 
       if (!WEBUI_INSTALLED) {
         unverified('AC-1039 the rendered dialog dropping its heading and label column')
@@ -685,10 +686,15 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
       const opened = await openOn(region(PATH.headline))
       try {
         expect(opened.modal.querySelector('.builder-modal__title')).toBeNull()
-        expect(opened.modal.querySelectorAll('.fields-label')).toHaveLength(0)
+        // SCOPED TO THE BOX. What this AC dropped was a label column saying
+        // "Text" beside the words themselves — redundant because the box IS the
+        // words. REQ-135's parameter sheet beneath it is the opposite case: a
+        // size and a weight are meaningless unlabelled, so it keeps its labels.
+        const box = opened.modal.querySelector('.builder-modal__box')!
+        expect(box.querySelectorAll('.fields-label')).toHaveLength(0)
         // Dropped through the component's own stacked layout option, not by
         // hiding a rule the component owns.
-        expect(opened.modal.querySelector('.fields')!.getAttribute('data-layout')).toBe('stacked')
+        expect(box.querySelector('.fields')!.getAttribute('data-layout')).toBe('stacked')
 
         // NEITHER DROP COSTS ANYTHING A SCREEN READER NEEDS. The heading's real
         // job was the dialog's accessible name; the label's was naming the

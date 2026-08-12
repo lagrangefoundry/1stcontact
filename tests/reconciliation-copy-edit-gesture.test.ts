@@ -775,9 +775,12 @@ describe('story-3bf94bd4 the edit gesture', () => {
       }
       expect(loaded.values.text).toBe(OVERFLOWING)
       expect(loaded.values.text.length).toBe(OVERFLOWING.length)
-      expect(loaded.fields).toEqual([
-        { name: 'text', label: 'Text', type: 'string', widget: 'textarea' },
-      ])
+      expect(loaded.fields[0]).toEqual({
+        name: 'text',
+        label: 'Text',
+        type: 'string',
+        widget: 'textarea',
+      })
     } finally {
       await builder.close()
     }

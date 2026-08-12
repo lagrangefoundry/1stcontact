@@ -311,11 +311,16 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       )
     ).json()) as { fields: Array<{ name: string; type: string }>; values: Record<string, string> }
 
-    expect(loaded.fields).toEqual([{ name: 'text', label: 'Text', type: 'string' }])
-    expect(loaded.values).toEqual({ text: HEADLINE })
-    // NO ROUTE TO MARKUP OR STYLING: every control the derivation can ask for
-    // is a plain string, so there is no rich-text surface to reach.
-    for (const field of loaded.fields) expect(field.type).toBe('string')
+    expect(loaded.fields[0]).toEqual({ name: 'text', label: 'Text', type: 'string' })
+    expect(loaded.values).toMatchObject({ text: HEADLINE })
+    // NO ROUTE TO MARKUP OR STYLING. Every control the derivation can ask for is
+    // one of a closed set of shapes, none of which can carry markup: plain text
+    // (which the renderer escapes), a pick from a list this surface wrote, a
+    // bounded whole number, or a bit. REQ-135 added the last two; there is still
+    // no rich-text surface to reach, which is the claim.
+    for (const field of loaded.fields) {
+      expect(['string', 'enum', 'integer', 'boolean']).toContain(field.type)
+    }
 
     if (!WEBUI_INSTALLED) {
       unverified('AC-994 that the dialog is the shared component in whole-form confirm mode')
@@ -336,10 +341,14 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       expect(modals()).toHaveLength(1)
       const modal = modals()[0]
       // ...whose form is the shared component's, not a hand-built one. A future
-      // hand-rolled replacement fails here rather than passing quietly.
-      expect(modal.querySelectorAll('.fields')).toHaveLength(1)
+      // hand-rolled replacement fails here rather than passing quietly. Counted
+      // over the BOX: REQ-135 mounts a second instance of the same component
+      // beneath it for the run's typography, so "one form" became "one form for
+      // the words" — still the component, still not hand-built.
+      const box = modal.querySelector('.builder-modal__box')!
+      expect(box.querySelectorAll('.fields')).toHaveLength(1)
       // ...confirmed as a whole, which is what makes one Save one change.
-      expect(modal.querySelector('.fields')!.getAttribute('data-commit')).toBe('buffered')
+      expect(box.querySelector('.fields')!.getAttribute('data-commit')).toBe('buffered')
       // ...showing the words the region displays on the page. Read off the
       // CONTROL rather than the dialog's text: REQ-121 opens a one-field form
       // straight into its control, so the words are a form value now instead of
