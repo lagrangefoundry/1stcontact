@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-12T01:20:12.614400+00:00'
+updated_at: '2026-08-12T01:21:24.055176+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,34 @@ Answer those and I'll finalise the acceptance criteria and start on it.
 Please use the US spelling color
 
 What is a step
+
+<!-- xgd-turn id="7f079b23-2592-4514-951b-389967e5c21e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T01:21:23.913194+00:00" -->
+#### Claude
+Done — ticket rewritten in US spelling (title too).
+
+## What a step is
+
+A palette **entry** is one named color — a role, like `primary`. A **step** is a named variant of that same role: a position on its light→dark ramp, kept under the entry rather than beside it.
+
+`xgd`'s actual palette:
+
+| entry | base | steps |
+|---|---|---|
+| `primary` | `#2e86a3` | `500` `#4aafc9` (lighter), `700` `#236d87` (darker) |
+| `text` | `#1f2937` | `200` `#d1d5db`, `400` `#9ca3af`, `500` `#6b7280`, `700` `#4b5563`, `900` `#111827` |
+| `surface` | `#fffef8` | `100` `#f5f4ec`, `125` `#e5e2d5` |
+| `neutral` | `#ffffff` | `950` `#000000` |
+| `accent` | `#8b5c2a` | — |
+| `surface-accent` | `#eaf5f8` | — |
+
+A page references the base as `{ref: 'primary'}` and a step as `{ref: 'primary', step: '700'}`. Low numbers are lighter, high numbers darker — that's convention, not schema; step names are free-form kebab-case, which is why `surface` has a `125`.
+
+Why they exist rather than being six more entries: the palette this replaced baked ramp positions into sibling role names (`accentLight` / `accentMid` / `accentDeep`), so "the brand teal" was three unrelated slots and there was no single thing to change. Putting the ramp *under* the role means the role stays the unit of change and its shades stay visibly attached to it.
+
+**One consequence worth flagging for the editor**, because it shapes what AC 4 can promise: steps hold their own literal hexes and are not derived from the base. So changing `primary` from `#2e86a3` to a green repaints the 40 places that reference the base — and leaves `primary/500` and `primary/700` teal, in the 20 places that reference those. The editor will show you that (each swatch carries its count), but it won't recompute a ramp. Re-deriving steps from a changed base is a real feature and a separate one; I've kept it out unless you want it in.
+
+The three open questions from last turn still stand — command group vs `config set`, rename out of V1, adding a step out of V1.
 
 <!-- xgd-chat-end -->
