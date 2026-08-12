@@ -5,9 +5,9 @@ type: report
 title: 'Regression success: none caught (reconciliation)'
 created_by: xgd
 created_at: '2026-08-12T19:17:43.089044+00:00'
-updated_at: '2026-08-12T19:17:43.089044+00:00'
+updated_at: '2026-08-12T19:17:57.239397+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 fields:
   report_kind: regression_success
   subject_uid: request-a8ccd0dd
@@ -15,5 +15,7 @@ fields:
   intent_uid: request-a8ccd0dd
   regression_count: 0
 ---
+
+No regressions were caught during this reconciliation cycle for request-a8ccd0dd: the regression suite ran clean and produced zero entries to annotate. The array below is therefore empty, and no descriptions or severities apply.
 
 []
