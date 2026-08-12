@@ -20,6 +20,8 @@ fields:
     new_sha: 4e3e532405998fabd332fe3ebe413d6bda4068af
   - old_sha: 4e3e532405998fabd332fe3ebe413d6bda4068af
     new_sha: 2317ba8939a6776d20b75265a3ba2cdb46f5d8aa
+  - old_sha: 2317ba8939a6776d20b75265a3ba2cdb46f5d8aa
+    new_sha: 9c1dbe0e8443da481e67cc505f3f8a4401b87746
 result: running
 ---
 
