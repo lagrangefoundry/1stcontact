@@ -6,10 +6,10 @@ title: A picture's framing, shape, colour adjustment and rotation paint identica
   in the edit channel and the shipped channel, because one emitter reads one document
 created_by: xgd
 created_at: '2026-08-12T22:01:18.986755+00:00'
-updated_at: '2026-08-12T22:01:18.986755+00:00'
+updated_at: '2026-08-12T22:06:11.826868+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-af36c2cb
   kind: behavior
