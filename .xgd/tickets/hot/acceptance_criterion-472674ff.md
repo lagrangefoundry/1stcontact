@@ -2,13 +2,13 @@
 uid: acceptance_criterion-472674ff
 id: AC-1044
 type: acceptance_criterion
-title: A form with exactly one field opens in its control, ready to type; a form with
-  more opens none
+title: The editing box holding exactly one field opens in its control, ready to type;
+  a box with more, or a dialog with a grid, opens none
 created_by: xgd
 created_at: '2026-08-10T07:48:26.505765+00:00'
-updated_at: '2026-08-12T18:26:15.923834+00:00'
+updated_at: '2026-08-12T18:26:24.922891+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-3bf94bd4
