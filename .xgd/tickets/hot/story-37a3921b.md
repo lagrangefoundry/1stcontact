@@ -7,9 +7,9 @@ title: Change the words, how they are set, which images appear on my page and ho
   AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-12T21:27:36.826183+00:00'
+updated_at: '2026-08-12T21:31:02.803797+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-15c1f647
