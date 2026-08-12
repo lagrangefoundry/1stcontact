@@ -145,6 +145,8 @@ interface Field {
   enum?: string[]
   required?: boolean
   widget?: string
+  min?: number
+  max?: number
 }
 
 interface CliResult {
@@ -306,6 +308,29 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     expect(got.data!.values).toMatchObject({ src: HERO, alt: HERO_ALT })
     expect(draftNode(cwd, A_IMAGE)).toMatchObject({ src: HERO, alt: HERO_ALT })
 
+    // AFTER THE PAIR COMES HOW THE PICTURE IS SEEN — and every one of those is a
+    // CLOSED control: a bounded whole number carrying both its bounds, or a pick
+    // from a non-empty list of the words that parameter itself admits. Not one is
+    // a free-form string, which is the load-bearing property rather than a
+    // stylistic one: nothing on this surface can express a length, a colour
+    // function or a path, so widening what an operator can SAY here never widens
+    // what a caller can SMUGGLE through it (DOC-2).
+    const framing = fields.slice(2)
+    expect(framing.length).toBeGreaterThan(0)
+    for (const field of framing) {
+      expect(['integer', 'enum'], field.name).toContain(field.type)
+      if (field.type === 'integer') {
+        expect(field.min, field.name).toBeTypeOf('number')
+        expect(field.max, field.name).toBeTypeOf('number')
+      } else {
+        expect(Array.isArray(field.enum), field.name).toBe(true)
+        expect(field.enum!.length, field.name).toBeGreaterThan(0)
+      }
+    }
+    // The sweep saw BOTH shapes, so neither branch above passed vacuously.
+    expect(framing.some((f) => f.type === 'integer')).toBe(true)
+    expect(framing.some((f) => f.type === 'enum')).toBe(true)
+
     // And the origin answers the identical thing — one derivation, two ways in.
     await withOrigin(cwd, async (builder) => {
       const body = (await (
@@ -451,14 +476,50 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     expect(status.data!.modified).toEqual(['pages/home.json'])
 
     // And the region differs from its former self in exactly one string. Its id
-    // and its presentation axes survive — the eventual home of framing (crop,
-    // scale, scrim, rotation) is exactly there, and nothing about choosing an
-    // image may displace it.
+    // and its presentation axes survive — framing lives exactly there, and
+    // nothing about choosing an image may displace it.
     const nodeAfter = draftNode(cwd, A_IMAGE)
     expect(nodeAfter).toEqual({ ...nodeBefore, src: BETA })
     expect(nodeAfter.axes).toEqual({ objectFit: 'cover' })
     expect(nodeAfter.id).toBe('hero-img')
     expect(nodeAfter.alt).toBe(HERO_ALT)
+
+    // AND THE SAME OF ADJUSTING HOW IT IS SEEN — the claim the whole phase rests
+    // on, and the half a choice of image alone cannot prove. A framing, a shape
+    // and a colour adjustment saved together are structured parameters the
+    // renderer applies: nothing is decoded, resized, re-encoded or baked, so one
+    // uploaded picture serves any number of framings and no image-processing step
+    // exists to be reached. If it were ever implemented by writing a derived
+    // file, this is where a new asset would appear.
+    const printBeforeFraming = assetFingerprint(cwd)
+    const framed = await cli(
+      cwd,
+      ...setArgs(A_IMAGE, { objectPositionYPct: 20, shape: 'circle', grayscalePct: 100 }),
+    )
+    expect(framed.ok).toBe(true)
+    expect(framed.data!.changed).toEqual(['objectPositionYPct', 'shape', 'grayscalePct'])
+
+    expect(readdirSync(draftPath(cwd, 'acme', 'assets')).sort()).toEqual(filesBefore)
+    expect(assetFingerprint(cwd)).toEqual(printBeforeFraming)
+    const afterFraming = await cli(cwd, 'status', 'acme')
+    expect(afterFraming.data!.added).toEqual([])
+    expect(afterFraming.data!.removed).toEqual([])
+    expect(afterFraming.data!.modified).toEqual(['pages/home.json'])
+
+    // The adjustment moved how the picture is SEEN and never which picture it is:
+    // the region points at the same handle it did before, and everything it
+    // carried besides the three parameters named — its id, its alt text and the
+    // captured `objectFit` beside them — is untouched.
+    const adjusted = draftNode(cwd, A_IMAGE)
+    expect(adjusted.src).toBe(BETA)
+    expect(adjusted.id).toBe('hero-img')
+    expect(adjusted.alt).toBe(HERO_ALT)
+    expect(adjusted.axes).toEqual({
+      objectFit: 'cover',
+      objectPosition: { xPct: 50, yPct: 20 },
+      filter: { grayscale: 1 },
+    })
+    expect(adjusted.mask).toEqual({ shape: 'circle' })
   })
 
   // ── refusing ───────────────────────────────────────────────────────────────

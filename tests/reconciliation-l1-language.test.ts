@@ -33,6 +33,12 @@ function ruleFor(css: string, cls: string): string {
 
 describe('AC-725 typed pixel-mover axes render as CSS re-derived from their typed fields', () => {
   it('test_UAT_AC725_structured_axes_emit_derived_css_and_identity_values_are_omitted', () => {
+    // REQ-136 widened this AC with the colour-adjustment axes, whose structured
+    // typed form and per-function identity are proven by their own siblings:
+    // test_UAT_AC1125_* / AC1126_* / AC1127_* in
+    // tests/reconciliation-l1-image-framing.test.ts. This test remains the
+    // general statement of the rule over the axes it already sampled.
+    //
     // ── text: gradient fill, decoration, glyph shadow, small-caps, list marker ──
     const textCss = renderL1Document({
       widths: WIDTHS,

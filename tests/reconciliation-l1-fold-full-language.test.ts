@@ -81,6 +81,11 @@ function leavesOf(doc: ReturnType<typeof foldToL1>) {
 
 describe('AC-729 a text-free media element folds to an image leaf with its resolved source and alternative text', () => {
   it('test_UAT_AC729_media_folds_to_image_leaf_with_src_alt_and_axes', () => {
+    // REQ-136 widened this AC with "the leaf carries its framing" — the captured
+    // pan and colour adjustment. Those are proven by their own siblings,
+    // test_UAT_AC1133_* and test_UAT_AC1134_* in
+    // tests/reconciliation-l1-fold-framing-and-adjustment.test.ts; this test
+    // remains the media-element fold the AC is named for.
     const residuals: FoldResidual[] = []
     const doc = foldToL1(
       multiFrom((w) => [

@@ -293,6 +293,12 @@ describe('AC-801 a painted, internally laid-out element is a single node', () =>
 
 describe('AC-802 every node kind admits the same shared axis groups', () => {
   it('test_UAT_AC802_shared_groups_accepted_identically_and_strictly_on_every_kind', () => {
+    // REQ-136 widened this AC with colour adjustment on every kind (distinct from
+    // backdrop blur) and with the image-only framing axis. Both are proven by
+    // their own siblings — test_UAT_AC1125_* and test_UAT_AC1124_* in
+    // tests/reconciliation-l1-image-framing.test.ts — while this test remains the
+    // every-kind sweep the AC is named for.
+    //
     // The node-level groups are declared once, so the sample table below must
     // enumerate exactly them — if a group is added and not sampled here, this
     // fails rather than silently under-testing the next kind.

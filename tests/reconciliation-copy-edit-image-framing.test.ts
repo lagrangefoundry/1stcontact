@@ -421,4 +421,115 @@ describe('story-37a3921b — how a picture is seen, through the same write path'
     // business.
     expect(draftAxes(A_PANNED).objectFit).toBe('cover')
   })
+
+  // ── the properties the picture half inherits from the write path ───────────
+  //
+  // AC-1121 and AC-1122 are not image claims that happen to be tested here: they
+  // are claims about EVERY bounded control and EVERY parameter edit this surface
+  // offers, and REQ-136 widened what "every" means. A run's size proved them for
+  // typography; these prove the same two rules did not stop at the text half.
+
+  it('test_UAT_AC1121_a_pictures_bounds_bind_a_change_and_never_the_status_quo', async () => {
+    // AC-1121 — a saved form carries every field the region exposed, not only
+    // the ones that were touched. A picture the fold captured as a fully-round
+    // avatar carries a corner rounding far outside anything the control offers,
+    // so a bound that judged the status quo would make it unopenable and
+    // unsavable — for the sake of an operator fixing its alt text.
+    expect(draftAxes(A_PILL).borderRadiusPx).toBe(9999)
+    expect((await fieldNamed(A_PILL, 'cornerRadiusPx'))!.max).toBeLessThan(9999)
+    // The region reports it as its current value regardless, so the control opens
+    // on what the picture actually is.
+    expect((await valuesOf(A_PILL)).cornerRadiusPx).toBe(9999)
+
+    const reSaved = await set(A_PILL, { alt: 'Reworded.', cornerRadiusPx: 9999 })
+    expect(reSaved.ok).toBe(true)
+    expect(reSaved.data!.changed).toEqual(['alt'])
+    expect(draftAxes(A_PILL).borderRadiusPx).toBe(9999)
+
+    // A genuinely NEW value outside a range is refused at the field, naming the
+    // bound and the value asked for — across the three families of control the
+    // picture adds, because a range enforced on one and forgotten on another is
+    // the failure this covers.
+    for (const asked of [
+      { saturatePct: 500 },
+      { objectPositionXPct: 140 },
+      { scalePct: 1 },
+    ] as Array<Record<string, number>>) {
+      const [name, value] = Object.entries(asked)[0]
+      const before = draftBytes()
+      const refused = await set(A_PILL, asked)
+      expect(refused.ok, name).toBe(false)
+      expect(refused.exitCode, name).not.toBe(0)
+      expect(refused.error!.message, name).toMatch(/at (most|least)/)
+      expect(refused.error!.message, name).toContain(String(value))
+      expect(refused.error!.path, name).toContain(name)
+
+      // NOTHING IS WRITTEN AND NOTHING IS CLAMPED. Quietly reshaping a page
+      // nobody edited is the worse failure of the two, and it is invisible — so
+      // the whole draft, not merely the field, is asserted byte-for-byte.
+      expect(draftBytes(), name).toBe(before)
+      expect(draftAxes(A_PILL).borderRadiusPx, name).toBe(9999)
+      expect(draftAxes(A_PILL).filter, name).toBeUndefined()
+      expect(draftAxes(A_PILL).objectPosition, name).toBeUndefined()
+      expect(draftNode(A_PILL).transform, name).toBeUndefined()
+    }
+  })
+
+  it('test_UAT_AC1122_a_framing_edit_writes_among_the_parameters_the_picture_already_carries', async () => {
+    // AC-1122 — the parameter named is the only one that moves. `A_FEATHERED`
+    // carries a fill, an opacity and an edge treatment this surface never offers,
+    // so "disturbs nothing else" is measured against parameters no control here
+    // could have written back — a picture holding one parameter could not tell
+    // "preserved" from "there was nothing to lose".
+    const turned = await set(A_FEATHERED, { rotateDeg: -8 })
+    expect(turned.ok).toBe(true)
+    expect(turned.data!.changed).toEqual(['rotateDeg'])
+    expect(draftNode(A_FEATHERED).transform).toEqual({ rotateDeg: -8 })
+    expect(draftAxes(A_FEATHERED)).toEqual({
+      objectFit: 'cover',
+      surfaceFill: '#101418',
+      opacity: 0.9,
+    })
+    expect(draftNode(A_FEATHERED).mask).toEqual({ shape: 'featherBottom', featherPx: 48 })
+    expect(draftNode(A_FEATHERED).alt).toBe(PORTRAIT_ALT)
+
+    // ABSENT IS THE DEFAULT, AND NO EMPTY CONTAINER IS LEFT BEHIND. Turning the
+    // picture back removes the parameter, and because it was the only one in the
+    // group, the group goes with it rather than lingering as `{}` — which would
+    // render as nothing while reading as something, and be a diff on every save.
+    const straight = await set(A_FEATHERED, { rotateDeg: 0 })
+    expect(straight.ok).toBe(true)
+    expect(straight.data!.changed).toEqual(['rotateDeg'])
+    expect(draftNode(A_FEATHERED).transform).toBeUndefined()
+    expect(draftAxes(A_FEATHERED)).toEqual({
+      objectFit: 'cover',
+      surfaceFill: '#101418',
+      opacity: 0.9,
+    })
+
+    // A CHANGE MAP THAT CHANGES NOTHING IS REPORTED AS CHANGING NOTHING, on the
+    // picture that declares nothing at all — the case where every branch has to
+    // look in a parameter bag, so creating one to look in it would leave `axes:
+    // {}` behind on a node that had none.
+    //
+    // The baseline is taken AFTER a real save rather than from the seed: the
+    // shared write helper rewrites the whole document with its own escaping, a
+    // known cosmetic defect recorded on the story, so the seeded bytes and the
+    // written bytes differ for reasons that have nothing to do with this claim.
+    const baseline = draftBytes()
+
+    // The WHOLE form, exactly as the region reports it — which is what a save
+    // actually posts, not only the fields someone touched.
+    const reported = await valuesOf(A_PLAIN)
+    expect(Object.keys(reported)).toEqual(['src', 'alt', ...FRAMING_FIELDS])
+    const noop = await set(A_PLAIN, reported)
+    expect(noop.ok).toBe(true)
+    expect(noop.exitCode).toBe(0)
+    expect(noop.data!.changed).toEqual([])
+
+    expect(draftNode(A_PLAIN).axes).toBeUndefined()
+    expect(draftNode(A_PLAIN).mask).toBeUndefined()
+    expect(draftNode(A_PLAIN).transform).toBeUndefined()
+    expect(draftBytes()).toBe(baseline)
+  })
 })
