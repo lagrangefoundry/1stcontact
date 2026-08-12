@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-137
 created_by: xgd
 created_at: '2026-08-12T17:42:50.693486+00:00'
-updated_at: '2026-08-12T17:52:44.873770+00:00'
+updated_at: '2026-08-12T17:57:28.669809+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,50 @@ Split taken: this ticket (REQ-137) holds the model change; REQ-133 keeps the pop
 <!-- xgd-chat role="user" ts="2026-08-12T17:52:44.701106+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="1e2ecd4c-ab37-4781-a05c-d3dfba60eb3e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T17:57:28.486997+00:00" -->
+#### Claude
+I'll start by reading the ticket to see what's recorded.
+
+The ticket body is fully populated. Let me read the actual code before asking anything.
+
+Let me measure the actual Oklab fits before I ask anything, so the questions are concrete.
+
+REQ-133 owns the `1c palette` group and the rename decision — so REQ-137's scope is just the model + retrofit. Let me check the remaining touchpoints and one measurement.
+
+Let me check whether the original retrofit's `--names` mapping is recorded — re-running without it would rename every entry.
+
+I've read the ticket, the code, and measured the actual fits. Everything in the ticket is decided except one real judgment call. Here's what I found and the one thing I need from you.
+
+**Measured, all 32 stored steps across both sites, best Oklab tint/shade fit from the family base:**
+
+| bucket | count | members |
+|---|---|---|
+| exact–8/255 | 24 | all of `text`, `sand`, `surface`, most of `slate`, `primary/700`, `green/700`, `green/800`, `blue/525` |
+| 15–34/255 | 4 | `slate/100` (15), `primary/500` (20), `green/600` (23), `orange/400` (34) |
+| 68–101/255 | 4 | `blue/300` (68), `blue/400` (87), `blue/500` (89), `amber/500` (101) |
+
+(Slightly more than the ticket's 15-of-22 — same shape, the earlier count was over a narrower set.) The gap between 8 and 15 is clean, so a tolerance of **8/255 max per-channel** is where the data actually separates, not a number fitted to it.
+
+**The one question.** With tolerance 8, `xgd`'s brand teal splits into two entries: `primary` `#2e86a3` keeps its dark shade, but `primary/500` `#4aafc9` misses by 20 and becomes its own entry. That colour is *lighter and more saturated* than the base, and a tint can only remove chroma — so it is not reachable, model-correctly. But it is the one case where the outcome contradicts what §2 promises the operator: "the brand teal" is still two things you have to change separately.
+
+Two ways to go:
+
+- **(a) Accept the split at tolerance 8.** Honest — `#4aafc9` genuinely is not a shade of `#2e86a3`. Palettes land at `xgd` 6→7 entries, `gigabytealchemy` 8→14.
+- **(b) Raise tolerance to 20.** Absorbs `primary/500` and `slate/100`, so the brand teal stays one family. Costs a visible 20/255 shift on `#4aafc9` (used in `xgd`) — 2.5× the drift you approved.
+
+I'd take **(a)**: 20/255 on a mid-tone is a colour change you'd notice, and the whole point of the bound is that it stays invisible. But it's your call, since it's your brand teal.
+
+**Defaults I'll take unless you say otherwise** — none of these need an answer:
+
+- Rejected members get re-clustered among themselves, so `#2b7fff`/`#50a2ff` stay one entry rather than two singletons.
+- Base of a family stays the most-used colour, as today.
+- `xgd`'s curated names are preserved via `--names slate=text,teal=primary,orange=accent,sand=surface,slate-2=surface-accent`, recorded in the ticket so the retrofit is reproducible. `gigabytealchemy`'s names are all derived already.
+- `--assign` no longer proves byte-identity; it proves every reference resolves within the bound and reports the per-colour drift it accepted. Anything outside the bound is a new entry and stays exact, so it can still refuse on a genuine conversion bug.
+- I'll update DOC-23 §5 to describe shade instead of steps (doc-only), and I'll be editing the reconciled `reconciliation-colour-*` UATs that pin `steps` — the supersession your ticket §3 already records.
+
+Say (a) or (b) and I'll cut the branch and build it.
 
 <!-- xgd-chat-end -->
