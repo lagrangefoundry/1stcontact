@@ -5,16 +5,21 @@ type: request
 title: 'Page editor: text properties — colour, size, weight, italic on the whole segment'
 created_by: xgd
 created_at: '2026-08-12T00:44:05.882887+00:00'
-updated_at: '2026-08-12T02:04:30.885408+00:00'
+updated_at: '2026-08-12T02:05:11.271677+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   depends_on:
   - REQ-133
+  commits:
+  - working_sha: a109064abae00247bfab2a4780612b25d196d1d1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.37
 ---
 
 # Page editor: text properties — colour, size, weight, italic on the whole segment
