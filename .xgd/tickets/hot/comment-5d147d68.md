@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-135
 created_by: xgd
 created_at: '2026-08-12T00:49:04.372104+00:00'
-updated_at: '2026-08-12T01:22:14.002690+00:00'
+updated_at: '2026-08-12T01:40:48.815824+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,11 @@ An entry is a *role* (`slate`); a **step** is a named position on that role's ra
 I'd suggested "entries only in V1" — the data says no. `gigabytealchemy` carries **8 entries but 28 colours**, `slate` alone spanning eight steps; `xgd` has 6 entries and 16 colours. A base-only picker would hide most of the site's actual palette, and a run already coloured `slate/900` wouldn't appear in its own option list — a select whose options omit its current value silently swaps the colour on Save, the exact failure `imageChoices` exists to prevent for images. So steps are in, and the control is the ramp grid shown above. ~28 chips at the largest real palette, which is a comfortable grid.
 
 Ticket updated with all of it. Remaining for you: escalation A or B, dirty-state behaviour, and px-vs-points.
+
+<!-- xgd-turn id="fe94d47d-85c3-4dcf-861f-44c7185f0fe1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-12T01:40:48.675374+00:00" -->
+#### You
+Please continue
 
 <!-- xgd-chat-end -->
