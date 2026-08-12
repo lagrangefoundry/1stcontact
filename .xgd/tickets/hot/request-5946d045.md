@@ -5,10 +5,10 @@ type: request
 title: 'Page editor: image picker shows thumbnails with file names'
 created_by: xgd
 created_at: '2026-08-12T00:37:38.714532+00:00'
-updated_at: '2026-08-12T01:03:37.309043+00:00'
+updated_at: '2026-08-12T01:17:15.035487+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
