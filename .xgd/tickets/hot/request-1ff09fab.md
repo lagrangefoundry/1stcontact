@@ -5,9 +5,9 @@ type: request
 title: 'Copy modal: parameter changes preview live in the editing box'
 created_by: xgd
 created_at: '2026-08-12T17:56:30.149389+00:00'
-updated_at: '2026-08-12T18:12:38.687798+00:00'
+updated_at: '2026-08-12T18:13:05.160398+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -97,10 +97,36 @@ same legibility floor REQ-121 already set for the control being typed into.
 
 ## Test plan
 
-`tests/test_UAT_FC_REQ-138_live_preview.test.ts`, driving the real modal through
-`mountEditor` on a rendered edit document, as REQ-121/REQ-135 do:
+`tests/test_UAT_FC_REQ-138_live_preview.test.ts` — 6 UATs driving the real
+`defaultModal` over a real `1c render --edit` page, with the controls exercised
+by the gestures a user makes (click the row, type, blur; pick from the select;
+tick the toggle) rather than by calling into the component.
 
-- changing Size restyles the box, proportionally to the opening scale
-- changing Weight / Italic / Capitalisation each restyle the box
-- an untouched parameter leaves its opening var alone (the divergence guard)
-- opening the modal still produces REQ-121's exact dressing (regression)
+| | claim |
+|---|---|
+| AC-1 | a clamped headline still responds — the load-bearing one |
+| AC-2 | the box keeps the scale it opened at, for a clamped run and an unclamped one |
+| AC-3 | Weight, Italic and Capitalisation each restyle the box (three different gestures) |
+| AC-4 | turning a parameter back off clears it rather than leaving the last value standing |
+| AC-5 | one property per change — an untouched parameter keeps its opening value |
+| AC-6 | regression: opening the modal is still REQ-121's dressing |
+
+## Verification
+
+- **The suite fails without the fix**: 4 of 6 fail with the subscription removed.
+  The 2 that pass are AC-5 and AC-6, which assert the *absence* of change and so
+  pass on the old code by construction.
+- **AC-1 pins the design decision**: substituting the naive re-clamp
+  (`clampPreviewSize` on the authored value) fails AC-1 and nothing else. The
+  fixture confirms the clamp is genuinely engaged — the 72px headline opens
+  previewed at 32px, scale 0.44, so 120px previews at 53px where a re-clamp
+  would answer 32px and show the operator nothing.
+- **Editor/modal regression scope**: 91 passed across REQ-117/118/121/128/132/135
+  and the two reconciliation copy-edit suites.
+- **Full suite**: 1452 passed, 13 failed. The 13 are pre-existing and unrelated —
+  the identical 13 fail on pristine `xgd-working` without this change
+  (`reconciliation-assistant-conversation`, `REQ-122_chat_host`,
+  `REQ-127_session_binding`; they need an API key).
+- **The preview is visually real, not just a variable**: `fields.css` sets
+  `.fields-control { font: inherit }`, so family, weight, style and size all
+  reach the textarea, and `text-transform` inherits by default.
