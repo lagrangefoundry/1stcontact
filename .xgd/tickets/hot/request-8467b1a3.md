@@ -2,10 +2,10 @@
 uid: request-8467b1a3
 id: REQ-133
 type: request
-title: 'Palette popup: display, pick and edit the site''s colours'
+title: 'Palette popup: display, pick and edit the site''s colors'
 created_by: xgd
 created_at: '2026-08-12T00:39:22.220242+00:00'
-updated_at: '2026-08-12T01:13:09.683050+00:00'
+updated_at: '2026-08-12T01:21:00.585470+00:00'
 completed_at: null
 last_field_updated: title
 status: draft
@@ -15,13 +15,13 @@ fields:
   priority: medium
 ---
 
-# Palette popup: display, pick and edit the site's colours
+# Palette popup: display, pick and edit the site's colors
 
 **A component, not a screen.** One popup surface that shows the site's palette, returns a
-chosen colour to whoever opened it, and lets the palette itself be edited in place.
+chosen color to whoever opened it, and lets the palette itself be edited in place.
 
-Consumed by **[[REQ-135]]** (text properties), whose colour field opens this to pick a value.
-Builds on **[[REQ-114]]** (the L1 palette colour model, landed). Design: [[DOC-28]] §8,
+Consumed by **[[REQ-135]]** (text properties), whose color field opens this to pick a value.
+Builds on **[[REQ-114]]** (the L1 palette color model, landed). Design: [[DOC-28]] §8,
 [[DOC-23]] §5.
 
 ## Status: design agreed in outline — open questions in §7
@@ -32,13 +32,13 @@ Builds on **[[REQ-114]]** (the L1 palette colour model, landed). Design: [[DOC-2
 
 A popup, invoked from two kinds of place:
 
-- **Manage** — a **Colours** button in the builder toolbar. No caller is waiting for a value;
+- **Manage** — a **Colors** button in the builder toolbar. No caller is waiting for a value;
   the user is here to change the palette.
-- **Pick** — a colour field that needs a value (REQ-135's text colour, panel background).
+- **Pick** — a color field that needs a value (REQ-135's text color, panel background).
   The popup returns a palette reference to its opener.
 
 **Both entry points open the same surface.** Picking and editing live together deliberately:
-"this colour is nearly right" is then a one-gesture fix rather than a hunt for a different
+"this color is nearly right" is then a one-gesture fix rather than a hunt for a different
 screen. In pick mode the surface additionally resolves to a selection; nothing else differs.
 
 It is **not** a display-panel mode. Other entry points may follow (an inline swatch, a
@@ -52,7 +52,7 @@ The site's `palette` (REQ-114): an ordered map of named entries `{ value, steps?
 swatch first, its steps beside it. Steps are not decoration: 25 of `xgd`'s 210 references
 point at a step rather than a base, so a picker that hid them would fail the rule that a
 field's *current* value is always among its options (a segment painted `primary/700` would
-open a picker not containing its own colour).
+open a picker not containing its own color).
 
 Measured today:
 
@@ -63,7 +63,7 @@ Measured today:
 | `1stcontact`, `harbor-cafe` | 0 | 0 | 0 — all literals |
 
 An empty palette is a legitimate state (two of four sites), so the surface must read as
-"no colours yet, add one" rather than as broken. Bootstrapping a palette from a folded
+"no colors yet, add one" rather than as broken. Bootstrapping a palette from a folded
 site's literals already exists as `1c colors <slug> --assign` and is **not** rebuilt here.
 
 **Each swatch carries its usage count.** It is the single most useful fact in a palette
@@ -79,19 +79,19 @@ is the boundary with REQ-135: this ticket delivers the picker and its contract, 
 wires it to `axes.color`.
 
 `alpha` is not offered. It is a separate axis (DOC-23 §5.4) and the reference carries it
-independently; a picker that set it would be conflating the unit of colour change with
+independently; a picker that set it would be conflating the unit of color change with
 translucency.
 
 ## 4. Editing
 
-**(a) Change a colour.** Free hex entry on an entry's `value`, or on a step. One write, and
+**(a) Change a color.** Free hex entry on an entry's `value`, or on a step. One write, and
 every reference follows — which is the whole point of the palette being the unit of change.
 Free hex lives *here and only here*: from a segment a user can only pick from the palette
 ([[DOC-28]] §8), which is what bounds the incoherence risk.
 
-**(b) Add a colour.** A new entry: a kebab-case name plus a hex. Adding a *step* to an
+**(b) Add a color.** A new entry: a kebab-case name plus a hex. Adding a *step* to an
 existing entry is out of V1 — it means choosing a ramp position, which is a different act
-from "I want another colour"; ramps stay with the AI.
+from "I want another color"; ramps stay with the AI.
 
 **(c) Delete — restricted.** *Agreed: restricted delete.*
 
@@ -107,7 +107,7 @@ talk it through first. This is better than no deletion and better than a confirm
 quietly breaks forty places.
 
 **Rename is out of V1.** Renaming `primary` orphans every reference to it unless the rename
-rewrites them all — a real operation, but a different one from changing a colour.
+rewrites them all — a real operation, but a different one from changing a color.
 
 ## 5. The data path
 
@@ -117,12 +117,12 @@ different states after the same edit ([[DOC-8]] §7).
 
 - **Read** — the palette plus per-entry and per-step usage counts. The census walks every
   page with `collectL1PaletteRefs` (already in `site-schema/src/l1/palette.ts`); counting is
-  therefore structural, not a hand-listed tour of the colour axes.
+  therefore structural, not a hand-listed tour of the color axes.
 - **Write** — set an entry's or a step's value, add an entry, delete an entry or step. The
   delete guard is enforced **server-side**, not in the popup: a client holding a stale count
   must not be able to orphan a reference.
 - A palette write re-renders **both** channels before answering, exactly as `/api/copy` does
-  — a colour change alters the page, not one rendering of it.
+  — a color change alters the page, not one rendering of it.
 
 `editConfigSet` can already write a palette by merge, but merge cannot *remove* a key and
 nothing today exposes the reference census, so the delete rule has no home on that surface.
@@ -135,7 +135,7 @@ nothing today exposes the reference census, so the delete rule has no home on th
   hand-rolls its own backdrop, Escape handling, close and shell-rooted host. The palette
   popup needs the identical shell with different contents, so that shell is extracted into
   one module both use rather than copied.
-- The toolbar renders one control per registered action already; **Colours** is one more
+- The toolbar renders one control per registered action already; **Colors** is one more
   action spec, not a branch.
 
 ## 7. Open questions
@@ -148,15 +148,15 @@ nothing today exposes the reference census, so the delete rule has no home on th
 
 ## 8. Acceptance criteria
 
-*(to be finalised once §7 closes)*
+*(to be finalized once §7 closes)*
 
 1. A popup opened from the toolbar shows every palette entry and every step as a swatch,
-   each labelled with its name and its usage count across the site's pages.
-2. A site with an empty palette opens the popup in a state that offers to add a colour.
+   each labeled with its name and its usage count across the site's pages.
+2. A site with an empty palette opens the popup in a state that offers to add a color.
 3. Opened in pick mode, choosing a swatch resolves to a palette reference (`{ref}` or
-   `{ref, step}`) and closes; cancelling resolves to nothing and changes no state.
+   `{ref, step}`) and closes; canceling resolves to nothing and changes no state.
 4. Changing an entry's hex updates every reference to it — the rendered page changes
-   everywhere that colour was used, from one edit.
+   everywhere that color was used, from one edit.
 5. Adding an entry with a kebab-case name and a hex makes it immediately pickable.
 6. Deleting an entry with zero references succeeds; deleting one with references is refused
    with the count, and the refusal is enforced server-side against a stale client.
@@ -167,5 +167,5 @@ nothing today exposes the reference census, so the delete rule has no home on th
 
 ## Origin
 
-Operator request, this session: an interface that displays the palette, lets a colour be
+Operator request, this session: an interface that displays the palette, lets a color be
 chosen from it, and lets the palette be edited. [[DOC-28]] §8 phase 2; unblocks [[REQ-135]].
