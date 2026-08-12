@@ -1,0 +1,43 @@
+---
+uid: acceptance_criterion-db9faa7b
+id: AC-1121
+type: acceptance_criterion
+title: 'The size bound binds a change and never the status quo: an unchanged out-of-range
+  size survives a re-save, while a new out-of-range value is refused rather than clamped'
+created_by: xgd
+created_at: '2026-08-12T18:08:23.057371+00:00'
+updated_at: '2026-08-12T18:08:23.057371+00:00'
+completed_at: null
+last_field_updated: created_at
+status: pending
+fields:
+  story_uid: story-37a3921b
+  kind: behavior
+  regression_only: false
+---
+
+## Criterion
+
+The size control's range binds a **change** and never the status quo.
+
+A value equal to the one the region just reported is accepted whatever it is,
+including a value outside the range. This is not leniency. A saved form carries
+every field the region exposed, not only the ones that were touched, so a run the
+page was captured with at 160px would otherwise be refused — or worse, quietly
+resized — because someone opened it to fix a typo. A range is a statement about
+what may newly be asked for, not a claim that every page already complies.
+
+A **new** value outside the range is refused at the field, in a message naming
+the bound and the value asked for, with nothing written and the run's stored size
+untouched. It is never clamped to the nearest permitted value: quietly reshaping
+a page nobody edited is the worse failure of the two, and it is invisible.
+
+## Verification
+
+Seed a run whose size is outside the control's range and assert the region
+reports that size as its current value. Save that run with new words and its size
+unchanged, and assert the save succeeds, reports only the words as changed, and
+leaves the stored size untouched. Then ask for a size above the maximum and one
+below the minimum, and assert each is refused with a message naming the bound,
+with the stored size still untouched in both cases and no value clamped into the
+range.
