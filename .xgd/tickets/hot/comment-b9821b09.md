@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-12T17:43:02.676697+00:00'
+updated_at: '2026-08-12T17:53:45.375095+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -247,5 +247,13 @@ Renaming a palette entry's **key**: `primary` → `brand`. Every reference in ev
 - slider continuous — with the tradeoff written down, since it's the one thing continuous costs you: two segments can't be matched to the same shade by eye, so "make these two the same" becomes an AI request
 
 Acceptance criteria are finalized on both. Nothing coded yet — REQ-137 lands first, then the popup. Want me to start on REQ-137?
+
+<!-- xgd-turn id="864412b6-7f36-4041-b40c-bd7427048323-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-12T17:53:45.144609+00:00" -->
+#### You
+137 is underway
+
+Lets just do the rewrite 210 refs is not bad
 
 <!-- xgd-chat-end -->
