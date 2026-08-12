@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-12T01:13:23.040883+00:00'
+updated_at: '2026-08-12T01:20:12.614400+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -128,5 +128,13 @@ Three things left for you, all in §7 of the ticket:
 3. **Adding a *step* — confirmed out of V1?** "Add a colour" stays "add an entry"; ramps stay with the AI.
 
 Answer those and I'll finalise the acceptance criteria and start on it.
+
+<!-- xgd-turn id="7f079b23-2592-4514-951b-389967e5c21e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-12T01:20:12.459694+00:00" -->
+#### You
+Please use the US spelling color
+
+What is a step
 
 <!-- xgd-chat-end -->
