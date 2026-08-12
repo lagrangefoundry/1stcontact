@@ -6,9 +6,9 @@ title: Change the words, how they are set, and which images appear on my page th
   one validated, all-or-nothing edit — the same path the AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-12T18:06:34.379534+00:00'
+updated_at: '2026-08-12T18:10:27.460542+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-15c1f647
