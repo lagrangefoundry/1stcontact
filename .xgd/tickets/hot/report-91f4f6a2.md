@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: REQ-136 phase 1 — a picture''s framing, shape and
   adjustment'
 created_by: xgd
 created_at: '2026-08-12T21:05:59.448505+00:00'
-updated_at: '2026-08-12T21:05:59.448505+00:00'
+updated_at: '2026-08-12T21:16:36.298065+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-8a132869
