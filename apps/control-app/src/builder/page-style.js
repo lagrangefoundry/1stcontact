@@ -32,6 +32,86 @@ export function clampPreviewSize(px) {
   return Math.min(PREVIEW_MAX_PX, Math.max(PREVIEW_MIN_PX, px))
 }
 
+/**
+ * The scale the dialog dressed this run at: previewed px per authored px.
+ *
+ * Two separate reductions land in this one number, and folding them together is
+ * the point. The clamp above is one — a 56px headline previews at 32. The other
+ * is responsive: `fontSizePx` is a TRACK sampled at six widths (BUG-18), so the
+ * authored base the control edits and the size the iframe happens to be
+ * rendering at its current width are routinely different numbers. Neither
+ * reduction is worth reproducing separately; what the box needs is the single
+ * ratio that maps one to the other.
+ *
+ * Falls back to 1 — preview the authored size as-is — whenever either end is
+ * missing, which is every document with no computed styles and every segment
+ * that declares no size.
+ */
+export function previewScale(previewVars, authoredPx) {
+  const shown = pxOf(previewVars?.['--preview-font-size'])
+  const authored = Number(authoredPx)
+  if (!shown || !Number.isFinite(authored) || authored <= 0) return 1
+  return shown / authored
+}
+
+/**
+ * The size the box previews an authored size at.
+ *
+ * SCALED, NOT RE-CLAMPED (REQ-138). Putting the authored value back through
+ * {@link clampPreviewSize} looks like the obvious reuse and would make this
+ * feature silently fail for exactly the runs it matters most for: a headline
+ * already sits at the 32px ceiling, so 56 → 80 would move nothing at all, and a
+ * control that answers every change with "no visible difference" is worse than
+ * one that never claimed to preview.
+ *
+ * The floor stays. Below it the operator is typing into text they cannot read,
+ * which is the same legibility contract the opening clamp is enforcing — so
+ * shrinking far below the run's own size does saturate, and that is deliberate.
+ * There is no ceiling: the box scrolls.
+ */
+export function previewSizePx(authoredPx, scale) {
+  const px = Number(authoredPx)
+  if (!Number.isFinite(px) || px <= 0) return null
+  const factor = Number.isFinite(scale) && scale > 0 ? scale : 1
+  return Math.max(PREVIEW_MIN_PX, Math.round(px * factor))
+}
+
+/**
+ * One edited parameter as the custom property that shows it, or `null`.
+ *
+ * A TABLE RATHER THAN A CHAIN OF IFS, because the interesting property is what
+ * is ABSENT from it. A parameter with no entry here is one the box cannot show,
+ * and returning `null` for it is the honest answer — the alternative, a default
+ * that writes *something*, would dress the box in a value the page will not use.
+ * Colour is the live example: `edit.ts` defers the descriptor to REQ-133's
+ * palette control, so it is a row this gains rather than a branch it has.
+ *
+ * Every value must also be able to say "off" — `none`, `normal` — because these
+ * are written on change and a parameter turned back off has to clear the
+ * property it set. Omitting the declaration would leave the previous value
+ * standing, which reads as the control having stopped working.
+ */
+const PREVIEW_PARAMETERS = {
+  fontSizePx: (value, scale) => {
+    const px = previewSizePx(value, scale)
+    return px === null ? null : ['--preview-font-size', `${px}px`]
+  },
+  fontWeight: (value) => {
+    const weight = Number(value)
+    return Number.isFinite(weight) ? ['--preview-font-weight', String(weight)] : null
+  },
+  italic: (value) => ['--preview-font-style', value === true ? 'italic' : 'normal'],
+  textTransform: (value) => [
+    '--preview-text-transform',
+    typeof value === 'string' && value ? value : 'none',
+  ],
+}
+
+/** @returns {[string, string] | null} the property and value to set, if any. */
+export function previewVarFor(name, value, scale) {
+  return PREVIEW_PARAMETERS[name]?.(value, scale) ?? null
+}
+
 /** `rgba(0, 0, 0, 0)` and friends — a colour that paints nothing. */
 function isTransparent(color) {
   if (!color) return true

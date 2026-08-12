@@ -1,7 +1,7 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchCopy, saveCopy } from './api.js'
 import { isImagePicker, mountImagePicker } from './image-picker.js'
-import { copyFontFaces, readPageStyle } from './page-style.js'
+import { copyFontFaces, previewScale, previewVarFor, readPageStyle } from './page-style.js'
 
 /**
  * The edit loop's host half (REQ-117 / DOC-28 §4, §11).
@@ -240,6 +240,10 @@ function defaultModal(spec) {
   // until execution reaches it — where optional chaining does not help.
   let fields = null
   let properties = null
+  // The editing box, hoisted for the same reason and one more: the parameter
+  // sheet restyles it live (REQ-138), and the sheet is mounted after the block
+  // that builds it.
+  let box = null
 
   const close = () => {
     fields?.destroy()
@@ -307,7 +311,7 @@ function defaultModal(spec) {
     // element rather than on the control, so the mirrored background can be a
     // sized layer behind the text (see `page-style.js`) with the box clipping it
     // to the region that sits behind the copy on the page.
-    const box = document.createElement('div')
+    box = document.createElement('div')
     box.className = 'builder-modal__box'
 
     const formHost = document.createElement('div')
@@ -364,6 +368,28 @@ function defaultModal(spec) {
       ),
       commit: 'buffered',
     })
+
+    // THE BOX FOLLOWS THE SHEET (REQ-138). Buffered commit means Save is still
+    // the only write, so nothing here posts, re-renders or reaches the origin —
+    // the operator simply gets to see the change they are deciding about
+    // instead of choosing blind and reloading the page to find out.
+    //
+    // ONLY WHAT WAS ACTUALLY CHANGED. The obvious version — re-derive the whole
+    // dressing from `getValues()` on every change — restyles the box the moment
+    // it opens, because the two sources legitimately disagree: the opening vars
+    // are read from `getComputedStyle` on the rendered run (the CASCADED
+    // result), while the descriptor values come from the node's own axes (only
+    // what it OVERRODE). A run that inherits weight 700 while declaring none
+    // opens with a `fontWeight` value of `400`, and re-deriving would snap the
+    // preview to 400 before the operator touched anything. Writing one property
+    // per `change` event never asks an untouched field what it thinks.
+    if (box) {
+      const scale = previewScale(spec.preview?.vars, spec.values.fontSizePx)
+      properties.on('change', ({ name, value }) => {
+        const decl = previewVarFor(name, value, scale)
+        if (decl) box.style.setProperty(decl[0], decl[1])
+      })
+    }
   }
 
   /**
