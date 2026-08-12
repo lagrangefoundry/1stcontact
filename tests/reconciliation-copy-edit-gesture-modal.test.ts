@@ -687,21 +687,28 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       clickRegion(PAINTED_PANEL_PATH)
       await settle()
 
-      // The SAME single form a copy region and an image region open...
+      // The SAME single dialog a copy region and an image region open...
       expect(modals()).toHaveLength(1)
       const modal = modals()[0]
-      expect(modal.querySelectorAll('.fields')).toHaveLength(1)
-      expect(modal.querySelector('.fields')!.getAttribute('data-commit')).toBe('buffered')
-      // ...built over exactly one row, opened straight into its control.
-      expect(modal.querySelectorAll('.fields-row')).toHaveLength(1)
-      const select = modal.querySelector('select.fields-control') as HTMLSelectElement
-      expect(select, 'the lone field opens in its closed-option control').toBeTruthy()
-      expect([...select.options].map((o) => o.value)).toEqual(SITE_IMAGES)
-      expect(select.value).toBe(HERO)
+      // ...built over exactly one closed list of the site's images, with the one
+      // this panel currently paints already chosen.
+      //
+      // Since REQ-132 that list is the thumbnail picker rather than a `<select>`
+      // of handles: the same options, the same values, shown as the pictures
+      // they name. The criterion is unchanged — a closed list, and a pick — so
+      // it is asserted against the control that now carries it.
+      expect(modal.querySelectorAll('.builder-modal__picker')).toHaveLength(1)
+      const options = [
+        ...modal.querySelectorAll<HTMLInputElement>('.builder-modal__tile-input'),
+      ]
+      expect(options.map((o) => o.value)).toEqual(SITE_IMAGES)
+      expect(options.filter((o) => o.checked).map((o) => o.value)).toEqual([HERO])
       // A pick, never a handle the operator types: there is no free-text route
       // to an image the site does not have.
       expect(modal.querySelectorAll('input[type=text], textarea')).toHaveLength(0)
-      expect(modal.querySelectorAll('.fields-control')).toHaveLength(1)
+      // And no form beside it — a background handle is the whole of what this
+      // segment exposes, so there is no text control for the dialog to build.
+      expect(modal.querySelectorAll('.fields-control')).toHaveLength(0)
 
       // A refusal the operator can actually meet: break the page out from under
       // the open form, so the confirm is refused by the real validator.
@@ -713,8 +720,9 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       fs.writeFileSync(homeJson(), JSON.stringify(broken, null, 2))
       const brokenBytes = draftBytes()
 
-      select.value = BETA
-      select.dispatchEvent(new window.Event('change', { bubbles: true }))
+      const beta = options.find((o) => o.value === BETA)!
+      beta.checked = true
+      beta.dispatchEvent(new window.Event('change', { bubbles: true }))
       const save = modal.querySelector('.builder-modal__btn--primary') as HTMLElement
       save.dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
       const error = () => modal.querySelector('.builder-modal__error') as HTMLElement
@@ -724,7 +732,10 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
       // nothing was written.
       expect(modals()).toHaveLength(1)
       expect(error().textContent).toContain('fontSizePx')
-      expect(modal.textContent).toContain(BETA)
+      // Still holding the choice — read off the control rather than off the
+      // dialog's text, which since REQ-132 shows the file name and not the
+      // handle.
+      expect(options.filter((o) => o.checked).map((o) => o.value)).toEqual([BETA])
       expect(draftBytes()).toBe(brokenBytes)
 
       // Corrected and confirmed again from the SAME open form.

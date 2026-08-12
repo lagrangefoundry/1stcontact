@@ -16,6 +16,42 @@ export function previewUrl(slug, channel) {
   return `/preview/${encodeURIComponent(slug)}/${encodeURIComponent(channel)}/`
 }
 
+/**
+ * A reference that already names its own origin: an absolute URL, or a
+ * protocol-relative one. The same shape `edit.ts` and `l1/assets.ts` treat as
+ * "not site-local", written here because the builder cannot import either.
+ */
+const COMPLETE_REFERENCE = /^([a-z][a-z0-9+.-]*:|\/\/)/i
+
+/**
+ * Where the chrome can load an asset handle's bytes from (REQ-132).
+ *
+ * The picker has to *show* the images it offers, and a handle (`/assets/hero.png`)
+ * is an address inside the site, not a URL this document can fetch. The preview
+ * server already answers for those bytes — `PreviewRenderer.file` routes anything
+ * under `assets/` straight to the store — so a thumbnail costs no new route and
+ * no copy of anything.
+ *
+ * RESOLVED EXACTLY AS THE PAGE RESOLVES IT. The render emits image sources
+ * document-relative (`relativizeUrl` drops the leading slash, REQ-109) against
+ * the channel root, so appending the handle to the channel URL reproduces the
+ * page's own resolution rather than a second convention that could disagree with
+ * it — including the deliberate absence of encoding, since the renderer escapes
+ * for HTML and encodes nothing.
+ *
+ * A COMPLETE reference is returned untouched: it names bytes that are not under
+ * `draft/assets/` (a folded reproduction can hold an off-site URL the mirror
+ * never got), and prefixing it would manufacture a path that resolves to nothing.
+ * The `draft` channel is not a choice about freshness — asset bytes are copied
+ * through rather than rendered, so every channel serves the identical file.
+ */
+export function assetUrl(slug, handle) {
+  const trimmed = String(handle ?? '').trim()
+  if (trimmed === '') return ''
+  if (COMPLETE_REFERENCE.test(trimmed)) return trimmed
+  return previewUrl(slug, 'draft') + trimmed.replace(/^\.?\/+/, '')
+}
+
 /** Every site in the store, newest revision included. */
 export async function fetchSites(fetchImpl = fetch) {
   const res = await fetchImpl('/api/sites')

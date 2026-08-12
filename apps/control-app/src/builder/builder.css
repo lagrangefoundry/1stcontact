@@ -201,7 +201,7 @@ body {
  * moment a save was refused, resizing the dialog around text the user is still
  * holding.
  */
-.builder-modal__panel:not(:has(.builder-modal__box)) {
+.builder-modal__panel:not(:has(.builder-modal__box, .builder-modal__picker)) {
   width: min(520px, calc(100vw - 48px));
 }
 
@@ -277,6 +277,125 @@ body {
   z-index: 1;
   max-height: 100%;
   overflow: auto;
+}
+
+/* --- the image picker (REQ-132) ----------------------------------------------
+ *
+ * A closed list of image handles, shown as what they are. The grid auto-fills,
+ * so the same rule serves a site with three images and one with sixty, and it
+ * scrolls rather than growing the dialog past the window.
+ *
+ * Tiles are a fixed size and the pictures are `contain`ed inside them: a picker
+ * whose rows jumped with every aspect ratio would be a worse index of the same
+ * images, and cropping to fill would hide the very part the operator is
+ * choosing by.
+ */
+
+.builder-modal__picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 12px;
+  /* Bounded, and scrolling inside the bound — the footer must stay reachable
+     however many images the site has. */
+  max-height: min(52vh, 460px);
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.builder-modal__tile {
+  /* The clipped radio positions against ITS OWN tile, not against the panel. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.builder-modal__tile:hover {
+  border-color: var(--shell-accent);
+}
+
+.builder-modal__tile.is-selected {
+  border-color: var(--shell-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--shell-accent) 34%, transparent);
+}
+
+/*
+ * The radio is HIDDEN, NOT REMOVED. `display: none` would take it out of the tab
+ * order and off the arrow-key group with it, which is the whole reason the
+ * options are radios; clipping leaves the browser's selection model and keyboard
+ * behaviour intact and simply lets the tile be the thing you see.
+ */
+.builder-modal__tile-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+
+.builder-modal__tile:focus-within {
+  border-color: var(--shell-accent);
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 2px;
+}
+
+.builder-modal__tile-thumb {
+  display: grid;
+  place-items: center;
+  height: 92px;
+  overflow: hidden;
+  border-radius: calc(var(--shell-radius) - 2px);
+  /* A neutral field behind the picture, so a transparent PNG and a white-on-white
+     logo both read as an image rather than as an empty tile. */
+  background: color-mix(in srgb, var(--shell-fg) 7%, transparent);
+}
+
+.builder-modal__tile-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/*
+ * A thumbnail this origin could not serve. The tile stays — the handle a segment
+ * currently holds is always an option and may name bytes that are not here, so a
+ * tile that vanished would take with it the only way to keep the image the
+ * segment has.
+ */
+.builder-modal__tile-thumb.is-missing::after {
+  content: '';
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--shell-muted);
+  border-radius: 4px;
+  opacity: 0.55;
+}
+
+.builder-modal__tile-name {
+  /* THE FILE NAME AND NOTHING ELSE. The directory is an address, not a property
+     of the picture, and the tooltip on the tile carries the full handle for the
+     one case a name cannot settle: two files in different sub-directories that
+     happen to share it. */
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--shell-fg);
+  overflow-wrap: anywhere;
+  /* Two lines, then ellipsis: a long name stays legible without the tile it
+     labels growing taller than its neighbours. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .builder-modal__message {

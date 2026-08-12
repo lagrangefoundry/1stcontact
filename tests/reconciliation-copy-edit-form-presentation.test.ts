@@ -1058,7 +1058,15 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
       // The NARROWING is keyed on the absence of the editing box, deliberately
       // not on the presence of a message: matching the error paragraph would
       // snap the panel narrower around copy the operator is still holding.
-      const narrow = rulesOf(css, (sel) => sel.includes(':has(.builder-modal__box)')).join('\n')
+      // The absence of an EDITING SURFACE, of which the box is one and the image
+      // picker (REQ-132) is the other: a dialog that is all thumbnails and no
+      // text still needs the full width to lay a grid out in, so it must be
+      // named in the same negation rather than narrowed by omission.
+      const narrow = rulesOf(
+        css,
+        (sel) =>
+          sel.includes(':has(.builder-modal__box') && sel.includes('.builder-modal__picker'),
+      ).join('\n')
       expect(narrow).toContain('width: min(520px, calc(100vw - 48px))')
       expect(css).not.toMatch(/\.builder-modal__panel:has\(\.builder-modal__(message|error)\)/)
 
@@ -1277,14 +1285,20 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
 
       // WITH TWO OR MORE THERE IS NO "THE" FIELD, and opening the first would
       // silently privilege it. An image exposes its handle and its alt text.
+      //
+      // Since REQ-132 the two are drawn by two different controls — the handle
+      // by the thumbnail picker, the alt text by the component's form — so the
+      // count moved off `.fields-row` and onto the dialog. The criterion did
+      // not: a segment exposing more than one field opens none of them.
       display()
       const image = await openOn(region(PATH.image))
       try {
-        expect(image.modal.querySelectorAll('.fields-row')).toHaveLength(2)
+        expect(image.modal.querySelectorAll('.builder-modal__picker')).toHaveLength(1)
+        expect(image.modal.querySelectorAll('.fields-row')).toHaveLength(1)
         expect(image.modal.querySelectorAll('.fields-control')).toHaveLength(0)
-        // Both are still reachable — they are values awaiting the click that a
-        // lone field no longer needs.
-        expect(image.modal.querySelectorAll('.fields-value-editable')).toHaveLength(2)
+        // Still reachable — a value awaiting the click that a lone field no
+        // longer needs.
+        expect(image.modal.querySelectorAll('.fields-value-editable')).toHaveLength(1)
       } finally {
         image.editor.destroy()
       }

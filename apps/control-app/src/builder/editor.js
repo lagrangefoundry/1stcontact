@@ -1,5 +1,6 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchCopy, saveCopy } from './api.js'
+import { isImagePicker, mountImagePicker } from './image-picker.js'
 import { copyFontFaces, readPageStyle } from './page-style.js'
 
 /**
@@ -121,6 +122,10 @@ export function mountEditor(doc, options = {}) {
       title: labelOf(hit),
       schema: loaded.fields,
       values: loaded.values,
+      // The site an image handle is resolved against (REQ-132). The picker draws
+      // the images it offers, and it can only reach their bytes through this
+      // site's preview channel.
+      slug,
       // How the page renders this copy, so the box can render it the same way.
       // Derived ONLY for a copy segment: `src` and `alt` on an image are
       // metadata about the page rather than words on it, and showing an alt
@@ -260,34 +265,76 @@ function defaultModal(spec) {
     return
   }
 
-  // The visible box. The border, the radius and the clipping live on THIS
-  // element rather than on the control, so the mirrored background can be a
-  // sized layer behind the text (see `page-style.js`) with the box clipping it
-  // to the region that sits behind the copy on the page.
-  const box = document.createElement('div')
-  box.className = 'builder-modal__box'
+  // WHICH CONTROL DRAWS WHICH FIELD (REQ-132). A descriptor saying
+  // `format: 'image'` is a closed list of image handles, and this dialog draws
+  // those as thumbnails rather than as the dropdown of paths `mountFields`
+  // renders for an `enum`. Split by the descriptor rather than by segment kind:
+  // an image segment carries a picker AND an alt field, so "which control" is a
+  // per-field question, and the day a third surface exposes an image handle it
+  // is answered there too without this learning about it.
+  const pickerFields = spec.schema.filter(isImagePicker)
+  const formFields = spec.schema.filter((field) => !isImagePicker(field))
+  const pickers = pickerFields.map((field) =>
+    mountImagePicker(panel, { field, value: spec.values[field.name], slug: spec.slug }),
+  )
 
-  const formHost = document.createElement('div')
-  formHost.className = 'builder-modal__form'
-  // The form goes in FIRST: the layers are inserted before it, so it has to be
-  // a child of the box for there to be anything to insert before.
-  box.append(formHost)
-  applyPreview(box, formHost, spec.preview)
-  panel.append(box)
+  // NO BOX WITHOUT A FORM. The box is a text-editing box — a border, a radius
+  // and the page's own presentation mirrored into it — and a background picker
+  // exposes no text at all. An empty one would draw a framed void under the
+  // thumbnails.
+  if (formFields.length) {
+    // The visible box. The border, the radius and the clipping live on THIS
+    // element rather than on the control, so the mirrored background can be a
+    // sized layer behind the text (see `page-style.js`) with the box clipping it
+    // to the region that sits behind the copy on the page.
+    const box = document.createElement('div')
+    box.className = 'builder-modal__box'
 
-  fields = mountFields(formHost, {
-    schema: spec.schema,
-    values: spec.values,
-    commit: 'buffered',
-    // `stacked` drops the label column (upstream REQ-69). For a single copy
-    // field the label read "Text" in a column ~40% as wide as the dialog, next
-    // to a box already full of the words it was labelling. The label is not
-    // discarded — the component moves it onto the control as its accessible
-    // name — and it stays in the descriptor, which is what the CLI and the AI
-    // surfaces read.
-    layout: 'stacked',
+    const formHost = document.createElement('div')
+    formHost.className = 'builder-modal__form'
+    // The form goes in FIRST: the layers are inserted before it, so it has to be
+    // a child of the box for there to be anything to insert before.
+    box.append(formHost)
+    applyPreview(box, formHost, spec.preview)
+    panel.append(box)
+
+    fields = mountFields(formHost, {
+      schema: formFields,
+      // ONLY THE FIELDS IT RENDERS. Handed the whole map, the component reports
+      // every key back from `getValues()` — including the picker's, at the value
+      // the segment *opened* with. Merged into the change map that reads as an
+      // explicit "put the old image back", and it silently undid every pick.
+      values: Object.fromEntries(formFields.map((field) => [field.name, spec.values[field.name]])),
+      commit: 'buffered',
+      // `stacked` drops the label column (upstream REQ-69). For a single copy
+      // field the label read "Text" in a column ~40% as wide as the dialog, next
+      // to a box already full of the words it was labelling. The label is not
+      // discarded — the component moves it onto the control as its accessible
+      // name — and it stays in the descriptor, which is what the CLI and the AI
+      // surfaces read.
+      layout: 'stacked',
+    })
+    // Only when the form is the WHOLE dialog. An image segment's form is one
+    // field (`alt`) but the operator clicked a picture, so opening the alt
+    // control would put the cursor in the field they did not come for and leave
+    // the picker — the reason the dialog is open — needing a click to reach.
+    if (!pickers.length) openLoneControl(formHost, formFields)
+  }
+
+  /**
+   * Every staged value, from whichever control is holding it.
+   *
+   * The pickers are spread LAST, so a field this dialog draws itself is reported
+   * by the control that drew it whatever else claims a key of that name. Belt
+   * and braces over the filtered `values` above: the ordering makes the invariant
+   * true here, where the change map is built, rather than depending on a
+   * component's reporting staying narrow.
+   */
+  const stagedValues = () => ({
+    ...(fields?.getValues() ?? {}),
+    ...Object.fromEntries(pickers.map((picker) => [picker.name, picker.getValue()])),
   })
-  openLoneControl(formHost, spec.schema)
+  const isDirty = () => pickers.some((picker) => picker.isDirty()) || (fields?.isDirty() ?? false)
 
   const error = document.createElement('p')
   error.className = 'builder-modal__error'
@@ -298,7 +345,7 @@ function defaultModal(spec) {
     // Nothing staged is not a failure — it is a user who opened a modal and
     // changed their mind. Posting an empty change map would re-render the site
     // for no diff.
-    if (!fields.isDirty()) return close()
+    if (!isDirty()) return close()
     save.disabled = true
     error.hidden = true
     try {
@@ -309,7 +356,10 @@ function defaultModal(spec) {
       // would have to be replayed from if the origin refuses. Reading leaves
       // the staged text intact, which is what lets the modal stay open holding
       // it when validation fails below.
-      const values = fields.getValues()
+      //
+      // The picked handle travels in the SAME map, so a modal that changed both
+      // the image and its alt text is still one diff and one re-render.
+      const values = stagedValues()
       await spec.onSave(values)
       close()
     } catch (err) {
@@ -324,6 +374,14 @@ function defaultModal(spec) {
 
   panel.append(error, footer([cancel, save]))
   mountPoint.append(host)
+
+  // AFTER THE DIALOG IS IN THE DOCUMENT. Focus does not move to a detached
+  // element — it fails silently, leaving the keyboard back on whatever was
+  // focused before the dialog opened. The grid takes it so the picker is
+  // arrow-navigable the moment it appears rather than a Tab away; a form-only
+  // dialog is already handled by `openLoneControl`, which sends a click and
+  // works either side of the append.
+  if (pickers.length) pickers[0].focus()
 }
 
 /**
@@ -337,8 +395,12 @@ function defaultModal(spec) {
  * obviously type in needs no label saying "Edit text", and until the control
  * exists the box is not one.
  *
- * ONE FIELD ONLY. With two (an image's `src` and `alt`) there is no "the" field,
- * and opening the first would silently privilege it.
+ * ONE FIELD ONLY, and one CONTROL only. With two fields there is no "the" field
+ * and opening the first would silently privilege it — which since REQ-132 also
+ * covers the case where the second field is drawn by the picker rather than by
+ * the form: an image's form is a lone `alt`, but the operator clicked a picture,
+ * and typing into alt text is not what they asked for. The caller makes that
+ * call; this stays the rule for a form that is the whole dialog.
  *
  * `.fields-value-editable` is the component's own click-to-edit affordance, and
  * this fires the same gesture the operator would — it does not restyle or

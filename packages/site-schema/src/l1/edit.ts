@@ -178,6 +178,22 @@ export interface L1FieldDescriptor {
    * post an option the segment never offered.
    */
   enum?: readonly string[]
+  /**
+   * What the options *are*, when knowing that changes how they should be shown
+   * (REQ-132). `'image'` says every option is an image handle, which is what
+   * lets the client draw the closed list as thumbnails carrying file names
+   * instead of a dropdown of paths — a path being a poor thing to choose a
+   * picture by, and a meaningless one once assets stop living in a filesystem.
+   *
+   * A HINT, NEVER A CONSTRAINT. The closed list is `enum` and the write side
+   * enforces membership against it ({@link applyCopyFields}); this changes what
+   * the same options look like and nothing about which of them may be chosen.
+   * The name and shape mirror `mountFields`' own `enum` + `format: 'color'`
+   * pairing (its swatch grid), so the descriptor already speaks the vocabulary a
+   * thumbnail control would need if it ever moves into the component — and an
+   * unrecognised `format` is inert there today, so nothing depends on the move.
+   */
+  format?: 'image'
   /** Suppresses the widget's empty option — the field must hold a value. */
   required?: boolean
   /** `'textarea'` selects `mountFields`' multi-line control. */
@@ -303,6 +319,7 @@ export function copyFieldsOf(
           name: 'src',
           label: 'Image',
           type: 'enum',
+          format: 'image',
           enum: imageChoices(opts.assets ?? [], src),
           required: true,
         },
@@ -319,6 +336,7 @@ export function copyFieldsOf(
           name: 'backgroundImageUrl',
           label: 'Background image',
           type: 'enum',
+          format: 'image',
           enum: imageChoices(opts.assets ?? [], background),
           // No empty option, and not merely as a nicety. If a box's only paint IS
           // its background image, removing it drops `surfaceDecls` to zero on the
