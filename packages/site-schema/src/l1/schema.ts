@@ -434,13 +434,103 @@ export const l1BorderSchema = z
 
 /**
  * A typed mask / clip edge treatment — never a raw `mask-image` / `clip-path`
- * string. `shape` names the geometry (circular crop, a feathered edge); `featherPx`
- * is the soft-edge width where relevant.
+ * string. `shape` names the geometry (circular crop, a feathered edge); the
+ * remaining fields parameterise whichever shape names them and are inert on the
+ * rest, exactly as {@link l1PatternSchema}'s `angleDeg` is inert on `dots`.
+ *
+ * REQ-136 — `parallelogram` and `blob` join the geometric shapes, because "what
+ * shape is this picture" is a question the editor now asks and L1 could answer
+ * only with `circle` / `ellipse` (a rounded rectangle being the shared surface's
+ * `borderRadiusPx`, not a mask). Both compile to `clip-path: polygon(…)` built
+ * ENTIRELY by the renderer from these numbers — the document names the intent and
+ * never the geometry, which is what keeps a shape from becoming a path string
+ * the instance authored (DOC-2 §2).
  */
 export const l1MaskSchema = z
   .object({
-    shape: z.enum(['circle', 'ellipse', 'featherRadial', 'featherTop', 'featherBottom']),
+    shape: z.enum([
+      'circle',
+      'ellipse',
+      'parallelogram',
+      'blob',
+      'featherRadial',
+      'featherTop',
+      'featherBottom',
+    ]),
     featherPx: finite.nonnegative().optional(),
+    /**
+     * REQ-136 — `parallelogram` only: how far the top edge leans, as a percentage
+     * of the box width. Positive leans right, negative leans left; the bounds keep
+     * a lean from consuming the whole box (at ±50 the shape degenerates to a
+     * triangle, which is a different intent and not one this axis names).
+     */
+    slantPct: finite.min(-45).max(45).optional(),
+    /**
+     * REQ-136 — `blob` only: 0 is a plain disc, 1 is maximally lumpy. There is
+     * deliberately **no vertex count** — how many points make an outline "organic"
+     * is a renderer constant, exactly as {@link l1PointerAccentSchema}'s lobe count
+     * is, and exposing it would let a document reach into the mask's construction.
+     */
+    roughness: finite.min(0).max(1).optional(),
+    /**
+     * REQ-136 — `blob` only: which blob. The outline is pseudo-random but
+     * DETERMINISTIC in this integer, because a shape that differed between two
+     * renders of the same document would break the round-trip identity the whole
+     * substrate is gated on (DOC-23 §7) — and would flicker under the editor's
+     * re-render on every save.
+     */
+    seed: z.number().int().min(0).max(9999).optional(),
+  })
+  .strict()
+
+/**
+ * REQ-136 — a typed colour-adjustment stack (CSS `filter`), never a raw filter
+ * string.
+ *
+ * Values are CSS-CANONICAL FRACTIONS rather than percentages, because that is
+ * what `getComputedStyle().filter` reports (`saturate(0.4)`, not `saturate(40%)`)
+ * — so the capture fold can write what it measured and the round trip closes
+ * without a unit conversion nobody would remember was there. The editor's
+ * percentage controls are a *projection* over these, on the same footing as
+ * REQ-135's `italic` over `fontStyle`.
+ *
+ * The identity value is 1 for the scaling functions (`saturate`, `brightness`,
+ * `contrast`) and 0 for the rest, so an absent field is always a no-op and the
+ * emitter can skip it.
+ *
+ * DISTINCT FROM `backdropBlurPx`, which blurs whatever sits BEHIND the node
+ * (`backdrop-filter`); `blurPx` here blurs the node's own paint. Two axes because
+ * they are two effects — a frosted panel over a photograph is the first, a soft-
+ * focus photograph is the second, and one field could not express both at once.
+ */
+export const l1FilterSchema = z
+  .object({
+    grayscale: finite.min(0).max(1).optional(),
+    sepia: finite.min(0).max(1).optional(),
+    invert: finite.min(0).max(1).optional(),
+    saturate: finite.nonnegative().optional(),
+    brightness: finite.nonnegative().optional(),
+    contrast: finite.nonnegative().optional(),
+    hueRotateDeg: finite.optional(),
+    blurPx: finite.nonnegative().optional(),
+  })
+  .strict()
+
+/**
+ * REQ-136 — where the picture sits inside its box (CSS `object-position`), as a
+ * percentage pair. This is the **pan half of a crop**: with `objectFit: 'cover'`
+ * the box shows a window onto the image, and this is which part of it.
+ *
+ * BOTH COMPONENTS ARE REQUIRED, and that is not pedantry. CSS defaults an
+ * unspecified component to 50%, so a half-written position is not "unset on one
+ * axis" — it is a silent, load-bearing 50% that the document never said. Making
+ * the pair the unit means the axis is either absent (the browser's centre) or
+ * fully stated.
+ */
+export const l1ObjectPositionSchema = z
+  .object({
+    xPct: finite.min(0).max(100),
+    yPct: finite.min(0).max(100),
   })
   .strict()
 
@@ -632,6 +722,14 @@ const surfaceAxesShape = {
   borderLeft: l1BorderSchema.optional(),
   /** Frosted-glass blur of whatever sits behind the node (backdrop-filter). */
   backdropBlurPx: finite.nonnegative().optional(),
+  /**
+   * REQ-136 — the node's OWN paint, colour-adjusted (CSS `filter`). On the shared
+   * surface group rather than on `image` alone for the reason REQ-98 put every
+   * paint axis here: a captured `filter` is read per painted element, not per
+   * `<img>`, and an axis L1 can carry on only one kind is an axis every other kind
+   * has to reach outside L1 for.
+   */
+  filter: l1FilterSchema.optional(),
   /** How the node composites with what is behind it. */
   blendMode: l1BlendModeSchema.optional(),
 } as const
@@ -925,6 +1023,15 @@ export const l1TextAxesSchema = z
 export const l1ImageAxesSchema = z
   .object({
     objectFit: z.enum(['cover', 'contain', 'fill', 'none', 'scale-down']).optional(),
+    /**
+     * REQ-136 — which part of the picture the box shows. Image-only, and
+     * deliberately not hoisted into the shared surface group: the property family
+     * differs (`object-position` frames replaced content, `background-position`
+     * frames a paint layer), and a surface's background is still pinned to
+     * `center` by BUG-13's `cover / center / no-repeat`. Unpinning that is the
+     * same axis on a different family, and it is phase 2.
+     */
+    objectPosition: l1ObjectPositionSchema.optional(),
     ...surfaceAxesShape,
   })
   .strict()

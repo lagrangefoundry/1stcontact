@@ -326,9 +326,15 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     // Nor is the handle offered on a region of another kind that happens to
     // carry one: an image region and a run of copy each carrying a background of
     // their own still expose only their own fields.
+    // REQ-136 put the picture's framing beside its handle, exactly as REQ-135
+    // put a run's typography beside its words, so the assertion is that the
+    // PANEL'S picker is absent from an image's fields — not that an image's
+    // fields are only two. Pinning the count here would make this AC fail every
+    // time the image segment grew a control it was never about.
     const image = await readFields(cwd, A_IMAGE)
-    expect((image.data!.fields as Field[]).map((f) => f.name)).toEqual(['src', 'alt'])
-    expect(image.data!.values).toEqual({ src: LOGO, alt: IMAGE_ALT })
+    expect((image.data!.fields as Field[]).map((f) => f.name).slice(0, 2)).toEqual(['src', 'alt'])
+    expect((image.data!.fields as Field[]).map((f) => f.name)).not.toContain('backgroundImageUrl')
+    expect(image.data!.values).toMatchObject({ src: LOGO, alt: IMAGE_ALT })
     // A run of copy that carries a background of its own still exposes its own
     // fields and NOT the panel's picker — which is the claim. Since REQ-135 its
     // own fields include its typography, so the assertion is that
@@ -404,7 +410,12 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     const copyContrast = (await readFields(cwd, A_COPY)).data!.fields as Field[]
     expect(copyContrast.length).toBeGreaterThan(0)
     expect(copyContrast.map((f) => f.name)).not.toContain('backgroundImageUrl')
-    expect((await readFields(cwd, A_IMAGE)).data!.fields).toHaveLength(2)
+    // NON-EMPTY, not two: the contrast this AC draws is empty-versus-not, and
+    // REQ-136 grew the image segment's own field list past the count it happened
+    // to have when the AC was written.
+    const imageContrast = (await readFields(cwd, A_IMAGE)).data!.fields as Field[]
+    expect(imageContrast.length).toBeGreaterThan(0)
+    expect(imageContrast.map((f) => f.name)).not.toContain('backgroundImageUrl')
   })
 
   it('test_UAT_AC1047_a_panels_current_background_handle_is_always_among_its_own_options', async () => {

@@ -18,6 +18,7 @@ import type {
   l1DocumentSchema,
   l1EasingSchema,
   l1FocusRingSchema,
+  l1FilterSchema,
   l1FocusStateSchema,
   l1FontFaceSchema,
   l1HoverStateSchema,
@@ -37,6 +38,7 @@ import type {
   l1MaskSchema,
   l1MotionSchema,
   l1NodeSchema,
+  l1ObjectPositionSchema,
   l1OverlaySchema,
   l1PaddingResponsiveSchema,
   l1PaddingSchema,
@@ -100,6 +102,9 @@ export type L1PointerAccent = z.infer<typeof l1PointerAccentSchema>
 export type L1Shadow = z.infer<typeof l1ShadowSchema>
 export type L1Border = z.infer<typeof l1BorderSchema>
 export type L1Mask = z.infer<typeof l1MaskSchema>
+// REQ-136 — the image-framing / colour-adjustment axes.
+export type L1Filter = z.infer<typeof l1FilterSchema>
+export type L1ObjectPosition = z.infer<typeof l1ObjectPositionSchema>
 export type L1Transform = z.infer<typeof l1TransformSchema>
 export type L1BlendMode = z.infer<typeof l1BlendModeSchema>
 export type L1Overlay = z.infer<typeof l1OverlaySchema>

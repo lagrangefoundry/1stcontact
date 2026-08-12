@@ -278,9 +278,10 @@ describe('story-37a3921b — the copy-edit write path', () => {
     expect(copyFields.length).toBeGreaterThan(0)
     expect(copyFields.map((f) => f.name)).toContain('text')
 
-    // ...and an image region returns exactly two — which image goes there, and
-    // its alt text. An empty list is therefore an answer about THAT region, not
-    // the surface's standing answer for anything that is not copy.
+    // ...and an image region returns which image goes there and its alt text,
+    // in that order and first (REQ-136 put the picture's framing after them). An
+    // empty list is therefore an answer about THAT region, not the surface's
+    // standing answer for anything that is not copy.
     const image = await cli(cwd, 'copy', 'get', 'acme', 'home', A_IMAGE)
     expect(image.ok).toBe(true)
     const imageFields = image.data!.fields as Array<{
@@ -288,12 +289,12 @@ describe('story-37a3921b — the copy-edit write path', () => {
       type: string
       enum?: string[]
     }>
-    expect(imageFields.map((f) => f.name)).toEqual(['src', 'alt'])
-    expect(imageFields.map((f) => f.type)).toEqual(['enum', 'string'])
+    expect(imageFields.map((f) => f.name).slice(0, 2)).toEqual(['src', 'alt'])
+    expect(imageFields.map((f) => f.type).slice(0, 2)).toEqual(['enum', 'string'])
     // The picker always offers the handle the node points at now, so a user who
     // opens the form to change only the alt text cannot swap the image by saving.
     expect(imageFields[0].enum).toContain('assets/hero.jpg')
-    expect(image.data!.values).toEqual({ src: 'assets/hero.jpg', alt: 'A hero image' })
+    expect(image.data!.values).toMatchObject({ src: 'assets/hero.jpg', alt: 'A hero image' })
   })
 
   // ── writing ────────────────────────────────────────────────────────────────

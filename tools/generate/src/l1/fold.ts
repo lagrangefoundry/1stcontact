@@ -30,6 +30,7 @@ import {
   type L1ColumnTerm,
   type L1Control,
   type L1Document,
+  type L1Filter,
   type L1FontFace,
   type L1Geometry,
   type L1GradientStop,
@@ -38,6 +39,7 @@ import {
   type L1ImageAxes,
   type L1Keyframe,
   type L1Node,
+  type L1ObjectPosition,
   type L1Padding,
   type L1PaddingResponsive,
   type L1ScalarKeyframe,
@@ -734,6 +736,87 @@ function foldBorder(b: ValueElement['border']): L1Border | undefined {
   return border
 }
 
+/**
+ * REQ-136 — a captured `object-position` → the typed L1 pair, else undefined.
+ *
+ * ONLY THE PERCENTAGE-PAIR FORM. A computed `object-position` is normally
+ * `50% 50%`, but a page may author keywords (`left top`) or lengths (`20px 0`),
+ * and guessing at either would put a number in the definition that the target
+ * never said. The conservative miss is what the fold does everywhere else: an
+ * unreadable value folds to nothing and shows up as a residual, which is a
+ * findable gap rather than a silent wrong answer.
+ *
+ * The CSS default (`50% 50%` — dead centre) folds to undefined, because the axis
+ * is only worth carrying when it says something the browser would not do anyway.
+ */
+export function foldObjectPosition(v: string | null | undefined): L1ObjectPosition | undefined {
+  const m = v?.trim().match(/^(-?\d*\.?\d+)%\s+(-?\d*\.?\d+)%$/)
+  if (!m) return undefined
+  const xPct = Math.round(parseFloat(m[1]) * 100) / 100
+  const yPct = Math.round(parseFloat(m[2]) * 100) / 100
+  if (!Number.isFinite(xPct) || !Number.isFinite(yPct)) return undefined
+  if (xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100) return undefined
+  return xPct === 50 && yPct === 50 ? undefined : { xPct, yPct }
+}
+
+/**
+ * The CSS filter functions L1 carries: how each one's argument is read, the value
+ * at which it paints nothing, and the largest value the envelope admits.
+ *
+ * The two `identity` values are the whole reason this is a table rather than a
+ * list of names. `grayscale(0)` and `saturate(1)` are both no-ops; `grayscale(1)`
+ * and `saturate(0)` are both extremes. One rule for "skip the identity" would be
+ * wrong for half of them, and the failure would be silent — a fully desaturated
+ * photograph would fold to no filter at all.
+ */
+const FILTER_FUNCTIONS = [
+  { css: 'grayscale', axis: 'grayscale', unit: 'ratio', identity: 0, max: 1 },
+  { css: 'sepia', axis: 'sepia', unit: 'ratio', identity: 0, max: 1 },
+  { css: 'invert', axis: 'invert', unit: 'ratio', identity: 0, max: 1 },
+  { css: 'saturate', axis: 'saturate', unit: 'ratio', identity: 1, max: L1_ENVELOPE.filterAmount.max },
+  { css: 'brightness', axis: 'brightness', unit: 'ratio', identity: 1, max: L1_ENVELOPE.filterAmount.max },
+  { css: 'contrast', axis: 'contrast', unit: 'ratio', identity: 1, max: L1_ENVELOPE.filterAmount.max },
+  { css: 'hue-rotate', axis: 'hueRotateDeg', unit: 'deg', identity: 0, max: 3600 },
+  { css: 'blur', axis: 'blurPx', unit: 'px', identity: 0, max: 10_000 },
+] as const
+
+/**
+ * REQ-136 — a captured `filter` → the typed L1 colour-adjustment stack.
+ *
+ * A ratio argument may be written as a number or a percentage (`saturate(0.4)`
+ * and `saturate(40%)` are the same filter), and which one a browser reports is
+ * not something the fold should depend on — so both are read and both land as
+ * the CSS-canonical fraction the axis holds.
+ *
+ * `drop-shadow` is deliberately NOT read: it is a shadow, and L1 already carries
+ * one (`boxShadow` / `textShadow`) with its own typed shape. Folding it here
+ * would give the substrate two ways to say one thing, which is the legacy-mode
+ * state the project forbids. It stays a residual until it has a home.
+ */
+export function foldFilter(v: string | null | undefined): L1Filter | undefined {
+  if (!v || v.trim() === 'none') return undefined
+  const filter: Record<string, number> = {}
+  for (const fn of FILTER_FUNCTIONS) {
+    const m = v.match(new RegExp(`(?:^|\\s)${fn.css}\\(\\s*(-?\\d*\\.?\\d+)(%|deg|px|)\\s*\\)`, 'i'))
+    if (!m) continue
+    let n = parseFloat(m[1])
+    if (!Number.isFinite(n)) continue
+    // A ratio written as a percentage is the same filter written differently.
+    if (fn.unit === 'ratio' && m[2] === '%') n /= 100
+    // Clamped into the envelope rather than dropped: a value past the ceiling is
+    // a real treatment the target paints, and the nearest expressible one
+    // reproduces it far better than nothing does. Negative is not a treatment.
+    if (fn.unit !== 'deg' && n < 0) continue
+    n = Math.min(n, fn.max)
+    n = Math.round(n * 1e4) / 1e4
+    // The identity paints nothing, so carrying it would grow every folded
+    // definition with declarations that cost a composite layer and move no pixel.
+    if (n === fn.identity) continue
+    filter[fn.axis] = n
+  }
+  return Object.keys(filter).length ? (filter as L1Filter) : undefined
+}
+
 /** A captured `backdrop-filter: blur(Npx)` → N (px), else undefined. */
 function foldBackdropBlur(v: string | null | undefined): number | undefined {
   if (!v) return undefined
@@ -877,6 +960,12 @@ function boxAxes(el: ValueElement): L1SurfaceAxes {
   if (shadow) axes.boxShadow = shadow
   const blur = foldBackdropBlur(el.backdropFilter)
   if (blur !== undefined) axes.backdropBlurPx = blur
+  // REQ-136 — the surface's OWN colour adjustment, distinct from the backdrop
+  // blur above it: `filter` was already a Type-A axis the values-diff compared,
+  // so before this every target that painted one reported a delta with no fold
+  // that could close it.
+  const filter = foldFilter(el.filter)
+  if (filter) axes.filter = filter
   const blend = foldBlendMode(el.blendMode)
   if (blend) axes.blendMode = blend
   return axes
@@ -960,6 +1049,14 @@ function imageAxes(el: ValueElement): L1ImageAxes {
   const axes: L1ImageAxes = {}
   const fit = foldObjectFit(el.objectFit)
   if (fit) axes.objectFit = fit
+  // REQ-136 — which part of the picture the box shows. Captured all along
+  // (`extract.ts` reads it per image) and dropped by the fold because L1 had
+  // nowhere to put it, so a `cover` image the target panned to its top edge
+  // reproduced centred, with the delta reported as an unclosable Type-A gap.
+  const position = foldObjectPosition(el.objectPosition)
+  if (position) axes.objectPosition = position
+  const filter = foldFilter(el.filter)
+  if (filter) axes.filter = filter
   if (el.borderRadiusPx !== undefined && el.borderRadiusPx > 0) axes.borderRadiusPx = Math.round(el.borderRadiusPx)
   if (el.opacity !== undefined && el.opacity < 1) axes.opacity = el.opacity
   const blend = foldBlendMode(el.blendMode)

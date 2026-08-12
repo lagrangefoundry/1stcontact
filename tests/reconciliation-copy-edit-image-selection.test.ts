@@ -262,12 +262,16 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
 
   it('test_UAT_AC1024_an_image_region_exposes_a_closed_list_of_the_sites_images_and_its_alt_text', async () => {
     // AC-1024 — through the SAME "what does this region expose" operation a run
-    // of copy is read by, an image answers with exactly two fields.
+    // of copy is read by, an image answers with which image goes there and its
+    // alt text, in that order and first. REQ-136 put the picture's framing after
+    // them (as REQ-135 did for a run's typography), so the claim is the pair and
+    // its ORDER — the modal opens into the picker, and that depends on it — not
+    // that the pair is the whole list.
     const got = await readFields(cwd, A_IMAGE)
     expect(got.ok).toBe(true)
     expect(got.data!.kind).toBe('image')
     const fields = got.data!.fields as Field[]
-    expect(fields.map((f) => f.name)).toEqual(['src', 'alt'])
+    expect(fields.map((f) => f.name).slice(0, 2)).toEqual(['src', 'alt'])
 
     // Which image goes here: a closed list, carried with the field itself, and
     // the field must hold a value.
@@ -297,7 +301,9 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     })
 
     // The current values are the handle and alt text as they stand in the draft.
-    expect(got.data!.values).toEqual({ src: HERO, alt: HERO_ALT })
+    // `toMatchObject` since REQ-136 put the picture's framing in the same values
+    // map. The claim is the picker's own two values, not that they are all of them.
+    expect(got.data!.values).toMatchObject({ src: HERO, alt: HERO_ALT })
     expect(draftNode(cwd, A_IMAGE)).toMatchObject({ src: HERO, alt: HERO_ALT })
 
     // And the origin answers the identical thing — one derivation, two ways in.
@@ -360,9 +366,11 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     const copyFields = (await readFields(cwd, A_COPY)).data!.fields as Field[]
     expect(copyFields.length).toBeGreaterThan(0)
     expect(copyFields.map((f) => f.name)).toContain('text')
+    // The image side is asserted the same way and for the same reason (REQ-136
+    // put its framing beside its handle): EMPTY-versus-NOT is the contrast.
     const image = await readFields(cwd, A_IMAGE)
-    expect(image.data!.fields).toHaveLength(2)
-    expect((image.data!.fields as Field[]).map((f) => f.name)).toEqual(['src', 'alt'])
+    expect((image.data!.fields as Field[]).length).toBeGreaterThan(0)
+    expect((image.data!.fields as Field[]).map((f) => f.name).slice(0, 2)).toEqual(['src', 'alt'])
   })
 
   // ── writing ────────────────────────────────────────────────────────────────
@@ -503,9 +511,12 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       expect(draftBytes(cwd), src).toBe(before)
     }
 
-    // Every existing value is intact after all of it.
+    // Every existing value is intact after all of it. `toMatchObject` rather
+    // than `toEqual` since REQ-136: the values map now also reports how the
+    // picture is framed, and the claim here is that the two a refusal could have
+    // damaged are unchanged.
     const still = await readFields(cwd, A_IMAGE)
-    expect(still.data!.values).toEqual({ src: HERO, alt: HERO_ALT })
+    expect(still.data!.values).toMatchObject({ src: HERO, alt: HERO_ALT })
     expect((await readFields(cwd, A_COPY)).data!.values).toMatchObject({ text: SHORT_COPY })
   })
 

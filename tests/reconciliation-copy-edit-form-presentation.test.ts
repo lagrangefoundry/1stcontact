@@ -1296,15 +1296,25 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
       // by the thumbnail picker, the alt text by the component's form — so the
       // count moved off `.fields-row` and onto the dialog. The criterion did
       // not: a segment exposing more than one field opens none of them.
+      //
+      // REQ-136 added the picture's framing to that dialog, so the ROW COUNT is
+      // no longer the criterion either — it never was; it was the incidental
+      // shape of a segment that happened to expose one row. What is asserted is
+      // the claim itself: one picker, more than one field, and NOT ONE of them
+      // opened into a control.
       display()
       const image = await openOn(region(PATH.image))
       try {
         expect(image.modal.querySelectorAll('.builder-modal__picker')).toHaveLength(1)
-        expect(image.modal.querySelectorAll('.fields-row')).toHaveLength(1)
+        expect(
+          image.modal.querySelectorAll('.fields-row').length,
+        ).toBeGreaterThan(1)
         expect(image.modal.querySelectorAll('.fields-control')).toHaveLength(0)
-        // Still reachable — a value awaiting the click that a lone field no
+        // Still reachable — values awaiting the click that a lone field no
         // longer needs.
-        expect(image.modal.querySelectorAll('.fields-value-editable')).toHaveLength(1)
+        expect(
+          image.modal.querySelectorAll('.fields-value-editable').length,
+        ).toBeGreaterThan(0)
       } finally {
         image.editor.destroy()
       }

@@ -64,6 +64,16 @@ export const L1_ENVELOPE = {
    * different design and a compositor cost the author did not choose.
    */
   pointerAccentRadiusPx: { min: 8, max: 1000 },
+  /**
+   * REQ-136 — the multiplier a colour-adjustment function may carry
+   * (`saturate` / `brightness` / `contrast`). The schema already says
+   * non-negative; the envelope says how far from 1 a document may go. The ceiling
+   * is what keeps "adjust the picture" from becoming a white rectangle
+   * (`brightness(400)`), which is not an adjustment but a way to delete content
+   * the page still pays to download. `grayscale` / `sepia` / `invert` need no
+   * rule — the schema pins them to 0..1, which is the whole of their range.
+   */
+  filterAmount: { min: 0, max: 4 },
 } as const
 
 /**
@@ -347,6 +357,13 @@ function checkSurface(
     backgroundImageUrl?: string
     pattern?: { spacingPx: number; thicknessPx?: number; angleDeg?: number }
     pointerAccent?: { radiusPx: number; softnessPx?: number }
+    filter?: {
+      saturate?: number
+      brightness?: number
+      contrast?: number
+      hueRotateDeg?: number
+      blurPx?: number
+    }
   },
   path: string,
   errors: ValidationError[],
@@ -406,6 +423,31 @@ function checkSurface(
       })
     }
     checkEffectLen(softnessPx, `${path}/pointerAccent/softnessPx`, errors)
+  }
+  // REQ-136 — the colour-adjustment stack. Bounded HERE, in the shared surface
+  // check, so an interaction state's filter delta is bounded by the same rule as
+  // the base — the hole REQ-99 named for shadows and background URLs applies
+  // identically to an adjustment that only fires on pointer-over.
+  if (axes.filter) {
+    const { min, max } = L1_ENVELOPE.filterAmount
+    for (const name of ['saturate', 'brightness', 'contrast'] as const) {
+      const v = axes.filter[name]
+      if (v !== undefined && !inRange(v, min, max)) {
+        errors.push({
+          path: `${path}/filter/${name}`,
+          message: `${name}=${v} out of range [${min}, ${max}]`,
+        })
+      }
+    }
+    // An angle, bounded like every other rotation the substrate admits.
+    const hue = axes.filter.hueRotateDeg
+    if (hue !== undefined && !inRange(hue, L1_ENVELOPE.rotateDeg.min, L1_ENVELOPE.rotateDeg.max)) {
+      errors.push({
+        path: `${path}/filter/hueRotateDeg`,
+        message: `hueRotateDeg=${hue} out of range [${L1_ENVELOPE.rotateDeg.min}, ${L1_ENVELOPE.rotateDeg.max}]`,
+      })
+    }
+    checkEffectLen(axes.filter.blurPx, `${path}/filter/blurPx`, errors)
   }
 }
 

@@ -453,6 +453,182 @@ function typographyFields(
 /** The `textTransform` axis's own vocabulary, mirrored as the closed list. */
 const TEXT_TRANSFORMS = ['none', 'uppercase', 'lowercase', 'capitalize'] as const
 
+// ── image framing, shape and colour adjustment (REQ-136) ─────────────────────
+//
+// The editor could choose WHICH picture; it could not change how that picture is
+// seen. Every control below writes a typed L1 axis and NOTHING touches a file —
+// which is the whole design (DOC-28 §9.2): one uploaded asset serves many
+// framings, an adjustment is an ordinary structured diff with the same validator
+// and the same undo as any other, no image-decoding pipeline joins the attack
+// surface (DOC-2), and the adjustment stays legible to the AI, which can read
+// `saturate: 0.4` and cannot read pixels.
+//
+// The named cost is bytes on the wire: a 4000px hero cropped to a thumbnail still
+// ships 4000px. That is performance, not correctness, and its fix is additive — a
+// derived-render cache keyed on (asset, adjustment) — so it is deliberately not
+// solved here.
+//
+// EDITOR/PAGE PARITY IS STRUCTURAL, NOT A FEATURE. The editor's preview *is* the
+// edit render channel (DOC-28 §5.1) — same renderer, same document — so an
+// adjustment expressed as an axis appears in the editor exactly as it appears on
+// the page, unavoidably, with nothing to keep in step.
+
+/** The `objectFit` axis's own vocabulary, mirrored as the closed list. */
+const OBJECT_FITS = ['cover', 'contain', 'fill', 'none', 'scale-down'] as const
+
+/**
+ * The CSS initial value of `object-fit`. An image that declares no fit is
+ * rendered `fill` by every engine, so `fill` is what the control must show for an
+ * absent axis — and writing `fill` must REMOVE the axis rather than record the
+ * default, on the same absent-is-the-default rule as `italic` and `textTransform`.
+ */
+const OBJECT_FIT_DEFAULT = 'fill'
+
+/** Where an unset `object-position` puts the picture: dead centre, per CSS. */
+const OBJECT_POSITION_DEFAULT = 50
+
+/**
+ * The shapes the editor offers, in the axis's own vocabulary plus the one word
+ * for "no mask".
+ *
+ * GEOMETRIC SHAPES ONLY. `l1MaskSchema` also carries the feathered edges
+ * (`featherRadial` / `featherTop` / `featherBottom`), which are an edge treatment
+ * rather than an answer to "what shape is this picture" — and whose names are the
+ * substrate's, not a word any non-technical operator would recognise in a
+ * dropdown (DOC-28 §3). They stay with the AI, which addresses the axis directly.
+ * A node that already carries one keeps it: see {@link shapeChoices}.
+ */
+const IMAGE_SHAPES = ['rectangle', 'circle', 'ellipse', 'parallelogram', 'blob'] as const
+
+/** The word for "this picture carries no mask at all". Never written as a mask. */
+const SHAPE_NONE = 'rectangle'
+
+/**
+ * The shape options: the geometric set, plus whatever the node already carries.
+ *
+ * The union is the rule {@link imageChoices} and {@link weightChoices} both
+ * state, and it bites here for the same reason: a select whose options omit its
+ * own value renders with the FIRST option selected, so opening an image the AI
+ * had given a feathered edge and saving its alt text would silently square it off.
+ */
+function shapeChoices(current: string): string[] {
+  const seen: string[] = [...IMAGE_SHAPES]
+  if (!seen.includes(current)) seen.push(current)
+  return seen
+}
+
+/** The bounds of the framing controls. Wide by intent — one control per axis. */
+const CORNER_RADIUS_MAX_PX = 400
+const ROTATE_MAX_DEG = 180
+const SCALE_MIN_PCT = 25
+const SCALE_MAX_PCT = 400
+const BLUR_MAX_PX = 20
+
+/**
+ * The colour-adjustment controls, as **percentage projections** over the
+ * fractional `filter` axes.
+ *
+ * WHY A PROJECTION. `l1FilterSchema` holds CSS-canonical fractions, because that
+ * is what a browser reports and therefore what the capture fold can write without
+ * a conversion. "Saturation 140%" is what an operator means; `saturate: 1.4` is
+ * what the substrate holds. REQ-135 set the precedent with `italic` over
+ * `fontStyle`: where the control is a projection rather than the axis, the names
+ * differ on purpose, and this module is the single place that knows which is which.
+ *
+ * `identity` is the value at which the function paints nothing — 100% for the
+ * scaling functions, 0 for the rest — and it is what an ABSENT axis reads back as,
+ * and what removes the axis when written. So a control returned to its identity
+ * leaves the definition exactly as it found it rather than recording a no-op.
+ *
+ * `sepia` and `invert` are in L1 (the fold may measure either) but are not offered
+ * here: they are stylisation rather than adjustment, and thirteen rows is already
+ * a full control panel. The AI addresses them directly.
+ */
+const FILTER_CONTROLS = [
+  { name: 'brightnessPct', label: 'Brightness (%)', axis: 'brightness', identity: 100, scale: 100, max: 400 },
+  { name: 'contrastPct', label: 'Contrast (%)', axis: 'contrast', identity: 100, scale: 100, max: 400 },
+  { name: 'saturatePct', label: 'Saturation (%)', axis: 'saturate', identity: 100, scale: 100, max: 400 },
+  { name: 'grayscalePct', label: 'Black & white (%)', axis: 'grayscale', identity: 0, scale: 100, max: 100 },
+  { name: 'hueRotateDeg', label: 'Hue shift (°)', axis: 'hueRotateDeg', identity: 0, scale: 1, max: 360 },
+  { name: 'blurPx', label: 'Blur (px)', axis: 'blurPx', identity: 0, scale: 1, max: BLUR_MAX_PX },
+] as const
+
+/** The slice of an image node this surface reads and writes. */
+interface L1ImageFramingView {
+  axes?: {
+    objectFit?: string
+    objectPosition?: { xPct: number; yPct: number }
+    borderRadiusPx?: number
+    filter?: Record<string, number | undefined>
+  }
+  mask?: { shape: string }
+  transform?: { rotateDeg?: number; scale?: number }
+}
+
+/**
+ * How a picture is framed, shaped and colour-adjusted (REQ-136).
+ *
+ * Every control is CLOSED — a bounded integer or the axis's own keyword list —
+ * which is what makes handing them to a non-technical operator safe: there is no
+ * control here that can express a length, a colour function or a path, so
+ * widening this surface never widens the attack surface (DOC-28 §3).
+ */
+function imageFramingFields(node: L1ImageFramingView): {
+  fields: L1FieldDescriptor[]
+  values: Record<string, L1FieldValue>
+} {
+  const axes = node.axes ?? {}
+  const position = axes.objectPosition
+  const shape = node.mask?.shape ?? SHAPE_NONE
+  const filter = axes.filter ?? {}
+
+  const fields: L1FieldDescriptor[] = [
+    { name: 'objectFit', label: 'Fill mode', type: 'enum', enum: OBJECT_FITS, required: true },
+    { name: 'objectPositionXPct', label: 'Pan across (%)', type: 'integer', min: 0, max: 100 },
+    { name: 'objectPositionYPct', label: 'Pan down (%)', type: 'integer', min: 0, max: 100 },
+    { name: 'shape', label: 'Shape', type: 'enum', enum: shapeChoices(shape), required: true },
+    {
+      name: 'cornerRadiusPx',
+      label: 'Corner rounding (px)',
+      type: 'integer',
+      min: 0,
+      max: CORNER_RADIUS_MAX_PX,
+    },
+    {
+      name: 'rotateDeg',
+      label: 'Rotate (°)',
+      type: 'integer',
+      min: -ROTATE_MAX_DEG,
+      max: ROTATE_MAX_DEG,
+    },
+    { name: 'scalePct', label: 'Scale (%)', type: 'integer', min: SCALE_MIN_PCT, max: SCALE_MAX_PCT },
+    ...FILTER_CONTROLS.map(
+      (control): L1FieldDescriptor => ({
+        name: control.name,
+        label: control.label,
+        type: 'integer',
+        min: 0,
+        max: control.max,
+      }),
+    ),
+  ]
+
+  const values: Record<string, L1FieldValue> = {
+    objectFit: axes.objectFit ?? OBJECT_FIT_DEFAULT,
+    objectPositionXPct: Math.round(position?.xPct ?? OBJECT_POSITION_DEFAULT),
+    objectPositionYPct: Math.round(position?.yPct ?? OBJECT_POSITION_DEFAULT),
+    shape,
+    cornerRadiusPx: Math.round(axes.borderRadiusPx ?? 0),
+    rotateDeg: Math.round(node.transform?.rotateDeg ?? 0),
+    scalePct: Math.round((node.transform?.scale ?? 1) * 100),
+  }
+  for (const control of FILTER_CONTROLS) {
+    const held = filter[control.axis]
+    values[control.name] = held === undefined ? control.identity : Math.round(held * control.scale)
+  }
+  return { fields, values }
+}
+
 /** The slice of a text run's axes this surface reads and writes. */
 interface L1TextAxesView {
   color?: unknown
@@ -499,12 +675,18 @@ function backgroundHandleOf(node: L1Node): string | undefined {
  * a bounded integer, the faces the site actually declares, and the axis's own
  * keyword list — rather than a number a user can type anything into.
  *
- * An image exposes *which image* and its alt text — and deliberately nothing
- * else. Framing (crop, scale, scrim, rotation) is blocked on DOC-28 §13 Q5:
- * the capture fold already writes those fields, and the editor must write the
- * same ones rather than inventing a parallel vocabulary, so they wait until that
- * is confirmed. Everything here is a structured field on the node; no control on
- * this surface touches a file, so choosing an asset can never bake a new one.
+ * An image exposes *which image*, its alt text, and — REQ-136 — how that picture
+ * is framed, shaped and colour-adjusted. DOC-28 §13 Q5 asked that the editor
+ * write the SAME fields the capture fold writes rather than a parallel
+ * vocabulary, and that is what settles the shape of these controls: they are
+ * projections over `objectFit` / `objectPosition` / `filter` / `mask` /
+ * `transform`, which is exactly what the fold measures. Everything here is a
+ * structured field on the node; no control on this surface touches a file, so
+ * neither choosing an asset nor cropping one can ever bake a new one.
+ *
+ * Framing is offered on the `image` leaf ONLY. A painted surface's background is
+ * still pinned to `cover / center / no-repeat` (BUG-13), so the same intent
+ * lands on a different CSS family there and unpinning it is its own change.
  *
  * A painted `box`/`container` exposes its background image and nothing else of
  * its paint. The rest of the surface group (`pattern`, `overlay`,
@@ -533,6 +715,7 @@ export function copyFieldsOf(
   }
   if (node.kind === 'image') {
     const { src, alt } = node
+    const framing = imageFramingFields(node as L1ImageFramingView)
     return {
       fields: [
         {
@@ -544,8 +727,9 @@ export function copyFieldsOf(
           required: true,
         },
         { name: 'alt', label: 'Alt text', type: 'string', ...widgetFor(alt) },
+        ...framing.fields,
       ],
-      values: { src, alt },
+      values: { src, alt, ...framing.values },
     }
   }
   const background = backgroundHandleOf(node)
@@ -740,6 +924,169 @@ function writeTypography(
   return true
 }
 
+/** The field names {@link writeImageFraming} owns on an `image` node (REQ-136). */
+const IMAGE_FRAMING_FIELDS: ReadonlySet<string> = new Set([
+  'objectFit',
+  'objectPositionXPct',
+  'objectPositionYPct',
+  'shape',
+  'cornerRadiusPx',
+  'rotateDeg',
+  'scalePct',
+  ...FILTER_CONTROLS.map((control) => control.name),
+])
+
+/**
+ * Drop a key and, if that empties its container, drop the container too.
+ *
+ * THE POINT IS THAT A NO-OP LEAVES NO TRACE. Every framing control has an
+ * identity value, and returning one to its identity has to restore the node to
+ * the shape it had before — not leave `transform: {}` or `filter: {}` behind. An
+ * empty container is not merely untidy: it is a diff on every save, it renders as
+ * nothing while reading as something, and it is what makes "did this edit change
+ * anything" un-answerable by looking at the file.
+ */
+function clearKey(bag: Record<string, unknown> | undefined, key: string): void {
+  if (!bag) return
+  delete bag[key]
+}
+
+/** Assign or remove one key of a lazily-created sub-object, pruning it when empty. */
+function setNested(
+  owner: Record<string, unknown>,
+  container: string,
+  key: string,
+  value: number | undefined,
+): void {
+  const bag = owner[container] as Record<string, unknown> | undefined
+  if (value === undefined) {
+    clearKey(bag, key)
+    if (bag && Object.keys(bag).length === 0) delete owner[container]
+    return
+  }
+  if (bag) bag[key] = value
+  else owner[container] = { [key]: value }
+}
+
+/**
+ * Two decimal places on a fraction the operator expressed as a percentage.
+ * `140 / 100` is exact, but `33 / 100 * 1` is not always, and float noise in a
+ * file a human reads and a diff compares is the same problem {@link round2}
+ * already solves for a scaled type track.
+ */
+function fraction(pct: number, scale: number): number {
+  return scale === 1 ? pct : Math.round((pct / scale) * 1e4) / 1e4
+}
+
+/**
+ * Write one image-framing field, reporting whether anything changed (REQ-136).
+ *
+ * Assignment into the EXISTING bags, never replacement of them — the same rule
+ * REQ-128's background write and REQ-135's typography write both state. An image
+ * node carries a full surface group (fill, border, shadow, overlay…), and
+ * replacing `axes` to set a filter would quietly drop whichever of those the
+ * derivation does not know about.
+ *
+ * IDENTITY REMOVES THE AXIS. `fill` is the CSS initial `object-fit`, 50/50 is the
+ * initial `object-position`, 1 is the identity of every scaling filter, and 0 is
+ * the identity of the rest. Writing any of them in would grow the definition on
+ * every save and make a no-op edit produce a diff — and, for `objectFit`
+ * specifically, would put a value in the file that the fold deliberately omits,
+ * so a folded page and an edited page would disagree about what "unset" looks like.
+ */
+function writeImageFraming(node: L1Node, name: string, value: unknown): boolean {
+  const target = node as unknown as { axes?: Record<string, unknown> }
+  const changed = applyFraming(node, name, value)
+  // An identity write on a node that carried no axes at all must not leave an
+  // empty bag behind — see {@link clearKey}. The creation is unconditional above
+  // because every branch needs somewhere to look; the prune is what keeps a
+  // no-op byte-identical.
+  if (target.axes && Object.keys(target.axes).length === 0) delete target.axes
+  return changed
+}
+
+/** {@link writeImageFraming}'s body, before the empty-bag prune. */
+function applyFraming(node: L1Node, name: string, value: unknown): boolean {
+  const target = node as unknown as {
+    axes?: Record<string, unknown>
+    mask?: { shape: string }
+    transform?: Record<string, unknown>
+  }
+  const axes = (target.axes ??= {})
+
+  if (name === 'objectFit') {
+    const next = value as string
+    if ((axes.objectFit ?? OBJECT_FIT_DEFAULT) === next) return false
+    if (next === OBJECT_FIT_DEFAULT) delete axes.objectFit
+    else axes.objectFit = next
+    return true
+  }
+
+  if (name === 'objectPositionXPct' || name === 'objectPositionYPct') {
+    const held = axes.objectPosition as { xPct: number; yPct: number } | undefined
+    const current = {
+      xPct: held?.xPct ?? OBJECT_POSITION_DEFAULT,
+      yPct: held?.yPct ?? OBJECT_POSITION_DEFAULT,
+    }
+    const next = { ...current }
+    next[name === 'objectPositionXPct' ? 'xPct' : 'yPct'] = value as number
+    if (next.xPct === current.xPct && next.yPct === current.yPct) return false
+    // BOTH COMPONENTS OR NEITHER. CSS silently defaults an unspecified component
+    // to 50%, so a half-written position is a 50% the document never said; the
+    // axis is either absent (the browser's centre) or fully stated.
+    if (next.xPct === OBJECT_POSITION_DEFAULT && next.yPct === OBJECT_POSITION_DEFAULT) {
+      delete axes.objectPosition
+    } else {
+      axes.objectPosition = next
+    }
+    return true
+  }
+
+  if (name === 'shape') {
+    const next = value as string
+    if ((target.mask?.shape ?? SHAPE_NONE) === next) return false
+    if (next === SHAPE_NONE) delete target.mask
+    // A bare shape, because the parameters a mask carries belong to the shape
+    // that names them (`slantPct` to a parallelogram, `roughness`/`seed` to a
+    // blob) and are meaningless on any other. The renderer's defaults are what a
+    // shape chosen from this control gets; tuning them is the AI's, which
+    // addresses the axis directly.
+    else target.mask = { shape: next } as { shape: string }
+    return true
+  }
+
+  if (name === 'cornerRadiusPx') {
+    const next = value as number
+    if ((axes.borderRadiusPx ?? 0) === next) return false
+    if (next === 0) delete axes.borderRadiusPx
+    else axes.borderRadiusPx = next
+    return true
+  }
+
+  if (name === 'rotateDeg' || name === 'scalePct') {
+    const key = name === 'rotateDeg' ? 'rotateDeg' : 'scale'
+    const identity = name === 'rotateDeg' ? 0 : 1
+    const next = name === 'rotateDeg' ? (value as number) : fraction(value as number, 100)
+    const current = (target.transform?.[key] as number | undefined) ?? identity
+    if (current === next) return false
+    setNested(target as unknown as Record<string, unknown>, 'transform', key, next === identity ? undefined : next)
+    return true
+  }
+
+  const control = FILTER_CONTROLS.find((c) => c.name === name)!
+  const next = fraction(value as number, control.scale)
+  const filter = axes.filter as Record<string, number | undefined> | undefined
+  const current = filter?.[control.axis] ?? fraction(control.identity, control.scale)
+  if (current === next) return false
+  setNested(
+    axes,
+    'filter',
+    control.axis,
+    next === fraction(control.identity, control.scale) ? undefined : next,
+  )
+  return true
+}
+
 /**
  * Apply one modal's worth of changes to `node`, in place.
  *
@@ -802,6 +1149,8 @@ export function applyCopyFields(
     } else if (node.kind === 'text' && name === 'text' && node.text !== next) {
       node.text = next
       changed.push(name)
+    } else if (node.kind === 'image' && IMAGE_FRAMING_FIELDS.has(name)) {
+      if (writeImageFraming(node, name, value)) changed.push(name)
     } else if (node.kind === 'image' && name === 'src' && node.src !== next) {
       node.src = next
       changed.push(name)

@@ -31,6 +31,7 @@ import type {
   L1ColumnTerm,
   L1Container,
   L1Document,
+  L1Filter,
   L1FocusRing,
   L1FocusState,
   L1Geometry,
@@ -418,6 +419,97 @@ function transformCss(t: L1Transform): string | null {
 }
 
 /**
+ * REQ-136 — a leaning quadrilateral, as `polygon()` points.
+ *
+ * `slantPct` is how far the TOP edge leans, as a share of the width; the bottom
+ * edge leans the opposite way by the same amount, so the shape stays a
+ * parallelogram (equal, opposite offsets) rather than becoming a trapezium. A
+ * negative lean is the mirror image, which is why the two branches differ by
+ * which pair of corners is inset rather than by a sign somewhere in the middle.
+ */
+function parallelogramPoints(slantPct: number): string {
+  const s = Math.min(45, Math.max(-45, slantPct))
+  const a = Math.abs(s)
+  return s >= 0
+    ? `${num(a)}% 0%, 100% 0%, ${num(100 - a)}% 100%, 0% 100%`
+    : `0% 0%, ${num(100 - a)}% 0%, 100% 100%, ${num(a)}% 100%`
+}
+
+/** How many vertices a blob outline has — a renderer constant (see {@link L1Mask}). */
+const BLOB_POINTS = 24
+
+/**
+ * REQ-136 — an organic "splat" outline, as `polygon()` points.
+ *
+ * The radius at each of {@link BLOB_POINTS} evenly-spaced angles is perturbed by
+ * a **seeded** hash, so the same `(roughness, seed)` always produces the same
+ * outline: a shape that differed between two renders of one document would break
+ * the round-trip identity the substrate is gated on (DOC-23 §7), and would make
+ * the picture visibly twitch on every editor save.
+ *
+ * The perturbation is deliberately smoothed across neighbouring vertices — the
+ * raw hash alone gives a spiky star rather than a blob, because 24 independent
+ * radii have no correlation between adjacent points. Averaging each radius with
+ * its neighbours is the cheapest thing that reads as organic.
+ *
+ * The polygon is expressed in PERCENTAGES, so one blob fits whatever box it is
+ * clipping without the renderer needing to know the box's size.
+ */
+function blobPoints(roughness: number, seed: number): string {
+  const amount = Math.min(1, Math.max(0, roughness)) * 0.34
+  // A cheap integer hash → [0, 1). Deterministic in (seed, i) and nothing else.
+  const noise = (i: number): number => {
+    const h = Math.sin((seed + 1) * 127.1 + i * 311.7) * 43758.5453
+    return h - Math.floor(h)
+  }
+  const raw = Array.from({ length: BLOB_POINTS }, (_, i) => noise(i) * 2 - 1)
+  const points: string[] = []
+  for (let i = 0; i < BLOB_POINTS; i += 1) {
+    const smooth =
+      (raw[(i - 1 + BLOB_POINTS) % BLOB_POINTS] + 2 * raw[i] + raw[(i + 1) % BLOB_POINTS]) / 4
+    const r = 50 * (1 - amount * (1 - smooth) * 0.5)
+    const angle = (i / BLOB_POINTS) * Math.PI * 2
+    points.push(`${num(50 + r * Math.cos(angle))}% ${num(50 + r * Math.sin(angle))}%`)
+  }
+  return points.join(', ')
+}
+
+/**
+ * REQ-136 — the typed colour-adjustment stack → one `filter` declaration.
+ *
+ * EMISSION ORDER IS FIXED here rather than taken from the object's key order,
+ * and that is load-bearing: CSS filter functions compose in sequence, so
+ * `grayscale(1) saturate(2)` and `saturate(2) grayscale(1)` paint differently.
+ * Key order in a JSON object is an accident of how a file was written or a diff
+ * was applied, and letting it decide the pixels would make the same axes render
+ * two ways.
+ *
+ * An absent field is the function's identity, so it is skipped — which is also
+ * why a value AT the identity emits nothing: `saturate(1)` is a declaration that
+ * costs a composite layer and changes no pixel.
+ */
+function filterDecls(f: L1Filter): string[] {
+  const parts: string[] = []
+  const scale = (name: string, v: number | undefined): void => {
+    if (v !== undefined && v >= 0 && v !== 1) parts.push(`${name}(${num(v)})`)
+  }
+  const amount = (name: string, v: number | undefined): void => {
+    if (v !== undefined && v > 0) parts.push(`${name}(${num(Math.min(1, v))})`)
+  }
+  amount('grayscale', f.grayscale)
+  amount('sepia', f.sepia)
+  amount('invert', f.invert)
+  scale('saturate', f.saturate)
+  scale('brightness', f.brightness)
+  scale('contrast', f.contrast)
+  if (f.hueRotateDeg !== undefined && f.hueRotateDeg !== 0) {
+    parts.push(`hue-rotate(${num(f.hueRotateDeg)}deg)`)
+  }
+  if (f.blurPx !== undefined && f.blurPx > 0) parts.push(`blur(${num(f.blurPx)}px)`)
+  return parts.length ? [`filter: ${parts.join(' ')}`] : []
+}
+
+/**
  * A typed mask/clip edge → safe CSS declarations. A circular/elliptical crop uses
  * `clip-path`; a feathered edge uses a `mask-image` gradient. Every value is a
  * keyword or a number — nothing from the instance reaches CSS as a raw string.
@@ -428,6 +520,10 @@ function maskDecls(m: L1Mask): string[] {
       return ['clip-path: circle(50%)']
     case 'ellipse':
       return ['clip-path: ellipse(50% 50%)']
+    case 'parallelogram':
+      return [`clip-path: polygon(${parallelogramPoints(m.slantPct ?? 12)})`]
+    case 'blob':
+      return [`clip-path: polygon(${blobPoints(m.roughness ?? 0.5, m.seed ?? 0)})`]
     case 'featherRadial': {
       const inner = m.featherPx !== undefined ? `calc(100% - ${Math.max(0, m.featherPx)}px)` : '60%'
       const g = `radial-gradient(closest-side, #000 ${inner}, transparent 100%)`
@@ -520,6 +616,11 @@ function surfaceDecls(a: L1SurfaceAxes, opts: { fill?: boolean } = {}): string[]
       `backdrop-filter: blur(${px(a.backdropBlurPx)})`,
     )
   }
+  // REQ-136 — the node's own paint, colour-adjusted. AFTER `backdrop-filter` so
+  // the pair reads in the order they composite (what is behind, then what is
+  // here) and a reader of the emitted rule can tell them apart; they are separate
+  // properties, so the order carries no cascade meaning.
+  if (a.filter) out.push(...filterDecls(a.filter))
   if (a.blendMode && a.blendMode !== 'normal') out.push(`mix-blend-mode: ${a.blendMode}`)
   return out
 }
@@ -1986,6 +2087,13 @@ function emitNode(
     case 'image': {
       const a = node.axes ?? {}
       if (a.objectFit) base.push(`object-fit: ${a.objectFit}`)
+      // REQ-136 — which part of the picture the box shows. Emitted next to
+      // `object-fit` because the pair is one idea: `cover` says the box is a
+      // window, and this says where the window looks. Absent means the browser's
+      // centre, which is why nothing is emitted for an unset axis.
+      if (a.objectPosition) {
+        base.push(`object-position: ${num(a.objectPosition.xPct)}% ${num(a.objectPosition.yPct)}%`)
+      }
       base.push(...surfaceDecls(a))
       base.push(...axisSizingCss(node.sizing))
       base.push('display: block')

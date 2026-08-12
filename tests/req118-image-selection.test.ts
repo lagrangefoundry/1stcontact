@@ -197,7 +197,9 @@ describe('REQ-118 — image selection', () => {
     expect(src.enum).toContain(BETA)
     expect(src.enum).toContain(LOGO)
 
-    expect(got.data!.values).toEqual({ src: HERO, alt: 'The hero' })
+    // `toMatchObject` since REQ-136: the same values map now also reports how
+    // the picture is framed, and this AC is about the picker.
+    expect(got.data!.values).toMatchObject({ src: HERO, alt: 'The hero' })
 
     // A handle the mirror never got is still in its own picker, so opening this
     // segment and saving cannot silently swap the image for the first option.
@@ -414,7 +416,7 @@ describe('REQ-118 image selection over the builder origin', () => {
       values: Record<string, string>
     }
     expect(body.kind).toBe('image')
-    expect(body.fields.map((f) => f.name)).toEqual(['src', 'alt'])
+    expect(body.fields.map((f) => f.name).slice(0, 2)).toEqual(['src', 'alt'])
     expect(body.fields.find((f) => f.name === 'src')!.enum).toEqual(SITE_IMAGES)
     expect(body.values.src).toBe(HERO)
   })
