@@ -5,9 +5,9 @@ type: request
 title: 'Palette popup: display, pick and edit the site''s colors'
 created_by: xgd
 created_at: '2026-08-12T00:39:22.220242+00:00'
-updated_at: '2026-08-12T17:42:21.452406+00:00'
+updated_at: '2026-08-12T17:55:33.396324+00:00'
 completed_at: null
-last_field_updated: depends_on
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -64,7 +64,8 @@ The site's `palette`: named entries, one color each.
 
 - **One swatch per entry**, labeled with its name and its **usage count** across the site's
   pages. The count is the single most useful fact in a palette editor — "primary, used 40
-  times" is what makes an edit predictable — and the delete rule (§5c) is stated in it.
+  times" is what makes an edit predictable — and both the delete rule (§5c) and the rename
+  confirmation (§5d) are stated in it.
 - Selecting an entry reveals the **shade slider** with a live preview of the color at the
   current position. **The slider is continuous** — it matches "a linear spectrum", and it is
   the simpler control. The cost is accepted and recorded: two segments cannot reliably be
@@ -109,10 +110,29 @@ The unsafe half stays with the AI, which can already do it (`set_l1` + `set_conf
 talk it through first. Better than no deletion, and better than a confirm dialog that quietly
 breaks forty places.
 
-**(d) Rename — out of V1.** *Agreed.* Renaming an entry's key (`primary` → `brand`) is not a
-color change: every reference names the entry by that key, so a rename either rewrites all of
-them in the same write or orphans them all. It is a real operation and a separate one; the AI
-can do it today. Recorded here so its absence reads as a decision rather than a gap.
+**(d) Rename — in V1, as a total rewrite.** *Agreed, revised this session.*
+
+A reference names its entry by key, so renaming `primary` → `brand` either rewrites every
+reference in the same write or orphans all of them. **It rewrites them.** The measured worst
+case is `xgd`'s 210 references — mechanical, and cheap enough that the alternative (send the
+operator to the AI for a spelling fix) is the worse trade.
+
+- **Atomic.** The key in `palette` and every reference to it move together, or nothing moves.
+  A partial rename is an invalid site — every orphan is a validation failure by
+  [[DOC-23]] §6, not a silent fallback — so this cannot be two writes.
+- **Refused on collision.** A new name that already exists would *merge* two entries, which is
+  the same class of decision as deleting one in use: no correct default, so not a text field's
+  call. Refused, naming the conflict.
+- **Refused on a malformed name** — kebab-case, per `l1PaletteNameSchema`.
+- **Enforced server-side**, like delete: a stale client must not be able to talk the store into
+  a collision.
+- **The count travels with it.** The popup names how many references the rename will rewrite
+  before it does, from the same census the swatch label shows.
+
+**Why this is allowed where delete is not.** Rename is *total and lossless* — every use has
+exactly one correct new value and the system can compute it. Delete-with-references has no
+correct default for any use; the answer differs per site, per page, per element. The rule is
+about which decisions have a computable answer, not about how many references are involved.
 
 ## 6. The data path
 
@@ -121,19 +141,30 @@ every other editor surface does — so the CLI, the AI and the popup cannot leav
 different states after the same edit ([[DOC-8]] §7).
 
 **Surface: `1c palette` as its own command group, with `/api/palette` beside it.** *Agreed.*
-`editConfigSet` can already write a palette by merge, but merge cannot *remove* a key, and
-nothing today exposes the reference census the delete rule is written in terms of. Its own
-group puts the guard, the counts and the writes in one place, and hands the AI a usage read
-it does not have.
+`editConfigSet` can already write a palette by merge, but merge cannot *remove* or *move* a
+key, and nothing today exposes the reference census the delete and rename rules are written
+in terms of. Its own group puts the guards, the counts and the writes in one place, and hands
+the AI a usage read it does not have.
 
-- **Read** — the palette plus per-entry usage counts. The census walks every page with
-  `collectL1PaletteRefs` (already in `site-schema/src/l1/palette.ts`), so counting is
-  structural rather than a hand-listed tour of the color axes.
-- **Write** — set an entry's value, add an entry, delete an entry. The delete guard is
-  enforced **server-side**, not in the popup: a client holding a stale count must not be able
-  to orphan a reference.
+- **Read** — the palette plus per-entry usage counts.
+- **Write** — set an entry's value, add an entry, delete an entry, **rename an entry**.
+  The delete and rename guards are enforced **server-side**, not in the popup.
 - A palette write re-renders **both** channels before answering, exactly as `/api/copy` does
-  — a color change alters the page, not one rendering of it.
+  — a color change alters the page, not one rendering of it. Rename additionally rewrites the
+  page files themselves, so this is not optional there.
+
+**One structural walk, not three.** The census must count exactly the references the rename
+rewrites, or the number shown and the work done can disagree. `collectL1PaletteRefs` and
+`resolveL1Palette` (both in `site-schema/src/l1/palette.ts`) are already two hand-kept copies
+of the same traversal; rename would be a third. They collapse into one
+`mapL1PaletteRefs(input, fn)` — visit every reference structurally, return a replacement or
+the original — with collect, resolve and rename expressed on top of it. Structural rather
+than a hand-listed tour of the color axes, because `l1Color` is one alias used in a dozen
+places and growing.
+
+The walk covers **the site document and every page**, which is the scope `resolveL1Palette`
+already runs at in `loadSite`. In practice references live in pages today; walking the
+document is what keeps that true rather than assumed when a future axis lands elsewhere.
 
 ## 7. Implementation notes
 
@@ -151,7 +182,8 @@ it does not have.
 
 1. **Split** — the model change is [[REQ-137]]; this ticket is the popup and depends on it.
 2. **`1c palette` is its own command group**, with `/api/palette` beside it (§6).
-3. **Rename stays out of V1** (§5d).
+3. **Rename is in V1**, as an atomic total rewrite of the key and every reference (§5d).
+   *(Initially scoped out; revised after the rewrite was costed at 210 references worst case.)*
 4. **The shade slider is continuous**, not detented (§3).
 
 ## 9. Acceptance criteria
@@ -170,11 +202,18 @@ it does not have.
    duplicate or malformed name is refused with a reason.
 7. Deleting an entry with zero references succeeds; deleting one with references is refused
    naming the count, and the refusal is enforced server-side against a stale client.
-8. `1c palette` reads the palette with per-entry usage counts and performs all three writes;
-   `/api/palette` exposes the same operations to the popup.
-9. A palette write re-renders both the draft and edit channels before it answers.
-10. Free hex entry exists only in this surface; no segment field accepts one.
-11. Full suite green, clean `pnpm -r build`.
+8. Renaming an entry moves the key and rewrites every reference to it in one write; the site
+   validates and renders byte-identically afterwards, and no reference to the old name
+   survives anywhere in the document.
+9. A rename onto an existing name, or onto a non-kebab-case name, is refused server-side and
+   changes nothing — no partially-renamed state is reachable, including from a stale client.
+10. The rename count the popup shows and the number of references rewritten come from the same
+    structural walk, exercised on a site with references at multiple shades.
+11. `1c palette` reads the palette with per-entry usage counts and performs all four writes;
+    `/api/palette` exposes the same operations to the popup.
+12. A palette write re-renders both the draft and edit channels before it answers.
+13. Free hex entry exists only in this surface; no segment field accepts one.
+14. Full suite green, clean `pnpm -r build`.
 
 ## Origin
 
