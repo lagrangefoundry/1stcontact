@@ -5,9 +5,9 @@ type: request
 title: 'Image editor: non-destructive framing and colour adjustment'
 created_by: xgd
 created_at: '2026-08-12T00:49:07.170993+00:00'
-updated_at: '2026-08-12T23:07:50.986265+00:00'
+updated_at: '2026-08-12T23:10:20.605436+00:00'
 completed_at: '2026-08-12T23:07:50.986265+00:00'
-last_field_updated: status
+last_field_updated: result
 status: free_and_reconciled
 fields:
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
   version: 0.1.38
   story_points: 5
   merged_at_commit: a23c4c512e0cf233376dc128bea8b124ca9c5dc4
+result: pass
 ---
 
 ## Intent
