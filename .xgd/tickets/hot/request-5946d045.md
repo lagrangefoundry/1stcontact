@@ -18,6 +18,9 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.36
+  orphan_commits:
+  - old_sha: 4e3e532405998fabd332fe3ebe413d6bda4068af
+    new_sha: 5397f9b7e8bb5994b43516b8ba193cc6311e85fe
 ---
 
 ## What changed for the user
