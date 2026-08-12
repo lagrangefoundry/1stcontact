@@ -16,9 +16,11 @@ fields:
   depends_on:
   - REQ-133
   commits:
-  - working_sha: a109064abae00247bfab2a4780612b25d196d1d1
+  - working_sha: e3ca6fc06796a91a7180083e2b72955f0f6d3413
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - a109064abae00247bfab2a4780612b25d196d1d1
   version: 0.1.37
 ---
 
