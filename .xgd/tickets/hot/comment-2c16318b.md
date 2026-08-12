@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-12T00:36:36.979851+00:00'
+updated_at: '2026-08-12T00:37:17.417994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -511,5 +511,39 @@ That takes the open-question list in DOC-33 §13 down to seven, and removes the 
 <!-- xgd-chat role="user" ts="2026-08-12T00:36:36.785983+00:00" -->
 #### You
 ok what is left for us to decide in this conversation
+
+<!-- xgd-turn id="2307b1a3-5d3f-49df-91ef-235653dfc67a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T00:37:17.187686+00:00" -->
+#### Claude
+Four that would change DOC-33 today, three I assumed and should check with you, and one sequencing problem.
+
+## Decisions that are yours
+
+**1. Where the free consult stops.** I've leaned: after stage 1 identifies the primary action, before the brief locks — useful enough to be real, not enough to substitute. It's a positioning call, and it also settles the shape of CHAT-20's track 2.
+
+**2. Image editing scope.** Cropping and colorisation — DOC-28 phase 1 or phase 2? §7.8 and stage 5 currently promise them. This is the only place the playbook makes a promise to a paying client that the product may not keep.
+
+**3. Gate enforcement: discipline or machinery?** I've leaned discipline-first — the AI follows the gates from the document, we measure, and mechanise only if it drifts. The alternative means the session host learns about stages, which is a REQ and couples the platform to the playbook. Worth an explicit answer because it's hard to reverse once the host knows.
+
+**4. Handoff rendering.** Ledger is append-ordered; handoff wants it grouped. A rendering step (can't drift) or a document the AI writes at stage 10 (can be better prose)? Leaned rendering.
+
+## Things I assumed — worth a sanity check
+
+**5. The eleven stages as written.** You agreed with the *critique*; I then wrote the stage list. You haven't read it back. That's the spine of the document, so it deserves an explicit look rather than my assuming consent from the critique.
+
+**6. Restraint level as a locked stage-1 decision.** The most opinionated claim in the document. It follows from DOC-31, but you haven't said yes to it directly, and it constrains stage 8 hard.
+
+**7. Positioning as interrogation, not generation** — i.e. the AI is forbidden from writing the client's positioning statement for them, even when they're struggling. That's a deliberate friction point in a paid session and it will feel unhelpful in the moment.
+
+## Not this conversation's
+
+REQ-123's five questions; the DOC-25 capability-catalogue amendment; REQ-131's implementation; restraint-by-vertical (belongs to the rubric). Cost constants aren't a decision at all — they need a measured session.
+
+## The sequencing problem
+
+CHAT-20 put playbooks at phase 4, *after* the example-pool phase and after closing the L1 gaps. We've pulled it to phase 2. DOC-33 leans on the rubric in several places — restraint calibration, the critique checklists, the design-direction options in stages 3 and 6 — and **the rubric doesn't exist yet**. DOC-31 gives us the findings, but not our encoded point of view.
+
+So DOC-33 is written against something unwritten. I don't think that was wrong — the structure was mostly independent of the rubric, and writing it surfaced REQ-131 and the capability-catalogue gap, which the example-pool phase wouldn't have. But it does mean **DOC-33 isn't done; it's due a second pass after the example pool**, and the honest thing is to record that in the document rather than let it read as finished. Want me to add that?
 
 <!-- xgd-chat-end -->
