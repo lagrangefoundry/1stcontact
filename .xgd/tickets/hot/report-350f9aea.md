@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: REQ-135 phase A — a text run''s typography, edita
   from its segment'
 created_by: xgd
 created_at: '2026-08-12T18:00:46.603366+00:00'
-updated_at: '2026-08-12T18:00:46.603366+00:00'
+updated_at: '2026-08-12T18:10:28.911616+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-a8ccd0dd
@@ -38,7 +38,7 @@ fields:
       AC-988 says a non-text value is refused. Its declared non-goals also list ''Text
       properties (size, colour, weight, family)''. Six FC UATs in tests/test_UAT_FC_REQ-135_text_properties.test.ts
       document the new behaviour and have no AC.'
-    story_uid: null
+    story_uid: story-37a3921b
     target_story_ids:
     - story-37a3921b
     intent_delta_summary: STORY-100 stops claiming a copy region exposes only its
