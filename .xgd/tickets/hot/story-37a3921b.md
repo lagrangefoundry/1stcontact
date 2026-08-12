@@ -6,18 +6,16 @@ title: Change the words and choose the images on my page through one validated, 
   edit — the same path the AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-12T16:05:44.454797+00:00'
+updated_at: '2026-08-12T16:15:30.710364+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-15c1f647
   capability_uid: capability-f753cecd
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-e59210c5
-  - request-5946d045
+  updated_by: request-5946d045
   uat_coverage: pass
 ---
 
