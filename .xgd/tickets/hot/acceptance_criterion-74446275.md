@@ -6,10 +6,10 @@ title: The weights a run offers are the faces the site declares for the first fa
   of its stack, in union with the weight the run already carries
 created_by: xgd
 created_at: '2026-08-12T18:08:13.664290+00:00'
-updated_at: '2026-08-12T18:08:13.664290+00:00'
+updated_at: '2026-08-12T18:23:16.852743+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
