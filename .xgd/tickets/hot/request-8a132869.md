@@ -5,10 +5,10 @@ type: request
 title: 'Image editor: non-destructive framing and colour adjustment'
 created_by: xgd
 created_at: '2026-08-12T00:49:07.170993+00:00'
-updated_at: '2026-08-12T17:57:53.463512+00:00'
+updated_at: '2026-08-12T18:00:48.074375+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
