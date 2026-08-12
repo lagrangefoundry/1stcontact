@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-12T01:21:24.055176+00:00'
+updated_at: '2026-08-12T01:40:27.398761+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -165,5 +165,15 @@ Why they exist rather than being six more entries: the palette this replaced bak
 **One consequence worth flagging for the editor**, because it shapes what AC 4 can promise: steps hold their own literal hexes and are not derived from the base. So changing `primary` from `#2e86a3` to a green repaints the 40 places that reference the base — and leaves `primary/500` and `primary/700` teal, in the 20 places that reference those. The editor will show you that (each swatch carries its count), but it won't recompute a ramp. Re-deriving steps from a changed base is a real feature and a separate one; I've kept it out unless you want it in.
 
 The three open questions from last turn still stand — command group vs `config set`, rename out of V1, adding a step out of V1.
+
+<!-- xgd-turn id="9cabeb77-b926-4c89-907f-5f78352e3bad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-12T01:40:27.238073+00:00" -->
+#### You
+OK so I think the right approach here is that the data structure should store the "steps" as explicit variants of the primary.
+
+The user should not be allowed to edit the steps directly they should get a light-dark slider that would allow them to vary the steps WRT to the original but one a linear spectrum - would that work?
+
+Then a change to the primary changes the whol family
 
 <!-- xgd-chat-end -->
