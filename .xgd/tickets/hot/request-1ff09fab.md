@@ -5,14 +5,19 @@ type: request
 title: 'Copy modal: parameter changes preview live in the editing box'
 created_by: xgd
 created_at: '2026-08-12T17:56:30.149389+00:00'
-updated_at: '2026-08-12T18:04:20.688498+00:00'
+updated_at: '2026-08-12T18:12:34.603557+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  commits:
+  - working_sha: 9a51098f52ca69e11726c6af4ae2d01222883c64
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.39
 ---
 
 ## What the user sees
