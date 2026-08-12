@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-09T05:42:06.543096+00:00'
+updated_at: '2026-08-12T21:15:34.706406+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -53,12 +53,13 @@ shape, by every kind that renders a box (`box`, `container`, `text`, `image`,
 
 | Group | Axes |
 |---|---|
-| **surface (paint)** | solid fill, surface gradient (linear or radial), repeating texture pattern, background image (scheme-checked), translucent scrim overlay, uniform border, left-accent border, corner radius, drop shadow, backdrop blur, opacity, blend mode |
+| **surface (paint)** | solid fill, surface gradient (linear or radial), repeating texture pattern, background image (scheme-checked), translucent scrim overlay, uniform border, left-accent border, corner radius, drop shadow, backdrop blur, the node's own colour adjustment, opacity, blend mode |
 | **node-level** | per-width geometry, sizing, viewport-range visibility, transform, mask, padding, per-width padding, interaction state, scroll reveal |
 
 A kind declares only what is genuinely its own: a run adds its type axes
 (gradient fill painting the glyphs, decoration line, glyph shadow, small-caps,
-list marker), an image adds `object-fit`, a container adds its layout, a slot its
+list marker), an image adds how the media fills its box and which part of itself
+that box shows, a container adds its layout, a slot its
 seam name, a control the name of the module element it paints. Three consequences
 follow directly:
 
@@ -110,8 +111,10 @@ nine box positions plus an extent keyword, never an `at 30% 40%` string), and th
 two branches do not mix; a texture is a named shape (dot grid, hairline grid,
 rules) plus a tile period, a line width, a hex colour and a tilt; a shadow is
 offsets/blur/spread/hex colour/inset; a border is width/hex colour/line style; a
-mask is a named shape plus a feather width; a transform is rotation and scale; a
-scrim is a hex colour plus opacity.
+mask is a named shape plus the bounded numbers that parameterise whichever shape
+names them; a transform is rotation and scale; a
+scrim is a hex colour plus opacity; a colour adjustment is a set of bounded
+ratios and angles, one per adjustment function.
 The renderer re-derives the CSS from those numeric, enum, and hex fields, so a
 structured axis is never a passthrough style string, and an identity or no-op
 value (unit transform, `normal` blend, `none` decoration/marker) is omitted
@@ -127,6 +130,73 @@ a tiled texture and a `cover` backdrop want different sizing, the sizing triple 
 emitted **per layer** whenever a texture is present, and stays the single value it
 always was when none is — so an untextured surface renders byte-for-byte as
 before.
+
+### A picture's framing, shape and colour adjustment
+The substrate could say *which* picture a node shows and how the media fills its
+box. It could not say **which part of the picture the box shows**, what **shape**
+the box is beyond a circular crop or a feathered edge, or how the node's own
+paint is **colour-adjusted**. Three axis families close that, all typed, all
+closed, all emitted by the sole renderer.
+
+- **Which part of itself a picture shows** is a typed percentage pair on the
+  `image` leaf — the pan half of a crop, since a `cover` box is a window onto a
+  larger picture and this says where the window looks. It is **a pair or
+  nothing**: CSS silently defaults an unspecified component to a centred 50%, so
+  a half-written position is not "unset on one axis" but a load-bearing value the
+  document never said. An absent axis means the browser's own centre and emits
+  nothing, so a definition never grows by recording what the browser does
+  unasked. The axis is deliberately **not** hoisted into the shared surface
+  group: framing replaced content and framing a paint layer are different CSS
+  families, and a painted surface's background is still pinned to
+  `cover / center / no-repeat` by BUG-13. Unpinning that is the same axis on a
+  different family, and it is a later change.
+- **A colour adjustment of the node's own paint** joins the shared surface group,
+  so every painting kind carries it — a captured adjustment is read per painted
+  element, not per `<img>`, and an axis L1 can carry on only one kind is an axis
+  every other kind must reach outside L1 for. It is held as **CSS-canonical
+  ratios rather than percentages**, because that is the form a browser reports,
+  so a measurement can be recorded unconverted and the round trip closes with no
+  hidden unit change; a percentage control offered over it elsewhere is a
+  projection, not the axis. It is **distinct from the backdrop blur** the same
+  group already carries: one blurs what sits behind the node, the other adjusts
+  what the node itself paints, and one field could not express both at once.
+- **The mask vocabulary becomes a shape vocabulary the renderer draws.** A
+  leaning quadrilateral and a generated organic outline join the circle, the
+  ellipse and the feathers, each parameterised by bounded numbers whose meaning
+  belongs to the shape that names them and which are inert on the rest — exactly
+  as a texture's tilt is inert on a dot grid. Both compile to a clip path built
+  **entirely by the renderer** from those numbers, so the document names an
+  intent and never geometry, and the shape vocabulary widens without the surface
+  an instance can write widening with it. Shape and corner rounding stay
+  independent treatments — rounding is the shared surface's own axis, not a mask
+  — so a rounded generated outline is expressible and neither displaces the
+  other.
+
+**Two properties are claims of this story rather than implementation detail,
+because their absence would fail silently rather than loudly.**
+
+- **Emission order is the renderer's, not the document's.** Adjustment functions
+  compose in sequence, so removing colour then doubling saturation paints
+  differently from doubling saturation then removing colour. The order a document
+  happens to list its fields in is an accident of how a file was written or how a
+  diff was applied; letting it decide the pixels would let two definitions that
+  say the identical thing render two different ways. The whole set is emitted as
+  exactly one declaration in a fixed order.
+- **A generated shape is deterministic in its seed.** The same document renders
+  the identical outline every time and a different seed renders a different one.
+  This is a correctness obligation, not polish: an outline that differed between
+  two renders of one document would break the round-trip identity the substrate
+  is gated on, and would make the picture visibly change on every re-render. How
+  many points make an outline read as organic is a renderer constant on the same
+  rule as the pointer accent's lobe count, not a number the document reaches in
+  to set.
+
+**An identity emits nothing, and the identity differs per function.** The no-op
+is *one* for the scaling adjustments (saturation, brightness, contrast) and
+*zero* for the rest, so a single skip rule would discard half of them — a fully
+desaturated photograph would emit no adjustment and publish in full colour, a
+failure that reports nothing and reads as the picture simply not having been
+adjusted.
 
 ### Language form — handles bound to substance
 L1 also carries a **document-level resource table** that closes the *form* hole
@@ -261,7 +331,14 @@ checked by hand. The texture's period carries a **floor** as well as a ceiling �
 a sub-pixel period tiles a full-bleed band millions of times, which is a way to
 hang a compositor rather than a matter of taste — and because the check is shared,
 an interaction-state texture delta is bounded by the identical rule as the base
-node. The renderer drops a non-hex colour,
+node. A **colour adjustment** takes a ceiling on the same reasoning: an
+adjustment four times over is not an adjustment but a way to delete the content
+the page still pays to download, so the scaling functions are bounded away from
+that, a hue shift takes the rotation bounds every other angle is held to, and the
+node's own blur takes the effect-length bounds. Because that check too is the
+shared one, **an adjustment that only fires on hover or on focus is bounded by
+the identical rule as the one the node paints at rest** — the hole REQ-99 named
+for shadows applies to an adjustment without change. The renderer drops a non-hex colour,
 an off-allowlist URL, and an unsanitisable font name instead of emitting them, so
 no raw CSS escapes the sink through any of the new families.
 
@@ -285,7 +362,9 @@ measures `capture(render(L1)) ≈ L1` on the authored (literal) axes, and a
 cross-browser check confirms equivalent layout across the three engines.
 
 **In scope**: the typed L1 shape (including the shared axis groups, the `control`
-leaf, the document resource table, and the document's page-level background and
+leaf, the framing / shape / colour-adjustment axes and their fixed-order,
+deterministic emission, the document resource table, and the document's
+page-level background and
 text colour), the envelope validator **and its
 enforcement on every validated site definition, authored or reproduced**, the
 safe renderer
@@ -572,6 +651,50 @@ its target behavior-module id, with no module code and no behaviour attached.
   `1stcontact` and `harbor-cafe` hold pre-L1 module pages with no L1 colour axes,
   so dropping `theme.palette` left them with no palette at all — which validates,
   because a literal hex is always a valid colour and the palette is optional.
+
+- **REQ-136 — a picture's framing, shape and colour adjustment (this
+  reconciliation).** The intent is an image *editor* beside the image *picker*,
+  and its load-bearing design rule is **adjust the view, never the bytes**: every
+  tool writes a typed L1 axis and the renderer applies it, so *no operation
+  touches a file*. The ticket names four compounding reasons — one uploaded asset
+  serves many framings; an adjustment is an ordinary structured diff with the
+  same validator, change map and undo as any other edit; no image-decoding
+  pipeline joins the attack surface (DOC-2, DOC-12 §8); and the adjustment stays
+  *legible*, because an AI can read a saturation ratio and reason about it and
+  cannot read pixels. This story carries only the **substrate half**: that the
+  language can express the adjustment, bound it, and emit it safely. Which
+  controls the editor offers and how they are written is the copy-editing
+  story's; populating these axes from a capture is the fold's.
+- **The cost the intent names, carried here unresolved.** A 4000px hero cropped
+  to a thumbnail still ships 4000px, because nothing is baked. The intent records
+  this as a performance concern rather than a correctness one, with an additive
+  fix (a derived-render cache keyed on the asset and its adjustment, no model
+  change) deliberately deferred. No criterion here is written against it.
+- **Why order and determinism are criteria and not implementation notes.** Both
+  would fail *silently*. Filter functions compose in sequence, so key order
+  deciding the pixels would let two identical definitions paint two ways; a
+  non-deterministic generated outline would break AC-683's round-trip identity
+  and twitch the picture on every save. Neither would throw; each would just be
+  quietly wrong, which is the standing reason this story states a property rather
+  than leaving it to the emitter.
+- **The renderer saturates where a value is in range but degenerate**, the same
+  treatment AC-832 records for a texture rule wider than its own period: a
+  greyscale-family ratio above 1 emits at 1, and a lean beyond its bound emits at
+  the bound. The envelope refuses the out-of-range *document*; the emitter's
+  clamp is the independent second line of defence, not the bound itself.
+- **Scope boundary held: framing is the `image` leaf's alone.** The intent is
+  explicit that the same intent on a painted surface lands on a different CSS
+  family and that BUG-13's `cover / center / no-repeat` pin stands, so the axis is
+  refused on every other kind rather than offered and half-honoured. Also
+  explicitly out of phase 1 and therefore unclaimed here: zoom / true source-rect
+  crop (`object-view-box` is not Baseline — no Firefox — so it fails the
+  three-engine gate), tint/duotone over an `<img>`, drag-driven handles, and the
+  derived-render cache.
+- **`sepia` and `invert` are in the substrate deliberately, not incidentally.**
+  The intent declines to *offer* them in the editor (stylisation rather than
+  adjustment), but the fold reads them off a captured page, so the language must
+  be able to hold what the capture measures. That asymmetry is the intent's and is
+  recorded rather than resolved.
 
 ## Dependencies
 None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on it).
