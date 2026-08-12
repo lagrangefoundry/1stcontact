@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-22
 created_by: xgd
 created_at: '2026-08-11T21:37:10.649320+00:00'
-updated_at: '2026-08-11T21:39:09.486153+00:00'
+updated_at: '2026-08-12T00:36:07.701177+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -100,5 +100,11 @@ Sources:
 - [AI Image Generation API Pricing (July 2026) — BuildMVPFast](https://www.buildmvpfast.com/api-costs/ai-image)
 - [AI Image Pricing 2026: Google Gemini vs. OpenAI GPT Cost Analysis — IntuitionLabs](https://intuitionlabs.ai/articles/ai-image-generation-pricing-google-openai)
 - [Gemini Image Generation Cost Calculator — AI Free API](https://www.aifreeapi.com/en/posts/gemini-image-generation-api-pricing)
+
+<!-- xgd-turn id="68feba29-8d31-4645-b61e-f5bb9f977749-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-12T00:36:07.555615+00:00" -->
+#### You
+Ok please create an REQ for an image creation tool. I would like it to follow the pattern of lagrange-framework's ai component. It should expose a simple API internally and support multiple backends (in principle). In practice lets build it for chatgpt and one other.
 
 <!-- xgd-chat-end -->
