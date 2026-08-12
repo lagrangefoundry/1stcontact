@@ -6,10 +6,10 @@ title: 'The size bound binds a change and never the status quo: an unchanged out
   size survives a re-save, while a new out-of-range value is refused rather than clamped'
 created_by: xgd
 created_at: '2026-08-12T18:08:23.057371+00:00'
-updated_at: '2026-08-12T18:08:23.057371+00:00'
+updated_at: '2026-08-12T18:23:16.188672+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
