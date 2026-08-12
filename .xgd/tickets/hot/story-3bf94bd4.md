@@ -6,18 +6,16 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-12T18:28:16.693908+00:00'
+updated_at: '2026-08-12T18:39:40.866710+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-15c1f647
   capability_uid: capability-12fee326
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - request-5946d045
-  - request-a8ccd0dd
+  updated_by: request-a8ccd0dd
   uat_coverage: fail
 ---
 
