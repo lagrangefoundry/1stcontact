@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-135
 created_by: xgd
 created_at: '2026-08-12T00:49:04.372104+00:00'
-updated_at: '2026-08-12T01:40:48.815824+00:00'
+updated_at: '2026-08-12T02:05:39.227238+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -109,5 +109,75 @@ Ticket updated with all of it. Remaining for you: escalation A or B, dirty-state
 <!-- xgd-chat role="user" ts="2026-08-12T01:40:48.675374+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="fe94d47d-85c3-4dcf-861f-44c7185f0fe1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-12T02:05:39.085479+00:00" -->
+#### Claude
+Now the derivation. Let me check how the existing tests exercise this, so the new fields land in the same idiom.
+
+Now the derivation.
+
+Now I'll widen the descriptor and add the typography derivation.
+
+Now the typography derivation helpers:
+
+Now wire it into `copyFieldsOf`:
+
+Now the write side — the proportional track scaling is the load-bearing part.
+
+Now the validation helpers and the typography writer:
+
+Now the CLI wiring — the derivation needs the document's font table.
+
+Now update the REQ-117 assertions that the new fields legitimately change:
+
+Now the modal. The copy field stays in the dressed box; typography goes in a property sheet beneath it.
+
+The `properties` handle has the same TDZ hazard the file already documents — it must be declared beside `fields`, above `close`.
+
+Now the stylesheet for the property sheet:
+
+Now the UATs.
+
+Now the UAT suite:
+
+Now the targeted updates:
+
+Full suite, to confirm only the pre-existing failures remain:
+
+Now update the ticket body to reflect what landed, bump the version, and commit.
+
+Phase A is landed and committed. Here's where things stand.
+
+## Answers to your three questions
+
+**Escalation** — the mockup is above; I went with **B (the inherited row)**. It's recorded as decided, but it's phase-B work: the row shows the panel's current *fill*, which needs REQ-133's swatch control to exist. Nothing is built for it yet.
+
+**Font size** — your 6–128 range works, taken as **pixels** (L1 is px throughout; 6–128pt would be 8–171px, a unit nothing else in the system speaks). The reconciliation with the responsive problem is that the number you see is the run's widest value and the write is **proportional**: a headline at 72/54/36 across the ladder taken to 96 becomes 96/72/48. The bound also binds only a *change* — a run the fold captured at 160px survives being opened and re-saved, and out-of-range values are refused rather than clamped, since quietly reshaping a page nobody edited is the worse failure.
+
+**Alignment** — left out.
+
+## What shipped
+
+Size, weight, italic and capitalisation on a text segment — everything except colour, which is the only part REQ-133 actually blocks. Commit `a109064ab`, ticket at `free_coded`, version 0.1.37.
+
+Three things the real data changed about the plan, none of which I'd have got right by reasoning:
+
+- A run's `fontFamily` is a full CSS stack (`"Satoshi, Helvetica Neue, Arial, sans-serif"`) while a declared face names a bare family. Comparing them whole is a guaranteed miss — it would have withdrawn the weight control from the entire site, silently. The match is on the first family of the stack.
+- The weight a run already holds is usually *not* a declared face: 10 of `xgd/home`'s 62 runs are set in 600, which that site declares no face for. The "plus its own value" union isn't a corner case, and without it a heading re-weights itself when you save an unrelated field.
+- 23% of runs carry a size track, so the proportional write is load-bearing on about one run in four.
+
+I also amended the italic rule: it locks only on *positive evidence of absence* — the family declares faces and none is italic. A family declaring no faces is painted by the reader's system font, which has real italics, so locking there would disable a control that works.
+
+## Test status, honestly
+
+7 new UATs pass. Eleven assertions across nine earlier suites asserted "a copy segment exposes exactly `[text]`" — REQ-135 changes that by design, so each was narrowed to the claim its AC is actually about rather than relaxed.
+
+**13 tests still fail, and they are not mine.** `reconciliation-assistant-conversation`, `REQ-122 chat host` and `REQ-127 session binding` fail identically on a clean tree — I verified by stashing my work and re-running before touching them. They look credential-related. Worth a look separately.
+
+One caveat on the gate: `xgd quality run --tests <file>` reported SUCCESS but with an empty scope — the `-k` filter deselected all 1507 collected tests, so the suite phase didn't actually execute my file. I verified it directly with vitest instead.
+
+Phase B (text colour, panel background, the escalation row) is specified and waiting on REQ-133.
 
 <!-- xgd-chat-end -->
