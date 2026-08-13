@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-138
 created_by: xgd
 created_at: '2026-08-12T17:57:42.571082+00:00'
-updated_at: '2026-08-13T21:12:13.685002+00:00'
+updated_at: '2026-08-13T21:16:12.242404+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -170,5 +170,22 @@ Nothing has been changed or committed.
 <!-- xgd-chat role="user" ts="2026-08-13T21:12:13.531845+00:00" -->
 #### You
 please file a bug for this
+
+<!-- xgd-turn id="a193641c-c889-443e-9660-5919459dc959-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T21:16:11.972902+00:00" -->
+#### Claude
+**BUG-35** (`bug-1bde3bf9`) filed at `status=draft`.
+
+It records the diagnosis, the Chromium probe output as evidence, the verified fix, the `letter-spacing` half you hadn't reported, and a test plan that flags jsdom as unable to observe this defect (a jsdom assertion would pass before *and* after the fix — the UAT has to drive a real browser, reusing the `loadChromium`/`launchAnyChromium` pattern already in `tests/req117-builder-viewport-fill.test.ts`).
+
+Two things I deliberately did **not** do:
+
+- **Nothing touched REQ-138.** It's still mid-reconcile with its worktree live; its body and `fields.commits` are inputs to that run.
+- **No code yet.** You asked me to file the bug, so I stopped at the ticket — it's at `draft`, not `free_coding`, so nothing is queued.
+
+Say the word and I'll run the free-coding process on BUG-35: `status=free_coding` → `xgd branch cut BUG-35` → the CSS fix plus browser-driven UATs → `[FREE-CODED]` commit → lock, merge, `free_coded`.
+
+Worth knowing: that stalled REQ-138 reconcile is still sitting there (no `xgd reconcile` process running, ticket last moved 01:01 UTC). It's unrelated to this bug, but it will block REQ-138 from reaching `free_and_reconciled` until it's either resumed or reverted.
 
 <!-- xgd-chat-end -->
