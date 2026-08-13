@@ -2,13 +2,13 @@
 uid: acceptance_criterion-6a9ace26
 id: AC-1042
 type: acceptance_criterion
-title: The previewed size is clamped to an editing range while every other presentation
-  axis is exact — the box previews style, not layout
+title: The size the box OPENS at is clamped to an editing range while every other
+  presentation axis is exact — the box previews style, not layout
 created_by: xgd
 created_at: '2026-08-10T07:48:14.730623+00:00'
-updated_at: '2026-08-13T01:08:14.310861+00:00'
+updated_at: '2026-08-13T01:08:23.874832+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-3bf94bd4
