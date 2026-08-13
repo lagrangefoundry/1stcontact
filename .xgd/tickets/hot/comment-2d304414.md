@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-139
 created_by: xgd
 created_at: '2026-08-12T18:15:25.332755+00:00'
-updated_at: '2026-08-13T16:30:05.541582+00:00'
+updated_at: '2026-08-13T16:31:04.052145+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,18 @@ Ticket **REQ-139** is titled and scoped, still at `draft`. No code written yet �
 <!-- xgd-chat role="user" ts="2026-08-13T16:30:05.173467+00:00" -->
 #### You
 please ignore responsive size - but lets wait for color controls before implementing this one
+
+<!-- xgd-turn id="60bfdace-fabe-4174-88d3-bd8eaa7470bd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T16:31:03.908341+00:00" -->
+#### Claude
+Understood — parked, nothing built.
+
+REQ-139 stays at `draft` with two decisions recorded:
+
+- **Responsive font size dropped from scope.** `scaleTrack` moving the whole track proportionally is the honest generalisation of "make it bigger", so it isn't treated as a faithfulness break; size stays editable on every heading.
+- **Blocked on colour controls.** `depends_on: REQ-133` (palette popup, itself waiting on REQ-137). Picked up once colour lands.
+
+What's left in scope when it resumes: the inert/lossy colour cases — in practice `gradientFill`, the one run on the Gigabyte Alchemy title — plus the two presentation gaps (a plain-English reason on `locked`, and actually styling `is-locked`, which nothing does today).
 
 <!-- xgd-chat-end -->
