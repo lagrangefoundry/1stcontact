@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-138
 created_by: xgd
 created_at: '2026-08-12T17:57:42.571082+00:00'
-updated_at: '2026-08-12T18:15:24.348164+00:00'
+updated_at: '2026-08-13T01:03:35.992360+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,11 @@ Two things deliberately *not* covered, in case either matters to you:
 - **Image framing (REQ-136)** — you said "the text editor", and framing changes the picture rather than the words, so previewing it means restyling the picker's thumbnail. Say the word if you want that too.
 
 REQ-138 is at `free_coded` with commit `9a51098f5`, merged to `xgd-working` by fast-forward (SHA preserved), branch cleaned up. Promotion to `ready_to_reconcile` is yours to make.
+
+<!-- xgd-turn id="f14e4928-837b-49b4-9804-f773d5b32489-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T01:03:35.722380+00:00" -->
+#### You
+Capitalization is not previewing
 
 <!-- xgd-chat-end -->
