@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: REQ-138 — copy modal parameter changes preview li
   the editing box'
 created_by: xgd
 created_at: '2026-08-13T01:05:58.103393+00:00'
-updated_at: '2026-08-13T01:05:58.103393+00:00'
+updated_at: '2026-08-13T01:06:13.458458+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: kind
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-1ff09fab
@@ -90,6 +90,7 @@ fields:
       colour (no descriptor exists — deferred to REQ-133''s palette control) and image
       framing (REQ-136 changes the picture, not the words).'
     story_uid: null
+  kind: reconciliation_plan
 ---
 
 # Reconciliation Plan — REQ-138
