@@ -5,10 +5,10 @@ type: request
 title: 'Copy modal: parameter changes preview live in the editing box'
 created_by: xgd
 created_at: '2026-08-12T17:56:30.149389+00:00'
-updated_at: '2026-08-12T18:13:05.160398+00:00'
+updated_at: '2026-08-13T01:01:03.053186+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
