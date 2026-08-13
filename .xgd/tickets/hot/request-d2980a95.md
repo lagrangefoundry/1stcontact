@@ -5,9 +5,9 @@ type: request
 title: 'L1 palette: shade on the reference replaces named steps'
 created_by: xgd
 created_at: '2026-08-12T17:41:39.063912+00:00'
-updated_at: '2026-08-13T16:37:26.614883+00:00'
+updated_at: '2026-08-13T16:38:00.085607+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -22,6 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.41
+  story_points: 5
 ---
 
 # L1 palette: shade on the reference replaces named steps
@@ -102,6 +103,95 @@ this session. Reported as a before/after values-diff rather than assumed.
 5. `xgd` and `gigabytealchemy` are re-retrofitted, with the before/after values-diff reported:
    zero delta except on the members re-expressed as shades, each within the measured bound.
 6. Full suite green, clean `pnpm -r build`.
+
+## 6. Outcome (implemented)
+
+### The shade axis
+
+`shadeHex(hex, shade)` in `packages/site-schema/src/l1/palette.ts` is the single
+implementation: sRGB → Oklab → mix toward `L=0` (black) or `L=1` (white) by
+`|shade|`, driving `a`/`b` toward zero, → sRGB clamped into gamut. `shade === 0`
+or absent short-circuits to the entry's own hex, so **an unshaded reference is
+byte-identical to the literal it replaced by construction**, not by the precision
+of the maths.
+
+The retrofit fits a shade by searching over that same exported function rather
+than its own copy of the arithmetic, so the drift it measures is the drift the
+renderer will actually produce.
+
+### Palette shapes
+
+| site | before (REQ-114) | after |
+|---|---|---|
+| `xgd` | 6 entries + 10 steps | **7 entries**, 0 steps |
+| `gigabytealchemy` | 8 entries + 22 steps | **15 entries**, 0 steps |
+
+Seven colours a mix cannot reach were split into their own exact entries — four
+of `gigabytealchemy`'s "blues" were never a ramp. `xgd`'s `#4aafc9` became
+`primary-bright`: lighter *and* more saturated than `#2e86a3`, so not a shade of
+it. Accepted deliberately (option (a) this session) rather than widening the
+tolerance to 20/255 to keep the family nominally intact.
+
+### AC5 — the before/after values-diff
+
+Painted colours compared in **document order** at the load boundary (old code +
+old data vs new code + new data). A sorted comparison re-pairs slots the moment a
+value changes and invents swaps that never happened — the first measurement did
+exactly that and reported a spurious Δ34.
+
+| site | colour slots | slots changed | worst per-channel Δ |
+|---|---|---|---|
+| `xgd` | 210 → 210 | 82 | **Δ5** |
+| `gigabytealchemy` | 91 → 91 | 33 | **Δ8** |
+
+Slot counts identical, so no colour was added or lost. Every changed slot is a
+ramp member re-expressed as a shade; the worst movement is Δ8/255, exactly the
+bound §3 approved. Everything outside the bound is an exact literal in its own
+entry.
+
+### Re-runnability
+
+`cmdColorsAssign` on either stored site is a **fixpoint** — byte-identical
+`site.json` and `pages/*.json` on a second run. This needed a fix during
+implementation: three fitted colours drifted across a family classification
+boundary (e.g. `#f1f5f9` fell under the neutral chroma floor), so a second run
+re-filed them and the palette grew. The derivation now **refuses a fit that would
+change a colour's family**, which is what makes the retrofit stable.
+
+Base selection also changed: the base is no longer the lightest member but **the
+member that can actually reach the most others**, since a mix only removes chroma
+and a low-chroma base can reach nothing.
+
+`xgd`'s curated entry names are reproduced with
+`--names slate=text,teal=primary,orange=accent,sand=surface,slate-2=surface-accent,teal-2=primary-bright`;
+`gigabytealchemy`'s are all derived.
+
+### Evidence
+
+15 UATs in `tests/test_UAT_FC_REQ-137_palette_shade.test.ts` covering all six ACs
+— entry shape, no stored step, the mix in both directions, chroma-only-decreases,
+out-of-range rejection, shade/alpha independence, the per-entry usage tally,
+derivation emitting no step, the unreachable-colour split, base selection, the
+family-change refusal, the shared fit function, retrofitted sites within bound,
+fixpoint, and no reference surviving resolution.
+
+Suites updated for the model change: `req114-palette-model`,
+`reconciliation-colour-census-and-retrofit`, `reconciliation-colour-palette-overlay`,
+`reconciliation-beyond-l1-authoring`, `test_UAT_FC_REQ-130_beyond_l1`.
+
+`pnpm -r build` clean; `tools/generate` and `packages/site-schema` typecheck clean.
+
+**Pre-existing, unrelated:** 71 tests across 10 AI tool-surface suites
+(`test_UAT_FC_REQ-122/126/127/129/130`, `reconciliation-assistant-*`,
+`reconciliation-page-composition-surface`) fail identically on a clean
+`xgd-working` with no changes applied — `box.run(...)` returns an array where a
+string is expected. Not touched by this ticket; flagged for the operator.
+
+### Docs
+
+[[DOC-23]] §5 updated: §5.4's "steps belong to a role" note now points at the new
+**§5.6**, which records the entry/reference split, the Oklab rationale, the
+chroma-only-decreases corollary, and the superseded [[REQ-114]] AC3 guarantee.
 
 ## Origin
 
