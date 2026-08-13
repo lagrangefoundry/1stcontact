@@ -6,9 +6,9 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-13T01:22:08.005636+00:00'
+updated_at: '2026-08-13T01:39:33.611765+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -113,21 +113,25 @@ first two steps — pointing and filling in a form — are the operator's.
 - **The box follows the sheet.** Changing a parameter in the sheet immediately
   restyles the words in the box above it, so the operator judges the change by
   looking at it and then chooses between Save and Cancel — rather than choosing
-  blind, saving, and reloading the page to find out what they chose. Every
-  parameter a run exposes reaches the box as it is confirmed, by whichever
+  blind, saving, and reloading the page to find out what they chose. How big,
+  how heavy and italic-or-not reach the box as each is confirmed, by whichever
   gesture confirms it, and one turned back **off** clears what it set rather
-  than leaving the last value standing. Nothing here is a write: the change is
-  staged exactly as before, so Save is still the single moment anything is
-  written and one dialog is still one change. A **changed size** is previewed at
-  the scale the box was dressed at when it opened — what it showed per unit of
-  what the run is set to — rather than being brought into the editing range
-  again, because a run set above that range opens sitting on its upper bound and
-  would otherwise answer every increase with no visible difference at exactly
-  the runs where size is worth changing. The legibility floor is kept and there
-  is no ceiling, because the box scrolls. Only a parameter the operator
-  **actually changed** overrides the box: every untouched axis — the run's
-  colour and family among them, which have no control at all — keeps precisely
-  what the opening dressing gave it.
+  than leaving the last value standing. **Capitalisation is written like the
+  others and does not arrive**: the words are drawn in a control that takes the
+  box's typography by inheriting the font shorthand, and that shorthand does not
+  carry capitalisation. It is recorded as a divergence from what this was asked
+  for rather than claimed as delivered — see Technical Context. Nothing here is
+  a write: the change is staged exactly as before, so Save is still the single
+  moment anything is written and one dialog is still one change. A **changed
+  size** is previewed at the scale the box was dressed at when it opened — what
+  it showed per unit of what the run is set to — rather than being brought into
+  the editing range again, because a run set above that range opens sitting on
+  its upper bound and would otherwise answer every increase with no visible
+  difference at exactly the runs where size is worth changing. The legibility
+  floor is kept and there is no ceiling, because the box scrolls. Only a
+  parameter the operator **actually changed** overrides the box: every
+  untouched axis — the run's colour and family among them, which have no control
+  at all — keeps precisely what the opening dressing gave it.
 - **A dialog that composes several controls and still saves once.** The dialog
   decides **per field** which control draws it: the image grid it draws itself,
   the words and the parameters each a separately mounted instance of the shared
@@ -240,13 +244,33 @@ open form.
   Re-applying the range to each new size is the reuse that looks obvious and
   fails for exactly the clamped runs, showing nothing while appearing to work.
   It degrades to previewing at the authored size whenever either end of the
-  ratio is missing, rather than to previewing nothing.
+  ratio is missing, rather than to previewing nothing — a guard rather than a
+  criterion, because a run that declares no size of its own is given no size
+  control at all, so there is no gesture through which an operator can reach
+  that path and no assertion an AC could carry for it.
 - **The parameter-to-preview mapping is a table, and the interesting part is
   what is absent from it.** A parameter with no entry shows nothing rather than
   a default that would dress the box in a value the page will not use. A run's
   **colour** is the live example: no colour descriptor exists yet, so live
   colour is a row this table gains when the palette control lands, not a branch
   it has today. Read a later omission that way rather than as a gap.
+- **Capitalisation is written and does not arrive, and the mechanism is the font
+  shorthand.** The intent names four parameters; three reach the words. The
+  fourth is not missing from the table — it is written on the box like the
+  others, and cleared when the operator chooses none — but the box is a wrapper
+  and the words are drawn by the shared form component's control, which takes
+  the box's typography by inheriting the whole font shorthand. That shorthand
+  carries family, weight, style and size and does not carry capitalisation,
+  which the browser's own styling of form controls resets besides. So the
+  operator sees three of the four move, and reported the fourth on the anchor
+  ticket. **This is neither a regression nor a decision**: the property has been
+  written on the box since the box was first dressed from the page, so the hole
+  predates the live preview, which merely made it visible. It is recorded rather
+  than absorbed — the covering criterion claims three parameters rather than
+  four, and the covering test asserts BOTH halves, that the property is set and
+  that the words do not change, so the day the words are drawn in something that
+  carries it the evidence fails and says so. Closing it means changing what the
+  words are drawn in, which is its own piece of work.
 - **One implementation of the address reading.** The logic that turns a clicked
   element back into a region address is the same source the rendering's stamping
   is defined against, delivered to the browser rather than re-written for it. A
