@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-133
 created_by: xgd
 created_at: '2026-08-12T00:44:02.926727+00:00'
-updated_at: '2026-08-13T21:10:32.571441+00:00'
+updated_at: '2026-08-13T21:24:46.682293+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -349,5 +349,51 @@ That's the structural "every declared route is probed" guard doing its job — m
 <!-- xgd-chat role="user" ts="2026-08-13T21:10:32.422663+00:00" -->
 #### You
 PLease finish this work
+
+<!-- xgd-turn id="45ad51b1-0036-4060-b5d0-6101b3455e33-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T21:24:46.502046+00:00" -->
+#### Claude
+Baseline confirms all 14 failures are pre-existing on `xgd-working` — my branch adds 13 passing tests and no new failures. Now the build/typecheck and full sweep:
+
+Reporter flag was wrong. Relaunching both sweeps with the default reporter:
+
+Full sweep: **71 failed on both branch and base, identical failing sets**; the 4 skips are pre-existing data-gated tests. Now an end-to-end check of the real CLI against a live site:
+
+Normalizing the user-facing strings I added to US spelling, leaving pre-existing text alone:
+
+Now the full sweep again to confirm the normalization broke nothing:
+
+All green — identical failing set to baseline, +13 new passing UATs. Committing now:
+
+Now lock, merge back into `xgd-working`, and promote:
+
+Done. REQ-133 is landed on `xgd-working` and sitting at `free_coded`.
+
+## What shipped
+
+**One popup, two entry points** — the toolbar's `Colors` action (manage) and `mountBuilder(...).openPalette(slug, {mode:'pick', value})`, which is the seam REQ-135 Phase B will call for a text color. Picking resolves to a palette reference (`{ref}` or `{ref, shade}`), never a hex; a zero shade is omitted so a literal converts byte-for-byte.
+
+**Editing**: free hex on an entry (and free hex exists only here), add, restricted delete (zero references, no force flag), and rename as an atomic total rewrite of the key and every reference. Delete and rename guards are enforced server-side, so a stale client can't orphan anything.
+
+**`1c palette get|set|add|rm|rename`** with `/api/palette` beside it, all five declared on the AI toolbox surface — `get_palette` in `ReadSite`, the writes in a new `ManagePalette` group. The assistant previously reached the palette blind through `WriteConfig`'s merge, with no way to ask what a change would move.
+
+**Three structural walks became one.** `collectL1PaletteRefs`, `resolveL1Palette` and the new `renameL1PaletteRef` now sit on `mapL1PaletteRefs`, so the count the popup shows and the references a rename rewrites cannot disagree.
+
+**The Oklab shade math moved to a zero-import `site-schema/l1/shade.ts`**, served type-stripped at `/framework/site-schema-shade.js` — the continuous slider resolves a shade per frame of a drag, so it previews with the renderer's own code rather than a copy or a round trip.
+
+## Verification
+
+- `pnpm -r build` and `pnpm -r typecheck` clean.
+- Full suite **71 failed / 1505 passed**; branch point measured in the same run **71 failed / 1496 passed**. Failing set byte-identical — 13 new passing tests, no new failures. The 4 skips are pre-existing data-gated suites that skip in a linked worktree.
+- Exercised live against `xgd`: counts sum to its 210 references, and all four refusal paths (delete-in-use, rename-collision, non-kebab name, alpha hex) refuse with the right code and leave the tree unchanged.
+
+## Two things worth flagging
+
+**Spelling.** I applied US `color` to everything this ticket adds — CLI messages, `USAGE`, AI surface text, UI, CSS, comments, tests — but left pre-existing text alone, since the repo's landed prose is UK. So the convention is "new text is US", not a repo-wide rename. Say if you'd rather I sweep the rest.
+
+**One landed-behavior quirk recorded rather than repaired** (ticket §7): the extracted modal shell keeps `mount()` separate from construction, because appending at construction breaks the segment editor — `mountFields` ends click-to-edit with `control.focus()`, and REQ-117's `openLoneControl` fires that while the dialog is still detached, where the focus is a no-op. Attached, the focus is real and the control confirms-and-reverts before the operator types. It's REQ-135/138 behavior; the real fix is the `autoEdit` seam already being asked for upstream.
+
+The ticket is at `free_coded` with the body current. Promotion to `ready_to_reconcile` is yours when you're happy with it.
 
 <!-- xgd-chat-end -->
