@@ -5,9 +5,9 @@ type: request
 title: 'Copy modal: parameter changes preview live in the editing box'
 created_by: xgd
 created_at: '2026-08-12T17:56:30.149389+00:00'
-updated_at: '2026-08-13T02:22:36.521570+00:00'
+updated_at: '2026-08-13T02:25:11.961245+00:00'
 completed_at: '2026-08-13T02:22:36.521570+00:00'
-last_field_updated: status
+last_field_updated: result
 status: free_and_reconciled
 fields:
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
   version: 0.1.39
   story_points: 2
   merged_at_commit: b2827d1e92f4a7c34a71b2e6df9f9560fc38f041
+result: pass
 ---
 
 ## What the user sees
