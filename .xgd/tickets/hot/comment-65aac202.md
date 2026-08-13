@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-34
 created_by: xgd
 created_at: '2026-08-12T17:56:26.795376+00:00'
-updated_at: '2026-08-13T16:28:41.424929+00:00'
+updated_at: '2026-08-13T16:37:03.536356+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,32 @@ Two things before I code:
 <!-- xgd-chat role="user" ts="2026-08-13T16:28:41.289848+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="aaf391d9-dcfd-4170-ae3c-6da3cc869065-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T16:37:03.398428+00:00" -->
+#### Claude
+Now the fix in `page-style.js`:
+
+Now the stylesheet:
+
+Now the ticket body — appending the implementation record to what's already there:
+
+Implemented and landed on `xgd-working`. No questions were blocking — the ticket's own "Fix" section specified the approach (reproduce the glyph paint rather than substitute a flat colour), and your "implement this ticket" settled the one open scope question from last session.
+
+**The fix** (`caeb60b`, v0.1.40):
+
+- `page-style.js` gains `readGlyphFill` — when a run's *own* computed `background-clip` is `text` with a `background-image`, it carries that image, the clip and the fill colour across as `--preview-text-*`. `null` otherwise, so a run without a glyph fill emits nothing new.
+- `readTypography` now withholds `--preview-color` when the computed colour paints nothing, leaving `--fields-fg` on the chrome's own colour. That's the backstop, and it's deliberately not gradient-specific — any future axis that paints glyphs some other way lands on a legible fallback rather than an invisible one.
+- `builder.css` applies the paint to `.builder-modal__box .fields-control`, not the box: `background-image` doesn't inherit, and the box's background is the mirrored *backdrop*, a different thing. Each declaration falls back to the property's initial value, so untouched runs compute exactly what they did before.
+
+**Two things worth flagging:**
+
+1. jsdom can't resolve `var()`, so the last hop is asserted against the stylesheet. Whether a `<textarea>` paints gradient glyphs *at all* was the real risk — if it didn't, the transparent fill colour would have made things worse, not better. I probed it with Playwright against chromium, firefox and webkit; all three paint it. That probe was throwaway and isn't committed (it measures the browsers, not our code).
+2. Verified against the live page: `1c render gigabytealchemy --edit` now yields `--preview-text-image: linear-gradient(90deg, #f5e6a3 0%, #f5e6a3 60%, #ff8c42 90%, #ff6b35 100%)`, no `--preview-color`, backdrop still the cream band — gold-to-orange on cream, legible.
+
+**Tests**: `tests/test_UAT_FC_BUG-34_glyph_fill_preview.test.ts`, four criteria on the REQ-121/138 pattern (real render, real bridge, real modal, opened by clicking the words). Verified RED — with the source change stashed, three of four fail; the untouched-run criterion passes, as it must. Regression scope of 25 files / 159 tests (`req121`, `REQ-138`, all `reconciliation-copy-edit-*`, `req115-*`, `req117-*`, `reconciliation-builder-*`) all green.
+
+Ticket **BUG-34** is at `free_coded`, `story_points: 2`, body appended with the implementation record — the original diagnosis is preserved above it. Branch merged and cleaned up. Promotion to `ready_to_reconcile` is yours when you've had a look at it in the builder.
 
 <!-- xgd-chat-end -->
