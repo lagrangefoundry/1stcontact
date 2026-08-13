@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-134
 created_by: xgd
 created_at: '2026-08-13T16:27:24.568794+00:00'
-updated_at: '2026-08-13T21:16:27.595862+00:00'
+updated_at: '2026-08-13T21:20:39.722257+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -78,5 +78,35 @@ moved where?
 <!-- xgd-chat role="user" ts="2026-08-13T21:16:27.300161+00:00" -->
 #### You
 ok please create a detailed ticket with this transcript attached in Lagrange-framework and close this ticket as abandoned with a clear ref to that ticket
+
+<!-- xgd-turn id="bb2846c5-fa7b-43ee-b93f-8fa72a803371-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T21:20:39.568984+00:00" -->
+#### Claude
+Confirmed the real framework store is the main worktree (1250 hot tickets) and `xgd` routes there automatically. Writing the ticket now.
+
+REQ-102 created. Now closing REQ-134 with the reference.
+
+Both done and committed.
+
+## `lagrange-framework` → **REQ-102** (`request-2f815719`), status `draft`
+
+*"Image generation component — one internal API, several providers behind it (components/imagegen)"*
+
+Written self-contained, since it can't reach 1stcontact's documents. Carried over intact: the problem statement, the port design, the capability axes, the cost mechanism, all 12 acceptance criteria, the out-of-scope list. Cross-store refs rewritten as plain text (`1stcontact:DOC-31`) rather than `[[wiki links]]` — those would dangle in that store.
+
+Added beyond the original:
+
+- **§Placement, settled** — with the three verified reasons, plus the note that cross-store create is blocked (that store's own REQ-67), which is *why* re-filing was the only route.
+- **§Decisions split into settled / open / deferred-to-host.** Settled: JS-only v1 (precedent enumerated), bytes across the port, `draft`/`final` with honest tier reporting, dated price table with arithmetic-only UATs, and that no live API keys are needed. **Open and blocking: dependency sign-off** — zero-dep `fetch` recommended.
+- **Transcript appendix** — the session that produced the move, including what I verified in the code before asserting it.
+
+## `1stcontact` → **REQ-134** now `abandoned`
+
+Body preserved; the note is appended, not substituted. It names REQ-102 with its uid and a copy-pasteable `xgd ticket get` invocation, explains why the move happened, and records what stays here: the host integration (writing bytes into `draft/assets/`, staging for rejected candidates, the free-session cap) still needs its own REQ in this store once REQ-102 lands.
+
+Auto-commits landed in each store's main worktree (`f24a3451f`, `4e5441d65`). No code was written, so no branch was cut and no free-coding steps applied.
+
+One thing worth your attention, unrelated to this task: `/Users/martin/lagrangefoundry/lagrange-framework` has `.xgd/tickets/` **untracked** on `xgd-working` (8 hot tickets), while the canonical store on `main` has ~1400 files. It's a stray local directory rather than the real store — `xgd` correctly routed my writes to the main worktree — but it looks like debris from an interrupted resync, and it's the kind of thing that could confuse a later operation.
 
 <!-- xgd-chat-end -->
