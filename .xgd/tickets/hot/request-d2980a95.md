@@ -5,10 +5,10 @@ type: request
 title: 'L1 palette: shade on the reference replaces named steps'
 created_by: xgd
 created_at: '2026-08-12T17:41:39.063912+00:00'
-updated_at: '2026-08-13T21:11:03.083933+00:00'
+updated_at: '2026-08-13T21:34:07.884412+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   depends_on: []
@@ -20,6 +20,7 @@ fields:
   - 87306fa43ea10900fecabea6d00f47b11184a3e2
   version: 0.1.42
   story_points: 5
+  bundled_in: bundle-d9226698
 ---
 
 # L1 palette: shade on the reference replaces named steps
