@@ -12,16 +12,17 @@
  * THE THREE CLAIMS ARE DELIBERATELY SEPARATE, because the two interesting ones
  * are about implementations that pass the obvious test and fail the real one:
  *
- * - AC-1138 is the plain claim: a parameter reaches the box as it is confirmed,
- *   by its own gesture, an "off" value CLEARS what it set, and none of it is a
- *   write. It is scoped to the three axes that reach the WORDS — size, weight,
- *   italic. CAPITALISATION IS A RECORDED DIVERGENCE from REQ-138's stated
- *   intent: the property is written on the box like the others, but the control
+ * - AC-1138 is the plain claim: a parameter reaches the WORDS as it is
+ *   confirmed, by its own gesture, an "off" value CLEARS what it set, and none
+ *   of it is a write. All four axes REQ-138 names — size, weight, italic,
+ *   capitalisation. The fourth is measured in both halves, written and
+ *   arriving, because it is the one that was ever only half true: the control
  *   that draws the words takes the box's typography through `font: inherit`,
- *   which does not carry `text-transform` (and the UA resets it on form
- *   controls), so the operator sees nothing. Asserted here in both halves —
- *   written, and not arriving — because the first version of this suite
- *   measured the container and passed while the behaviour was absent.
+ *   which does not carry `text-transform` (and the UA stylesheet resets it on
+ *   form controls), so the property landed on the box and the operator saw
+ *   nothing. `builder.css` re-declares that inheritance on the control. The
+ *   first version of this suite measured the container and passed while the
+ *   behaviour was absent, which is why the words are what is measured here.
  * - AC-1139 is the clamped run. The box previews size in a 14–32px editing
  *   range, so a 72px headline opens sitting ON the ceiling; re-applying that
  *   range to each new size — the obvious reuse — answers every increase with the
@@ -377,9 +378,9 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
     async () => {
       // NO STYLESHEET INSPECTION. A regex over `builder.css` proves a
       // declaration exists, not that anything happens — and it is exactly what
-      // let this suite go green over a live defect: `text-transform` is
-      // declared on the box, reads the property the sheet writes, and still
-      // never reaches the words. The evidence is the rendering, below.
+      // let this suite go green over a live defect: `text-transform` was
+      // declared on the box, read the property the sheet writes, and still
+      // never reached the words. The evidence is the rendering, below.
       if (!WEBUI_INSTALLED) {
         unverified(`AC-1138 the box follows the sheet (${WEBUI_SKIP_REASON})`)
         return
@@ -398,8 +399,8 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
       //
       // PROPERTY-LEVEL ONLY here — jsdom resolves no `var()` and computes no
       // inheritance, so "the property was written" is the whole of what this
-      // half can honestly say. Whether the property reaches the words is
-      // measured in a browser below, and for capitalisation the answer is no.
+      // half can honestly say. Whether each property reaches the words is
+      // measured in a browser below, which is where the two can differ.
       setChoice(modal, 'fontWeight', '400')
       expect(varOf(box, '--preview-font-weight')).toBe('400')
 
@@ -416,9 +417,8 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
       //
       // Written on change, so an "off" value that wrote nothing would leave the
       // previous one standing and the control would read as having stopped
-      // working halfway. Capitalisation's clearing is asserted at the property
-      // only — it is written and cleared correctly; it just never reaches the
-      // words (see the browser half).
+      // working halfway. Clearing is asserted at the property here and in the
+      // rendering in the browser half.
       setToggle(modal, 'italic', false)
       setChoice(modal, 'textTransform', 'none')
       expect(varOf(box, '--preview-font-style')).toBe('normal')
@@ -490,21 +490,21 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
         await page.locator(`${set('italic')} input[type="checkbox"]`).uncheck()
         expect((await shown()).style, 'and upright again').toBe('normal')
 
-        // ── CAPITALISATION: THE DIVERGENCE, ASSERTED AS IT STANDS ─────────────
+        // ── CAPITALISATION: BOTH HALVES, BECAUSE ONE OF THEM ONCE LIED ────────
         //
-        // REQ-138 asks for four parameters and this one does not arrive. The
-        // property is written exactly like the others, on the box — but the
-        // control that draws the words takes the box's typography through
-        // `font: inherit`, and that shorthand carries family, weight, style and
-        // size and NOT `text-transform`, which the browser's own styling of form
-        // controls resets. So the operator picks a capitalisation and the words
-        // do not change, which is what they reported on the anchor.
+        // Measured on the box AND on the words, and the second measurement is
+        // the one that matters. This parameter reached the box from the first
+        // day and reached the words on none of them: the control that draws
+        // them takes the box's typography through `font: inherit`, and that
+        // shorthand carries family, weight, style and size and NOT
+        // `text-transform`, which the UA stylesheet resets on form controls.
+        // The property was written, the operator saw nothing, and a suite that
+        // measured only the wrapper called that a pass.
         //
-        // Asserted rather than omitted: this is the pair of measurements that
-        // tells a working implementation from a broken one, and an omitted
-        // assertion here is how the divergence survived a green suite. The day
-        // the words are drawn in something that carries the property, this fails
-        // and the criterion is rewritten to claim it.
+        // `builder.css` re-declares the inheritance the UA reset broke, and both
+        // measurements are kept so a regression in either half is attributable:
+        // the property stopping would be the sheet's subscription, the words
+        // stopping would be that rule.
         await page.click(`${set('textTransform')} .fields-value-editable`)
         await page.selectOption(`${set('textTransform')} select`, 'uppercase')
         const onBox = await page.$eval(
@@ -512,7 +512,14 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
           (el) => getComputedStyle(el as HTMLElement).textTransform,
         )
         expect(onBox, 'the property IS written, on the box').toBe('uppercase')
-        expect((await shown()).transform, 'and does NOT reach the words').toBe('none')
+        expect((await shown()).transform, 'and reaches the words').toBe('uppercase')
+
+        // ...and off clears it in the rendering too, the same two-sided
+        // treatment italic gets above: a capitalisation that would not come
+        // back reads as the control having stopped working halfway.
+        await page.click(`${set('textTransform')} .fields-value-editable`)
+        await page.selectOption(`${set('textTransform')} select`, 'none')
+        expect((await shown()).transform, 'and clears when turned back off').toBe('none')
       } finally {
         await page.close()
       }

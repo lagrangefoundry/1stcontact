@@ -220,8 +220,16 @@ body {
  * The control is made invisible THROUGH THE COMPONENT'S OWN TOKENS — a
  * transparent border colour and a transparent background, both `--fields-*`
  * values it already consumes — rather than by overriding `.fields-control`.
- * Nothing here targets a component class, so a component update cannot silently
- * strand a rule that used to be doing the work.
+ * Presentation goes through the seams wherever a seam exists, so a component
+ * update cannot silently strand a rule that used to be doing the work.
+ *
+ * ONE RULE BELOW IS THE EXCEPTION, and it is deliberate: capitalisation and
+ * tracking have no `--fields-*` seam to go through, and they are the two axes
+ * inheritance does not deliver on its own. It is safe to name the class there
+ * for the very reason the rest of this block avoids it — "silently" is what a
+ * component rename would no longer be. The words being drawn in the chosen
+ * capitalisation is measured in a real browser by AC-1138, so the day the class
+ * changes, that criterion fails rather than the operator discovering it.
  */
 
 .builder-modal__box {
@@ -251,6 +259,28 @@ body {
   letter-spacing: var(--preview-letter-spacing, normal);
   line-height: var(--preview-line-height, 1.4);
   text-transform: var(--preview-text-transform, none);
+}
+
+/*
+ * THE CONTROL HAS TO BE TOLD (REQ-138).
+ *
+ * The box carries the mirrored dressing and the control inherits it — `fields.css`
+ * gives `.fields-control` `font: inherit`, and that shorthand carries family,
+ * size, weight and style, which is exactly the four axes that already arrive.
+ * It does not carry `text-transform` or `letter-spacing`, and the UA stylesheet
+ * resets BOTH on form controls, so those two stop at the wrapper and never reach
+ * the words. Capitalisation is an editable parameter, so its stopping there is a
+ * control the operator can move that moves nothing; tracking is not editable, so
+ * it showed as the box quietly mis-mirroring a headline set tight. Same root
+ * cause, one line apart, both restored here by re-declaring the inheritance the
+ * UA reset broke.
+ *
+ * Scoped to the editing box: it is the only place the chrome dresses a control
+ * in the PAGE's typography rather than its own.
+ */
+.builder-modal__box .fields-control {
+  text-transform: inherit;
+  letter-spacing: inherit;
 }
 
 .builder-modal__box:focus-within {
