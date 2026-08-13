@@ -5,9 +5,9 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-13T21:15:50.844238+00:00'
+updated_at: '2026-08-13T21:40:56.870265+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -88,10 +88,13 @@ FW-3 is not on this ticket's critical path: a shipped system KB declares
    against a *named* source (`store_for`), so "a shipped read-only directory" and
    "this tenant's D1 store" are the same code path with different sources. The
    system KB uses the former; tenant KBs will use the latter.
-3. **The whole doc set goes in.** No curation pass for now; the system must scale
-   to thousands of documents, so the answer to a large corpus is chunk search and
-   an awareness map, not a hand-picked subset. The product-knowledge vs
-   development-process boundary stays open (see below).
+3. **The whole doc set goes in, and the corpus question is closed for now.**
+   Every `doc` ticket (33 today), no curation pass. The system must scale to
+   thousands of documents, so the answer to a large corpus is chunk search and an
+   awareness map, not a hand-picked subset. Some documents are
+   development-process knowledge rather than product knowledge; whether that
+   hurts retrieval is a question to answer with data once the feature exists, not
+   a reason to hold up building it. Build the feature; look at the data after.
 4. **One shared system KB, plus per-tenant KBs.** Tenants read the system KB and
    own KBs in their own stores. Multi-source composition and the guarantee that
    a tenant search cannot cross into another tenant's documents are proven in
@@ -102,38 +105,84 @@ FW-3 is not on this ticket's critical path: a shipped system KB declares
 
 ## Open
 
-- **Tenant grain.** Is a tenant a *site*, or an *account* with site as a field?
-  A site-grained tenant gives "search never crosses sites" structurally; an
-  account-grained one matches how a client with several sites is billed and
-  talked to. Needs deciding before the schema lands, because it is expensive to
-  change afterwards.
-- **Corpus boundary.** Several docs are XGD development-process knowledge
-  (branch topology, conformance harness, reproduction runbook) rather than
-  product knowledge the builder AI should reason from when talking to a client.
-  Deferred deliberately — revisit once there is evidence of it hurting retrieval.
+### Tenant grain — the one decision that must be made before the schema lands
+
+`tenant_id` is not a column the product sets; it is the axis the store is built
+on. `Accessor.forTenant(id)` returns a handle that injects `WHERE tenant_id = ?`
+on every read and stamps it on every write, and human-readable ids are allocated
+per `(tenant, type)`. So the tenant grain decides three things at once: what
+"cannot be seen across" means structurally, what a ticket's number is scoped to,
+and what a knowledge base can span.
+
+**Tenant = site.** Cross-site leakage becomes structurally impossible — not
+enforced by remembering a predicate, but by there being no handle that spans two
+sites. That is the strongest possible answer to "can the AI working on site A see
+site B's conversation", and it is worth a lot for a product where clients are
+unrelated businesses.
+
+The cost lands when one client has several sites. A knowledge base cannot span
+them, so a brand's voice, terminology and past decisions do not carry from their
+first site to their second — the AI starts cold each time, which is precisely the
+value the KB exists to provide. Account-level anything (billing, a session list
+across sites, "how do we talk to this client") has to be assembled by querying N
+stores and merging outside the store's guarantees.
+
+**Tenant = account, site as a field.** Per-client knowledge accumulates in one
+place and every site that client owns benefits. Account-level views are ordinary
+queries. This matches how a client is actually billed and talked to.
+
+The cost is that site isolation becomes a predicate — `fields.site_id = ?` — that
+every query must carry, and a search that forgets it returns another site's
+content *belonging to the same client*. Less catastrophic than cross-client
+leakage, but now a discipline rather than a property.
+
+**Recommendation: tenant = account, site as a field**, provided the site
+predicate is bound once into the knowledge runtime's KB scope rather than passed
+per call. The strong isolation boundary that matters commercially is
+*between clients*, and account-grain still gives that structurally. Within one
+client, sites sharing knowledge is a feature, not a leak — and the alternative
+throws away the accumulated understanding that makes the second site faster than
+the first.
+
+Worth confirming against the business model: if the product ever sells to
+agencies (one account, many unrelated end-clients), the account grain puts the
+weak boundary exactly where the strong one is needed, and site-grain wins instead.
+
+### Deferred
+
 - **Export mechanics.** Whether the corpus directory is committed or generated at
   build time, and how doc → file naming stays stable across renames.
+- **Transcript granularity.** The chat archive homes a session as one comment
+  holding the whole session file, CAS-updated, rather than a row per message.
+  Fine at builder-conversation length; if it stops being fine, the fix is a
+  message-granular archive behind the same port in the framework, not a bespoke
+  schema here. Recorded in DOC-10 §8.1.
 
-## Supersessions this forces on DOC-10 (chat persistence)
+## DOC-10 (chat persistence) — revised, done
 
-DOC-10 predates the ticket store and KM. Three of its sections are replaced:
+DOC-10 predated both the ticket store and KM, and specified bespoke machinery for
+each. It has been revised in place rather than annotated, since its design intent
+survived intact and only the build-it-here assumption did not. Three sections
+replaced:
 
-- **§8's bespoke schema** — `chat_sessions` / `chat_messages` / FTS5 is replaced
-  by the ticket store: a session is a `chat` ticket, its transcript a
-  `chat_transcript` comment. One store, not two.
-- **§6's `reference_docs` table + distillation step** — replaced by indexing the
-  real documents. Hand-distilling docs into a parallel curated set is the work KM
-  exists to remove, and it introduces a second source of truth that drifts.
+- **§8's bespoke schema** — `chat_sessions` / `chat_messages` / FTS5 → the ticket
+  store: a session is a `chat` ticket, its transcript a `chat_transcript`
+  comment, its body the AI-maintained summary. §8.1 records the one real
+  divergence (whole-file comment vs message rows).
+- **§6's `reference_docs` table + distillation step** → a knowledge base over the
+  real documents. Distillation was a workaround for retrieval that did not exist;
+  keeping it would have meant a second source of truth that drifts silently.
 - **§5.2's four memory tools** — `search_transcripts` / `read_session_range` /
-  `list_reference_docs` / `read_reference_doc` become the declared knowledge
-  surface's operations, with transcripts and documents as two KBs in one search
-  rather than two tool families.
+  `list_reference_docs` / `read_reference_doc` → operations on the declared
+  knowledge surface, with transcripts and documents as two KBs in one ranked
+  search rather than two tool families.
 
-DOC-10 needs a supersession note, and REQ-23 / REQ-24 / REQ-26 need retiring or
-rewriting against this model.
+Also corrected: §11's decomposition named REQ-23–REQ-26, numbers that were never
+allocated to this work and now belong to unrelated tickets. It points at REQ-122
+and REQ-123.
 
 ## Related
 
-REQ-122 (builder chat UI) · DOC-10 (chat persistence — partially superseded) ·
+REQ-122 (builder chat UI) · DOC-10 (chat persistence — revised here) ·
 DOC-12 (storage model) · framework REQ-99 / REQ-100 / REQ-101, REQ-71 (shipped KB),
 REQ-40–44 / 49 / 53 / 76 (KM in Python), REQ-30 / 33 (Toolbox + ai_ticketing in JS).
