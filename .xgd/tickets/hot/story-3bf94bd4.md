@@ -6,9 +6,9 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-12T18:39:40.866710+00:00'
+updated_at: '2026-08-13T01:10:01.332100+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -110,6 +110,24 @@ first two steps — pointing and filling in a form — are the operator's.
   Clicking words still puts the cursor **in the words**: the affordance that
   opens a lone field ready to type is counted over the box, so a run that also
   exposes four parameters is still one field of words.
+- **The box follows the sheet.** Changing a parameter in the sheet immediately
+  restyles the words in the box above it, so the operator judges the change by
+  looking at it and then chooses between Save and Cancel — rather than choosing
+  blind, saving, and reloading the page to find out what they chose. Every
+  parameter a run exposes reaches the box as it is confirmed, by whichever
+  gesture confirms it, and one turned back **off** clears what it set rather
+  than leaving the last value standing. Nothing here is a write: the change is
+  staged exactly as before, so Save is still the single moment anything is
+  written and one dialog is still one change. A **changed size** is previewed at
+  the scale the box was dressed at when it opened — what it showed per unit of
+  what the run is set to — rather than being brought into the editing range
+  again, because a run set above that range opens sitting on its upper bound and
+  would otherwise answer every increase with no visible difference at exactly
+  the runs where size is worth changing. The legibility floor is kept and there
+  is no ceiling, because the box scrolls. Only a parameter the operator
+  **actually changed** overrides the box: every untouched axis — the run's
+  colour and family among them, which have no control at all — keeps precisely
+  what the opening dressing gave it.
 - **A dialog that composes several controls and still saves once.** The dialog
   decides **per field** which control draws it: the image grid it draws itself,
   the words and the parameters each a separately mounted instance of the shared
@@ -202,6 +220,33 @@ open form.
   type size is set through the component's own size token rather than as a font
   size on the sheet, so a component update cannot strand whichever rule was doing
   the work. Nothing here reaches into the component's internal classes.
+- **The live preview is one property per change, and that shape is the
+  argument.** The box already reads every axis it shows through custom
+  properties, and the sheet already announces each field as it is confirmed, so
+  the whole of the live half is a subscription that maps one confirmed field to
+  one property. The obvious alternative — re-derive the whole dressing from the
+  sheet's values on every change — is what the shape is chosen against: the
+  opening dressing is read from the page **as rendered** (the cascaded result),
+  while a parameter's value is only what the run itself **overrode**, so a run
+  that inherits weight 700 while declaring none reports 400 and re-deriving
+  would lighten the box before the operator touched anything. Writing one
+  property per change never asks an untouched field what it thinks, which keeps
+  the opening-dressing criteria true by construction rather than by care.
+- **Scaled, not re-clamped, and the difference is silent failure.** The scale is
+  measured once at open — previewed size over authored size — and folds together
+  two reductions worth nothing separately: the editing range, and the difference
+  between the size a run is authored at and the size the page is rendering it at
+  the current width, since a size is a responsive track sampled across widths.
+  Re-applying the range to each new size is the reuse that looks obvious and
+  fails for exactly the clamped runs, showing nothing while appearing to work.
+  It degrades to previewing at the authored size whenever either end of the
+  ratio is missing, rather than to previewing nothing.
+- **The parameter-to-preview mapping is a table, and the interesting part is
+  what is absent from it.** A parameter with no entry shows nothing rather than
+  a default that would dress the box in a value the page will not use. A run's
+  **colour** is the live example: no colour descriptor exists yet, so live
+  colour is a row this table gains when the palette control lands, not a branch
+  it has today. Read a later omission that way rather than as a gap.
 - **One implementation of the address reading.** The logic that turns a clicked
   element back into a region address is the same source the rendering's stamping
   is defined against, delivered to the browser rather than re-written for it. A
