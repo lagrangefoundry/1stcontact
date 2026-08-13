@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-139
 created_by: xgd
 created_at: '2026-08-12T18:15:25.332755+00:00'
-updated_at: '2026-08-12T18:19:55.533294+00:00'
+updated_at: '2026-08-13T16:30:05.541582+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,11 @@ So: **lock it** (strict — the displayed "72" is a half-truth at 375px), or **k
 I've drafted the ticket to that shape — say the word and I'll cut the branch and build it.
 
 Ticket **REQ-139** is titled and scoped, still at `draft`. No code written yet — waiting on your call on the responsive-size question before I cut the branch.
+
+<!-- xgd-turn id="60bfdace-fabe-4174-88d3-bd8eaa7470bd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T16:30:05.173467+00:00" -->
+#### You
+please ignore responsive size - but lets wait for color controls before implementing this one
 
 <!-- xgd-chat-end -->
