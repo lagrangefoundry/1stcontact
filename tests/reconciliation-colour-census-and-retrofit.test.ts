@@ -44,9 +44,15 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, describe, expect, it } from 'vitest'
 import type { L1Palette } from '../packages/site-schema/src/index'
-import { resolveL1Color, resolveL1Palette } from '../packages/site-schema/src/l1/palette'
+import { resolveL1Color, resolveL1Palette, shadeHex } from '../packages/site-schema/src/l1/palette'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
-import { cmdColors, cmdColorsAssign, collectColorLiterals } from '../tools/generate/src/cli/colors'
+import {
+  SHADE_FIT_TOLERANCE,
+  cmdColors,
+  cmdColorsAssign,
+  collectColorLiterals,
+  fitShade,
+} from '../tools/generate/src/cli/colors'
 import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { listFilesRel } from '../tools/generate/src/store'
@@ -137,13 +143,19 @@ function collectRefs(input: unknown): { ref: string; step?: string; alpha?: numb
   return out
 }
 
-/** The entry name a colour landed in — searching base values then steps. */
+/**
+ * The entry name a colour landed in — its own value, or the entry whose shade
+ * axis reaches it. REQ-137 deleted the stored steps this used to search, so
+ * membership is now a question the shade axis answers rather than a lookup.
+ */
 function entryOf(palette: L1Palette, rgb: string): string | undefined {
+  for (const [name, entry] of Object.entries(palette)) if (entry.value === rgb) return name
+  let best: { name: string; delta: number } | undefined
   for (const [name, entry] of Object.entries(palette)) {
-    if (entry.value === rgb) return name
-    if (Object.values(entry.steps ?? {}).includes(rgb)) return name
+    const { delta } = fitShade(entry.value, rgb)
+    if (delta <= SHADE_FIT_TOLERANCE && (!best || delta < best.delta)) best = { name, delta }
   }
-  return undefined
+  return best?.name
 }
 
 /**
@@ -452,26 +464,37 @@ describe('story-5e7eb0c5 — derivation groups colours into roles rather than li
   it('test_UAT_AC943_ramps_group_vivid_and_neutral_split_isolates_stand_alone', () => {
     const cwd = freshCwd()
 
-    // (a) A five-step single-hue ramp (teal, hues 192–196) alongside an isolated
-    //     vermilion that clusters with nothing.
-    const RAMP = ['#1a5266', '#236d87', '#2e86a3', '#4aafc9', '#6fc4da']
+    // (a) A five-member light↔dark family alongside an isolated vermilion that
+    //     clusters with nothing.
+    //
+    //     REQ-137 made "ramp" mean something exact: the members are generated
+    //     from one teal by the shade axis itself, which is precisely the family
+    //     the model claims to capture. (The old fixture was five hand-picked
+    //     teals that varied in chroma as well as lightness — under named steps
+    //     any five colours of a hue could be filed together, but a mix only
+    //     removes chroma, so they were never one family and the derivation is
+    //     right to say so.)
+    const RAMP_BASE = '#2e86a3'
+    const RAMP = [-0.4, -0.2, 0, 0.2, 0.4].map((s) => shadeHex(RAMP_BASE, s))
     const ISOLATE = '#d94f2b'
     const rampSite = paintedSite(cwd, 'ramp', [...RAMP, ISOLATE])
     cmdColorsAssign('ramp', { cwd })
     const rampPalette = paletteOf(rampSite) as L1Palette
 
-    // The ramp is ONE entry carrying the rest as named steps.
+    // The family is ONE entry, and every other member reaches it as a shade.
     const rampNames = new Set(RAMP.map((c) => entryOf(rampPalette, c)))
     expect(rampNames.size, JSON.stringify(rampPalette)).toBe(1)
-    const rampEntry = rampPalette[[...rampNames][0] as string]
-    expect(Object.keys(rampEntry.steps ?? {})).toHaveLength(RAMP.length - 1)
+    const rampName = [...rampNames][0] as string
+    expect(rampPalette[rampName].value).toBe(RAMP_BASE)
+    // An entry holds one colour and nothing else — the ramp is not stored.
+    expect(Object.keys(rampPalette[rampName])).toEqual(['value'])
 
-    // The isolated colour keeps its OWN single-value entry rather than being
-    // forced into the nearest family.
+    // The isolated colour keeps its OWN entry rather than being forced into the
+    // nearest family.
     const isolateName = entryOf(rampPalette, ISOLATE)
     expect(isolateName).toBeDefined()
-    expect(isolateName).not.toBe([...rampNames][0])
-    expect(rampPalette[isolateName as string].steps).toBeUndefined()
+    expect(isolateName).not.toBe(rampName)
+    expect(rampPalette[isolateName as string].value).toBe(ISOLATE)
 
     // (b) A vivid brand blue and a near-grey only 11° away in hue are two roles,
     //     not one ramp.
@@ -584,7 +607,12 @@ describe('story-5e7eb0c5 — an unprovable retrofit fails and leaves every file 
     ])
     expect(collide.status).not.toBe(0)
     // The diagnostic identifies the cause and names the colours that failed.
-    expect(collide.stderr).toMatch(/not lossless/i)
+    // REQ-137 restated the guarantee the retrofit is gated on — bounded rather
+    // than byte-identical, since a shade is computed and not stored — so the
+    // diagnostic names the bound instead of losslessness. What it is protecting
+    // against is the same thing: writing a reference that paints a colour the
+    // site never had.
+    expect(collide.stderr).toMatch(/exceeds the shade bound/i)
     expect(collide.stderr).toMatch(/#[0-9a-f]{6}/)
     // Every file is byte-identical: no page rewritten, no palette written.
     expect(hashTree(collideDir)).toEqual(beforeCollide)

@@ -19,17 +19,28 @@
  *
  * A palette is of **arbitrary size** with free-form kebab-case entry names —
  * DOC-23 §5.4's role vocabulary is a starting *vocabulary*, not a schema. A
- * reference naming a missing entry (or a missing step) is a **validation
- * failure**, never a render-time fallback: {@link resolveL1Color} throws rather
- * than substituting a default, and the envelope validator rejects the document
- * long before the renderer ever sees it.
+ * reference naming a missing entry is a **validation failure**, never a
+ * render-time fallback: {@link resolveL1Color} throws rather than substituting a
+ * default, and the envelope validator rejects the document long before the
+ * renderer ever sees it.
  *
- * **Entries are opaque; translucency is a separate axis.** DOC-23 §5.4 — if an
- * entry could carry alpha then one conceptual colour would occupy N entries and
- * the entry would stop being the unit of change. So the alpha lives on the
- * *reference* ({@link L1PaletteRef.alpha}), which is exactly the "one entry plus
- * the opacity axis" collapse the measured `xgd` evidence calls for: `#2e86a3`,
- * `#2e86a3a6` and `#2e86a355` are one entry at three alphas.
+ * **An entry is exactly one colour, and both of its variation axes live on the
+ * reference** (REQ-137, DOC-23 §5). If an entry could carry alpha then one
+ * conceptual colour would occupy N entries and the entry would stop being the
+ * unit of change; the measured `xgd` evidence is `#2e86a3`, `#2e86a3a6` and
+ * `#2e86a355`, which are one entry at three alphas.
+ *
+ * REQ-137 applies that same argument one axis over. Named *steps* were the
+ * mistake it warns about: `primary`, `primary/500` and `primary/700` were three
+ * stored hexes that nothing kept related, so changing the brand teal repainted
+ * the references to the base and left the ones on its steps at the old colour.
+ * The light↔dark family is therefore not stored at all — it is **generated**
+ * from the entry, and the position within it is carried by
+ * {@link L1PaletteRef.shade}. Changing the entry moves the whole family by
+ * construction rather than by a convention someone has to maintain.
+ *
+ * {@link L1PaletteRef.shade} and {@link L1PaletteRef.alpha} are independent
+ * axes on the same reference, which is what they are.
  */
 import { z } from 'zod'
 
@@ -52,7 +63,7 @@ export const l1OpaqueHexSchema = z
     'a palette entry must be an opaque hex color (#rgb or #rrggbb) — translucency is a reference axis, not an entry',
   )
 
-/** A palette entry / step name: kebab-case, free-form (`primary`, `brand-teal`, `500`). */
+/** A palette entry name: kebab-case, free-form (`primary`, `brand-teal`, `slate-2`). */
 const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 export const l1PaletteNameSchema = z
@@ -60,16 +71,13 @@ export const l1PaletteNameSchema = z
   .regex(NAME, 'must be a kebab-case name (lowercase alphanumerics separated by single hyphens)')
 
 /**
- * One palette entry: a base `value` plus optional named `steps`. Steps are how a
- * *ramp* belongs to a role rather than to the vocabulary (DOC-23 §5.4) — the
- * legacy 15-slot theme palette baked ramp positions into sibling role names
- * (`accentLight` / `accentMid` / `accentDeep`), which does not scale to the
- * measured hue families.
+ * One palette entry: **a single colour** (REQ-137). Its light↔dark family is
+ * generated on the reference via {@link L1PaletteRef.shade}, not stored here, so
+ * the entry stays the unit of change — see the module header.
  */
 export const l1PaletteEntrySchema = z
   .object({
     value: l1OpaqueHexSchema,
-    steps: z.record(l1PaletteNameSchema, l1OpaqueHexSchema).optional(),
   })
   .strict()
 
@@ -79,17 +87,24 @@ export const l1PaletteSchema = z.record(l1PaletteNameSchema, l1PaletteEntrySchem
 /**
  * A reference to a palette entry. A *typed object* rather than a magic string:
  * L1's leaf axes are typed literals and every object is `.strict()`, so a shape
- * that can only carry `{ ref, step?, alpha? }` is both unambiguous against the
+ * that can only carry `{ ref, shade?, alpha? }` is both unambiguous against the
  * hex grammar and unable to smuggle a freeform value.
  *
- * `alpha` is the translucency axis entries deliberately do not carry (see the
- * module header): `1` (or absent) resolves to the entry's `#rrggbb`, anything
- * less appends the alpha byte.
+ * Both optional keys are the variation axes entries deliberately do not carry
+ * (see the module header):
+ *
+ * - `shade` — a **continuous** signed scalar on `[-1, +1]`: negative mixes the
+ *   entry toward black, positive toward white, in Oklab
+ *   ({@link shadeHex}). `0` or absent resolves to the entry's own hex.
+ *   Continuous rather than a set of named stops because the axis is
+ *   perceptually even, so a slider over it is linear in what the eye sees.
+ * - `alpha` — `1` (or absent) resolves to the opaque hex, anything less appends
+ *   the alpha byte.
  */
 export const l1PaletteRefSchema = z
   .object({
     ref: l1PaletteNameSchema,
-    step: l1PaletteNameSchema.optional(),
+    shade: z.number().min(-1).max(1).optional(),
     alpha: z.number().min(0).max(1).optional(),
   })
   .strict()
@@ -133,6 +148,78 @@ export function alphaByteHex(alpha: number): string {
     .padStart(2, '0')
 }
 
+// ── the shade axis: an Oklab mix toward black or white (REQ-137) ─────────────
+//
+// Oklab rather than sRGB or HSL because the axis is a *slider*: the operator
+// drags it and expects the colour to move evenly. A straight sRGB lerp bunches
+// the perceived change at the dark end (sRGB is gamma-encoded, so equal byte
+// steps are not equal lightness steps), and HSL's `L` distorts hue-dependently
+// — a 50%-lightness yellow and a 50%-lightness blue are nowhere near as bright
+// as each other. Oklab is built so equal numeric steps read as equal steps,
+// which is exactly the property a linear control needs.
+//
+// The consequence worth naming: mixing toward black or white always moves the
+// `a`/`b` chroma coordinates toward zero, so **a shade can only reduce chroma**.
+// A colour more saturated than the entry is not a shade of it — it is a
+// different colour, and the retrofit files it as its own entry rather than
+// approximating it.
+
+const srgbToLinear = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+
+const linearToSrgb = (c: number): number => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055)
+
+/** sRGB bytes → Oklab `[L, a, b]` (Björn Ottosson's matrices). */
+function rgbToOklab(r: number, g: number, b: number): [number, number, number] {
+  const lr = srgbToLinear(r / 255)
+  const lg = srgbToLinear(g / 255)
+  const lb = srgbToLinear(b / 255)
+  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
+  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
+  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
+  return [
+    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  ]
+}
+
+/** Oklab `[L, a, b]` → an sRGB byte, clamped into gamut. */
+function oklabToByte(component: number): number {
+  return Math.max(0, Math.min(255, Math.round(linearToSrgb(component) * 255)))
+}
+
+/** Oklab `[L, a, b]` → `#rrggbb`, clamped into gamut. */
+function oklabToHex(L: number, A: number, B: number): string {
+  const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3
+  const m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3
+  const s = (L - 0.0894841775 * A - 1.291485548 * B) ** 3
+  const r = oklabToByte(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s)
+  const g = oklabToByte(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s)
+  const b = oklabToByte(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s)
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * `hex` mixed toward black (`shade < 0`) or white (`shade > 0`) in Oklab, by
+ * `|shade|` of the way. `0` returns the colour unchanged (expanded to
+ * `#rrggbb`), `-1` is pure black and `+1` pure white.
+ *
+ * This is the *one* implementation of the axis: the retrofit fits a shade by
+ * searching over this same function rather than over its own copy of the maths,
+ * so the drift it measures is the drift the renderer will actually produce.
+ */
+export function shadeHex(hex: string, shade: number): string {
+  const body = expandHex(hex).slice(1)
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(body.slice(i, i + 2), 16))
+  if (shade === 0) return `#${body.toLowerCase()}`
+  const [L, A, B] = rgbToOklab(r, g, b)
+  const t = Math.abs(shade)
+  // The target is pure black `(0, 0, 0)` or pure white `(1, 0, 0)`; both have
+  // zero chroma, which is why the mix can only desaturate.
+  const targetL = shade > 0 ? 1 : 0
+  return oklabToHex(L + (targetL - L) * t, A * (1 - t), B * (1 - t))
+}
+
 /**
  * Resolve a colour axis to its hex literal.
  *
@@ -152,20 +239,10 @@ export function resolveL1Color(value: L1Color, palette?: L1Palette): string {
       }.`,
     )
   }
-  let hex: string
-  if (value.step === undefined) {
-    hex = entry.value
-  } else {
-    const step = entry.steps?.[value.step]
-    if (!step) {
-      throw new Error(
-        `L1 palette reference '${value.ref}' has no step '${value.step}': the entry declares [${Object.keys(
-          entry.steps ?? {},
-        ).join(', ')}].`,
-      )
-    }
-    hex = step
-  }
+  // An absent or zero shade is the entry verbatim — not a round trip through
+  // Oklab, so a reference with no shade is byte-identical to the literal it
+  // replaced by construction rather than by the precision of the maths.
+  const hex = value.shade === undefined || value.shade === 0 ? entry.value : shadeHex(entry.value, value.shade)
   if (value.alpha === undefined || value.alpha >= 1) return hex
   return `${expandHex(hex)}${alphaByteHex(value.alpha)}`
 }
@@ -175,6 +252,12 @@ export function resolveL1Color(value: L1Color, palette?: L1Palette): string {
  * relative to it. The walk is structural rather than a hand-listed tour of the
  * colour axes: `l1Color` is one alias used in a dozen places and growing, and a
  * tour would silently miss the next one.
+ *
+ * REQ-137 — a reference counts against **its entry, whatever its shade**. There
+ * is no per-step tally any more, because there are no steps: a shade is a
+ * position within the entry's own family, not a sibling of it. That is what
+ * makes the usage count a palette editor shows ("primary, used 40 times") the
+ * whole truth about what an edit to `primary` will move.
  */
 export function collectL1PaletteRefs(input: unknown): { path: string; ref: L1PaletteRef }[] {
   const out: { path: string; ref: L1PaletteRef }[] = []

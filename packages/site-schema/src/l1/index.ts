@@ -15,6 +15,8 @@ export {
   l1PaletteRefSchema,
   isL1PaletteRef,
   alphaByteHex,
+  // REQ-137 — the shade axis: an Oklab mix toward black or white.
+  shadeHex,
   resolveL1Color,
   resolveL1Palette,
   collectL1PaletteRefs,

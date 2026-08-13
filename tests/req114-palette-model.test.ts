@@ -8,6 +8,7 @@ import type { L1Document, L1Palette } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/l1/render'
 import { defaultTokens, generateThemeCss } from '../packages/framework/src/tokens/index'
 import {
+  SHADE_FIT_TOLERANCE,
   collectColorLiterals,
   derivePalette,
   groupIntoFamilies,
@@ -29,6 +30,23 @@ import type { ColorCensus } from '../tools/generate/src/cli/colors'
 const REPO = path.resolve(__dirname, '..')
 const SITES = path.join(REPO, 'storage', 'sites')
 
+/**
+ * The largest per-channel byte difference between two colour literals, which is
+ * how REQ-137 states its bound. Alpha must match outright — it is exact on both
+ * sides of the conversion — so a difference there is reported as unbounded.
+ */
+function channelDelta(a: string, b: string): number {
+  const expand = (h: string): string =>
+    h.length === 4 ? `#${h[1]}${h[1]}${h[2]}${h[2]}${h[3]}${h[3]}` : h.toLowerCase()
+  const [x, y] = [expand(a), expand(b)]
+  if (x.length !== y.length || x.slice(7) !== y.slice(7)) return Number.POSITIVE_INFINITY
+  let worst = 0
+  for (let i = 1; i < 7; i += 2) {
+    worst = Math.max(worst, Math.abs(parseInt(x.slice(i, i + 2), 16) - parseInt(y.slice(i, i + 2), 16)))
+  }
+  return worst
+}
+
 /** A minimal well-formed document, parameterised by the colour under test. */
 function docWith(color: unknown, extra: Record<string, unknown> = {}): unknown {
   return {
@@ -42,8 +60,12 @@ function docWith(color: unknown, extra: Record<string, unknown> = {}): unknown {
   }
 }
 
+// REQ-137 superseded `steps`: an entry is one colour, and its light↔dark family
+// is generated from the reference's `shade`. These UATs are about the *overlay*
+// — literal or reference, and never a fallback — which is unchanged.
 const PALETTE: L1Palette = {
-  primary: { value: '#2e86a3', steps: { '300': '#4aafc9', '700': '#236d87' } },
+  primary: { value: '#2e86a3' },
+  'primary-bright': { value: '#4aafc9' },
   'brand-neutral-cool': { value: '#1f2937' },
 }
 
@@ -85,13 +107,6 @@ describe('REQ-114 AC2 — a dangling reference fails validation, never falls bac
     expect(result.errors.some((e) => e.message.includes("'nope'"))).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-114_unknown_step_is_a_validation_failure', () => {
-    const result = validateL1(docWith({ ref: 'primary', step: '999' }), { palette: PALETTE })
-    expect(result.ok).toBe(false)
-    if (result.ok) return
-    expect(result.errors.some((e) => e.message.includes("step '999'"))).toBe(true)
-  })
-
   it('test_UAT_FC_REQ-114_a_reference_with_no_palette_in_scope_is_rejected', () => {
     // Omitting the palette must not relax the rule — the alternative is exactly
     // the render-time fallback DOC-23 §6 does not have.
@@ -100,7 +115,7 @@ describe('REQ-114 AC2 — a dangling reference fails validation, never falls bac
 
   it('test_UAT_FC_REQ-114_resolution_throws_rather_than_substituting_a_default', () => {
     expect(() => resolveL1Color({ ref: 'nope' }, PALETTE)).toThrow(/does not resolve/)
-    expect(() => resolveL1Color({ ref: 'primary', step: '999' }, PALETTE)).toThrow(/no step/)
+    expect(() => resolveL1Color({ ref: 'nope', shade: -0.4 }, PALETTE)).toThrow(/does not resolve/)
   })
 })
 
@@ -115,10 +130,12 @@ describe('REQ-114 AC3/AC4 — the palette is an overlay: literals still work, an
 
   it('test_UAT_FC_REQ-114_a_reference_renders_byte_identically_to_the_literal_it_replaces', () => {
     // The whole retrofit rests on this: the two forms are the same document to
-    // the emitter, so converting a site is pixel-identical by construction.
-    const literal = validateL1(docWith('#4aafc9', { background: '#236d87' }))
+    // the emitter, so converting a site is pixel-identical by construction. Still
+    // exactly true of an unshaded reference under REQ-137 — it resolves to the
+    // entry verbatim, without a round trip through the shade maths.
+    const literal = validateL1(docWith('#4aafc9', { background: '#2e86a3' }))
     const reference = validateL1(
-      docWith({ ref: 'primary', step: '300' }, { background: { ref: 'primary', step: '700' } }),
+      docWith({ ref: 'primary-bright' }, { background: { ref: 'primary' } }),
       { palette: PALETTE },
     )
     expect(literal.ok && reference.ok).toBe(true)
@@ -197,20 +214,33 @@ describe('REQ-114 AC6/AC7 — the census reproduces DOC-23 §5.3, and derivation
   })
 
   it('test_UAT_FC_REQ-114_derivation_yields_a_palette_not_a_colour_list', () => {
-    // AC6 — well under `xgd`'s 15 distinct RGB. A slightly large palette is a
-    // fine outcome; a colour list is not a palette at all.
-    const derived = derivePalette(censusOf('xgd'))
-    expect(Object.keys(derived.palette).length).toBeLessThanOrEqual(8)
-    expect(Object.keys(derivePalette(censusOf('gigabytealchemy')).palette).length).toBeLessThanOrEqual(12)
+    // AC6 — materially fewer entries than the colour list they came from. A
+    // slightly large palette is a fine outcome; a colour list is not a palette
+    // at all. REQ-137 raised `gigabytealchemy`'s floor: colours a tint/shade mix
+    // cannot reach are no longer filed under a family they are not part of.
+    for (const [slug, cap] of [
+      ['xgd', 8],
+      ['gigabytealchemy', 18],
+    ] as const) {
+      const census = censusOf(slug)
+      const derived = derivePalette(census)
+      expect(Object.keys(derived.palette).length).toBeLessThanOrEqual(cap)
+      expect(Object.keys(derived.palette).length).toBeLessThan(census.colors.length)
+    }
   })
 
-  it('test_UAT_FC_REQ-114_derived_references_reproduce_every_literal_exactly', () => {
+  it('test_UAT_FC_REQ-114_derived_references_reproduce_every_literal', () => {
+    // REQ-137 supersedes AC3's byte-identity with a bounded guarantee: a fitted
+    // shade lands within `SHADE_FIT_TOLERANCE`, and everything else — every
+    // reference that carries no shade — is still exact.
     for (const slug of ['xgd', 'gigabytealchemy']) {
       const census = censusOf(slug)
       const { palette, refs } = derivePalette(census)
       expect(refs.size).toBe(census.colors.length)
       for (const [literal, ref] of refs) {
-        expect(resolveL1Color(ref, palette)).toBe(literal)
+        const resolved = resolveL1Color(ref, palette)
+        if (ref.shade === undefined) expect(resolved).toBe(literal)
+        else expect(channelDelta(resolved, literal)).toBeLessThanOrEqual(SHADE_FIT_TOLERANCE)
       }
     }
   })

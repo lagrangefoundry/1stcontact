@@ -113,64 +113,49 @@
   "assets": [],
   "palette": {
     "neutral": {
-      "value": "#000000",
-      "steps": {
-        "50": "#ffffff"
-      }
+      "value": "#000000"
     },
     "green": {
-      "value": "#00bc7d",
-      "steps": {
-        "100": "#d0fae5",
-        "600": "#00d492",
-        "700": "#009966",
-        "800": "#007a55"
-      }
+      "value": "#00d492"
     },
     "slate": {
-      "value": "#314158",
-      "steps": {
-        "50": "#f1f5f9",
-        "100": "#dbeafe",
-        "125": "#e2e8f0",
-        "700": "#45556c",
-        "800": "#1d293d",
-        "900": "#0f172b",
-        "925": "#111827",
-        "950": "#030717"
-      }
+      "value": "#314158"
     },
     "blue": {
-      "value": "#90a1b9",
-      "steps": {
-        "300": "#50a2ff",
-        "400": "#2b7fff",
-        "500": "#1447e6",
-        "525": "#62748e"
-      }
+      "value": "#2b7fff"
     },
     "sand": {
-      "value": "#e8dfd3",
-      "steps": {
-        "50": "#f8f5f2",
-        "100": "#ece6dd",
-        "200": "#d9ccba"
-      }
+      "value": "#e8dfd3"
     },
     "amber": {
-      "value": "#f5e6a3",
-      "steps": {
-        "500": "#ffb900"
-      }
+      "value": "#f5e6a3"
     },
     "orange": {
-      "value": "#fbba72",
-      "steps": {
-        "400": "#ff8c42"
-      }
+      "value": "#fbba72"
     },
     "orange-2": {
       "value": "#ff6b35"
+    },
+    "blue-2": {
+      "value": "#90a1b9"
+    },
+    "green-2": {
+      "value": "#d0fae5"
+    },
+    "slate-2": {
+      "value": "#ebf3ff"
+    },
+    "orange-3": {
+      "value": "#ff8c42"
+    },
+    "orange-4": {
+      "value": "#ffb900"
+    },
+    "blue-3": {
+      "value": "#1447e6"
+    },
+    "blue-4": {
+      "value": "#62748e"
     }
   }
 }

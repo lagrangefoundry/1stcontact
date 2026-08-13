@@ -89,11 +89,18 @@ function fresh(prefix: string): void {
   cmdNew(SLUG, { cwd })
 }
 
-/** The XGD palette the ticket names — warm bone and petrol teal, with steps. */
+/**
+ * The XGD palette the ticket names — warm bone and petrol teal. An object of
+ * objects, which is the shape the `string` parameter could not carry.
+ *
+ * REQ-137 deleted the named `steps` each family used to hold: an entry is one
+ * colour, and its light↔dark family comes off the reference's `shade`.
+ */
 const XGD_PALETTE = {
-  surface: { value: '#f7f4ed', steps: { raised: '#fffdf8', sunken: '#ebe6da' } },
+  surface: { value: '#f7f4ed' },
+  'surface-raised': { value: '#fffdf8' },
   ink: { value: '#101822' },
-  primary: { value: '#2e86a3', steps: { deep: '#1d5f77', light: '#7fc3d6' } },
+  primary: { value: '#2e86a3' },
 }
 
 // ── 1. structured config ─────────────────────────────────────────────────────
@@ -132,10 +139,18 @@ describe('REQ-130 — settings are structured values, not strings', () => {
 
     const palette = readSite().palette
     expect(palette.primary.value).toBe('#1d5f77')
-    // Merged at every depth: the family's own steps survive a change to its base.
-    expect(palette.primary.steps).toEqual(XGD_PALETTE.primary.steps)
     expect(palette.ink).toEqual(XGD_PALETTE.ink)
     expect(palette.surface).toEqual(XGD_PALETTE.surface)
+    expect(palette['surface-raised']).toEqual(XGD_PALETTE['surface-raised'])
+
+    // Merged at every depth, not just the first. A palette entry is one colour
+    // deep since REQ-137, so the deeper case is shown where the depth actually
+    // lives: naming one typography field leaves the rest of the group standing.
+    const before = readSite().theme.typography
+    box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
+    const after = readSite().theme.typography
+    expect(after.baseSizePx).toBe(19)
+    expect({ ...after, baseSizePx: before.baseSizePx }).toEqual(before)
   })
 
   it('test_UAT_FC_REQ_130_writes_nav_entries_the_conversation_could_not_reach', async () => {

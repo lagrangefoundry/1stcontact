@@ -16,7 +16,7 @@
     },
     "textColor": {
       "ref": "slate",
-      "step": "925"
+      "shade": -0.43
     },
     "resources": {
       "fonts": [
@@ -41,7 +41,7 @@
           "axes": {
             "surfaceFill": {
               "ref": "slate",
-              "step": "950"
+              "shade": -0.599
             }
           },
           "geometry": {
@@ -184,7 +184,7 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "200"
+              "shade": -0.07
             }
           },
           "geometry": {
@@ -327,7 +327,7 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "200"
+              "shade": -0.07
             }
           },
           "geometry": {
@@ -399,7 +399,7 @@
           "axes": {
             "surfaceFill": {
               "ref": "slate",
-              "step": "900"
+              "shade": -0.412
             }
           },
           "geometry": {
@@ -473,7 +473,7 @@
             "overlay": {
               "color": {
                 "ref": "slate",
-                "step": "950"
+                "shade": -0.599
               },
               "opacity": 0.3
             }
@@ -538,14 +538,13 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "50"
+              "shade": 0.696
             },
             "borderRadiusPx": 8,
             "borderLeft": {
               "widthPx": 4,
               "color": {
-                "ref": "amber",
-                "step": "500"
+                "ref": "orange-4"
               }
             }
           },
@@ -628,14 +627,14 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "50"
+              "shade": 0.696
             },
             "borderRadiusPx": 8,
             "borderLeft": {
               "widthPx": 4,
               "color": {
                 "ref": "blue",
-                "step": "300"
+                "shade": 0.188
               }
             }
           },
@@ -725,15 +724,14 @@
               "stops": [
                 {
                   "color": {
-                    "ref": "slate",
-                    "step": "50"
+                    "ref": "slate-2"
                   },
                   "position": 0
                 },
                 {
                   "color": {
                     "ref": "slate",
-                    "step": "125"
+                    "shade": 0.891
                   },
                   "position": 100
                 }
@@ -742,7 +740,7 @@
             "borderLeft": {
               "widthPx": 4,
               "color": {
-                "ref": "blue"
+                "ref": "blue-2"
               }
             }
           },
@@ -825,7 +823,7 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "100"
+              "shade": 0.196
             },
             "borderRadiusPx": 8
           },
@@ -904,7 +902,7 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "100"
+              "shade": 0.196
             },
             "borderRadiusPx": 8
           },
@@ -1016,7 +1014,7 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "100"
+              "shade": 0.196
             },
             "borderRadiusPx": 8
           },
@@ -1128,13 +1126,12 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "200"
+              "shade": -0.07
             },
             "borderLeft": {
               "widthPx": 4,
               "color": {
-                "ref": "green",
-                "step": "600"
+                "ref": "green"
               }
             }
           },
@@ -1217,13 +1214,12 @@
           "axes": {
             "surfaceFill": {
               "ref": "sand",
-              "step": "200"
+              "shade": -0.07
             },
             "borderLeft": {
               "widthPx": 4,
               "color": {
-                "ref": "amber",
-                "step": "500"
+                "ref": "orange-4"
               }
             }
           },
@@ -1331,8 +1327,7 @@
                 },
                 {
                   "color": {
-                    "ref": "orange",
-                    "step": "400"
+                    "ref": "orange-3"
                   },
                   "position": 90
                 },
@@ -2209,7 +2204,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "700"
+              "shade": 0.113
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
@@ -2514,7 +2509,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
@@ -2597,7 +2592,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
@@ -2753,7 +2748,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
@@ -2975,7 +2970,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
@@ -3419,7 +3414,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 24,
@@ -3498,7 +3493,7 @@
           "axes": {
             "color": {
               "ref": "green",
-              "step": "800"
+              "shade": -0.332
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
@@ -3508,8 +3503,7 @@
             "textAlign": "left",
             "nowrapFromPx": 768,
             "surfaceFill": {
-              "ref": "green",
-              "step": "100"
+              "ref": "green-2"
             },
             "borderRadiusPx": 100000
           },
@@ -3621,7 +3615,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "700"
+              "shade": 0.113
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
@@ -3786,7 +3780,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 24,
@@ -3864,8 +3858,7 @@
           "text": "Coming soon",
           "axes": {
             "color": {
-              "ref": "blue",
-              "step": "500"
+              "ref": "blue-3"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
@@ -3875,8 +3868,8 @@
             "textAlign": "left",
             "nowrapFromPx": 768,
             "surfaceFill": {
-              "ref": "slate",
-              "step": "100"
+              "ref": "slate-2",
+              "shade": -0.028
             },
             "borderRadiusPx": 100000
           },
@@ -3988,7 +3981,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "700"
+              "shade": 0.113
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
@@ -4152,8 +4145,7 @@
           "text": "✓",
           "axes": {
             "color": {
-              "ref": "blue",
-              "step": "400"
+              "ref": "blue"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
@@ -4235,8 +4227,7 @@
           "text": "✓",
           "axes": {
             "color": {
-              "ref": "blue",
-              "step": "400"
+              "ref": "blue"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
@@ -4318,8 +4309,7 @@
           "text": "✓",
           "axes": {
             "color": {
-              "ref": "blue",
-              "step": "400"
+              "ref": "blue"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
@@ -4401,7 +4391,8 @@
           "text": "✓",
           "axes": {
             "color": {
-              "ref": "green"
+              "ref": "green",
+              "shade": -0.094
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
@@ -4483,7 +4474,8 @@
           "text": "✓",
           "axes": {
             "color": {
-              "ref": "green"
+              "ref": "green",
+              "shade": -0.094
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
@@ -4565,7 +4557,8 @@
           "text": "✓",
           "axes": {
             "color": {
-              "ref": "green"
+              "ref": "green",
+              "shade": -0.094
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 16,
@@ -4882,7 +4875,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 20,
@@ -5046,7 +5039,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "700"
+              "shade": 0.113
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
@@ -5747,7 +5740,7 @@
           "axes": {
             "color": {
               "ref": "slate",
-              "step": "800"
+              "shade": -0.238
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 18,
@@ -6044,8 +6037,7 @@
           "text": "Protected by Cloudflare Turnstile.",
           "axes": {
             "color": {
-              "ref": "blue",
-              "step": "525"
+              "ref": "blue-4"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 12,
@@ -6156,7 +6148,7 @@
           "text": "© Gigabyte Alchemy 2025",
           "axes": {
             "color": {
-              "ref": "blue"
+              "ref": "blue-2"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
@@ -6271,7 +6263,7 @@
           "text": "LinkedIn",
           "axes": {
             "color": {
-              "ref": "blue"
+              "ref": "blue-2"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
@@ -6386,7 +6378,7 @@
           "text": "GitHub",
           "axes": {
             "color": {
-              "ref": "blue"
+              "ref": "blue-2"
             },
             "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
             "fontSizePx": 14,
@@ -7014,7 +7006,7 @@
               "axes": {
                 "color": {
                   "ref": "neutral",
-                  "step": "50"
+                  "shade": 0.999
                 },
                 "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
                 "fontSizePx": 16,
@@ -7024,7 +7016,7 @@
                 "textAlign": "center",
                 "surfaceFill": {
                   "ref": "slate",
-                  "step": "900"
+                  "shade": -0.412
                 },
                 "borderRadiusPx": 8,
                 "nowrapFromPx": 320
@@ -7262,7 +7254,7 @@
               "axes": {
                 "color": {
                   "ref": "neutral",
-                  "step": "50"
+                  "shade": 0.999
                 },
                 "fontFamily": "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
                 "fontSizePx": 16,
@@ -7272,7 +7264,7 @@
                 "textAlign": "center",
                 "surfaceFill": {
                   "ref": "green",
-                  "step": "700"
+                  "shade": -0.22
                 },
                 "borderRadiusPx": 8,
                 "nowrapFromPx": 320
