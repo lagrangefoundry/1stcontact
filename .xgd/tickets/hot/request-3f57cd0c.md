@@ -5,9 +5,9 @@ type: request
 title: 'Editor: lock controls that cannot express what the element holds'
 created_by: xgd
 created_at: '2026-08-12T18:13:37.478932+00:00'
-updated_at: '2026-08-13T21:15:37.773545+00:00'
+updated_at: '2026-08-13T21:16:00.737200+00:00'
 completed_at: null
-last_field_updated: depends_on
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -82,7 +82,8 @@ argument for `locked` over dropping the field.
   the colour control lands. There is no colour control on any segment today —
   colour waits on [[REQ-133]] (palette popup), which itself waits on [[REQ-137]].
   Building the gradient gate first would ship a guard before the thing it guards,
-  with nothing visible to show for it. `depends_on: REQ-133`.
+  with nothing visible to show for it. `depends_on: REQ-133` (the colour
+  control) and `REQ-135` (the `locked` descriptor this generalises, landed).
 
 Scope therefore narrows to the **inert/lossy colour cases** — chiefly
 `gradientFill` — plus the two presentation gaps above (visible reason, visible
