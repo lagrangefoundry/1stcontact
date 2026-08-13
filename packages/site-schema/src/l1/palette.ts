@@ -130,95 +130,12 @@ export function isL1PaletteRef(v: unknown): v is L1PaletteRef {
   return typeof v === 'object' && v !== null && !Array.isArray(v) && typeof (v as { ref?: unknown }).ref === 'string'
 }
 
-/** Normalise a `#rgb` shorthand to `#rrggbb`; longer forms pass through. */
-function expandHex(hex: string): string {
-  if (hex.length !== 4) return hex
-  const [, r, g, b] = hex
-  return `#${r}${r}${g}${g}${b}${b}`
-}
-
-/**
- * The alpha byte for a 0..1 alpha, as two lowercase hex digits. Exact for every
- * byte-derived alpha: `round((b / 255) * 255) === b` for all `b` in 0..255, so a
- * literal→reference conversion of `#rrggbbaa` round-trips to the same bytes.
- */
-export function alphaByteHex(alpha: number): string {
-  return Math.round(alpha * 255)
-    .toString(16)
-    .padStart(2, '0')
-}
-
-// ── the shade axis: an Oklab mix toward black or white (REQ-137) ─────────────
-//
-// Oklab rather than sRGB or HSL because the axis is a *slider*: the operator
-// drags it and expects the colour to move evenly. A straight sRGB lerp bunches
-// the perceived change at the dark end (sRGB is gamma-encoded, so equal byte
-// steps are not equal lightness steps), and HSL's `L` distorts hue-dependently
-// — a 50%-lightness yellow and a 50%-lightness blue are nowhere near as bright
-// as each other. Oklab is built so equal numeric steps read as equal steps,
-// which is exactly the property a linear control needs.
-//
-// The consequence worth naming: mixing toward black or white always moves the
-// `a`/`b` chroma coordinates toward zero, so **a shade can only reduce chroma**.
-// A colour more saturated than the entry is not a shade of it — it is a
-// different colour, and the retrofit files it as its own entry rather than
-// approximating it.
-
-const srgbToLinear = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
-
-const linearToSrgb = (c: number): number => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055)
-
-/** sRGB bytes → Oklab `[L, a, b]` (Björn Ottosson's matrices). */
-function rgbToOklab(r: number, g: number, b: number): [number, number, number] {
-  const lr = srgbToLinear(r / 255)
-  const lg = srgbToLinear(g / 255)
-  const lb = srgbToLinear(b / 255)
-  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb)
-  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb)
-  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb)
-  return [
-    0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
-    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
-    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
-  ]
-}
-
-/** Oklab `[L, a, b]` → an sRGB byte, clamped into gamut. */
-function oklabToByte(component: number): number {
-  return Math.max(0, Math.min(255, Math.round(linearToSrgb(component) * 255)))
-}
-
-/** Oklab `[L, a, b]` → `#rrggbb`, clamped into gamut. */
-function oklabToHex(L: number, A: number, B: number): string {
-  const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3
-  const m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3
-  const s = (L - 0.0894841775 * A - 1.291485548 * B) ** 3
-  const r = oklabToByte(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s)
-  const g = oklabToByte(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s)
-  const b = oklabToByte(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s)
-  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`
-}
-
-/**
- * `hex` mixed toward black (`shade < 0`) or white (`shade > 0`) in Oklab, by
- * `|shade|` of the way. `0` returns the colour unchanged (expanded to
- * `#rrggbb`), `-1` is pure black and `+1` pure white.
- *
- * This is the *one* implementation of the axis: the retrofit fits a shade by
- * searching over this same function rather than over its own copy of the maths,
- * so the drift it measures is the drift the renderer will actually produce.
- */
-export function shadeHex(hex: string, shade: number): string {
-  const body = expandHex(hex).slice(1)
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(body.slice(i, i + 2), 16))
-  if (shade === 0) return `#${body.toLowerCase()}`
-  const [L, A, B] = rgbToOklab(r, g, b)
-  const t = Math.abs(shade)
-  // The target is pure black `(0, 0, 0)` or pure white `(1, 0, 0)`; both have
-  // zero chroma, which is why the mix can only desaturate.
-  const targetL = shade > 0 ? 1 : 0
-  return oklabToHex(L + (targetL - L) * t, A * (1 - t), B * (1 - t))
-}
+// The color arithmetic lives in `./shade`, which imports NOTHING — see that
+// module's header. It is split out so the builder's shade slider can run the
+// one implementation of the axis in the browser rather than a copy of it
+// (REQ-133); re-exported here so no caller has to know where it went.
+import { alphaByteHex, expandHex, shadeHex } from './shade'
+export { alphaByteHex, expandHex, shadeHex } from './shade'
 
 /**
  * Resolve a colour axis to its hex literal.
@@ -248,10 +165,60 @@ export function resolveL1Color(value: L1Color, palette?: L1Palette): string {
 }
 
 /**
+ * Visit every palette reference reachable from `input`, replacing each with
+ * whatever `fn` returns. Pure — the input is never mutated, and a subtree
+ * containing no reference is returned by identity rather than copied.
+ *
+ * **This is the one structural walk** (REQ-133 §6). Collecting references,
+ * resolving them and renaming an entry are three questions about the same set of
+ * nodes, and three hand-kept copies of the traversal is how a census comes to
+ * disagree with the edit it is describing — the count a palette editor shows
+ * before a rename has to be exactly the set that rename rewrites, or it is
+ * telling the operator a number about a different site.
+ *
+ * Structural rather than a hand-listed tour of the color axes: `l1Color` is one
+ * alias used in a dozen places and growing, and a tour would silently miss the
+ * next one.
+ *
+ * `fn` receives the reference and its JSON-pointer-style path relative to
+ * `input`. Returning the reference itself (or anything `===` to it) leaves the
+ * node untouched.
+ */
+export function mapL1PaletteRefs(
+  input: unknown,
+  fn: (ref: L1PaletteRef, path: string) => unknown,
+): unknown {
+  const walk = (v: unknown, path: string): unknown => {
+    if (Array.isArray(v)) {
+      let changed = false
+      const out = v.map((item, i) => {
+        const next = walk(item, `${path}/${i}`)
+        if (next !== item) changed = true
+        return next
+      })
+      return changed ? out : v
+    }
+    if (typeof v !== 'object' || v === null) return v
+    // A reference is a LEAF for this walk. Descending into it would visit its
+    // `ref` string as though it were a container, and — worse — a replacement
+    // that is itself a reference would be re-visited by whatever the caller
+    // meant to apply once.
+    if (isL1PaletteRef(v)) return fn(v as L1PaletteRef, path)
+    let changed = false
+    const out: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(v)) {
+      const next = walk(item, `${path}/${key}`)
+      if (next !== item) changed = true
+      out[key] = next
+    }
+    return changed ? out : v
+  }
+  return walk(input, '')
+}
+
+/**
  * Every palette reference reachable from `input`, with a JSON-pointer-style path
- * relative to it. The walk is structural rather than a hand-listed tour of the
- * colour axes: `l1Color` is one alias used in a dozen places and growing, and a
- * tour would silently miss the next one.
+ * relative to it.
  *
  * REQ-137 — a reference counts against **its entry, whatever its shade**. There
  * is no per-step tally any more, because there are no steps: a shade is a
@@ -261,19 +228,10 @@ export function resolveL1Color(value: L1Color, palette?: L1Palette): string {
  */
 export function collectL1PaletteRefs(input: unknown): { path: string; ref: L1PaletteRef }[] {
   const out: { path: string; ref: L1PaletteRef }[] = []
-  const walk = (v: unknown, path: string): void => {
-    if (Array.isArray(v)) {
-      v.forEach((item, i) => walk(item, `${path}/${i}`))
-      return
-    }
-    if (typeof v !== 'object' || v === null) return
-    if (isL1PaletteRef(v)) {
-      out.push({ path, ref: v as L1PaletteRef })
-      return
-    }
-    for (const [key, item] of Object.entries(v)) walk(item, `${path}/${key}`)
-  }
-  walk(input, '')
+  mapL1PaletteRefs(input, (ref, path) => {
+    out.push({ path, ref })
+    return ref
+  })
   return out
 }
 
@@ -288,13 +246,22 @@ export function collectL1PaletteRefs(input: unknown): { path: string; ref: L1Pal
  * document it would have seen had the colours been written as literals.
  */
 export function resolveL1Palette<T>(input: T, palette?: L1Palette): T {
-  const map = (v: unknown): unknown => {
-    if (Array.isArray(v)) return v.map(map)
-    if (typeof v !== 'object' || v === null) return v
-    if (isL1PaletteRef(v)) return resolveL1Color(v as L1PaletteRef, palette)
-    const out: Record<string, unknown> = {}
-    for (const [key, item] of Object.entries(v)) out[key] = map(item)
-    return out
-  }
-  return map(input) as T
+  return mapL1PaletteRefs(input, (ref) => resolveL1Color(ref, palette)) as T
+}
+
+/**
+ * Every reference to `from` re-pointed at `to`, everything else left alone
+ * (REQ-133 §5d).
+ *
+ * The rename is expressed HERE, on the shared walk, rather than in the command
+ * that calls it — so the set of nodes it rewrites is the same set
+ * {@link collectL1PaletteRefs} counted, by construction rather than by two
+ * traversals agreeing.
+ *
+ * Only `ref` moves: `shade` and `alpha` are properties of the *use* and say
+ * nothing about which entry it names, so a reference at a shade survives a
+ * rename at exactly the shade it had.
+ */
+export function renameL1PaletteRef<T>(input: T, from: string, to: string): T {
+  return mapL1PaletteRefs(input, (ref) => (ref.ref === from ? { ...ref, ref: to } : ref)) as T
 }

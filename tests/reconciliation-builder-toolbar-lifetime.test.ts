@@ -28,8 +28,14 @@ const SITES = [
   { slug: 'beta', latest: 1 },
 ]
 
-/** The controls `app.js` declares for both of its document-oriented modes. */
-const DECLARED = ['site-selector', 'mode-toggle', 'open-new-tab', 'publish']
+/**
+ * The controls `app.js` declares for both of its document-oriented modes.
+ *
+ * `colors` (REQ-133) is in both for the same reason `publish` is: a palette is a
+ * property of the site, not of one rendering of it, so there is no channel in
+ * which changing it is meaningless.
+ */
+const DECLARED = ['site-selector', 'mode-toggle', 'colors', 'open-new-tab', 'publish']
 
 /**
  * `app.js` imports the webui components by bare specifier, so it is loaded

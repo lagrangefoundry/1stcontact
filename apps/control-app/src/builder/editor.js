@@ -1,5 +1,6 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchCopy, saveCopy } from './api.js'
+import { createModalShell, modalButton, modalFooter } from './modal.js'
 import { isImagePicker, mountImagePicker } from './image-picker.js'
 import { copyFontFaces, previewScale, previewVarFor, readPageStyle } from './page-style.js'
 
@@ -209,35 +210,16 @@ function previewOf(hit, loaded, doc) {
  * never asked for. Buffered makes Save the single flush point.
  */
 function defaultModal(spec) {
-  const mountPoint = spec.host ?? document.body
-  const host = document.createElement('div')
-  host.className = 'builder-modal'
-  host.setAttribute('role', 'dialog')
-  host.setAttribute('aria-modal', 'true')
-  // The title survives as the ACCESSIBLE name even where it is no longer drawn.
-  // Dropping the visible heading (below) is a statement about redundant chrome,
-  // not about the dialog being anonymous — a dialog with no name is announced as
-  // "dialog" and nothing else.
-  host.setAttribute('aria-label', spec.title ?? 'Edit')
-
-  const panel = document.createElement('div')
-  panel.className = 'builder-modal__panel'
-
-  const backdrop = document.createElement('div')
-  backdrop.className = 'builder-modal__backdrop'
-  host.append(backdrop, panel)
-
-  // Declared BEFORE `close` and assigned later, never `const` after it. A
+  // Declared BEFORE the shell and assigned later, never `const` after it. A
   // message/error modal returns before the form is built, so a `const fields`
   // below this point stays in the temporal dead zone for the life of the modal
   // — and `fields?.destroy()` would then throw ReferenceError rather than
   // reading undefined, because optional chaining guards null, not TDZ. That
-  // throw lands before `host.remove()`, so the dialog cannot be dismissed by
-  // any route: button, Escape or backdrop.
+  // throw lands before the element is removed, so the dialog could not be
+  // dismissed by any route: button, Escape or backdrop.
   // Both handles, and both up HERE for the same reason (REQ-135 added the
-  // second): `close` reads them, `close` is reachable by Escape from the moment
-  // it is bound, and a `let` further down would be in the temporal dead zone
-  // until execution reaches it — where optional chaining does not help.
+  // second): the shell's `onClose` reads them, and Escape can reach it from the
+  // moment the shell is created.
   let fields = null
   let properties = null
   // The editing box, hoisted for the same reason and one more: the parameter
@@ -245,17 +227,16 @@ function defaultModal(spec) {
   // that builds it.
   let box = null
 
-  const close = () => {
-    fields?.destroy()
-    properties?.destroy()
-    host.remove()
-    document.removeEventListener('keydown', onKey)
-  }
-  const onKey = (ev) => {
-    if (ev.key === 'Escape') close()
-  }
-  document.addEventListener('keydown', onKey)
-  backdrop.addEventListener('click', close)
+  // The backdrop, Escape, the close and the shell-rooted host are the SAME
+  // dialog the palette popup wears (REQ-133 §7) — one module, two contents.
+  const { panel, close, mount } = createModalShell({
+    host: spec.host,
+    title: spec.title ?? 'Edit',
+    onClose: () => {
+      fields?.destroy()
+      properties?.destroy()
+    },
+  })
 
   // A HEADING ONLY WHERE IT IS THE CONTENT. On an error or a message the
   // heading names the answer ("Could not edit"); on the form it named the
@@ -269,9 +250,9 @@ function defaultModal(spec) {
     body.className =
       spec.kind === 'error' ? 'builder-modal__error' : 'builder-modal__message'
     body.textContent = [spec.message, spec.hint].filter(Boolean).join(' — ')
-    const ok = button('Close', 'builder-modal__btn', close)
-    panel.append(heading, body, footer([ok]))
-    mountPoint.append(host)
+    const ok = modalButton('Close', 'builder-modal__btn', close)
+    panel.append(heading, body, modalFooter([ok]))
+    mount()
     return
   }
 
@@ -415,8 +396,8 @@ function defaultModal(spec) {
   error.className = 'builder-modal__error'
   error.hidden = true
 
-  const cancel = button('Cancel', 'builder-modal__btn', close)
-  const save = button('Save', 'builder-modal__btn builder-modal__btn--primary', async () => {
+  const cancel = modalButton('Cancel', 'builder-modal__btn', close)
+  const save = modalButton('Save', 'builder-modal__btn builder-modal__btn--primary', async () => {
     // Nothing staged is not a failure — it is a user who opened a modal and
     // changed their mind. Posting an empty change map would re-render the site
     // for no diff.
@@ -447,8 +428,11 @@ function defaultModal(spec) {
     }
   })
 
-  panel.append(error, footer([cancel, save]))
-  mountPoint.append(host)
+  panel.append(error, modalFooter([cancel, save]))
+  // LAST, exactly as it was before the shell was extracted — see `modal.js`'s
+  // `mount()`: `openLoneControl` above depends on the dialog still being
+  // detached when it fires.
+  mount()
 
   // AFTER THE DIALOG IS IN THE DOCUMENT. Focus does not move to a detached
   // element — it fails silently, leaving the keyboard back on whatever was
@@ -526,20 +510,4 @@ function applyPreview(box, formHost, preview) {
     for (const [prop, value] of Object.entries(style)) layer.style.setProperty(prop, value)
     box.insertBefore(layer, formHost)
   }
-}
-
-function footer(children) {
-  const row = document.createElement('div')
-  row.className = 'builder-modal__footer'
-  row.append(...children)
-  return row
-}
-
-function button(label, className, onClick) {
-  const b = document.createElement('button')
-  b.type = 'button'
-  b.className = className
-  b.textContent = label
-  b.addEventListener('click', onClick)
-  return b
 }

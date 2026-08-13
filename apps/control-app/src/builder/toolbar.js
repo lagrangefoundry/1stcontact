@@ -181,6 +181,39 @@ export function openInNewTabAction() {
 }
 
 /**
+ * Colors — opens the palette popup in manage mode (REQ-133 §1).
+ *
+ * ONE MORE ACTION SPEC, not a branch. The toolbar renders whatever the active
+ * mode names, so this is registered exactly like the others and appears wherever
+ * a mode lists it — which is both channels, because a palette is a property of
+ * the site rather than of one rendering of it.
+ *
+ * It is deliberately NOT a display-panel mode: the popup has a second entry
+ * point (a color field opening it to pick a value), and a mode cannot be opened
+ * by a modal that is waiting for an answer. Same surface, two callers.
+ */
+export function colorsAction(openPalette) {
+  return {
+    id: 'colors',
+    create({ panel }) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'builder-toolbar__colors'
+      btn.textContent = 'Colors'
+      btn.addEventListener('click', () => {
+        const slug = panel.getSite()
+        if (!slug) return
+        // Nothing awaits the answer: manage mode resolves to null by
+        // construction, and the caller that DOES want a value is a color
+        // field, not this button.
+        void openPalette(slug)
+      })
+      return btn
+    },
+  }
+}
+
+/**
  * Publish — a thin call over the existing `publish` (DOC-12 §5): snapshot, diff,
  * append to history, render. No new publish semantics live here.
  */

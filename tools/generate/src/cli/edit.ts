@@ -2,8 +2,12 @@ import { copyFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import {
   applyCopyFields,
+  collectL1PaletteRefs,
   copyFieldsOf,
+  l1OpaqueHexSchema,
+  l1PaletteNameSchema,
   parseL1Path,
+  renameL1PaletteRef,
   replaceL1Node,
   resolveL1Node,
   validateSite,
@@ -1202,6 +1206,304 @@ export function editConfigSet(
   return {
     data: { key: scoped ? null : key, value: merged },
     human: `Set ${where} = ${typeof merged === 'string' ? merged : JSON.stringify(merged)}`,
+  }
+}
+
+// ── palette commands (REQ-133) ───────────────────────────────────────────────
+
+/**
+ * The palette surface (REQ-133 §6 / DOC-28 §8).
+ *
+ * WHY ITS OWN GROUP RATHER THAN `config set`. `editConfigSet` can already write a
+ * palette, because a palette is a setting — but it writes by *merge*, and merge
+ * has no way to express the two operations this surface exists for: removing a
+ * key, and moving one. It also has nothing to say about references, and both the
+ * delete rule and the rename confirmation are stated entirely in terms of them.
+ *
+ * WHY THE GUARDS ARE HERE AND NOT IN THE POPUP. The browser is a second
+ * *producer* of edits, not the authority on them (DOC-8 §7): the AI drives the
+ * identical functions, and a stale tab must not be able to talk the store into
+ * an orphaned reference. Every refusal below is therefore evaluated against the
+ * definition on disk at the moment of the write, never against a count the
+ * caller sent.
+ */
+
+/** One entry as the surface reports it: its color, and what an edit to it moves. */
+export interface PaletteEntryUse {
+  name: string
+  value: string
+  /**
+   * References to this entry across the whole site — the document and every
+   * page — **at any shade** (REQ-137). There is no per-shade tally because a
+   * shade is a position within this entry's own family, not a sibling of it, so
+   * this number is the whole truth about what changing `value` will repaint.
+   */
+  count: number
+}
+
+/** The palette map exactly as `site.json` holds it, or `{}` when it holds none. */
+function paletteOf(base: Record<string, unknown>): Record<string, { value: string }> {
+  const palette = base.palette
+  if (palette === null || typeof palette !== 'object' || Array.isArray(palette)) return {}
+  return palette as Record<string, { value: string }>
+}
+
+/**
+ * Every entry with its usage count.
+ *
+ * The census walks the site document AND every page, which is the scope
+ * `resolveL1Palette` already runs at in `loadSite`. References live in pages
+ * today; walking the document is what keeps that a fact rather than an
+ * assumption the day a color axis lands somewhere else.
+ *
+ * An entry with no references is reported at zero rather than omitted — zero is
+ * the delete rule's entire subject, so it is the one count that must be
+ * reportable.
+ */
+function paletteCensus(
+  base: Record<string, unknown>,
+  pages: unknown[],
+): { entries: PaletteEntryUse[]; counts: Map<string, number> } {
+  const palette = paletteOf(base)
+  const counts = new Map<string, number>()
+  for (const name of Object.keys(palette)) counts.set(name, 0)
+  // The palette itself is excluded from the walk: an entry is a `{value}` and
+  // never a reference, so nothing in it can be counted — but a future entry
+  // shape that could would be counted against itself, which is why the scope is
+  // stated rather than implied.
+  const { palette: _omit, ...document } = base
+  for (const { ref } of collectL1PaletteRefs([document, ...pages])) {
+    counts.set(ref.ref, (counts.get(ref.ref) ?? 0) + 1)
+  }
+  const entries = Object.entries(palette)
+    .map(([name, entry]) => ({ name, value: entry?.value, count: counts.get(name) ?? 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name)) as PaletteEntryUse[]
+  return { entries, counts }
+}
+
+/** Refuse a name the schema would refuse, but with the reason the operator needs. */
+function requirePaletteName(name: string, path: string): void {
+  if (!l1PaletteNameSchema.safeParse(name).success) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${name}' is not a valid palette name.`,
+      path,
+      hint: 'Use kebab-case: lowercase letters and digits separated by single hyphens, e.g. brand-teal.',
+    })
+  }
+}
+
+/** Refuse a value the entry schema would refuse — opaque hex only; alpha is a reference axis. */
+function requirePaletteValue(value: unknown, path: string): string {
+  const parsed = l1OpaqueHexSchema.safeParse(value)
+  if (!parsed.success) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${String(value)}' is not a palette color: ${parsed.error.issues[0]?.message}`,
+      path,
+      hint: 'A palette entry is an opaque hex (#rgb or #rrggbb). Translucency lives on the reference, not the entry.',
+    })
+  }
+  return parsed.data
+}
+
+/** Read the palette with per-entry usage counts (REQ-133 AC-1, AC-11). */
+export function editPaletteGet(slug: string, opts: GlobalOptions = {}): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const files = readPageFiles(ctx, slug)
+  const { entries } = paletteCensus(base, files.map((f) => f.page))
+  return {
+    data: { slug, entries },
+    human: entries.length
+      ? entries.map((e) => `${e.name}  ${e.value}  used ${e.count}×`).join('\n')
+      : `Site '${slug}' has no palette yet.`,
+  }
+}
+
+/**
+ * Change an entry's color (REQ-133 §5a / AC-5).
+ *
+ * ONE WRITE, AND THE WHOLE FAMILY FOLLOWS. Nothing here touches a page: every
+ * use — at every shade — reads through the entry, so repainting them is what
+ * REQ-137's model buys and what this function deliberately does *not* have to
+ * implement. The count is reported so the answer says how much moved.
+ */
+export function editPaletteSet(
+  slug: string,
+  name: string,
+  value: unknown,
+  opts: GlobalOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const palette = paletteOf(base)
+  if (!(name in palette)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Site '${slug}' has no palette color '${name}'.`,
+      path: `palette.${name}`,
+      hint: `Add it with '1c palette add ${slug} ${name} <hex>', or list what exists with '1c palette get ${slug}'.`,
+    })
+  }
+  const hex = requirePaletteValue(value, `palette.${name}.value`)
+  const files = readPageFiles(ctx, slug)
+  const newBase = { ...base, palette: { ...palette, [name]: { ...palette[name], value: hex } } }
+  validateOrThrow(newBase, files.map((f) => f.page))
+  writeJson(siteJsonPath(ctx, slug), newBase)
+  const { entries } = paletteCensus(newBase, files.map((f) => f.page))
+  const count = entries.find((e) => e.name === name)?.count ?? 0
+  return {
+    data: { slug, name, value: hex, count },
+    human: `Set ${name} = ${hex} (${count} use${count === 1 ? '' : 's'} repainted).`,
+  }
+}
+
+/** Add an entry (REQ-133 §5b / AC-6). Refused on a duplicate or a malformed name. */
+export function editPaletteAdd(
+  slug: string,
+  name: string,
+  value: unknown,
+  opts: GlobalOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const palette = paletteOf(base)
+  requirePaletteName(name, `palette.${name}`)
+  if (name in palette) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `Site '${slug}' already has a palette color '${name}'.`,
+      path: `palette.${name}`,
+      hint: `Change it with '1c palette set ${slug} ${name} <hex>', or choose another name.`,
+    })
+  }
+  const hex = requirePaletteValue(value, `palette.${name}.value`)
+  const files = readPageFiles(ctx, slug)
+  const newBase = { ...base, palette: { ...palette, [name]: { value: hex } } }
+  validateOrThrow(newBase, files.map((f) => f.page))
+  writeJson(siteJsonPath(ctx, slug), newBase)
+  return { data: { slug, name, value: hex, count: 0 }, human: `Added ${name} = ${hex}.` }
+}
+
+/**
+ * Delete an entry — **only when nothing references it** (REQ-133 §5c / AC-7).
+ *
+ * A referenced entry has no correct default for what each use becomes: repoint
+ * it at another entry, or inline the hex as a literal? The answer differs per
+ * site, per page, per element, so it is a product decision and not something a
+ * swatch's ✕ may take silently. The refusal names the count, which is what
+ * turns "no" into a next step — the operator can ask the assistant, which can
+ * talk the choice through before making it.
+ *
+ * There is deliberately no `--force`. A force flag here would be a one-keystroke
+ * route to an invalid site, since every orphaned reference is a validation
+ * failure (DOC-23 §6) rather than a fallback.
+ */
+export function editPaletteRm(slug: string, name: string, opts: GlobalOptions = {}): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const palette = paletteOf(base)
+  if (!(name in palette)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Site '${slug}' has no palette color '${name}'.`,
+      path: `palette.${name}`,
+    })
+  }
+  const files = readPageFiles(ctx, slug)
+  const pages = files.map((f) => f.page)
+  const { counts } = paletteCensus(base, pages)
+  const count = counts.get(name) ?? 0
+  if (count > 0) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `'${name}' is used ${count} time${count === 1 ? '' : 's'} and cannot be deleted.`,
+      path: `palette.${name}`,
+      hint: 'Deleting a color in use means deciding what each use becomes — ask the assistant to repoint or inline them first.',
+    })
+  }
+  const { [name]: _gone, ...rest } = palette
+  const newBase = { ...base, palette: rest }
+  validateOrThrow(newBase, pages)
+  writeJson(siteJsonPath(ctx, slug), newBase)
+  return { data: { slug, name, removed: true }, human: `Removed ${name}.` }
+}
+
+/**
+ * Rename an entry, rewriting every reference to it (REQ-133 §5d / AC-8, AC-9).
+ *
+ * **Atomic, and it has to be.** A reference names its entry by key, so a rename
+ * that moved the key without the references would orphan every one of them —
+ * and an orphan is a validation failure, not a silent fallback. So the whole
+ * resulting site (document, palette and every page) is assembled in memory and
+ * validated before a byte is written: a refusal leaves the draft exactly as it
+ * was, and no partially-renamed state is reachable from any caller.
+ *
+ * **Refused on collision**, because a name that already exists would *merge* two
+ * entries — the same class of decision as deleting one in use, and equally not a
+ * text field's call.
+ *
+ * **Why this is allowed where delete is not.** Rename is total and lossless:
+ * every use has exactly one correct new value and the system can compute it.
+ * The rule is about which decisions have a computable answer, not about how many
+ * references are involved.
+ */
+export function editPaletteRename(
+  slug: string,
+  from: string,
+  to: string,
+  opts: GlobalOptions = {},
+): EditOutput {
+  const ctx = ctxOf(opts)
+  const base = readBase(ctx, slug)
+  const palette = paletteOf(base)
+  if (!(from in palette)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Site '${slug}' has no palette color '${from}'.`,
+      path: `palette.${from}`,
+    })
+  }
+  requirePaletteName(to, `palette.${to}`)
+  if (to !== from && to in palette) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `Site '${slug}' already has a palette color '${to}'.`,
+      path: `palette.${to}`,
+      hint: 'Renaming onto an existing name would merge two colors — choose an unused name.',
+    })
+  }
+  const files = readPageFiles(ctx, slug)
+  const pages = files.map((f) => f.page)
+  const { counts } = paletteCensus(base, pages)
+  const count = counts.get(from) ?? 0
+
+  // The key moves IN PLACE rather than being deleted and re-appended, so a
+  // palette an operator has arranged keeps its order across a rename.
+  const renamed = Object.fromEntries(
+    Object.entries(palette).map(([key, entry]) => [key === from ? to : key, entry]),
+  )
+  // Both halves through the SAME walk the census used, which is what makes the
+  // count reported above the count actually rewritten (REQ-133 AC-10).
+  const { palette: _old, ...document } = base
+  const newBase = {
+    ...(renameL1PaletteRef(document, from, to) as Record<string, unknown>),
+    palette: renamed,
+  }
+  const newPages = pages.map((page) => renameL1PaletteRef(page, from, to))
+  validateOrThrow(newBase, newPages)
+
+  writeJson(siteJsonPath(ctx, slug), newBase)
+  files.forEach((file, i) => {
+    // Only the pages that actually moved: `mapL1PaletteRefs` returns an
+    // untouched subtree by identity, so a page with no reference to `from` is
+    // not rewritten and its file keeps its mtime.
+    if (newPages[i] !== file.page) writeJson(file.abs, newPages[i] as Record<string, unknown>)
+  })
+  return {
+    data: { slug, from, to, count },
+    human: `Renamed ${from} → ${to} (${count} reference${count === 1 ? '' : 's'} rewritten).`,
   }
 }
 
