@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-134
 created_by: xgd
 created_at: '2026-08-13T16:27:24.568794+00:00'
-updated_at: '2026-08-13T21:15:07.867816+00:00'
+updated_at: '2026-08-13T21:16:27.595862+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,11 @@ One smaller call for you if you pick (a): should REQ-134 here be **closed as mov
 <!-- xgd-chat role="user" ts="2026-08-13T21:15:07.463347+00:00" -->
 #### You
 moved where?
+
+<!-- xgd-turn id="bb2846c5-fa7b-43ee-b93f-8fa72a803371-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T21:16:27.300161+00:00" -->
+#### You
+ok please create a detailed ticket with this transcript attached in Lagrange-framework and close this ticket as abandoned with a clear ref to that ticket
 
 <!-- xgd-chat-end -->
