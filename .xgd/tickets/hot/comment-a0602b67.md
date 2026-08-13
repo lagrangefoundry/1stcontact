@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T21:10:05.428215+00:00'
+updated_at: '2026-08-13T21:16:13.750043+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -96,5 +96,38 @@ Tell me your calls on 1–5 and I'll write the ticket body.
    3. It doesn't matter for now, right now put all 27 in - this system should scale to thousands of docs
    4. This KB will be available to all tenents however, they will have KBs in their stores that are tenent specific
    5. Probably right, that's a question for 1 right?
+
+<!-- xgd-turn id="bd00f99b-1f06-4d58-94a1-e23a4583e2c5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T21:16:13.464062+00:00" -->
+#### Claude
+Framework tickets first.
+
+Three framework tickets created, and REQ-123's body is populated.
+
+## In `lagrange-framework`
+
+| Ticket | Scope |
+|---|---|
+| **REQ-99** | `components/knowledge/js` — config, corpus, embedding, index + chunk index, chunking, search, ranking, landscape, priming; a `DocDirStore` peer; a JS `build-shipped-kb`. Excludes clustering. |
+| **REQ-100** | `components/ai_knowledge/js` — `KnowledgeToolbox` over the shared `knowledge_surface.json`, `KnowledgeDocs` priming source, multi-source (shipped + per-tenant) composition. |
+| **REQ-101** | Awareness *build* in JS (cluster → describe → derived map). Off the critical path — deferred until a KB outgrows an authored map, or for tenant KBs. |
+
+## Two things the legwork changed
+
+**Your answer 2 is already built upstream.** Framework REQ-71 landed a shipped KB: `source: shipped` resolves a corpus from a **directory of markdown files**, with the index and awareness map produced at release time and shipped beside it — no tickets created anywhere. That's exactly "files that are part of the release", and it's why the corpus-vs-ticket-store question dissolves: `store_for` picks a named source per KB, so a shipped directory and a tenant's D1 store are one code path. The system KB uses the first; tenant KBs the second.
+
+**The embedding parity risk is gone.** Workers AI ships `@cf/baai/bge-small-en-v1.5` — same model, same 384 dims as the Python default — and it's reachable both from a Worker binding and from a build script over REST. Using it on both sides makes build-time and query-time vectors come from one implementation, so parity is true by construction rather than by argument. That's what lets the whole thing be JS-only, which your "no Python components in this project" requires.
+
+## Q5, answered by Q1 as you guessed
+
+The shipped-KB layout already fixes it: the index is an artefact in the corpus tree, not D1 rows. REQ-99 makes the loader take its source from the host, so bundling it into the Worker works at this scale and R2/Vectorize stays available without a library change when the corpus grows. My earlier D1 lean was wrong — it would have meant seeding a derived artefact that ships with the release.
+
+## Two open decisions I've recorded rather than guessed
+
+- **Tenant grain** — site or account-with-site-as-a-field. Your answer 4 settled KB *visibility* but not the grain, and it's expensive to change after the schema lands.
+- **Corpus boundary** — you said all 32 docs (not 27; it grew) go in for now, and I've taken that. Noted that several are XGD development-process docs rather than product knowledge, to revisit only if retrieval suffers.
+
+I also recorded that this forces supersessions on DOC-10 §5.2, §6 and §8, and that REQ-23/24/26 need retiring or rewriting. Say the word and I'll write the supersession note into DOC-10 — doc edits need no ticket.
 
 <!-- xgd-chat-end -->
