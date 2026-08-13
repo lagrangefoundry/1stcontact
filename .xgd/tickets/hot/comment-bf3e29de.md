@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-134
 created_by: xgd
 created_at: '2026-08-13T16:27:24.568794+00:00'
-updated_at: '2026-08-13T16:29:03.487534+00:00'
+updated_at: '2026-08-13T21:15:07.867816+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,11 @@ I don't need answers on these — flagging so you can veto:
 - **No host integration** — the component ends at bytes, per the ticket's out-of-scope list.
 
 One smaller call for you if you pick (a): should REQ-134 here be **closed as moved**, or **kept open** as the 1stcontact-side design record and host-integration parent?
+
+<!-- xgd-turn id="493bc7bc-9189-4b48-a88d-abbc4244ea41-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T21:15:07.463347+00:00" -->
+#### You
+moved where?
 
 <!-- xgd-chat-end -->
