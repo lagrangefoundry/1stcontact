@@ -12,9 +12,16 @@
  * THE THREE CLAIMS ARE DELIBERATELY SEPARATE, because the two interesting ones
  * are about implementations that pass the obvious test and fail the real one:
  *
- * - AC-1138 is the plain claim: each parameter reaches the box as it is
- *   confirmed, by its own gesture, an "off" value CLEARS what it set, and none
- *   of it is a write.
+ * - AC-1138 is the plain claim: a parameter reaches the box as it is confirmed,
+ *   by its own gesture, an "off" value CLEARS what it set, and none of it is a
+ *   write. It is scoped to the three axes that reach the WORDS — size, weight,
+ *   italic. CAPITALISATION IS A RECORDED DIVERGENCE from REQ-138's stated
+ *   intent: the property is written on the box like the others, but the control
+ *   that draws the words takes the box's typography through `font: inherit`,
+ *   which does not carry `text-transform` (and the UA resets it on form
+ *   controls), so the operator sees nothing. Asserted here in both halves —
+ *   written, and not arriving — because the first version of this suite
+ *   measured the container and passed while the behaviour was absent.
  * - AC-1139 is the clamped run. The box previews size in a 14–32px editing
  *   range, so a 72px headline opens sitting ON the ceiling; re-applying that
  *   range to each new size — the obvious reuse — answers every increase with the
@@ -65,7 +72,6 @@ import type { L1Node } from '@1stcontact/site-schema'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 const REPO = path.resolve(__dirname, '..')
-const BUILDER_CSS = path.join(REPO, 'apps/control-app/src/builder/builder.css')
 
 /** The family the page asks for, as a STACK — the shape every captured run has. */
 const STACK = 'Satoshi, Helvetica Neue, Arial, sans-serif'
@@ -185,22 +191,6 @@ function browserFetch(originUrl: string): {
       globalThis.fetch = real
     },
   }
-}
-
-/**
- * Every declaration block whose selector satisfies `keep`.
- *
- * Comments are stripped FIRST — a selector is everything since the last `}`, so
- * a rule preceded by a comment (which is most of the modal's) would otherwise
- * arrive with that comment glued to its front and match nothing.
- */
-function rulesOf(css: string, keep: (selector: string) => boolean): string[] {
-  const blocks: string[] = []
-  const re = /([^{}]+)\{([^{}]*)\}/g
-  let m: RegExpExecArray | null
-  const bare = css.replace(/\/\*[\s\S]*?\*\//g, '')
-  while ((m = re.exec(bare))) if (keep(m[1].trim())) blocks.push(m[2])
-  return blocks
 }
 
 /** See the neighbouring suites — playwright is `tools/generate`'s dependency. */
@@ -383,27 +373,13 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
   }
 
   it(
-    'test_UAT_AC1138_each_parameter_restyles_the_box_as_it_is_confirmed_and_writes_nothing',
+    'test_UAT_AC1138_size_weight_and_italic_restyle_the_words_as_confirmed_and_write_nothing',
     async () => {
-      // The wiring, machine-independently: the properties the sheet writes are
-      // the ones the box's own font declarations read. Without this the rest of
-      // this test would be a claim about variable names.
-      const boxRules = rulesOf(
-        fs.readFileSync(BUILDER_CSS, 'utf8'),
-        (sel) => sel === '.builder-modal__box',
-      ).join('\n')
-      expect(boxRules, 'the editing box is in this stylesheet').toBeTruthy()
-      for (const [decl, property] of [
-        ['font-weight', '--preview-font-weight'],
-        ['font-style', '--preview-font-style'],
-        ['text-transform', '--preview-text-transform'],
-        ['--fields-font-size', '--preview-font-size'],
-      ] as const) {
-        expect(boxRules, `${decl} reads ${property}`).toMatch(
-          new RegExp(`${decl}:\\s*var\\(${property}`),
-        )
-      }
-
+      // NO STYLESHEET INSPECTION. A regex over `builder.css` proves a
+      // declaration exists, not that anything happens — and it is exactly what
+      // let this suite go green over a live defect: `text-transform` is
+      // declared on the box, reads the property the sheet writes, and still
+      // never reaches the words. The evidence is the rendering, below.
       if (!WEBUI_INSTALLED) {
         unverified(`AC-1138 the box follows the sheet (${WEBUI_SKIP_REASON})`)
         return
@@ -419,6 +395,11 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
       net.calls.length = 0
 
       // ── each parameter, by its own gesture ────────────────────────────────
+      //
+      // PROPERTY-LEVEL ONLY here — jsdom resolves no `var()` and computes no
+      // inheritance, so "the property was written" is the whole of what this
+      // half can honestly say. Whether the property reaches the words is
+      // measured in a browser below, and for capitalisation the answer is no.
       setChoice(modal, 'fontWeight', '400')
       expect(varOf(box, '--preview-font-weight')).toBe('400')
 
@@ -435,7 +416,9 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
       //
       // Written on change, so an "off" value that wrote nothing would leave the
       // previous one standing and the control would read as having stopped
-      // working halfway.
+      // working halfway. Capitalisation's clearing is asserted at the property
+      // only — it is written and cleared correctly; it just never reaches the
+      // words (see the browser half).
       setToggle(modal, 'italic', false)
       setChoice(modal, 'textTransform', 'none')
       expect(varOf(box, '--preview-font-style')).toBe('normal')
@@ -457,8 +440,12 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
 
       // ── THE WORDS, not a variable: measured where a machine can measure ────
       //
-      // jsdom resolves no `var()` and computes no cascade, so "the copy in the
-      // box is now set that way" is browser-only evidence.
+      // jsdom resolves no `var()` and computes no inheritance, so "the copy in
+      // the box is now set that way" is browser-only evidence — and it is
+      // measured ON THE COPY. The box is a `div` wrapping the component's
+      // control, and the control is what displays the words; measuring the
+      // wrapper only re-proves the property was written, which is the mistake
+      // that let capitalisation pass while it was inert.
       if (!browser) {
         unverified('AC-1138 the copy in the box restyled as each parameter is confirmed')
         return
@@ -469,32 +456,63 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
         await frame.locator(`[${L1_EDIT_PATH_ATTR}="${A_HEADLINE}"]`).click()
         await page.locator('.builder-modal__box').waitFor()
         const set = (name: string) => `.builder-modal__props [data-field="${name}"]`
+
+        /** The element the operator's words are actually drawn in. */
+        const COPY = '.builder-modal__box .fields-control'
+        await page.locator(COPY).waitFor()
         const shown = () =>
-          page.$eval('.builder-modal__box', (el) => {
+          page.$eval(COPY, (el) => {
             const cs = getComputedStyle(el as HTMLElement)
-            return { weight: cs.fontWeight, style: cs.fontStyle, transform: cs.textTransform }
+            return {
+              weight: cs.fontWeight,
+              style: cs.fontStyle,
+              transform: cs.textTransform,
+              size: Number.parseFloat(cs.fontSize),
+            }
           })
 
-        expect((await shown()).weight, 'the box opens at the page’s own weight').toBe('700')
+        const opened = await shown()
+        expect(opened.weight, 'the words open at the page’s own weight').toBe('700')
 
         await page.click(`${set('fontWeight')} .fields-value-editable`)
         await page.selectOption(`${set('fontWeight')} select`, '400')
-        expect((await shown()).weight).toBe('400')
+        expect((await shown()).weight, 'the words are drawn lighter').toBe('400')
 
         await page.locator(`${set('italic')} input[type="checkbox"]`).check()
-        expect((await shown()).style).toBe('italic')
+        expect((await shown()).style, 'the words are drawn italic').toBe('italic')
 
-        await page.click(`${set('textTransform')} .fields-value-editable`)
-        await page.selectOption(`${set('textTransform')} select`, 'uppercase')
-        expect((await shown()).transform).toBe('uppercase')
+        await page.click(`${set('fontSizePx')} .fields-value-editable`)
+        await page.fill(`${set('fontSizePx')} input`, '120')
+        await page.keyboard.press('Tab')
+        expect((await shown()).size, 'the words are drawn bigger').toBeGreaterThan(opened.size)
 
         // Off clears, in the rendering as well as in the property.
         await page.locator(`${set('italic')} input[type="checkbox"]`).uncheck()
+        expect((await shown()).style, 'and upright again').toBe('normal')
+
+        // ── CAPITALISATION: THE DIVERGENCE, ASSERTED AS IT STANDS ─────────────
+        //
+        // REQ-138 asks for four parameters and this one does not arrive. The
+        // property is written exactly like the others, on the box — but the
+        // control that draws the words takes the box's typography through
+        // `font: inherit`, and that shorthand carries family, weight, style and
+        // size and NOT `text-transform`, which the browser's own styling of form
+        // controls resets. So the operator picks a capitalisation and the words
+        // do not change, which is what they reported on the anchor.
+        //
+        // Asserted rather than omitted: this is the pair of measurements that
+        // tells a working implementation from a broken one, and an omitted
+        // assertion here is how the divergence survived a green suite. The day
+        // the words are drawn in something that carries the property, this fails
+        // and the criterion is rewritten to claim it.
         await page.click(`${set('textTransform')} .fields-value-editable`)
-        await page.selectOption(`${set('textTransform')} select`, 'none')
-        const off = await shown()
-        expect(off.style).toBe('normal')
-        expect(off.transform).toBe('none')
+        await page.selectOption(`${set('textTransform')} select`, 'uppercase')
+        const onBox = await page.$eval(
+          '.builder-modal__box',
+          (el) => getComputedStyle(el as HTMLElement).textTransform,
+        )
+        expect(onBox, 'the property IS written, on the box').toBe('uppercase')
+        expect((await shown()).transform, 'and does NOT reach the words').toBe('none')
       } finally {
         await page.close()
       }
@@ -671,7 +689,10 @@ describe('story-3bf94bd4 the box follows the sheet', () => {
         // anything is touched...
         expect(await weight()).toBe('700')
 
-        // ...and after an unrelated parameter is driven.
+        // ...and after an unrelated parameter is driven. Measured on the BOX,
+        // which is where this particular property lands and stops — that is
+        // AC-1138's recorded divergence, and it is the driven change landing at
+        // all that matters here, not where it is visible.
         await page.click('.builder-modal__props [data-field="textTransform"] .fields-value-editable')
         await page.selectOption(
           '.builder-modal__props [data-field="textTransform"] select',
