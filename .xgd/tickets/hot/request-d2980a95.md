@@ -5,9 +5,9 @@ type: request
 title: 'L1 palette: shade on the reference replaces named steps'
 created_by: xgd
 created_at: '2026-08-12T17:41:39.063912+00:00'
-updated_at: '2026-08-13T16:40:14.799322+00:00'
+updated_at: '2026-08-13T16:41:38.245774+00:00'
 completed_at: null
-last_field_updated: commits
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -171,6 +171,13 @@ out-of-range rejection, shade/alpha independence, the per-entry usage tally,
 derivation emitting no step, the unreachable-colour split, base selection, the
 family-change refusal, the shared fit function, retrofitted sites within bound,
 fixpoint, and no reference surviving resolution.
+
+One follow-up commit hardened `test_UAT_FC_REQ-137_no_stored_site_carries_a_step`:
+it enumerated `storage/sites/` raw and treated every dirent as a slug, so a
+`.DS_Store` made it fail with `ENOTDIR` on any checkout Finder had visited. It now
+filters to directories, and asserts the 22 stored entries were actually examined —
+the claim is "nothing on disk violates this", which an empty store satisfies for
+free.
 
 Suites updated for the model change: `req114-palette-model`,
 `reconciliation-colour-census-and-retrofit`, `reconciliation-colour-palette-overlay`,
