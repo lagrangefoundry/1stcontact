@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-137
 created_by: xgd
 created_at: '2026-08-12T17:42:50.693486+00:00'
-updated_at: '2026-08-12T18:29:37.192296+00:00'
+updated_at: '2026-08-13T01:02:22.784733+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -186,5 +186,11 @@ Now the REQ-137 UATs themselves.
 All 15 pass. Full suite and build now.
 
 The overlay suite passed in isolation but fails in the full run — let me look.
+
+<!-- xgd-turn id="09f2d34c-af16-4fa7-b2d5-13e0be674be8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T01:02:22.572796+00:00" -->
+#### You
+please continue
 
 <!-- xgd-chat-end -->
