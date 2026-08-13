@@ -2,13 +2,13 @@
 uid: acceptance_criterion-2d587432
 id: AC-1138
 type: acceptance_criterion
-title: Changing a typography parameter immediately restyles the words in the editing
-  box, and writes nothing
+title: Size, weight and italic restyle the words in the editing box as each is confirmed,
+  and nothing is written
 created_by: xgd
 created_at: '2026-08-13T01:08:41.637462+00:00'
-updated_at: '2026-08-13T01:37:51.320375+00:00'
+updated_at: '2026-08-13T01:38:03.043896+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-3bf94bd4
