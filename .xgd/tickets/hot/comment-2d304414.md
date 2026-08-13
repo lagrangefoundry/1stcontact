@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-139
 created_by: xgd
 created_at: '2026-08-12T18:15:25.332755+00:00'
-updated_at: '2026-08-13T16:31:04.052145+00:00'
+updated_at: '2026-08-13T21:13:40.764370+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,11 @@ REQ-139 stays at `draft` with two decisions recorded:
 - **Blocked on colour controls.** `depends_on: REQ-133` (palette popup, itself waiting on REQ-137). Picked up once colour lands.
 
 What's left in scope when it resumes: the inert/lossy colour cases — in practice `gradientFill`, the one run on the Gigabyte Alchemy title — plus the two presentation gaps (a plain-English reason on `locked`, and actually styling `is-locked`, which nothing does today).
+
+<!-- xgd-turn id="552615a7-2cdf-44cd-8387-852c251cc107-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T21:13:40.236551+00:00" -->
+#### You
+Can you add depends_on refs to the relevant tickets
 
 <!-- xgd-chat-end -->
