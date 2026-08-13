@@ -5,16 +5,21 @@ type: request
 title: 'Palette popup: display, pick and edit the site''s colors'
 created_by: xgd
 created_at: '2026-08-12T00:39:22.220242+00:00'
-updated_at: '2026-08-13T18:50:25.951663+00:00'
+updated_at: '2026-08-13T21:23:58.971427+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   depends_on:
   - REQ-137
+  commits:
+  - working_sha: 8e66fef6becf576d5f54bfc1cc199ea2ba44c9b5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.43
 ---
 
 # Palette popup: display, pick and edit the site's colors
