@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-07T23:38:15.797411+00:00'
+updated_at: '2026-08-13T21:10:05.428215+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -86,5 +86,15 @@ If you agree, DOC-10 needs a supersession note and REQ-23/24/26 need retiring or
 REQ-122 then only has to render a session and call it.
 
 Tell me your calls on 1–5 and I'll write the ticket body.
+
+<!-- xgd-turn id="bd00f99b-1f06-4d58-94a1-e23a4583e2c5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T21:10:05.299677+00:00" -->
+#### You
+1. They need to be built in the framework project, please create tickets for them in that project
+   2. The KM system must run over both, however the system KB which this ticket is specifying will run over files that are part of the release. Your question is confusing though there are no Python components in this project
+   3. It doesn't matter for now, right now put all 27 in - this system should scale to thousands of docs
+   4. This KB will be available to all tenents however, they will have KBs in their stores that are tenent specific
+   5. Probably right, that's a question for 1 right?
 
 <!-- xgd-chat-end -->
