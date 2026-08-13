@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-138
 created_by: xgd
 created_at: '2026-08-12T17:57:42.571082+00:00'
-updated_at: '2026-08-13T01:03:35.992360+00:00'
+updated_at: '2026-08-13T01:07:16.449194+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -92,6 +92,12 @@ REQ-138 is at `free_coded` with commit `9a51098f5`, merged to `xgd-working` by f
 <!-- xgd-turn id="f14e4928-837b-49b4-9804-f773d5b32489-user" -->
 
 <!-- xgd-chat role="user" ts="2026-08-13T01:03:35.722380+00:00" -->
+#### You
+Capitalization is not previewing
+
+<!-- xgd-turn id="c05eecc2-665f-48ad-8c0c-5184961dedd0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T01:07:16.212671+00:00" -->
 #### You
 Capitalization is not previewing
 
