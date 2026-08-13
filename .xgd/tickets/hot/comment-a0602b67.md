@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T21:16:13.750043+00:00'
+updated_at: '2026-08-13T21:36:06.709831+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -129,5 +129,12 @@ The shipped-KB layout already fixes it: the index is an artefact in the corpus t
 - **Corpus boundary** — you said all 32 docs (not 27; it grew) go in for now, and I've taken that. Noted that several are XGD development-process docs rather than product knowledge, to revisit only if retrieval suffers.
 
 I also recorded that this forces supersessions on DOC-10 §5.2, §6 and §8, and that REQ-23/24/26 need retiring or rewriting. Say the word and I'll write the supersession note into DOC-10 — doc edits need no ticket.
+
+<!-- xgd-turn id="eae559eb-916a-423a-9dfa-536b03d0bf20-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T21:36:06.557933+00:00" -->
+#### You
+**Tenant grain** — site or account-with-site-as-a-field. Your answer 4 settled KB *visibility* but not the grain, and it's expensive to change after the schema lands. <-- explain?
+**Corpus boundary** — you said all 32 docs (not 27; it grew) go in for now, and I've taken that. Noted that several are XGD development-process docs rather than product knowledge, to revisit only if retrieval suffers. <-- lets build the feature and worry about the data once we have it
 
 <!-- xgd-chat-end -->
