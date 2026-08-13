@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-137
 created_by: xgd
 created_at: '2026-08-12T17:42:50.693486+00:00'
-updated_at: '2026-08-13T16:26:50.246307+00:00'
+updated_at: '2026-08-13T16:41:57.704370+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -198,5 +198,110 @@ please continue
 <!-- xgd-chat role="user" ts="2026-08-13T16:26:50.106251+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="1e4f00fc-aef3-4149-890b-d7a3d5143af1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T16:41:57.575420+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. First, let me check the state of the work.
+
+The branch worktree exists. Let me check where the prior session left off.
+
+The prior session's work is uncommitted, and `xgd-working` has since been resynced (history rewritten) past the branch base. Let me check whether the touched files diverged.
+
+All touched files are identical between the branch base and current `xgd-working`, so I can safely re-base the branch onto the current tip without losing anything.
+
+Work preserved and re-based cleanly. Now let me find the failing overlay test the prior session hit.
+
+The expectation (17) predates the base-selection fix the prior session made later. Let me check the stored sites are still consistent with the current derivation.
+
+Stored `gigabytealchemy` has 15 entries — the derivation and the stored data agree; the test expectation is stale from before the base-selection fix. Let me verify the retrofit is still a fixpoint before updating it.
+
+The CLI invocation failed, so that fixpoint check was vacuous. Let me find the correct entry point.
+
+Let me write a throwaway verification script to confirm the retrofit is still a fixpoint after the base-selection change.
+
+Values are identical — only the curated `xgd` names differ, since I ran without the `--names` mapping. Let me re-run with it.
+
+Fixpoint confirmed for both sites. Now let me correct the stale expectation — first checking the actual before/after entry counts.
+
+Numbers confirmed: `xgd` 6 entries + 10 steps → 7 entries; `gigabytealchemy` 8 + 22 → 15. Only the `17` is stale.
+
+Now the full suite, to see everything that remains.
+
+71 failures across 10 files. I need the baseline — the branch was re-based onto a newer `xgd-working`. Let me get both lists.
+
+All 71 failures reproduce identically on clean `xgd-working` — they're pre-existing and unrelated to this ticket. Every palette suite passes. Now the build.
+
+Build and typechecks clean. Let me review the implementation diff.
+
+Core implementation is sound. Let me check the validator and the new UAT.
+
+15 UATs covering the ACs. Now let me produce the AC5 before/after values-diff — measuring old code+data (main checkout) against new (branch).
+
+Those two large deltas look like a swap — but my probe sorted both lists before comparing, which misaligns entries whenever a value changes. Let me redo it in document order.
+
+The Δ34/Δ29 were artifacts of my sorted comparison. In document order the worst per-channel delta is **Δ8** — exactly the approved bound, with slot counts unchanged. AC5 holds.
+
+Now let me update DOC-23 §5, which still describes steps.
+
+Now let me update the two places in DOC-23 §5 that still describe steps.
+
+Now the new §5.6 recording the shade model.
+
+DOC-23 updated. Now the ticket status and version bump.
+
+Now the merge back to `xgd-working`, under the shared lock.
+
+Version 0.1.40 is already claimed by BUG-34. Let me check whether the merge was a fast-forward so I can cleanly redo it.
+
+Another session landed work concurrently (`caeb60b40`, claiming 0.1.40). I'll add a bump commit rather than rewriting shared history.
+
+Now let me update the ticket body with the measured outcomes, then release the lock.
+
+Let me verify the final state on `xgd-working`.
+
+One failure appeared after the merge. Let me look.
+
+A real bug in my UAT: it enumerates `storage/sites/` and treats every entry as a slug, so a macOS `.DS_Store` breaks it. A test that depends on whether Finder visited the directory isn't evidence. Fixing it.
+
+Let me add a guard so the loop can't pass vacuously.
+
+All 15 pass. Committing the fix.
+
+Final verification of the whole state.
+
+All 11 failures are in the pre-existing broken suite; all four palette suites pass. Let me record the third commit in the ticket body.
+
+REQ-137 is complete and landed on `xgd-working` at `status=free_coded`.
+
+## What shipped
+
+A palette entry is now exactly one colour. The light↔dark family isn't stored — it's generated from the entry, with the position carried on the reference as a continuous `shade` on `[-1, +1]`, mixed in Oklab. `steps` is deleted outright, no dual path.
+
+`shadeHex()` is the single implementation of the axis, and the retrofit fits shades by searching over that same exported function — so the drift it measures is the drift the renderer actually produces. A `shade` of 0 or absent short-circuits to the entry's hex, so an unshaded reference is byte-identical to the literal it replaced by construction rather than by the precision of the maths.
+
+## Measured results
+
+| site | palette before | after | slots changed | worst Δ |
+|---|---|---|---|---|
+| `xgd` | 6 entries + 10 steps | 7 entries | 82/210 | **Δ5** |
+| `gigabytealchemy` | 8 + 22 | 15 entries | 33/91 | **Δ8** |
+
+Worst per-channel movement is 8/255 — exactly the bound you approved — with slot counts unchanged, so no colour was added or lost. Seven colours a mix cannot reach became their own exact entries, including your `#4aafc9` brand teal as `primary-bright` (option (a), as you chose).
+
+Two things needed fixing that the prior session's approach had wrong. The retrofit wasn't a fixpoint: fitted colours could drift across a family classification boundary and get re-filed on a second run, so the derivation now refuses a fit that would change a colour's family. And base selection was picking the lightest member, which is wrong when a mix only removes chroma — it now picks the member that can actually reach the most others.
+
+One correction to my own measurement: my first values-diff sorted both colour lists before comparing, which re-pairs slots whenever a value changes and invented a Δ34 swap that never happened. Compared in document order the worst is Δ8.
+
+15 UATs, `pnpm -r build` clean, typechecks clean. DOC-23 gained a §5.6 recording the model and superseding REQ-114 AC3's pixel-identity guarantee.
+
+## Two things worth your attention
+
+**71 tests across 10 AI tool-surface suites are failing on `xgd-working` and are not mine** — `test_UAT_FC_REQ-122/126/127/129/130`, `reconciliation-assistant-*`, `reconciliation-page-composition-surface`. They fail identically on a clean checkout with no changes applied; the symptom is `box.run(...)` returning an array where a string is expected, which looks like a toolbox return-shape change that landed without its consumers being updated. I left them alone — they're outside this ticket.
+
+**Three commits, not one.** The branch had been cut before a resync rewrote `xgd-working`, so I re-based the uncommitted work onto the current tip (verifying every touched file was identical between the two bases first). Then a concurrent session claimed version 0.1.40 mid-merge, so there's a bump commit; and a third commit fixes a `.DS_Store` fragility in my own UAT that only surfaced in the main checkout. All three are recorded on the ticket and are ancestors of `xgd-working`; version is 0.1.42.
+
+The ticket is parked at `free_coded` — promotion to `ready_to_reconcile` is your call. REQ-133's palette popup now has `shade` to write to.
 
 <!-- xgd-chat-end -->
