@@ -5,7 +5,7 @@ type: doc
 title: Chat Session Persistence and AI Memory
 created_by: xgd
 created_at: '2026-06-30T01:02:05.433710+00:00'
-updated_at: '2026-08-13T21:40:05.223058+00:00'
+updated_at: '2026-08-13T21:50:44.752877+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -54,7 +54,7 @@ Paired with:
 
 - The knowledge-management implementation itself — it is a framework component (see §6).
 - Auto-summarization or compaction (the AI's search tools cover navigation; we revisit only if priming becomes expensive).
-- The tenant grain — whether a tenant is a site or an account with site as a field. Pinned in REQ-123, because the ticket store makes it a schema-level decision rather than a column.
+- Anything below the tenant boundary being *structurally* isolated. The hard barrier is the account (§4.1); a site is an object inside it, and site isolation is a predicate bound once, not a property of the store.
 - A cross-chat "references library" UI for chat search results — the AI consumes search through tools; the user navigates through the session list.
 - Reference doc editing UX in v1 — initial docs are seeded; operator editing is a follow-up.
 
@@ -99,7 +99,9 @@ Key property: **chat sessions are durable but not authoritative**. They are the 
 
 ### 4.1 Identity and scope
 
-- A session has an opaque ID and a `site_id`. The session list and search are scoped to a single site; no cross-site access.
+- A session has an opaque ID, belongs to a **tenant**, and names a `site_id`. The session list and search are scoped to a single site; no cross-site access.
+- **The tenant is the account, and it is the hard information barrier.** A site is an object — or a set of objects — inside a tenant, not a tenant of its own. The store binds tenancy into the handle at construction, so nothing below can reach across it; there is no handle spanning two accounts.
+- **Site isolation is one level down, and is a predicate rather than a property.** Within a tenant, `site_id` selects; a query that omits it sees the same client's other sites. So the site scope is bound **once**, into the session's store handle and the knowledge runtime's KB scope, and never left to individual call sites. The two scopes are the same shape at different strengths, and the difference is deliberate: sites belonging to one client *should* share accumulated knowledge — brand voice, terminology, decisions already made — so their second site does not start as cold as their first.
 - Session title is AI-generated after the first turn (one-line summary) and operator-editable.
 - Sessions carry created/updated timestamps for list ordering.
 
@@ -211,6 +213,25 @@ that ship with the release**. It is:
 - **one KB among several** — a tenant's own knowledge (their transcripts, their
   brief, their uploaded material) lives in knowledge bases in *their* store, and
   a search can span the ones the session is scoped to.
+
+### 6.2.1 It sits above tenancy
+
+The system KB is not tenant data and lives in nobody's store, so it is above the
+barrier of §4.1 rather than inside it.
+
+It still **takes** the scope parameters — tenant and site — and may require them,
+but it does not vary by them: the same queries run for everyone. Requiring a
+scope it will not use is deliberate. It means there is exactly one call
+signature, so no second, unscoped path exists for a tenant-data query to be
+routed down by mistake; and it means the audit trail records who asked, in what
+scope, even for the queries whose answer does not depend on the answer.
+
+One consequence worth knowing: because a system-KB query is scope-invariant,
+identical query text yields identical results for every tenant, so its results
+are safely cacheable *across* tenants. It is the only KB where that holds. The
+cache boundary is therefore per-KB and not per-search — a search spanning the
+system KB and a tenant KB produces a ranked set whose composition is
+tenant-specific even though half its inputs are not.
 
 ### 6.3 What is in it
 
