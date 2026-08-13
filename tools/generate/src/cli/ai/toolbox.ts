@@ -52,6 +52,11 @@ import {
   editPageList,
   editPageRm,
   editPageUpdate,
+  editPaletteAdd,
+  editPaletteGet,
+  editPaletteRename,
+  editPaletteRm,
+  editPaletteSet,
   editStatus,
   type CopyTargetOptions,
 } from '../edit'
@@ -277,6 +282,12 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
 
     get_config: (p) => editConfigGet(slug, req(p, 'key'), opts).data,
 
+    // REQ-133 — the palette, with the usage counts the delete and rename rules
+    // are stated in. The assistant had no way to ask "what would changing this
+    // color move" before this; without it, `set_config` on `palette` was an
+    // edit made blind.
+    get_palette: () => editPaletteGet(slug, opts).data,
+
     status: () => editStatus(slug, opts).data,
 
     set_l1: (p) => {
@@ -337,6 +348,31 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
 
     set_config: (p) => {
       const out = editConfigSet(slug, opt(p, 'key'), obj(p, 'settings'), opts)
+      return { changed: out.data, message: out.human }
+    },
+
+    // The palette writes (REQ-133). `set_config` could express the first two by
+    // merge and neither of the last two at all — merge cannot remove a key or
+    // move one, and it has nothing to say about the references both of those
+    // are defined in terms of. The guards live in the functions below, so they
+    // hold for the assistant exactly as they hold for the popup.
+    set_palette_color: (p) => {
+      const out = editPaletteSet(slug, req(p, 'name'), req(p, 'color'), opts)
+      return { changed: out.data, message: out.human }
+    },
+
+    add_palette_color: (p) => {
+      const out = editPaletteAdd(slug, req(p, 'name'), req(p, 'color'), opts)
+      return { changed: out.data, message: out.human }
+    },
+
+    remove_palette_color: (p) => {
+      const out = editPaletteRm(slug, req(p, 'name'), opts)
+      return { changed: out.data, message: out.human }
+    },
+
+    rename_palette_color: (p) => {
+      const out = editPaletteRename(slug, req(p, 'name'), req(p, 'to'), opts)
       return { changed: out.data, message: out.human }
     },
 

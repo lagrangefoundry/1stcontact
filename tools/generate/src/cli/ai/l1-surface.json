@@ -5,7 +5,6 @@
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
-
   "param_types": {
     "l1_address": {
       "base": "string",
@@ -34,9 +33,16 @@
     "image_name": {
       "base": "string",
       "description": "A name for a drawing you have made: one word, lowercase letters, digits and hyphens. Not a filename and not a path — the site works out where it goes."
+    },
+    "palette_name": {
+      "base": "string",
+      "description": "The name of one color in the site's palette, e.g. `primary` or `brand-teal` — lowercase, words joined by hyphens. It is the name a color is referred to by everywhere it is used, not a description of the color."
+    },
+    "hex_color": {
+      "base": "string",
+      "description": "An opaque color as hex, e.g. `#2e86a3` (or the `#abc` short form). A palette color is exactly one color: its lighter and darker variants are produced where it is USED, and so is any transparency — neither is stored here, and an 8-digit hex is refused for that reason."
     }
   },
-
   "shapes": {
     "site": {
       "config": "the site's settings object",
@@ -87,9 +93,16 @@
       "modified": "paths it changes",
       "removed": "paths it drops",
       "message": "a one-line summary"
+    },
+    "palette": {
+      "slug": "the site",
+      "entries": "every color: its name, its hex, and `count` — how many places on the site use it, counting every lighter and darker variant of it too"
+    },
+    "palette_change": {
+      "changed": "what the write did, including the number of uses it moved",
+      "message": "the same thing in a sentence"
     }
   },
-
   "errors": {
     "NOT_FOUND": {
       "message": "what you addressed does not exist. Re-read the listing; do not guess again."
@@ -110,7 +123,6 @@
       "message": "the builder failed for a reason that is not your call. Tell the user; do not retry blindly."
     }
   },
-
   "operations": [
     {
       "op": "describe_site",
@@ -118,16 +130,27 @@
       "effect": "read",
       "summary": "Get the site's settings, its pages, and whether it has unpublished changes.",
       "description": "The opening move when you know nothing but that there is a site.",
-      "returns": { "shape": "site", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND", "ENVIRONMENT"]
+      "returns": {
+        "shape": "site",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "ENVIRONMENT"
+      ]
     },
     {
       "op": "list_pages",
       "tool": "list_pages",
       "effect": "read",
       "summary": "List every page: its id, its address in the site, and its title.",
-      "returns": { "shape": "page_list", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND"]
+      "returns": {
+        "shape": "page_list",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
     {
       "op": "describe_page",
@@ -136,10 +159,18 @@
       "summary": "Map one page: every element on it, with its address and a short label.",
       "description": "Where addresses come from, and the cheap way to see a page's shape. Asking for `page: \"home\"` returns every element on the home page in order — the boxes and rows as well as the words and pictures inside them — each carrying the address that reaches it, and, when it sits inside a component, the `module` and `slot` that address is scoped to. A label is only enough to recognise something by; use `get_l1` to see what an element actually holds. Hand an entry's address straight back rather than composing one yourself.\n\nIt also lists the components already on the page and how each is set up, so this is where you look before changing or removing one.",
       "params": {
-        "page": { "type": "page_id", "required": true }
+        "page": {
+          "type": "page_id",
+          "required": true
+        }
       },
-      "returns": { "shape": "page_map", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND"]
+      "returns": {
+        "shape": "page_map",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
     {
       "op": "get_l1",
@@ -148,24 +179,44 @@
       "summary": "Read one element on a page in full — everything it holds, exactly as stored.",
       "description": "The page map tells you where things are; this tells you what one of them *is*. Ask for the address of a box and you get that box and everything inside it: its words, its images, how it is laid out, how it looks. Nothing is resolved or tidied on the way out, so what comes back is exactly what you may write back — read an element, change the part you mean, write the whole thing back. Ask for the smallest element that contains everything you intend to change; pages are large, and asking for the whole of one to alter a heading wastes the conversation.",
       "params": {
-        "page": { "type": "page_id", "required": true },
-        "path": { "type": "l1_address", "required": true },
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "path": {
+          "type": "l1_address",
+          "required": true
+        },
         "module": {
           "type": "string",
           "description": "The component instance the address is scoped to, if it is inside one."
         },
-        "slot": { "type": "string", "description": "The slot within that instance." }
+        "slot": {
+          "type": "string",
+          "description": "The slot within that instance."
+        }
       },
-      "returns": { "shape": "element", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "element",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "list_assets",
       "tool": "list_assets",
       "effect": "read",
       "summary": "List the images and fonts this site can use.",
-      "returns": { "shape": "asset_list", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND"]
+      "returns": {
+        "shape": "asset_list",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
     {
       "op": "get_asset",
@@ -173,10 +224,18 @@
       "effect": "read",
       "summary": "Read one registered image or font: its file and its alt text.",
       "params": {
-        "asset": { "type": "asset_id", "required": true }
+        "asset": {
+          "type": "asset_id",
+          "required": true
+        }
       },
-      "returns": { "shape": "asset", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND"]
+      "returns": {
+        "shape": "asset",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
     {
       "op": "get_config",
@@ -184,10 +243,18 @@
       "effect": "read",
       "summary": "Read one of the site's settings.",
       "params": {
-        "key": { "type": "config_key", "required": true }
+        "key": {
+          "type": "config_key",
+          "required": true
+        }
       },
-      "returns": { "shape": "config_value", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND"]
+      "returns": {
+        "shape": "config_value",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
     {
       "op": "list_behaviors",
@@ -195,8 +262,25 @@
       "effect": "read",
       "summary": "List the kinds of component this site can use, and how each is set up.",
       "description": "A component is a piece of working behaviour — a form that captures enquiries, a carousel that scrolls. This is the whole set, and it is closed: there is no way to make a new kind, because a new kind is written and vetted by a developer. If what the user wants is not here, say so plainly and describe what would be needed.\n\nRead this before adding a component: it tells you what each one must be set up with and what those settings accept, so the first attempt is the one that works.",
-      "returns": { "shape": "behavior_list" },
+      "returns": {
+        "shape": "behavior_list"
+      },
       "errors": []
+    },
+    {
+      "op": "get_palette",
+      "tool": "get_palette",
+      "effect": "read",
+      "summary": "Read the site's color palette, with how much each color is used.",
+      "description": "The palette is the site's set of named colors. Every color on a page refers to one of them, so this is the list of colors the site actually has — and `count` says how many places use each, which is what tells you what changing or removing one would affect.",
+      "params": {},
+      "returns": {
+        "shape": "palette",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
     {
       "op": "status",
@@ -204,10 +288,14 @@
       "effect": "read",
       "summary": "See what is in the draft that the public site does not have yet.",
       "description": "The honest answer to \"what have we changed so far?\", and what your user needs to hear before they decide anything about making it public.",
-      "returns": { "shape": "pending_changes", "provenance": "untrusted" },
-      "errors": ["NOT_FOUND"]
+      "returns": {
+        "shape": "pending_changes",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
-
     {
       "op": "set_l1",
       "tool": "set_l1",
@@ -215,8 +303,14 @@
       "summary": "Replace one element on a page with a new one — its words, its images, its layout, its look.",
       "description": "Whatever sits at that address is replaced by what you send, and everything inside it goes with it. So read the element first, change the part you mean, and send the whole thing back — anything you leave out is gone.\n\nThis is how everything on a page is changed: rewriting a heading, adding something that was not there, taking something away, rearranging what is there. To add to a group, read the group, put the new element among its children, write the group back. To remove one, write the group back without it.\n\nOne call is one change, and the page re-renders after it — so **every address on the page is regenerated**. Never carry an address across your own edit; read the map again.\n\nWhat you send must be a well-formed element of the page's own vocabulary. If it is not, the whole change is refused, the page is left exactly as it was, and the refusal names the field and what it would have accepted — correct it and send it again.",
       "params": {
-        "page": { "type": "page_id", "required": true },
-        "path": { "type": "l1_address", "required": true },
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "path": {
+          "type": "l1_address",
+          "required": true
+        },
         "node": {
           "type": "object",
           "required": true,
@@ -226,10 +320,18 @@
           "type": "string",
           "description": "The component instance the address is scoped to, if it is inside one."
         },
-        "slot": { "type": "string", "description": "The slot within that instance." }
+        "slot": {
+          "type": "string",
+          "description": "The slot within that instance."
+        }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "add_page",
@@ -243,7 +345,10 @@
           "required": true,
           "description": "The new page's id — short, lowercase, no spaces."
         },
-        "title": { "type": "string", "description": "The page's title." },
+        "title": {
+          "type": "string",
+          "description": "The page's title."
+        },
         "path": {
           "type": "string",
           "description": "Its address in the site. Defaults to the page id."
@@ -253,8 +358,13 @@
           "description": "How the page describes itself to a search engine or a shared link: `title` and `description`, and optionally `ogImage`. Not the same as the page's own title, and worth offering — nothing else writes it."
         }
       },
-      "returns": { "shape": "change" },
-      "errors": ["CONFLICT", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "update_page",
@@ -262,16 +372,31 @@
       "effect": "write",
       "summary": "Change a page's title, its address in the site, or how it describes itself to a search engine.",
       "params": {
-        "page": { "type": "page_id", "required": true },
-        "title": { "type": "string", "description": "The new title." },
-        "path": { "type": "string", "description": "The new address in the site." },
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "title": {
+          "type": "string",
+          "description": "The new title."
+        },
+        "path": {
+          "type": "string",
+          "description": "The new address in the site."
+        },
         "seo": {
           "type": "object",
           "description": "`title`, `description`, and optionally `ogImage`. Only what you name changes — leaving out the title does not clear it."
         }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "add_component",
@@ -280,9 +405,18 @@
       "summary": "Put a component — a form, a carousel — on a page.",
       "description": "Read `list_behaviors` first: it says what the component must be set up with. Then give it a name of your own choosing, the kind, and its settings.\n\nA component mounts at a **seam** in the page — an element the page map shows as a `slot`. Name that seam in `slot`. If the page has no seam for it, put one there first with `set_l1` and re-read the map.\n\nYou do not have to design it. Where a component comes with a look of its own (`list_behaviors` says which do) that look is used, laid out from the settings you gave — so a form you asked for with three fields arrives with three fields. It is then ordinary page content: read it with `get_l1` and change it with `set_l1` like anything else.",
       "params": {
-        "page": { "type": "page_id", "required": true },
-        "name": { "type": "component_name", "required": true },
-        "behavior": { "type": "behavior_id", "required": true },
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "name": {
+          "type": "component_name",
+          "required": true
+        },
+        "behavior": {
+          "type": "behavior_id",
+          "required": true
+        },
         "slot": {
           "type": "string",
           "description": "The seam on the page it mounts into, as the page map names it."
@@ -297,8 +431,14 @@
           "description": "A decorated element per seam inside the component, if you want to design it yourself instead of taking the look it comes with. Required for a component that has no look of its own."
         }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "configure_component",
@@ -307,12 +447,27 @@
       "summary": "Change how a component on a page is set up.",
       "description": "Only the settings you name change; the rest are left alone. This is the working half of a component — where a form sends its enquiries, what its fields are, what its button says. How it *looks* is page content, so that is `set_l1`.",
       "params": {
-        "page": { "type": "page_id", "required": true },
-        "name": { "type": "component_name", "required": true },
-        "config": { "type": "object", "required": true, "description": "The settings to change." }
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "name": {
+          "type": "component_name",
+          "required": true
+        },
+        "config": {
+          "type": "object",
+          "required": true,
+          "description": "The settings to change."
+        }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "remove_component",
@@ -321,11 +476,21 @@
       "summary": "Take a component off a page.",
       "description": "The seam it was mounted at stays where it is, empty, so another component can go there. Remove the seam itself with `set_l1` if nothing should.",
       "params": {
-        "page": { "type": "page_id", "required": true },
-        "name": { "type": "component_name", "required": true }
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "name": {
+          "type": "component_name",
+          "required": true
+        }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
     },
     {
       "op": "remove_page",
@@ -333,10 +498,18 @@
       "effect": "write",
       "summary": "Delete a page from the site.",
       "params": {
-        "page": { "type": "page_id", "required": true }
+        "page": {
+          "type": "page_id",
+          "required": true
+        }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND", "REFERENTIAL_INTEGRITY"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "REFERENTIAL_INTEGRITY"
+      ]
     },
     {
       "op": "set_config",
@@ -355,8 +528,108 @@
           "description": "The settings to write in that group. Only what you name changes."
         }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "set_palette_color",
+      "tool": "set_palette_color",
+      "effect": "write",
+      "summary": "Change what color one palette entry is.",
+      "description": "Every place that uses this color follows, in one go — including the places using a lighter or darker variant of it, because those are produced from it rather than stored separately. That is the point of the palette: a color is changed once, not once per use.",
+      "params": {
+        "name": {
+          "type": "palette_name",
+          "required": true
+        },
+        "color": {
+          "type": "hex_color",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "add_palette_color",
+      "tool": "add_palette_color",
+      "effect": "write",
+      "summary": "Add a new color to the palette.",
+      "description": "Give it a name that says what it is FOR rather than what it looks like — `accent` survives being changed to a different color, `light-blue` does not. The name must be lowercase with words joined by hyphens, and must not already be in the palette.",
+      "params": {
+        "name": {
+          "type": "palette_name",
+          "required": true
+        },
+        "color": {
+          "type": "hex_color",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "remove_palette_color",
+      "tool": "remove_palette_color",
+      "effect": "write",
+      "summary": "Remove a color from the palette — only if nothing is using it.",
+      "description": "A color that is still used **cannot** be removed, and there is no way to force it: every use would be left pointing at a color that no longer exists, which is not a valid site. Removing a color in use is therefore two steps — decide what each of those places should be instead and change them first (`get_palette` says how many there are), then remove it.",
+      "params": {
+        "name": {
+          "type": "palette_name",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT"
+      ]
+    },
+    {
+      "op": "rename_palette_color",
+      "tool": "rename_palette_color",
+      "effect": "write",
+      "summary": "Rename a palette color, moving every use with it.",
+      "description": "Unlike removing, renaming is always safe: every place that used the old name is rewritten to the new one in the same go, so nothing is left pointing at a name that no longer exists. Refused if the new name is already in the palette — that would merge two colors into one, which is a decision to make deliberately by changing the uses yourself.",
+      "params": {
+        "name": {
+          "type": "palette_name",
+          "required": true,
+          "description": "The color's current name."
+        },
+        "to": {
+          "type": "palette_name",
+          "required": true,
+          "description": "What to call it instead."
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "add_asset",
@@ -375,8 +648,14 @@
           "description": "The name to register it under. Defaults to the file's own name."
         }
       },
-      "returns": { "shape": "asset" },
-      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "asset"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "write_image",
@@ -385,7 +664,10 @@
       "summary": "Draw an image yourself and put it in the site.",
       "description": "For a mark, an icon, a divider, a diagram — a drawing you compose rather than a picture someone took. It is written as SVG, and once written it is an ordinary image in the site's list, referenced from a picture element like any other.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is written, and the refusal says which one. This is not a formality: the drawing is served from the site's own address, so anything executable in it would run as the site.\n\nThis is not a way to make a photograph, and it is not a way to put a file into the site — for either of those, tell the user what you need and let them add it.",
       "params": {
-        "name": { "type": "image_name", "required": true },
+        "name": {
+          "type": "image_name",
+          "required": true
+        },
         "svg": {
           "type": "string",
           "required": true,
@@ -400,8 +682,14 @@
           "description": "Redraw an image of this name that already exists. Without it, a name already in use is refused."
         }
       },
-      "returns": { "shape": "image" },
-      "errors": ["NOT_FOUND", "CONFLICT", "SCHEMA_INVALID"]
+      "returns": {
+        "shape": "image"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
     },
     {
       "op": "remove_asset",
@@ -409,14 +697,22 @@
       "effect": "write",
       "summary": "Remove a registered image or font from the site.",
       "params": {
-        "asset": { "type": "asset_id", "required": true },
+        "asset": {
+          "type": "asset_id",
+          "required": true
+        },
         "force": {
           "type": "boolean",
           "description": "Remove it even though something still uses it, leaving those references dangling."
         }
       },
-      "returns": { "shape": "change" },
-      "errors": ["NOT_FOUND", "REFERENTIAL_INTEGRITY"]
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "REFERENTIAL_INTEGRITY"
+      ]
     },
     {
       "op": "publish",
@@ -430,11 +726,15 @@
           "description": "A one-line note describing what changed."
         }
       },
-      "returns": { "shape": "publish_result" },
-      "errors": ["NOT_FOUND", "INTERNAL"]
+      "returns": {
+        "shape": "publish_result"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "INTERNAL"
+      ]
     }
   ],
-
   "groups": [
     {
       "group": "ReadSite",
@@ -449,6 +749,7 @@
         "list_assets",
         "get_asset",
         "get_config",
+        "get_palette",
         "list_behaviors",
         "status"
       ]
@@ -458,83 +759,152 @@
       "effect": "write",
       "title": "Changing what is on a page",
       "description": "Change any element on a page: its words, its pictures, how it is laid out, how it looks — and what is there at all. Read an element before you replace it; a replacement is the whole element, not a patch.",
-      "operations": ["set_l1"]
+      "operations": [
+        "set_l1"
+      ]
     },
     {
       "group": "ManagePages",
       "effect": "write",
       "title": "Adding and removing pages",
-      "operations": ["add_page", "update_page", "remove_page"]
+      "operations": [
+        "add_page",
+        "update_page",
+        "remove_page"
+      ]
     },
     {
       "group": "ManageComponents",
       "effect": "write",
       "title": "Putting components on a page",
       "description": "Add, set up and remove the working parts of a page — a form, a carousel. You choose from the kinds the site already has; making a new kind is a developer's job.",
-      "operations": ["add_component", "configure_component", "remove_component"]
+      "operations": [
+        "add_component",
+        "configure_component",
+        "remove_component"
+      ]
     },
     {
       "group": "WriteConfig",
       "effect": "write",
       "title": "Changing the site's settings",
-      "operations": ["set_config"]
+      "operations": [
+        "set_config"
+      ]
+    },
+    {
+      "group": "ManagePalette",
+      "effect": "write",
+      "title": "Changing the site's colors",
+      "description": "Change, add, rename or remove one of the site's named colors. A change here moves every place that uses that color at once — which is the whole reason the palette exists, and the reason to reach for these rather than repainting elements one at a time.",
+      "operations": [
+        "set_palette_color",
+        "add_palette_color",
+        "remove_palette_color",
+        "rename_palette_color"
+      ]
     },
     {
       "group": "ManageAssets",
       "effect": "write",
       "title": "Managing images and fonts",
       "description": "Register a new image or font from a file on the operator's machine, or remove one.",
-      "operations": ["add_asset", "remove_asset"]
+      "operations": [
+        "add_asset",
+        "remove_asset"
+      ]
     },
     {
       "group": "DrawImages",
       "effect": "write",
       "title": "Drawing images",
       "description": "Composing an image yourself and putting it in the site. Its own capability, and deliberately separate from managing the images that are already there: every other image in a site was chosen by a person, and this is the one that was not.",
-      "operations": ["write_image"]
+      "operations": [
+        "write_image"
+      ]
     },
     {
       "group": "Publish",
       "effect": "write",
       "title": "Publishing",
       "description": "Making the draft public. Its own capability, because its reach is the public internet rather than a private draft.",
-      "operations": ["publish"]
+      "operations": [
+        "publish"
+      ]
     }
   ],
-
   "sequences": [
     {
       "name": "Change something on a page",
-      "steps": ["describe_page", "get_l1", "set_l1"],
+      "steps": [
+        "describe_page",
+        "get_l1",
+        "set_l1"
+      ],
       "note": "The map is where an address comes from; you cannot compose one. Read the element before replacing it — you are sending the whole thing back, so anything you did not read is what you will lose."
     },
     {
       "name": "Add something to a page, or take something away",
-      "steps": ["describe_page", "get_l1", "set_l1"],
+      "steps": [
+        "describe_page",
+        "get_l1",
+        "set_l1"
+      ],
       "note": "Read the group it belongs in, put the new element among its children — or leave the unwanted one out — and write that group back. There is no separate way to insert or delete."
     },
     {
       "name": "Put a component on a page",
-      "steps": ["list_behaviors", "describe_page", "add_component"],
+      "steps": [
+        "list_behaviors",
+        "describe_page",
+        "add_component"
+      ],
       "note": "The catalog says what the component needs to be set up with; the page map says what it can mount into. If the page has no seam for it, add one with `set_l1` and read the map again."
     },
     {
       "name": "Change a group of settings",
-      "steps": ["describe_site", "set_config"],
+      "steps": [
+        "describe_site",
+        "set_config"
+      ],
       "note": "Read the group before you write in it. You are amending what is there, so knowing its shape is what stops you inventing a field name the site does not have."
     },
     {
       "name": "Draw an image and use it",
-      "steps": ["write_image", "describe_page", "set_l1"],
+      "steps": [
+        "write_image",
+        "describe_page",
+        "set_l1"
+      ],
       "note": "Writing the drawing only puts it in the site's images. Reference it from a picture element for it to appear on a page — `list_assets` shows the name to use."
     },
     {
       "name": "Publish deliberately",
-      "steps": ["status", "publish"],
+      "steps": [
+        "status",
+        "publish"
+      ],
       "note": "Say what would become public, get agreement, then publish."
+    },
+    {
+      "name": "Change a color across the whole site",
+      "steps": [
+        "get_palette",
+        "set_palette_color"
+      ],
+      "note": "Read the palette first: it says which colors exist and how many places use each, so you change the right one and know what you moved. Do not repaint elements individually to change a color the palette already names."
+    },
+    {
+      "name": "Remove a color that is still in use",
+      "steps": [
+        "get_palette",
+        "describe_page",
+        "set_l1",
+        "remove_palette_color"
+      ],
+      "note": "`remove_palette_color` refuses while anything uses it, and cannot be forced. Change those places to a different color first — the count from `get_palette` tells you how many there are — then remove it."
     }
   ],
-
   "absences": [
     {
       "name": "Writing HTML, CSS or JavaScript",
