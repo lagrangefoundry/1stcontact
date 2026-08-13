@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-138
 created_by: xgd
 created_at: '2026-08-12T17:57:42.571082+00:00'
-updated_at: '2026-08-13T01:23:10.169473+00:00'
+updated_at: '2026-08-13T21:12:13.685002+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -164,5 +164,11 @@ Two ways forward — your call:
 2. **Revert REQ-138's reconcile** (`xgd revert reconcile REQ-138 --hard`) to put it back at `ready_to_reconcile`, then I add the fix to it as a third commit and you re-promote. Right if you'd rather the whole live-preview story land as one intent.
 
 Nothing has been changed or committed.
+
+<!-- xgd-turn id="a193641c-c889-443e-9660-5919459dc959-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T21:12:13.531845+00:00" -->
+#### You
+please file a bug for this
 
 <!-- xgd-chat-end -->
