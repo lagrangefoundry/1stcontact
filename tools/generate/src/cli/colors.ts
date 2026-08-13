@@ -15,16 +15,21 @@
  *     one entry plus the reference's alpha axis. `xgd`'s `#2e86a3`, `#2e86a3a6`
  *     and `#2e86a355` are one colour at three opacities, and saying so is a
  *     statement of fact about the bytes.
- *  2. **Ramp grouping — mild, reviewable inference.** Colours sharing a hue
- *     family become one entry carrying steps, because that is what they already
- *     are: `xgd`'s neutrals run one hue at five lightnesses, its brand teal at
- *     four. Anything that clusters with nothing keeps its own entry — a slightly
- *     large palette is a fine outcome, a *wrong* one is not.
+ *  2. **Ramp fitting — mild, reviewable, and *measured*.** Colours sharing a hue
+ *     family become one entry plus a `shade` on each reference, when the mix can
+ *     actually reach them: `xgd`'s neutrals run one hue at five lightnesses, its
+ *     brand teal at two. A member the mix cannot reach keeps its own entry — a
+ *     slightly large palette is a fine outcome, a *wrong* one is not.
  *
- * Conversion is **pixel-identical or it is a bug** (DOC-23 §7): a reference
- * resolves to the entry's hex, so the assignment only ever renames a value it
- * has proved it can reproduce byte-for-byte. `--assign` verifies exactly that
- * before writing, and refuses to write if any colour fails to round-trip.
+ * **What REQ-137 changed about the guarantee.** REQ-114 promised byte-identity
+ * and could keep it, because a step stored the member's exact hex. A shade
+ * *computes* it, so a genuine ramp member lands within a bounded distance of
+ * where it was rather than exactly on it. The bound is
+ * {@link SHADE_FIT_TOLERANCE} and the fit is searched over the renderer's own
+ * {@link shadeHex}, so the drift measured here is the drift that will paint.
+ * Anything outside the bound is not approximated: it becomes its own entry and
+ * stays a byte-exact literal. `--assign` verifies both halves before writing,
+ * reports the drift it accepted, and refuses to write if anything exceeds it.
  *
  * Family names are derived from hue and chroma (`slate`, `teal`, `sand`), which
  * says what a family *is* without inventing a role it may not play. Where the
@@ -33,8 +38,8 @@
  * reproducible end to end.
  */
 import path from 'node:path'
-import type { L1Palette, L1PaletteEntry, L1PaletteRef } from '@1stcontact/site-schema'
-import { alphaByteHex, resolveL1Palette, validateSite } from '@1stcontact/site-schema'
+import type { L1Palette, L1PaletteRef } from '@1stcontact/site-schema'
+import { alphaByteHex, resolveL1Palette, shadeHex, validateSite } from '@1stcontact/site-schema'
 import { draftDir, listFilesRel, pathExists, readJson, writeJson, type StoreContext } from '../store'
 import type { GlobalOptions } from './commands'
 import { ctxOf } from './commands'
@@ -259,6 +264,20 @@ function familyName(h: number, chroma: number): string {
   return 'red'
 }
 
+/**
+ * How this colour would be filed: which of the three chroma classes it lands in
+ * and, when it has a hue worth grouping on, which family that hue names.
+ *
+ * The grouping decides membership on these two facts, so agreeing on them is
+ * what it means for two colours to be candidates for the same entry — see
+ * {@link fitShade}'s caller for why a fit has to preserve it.
+ */
+function classOf(rgb: string): string {
+  const { h, c } = toHcl(rgb)
+  if (c < NEUTRAL_CHROMA) return 'neutral'
+  return `${c >= MUTED_CHROMA ? 'vivid' : 'muted'}:${familyName(h, c)}`
+}
+
 interface Family {
   name: string
   /** Members, lightest first. */
@@ -283,7 +302,11 @@ export type FamilyNames = Readonly<Record<string, string>>
  * up as a small one. A vivid hue and a neutral tinted with it are two roles, so
  * `vivid` and `muted` never merge.
  */
-export function groupIntoFamilies(rgbs: string[], names: FamilyNames = {}): Family[] {
+export function groupIntoFamilies(
+  rgbs: string[],
+  names: FamilyNames = {},
+  used: Map<string, number> = new Map(),
+): Family[] {
   interface Bucket {
     neutral: boolean
     vivid: boolean
@@ -317,8 +340,9 @@ export function groupIntoFamilies(rgbs: string[], names: FamilyNames = {}): Fami
     }
   }
   // Disambiguate two families that landed on the same name (two distinct blues,
-  // say) so every entry name stays unique without inventing a role.
-  const used = new Map<string, number>()
+  // say) so every entry name stays unique without inventing a role. `used` is a
+  // parameter so the caller can carry it across the derivation's rounds
+  // (REQ-137) and a second-round blue becomes `blue-2` rather than colliding.
   return buckets.map((b) => {
     const derived = b.neutral
       ? 'neutral'
@@ -334,34 +358,152 @@ export function groupIntoFamilies(rgbs: string[], names: FamilyNames = {}): Fami
 }
 
 /**
- * A family's members → one palette entry. The base `value` is the family's most
- * *used* colour, so the common case reads as a bare `{ ref }`; the rest become
- * lightness-named steps, which is how a ramp belongs to a role rather than to
- * the vocabulary (DOC-23 §5.4).
+ * How far a fitted shade may land from the colour it replaces, as a maximum
+ * per-channel byte difference.
+ *
+ * **Measured, not chosen** (REQ-137 §3). Fitting every one of the 32 steps the
+ * two retrofitted sites stored puts 24 of them at 0–8 and the remaining 8 at
+ * 15–101, with nothing in between. The gap is where the two populations
+ * genuinely separate: below it are ramp members a mix reproduces invisibly,
+ * above it are colours more saturated than their base — which a mix cannot
+ * reach at all, because mixing toward black or white only removes chroma. 8/255
+ * on one channel is also under the ~2% a viewer can pick out on a flat fill.
  */
-function toEntry(family: Family, useCount: Map<string, number>): { entry: L1PaletteEntry; steps: Map<string, string | undefined> } {
-  const ranked = [...family.members].sort(
+export const SHADE_FIT_TOLERANCE = 8
+
+/** How finely the shade axis is searched. 2000 steps ≈ 0.001 of the axis. */
+const SHADE_SEARCH_STEPS = 2000
+
+/** The largest per-channel byte difference between two `#rrggbb` values. */
+function maxChannelDelta(a: string, b: string): number {
+  let worst = 0
+  for (let i = 1; i < 7; i += 2) {
+    worst = Math.max(worst, Math.abs(parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)))
+  }
+  return worst
+}
+
+/** A member fitted onto its base's shade axis. */
+interface ShadeFit {
+  /** Rounded to 3 decimals — a slider position, not a measurement. */
+  shade: number
+  /** The hex the shade actually resolves to. */
+  resolved: string
+  /** Max per-channel byte difference from the colour being replaced. */
+  delta: number
+}
+
+/**
+ * The shade of `base` that lands closest to `target`, by scanning the axis.
+ *
+ * A scan rather than a solve because the objective is not smooth: it is a
+ * maximum over three channels that have each been rounded to a byte, so it has
+ * flat regions and ties that a gradient method would sit down in. The axis is
+ * one bounded dimension, so scanning it is both exact enough and cheap.
+ *
+ * Crucially the scan calls {@link shadeHex} — the renderer's own function — so
+ * the returned `delta` is what the site will actually paint, not an estimate
+ * from a second copy of the colour maths.
+ */
+export function fitShade(base: string, target: string): ShadeFit {
+  let best: ShadeFit = { shade: 0, resolved: base, delta: maxChannelDelta(base, target) }
+  for (let i = -SHADE_SEARCH_STEPS; i <= SHADE_SEARCH_STEPS; i++) {
+    const shade = Math.round((i / SHADE_SEARCH_STEPS) * 1000) / 1000
+    const resolved = shadeHex(base, shade)
+    const delta = maxChannelDelta(resolved, target)
+    if (delta < best.delta) best = { shade, resolved, delta }
+    if (delta === 0) break
+  }
+  return best
+}
+
+/** One derived entry: a base colour, and the members reached as shades of it. */
+interface DerivedEntry {
+  name: string
+  value: string
+  /** `rgb → fit`, for every member other than the base. */
+  shades: Map<string, ShadeFit>
+}
+
+/**
+ * Fit every member of `family` onto `base`'s shade axis, splitting them into the
+ * ones it reaches and the ones it does not.
+ */
+function fitFamily(
+  base: string,
+  family: Family,
+): { shades: Map<string, ShadeFit>; unreached: string[] } {
+  const shades = new Map<string, ShadeFit>()
+  const unreached: string[] = []
+  for (const m of family.members) {
+    if (m.rgb === base) continue
+    const fit = fitShade(base, m.rgb)
+    // Two conditions, and the second is what keeps the retrofit re-runnable.
+    //
+    // A shade replaces the stored literal, so the *next* census reads the colour
+    // the shade paints, not the one it was fitted to. If that colour would be
+    // filed differently — the drift dropped it under the neutral floor, or out
+    // of the vivid class — the next run regroups it and the palette changes
+    // underneath a command that is supposed to be reproducible. Measured on
+    // `gigabytealchemy`: `#f1f5f9` fitted to slate paints `#f3f4f6`, chroma 3,
+    // which is a neutral; re-running filed it there and grew the palette.
+    //
+    // So a fit must land within the bound *and* stay in its own family. One that
+    // cannot is not a near-miss to be accepted — it is a colour the mix does not
+    // actually reach, and it gets its own entry like any other.
+    if (fit.delta <= SHADE_FIT_TOLERANCE && classOf(fit.resolved) === classOf(m.rgb)) shades.set(m.rgb, fit)
+    else unreached.push(m.rgb)
+  }
+  return { shades, unreached }
+}
+
+/**
+ * A family's members → one entry plus the members it can reach, and the members
+ * it cannot.
+ *
+ * **The base is the member that reaches the most others**, because that is the
+ * only choice the model actually permits. Mixing toward black or white removes
+ * chroma and never adds it, so a family's pale tint cannot reproduce its vivid
+ * member while the vivid member reproduces the tint easily — the relation is
+ * one-directional, and picking the wrong end shatters a genuine ramp into
+ * singleton entries. Reach is therefore the primary key; usage breaks ties, so
+ * where several members serve equally well the entry is still the colour the
+ * operator uses most and thinks of as *the* colour.
+ *
+ * Everything the base reaches becomes a `shade` on its references. Everything
+ * else is handed back as `unreached` — those are not shades of this colour, and
+ * saying so is more honest than approximating them (REQ-137 §3).
+ */
+function toEntry(
+  family: Family,
+  useCount: Map<string, number>,
+): { entry: DerivedEntry; unreached: string[] } {
+  const candidates = [...family.members].sort(
     (a, b) => (useCount.get(b.rgb) ?? 0) - (useCount.get(a.rgb) ?? 0) || b.l - a.l || a.rgb.localeCompare(b.rgb),
   )
-  const base = ranked[0]
-  const steps = new Map<string, string | undefined>([[base.rgb, undefined]])
-  const entrySteps: Record<string, string> = {}
-  const usedNames = new Set<string>()
-  for (const m of family.members) {
-    if (m.rgb === base.rgb) continue
-    // A step name is the member's lightness on a 0–1000 dark-to-light scale, so
-    // the name says where in the ramp it sits rather than encoding a position in
-    // the role's own name (`accentLight` / `accentDeep`, the legacy shape).
-    let name = String(Math.max(50, Math.min(950, Math.round((100 - m.l) / 10) * 100)))
-    while (usedNames.has(name)) name = String(Number(name) + 25)
-    usedNames.add(name)
-    entrySteps[name] = m.rgb
-    steps.set(m.rgb, name)
+  let best: { base: string; shades: Map<string, ShadeFit>; unreached: string[] } | undefined
+  for (const candidate of candidates) {
+    const fitted = fitFamily(candidate.rgb, family)
+    // `candidates` is already in preference order, so a strict improvement is
+    // the only reason to displace an earlier one — that is the tie-break.
+    if (!best || fitted.shades.size > best.shades.size) best = { base: candidate.rgb, ...fitted }
+    // Nothing can beat reaching everyone, and the search is O(n²) fits.
+    if (best.unreached.length === 0) break
   }
-  const entry: L1PaletteEntry = Object.keys(entrySteps).length
-    ? { value: base.rgb, steps: entrySteps }
-    : { value: base.rgb }
-  return { entry, steps }
+  const { base, shades, unreached } = best as { base: string; shades: Map<string, ShadeFit>; unreached: string[] }
+  return { entry: { name: family.name, value: base, shades }, unreached }
+}
+
+/** One RGB whose reference resolves to a different colour than the literal. */
+export interface ShadeDrift {
+  /** The colour as authored. */
+  rgb: string
+  /** The entry its reference names, and the shade of it that was fitted. */
+  ref: string
+  shade: number
+  /** What that shade resolves to, and how far off it is. */
+  resolved: string
+  delta: number
 }
 
 /** The derived palette plus the literal→reference map that realises it. */
@@ -369,35 +511,80 @@ export interface PaletteAssignment {
   palette: L1Palette
   /** Every colour literal in the site, mapped to the reference replacing it. */
   refs: Map<string, L1PaletteRef>
+  /**
+   * Every colour a fitted shade does not reproduce exactly, worst first. The
+   * conversion's honest cost, surfaced rather than assumed (REQ-137 §3) — empty
+   * when every reference is byte-exact.
+   */
+  drift: ShadeDrift[]
 }
 
 /**
  * Derive a palette from a census, and the literal→reference map that converts
  * the site onto it. Pure — it decides, it does not write.
+ *
+ * Grouping runs in **rounds** (REQ-137). Each round clusters what is left by hue
+ * and chroma class and fits each family onto its base's shade axis; whatever the
+ * mix cannot reach goes back into the next round rather than straight into
+ * singleton entries. That matters because the rejects are frequently a family of
+ * their own: `gigabytealchemy`'s vivid blues are not shades of its slate-blue,
+ * but `#50a2ff` *is* a shade of `#2b7fff`, and one more round finds that instead
+ * of filing two unrelated entries. It terminates because a round either places
+ * at least one colour or places them all as singletons.
  */
 export function derivePalette(census: ColorCensus, names: FamilyNames = {}): PaletteAssignment {
   const useCount = new Map<string, number>()
   for (const c of census.colors) useCount.set(c.rgb, (useCount.get(c.rgb) ?? 0) + c.count)
 
-  const families = groupIntoFamilies([...useCount.keys()], names)
   const palette: L1Palette = {}
-  const stepOf = new Map<string, { ref: string; step?: string }>()
-  for (const family of families) {
-    const { entry, steps } = toEntry(family, useCount)
-    palette[family.name] = entry
-    for (const [rgb, step] of steps) stepOf.set(rgb, step === undefined ? { ref: family.name } : { ref: family.name, step })
+  const refOf = new Map<string, L1PaletteRef>()
+  const drift: ShadeDrift[] = []
+  const usedNames = new Map<string, number>()
+
+  let pending = [...useCount.keys()]
+  while (pending.length) {
+    const rejects: string[] = []
+    for (const family of groupIntoFamilies(pending, names, usedNames)) {
+      const { entry, unreached } = toEntry(family, useCount)
+      palette[entry.name] = { value: entry.value }
+      refOf.set(entry.value, { ref: entry.name })
+      for (const [rgb, fit] of entry.shades) {
+        // A best fit at shade 0 means the axis does not distinguish this colour
+        // from the entry's own — `#fffefe` off `#ffffff`, one byte on two
+        // channels. Writing `shade: 0` would be a no-op key claiming otherwise,
+        // so the reference is the bare entry and the collapse is reported as
+        // the drift it is.
+        refOf.set(rgb, fit.shade === 0 ? { ref: entry.name } : { ref: entry.name, shade: fit.shade })
+        if (fit.delta > 0) {
+          drift.push({ rgb, ref: entry.name, shade: fit.shade, resolved: fit.resolved, delta: fit.delta })
+        }
+      }
+      rejects.push(...unreached)
+    }
+    // Every family places its base, so a round always shrinks what is pending
+    // and the loop is well-founded. If that ever stops being true the derivation
+    // has a bug: fail loudly rather than spin, or silently leave the colour
+    // unconverted.
+    if (rejects.length >= pending.length) {
+      throw new CommandError({
+        code: 'INTERNAL',
+        message: `Palette derivation made no progress on ${rejects.length} colour(s): ${rejects.join(', ')}.`,
+      })
+    }
+    pending = rejects
   }
 
   const refs = new Map<string, L1PaletteRef>()
   for (const c of census.colors) {
-    const target = stepOf.get(c.rgb)
+    const target = refOf.get(c.rgb)
     if (!target) continue
     // Alpha rides on the *reference*, never on the entry: an entry that carried
     // alpha would make one conceptual colour occupy N entries and stop being the
     // unit of change (DOC-23 §5.4). `alpha = byte/255` round-trips exactly.
     refs.set(c.literal, c.alpha === 255 ? { ...target } : { ...target, alpha: c.alpha / 255 })
   }
-  return { palette, refs }
+  drift.sort((a, b) => b.delta - a.delta || a.rgb.localeCompare(b.rgb))
+  return { palette, refs, drift }
 }
 
 /**
@@ -407,7 +594,7 @@ export function derivePalette(census: ColorCensus, names: FamilyNames = {}): Pal
  */
 function resolvedHex(ref: L1PaletteRef, palette: L1Palette): string {
   const entry = palette[ref.ref]
-  const base = ref.step === undefined ? entry.value : (entry.steps ?? {})[ref.step]
+  const base = ref.shade === undefined || ref.shade === 0 ? entry.value : shadeHex(entry.value, ref.shade)
   if (ref.alpha === undefined || ref.alpha >= 1) return base
   return `${base}${alphaByteHex(ref.alpha)}`
 }
@@ -433,6 +620,8 @@ export interface AssignResult {
   /** Distinct colours before, palette entries after. */
   before: number
   after: number
+  /** Every colour a fitted shade does not reproduce exactly, worst first. */
+  drift: ShadeDrift[]
   /** Files rewritten, site-relative (`pages/<name>.json`, plus `site.json`). */
   written: string[]
 }
@@ -441,13 +630,17 @@ export interface AssignResult {
  * Retrofit a site onto a derived palette, writing `site.palette` and rewriting
  * every page's colour literals as references.
  *
- * The write is gated on two proofs, because a palette that changes a pixel is a
- * conversion bug rather than a cost worth paying (DOC-23 §7):
+ * The write is gated on two proofs, because a palette that changes a pixel by
+ * more than the model's stated bound is a conversion bug rather than a cost
+ * worth paying (DOC-23 §7, REQ-137 §3):
  *
- *  - every reference resolves back to the exact literal it replaced, and
+ *  - every reference resolves back to within {@link SHADE_FIT_TOLERANCE} of the
+ *    literal it replaced — exactly, for every reference carrying no shade — and
  *  - the resulting definition still validates.
  *
- * Either failing aborts before anything touches disk.
+ * Either failing aborts before anything touches disk. What is *within* the bound
+ * is not swallowed: it comes back on {@link AssignResult.drift} so the cost is
+ * read rather than assumed.
  */
 export function cmdColorsAssign(
   slug: string,
@@ -456,21 +649,30 @@ export function cmdColorsAssign(
 ): AssignResult {
   const ctx = ctxOf(opts)
   const census = cmdColors(slug, opts)
-  const { palette, refs } = derivePalette(census, names)
+  const { palette, refs, drift } = derivePalette(census, names)
 
-  // Proof 1 — every reference reproduces its literal byte-for-byte.
-  const drift = [...refs.entries()].filter(([literal, ref]) => {
+  // Proof 1 — every reference reproduces its literal within the bound, and the
+  // colour an entry *is* reproduces exactly. Alpha is held to byte-identity on
+  // its own: it rides the reference untouched, so any difference there is a bug
+  // rather than an accepted approximation. Recomputed from the palette about to
+  // be written, so it tests the artefact rather than the intent.
+  const broken = [...refs.entries()].filter(([literal, ref]) => {
     const split = splitColor(literal)
-    const expected = split && split.alpha === 255 ? split.rgb : `${split?.rgb}${alphaByteHex((split?.alpha ?? 255) / 255)}`
-    return resolvedHex(ref, palette) !== expected
+    if (!split) return true
+    const resolved = splitColor(resolvedHex(ref, palette))
+    if (!resolved || resolved.alpha !== split.alpha) return true
+    const limit = palette[ref.ref].value === split.rgb ? 0 : SHADE_FIT_TOLERANCE
+    return maxChannelDelta(resolved.rgb, split.rgb) > limit
   })
-  if (drift.length) {
+  if (broken.length) {
     throw new CommandError({
       code: 'INTERNAL',
       message:
-        `Palette assignment for '${slug}' is not lossless — ${drift.length} colour(s) do not round-trip: ` +
-        drift.map(([literal]) => literal).join(', '),
-      hint: 'This is a conversion bug, not an accepted cost (DOC-23 §7). Nothing was written.',
+        `Palette assignment for '${slug}' exceeds the shade bound — ${broken.length} colour(s) do not round-trip: ` +
+        broken.map(([literal]) => literal).join(', '),
+      hint:
+        `A reference with no shade must be byte-exact, and a fitted shade must land within ${SHADE_FIT_TOLERANCE}/255 ` +
+        '(REQ-137 §3). This is a conversion bug, not an accepted cost. Nothing was written.',
     })
   }
 
@@ -501,6 +703,7 @@ export function cmdColorsAssign(
     palette,
     before: census.colors.length,
     after: Object.keys(palette).length,
+    drift,
     written: [...pages.map((p) => `pages/${p.rel}`), 'site.json'],
   }
 }
@@ -511,9 +714,14 @@ export function formatAssign(result: AssignResult): string {
       result.after === 1 ? 'y' : 'ies'
     }`,
   ]
-  for (const [name, entry] of Object.entries(result.palette)) {
-    const steps = entry.steps ? ` + ${Object.keys(entry.steps).length} step(s)` : ''
-    lines.push(`  ${name}: ${entry.value}${steps}`)
+  for (const [name, entry] of Object.entries(result.palette)) lines.push(`  ${name}: ${entry.value}`)
+  if (result.drift.length) {
+    lines.push(
+      `  ${result.drift.length} colour(s) re-expressed as a shade, within ${SHADE_FIT_TOLERANCE}/255 (REQ-137 §3):`,
+    )
+    for (const d of result.drift) {
+      lines.push(`    ${d.rgb} → ${d.ref} @ shade ${d.shade >= 0 ? '+' : ''}${d.shade} = ${d.resolved}  (Δ${d.delta})`)
+    }
   }
   lines.push(`  wrote ${result.written.length} file(s):`)
   for (const rel of result.written) lines.push(`    ${rel}`)

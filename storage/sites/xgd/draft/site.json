@@ -113,40 +113,25 @@
   "assets": [],
   "palette": {
     "neutral": {
-      "value": "#ffffff",
-      "steps": {
-        "950": "#000000"
-      }
+      "value": "#ffffff"
     },
     "text": {
-      "value": "#1f2937",
-      "steps": {
-        "200": "#d1d5db",
-        "400": "#9ca3af",
-        "500": "#6b7280",
-        "700": "#4b5563",
-        "900": "#111827"
-      }
+      "value": "#1f2937"
     },
     "primary": {
-      "value": "#2e86a3",
-      "steps": {
-        "500": "#4aafc9",
-        "700": "#236d87"
-      }
+      "value": "#2e86a3"
     },
     "accent": {
       "value": "#8b5c2a"
     },
     "surface": {
-      "value": "#fffef8",
-      "steps": {
-        "100": "#f5f4ec",
-        "125": "#e5e2d5"
-      }
+      "value": "#fffef8"
     },
     "surface-accent": {
       "value": "#eaf5f8"
+    },
+    "primary-bright": {
+      "value": "#4aafc9"
     }
   }
 }
