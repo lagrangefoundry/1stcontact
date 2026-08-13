@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: REQ-138 — copy modal parameter changes preview li
   the editing box'
 created_by: xgd
 created_at: '2026-08-13T01:05:58.103393+00:00'
-updated_at: '2026-08-13T01:06:13.458458+00:00'
+updated_at: '2026-08-13T01:10:44.730398+00:00'
 completed_at: null
-last_field_updated: kind
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: request-1ff09fab
@@ -89,7 +89,7 @@ fields:
       AC-1042, AC-1123) true by construction. Out of scope and stated as such: a run''s
       colour (no descriptor exists — deferred to REQ-133''s palette control) and image
       framing (REQ-136 changes the picture, not the words).'
-    story_uid: null
+    story_uid: story-3bf94bd4
   kind: reconciliation_plan
 ---
 
