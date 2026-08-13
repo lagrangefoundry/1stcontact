@@ -5,9 +5,9 @@ type: request
 title: 'Palette popup: display, pick and edit the site''s colors'
 created_by: xgd
 created_at: '2026-08-12T00:39:22.220242+00:00'
-updated_at: '2026-08-13T21:24:04.130082+00:00'
+updated_at: '2026-08-13T21:24:24.938352+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -280,3 +280,5 @@ ask what a change would move and no way to remove or rename at all.
 
 Operator request: an interface that displays the palette, lets a color be chosen from it, and
 lets the palette be edited. [[DOC-28]] §8 phase 2; unblocks [[REQ-135]] Phase B.
+
+-
