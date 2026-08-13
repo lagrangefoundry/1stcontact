@@ -6,10 +6,10 @@ title: Changing a typography parameter immediately restyles the words in the edi
   box, and writes nothing
 created_by: xgd
 created_at: '2026-08-13T01:08:41.637462+00:00'
-updated_at: '2026-08-13T01:08:41.637462+00:00'
+updated_at: '2026-08-13T01:22:08.996414+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
