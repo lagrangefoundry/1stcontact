@@ -6,9 +6,9 @@ title: A changed size previews at the scale the dialog dressed the run at, so a 
   above the editing range still visibly responds
 created_by: xgd
 created_at: '2026-08-13T01:08:59.887914+00:00'
-updated_at: '2026-08-13T01:22:08.692281+00:00'
+updated_at: '2026-08-13T01:38:13.764540+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-3bf94bd4
@@ -40,11 +40,6 @@ honest there.
 The legibility floor is kept: shrinking far below the run's own size saturates at
 the range's lower bound rather than becoming text the operator cannot read while
 typing into it. There is no upper bound, because the box scrolls.
-
-Degrading is quiet rather than total: a run whose opening size cannot be read,
-and a run that declares no size of its own, preview changes at the size asked for
-rather than not at all; and a size that is not a readable positive number leaves
-the box's previewed size as it was.
 
 ## Verification
 
