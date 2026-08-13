@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T21:41:21.228422+00:00'
+updated_at: '2026-08-13T21:48:52.021957+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -179,5 +179,15 @@ Two things surfaced while doing it:
 
 - **§11's decomposition was dangling.** It named REQ-23–REQ-26; those numbers were never allocated to this work and now belong to unrelated tickets (services-grid treatments, display fonts, list-content storage). My earlier note about retiring them was wrong — nothing needs retiring, the links needed repointing, and they now point at REQ-122/REQ-123.
 - **A real divergence, recorded as DOC-10 §8.1.** `TicketSessionArchive` homes a session as *one comment holding the whole session file*, CAS-updated — not a row per message. Good for resumability (the segment chain round-trips), but DOC-10's `?before=:ord` upward pagination doesn't map to rows; paging back is slicing a document. Fine at builder-conversation length. If it stops being fine, the fix is a message-granular archive behind the same port in the framework, not a bespoke schema here.
+
+<!-- xgd-turn id="7db75665-c3a6-485a-9510-1bba00676d7c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T21:48:51.763988+00:00" -->
+#### You
+**Tenant = account, site as a field.<-- correct**
+
+**The tenant is really the account that is the hard information barrier - the site is an object or a set of objects within that tenant. **
+
+**The system kb sits above all of this - it can take those parameters (it can require those parameters) but it will always run the same queries for everyone**
 
 <!-- xgd-chat-end -->
