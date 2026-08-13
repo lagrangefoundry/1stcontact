@@ -206,17 +206,28 @@ describe('the assistant control surface — declared once, granted narrowly, che
     }
 
     // And the enumerated write set itself, so an unlisted new write fails here.
+    //
+    // REQ-133 added the four palette writes, in `ManagePalette` so they can be
+    // granted or withheld as one. They widen the surface less than the count
+    // suggests — `set_config` could already reach a palette by merge — and two
+    // of them are things merge cannot express at all: removing a key and moving
+    // one. Both of those carry guards stated in terms of references, which is
+    // why they are operations rather than a broader `set_config`.
     expect([...writes].sort()).toEqual([
       'add_asset',
       'add_component',
       'add_page',
+      'add_palette_color',
       'configure_component',
       'publish',
       'remove_asset',
       'remove_component',
       'remove_page',
+      'remove_palette_color',
+      'rename_palette_color',
       'set_config',
       'set_l1',
+      'set_palette_color',
       'update_page',
       'write_image',
     ])

@@ -437,17 +437,28 @@ describe('REQ-126 — the surface documents itself', () => {
     // rather than a diff nobody read: `write_image` in particular is the first
     // operation whose bytes the model composes, and it is in `DrawImages` so it
     // can be withheld on its own.
+    //
+    // REQ-133 added the four palette writes, in `ManagePalette` so they can be
+    // withheld together. They widen the surface less than the count suggests:
+    // `set_config` could already reach a palette by merge, and two of the four
+    // are things merge cannot express at all (removing a key, moving one) —
+    // which is why they arrive with guards attached rather than as a broader
+    // version of a write that already existed.
     expect(writes).toEqual([
       'add_asset',
       'add_component',
       'add_page',
+      'add_palette_color',
       'configure_component',
       'publish',
       'remove_asset',
       'remove_component',
       'remove_page',
+      'remove_palette_color',
+      'rename_palette_color',
       'set_config',
       'set_l1',
+      'set_palette_color',
       'update_page',
       'write_image',
     ])

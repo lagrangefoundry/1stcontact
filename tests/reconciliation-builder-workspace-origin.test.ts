@@ -316,6 +316,20 @@ describe('story-e674c60a builder origin', () => {
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
 
+      // The palette (REQ-133), in both shapes. The successful read matters most
+      // here: a cacheable palette would let a browser go on showing colors the
+      // operator has already changed, and the popup redraws from exactly this
+      // response — so a stale one is a surface that reports the wrong counts
+      // for every rule it states.
+      { route: '/api/palette', url: '/api/palette?slug=alpha', ok: true },
+      { route: '/api/palette', url: '/api/palette', ok: false },
+      {
+        route: '/api/palette',
+        url: '/api/palette',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
       // The assistant (REQ-122). Its routes answer without ever reaching a
       // model — `/api/ai/roles` reports capability, and the two POSTs are
       // probed in their REJECTION shape, which needs no API key and is the
@@ -345,9 +359,12 @@ describe('story-e674c60a builder origin', () => {
       { route: '/preview/', url: '/preview/alpha/nosuchchannel/', ok: false },
       { route: '/preview/', url: '/preview/alpha/draft/no-such-asset.css', ok: false },
 
-      // The edit bridge, served type-stripped rather than off a tree.
+      // The edit bridge, served type-stripped rather than off a tree — and the
+      // shade arithmetic beside it (REQ-133), which travels the same route for
+      // the same reason: one implementation, read off disk every time.
       { route: '/framework/', url: '/framework/edit-client.js', ok: true },
       { route: '/framework/', url: '/framework/site-schema-edit.js', ok: true },
+      { route: '/framework/', url: '/framework/site-schema-shade.js', ok: true },
 
       // The builder's own browser source, and a miss inside that tree.
       { route: '/builder/', url: '/builder/main.js', ok: true },

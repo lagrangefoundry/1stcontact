@@ -7,7 +7,16 @@ import type { RenderChannel, StoreContext } from '../store'
 import { distDir } from '../store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
 import { cmdList, cmdPublish, ctxOf, InvalidDefinitionError, type GlobalOptions } from './commands'
-import { editAssetList, editCopyGet, editCopySet } from './edit'
+import {
+  editAssetList,
+  editCopyGet,
+  editCopySet,
+  editPaletteAdd,
+  editPaletteGet,
+  editPaletteRename,
+  editPaletteRm,
+  editPaletteSet,
+} from './edit'
 import { CommandError } from './errors'
 import { fsDraftStore, PreviewRenderer, type PreviewChannel } from './preview'
 import { NO_STORE, resolveStaticFile, sendFile } from './serve'
@@ -351,6 +360,67 @@ export async function handleBuilderRequest(
     }
 
     /**
+     * The palette popup's calls (REQ-133 / DOC-28 §8).
+     *
+     * Thin transports over the same `editPalette*` functions `1c palette`
+     * dispatches to — never a parallel implementation. That is what makes the
+     * guards real: the delete refusal and the rename collision check run inside
+     * those functions against the definition on disk, so a stale tab posting a
+     * count it read five minutes ago cannot talk the store into an orphaned
+     * reference (REQ-133 AC-7, AC-9).
+     *
+     * NO RE-RENDER HERE, for the same reason `/api/copy` no longer has one
+     * (REQ-119): `draft` and `edit` are rendered at request time, so the next
+     * fetch of either channel renders the definition this write just produced.
+     * There is no artifact left for a write to have to keep in step.
+     */
+    if (p === '/api/palette') {
+      if (req.method === 'GET') {
+        const slug = url.searchParams.get('slug')
+        if (!slug) {
+          json(res, 400, { error: 'slug is required' })
+          return
+        }
+        json(res, 200, editPaletteGet(slug, opts).data)
+        return
+      }
+
+      if (req.method === 'POST') {
+        const body = (await readJsonBody(req)) as Record<string, unknown>
+        const { slug, op, name, value, to } = body
+        if (typeof slug !== 'string' || typeof op !== 'string') {
+          json(res, 400, { error: 'slug and op are required' })
+          return
+        }
+        // The op vocabulary is CLOSED and checked here, so an unknown verb is a
+        // 400 rather than an exception rendered as a 500 — the client is a
+        // second producer of edits, and a malformed one deserves to be told so.
+        if (op === 'set' || op === 'add' || op === 'rm' || op === 'rename') {
+          if (typeof name !== 'string') {
+            json(res, 400, { error: 'name is required' })
+            return
+          }
+          const out =
+            op === 'set'
+              ? editPaletteSet(slug, name, value, opts)
+              : op === 'add'
+                ? editPaletteAdd(slug, name, value, opts)
+                : op === 'rm'
+                  ? editPaletteRm(slug, name, opts)
+                  : editPaletteRename(slug, name, String(to ?? ''), opts)
+          // The census travels back with every write, so the popup redraws from
+          // what the store now holds rather than from its own guess at it — a
+          // rename changes one name and no count, a delete changes the list, and
+          // the client needs neither to know which.
+          json(res, 200, { ...(out.data as Record<string, unknown>), ...(editPaletteGet(slug, opts).data as Record<string, unknown>) })
+          return
+        }
+        json(res, 400, { error: `unknown palette op '${op}'` })
+        return
+      }
+    }
+
+    /**
      * The modal's two calls (REQ-117 / DOC-28 §4).
      *
      * Both are thin transports over `editCopyGet` / `editCopySet` — the SAME
@@ -444,23 +514,27 @@ export async function handleBuilderRequest(
      * markup — the exact coupling `edit-client.ts` says it exists to prevent. So
      * the source is served, type-stripped, rather than reimplemented.
      *
-     * Type-stripping is enough here, and bundling is not needed, because BOTH
+     * Type-stripping is enough here, and bundling is not needed, because these
      * files' only runtime import is each other: `l1/edit.ts` imports nothing at
-     * runtime (its one import is `import type`), and `edit-client.ts` imports
-     * only `@1stcontact/site-schema`, rewritten below to the sibling URL. Two
-     * files, one rewrite — if that ever stops being true this route should
-     * become a real build step rather than growing a resolver.
+     * runtime (its one import is `import type`), `l1/shade.ts` imports nothing
+     * at all (REQ-133 — which is the whole reason it is its own file), and
+     * `edit-client.ts` imports only `@1stcontact/site-schema`, rewritten below
+     * to the sibling URL. One rewrite — if that ever stops being true this route
+     * should become a real build step rather than growing a resolver.
+     *
+     * `site-schema-shade` is the palette popup's half (REQ-133). Its slider is
+     * continuous, so it resolves a shade once per frame of a drag, and running
+     * anything but the renderer's own arithmetic there would preview colors the
+     * page does not produce.
      */
-    const fw = p.match(/^\/framework\/(edit-client|site-schema-edit)\.js$/)
+    const FRAMEWORK_SOURCES: Record<string, string> = {
+      'edit-client': 'packages/framework/src/l1/edit-client.ts',
+      'site-schema-edit': 'packages/site-schema/src/l1/edit.ts',
+      'site-schema-shade': 'packages/site-schema/src/l1/shade.ts',
+    }
+    const fw = p.match(/^\/framework\/(edit-client|site-schema-edit|site-schema-shade)\.js$/)
     if (fw) {
-      const js = transpileForBrowser(
-        repoFile(
-          ctx,
-          fw[1] === 'edit-client'
-            ? 'packages/framework/src/l1/edit-client.ts'
-            : 'packages/site-schema/src/l1/edit.ts',
-        ),
-      )
+      const js = transpileForBrowser(repoFile(ctx, FRAMEWORK_SOURCES[fw[1]]))
       res
         .writeHead(200, {
           'content-type': 'text/javascript; charset=utf-8',

@@ -18,8 +18,13 @@ export {
   // REQ-137 — the shade axis: an Oklab mix toward black or white.
   shadeHex,
   resolveL1Color,
+  // REQ-133 — the one structural walk, and the three questions asked on top of
+  // it. A census that does not visit exactly what a rename rewrites is a census
+  // of a different site.
+  mapL1PaletteRefs,
   resolveL1Palette,
   collectL1PaletteRefs,
+  renameL1PaletteRef,
 } from './palette'
 export type { L1Color, L1Palette, L1PaletteEntry, L1PaletteRef } from './palette'
 export { validateL1, checkPaletteRefs, isSafeUrl, L1_ENVELOPE } from './validate'

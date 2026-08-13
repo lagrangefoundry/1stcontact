@@ -131,6 +131,41 @@ export async function saveCopy(target, values, fetchImpl = fetch) {
 }
 
 /**
+ * The site's palette, with per-entry usage counts (REQ-133).
+ *
+ * The counts come back with the palette rather than being asked for separately,
+ * because the popup has no use for one without the other: every rule it states
+ * — what a color change repaints, what a rename rewrites, whether a delete is
+ * even offered — is stated in the count.
+ */
+export async function fetchPalette(slug, fetchImpl = fetch) {
+  return copyEnvelope(await fetchImpl(`/api/palette?slug=${encodeURIComponent(slug)}`))
+}
+
+/**
+ * Apply one palette operation (REQ-133 §5).
+ *
+ * `body` is `{slug, op, name, …}` where `op` is `set` | `add` | `rm` | `rename`.
+ * The reply carries the operation's own result AND the whole re-taken census, so
+ * the popup redraws from what the store now holds rather than from its own guess
+ * at what changed.
+ *
+ * Failures arrive as {@link CopyError} — the same envelope every structured edit
+ * refuses with, carrying the origin's `message`/`path`/`hint`. That matters more
+ * here than anywhere else on this surface: "used 45 times and cannot be deleted"
+ * is not an error string, it is the answer.
+ */
+export async function writePalette(body, fetchImpl = fetch) {
+  return copyEnvelope(
+    await fetchImpl('/api/palette', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  )
+}
+
+/**
  * Open a site's conversation (REQ-122).
  *
  * Answers with the stored transcript AND whether the assistant can take a turn,

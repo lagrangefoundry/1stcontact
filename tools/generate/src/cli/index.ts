@@ -29,6 +29,11 @@ import {
   editPageList,
   editPageRm,
   editPageUpdate,
+  editPaletteAdd,
+  editPaletteGet,
+  editPaletteRename,
+  editPaletteRm,
+  editPaletteSet,
   editStatus,
   cmdApplyGapFixes,
   parseConfigValue,
@@ -327,6 +332,20 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c config set <slug> <key> <value>
     <value> is JSON when it parses as JSON, else the literal string. An object MERGES into
     what is at <key>, so naming one setting leaves its siblings alone (REQ-130).
+  1c palette get <slug>
+    Every palette color with its usage count across the site — the document and every page,
+    at any shade. The count is what the delete and rename rules below are stated in.
+  1c palette set <slug> <name> <hex>
+  1c palette add <slug> <name> <hex>
+    A palette entry is ONE opaque color (#rgb or #rrggbb): its light↔dark family is generated
+    per-use by the reference's shade (REQ-137), and translucency is a reference axis too.
+    Changing an entry therefore repaints every use of it, at every shade, from one write.
+  1c palette rm <slug> <name>
+    Refused while anything references it, naming the count. Deleting a color in use means
+    deciding what each use becomes, and there is no correct default — so no --force.
+  1c palette rename <slug> <from> <to>
+    Moves the key AND rewrites every reference to it in one atomic write. Refused on a name
+    that already exists (that would merge two colors) or one that is not kebab-case.
   1c asset list <slug>
   1c asset get <slug> <assetName>
   1c asset add <slug> <file> [--as <name>]
@@ -1094,6 +1113,7 @@ export async function run(argv: string[]): Promise<void> {
 
     case 'page':
     case 'config':
+    case 'palette':
     case 'asset':
     case 'module':
     case 'behavior':
@@ -1202,6 +1222,26 @@ function dispatchEdit(
         return editPageRm(slug, requireArg(rest[2], 'pageId'), { ...global, force })
       default:
         throw unknownSub('page', sub)
+    }
+  }
+
+  // REQ-133 — the palette's own group. `config set` can write a palette but
+  // cannot remove or move a key, and it has nothing to say about the references
+  // both of those operations are defined in terms of.
+  if (command === 'palette') {
+    switch (sub) {
+      case 'get':
+        return editPaletteGet(slug, global)
+      case 'set':
+        return editPaletteSet(slug, requireArg(rest[2], 'name'), requireArg(rest[3], 'value'), global)
+      case 'add':
+        return editPaletteAdd(slug, requireArg(rest[2], 'name'), requireArg(rest[3], 'value'), global)
+      case 'rm':
+        return editPaletteRm(slug, requireArg(rest[2], 'name'), global)
+      case 'rename':
+        return editPaletteRename(slug, requireArg(rest[2], 'from'), requireArg(rest[3], 'to'), global)
+      default:
+        throw unknownSub('palette', sub)
     }
   }
 

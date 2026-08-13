@@ -4,14 +4,16 @@ import { createChatPanel } from './chat.js'
 import { APP_FONT, APP_ID, SITE_TAB, STORAGE_KEYS, TABS } from './config.js'
 import { mountEditor } from './editor.js'
 import { createDisplayPanel } from './panel.js'
+import { openPalettePopup } from './palette-popup.js'
 import {
+  colorsAction,
   createToolbar,
   modeToggleAction,
   openInNewTabAction,
   publishAction,
   siteSelectorAction,
 } from './toolbar.js'
-import { openChatSession, previewUrl } from './api.js'
+import { fetchPalette, openChatSession, previewUrl, writePalette } from './api.js'
 
 /**
  * Mount the builder shell (REQ-115 / DOC-28 §12 T1).
@@ -31,6 +33,16 @@ export function mountBuilder(root, options = {}) {
     storage,
     editBridge = null,
     chatTransport = null,
+    paletteTransport = null,
+    /**
+     * The renderer's own shade arithmetic (REQ-133). Supplied by `main.js` from
+     * `/framework/site-schema-shade.js` — the SAME module the render path
+     * resolves a reference through — so the popup's slider previews the color
+     * the page will paint rather than a second opinion about it. Absent, the
+     * slider reports the entry unshaded, which is honest: no arithmetic is
+     * better than the wrong arithmetic.
+     */
+    shadeHex = (hex) => hex,
   } = options
 
   const shell = mountShell(root, {
@@ -68,21 +80,50 @@ export function mountBuilder(root, options = {}) {
       id: 'view',
       label: 'View',
       src: ({ site }) => previewUrl(site, 'draft'),
-      actions: ['site-selector', 'mode-toggle', 'open-new-tab', 'publish'],
+      actions: ['site-selector', 'mode-toggle', 'colors', 'open-new-tab', 'publish'],
     })
     .registerMode({
       id: 'edit',
       label: 'Edit',
       src: ({ site }) => previewUrl(site, 'edit'),
-      actions: ['site-selector', 'mode-toggle', 'open-new-tab', 'publish'],
+      // `colors` in BOTH channels: a palette is a property of the site, not of
+      // one rendering of it, so there is no mode in which changing it is
+      // meaningless (REQ-133).
+      actions: ['site-selector', 'mode-toggle', 'colors', 'open-new-tab', 'publish'],
     })
     .restore()
+
+  /**
+   * The palette popup, in the one place that can host it (REQ-133).
+   *
+   * It mounts into `shell.element` for the reason the segment modal does: the
+   * `--shell-*` tokens and the app font are declared on `.shell`, and a dialog
+   * outside it resolves neither.
+   *
+   * The frame is reloaded after a write rather than re-rendered by the origin:
+   * `draft` and `edit` render at request time (REQ-119), so the bytes the next
+   * fetch produces already carry the new color and there is no artifact for a
+   * save to keep in step. A color change repaints the page, so the reload is
+   * not optional — a palette write that left a stale frame on screen would read
+   * as a write that did nothing.
+   */
+  const transport = paletteTransport ?? { get: fetchPalette, write: writePalette }
+  const openPalette = (slug, opts = {}) =>
+    openPalettePopup({
+      host: shell.element,
+      slug,
+      transport,
+      shadeHex,
+      onChanged: () => panel.frame.contentWindow?.location.reload(),
+      ...opts,
+    })
 
   const toolbar = createToolbar({
     panel,
     actions: [
       siteSelectorAction(sites, SITE_TAB.label),
       modeToggleAction(),
+      colorsAction(openPalette),
       openInNewTabAction(),
       publishAction(publish),
     ],
@@ -212,6 +253,17 @@ export function mountBuilder(root, options = {}) {
     panel,
     toolbar,
     chat,
+    /**
+     * The palette popup's second entry point (REQ-133 §1).
+     *
+     * The toolbar's Colors button is the first; this is the seam a color field
+     * opens it through to PICK a value — `openPalette(slug, {mode: 'pick',
+     * value})` resolves to a palette reference, or to null if the operator
+     * cancelled. Exposed here rather than imported directly by whatever needs it
+     * so that the host, the transport and the shade arithmetic are bound once,
+     * in the one module that knows all three.
+     */
+    openPalette,
     destroy() {
       panel.frame.removeEventListener('load', rebind)
       unbindSite()
