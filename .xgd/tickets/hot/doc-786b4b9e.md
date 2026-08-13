@@ -5,7 +5,7 @@ type: doc
 title: L1 Layout Substrate — the typed element tree
 created_by: xgd
 created_at: '2026-07-20T20:51:27.239081+00:00'
-updated_at: '2026-07-31T20:20:21.357830+00:00'
+updated_at: '2026-08-13T16:36:08.088615+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -160,11 +160,12 @@ fill every one.
 
 Two notes on shape:
 
-- **Steps belong to a role, not to the vocabulary.** The legacy 15-slot theme set
+- **A ramp belongs to a role, but it is not stored.** The legacy 15-slot theme set
   (`packages/site-schema/src/schema.ts` `paletteTokensSchema`) baked ramp positions
   into role names — `accentLight` / `accentMid` / `accentDeep`. §5.3 shows ramps are
-  real, so a role should be able to carry *steps* rather than the vocabulary
-  carrying three sibling names per hue.
+  real, so a role must carry its ramp rather than the vocabulary carrying three
+  sibling names per hue. **REQ-137 settles how**: the ramp is *generated* from the
+  entry, not stored beside it — see §5.6.
 - **Alpha is not a palette entry.** `l1Color` admits 8-digit hex, but a palette
   entry is an opaque colour and translucency stays a separate axis (§5.3's first
   structure). Otherwise one colour occupies N entries and the entry stops being the
@@ -177,8 +178,8 @@ Two notes on shape:
 L1 is literal-only today (`l1Color`: *"hex only. No `url()`, no `rgb(var(--…))`,
 no keywords"*), and therefore why **every colour in every site is currently an
 individually chosen literal**. The palette model generalises that closed set
-(arbitrary size, extensible names, steps) and connects it to L1, rather than
-introducing a parallel vocabulary.
+(arbitrary size, extensible names, a generated ramp per entry — §5.6) and connects
+it to L1, rather than introducing a parallel vocabulary.
 
 **It is deleted, not deprecated** (REQ-114 §4). Two colour systems is precisely
 the legacy-mode state the project forbids, and the legacy one is barely load-bearing:
@@ -192,6 +193,51 @@ and breakpoint tokens are a different axis family and stay.
 stops, shadows, borders, textures, link states, surface fills…). Widening it once
 propagates to all 12 — the change is small now and grows with every new colour
 axis and every folded site.
+
+### 5.6 An entry is one colour; its family is generated (REQ-137)
+
+§5.4's second note — alpha lives on the *reference*, because an entry carrying it
+would make one conceptual colour occupy N entries and the entry would stop being
+the unit of change — is a general argument, and **REQ-137 applies it one axis
+over.**
+
+Named *steps* were the mistake that note warns about. `primary`, `primary/500`
+and `primary/700` were three stored hexes that nothing kept related, so changing
+"the brand teal" repainted the references to the base and left the ones on its
+steps at the old colour. The entry was not the unit of change after all.
+
+So the light↔dark family is **not stored**. It is generated from the entry, and
+the position within it is carried by the reference:
+
+- **Entry**: `{ value: "#rrggbb" }` — exactly one colour, nothing else.
+- **Reference**: `{ ref, shade?, alpha? }`. `shade` is a **continuous** signed
+  scalar on `[-1, +1]`: negative mixes the entry toward black, positive toward
+  white, **in Oklab**. `0` or absent resolves to the entry's own hex, byte-exact.
+- `shade` and `alpha` are independent axes on the same reference, which is what
+  they are.
+
+**Oklab, because the axis is a slider.** An sRGB lerp bunches the perceived change
+at the dark end and HSL's `L` distorts hue-dependently; Oklab is built so equal
+numeric steps read as equal steps, which is the property a linear control needs.
+Changing the entry now moves the whole family by construction rather than by a
+convention someone has to maintain, and the operator never edits a shade directly
+— they pick an entry and move a slider.
+
+**A shade can only remove chroma.** Mixing toward black or white drives the Oklab
+`a`/`b` coordinates toward zero, so a colour *more saturated* than the entry is
+not a shade of it. This is load-bearing rather than a limitation: it is what makes
+the axis honest. When the retrofit meets such a colour it files it as **its own
+entry**, exact and unapproximated, instead of grouping it under a family it is not
+part of. On the two stored sites that split seven colours out — four of
+`gigabytealchemy`'s "blues" were never a ramp — and the palettes grew (`xgd` 6→7
+entries, `gigabytealchemy` 8→15) while becoming more truthful.
+
+**The cost, measured.** [[REQ-114]] AC3 guaranteed the palette retrofit was
+pixel-identical; re-expressing genuine ramp members as shades cannot be, so that
+guarantee is superseded by a bounded one: **≤8/255 per channel**, worst observed
+Δ5 on `xgd` and Δ8 on `gigabytealchemy`, with no colour added or lost. Everything
+outside the bound stays an exact literal in its own entry, so the bound is a
+statement about ramp members only.
 
 ## 6. Safe / robust / cross-browser by construction
 
