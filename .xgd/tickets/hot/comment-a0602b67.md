@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T21:36:30.455447+00:00'
+updated_at: '2026-08-13T21:41:21.228422+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,40 @@ I also recorded that this forces supersessions on DOC-10 §5.2, §6 and §8, and
 **Tenant grain** — site or account-with-site-as-a-field. Your answer 4 settled KB *visibility* but not the grain, and it's expensive to change after the schema lands. <-- explain? **Corpus boundary** — you said all 32 docs (not 27; it grew) go in for now, and I've taken that. Noted that several are XGD development-process docs rather than product knowledge, to revisit only if retrieval suffers. <-- lets build the feature and worry about the data once we have it
 
 By all means do housekeeping on the docs
+
+<!-- xgd-turn id="9f58b89f-f95c-4bcf-906e-4a52e55c14b2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T21:41:21.085653+00:00" -->
+#### Claude
+## Tenant grain — why it's expensive later
+
+`tenant_id` isn't a column the product sets; it's the axis the store is built on. In `components/ticketing/js/src/accessor.js`, `forTenant(id)` returns a handle that injects `WHERE tenant_id = ?` on every read and stamps it on every write, and `nextCounter` allocates human-readable ids per `(tenant, type)`. Tenancy is bound into the handle at construction and is never ambient — crossing tenants means explicitly building a second handle.
+
+So the grain decides three things simultaneously: what "cannot be seen across" means structurally, what a ticket's number is scoped to, and what a knowledge base can span. Changing it later isn't an `ALTER TABLE` — it renumbers tickets and re-partitions every KB.
+
+**Tenant = site.** Cross-site leakage becomes structurally impossible: not enforced by remembering a predicate, but by no handle existing that spans two sites. Strongest possible answer to "can the AI on site A see site B's conversation."
+
+The cost lands when one client has several sites. A KB can't span them, so brand voice, terminology and past decisions don't carry from their first site to their second — the AI starts cold each time, which is exactly the value the KB exists to provide. Account-level anything (billing, a session list, "how do we talk to this client") means querying N stores and merging outside the store's guarantees.
+
+**Tenant = account, site as a field.** Per-client knowledge accumulates in one place and every site that client owns benefits. Account-level views are ordinary queries. Matches how a client is billed and talked to.
+
+The cost: site isolation becomes a predicate every query must carry, and one that forgets it returns another site's content *belonging to the same client*. Less catastrophic than cross-client leakage, but now a discipline rather than a property.
+
+**My recommendation: account, site as a field** — provided the site predicate is bound once into the knowledge runtime's KB scope rather than passed per call. The boundary that matters commercially is between clients, and account-grain gives that structurally. Within one client, sites sharing knowledge is a feature.
+
+The one thing that flips it: if you'd ever sell to agencies — one account, many unrelated end-clients — account-grain puts the weak boundary exactly where the strong one is needed. That's a business-model question, not a technical one.
+
+## Corpus boundary — closed
+
+Recorded as decided rather than open: whole doc set in, no curation pass, revisit with retrieval data if it ever misbehaves. (33 docs now, not 32 — it grew again while we were talking.)
+
+## Docs housekeeping
+
+Revised DOC-10 in place rather than bolting on a supersession note, since its design intent survived intact and only the build-it-here assumption didn't. §5.2 (four tools → declared knowledge surface), §6 (reference-doc library → KB over the real documents, with why distillation was a workaround for retrieval that didn't exist), §8 (bespoke schema → ticket store). §10 became a short honest note on what the doc got right and what it didn't — the tell was that its original title was "Forward Compatibility (KMS)", and a section explaining how a hand-built thing will accommodate the real thing is a section arguing for waiting.
+
+Two things surfaced while doing it:
+
+- **§11's decomposition was dangling.** It named REQ-23–REQ-26; those numbers were never allocated to this work and now belong to unrelated tickets (services-grid treatments, display fonts, list-content storage). My earlier note about retiring them was wrong — nothing needs retiring, the links needed repointing, and they now point at REQ-122/REQ-123.
+- **A real divergence, recorded as DOC-10 §8.1.** `TicketSessionArchive` homes a session as *one comment holding the whole session file*, CAS-updated — not a row per message. Good for resumability (the segment chain round-trips), but DOC-10's `?before=:ord` upward pagination doesn't map to rows; paging back is slicing a document. Fine at builder-conversation length. If it stops being fine, the fix is a message-granular archive behind the same port in the framework, not a bespoke schema here.
 
 <!-- xgd-chat-end -->
