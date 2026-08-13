@@ -5,24 +5,21 @@ type: request
 title: 'Copy modal: parameter changes preview live in the editing box'
 created_by: xgd
 created_at: '2026-08-12T17:56:30.149389+00:00'
-updated_at: '2026-08-13T01:01:20.832052+00:00'
-completed_at: null
+updated_at: '2026-08-13T02:22:36.521570+00:00'
+completed_at: '2026-08-13T02:22:36.521570+00:00'
 last_field_updated: status
-status: reconciling
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   commits:
-  - working_sha: 1e8bd907701cec4235f07027b7c20f0854a24cc4
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history:
-    - 9a51098f52ca69e11726c6af4ae2d01222883c64
-    - 508cae5b6611972d422c0334cce59c308ba0b3be
-    - ebd789faa132a3973063e846f51081172a7269b8
+    main_sha: b2827d1e92f4a7c34a71b2e6df9f9560fc38f041
   version: 0.1.39
   story_points: 2
+  merged_at_commit: b2827d1e92f4a7c34a71b2e6df9f9560fc38f041
 ---
 
 ## What the user sees
