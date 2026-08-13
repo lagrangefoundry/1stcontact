@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T22:28:40.162831+00:00'
+updated_at: '2026-08-13T22:29:45.565176+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -215,5 +215,19 @@ Still open, and only worth a moment when you think about the business model: the
 <!-- xgd-chat role="user" ts="2026-08-13T22:28:39.985263+00:00" -->
 #### You
 One consequence I added that follows from what you said: a system-KB query being scope-invariant means identical query text yields identical results for every tenant, so its results are safely cacheable *across* tenants — the only KB where that's true. Which puts the cache boundary per-KB, not per-search: a search spanning the system KB and a tenant KB produces a ranked set that's tenant-specific even though half its inputs aren't. <-- can you add this note to the design docs and tickets in lagrange-framework please?
+
+<!-- xgd-turn id="d1d056a5-8bb5-4109-a48a-9a0bca3e5bcd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T22:29:45.381249+00:00" -->
+#### Claude
+Added in three places in `lagrange-framework`:
+
+**DOC-7 — new Amendment M, "A shipped KB takes the caller's scope and ignores it."** Placed in the 2026-08-07 amendment alongside F–L, which is where the shipped System KB is specified. It states the two reasons for requiring a scope that won't be used (one call signature, so no unscoped path exists to route a tenant query down by mistake; a complete audit trail), then the cache consequence — scope-invariance makes shipped results cacheable across tenants, no other KB has that property, so caching belongs per-KB rather than per-search. It ends on the failure mode: caching a merged shipped+tenant result keyed on query text alone would serve one tenant another's documents, which is the one thing the arrangement exists to make impossible.
+
+**REQ-99** — as a decision: no result cache inside the library, with the reasoning written down rather than left implicit. The library's job is to make the distinction legible (a shipped result set is derivable from `(kb, query)`; a scoped one isn't); the host does the caching.
+
+**REQ-100** — already carried it from the last turn, as the contract the JS bridge must pin while proving multi-source composition. Verified it's there.
+
+I left DOC-20 (the Toolbox) alone — the property is about corpus sources, not about the toolbox mechanism, so DOC-7 is its home and a cross-reference there would spread it thin.
 
 <!-- xgd-chat-end -->
