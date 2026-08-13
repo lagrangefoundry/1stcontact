@@ -5,7 +5,7 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-13T21:40:56.870265+00:00'
+updated_at: '2026-08-13T21:49:59.207833+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -95,58 +95,79 @@ FW-3 is not on this ticket's critical path: a shipped system KB declares
    development-process knowledge rather than product knowledge; whether that
    hurts retrieval is a question to answer with data once the feature exists, not
    a reason to hold up building it. Build the feature; look at the data after.
-4. **One shared system KB, plus per-tenant KBs.** Tenants read the system KB and
-   own KBs in their own stores. Multi-source composition and the guarantee that
-   a tenant search cannot cross into another tenant's documents are proven in
-   FW-2.
-5. **Index residency follows from FW-1.** A shipped corpus at this scale is a
+4. **The tenant is the account, and it is the hard information barrier.** A site
+   is an object — or a set of objects — inside a tenant, not a tenant itself.
+   See "Tenancy" below for what that buys and what it obliges.
+5. **The system KB sits above tenancy.** It is not inside anyone's store, it
+   takes the scope parameters, and it runs the same queries for everyone.
+6. **Per-tenant KBs live in the tenant's own store.** Multi-source composition —
+   the system KB plus a tenant KB in one runtime — and the guarantee that a
+   tenant search cannot cross into another tenant's documents are proven in FW-2.
+7. **Index residency follows from FW-1.** A shipped corpus at this scale is a
    bundle-sized artefact; the loader takes its source from the host, so R2 or
    Vectorize remains available without a library change when the corpus grows.
 
-## Open
+## Tenancy
 
-### Tenant grain — the one decision that must be made before the schema lands
+### The tenant is the account
 
 `tenant_id` is not a column the product sets; it is the axis the store is built
 on. `Accessor.forTenant(id)` returns a handle that injects `WHERE tenant_id = ?`
 on every read and stamps it on every write, and human-readable ids are allocated
-per `(tenant, type)`. So the tenant grain decides three things at once: what
-"cannot be seen across" means structurally, what a ticket's number is scoped to,
-and what a knowledge base can span.
+per `(tenant, type)`. Tenancy is bound into the handle at construction and is
+never ambient, so crossing tenants means explicitly building a second handle.
+That is why the grain is expensive to change later: it decides what "cannot be
+seen across" means structurally, what a ticket's number is scoped to, and what a
+knowledge base can span.
 
-**Tenant = site.** Cross-site leakage becomes structurally impossible — not
-enforced by remembering a predicate, but by there being no handle that spans two
-sites. That is the strongest possible answer to "can the AI working on site A see
-site B's conversation", and it is worth a lot for a product where clients are
-unrelated businesses.
+The account is where the hard barrier belongs, because that is the boundary
+between unrelated businesses. Below it, a site is an object inside the tenant —
+one client's several sites share a store, and therefore share accumulated
+knowledge: brand voice, terminology, decisions already made. That sharing is a
+feature. The alternative — a tenant per site — would throw it away and make the
+second site start as cold as the first.
 
-The cost lands when one client has several sites. A knowledge base cannot span
-them, so a brand's voice, terminology and past decisions do not carry from their
-first site to their second — the AI starts cold each time, which is precisely the
-value the KB exists to provide. Account-level anything (billing, a session list
-across sites, "how do we talk to this client") has to be assembled by querying N
-stores and merging outside the store's guarantees.
+### What that obliges
 
-**Tenant = account, site as a field.** Per-client knowledge accumulates in one
-place and every site that client owns benefits. Account-level views are ordinary
-queries. This matches how a client is actually billed and talked to.
+Site isolation is a **predicate**, not a property: `fields.site_id = ?`. Within a
+tenant, a query that omits it returns another site's content belonging to the
+same client. That is far less serious than cross-client leakage, but it is a
+discipline rather than a guarantee, so it must not be left to each call site.
 
-The cost is that site isolation becomes a predicate — `fields.site_id = ?` — that
-every query must carry, and a search that forgets it returns another site's
-content *belonging to the same client*. Less catastrophic than cross-client
-leakage, but now a discipline rather than a property.
+**Bind the site scope once**, into the knowledge runtime's KB scope and the
+session's store handle, so nothing downstream can forget it — the same shape the
+tenant scope already has, one level down.
 
-**Recommendation: tenant = account, site as a field**, provided the site
-predicate is bound once into the knowledge runtime's KB scope rather than passed
-per call. The strong isolation boundary that matters commercially is
-*between clients*, and account-grain still gives that structurally. Within one
-client, sites sharing knowledge is a feature, not a leak — and the alternative
-throws away the accumulated understanding that makes the second site faster than
-the first.
+### The system KB sits above all of it
 
-Worth confirming against the business model: if the product ever sells to
-agencies (one account, many unrelated end-clients), the account grain puts the
-weak boundary exactly where the strong one is needed, and site-grain wins instead.
+The system KB is not tenant data and does not live in any tenant's store. It is a
+release artefact: shipped corpus, shipped index, read-only, byte-identical
+everywhere. Nothing a tenant does can mutate it, and upgrading the software
+changes it for everyone at once rather than being a per-tenant migration.
+
+It still **takes** the scope parameters, and may require them — but it does not
+vary by them. That is deliberate on two counts:
+
+- **One call signature.** Every knowledge call carries the scope, so there is no
+  second, unscoped code path for a tenant-data query to be accidentally routed
+  down. The shipped source simply ignores the scope when selecting its corpus,
+  exactly as `store_for` already ignores it when a KB names a shipped source.
+- **The audit trail stays complete.** Who asked, in what scope, is recorded for
+  every query including the ones whose answer does not depend on it.
+
+A useful consequence: because a system-KB query is scope-invariant, identical
+query text yields identical results across every tenant, so results are safely
+cacheable *across* tenants. It is the only KB where that is true. The cache
+boundary is therefore per-KB, not per-search — a search that spans the system KB
+and a tenant KB produces a ranked set whose composition is tenant-specific.
+
+## Open
+
+- **Agency accounts.** The account grain assumes an account's sites belong to one
+  business. If the product ever sells to agencies — one account, many unrelated
+  end-clients — the weak boundary (the site predicate) would sit exactly where a
+  strong one is needed. Not a reason to change the grain now; a reason to know in
+  advance that agencies would need a tenant per end-client rather than per agency.
 
 ### Deferred
 
