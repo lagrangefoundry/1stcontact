@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-139
 created_by: xgd
 created_at: '2026-08-12T18:15:25.332755+00:00'
-updated_at: '2026-08-13T21:13:40.764370+00:00'
+updated_at: '2026-08-13T21:16:14.151931+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -94,5 +94,20 @@ What's left in scope when it resumes: the inert/lossy colour cases — in practi
 <!-- xgd-chat role="user" ts="2026-08-13T21:13:40.236551+00:00" -->
 #### You
 Can you add depends_on refs to the relevant tickets
+
+<!-- xgd-turn id="552615a7-2cdf-44cd-8387-852c251cc107-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T21:16:13.796260+00:00" -->
+#### Claude
+Done. I scanned every open request ticket for cross-references first; only one link was actually missing.
+
+**Changed:**
+- **REQ-139** → `depends_on: ['REQ-133', 'REQ-135']` — added REQ-135, since this ticket generalises that ticket's `L1FieldDescriptor.locked`. Body updated to name both.
+
+**Already correct, left alone:**
+- REQ-133 → `depends_on: ['REQ-137']` (palette popup waits on the shade model)
+- REQ-135 → `depends_on: ['REQ-133']`
+
+So the chain reads REQ-137 (`ready_to_reconcile`) → REQ-133 (`free_coding`) → REQ-139 (`draft`), with REQ-135 (`free_and_reconciled`) already satisfied. Nothing else references REQ-139, so no ticket needed a dependency *on* it.
 
 <!-- xgd-chat-end -->
