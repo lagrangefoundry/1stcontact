@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T21:51:25.309152+00:00'
+updated_at: '2026-08-13T22:28:40.162831+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -209,5 +209,11 @@ One consequence I added that follows from what you said: a system-KB query being
 **Framework REQ-100** — pinned as a contract for the JS bridge to prove, since it's a framework-level property and would otherwise have been rediscovered on the 1stcontact side.
 
 Still open, and only worth a moment when you think about the business model: the account grain assumes an account's sites belong to one business. Agencies would break that — one account, many unrelated end-clients puts the weak boundary where the strong one is needed. Not a reason to change anything now; it's recorded so that if agencies ever appear, the answer is a tenant per end-client rather than per agency.
+
+<!-- xgd-turn id="d1d056a5-8bb5-4109-a48a-9a0bca3e5bcd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T22:28:39.985263+00:00" -->
+#### You
+One consequence I added that follows from what you said: a system-KB query being scope-invariant means identical query text yields identical results for every tenant, so its results are safely cacheable *across* tenants — the only KB where that's true. Which puts the cache boundary per-KB, not per-search: a search spanning the system KB and a tenant KB produces a ranked set that's tenant-specific even though half its inputs aren't. <-- can you add this note to the design docs and tickets in lagrange-framework please?
 
 <!-- xgd-chat-end -->
