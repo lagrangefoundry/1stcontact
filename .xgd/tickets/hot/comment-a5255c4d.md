@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-138
 created_by: xgd
 created_at: '2026-08-12T17:57:42.571082+00:00'
-updated_at: '2026-08-13T01:07:16.449194+00:00'
+updated_at: '2026-08-13T01:07:47.010345+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,6 +98,12 @@ Capitalization is not previewing
 <!-- xgd-turn id="c05eecc2-665f-48ad-8c0c-5184961dedd0-user" -->
 
 <!-- xgd-chat role="user" ts="2026-08-13T01:07:16.212671+00:00" -->
+#### You
+Capitalization is not previewing
+
+<!-- xgd-turn id="c2cfdb3f-584e-4724-af56-b14ba4fa276c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-13T01:07:46.828812+00:00" -->
 #### You
 Capitalization is not previewing
 
