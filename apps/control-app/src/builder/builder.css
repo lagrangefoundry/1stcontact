@@ -281,6 +281,24 @@ body {
 .builder-modal__box .fields-control {
   text-transform: inherit;
   letter-spacing: inherit;
+
+  /*
+   * THE GLYPHS' OWN PAINT (BUG-34).
+   *
+   * A run whose colour lives in a `gradientFill` is painted by its OWN
+   * background clipped to the text, so the paint has to land on the element that
+   * draws the words — the control — and not on the box: `background-image` does
+   * not inherit, and the box's own background is the mirrored backdrop, which is
+   * a different thing sitting behind the copy.
+   *
+   * INERT WITHOUT A PAGE VALUE. Each fallback is the property's initial value,
+   * so a run with no glyph fill (every run in `storage/` but one) computes
+   * exactly what it computed before these three lines existed.
+   */
+  background-image: var(--preview-text-image, none);
+  -webkit-background-clip: var(--preview-text-clip, border-box);
+  background-clip: var(--preview-text-clip, border-box);
+  -webkit-text-fill-color: var(--preview-text-fill, currentColor);
 }
 
 .builder-modal__box:focus-within {

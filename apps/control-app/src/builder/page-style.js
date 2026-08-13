@@ -201,6 +201,43 @@ function pxOf(value) {
 }
 
 /**
+ * The paint a run carries on ITSELF, when its own background draws the glyphs.
+ *
+ * THE ONE BACKGROUND THAT IS NOT A BACKDROP (BUG-34). `gradientFill` is compiled
+ * by `render.ts` the way every browser expects — a `background-image` on the run
+ * itself, `background-clip: text`, and a transparent fill colour, so the glyphs
+ * ARE the background showing through their own shape. Both halves are read here,
+ * and read separately they are each individually invisible: the colour computes
+ * `rgba(0, 0, 0, 0)`, and {@link paintedBehind} starts one past the element
+ * because its question is what sits *behind* the copy. The result was a box that
+ * reproduced a transparent foreground over the backdrop and showed nothing at
+ * all — observed on `gigabytealchemy/home`'s wordmark.
+ *
+ * So the clip is what makes the element's own background readable as glyph paint
+ * rather than as a surface, and it is the condition tested. A run without one is
+ * untouched: `null` here means no variable is written, and the stylesheet's
+ * defaults leave the control exactly as it was.
+ */
+function readGlyphFill(element, cs) {
+  const clip = (
+    cs.getPropertyValue?.('background-clip') ||
+    cs.getPropertyValue?.('-webkit-background-clip') ||
+    ''
+  ).trim()
+  if (clip !== 'text') return null
+  const image = cs.backgroundImage
+  if (!image || image === 'none') return null
+  const fill = (cs.getPropertyValue?.('-webkit-text-fill-color') || '').trim()
+  return {
+    // Absolutised for the same reason every other copied layer is: the render is
+    // served under a different base URL, so a relative handle means nothing here.
+    ...withAbsoluteUrls({ '--preview-text-image': image }, element.ownerDocument),
+    '--preview-text-clip': 'text',
+    '--preview-text-fill': fill || 'transparent',
+  }
+}
+
+/**
  * The typography of one rendered element, as CSS custom properties.
  *
  * Returned as a property map rather than applied here so the caller decides
@@ -222,7 +259,14 @@ export function readTypography(element) {
   put('--preview-letter-spacing', cs.letterSpacing)
   put('--preview-line-height', cs.lineHeight)
   put('--preview-text-transform', cs.textTransform !== 'none' ? cs.textTransform : '')
-  put('--preview-color', cs.color)
+  // A FOREGROUND THAT PAINTS NOTHING IS NOT A FOREGROUND (BUG-34). Copying it
+  // across is faithful and useless: the operator would be typing into text they
+  // cannot see. Withholding it leaves `--fields-fg` on the chrome's own colour,
+  // which is the same fallback every segment with no preview already gets — and
+  // it is the backstop for any future axis that paints its glyphs some other
+  // way, not only for the one below.
+  if (!isTransparent(cs.color)) put('--preview-color', cs.color)
+  Object.assign(vars, readGlyphFill(element, cs) ?? {})
   // Size is the one value that is transformed rather than copied — see the
   // range constants above. It is still *derived* from the page, so a headline
   // still previews larger than body copy; it just stops short of the extremes.
