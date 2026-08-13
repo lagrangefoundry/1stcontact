@@ -63,6 +63,17 @@ function channelDelta(a: string, b: string): number {
 const readSite = (slug: string): { palette?: L1Palette } =>
   JSON.parse(readFileSync(path.join(SITES, slug, 'draft', 'site.json'), 'utf8'))
 
+/**
+ * Every stored site, by slug. Directories only — the store is a directory per
+ * slug, and enumerating the raw entries picks up whatever else the filesystem
+ * has left lying about (`.DS_Store` on any checkout Finder has visited). A test
+ * that passes or fails on that is not evidence of anything.
+ */
+const storedSlugs = (): string[] =>
+  readdirSync(SITES, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+
 function readPages(slug: string): unknown[] {
   const dir = path.join(SITES, slug, 'draft', 'pages')
   return readdirSync(dir)
@@ -91,9 +102,11 @@ describe('REQ-137 AC1 — a palette entry holds a single colour and `steps` is g
   it('test_UAT_FC_REQ-137_no_stored_site_carries_a_step', () => {
     // The claim is about the store, not only the schema: no `site.json` on disk
     // declares a step, and no page reference names one.
-    for (const slug of readdirSync(SITES)) {
+    let entriesSeen = 0
+    for (const slug of storedSlugs()) {
       const sitePath = path.join(SITES, slug, 'draft', 'site.json')
       for (const entry of Object.values(readSite(slug).palette ?? {})) {
+        entriesSeen++
         expect(Object.keys(entry), `${sitePath} entry carries more than a value`).toEqual(['value'])
       }
       for (const page of readPages(slug)) {
@@ -104,6 +117,10 @@ describe('REQ-137 AC1 — a palette entry holds a single colour and `steps` is g
         }
       }
     }
+    // The loop above is a "nothing on disk violates this" claim, which an empty
+    // store satisfies for free. `xgd` and `gigabytealchemy` carry the only two
+    // stored palettes, at 7 and 15 entries.
+    expect(entriesSeen, 'no stored palette entry was examined at all').toBe(22)
   })
 })
 
