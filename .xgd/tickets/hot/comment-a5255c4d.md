@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-138
 created_by: xgd
 created_at: '2026-08-12T17:57:42.571082+00:00'
-updated_at: '2026-08-13T01:18:07.749770+00:00'
+updated_at: '2026-08-13T01:23:10.169473+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,57 @@ Capitalization is not previewing
 <!-- xgd-chat role="user" ts="2026-08-13T01:18:07.588379+00:00" -->
 #### You
 Capitalization is not previewing
+
+<!-- xgd-turn id="a470de58-07fe-4056-98a1-f77d1be69477-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T01:23:10.018872+00:00" -->
+#### Claude
+I'll investigate why capitalisation specifically isn't previewing.
+
+Found it. Let me confirm the mechanism in a real browser rather than assume.
+
+Diagnosis confirmed empirically. Now verifying the fix:
+
+Found it, and proved it in a real browser rather than reasoning about it. But there's a routing problem I need your call on before I write anything.
+
+## The bug
+
+Chromium's UA stylesheet sets `text-transform: none` on form controls, and that beats inheritance. The editing box carries the page's capitalisation, but the words are in an `<input>`/`<textarea>`, so it never arrives:
+
+```
+input    {"tt":"none","ls":"normal","fs":"italic"}
+textarea {"tt":"none","ls":"normal","fs":"italic"}
+span     {"tt":"uppercase","ls":"4px","fs":"italic"}   ← same parent
+```
+
+That also explains why only capitalisation is broken. `fields.css` has `.fields-control { font: inherit }`, and the `font` shorthand carries family, size, weight and style — which is exactly the four that work. It does **not** carry `text-transform`, and nothing else does either.
+
+So the REQ-138 wiring is fine: `--preview-text-transform` *is* being set on the box on every change. It just has no route to the words.
+
+## The fix, verified
+
+```css
+.builder-modal__box .fields-control {
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+```
+
+Re-ran the probe with that rule — `input` and `textarea` both come back `uppercase` / `4px`.
+
+**`letter-spacing` is the same bug and you haven't reported it, so flagging rather than assuming.** The box declares `letter-spacing: var(--preview-letter-spacing, normal)` as part of REQ-135's "mirror the page's typography", and it has never reached the words either — same UA reset, same block, one line apart. It isn't an editable parameter, so it shows up as the box quietly mis-mirroring a tracked headline rather than as a dead control. I'd fix both; fixing only capitalisation leaves a known-false claim in the same rule.
+
+## Why I stopped
+
+REQ-138 is at **`status=reconciling`** with a live `reconcile-REQ-138` worktree — it's in the pipeline, and its `fields.commits` is fixed for that run. I can't add a commit to it, and FREE-CODING.md's own table calls this row "not applicable — ticket is in or past the reconcile pipeline". I also won't open a new ticket without you saying so.
+
+(Worth knowing separately: no `xgd reconcile` process is currently running and the ticket last moved at 01:01 UTC, so that reconcile looks stalled rather than in progress.)
+
+Two ways forward — your call:
+
+1. **"File a separate ticket"** — I open a bug for the UA-reset defect and free-code it normally. This is what I'd recommend; it's a distinct root cause from REQ-138 (a CSS inheritance gap in REQ-135's box, not a gap in REQ-138's subscription), so it reconciles cleanly on its own.
+2. **Revert REQ-138's reconcile** (`xgd revert reconcile REQ-138 --hard`) to put it back at `ready_to_reconcile`, then I add the fix to it as a third commit and you re-promote. Right if you'd rather the whole live-preview story land as one intent.
+
+Nothing has been changed or committed.
 
 <!-- xgd-chat-end -->
