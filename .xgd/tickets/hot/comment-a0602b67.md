@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T21:48:52.021957+00:00'
+updated_at: '2026-08-13T21:51:25.309152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -189,5 +189,25 @@ Two things surfaced while doing it:
 **The tenant is really the account that is the hard information barrier - the site is an object or a set of objects within that tenant. **
 
 **The system kb sits above all of this - it can take those parameters (it can require those parameters) but it will always run the same queries for everyone**
+
+<!-- xgd-turn id="7db75665-c3a6-485a-9510-1bba00676d7c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-13T21:51:24.917605+00:00" -->
+#### Claude
+Both recorded. Let me get them into the ticket precisely.
+
+Recorded across all three places.
+
+**REQ-123** — tenant grain moved out of Open into a decided *Tenancy* section: tenant = account = the hard barrier, bound into the store handle at construction so no handle spans two accounts; site is an object inside it. With the obligation stated plainly — site isolation is a *predicate*, not a property, so it gets bound once into the session's store handle and the KB scope, never left to call sites. The two scopes are the same shape at different strengths, and that difference is the point: sites belonging to one client *should* share accumulated knowledge.
+
+**The system KB above tenancy** is now its own decision, and the "requires the parameters but ignores them" property carries a reason worth having written down: it means there is exactly one call signature, so no second unscoped path exists for a tenant-data query to be routed down by mistake, and the audit trail stays complete for queries whose answer doesn't depend on who asked.
+
+One consequence I added that follows from what you said: a system-KB query being scope-invariant means identical query text yields identical results for every tenant, so its results are safely cacheable *across* tenants — the only KB where that's true. Which puts the cache boundary per-KB, not per-search: a search spanning the system KB and a tenant KB produces a ranked set that's tenant-specific even though half its inputs aren't.
+
+**DOC-10** — §4.1 now states the tenancy model; §6.2.1 states the system KB sitting above it. The §1 non-commitment bullet flipped from "the tenant grain is undecided" to the honest version: nothing below the tenant boundary is structurally isolated.
+
+**Framework REQ-100** — pinned as a contract for the JS bridge to prove, since it's a framework-level property and would otherwise have been rediscovered on the 1stcontact side.
+
+Still open, and only worth a moment when you think about the business model: the account grain assumes an account's sites belong to one business. Agencies would break that — one account, many unrelated end-clients puts the weak boundary where the strong one is needed. Not a reason to change anything now; it's recorded so that if agencies ever appear, the answer is a tenant per end-client rather than per agency.
 
 <!-- xgd-chat-end -->
