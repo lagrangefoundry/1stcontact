@@ -5,14 +5,16 @@ type: request
 title: 'Editor: lock controls that cannot express what the element holds'
 created_by: xgd
 created_at: '2026-08-12T18:13:37.478932+00:00'
-updated_at: '2026-08-12T18:19:51.664387+00:00'
+updated_at: '2026-08-13T16:30:57.811325+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: depends_on
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  depends_on:
+  - REQ-133
 ---
 
 ## What changed
@@ -54,8 +56,6 @@ argument for `locked` over dropping the field.
 ## Measured against the real folds
 
 - `gradientFill` — 1 run, and it is exactly the Gigabyte Alchemy title.
-- Varying responsive size tracks — 8 runs on `gigabytealchemy/home`, 14 on
-  `xgd/home`, 7 on `xgd/whitepapers`.
 
 ## Beyond the derivation
 
@@ -67,18 +67,25 @@ argument for `locked` over dropping the field.
    nothing styles it — neither its stylesheet nor `builder.css`. The existing
    italic lock is invisible today.
 
-## Open — awaiting operator decision
+## Decisions
 
-- **Text colour does not exist yet.** There is no colour control on any segment;
-  colour waits on REQ-133's palette control. The gradient gate would ship before
-  the control it guards. Right order, but not visible until colour lands.
-- **Responsive font size: lock, or keep and relabel?** Today the control shows
-  the widest keyframe and `scaleTrack` scales the WHOLE track proportionally, so
-  the mobile and desktop values both move and the fold's measured shape survives.
-  That is arguably the honest generalisation of "make it bigger" rather than a
-  loss — but the displayed "72" is a half-truth at 375px. Locking withdraws size
-  editing from every heading on both real sites. Leaning **keep and relabel**,
-  locking only the genuinely non-generalisable cases.
+- **Responsive font size is out of scope.** Operator call, 2026-08-13. Today the
+  size control shows the widest keyframe and `scaleTrack` scales the *whole*
+  track proportionally, so the fold's measured shape survives — that is the
+  honest generalisation of "make it bigger", not a loss. Locking it would
+  withdraw size editing from every heading on both real sites. It stays editable
+  and is not treated as a faithfulness break. (Measured, for the record: varying
+  size tracks appear on 8 runs of `gigabytealchemy/home`, 14 of `xgd/home`, 7 of
+  `xgd/whitepapers`.)
+- **Blocked on colour controls.** Operator call, 2026-08-13: implement this after
+  the colour control lands. There is no colour control on any segment today —
+  colour waits on [[REQ-133]] (palette popup), which itself waits on [[REQ-137]].
+  Building the gradient gate first would ship a guard before the thing it guards,
+  with nothing visible to show for it. `depends_on: REQ-133`.
+
+Scope therefore narrows to the **inert/lossy colour cases** — chiefly
+`gradientFill` — plus the two presentation gaps above (visible reason, visible
+locked styling), and is picked up once REQ-133 is in.
 
 ## Test plan
 
