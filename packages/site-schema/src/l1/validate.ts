@@ -622,11 +622,15 @@ export interface ValidateL1Options {
 }
 
 /**
- * REQ-114 — every palette reference in `input` must name an entry (and, when it
- * carries one, a step) the palette actually declares. This is the *whole* of the
- * "no render-time fallback" guarantee: {@link resolveL1Color} throws on a miss,
- * so the only thing standing between a dangling reference and a crashed render
- * is this check running first.
+ * REQ-114 — every palette reference in `input` must name an entry the palette
+ * actually declares. This is the *whole* of the "no render-time fallback"
+ * guarantee: {@link resolveL1Color} throws on a miss, so the only thing standing
+ * between a dangling reference and a crashed render is this check running first.
+ *
+ * Naming the entry is now the whole check (REQ-137). A `shade` cannot dangle the
+ * way a step could — it resolves against the entry's own colour for any value
+ * the schema admits, and `[-1, +1]` is enforced by the schema parse that runs
+ * before this.
  */
 export function checkPaletteRefs(
   input: unknown,
@@ -635,22 +639,12 @@ export function checkPaletteRefs(
   errors: ValidationError[],
 ): void {
   for (const { path, ref } of collectL1PaletteRefs(input)) {
-    const entry = palette?.[ref.ref]
-    if (!entry) {
+    if (!palette?.[ref.ref]) {
       errors.push({
         path: `${basePath}${path}/ref`,
         message: palette
           ? `palette reference '${ref.ref}' is not declared by the palette [${Object.keys(palette).join(', ')}]`
           : `palette reference '${ref.ref}' cannot resolve: the site declares no palette`,
-      })
-      continue
-    }
-    if (ref.step !== undefined && entry.steps?.[ref.step] === undefined) {
-      errors.push({
-        path: `${basePath}${path}/step`,
-        message: `palette entry '${ref.ref}' has no step '${ref.step}' (declares [${Object.keys(
-          entry.steps ?? {},
-        ).join(', ')}])`,
       })
     }
   }

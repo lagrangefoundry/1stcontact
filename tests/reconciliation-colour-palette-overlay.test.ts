@@ -58,11 +58,14 @@ const WIDTHS = [320, 1280]
 
 /**
  * The palette under test. Free-form kebab-case names nowhere in DOC-23 §5.4's
- * starting vocabulary, one entry carrying a ramp as named steps, every entry
- * value opaque.
+ * starting vocabulary, every entry one opaque colour.
+ *
+ * REQ-137 deleted the named `steps` this fixture used to carry: an entry's
+ * light↔dark family is generated from the reference's `shade` instead, so a
+ * ramp is no longer something an entry *holds*.
  */
 const PALETTE: L1Palette = {
-  'brand-teal': { value: '#2e86a3', steps: { '300': '#4aafc9', '700': '#236d87' } },
+  'brand-teal': { value: '#2e86a3' },
   'surface-accent': { value: '#101820' },
   ink: { value: '#1f2937' },
   rule: { value: '#c0392b' },
@@ -109,7 +112,7 @@ describe('AC-928 a site declares an arbitrary-size palette; every colour axis ta
     // A page whose colour axes are spread across the substrate — the document's
     // own page colours, a text run, a box surface, a border, a shadow, a gradient
     // stop, a texture, an interaction state and a focus ring — mixing hex
-    // literals with references to entries and to a step of an entry. Each axis
+    // literals with references to entries and to a shade of an entry. Each axis
     // gets a DISTINCT colour, so finding it in the emitted CSS proves *that*
     // axis accepted the form it was authored in, rather than one favoured axis
     // standing in for the rest.
@@ -135,7 +138,7 @@ describe('AC-928 a site declares an arbitrary-size palette; every colour axis ta
             kind: 'text',
             text: 'Overlay',
             axes: {
-              color: { ref: 'brand-teal', step: '300' }, // #4aafc9 — a step of an entry
+              color: { ref: 'brand-teal', shade: 0.3 }, // #73aabf — a shade of an entry
               fontSizePx: 18,
             },
             interaction: {
@@ -162,7 +165,7 @@ describe('AC-928 a site declares an arbitrary-size palette; every colour axis ta
       '#ffb703', // gradient stop            (ref)
       '#123456', // gradient stop            (literal, same axis)
       '#8ecae6', // pattern colour           (ref)
-      '#4aafc9', // text colour              (ref to a step)
+      '#73aabf', // text colour              (ref at shade +0.3)
       '#ff00aa', // hover state colour       (literal)
       '#0055ff', // focus ring colour        (literal)
     ]) {
@@ -210,12 +213,18 @@ describe('AC-929 a dangling reference fails validation, and resolution never sub
     expect(unknownEntry.some((e) => e.message.includes("'nope'"))).toBe(true)
     expect(unknownEntry.some((e) => e.message.includes('brand-teal'))).toBe(true)
 
-    // (b) a step the entry does not declare.
-    const unknownStep = errorsOf(
-      siteWith(docWith({ ref: 'brand-teal', step: '999' }), { palette: PALETTE }),
-    )
-    expect(unknownStep.some((e) => e.message.includes("no step '999'"))).toBe(true)
-    expect(unknownStep.some((e) => e.message.includes('300'))).toBe(true)
+    // (b) a shade off the axis. REQ-137 replaced named steps — which could name
+    //     something the entry did not declare — with a continuous scalar, which
+    //     cannot dangle. What is left to get wrong is the range, and `[-1, +1]`
+    //     is a validation failure to leave rather than a value to clamp: a
+    //     clamp would silently paint a colour nobody asked for.
+    for (const shade of [1.5, -1.5]) {
+      const offAxis = errorsOf(siteWith(docWith({ ref: 'brand-teal', shade }), { palette: PALETTE }))
+      expect(offAxis.length).toBeGreaterThan(0)
+    }
+    // …and an unknown *key* cannot be smuggled in beside a good reference,
+    // because every L1 object is strict.
+    expect(errorsOf(siteWith(docWith({ ref: 'brand-teal', step: '300' }), { palette: PALETTE })).length).toBeGreaterThan(0)
 
     // (c) any entry, in a site that declares no palette at all. Omitting the
     //     palette does not relax the rule — the alternative is exactly the
@@ -260,7 +269,7 @@ describe('AC-929 a dangling reference fails validation, and resolution never sub
     // loudly rather than returning a substituted colour. Painting the wrong
     // colour is treated as worse than failing.
     expect(() => resolveL1Color({ ref: 'nope' }, PALETTE)).toThrow(/does not resolve/)
-    expect(() => resolveL1Color({ ref: 'brand-teal', step: '999' }, PALETTE)).toThrow(/no step/)
+    expect(() => resolveL1Color({ ref: 'nope', shade: -0.5 }, PALETTE)).toThrow(/does not resolve/)
     expect(() => resolveL1Color({ ref: 'brand-teal' }, undefined)).toThrow(/no palette is declared/)
 
     // …and so does the renderer, which resolves at its entry: a document that
@@ -310,7 +319,7 @@ describe('AC-930 translucency is an axis of the reference, so one colour at seve
     const [entry] = Object.values(assigned.palette)
     // The entry itself is opaque; the opacity lives on the reference.
     expect(entry.value).toBe('#2e86a3')
-    expect(entry.steps).toBeUndefined()
+    expect(Object.keys(entry)).toEqual(['value'])
 
     // The three references written to disk name that one entry at three alphas,
     // and each resolves back to the literal it replaced, byte for byte.
@@ -354,14 +363,14 @@ describe('AC-931 references resolve once at the load boundary, so the authoring 
       root: {
         kind: 'box',
         axes: {
-          surfaceFill: { ref: 'brand-teal', step: '700' },
+          surfaceFill: { ref: 'brand-teal', shade: -0.3 },
           border: { widthPx: 2, color: { ref: 'rule' } },
         },
         children: [
           {
             kind: 'text',
             text: 'Same page, two authoring forms',
-            axes: { color: { ref: 'brand-teal', step: '300' }, fontSizePx: 20 },
+            axes: { color: { ref: 'brand-teal', shade: 0.5 }, fontSizePx: 20 },
           },
         ],
       },
@@ -373,14 +382,14 @@ describe('AC-931 references resolve once at the load boundary, so the authoring 
       root: {
         kind: 'box',
         axes: {
-          surfaceFill: '#236d87',
+          surfaceFill: '#185163', // brand-teal at shade -0.3
           border: { widthPx: 2, color: '#c0392b' },
         },
         children: [
           {
             kind: 'text',
             text: 'Same page, two authoring forms',
-            axes: { color: '#4aafc9', fontSizePx: 20 },
+            axes: { color: '#9bc2d1', fontSizePx: 20 }, // brand-teal at shade +0.5
           },
         ],
       },
@@ -414,13 +423,13 @@ describe('AC-931 references resolve once at the load boundary, so the authoring 
       'utf8',
     )
     expect(onDisk).toContain('"ref": "brand-teal"')
-    expect(onDisk).toContain('"step": "300"')
+    expect(onDisk).toContain('"shade": 0.5')
 
     // A literal-only document is entirely unaffected by the widening: it needs
     // no palette, and it validates and renders exactly as before.
     expect(loadedLiterals.value.site.palette).toBeUndefined()
     expect(errorsOf(siteWith(literal))).toEqual([])
-    expect(b.css).toContain('#4aafc9')
+    expect(b.css).toContain('#9bc2d1')
 
     // ── the precondition resolution-at-the-boundary places on the render seam ──
     // Because resolution happens at the boundary, the palette is an INPUT to
@@ -468,9 +477,14 @@ describe('AC-932 a retrofitted site yields a palette, not a colour list, and los
     // The two stored sites carrying L1 pages. The retrofit is re-runnable — an
     // already-assigned site censuses back to its literals — so running it here
     // measures the same conversion that produced the sites on disk.
+    // REQ-137 moved both entry counts: a colour a tint/shade mix cannot reach is
+    // no longer filed under a family it is not part of, so it becomes its own
+    // entry. `xgd` went 6→7, `gigabytealchemy` 8→15, because most of what
+    // REQ-114's hue grouping called a family there was never a ramp — four of
+    // its "blues" are unrelated colours, and the palette now says so.
     for (const [slug, expected] of [
-      ['xgd', { distinctRgb: 16, entries: 6 }],
-      ['gigabytealchemy', { distinctRgb: 30, entries: 8 }],
+      ['xgd', { distinctRgb: 16, entries: 7 }],
+      ['gigabytealchemy', { distinctRgb: 30, entries: 15 }],
     ] as const) {
       const cwd = freshCwd()
       stage(cwd, slug)
@@ -485,10 +499,11 @@ describe('AC-932 a retrofitted site yields a palette, not a colour list, and los
       const entries = Object.keys(assigned.palette).length
       expect(entries, `${slug} palette entries`).toBe(expected.entries)
 
-      // A palette, not a colour list: materially fewer entries than the site has
-      // distinct colours, because colours sharing an RGB at different opacities
-      // collapse to one entry and colours forming a ramp become steps of one.
-      expect(entries).toBeLessThan(census.distinctRgb / 2)
+      // A palette, not a colour list: fewer entries than the site has distinct
+      // colours, because colours sharing an RGB at different opacities collapse
+      // to one entry and colours on a ramp become shades of one. The exact
+      // counts above are the real guard — this is the shape of the claim.
+      expect(entries).toBeLessThan(census.distinctRgb)
       expect(assigned.before).toBeGreaterThan(entries)
 
       // Colour-lossless: every colour the site painted before is still painted
@@ -496,12 +511,11 @@ describe('AC-932 a retrofitted site yields a palette, not a colour list, and los
       // boundary both times, so a reference that resolved differently would show.
       expect(paintedColors(cwd, slug), `${slug} lost or gained a colour`).toEqual(before)
 
-      // Every entry the retrofit wrote is opaque — the alpha rode on the refs.
+      // Every entry the retrofit wrote is one opaque colour — the alpha rode on
+      // the refs, and REQ-137 left the entry nothing else to carry.
       for (const entry of Object.values(assigned.palette)) {
         expect(entry.value).toMatch(/^#[0-9a-f]{6}$/)
-        for (const step of Object.values(entry.steps ?? {})) {
-          expect(step).toMatch(/^#[0-9a-f]{6}$/)
-        }
+        expect(Object.keys(entry)).toEqual(['value'])
       }
     }
 

@@ -102,11 +102,18 @@ async function cli(root: string, ...argv: string[]): Promise<CliResult> {
   return { ...(JSON.parse(out[out.length - 1]) as CliResult), exitCode }
 }
 
-/** A palette with families and steps — the shape a `string` parameter could never carry. */
+/**
+ * A palette of several entries — an object of objects, which is the shape a
+ * `string` parameter could never carry. REQ-137 deleted the named `steps` these
+ * entries used to hold: an entry is one colour, and its light↔dark family comes
+ * off the reference's `shade`.
+ */
 const PALETTE = {
-  surface: { value: '#f7f4ed', steps: { raised: '#fffdf8', sunken: '#ebe6da' } },
+  surface: { value: '#f7f4ed' },
+  'surface-raised': { value: '#fffdf8' },
+  'surface-sunken': { value: '#ebe6da' },
   ink: { value: '#101822' },
-  primary: { value: '#2e86a3', steps: { deep: '#1d5f77', light: '#7fc3d6' } },
+  primary: { value: '#2e86a3' },
 }
 
 const FORM_CONFIG = {
@@ -145,25 +152,30 @@ describe('story-b3de4571 — a site’s settings are written as structured value
   it('test_UAT_AC1095_a_settings_group_is_written_whole_and_unnamed_siblings_survive', async () => {
     const box = await caretaker()
 
-    // A whole palette — several families, each with steps — in ONE call.
+    // A whole palette — several entries — in ONE call.
     expect(box.run('set_config', { key: 'palette', settings: PALETTE })).not.toContain(
       'SCHEMA_INVALID',
     )
     expect(readSite().palette).toEqual(PALETTE)
 
-    // Naming ONE family with ONE changed step must not delete its siblings, at
-    // any depth. Under replace-at-key this call would drop `ink` and `surface`
-    // and nothing would say so until someone looked at the site.
-    box.run('set_config', {
-      key: 'palette',
-      settings: { primary: { steps: { deep: '#0f3f52' } } },
-    })
+    // Naming ONE entry must not delete its siblings. Under replace-at-key this
+    // call would drop `ink` and both surfaces, and nothing would say so until
+    // someone looked at the site.
+    box.run('set_config', { key: 'palette', settings: { primary: { value: '#0f3f52' } } })
     const palette = readSite().palette
-    expect(palette.primary.steps.deep).toBe('#0f3f52')
-    expect(palette.primary.steps.light).toBe(PALETTE.primary.steps.light)
-    expect(palette.primary.value).toBe(PALETTE.primary.value)
+    expect(palette.primary.value).toBe('#0f3f52')
     expect(palette.ink).toEqual(PALETTE.ink)
     expect(palette.surface).toEqual(PALETTE.surface)
+    expect(palette['surface-raised']).toEqual(PALETTE['surface-raised'])
+    expect(palette['surface-sunken']).toEqual(PALETTE['surface-sunken'])
+
+    // …and the merge reaches deeper than one level, shown where the settings
+    // actually have depth: naming one typography field leaves the group intact.
+    const typographyBefore = readSite().theme.typography
+    box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
+    const typographyAfter = readSite().theme.typography
+    expect(typographyAfter.baseSizePx).toBe(19)
+    expect({ ...typographyAfter, baseSizePx: typographyBefore.baseSizePx }).toEqual(typographyBefore)
 
     // A list REPLACES: there is no sane merge of two ordered lists, so the whole
     // set is sent and the whole set is what is stored.
@@ -208,12 +220,12 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     box.run('set_config', { key: 'palette', settings: PALETTE })
     const before = readFileSync(sitePath(), 'utf8')
 
-    // A palette family whose step is not the declared form. Widening the
+    // A palette entry whose value is not the declared form. Widening the
     // parameter to carry an object must not widen what the site accepts: the
     // shared validator still runs over the whole resulting definition.
     const refused = box.run('set_config', {
       key: 'palette',
-      settings: { accent: { value: 'cornflower', steps: { deep: 12 } } },
+      settings: { accent: { value: 'cornflower' } },
     })
     expect(refused).toContain('SCHEMA_INVALID')
 
@@ -864,7 +876,7 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
           'set',
           SLUG,
           'palette',
-          JSON.stringify({ primary: { steps: { deep: '#0f3f52' } } }),
+          JSON.stringify({ primary: { value: '#0f3f52' } }),
         )
       ).ok,
     ).toBe(true)
@@ -886,7 +898,7 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
     })
     box.run('update_page', { page: 'about', seo: { description: 'The people behind XGD.' } })
     box.run('set_config', { key: 'palette', settings: PALETTE })
-    box.run('set_config', { key: 'palette', settings: { primary: { steps: { deep: '#0f3f52' } } } })
+    box.run('set_config', { key: 'palette', settings: { primary: { value: '#0f3f52' } } })
 
     // ── the stored definitions agree ────────────────────────────────────────
     // The merge rule applied, the drawing under its generated filename, the
@@ -898,10 +910,8 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
 
     // ...and the substance of each, so an agreement between two empty results
     // cannot pass for coverage.
-    expect(readSite(viaCli).palette.primary.steps).toEqual({
-      deep: '#0f3f52',
-      light: PALETTE.primary.steps.light,
-    })
+    expect(readSite(viaCli).palette.primary).toEqual({ value: '#0f3f52' })
+    expect(readSite(viaCli).palette.ink).toEqual(PALETTE.ink)
     expect(readSite(viaCli).assets.map((a: any) => a.id)).toContain('wordmark.svg')
     expect(readFileSync(path.join(draftDir(viaCli), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
     expect(readPage('home', viaCli).modules[0]).toMatchObject({
