@@ -5,7 +5,7 @@ type: request
 title: 'Editor: lock controls that cannot express what the element holds'
 created_by: xgd
 created_at: '2026-08-12T18:13:37.478932+00:00'
-updated_at: '2026-08-13T16:30:57.811325+00:00'
+updated_at: '2026-08-13T21:15:37.773545+00:00'
 completed_at: null
 last_field_updated: depends_on
 status: draft
@@ -15,6 +15,7 @@ fields:
   priority: medium
   depends_on:
   - REQ-133
+  - REQ-135
 ---
 
 ## What changed
