@@ -6,9 +6,9 @@ title: 'Copy modal: Capitalisation never previews — UA reset blocks text-trans
   on the text control'
 created_by: xgd
 created_at: '2026-08-13T21:16:02.231743+00:00'
-updated_at: '2026-08-13T21:24:55.018329+00:00'
+updated_at: '2026-08-13T21:25:17.677379+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   severity: medium
@@ -131,3 +131,5 @@ tracks the real cascade:
 
 Regression scope: `tests/test_UAT_FC_REQ-138_live_preview.test.ts`,
 `tests/req121-copy-modal-elegance.test.ts`, builder suites.
+
+-
