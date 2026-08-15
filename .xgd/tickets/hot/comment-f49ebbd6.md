@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T20:06:37.712193+00:00'
+updated_at: '2026-08-15T20:07:15.135912+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -228,5 +228,11 @@ What does the ticket store component use? D1 I assume?
 <!-- xgd-chat role="assistant" ts="2026-08-15T20:06:37.537719+00:00" -->
 #### Claude
 Not D1 — it's files. And the structure is directly relevant to our decision.
+
+<!-- xgd-turn id="a7ef799f-a341-4960-b1eb-0427d6e0f04a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T20:07:14.953358+00:00" -->
+#### You
+No the JS ticket component in lagrange framework, built for THIS PROJECT uses a cloudflare store. I believe it is D1
 
 <!-- xgd-chat-end -->
