@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T20:35:50.574202+00:00'
+updated_at: '2026-08-15T21:30:23.562136+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -387,5 +387,11 @@ Two things I found while writing them that weren't in our conversation:
 I also flagged in CHAT-25 that **REQ-7 should be closed or rewritten rather than implemented** — REQ-143 supersedes it, and it carries its own warning that it predates DOC-12. I didn't touch it, since that's your call.
 
 REQ-141 is the place to start — it's small, unblocks every store UAT after it, and the lagrange-framework config it copies is a working reference.
+
+<!-- xgd-turn id="c96f8535-ffbe-4350-af2c-e874419d4069-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T21:30:23.258890+00:00" -->
+#### You
+omg NEVER create tickets in ready_to_implement mode that is an operator call
 
 <!-- xgd-chat-end -->
