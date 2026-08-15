@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-139
 created_by: xgd
 created_at: '2026-08-12T18:15:25.332755+00:00'
-updated_at: '2026-08-15T20:13:26.956136+00:00'
+updated_at: '2026-08-15T20:31:01.095061+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -115,5 +115,46 @@ So the chain reads REQ-137 (`ready_to_reconcile`) → REQ-133 (`free_coding`) �
 <!-- xgd-chat role="user" ts="2026-08-15T20:13:26.744960+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="225dc824-0c82-4e6e-a7a5-b55a5c0dfc49-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T20:31:00.929536+00:00" -->
+#### Claude
+Now the derivation side.
+
+Now the colour field and its lock:
+
+Now add `lockError` beside the other refusal helpers:
+
+Now the client: the colour row must honour `locked`.
+
+Now the styling — `is-locked` and the reason note:
+
+Now the CLI listing:
+
+Typecheck clean. Now the version bump and commit:
+
+Now merge back into `xgd-working` under the lock:
+
+Done — REQ-139 is at `free_coded`, commit `6b94ba9` merged into `xgd-working`, branch cleaned up.
+
+**No blocking questions came up**, so I built it. Two judgement calls I made rather than asked about, both recorded on the ticket:
+
+**1. A lock refuses a *change*, never the status quo.** This turned out to be load-bearing, not a nicety. The modal posts every staged field on Save, not just the touched ones — so a locked colour comes back on a Save that only rewrote the words. Refusing it would have made an unavailable control freeze the entire segment, and the one node carrying a gradient is a headline. (Same latent bug existed in REQ-135's italic lock: any Save on a run whose font declares no italic face would have been refused. That's fixed too.)
+
+**2. `surfaceGradient` on a panel does *not* lock its fill.** A surface gradient is a background layer over the background colour, so a translucent one shows the fill through — the write stays observable. Only the definitively inert case (`gradientFill` on a text run, which the renderer compiles to `color: transparent`) is locked. That's the ticket's own "a sibling axis is not occlusion" rule.
+
+What landed:
+
+- **`L1FieldDescriptor.reason`** — derived as a pair with `locked`, so a lock can't exist without its sentence. Plain English, names the escape hatch, never an axis name. It's the same string the write side refuses with, so the greyed-out control and the refused write can't tell two different stories.
+- **The gradient lock** on a run's colour row, plus the reason REQ-135's italic lock never had.
+- **Both presentation gaps closed**: `is-locked` is styled (nothing styled it before, in either stylesheet), the colour swatch is `disabled` rather than merely dimmed, and one pass draws the reason under the row for both control families.
+- **`1c copy get`** marks locked fields, so the AI and a CLI reader see the lock before trying to set it.
+
+One existing test changed: REQ-140's UAT asserted the colour row had no `data-field` as a proxy for "the component didn't claim this field". The colour row now carries that attribute so a single pass can find any locked row; the assertion names `.fields-row[data-field=...]` instead, which is what only the component emits.
+
+Full suite: 211 files / 1538 tests pass. Twelve files fail (assistant/chat/tool-surface suites) — I verified they fail identically on the unmodified base, so they're pre-existing and unrelated.
+
+The ticket is parked at `free_coded`; promotion to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
