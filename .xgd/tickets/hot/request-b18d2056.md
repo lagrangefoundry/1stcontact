@@ -6,9 +6,9 @@ title: 'Workers-runtime test project: UATs that run inside workerd against real 
   and R2 bindings'
 created_by: xgd
 created_at: '2026-08-15T20:30:39.280519+00:00'
-updated_at: '2026-08-15T22:06:02.094290+00:00'
+updated_at: '2026-08-15T22:06:49.294192+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -80,3 +80,64 @@ Vitest split into **projects**:
 ## Origin
 
 [[CHAT-25]] — putting the builder on Cloudflare. This blocks the store port and every store UAT after it, so it is first.
+
+---
+
+# What landed
+
+## Files
+
+| File | Role |
+|---|---|
+| `vitest.config.mts` | **Orchestrator only.** `defineConfig({ test: { projects: [...] } })` — no `include`, no suite of its own. Carries the routing convention as its doc comment, so the rule has one home. |
+| `vitest.node.config.mts` | **New file, old content.** The previous `vitest.config.mts` verbatim — same `getViteConfig`, same `webuiAliases()`, same 60s timeouts — plus `name: 'node'` and one `exclude` line handing the marked files over. |
+| `vitest.workers.config.mts` | **New.** `cloudflareTest({ miniflare: { d1Databases: ['DB'], r2Buckets: ['SITES'] } })`, `name: 'workers'`, `include: ['tests/**/*.workers.test.ts']`. |
+
+## The routing convention
+
+**`*.workers.test.ts` runs in workerd; every other `*.test.ts` runs in node.**
+
+Stated once, in the root config's doc comment. No per-file opt-in comment, no directory split — a file's runtime is legible from its name alone.
+
+This inverts lagrange-framework's `*.node.test.js`, and deliberately: there, workerd is the default and node is the marked exception; here it is the other way round. The *marked* side is always the minority side, so the convention stays cheap in both repos.
+
+## Bindings mirror the deployed shape
+
+- **`SITES`** (R2) — the bucket `1c deploy` publishes rendered snapshots to (`apps/public-site/wrangler.toml`). Reused rather than renamed, so a store UAT and the deployed Worker are talking about the same thing.
+- **`DB`** (D1) — no Worker declares one yet. This is where it gets declared first, which is the point of the ticket.
+- `compatibilityDate: '2025-07-01'` / `compatibilityFlags: ['nodejs_compat']` copied from the apps' wrangler.toml, so the test runtime is the *production* runtime — not a newer one that would let a test pass on behaviour the deployed Worker does not have.
+
+## Design decision made during implementation: the pool version is pinned exactly
+
+`@cloudflare/vitest-pool-workers` is `"0.18.5"`, **not** `"^0.18.5"`.
+
+Each pool release pins an exact `miniflare`, and therefore an exact `workerd`, whose per-platform binary must actually be installable under this workspace's supply-chain policy. `^0.18.5` resolves to 0.18.8 → `workerd@1.20260722.1`, whose `@cloudflare/workerd-darwin-arm64@1.20260722.1` is still withheld by the minimum-release-age gate. The optional dependency then silently does not install and `workerd`'s postinstall fails with `Expected "2026-07-22" but got "workerd 2026-06-30"` — a resolution problem surfacing as a build-script crash.
+
+0.18.5 is the version lagrange-framework already runs, and its `workerd@1.20260710.1` binary installs cleanly here. The exact pin is what stops a routine `pnpm update` from reintroducing the failure; the reason is written into `vitest.workers.config.mts` beside the pin.
+
+## Evidence
+
+`tests/test_UAT_FC_REQ-141_workers_runtime.workers.test.ts` (workerd project) — 3 tests, ~2.1s:
+
+- **AC2** — reaches `env.DB`, applies DDL, then reads the schema back out of SQLite's own `sqlite_master` catalogue (a stub that swallowed `exec` cannot answer that), round-trips a row, and confirms the PRIMARY KEY is enforced by SQLite rather than by the test.
+- **AC3** — `env.SITES` put/get/list/delete, asserting on R2's *server-computed* `size` and 32-hex `etag` and on `httpMetadata` surviving the round trip, not just on the body echoing back.
+- Asserts `navigator.userAgent === 'Cloudflare-Workers'` — the pool is really the pool.
+
+`tests/test_UAT_FC_REQ-141_project_routing.test.ts` (node project) — 4 tests:
+
+- **AC4** — imports `node:fs` at module scope and uses it, so the file could only have loaded in a runtime that has one; asserts the userAgent is *not* the Workers one; asserts its own name carries no `.workers` marker.
+- Asserts the two `include`/`exclude` globs agree with each other and that the root config declares no `include` of its own (a suite there would run in neither runtime).
+- **AC5 companion** — asserts `vitest.node.config.mts` still routes through `astro/config`'s `getViteConfig`, and that the workerd config does not mention astro at all.
+
+## Suite state (AC1, AC5, AC6)
+
+- `pnpm -r build` — clean. `pnpm -r typecheck` — clean. **AC6 met.**
+- Full run: **227 files, 1640 tests — 13 files / 75 tests failing.**
+- **Those 75 failures are pre-existing and unrelated.** Verified by re-running the same 13 files against the *old* single config out of `HEAD`: byte-identical result, 13 files / 75 tests. They come from an upstream `@lagrangefoundry/ai` toolbox change — refusals now return an object where the UATs expect a string (`.toMatch() expects to receive a string, but got object`) and the audit trail comes back empty. Nothing in this ticket touches that surface.
+- Every Astro container-render UAT is in the passing 1498. **AC5 met.**
+
+So AC1 holds in its delta sense: the failure set is unchanged across the split. Closing those 75 is separate work against whichever ticket owns the toolbox upgrade.
+
+## Test plan
+
+Both new UATs are `test_UAT_FC_REQ-141_*` and become reconciliation's to rename against real ACs. The routing UAT is deliberately structural — it asserts the *convention*, which is the deliverable, and is what will fail if a later change quietly moves a test into the wrong runtime.
