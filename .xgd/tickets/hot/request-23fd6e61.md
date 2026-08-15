@@ -5,15 +5,16 @@ type: request
 title: 'The builder is private: Cloudflare Access on app.1stcontact.io'
 created_by: xgd
 created_at: '2026-08-15T20:34:01.076509+00:00'
-updated_at: '2026-08-15T20:34:01.076509+00:00'
+updated_at: '2026-08-15T20:34:18.943690+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ready_since
 status: ready_to_implement
 fields:
   priority: high
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  ready_since: '2026-08-15T20:34:18.239366+00:00'
 ---
 
 # The builder is private: Cloudflare Access on `app.1stcontact.io`
