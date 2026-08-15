@@ -5,7 +5,7 @@ type: request
 title: 'The Cloudflare SiteStore: definitions in D1, bytes in R2'
 created_by: xgd
 created_at: '2026-08-15T20:31:46.590606+00:00'
-updated_at: '2026-08-15T21:08:04.174733+00:00'
+updated_at: '2026-08-15T21:08:51.486914+00:00'
 completed_at: null
 last_field_updated: ready_since
 status: ready_to_implement
@@ -17,7 +17,7 @@ fields:
   depends_on:
   - REQ-141
   - REQ-142
-  ready_since: '2026-08-15T21:08:03.274935+00:00'
+  ready_since: '2026-08-15T21:08:48.418508+00:00'
   blocked_by: []
   not_blocked_by:
   - request-b18d2056
