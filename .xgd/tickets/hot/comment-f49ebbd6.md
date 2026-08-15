@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T01:26:34.997873+00:00'
+updated_at: '2026-08-15T19:23:22.435497+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -104,5 +104,12 @@ Beyond auth:
 Stage 1 is small, almost entirely non-throwaway, and proves the shape end-to-end. I'd do it first regardless of what you decide about stages 2–4.
 
 Two things before I ticket any of this: **do you want Access or custom auth**, and **is a tunnelled laptop acceptable for the proving run?** If Access + tunnel, I'd scope stage 1 as one ticket and get you a live private URL quickly.
+
+<!-- xgd-turn id="5897e23b-0060-47fb-9c1e-78c136591ee3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T19:23:22.020525+00:00" -->
+#### You
+1. We can use cloudflare login to start with
+   2. This seems pointless to me - if its useful staging on the way, fair enough but from the point of view of the exercise it is not a useful final state
 
 <!-- xgd-chat-end -->
