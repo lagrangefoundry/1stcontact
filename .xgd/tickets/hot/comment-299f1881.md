@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-19
 created_by: xgd
 created_at: '2026-08-09T23:25:16.500469+00:00'
-updated_at: '2026-08-15T01:09:04.311211+00:00'
+updated_at: '2026-08-15T01:09:54.889085+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,71 @@ Happy to turn any of this into a ticket — the two obvious candidates are the *
 <!-- xgd-chat role="user" ts="2026-08-15T01:09:03.830622+00:00" -->
 #### You
 How do I (or a customer) prove that I bought a license? Is that an email exchange? Or is there something I can upload to the site to prove my ownership?
+
+<!-- xgd-turn id="66a666e9-ad4a-492f-bc39-c34765e0502d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T01:09:54.388144+00:00" -->
+#### Claude
+## The honest headline: there is no verification standard
+
+No certificate authority, no cryptographic signature, no central registry, no API any foundry exposes for third-party verification. Nobody in the industry can actually *verify* a font licence. Webflow, Shopify and Squarespace all resolve this the same way — a tickbox — because there is nothing better to resolve it with.
+
+So the question isn't "how do we verify" but "what evidence do we collect, and what does it buy us." Four things exist, in increasing order of strength:
+
+### 1. The purchase receipt — usually an email
+
+Most commonly this *is* an email. Order confirmation from MyFonts, Fontspring, Adobe, or direct from the foundry. It typically names the licensee, the family, the licence type (desktop / web / app), the domain or pageview tier, the date, and an order number. Uploadable as a PDF or a saved `.eml`; PDF is what people actually have.
+
+### 2. The licence certificate
+
+Some foundries — Klim, Commercial Type, Grilli Type, Lineto — issue a proper per-purchase PDF certificate naming the licensee and the permitted domains. When it exists it's the best artifact available, because it states the *scope*, not just that money changed hands.
+
+### 3. The vendor account
+
+For MyFonts/Fontspring/Adobe, the account itself is the record of truth — order history, re-download. Useless to us directly, since there's no third-party lookup, but it means the customer can always retrieve the receipt.
+
+### 4. The font file itself — the part we can automate
+
+This is the one that costs the user nothing. OpenType's `name` table routinely carries:
+
+| Field | What's in it |
+|---|---|
+| nameID 13 | **License Description** — many commercial fonts embed the EULA verbatim |
+| nameID 14 | **License Info URL** |
+| nameID 7 / 8 / 10 | Trademark, manufacturer, description |
+| `OS/2.fsType` | Embedding permission bits — a "restricted" value is a loud signal |
+
+And some foundries **stamp the licensee's name into the font binary at purchase**, or serve per-customer watermarked webfonts. So the file frequently carries its own evidence. Extracting this at upload and showing it back to the user is free, needs no cooperation from them, and is stronger than anything they'd type.
+
+## The check that actually catches real problems
+
+Most licence breaches here won't be fraud — they'll be **the desktop/web mix-up**, and it's very common. Someone buys a desktop licence to use a font in InDesign, gets `.otf` files, and uploads those to their website. That's a genuine breach they had no intention of committing.
+
+The tell is the file format. A *web* licence almost always ships `.woff2` specifically. So:
+
+> **If the upload is `.otf` or `.ttf` rather than `.woff2`, warn.** "This looks like a desktop font. Web use usually needs a separate web licence — check your purchase."
+
+Warn, don't block — plenty of legitimate web licences do hand over `.ttf`. But this single check probably prevents more actual infringement than the entire attestation apparatus.
+
+## What I'd have us collect
+
+| Tier | What | Effort | What it buys |
+|---|---|---|---|
+| **Required** | Tickbox attestation | zero | Shifts liability, triggers the ToS indemnity |
+| **Required** | Structured declaration: foundry, licence type, licensed domain(s), order ref, purchase date | ~30s | A liar must now lie *specifically*; and it's what we hand a foundry who emails us |
+| **Optional** | Receipt / certificate upload (PDF or `.eml`), stored, never parsed | ~1 min | Produced on demand; strongest artifact we'll ever hold |
+| **Automatic** | Extract nameID 13/14, fsType, trademark/manufacturer; flag desktop-format uploads | zero | Catches honest mistakes; surfaces the EULA the user probably never read |
+
+The structured declaration is the part I'd fight for. A tickbox is legally sufficient but operationally useless — when a foundry emails saying "your customer is serving our font without a licence," a tickbox lets us say nothing. A declaration plus a receipt lets us answer the same day with a name, a date, an order number and a PDF, which is usually the entire dispute.
+
+## What happens when a foundry does complain
+
+Realistically: they email. Rarely a lawyer, usually a founder who ran a crawler. What we need is a **takedown switch** — disable the font on that site, fall back to the declared stack, notify the customer — and the ability to produce the record within a day. That combination is what keeps it a five-email exchange instead of a problem.
+
+Worth restating: none of this touches the OFL/Google Fonts tiers. The whole apparatus exists only for bring-your-own, which will be a small minority of sites.
+
+---
+
+This has firmed up enough that I think the BYOL ticket is worth filing — it now has a concrete evidence model, not just an upload path. Want me to write it up?
 
 <!-- xgd-chat-end -->
