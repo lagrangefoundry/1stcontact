@@ -655,7 +655,14 @@ export function editCopyGet(
   }
   const human = derived
     ? derived.fields
-        .map((f) => `${f.name}\t${JSON.stringify(derived.values[f.name] ?? '')}`)
+        .map((f) => {
+          const held = `${f.name}\t${JSON.stringify(derived.values[f.name] ?? '')}`
+          // REQ-139 — a locked field is listed WITH its reason. This listing is
+          // what the CLI reader and the AI both work from, and a field that
+          // reads like every other one is a field they will try to set and be
+          // refused for, with no way to have known.
+          return f.locked ? `${held}\t(locked: ${f.reason ?? 'not editable here'})` : held
+        })
         .join('\n')
     : `(no editable copy on this ${node.kind} segment)`
   return { data, human }
