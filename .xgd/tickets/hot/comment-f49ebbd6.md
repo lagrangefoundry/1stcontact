@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T19:25:13.076181+00:00'
+updated_at: '2026-08-15T19:53:38.841139+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -163,5 +163,12 @@ End of 3 is the first honest milestone: a real builder on Cloudflare, no laptop,
 - **Two adapters behind one port** (fs for the CLI, R2 for the Worker) keeps both. I'd argue that's a port with two adapters, both live — not a legacy mode. But it is two code paths, and I can see it being flagged as one.
 
 My lean is two adapters, because losing git-tracked site source feels like a bigger loss than the second adapter costs. Tell me which way and I'll scope milestones 1–2 as tickets under CHAT-25.
+
+<!-- xgd-turn id="c65f9456-2208-45f5-bc1a-f03e3d70a96b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T19:53:38.559752+00:00" -->
+#### You
+1. Please explain - why did we decide one thing and then change course? What is the correct answer?
+   2. OK 2 adapters for now
 
 <!-- xgd-chat-end -->
