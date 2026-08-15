@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T19:55:09.248090+00:00'
+updated_at: '2026-08-15T20:06:06.247976+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -216,5 +216,11 @@ Almost nothing — but now for the right reason. **Milestone 2 needs only R2**, 
 Decision 2 is settled: two adapters behind one port.
 
 One thing I won't do quietly: DOC-1 is a **policy** doc with numbered directives and citations. Amending #4 should be deliberate. Say the word and I'll scope it as: amend DOC-1 #4 + close DOC-5's open question, then ticket milestones 1 and 2 under CHAT-25.
+
+<!-- xgd-turn id="8f511861-dae2-47e3-8d77-1e210edd7378-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T20:06:06.091040+00:00" -->
+#### You
+What does the ticket store component use? D1 I assume?
 
 <!-- xgd-chat-end -->
