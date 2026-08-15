@@ -5,9 +5,9 @@ type: request
 title: 'The builder is private: Cloudflare Access on app.1stcontact.io'
 created_by: xgd
 created_at: '2026-08-15T20:34:01.076509+00:00'
-updated_at: '2026-08-15T21:33:06.765679+00:00'
+updated_at: '2026-08-15T21:41:19.168383+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -50,7 +50,9 @@ nothing is exposed *yet*. It becomes real the moment the builder works.
 ## 3. Interactions worth checking, not assuming
 
 - The preview iframe is same-origin, so it inherits the Access cookie — but the SSE streaming
-  turn (`/api/ai/prompt`) should be confirmed to survive Access rather than presumed to.
+  turn (`/api/ai/prompt`) must be confirmed to survive Access rather than presumed to. That
+  confirmation needs a running assistant, so it is carried by [[REQ-146]]; it is recorded here
+  because this is where the risk originates.
 - Draft snapshots served by `public-site` stay **link-private, not authenticated** — an
   unguessable URL, per [[DOC-12]] §5.1 and the decision recorded in [[CHAT-11]]. Access does not
   change that, and this ticket does not revisit it. [[DOC-12]]'s "author only (private)" wording
@@ -66,7 +68,11 @@ nothing is exposed *yet*. It becomes real the moment the builder works.
    asserted, because this is the failure mode the hostname policy misses.
 4. The Worker rejects a request carrying no valid Access JWT even if it reaches it directly, so
    the gate does not depend on routing alone.
-5. An authenticated operator can complete an edit and an AI turn, streaming included.
+5. An authenticated identity on the policy reaches the Worker and receives its response —
+   whatever that response currently is. **This ticket does not require a working builder.** The
+   gate is provable against the Worker as it stands, and asserting an edit or an AI turn here
+   would make Access depend on [[REQ-145]] while [[REQ-145]] depends on Access. Those
+   end-to-end assertions belong to [[REQ-145]] and [[REQ-146]].
 6. Access configuration is recorded in the repository as documentation — the policy lives in
    Cloudflare, but which identities are granted and why must not live only in a dashboard.
 
