@@ -88,9 +88,17 @@ function swatchInto(element, value, palette, shadeHex) {
  * happens until the modal's Save, so a colour travels in the same change map as
  * the words beside it: one modal, one diff (DOC-28 §11).
  *
+ * A LOCKED descriptor (REQ-139) mounts the same row, drawn as unavailable: the
+ * swatch still reports what the segment paints, the button is disabled so no
+ * picker can open, and the reason is rendered beneath it. Honoured HERE and not
+ * only in the shared annotation pass, because this control is drawn by the
+ * builder rather than by `mountFields` — the component's own `locked` handling
+ * cannot reach a row it never rendered, and a disabled-looking row that still
+ * opens a picker would be worse than no lock at all.
+ *
  * @param {Element} host - where the row is appended
  * @param {object} spec
- * @param {{name: string, label: string}} spec.field - the descriptor
+ * @param {{name: string, label: string, locked?: boolean, reason?: string}} spec.field - the descriptor
  * @param {string|{ref: string, shade?: number}|undefined} spec.value - what the axis holds
  * @param {Record<string, {value: string}>} [spec.palette] - the site's entries, for the swatch
  * @param {(hex: string, shade: number) => string} [spec.shadeHex] - the renderer's own arithmetic
@@ -105,6 +113,13 @@ export function mountColorField(host, { field, value, palette, shadeHex, openPic
 
   const element = document.createElement('div')
   element.className = 'builder-color'
+  // The field NAME on the row, and the same `is-locked` class `mountFields`
+  // marks its own locked rows with (REQ-139). Both exist so that "a locked row
+  // looks locked and says why" is one rule over one selector, whichever control
+  // drew the row — the stylesheet and the reason pass address `[data-field]`
+  // and `.is-locked` without knowing which family a row came from.
+  element.dataset.field = field.name
+  if (field.locked) element.classList.add('is-locked')
 
   const label = document.createElement('span')
   label.className = 'builder-color__label'
@@ -124,6 +139,11 @@ export function mountColorField(host, { field, value, palette, shadeHex, openPic
   face.id = `${label.id}-value`
   swatchInto(face, current, palette, resolve)
   button.append(face)
+  // DISABLED, not merely unstyled. The native attribute is what stops a click,
+  // a keyboard activation and a screen reader offering the control at all —
+  // three routes a class could not close, and the picker behind them can write
+  // a colour the page would never paint.
+  if (field.locked) button.disabled = true
 
   button.addEventListener('click', () => {
     void (async () => {

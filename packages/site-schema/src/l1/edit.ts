@@ -223,16 +223,51 @@ export interface L1FieldDescriptor {
   min?: number
   max?: number
   /**
-   * REQ-135 — shown, but not editable, because the *site* cannot honour it.
+   * REQ-135 — shown, but not editable, because this element cannot honour it.
    *
-   * The case it exists for is italic on a family that declares no italic face:
-   * setting it would get a synthetic oblique from whichever engine happens to
-   * render the page. Dropping the field instead would be worse than useless —
+   * The case it was introduced for is italic on a family that declares no italic
+   * face: setting it would get a synthetic oblique from whichever engine happens
+   * to render the page. Dropping the field instead would be worse than useless —
    * the absence would read as "this build has no italics" rather than "this
    * site's font has none", and the two have very different fixes. `mountFields`
    * honours `locked` by rendering the row read-only.
+   *
+   * REQ-139 generalises the one trigger to the rule behind it: **a control is
+   * offered only when it is FAITHFUL** — the value it shows is the whole truth
+   * about what the element holds, and setting it produces exactly the change the
+   * operator expects. Three ways that breaks, one treatment:
+   *
+   * - **inert** — another axis overrides the one the control writes, so setting
+   *   it paints nothing (`gradientFill` emits `color: transparent`);
+   * - **lossy** — the node holds a structure where the control offers a scalar,
+   *   so showing it is a projection and writing it a flattening;
+   * - **unsupported** — expressible, but the site cannot honour it (the italic
+   *   face above).
+   *
+   * The test is "is the write observable and complete?", NOT "is another axis
+   * present". A scrim over a background image tints the photograph rather than
+   * hiding it, so a sibling axis is not occlusion and the picker stays open.
+   *
+   * Always accompanied by {@link L1FieldDescriptor.reason}, which is what makes
+   * a disabled control read as a statement about THIS element rather than as a
+   * bug in the editor.
    */
   locked?: boolean
+  /**
+   * REQ-139 — why {@link L1FieldDescriptor.locked} is set, in the operator's own
+   * words, naming the way round it.
+   *
+   * PLAIN ENGLISH, NEVER AN AXIS NAME. The surface that reads this is a
+   * non-technical operator (DOC-28 §2), and "gradientFill overrides color" tells
+   * them nothing they can act on. It says what the element is doing and that the
+   * AI can change it — which is true, and is the only route they have.
+   *
+   * It also travels to the CLI and the AI's own tool surface, because both read
+   * these descriptors, and it is the message {@link applyCopyFields} refuses a
+   * change with — so the reason a control is unavailable and the reason a write
+   * is refused can never be two different stories.
+   */
+  reason?: string
 }
 
 /**
@@ -353,6 +388,61 @@ function imageChoices(assets: readonly string[], current: string): string[] {
   const seen = new Set(assets)
   if (current !== '') seen.add(current)
   return [...seen].sort()
+}
+
+// ── locked controls (REQ-139) ────────────────────────────────────────────────
+//
+// A lock is a pair, never a flag on its own: the descriptor says the control is
+// unavailable, and it says why. The two are one value here so that a lock cannot
+// be derived without its sentence — a greyed-out row with no cause is read as a
+// broken editor, and the operator's only next move (ask the AI) is precisely the
+// thing the sentence has to name.
+//
+// Spread into the descriptor rather than assigned, so a field with no lock
+// carries neither key and the wire shape of an ordinary control is unchanged.
+
+/** A control this element cannot honour, and what to tell the operator. */
+interface L1FieldLock {
+  locked: true
+  reason: string
+}
+
+/**
+ * The colour control is INERT on a run whose glyphs are painted by a gradient.
+ *
+ * The renderer paints a `gradientFill` by repurposing the background layers and
+ * clipping them to the text, which requires the flat colour to be transparent —
+ * `-webkit-text-fill-color: transparent; color: transparent` (see `render.ts`).
+ * So the axis the picker writes is still there, still valid, and paints nothing:
+ * the operator picks a colour, saves, and the words do not move. That is the
+ * worst failure available to this surface, because it looks like the editor
+ * lost the edit.
+ *
+ * Measured: one run across every stored site — the Gigabyte Alchemy wordmark,
+ * which carries `color: {ref: 'neutral'}` UNDER its gradient, so the row it
+ * withdraws is one that today shows a real, editable, meaningless colour.
+ *
+ * A gradient is also the lossy case in the same breath: it is four stops and an
+ * angle, and the swatch beside the row can only show one of them. Even a picker
+ * that painted something would be flattening a structure into a scalar.
+ */
+const GLYPH_GRADIENT_LOCK: L1FieldLock = {
+  locked: true,
+  reason:
+    'These words are painted with a colour gradient, which this control cannot show or change. Ask me in chat to change it.',
+}
+
+/**
+ * Italic is UNSUPPORTED where the site's own font declares no italic face
+ * (REQ-135).
+ *
+ * The reason names the font rather than the build, because that is the fix: a
+ * face has to be added to the site, and the AI is the surface that does it.
+ */
+const NO_ITALIC_FACE_LOCK: L1FieldLock = {
+  locked: true,
+  reason:
+    'The font these words are set in has no italic version, so italics here would be faked by the browser. Ask me in chat if you need one.',
 }
 
 // ── typography (REQ-135) ─────────────────────────────────────────────────────
@@ -485,7 +575,7 @@ function typographyFields(
     name: 'italic',
     label: 'Italic',
     type: 'boolean',
-    ...(lockedItalic ? { locked: true } : {}),
+    ...(lockedItalic ? NO_ITALIC_FACE_LOCK : {}),
   })
   values.italic = axes.fontStyle === 'italic'
 
@@ -538,13 +628,19 @@ const COLOR_FIELDS: ReadonlyMap<string, string> = new Map([
  * run with no `color` inherits one, and reporting a resolved inherited colour
  * would make the modal claim the node holds something it does not — and then
  * write that claim back on the next Save.
+ *
+ * `lock` (REQ-139) is how the caller says this element cannot honour a pick. The
+ * field is still derived, still reports what the axis holds, and is still in the
+ * same position in the sheet — withdrawing it would say the editor has no colour
+ * control, which is a different and wrong claim.
  */
 function colorField(
   name: string,
   held: unknown,
+  lock: L1FieldLock | null = null,
 ): { fields: L1FieldDescriptor[]; values: Record<string, L1FieldValue> } {
   const fields: L1FieldDescriptor[] = [
-    { name, label: COLOR_FIELDS.get(name) as string, type: 'color' },
+    { name, label: COLOR_FIELDS.get(name) as string, type: 'color', ...(lock ?? {}) },
   ]
   const values: Record<string, L1FieldValue> = {}
   if (isL1ColorValue(held)) values[name] = held
@@ -783,6 +879,12 @@ function imageFramingFields(node: L1ImageFramingView): {
 /** The slice of a text run's axes this surface reads and writes. */
 interface L1TextAxesView {
   color?: unknown
+  /**
+   * REQ-139 — READ but never written: its presence is what makes the colour
+   * control inert (see {@link GLYPH_GRADIENT_LOCK}). Typed loosely because this
+   * surface never looks inside it; the gradient itself stays with the AI.
+   */
+  gradientFill?: unknown
   fontFamily?: string
   fontSizePx?: number
   fontWeight?: number
@@ -862,7 +964,13 @@ export function copyFieldsOf(
     const text = node.text
     const axes = (node.axes ?? {}) as L1TextAxesView
     const type = typographyFields(axes, opts.fonts ?? [])
-    const colour = colorField('color', axes.color)
+    // REQ-139 — the colour row is derived either way; the gradient decides
+    // whether it can be used. See {@link GLYPH_GRADIENT_LOCK}.
+    const colour = colorField(
+      'color',
+      axes.color,
+      axes.gradientFill === undefined ? null : GLYPH_GRADIENT_LOCK,
+    )
     return {
       // The copy field stays FIRST, and the client keys on it rather than on
       // "the only field" — clicking words has to put the cursor in the words,
@@ -996,6 +1104,38 @@ function rangeError(
     return `${field.label} must be at most ${field.max} (got ${value}).`
   }
   return null
+}
+
+/**
+ * Why `field` cannot be changed, or `null` when it can — or when nothing is
+ * being changed (REQ-139).
+ *
+ * **A lock refuses a CHANGE, never the status quo**, which is the same rule
+ * {@link rangeError} and {@link colorError} already state and it bites harder
+ * here than in either. The modal posts every staged field, not only the touched
+ * ones, so a run whose colour is locked because its glyphs are painted by a
+ * gradient posts that colour back on any Save — including a Save that only
+ * rewrote the words. Refusing the status quo would make a locked control
+ * *disable the whole segment*: the one node on the measured folds that carries a
+ * gradient is a headline, and its words would have become uneditable the moment
+ * its colour became unavailable. A lock says "you may not move this", not "you
+ * may not save while this exists".
+ *
+ * The refusal message is the descriptor's own {@link L1FieldDescriptor.reason},
+ * so the sentence a greyed-out control shows and the sentence a refused write
+ * returns are one string with one definition site. The fallback covers a
+ * descriptor locked without a reason — which our derivation cannot produce, the
+ * two being one value there, but the interface admits.
+ */
+function lockError(
+  field: L1FieldDescriptor,
+  value: unknown,
+  current: L1FieldValue | undefined,
+): string | null {
+  if (!field.locked) return null
+  const unchanged = field.type === 'color' ? sameColor(value, current) : value === current
+  if (unchanged) return null
+  return field.reason ?? `${field.label} cannot be changed on this element.`
 }
 
 /**
@@ -1381,10 +1521,12 @@ function applyFraming(
  * get a broken image with no error. Checking membership here fails it at the
  * field, naming what was refused.
  *
- * A `locked` field is refused outright (REQ-135). The widget renders it
- * read-only, so a value for it can only come from a client that ignored the
- * descriptor — and the reason it is locked (no italic face exists) is a fact
- * about the site that a post cannot change.
+ * A CHANGE to a `locked` field is refused, naming the reason the descriptor
+ * carries (REQ-135, generalised by REQ-139). The control is rendered unavailable,
+ * so a new value for it can only come from a client that ignored the descriptor —
+ * and what makes it unavailable is a fact about the element that a post cannot
+ * change. Re-posting the value the field already holds is not a change and
+ * passes: see {@link lockError}.
  */
 export function applyCopyFields(
   node: L1Node,
@@ -1401,14 +1543,8 @@ export function applyCopyFields(
     if (!field) {
       return { ok: false, field: name, message: `Unknown field '${name}' for this segment.` }
     }
-    if (field.locked) {
-      return {
-        ok: false,
-        field: name,
-        message: `Field '${name}' is not editable on this segment.`,
-      }
-    }
     const refusal =
+      lockError(field, value, derived.values[name]) ??
       typeError(field, value) ??
       rangeError(field, value, derived.values[name]) ??
       colorError(field, value, derived.values[name], opts.palette)

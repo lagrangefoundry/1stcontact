@@ -807,6 +807,51 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * UNAVAILABLE CONTROLS (REQ-139).
+ *
+ * `is-locked` is the class `mountFields` already puts on a row it renders
+ * read-only, and `mountColorField` now puts the same one on the row this dialog
+ * draws — so ONE rule dresses both families and a lock looks the same wherever
+ * it came from. Nothing styled it before this ticket, in either stylesheet: the
+ * italic lock REQ-135 shipped was enforced on the write side and invisible on
+ * screen, which is the failure mode this rule exists to end.
+ *
+ * DIMMED, NOT HIDDEN. The row keeps its label and keeps reporting what the
+ * element holds, because a missing row would read as "this build has no such
+ * control" rather than "not on this element" — REQ-135's own argument for
+ * locking over dropping. Only the affordance goes.
+ */
+.builder-modal__props .is-locked {
+  opacity: 0.55;
+}
+
+.builder-color__swatch:disabled {
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.builder-color__swatch:disabled:hover {
+  border-color: var(--shell-border);
+}
+
+/*
+ * The reason, under the row it explains. A greyed-out control with no cause is
+ * read as a bug, and the sentence is also the only place the operator is told
+ * the way round it (ask the AI) — so it is body text, not a tooltip: a hover
+ * affordance would hide the answer from exactly the reader who needs it and
+ * would not exist at all on a touch device.
+ *
+ * NOT dimmed with the row: the control is unavailable, the explanation is not.
+ */
+.builder-lock {
+  margin: -2px 2px 8px;
+  color: var(--shell-fg-muted, var(--shell-fg));
+  opacity: 0.78;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .builder-escalate {
   display: flex;
   align-items: center;

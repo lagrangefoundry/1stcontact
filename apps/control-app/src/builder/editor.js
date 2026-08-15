@@ -436,6 +436,13 @@ function defaultModal(spec) {
     }
   }
 
+  // REQ-139 — WHY a control is unavailable, under the row it belongs to. Run
+  // once over the whole sheet after both control families have mounted, rather
+  // than inside each: a lock is a property of the descriptor, and which control
+  // happened to draw the row is exactly the detail the operator must not be
+  // shown. See `annotateLocks`.
+  if (sheet) annotateLocks(sheet, spec.schema)
+
   /**
    * Every staged value, from whichever control is holding it.
    *
@@ -591,6 +598,34 @@ function escalationRow(spec, { isDirty, flush }) {
 
   row.append(swatch, caption, link)
   return row
+}
+
+/**
+ * Say why each unavailable control is unavailable (REQ-139).
+ *
+ * A control that is merely greyed out reads as a bug. The descriptor carries the
+ * sentence — plain English, naming the way round it — and this is the one place
+ * that draws it, for BOTH control families: `mountFields` marks its own locked
+ * rows `is-locked` but has no vocabulary for a reason, and the colour row is
+ * drawn by this dialog. Matching on `data-field` is what lets one pass serve
+ * both, and it is why `mountColorField` stamps the same attribute the component
+ * does.
+ *
+ * ONLY WHERE THERE IS A ROW AND A REASON. A missing row is inert — a lock with
+ * nowhere to hang its note simply shows none, rather than throwing inside the
+ * dialog's construction and leaving the operator with a modal that never opened.
+ */
+function annotateLocks(sheet, schema) {
+  const rows = [...sheet.querySelectorAll('[data-field]')]
+  for (const field of schema ?? []) {
+    if (!field?.locked || !field.reason) continue
+    const row = rows.find((el) => el.dataset.field === field.name)
+    if (!row) continue
+    const note = document.createElement('p')
+    note.className = 'builder-lock'
+    note.textContent = field.reason
+    row.after(note)
+  }
 }
 
 /**
