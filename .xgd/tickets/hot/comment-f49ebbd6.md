@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T20:23:15.503229+00:00'
+updated_at: '2026-08-15T20:24:42.107361+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -295,5 +295,49 @@ A or B, and I'll scope milestones 1–2 as tickets under CHAT-25.
 <!-- xgd-chat role="user" ts="2026-08-15T20:23:15.298804+00:00" -->
 #### You
 Pages are NOT tickets! So that probably means B. Is there a test environment that we can run locally to get started?
+
+<!-- xgd-turn id="5c9d0cf3-7cab-4dcf-b2a5-08023ea86639-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T20:24:41.693112+00:00" -->
+#### Claude
+Agreed — B. Let me find what local D1 harness already exists rather than invent one.
+
+A complete local D1 harness already exists. Let me verify it actually runs.
+
+69 tests, 1.76s, inside workerd against a real D1 binding. So the answer is yes — and better than I implied last message.
+
+Yes — and it's the production runtime, not a simulation. That also corrects something I got wrong last message.
+
+**The correction:** I said this component "has never run against real D1", citing the `node:sqlite` shim. That was only half the story and it overstated the risk. The *showcase* uses the shim because a browser tab can't run D1, so it hosts the store in Node. The *tests* run inside workerd/miniflare against a real D1 binding. What's genuinely unproven is only **deployed remote D1** — latency, limits, real bindings in a live Worker. That's a much smaller risk than I described.
+
+## What's available locally
+
+| Layer | What it gives you |
+|---|---|
+| `@cloudflare/vitest-pool-workers` | Tests execute **inside workerd** with real local D1 + R2 bindings, reached via `import { env } from 'cloudflare:test'`. This is what the 69 ticketing tests use |
+| `wrangler dev` | Local workerd serving HTTP with the same bindings — for driving the builder in a browser |
+| `wrangler d1 execute --local` | Applying schema, inspecting state |
+
+R2 locally is **already proven in this repo** — `public-site` has miniflare R2 state on disk from previous runs.
+
+## One wrinkle in adopting it here
+
+Not just a dependency add. `@cloudflare/vitest-pool-workers` isn't installed in 1stcontact (lagrange-framework has 0.18.5), and more importantly this repo's `vitest.config.mts` is a **single config built on Astro's `getViteConfig`** — needed for the `.astro` transform. That transform can't run in workerd, and the workers pool needs its own pool.
+
+So this becomes a **two-project vitest setup**. The precedent is exact: lagrange-framework hit the identical split and solved it with `vitest.config.js` (workerd) + `vitest.node.config.js` (filesystem-dependent tests), referenced as projects from a root config. Worth knowing it's a structural change to the test setup, not a one-liner.
+
+## Proposed start
+
+The design is now settled: **B**, D1 for page definitions + `site.json`, R2 for assets + revision snapshots, two adapters behind one async port, Cloudflare Access as the operator gate.
+
+I'd sequence it:
+
+1. **Test harness** — add the pool, split vitest into workerd + node projects. Small, and it unblocks every UAT that follows. This is the literal "get started" step.
+2. **Async `SiteStore` port + fs adapter** — no behaviour change, all existing tests still green. This is the sync→async conversion of `edit.ts`'s 31 functions and the CLI. The big mechanical one.
+3. **D1/R2 adapter** — site-specific schema reusing `Accessor`'s pattern, proved by UATs in workerd.
+
+Milestone 1 (Access + build/deploy scripts) is independent and can run alongside.
+
+I can't create tickets in this session — it's scoped to CHAT-25 — so tell me if you want them filed and I'll ask you to green-light that explicitly. Otherwise, shall I write the design record from this conversation into CHAT-25's body (currently empty) the way CHAT-11 captured the phase-1 decisions, and then start on step 1?
 
 <!-- xgd-chat-end -->
