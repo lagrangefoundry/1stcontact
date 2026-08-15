@@ -6,9 +6,9 @@ title: Build, deploy and smoke-test scripts, and the [vars] inheritance bug behi
   the production 503
 created_by: xgd
 created_at: '2026-08-15T20:32:18.642216+00:00'
-updated_at: '2026-08-15T21:32:35.456614+00:00'
+updated_at: '2026-08-15T21:40:51.431802+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -53,15 +53,19 @@ that is done differently by hand than by script is a deploy whose failures nobod
 
 - `bin/build` — builds every deployable artifact; fails loudly on a missing shared-store
   component rather than emitting a broken import map.
-- `bin/deploy` — applies D1 migrations, deploys the Workers, reports what moved. Takes a target
-  so `--dry-run` and a real deploy are the same code path.
+- `bin/deploy` — deploys the Workers and reports what moved. Takes a target so `--dry-run` and a
+  real deploy are the same code path. It provides the **hooks** for migrations and secrets;
+  it does not itself know about D1 or any particular key. [[REQ-143]] wires its migrations into
+  that hook, [[REQ-146]] wires `ANTHROPIC_API_KEY` into it. **This is deliberate** — it is what
+  keeps this ticket free of a dependency on the store chain, so the scripts and [[REQ-147]] are
+  not serialised behind it.
 - `bin/smoke` — post-deploy assertions against the **live** origin, exiting non-zero on failure.
   Must cover what [[CHAT-11]] verified by hand for `public-site`: apex resolves, the
   trailing-slash 301 holds, a rendered snapshot's referenced assets all return 200 with correct
   content types, `cache-control` and `x-robots-tag` are right on the draft channel, and an
   unknown slug 404s without leaking a distinction.
-- Secrets documented and pushed via `wrangler secret`, never committed. `ANTHROPIC_API_KEY` is
-  the first one ([[REQ-146]]).
+- A documented mechanism for pushing secrets via `wrangler secret`, never committed. No secret is
+  named or required by this ticket; the mechanism is proved with a throwaway value.
 
 ## 4. Acceptance criteria
 
