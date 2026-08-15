@@ -5,9 +5,9 @@ type: request
 title: The AI host and publish move into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-15T21:42:01.506649+00:00'
+updated_at: '2026-08-15T21:43:19.167442+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: depends_on
 status: draft
 fields:
   priority: medium
@@ -15,8 +15,12 @@ fields:
   auto_merge_back: true
   needs_review: true
   depends_on:
+  - REQ-141
+  - REQ-142
   - REQ-143
+  - REQ-144
   - REQ-145
+  - REQ-147
 ---
 
 # The AI host and `publish` move into workerd
