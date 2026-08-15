@@ -6,9 +6,9 @@ title: Draft change journal — let the AI know what changed without re-reading 
   site
 created_by: xgd
 created_at: '2026-08-11T22:46:46.266235+00:00'
-updated_at: '2026-08-15T01:56:13.105402+00:00'
+updated_at: '2026-08-15T01:56:21.721388+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -19,6 +19,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.45
+  story_points: 5
 ---
 
 # Draft change journal — let the AI know what changed without re-reading the site
