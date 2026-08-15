@@ -25,9 +25,13 @@ import {
   type BehaviorMeta,
   type BehaviorSlotValue,
 } from '@1stcontact/framework'
-import type { Root, StoreContext } from '../store'
+import type { JournalRecord, Root, StoreContext } from '../store'
 import {
+  appendChange,
+  changesSince,
+  clip,
   diffSnapshots,
+  draftCounter,
   draftDir,
   ensureDir,
   listFilesRel,
@@ -41,6 +45,7 @@ import {
 } from '../store'
 import type { GlobalOptions } from './commands'
 import { CommandError } from './errors'
+import { labelOf } from './segments'
 
 /**
  * The structured-edit command surface (REQ-11): validated, AI-legible read and
@@ -61,11 +66,75 @@ import { CommandError } from './errors'
 export interface EditOutput {
   data: unknown
   human: string
+  /**
+   * The site's change count after this command (REQ-131). Present on every
+   * command that WRITES, absent on every command that reads.
+   *
+   * It is what makes a caller's baseline advance as it writes: hold the number
+   * your last write returned, and any gap between it and the current count is by
+   * construction somebody ELSE's work. That is why detecting a concurrent edit
+   * needs no actor filtering — the arithmetic does it.
+   */
+  at?: number
 }
 
 function ctxOf(opts: GlobalOptions): StoreContext {
   const root: Root = opts.sandbox ? 'sandbox' : 'sites'
   return { cwd: opts.cwd ?? process.cwd(), root }
+}
+
+/**
+ * Record one write in the draft change journal and return the count it produced.
+ *
+ * Called at the RETURN of a mutating command, never before the write, which is
+ * what makes "a refused write appends nothing" true without a transaction: every
+ * write here validates the whole resulting definition and throws on refusal, so
+ * reaching this line means the bytes have already landed.
+ *
+ * The `summary` is the command's own `human` line rather than a second sentence
+ * written for the journal. One description, so a change reads the same way in
+ * the answer to the person who made it and in the answer to whoever finds it
+ * later.
+ */
+function note(
+  ctx: StoreContext,
+  slug: string,
+  opts: GlobalOptions,
+  out: EditOutput,
+  entry: Omit<JournalRecord, 'at' | 'ts' | 'actor' | 'summary'>,
+): EditOutput {
+  return {
+    ...out,
+    at: appendChange(ctx, slug, { ...entry, actor: opts.actor ?? 'cli', summary: out.human }),
+  }
+}
+
+/**
+ * The words an element holds, its whole subtree flattened (REQ-131).
+ *
+ * This is the half of a journal record that is worth keeping once an address has
+ * stopped meaning anything: "the heading said X and now says Y" is legible to a
+ * reader who cannot resolve `0.2.1` and never will, because the render that
+ * minted it is long gone.
+ */
+function textOf(node: L1Node): string {
+  const runs: string[] = []
+  const walk = (n: L1Node): void => {
+    if (n.kind === 'text') runs.push(n.text)
+    for (const child of (n as { children?: L1Node[] }).children ?? []) walk(child)
+  }
+  walk(node)
+  return runs.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/** One modal's worth of field values, rendered as the text a person would read. */
+function fieldsText(values: Record<string, unknown>, fields: readonly string[]): string {
+  const show = (name: string): string => {
+    const value = values[name]
+    return typeof value === 'string' ? value : JSON.stringify(value ?? null)
+  }
+  if (fields.length === 1) return show(fields[0])
+  return fields.map((name) => `${name}: ${show(name)}`).join('\n')
 }
 
 // ── on-disk helpers ────────────────────────────────────────────────────────
@@ -542,7 +611,14 @@ export function editCopySet(
   const base = readBase(ctx, slug)
   const { files, file, page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, true)
 
-  const applied = applyCopyFields(node, values, segmentOptions(node, slug, page, opts))
+  // Read BEFORE the apply, because `applyCopyFields` mutates the node in place
+  // and the journal's whole value is being able to say what the words used to
+  // be (REQ-131).
+  const options = segmentOptions(node, slug, page, opts)
+  const label = labelOf(node)
+  const wasValues = copyFieldsOf(node, options)?.values ?? {}
+
+  const applied = applyCopyFields(node, values, options)
   if (!applied.ok) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',
@@ -551,6 +627,7 @@ export function editCopySet(
       hint: `Read the segment's fields with '1c copy get ${slug} ${pageId} ${rawPath}'.`,
     })
   }
+  const nowValues = copyFieldsOf(node, options)?.values ?? {}
 
   // The shared validator, layer 1 (DOC-8 §7) — the same call `page`, `config` and
   // `asset` make, and the same one the AI's tool surface will. It runs the site
@@ -558,7 +635,7 @@ export function editCopySet(
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
   writeJson(file.abs, page)
-  return {
+  const out: EditOutput = {
     data: {
       target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
       changed: applied.changed,
@@ -569,6 +646,20 @@ export function editCopySet(
         ? `No change at ${rawPath} (value already current).`
         : `Updated ${applied.changed.join(', ')} at ${rawPath} in page '${pageId}'.`,
   }
+  // A call that changed nothing still wrote nothing worth telling anyone about,
+  // so it does not advance the count — otherwise every no-op save from the modal
+  // would look, to the assistant, exactly like the operator rewriting a heading.
+  if (applied.changed.length === 0) return { ...out, at: draftCounter(ctx, slug) }
+  return note(ctx, slug, opts, out, {
+    op: 'copy.set',
+    page: pageId,
+    path: rawPath,
+    module: opts.module,
+    slot: opts.slot,
+    label,
+    before: clip(fieldsText(wasValues, applied.changed)),
+    after: clip(fieldsText(nowValues, applied.changed)),
+  })
 }
 
 // ── L1 authoring: read and write one subtree, verbatim (REQ-129) ─────────────
@@ -666,6 +757,10 @@ export function editL1Set(
 
   const page = structuredClone(file.page)
   const roots = segmentRoots(page, pageId, opts)
+  // What was there, read before it is gone. The address will not survive the
+  // next render (DOC-28 §5.2), so this is the only moment the journal can learn
+  // what the caller actually replaced (REQ-131).
+  const previous = resolveL1Node(roots, parsed)
   if (!replaceL1Node(roots, parsed, node as L1Node)) {
     throw new CommandError({
       code: 'NOT_FOUND',
@@ -679,14 +774,29 @@ export function editL1Set(
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
   writeJson(file.abs, page)
-  return {
-    data: {
-      target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
-      changed: [rawPath],
-      node,
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: {
+        target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
+        changed: [rawPath],
+        node,
+      },
+      human: `Replaced the element at ${rawPath} in page '${pageId}'.`,
     },
-    human: `Replaced the element at ${rawPath} in page '${pageId}'.`,
-  }
+    {
+      op: 'l1.set',
+      page: pageId,
+      path: rawPath,
+      module: opts.module,
+      slot: opts.slot,
+      label: previous ? labelOf(previous) : undefined,
+      before: previous ? clip(textOf(previous)) : undefined,
+      after: clip(textOf(node as L1Node)),
+    },
+  )
 }
 
 // ── page commands ────────────────────────────────────────────────────────────
@@ -778,7 +888,13 @@ export function editPageAdd(slug: string, pageId: string, opts: PageWriteOptions
   validateOrThrow(base, [...files.map((f) => f.page), newPage])
 
   writeJson(destAbs, newPage)
-  return { data: { page: newPage }, human: `Added page '${pageId}' (path: ${pageSlug}).` }
+  return note(
+    ctx,
+    slug,
+    opts,
+    { data: { page: newPage }, human: `Added page '${pageId}' (path: ${pageSlug}).` },
+    { op: 'page.add', page: pageId, label: String(newPage.title) },
+  )
 }
 
 export function editPageUpdate(slug: string, pageId: string, opts: PageWriteOptions = {}): EditOutput {
@@ -819,7 +935,19 @@ export function editPageUpdate(slug: string, pageId: string, opts: PageWriteOpti
   validateOrThrow(base, pages)
 
   writeJson(file.abs, updated)
-  return { data: { page: updated }, human: `Updated page '${pageId}'.` }
+  return note(
+    ctx,
+    slug,
+    opts,
+    { data: { page: updated }, human: `Updated page '${pageId}'.` },
+    {
+      op: 'page.update',
+      page: pageId,
+      label: String(updated.title ?? pageId),
+      before: clip(String(file.page.title ?? '')),
+      after: clip(String(updated.title ?? '')),
+    },
+  )
 }
 
 export interface PageRmOptions extends GlobalOptions {
@@ -857,12 +985,18 @@ export function editPageRm(slug: string, pageId: string, opts: PageRmOptions = {
 
   if (newBase !== base) writeJson(siteJsonPath(ctx, slug), newBase)
   removePath(file.abs)
-  return {
-    data: { removed: pageId, navEntriesRemoved: referencing.length },
-    human: `Removed page '${pageId}'${
-      referencing.length > 0 ? ` and ${referencing.length} nav entr${referencing.length === 1 ? 'y' : 'ies'}` : ''
-    }.`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { removed: pageId, navEntriesRemoved: referencing.length },
+      human: `Removed page '${pageId}'${
+        referencing.length > 0 ? ` and ${referencing.length} nav entr${referencing.length === 1 ? 'y' : 'ies'}` : ''
+      }.`,
+    },
+    { op: 'page.remove', page: pageId, label: String(file.page.title ?? pageId) },
+  )
 }
 
 // ── behavior-module instances (REQ-130) ──────────────────────────────────────
@@ -1054,10 +1188,16 @@ export function editModuleAdd(
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
   writeJson(file.abs, page)
-  return {
-    data: { module: { id: moduleId, type: meta.id, version: meta.version, slot: opts.slot } },
-    human: `Added ${meta.id} '${moduleId}' to page '${pageId}'${opts.slot ? ` at slot '${opts.slot}'` : ''}.`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { module: { id: moduleId, type: meta.id, version: meta.version, slot: opts.slot } },
+      human: `Added ${meta.id} '${moduleId}' to page '${pageId}'${opts.slot ? ` at slot '${opts.slot}'` : ''}.`,
+    },
+    { op: 'component.add', page: pageId, module: moduleId, label: `${meta.id} '${moduleId}'` },
+  )
 }
 
 /**
@@ -1103,10 +1243,22 @@ export function editModuleConfigure(
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
   writeJson(file.abs, page)
-  return {
-    data: { module: { id: moduleId, type: instance.type }, config: instance.config },
-    human: `Configured '${moduleId}' on page '${pageId}'.`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { module: { id: moduleId, type: instance.type }, config: instance.config },
+      human: `Configured '${moduleId}' on page '${pageId}'.`,
+    },
+    {
+      op: 'component.configure',
+      page: pageId,
+      module: moduleId,
+      label: `${String(instance.type)} '${moduleId}'`,
+      after: clip(JSON.stringify(instance.config)),
+    },
+  )
 }
 
 /** Remove an instance from a page. Its `slot` node in the L1 tree is left alone. */
@@ -1133,10 +1285,13 @@ export function editModuleRm(
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
   writeJson(file.abs, page)
-  return {
-    data: { removed: moduleId },
-    human: `Removed '${moduleId}' from page '${pageId}'.`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    { data: { removed: moduleId }, human: `Removed '${moduleId}' from page '${pageId}'.` },
+    { op: 'component.remove', page: pageId, module: moduleId, label: `'${moduleId}'` },
+  )
 }
 
 // ── config commands ──────────────────────────────────────────────────────────
@@ -1203,10 +1358,21 @@ export function editConfigSet(
 
   writeJson(siteJsonPath(ctx, slug), newBase)
   const where = scoped ? '(top level)' : key
-  return {
-    data: { key: scoped ? null : key, value: merged },
-    human: `Set ${where} = ${typeof merged === 'string' ? merged : JSON.stringify(merged)}`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { key: scoped ? null : key, value: merged },
+      human: `Set ${where} = ${typeof merged === 'string' ? merged : JSON.stringify(merged)}`,
+    },
+    {
+      op: 'config.set',
+      label: where,
+      before: clip(JSON.stringify(scoped ? base : getDotted(base, key)) ?? 'null'),
+      after: clip(JSON.stringify(merged) ?? 'null'),
+    },
+  )
 }
 
 // ── palette commands (REQ-133) ───────────────────────────────────────────────
@@ -1353,10 +1519,21 @@ export function editPaletteSet(
   writeJson(siteJsonPath(ctx, slug), newBase)
   const { entries } = paletteCensus(newBase, files.map((f) => f.page))
   const count = entries.find((e) => e.name === name)?.count ?? 0
-  return {
-    data: { slug, name, value: hex, count },
-    human: `Set ${name} = ${hex} (${count} use${count === 1 ? '' : 's'} repainted).`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { slug, name, value: hex, count },
+      human: `Set ${name} = ${hex} (${count} use${count === 1 ? '' : 's'} repainted).`,
+    },
+    {
+      op: 'palette.set',
+      label: `color '${name}'`,
+      before: String(palette[name]?.value ?? ''),
+      after: hex,
+    },
+  )
 }
 
 /** Add an entry (REQ-133 §5b / AC-6). Refused on a duplicate or a malformed name. */
@@ -1383,7 +1560,13 @@ export function editPaletteAdd(
   const newBase = { ...base, palette: { ...palette, [name]: { value: hex } } }
   validateOrThrow(newBase, files.map((f) => f.page))
   writeJson(siteJsonPath(ctx, slug), newBase)
-  return { data: { slug, name, value: hex, count: 0 }, human: `Added ${name} = ${hex}.` }
+  return note(
+    ctx,
+    slug,
+    opts,
+    { data: { slug, name, value: hex, count: 0 }, human: `Added ${name} = ${hex}.` },
+    { op: 'palette.add', label: `color '${name}'`, after: hex },
+  )
 }
 
 /**
@@ -1427,7 +1610,13 @@ export function editPaletteRm(slug: string, name: string, opts: GlobalOptions = 
   const newBase = { ...base, palette: rest }
   validateOrThrow(newBase, pages)
   writeJson(siteJsonPath(ctx, slug), newBase)
-  return { data: { slug, name, removed: true }, human: `Removed ${name}.` }
+  return note(
+    ctx,
+    slug,
+    opts,
+    { data: { slug, name, removed: true }, human: `Removed ${name}.` },
+    { op: 'palette.remove', label: `color '${name}'`, before: String(palette[name]?.value ?? '') },
+  )
 }
 
 /**
@@ -1501,10 +1690,16 @@ export function editPaletteRename(
     // not rewritten and its file keeps its mtime.
     if (newPages[i] !== file.page) writeJson(file.abs, newPages[i] as Record<string, unknown>)
   })
-  return {
-    data: { slug, from, to, count },
-    human: `Renamed ${from} → ${to} (${count} reference${count === 1 ? '' : 's'} rewritten).`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { slug, from, to, count },
+      human: `Renamed ${from} → ${to} (${count} reference${count === 1 ? '' : 's'} rewritten).`,
+    },
+    { op: 'palette.rename', label: `color '${from}'`, before: from, after: to },
+  )
 }
 
 // ── asset commands ───────────────────────────────────────────────────────────
@@ -1690,7 +1885,13 @@ export function editAssetAdd(slug: string, file: string, opts: AssetAddOptions =
   ensureDir(assetsDirOf(ctx, slug))
   copyFileSync(file, destAbs)
   writeJson(siteJsonPath(ctx, slug), newBase)
-  return { data: { asset: newAsset }, human: `Added asset '${name}'.` }
+  return note(
+    ctx,
+    slug,
+    opts,
+    { data: { asset: newAsset }, human: `Added asset '${name}'.` },
+    { op: 'asset.add', label: name },
+  )
 }
 
 // ── generated assets (REQ-130) ───────────────────────────────────────────────
@@ -1787,10 +1988,16 @@ export function editAssetWrite(
   ensureDir(assetsDirOf(ctx, slug))
   writeFileSync(destAbs, content, 'utf8')
   writeJson(siteJsonPath(ctx, slug), newBase)
-  return {
-    data: { asset: { ...entry, src: `/assets/${filename}` } },
-    human: `${registered ? 'Replaced' : 'Wrote'} image '${filename}' (${Buffer.byteLength(content, 'utf8')} bytes).`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { asset: { ...entry, src: `/assets/${filename}` } },
+      human: `${registered ? 'Replaced' : 'Wrote'} image '${filename}' (${Buffer.byteLength(content, 'utf8')} bytes).`,
+    },
+    { op: 'asset.write', label: filename, after: clip(String(entry.alt ?? '')) },
+  )
 }
 
 export interface AssetRmOptions extends GlobalOptions {
@@ -1828,10 +2035,16 @@ export function editAssetRm(slug: string, assetName: string, opts: AssetRmOption
   writeJson(siteJsonPath(ctx, slug), newBase)
   const fileAbs = path.join(assetsDirOf(ctx, slug), String(asset.src ?? assetName))
   if (pathExists(fileAbs)) removePath(fileAbs)
-  return {
-    data: { removed: assetName, referencesIgnored: refs.length },
-    human: `Removed asset '${assetName}'${refs.length > 0 ? ` (left ${refs.length} dangling reference(s))` : ''}.`,
-  }
+  return note(
+    ctx,
+    slug,
+    opts,
+    {
+      data: { removed: assetName, referencesIgnored: refs.length },
+      human: `Removed asset '${assetName}'${refs.length > 0 ? ` (left ${refs.length} dangling reference(s))` : ''}.`,
+    },
+    { op: 'asset.remove', label: assetName },
+  )
 }
 
 // ── status ───────────────────────────────────────────────────────────────────
@@ -1849,6 +2062,35 @@ export function editStatus(slug: string, opts: GlobalOptions = {}): EditOutput {
   for (const rel of changes.removed) lines.push(`D  ${rel}`)
   if (total === 0) lines.push('(no pending changes)')
   return { data: { baseRevision: live, ...changes }, human: lines.join('\n') }
+}
+
+// ── the draft change journal (REQ-131) ───────────────────────────────────────
+
+/**
+ * What has changed on the draft, and where the change count stands now.
+ *
+ * The third of DOC-33 §7.9's three questions, at the cost the middle one should
+ * have: proportional to THE CHANGE rather than to the page. "Has anything
+ * changed?" is answered without a call at all — the host compares counts between
+ * turns and says so in the reminder — and "what is the page now?" is the
+ * existing reads, which stay the fallback.
+ *
+ * `since` omitted means everything the window still holds. Passing the count a
+ * previous write returned is the normal use, and it is what makes a caller's own
+ * edits invisible to it: the count it holds already includes them.
+ */
+export function editChanges(slug: string, since: number | undefined, opts: GlobalOptions = {}): EditOutput {
+  const ctx = ctxOf(opts)
+  requireDraft(ctx, slug)
+  const slice = changesSince(ctx, slug, since)
+  const lines = slice.changes.map((c) => {
+    const where = c.page ? ` on '${c.page}'` : ''
+    const words = c.before !== undefined || c.after !== undefined ? `\n     "${c.before ?? ''}" → "${c.after ?? ''}"` : ''
+    return `${c.at}  ${c.actor}  ${c.op}${where}  ${c.label ?? ''}${words}`
+  })
+  if (slice.truncated) lines.unshift('(older changes are no longer retained)')
+  if (slice.changes.length === 0) lines.push('(nothing has changed)')
+  return { data: slice, human: `now: ${slice.now}\n${lines.join('\n')}` }
 }
 
 // ── gap inversion (REQ-74) ───────────────────────────────────────────────────
@@ -1988,5 +2230,11 @@ export function cmdApplyGapFixes(
     head,
     ...fixes.map((f) => `   ${f.moduleId}: spacingTop ${f.from} -> ${f.to}   (below "${f.boundary}")${f.note ? `  ⚠ ${f.note}` : ''}`),
   ]
-  return { data: { fixes, applied: apply && fixes.length > 0 }, human: lines.join('\n') }
+  const out: EditOutput = {
+    data: { fixes, applied: apply && fixes.length > 0 },
+    human: lines.join('\n'),
+  }
+  // A dry run writes nothing, so it is not a change and must not look like one.
+  if (!apply || fixes.length === 0) return { ...out, at: draftCounter(ctx, slug) }
+  return note(ctx, slug, opts, out, { op: 'gaps.apply', label: `${fixes.length} boundaries` })
 }
