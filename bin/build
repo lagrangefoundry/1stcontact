@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+#
+# `bin/build` — produce every deployable artifact (REQ-144).
+#
+# ONE PATH. The operator, CI and `bin/deploy` all build the same way, because a
+# build done differently by hand than by script is a build whose failures nobody
+# can reproduce.
+#
+# Three stages, in this order and for this reason:
+#
+#   1. PREFLIGHT (`1c preflight`) — before anything is emitted. The shared
+#      component store is populated out of band, so `pnpm install` cannot supply
+#      it and the lockfile cannot notice it missing. A missing BROWSER component
+#      does not fail here by default: it yields an import map that loads, renders
+#      chrome, and dies at the first `import` in the operator's browser. Failing
+#      loudly here is the whole point of running it first.
+#   2. TYPECHECK (`pnpm -r build`) — each workspace package's own build script.
+#   3. BUNDLE — each Worker compiled to `apps/<app>/dist/` through the very
+#      wrangler invocation that deploys it, minus the upload. A bundle that
+#      cannot be built is a deploy that would have failed at the last step.
+#
+# Note on stage 3: `wrangler deploy` rebuilds from source at deploy time and does
+# NOT consume `dist/`. The bundle is therefore evidence, not input — proof that
+# the artifact builds and the config resolves. It is also where REQ-145's static
+# assets land when the builder client stops being served off disk, at which point
+# this stage starts producing something the deploy genuinely needs.
+#
+# Usage:
+#   bin/build              # everything
+#   bin/build --skip-preflight
+#
+# Exit codes: 0 success; 6 environment (preflight); 1 anything else.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+cd "$repo_root"
+
+skip_preflight=0
+for arg in "$@"; do
+  case "$arg" in
+    --skip-preflight) skip_preflight=1 ;;
+    -h | --help)
+      cat <<'EOF'
+bin/build — produce every deployable artifact.
+
+  bin/build                  preflight, typecheck, bundle every apps/*/ Worker
+  bin/build --skip-preflight  skip the shared-store / install check
+
+Stages: `1c preflight` (shared component store + declared packages), then
+`pnpm -r build`, then a per-app `wrangler deploy --env production --dry-run
+--outdir dist`. Exit 6 means the environment is wrong, not the code.
+EOF
+      exit 0
+      ;;
+    *)
+      echo "bin/build: unknown argument '$arg'" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# The Workers this repo deploys. Discovered from the tree rather than listed, so
+# a new app is built the moment it exists — the failure mode of a hand-kept list
+# is an app that silently never gets built.
+#
+# Read with a while loop rather than `mapfile`: macOS ships bash 3.2 and this
+# script must run on the operator's laptop as well as in CI.
+apps=()
+while IFS= read -r dir; do
+  apps+=("$dir")
+done < <(find apps -mindepth 2 -maxdepth 2 -name wrangler.toml | xargs -n1 dirname | sort)
+
+if [[ ${#apps[@]} -eq 0 ]]; then
+  echo "bin/build: no apps/*/wrangler.toml found — nothing to build" >&2
+  exit 1
+fi
+
+step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+
+if [[ $skip_preflight -eq 0 ]]; then
+  step "Preflight"
+  "$repo_root/bin/1c" preflight
+fi
+
+step "Typecheck and package builds"
+pnpm -r build
+
+for app in "${apps[@]}"; do
+  name="$(basename "$app")"
+  step "Bundle $name"
+  # --env production so the bundle is built against the environment that is
+  # actually deployed. A config error that only exists under [env.production] —
+  # a var the environment does not inherit, say — is exactly the class of bug
+  # this ticket exists to stop, and building the default environment would miss
+  # every one of them.
+  (cd "$app" && npx wrangler deploy --env production --dry-run --outdir dist)
+done
+
+step "Artifacts"
+for app in "${apps[@]}"; do
+  if [[ -d "$app/dist" ]]; then
+    size="$(du -sh "$app/dist" | cut -f1)"
+    printf '  %-28s %s\n' "$app/dist" "$size"
+  fi
+done
+
+printf '\n\033[1mBuild complete.\033[0m %d app(s).\n' "${#apps[@]}"

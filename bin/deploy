@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+#
+# `bin/deploy` — deploy the Workers, and report what moved (REQ-144).
+#
+# ONE CODE PATH. `--dry-run` is a TARGET, not a different script: the same hook
+# sequence runs, the same wrangler invocation is composed, and only the final
+# `--dry-run` flag differs. A rehearsal that took a different route would prove
+# nothing about the real thing.
+#
+# WHAT THIS SCRIPT DELIBERATELY DOES NOT KNOW. It knows nothing about D1, nothing
+# about migrations, and no secret's name. Those are hooks:
+#
+#   bin/deploy.d/migrate/    run before the app deploys — REQ-143 lands D1 here
+#   bin/deploy.d/secrets/    run before the app deploys — REQ-146 lands the API key here
+#
+# That is not squeamishness, it is what keeps this ticket free of a dependency on
+# the store chain: the scripts ship now, and each hook arrives with the ticket
+# that needs it, without this file changing.
+#
+# A hook is any EXECUTABLE file in one of those directories, run in sorted order.
+# Non-executable files are ignored, so a README can live beside them. Each hook
+# receives its context in the environment:
+#
+#   DEPLOY_APP          e.g. control-app
+#   DEPLOY_APP_DIR      absolute path to the app directory
+#   DEPLOY_ENV          the wrangler environment, e.g. production
+#   DEPLOY_WORKER_NAME  the deployed Worker's name, read from wrangler.toml
+#   DEPLOY_DRY_RUN      1 when rehearsing — a hook MUST make no change when set
+#   DEPLOY_REPO_ROOT    absolute path to the repo root
+#
+# A hook that exits non-zero aborts the deploy for that app before anything is
+# uploaded. That ordering is the point: a migration that fails must stop the code
+# that assumes it ran.
+#
+# SECRETS. Values are never committed, never written to a file in this repo, and
+# never echoed. They are pushed straight into Cloudflare's store:
+#
+#   printf '%s' "$VALUE" | npx wrangler secret put NAME --env production
+#
+# read from the operator's own environment or password manager. `wrangler secret
+# list --env production` shows the NAMES that exist, which is the only half that
+# is safe to look at. A secret hook script therefore contains the name and the
+# push, never the value; see bin/deploy.d/secrets/README.md.
+#
+# Usage:
+#   bin/deploy                       # every app, --env production
+#   bin/deploy public-site           # one app
+#   bin/deploy --dry-run             # rehearse everything
+#   bin/deploy --env staging control-app
+#
+# Exit codes: 0 success; 1 anything else (a failed hook, a failed upload).
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+cd "$repo_root"
+
+dry_run=0
+env_name="production"
+requested=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      dry_run=1
+      shift
+      ;;
+    --env)
+      env_name="${2:-}"
+      if [[ -z "$env_name" ]]; then
+        echo "bin/deploy: --env needs a value" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
+    -h | --help)
+      cat <<'EOF'
+bin/deploy — deploy the Workers, and report what moved.
+
+  bin/deploy [--dry-run] [--env <name>] [app...]
+
+With no app named, every apps/*/ Worker is deployed. `--dry-run` runs the same
+path and uploads nothing.
+
+Hooks (any executable file, sorted, run before the app's upload):
+  bin/deploy.d/migrate/   schema migrations
+  bin/deploy.d/secrets/   `wrangler secret put` pushes — names only, never values
+
+Hooks see DEPLOY_APP, DEPLOY_APP_DIR, DEPLOY_ENV, DEPLOY_WORKER_NAME,
+DEPLOY_DRY_RUN and DEPLOY_REPO_ROOT, and must make no change when
+DEPLOY_DRY_RUN=1.
+EOF
+      exit 0
+      ;;
+    -*)
+      echo "bin/deploy: unknown flag '$1'" >&2
+      exit 1
+      ;;
+    *)
+      requested+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# Discovered, not listed — same reason as bin/build.
+all_apps=()
+while IFS= read -r dir; do
+  all_apps+=("$(basename "$dir")")
+done < <(find apps -mindepth 2 -maxdepth 2 -name wrangler.toml | xargs -n1 dirname | sort)
+
+if [[ ${#all_apps[@]} -eq 0 ]]; then
+  echo "bin/deploy: no apps/*/wrangler.toml found — nothing to deploy" >&2
+  exit 1
+fi
+
+targets=()
+if [[ ${#requested[@]} -eq 0 ]]; then
+  targets=("${all_apps[@]}")
+else
+  for want in "${requested[@]}"; do
+    found=0
+    for have in "${all_apps[@]}"; do
+      if [[ "$want" == "$have" ]]; then
+        targets+=("$want")
+        found=1
+      fi
+    done
+    if [[ $found -eq 0 ]]; then
+      echo "bin/deploy: unknown app '$want' (have: ${all_apps[*]})" >&2
+      exit 1
+    fi
+  done
+fi
+
+step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+
+# The deployed Worker's name for an environment. Read out of wrangler.toml rather
+# than assumed to equal the directory: `name` under [env.<name>] overrides the
+# top-level one, and reporting the wrong name is how a deploy gets confirmed
+# against a Worker nobody changed.
+worker_name() {
+  local app_dir="$1" env="$2"
+  awk -v env="[env.$env]" '
+    $0 == env { in_env = 1; next }
+    /^\[/ { in_env = 0 }
+    in_env && /^[[:space:]]*name[[:space:]]*=/ { gsub(/.*=[[:space:]]*"|"[[:space:]]*$/, ""); print; exit }
+  ' "$app_dir/wrangler.toml" || true
+}
+
+run_hooks() {
+  local kind="$1" app="$2" app_dir="$3" name="$4"
+  local dir="$repo_root/bin/deploy.d/$kind"
+  [[ -d "$dir" ]] || return 0
+
+  local ran=0 hook
+  for hook in "$dir"/*; do
+    [[ -f "$hook" && -x "$hook" ]] || continue
+    ran=1
+    echo "  hook $kind/$(basename "$hook")"
+    DEPLOY_APP="$app" \
+      DEPLOY_APP_DIR="$app_dir" \
+      DEPLOY_ENV="$env_name" \
+      DEPLOY_WORKER_NAME="$name" \
+      DEPLOY_DRY_RUN="$dry_run" \
+      DEPLOY_REPO_ROOT="$repo_root" \
+      "$hook"
+  done
+  [[ $ran -eq 1 ]] || echo "  (no $kind hooks)"
+}
+
+if [[ $dry_run -eq 1 ]]; then
+  echo "DRY RUN — hooks are told not to change anything, and nothing is uploaded."
+fi
+
+deployed=()
+for app in "${targets[@]}"; do
+  app_dir="$repo_root/apps/$app"
+  name="$(worker_name "$app_dir" "$env_name")"
+  [[ -n "$name" ]] || name="$app"
+
+  step "$app → $name (--env $env_name)"
+  run_hooks migrate "$app" "$app_dir" "$name"
+  run_hooks secrets "$app" "$app_dir" "$name"
+
+  # Composed once. --dry-run is appended to the SAME command line the real
+  # deploy uses, so the two cannot drift apart.
+  cmd=(npx wrangler deploy --env "$env_name")
+  if [[ $dry_run -eq 1 ]]; then
+    cmd+=(--dry-run)
+  fi
+  (cd "$app_dir" && "${cmd[@]}")
+  deployed+=("$name")
+done
+
+step "Deployed"
+for name in "${deployed[@]}"; do
+  if [[ $dry_run -eq 1 ]]; then
+    printf '  %-32s (rehearsed, not uploaded)\n' "$name"
+  else
+    printf '  %-32s %s\n' "$name" "$env_name"
+  fi
+done
+
+if [[ $dry_run -eq 0 ]]; then
+  printf '\nNow prove it serves:  bin/smoke\n'
+fi

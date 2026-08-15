@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# `bin/smoke` — prove a deployed origin actually serves (REQ-144).
+#
+# A thin launcher, matching `bin/1c`: the repo root is resolved from this
+# script's own location so it works from any directory. The assertions live in
+# tools/generate/bin/smoke.mjs, which is plain JavaScript with no dependency and
+# no transform — it has to run straight after a deploy, on whatever Node is
+# there, and it is imported by the UATs so its failure path can be tested
+# against a fake origin rather than by breaking a real deploy.
+#
+# Usage:
+#   bin/smoke                                       # apex + unknown-slug only
+#   bin/smoke --slug xgd --draft fa0344fb47a8       # the full suite
+#   bin/smoke --origin https://staging.example --slug acme --draft <sha>
+#
+# Exits 0 when every check passes, 1 naming the ones that did not.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+exec node "$repo_root/tools/generate/bin/smoke.mjs" "$@"
