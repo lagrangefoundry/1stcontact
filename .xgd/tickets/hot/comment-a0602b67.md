@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-13T22:29:45.565176+00:00'
+updated_at: '2026-08-15T19:21:36.777644+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -229,5 +229,11 @@ Added in three places in `lagrange-framework`:
 **REQ-100** — already carried it from the last turn, as the contract the JS bridge must pin while proving multi-source composition. Verified it's there.
 
 I left DOC-20 (the Toolbox) alone — the property is about corpus sources, not about the toolbox mechanism, so DOC-7 is its home and a cross-reference there would spread it thin.
+
+<!-- xgd-turn id="2a0e59eb-0213-46ae-b11e-3f4e3ca29575-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T19:21:36.466625+00:00" -->
+#### You
+Can you take a look at what landed? Is this ticket ready to code?
 
 <!-- xgd-chat-end -->
