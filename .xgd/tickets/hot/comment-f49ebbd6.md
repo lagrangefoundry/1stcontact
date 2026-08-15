@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T21:33:46.539127+00:00'
+updated_at: '2026-08-15T21:38:55.384214+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -436,5 +436,11 @@ Your `xgd revert REQ-147 --hard` also restored that ticket to its state at branc
 `xgd revert REQ-141 --hard` and `xgd revert REQ-144 --hard` look like the right instrument, matching what you used for 147 — but reverting is destructive and you're closer to that machinery than I am, so I've stopped here rather than run them. Say the word and I will, or tell me if the remote branches need handling differently.
 
 The eight REQs themselves are intact and correct — only the status was wrong. For future ticket creation in this project: I'll create as `draft` and leave promotion to you.
+
+<!-- xgd-turn id="3fb36720-319d-4177-8327-5d05af707cf8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T21:38:55.052294+00:00" -->
+#### You
+please make sure that you have properly populated the depends_on constraints on the tickets (be conservative)
 
 <!-- xgd-chat-end -->
