@@ -1,65 +1,26 @@
-import path from 'node:path'
-import { getViteConfig } from 'astro/config'
-import {
-  WEBUI_PACKAGES,
-  WEBUI_SCOPE,
-  webuiExports,
-  webuiPackageDir,
-} from './tools/generate/src/cli/webui'
+import { defineConfig } from 'vitest/config'
 
 /**
- * The webui components resolved for VITE's transform-time resolution.
+ * The root config is an orchestrator, not a suite.
  *
- * The builder's browser sources import the components by bare specifier, and
- * Vite resolves those by walking up from the importing file — which reaches the
- * shared artifact store from the main checkout and, from a `git worktree`
- * checkout parked elsewhere, reaches nothing. `webuiPackageDir` already answers
- * this correctly for both, so the aliases are derived from it rather than from a
- * second guess at where the store lives: the resolution point stays single, and
- * the scope is still written exactly once.
+ * Two runtimes have to be tested and one Vitest pool cannot serve both. The
+ * existing suite needs Astro's `.astro` transform so behavior-module components
+ * render through the container API; that transform cannot run in workerd. The
+ * store work needs real D1 and R2 bindings, which only exist inside workerd via
+ * `@cloudflare/vitest-pool-workers` — its own pool. So the two live in sibling
+ * project configs and this file only composes them.
  *
- * These point at the real installed packages — never a stand-in — so a suite
- * mounting them proves the same thing it proves in the main checkout. When the
- * out-of-band install has not been run there is nothing to alias, and the suites
- * report their skip exactly as before.
+ * ROUTING, stated once: a test file named `*.workers.test.ts` runs in the
+ * workerd project; every other `*.test.ts` runs in the node/Astro project. The
+ * suffix is the whole convention — there is no per-file opt-in comment and no
+ * directory split, so a file's runtime is legible from its name alone.
+ *
+ * (lagrange-framework spells the same split the other way round — `*.node.test.js`
+ * marks the exception — because workerd is its default. Here node is, so the
+ * marked side is workerd.)
  */
-function webuiAliases(): Array<{ find: string; replacement: string }> {
-  const aliases: Array<{ find: string; replacement: string }> = []
-  for (const name of WEBUI_PACKAGES) {
-    let dir: string
-    let exports: Record<string, string>
-    try {
-      dir = webuiPackageDir(name)
-      exports = webuiExports(name)
-    } catch {
-      continue // not installed — WEBUI_INSTALLED is false and the suites skip
-    }
-    // Vite matches a string `find` as a PREFIX, so every subpath has to be
-    // listed ahead of the bare root or `…/shell.css` would rewrite to the JS
-    // entry plus a stray suffix.
-    for (const [sub, target] of Object.entries(exports)) {
-      if (sub === '.') continue
-      aliases.push({
-        find: `${WEBUI_SCOPE}/${name}/${sub.replace(/^\.\//, '')}`,
-        replacement: path.join(dir, target.replace(/^\.\//, '')),
-      })
-    }
-    aliases.push({
-      find: `${WEBUI_SCOPE}/${name}`,
-      replacement: path.join(dir, (exports['.'] ?? './index.js').replace(/^\.\//, '')),
-    })
-  }
-  return aliases
-}
-
-// Astro's `getViteConfig` wires the `.astro` transform plugin into Vitest so
-// framework module components can be imported and rendered via the container
-// API. Plain `.ts` UATs (site-schema, naming) are unaffected.
-export default getViteConfig({
-  resolve: { alias: webuiAliases() },
+export default defineConfig({
   test: {
-    include: ['tests/**/*.test.ts'],
-    testTimeout: 60000,
-    hookTimeout: 60000,
+    projects: ['./vitest.node.config.mts', './vitest.workers.config.mts'],
   },
 })

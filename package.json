@@ -1,6 +1,6 @@
 {
   "name": "1stcontact",
-  "version": "0.1.48",
+  "version": "0.1.49",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
@@ -20,6 +20,7 @@
     "dryrun:control": "pnpm --filter @1stcontact/control-app exec wrangler deploy --env production --dry-run"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.18.5",
     "@cloudflare/workers-types": "^4.20260630.1",
     "@vitest/coverage-v8": "^4.1.9",
     "astro": "^7.0.4",
