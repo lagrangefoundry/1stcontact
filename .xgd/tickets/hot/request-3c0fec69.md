@@ -6,9 +6,9 @@ title: 'Page editor: colour — text colour and panel background from the palett
   Phase B)'
 created_by: xgd
 created_at: '2026-08-15T00:34:37.398758+00:00'
-updated_at: '2026-08-15T18:00:51.409421+00:00'
+updated_at: '2026-08-15T19:33:47.354963+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -127,5 +127,35 @@ cannot exist.
    own modal; a dirty modal saves before it navigates.
 6. A site with an empty palette opens the picker in its "no colours yet" state rather than
    an empty or broken control.
-7. `storage/sites/1stcontact` and `storage/sites/harbor-cafe` no longer exist, and the full
-   suite passes without them.
+7. `1stcontact` and `harbor-cafe` are gone from the store — neither has a site definition
+   or any revisions — and the full suite passes without them. Stated against the definition
+   rather than the directory: git tracks files, so a site directory outlives its own
+   deletion whenever something untracked is inside it (`.DS_Store`, on any checkout Finder
+   has visited), and a directory holding only that is not a site. See §9.
+
+## 9. A directory entry is not a site
+
+Found by running the suite after the merge: the deletion in §7 left
+`storage/sites/1stcontact/` standing, because a `.DS_Store` was inside it and git tracks
+files rather than directories. Two criteria read that leftover as a site, in opposite
+directions:
+
+- AC-7 asserted the **directory** was absent, so it failed on a machine holding the
+  leftover while nothing had in fact come back — and would have passed on one without it.
+  It now asks for the site definition and the revisions.
+- REQ-137's store walk (`test_UAT_FC_REQ-137_no_stored_site_carries_a_step`) had already
+  anticipated `.DS_Store` as a *file* and filtered it from the site list, but then treated
+  the directory containing one as a site and read a `site.json` that was never there. A
+  stored site is now selected as a directory that holds a definition.
+
+Neither claim is weakened: one still proves the sites are gone, the other still walks every
+site on disk. Both were the same mistake — taking a directory entry for a site — which is
+why the fix is the same predicate in both places.
+
+## 10. Verification
+
+Full suite, foreground, on the merged `xgd-working`: **zero regressions**. The failing set
+is a strict subset of `main`'s pre-existing baseline (74 vs 75 failing tests), with one
+`main` failure — `reconciliation-l1-navigation` AC-845 — now passing. The pre-existing
+failures are unrelated to this ticket (the REQ-122/126/127/129/130 tool-surface suites) and
+fail identically on `main`.
