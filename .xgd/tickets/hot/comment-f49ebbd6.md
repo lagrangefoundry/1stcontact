@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T19:53:38.841139+00:00'
+updated_at: '2026-08-15T19:55:09.248090+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -170,5 +170,51 @@ My lean is two adapters, because losing git-tracked site source feels like a big
 #### You
 1. Please explain - why did we decide one thing and then change course? What is the correct answer?
    2. OK 2 adapters for now
+
+<!-- xgd-turn id="c65f9456-2208-45f5-bc1a-f03e3d70a96b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T19:55:09.061944+00:00" -->
+#### Claude
+Fair challenge. Let me trace where the D1 decision actually came from rather than assert it.
+
+I got that wrong, and the honest answer is that neither of my two positions was grounded — I hadn't read the architecture policy either time. Message 1 said D1 because DOC-12 said D1. Message 3 said R2 because I'd reasoned from the code. All the R2 facts I cited as findings were available before I said D1; I just hadn't looked. That's a course change from not checking, not from new evidence.
+
+Now I have checked. The picture is different from both of my answers.
+
+## What the policy actually says
+
+D1 isn't an inherited assumption — it's standing architecture policy, and it's more specific than DOC-12:
+
+- **DOC-1 #4** — D1 for "users, accounts, sites, **pages, sections, theme tokens**, leads, customers, invoices". Pages are named explicitly.
+- **DOC-5 §"D1"** — "D1 should be the default database unless a clear limitation emerges."
+- **DOC-1 #14** — "Store revision snapshots in D1 for small payloads **or R2 for larger serialized site definitions**."
+- **DOC-1 #16** — separate two data classes: **Site Definition Data** vs **Business Operational Data**.
+- **DOC-5, open questions** — "Whether to store site snapshots in D1, R2, or both" is listed as **still open**.
+
+So R2 for definitions was never forbidden; #14 already permits it, and DOC-5 left the question open. This isn't a reversal of a settled decision — it's an open question that was never closed.
+
+## The correct answer: split by access pattern
+
+DOC-1 #16 already draws the line; it just wasn't applied to storage.
+
+| Data | Store | Why |
+|---|---|---|
+| Page definitions, `site.json` | **R2** | Read/written **whole**, one page at a time. Nothing ever queries *inside* a page — `loadSite` reads all pages and validates them as a unit. A JSON blob only ever `SELECT`ed and `UPDATE`d whole is a relational database used as a key-value store. |
+| Assets | **R2** | Uncontested |
+| Revision snapshots | **R2** | Immutable, whole, large, includes asset bytes. Policy #14 permits it; CHAT-11 already built it |
+| Accounts, users, sessions, site index | **D1** | Genuinely relational and queried |
+| Leads, CRM, invoices | **D1** | Uncontested |
+
+This closes DOC-5's open question as "both" — one of the three options it left open — and needs exactly **one amendment to DOC-1 #4**: move `pages, sections` out of D1. Everything else is consistent with policy as written.
+
+**The real argument against**, which I should give you properly: D1 buys **atomicity**. `edit.ts:1760-1765` writes `site.json` and then loops over N pages — a rename touching multiple files. In D1 that's one transaction; in R2 it's N+1 independent puts with no rollback. Two things make me still prefer R2: on the filesystem it's *already* non-atomic today, so R2 doesn't regress anything; and R2 can get atomicity via a prefix-write-then-pointer-flip — which is precisely the content-addressed pattern DOC-12 already uses for revisions. D1 also wins on latency (one query vs N parallel GETs). That's a real cost I'm choosing to accept, not one I'd hide.
+
+## What this changes in the plan
+
+Almost nothing — but now for the right reason. **Milestone 2 needs only R2**, because it's content-only. D1 arrives with accounts/users/sessions, which is where the relational data genuinely starts — the same point custom auth lands, after Cloudflare Access.
+
+Decision 2 is settled: two adapters behind one port.
+
+One thing I won't do quietly: DOC-1 is a **policy** doc with numbered directives and citations. Amending #4 should be deliberate. Say the word and I'll scope it as: amend DOC-1 #4 + close DOC-5's open question, then ticket milestones 1 and 2 under CHAT-25.
 
 <!-- xgd-chat-end -->
