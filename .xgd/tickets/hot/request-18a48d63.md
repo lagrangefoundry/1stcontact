@@ -5,9 +5,9 @@ type: request
 title: 'The Cloudflare SiteStore: definitions in D1, bytes in R2'
 created_by: xgd
 created_at: '2026-08-15T20:31:46.590606+00:00'
-updated_at: '2026-08-15T21:41:44.920921+00:00'
+updated_at: '2026-08-15T21:42:31.686210+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: depends_on
 status: draft
 fields:
   priority: high
