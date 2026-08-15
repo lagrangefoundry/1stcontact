@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-15T01:25:44.735502+00:00'
+updated_at: '2026-08-15T01:46:39.398282+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,11 @@ Site login also inherits both of CHAT-13's blockers: the session cookie must be 
 4. **T&C acceptance after verification** rather than on the request form — agree?
 5. **Platform-operator access**: an ambient `platform_role` on the identity, or an explicit time-boxed audited grant (impersonation session)? The second is better hygiene; the first is a day's less work.
 6. **Do you want CHAT-13's α/β/γ filed now?** They're unfiled, and β at minimum is on login's critical path.
+
+<!-- xgd-turn id="77bc1ca0-6db3-4b91-89ef-7c5156388b71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T01:46:39.153455+00:00" -->
+#### You
+The identity store, the cookie scope, and the authorization are not. I'd keep them structurally separate — different tables, different session audience, different cookie names — because a single users table serving both puts a site visitor's identity in the same namespace as an account owner's, and that's the classic escalation path. <-- aren't they just different roles though in the same db? Let me walk you through my mental model and see if it's wrong: I have a site xgd.dev with users U1..U1000 they are site users. as a site owner I may have a site-user login but to access the site as an owner I login as a 1stcontact user. 1c has users V1...V20000 this is a different tenant but the same table
 
 <!-- xgd-chat-end -->
