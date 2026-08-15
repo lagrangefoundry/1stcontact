@@ -23,6 +23,7 @@
  *   no axis, no dial, no token name — so there is no path through this module
  *   that can produce anything but a plain string or a pick from a closed list.
  */
+import type { L1Color, L1Palette, L1PaletteRef } from './palette'
 import type { L1FontFace, L1Node, L1ScalarTrack } from './types'
 
 // ── the stamp ────────────────────────────────────────────────────────────────
@@ -166,6 +167,13 @@ export function replaceL1Node(
  * this surface, so widening the vocabulary along this axis never widens the
  * *attack* surface, only the expressive one.
  *
+ * REQ-140's `'color'` is the first entry whose value is not a scalar. It is
+ * still closed, and closed by the same argument: the only value it admits is a
+ * reference into a palette THIS SITE declares ({@link colorError}), so the
+ * control cannot name a colour the site does not already have, and a hex — the
+ * one shape that could smuggle an arbitrary value in — is refused outright.
+ * Inventing a colour is a palette edit, which is a different command.
+ *
  * REQ-135 is the first entry that describes an **axis** rather than content, and
  * the two differ in a way the write side has to respect: an axis can be
  * responsive (`l1TextResponsiveSchema`), so what the user sets is a
@@ -176,7 +184,7 @@ export interface L1FieldDescriptor {
   /** Value key — also the key of the change map a Save produces. */
   name: string
   label: string
-  type: 'string' | 'enum' | 'integer' | 'boolean'
+  type: 'string' | 'enum' | 'integer' | 'boolean' | 'color'
   /**
    * The closed option list, present iff `type === 'enum'`. `mountFields` renders
    * it as a select and refuses anything outside it; {@link applyCopyFields}
@@ -240,8 +248,21 @@ export interface L1SegmentFields {
   values: Record<string, L1FieldValue>
 }
 
-/** What a control on this surface can produce. */
-export type L1FieldValue = string | number | boolean
+/**
+ * What a control on this surface can produce.
+ *
+ * `L1Color` (REQ-140) is the one member that is not a scalar, and it is a typed
+ * object for the reason `palette.ts` chose one: a reference is `{ ref, shade? }`,
+ * and flattening it into a magic string here would put a parser between the
+ * control and the axis — a parser being exactly the free-form surface the rest
+ * of this vocabulary exists to avoid. Values already travel as JSON, so the
+ * object needs no transport it does not have.
+ *
+ * A colour field REPORTS whatever the axis holds, which on a folded site is a
+ * hex literal; it only ever WRITES a reference. The asymmetry is deliberate —
+ * see {@link colorError}.
+ */
+export type L1FieldValue = string | number | boolean | L1Color
 
 /**
  * What the derivation needs that the node itself cannot supply (REQ-118).
@@ -272,6 +293,36 @@ export interface L1SegmentFieldOptions {
    * `assets` is: it is a property of the document, and this module reads no files.
    */
   fonts?: readonly L1FontFace[]
+  /**
+   * REQ-140 — the site's palette (`site.palette`), which is what makes a colour
+   * a CLOSED list in the same sense `fonts` and `assets` are.
+   *
+   * It is the SITE's, not the page's: a palette entry is site-wide by
+   * construction (REQ-114), which is the whole point of editing one and having
+   * every use follow. Absent or empty is a legitimate state — most folded sites
+   * hold literals and no palette — and it does NOT withdraw the field, because
+   * the picker it opens is also where the first entry gets added. Withdrawing it
+   * would make the palette unreachable from the only surface that wants one.
+   */
+  palette?: L1Palette
+  /**
+   * REQ-140 — whether this `box`/`container` PAINTS something, which is exactly
+   * when the renderer stamps it as a segment (`l1PaintsSurface`).
+   *
+   * Supplied rather than derived, and for the reason the renderer states beside
+   * that predicate: the rule lives in the emitter, because "is a segment" and
+   * "is stamped" have to be the same question or the modal starts offering
+   * controls on nodes nobody can click. Re-deriving it here would mean a second
+   * list of paint axes, drifting the first time one is added — and this module
+   * cannot import the first list, because it is served to the browser
+   * type-stripped and holds no runtime imports at all.
+   *
+   * Absent means NOT painted, which is the honest reading of "the caller did not
+   * say": an unpainted container is not a segment, exposes nothing, and must
+   * stay invisible to the modal rather than opening an empty form (REQ-129's
+   * invariant 2). A caller that knows better says so.
+   */
+  paints?: boolean
 }
 
 /**
@@ -452,6 +503,106 @@ function typographyFields(
 
 /** The `textTransform` axis's own vocabulary, mirrored as the closed list. */
 const TEXT_TRANSFORMS = ['none', 'uppercase', 'lowercase', 'capitalize'] as const
+
+// ── colour (REQ-140 — REQ-135 phase B) ───────────────────────────────────────
+//
+// Two axes, one control: a run's `color` and a painted surface's `surfaceFill`.
+// REQ-135 §3 is the rule both obey — **the surface writes a palette reference,
+// never a hex** — and it is what bounds the ugliness risk of handing colour to a
+// non-designer: from a segment you can only pick a colour the site already has.
+// Inventing one is a palette edit (REQ-133), a deliberate and separate act.
+//
+// REQ-135 §3.1 described a grid of named palette STEPS. REQ-137 deleted steps in
+// favour of a continuous `shade` carried on the reference, so both the control it
+// specified and the `{ref, step}` value it wrote are gone. What replaced them is
+// not described here at all: the picker is REQ-133's popup, which already
+// resolves to `{ref, shade}`. This module only says which axes offer one and what
+// it may write.
+
+/**
+ * The field names this section owns, by the axis each writes.
+ *
+ * Two entries rather than one shared name because they are genuinely different
+ * axes on different kinds — and naming the field after the axis is what lets
+ * {@link applyCopyFields} write it without a second table saying which is which.
+ */
+const COLOR_FIELDS: ReadonlyMap<string, string> = new Map([
+  ['color', 'Text colour'],
+  ['surfaceFill', 'Background colour'],
+])
+
+/**
+ * The colour field for `axis`, plus its current value when the node holds one.
+ *
+ * An ABSENT axis is reported as an absent value, exactly as `fontSizePx` is: a
+ * run with no `color` inherits one, and reporting a resolved inherited colour
+ * would make the modal claim the node holds something it does not — and then
+ * write that claim back on the next Save.
+ */
+function colorField(
+  name: string,
+  held: unknown,
+): { fields: L1FieldDescriptor[]; values: Record<string, L1FieldValue> } {
+  const fields: L1FieldDescriptor[] = [
+    { name, label: COLOR_FIELDS.get(name) as string, type: 'color' },
+  ]
+  const values: Record<string, L1FieldValue> = {}
+  if (isL1ColorValue(held)) values[name] = held
+  return { fields, values }
+}
+
+/**
+ * True for something shaped like an L1 colour — a hex literal or a reference.
+ *
+ * Structural rather than schema-driven, and deliberately so: this module has NO
+ * runtime imports. The builder origin serves it to the browser type-stripped
+ * per-file (`/framework/site-schema-edit.js`), rewriting only the package
+ * specifier, so a relative `import { … } from './palette'` would emit a path
+ * that 404s in the browser and take the whole edit bridge down with it. Type-only
+ * imports erase, which is why the types above are free.
+ *
+ * The check is safe to restate because the shapes are disjoint by construction:
+ * `ref` is the only key any L1 colour object carries, and every L1 object is
+ * `.strict()`. The AUTHORITY on a colour is still the envelope validator, which
+ * runs over the whole assembled site before a byte is written; this is the check
+ * that names the field.
+ */
+function isL1ColorValue(v: unknown): v is L1Color {
+  if (typeof v === 'string') return v.startsWith('#')
+  return isPaletteRefValue(v)
+}
+
+/** The reference half of {@link isL1ColorValue}. */
+function isPaletteRefValue(v: unknown): v is L1PaletteRef {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    !Array.isArray(v) &&
+    typeof (v as { ref?: unknown }).ref === 'string'
+  )
+}
+
+/** True when two colour values are the same colour — the change gate for an axis. */
+function sameColor(a: unknown, b: unknown): boolean {
+  if (typeof a === 'string' || typeof b === 'string') return a === b
+  if (!isPaletteRefValue(a) || !isPaletteRefValue(b)) return a === b
+  return (
+    a.ref === b.ref && shadeOf(a) === shadeOf(b) && alphaOf(a) === alphaOf(b)
+  )
+}
+
+/** A reference's shade, with absent and `0` being the same position. */
+function shadeOf(ref: L1PaletteRef): number {
+  return ref.shade ?? 0
+}
+
+/** A reference's alpha, with absent and `1` being the same opacity. */
+function alphaOf(ref: L1PaletteRef): number {
+  return ref.alpha ?? 1
+}
+
+/** The keys a reference may carry — anything else is refused rather than dropped. */
+const PALETTE_REF_KEYS: ReadonlySet<string> = new Set(['ref', 'shade', 'alpha'])
 
 // ── image framing, shape and colour adjustment (REQ-136) ─────────────────────
 //
@@ -663,17 +814,16 @@ function backgroundHandleOf(node: L1Node): string | undefined {
  * Phase 1 is copy (REQ-117), image selection (REQ-118) and the container's
  * background image (REQ-128). REQ-135 adds a text run's *typography* — size,
  * weight, italic, capitalisation — which is the first thing this surface exposes
- * that is an **axis** rather than content. Colour (a run's `color`, a panel's
- * `surfaceFill`) is the half still waiting on REQ-133's palette control; it
- * arrives by extending this one function too, so every editor surface keeps
- * deriving from the node rather than accumulating its own idea of what is
- * editable.
+ * that is an **axis** rather than content. REQ-140 completes it with **colour**:
+ * a run's `color` and a panel's `surfaceFill`. Every one of them arrives by
+ * extending this one function, so every editor surface keeps deriving from the
+ * node rather than accumulating its own idea of what is editable.
  *
- * A text run exposes its words and its type, and neither its colour nor its
- * position: DOC-28 §3's rule is friendly parameters, so geometry stays with the
- * AI. What makes the type controls safe to hand over is that each is closed —
- * a bounded integer, the faces the site actually declares, and the axis's own
- * keyword list — rather than a number a user can type anything into.
+ * A text run exposes its words, its colour and its type — and NOT its position:
+ * DOC-28 §3's rule is friendly parameters, so geometry stays with the AI. What
+ * makes these safe to hand over is that each is closed — a bounded integer, the
+ * faces the site actually declares, the axis's own keyword list, and the entries
+ * of the site's own palette — rather than a value a user can type anything into.
  *
  * An image exposes *which image*, its alt text, and — REQ-136 — how that picture
  * is framed, shaped and colour-adjusted. DOC-28 §13 Q5 asked that the editor
@@ -688,14 +838,21 @@ function backgroundHandleOf(node: L1Node): string | undefined {
  * still pinned to `cover / center / no-repeat` (BUG-13), so the same intent
  * lands on a different CSS family there and unpinning it is its own change.
  *
- * A painted `box`/`container` exposes its background image and nothing else of
- * its paint. The rest of the surface group (`pattern`, `overlay`,
- * `surfaceGradient`, the fill) is phase 2 for colour's reasons; the background
- * *handle* is a pick from a closed list of the site's assets, which is exactly
- * the control REQ-118 already built. The axis is offered on the segment the user
- * clicks to mean "this panel" — a `text` or `image` node can carry
- * `backgroundImageUrl` too (REQ-98), but exposing it there would make the copy
- * modal a paint surface and blur DOC-28 §6.2's kind→segment map.
+ * A `box`/`container` exposes its **fill** and, when it carries one, its
+ * background image. Both are picks from a closed list the site itself declares —
+ * its palette and its assets — which is what keeps a paint surface inside
+ * DOC-28 §3's rule. The rest of the surface group (`pattern`, `overlay`,
+ * `surfaceGradient`) stays with the AI: each is a composition rather than a
+ * choice, and no closed list makes one friendly.
+ *
+ * Both are offered on the segment the user clicks to mean "this panel". A `text`
+ * or `image` node can carry `surfaceFill` and `backgroundImageUrl` too (REQ-98),
+ * but exposing either there would make the copy modal a paint surface and blur
+ * DOC-28 §6.2's kind→segment map — and for a fill it would be actively wrong: a
+ * folded run's box is glyph-tight, so filling it paints a rectangle behind the
+ * words rather than the background anyone means (REQ-135 §2). The panel that
+ * holds the words is a segment in its own right, and the escalation row in the
+ * text modal is what routes there.
  */
 export function copyFieldsOf(
   node: L1Node,
@@ -703,14 +860,20 @@ export function copyFieldsOf(
 ): L1SegmentFields | null {
   if (node.kind === 'text') {
     const text = node.text
-    const type = typographyFields((node.axes ?? {}) as L1TextAxesView, opts.fonts ?? [])
+    const axes = (node.axes ?? {}) as L1TextAxesView
+    const type = typographyFields(axes, opts.fonts ?? [])
+    const colour = colorField('color', axes.color)
     return {
       // The copy field stays FIRST, and the client keys on it rather than on
       // "the only field" — clicking words has to put the cursor in the words,
       // and it did that by counting fields until this list stopped being one
       // long.
-      fields: [{ name: 'text', label: 'Text', type: 'string', ...widgetFor(text) }, ...type.fields],
-      values: { text, ...type.values },
+      fields: [
+        { name: 'text', label: 'Text', type: 'string', ...widgetFor(text) },
+        ...colour.fields,
+        ...type.fields,
+      ],
+      values: { text, ...colour.values, ...type.values },
     }
   }
   if (node.kind === 'image') {
@@ -732,27 +895,47 @@ export function copyFieldsOf(
       values: { src, alt, ...framing.values },
     }
   }
-  const background = backgroundHandleOf(node)
-  if (background !== undefined) {
-    return {
-      fields: [
-        {
-          name: 'backgroundImageUrl',
-          label: 'Background image',
-          type: 'enum',
-          format: 'image',
-          enum: imageChoices(opts.assets ?? [], background),
-          // No empty option, and not merely as a nicety. If a box's only paint IS
-          // its background image, removing it drops `surfaceDecls` to zero on the
-          // next render, the node stops being a segment, and it vanishes from the
-          // editor with no way to re-add it. `required` makes that unreachable by
-          // construction rather than by a special case; removal stays the AI's
-          // job, which addresses the axis directly.
-          required: true,
-        },
-      ],
-      values: { backgroundImageUrl: background },
+  // A PAINTED SURFACE (REQ-128 + REQ-140). Two fields now, and the fill is the
+  // one that always appears: a box/container is a segment exactly when it paints
+  // something (`opts.paints`, the renderer's own verdict), and every such segment
+  // can be re-coloured, while only some of them carry a background image to swap.
+  //
+  // That is also why the fill is derived even when the node holds none. Before
+  // REQ-140 a container painting only a radius or an image returned `null` here
+  // and read as "nothing to edit" — a segment the user could click, outline and
+  // open to be told there was nothing inside it. The axis it was missing is
+  // precisely the one REQ-135 §2 puts here.
+  //
+  // An UNPAINTED box or container is a different thing entirely and still
+  // returns `null`. The AI authors rows, boxes and plain wrappers freely; none
+  // of them is stamped, none of them can be clicked, and offering a paint
+  // control on one would put a field on a node with no way to reach it
+  // (REQ-129's invariant 2). "Paints nothing" is not "paints no colour".
+  if ((node.kind === 'box' || node.kind === 'container') && opts.paints) {
+    const background = backgroundHandleOf(node)
+    const fill = colorField('surfaceFill', (node.axes as { surfaceFill?: unknown })?.surfaceFill)
+    const fields: L1FieldDescriptor[] = []
+    const values: Record<string, L1FieldValue> = {}
+    if (background !== undefined) {
+      fields.push({
+        name: 'backgroundImageUrl',
+        label: 'Background image',
+        type: 'enum',
+        format: 'image',
+        enum: imageChoices(opts.assets ?? [], background),
+        // No empty option, and not merely as a nicety. If a box's only paint IS
+        // its background image, removing it drops `surfaceDecls` to zero on the
+        // next render, the node stops being a segment, and it vanishes from the
+        // editor with no way to re-add it. `required` makes that unreachable by
+        // construction rather than by a special case; removal stays the AI's
+        // job, which addresses the axis directly.
+        required: true,
+      })
+      values.backgroundImageUrl = background
     }
+    fields.push(...fill.fields)
+    Object.assign(values, fill.values)
+    return { fields, values }
   }
   return null
 }
@@ -779,6 +962,10 @@ function typeError(field: L1FieldDescriptor, value: unknown): string | null {
       ? null
       : `Field '${field.name}' must be a whole number.`
   }
+  // A colour is the one value that is not a scalar, so the string check below
+  // would refuse every legitimate one. What it may actually hold is
+  // {@link colorError}'s question, and it needs the palette to answer it.
+  if (field.type === 'color') return null
   if (typeof value !== 'string') return `Field '${field.name}' must be a string.`
   if (field.type === 'enum' && !field.enum?.includes(value)) {
     return `'${value}' is not one of this segment's ${field.name} options.`
@@ -807,6 +994,62 @@ function rangeError(
   }
   if (field.max !== undefined && value > field.max) {
     return `${field.label} must be at most ${field.max} (got ${value}).`
+  }
+  return null
+}
+
+/**
+ * Why `value` is not a colour this site can paint, or `null` when it is.
+ *
+ * **The status quo always passes, and it is the reason this function exists.**
+ * The modal posts every staged field, not only the touched ones, and a folded
+ * site's axes hold hex LITERALS — so a run whose colour nobody touched arrives
+ * back here as `#0f172b`, which the rule below otherwise refuses outright.
+ * Comparing against what the derivation just reported is what keeps "edit the
+ * words of a run that has a literal colour" from failing on the colour. Same
+ * argument as {@link rangeError}, same shape.
+ *
+ * Otherwise the value must be a REFERENCE into this site's palette (REQ-135 §3):
+ *
+ * - A hex is refused even though it is a valid `L1Color`. That is the whole
+ *   point — the picker offers entries, so a hex arriving here came from
+ *   something other than the picker, and honouring it would put an off-system
+ *   colour on the page by the one route the design closes.
+ * - An unknown `ref` is refused HERE rather than left to the envelope validator,
+ *   which would also catch it but could not say which field. A client holding a
+ *   stale palette listing is the case: the entry was renamed or deleted while
+ *   the modal was open, and "'brand' is not one of this site's palette colours"
+ *   is the only message that says what to do about it.
+ * - `shade` and `alpha` are bounded, and an unknown key is refused rather than
+ *   dropped, because `l1PaletteRefSchema` is `.strict()` and a value this
+ *   function admits must be one the envelope validator will too.
+ */
+function colorError(
+  field: L1FieldDescriptor,
+  value: unknown,
+  current: L1FieldValue | undefined,
+  palette: L1Palette | undefined,
+): string | null {
+  if (field.type !== 'color') return null
+  if (sameColor(value, current)) return null
+  if (!isPaletteRefValue(value)) {
+    return `${field.label} must be a colour chosen from the site's palette.`
+  }
+  const extra = Object.keys(value).find((k) => !PALETTE_REF_KEYS.has(k))
+  if (extra !== undefined) {
+    return `A palette colour carries no '${extra}'.`
+  }
+  if (!palette || !Object.hasOwn(palette, value.ref)) {
+    const names = palette ? Object.keys(palette) : []
+    return names.length
+      ? `'${value.ref}' is not one of this site's palette colours (${names.join(', ')}).`
+      : `This site has no palette yet, so '${value.ref}' names nothing.`
+  }
+  if (value.shade !== undefined && !(value.shade >= -1 && value.shade <= 1)) {
+    return `${field.label}'s shade must be between -1 and 1 (got ${value.shade}).`
+  }
+  if (value.alpha !== undefined && !(value.alpha >= 0 && value.alpha <= 1)) {
+    return `${field.label}'s opacity must be between 0 and 1 (got ${value.alpha}).`
   }
   return null
 }
@@ -850,6 +1093,36 @@ function scaleTrack(track: L1ScalarTrack, from: number, to: number): L1ScalarTra
  */
 function round2(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+/**
+ * Write a colour axis, reporting whether anything changed (REQ-140).
+ *
+ * The value has already been checked against the site's palette, so the only
+ * work left is the CANONICAL form: `shade: 0` and `alpha: 1` are the identities
+ * the resolver treats as absent, and a picker that always sends its slider
+ * position would otherwise write `{ref:'slate', shade:0}` where the document
+ * means `{ref:'slate'}`. Pruning them keeps a colour that did not move out of
+ * the diff entirely — the same reason {@link applyFraming} deletes an axis at its
+ * identity rather than storing it.
+ *
+ * Assignment into the EXISTING axes bag, for {@link writeTypography}'s reason.
+ */
+function writeColor(
+  node: L1Node,
+  name: string,
+  value: unknown,
+  reported: L1FieldValue | undefined,
+): boolean {
+  if (sameColor(value, reported)) return false
+  if (!isPaletteRefValue(value)) return false
+  const next: L1PaletteRef = { ref: value.ref }
+  if (shadeOf(value) !== 0) next.shade = value.shade
+  if (alphaOf(value) !== 1) next.alpha = value.alpha
+  const target = node as unknown as { axes?: Record<string, unknown> }
+  const axes = (target.axes ??= {})
+  axes[name] = next
+  return true
 }
 
 /**
@@ -1135,13 +1408,18 @@ export function applyCopyFields(
         message: `Field '${name}' is not editable on this segment.`,
       }
     }
-    const refusal = typeError(field, value) ?? rangeError(field, value, derived.values[name])
+    const refusal =
+      typeError(field, value) ??
+      rangeError(field, value, derived.values[name]) ??
+      colorError(field, value, derived.values[name], opts.palette)
     if (refusal) return { ok: false, field: name, message: refusal }
   }
   const changed: string[] = []
   for (const [name, value] of Object.entries(values)) {
     const next = value as string
-    if (node.kind === 'text' && TYPOGRAPHY_FIELDS.has(name)) {
+    if (COLOR_FIELDS.has(name)) {
+      if (writeColor(node, name, value, derived.values[name])) changed.push(name)
+    } else if (node.kind === 'text' && TYPOGRAPHY_FIELDS.has(name)) {
       if (writeTypography(node, name, value)) changed.push(name)
     } else if (node.kind === 'text' && name === 'text' && node.text !== next) {
       node.text = next

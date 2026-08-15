@@ -1825,6 +1825,23 @@ interface RenderState {
 }
 
 /**
+ * True when this node paints something — which is exactly when a `box` or a
+ * `container` is a segment (see {@link segmentKind}).
+ *
+ * Exported for REQ-140's **escalation**: the text modal offers a route to "the
+ * panel behind this text", and finding that panel means walking a run's
+ * ancestors for the nearest one the editor can actually open. That question has
+ * one right answer — the one the emitter used when it decided what to stamp —
+ * and a caller re-deriving it from its own list of paint axes would drift the
+ * first time an axis is added to `surfaceDecls`. So the rule stays stated once,
+ * here, and the escalation asks it rather than guessing.
+ */
+export function l1PaintsSurface(node: L1Node): boolean {
+  if (node.kind !== 'box' && node.kind !== 'container') return false
+  return surfaceDecls(node.axes ?? {}).length > 0
+}
+
+/**
  * Which editable region, if any, this node IS (DOC-28 §6.2). Segmentation is
  * **derived from the tree**, never declared on it: no schema change, no author
  * burden, and no page silently uneditable because an annotation was forgotten.
@@ -1851,7 +1868,7 @@ function segmentKind(node: L1Node, state: RenderState): L1SegmentKind | null {
       // second list of axis names in step with it by hand. A box is a container
       // segment exactly when it would emit a surface declaration — so every axis
       // added to `surfaceDecls` in future is covered without touching this.
-      return surfaceDecls(node.axes ?? {}).length > 0 ? 'container' : null
+      return l1PaintsSurface(node) ? 'container' : null
     default:
       // `control` — a leaf whose element, attributes and behaviour belong to the
       // mounted module (REQ-96). It holds no copy to edit and no asset to swap,

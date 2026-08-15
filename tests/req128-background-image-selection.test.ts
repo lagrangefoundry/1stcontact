@@ -222,16 +222,18 @@ describe('REQ-128 — background image selection', () => {
     expect(bg.enum).toContain(BETA)
     expect(bg.enum).toContain(LOGO)
 
-    expect(got.data!.values).toEqual({ backgroundImageUrl: HERO })
+    expect(got.data!.values).toEqual({ backgroundImageUrl: HERO, surfaceFill: '#101822' })
 
     // Selection only: no empty option, so the one paint holding this box in the
     // editor cannot be removed and strand it.
     expect(bg.required).toBe(true)
     expect(bg.enum).not.toContain('')
 
-    // And the container's OTHER paint stays off the surface. This is the phase
-    // boundary, not an omission: colour waits on the site palette (REQ-114).
-    expect(fieldsOf(got).map((f) => f.name)).toEqual(['backgroundImageUrl'])
+    // And the container's OTHER paint stays off the surface. The fill joined it
+    // when REQ-140 landed the palette this phase was waiting on; the rest —
+    // radius, opacity, gradient stack — is composition rather than choice and
+    // stays with the AI.
+    expect(fieldsOf(got).map((f) => f.name)).toEqual(['backgroundImageUrl', 'surfaceFill'])
   })
 
   // AC-2 — choosing an asset updates the axis, re-renders, and the page the
@@ -377,11 +379,13 @@ describe('REQ-128 — background image selection', () => {
     })
   })
 
-  // AC-7 — a container carrying paint but NO background image still reports
-  // nothing to edit. Adding a background where there is none is out of scope:
-  // an unpainted box is not a segment at all, so the picker can only ever
-  // *change* a background, never add one.
-  it('test_UAT_FC_REQ-128_a_painted_container_without_a_background_still_exposes_nothing', async () => {
+  // AC-7 — a container carrying paint but NO background image is offered no
+  // PICKER. Adding a background where there is none is out of scope: an
+  // unpainted box is not a segment at all, so the picker can only ever *change*
+  // a background, never add one. (It used to expose nothing whatever; REQ-140
+  // gave every painted panel its colour, so what is pinned here is the picker's
+  // absence, which is what this criterion was always about.)
+  it('test_UAT_FC_REQ-128_a_painted_container_without_a_background_is_offered_no_picker', async () => {
     const dom = new JSDOM(await editHtml(cwd, 'acme'))
     // It IS a segment — it paints — so it is outlined and clickable.
     const fill = dom.window.document.querySelector(`[data-l1-path="${A_FILL_ONLY}"]`)!
@@ -390,8 +394,8 @@ describe('REQ-128 — background image selection', () => {
     const got = await cli(cwd, 'copy', 'get', 'acme', 'home', A_FILL_ONLY)
     expect(got.ok).toBe(true)
     expect(got.exitCode).toBe(0)
-    expect(got.data!.fields).toEqual([])
-    expect(got.data!.values).toEqual({})
+    expect(fieldsOf(got).map((f) => f.name)).toEqual(['surfaceFill'])
+    expect(got.data!.values).toEqual({ surfaceFill: '#f4f0e8' })
 
     // And a write against it is refused rather than silently creating the axis —
     // which is what would turn "change" into "add" by the back door.
@@ -441,7 +445,7 @@ describe('REQ-128 background image selection over the builder origin', () => {
       await get(`/api/copy?slug=acme&page=${pageId}&path=${A_BACKDROP}`)
     ).json()) as { kind: string; fields: Field[]; values: Record<string, string> }
     expect(body.kind).toBe('container')
-    expect(body.fields.map((f) => f.name)).toEqual(['backgroundImageUrl'])
+    expect(body.fields.map((f) => f.name)).toEqual(['backgroundImageUrl', 'surfaceFill'])
     expect(body.fields[0].enum).toEqual(SITE_IMAGES)
     expect(body.values.backgroundImageUrl).toBe(HERO)
   })

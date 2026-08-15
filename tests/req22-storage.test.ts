@@ -42,7 +42,10 @@ describe('storage/ layout (REQ-22)', () => {
         return false
       }
     }
-    expect(ignored('storage/sites/1stcontact/site.json')).toBe(false)
+    // A placeholder slug, like the three lines below it: this asserts a
+    // GITIGNORE PATTERN and never opens the file, so it must not depend on which
+    // sites happen to be stored (REQ-140).
+    expect(ignored('storage/sites/example/site.json')).toBe(false)
     expect(ignored('storage/sandbox/x/site.json')).toBe(true)
     expect(ignored('storage/dist/sites/x/draft/index.html')).toBe(true)
     expect(ignored('storage/references/foo.com/index/capture.json')).toBe(true)

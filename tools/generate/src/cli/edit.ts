@@ -4,6 +4,7 @@ import {
   applyCopyFields,
   collectL1PaletteRefs,
   copyFieldsOf,
+  formatL1Path,
   l1OpaqueHexSchema,
   l1PaletteNameSchema,
   parseL1Path,
@@ -13,11 +14,13 @@ import {
   validateSite,
   validateSvg,
   SVG_MAX_BYTES,
+  type L1Color,
   type L1FontFace,
   type L1Node,
   type L1SegmentFieldOptions,
 } from '@1stcontact/site-schema'
 import {
+  l1PaintsSurface,
   latestModuleVersion,
   presetSlots,
   registry,
@@ -475,17 +478,79 @@ function segmentOptions(
   node: L1Node,
   slug: string,
   page: Record<string, unknown>,
+  base: Record<string, unknown>,
   opts: GlobalOptions,
-): L1SegmentFieldOptions | undefined {
-  if (PICKER_KINDS.has(node.kind)) return { assets: imageHandles(slug, opts) }
-  if (node.kind === 'text') return { fonts: documentFonts(page) }
-  return undefined
+): L1SegmentFieldOptions {
+  // REQ-140 — the palette is on EVERY kind that can carry a colour, which is
+  // both of the kinds below. It comes from `site.json` rather than the page
+  // because an entry is site-wide by construction, and reading it per-page is
+  // what would let two pages disagree about what `primary` means.
+  const palette = base.palette as L1SegmentFieldOptions['palette']
+  if (PICKER_KINDS.has(node.kind)) {
+    // `paints` is asked of the RENDERER, because "this box is a segment" and
+    // "this box was stamped" have to be the same question — an unpainted
+    // wrapper is not clickable and must expose nothing, however many paint axes
+    // are added later. On an `image` node it is simply false and unread.
+    return { assets: imageHandles(slug, opts), palette, paints: l1PaintsSurface(node) }
+  }
+  if (node.kind === 'text') return { fonts: documentFonts(page), palette }
+  return {}
 }
 
 /** The document's declared font faces, or none when it declares no resources. */
 function documentFonts(page: Record<string, unknown>): L1FontFace[] {
   const l1 = page.l1 as { resources?: { fonts?: L1FontFace[] } } | undefined
   return l1?.resources?.fonts ?? []
+}
+
+/** The panel a text run sits on: where to escalate to, and what it looks like now. */
+export interface PanelBehind {
+  /** The ancestor's address, in the same vocabulary the client already holds. */
+  path: string
+  /** Its fill, absent when the panel paints by some other axis (an image, a radius). */
+  fill?: L1Color
+}
+
+/**
+ * The nearest painted ancestor of the addressed run (REQ-140 / REQ-135 §2).
+ *
+ * WHY THE EDITOR NEEDS THIS AT ALL. Background colour belongs to the panel, not
+ * to the text — a folded run's box is glyph-tight, so filling it paints a
+ * rectangle behind the words rather than the background anyone means. The panel
+ * is already its own segment, so the capability exists; what is missing is a way
+ * to REACH it. Innermost-wins means clicking the words opens the run, and
+ * DOC-28 §6.5 measured a container on `xgd/home` fully occluded by its lone text
+ * run — so "click just outside the words" is not always available.
+ *
+ * NEAREST, not outermost: the walk runs inward-out and stops at the first hit,
+ * because the panel a user means by "behind this text" is the one immediately
+ * behind it, not the page section three levels up.
+ *
+ * `l1PaintsSurface` is the RENDERER's test, imported rather than restated. The
+ * target has to be a node the editor can actually open, and "can be opened" is
+ * decided by whatever the emitter chose to stamp — a second list of paint axes
+ * here would drift the first time one is added, and the symptom would be an
+ * escalation link that opens an empty modal.
+ *
+ * `undefined` when the run sits on nothing painted. The client shows no row at
+ * all then, which is honest: there is no panel behind this text to edit.
+ */
+function panelBehind(
+  page: Record<string, unknown>,
+  pageId: string,
+  rawPath: string,
+  target: CopyTargetOptions,
+): PanelBehind | undefined {
+  const addr = parseL1Path(rawPath)
+  if (!addr) return undefined
+  const roots = segmentRoots(page, pageId, target)
+  for (let depth = addr.length - 1; depth > 0; depth--) {
+    const ancestor = resolveL1Node(roots, addr.slice(0, depth))
+    if (!ancestor || !l1PaintsSurface(ancestor)) continue
+    const fill = (ancestor.axes as { surfaceFill?: L1Color } | undefined)?.surfaceFill
+    return { path: formatL1Path(addr.slice(0, depth)), ...(fill === undefined ? {} : { fill }) }
+  }
+  return undefined
 }
 
 /**
@@ -501,14 +566,23 @@ export function editCopyGet(
   opts: CopyTargetOptions = {},
 ): EditOutput {
   const ctx = ctxOf(opts)
-  requireDraft(ctx, slug)
+  const base = readBase(ctx, slug)
   const { page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
-  const derived = copyFieldsOf(node, segmentOptions(node, slug, page, opts))
+  const derived = copyFieldsOf(node, segmentOptions(node, slug, page, base, opts))
   const data = {
     target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
     kind: node.kind,
     fields: derived?.fields ?? [],
     values: derived?.values ?? {},
+    // REQ-140 — the closed list a colour field draws from, travelling WITH the
+    // descriptors that reference it. A client fetching the palette separately
+    // could render a swatch against one palette and post a reference validated
+    // against another; one response makes that unreachable.
+    ...(base.palette ? { palette: base.palette } : {}),
+    // The panel behind a run, for the escalation (REQ-135 §2). Only a text
+    // segment has one to escalate FROM — a panel is already the thing being
+    // escalated to.
+    ...(node.kind === 'text' ? { panel: panelBehind(page, pageId, rawPath, opts) } : {}),
   }
   const human = derived
     ? derived.fields
@@ -542,7 +616,7 @@ export function editCopySet(
   const base = readBase(ctx, slug)
   const { files, file, page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, true)
 
-  const applied = applyCopyFields(node, values, segmentOptions(node, slug, page, opts))
+  const applied = applyCopyFields(node, values, segmentOptions(node, slug, page, base, opts))
   if (!applied.ok) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',
