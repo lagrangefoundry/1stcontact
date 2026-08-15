@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T20:09:04.504723+00:00'
+updated_at: '2026-08-15T20:23:15.503229+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -289,5 +289,11 @@ I lean B. A is tempting for speed but I think it borrows a validation engine tha
 I've now moved on this twice, both times because I reasoned from this repo without checking the framework around it. Worth me treating "what does lagrange-framework already ship?" as the first question on anything storage- or auth-shaped, not the last.
 
 A or B, and I'll scope milestones 1–2 as tickets under CHAT-25.
+
+<!-- xgd-turn id="5c9d0cf3-7cab-4dcf-b2a5-08023ea86639-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T20:23:15.298804+00:00" -->
+#### You
+Pages are NOT tickets! So that probably means B. Is there a test environment that we can run locally to get started?
 
 <!-- xgd-chat-end -->
