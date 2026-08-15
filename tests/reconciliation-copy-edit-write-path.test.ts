@@ -41,7 +41,10 @@ const SLIDE_ONE = 'The first slide.'
 const FORM_INTRO = 'Tell us what you are building.'
 
 // Addresses, as the edit render stamps them (`data-l1-path`).
-const A_CONTAINER = '0.0' // a painted container — a region with nothing editable
+// The root wrapper — a region with nothing editable. It paints no surface, so it
+// is neither outlined nor editable. The painted container at '0.0' held this
+// role until REQ-140 gave it its background colour.
+const A_BARE_WRAPPER = '0'
 const A_SHORT = '0.0.0'
 const A_LONG = '0.0.1'
 const A_MULTILINE = '0.0.2'
@@ -252,10 +255,12 @@ describe('story-37a3921b — the copy-edit write path', () => {
     // answered once, not a failure every caller has to special-case.
     //
     // WHICH regions those are is the derivation's to decide, not the caller's: a
-    // painted container and a behavior-module instance expose nothing in phase 1.
+    // wrapper that paints nothing and a behavior-module instance expose nothing.
     // An image is NOT one of them — it exposes which image goes there and its alt
-    // text (REQ-118) — which is why it appears below as a contrast, not here.
-    for (const addr of [A_CONTAINER, A_MODULE]) {
+    // text (REQ-118) — which is why it appears below as a contrast, not here. Nor
+    // is a PAINTED container, since REQ-140: paint is what makes it a segment,
+    // and a segment that can be clicked and outlined should not open on nothing.
+    for (const addr of [A_BARE_WRAPPER, A_MODULE]) {
       const got = await cli(cwd, 'copy', 'get', 'acme', 'home', addr)
       expect(got.ok, addr).toBe(true)
       expect(got.exitCode, addr).toBe(0)
@@ -665,7 +670,11 @@ describe('story-37a3921b — the copy-edit write path', () => {
         // rich-text control, nothing that would let markup through as code.
         // REQ-135 added a bounded number and a bit; both are narrower than a
         // string, which is why widening this set does not widen the surface.
-        expect(['string', 'enum', 'integer', 'boolean'], argv.join(' ')).toContain(field.type)
+        // REQ-140's colour is narrower still: it admits only a reference into a
+        // palette the site itself declares.
+        expect(['string', 'enum', 'integer', 'boolean', 'color'], argv.join(' ')).toContain(
+          field.type,
+        )
         if (field.type === 'enum') {
           // A closed list is only NARROWER than a string if the caller is told
           // what it may return, so the options travel with the descriptor. A

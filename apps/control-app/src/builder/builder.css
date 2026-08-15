@@ -724,3 +724,118 @@ body {
   height: 100%;
   overflow: hidden;
 }
+
+/*
+ * The colour row and the escalation row (REQ-140).
+ *
+ * Both live in the parameter sheet's region under the editing box, and both are
+ * drawn by this dialog rather than by `mountFields` — a palette reference is a
+ * typed object, which the component's `format: 'color'` swatch grid (a hex
+ * string) has no seam for. They borrow the palette popup's chip metrics rather
+ * than inventing a second swatch: the same colours are being shown, and two
+ * sizes of the same idea reads as two different ideas.
+ *
+ * The chip's own colour arrives as `--builder-color-chip`, set inline by the
+ * control, because it is DATA — the site's colour, not the theme's — and it is
+ * the one value here that cannot come from a token.
+ */
+.builder-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+}
+
+.builder-color__label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  opacity: 0.82;
+}
+
+.builder-color__swatch {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.builder-color__swatch:hover {
+  border-color: var(--shell-accent);
+}
+
+.builder-color__face {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.builder-color__chip,
+.builder-escalate__swatch {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--builder-color-chip, transparent);
+}
+
+/*
+ * "No colour" and "a colour that happens to be white" MUST NOT look the same —
+ * the first is a run that inherits and the second is a decision someone made.
+ * The diagonal is the conventional empty-swatch mark and needs no legend.
+ */
+.builder-color__chip.is-empty,
+.builder-escalate__swatch.is-empty {
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 1px),
+    var(--shell-border) calc(50% - 1px),
+    var(--shell-border) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+
+.builder-color__name {
+  font-variant-numeric: tabular-nums;
+}
+
+.builder-escalate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--shell-border);
+  font-size: 12px;
+}
+
+.builder-escalate__caption {
+  flex: 1 1 auto;
+  color: var(--shell-fg-muted, var(--shell-fg));
+  opacity: 0.72;
+}
+
+/*
+ * A BUTTON that reads as a link. It opens another segment's modal rather than
+ * navigating, so `<a>` would promise a URL there is none of — but the affordance
+ * a reader needs is "this takes me somewhere", and the underline is what says so.
+ */
+.builder-escalate__link {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--shell-accent);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}

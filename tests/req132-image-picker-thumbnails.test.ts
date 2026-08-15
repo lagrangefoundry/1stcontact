@@ -299,7 +299,10 @@ describe('REQ-132 the image picker', () => {
     // back can never disagree about what the site has.
     const band = copyFieldsOf(
       { kind: 'container', layout: 'stack', children: [], axes: { backgroundImageUrl: BETA } } as L1Node,
-      { assets: SITE_IMAGES },
+      // `paints` is the renderer's verdict that this box IS a segment (REQ-140).
+      // A box that paints nothing is not clickable and exposes nothing, so the
+      // derivation is told rather than guessing; this one paints its backdrop.
+      { assets: SITE_IMAGES, paints: true },
     )!
     expect(band.fields[0]).toMatchObject({ name: 'backgroundImageUrl', format: 'image' })
 

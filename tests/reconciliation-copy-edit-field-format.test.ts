@@ -238,7 +238,13 @@ describe('story-37a3921b — declaring what a closed list of images holds', () =
     // different kind, and carries the identical declaration.
     const panel = await readFields(cwd, A_BACKDROP)
     expect(panel.ok).toBe(true)
-    expect((panel.data!.fields as Field[]).map((f) => f.name)).toEqual(['backgroundImageUrl'])
+    // REQ-140 added the panel's FILL, which every painted panel carries; the
+    // image handle is still the only field of its kind here, which is what this
+    // criterion is about.
+    expect((panel.data!.fields as Field[]).map((f) => f.name)).toEqual([
+      'backgroundImageUrl',
+      'surfaceFill',
+    ])
     const background = fieldNamed(panel, 'backgroundImageUrl')
     expect(background).toMatchObject({ type: 'enum', format: 'image', required: true })
 

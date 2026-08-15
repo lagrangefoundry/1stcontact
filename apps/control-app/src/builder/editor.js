@@ -1,5 +1,6 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
 import { fetchCopy, saveCopy } from './api.js'
+import { colorHex, colorLabel, isColorField, mountColorField } from './color-field.js'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
 import { isImagePicker, mountImagePicker } from './image-picker.js'
 import { copyFontFaces, previewScale, previewVarFor, readPageStyle } from './page-style.js'
@@ -67,7 +68,25 @@ function pageIdOf(doc, pageAttr) {
  *   suites that drive `mountEditor` against a bare document).
  */
 export function mountEditor(doc, options = {}) {
-  const { slug, bridge: api, host = null, onSaved = () => {}, openModal = defaultModal } = options
+  const {
+    slug,
+    bridge: api,
+    host = null,
+    onSaved = () => {},
+    openModal = defaultModal,
+    /**
+     * REQ-140 — how a colour field asks for a colour, and how it draws the one
+     * it has. `open` is REQ-133's popup in pick mode, already bound to the site
+     * and its transport by `app.js`; `shadeHex` is the renderer's own
+     * arithmetic, so a swatch previews the colour the page will paint rather
+     * than a second opinion about it.
+     *
+     * Absent, colour fields still render and still open nothing — which is what
+     * a host with no palette transport (a suite driving `mountEditor` against a
+     * bare document) should get, rather than a module that fails to load.
+     */
+    colors = {},
+  } = options
   const { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR } = api
   const pageId = pageIdOf(doc, L1_EDIT_PAGE_ATTR)
 
@@ -133,6 +152,24 @@ export function mountEditor(doc, options = {}) {
       // string in the headline's 32px display face would be a lie about where
       // that text ends up (REQ-118 leaves the picker alone).
       preview: previewOf(hit, loaded, doc),
+      // REQ-140 — the site's own entries, travelling with the fields that
+      // reference them. It comes from the SAME response rather than a second
+      // fetch so a swatch and the descriptor that names it can never be reading
+      // two different palettes.
+      palette: loaded.palette,
+      shadeHex: colors.shadeHex,
+      openPicker: (value) => (colors.open ? colors.open(value) : Promise.resolve(null)),
+      // The panel behind a run, and the route to it. The origin resolves which
+      // ancestor that is, because it is the only side holding the tree — the
+      // client has one clicked element and no way to walk a definition.
+      panel: loaded.panel,
+      onEscalate: (path) => {
+        // A fresh segment, opened the way any segment is: the address changes,
+        // everything else about the loop does not. The hit is synthetic because
+        // there is no click to derive one from — only `labelOf` reads it, and a
+        // painted ancestor is a `container` by the renderer's own vocabulary.
+        void openSegment({ ...target, path }, { kind: 'container' })
+      },
       // The modal's Save is the flush point, so this runs once per Save with
       // the whole change map — one modal, one diff.
       onSave: async (values) => {
@@ -264,7 +301,10 @@ function defaultModal(spec) {
   // per-field question, and the day a third surface exposes an image handle it
   // is answered there too without this learning about it.
   const pickerFields = spec.schema.filter(isImagePicker)
-  const formFields = spec.schema.filter((field) => !isImagePicker(field))
+  const colorFields = spec.schema.filter(isColorField)
+  const formFields = spec.schema.filter(
+    (field) => !isImagePicker(field) && !isColorField(field),
+  )
   const pickers = pickerFields.map((field) =>
     mountImagePicker(panel, { field, value: spec.values[field.name], slug: spec.slug }),
   )
@@ -338,10 +378,33 @@ function defaultModal(spec) {
   // component already renders and enforces all three. Two instances is the
   // cheaper seam — the alternative is one instance split across two parents,
   // which the widget has no vocabulary for.
-  if (propertyFields.length) {
-    const sheet = document.createElement('div')
+  // ONE SHEET, whichever kind of parameter fills it. The colour rows and the
+  // typed properties are two controls describing the same class of thing — an
+  // axis you set rather than words you write — so they share the region under
+  // the box, and a segment exposing only a colour still gets a sheet.
+  let sheet = null
+  if (propertyFields.length || colorFields.length) {
+    sheet = document.createElement('div')
     sheet.className = 'builder-modal__props'
     panel.append(sheet)
+  }
+
+  // FIRST IN THE SHEET, which is where the descriptor puts them. The derivation
+  // emits colour ahead of typography, and a control drawn by this dialog rather
+  // than by the component must not silently reorder the list the derivation
+  // chose — the schema is the contract about what a segment exposes AND in what
+  // order it reads.
+  const colors = colorFields.map((field) =>
+    mountColorField(sheet, {
+      field,
+      value: spec.values[field.name],
+      palette: spec.palette,
+      shadeHex: spec.shadeHex,
+      openPicker: (value) => spec.openPicker(value),
+    }),
+  )
+
+  if (propertyFields.length) {
     properties = mountFields(sheet, {
       schema: propertyFields,
       values: Object.fromEntries(
@@ -382,13 +445,14 @@ function defaultModal(spec) {
    * true here, where the change map is built, rather than depending on a
    * component's reporting staying narrow.
    */
+  const owned = [...pickers, ...colors]
   const stagedValues = () => ({
     ...(fields?.getValues() ?? {}),
     ...(properties?.getValues() ?? {}),
-    ...Object.fromEntries(pickers.map((picker) => [picker.name, picker.getValue()])),
+    ...Object.fromEntries(owned.map((control) => [control.name, control.getValue()])),
   })
   const isDirty = () =>
-    pickers.some((picker) => picker.isDirty()) ||
+    owned.some((control) => control.isDirty()) ||
     (fields?.isDirty() ?? false) ||
     (properties?.isDirty() ?? false)
 
@@ -396,12 +460,22 @@ function defaultModal(spec) {
   error.className = 'builder-modal__error'
   error.hidden = true
 
-  const cancel = modalButton('Cancel', 'builder-modal__btn', close)
-  const save = modalButton('Save', 'builder-modal__btn builder-modal__btn--primary', async () => {
+  /**
+   * Post whatever is staged and close, reporting whether it landed.
+   *
+   * Extracted from the Save button because REQ-140's escalation is a SECOND
+   * route to the same commit: navigating away from a dirty modal saves first
+   * (REQ-135 §2), and a second copy of this would be a second chance for the two
+   * to disagree about what a Save means.
+   */
+  async function flush() {
     // Nothing staged is not a failure — it is a user who opened a modal and
     // changed their mind. Posting an empty change map would re-render the site
     // for no diff.
-    if (!isDirty()) return close()
+    if (!isDirty()) {
+      close()
+      return true
+    }
     save.disabled = true
     error.hidden = true
     try {
@@ -418,6 +492,7 @@ function defaultModal(spec) {
       const values = stagedValues()
       await spec.onSave(values)
       close()
+      return true
     } catch (err) {
       // INVALID NEVER LANDS, and the modal stays open holding what the user
       // typed. Closing it here would throw away their text and leave them
@@ -425,9 +500,15 @@ function defaultModal(spec) {
       error.textContent = [err.message, err.hint].filter(Boolean).join(' — ')
       error.hidden = false
       save.disabled = false
+      return false
     }
-  })
+  }
 
+  const cancel = modalButton('Cancel', 'builder-modal__btn', close)
+  const save = modalButton('Save', 'builder-modal__btn builder-modal__btn--primary', flush)
+
+  const escalation = escalationRow(spec, { isDirty, flush })
+  if (escalation) panel.append(escalation)
   panel.append(error, modalFooter([cancel, save]))
   // LAST, exactly as it was before the shell was extracted — see `modal.js`'s
   // `mount()`: `openLoneControl` above depends on the dialog still being
@@ -441,6 +522,75 @@ function defaultModal(spec) {
   // dialog is already handled by `openLoneControl`, which sends a click and
   // works either side of the append.
   if (pickers.length) pickers[0].focus()
+}
+
+/**
+ * The inherited-background row (REQ-140 / REQ-135 §2) — variant B.
+ *
+ * THE GAP THIS CLOSES IS NAVIGATION, NOT CAPABILITY. Background colour belongs
+ * to the panel, and the panel is already its own segment with its own modal. But
+ * innermost-wins means clicking the words opens the run, and DOC-28 §6.5
+ * measured a container fully occluded by its lone text run — so "click just
+ * outside the words" is not always available, and without a route from here the
+ * capability is unreachable on exactly the layouts that need it.
+ *
+ * A READ-ONLY SWATCH, not a second control. The rejected alternative (variant A)
+ * was a bare `Panel background… ↗` link in the footer. This costs one row and
+ * answers "what is behind this?" as well as "where do I change it?" — the first
+ * time someone hunts for a background control it teaches *where backgrounds
+ * live* rather than merely routing them there. Duplicating the control itself
+ * would break "one modal per segment, one diff per Save".
+ *
+ * A DIRTY MODAL SAVES BEFORE IT NAVIGATES. The alternatives were
+ * warn-then-discard and disable-while-dirty, and both leave the operator holding
+ * staged text with no good move. Save-then-open keeps one modal / one diff
+ * intact — but it does make a navigation gesture also a commit, so the label
+ * says so whenever there is something to commit. It is refreshed as the row is
+ * approached rather than on every keystroke: a colour pick happens inside a
+ * popup and fires no input event here, so listening for edits would miss the one
+ * kind of change this dialog draws itself.
+ */
+function escalationRow(spec, { isDirty, flush }) {
+  if (!spec.panel || !spec.onEscalate) return null
+
+  const row = document.createElement('div')
+  row.className = 'builder-escalate'
+
+  const swatch = document.createElement('span')
+  swatch.className = 'builder-escalate__swatch'
+  const hex = colorHex(spec.panel.fill, spec.palette, spec.shadeHex ?? ((c) => c))
+  // A panel can paint by some axis other than a fill — an image, a radius — and
+  // saying "None" there is the truth: there is no background COLOUR yet, which
+  // is precisely the state the link exists to let someone change.
+  if (hex) swatch.style.setProperty('--builder-color-chip', hex)
+  else swatch.classList.add('is-empty')
+
+  const caption = document.createElement('span')
+  caption.className = 'builder-escalate__caption'
+  caption.textContent = `${colorLabel(spec.panel.fill)} — from the panel behind this text`
+
+  const link = document.createElement('button')
+  link.type = 'button'
+  link.className = 'builder-escalate__link'
+  const relabel = () => {
+    link.textContent = isDirty() ? 'save and edit the panel ↗' : 'edit the panel ↗'
+  }
+  relabel()
+  row.addEventListener('pointerenter', relabel)
+  row.addEventListener('focusin', relabel)
+
+  link.addEventListener('click', () => {
+    void (async () => {
+      // `flush` closes on success and leaves the dialog open holding the staged
+      // edit on failure. Navigating anyway would discard it — and would land the
+      // operator on a different segment wondering where their text went.
+      if (!(await flush())) return
+      spec.onEscalate(spec.panel.path)
+    })()
+  })
+
+  row.append(swatch, caption, link)
+  return row
 }
 
 /**
