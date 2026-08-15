@@ -5,7 +5,7 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-13T21:49:59.207833+00:00'
+updated_at: '2026-08-15T20:14:12.529279+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -17,97 +17,118 @@ fields:
 
 # 1st contact system KB
 
-Stand up the two stores the builder AI needs: a **ticket store** on D1 (chat
-sessions, tenant content) and a **system knowledge base** shipped with the
-release. REQ-122 renders the chat UI; this ticket gives that session something to
-persist into and something to know.
+Stand up the **system knowledge base**: the design-doc corpus, its index, its
+generated awareness map, and the wiring that makes the builder AI know what
+exists and able to pull the rest. REQ-122 renders the chat UI; this ticket gives
+that session something to know.
 
 ## Status
 
-**Blocked on framework work.** The knowledge-management components exist in
-Python only, and this project has no Python toolchain. Three tickets now carry
-the JS peers in `lagrange-framework`:
+**Unblocked — the framework peers have landed.** All three JS components are
+built and already extracted into the shared artifact store, so consumption needs
+no new mechanism: `sharedModuleUrl('knowledge')` resolves today, the same route
+`host.ts` already uses for `@lagrangefoundry/ai`.
 
-| | Ticket | Delivers | Needed for |
+| | Ticket | State | Delivers |
 |---|---|---|---|
-| FW-1 | REQ-99 | `components/knowledge/js` — config, corpus, embedding, index + chunk index, chunking, search, ranking, landscape, priming; a `DocDirStore` peer; a JS `build-shipped-kb` | everything below |
-| FW-2 | REQ-100 | `components/ai_knowledge/js` — `KnowledgeToolbox` over the shared `knowledge_surface.json`, `KnowledgeDocs` priming `ContextSource` | tools + priming |
-| FW-3 | REQ-101 | Awareness *build* in JS (cluster → describe → derived map) | only when a KB outgrows an authored map, or for tenant KBs |
+| FW-1 | REQ-99 | `ready_to_reconcile` | `components/knowledge/js` — config, corpus, embedding, doc + chunk index, chunking, search, ranking, landscape, priming; a `DocDirStore` peer |
+| FW-2 | REQ-100 | `free_coded` | `components/ai_knowledge/js` — `KnowledgeToolbox` over the shared `knowledge_surface.json`, `KnowledgeDocs` priming `ContextSource`, the `describe` seam |
+| FW-3 | REQ-101 | `free_coded` | Awareness *build* in JS (cluster → describe → derived map) |
 
-FW-3 is not on this ticket's critical path: a shipped system KB declares
-`landscape: authored`, so v1 ships a map rather than deriving one.
+FW-3 landed ahead of plan, which is what lets the map be **generated** rather
+than authored — see decision 3.
+
+## Scope
+
+**The D1 ticket store is not in this ticket.** It was scoped here on the
+assumption that the builder AI runs in `apps/control-app`, and it does not: the
+AI host runs in the Node builder origin (`1c serve`), because every tool bottoms
+out in `edit.ts` over the file-backed site store, and sessions persist through the
+framework's `FileArchive`. The host moves to workerd *with the store*, at
+DOC-12 §7 phase 2 — whose trigger is a server-side builder needing to read and
+write the store, still open in DOC-8 §13. A D1 store built now would have no
+consumer and a tenancy model with nothing to scope. The tenancy analysis below is
+kept because it is the design that ticket inherits, not because it is built here.
+
+**The system KB needs no D1 and no tenancy.** A shipped corpus is a directory
+read by `DocDirStore`; the index is a release artefact beside it.
+
+### 1. The corpus
+
+- **Corpus = files that ship with the release**, not seeded tickets. Every `doc`
+  ticket (32 today) exported to a corpus directory of frontmatter-bearing
+  markdown, which is the shape `DocDirStore` reads.
+- The export is **repeatable** — it re-runs whenever the design docs move.
+- Filenames derive from the doc's human id, not its title: `DocDirStore`'s uid
+  *is* the path, so the filename is the retrieval identity and must survive a
+  retitle.
+
+### 2. The index and the map
+
+- `knowledge_bases.yaml` declaring the KB with `source: shipped`.
+- A build step producing the index beside the corpus, and **generating** the
+  awareness map (cluster → describe → validate).
+- Composed from the library's public exports (`buildIndex`, `buildChunkIndex`,
+  `buildAwareness`, `nodeIndexSource`, `writeIndexModule`) rather than the
+  upstream `build-shipped-kb` CLI, which is not in the packed artifact —
+  `@lagrangefoundry/knowledge` declares `files: ["src"]` and no `bin`. Reported
+  upstream; not worked around here beyond calling the same functions the CLI does.
+
+### 3. Wiring
+
+- `KnowledgeDocs` as the builder chat session's priming source — landscape
+  first, so the AI gets a map of what exists plus the means to pull the rest,
+  rather than a context stuffed with documents.
+- `KnowledgeToolbox` granted to that session (read-only), so search and retrieval
+  are declared surface operations with the ordinary guardrails, provenance
+  marking and audit.
 
 ## What already exists (and is not rebuilt here)
 
 | Need | Component | Language |
 |---|---|---|
-| Ticket store on D1 | `@lagrangefoundry/ticketing` | JS |
-| Chat sessions persisted as tickets | `@lagrangefoundry/ai` — `TicketSessionStore` + `chatSchemas()` | JS |
-| Ticket ops as AI tools | `@lagrangefoundry/ai-ticketing` | JS |
 | The Toolbox (declaration, policy, manual, provenance, audit) | `@lagrangefoundry/ai` | JS |
-| Shipped-KB model — corpus from a directory, index and map as release artefacts, **no tickets created** | framework REQ-71 | Py (JS: FW-1) |
-
-`apps/control-app` already runs with `nodejs_compat`. It has **no D1 binding** and
-`db/migrations/` is empty, so the store genuinely is greenfield here.
-
-## Scope
-
-### 1. The ticket store
-
-- D1 binding in `apps/control-app/wrangler.toml`; migrations under `db/migrations/`.
-- `applySchema` with a product TypePack merged with `chatSchemas()` — one store,
-  not a chat store beside a content store.
-- `MultiTenantTicketStore` for tenant isolation.
-
-### 2. The system KB
-
-- **Corpus = files that ship with the release**, not seeded tickets. Every `doc`
-  ticket (32 today) exported to a corpus directory of frontmatter-bearing
-  markdown, which is the shape `DocDirStore` reads. The export must be
-  repeatable — it re-runs whenever the design docs move.
-- `knowledge_bases.yaml` declaring the KB with `source: shipped`,
-  `landscape: authored`.
-- A release build step (framework `build-shipped-kb`, JS) producing the index
-  beside the corpus.
-- Visible to **every** tenant, writable by none.
-
-### 3. Wiring
-
-- `KnowledgeDocs` as the builder chat session's priming source — landscape first,
-  so the AI gets a map of what exists plus the means to pull the rest, rather
-  than a context stuffed with documents.
-- `KnowledgeToolbox` granted to that session (read-only), so search and retrieval
-  are declared surface operations with the ordinary guardrails, provenance
-  marking and audit.
+| Chat sessions persisted as transcripts | `@lagrangefoundry/ai` — `FileArchive` | JS |
+| Shipped-KB model — corpus from a directory, index and map as release artefacts, **no tickets created** | framework REQ-71 / REQ-99 | Py + JS |
+| Ticket store on D1 | `@lagrangefoundry/ticketing` | JS (unused here yet) |
 
 ## Decisions taken
 
 1. **The JS knowledge components are built in the framework**, not here — FW-1/2/3
-   above. This repo stands up, seeds, and consumes.
-2. **KM runs over both stores.** A corpus is a stored ticket query resolved
+   above. This repo stands up, builds, and consumes.
+2. **The whole doc set goes in, and the corpus question is closed.** Every `doc`
+   ticket, no curation pass. The system must scale to thousands of documents, so
+   the answer to a large corpus is chunk search and an awareness map, not a
+   hand-picked subset. Some documents are development-process knowledge rather
+   than product knowledge; whether that hurts retrieval is a question to answer
+   with data once the feature exists. Which documents to drop, and which to
+   generate, is a later editorial pass over a working mechanism — not a blocker.
+3. **The awareness map is generated at build time. There is no hand-authored
+   map.** Generating it is the point: a map over 32 documents spanning product,
+   framework and process is exactly what goes stale when hand-maintained. The KB
+   therefore declares `landscape: derived`.
+4. **Build-time and query-time vectors come from one model.** Workers AI
+   `@cf/baai/bge-small-en-v1.5`, reachable from a Worker's `AI` binding and from
+   Node over REST — so vector-space parity holds by construction rather than by a
+   numeric-equivalence argument. The Node origin uses the REST transport with
+   `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`, the secrets the repo already
+   deploys with; the binding takes over when the host moves into the Worker. No
+   local stand-in embedder: it would make laptop vectors incompatible with
+   production ones.
+5. **The describer needs no credentials.** The `describe` seam resolves
+   `['claude', 'claude_code']` in order, so it falls back to the authenticated
+   Claude Code CLI when no API key is set.
+6. **KM runs over both stores.** A corpus is a stored ticket query resolved
    against a *named* source (`store_for`), so "a shipped read-only directory" and
    "this tenant's D1 store" are the same code path with different sources. The
    system KB uses the former; tenant KBs will use the latter.
-3. **The whole doc set goes in, and the corpus question is closed for now.**
-   Every `doc` ticket (33 today), no curation pass. The system must scale to
-   thousands of documents, so the answer to a large corpus is chunk search and an
-   awareness map, not a hand-picked subset. Some documents are
-   development-process knowledge rather than product knowledge; whether that
-   hurts retrieval is a question to answer with data once the feature exists, not
-   a reason to hold up building it. Build the feature; look at the data after.
-4. **The tenant is the account, and it is the hard information barrier.** A site
-   is an object — or a set of objects — inside a tenant, not a tenant itself.
-   See "Tenancy" below for what that buys and what it obliges.
-5. **The system KB sits above tenancy.** It is not inside anyone's store, it
+7. **The system KB sits above tenancy.** It is not inside anyone's store, it
    takes the scope parameters, and it runs the same queries for everyone.
-6. **Per-tenant KBs live in the tenant's own store.** Multi-source composition —
-   the system KB plus a tenant KB in one runtime — and the guarantee that a
-   tenant search cannot cross into another tenant's documents are proven in FW-2.
-7. **Index residency follows from FW-1.** A shipped corpus at this scale is a
+8. **Index residency follows from FW-1.** A shipped corpus at this scale is a
    bundle-sized artefact; the loader takes its source from the host, so R2 or
    Vectorize remains available without a library change when the corpus grows.
 
-## Tenancy
+## Tenancy (design inherited by the D1 store ticket, not built here)
 
 ### The tenant is the account
 
@@ -168,16 +189,16 @@ and a tenant KB produces a ranked set whose composition is tenant-specific.
   end-clients — the weak boundary (the site predicate) would sit exactly where a
   strong one is needed. Not a reason to change the grain now; a reason to know in
   advance that agencies would need a tenant per end-client rather than per agency.
+- **Corpus editorial pass.** Which documents to drop and which to generate, once
+  there is retrieval data to judge by (decision 2).
 
 ### Deferred
 
-- **Export mechanics.** Whether the corpus directory is committed or generated at
-  build time, and how doc → file naming stays stable across renames.
-- **Transcript granularity.** The chat archive homes a session as one comment
-  holding the whole session file, CAS-updated, rather than a row per message.
-  Fine at builder-conversation length; if it stops being fine, the fix is a
-  message-granular archive behind the same port in the framework, not a bespoke
-  schema here. Recorded in DOC-10 §8.1.
+- **Transcript granularity.** The chat archive homes a session as one file
+  holding the whole transcript, rather than a row per message. Fine at builder-
+  conversation length; if it stops being fine, the fix is a message-granular
+  archive behind the same port in the framework, not a bespoke schema here.
+  Recorded in DOC-10 §8.1.
 
 ## DOC-10 (chat persistence) — revised, done
 
@@ -205,5 +226,6 @@ and REQ-123.
 ## Related
 
 REQ-122 (builder chat UI) · DOC-10 (chat persistence — revised here) ·
-DOC-12 (storage model) · framework REQ-99 / REQ-100 / REQ-101, REQ-71 (shipped KB),
+DOC-12 (storage model — §7 phase 2 gates the D1 store) · DOC-8 §13 ·
+framework REQ-99 / REQ-100 / REQ-101, REQ-71 (shipped KB),
 REQ-40–44 / 49 / 53 / 76 (KM in Python), REQ-30 / 33 (Toolbox + ai_ticketing in JS).
