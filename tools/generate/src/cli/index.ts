@@ -50,6 +50,7 @@ import { CommandError, EXIT_CODES } from './errors'
 import { assertInstall } from './preflight'
 import { startServe } from './serve'
 import { startBuilder } from './builder'
+import { buildKb, exportCorpus, kbStatus, KB_USAGE } from './kb'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import {
   cmdValuesDiff,
@@ -211,6 +212,15 @@ Usage:
     The builder's dev origin (REQ-115): the shell chrome, the installed webui components,
     /api/sites, /api/publish, and every rendered channel at /preview/<slug>/<channel>/.
     The control-app Worker proxies to it, so the whole builder is one same-origin host.
+
+System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
+  1c kb build
+    Export every doc ticket to kb/system/, index it, chunk it, and generate the
+    awareness map. Needs CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN for the
+    embedding model; the map's paragraphs come from the Claude Code CLI when no
+    ANTHROPIC_API_KEY is set.
+  1c kb export     the corpus only — no embedding, no credentials
+  1c kb status     what is built
 
 Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
   1c deploy <slug> [--channel draft|published] [--dry-run] [--prune] [--sandbox] [--json]
@@ -549,6 +559,44 @@ export async function run(argv: string[]): Promise<void> {
       console.log(`Builder origin\n  ${url}`)
       // Keep the process alive until the server closes.
       await new Promise<void>(() => {})
+      return
+    }
+
+    case 'kb': {
+      const sub = rest[0] ?? 'status'
+      if (sub === 'export') {
+        const { docs, removed, dir } = exportCorpus()
+        console.log(`corpus: ${docs.length} document(s) -> ${dir}`)
+        if (removed.length) console.log(`removed: ${removed.join(', ')}`)
+        return
+      }
+      if (sub === 'build') {
+        const r = await buildKb()
+        console.log(
+          `index:  ${r.documents} document(s), ${r.embedded} embedded\n` +
+            `chunks: ${r.chunks}\n` +
+            `map:    ${r.territories} territories, ${r.accessPoints} access point(s), ` +
+            `written by ${r.describer}`,
+        )
+        if (r.doorless.length) {
+          // Named, never silent: a territory with no validated access point is a
+          // region of the corpus the map describes but cannot route to.
+          console.log(`        no way in: ${r.doorless.join(', ')}`)
+        }
+        return
+      }
+      if (sub === 'status') {
+        const s = kbStatus()
+        console.log(
+          `corpus: ${s.corpus} document(s)\n` +
+            `index:  ${s.index ? 'built' : 'missing'}\n` +
+            `chunks: ${s.chunks ? 'built' : 'missing'}\n` +
+            `map:    ${s.map ? 'built' : 'missing'}`,
+        )
+        return
+      }
+      console.error(`Unknown kb subcommand: ${sub}\n\n${KB_USAGE}`)
+      process.exitCode = 1
       return
     }
 
