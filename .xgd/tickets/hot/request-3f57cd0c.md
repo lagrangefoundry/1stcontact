@@ -5,10 +5,10 @@ type: request
 title: 'Editor: lock controls that cannot express what the element holds'
 created_by: xgd
 created_at: '2026-08-12T18:13:37.478932+00:00'
-updated_at: '2026-08-13T21:16:00.737200+00:00'
+updated_at: '2026-08-15T20:16:41.305337+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
