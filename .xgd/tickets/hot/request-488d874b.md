@@ -5,7 +5,7 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-15T20:14:12.529279+00:00'
+updated_at: '2026-08-15T21:39:28.634932+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -83,6 +83,44 @@ read by `DocDirStore`; the index is a release artefact beside it.
   are declared surface operations with the ordinary guardrails, provenance
   marking and audit.
 
+## What was built
+
+`1c kb build` — export, index, chunk, map, in that order.
+
+| Piece | Where |
+|---|---|
+| The command (`build` / `export` / `status`) | `tools/generate/src/cli/kb.ts`, dispatched from `cli/index.ts` |
+| Corpus export from the ticket store | `exportCorpus` — one `xgd ticket list --view` call, one file per doc |
+| KB declaration (authored, scaffolded once) | `kb/knowledge_bases.json` |
+| Corpus + both indexes + the map | `kb/system/` (gitignored — all of it is derived) |
+| Two surfaces in one Toolbox | `cli/ai/toolbox.ts` — L1 controls plus `KnowledgeToolbox`, read-only, scoped to the system KB on both axes |
+| Landscape-first priming | `cli/ai/host.ts` — `KnowledgeDocs` with the projected tool manual as its `mechanism` |
+
+**Credentials.** The index needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`
+(the pair the repo already deploys with) because the embedder is Workers AI over
+REST. The map needs none: the describe seam resolves `['claude', 'claude_code']`
+in order and falls through to the authenticated Claude Code CLI.
+
+**Degradation, not failure.** With no KB built, `openKnowledgeRuntime` returns
+`null` and the session is the pre-REQ-123 assistant — tools but no documents. A
+KB that was built and then *failed to open* says so on stderr rather than
+silently dropping the whole knowledge surface.
+
+### Two things found along the way
+
+- **The packed `@lagrangefoundry/knowledge` has no `bin`.** It declares
+  `files: ["src"]`, so `build-shipped-kb` is absent from the shared artifact
+  store. Every function that CLI calls is exported, so `kb.ts` composes the same
+  pipeline in the same order. Worth reporting upstream; when the `bin` is packed,
+  `kb.ts` shrinks to a call.
+- **`DocDirStore` ignores frontmatter `created_at` / `updated_at`.** Its module
+  comment says a document's frontmatter "wins except `uid`", but `_record` takes
+  both stamps from the file entry. The index's incremental manifest keys on
+  `updated_at`, so a re-export that rewrote every file would re-embed the whole
+  corpus every build. The export therefore writes a file only when its bytes
+  actually change, and the two frontmatter timestamps are provenance for a human
+  reader rather than something the store reads.
+
 ## What already exists (and is not rebuilt here)
 
 | Need | Component | Language |
@@ -105,8 +143,16 @@ read by `DocDirStore`; the index is a release artefact beside it.
    generate, is a later editorial pass over a working mechanism — not a blocker.
 3. **The awareness map is generated at build time. There is no hand-authored
    map.** Generating it is the point: a map over 32 documents spanning product,
-   framework and process is exactly what goes stale when hand-maintained. The KB
-   therefore declares `landscape: derived`.
+   framework and process is exactly what goes stale when hand-maintained.
+
+   The KB nevertheless declares `landscape: authored` at RUNTIME, and that is not
+   a contradiction — it is the shipped-KB contract. `authored` means "this map is
+   a fixed artefact that ships, read and never refreshed on a cadence", which is
+   exactly true of one built by `1c kb build`. Declaring `derived` at runtime
+   would invite a rebuild against a corpus store that is structurally read-only.
+   The build flips the KB to `derived` for its own duration — upstream's own
+   manoeuvre, and the reason its script puts it this way: derived for the build,
+   authored on disk. What makes the result authored is *where it is written*.
 4. **Build-time and query-time vectors come from one model.** Workers AI
    `@cf/baai/bge-small-en-v1.5`, reachable from a Worker's `AI` binding and from
    Node over REST — so vector-space parity holds by construction rather than by a
@@ -194,6 +240,12 @@ and a tenant KB produces a ranked set whose composition is tenant-specific.
 
 ### Deferred
 
+- **Corpus residency for a deployed Worker.** The KB is read today by the Node
+  builder origin on the operator's machine, so `kb/system/` is gitignored and
+  built on demand. When the host moves into the Worker (DOC-12 §7 phase 2) the
+  index has to reach it — `writeIndexModule` emits it as an importable module,
+  and the loader takes its source from the host, so R2 or Vectorize stays
+  available without a library change. Nothing about that decision is forced yet.
 - **Transcript granularity.** The chat archive homes a session as one file
   holding the whole transcript, rather than a row per message. Fine at builder-
   conversation length; if it stops being fine, the fix is a message-granular
