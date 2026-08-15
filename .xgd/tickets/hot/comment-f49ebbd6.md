@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T21:30:23.562136+00:00'
+updated_at: '2026-08-15T21:30:47.927165+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -393,5 +393,11 @@ REQ-141 is the place to start — it's small, unblocks every store UAT after it,
 <!-- xgd-chat role="user" ts="2026-08-15T21:30:23.258890+00:00" -->
 #### You
 omg NEVER create tickets in ready_to_implement mode that is an operator call
+
+<!-- xgd-turn id="561989e7-208c-4b62-86ec-3c64921194ca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T21:30:47.758186+00:00" -->
+#### You
+omg NEVER create tickets in ready_to_implement mode that is an operator call - it triggers automatic implementation which is completely inappropriate here
 
 <!-- xgd-chat-end -->
