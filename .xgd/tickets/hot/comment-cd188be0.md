@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-140
 created_by: xgd
 created_at: '2026-08-15T00:35:29.825039+00:00'
-updated_at: '2026-08-15T18:00:01.548253+00:00'
+updated_at: '2026-08-15T18:30:33.390420+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,37 @@ The stub caught a real layering slip — the hex→reference narrowing belongs w
 <!-- xgd-chat role="user" ts="2026-08-15T18:00:01.381539+00:00" -->
 #### You
 PLease complete this work
+
+<!-- xgd-turn id="9be0f798-98d3-4955-a7df-352005cf2e33-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T18:30:32.805965+00:00" -->
+#### Claude
+Both are incidental assertions in ACs whose claims are about something else. Updating them to carry the new field without weakening either claim.
+
+The REQ-129 invariant caught a real over-reach: an *unpainted* container must stay invisible to the modal. Fixing the derivation to ask the renderer's own paint test rather than offering a fill on every box.
+
+Now the host must supply the renderer's verdict.
+
+Now updating this suite's dead-end specimen: a painted panel is no longer one, so the surviving genuine dead end is a mounted module seam.
+
+That fixture change hit an environment wall. Reverting it and taking stock of the whole suite before deciding.
+
+Now making the four coordinated updates to this suite.
+
+Now the coordinated fixture change: a genuinely fields-less region, and a click that reaches it.
+
+Now updating the three call sites that used the old specimen.
+
+Now AC-1050's two references to the old dead end.
+
+Now the same three patterns across the remaining four suites.
+
+Now the background-selection suite, whose AC-1049 is the one REQ-140 directly supersedes.
+
+Full sweep to confirm the branch is back to the baseline failure set.
+
+Failure set is now byte-identical to the pre-existing baseline. Committing.
+
+The merge crossed REQ-131's change journal. Verifying the combined state before recording the ticket.
 
 <!-- xgd-chat-end -->
