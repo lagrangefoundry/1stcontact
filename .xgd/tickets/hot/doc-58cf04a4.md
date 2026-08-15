@@ -6,7 +6,7 @@ title: The Consultation Playbook — how the builder AI takes a client from noth
   to a live site
 created_by: xgd
 created_at: '2026-08-11T21:54:36.501786+00:00'
-updated_at: '2026-08-11T23:39:12.942041+00:00'
+updated_at: '2026-08-15T23:59:27.945600+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -723,3 +723,22 @@ what has shipped, and it is what tells the AI which class a new capability falls
   Second payoff: this is also what makes divergence detection (a client edit contradicting a locked
   decision) cheap and precise, rather than a fuzzy comparison of freshly-read state against the
   ledger.
+
+
+
+-
+## 14. Cross-reference (CHAT-26) — the locale question
+
+**Does not amend §1–§13.** [[DOC-34]] adds **one** Act I question — *where is the
+business?* — recorded in the **Business** ledger section.
+
+It is one question because the rest derives from it: `country` defaults the
+site's `locale`, `currency` and IANA `timezone` (each overridable), and keys the
+legal obligations a capability must declare — VAT-inclusive price display in the
+EU/UK, Impressum in DE/AT, cookie consent. That makes `country` the most
+important single input to the capability catalogue §13 carries as an open
+dependency.
+
+Note this is **localization, not translation**: it is what a *monolingual*
+non-US business needs on day one. Multilingual sites are deliberately deferred
+([[DOC-34]] §9).
