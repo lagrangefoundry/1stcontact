@@ -334,6 +334,10 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     }
     expect(ignored('storage/dist/sites/example/draft/index.html')).toBe(true)
     expect(ignored('storage/sandbox/example/draft/site.json')).toBe(true)
-    expect(ignored('storage/sites/1stcontact/site.json')).toBe(false)
+    // A placeholder slug, like the two lines above it: this asserts a GITIGNORE
+    // PATTERN, and `git check-ignore` never opens the file. Naming a real stored
+    // site made an unrelated deletion look like it broke the ignore rules
+    // (REQ-140).
+    expect(ignored('storage/sites/example/site.json')).toBe(false)
   })
 })

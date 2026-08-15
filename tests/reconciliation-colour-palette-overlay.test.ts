@@ -521,14 +521,35 @@ describe('AC-932 a retrofitted site yields a palette, not a colour list, and los
 
     // A site with no L1 colour axes carries no palette at all and remains valid
     // — the "palette is optional" guarantee in action, not a special case.
-    for (const slug of ['1stcontact', 'harbor-cafe']) {
+    //
+    // SYNTHESISED, not stored (REQ-140). This claim used to be made against the
+    // `1stcontact` and `harbor-cafe` example sites, which were deleted as dead —
+    // they were built on the semantic layout modules the framework pivot
+    // removed, so nothing but this assertion still read them. A stored site kept
+    // alive only so a test can open it is a fixture wearing a site's clothes,
+    // and it made deleting dead examples look like a test failure. What the
+    // claim is actually about is a document with no colour axes anywhere, which
+    // is three lines to state exactly.
+    {
       const cwd = freshCwd()
-      stage(cwd, slug)
-      const load = loadSite({ cwd, root: 'sites' }, slug)
-      expect(load.ok, `${slug} does not load`).toBe(true)
-      if (!load.ok) continue
-      expect(load.value.site.palette, `${slug} declares a palette`).toBeUndefined()
-      expect(cmdColors(slug, { cwd }).colors).toEqual([])
+      const colourless = {
+        widths: WIDTHS,
+        root: {
+          kind: 'container',
+          layout: 'stack',
+          children: [
+            { kind: 'text', text: 'No colour is declared anywhere in this document.' },
+            { kind: 'box', axes: { borderRadiusPx: 8 } },
+          ],
+        },
+      }
+      writeSite(cwd, 'colourless', siteWith(colourless))
+      const load = loadSite({ cwd, root: 'sites' }, 'colourless')
+      expect(load.ok, `the colourless site does not load: ${JSON.stringify(load)}`).toBe(true)
+      if (load.ok) {
+        expect(load.value.site.palette, 'a colourless site declares a palette').toBeUndefined()
+      }
+      expect(cmdColors('colourless', { cwd }).colors).toEqual([])
     }
   })
 })

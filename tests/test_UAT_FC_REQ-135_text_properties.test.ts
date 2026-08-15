@@ -222,6 +222,12 @@ describe('REQ-135 — text properties', () => {
     expect(fields[0]).toMatchObject({ name: 'text', type: 'string' })
     expect(fields.map((f) => f.name)).toEqual([
       'text',
+      // REQ-140 completed phase B, so a run now offers its COLOUR between its
+      // words and its type. The claim this assertion makes is unchanged — the
+      // words stay first, because that is what the modal opens into — and the
+      // new row is the continuation §9 named, not a reordering of the type
+      // controls.
+      'color',
       'fontSizePx',
       'fontWeight',
       'italic',
@@ -240,10 +246,12 @@ describe('REQ-135 — text properties', () => {
       textTransform: 'none',
     })
 
-    // Nothing here can express markup or CSS: every control is one of the four
-    // closed types (DOC-28 §3).
+    // Nothing here can express markup or CSS: every control is one of the closed
+    // types (DOC-28 §3). REQ-140's `color` joins them and is closed by the same
+    // argument — the only value it admits is a reference into a palette this
+    // site declares, so it cannot name a colour the site does not already have.
     for (const field of fields) {
-      expect(['string', 'integer', 'boolean', 'enum']).toContain(field.type)
+      expect(['string', 'integer', 'boolean', 'enum', 'color']).toContain(field.type)
       if (field.type === 'enum') expect(field.enum!.length).toBeGreaterThan(0)
     }
   })

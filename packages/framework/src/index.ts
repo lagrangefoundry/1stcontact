@@ -108,6 +108,9 @@ export {
   L1_EDIT_PAGE_ATTR,
   L1_EDIT_HOT_CLASS,
   L1_EDIT_CSS,
+  // REQ-140 — the paint test the segment rule itself uses, so the text modal's
+  // escalation finds the same panel the renderer stamped.
+  l1PaintsSurface,
 } from './l1/render'
 export type {
   L1RenderResult,

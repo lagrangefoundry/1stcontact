@@ -91,6 +91,25 @@ function seedSandbox(source: string, slug: string): string {
   return dir
 }
 
+/**
+ * A sandbox site whose only page paints NO colour at all (REQ-140).
+ *
+ * This used to be a copy of the stored `harbor-cafe` example, which was deleted
+ * as dead — it was built on the semantic layout modules the framework pivot
+ * removed, and this assertion was the last thing still reading it. The claim
+ * being made is about a document with no colour literals, not about that
+ * particular site, so it is stated directly: `paintedSite` with an empty colour
+ * list is exactly a page with nothing to census.
+ */
+function bareSandbox(slug: string): string {
+  const dir = path.join(SANDBOX, slug)
+  sandboxSlugs.push(slug)
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(SANDBOX, { recursive: true })
+  cpSync(paintedSite(freshCwd(), slug, []), dir, { recursive: true })
+  return dir
+}
+
 /** Copy a real stored site into an isolated temp working directory. */
 function seedTemp(cwd: string, source: string, slug: string): string {
   const dir = path.join(cwd, 'storage', 'sites', slug)
@@ -212,9 +231,9 @@ describe('story-5e7eb0c5 — censusing a site reports its colours and changes no
   it('test_UAT_AC939_census_reports_literals_counts_alpha_families_and_writes_nothing', () => {
     // A site whose colours are known: `xgd` carries an RGB used at three
     // opacities (#2e86a3 at full, 0.65 and 0.33), which is the alpha family the
-    // census must surface. `harbor-cafe` carries no colour literals at all.
+    // census must surface. Beside it, a site carrying no colour literals at all.
     const colourful = seedSandbox('xgd', 'ac939-colourful')
-    const bare = seedSandbox('harbor-cafe', 'ac939-bare')
+    const bare = bareSandbox('ac939-bare')
     const beforeColourful = hashTree(colourful)
     const beforeBare = hashTree(bare)
 

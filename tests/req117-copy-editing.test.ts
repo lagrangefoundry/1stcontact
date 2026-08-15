@@ -209,18 +209,28 @@ describe('REQ-117 — copy editing, end to end', () => {
     expect((copy.data!.values as Record<string, unknown>).text).toBe(HEADLINE)
 
     // The painted container is a real segment — it is outlined and it resolves —
-    // but phase 1 exposes no control for it (its background is phase 2), so the
-    // field list is empty and the host has nothing to open.
+    // and since REQ-140 it offers exactly its background colour.
     //
     // The image used to stand here, and REQ-118 (T4) took the role away by giving
-    // it a picker and an alt field. The property under test is the derivation's,
-    // not the image's: a segment with nothing to edit offers nothing, so "click
-    // it and no modal opens" stays true by derivation rather than by a rule the
-    // client has to remember.
+    // it a picker and an alt field; the painted container stood here next, and
+    // REQ-140 took it the same way. The property under test survives both,
+    // because it was never about which node: a region offers what the DERIVATION
+    // says it offers, so "nothing to open" stays true by derivation rather than
+    // by a rule the client has to remember.
     const container = dom.window.document.querySelector('[data-l1-segment="container"]')!
     const containerHit = resolveEditTarget(container)
     expect(containerHit!.kind).toBe('container')
-    const bare = await cli(cwd, 'copy', 'get', 'acme', 'home', containerHit!.target.path.join('.'))
+    const painted = await cli(cwd, 'copy', 'get', 'acme', 'home', containerHit!.target.path.join('.'))
+    expect(painted.ok).toBe(true)
+    expect((painted.data!.fields as Array<{ name: string }>).map((f) => f.name)).toEqual([
+      'surfaceFill',
+    ])
+
+    // And the region that genuinely holds nothing still answers with nothing:
+    // the root wrapper paints no surface, so it is neither outlined nor
+    // editable, and asking it directly reports the same emptiness the renderer
+    // acted on when it declined to stamp it.
+    const bare = await cli(cwd, 'copy', 'get', 'acme', 'home', '0')
     expect(bare.ok).toBe(true)
     expect(bare.data!.fields).toEqual([])
   })
@@ -418,7 +428,7 @@ describe('REQ-117 — copy editing, end to end', () => {
     // REQ-135 widened the set; the invariant is that widening it never adds a
     // control a user can type CSS into, so the assertion is the membership rather
     // than a single type.
-    const SAFE_TYPES = ['string', 'enum', 'integer', 'boolean']
+    const SAFE_TYPES = ['string', 'enum', 'integer', 'boolean', 'color']
     for (const addr of ['0.0.0', '0.0.1']) {
       const got = await cli(cwd, 'copy', 'get', 'acme', 'home', addr)
       for (const field of got.data!.fields as Array<{ type: string; enum?: string[] }>) {

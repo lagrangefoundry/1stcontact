@@ -284,13 +284,16 @@ describe('story-37a3921b — a painted panel’s background image, through the s
   it('test_UAT_AC1045_a_painted_panel_exposes_one_closed_picker_for_the_background_it_carries', async () => {
     // AC-1045 — through the SAME "what does this region expose" operation that
     // answers for a run of copy and for an image, a painted panel carrying a
-    // background answers with exactly one field: which image sits behind it.
+    // background answers with exactly one PICKER: which image sits behind it.
+    // Since REQ-140 its background COLOUR sits beside that picker; the rest of
+    // its paint (radius, opacity, the gradient stack) still does not, which is
+    // what this criterion is about.
     const got = await readFields(cwd, A_BACKDROP)
     expect(got.ok).toBe(true)
     expect(got.exitCode).toBe(0)
     expect(got.data!.kind).toBe('container')
     const fields = got.data!.fields as Field[]
-    expect(fields.map((f) => f.name)).toEqual(['backgroundImageUrl'])
+    expect(fields.map((f) => f.name)).toEqual(['backgroundImageUrl', 'surfaceFill'])
 
     // A closed list, carried with the field itself, that must hold a value.
     const bg = fieldNamed(got, 'backgroundImageUrl')!
@@ -311,15 +314,21 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     expect(bg.enum).toEqual([...bg.enum!].sort())
     expect((await readFields(cwd, A_BACKDROP)).data!.fields).toEqual(fields)
 
-    // The current value is the handle the panel paints today.
-    expect(got.data!.values).toEqual({ backgroundImageUrl: HERO })
+    // The current values are what the panel paints today.
+    expect(got.data!.values).toEqual({
+      backgroundImageUrl: HERO,
+      surfaceFill: BACKDROP_PAINT.surfaceFill,
+    })
     expect((draftNode(cwd, A_BACKDROP).axes as Record<string, unknown>).backgroundImageUrl).toBe(HERO)
 
     // Nothing else of the panel's paint is offered. The panel demonstrably
     // CARRIES all of it — so this is a boundary the derivation draws, not an
-    // absence in the fixture.
+    // absence in the fixture. REQ-140 moved the fill across that boundary and
+    // moved nothing else: a fill is a CHOICE from a list the site declares,
+    // while a radius, an opacity and a gradient stack are compositions, and no
+    // closed list makes one of those friendly.
     expect(draftNode(cwd, A_BACKDROP).axes).toMatchObject(BACKDROP_PAINT)
-    for (const axis of ['surfaceFill', 'borderRadiusPx', 'opacity', 'overlay', 'pattern', 'surfaceGradient']) {
+    for (const axis of ['borderRadiusPx', 'opacity', 'overlay', 'pattern', 'surfaceGradient']) {
       expect(fieldNamed(got, axis), axis).toBeUndefined()
     }
 
@@ -362,12 +371,18 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     })
   })
 
-  it('test_UAT_AC1049_a_painted_panel_with_no_background_still_answers_with_an_empty_field_list', async () => {
-    // AC-1049 — a panel that paints but carries no background image exposes
-    // nothing, and a panel carrying an EMPTY handle is treated the same way,
+  it('test_UAT_AC1049_a_painted_panel_with_no_background_offers_no_picker', async () => {
+    // AC-1049 — a panel that paints but carries no background image offers NO
+    // PICKER, and a panel carrying an EMPTY handle is treated the same way,
     // because an empty handle paints nothing. Appended here rather than seeded,
     // since an empty handle fails the envelope's URL allowlist and would refuse
     // every write in this file.
+    //
+    // IT USED TO ANSWER WITH NOTHING AT ALL, and REQ-140 is why it no longer
+    // does: a panel that paints is a segment, and a segment the operator can
+    // click and outline should not open on an empty answer. So what it exposes
+    // now is its colour — and still no picker, which is the claim. The absence
+    // being pinned is the picker's, not the whole form's.
     const page = JSON.parse(draftBytes(cwd))
     page.l1.root.children.push({
       kind: 'box',
@@ -381,13 +396,10 @@ describe('story-37a3921b — a painted panel’s background image, through the s
       expect(got.ok, addr).toBe(true)
       expect(got.exitCode, addr).toBe(0)
       expect(got.error, addr).toBeUndefined()
-      expect(got.data!.fields, addr).toEqual([])
-      expect(got.data!.values, addr).toEqual({})
-
-      // And it SAYS so, rather than reporting an absence the host must interpret.
-      const human = await cliHuman(cwd, 'copy', 'get', 'acme', 'home', addr)
-      expect(human.exitCode, addr).toBe(0)
-      expect(human.output, addr).toContain('no editable copy')
+      // Its colour and nothing else — no picker to swap an image it does not
+      // have, and no field for the paint that is not a choice.
+      expect((got.data!.fields as Field[]).map((f) => f.name), addr).toEqual(['surfaceFill'])
+      expect(fieldNamed(got, 'backgroundImageUrl'), addr).toBeUndefined()
     }
 
     // The picker offers no way to introduce a background where none exists: the
@@ -433,7 +445,7 @@ describe('story-37a3921b — a painted panel’s background image, through the s
     expect(bg.enum!.filter((o) => o === REMOTE)).toHaveLength(1)
     expect(bg.enum).toEqual([...SITE_IMAGES, REMOTE].sort())
     expect(new Set(bg.enum).size).toBe(bg.enum!.length)
-    expect(offsite.data!.values).toEqual({ backgroundImageUrl: REMOTE })
+    expect(offsite.data!.values).toEqual({ backgroundImageUrl: REMOTE, surfaceFill: '#222222' })
 
     // The same holds for a panel whose handle IS in the store — it appears once,
     // not twice, and the option list is exactly the site's images.
@@ -555,7 +567,10 @@ describe('story-37a3921b — a painted panel’s background image, through the s
       expect(await renderedBytes(cwd), value).toBe(renderedBefore)
     }
     // The panel still paints exactly what it did.
-    expect((await readFields(cwd, A_BACKDROP)).data!.values).toEqual({ backgroundImageUrl: HERO })
+    expect((await readFields(cwd, A_BACKDROP)).data!.values).toEqual({
+      backgroundImageUrl: HERO,
+      surfaceFill: BACKDROP_PAINT.surfaceFill,
+    })
 
     // And the refusal is reported identically through the builder origin — a
     // CLIENT fault carrying the very same code, path, hint and message, never a

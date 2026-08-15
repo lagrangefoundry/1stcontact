@@ -47,13 +47,20 @@ const HEADLINE = 'A painted band.'
 const BEHIND = 'Over the backdrop.'
 
 /**
- * The address of the region that exposes nothing — the painted container the
- * headline sits in. Named once because two criteria pin the same dead end, and
- * they must pin the *same* one for AC-1002's dismissals to be about the dialog
- * AC-1001 opened.
+ * The address of the region that exposes nothing — a seam, which holds no copy,
+ * no asset and no paint. Named once because two criteria pin the same dead end,
+ * and they must pin the *same* one for AC-1002's dismissals to be about the
+ * dialog AC-1001 opened.
+ *
+ * IT USED TO BE THE PAINTED CONTAINER, and REQ-140 is why it is not: a panel
+ * that paints is now offered its background colour, so it opens a form. That was
+ * the point of that ticket — a region the operator can click and outline, opened
+ * only to be told there is nothing inside it, is a dead end worth removing. The
+ * dialog it opened is not gone and neither is the state, which is what these two
+ * criteria still pin; only the specimen moved.
  */
-const NOTHING_TO_EDIT_PATH = '0.0'
-/** The segment selector for that region, as the edit render stamps it. */
+const NOTHING_TO_EDIT_PATH = '0.3'
+/** The segment selector for the region the click is retargeted from. */
 const NOTHING_TO_EDIT_SEGMENT = `[${L1_EDIT_SEGMENT_ATTR}="container"]`
 
 /** The handles the seeded site's images are referenced by. */
@@ -66,6 +73,12 @@ const SITE_IMAGES = [BETA, HERO, LOGO]
 const ABSENT = '/assets/nowhere.png'
 /** The painted panel that carries a background image — AC-1050's specimen. */
 const PAINTED_PANEL_PATH = '0.2'
+/**
+ * The painted panel that carries NO background image — AC-1050's contrast. It
+ * paints only a fill, so it is offered its colour and no picker: what a panel
+ * exposes tracks what it carries, not what its kind is.
+ */
+const FILL_ONLY_PANEL_PATH = '0.0'
 
 /** The asset files the site's own images are, beside two that are not images. */
 const ASSET_FILES: Record<string, string> = {
@@ -135,6 +148,10 @@ function seedPage(cwd: string, slug: string): void {
         },
         children: [{ kind: 'text', text: BEHIND, axes: { fontSizePx: 20 } }], // [0.2.0]
       },
+      // [0.3] a seam. It is the region that exposes NOTHING — no copy, no asset,
+      // no paint — which is what makes it the dead end AC-1001 and AC-1002 pin
+      // now that a painted panel opens a form (REQ-140).
+      { kind: 'slot', name: 'gallery' },
     ],
   }
   home.l1 = { ...(home.l1 as Record<string, unknown>), root }
@@ -222,6 +239,29 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     document.body.setAttribute(L1_EDIT_MARKER_ATTR, '')
     if (stale) document.body.removeAttribute(L1_EDIT_PAGE_ATTR)
     else document.body.setAttribute(L1_EDIT_PAGE_ATTR, pageId)
+  }
+
+  /**
+   * The element a click on the dead end is dispatched from.
+   *
+   * WHY IT IS RETARGETED. The seam at {@link NOTHING_TO_EDIT_PATH} is unmounted,
+   * so it renders nothing and the edit channel stamps no element for it — a
+   * region with nothing in it has nothing to draw. Every region this page DOES
+   * draw exposes at least one field since REQ-140, so the artifact carries no
+   * element that both exists and answers empty. Moving the address onto an
+   * element that exists is the smallest way to put the pointer on that region,
+   * and it leaves everything downstream real: the bridge resolves the address,
+   * the ORIGIN answers it for the seam it genuinely names (asserted directly in
+   * AC-1001 before any click), and the dialog is the real one.
+   *
+   * The same trick AC-1003 uses on the same artifact for the same reason: some
+   * states of the rendering cannot be reached by rendering a page that is in
+   * that state.
+   */
+  function deadEndElement(): Element {
+    const el = document.querySelector(NOTHING_TO_EDIT_SEGMENT)!
+    el.setAttribute(L1_EDIT_PATH_ATTR, NOTHING_TO_EDIT_PATH)
+    return el
   }
 
   function elementShowing(copy: string): Element {
@@ -319,7 +359,11 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     // bounded whole number, or a bit. REQ-135 added the last two; there is still
     // no rich-text surface to reach, which is the claim.
     for (const field of loaded.fields) {
-      expect(['string', 'enum', 'integer', 'boolean']).toContain(field.type)
+      // REQ-140 added `color` and it carries the claim rather than dents it: the
+      // only value it admits is a reference into a palette the site declares, so
+      // it cannot express a colour — let alone markup — that the site does not
+      // already hold.
+      expect(['string', 'enum', 'integer', 'boolean', 'color']).toContain(field.type)
     }
 
     if (!WEBUI_INSTALLED) {
@@ -364,15 +408,14 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
 
   it('test_UAT_AC1001_a_region_with_nothing_editable_says_so_and_names_its_kind', async () => {
     // AC-1001 — a plain message, not an empty form and not silence. The
-    // specimen is the painted CONTAINER: paint is what makes it a segment, and
-    // its background is phase 2, so it is a real region that genuinely exposes
-    // nothing today.
+    // specimen is a SEAM: it is a real region of the definition that holds no
+    // copy, no asset and no paint, which is what "exposes nothing" means now
+    // that a painted panel is offered its colour (REQ-140).
     display()
-    const container = document.querySelector(`[${L1_EDIT_SEGMENT_ATTR}="container"]`)!
-    expect(container.getAttribute(L1_EDIT_PATH_ATTR)).toBe(NOTHING_TO_EDIT_PATH)
 
     // The region is real and resolves; it simply exposes nothing — so there is
-    // no form to build, and the kind is what the answer can name.
+    // no form to build, and the kind is what the answer can name. THE ORIGIN'S
+    // OWN ANSWER, for the seam itself, before any click.
     const loaded = (await (
       await fetch(
         new URL(
@@ -385,7 +428,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
         ),
       )
     ).json()) as { kind: string; fields: unknown[]; values: Record<string, string> }
-    expect(loaded.kind).toBe('container')
+    expect(loaded.kind).toBe('slot')
     expect(loaded.fields).toEqual([])
     expect(loaded.values).toEqual({})
 
@@ -401,16 +444,14 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
         slug: 'acme',
         bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
       })
-      document
-        .querySelector(NOTHING_TO_EDIT_SEGMENT)!
-        .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+      deadEndElement().dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
       await settle()
 
       expect(modals()).toHaveLength(1)
       const modal = modals()[0]
       // The operator's answer is "not this one", stated plainly and naming the
       // kind of region they clicked.
-      expect(modal.textContent).toContain('Nothing to edit on this container segment yet.')
+      expect(modal.textContent).toContain('Nothing to edit on this slot segment yet.')
       // And it is a message, not an empty form.
       expect(modal.querySelectorAll('input, textarea, select, .fields')).toHaveLength(0)
     } finally {
@@ -434,9 +475,7 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
             slug: 'acme',
             bridge: { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR },
           })
-          document
-            .querySelector(NOTHING_TO_EDIT_SEGMENT)!
-            .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
+          deadEndElement().dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
           await settle()
           expect(modals()).toHaveLength(1)
           return { modal: modals()[0], editor }
@@ -631,9 +670,10 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     // ── what the form is built from ──────────────────────────────────────────
     const loaded = await read(PAINTED_PANEL_PATH)
     expect(loaded.kind).toBe('container')
-    // ONE field: which image sits behind it. Not the rest of its paint, which
-    // the panel demonstrably carries.
-    expect(loaded.fields.map((f) => f.name)).toEqual(['backgroundImageUrl'])
+    // Which image sits behind it, and — since REQ-140 — its fill. Not the REST
+    // of its paint, which the panel demonstrably carries: `borderRadiusPx` and
+    // `opacity` are compositions rather than choices and stay with the AI.
+    expect(loaded.fields.map((f) => f.name)).toEqual(['backgroundImageUrl', 'surfaceFill'])
     const [picker] = loaded.fields
     expect(picker).toMatchObject({ label: 'Background image', type: 'enum', required: true })
     // A CLOSED list of the site's own images — including the handle the panel
@@ -641,12 +681,16 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
     expect(picker.enum).toEqual(SITE_IMAGES)
     expect(picker.enum).toContain(loaded.values.backgroundImageUrl)
     expect(picker.enum).not.toContain('/assets/body.woff2')
-    // Pre-filled from the draft.
-    expect(loaded.values).toEqual({ backgroundImageUrl: HERO })
+    // Pre-filled from the draft — both fields, each reporting exactly what the
+    // panel's own axes hold. The fill is the literal this fixture was written
+    // with, reported rather than resolved to a palette entry it never named.
+    expect(loaded.values).toEqual({ backgroundImageUrl: HERO, surfaceFill: '#1d2733' })
 
-    // The dead end is still a dead end, on the same page and over the same
-    // read: a panel with paint but no background opens no form at all.
-    expect((await read(NOTHING_TO_EDIT_PATH)).fields).toEqual([])
+    // THE CONTRAST, on the same page and over the same read: the panel beside
+    // it paints but carries no background handle, so it is offered its colour
+    // and nothing else. The image picker is a fact about *this* panel, not about
+    // painted panels.
+    expect((await read(FILL_ONLY_PANEL_PATH)).fields.map((f) => f.name)).toEqual(['surfaceFill'])
 
     // ── a choice the surface refuses comes back field-scoped ─────────────────
     const beforeDraft = draftBytes()
@@ -681,15 +725,14 @@ describe('story-3bf94bd4 the form the gesture opens', () => {
           .querySelector(`[${L1_EDIT_PATH_ATTR}="${address}"]`)!
           .dispatchEvent(new window.MouseEvent('click', { bubbles: true }))
 
-      // THE PANEL BESIDE IT IS STILL AN HONEST DEAD END. Two painted panels,
-      // alike in everything but one, and the difference is a background handle:
-      // this one says so plainly rather than opening an empty form or offering
-      // to add one.
-      clickRegion(NOTHING_TO_EDIT_PATH)
+      // THE PANEL BESIDE IT OPENS A NARROWER FORM. Two painted panels, alike in
+      // everything but one, and the difference is a background handle: this one
+      // is offered its colour and no picker, so what a panel exposes tracks what
+      // it actually carries rather than what its kind is.
+      clickRegion(FILL_ONLY_PANEL_PATH)
       await settle()
       expect(modals()).toHaveLength(1)
-      expect(modals()[0].textContent).toContain('Nothing to edit on this container segment yet.')
-      expect(modals()[0].querySelectorAll('input, textarea, select, .fields')).toHaveLength(0)
+      expect(modals()[0].textContent).not.toContain('Background image')
       document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
       expect(modals()).toHaveLength(0)
 
