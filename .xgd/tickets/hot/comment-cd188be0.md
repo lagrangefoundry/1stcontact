@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-140
 created_by: xgd
 created_at: '2026-08-15T00:35:29.825039+00:00'
-updated_at: '2026-08-15T18:30:33.390420+00:00'
+updated_at: '2026-08-15T19:20:07.967593+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -154,5 +154,11 @@ Full sweep to confirm the branch is back to the baseline failure set.
 Failure set is now byte-identical to the pre-existing baseline. Committing.
 
 The merge crossed REQ-131's change journal. Verifying the combined state before recording the ticket.
+
+<!-- xgd-turn id="49a61e68-0829-48c2-b815-6726e56bcf70-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T19:20:07.761063+00:00" -->
+#### You
+Test MUST be run in the foreground, background processes die in this environment
 
 <!-- xgd-chat-end -->
