@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T20:29:03.603860+00:00'
+updated_at: '2026-08-15T20:35:50.574202+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -345,5 +345,47 @@ I can't create tickets in this session — it's scoped to CHAT-25 — so tell me
 <!-- xgd-chat role="user" ts="2026-08-15T20:29:03.443076+00:00" -->
 #### You
 Please create REQs for this work
+
+<!-- xgd-turn id="2d603e82-7e50-423e-862d-e04bf7d8f20f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T20:35:50.356010+00:00" -->
+#### Claude
+House style captured. Creating the REQs now — sequentially, so each can declare its real dependencies.
+
+REQ-141. Now the store port — the big mechanical one.
+
+REQ-142. Now the D1/R2 adapter — which REQ-142 already forward-references.
+
+REQ-143 as forward-referenced. Now the deploy path — including the 503 bug and the scripts you asked for.
+
+REQ-144. Now the two that actually move the origin off your laptop — both `draft`, since their design isn't settled yet.
+
+REQ-146. Now the Access gate — where I found one more exposure worth flagging.
+
+All eight created. Let me record the design decisions in CHAT-25 so they aren't lost, and verify the set.
+
+Eight REQs created, plus the design record written into CHAT-25.
+
+| | Status | Pts | Depends on | |
+|---|---|---|---|---|
+| **REQ-141** | ready | 3 | — | Workers-runtime test project (workerd + real D1/R2 bindings) |
+| **REQ-142** | ready | 13 | 141 | Async `SiteStore` port + fs adapter |
+| **REQ-143** | ready | 13 | 141, 142 | D1 + R2 adapter |
+| **REQ-144** | ready | 5 | — | Build/deploy/smoke scripts + the `[vars]` bug |
+| **REQ-147** | ready | 5 | — | Cloudflare Access |
+| **REQ-145** | draft | 21 | 143 | control-app becomes the builder; proxy deleted |
+| **REQ-146** | draft | 13 | 143, 145 | AI host + publish in workerd |
+| **REQ-148** | draft | 8 | 145 | `contact-form` precompiled |
+
+The three later ones are `draft` deliberately — their design isn't settled, and REQ-7 sets the precedent for marking that rather than shipping a vague REQ into the development workflow. Each carries its open questions explicitly. REQ-144 and REQ-147 have no dependencies, so they can run alongside the store chain.
+
+Two things I found while writing them that weren't in our conversation:
+
+- **`workers_dev = true` on both Workers bypasses Access.** A policy on `app.1stcontact.io` wouldn't protect `1stcontact-control-app.<subdomain>.workers.dev`. It's latent — control-app 503s everywhere right now — but it becomes real the moment the builder works, so REQ-147 asserts against it directly rather than trusting the hostname policy.
+- **An `[assets]` binding previously made `unstable_dev` hang**, which is recorded in control-app's config as the reason `BUILDER_ORIGIN` is a plain var. REQ-145 needs Static Assets, so it carries a caution to re-verify that on current wrangler before committing — otherwise the Worker becomes untestable.
+
+I also flagged in CHAT-25 that **REQ-7 should be closed or rewritten rather than implemented** — REQ-143 supersedes it, and it carries its own warning that it predates DOC-12. I didn't touch it, since that's your call.
+
+REQ-141 is the place to start — it's small, unblocks every store UAT after it, and the lagrange-framework config it copies is a working reference.
 
 <!-- xgd-chat-end -->
