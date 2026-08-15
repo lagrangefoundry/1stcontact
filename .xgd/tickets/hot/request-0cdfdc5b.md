@@ -5,9 +5,9 @@ type: request
 title: The AI host and publish move into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-15T20:33:27.556016+00:00'
+updated_at: '2026-08-15T21:42:01.506649+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -39,7 +39,8 @@ What is genuinely left here:
   conversation. Where that transcript lives in a Worker is undecided; [[DOC-10]] is the relevant
   design and should be reconciled with whatever [[REQ-143]] built rather than inventing a third
   store.
-- `ANTHROPIC_API_KEY` becomes a `wrangler secret` ([[REQ-144]]).
+- `ANTHROPIC_API_KEY` becomes a `wrangler secret`, wired into [[REQ-144]]'s secret hook. REQ-144
+  ships the mechanism and names no key, so this dependency points this way and not back.
 - `l1-surface.json` and `instances.json` are read from disk and must ship as bundled data.
 
 The structural properties should survive untouched: the surface stays declared as data, a slug
