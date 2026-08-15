@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-140
 created_by: xgd
 created_at: '2026-08-15T00:35:29.825039+00:00'
-updated_at: '2026-08-15T19:20:07.967593+00:00'
+updated_at: '2026-08-15T19:34:31.040892+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -160,5 +160,66 @@ The merge crossed REQ-131's change journal. Verifying the combined state before 
 <!-- xgd-chat role="user" ts="2026-08-15T19:20:07.761063+00:00" -->
 #### You
 Test MUST be run in the foreground, background processes die in this environment
+
+<!-- xgd-turn id="49a61e68-0829-48c2-b815-6726e56bcf70-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T19:34:30.868741+00:00" -->
+#### Claude
+Version bump is in the commit (0.1.44 → 0.1.45). Running the full sweep in the foreground on the merged `xgd-working` state.
+
+Two failures are the same root cause: `git rm` left `storage/sites/1stcontact/` behind because a stray `.DS_Store` was in it. Let me check how much of that is local junk versus a real robustness gap.
+
+Two real issues, both mine. Getting the baseline first so I can tell them apart from what was already failing.
+
+Baseline on `main`: 74 failing. Working tree: 78. Fixing the two I introduced, then I'll diff the lists properly.
+
+The helper already guards against `.DS_Store` as a *file*; it doesn't survive a directory left behind holding one. A stored site is a directory with a site definition in it.
+
+Now my own assertion. "Gone from the store" is a claim about the site definition, not about a directory entry — which is why a stray `.DS_Store` could fail it while nothing was actually restored.
+
+Now clearing the local leftover and re-running just those two suites before the full sweep.
+
+Both green. Now the full sweep on both branches, captured properly so I can diff the failure sets rather than compare counts.
+
+Zero regressions — the working set is a strict subset of main's failures, plus one main failure that now passes. Committing the two test fixes.
+
+Ticket body needs AC-7 restated — it says the *directories* no longer exist, which is precisely the claim I just corrected. Pulling the raw body to edit it surgically.
+
+Now tearing down the merged branch and releasing the session lock.
+
+One artifact left: `git add -A` swept the merge-lock state file into my commit, and releasing the lock then deleted it. Committing that so the tree is clean.
+
+REQ-140 is complete and at `free_coded`.
+
+## What the sweep found
+
+Running the full suite in the foreground on the merged `xgd-working` surfaced two failures — both mine, both the same mistake in opposite directions: **taking a directory entry for a site**.
+
+The deletion of the two dead example sites left `storage/sites/1stcontact/` standing, because a `.DS_Store` was inside it and git tracks files, not directories.
+
+- **My AC-7** asserted the *directory* was absent. It failed on this machine while nothing had actually come back — and would have passed silently on a checkout Finder had never visited. It now asks for the site definition and the revisions, which is what "gone from the store" means.
+- **REQ-137's store walk** had already anticipated `.DS_Store` as a *file* and filtered it out of the site list, then treated the directory containing one as a site and read a `site.json` that was never there. A stored site is now selected as a directory that holds a definition.
+
+Neither criterion is weakened: one still proves the sites are gone, the other still walks every site on disk.
+
+## Verification
+
+| | failing tests |
+|---|---|
+| `main` (baseline) | 75 |
+| `xgd-working` (merged REQ-131 + REQ-140) | 74 |
+
+**Zero regressions** — the working failure set is a strict subset of main's, diffed by test name rather than compared by count. One main failure (`reconciliation-l1-navigation` AC-845) now passes. The pre-existing failures are the REQ-122/126/127/129/130 tool-surface suites and fail identically on main; they are unrelated to this ticket.
+
+## Recorded
+
+- `fields.commits` = `b2699987b` (the feature) + `e70668dd1` (the store-membership fix), both verified as ancestors of `xgd-working`.
+- Version `0.1.46`, bump present in the recorded commits.
+- Body updated: AC-7 restated, plus §9 on the directory-vs-site fix and §10 on the verification result.
+- `free-REQ-140` branch and worktree torn down; session lock released; tree clean.
+
+One thing worth flagging: `git add -A` swept `.xgd/working-merge.lock` into the feature-fix commit while the lock was held, and releasing it produced a follow-up deletion I committed separately. Harmless here, but that file being tracked means any session committing with `-A` while holding the lock will do the same.
+
+The ticket is parked at `free_coded` — nothing auto-fires. Promotion to `ready_to_reconcile` is yours when you're satisfied with the colour picker in practice.
 
 <!-- xgd-chat-end -->
