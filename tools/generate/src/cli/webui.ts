@@ -68,16 +68,33 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
  * is the only honest answer.
  */
 function mainCheckout(from: string): string {
+  const dir = checkoutRoot(from)
+  const dotGit = path.join(dir, '.git')
+  if (!fs.existsSync(dotGit) || fs.statSync(dotGit).isDirectory()) return dir
+  const gitdir = path.resolve(dir, fs.readFileSync(dotGit, 'utf8').replace(/^gitdir:/, '').trim())
+  const commondir = path.join(gitdir, 'commondir')
+  if (!fs.existsSync(commondir)) return dir
+  return path.dirname(path.resolve(gitdir, fs.readFileSync(commondir, 'utf8').trim()))
+}
+
+/**
+ * The checkout the code is RUNNING FROM — the directory holding the `.git`
+ * entry, whether that entry is a directory (the main checkout) or a file (a
+ * linked worktree's pointer).
+ *
+ * Deliberately stops where {@link mainCheckout} keeps going, because the two
+ * answer different questions. The shared component store is installed ONCE,
+ * beside the main checkout, and every worktree must read that one — so its
+ * resolution follows the pointer. Repository CONTENT is the opposite: a worktree
+ * has its own, on its own branch, and following the pointer would make a build
+ * run from a worktree write into the main checkout's working tree — landing the
+ * artefact on the wrong branch and dirtying a tree the operator was not working
+ * in.
+ */
+function checkoutRoot(from: string): string {
   let dir = from
   for (;;) {
-    const dotGit = path.join(dir, '.git')
-    if (fs.existsSync(dotGit)) {
-      if (fs.statSync(dotGit).isDirectory()) return dir
-      const gitdir = path.resolve(dir, fs.readFileSync(dotGit, 'utf8').replace(/^gitdir:/, '').trim())
-      const commondir = path.join(gitdir, 'commondir')
-      if (!fs.existsSync(commondir)) return dir
-      return path.dirname(path.resolve(gitdir, fs.readFileSync(commondir, 'utf8').trim()))
-    }
+    if (fs.existsSync(path.join(dir, '.git'))) return dir
     const up = path.dirname(dir)
     if (up === dir) return from
     dir = up
@@ -99,6 +116,23 @@ function walkOrigin(): string {
 }
 
 const require = createRequire(path.join(mainCheckout(walkOrigin()), 'package.json'))
+
+/**
+ * The checkout this code is running from, for callers that need a REPO-ANCHORED
+ * path rather than a working-directory one (REQ-123).
+ *
+ * Exported for the same reason the store resolution above does not trust
+ * `process.cwd()`: a release artefact belongs to the repository, not to wherever
+ * a process happened to be started. The system KB is such an artefact — one KB
+ * serves every site, so it cannot live under `ctxOf().cwd`, which is deliberately
+ * the caller's directory because site data IS per-directory.
+ *
+ * {@link checkoutRoot} and not {@link mainCheckout}: the KB is repository
+ * content, and a worktree's build belongs to the worktree.
+ */
+export function repoRoot(): string {
+  return checkoutRoot(walkOrigin())
+}
 
 /** The npm scope the components are published under. THE single definition. */
 export const WEBUI_SCOPE = '@lagrangefoundry'
