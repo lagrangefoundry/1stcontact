@@ -1,10 +1,10 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 3,
+  "surface_version": 4,
   "title": "The site you look after",
   "call_type": "inproc",
-  "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
+  "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
   "param_types": {
     "l1_address": {
       "base": "string",
@@ -61,7 +61,8 @@
       "behaviors": "every kind of component this site can use: what it is called, what it must be set up with (and what each setting accepts), the seams inside it you can decorate, and whether it comes with a look of its own"
     },
     "image": {
-      "asset": "the drawing as the site now holds it — the name to reference it by, and its description"
+      "asset": "the drawing as the site now holds it — the name to reference it by, and its description",
+      "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else"
     },
     "element": {
       "target": "the page, address and component scope this element was read from",
@@ -71,7 +72,8 @@
       "assets": "every image and font the site can use: `id`, `src`, and `kind`"
     },
     "asset": {
-      "asset": "one registered asset — its id, its file, and its alt text"
+      "asset": "one registered asset — its id, its file, and its alt text",
+      "now": "the site's change count after a write that added it; absent when you are only reading"
     },
     "config_value": {
       "key": "the key you asked for",
@@ -85,10 +87,18 @@
     },
     "change": {
       "changed": "what the change actually altered",
-      "message": "a one-line description of what happened, in plain words"
+      "message": "a one-line description of what happened, in plain words",
+      "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else"
+    },
+    "change_log": {
+      "since": "the change count you asked to look back to",
+      "now": "the site's change count as it stands",
+      "truncated": "true when the record no longer reaches back that far, so this is not the whole story and anything you care about is worth re-reading",
+      "changes": "what happened, oldest first: when, who did it (you, your user, or the operator's own tools), what kind of change it was, the page and the thing it happened to, and — where words changed — what they said before and after"
     },
     "publish_result": {
       "id": "the new revision's id",
+      "now": "the site's change count, unchanged by publishing — publishing makes the draft public, it does not alter it",
       "added": "paths this revision adds",
       "modified": "paths it changes",
       "removed": "paths it drops",
@@ -100,7 +110,8 @@
     },
     "palette_change": {
       "changed": "what the write did, including the number of uses it moved",
-      "message": "the same thing in a sentence"
+      "message": "the same thing in a sentence",
+      "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else"
     }
   },
   "errors": {
@@ -290,6 +301,26 @@
       "description": "The honest answer to \"what have we changed so far?\", and what your user needs to hear before they decide anything about making it public.",
       "returns": {
         "shape": "pending_changes",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
+    },
+    {
+      "op": "list_changes",
+      "tool": "list_changes",
+      "effect": "read",
+      "summary": "See what has changed on the site since you last looked, and who changed it.",
+      "description": "Your user edits their own site while you work on it — the words, the pictures — so the page you remember may not be the page that is there. This is how you find out cheaply. Pass the change count you last saw (every change you make hands one back, and you are told the count when something moves between turns) and you get back only what happened after it, in order, with the words before and after where words changed. Passing the count you already hold is the cheap way to ask \"anything?\", and the answer is an empty list rather than an error when the answer is no. Read this before re-reading a whole page: it costs what the change costs, not what the page costs. If it comes back `truncated`, too much has happened to list, and the honest move is to re-read the parts you care about.",
+      "params": {
+        "since": {
+          "type": "integer",
+          "description": "The change count to look back to. Omit to see everything still on record."
+        }
+      },
+      "returns": {
+        "shape": "change_log",
         "provenance": "untrusted"
       },
       "errors": [
@@ -751,7 +782,8 @@
         "get_config",
         "get_palette",
         "list_behaviors",
-        "status"
+        "status",
+        "list_changes"
       ]
     },
     {
@@ -879,6 +911,15 @@
       "note": "Writing the drawing only puts it in the site's images. Reference it from a picture element for it to appear on a page — `list_assets` shows the name to use."
     },
     {
+      "name": "Pick up after your user has been editing",
+      "steps": [
+        "list_changes",
+        "describe_page",
+        "get_l1"
+      ],
+      "note": "When you are told the site has changed since your last turn, start here — not with a re-read of the page. See what moved and whether it touches what you are about to do; acknowledge it to your user in a few words. Read the page again only for the part that actually matters, and never write over a change you have not read."
+    },
+    {
       "name": "Publish deliberately",
       "steps": [
         "status",
@@ -928,7 +969,7 @@
     },
     {
       "name": "Undoing a change",
-      "note": "There is no undo. A change can be reversed by setting the old value back, so tell the user what the previous value was whenever you change something."
+      "note": "There is no undo. A change can be reversed by setting the old value back, and what a thing said before is on record — `list_changes` carries the words before and after — so you do not have to narrate the old value into the conversation to keep it recoverable. Say what you changed; look the previous value up if you are asked to put it back."
     }
   ]
 }

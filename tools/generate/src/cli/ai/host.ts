@@ -52,6 +52,7 @@
 import path from 'node:path'
 import type { GlobalOptions } from '../commands'
 import { ctxOf } from '../commands'
+import { draftCounter } from '../../store'
 import { sharedModuleUrl } from '../webui'
 import { CARETAKER_ROLE, CARETAKER_SYSTEM, caretakerReminder } from './roles'
 import { createL1Toolbox, fileAuditSink } from './toolbox'
@@ -142,6 +143,31 @@ export function sessionsDir(opts: GlobalOptions): string {
 /** One `SessionManager` per site, keyed by the store it acts on. */
 const managers = new Map<string, Promise<Untyped>>()
 
+/**
+ * The `Role` object each manager was built with, under the same key (REQ-131).
+ *
+ * Held because the reminder is no longer a constant. `SessionManager` reads
+ * `role.reminder` at the top of EVERY turn, so refreshing it there is all it
+ * takes to push a per-turn signal through the system channel — no upstream
+ * change, and no second delivery mechanism to keep in step with the first.
+ */
+const roles = new Map<string, Untyped>()
+
+/**
+ * The draft change count as it stood at the end of each site's last turn.
+ *
+ * THE BASELINE IS A NUMBER THE HOST MAY HOLD ACROSS TURNS, which an L1 address
+ * explicitly is not (see the surface `overview`). The difference is that
+ * staleness here is DETECTABLE rather than silent: a baseline that has fallen
+ * behind produces a signal, which is the correct outcome, whereas a stale
+ * address produces a write landing somewhere nobody chose.
+ *
+ * Recorded AFTER the turn rather than before it, so the assistant's own edits
+ * are absorbed into the baseline and never reported back to it as somebody
+ * else's work.
+ */
+const baselines = new Map<string, number>()
+
 function managerKey(slug: string, opts: GlobalOptions): string {
   const ctx = ctxOf(opts)
   return `${ctx.cwd}\0${ctx.root}\0${slug}`
@@ -211,10 +237,15 @@ async function build(slug: string, opts: GlobalOptions): Promise<Untyped> {
   // the surface does not declare, an operation the class does not implement — so
   // it happens once, here, rather than mid-turn as a tool error the model would
   // try to correct and could not.
-  const box = await createL1Toolbox(slug, opts, {
-    audit: fileAuditSink(opts),
-    session: sessionIdFor(slug),
-  })
+  // `actor: 'ai'` — REQ-131. Every write the assistant makes is journalled as
+  // its own, which is what lets the operator be told who moved something. The
+  // per-turn signal does not depend on it (a counter comparison already
+  // attributes by arithmetic), so this is for the ANSWER, not the detection.
+  const box = await createL1Toolbox(
+    slug,
+    { ...opts, actor: 'ai' },
+    { audit: fileAuditSink(opts), session: sessionIdFor(slug) },
+  )
 
   // Registered rather than constructed directly: the manager reaches its backend
   // through the registry, and registration is an idempotent overwrite, so the
@@ -260,6 +291,7 @@ async function build(slug: string, opts: GlobalOptions): Promise<Untyped> {
     source: { documents: () => [box.manual()] },
     reminder: caretakerReminder(slug),
   })
+  roles.set(managerKey(slug, opts), role)
 
   // A TRANSCRIPT ARCHIVE, not a session store. Upstream replaced the whole-object
   // `save(session)` store with an incremental archive port (`apply` / `load` /
@@ -390,7 +422,30 @@ export async function* streamPrompt(
   if (!slug) throw new UnknownSessionError(sessionId)
   const manager = await managerFor(slug, opts)
   await attach(manager, sessionId, slug)
-  yield* manager.promptStream(sessionId, text)
+
+  // REQ-131 — the push half of the change journal. The comparison happens here
+  // because this is the only place that knows where a turn begins, and the
+  // reminder is refreshed rather than re-registered because the manager reads
+  // `role.reminder` afresh on every turn.
+  const key = managerKey(slug, opts)
+  const role = roles.get(key)
+  const before = baselines.get(key)
+  const at = draftCounter(ctxOf(opts), slug)
+  if (role) {
+    role.reminder =
+      before === undefined
+        ? caretakerReminder(slug)
+        : caretakerReminder(slug, { at: before, changes: at - before })
+  }
+
+  try {
+    yield* manager.promptStream(sessionId, text)
+  } finally {
+    // AFTER the turn, and in a `finally` so an abandoned turn does not leave the
+    // baseline behind: the assistant's own writes have landed by now, so they
+    // are absorbed rather than reported back to it next turn.
+    baselines.set(key, draftCounter(ctxOf(opts), slug))
+  }
 }
 
 /** What the assistant is, and whether it can run — the panel's mount-time check. */
@@ -414,4 +469,6 @@ export async function aiStatus(
 export function resetAiHost(): void {
   managers.clear()
   minted.clear()
+  roles.clear()
+  baselines.clear()
 }

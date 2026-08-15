@@ -30,9 +30,10 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { formatL1Path, type L1Node } from '@1stcontact/site-schema'
 import type { GlobalOptions } from '../commands'
 import { cmdPublish, ctxOf } from '../commands'
+import { draftCounter } from '../../store'
+import { pageSegments } from '../segments'
 import {
   editAssetAdd,
   editAssetGet,
@@ -40,6 +41,7 @@ import {
   editAssetRm,
   editAssetWrite,
   editBehaviorList,
+  editChanges,
   editConfigGet,
   editConfigSet,
   editL1Get,
@@ -101,109 +103,6 @@ let core: Promise<Untyped> | null = null
 export function aiCore(): Promise<Untyped> {
   if (!core) core = import(/* @vite-ignore */ sharedModuleUrl('ai', './core'))
   return core
-}
-
-// ── the page map ─────────────────────────────────────────────────────────────
-
-/** One addressable place on a page, as the model needs to see it. */
-export interface Segment {
-  /** The dotted address, in the form every write operation takes. */
-  path: string
-  kind: string
-  /** The component instance this address is scoped to, when it is inside one. */
-  module?: string
-  slot?: string
-  /** Enough of the node to recognise it in a listing. Never its axes. */
-  label: string
-}
-
-/** How long a text run's own words survive into the map before being cut. */
-const LABEL_CHARS = 60
-
-/**
- * Enough of a node to recognise it by, and no more (REQ-129).
- *
- * The map's job is "where is everything", so a label has to identify a node
- * among its siblings without reproducing it — the whole reason the map and
- * `get_l1` are separate operations is that the page is too big to pull in order
- * to change a heading. Axes never appear here for the same reason.
- */
-function labelOf(node: L1Node): string {
-  if (node.kind === 'text') {
-    const text = node.text.replace(/\s+/g, ' ').trim()
-    return text.length > LABEL_CHARS ? `${text.slice(0, LABEL_CHARS - 1)}…` : text
-  }
-  if (node.kind === 'image') return node.alt || node.src
-  if (node.kind === 'control') return node.control
-  if (node.kind === 'slot') return node.behavior ? `${node.name} (${node.behavior})` : node.name
-  const children = (node as { children?: L1Node[] }).children?.length ?? 0
-  const layout = node.kind === 'container' ? node.layout : 'box'
-  return `${layout}, ${children} ${children === 1 ? 'child' : 'children'}`
-}
-
-/**
- * Walk an L1 root list, emitting EVERY node.
- *
- * The addressing rule is `resolveL1Node`'s and is not re-derived here: index the
- * root list, then walk `children`. Emitting the address with `formatL1Path` — the
- * same function the renderer stamps `data-l1-path` with — is what guarantees the
- * addresses this map hands out are the addresses the write path resolves. That
- * correspondence IS the addressing contract (DOC-30 R4); the declaration states
- * its render-scoped lifetime, and this walk is why the statement is true.
- *
- * REQ-129 WIDENED THIS FROM "what can I edit" TO "where is everything". It used
- * to emit only nodes `copyFieldsOf` exposes fields for, which was right when the
- * only write was a four-field copy edit: an address the caller could do nothing
- * with was noise. It is exactly wrong now. On `xgd/home` that projection reached
- * 67 of 122 nodes, and the 55 it skipped were the layout containers — precisely
- * what a caller composing a page needs to see.
- */
-function walkSegments(
-  roots: readonly L1Node[],
-  scope: { module?: string; slot?: string },
-  prefix: readonly number[] = [],
-): Segment[] {
-  const out: Segment[] = []
-  roots.forEach((node, index) => {
-    const at = [...prefix, index]
-    out.push({
-      path: formatL1Path(at),
-      kind: node.kind,
-      ...(scope.module ? { module: scope.module, slot: scope.slot } : {}),
-      label: labelOf(node),
-    })
-    const children = (node as { children?: L1Node[] }).children
-    if (children?.length) out.push(...walkSegments(children, scope, at))
-  })
-  return out
-}
-
-/**
- * Every addressable node on a page — the page's own L1, then each behavior
- * module instance's slots.
- *
- * Both spaces are walked because both are addressable, and a model shown only
- * the first would conclude the words inside a contact form or a carousel slide
- * are not editable. They are; they just carry a `module` and `slot` scope, which
- * is why those travel with the address here rather than being something the
- * model has to infer.
- */
-export function pageSegments(page: Record<string, unknown>): Segment[] {
-  const out: Segment[] = []
-  const root = (page.l1 as { root?: L1Node } | undefined)?.root
-  if (root) out.push(...walkSegments([root], {}))
-
-  const modules = Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
-  for (const instance of modules) {
-    const id = typeof instance.id === 'string' ? instance.id : undefined
-    if (!id) continue
-    const slots = (instance.slots ?? {}) as Record<string, unknown>
-    for (const [slot, raw] of Object.entries(slots)) {
-      const roots = Array.isArray(raw) ? (raw as L1Node[]) : [raw as L1Node]
-      out.push(...walkSegments(roots, { module: id, slot }))
-    }
-  }
-  return out
 }
 
 // ── the operations ───────────────────────────────────────────────────────────
@@ -290,9 +189,14 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
 
     status: () => editStatus(slug, opts).data,
 
+    // REQ-131 — the answer to "did anything move under me". The signal that
+    // this is worth asking arrives in the per-turn reminder, so in the common
+    // case (nothing changed) this is never called at all.
+    list_changes: (p) => editChanges(slug, p.since as number | undefined, opts).data,
+
     set_l1: (p) => {
       const out = editL1Set(slug, req(p, 'page'), req(p, 'path'), p.node, scopeOf(p, opts))
-      return { changed: (out.data as { changed: unknown }).changed, message: out.human }
+      return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
     },
 
     add_page: (p) => {
@@ -302,7 +206,7 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
         path: opt(p, 'path'),
         seoMeta: obj(p, 'seo'),
       })
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     update_page: (p) => {
@@ -312,7 +216,7 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
         path: opt(p, 'path'),
         seoMeta: obj(p, 'seo'),
       })
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     add_component: (p) => {
@@ -322,7 +226,7 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
         config: obj(p, 'config'),
         slots: obj(p, 'presentation') as never,
       })
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     configure_component: (p) => {
@@ -333,22 +237,22 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
         obj(p, 'config') ?? {},
         opts,
       )
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     remove_component: (p) => {
       const out = editModuleRm(slug, req(p, 'page'), req(p, 'name'), opts)
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     remove_page: (p) => {
       const out = editPageRm(slug, req(p, 'page'), opts)
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     set_config: (p) => {
       const out = editConfigSet(slug, opt(p, 'key'), obj(p, 'settings'), opts)
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     // The palette writes (REQ-133). `set_config` could express the first two by
@@ -358,36 +262,46 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
     // hold for the assistant exactly as they hold for the popup.
     set_palette_color: (p) => {
       const out = editPaletteSet(slug, req(p, 'name'), req(p, 'color'), opts)
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     add_palette_color: (p) => {
       const out = editPaletteAdd(slug, req(p, 'name'), req(p, 'color'), opts)
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     remove_palette_color: (p) => {
       const out = editPaletteRm(slug, req(p, 'name'), opts)
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     rename_palette_color: (p) => {
       const out = editPaletteRename(slug, req(p, 'name'), req(p, 'to'), opts)
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
-    add_asset: (p) => editAssetAdd(slug, req(p, 'file'), { ...opts, as: opt(p, 'as') }).data,
+    // These two answer with the asset rather than with a `change`, but they are
+    // writes and so must still hand the count back (REQ-131). A caller whose
+    // only writes were assets would otherwise hold a baseline that never
+    // advanced, and would be told next turn that its own upload was somebody
+    // else's work — the one thing the counter exists to prevent.
+    add_asset: (p) => {
+      const out = editAssetAdd(slug, req(p, 'file'), { ...opts, as: opt(p, 'as') })
+      return { ...(out.data as object), now: out.at }
+    },
 
-    write_image: (p) =>
-      editAssetWrite(slug, req(p, 'name'), req(p, 'svg'), {
+    write_image: (p) => {
+      const out = editAssetWrite(slug, req(p, 'name'), req(p, 'svg'), {
         ...opts,
         alt: opt(p, 'alt'),
         force: p.replace === true,
-      }).data,
+      })
+      return { ...(out.data as object), now: out.at }
+    },
 
     remove_asset: (p) => {
       const out = editAssetRm(slug, req(p, 'asset'), { ...opts, force: p.force === true })
-      return { changed: out.data, message: out.human }
+      return { changed: out.data, message: out.human, now: out.at }
     },
 
     /**
@@ -412,6 +326,10 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       const { added, modified, removed } = result.changes
       return {
         id: result.id,
+        // Publishing does not touch the draft, so this is the count as it
+        // stands — reported for the same reason a write reports it, so a
+        // caller's baseline stays current across every call it makes.
+        now: draftCounter(ctxOf(opts), slug),
         added,
         modified,
         removed,
