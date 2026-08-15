@@ -47,7 +47,11 @@ import { cmdColors, cmdColorsAssign, formatAssign, formatCensus } from './colors
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
-import { assertInstall } from './preflight'
+import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
+import {
+  assertSharedStore as assertSharedStoreImpl,
+  checkSharedStore as checkSharedStoreImpl,
+} from './shared-store'
 import { startServe } from './serve'
 import { startBuilder } from './builder'
 import { buildKb, exportCorpus, kbStatus, KB_USAGE } from './kb'
@@ -193,6 +197,19 @@ export {
   INSTALLED_LOCKFILE_REL,
 } from './preflight'
 export type { PreflightFinding, PreflightReport, PreflightOptions, Resolver } from './preflight'
+export {
+  assertSharedStore,
+  checkSharedStore,
+  sharedComponents,
+  SHARED_SERVER_COMPONENTS,
+  SHARED_STORE_INSTALL_COMMAND,
+} from './shared-store'
+export type {
+  ComponentResolver,
+  MissingSharedComponent,
+  SharedComponentSurface,
+  SharedStoreReport,
+} from './shared-store'
 
 const USAGE = `1c — file-backed site storage, versioning & server-side render (REQ-9)
 
@@ -221,6 +238,15 @@ System knowledge base (REQ-123) — what the builder AI knows, as a release arte
     ANTHROPIC_API_KEY is set.
   1c kb export     the corpus only — no embedding, no credentials
   1c kb status     what is built
+
+Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
+  1c preflight
+    Reports every shared-store component and every declared package, then fails
+    with exit 6 naming what is absent. The shared components are delivered out
+    of band, so \`pnpm install\` cannot supply them and the lockfile cannot notice
+    them missing — and a missing BROWSER component yields an import map that
+    loads and then fails at the first import, in the operator's browser. This is
+    where that is caught instead.
 
 Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
   1c deploy <slug> [--channel draft|published] [--dry-run] [--prune] [--sandbox] [--json]
@@ -449,6 +475,42 @@ export async function run(argv: string[]): Promise<void> {
     case '--help':
       console.log(USAGE)
       return
+
+    case 'preflight': {
+      // REQ-144 — the one question `bin/build` asks before it builds anything:
+      // is this tree able to produce a correct artifact? Both halves are
+      // checked and BOTH are reported before either throws, so an operator who
+      // is missing an npm package and a shared component learns that in one
+      // run rather than one install at a time.
+      const declared = [...new Set(Object.values(COMMAND_DEPS).flat())].sort()
+      const install = checkInstall({ repoRoot: process.cwd(), required: declared })
+      const store = checkSharedStoreImpl()
+
+      for (const { component, surface } of store.checked) {
+        const ok = !store.missing.some((m) => m.component === component)
+        console.log(`${ok ? 'ok  ' : 'MISS'}  shared/${surface}  ${component}`)
+      }
+      for (const pkg of declared) {
+        const ok = !install.findings.some((f) => f.packages?.includes(pkg))
+        console.log(`${ok ? 'ok  ' : 'MISS'}  npm            ${pkg}`)
+      }
+
+      if (!install.ok) {
+        throw new CommandError({
+          code: 'ENVIRONMENT',
+          message:
+            'The installed dependencies do not match what is declared.\n' +
+            install.findings.map((f) => `  - ${f.detail}`).join('\n'),
+          hint: `Run \`${INSTALL_COMMAND}\` at the repo root, then retry.`,
+        })
+      }
+      assertSharedStoreImpl()
+      console.log(
+        `\nPreflight passed: ${store.checked.length} shared components, ` +
+          `${declared.length} declared packages.`,
+      )
+      return
+    }
 
     case 'new': {
       const slug = requireSlug(rest[0])
