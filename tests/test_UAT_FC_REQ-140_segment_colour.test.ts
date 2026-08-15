@@ -493,9 +493,15 @@ describe('REQ-140 — segment colour', () => {
       const row = sheet.querySelector('.builder-color')
       expect(row, 'no colour row in the parameter sheet').toBeTruthy()
 
-      // Drawn by THIS dialog, not by the component: a `data-field` row would
-      // mean `mountFields` had claimed it, and its value is a hex string.
-      expect(sheet.querySelector('[data-field="color"]')).toBeFalsy()
+      // Drawn by THIS dialog, not by the component: a `.fields-row` would mean
+      // `mountFields` had claimed it, and its value is a hex string.
+      //
+      // Named by the component's ROW CLASS since REQ-139, not by `data-field`
+      // alone: the colour row now carries the same `data-field` attribute so
+      // that one pass can find a locked row and hang its reason on it whichever
+      // control drew it. `.fields-row` is what only the component emits, which
+      // is the thing this assertion was ever about.
+      expect(sheet.querySelector('.fields-row[data-field="color"]')).toBeFalsy()
 
       // The words are still in the box, and the colour is not among them.
       const box = modal.querySelector('.builder-modal__box')!
