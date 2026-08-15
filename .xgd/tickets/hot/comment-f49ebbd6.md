@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T21:38:55.384214+00:00'
+updated_at: '2026-08-15T21:44:35.315152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -442,5 +442,46 @@ The eight REQs themselves are intact and correct — only the status was wrong. 
 <!-- xgd-chat role="user" ts="2026-08-15T21:38:55.052294+00:00" -->
 #### You
 please make sure that you have properly populated the depends_on constraints on the tickets (be conservative)
+
+<!-- xgd-turn id="3fb36720-319d-4177-8327-5d05af707cf8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T21:44:35.051293+00:00" -->
+#### Claude
+Reviewing the graph properly. Two of my dependency claims were incoherent — let me check the bodies before fixing the fields.
+
+Now the fields — full transitive closure, so ordering holds even if the resolver isn't transitive.
+
+Done — but populating them conservatively surfaced two real defects, so this wasn't only a field change.
+
+**1. REQ-145 was missing a safety dependency on REQ-147.** Nothing stopped the builder from becoming reachable before Access existed — precisely the outcome you said you didn't want. Added.
+
+**2. That exposed a cycle.** REQ-147's AC-5 required "an authenticated operator can complete an edit and an AI turn" — which needs a working builder, i.e. REQ-145. So Access depended on the builder while the builder depended on Access. I narrowed AC-5: the gate is provable against the Worker as it stands (challenge, refuse off-policy identity, `workers.dev` closed, JWT rejected). The end-to-end assertions moved to REQ-145/146, and the SSE-through-Access risk stays documented in REQ-147 but is verified by REQ-146.
+
+**3. REQ-144 had a hidden dependency I'd declared as none.** `bin/deploy` "applies D1 migrations" — which don't exist until REQ-143. Declaring that honestly would have serialised the scripts *and* Access behind the entire store chain. Instead I narrowed `bin/deploy` to ship migration and secret **hooks** knowing nothing about D1 or any key, and gave REQ-143 and REQ-146 the deliverable of wiring into them. The dependency now points forward, and each ticket says why.
+
+Final graph — verified acyclic and transitively closed, so ordering holds even if the resolver doesn't compute transitivity itself:
+
+```
+REQ-141 ─→ REQ-142 ─→ REQ-143 ─┐
+                               ├─→ REQ-145 ─┬─→ REQ-146
+REQ-144 ─→ REQ-147 ────────────┘            └─→ REQ-148
+```
+
+| | depends_on |
+|---|---|
+| REQ-141 | — |
+| REQ-144 | — |
+| REQ-142 | 141 |
+| REQ-143 | 141, 142 |
+| REQ-147 | 144 |
+| REQ-145 | 141, 142, 143, 144, 147 |
+| REQ-146 | 141, 142, 143, 144, 145, 147 |
+| REQ-148 | 141, 142, 143, 144, 145, 147 |
+
+I declared the full closure rather than direct edges only — over-constraining just serialises work, whereas under-constraining risks something being picked up on a foundation that isn't there.
+
+Two independent entry points: **REQ-141** starts the store chain, **REQ-144** starts the scripts and unblocks Access. All eight remain `draft`.
+
+Still outstanding from the earlier misfire: `branch-REQ-141` (local branch + worktree + remote) and `origin/branch-REQ-144`, plus the 7 generated planning artifacts on branch-REQ-141. I haven't touched those.
 
 <!-- xgd-chat-end -->
