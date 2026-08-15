@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-19
 created_by: xgd
 created_at: '2026-08-09T23:25:16.500469+00:00'
-updated_at: '2026-08-09T23:27:13.778428+00:00'
+updated_at: '2026-08-15T01:09:04.311211+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -92,5 +92,11 @@ The first two tiers are much stronger than the "free fonts look cheap" instinct 
 ---
 
 Happy to turn any of this into a ticket — the two obvious candidates are the **BYOL upload path** (per-site provenance + `customer` distribution class + upload validation) and the smaller, sharper **Satoshi licence resolution**. Say the word and I'll file them.
+
+<!-- xgd-turn id="66a666e9-ad4a-492f-bc39-c34765e0502d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T01:09:03.830622+00:00" -->
+#### You
+How do I (or a customer) prove that I bought a license? Is that an email exchange? Or is there something I can upload to the site to prove my ownership?
 
 <!-- xgd-chat-end -->
