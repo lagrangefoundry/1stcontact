@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-15T20:12:01.862619+00:00'
+updated_at: '2026-08-15T20:42:02.767722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -294,5 +294,70 @@ I'm getting a bit lost in the phase one phase 2 scope one scope two. I want you 
 The awareness map is automatically generated that is the whole point. It makes sense to generate the awareness map at build time. There is no hand authored awareness map that is not a thing.
 
 3. I assume that is a development environment that we can run on this laptop that doesn't need five Flat credentials correct? The other stuff is obviously the case
+
+<!-- xgd-turn id="c9345754-b189-467a-817a-60a5823da799-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T20:42:02.396987+00:00" -->
+#### Claude
+Let me check what credentials this repo already uses before I answer #3.
+
+Confirmed the facts I needed. Let me check the library's public surface before I start.
+
+Answering #3 precisely, since it splits in two:
+
+- **The describer (awareness map) needs no credentials here.** `DEFAULT_BACKENDS = ['claude', 'claude_code']` — it falls back to the `claude_code` CLI backend, which is already authenticated on this laptop. No API key.
+- **The embedder does need Cloudflare.** The JS package ships no local embedder (it's zero-dependency by design; the Python peer's sentence-transformers has no JS equivalent). From Node it's Workers AI over REST: `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` — the two secrets this repo already uses for deploys, just needed locally too.
+
+I'd keep it that way rather than write a local embedder: the same model serves the `AI` binding when the host moves into the Worker, so build-time and query-time vectors stay one vector space by construction. A local stand-in would make laptop vectors incompatible with production ones.
+
+One thing I found that I have to work around: `@lagrangefoundry/knowledge` packs `files: ["src"]` with no `bin`, so `build-shipped-kb.js` is **not** in the installed artifact store. The build functions are all public exports though (`buildIndex`, `buildChunkIndex`, `buildAwareness`, `nodeIndexSource`, `writeIndexModule`), so our build step composes the library directly instead of shelling out to the CLI. That's ordinary consumption, not working around a gap — but the missing `bin` is worth reporting upstream.
+
+Let me scope the ticket and cut the branch.
+
+Now let me write the KB build. First, the repo-root seam:
+
+The upstream CLI isn't packed, but it exists in the framework repo — let me read how it wires the build.
+
+One call gets everything I need. Now the build module:
+
+Let me clean up an awkward bit in that file:
+
+Now the usage text, then a first run of the export:
+
+The export works, but it wrote into the **main** checkout rather than this worktree. That's wrong for a repo artefact — let me fix the anchor.
+
+Two things to check — let me fix a field-encoding bug I just spotted:
+
+The `updated_at` came back as the file mtime, not my frontmatter. Let me check the precedence:
+
+Found a real issue: `DocDirStore` derives both timestamps from the **file stamp** and ignores frontmatter `updated_at`. That means a full re-export would re-embed all 32 documents every time. Let me make writes content-stable:
+
+Now the wiring. First the toolbox composition:
+
+Now the host — priming and the runtime:
+
+Now let me typecheck and run the real build:
+
+No Cloudflare credentials locally — so I can't run a real embedding build here. Let me restore upstream's model seams, which is also what makes this testable:
+
+The KB path needs to be injectable so tests don't clobber the real artefact. Let me thread a root through:
+
+Now the UATs:
+
+All 11 pass — the real pipeline works end to end. Now the session-wiring UATs:
+
+`xgd ticket list --view` takes 68s — that dominates the suite. Let me restructure the export tests to run it twice instead of four times:
+
+Now the wiring UATs:
+
+While that runs — the KB declaration should be authored data, not something the build overwrites. Let me fix that:
+
+It's exported under a different name at the package root:
+
+Now the declaration change — it should be authored data, not build output:
+
+Now I have the real contract — tool names are `Knowledge*` and `kb` takes an array. Let me fix the tests:
+
+All 6 pass. Let me run the full suite for regressions, and meanwhile fix a silent-degradation path I left in:
 
 <!-- xgd-chat-end -->
