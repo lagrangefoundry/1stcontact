@@ -6,10 +6,10 @@ title: Build, deploy and smoke-test scripts, and the [vars] inheritance bug behi
   the production 503
 created_by: xgd
 created_at: '2026-08-15T20:32:18.642216+00:00'
-updated_at: '2026-08-15T22:08:21.264968+00:00'
+updated_at: '2026-08-15T22:21:19.355176+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,11 @@ fields:
   needs_review: false
   ready_since: '2026-08-15T20:34:18.239366+00:00'
   depends_on: []
+  commits:
+  - working_sha: cd6f00c6e0802569098bbfccc0befd33bc9d78b4
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.50
 ---
 
 # Build, deploy and smoke-test scripts — and the `[vars]` bug that makes production 503
