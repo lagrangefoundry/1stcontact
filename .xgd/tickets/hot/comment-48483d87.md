@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-15T23:51:55.079025+00:00'
+updated_at: '2026-08-15T23:52:19.726196+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -107,5 +107,13 @@ Want me to turn this into a DOC, or go straight to REQs for the four seams? The 
 <!-- xgd-chat role="user" ts="2026-08-15T23:51:54.800759+00:00" -->
 #### You
 The second I am more worried about - I can get paid in USD by CC internationally to begin with - eventually it will impact conversion enough but I have people who are would be customers in Ireland (Euro) and UK (GBP) they need to use their domestic currencies - I don't think the payments side is too hard - Stripe should solve that. But I need to be able to represent money locally
+
+<!-- xgd-turn id="e9f44bfd-f87c-40ab-931b-7d8074167c76-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T23:52:19.554156+00:00" -->
+#### You
+The second I am more worried about - I can get paid in USD by CC internationally to begin with - eventually it will impact conversion enough but I have people who are would be customers in Ireland (Euro) and UK (GBP) they need to use their domestic currencies - I don't think the payments side is too hard - Stripe should solve that. But I need to be able to represent money locally
+
+Dates is another - less serious but we will have a calendar feature
 
 <!-- xgd-chat-end -->
