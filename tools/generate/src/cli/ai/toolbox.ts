@@ -63,6 +63,7 @@ import {
   type CopyTargetOptions,
 } from '../edit'
 import { sharedModuleUrl } from '../webui'
+import { SYSTEM_KB } from '../kb'
 import { CARETAKER_ROLE } from './roles'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -416,6 +417,18 @@ export function fileAuditSink(opts: GlobalOptions): (record: { asObject(): Audit
  * surface does not declare, an operation the class does not implement, a scope
  * axis that is not declared. That is the startup-failure rule, and it is why the
  * same check runs in CI against the same two files.
+ *
+ * TWO SURFACES WHEN THE SYSTEM KB IS BUILT (REQ-123): the site's L1 controls, and
+ * the knowledge corpus. They compose here rather than either one wrapping the
+ * other, which is what the Toolbox taking a LIST of surfaces is for — upstream's
+ * own `knowledgeToolbox()` helper is the one-surface convenience, and a session
+ * that composes knowledge with anything else is told to build the Toolbox itself.
+ *
+ * The knowledge grant is READ-ONLY and is scoped to the declared KBs on both
+ * axes, by upstream's `instanceConfig`. Writing it by hand here would be a second
+ * place for the two scope axes to drift apart — `kb` (what may be searched) and
+ * `document` (what may be read) must name the same set, or a session could read
+ * documents it was never allowed to search for.
  */
 export async function createL1Toolbox(
   slug: string,
@@ -425,11 +438,14 @@ export async function createL1Toolbox(
     config = null,
     audit = null,
     session = null,
+    knowledge = null,
   }: {
     role?: string
     config?: Record<string, unknown> | null
     audit?: ((record: { asObject(): AuditLine }) => void) | null
     session?: string | null
+    /** A `KnowledgeRuntime`, or `null` when the KB has not been built. */
+    knowledge?: Untyped | null
   } = {},
 ): Promise<Untyped> {
   const lib = await aiCore()
@@ -441,5 +457,16 @@ export async function createL1Toolbox(
         `${Object.keys(L1_INSTANCES).sort().join(', ') || 'none'}).`,
     )
   }
-  return new lib.Toolbox([new L1Toolbox(slug, opts)], instance, { audit, session, role })
+
+  const surfaces: Untyped[] = [new L1Toolbox(slug, opts)]
+  let granted = instance
+  if (knowledge !== null) {
+    const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
+    surfaces.push(new bridge.KnowledgeToolbox(knowledge))
+    // `knowledgeInstanceConfig` at the package root; `instanceConfig` is the
+    // name inside the module it comes from.
+    granted = { ...instance, ...bridge.knowledgeInstanceConfig([SYSTEM_KB]) }
+  }
+
+  return new lib.Toolbox(surfaces, granted, { audit, session, role })
 }

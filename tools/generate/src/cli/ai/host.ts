@@ -54,6 +54,7 @@ import type { GlobalOptions } from '../commands'
 import { ctxOf } from '../commands'
 import { draftCounter } from '../../store'
 import { sharedModuleUrl } from '../webui'
+import { openKnowledgeRuntime } from '../kb'
 import { CARETAKER_ROLE, CARETAKER_SYSTEM, caretakerReminder } from './roles'
 import { createL1Toolbox, fileAuditSink } from './toolbox'
 
@@ -214,11 +215,16 @@ export class UnknownSessionError extends Error {
 /**
  * The manager for one site: its role, its store, and its registered backend.
  *
- * The role's ONLY document is the generated tool manual. That is deliberate —
- * priming a session with hand-written prose about the tools is how the priming
- * comes to disagree with the tools (see `declare.ts`), and the system KB that
- * will supply real domain documents arrives through this same `ContextSource`
- * seam without any of this changing shape.
+ * The role's priming was once the generated tool manual alone. Since REQ-123 the
+ * system KB supplies the domain documents, and it arrives through the same
+ * `ContextSource` seam this file was already written around — the prediction in
+ * the previous version of this comment held, and nothing here changed shape to
+ * accommodate it.
+ *
+ * What is still deliberate is that NEITHER document is hand-written prose about
+ * the tools. The manual is projected from the declaration; the landscape is
+ * generated from the corpus. Both track their source, which is how priming stays
+ * in agreement with what the session can actually do and actually knows.
  */
 function managerFor(slug: string, opts: GlobalOptions): Promise<Untyped> {
   const key = managerKey(slug, opts)
@@ -241,10 +247,17 @@ async function build(slug: string, opts: GlobalOptions): Promise<Untyped> {
   // its own, which is what lets the operator be told who moved something. The
   // per-turn signal does not depend on it (a counter comparison already
   // attributes by arithmetic), so this is for the ANSWER, not the detection.
+  // The system KB, when it has been built (REQ-123). `null` is an ordinary
+  // state, not an error: an operator who has never run `1c kb build` gets an
+  // assistant that knows its tools and not the design documents, which is the
+  // assistant this host had before. Failing instead would trade a missing
+  // capability for a missing product.
+  const knowledge = await openKnowledge()
+
   const box = await createL1Toolbox(
     slug,
     { ...opts, actor: 'ai' },
-    { audit: fileAuditSink(opts), session: sessionIdFor(slug) },
+    { audit: fileAuditSink(opts), session: sessionIdFor(slug), knowledge },
   )
 
   // Registered rather than constructed directly: the manager reaches its backend
@@ -288,7 +301,17 @@ async function build(slug: string, opts: GlobalOptions): Promise<Untyped> {
     // a nicety: a session's manual never mentions a capability it was not
     // granted, so the model cannot propose one, apologise for one, or probe for
     // one.
-    source: { documents: () => [box.manual()] },
+    //
+    // LANDSCAPE FIRST, MANUAL LAST, when the KB is built. `KnowledgeDocs` assembles
+    // one document whose internal order is load-bearing and which KM owns: the map
+    // of what exists, then what this agent is for, then how to reach the rest. The
+    // manual goes in as the `mechanism` — the last thing read is the thing done
+    // first — so the corpus is reached through THIS session's actual grant rather
+    // than through a sentence written by hand about what it might have.
+    //
+    // This is the alternative to stuffing 32 design documents into every context:
+    // the agent is given a map and the means to pull what it needs.
+    source: await primingSource(knowledge, box),
     reminder: caretakerReminder(slug),
   })
   roles.set(managerKey(slug, opts), role)
@@ -311,6 +334,63 @@ async function build(slug: string, opts: GlobalOptions): Promise<Untyped> {
   const dir = sessionsDir(opts)
   return new lib.SessionManager({ [CARETAKER_ROLE]: role }, new lib.FileArchive(dir), {
     logDir: path.join(dir, 'live'),
+  })
+}
+
+/**
+ * What the caretaker is here to do, for KM's priming (step 2 of the landscape).
+ *
+ * Deliberately the ROLE'S purpose and not a restatement of the system prompt: the
+ * priming answers "what should I go looking for in this corpus", and an agent
+ * told only "you are a caretaker" has no basis for choosing between a document
+ * about storage and one about typography.
+ */
+const CARETAKER_PURPOSE =
+  'You look after a website for someone who is not technical. You will need to ' +
+  'know how this system builds and describes sites — its layout vocabulary, its ' +
+  'components, how pages are stored and published, and the reasoning behind those ' +
+  'designs — so you can act correctly and explain plainly.'
+
+/**
+ * The system knowledge runtime, or `null` when the KB has not been built.
+ *
+ * Built once per process rather than per site: the KB is a release artefact
+ * shared by every site, so caching it per slug would load the same index many
+ * times over. Any failure to open it degrades to `null` — see {@link build}.
+ */
+let knowledgeRuntime: Promise<Untyped | null> | null = null
+function openKnowledge(): Promise<Untyped | null> {
+  if (!knowledgeRuntime) {
+    knowledgeRuntime = openKnowledgeRuntime().catch((err: unknown) => {
+      // A KB that was BUILT and then failed to open is not the same as one that
+      // was never built, and it must not look the same. The usual cause is the
+      // embedding credentials being absent, which would otherwise cost the
+      // operator their whole knowledge surface with no symptom but an assistant
+      // that has quietly stopped knowing anything. The session still opens —
+      // this is a degradation, not a failure — but it says so.
+      console.error(
+        `The system knowledge base could not be opened, so the assistant will ` +
+          `run without it: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      return null
+    })
+  }
+  return knowledgeRuntime
+}
+
+/**
+ * The role's priming: KM's landscape when there is a KB, the tool manual alone
+ * when there is not.
+ *
+ * Both satisfy the same duck-typed `ContextSource`, so the role is constructed
+ * identically either way and nothing downstream branches on which one it got.
+ */
+async function primingSource(knowledge: Untyped | null, box: Untyped): Promise<Untyped> {
+  if (knowledge === null) return { documents: () => [box.manual()] }
+  const { KnowledgeDocs } = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
+  return KnowledgeDocs.open(knowledge, {
+    rolePurpose: CARETAKER_PURPOSE,
+    mechanism: box.manual(),
   })
 }
 
@@ -465,10 +545,20 @@ export async function aiStatus(
   }
 }
 
-/** Drop every cached manager and issued id. Exported for tests that rebuild a store per case. */
+/**
+ * Drop every cached manager and issued id. Exported for tests that rebuild a
+ * store per case.
+ *
+ * The knowledge runtime is dropped too. It is cached for the life of the
+ * process, so an operator who runs `1c kb build` while the builder origin is
+ * already serving picks the new KB up on the next restart — the index is a
+ * release artefact, and re-reading it per session would spend the load on every
+ * site switch to catch a change that happens once a release.
+ */
 export function resetAiHost(): void {
   managers.clear()
   minted.clear()
   roles.clear()
   baselines.clear()
+  knowledgeRuntime = null
 }
