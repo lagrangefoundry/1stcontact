@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-15T23:53:54.123325+00:00'
+updated_at: '2026-08-15T23:55:51.512759+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -182,5 +182,11 @@ Note `contact.address` already exists but is free-text — it can't drive any of
 The two "free" rows are the highest-value things in the table — they cost nothing today and are the ones that hurt if a module ships without them.
 
 Want me to scope a ticket for the two implementation rows? That's a genuine code change, so it'd need a branch and UATs under the free-coding protocol — say the word and I'll cut it. The module rules I'd suggest landing as a DOC amendment instead, since there's no code to attach them to yet.
+
+<!-- xgd-turn id="abfc3f65-ef32-422b-82c2-6832da680489-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T23:55:51.318186+00:00" -->
+#### You
+Yes can you add this to the correct design document
 
 <!-- xgd-chat-end -->
