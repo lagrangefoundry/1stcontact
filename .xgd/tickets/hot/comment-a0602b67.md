@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-15T20:42:02.767722+00:00'
+updated_at: '2026-08-15T21:38:16.398990+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -359,5 +359,11 @@ Now the declaration change — it should be authored data, not build output:
 Now I have the real contract — tool names are `Knowledge*` and `kb` takes an array. Let me fix the tests:
 
 All 6 pass. Let me run the full suite for regressions, and meanwhile fix a silent-degradation path I left in:
+
+<!-- xgd-turn id="73561f98-69b5-4036-a4ba-76557d3a8b65-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-15T21:38:16.187526+00:00" -->
+#### You
+please complete this
 
 <!-- xgd-chat-end -->
