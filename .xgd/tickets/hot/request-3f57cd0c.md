@@ -5,9 +5,9 @@ type: request
 title: 'Editor: lock controls that cannot express what the element holds'
 created_by: xgd
 created_at: '2026-08-12T18:13:37.478932+00:00'
-updated_at: '2026-08-15T20:29:54.920116+00:00'
+updated_at: '2026-08-15T20:29:56.806147+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.1.47
+  story_points: 3
 ---
 
 ## What changed
