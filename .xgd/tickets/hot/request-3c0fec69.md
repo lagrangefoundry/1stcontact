@@ -6,10 +6,10 @@ title: 'Page editor: colour — text colour and panel background from the palett
   Phase B)'
 created_by: xgd
 created_at: '2026-08-15T00:34:37.398758+00:00'
-updated_at: '2026-08-15T19:33:55.631483+00:00'
+updated_at: '2026-08-15T20:12:17.412122+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
