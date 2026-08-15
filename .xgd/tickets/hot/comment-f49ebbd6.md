@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T20:06:06.247976+00:00'
+updated_at: '2026-08-15T20:06:37.712193+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -222,5 +222,11 @@ One thing I won't do quietly: DOC-1 is a **policy** doc with numbered directives
 <!-- xgd-chat role="user" ts="2026-08-15T20:06:06.091040+00:00" -->
 #### You
 What does the ticket store component use? D1 I assume?
+
+<!-- xgd-turn id="8f511861-dae2-47e3-8d77-1e210edd7378-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T20:06:37.537719+00:00" -->
+#### Claude
+Not D1 — it's files. And the structure is directly relevant to our decision.
 
 <!-- xgd-chat-end -->
