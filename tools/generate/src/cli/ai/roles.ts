@@ -89,13 +89,37 @@ to publish.`
  * vocabulary, act rather than narrate) that decay first in a long conversation.
  * It is deliberately short: a reminder that restates the preamble is a second
  * copy of the preamble, and it rides every single request.
+ *
+ * REQ-131 ADDED ONE THING THAT IS NOT A HABIT: the fact that the site moved.
+ * It belongs here rather than in a tool answer because it is the ONE question
+ * that must be answered when the model has no reason to ask it — the failure it
+ * prevents is the assistant confidently overwriting an edit it never knew
+ * happened. Pushing it costs nothing in the common case (nothing changed, the
+ * line is absent, no call is made) and is the whole reason the journal does not
+ * need to be read defensively every turn.
+ *
+ * @param since The draft change count at the end of the previous turn, and how
+ *   many changes have landed since — omitted entirely when none have, because a
+ *   reminder that says "nothing happened" every turn is a reminder that gets
+ *   skimmed on the turn something did.
  */
-export function caretakerReminder(slug: string): string {
-  return [
+export function caretakerReminder(
+  slug: string,
+  since?: { at: number; changes: number },
+): string {
+  const lines = [
     `You are working on the site "${slug}". Every tool you have acts on that site and no other.`,
     'Do not name framework concepts to the user — describe changes in their words.',
     'Prefer making the change over describing how you would make it.',
-  ].join(' ')
+  ]
+  if (since && since.changes > 0) {
+    lines.push(
+      `Your user has changed this site since your last turn — ${since.changes} ` +
+        `change${since.changes === 1 ? '' : 's'}. Call list_changes with since: ${since.at} ` +
+        'to see what moved BEFORE you touch anything, and never write over a change you have not read.',
+    )
+  }
+  return lines.join(' ')
 }
 
 /** The one role this project defines. Named, so nothing addresses it as a literal. */

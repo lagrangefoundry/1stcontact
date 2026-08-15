@@ -1,7 +1,7 @@
 import path from 'node:path'
 import type { ValidationError } from '@1stcontact/site-schema'
 import { renderSite } from '../render/render'
-import type { RenderChannel, Root, StoreContext } from '../store'
+import type { EditActor, RenderChannel, Root, StoreContext } from '../store'
 import {
   appendHistory,
   copyDir,
@@ -30,6 +30,19 @@ import { starterHomePage, starterSiteJson } from './scaffold'
 export interface GlobalOptions {
   cwd?: string
   sandbox?: boolean
+  /**
+   * Who is making this change (REQ-131). Recorded on every journal record so the
+   * assistant can say WHO moved something, not only that it moved.
+   *
+   * Defaults to `cli`, which is what an unattributed caller genuinely is: the
+   * two callers that are not a person at a terminal — the AI host and the
+   * builder's own routes — each set it where they construct their options, and
+   * that is the only place the distinction is knowable. Nothing about detecting
+   * a change depends on this field (see `store/journal.ts`), so a caller that
+   * forgets it produces a slightly less informative record and never a wrong
+   * answer.
+   */
+  actor?: EditActor
 }
 
 export function ctxOf(opts: GlobalOptions): StoreContext {

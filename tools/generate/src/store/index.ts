@@ -13,6 +13,7 @@ export {
   revisionDir,
   historyPath,
   draftBasePath,
+  journalPath,
   distDir,
 } from './paths'
 
@@ -43,3 +44,13 @@ export { readHistory, appendHistory, liveRevision } from './history'
 
 export type { DraftBase } from './base'
 export { readDraftBase, writeDraftBase } from './base'
+
+export type { EditActor, JournalRecord, ChangeSlice } from './journal'
+export {
+  appendChange,
+  changesSince,
+  clip,
+  draftCounter,
+  JOURNAL_TEXT_LIMIT,
+  JOURNAL_WINDOW,
+} from './journal'

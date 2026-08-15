@@ -17,6 +17,7 @@ import {
   editAssetRm,
   editAssetWrite,
   editBehaviorList,
+  editChanges,
   editCopyGet,
   editCopySet,
   editConfigGet,
@@ -323,6 +324,11 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
+  1c changes <slug> [--since <n>]
+    What has changed on the draft since change <n>, oldest first: who, what, and
+    the words before and after. Different question from 'status', which compares
+    the draft to the last PUBLISHED revision and knows nothing about ordering or
+    about who did anything.
   1c page list <slug>
   1c page get <slug> <pageId>
   1c page add <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>]
@@ -1117,6 +1123,7 @@ export async function run(argv: string[]): Promise<void> {
     case 'asset':
     case 'module':
     case 'behavior':
+    case 'changes':
     case 'status': {
       const json = flags.json === true
       try {
@@ -1164,6 +1171,15 @@ function dispatchEdit(
 
   if (command === 'status') {
     return editStatus(requireArg(rest[0], 'slug'), global)
+  }
+
+  // REQ-131 — the same journal the assistant reads, for the operator. It is on
+  // the CLI for the reason every other read here is: the two callers ask the
+  // same question, and a second implementation of the answer is how they come
+  // to disagree about it.
+  if (command === 'changes') {
+    const since = str('since')
+    return editChanges(requireArg(rest[0], 'slug'), since === undefined ? undefined : Number(since), global)
   }
 
   // The catalog is the framework's, not a site's, so it takes no slug.

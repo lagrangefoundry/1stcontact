@@ -400,14 +400,19 @@ export async function handleBuilderRequest(
             json(res, 400, { error: 'name is required' })
             return
           }
+          // `actor: 'client'` — REQ-131. A write arriving on this route is the
+          // operator's own hand in the builder, and the journal says so, which
+          // is the difference between the assistant reading "you changed this"
+          // and reading "something changed".
+          const mine = { ...opts, actor: 'client' as const }
           const out =
             op === 'set'
-              ? editPaletteSet(slug, name, value, opts)
+              ? editPaletteSet(slug, name, value, mine)
               : op === 'add'
-                ? editPaletteAdd(slug, name, value, opts)
+                ? editPaletteAdd(slug, name, value, mine)
                 : op === 'rm'
-                  ? editPaletteRm(slug, name, opts)
-                  : editPaletteRename(slug, name, String(to ?? ''), opts)
+                  ? editPaletteRm(slug, name, mine)
+                  : editPaletteRename(slug, name, String(to ?? ''), mine)
           // The census travels back with every write, so the popup redraws from
           // what the store now holds rather than from its own guess at it — a
           // rename changes one name and no count, a delete changes the list, and
@@ -436,7 +441,8 @@ export async function handleBuilderRequest(
           const v = q instanceof URLSearchParams ? q.get(k) : q[k]
           return typeof v === 'string' && v !== '' ? v : undefined
         }
-        return { ...opts, module: read('module'), slot: read('slot') }
+        // `actor: 'client'` — REQ-131, as on the palette route above.
+        return { ...opts, actor: 'client' as const, module: read('module'), slot: read('slot') }
       }
 
       if (req.method === 'GET') {

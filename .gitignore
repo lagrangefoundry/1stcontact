@@ -146,6 +146,12 @@ Cargo.lock  # Remove this line if project is a binary/application
 /storage/references/
 # Scratch space: repro working files (values-diff JSON, aligned crops). Never committed.
 /storage/tmp/
+# Draft change journals (REQ-131) — one per site, beside the site it describes.
+# Every copy edit appends a record, so tracking these would churn the tree on
+# every keystroke-settle; and nothing depends on them surviving a clone, because
+# a missing journal degrades a reader to a full re-read rather than to a wrong
+# answer.
+/storage/sites/*/.journal.json
 # Assistant transcripts (REQ-122) — one persisted conversation per site, written
 # by the builder's AI host. Operator-local and often verbatim business detail;
 # never committed.

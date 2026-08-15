@@ -61,6 +61,16 @@ export function draftBasePath(ctx: StoreContext, slug: string): string {
   return path.join(siteDir(ctx, slug), '.draft-base.json')
 }
 
+/**
+ * The draft change journal (REQ-131). Beside `.draft-base.json` at the site
+ * root — never inside `draft/`, so it cannot be captured by a snapshot or
+ * perturb byte-identity — and gitignored, because it is a per-keystroke record
+ * that a checkout has no reason to carry and losing it costs only a re-read.
+ */
+export function journalPath(ctx: StoreContext, slug: string): string {
+  return path.join(siteDir(ctx, slug), '.journal.json')
+}
+
 export function distDir(ctx: StoreContext, slug: string, channel: RenderChannel): string {
   return path.join(ctx.cwd, 'storage', 'dist', ctx.root, slug, channel)
 }
