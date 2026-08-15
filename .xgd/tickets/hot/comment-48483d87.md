@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-15T23:52:19.726196+00:00'
+updated_at: '2026-08-15T23:53:54.123325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -115,5 +115,72 @@ The second I am more worried about - I can get paid in USD by CC internationally
 The second I am more worried about - I can get paid in USD by CC internationally to begin with - eventually it will impact conversion enough but I have people who are would be customers in Ireland (Euro) and UK (GBP) they need to use their domestic currencies - I don't think the payments side is too hard - Stripe should solve that. But I need to be able to represent money locally
 
 Dates is another - less serious but we will have a calendar feature
+
+<!-- xgd-turn id="e9f44bfd-f87c-40ab-931b-7d8074167c76-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T23:53:53.869384+00:00" -->
+#### Claude
+That narrows it usefully — and I think it's smaller than you're bracing for.
+
+## Your launch group doesn't need multi-currency
+
+A Dublin barber charges EUR. Forever. A UK consultancy charges GBP. Forever. Neither ever needs conversion, a currency switcher, or a rate feed. What they need is **single-currency that isn't USD**, rendered in local convention.
+
+That's a config field and a formatter, not a system. The expensive thing — multi-currency display with conversion — is for businesses selling internationally, which is rare in the first-contact SMB market and can wait until someone actually asks.
+
+## The line that matters: clickable vs readable
+
+| | Owner | Why |
+|---|---|---|
+| **Price you can click** (buy button, booking deposit) | Payments module `config` | Displayed price ≠ charged price is a *legal* problem, not cosmetic. One source or they drift. |
+| **Price you can only read** (rate card, "from €90") | L1 copy | Nothing to drift against. A literal is honest. |
+
+You already have the composition for the first — DOC-25 §10's slot/control seam. The module owns `{amount_minor, currency}` and the display derives from it; L1 owns every paint axis. Stripe is the source of truth for what's charged, the module for what's shown, and they're the same number by construction.
+
+For the second, **don't build a money annotation on L1 text.** I was going to propose one (literal base + optional `{amount_minor, currency}` overlay, mirroring how palette works). It's the right shape if you ever need it — the literal stays in the document so geometry stays pinned against real text, and the annotation makes it checkable. But a permanently-single-currency site gets nothing from it. Revisit when a multi-currency customer shows up.
+
+## Dates are the more dangerous one, and not for the reason you'd think
+
+Money carries its own disambiguator — a symbol. Dates don't. `03/04/2026` is March 4th in the US and 3 April in Ireland. A misread date on a booking page is a missed appointment, which is a real failure, not a formatting nit.
+
+But that's still the easy half, because **calendar dates are never L1 copy** — the module generates them from datetime values at render. The rule is just: the calendar module never hand-formats, always `Intl.DateTimeFormat(locale)`. Free to state now, before it's built.
+
+The genuinely expensive-later item in this entire conversation is **timezone**, and it's easy to miss:
+
+- "3pm" in whose zone? An Irish business taking a booking from someone browsing in New York.
+- Store **instants in UTC** plus an **IANA zone ID** (`Europe/Dublin`) — never a local wall-clock string, never a fixed offset (`+00:00`).
+
+Offsets break on DST, and Ireland/UK and the US transition on *different dates* — so a booking made in October for a November slot silently shifts by an hour. Wall-clock strings are worse: you can never fix them later, because you can't re-interpret historical bookings without knowing what zone they meant. This is the one thing here that's genuinely unrecoverable if you get it wrong.
+
+## What to actually add
+
+Four string fields on `siteConfigSchema`, all derivable from one consultation question ("where's the business?"), each overridable:
+
+```
+country   'IE'              ISO 3166-1
+locale    'en-IE'           BCP 47
+currency  'EUR'             ISO 4217
+timezone  'Europe/Dublin'   IANA
+```
+
+Keep them separate rather than deriving at use — they correlate but don't determine. Locale decides placement and separators; currency decides symbol and decimal count. `Intl.NumberFormat('en-IE', {currency:'EUR'})` → `€49.99` but `de-DE` with the same currency → `49,99 €`. You need both, independently.
+
+Two things worth knowing: minor units aren't always 2 (JPY is 0, KWD is 3 — pass the currency to `Intl` rather than dividing by 100), and EU consumer-facing prices must display **VAT-inclusive**. That last one is a legal obligation the payments module should declare in DOC-33's capability catalogue, keyed off `country`.
+
+Note `contact.address` already exists but is free-text — it can't drive any of this.
+
+## The package
+
+| | Effort | When |
+|---|---|---|
+| Four config fields | ~1–2h | Now — unblocks everything, zero risk |
+| `lang`/`dir` from locale (kills the hardcoded `en`) | ~1h | Now, same ticket |
+| Payments: price is config, display derives | free | Write it down before the module exists |
+| Calendar: UTC instants + IANA zone, `Intl` only | free | Write it down before the module exists |
+| L1 money annotation | — | Don't build |
+
+The two "free" rows are the highest-value things in the table — they cost nothing today and are the ones that hurt if a module ships without them.
+
+Want me to scope a ticket for the two implementation rows? That's a genuine code change, so it'd need a branch and UATs under the free-coding protocol — say the word and I'll cut it. The module rules I'd suggest landing as a DOC amendment instead, since there's no code to attach them to yet.
 
 <!-- xgd-chat-end -->
