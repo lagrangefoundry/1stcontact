@@ -5,9 +5,9 @@ type: request
 title: 'The Cloudflare SiteStore: definitions in D1, bytes in R2'
 created_by: xgd
 created_at: '2026-08-15T20:31:46.590606+00:00'
-updated_at: '2026-08-15T21:31:18.730955+00:00'
+updated_at: '2026-08-15T21:41:44.920921+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -99,6 +99,8 @@ latency, D1 limits, bindings in a live Worker. Budget for it rather than discove
 - `d1_databases` and `r2_buckets` bindings on `control-app`, repeated under `[env.production]`
   (named environments do **not** inherit bindings — `public-site`'s config says so explicitly,
   and see [[REQ-144]] for the live bug caused by forgetting it).
+- These migrations wired into [[REQ-144]]'s `bin/deploy` migration hook. REQ-144 deliberately
+  ships the hook without knowing about D1, so that this dependency points this way and not back.
 
 ## 6. Acceptance criteria
 
