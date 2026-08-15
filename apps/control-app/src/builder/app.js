@@ -184,6 +184,20 @@ export function mountBuilder(root, options = {}) {
       // appearance are declared: the `--shell-*` tokens and the app font. On
       // `document.body` — a sibling of the shell — it resolved neither.
       host: shell.element,
+      /**
+       * REQ-140 — the colour seam: the SAME popup the Colors button opens, in
+       * pick mode, and the same shade arithmetic the renderer uses.
+       *
+       * `openPalette` is already bound to the host, the transport and the
+       * post-write reload, so a colour field gets manage-editing inside the
+       * picker for free — which is what makes an empty palette a workable
+       * starting state rather than a dead end, and what makes "this colour is
+       * nearly right" a one-gesture fix (REQ-133 §1).
+       */
+      colors: {
+        open: (value) => openPalette(panel.getSite(), { mode: 'pick', value }),
+        shadeHex,
+      },
       // The origin has already re-rendered the edit channel by the time a save
       // resolves, so the frame only has to reload — and reloading fires `load`,
       // which re-binds against the new document.

@@ -63,7 +63,10 @@ const ASSET_FILES: Record<string, string> = {
 }
 
 // Addresses, as the edit render stamps them (`data-l1-path`).
-const A_CONTAINER = '0.0' // a painted container — a region exposing nothing
+// The root wrapper — a region exposing nothing. It paints no surface, so it is
+// neither outlined nor editable. The painted container at '0.0' held this role
+// until REQ-140 gave it its background colour.
+const A_BARE_WRAPPER = '0'
 const A_COPY = '0.0.0'
 const A_DECOY = '0.0.1'
 const A_IMAGE = '0.1' // the hero image, carrying an id and presentation axes
@@ -368,7 +371,7 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
     // AC-981 — "there is nothing to edit here" is a property of the region,
     // decided once by the surface's own derivation, not a check every caller has
     // to remember. It is a success, not a failure or a missing region.
-    for (const addr of [A_CONTAINER, A_MODULE]) {
+    for (const addr of [A_BARE_WRAPPER, A_MODULE]) {
       const got = await readFields(cwd, addr)
       expect(got.ok, addr).toBe(true)
       expect(got.exitCode, addr).toBe(0)
@@ -685,7 +688,11 @@ describe('story-37a3921b — image selection through the copy-edit write path', 
       for (const field of got.data!.fields as Field[]) {
         // REQ-135 widened the set with a bounded number and a bit — both
         // narrower than a string, so the surface is not widened with it.
-        expect(['string', 'enum', 'integer', 'boolean'], argv.join(' ')).toContain(field.type)
+        // REQ-140's colour is narrower still: it admits only a reference into a
+        // palette the site itself declares.
+        expect(['string', 'enum', 'integer', 'boolean', 'color'], argv.join(' ')).toContain(
+          field.type,
+        )
         if (field.type === 'enum') {
           expect(Array.isArray(field.enum), argv.join(' ')).toBe(true)
           expect(field.enum!.length, argv.join(' ')).toBeGreaterThan(0)

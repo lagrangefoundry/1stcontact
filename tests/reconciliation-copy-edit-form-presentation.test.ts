@@ -112,6 +112,8 @@ const PATH = {
   tiny: '0.5',
   ordinary: '0.6',
   long: '0.7',
+  /** The seam — the one region that exposes nothing (see `seedPage`). */
+  seam: '0.8',
 } as const
 
 if (!WEBUI_INSTALLED) console.warn(`story-3bf94bd4 form-presentation suite: ${WEBUI_SKIP_REASON}`)
@@ -206,6 +208,11 @@ function seedPage(cwd: string, slug: string, family: string, fontSrc: string): v
         geometry: at(40, 920, 600),
       },
       { kind: 'text', text: LONG_COPY, axes: { fontSizePx: 20 }, geometry: at(40, 1000, 1000) }, // [0.7]
+      // [0.8] a seam — the region that exposes NOTHING. Every painted region on
+      // this page is offered its background colour since REQ-140, so the dead
+      // end AC-1039 pins had to move to something that holds no copy, no asset
+      // and no paint. It is unmounted, so it renders nothing (see `deadEnd`).
+      { kind: 'slot', name: 'gallery' },
     ],
   }
   home.l1 = {
@@ -436,6 +443,29 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
   }
 
   const region = (dotted: string) => `[${L1_EDIT_PATH_ATTR}="${dotted}"]`
+
+  /**
+   * The element a click on the dead end is dispatched from.
+   *
+   * WHY IT IS RETARGETED. The seam at `PATH.seam` is unmounted, so it renders
+   * nothing and the edit channel stamps no element for it — a region with
+   * nothing in it has nothing to draw. Every region this page DOES draw exposes
+   * at least one field since REQ-140, so the artifact carries no element that
+   * both exists and answers empty. Moving the address onto an element that
+   * exists is the smallest way to put the pointer on that region, and everything
+   * downstream stays real: the bridge resolves the address and the ORIGIN
+   * answers it for the seam it genuinely names.
+   */
+  function deadEnd(): Element {
+    const el = document.querySelector(region(PATH.band))!
+    el.setAttribute(L1_EDIT_PATH_ATTR, PATH.seam)
+    // The KIND travels with the address: the heading is drawn from what the
+    // pointer resolved, the message from what the origin answered, and pinning
+    // both is how AC-1039 shows the two agree. A seam the operator can click is
+    // a mounted one, which the renderer stamps `module`.
+    el.setAttribute(L1_EDIT_SEGMENT_ATTR, 'module')
+    return el
+  }
 
   /** Drive the real workspace in a real browser, up to an open form. */
   async function inWorkspace(
@@ -724,14 +754,12 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
       for (const m of modals()) m.remove()
 
       display()
-      const deadEnd = await openOn(region(PATH.band))
+      const nothing = await openOn(deadEnd())
       try {
-        expect(deadEnd.modal.querySelector('.builder-modal__title')?.textContent).toBe(
-          'Edit container',
-        )
-        expect(deadEnd.modal.textContent).toContain('Nothing to edit on this container segment yet.')
+        expect(nothing.modal.querySelector('.builder-modal__title')?.textContent).toBe('Edit module')
+        expect(nothing.modal.textContent).toContain('Nothing to edit on this slot segment yet.')
       } finally {
-        deadEnd.editor.destroy()
+        nothing.editor.destroy()
       }
     },
     180000,
@@ -1192,8 +1220,21 @@ describe('story-3bf94bd4 how the edit form presents itself', () => {
             bandBox.height - below,
             'the band has room below its headline to click',
           ).toBeGreaterThan(8)
+          // The band ADDRESSES THE SEAM for this one click. Since REQ-140 every
+          // painted region opens a form, so the only region that still answers
+          // with a message is one holding no copy, no asset and no paint — and
+          // an unmounted seam renders nothing to aim a real pointer at. Moving
+          // the address onto a box that exists is what puts the pointer on it;
+          // the resolution, the origin's answer and the dialog are all real.
+          await frame.locator(region(PATH.band)).evaluate(
+            (el, { path: seam, pathAttr, segmentAttr }) => {
+              el.setAttribute(pathAttr, seam)
+              el.setAttribute(segmentAttr, 'module')
+            },
+            { path: PATH.seam, pathAttr: L1_EDIT_PATH_ATTR, segmentAttr: L1_EDIT_SEGMENT_ATTR },
+          )
           await frame
-            .locator(region(PATH.band))
+            .locator(region(PATH.seam))
             .click({ position: { x: 6, y: (below + bandBox.height) / 2 } })
           await page.locator('.builder-modal').waitFor()
           expect(await page.locator('.builder-modal__box').count()).toBe(0)
