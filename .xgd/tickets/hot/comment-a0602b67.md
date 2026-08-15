@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-15T21:38:16.398990+00:00'
+updated_at: '2026-08-15T21:52:21.609281+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -365,5 +365,69 @@ All 6 pass. Let me run the full suite for regressions, and meanwhile fix a silen
 <!-- xgd-chat role="user" ts="2026-08-15T21:38:16.187526+00:00" -->
 #### You
 please complete this
+
+<!-- xgd-turn id="73561f98-69b5-4036-a4ba-76557d3a8b65-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T21:52:20.586621+00:00" -->
+#### Claude
+The background tasks were lost when the session restarted. Let me re-run the full suite and finish up.
+
+`--reporter=basic` isn't valid in vitest 4. Re-running without it:
+
+While the suite runs, let me update the ticket body to match what was actually built:
+
+I broke existing tests. Let me see why:
+
+Confirmed pre-existing. Let me get the full picture and compare properly:
+
+The run is still in progress (my export test takes ~2.5 min). Let me wait for it:
+
+My work is stashed — restoring it:
+
+Now a clean baseline of just the failing suites (they run in seconds), then the full run with my changes:
+
+Identical baseline — those failures are pre-existing upstream drift, not mine. Now the full run with my changes:
+
+None of my REQ-123 files fail. Let me baseline the whole failing set in one stash window to be rigorous:
+
+**74 failed at baseline, 74 failed with my changes** — identical. Zero regressions. Let me commit:
+
+Need to lock and merge back first. Let me check the target tree state:
+
+0.1.47 was claimed by REQ-139 in the meantime. Bumping again on the merged tree:
+
+Let me record the workflow gotchas that cost cycles here:
+
+Done. The system KB is built and wired, on `xgd-working`, ticket REQ-123 at `free_coded`.
+
+## What you can run
+
+```
+1c kb build     # export → index → chunks → generated map
+1c kb export    # corpus only; no model, no credentials
+1c kb status    # what is built
+```
+
+I ran `1c kb export` — 32 documents in `kb/system/`, all gitignored since every part of it is derived. **I could not run `1c kb build` here**: `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` aren't set on this machine, and the embedder is Workers AI. Set those two (the same pair `pnpm deploy:*` uses) and the build completes. To your question 3 — the map needs no credentials at all; the describe seam resolves `['claude', 'claude_code']` and falls through to the Claude Code CLI you're already authenticated with.
+
+## How it came out
+
+- **All 32 documents, no curation.** Filenames are the human id (`DOC-10.md`), because `DocDirStore` makes the path the uid — a retitle must not become a different document.
+- **The map is generated, every build.** One wrinkle worth knowing: the KB declares `landscape: authored` at *runtime*, which is the shipped-KB contract ("a fixed artefact that ships, never refreshed on a cadence"), not a claim a human wrote it. The build flips it to `derived` for its own duration — upstream's own move. Declaring `derived` at runtime would invite a rebuild against a store that's structurally read-only.
+- **Two surfaces in one Toolbox.** The session keeps every L1 control and gains the corpus, read-only, scoped to the system KB on both axes — so a search is gated, provenance-marked and audited like an edit.
+- **Primed with a map, not the documents.** Landscape → purpose → the projected tool manual last. There's a UAT asserting the document *bodies* are absent from the priming, since that's the property the whole design rests on.
+
+## Two things I found in the libraries
+
+- `@lagrangefoundry/knowledge` packs `files: ["src"]` with no `bin`, so `build-shipped-kb` isn't in the shared store. Every function it calls is exported, so `kb.ts` composes the same pipeline in the same order. Worth reporting upstream.
+- `DocDirStore` ignores frontmatter `created_at`/`updated_at` despite its module comment saying frontmatter wins — both stamps come from the file. Since the incremental manifest keys on `updated_at`, a full re-export would re-embed all 32 documents every build, so the export only writes a file when its bytes actually change. There's a UAT on that.
+
+## Tests
+
+17 new UATs, all passing — real corpus, real `DocDirStore`, real index and chunk builds, real cosine search, real ranker, real clustering. Only the two model boundaries are stood in for, through the same `LAGRANGE_KM_*` seams the build already supports, so there's no test-only branch in the production path.
+
+The full suite shows **74 failures — all pre-existing.** I verified by running the same twelve files with my changes stashed: 74 failed at baseline, 74 with my work. They're upstream `@lagrangefoundry/ai` drift (`Toolbox.run` is now async while those older suites call it synchronously). Not mine, but they are real and someone should fix them.
+
+One correction to something I said earlier: I'd suggested the KB declaration be generated. It's authored data — `kb/knowledge_bases.json` is committed and hand-editable, scaffolded only when absent, so a tuned prompt or weight survives the next build.
 
 <!-- xgd-chat-end -->
