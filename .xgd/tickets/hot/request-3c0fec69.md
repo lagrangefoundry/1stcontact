@@ -6,10 +6,10 @@ title: 'Page editor: colour — text colour and panel background from the palett
   Phase B)'
 created_by: xgd
 created_at: '2026-08-15T00:34:37.398758+00:00'
-updated_at: '2026-08-15T19:33:47.354963+00:00'
+updated_at: '2026-08-15T19:33:55.631483+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -18,6 +18,14 @@ fields:
   - REQ-133
   - REQ-135
   story_points: 8
+  commits:
+  - working_sha: b2699987b3d4281051bb078d209d3a8099cd7054
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e70668dd1ce02f09ab7f914cbaa5ac672454535a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.46
 ---
 
 # Page editor: colour — text colour and panel background from the palette
