@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-15T01:46:39.398282+00:00'
+updated_at: '2026-08-15T01:48:32.886999+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -159,5 +159,69 @@ Site login also inherits both of CHAT-13's blockers: the session cookie must be 
 <!-- xgd-chat role="user" ts="2026-08-15T01:46:39.153455+00:00" -->
 #### You
 The identity store, the cookie scope, and the authorization are not. I'd keep them structurally separate — different tables, different session audience, different cookie names — because a single users table serving both puts a site visitor's identity in the same namespace as an account owner's, and that's the classic escalation path. <-- aren't they just different roles though in the same db? Let me walk you through my mental model and see if it's wrong: I have a site xgd.dev with users U1..U1000 they are site users. as a site owner I may have a site-user login but to access the site as an owner I login as a 1stcontact user. 1c has users V1...V20000 this is a different tenant but the same table
+
+<!-- xgd-turn id="77bc1ca0-6db3-4b91-89ef-7c5156388b71-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T01:48:32.525652+00:00" -->
+#### Claude
+Your model is better than mine, and the reason is one I should have applied: the tenant barrier already exists, it's already the hard one, and it's already bound into the accessor handle rather than being ambient. Adding table separation gives you a *second* isolation mechanism enforcing the same boundary — two things to get right instead of one, and the new one has no precedent anywhere else in the system. Drop my separate-tables claim.
+
+## Why it holds up
+
+The escalation path I was worried about — a site visitor's identity sitting in the same namespace as an account owner's — isn't real once `tenant_id` is on the row, because U1..U1000 and V1..V20000 are never in the same namespace. They're in different tenants. That's the same guarantee REQ-123 already relies on for every other kind of content.
+
+And there's a refinement that closes the gap I was actually reaching for. My real concern was the login lookup: `email → user` has to happen *before* you know who's asking, so it looked like an unscoped query — precisely the "second, unscoped code path" REQ-123 warns against. But it isn't, because **the origin supplies the tenant**:
+
+```
+xgd.dev/login            → tenant = acct-xgd     → lookup (acct-xgd, email)
+app.1stcontact.io/login  → tenant = 1stcontact   → lookup (1stcontact, email)
+```
+
+The tenant comes from the host, never from user input, so the login lookup is tenant-scoped like everything else. Which means **email is unique per tenant, not globally** — worth stating explicitly, because the wrong index here is the kind of thing that's very expensive to change once there's data.
+
+## What your model unlocks that mine didn't
+
+Two things fall out that are strictly better:
+
+**Contact and site-user collapse into one row.** I'd proposed `contacts` as a separate CRM record from site login. Under your model there's no reason for that — a site user *is* a contact, with auth fields populated. Email capture creates the row with auth fields null; a later login just verifies it. Someone imported from a spreadsheet, someone who filled in a contact form, and someone who signed up for the member area are the same person in the same table, which is exactly what CRM-lite needs to be true.
+
+**1stcontact dogfoods its own CRM.** If tenant `1stcontact` holds V1..V20000, then your 20,000 signups are contacts in a tenant, in the same shape as any customer's contacts. Your own funnel runs on the product. That's a fairly strong signal the grain is right.
+
+## What survives — the grant table, for a different reason
+
+Your description implies something you didn't say out loud, and I want to confirm it's intended:
+
+> as a site owner I may have a site-user login but to access the site as an owner I login as a 1stcontact user
+
+So V17 lives in tenant `1stcontact`, but the site they own lives in tenant `acct-xgd`. That's a cross-tenant relationship by construction, and it needs somewhere to live:
+
+```
+grants → user_id (in tenant 1stcontact), account_id (a tenant), role, granted_by, granted_at, expires_at
+```
+
+Note this is a *different* justification than the one I gave last time. Not "to keep populations apart" — that was the wrong reason. It's that a builder user administering an account tenant is inherently a cross-tenant capability, and this is the single place it's expressed. Which makes it the single place to audit, and gives 1stcontact support access a natural home: a time-boxed row with `expires_at`, rather than an ambient superuser flag.
+
+It's control-plane, sitting beside the ticketing component's existing `tenants` registry.
+
+## The three invariants that replace the structural guarantee
+
+Table separation would have made some things impossible by construction. Under one table they become predicates — the same trade REQ-123 made for site isolation, and it named it as a discipline rather than a guarantee. Three places it has to be enforced:
+
+1. **Sessions carry `tenant_id`, and verification checks it against the origin.** A session minted at xgd.dev must be rejected at app.1stcontact.io even if the cookie somehow arrives. Host-only cookies do most of this; the session check is the backstop.
+
+2. **Public self-signup is structurally incapable of setting a role.** The public endpoint calls a function that hardcodes `role = member`. Role changes go through a separate authenticated path. This is the one that would have been impossible before and is now a predicate — so it wants an explicit UAT, not just care.
+
+3. **Site-user auth never consults `grants`.** A site-realm session resolves permissions from the user row only. Only the builder realm reads grants.
+
+## Where that leaves the open questions
+
+Revised from my list:
+
+1. ~~Separate tables~~ — settled, one table.
+2. **Confirm V-users live in tenant `1stcontact`** (implied by your description) — which makes the grants table required. Or did you mean each builder user lives in their own account tenant? That version removes grants but makes agencies and multi-business owners impossible, and reintroduces the unscoped login lookup. I'd take your reading.
+3. **Contact ≡ user, single table with nullable auth fields** — agree?
+4. **Auth core as a `lagrange-framework` component** — still think yes, on the ticketing precedent.
+5. **T&C acceptance after verification** rather than on the request form.
+6. **File CHAT-13's α/β/γ?** β is still on the critical path — no email delivery, no magic link.
 
 <!-- xgd-chat-end -->
