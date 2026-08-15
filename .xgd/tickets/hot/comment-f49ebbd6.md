@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-25
 created_by: xgd
 created_at: '2026-08-15T01:19:22.424980+00:00'
-updated_at: '2026-08-15T21:30:47.927165+00:00'
+updated_at: '2026-08-15T21:33:46.539127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -399,5 +399,42 @@ omg NEVER create tickets in ready_to_implement mode that is an operator call
 <!-- xgd-chat role="user" ts="2026-08-15T21:30:47.758186+00:00" -->
 #### You
 omg NEVER create tickets in ready_to_implement mode that is an operator call - it triggers automatic implementation which is completely inappropriate here
+
+<!-- xgd-turn id="561989e7-208c-4b62-86ec-3c64921194ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-15T21:33:45.810319+00:00" -->
+#### Claude
+Fixing that now.
+
+It did fire — branches and worktrees were created, and REQ-144 has already been flipped back to `ready_to_implement` by a live workflow. Finding what's running.
+
+Dispatcher (PID 25078) picked them up and started implementation workflows. I can see you're already running `xgd revert REQ-147 --hard`. Getting you the precise state rather than killing processes under you.
+
+No source code was written — every changed file is under `.xgd/` (planning artifacts only). Re-setting REQ-144, which a workflow flipped back.
+
+REQ-147 flipped back — likely your `--hard` revert restoring it to its state at branch-cut, which was the bad value I set. Checking whether that revert has finished before I touch it.
+
+All eight are `draft` now. My error — `ready_to_implement` is yours to set, not mine, and I set it on five tickets without understanding it was a trigger rather than a label.
+
+**What fired.** The dispatcher (PID 25078) picked up three of them and started develop workflows:
+
+| | Reached | State now |
+|---|---|---|
+| REQ-141 | `generate_intent_plan` → `generate_stories` → `validate_intent_capabilities` | Branch + worktree + remote branch still present |
+| REQ-144 | `defect_investigation` → `validate_intent` → terminal | Remote branch only; no local branch or worktree |
+| REQ-147 | Branch cut | Cleaned by your `xgd revert --hard` |
+
+**Blast radius: no source code.** Every file changed on `branch-REQ-141` is under `.xgd/` — one story, five reports, a doc, and the request itself. `branch-REQ-144` has zero file changes against main. Nothing touched `packages/`, `apps/`, or `tools/`.
+
+Your `xgd revert REQ-147 --hard` also restored that ticket to its state at branch-cut, which was the bad `ready_to_implement` value — so it came back twice. I waited for your revert to finish before setting it to `draft`, and it's holding.
+
+**Left to clean up, if you want it gone:**
+- `branch-REQ-141` — local branch, worktree at `~/.xgd/worktrees/.../branch-REQ-141`, and `origin/branch-REQ-141`
+- `origin/branch-REQ-144`
+- 7 generated planning artifacts (story-bc083bef, 5 reports, doc-c49667b3) living on branch-REQ-141
+
+`xgd revert REQ-141 --hard` and `xgd revert REQ-144 --hard` look like the right instrument, matching what you used for 147 — but reverting is destructive and you're closer to that machinery than I am, so I've stopped here rather than run them. Say the word and I will, or tell me if the remote branches need handling differently.
+
+The eight REQs themselves are intact and correct — only the status was wrong. For future ticket creation in this project: I'll create as `draft` and leave promotion to you.
 
 <!-- xgd-chat-end -->
