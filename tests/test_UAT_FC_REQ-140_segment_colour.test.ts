@@ -383,12 +383,23 @@ describe('REQ-140 — segment colour', () => {
   // layout modules the framework pivot deleted, so nothing could render them;
   // what kept them alive was two test fixtures, now stated directly.
   it('test_UAT_FC_REQ-140_the_dead_example_sites_are_gone_from_the_store', () => {
+    // A site is its definition and its revisions, not the directory they sat
+    // in: git tracks files, so deleting a site leaves an empty directory
+    // standing wherever the filesystem had dropped something untracked inside
+    // it (`.DS_Store`, on any checkout Finder has visited). Asserting on the
+    // directory would fail on that leftover while nothing had in fact come
+    // back — and, worse, would pass on a machine where it happened not to.
+    const SITES = path.join(REPO_ROOT, 'storage', 'sites')
     for (const slug of ['1stcontact', 'harbor-cafe']) {
-      expect(fs.existsSync(path.join(REPO_ROOT, 'storage', 'sites', slug))).toBe(false)
+      expect(fs.existsSync(path.join(SITES, slug, 'draft', 'site.json')), slug).toBe(false)
+      expect(fs.existsSync(path.join(SITES, slug, 'revisions')), slug).toBe(false)
     }
-    // The store is not empty — a deletion that took everything with it would
-    // pass every assertion above.
-    expect(fs.readdirSync(path.join(REPO_ROOT, 'storage', 'sites')).length).toBeGreaterThan(0)
+    // The store still holds sites — a deletion that took everything with it
+    // would pass every assertion above.
+    const surviving = fs
+      .readdirSync(SITES)
+      .filter((slug) => fs.existsSync(path.join(SITES, slug, 'draft', 'site.json')))
+    expect(surviving.length).toBeGreaterThan(0)
   })
 
   // AC-1/AC-5, in the real dialog. The colour row is drawn by the modal itself

@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as siteSchema from '../packages/site-schema/src/index'
@@ -64,15 +64,20 @@ const readSite = (slug: string): { palette?: L1Palette } =>
   JSON.parse(readFileSync(path.join(SITES, slug, 'draft', 'site.json'), 'utf8'))
 
 /**
- * Every stored site, by slug. Directories only — the store is a directory per
- * slug, and enumerating the raw entries picks up whatever else the filesystem
- * has left lying about (`.DS_Store` on any checkout Finder has visited). A test
- * that passes or fails on that is not evidence of anything.
+ * Every stored site, by slug. A site is a directory that holds a site
+ * definition — not merely a directory. Enumerating the raw entries picks up
+ * whatever else the filesystem has left lying about (`.DS_Store` on any
+ * checkout Finder has visited), and deleting a site leaves its directory
+ * standing whenever one of those is inside it, because git tracks files and
+ * not directories. Either way the leftover has no `site.json`, so asking for
+ * one is what distinguishes a stored site from filesystem detritus. A test
+ * that passes or fails on detritus is not evidence of anything.
  */
 const storedSlugs = (): string[] =>
   readdirSync(SITES, { withFileTypes: true })
     .filter((e) => e.isDirectory())
     .map((e) => e.name)
+    .filter((slug) => existsSync(path.join(SITES, slug, 'draft', 'site.json')))
 
 function readPages(slug: string): unknown[] {
   const dir = path.join(SITES, slug, 'draft', 'pages')
