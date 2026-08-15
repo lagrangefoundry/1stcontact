@@ -5,9 +5,9 @@ type: request
 title: An async SiteStore port, with the filesystem behind it
 created_by: xgd
 created_at: '2026-08-15T20:31:09.480730+00:00'
-updated_at: '2026-08-15T20:31:09.480730+00:00'
+updated_at: '2026-08-15T20:32:07.893593+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: ready_since
 status: ready_to_implement
 fields:
   priority: high
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   depends_on:
   - REQ-141
+  ready_since: '2026-08-15T20:32:03.232461+00:00'
 ---
 
 # An async `SiteStore` port, with the filesystem behind it
