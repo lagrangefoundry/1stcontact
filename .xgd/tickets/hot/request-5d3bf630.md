@@ -6,14 +6,19 @@ title: Draft change journal — let the AI know what changed without re-reading 
   site
 created_by: xgd
 created_at: '2026-08-11T22:46:46.266235+00:00'
-updated_at: '2026-08-15T00:46:25.759490+00:00'
+updated_at: '2026-08-15T01:56:13.105402+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: ceed377a03fb9f1c1bf084dd224d70cb58d6110f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.45
 ---
 
 # Draft change journal — let the AI know what changed without re-reading the site
