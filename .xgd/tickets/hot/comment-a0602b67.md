@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-16T01:03:50.022782+00:00'
+updated_at: '2026-08-16T01:04:47.796985+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -495,5 +495,11 @@ That does leave a stale number in the ticket body, which says "32 today". Let me
 Ticket body updated — the count is no longer pinned, since the export reconciles against the store on every run.
 
 One thing I'd flag about the contents, now that the list is visible: roughly a third of the corpus is development-process and research material rather than product knowledge — DOC-21 (growth loop), DOC-15 (crawler coverage), DOC-29 (test asset catalogue), DOC-31/32 (market research). That's the corpus question you closed deliberately, and I think correctly for now: it's an editorial call to make against retrieval data, not a reason to hold up building the mechanism. The place it'll show up first is the awareness map — with 15 territories over 33 documents, some territories will be process rather than product, and a caretaker session primed with them is being told about parts of the system it has no use for. That's visible in `awareness.md` once you've run a real build, which is the point at which dropping documents becomes a judgement rather than a guess.
+
+<!-- xgd-turn id="c47d7bec-b002-4641-96c8-9c1e15aedf33-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T01:04:47.544490+00:00" -->
+#### You
+Are the tickets extracted as part of the build process? When we decide to exclude some, how is this to be configured?
 
 <!-- xgd-chat-end -->
