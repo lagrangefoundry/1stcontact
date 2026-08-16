@@ -6,14 +6,15 @@ title: The grid is reachable, navigable and announced as one single-selection gr
   without a mouse, and holds the keyboard from the moment the dialog opens
 created_by: xgd
 created_at: '2026-08-12T16:24:20.058397+00:00'
-updated_at: '2026-08-12T16:24:20.058397+00:00'
+updated_at: '2026-08-16T04:19:36.273868+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
