@@ -6,14 +6,15 @@ title: Mapping a page returns every element on it, including the boxes and rows 
   expose no editable field
 created_by: xgd
 created_at: '2026-08-10T09:19:39.092839+00:00'
-updated_at: '2026-08-10T09:29:38.295469+00:00'
+updated_at: '2026-08-16T02:37:22.216032+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-189fc1ac
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
