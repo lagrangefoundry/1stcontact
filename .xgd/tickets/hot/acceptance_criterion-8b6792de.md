@@ -7,9 +7,9 @@ title: Asking an image region what it exposes leads with which image goes there 
   for how the picture is framed, shaped and colour-adjusted
 created_by: xgd
 created_at: '2026-08-07T04:40:50.004278+00:00'
-updated_at: '2026-08-12T21:28:26.341666+00:00'
+updated_at: '2026-08-16T06:55:40.369290+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
