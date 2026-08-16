@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-15T23:55:51.512759+00:00'
+updated_at: '2026-08-16T00:02:30.955909+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -188,5 +188,56 @@ Want me to scope a ticket for the two implementation rows? That's a genuine code
 <!-- xgd-chat role="user" ts="2026-08-15T23:55:51.318186+00:00" -->
 #### You
 Yes can you add this to the correct design document
+
+<!-- xgd-turn id="abfc3f65-ef32-422b-82c2-6832da680489-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T00:02:30.698655+00:00" -->
+#### Claude
+Document changes aren't subject to the free-coding protocol, so no branch needed. Let me find the right home first.
+
+Important detail — `origin_uid: doc-20979492` in the frontmatter suggests these are generated from tickets, not hand-edited. Let me verify before writing anything.
+
+Confirmed — `kb/system/` is a **derived export**; the documents' home is the ticket store (`doc`-type tickets), so these must be edited via `xgd ticket`, never the files. Let me check the section structure of the candidate homes.
+
+No existing doc owns this — it spans L1, modules, site config and the consultation. Creating DOC-34 as its home, with a cross-reference from DOC-25 where module authors will look.
+
+DOC-34 created. Now the cross-references, appended (never replacing) so existing bodies are preserved.
+
+Now re-export the derived corpus so `kb/system/` matches the ticket store.
+
+Done. Here's what landed:
+
+## DOC-34 — Internationalization & Localization Model
+
+New document (`doc-2b91ec43`), because no existing doc owned this — it spans L1, behavior modules, site config and the consultation, and splitting it across three would have lost the argument that holds it together.
+
+| § | Content |
+|---|---|
+| 2 | Localization vs translation — every non-US business has the first on day one, in one language |
+| 3 | Why not locale bundles — pinned geometry, RTL, and the fold's zero-inference rule |
+| 4 | Locale as a document variant (the [[DOC-23]] §5 literal-base/overlay precedent), plus the laid-out-vs-metadata refinement |
+| 5 | The four `siteConfigSchema` fields, all defaulting from `country` |
+| 6 | Money — the clickable/readable line |
+| 7 | Time — the UTC + IANA rule, flagged as the one unrecoverable item |
+| 8 | Obligations binding on payments and calendar |
+| 9 | What is deliberately *not* built, and why |
+
+§9 exists so the absences read as decisions rather than oversights — including the money annotation, whose shape I recorded without building it.
+
+**Cross-references appended** (not replacing — both bodies verified intact, all prior sections present):
+- **DOC-25 §11** — the payments/calendar obligations, with the argument for why they sit inside §2's "config is data-only" line rather than straining it
+- **DOC-33 §14** — the single Act I question, and why `country` is the capability catalogue's most important input
+
+Corpus re-exported: 33 documents. `kb/system/` is gitignored — it's derived, so the ticket store is the change of record.
+
+## Two things to flag
+
+**I modified `pnpm-lock.yaml`.** I ran `pnpm --filter ... exec` looking for the `1c` binary, which triggered an install (+94/-20 packages) and re-resolved versions — `vitest` 4.1.9→4.1.10, `@cloudflare/workers-types` 20260630→20260702. The file was *already* dirty at session start, so I can't restore it to how I found it; that prior state is gone. The correct invocation was `node tools/generate/bin/1c.mjs`, which is what I used after. `git checkout pnpm-lock.yaml` would reset to the last commit if you'd rather take that.
+
+**The KB index is missing** — `1c kb status` reports index, chunks and map all absent. That predates this session (the corpus directory had no `index/` or `chunks/`), but it means DOC-34 won't be *retrievable* by the builder AI until `1c kb build` runs, which needs `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
+
+## Not done
+
+The two implementation rows — the four config fields and the `lang`/`dir` fix — are still open. Those are code, so they need a scope ticket, a branch and UATs. Say the word and I'll cut it under CHAT-26.
 
 <!-- xgd-chat-end -->
