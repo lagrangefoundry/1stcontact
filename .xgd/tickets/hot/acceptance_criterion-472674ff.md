@@ -6,14 +6,15 @@ title: The editing box holding exactly one field opens in its control, ready to 
   a box with more, or a dialog with a grid, opens none
 created_by: xgd
 created_at: '2026-08-10T07:48:26.505765+00:00'
-updated_at: '2026-08-12T18:26:24.922891+00:00'
+updated_at: '2026-08-16T04:19:23.921774+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
