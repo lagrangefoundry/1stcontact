@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-16T01:06:07.385343+00:00'
+updated_at: '2026-08-16T01:15:35.920324+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -533,5 +533,11 @@ The alternative — an id list in `kb/knowledge_bases.json` — keeps the ticket
 I'd add it as a field plus an export filter, and report the skips. Want me to? It's a small change to `exportCorpus` plus a UAT, and it needs a decision from you on the field name and whether it's opt-out (`kb: false` on the few you drop) or opt-in (`kb: true` on the ones you keep). Opt-out is the lower-maintenance default and matches "everything is knowledge unless we say otherwise".
 
 Separately, `corpusPredicates` not emitting negation is worth raising upstream alongside the missing `bin` and the `DocDirStore` timestamp discrepancy — three findings from this build, none of which I've reported yet.
+
+<!-- xgd-turn id="62e1711e-c8a0-460c-a5c1-f9a35e5d0103-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T01:15:35.771560+00:00" -->
+#### You
+Lets do this - the correct answer is INCLUSION - I would like to explicitly opt tickets in. Can you add a fields.system_kb, please as the filter - set it to true on all the current docs. Thank you
 
 <!-- xgd-chat-end -->
