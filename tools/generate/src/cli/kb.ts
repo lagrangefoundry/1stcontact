@@ -128,6 +128,8 @@ export interface ExportedDoc {
 export interface ExportResult {
   docs: ExportedDoc[]
   removed: string[]
+  /** Human ids of `doc` tickets that did not opt in — reported, never silent. */
+  skipped: string[]
   dir: string
 }
 
@@ -160,6 +162,41 @@ export function readDocTickets(): DocTicket[] {
   })
   const parsed = JSON.parse(raw) as { items?: DocTicket[] }
   return parsed.items ?? []
+}
+
+/**
+ * The field a document opts into the system KB with.
+ *
+ * MEMBERSHIP IS OPT-IN, and the choice of direction is the whole point. An
+ * exclusion list answers "what did we throw out", which nobody asks; inclusion
+ * answers "what does the assistant know", which is the question that matters —
+ * and it can be settled by reading one document's own frontmatter rather than by
+ * cross-referencing a list somewhere else.
+ *
+ * It also FAILS SAFE. A document written tomorrow is outside the KB until
+ * somebody says otherwise, so nothing reaches a client-facing agent by default.
+ * The opposite default would put every new document in front of that agent the
+ * moment it was saved, which is the wrong way round for a decision about what a
+ * product tells its users.
+ *
+ * The flag lives on the TICKET rather than in a list in the KB declaration
+ * because it is a fact about the document and has to move with it — an id list
+ * drifts silently when a document is renamed or retired.
+ */
+export const INCLUDE_FIELD = 'system_kb'
+
+/**
+ * Whether a ticket has opted in.
+ *
+ * Strictly `true`, and strictly the boolean. A ticket field arrives already
+ * parsed, so a document that says `system_kb: true` yields the boolean — but a
+ * value that arrives as the STRING `"true"` is a document whose frontmatter did
+ * not parse the way its author assumed, and treating it as opt-in would hide
+ * that. Everything else — absent, `false`, anything truthy-but-not-true — is
+ * out, which is what makes the default safe.
+ */
+export function optedIn(ticket: { fields?: Record<string, unknown> | null }): boolean {
+  return (ticket.fields ?? {})[INCLUDE_FIELD] === true
 }
 
 /**
@@ -228,14 +265,17 @@ function isScalar(value: unknown): boolean {
 }
 
 /**
- * Export every `doc` ticket into the corpus directory.
+ * Export the `doc` tickets that opted in, into the corpus directory.
  *
- * **Every document goes in, with no curation pass** (REQ-123 decision 2). Some of
- * the corpus is development-process knowledge rather than product knowledge;
- * whether that hurts retrieval is a question to answer with data once the feature
- * exists. The answer to a large corpus is chunk search and a map, not a
- * hand-picked subset — and which documents to drop is an editorial pass over a
- * working mechanism, not a precondition for building one.
+ * **Membership is opt-in, per document** — see {@link INCLUDE_FIELD} for why that
+ * direction and why the flag lives on the ticket. Every doc carries it today, so
+ * this changes nothing about what is in the KB; what it changes is that a
+ * mechanism decides rather than the absence of one.
+ *
+ * Skips are RETURNED, not swallowed, and the command prints them. A document
+ * silently missing from the corpus is indistinguishable from one that was never
+ * written, and the symptom — an assistant that does not know a thing it should —
+ * appears far from the cause.
  *
  * DOCUMENTS WHOSE TICKET IS GONE ARE DELETED, not left behind. A shipped corpus
  * has no supersession — `DocDirStore` returns no backlinks precisely because a
@@ -259,10 +299,15 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
 
   const tickets = readDocTickets()
   const docs: ExportedDoc[] = []
+  const skipped: string[] = []
   const written = new Set<string>()
 
   for (const ticket of tickets) {
     if (!ticket.id) continue
+    if (!optedIn(ticket)) {
+      skipped.push(ticket.id)
+      continue
+    }
     const file = `${ticket.id}.md`
     const target = path.join(dir, file)
     const next = corpusDocument(ticket)
@@ -272,6 +317,11 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
     docs.push({ id: ticket.id, uid: ticket.uid, title: ticket.title })
   }
 
+  // A document that opts OUT after having been in is an ordinary removal: it is
+  // no longer written, so the sweep below deletes the file it left behind. That
+  // is the same path a deleted ticket takes, and it has to be — a document
+  // withdrawn from the KB must stop being searchable, not merely stop being
+  // refreshed.
   const removed = readdirSync(dir)
     .filter((name) => name.endsWith('.md') && name !== AWARENESS_FILE && !written.has(name))
     .map((name) => {
@@ -280,7 +330,8 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
     })
 
   docs.sort((a, b) => a.id.localeCompare(b.id))
-  return { docs, removed, dir }
+  skipped.sort()
+  return { docs, removed, skipped, dir }
 }
 
 // ── the declaration ──────────────────────────────────────────────────────────
@@ -301,6 +352,14 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
  * rebuild against a store that is structurally read-only. The build flips the KB
  * to `derived` for its own duration, which is upstream's own manoeuvre: derived
  * for the build, authored on disk.
+ *
+ * The corpus predicate REPEATS the opt-in flag the export already applied, and
+ * the repetition is deliberate. The export decides which files exist; the
+ * predicate decides which files belong to the KB. Stating it here makes the
+ * declaration say what the KB actually contains instead of "every `doc` file that
+ * happens to be in this directory", and it means a file arriving by some other
+ * route — a stray copy, a half-finished hand edit — is not silently absorbed into
+ * the corpus on the next index build.
  */
 export function ensureConfig(root: string = kbRoot()): string {
   const file = configPath(root)
@@ -313,7 +372,7 @@ export function ensureConfig(root: string = kbRoot()): string {
           '1stcontact system knowledge: how the product is designed and why — its ' +
           'architecture, storage model, the L1 layout substrate, the behavior-module ' +
           'contract, the builder application, and the development method behind them.',
-        corpus: { type: [CORPUS_TYPE] },
+        corpus: { type: [CORPUS_TYPE], [`fields.${INCLUDE_FIELD}`]: true },
         landscape: 'authored',
         source: SHIPPED_SOURCE,
         weight: 1.0,
@@ -363,6 +422,14 @@ export interface KbBinding {
  * Shared by the build and the runtime so the two cannot disagree about what the
  * KB is — a build that indexed one corpus while the session searched another
  * would produce hits that resolve to nothing, with no error anywhere.
+ *
+ * THE DECLARATION IS PARSED, NOT PARAPHRASED. Every field — the prompt, the
+ * corpus predicate, the landscape mode, the weight — comes from
+ * `knowledge_bases.json` through the library's own `parseKbConfig`. An earlier
+ * version read the prompt from the file and hand-constructed the rest, which
+ * meant editing the declared corpus predicate changed nothing: the file said one
+ * thing and the code built another, with no error to notice. A declaration that
+ * is not the thing actually used is worse than no declaration.
  */
 export async function bindKb(root: string = kbRoot()): Promise<KbBinding> {
   const lib = await km()
@@ -373,27 +440,17 @@ export async function bindKb(root: string = kbRoot()): Promise<KbBinding> {
   }
   const { DocDirStore } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing'))
   const store = new DocDirStore(nodeDocReader(dir), { type: CORPUS_TYPE })
-  const kb = new lib.KnowledgeBase({
-    name: SYSTEM_KB,
-    // The prompt is read from the DECLARATION rather than written here: the
-    // build and the runtime must prime with the same worldview, and a second
-    // copy is how the two come to disagree.
-    prompt: declaredPrompt(root),
-    corpus: new lib.CorpusSpec({ types: [CORPUS_TYPE] }),
-    landscape: 'authored',
-    source: SHIPPED_SOURCE,
-  })
-  return { store, kb, kbs: new Map([[SYSTEM_KB, kb]]), sources: { [SHIPPED_SOURCE]: store } }
-}
 
-/** The KB's domain prompt, as declared. Empty when the declaration is absent. */
-function declaredPrompt(root: string): string {
-  const file = configPath(root)
-  if (!existsSync(file)) return ''
-  const config = JSON.parse(readFileSync(file, 'utf8')) as {
-    knowledge_bases?: Record<string, { prompt?: string }>
+  ensureConfig(root)
+  const kbs = lib.parseKbConfig(readFileSync(configPath(root), 'utf8'))
+  const kb = kbs.get(SYSTEM_KB)
+  if (kb === undefined) {
+    throw new Error(
+      `${configPath(root)} declares no knowledge base '${SYSTEM_KB}' ` +
+        `(declared: ${[...kbs.keys()].sort().join(', ') || 'none'}).`,
+    )
   }
-  return config.knowledge_bases?.[SYSTEM_KB]?.prompt ?? ''
+  return { store, kb, kbs, sources: { [SHIPPED_SOURCE]: store } }
 }
 
 /**
@@ -611,7 +668,15 @@ export async function buildKb(root: string = kbRoot()): Promise<BuildResult> {
   ensureConfig(root)
   const exported = exportCorpus(root)
   if (!exported.docs.length) {
-    throw new Error(`No ${CORPUS_TYPE} tickets to export — the corpus would be empty.`)
+    // The likely cause is the opt-in flag, not an empty ticket store, so the
+    // message says so — "no documents" would send an operator looking in the
+    // wrong place entirely.
+    throw new Error(
+      `No ${CORPUS_TYPE} ticket has opted into the system KB, so the corpus would ` +
+        `be empty. Membership is opt-in: set fields.${INCLUDE_FIELD}=true on the ` +
+        `documents the assistant should know` +
+        (exported.skipped.length ? ` (${exported.skipped.length} did not).` : '.'),
+    )
   }
 
   const binding = await bindKb(root)
