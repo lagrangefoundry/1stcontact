@@ -5,12 +5,13 @@ type: doc
 title: Premium, Non-Template Web Design — Differentiation Audit
 created_by: xgd
 created_at: '2026-08-10T17:51:08.659025+00:00'
-updated_at: '2026-08-10T17:51:08.659025+00:00'
+updated_at: '2026-08-16T01:19:53.268861+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 > Research report, commissioned via a 10-agent Workflow research pass (5 parallel sourcing agents + synthesis), 2026-08-10. Source material: award-recognized sites (Awwwards/FWA/CSSDA), design-agency portfolios, funded-startup landing pages, luxury/DTC brand sites, and a Wix/Squarespace/Framer template-platform baseline plus custom-coded-but-mediocre sites for contrast. Commissioned from the [[CHAT-134]] strategy discussion (see [[DOC-17]] for how this should be distilled forward into [[DOC-16]]'s rubric/prompt guidance).
