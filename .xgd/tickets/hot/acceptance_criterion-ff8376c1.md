@@ -6,9 +6,9 @@ title: A palette reference that does not resolve fails validation, and resolutio
   never substitutes a default
 created_by: xgd
 created_at: '2026-08-06T20:37:41.772779+00:00'
-updated_at: '2026-08-09T05:41:39.308654+00:00'
+updated_at: '2026-08-16T22:15:02.657371+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c490f1cf
@@ -19,10 +19,14 @@ fields:
 
 ## Criterion
 
-A colour reference naming an entry the palette does not declare — or naming a step
-the entry does not declare, or made in a site that declares no palette at all — is a
-**validation failure**. The site definition is rejected with an error identifying the
-offending reference and the names actually available, before anything is rendered.
+A colour reference naming an entry the palette does not declare — or made in a site
+that declares no palette at all — is a **validation failure**. The site definition is
+rejected with an error identifying the offending reference and the names actually
+available, before anything is rendered.
+
+Naming the entry is the whole of the resolution check: an entry is one colour, so a
+reference has nothing else to name and a shade cannot dangle — every position on the
+axis exists for every entry.
 
 There is no render-time fallback and no silent default: a consumer that skips
 validation and resolves a dangling reference anyway gets a loud failure rather than a
@@ -33,8 +37,9 @@ content a behavior module holds in its slots.
 
 ## Verification
 
-Validate a site whose page references (a) an entry name the palette does not declare,
-(b) a step name the entry does not declare, and (c) any entry when the site declares
-no palette; confirm each is a validation failure naming the offending reference.
-Then resolve a dangling reference directly, bypassing validation, and confirm it
-fails loudly rather than returning a colour.
+Validate a site whose page references (a) an entry name the palette does not declare
+and (b) any entry when the site declares no palette; confirm each is a validation
+failure naming the offending reference and listing the names available. Then resolve
+a dangling reference directly, bypassing validation, and confirm it fails loudly
+rather than returning a colour. Confirm a reference reaching an entry that does exist
+validates at any position on its shade axis, since there is no second name to miss.
