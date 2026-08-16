@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: An assistant that cannot run is explained without losing the operator's conversation
 created_by: xgd
 created_at: '2026-08-10T08:36:12.102287+00:00'
-updated_at: '2026-08-16T05:09:10.470204+00:00'
+updated_at: '2026-08-16T05:22:39.588537+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
