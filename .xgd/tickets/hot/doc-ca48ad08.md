@@ -5,12 +5,13 @@ type: doc
 title: Framework Purpose / Positioning — safety envelope, not aesthetic rails
 created_by: xgd
 created_at: '2026-07-20T20:51:53.238994+00:00'
-updated_at: '2026-07-20T20:51:53.238994+00:00'
+updated_at: '2026-08-16T01:20:51.189699+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 # Framework Purpose / Positioning
