@@ -125,6 +125,8 @@ const FORM_CONFIG = {
 
 /** A slide's whole presentation, for the kind that carries no default look. */
 const SLIDE_COPY = 'They shipped in a fortnight.'
+/** The same, supplied through the surface's own `presentation` parameter. */
+const REVIEW_COPY = 'The site has looked after itself since.'
 
 const MARK = [
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">',
@@ -136,6 +138,9 @@ const MARK = [
   '<path d="M12 34 L24 14 L36 34 Z" fill="none" stroke="#f7f4ed" stroke-width="2"/>',
   '</svg>',
 ].join('')
+
+/** The same mark, drawn again — what a deliberate replacement writes. */
+const REDRAWN = MARK.replace('#2e86a3', '#1d5f77')
 
 // ── settings ─────────────────────────────────────────────────────────────────
 
@@ -200,10 +205,32 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     // A top-level write that is not an object of settings has no meaning —
     // there is no key for it to be the value of — so it is refused, saying an
     // object is what is required, and nothing is written.
+    //
+    // Read at the surface because that is where a caller can reach it at all:
+    // `settings` is declared `{type: object, required: true}`, so the refusal a
+    // caller actually receives is the declaration's own shape check, ahead of
+    // the site's stores. (`editConfigSet`'s matching refusal — "Writing the
+    // top-level settings needs an object of settings to write", with the hint
+    // naming the group-plus-object form — is defence in depth behind it: the
+    // command line requires the key positionally, so nothing reaches that branch
+    // from either boundary. Its wording is therefore not asserted here.)
     const before = readFileSync(sitePath(), 'utf8')
     const refused = box.run('set_config', { settings: 'in-page-anchors' as unknown as never })
     expect(refused).toMatch(/must be an object/i)
     expect(readFileSync(sitePath(), 'utf8')).toBe(before)
+
+    // ...and the refusal is a prompt rather than a dead end: the form it points
+    // at — name the group, send an object of the settings to write in it — is
+    // accepted straight after, writing the single setting the refused call meant
+    // and leaving the site's other settings whole.
+    const TAGLINE = 'Sites that look after themselves'
+    expect(box.run('set_config', { key: 'config', settings: { tagline: TAGLINE } })).not.toContain(
+      'SCHEMA_INVALID',
+    )
+    const repaired = readSite()
+    expect(repaired.config.tagline).toBe(TAGLINE)
+    expect(repaired.config.businessName).toBeTruthy()
+    expect(repaired.theme).toEqual(themeBefore)
   })
 
   it('test_UAT_AC1097_a_settings_value_the_site_schema_rejects_leaves_the_site_unchanged', async () => {
@@ -322,27 +349,60 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     expect(presentation).toContain('"control":"message"')
 
     // What arrives is ORDINARY page content: the element-tree read operation
-    // reaches into it like anything else.
-    const map = json<{ segments: { path: string; module?: string }[] }>(box, 'describe_page', {
-      page: 'home',
-    })
+    // reaches into it like anything else, and what it hands back is exactly the
+    // subtree the instance stores — not a summary of it, and not something a
+    // caller would have to translate before writing it back.
+    interface MapSegment {
+      path: string
+      kind: string
+      label: string
+      module?: string
+    }
+    const map = json<{ segments: MapSegment[] }>(box, 'describe_page', { page: 'home' })
     const inside = map.segments.find((s) => s.module === 'signup')
     expect(inside).toBeDefined()
-    const node = json<{ node: { kind: string } }>(box, 'get_l1', {
+    const node = json<{ node: Record<string, unknown> }>(box, 'get_l1', {
       page: 'home',
       path: inside!.path,
       module: 'signup',
       slot: 'form',
     }).node
-    expect(typeof node.kind).toBe('string')
+    expect(node).toEqual(readPage().modules[0].slots.form)
+
+    // ...and REPLACED through the same write path: the words above the message
+    // box are rewritten with the ordinary module-scoped `set_l1`, which is what
+    // "ordinary page content" has to mean to be worth saying. Nothing about this
+    // call knows it is addressing a component.
+    const label = map.segments.find((s) => s.module === 'signup' && s.kind === 'text')
+    expect(label!.label).toBe('What do you need?')
+    const labelNode = json<{ node: Record<string, unknown> }>(box, 'get_l1', {
+      page: 'home',
+      path: label!.path,
+      module: 'signup',
+      slot: 'form',
+    }).node
+    expect(
+      box.run('set_l1', {
+        page: 'home',
+        path: label!.path,
+        module: 'signup',
+        slot: 'form',
+        node: { ...labelNode, text: 'How can we help?' },
+      }),
+    ).not.toContain('SCHEMA_INVALID')
+    const rewritten = JSON.stringify(readPage().modules[0].slots.form)
+    expect(rewritten).toContain('How can we help?')
+    expect(rewritten).not.toContain('What do you need?')
 
     // And it is a WORKING component, not a validated record: the module is the
-    // sole `<form>` sink, so a rendered form means the instance mounted.
+    // sole `<form>` sink, so a rendered form means the instance mounted — with
+    // the replaced words in it, so the write reached the page and not only the file.
     const { outDir } = await cmdRender(SLUG, { cwd })
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     expect(html).toMatch(/<form[^>]+action="\/api\/lead"/)
     expect(html).toMatch(/type="email"/)
     expect(html).toContain('<textarea')
+    expect(html).toContain('How can we help?')
 
     // A kind with no default look, added with no presentation, is refused with
     // the seams it needs named — not left to fail later at render.
@@ -390,9 +450,32 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     const carousel = readPage().modules.find((m: any) => m.id === 'gallery')
     expect(carousel.slots.slide).toEqual([{ kind: 'text', text: SLIDE_COPY }])
 
-    // And it reaches the render, so a supplied presentation is a mounted one.
+    // The same acceptance through the SURFACE, where the presentation is a
+    // declared parameter of its own rather than a flag. The command line proves
+    // the vocabulary, not the wiring behind it: a `presentation` key bound to the
+    // wrong option would leave the manual's promise false — "design it yourself
+    // instead of taking the look it comes with" — with every other assertion here
+    // still green.
+    seedSlot('reviews', 'carousel')
+    expect(
+      box.run('add_component', {
+        page: 'home',
+        name: 'reviews',
+        behavior: 'carousel',
+        slot: 'reviews',
+        config: {},
+        presentation: { slide: [{ kind: 'text', text: REVIEW_COPY }] },
+      }),
+    ).not.toContain('SCHEMA_INVALID')
+    const reviews = readPage().modules.find((m: any) => m.id === 'reviews')
+    expect(reviews.slots.slide).toEqual([{ kind: 'text', text: REVIEW_COPY }])
+
+    // And both reach the render, so a supplied presentation is a mounted one
+    // whichever vocabulary supplied it.
     const rendered = await cmdRender(SLUG, { cwd })
-    expect(readFileSync(path.join(rendered.outDir, 'index.html'), 'utf8')).toContain(SLIDE_COPY)
+    const withCarousels = readFileSync(path.join(rendered.outDir, 'index.html'), 'utf8')
+    expect(withCarousels).toContain(SLIDE_COPY)
+    expect(withCarousels).toContain(REVIEW_COPY)
   }, 180000)
 
   it('test_UAT_AC1100_a_configuration_violating_the_kind_contract_is_refused_at_the_field', async () => {
@@ -758,11 +841,10 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
 
     // Replacing is a deliberate act, and then the stored bytes are the new ones.
-    const redrawn = MARK.replace('#2e86a3', '#1d5f77')
-    expect(box.run('write_image', { name: 'wordmark', svg: redrawn, replace: true })).not.toContain(
+    expect(box.run('write_image', { name: 'wordmark', svg: REDRAWN, replace: true })).not.toContain(
       'CONFLICT',
     )
-    expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(redrawn)
+    expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(REDRAWN)
   })
 
   it('test_UAT_AC1108_drawing_is_its_own_grantable_capability_apart_from_managing_supplied_files', async () => {
@@ -809,6 +891,10 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
     viaSurface = fresh('ac-surface-')
     seedSlot('signup-form', 'contact-form', viaCli)
     seedSlot('signup-form', 'contact-form', viaSurface)
+    // A second seam, so removing an instance is exercised on something other
+    // than the instance the later assertions read.
+    seedSlot('spare', 'contact-form', viaCli)
+    seedSlot('spare', 'contact-form', viaSurface)
   })
   afterEach(() => {
     rmSync(viaCli, { recursive: true, force: true })
@@ -841,6 +927,40 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
       ).ok,
     ).toBe(true)
 
+    // Reconfiguring merges from here too, and removing takes the instance off.
+    expect(
+      (
+        await cli(
+          viaCli,
+          'module',
+          'set',
+          SLUG,
+          'home',
+          'signup',
+          '--config',
+          JSON.stringify({ submitLabel: 'Get early access' }),
+        )
+      ).ok,
+    ).toBe(true)
+    expect(
+      (
+        await cli(
+          viaCli,
+          'module',
+          'add',
+          SLUG,
+          'home',
+          'spare',
+          'contact-form',
+          '--slot',
+          'spare',
+          '--config',
+          JSON.stringify(FORM_CONFIG),
+        )
+      ).ok,
+    ).toBe(true)
+    expect((await cli(viaCli, 'module', 'rm', SLUG, 'home', 'spare')).ok).toBe(true)
+
     const drawn = await cli(
       viaCli,
       'asset',
@@ -854,6 +974,25 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
     )
     expect(drawn.ok).toBe(true)
     expect((drawn.data!.asset as { src: string }).src).toBe('/assets/wordmark.svg')
+
+    // Replacing a drawing is the deliberate act it is on the surface — a flag
+    // here, a parameter there — and not a second name.
+    expect(
+      (
+        await cli(
+          viaCli,
+          'asset',
+          'write',
+          SLUG,
+          'wordmark',
+          '--content',
+          REDRAWN,
+          '--alt',
+          'The XGD wireframe mark',
+          '--force',
+        )
+      ).ok,
+    ).toBe(true)
 
     expect(
       (
@@ -911,7 +1050,26 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
       slot: 'signup-form',
       config: FORM_CONFIG,
     })
+    box.run('configure_component', {
+      page: 'home',
+      name: 'signup',
+      config: { submitLabel: 'Get early access' },
+    })
+    box.run('add_component', {
+      page: 'home',
+      name: 'spare',
+      behavior: 'contact-form',
+      slot: 'spare',
+      config: FORM_CONFIG,
+    })
+    box.run('remove_component', { page: 'home', name: 'spare' })
     box.run('write_image', { name: 'wordmark', svg: MARK, alt: 'The XGD wireframe mark' })
+    box.run('write_image', {
+      name: 'wordmark',
+      svg: REDRAWN,
+      alt: 'The XGD wireframe mark',
+      replace: true,
+    })
     box.run('add_page', {
       page: 'about',
       title: 'About',
@@ -935,12 +1093,24 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
       deep: '#0f3f52',
       light: PALETTE.primary.steps.light,
     })
-    expect(readSite(viaCli).assets.map((a: any) => a.id)).toContain('wordmark.svg')
-    expect(readFileSync(path.join(draftDir(viaCli), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
+    expect(readSite(viaCli).assets.map((a: any) => a.id)).toEqual(['wordmark.svg'])
+    // The replacement's bytes, under the one name: replacing is not a second asset.
+    expect(readFileSync(path.join(draftDir(viaCli), 'assets', 'wordmark.svg'), 'utf8')).toBe(REDRAWN)
+    expect(readFileSync(path.join(draftDir(viaSurface), 'assets', 'wordmark.svg'), 'utf8')).toBe(
+      REDRAWN,
+    )
+    // The instance that was reconfigured, and only it: the one that was added and
+    // removed left the page as it found it, on both sides.
+    expect(readPage('home', viaCli).modules.map((m: any) => m.id)).toEqual(['signup'])
     expect(readPage('home', viaCli).modules[0]).toMatchObject({
       id: 'signup',
       type: 'contact-form',
     })
+    expect(readPage('home', viaCli).modules[0].config).toMatchObject({
+      submitLabel: 'Get early access',
+      action: '/api/lead',
+    })
+    expect(JSON.stringify(readPage('home', viaCli).l1.root)).toContain('"name":"spare"')
     expect(readPage('about', viaCli).seoMeta).toEqual({
       title: 'About XGD',
       description: 'The people behind XGD.',
