@@ -635,7 +635,11 @@ export interface AssignResult {
  * worth paying (DOC-23 §7, REQ-137 §3):
  *
  *  - every reference resolves back to within {@link SHADE_FIT_TOLERANCE} of the
- *    literal it replaced — exactly, for every reference carrying no shade — and
+ *    literal it replaced — exactly, for every reference naming an entry whose
+ *    own value IS that literal, which is the colour the palette stores rather
+ *    than one it reconstructs. The limit keys off that identity, not off the
+ *    absence of a shade: a shade fitted at 0 still went through the mix, so it
+ *    is held to the bound like any other fit — and
  *  - the resulting definition still validates.
  *
  * Either failing aborts before anything touches disk. What is *within* the bound

@@ -37,7 +37,13 @@ import {
 import { cmdCapturePage } from './capture'
 import { cmdDeploy, formatDeployReport } from '../deploy'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
-import { cmdColors, cmdColorsAssign, formatAssign, formatCensus } from './colors'
+import {
+  cmdColors,
+  cmdColorsAssign,
+  formatAssign,
+  formatCensus,
+  SHADE_FIT_TOLERANCE,
+} from './colors'
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
 import { CommandError, EXIT_CODES } from './errors'
@@ -299,14 +305,19 @@ Adopt-gaps (REQ-74) — close section-boundary vertical GAP deltas by inverting 
     A gap is linear in one knob: new spacingTop = current + (ref_gap - our_gap); a too-tight gap also
     reduces the previous section's spacingBottom. Dry-run by default. Pairs with the REQ-73 gap axis.
 
-Colours (REQ-114) — the palette colour model (DOC-23 §5): literal base, palette overlay:
+Colours (REQ-114, REQ-137) — the palette colour model (DOC-23 §5): one colour per entry, the
+light↔dark position carried as shade on the reference:
   1c colors <slug> [--json] [--sandbox]
     Census the site's colour literals: distinct colours, distinct RGB ignoring alpha, and the
     alpha families (one RGB used at several opacities) that collapse to one entry exactly.
   1c colors <slug> --assign [--names <derived>=<chosen>,…] [--json] [--sandbox]
-    Retrofit the site onto a derived palette: alpha collapse first (exact), then hue-family ramp
-    grouping (reviewable). Writes site.palette and rewrites every colour literal as a reference.
-    Refuses to write unless every reference resolves back to the byte it replaced.
+    Retrofit the site onto a derived palette: alpha collapse first (exact), then shade fitting —
+    each family member is fitted to an Oklab mix of its base toward black or white and carried as
+    shade on the reference. Writes site.palette and rewrites every colour literal as a reference.
+    A reference naming an entry's own colour reproduces it exactly; a fitted shade must land within
+    ${SHADE_FIT_TOLERANCE}/255 per channel, and a colour a mix cannot reach becomes its own entry
+    instead. Refuses to write if anything exceeds that bound, and reports the drift it accepted.
+    --json emits the palette alone: the document the site now stores.
 
 Fonts (REQ-101) — licence provenance for every font file in the project:
   1c fonts check [--json]
@@ -985,6 +996,12 @@ export async function run(argv: string[]): Promise<void> {
           }
         }
         const result = cmdColorsAssign(slug, global, names)
+        // `--json` emits the palette ALONE, deliberately: AC-941 pins this
+        // document to be the palette the site now stores, so it can be diffed
+        // against site.json directly. Wrapping it to carry `drift` alongside
+        // would break that identity. The accepted drift is reported by
+        // `formatAssign`, and is re-derivable from the palette by resolving
+        // each reference — it is not lost, only not duplicated here.
         if (flags.json) console.log(JSON.stringify(result.palette, null, 2))
         else console.log(formatAssign(result))
         return
