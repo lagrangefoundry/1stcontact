@@ -6,14 +6,15 @@ title: Clicking a painted panel opens the background picker over the same transp
   as a copy or image edit, and a rejected choice comes back field-scoped
 created_by: xgd
 created_at: '2026-08-10T08:23:33.410053+00:00'
-updated_at: '2026-08-12T16:22:52.038503+00:00'
+updated_at: '2026-08-16T04:19:25.030037+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
