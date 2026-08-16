@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The apex address returns a holding response and never serves any site's snapshot
 created_by: xgd
 created_at: '2026-08-06T18:50:01.754987+00:00'
-updated_at: '2026-08-09T13:50:12.671101+00:00'
+updated_at: '2026-08-16T07:23:53.035540+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
