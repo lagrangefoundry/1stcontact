@@ -6,7 +6,7 @@ title: Analytic value-render of the absolute-base fold is deterministic and per-
   faithful with repeated text
 created_by: xgd
 created_at: '2026-07-27T20:38:34.691691+00:00'
-updated_at: '2026-08-09T08:20:00.785068+00:00'
+updated_at: '2026-08-16T08:03:34.542218+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
