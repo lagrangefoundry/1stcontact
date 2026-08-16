@@ -6,14 +6,15 @@ title: Arguments are checked against the declaration before any value reaches th
   site, and each fault is refused with a message naming it
 created_by: xgd
 created_at: '2026-08-10T09:06:18.656404+00:00'
-updated_at: '2026-08-10T09:15:03.575283+00:00'
+updated_at: '2026-08-16T03:38:50.261060+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-93905de4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
