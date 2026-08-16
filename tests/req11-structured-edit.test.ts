@@ -18,7 +18,7 @@ import {
 } from '../tools/generate/src/cli/edit'
 import { CommandError } from '../tools/generate/src/cli/errors'
 import { run } from '../tools/generate/src/cli'
-import { listFilesRel } from '../tools/generate/src/store'
+import { fsSiteStore, listFilesRel } from '../tools/generate/src/store'
 
 /**
  * UATs for REQ-11 — the `1c` structured-edit command surface: validated,
@@ -30,9 +30,17 @@ import { listFilesRel } from '../tools/generate/src/store'
 
 let cwd: string
 let origCwd: string
+/**
+ * The options every `edit*` call takes since REQ-142 — the same `cwd` these
+ * tests always used, plus the store it resolves against. `1c` injects the
+ * filesystem adapter at its own dispatch; a test driving the handlers directly
+ * is that caller and does the same.
+ */
+let opts: { cwd: string; store: ReturnType<typeof fsSiteStore> }
 
 beforeEach(() => {
   cwd = mkdtempSync(path.join(tmpdir(), 'req11-'))
+  opts = { cwd, store: fsSiteStore({ cwd, root: 'sites' }) }
   origCwd = process.cwd()
   // run() resolves against process.cwd(); chdir so CLI-level tests target temp.
   process.chdir(cwd)
@@ -121,8 +129,8 @@ async function runCli(args: string[]): Promise<{ out: string; err: string; code:
 
 describe('1c structured-edit command surface (REQ-11)', () => {
   it('test_UAT_FC_REQ-11_page_get_returns_definition', async () => {
-    cmdNew('acme', { cwd })
-    const out = editPageGet('acme', 'home', { cwd })
+    cmdNew('acme', opts)
+    const out = await editPageGet('acme', 'home', opts)
     const data = out.data as { page: { id: string; slug: string; modules: unknown[] } }
     expect(data.page.id).toBe('home')
     expect(data.page.slug).toBe('home')
@@ -134,12 +142,12 @@ describe('1c structured-edit command surface (REQ-11)', () => {
   })
 
   it('test_UAT_FC_REQ-11_get_missing_returns_not_found', async () => {
-    cmdNew('acme', { cwd })
+    cmdNew('acme', opts)
 
     // Handler raises a typed NOT_FOUND.
-    expect(() => editPageGet('acme', 'nope', { cwd })).toThrow(CommandError)
+    await expect(editPageGet('acme', 'nope', opts)).rejects.toThrow(CommandError)
     try {
-      editAssetGet('acme', 'nope', { cwd })
+      await editAssetGet('acme', 'nope', opts)
     } catch (e) {
       expect((e as CommandError).code).toBe('NOT_FOUND')
     }
@@ -153,7 +161,7 @@ describe('1c structured-edit command surface (REQ-11)', () => {
   })
 
   it('test_UAT_FC_REQ-11_page_add_validates_schema', async () => {
-    cmdNew('acme', { cwd })
+    cmdNew('acme', opts)
     seedSurvivingModules('acme')
     // Corrupt an existing page so the *resulting* definition is invalid: any
     // write command must reject before touching disk, with a JSON-pointer path.
@@ -164,7 +172,7 @@ describe('1c structured-edit command surface (REQ-11)', () => {
 
     const before = snapshotDraft('acme')
     try {
-      editPageAdd('acme', 'about', { cwd })
+      await editPageAdd('acme', 'about', opts)
       throw new Error('expected SCHEMA_INVALID')
     } catch (e) {
       const ce = e as CommandError
@@ -179,18 +187,18 @@ describe('1c structured-edit command surface (REQ-11)', () => {
   })
 
   it('test_UAT_FC_REQ-11_page_add_rejects_duplicate', async () => {
-    cmdNew('acme', { cwd })
-    editPageAdd('acme', 'about', { cwd, path: 'about' })
+    cmdNew('acme', opts)
+    await editPageAdd('acme', 'about', { ...opts, path: 'about' })
 
     // Duplicate pageId.
     try {
-      editPageAdd('acme', 'about', { cwd, path: 'team' })
+      await editPageAdd('acme', 'about', { ...opts, path: 'team' })
     } catch (e) {
       expect((e as CommandError).code).toBe('CONFLICT')
     }
     // Duplicate path (home page already owns slug 'home').
     try {
-      editPageAdd('acme', 'landing', { cwd, path: 'home' })
+      await editPageAdd('acme', 'landing', { ...opts, path: 'home' })
     } catch (e) {
       expect((e as CommandError).code).toBe('CONFLICT')
     }
@@ -199,18 +207,21 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     expect(cli.code).toBe(5)
   })
 
-  it('test_UAT_FC_REQ-11_page_rm_blocked_by_nav', () => {
-    cmdNew('acme', { cwd })
-    editPageAdd('acme', 'about', { cwd, path: 'about' })
+  it('test_UAT_FC_REQ-11_page_rm_blocked_by_nav', async () => {
+    cmdNew('acme', opts)
+    await editPageAdd('acme', 'about', { ...opts, path: 'about' })
     // A TYPED value, not a string (REQ-130): argv is the one place a setting
     // arrives as text, and the JSON re-read lives there rather than here.
-    editConfigSet('acme', 'nav.entries', [{ label: 'About Us', target: { kind: 'page', pageId: 'about' } }], {
-      cwd,
-    })
+    await editConfigSet(
+      'acme',
+      'nav.entries',
+      [{ label: 'About Us', target: { kind: 'page', pageId: 'about' } }],
+      opts,
+    )
 
     // Blocked: the integrity error names the offending nav entry.
     try {
-      editPageRm('acme', 'about', { cwd })
+      await editPageRm('acme', 'about', opts)
       throw new Error('expected REFERENTIAL_INTEGRITY')
     } catch (e) {
       const ce = e as CommandError
@@ -219,19 +230,19 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     }
 
     // --force removes the page AND cleans the nav entry.
-    const out = editPageRm('acme', 'about', { cwd, force: true })
+    const out = await editPageRm('acme', 'about', { ...opts, force: true })
     expect((out.data as { navEntriesRemoved: number }).navEntriesRemoved).toBe(1)
-    const nav = editConfigGet('acme', 'nav.entries', { cwd }).data as { value: unknown[] }
+    const nav = (await editConfigGet('acme', 'nav.entries', opts)).data as { value: unknown[] }
     expect(nav.value).toEqual([])
-    expect(() => editPageGet('acme', 'about', { cwd })).toThrow(CommandError)
+    await expect(editPageGet('acme', 'about', opts)).rejects.toThrow(CommandError)
   })
 
-  it('test_UAT_FC_REQ-11_asset_rm_blocked_by_reference', () => {
-    cmdNew('acme', { cwd })
+  it('test_UAT_FC_REQ-11_asset_rm_blocked_by_reference', async () => {
+    cmdNew('acme', opts)
     seedSurvivingModules('acme')
     const src = path.join(cwd, 'logo.svg')
     writeFileSync(src, '<svg/>')
-    editAssetAdd('acme', src, { cwd, as: 'logo.svg' })
+    await editAssetAdd('acme', 'logo.svg', new Uint8Array(readFileSync(src)), opts)
 
     // Reference the asset inline from the carousel module's content. The
     // integrity walker resolves an asset-ref that is a top-level content field
@@ -243,7 +254,7 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     writeFileSync(homePath, JSON.stringify(home, null, 2))
 
     try {
-      editAssetRm('acme', 'logo.svg', { cwd })
+      await editAssetRm('acme', 'logo.svg', opts)
       throw new Error('expected REFERENTIAL_INTEGRITY')
     } catch (e) {
       const ce = e as CommandError
@@ -255,19 +266,19 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     }
 
     // --force removes it from the registry despite the dangling reference.
-    editAssetRm('acme', 'logo.svg', { cwd, force: true })
-    expect(() => editAssetGet('acme', 'logo.svg', { cwd })).toThrow(CommandError)
+    await editAssetRm('acme', 'logo.svg', { ...opts, force: true })
+    await expect(editAssetGet('acme', 'logo.svg', opts)).rejects.toThrow(CommandError)
   })
 
   it('test_UAT_FC_REQ-11_config_set_validates', async () => {
-    cmdNew('acme', { cwd })
+    cmdNew('acme', opts)
     const before = snapshotDraft('acme')
 
     // businessName must be a string; a numeric value is schema-invalid. Typed,
     // not stringified (REQ-130) — the CLI check below still goes through argv,
     // which is where the JSON re-read lives.
     try {
-      editConfigSet('acme', 'config.businessName', 123, { cwd })
+      await editConfigSet('acme', 'config.businessName', 123, opts)
       throw new Error('expected SCHEMA_INVALID')
     } catch (e) {
       const ce = e as CommandError
@@ -280,18 +291,18 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     expect(cli.code).toBe(2)
 
     // A valid set succeeds and round-trips through config get.
-    editConfigSet('acme', 'config.tagline', 'We deliver', { cwd })
-    expect((editConfigGet('acme', 'config.tagline', { cwd }).data as { value: string }).value).toBe(
+    await editConfigSet('acme', 'config.tagline', 'We deliver', opts)
+    expect(((await editConfigGet('acme', 'config.tagline', opts)).data as { value: string }).value).toBe(
       'We deliver',
     )
   })
 
   it('test_UAT_FC_REQ-11_status_derives_pending_changes', async () => {
-    cmdNew('acme', { cwd })
-    await cmdPublish('acme', { cwd, message: 'r1' })
+    cmdNew('acme', opts)
+    await cmdPublish('acme', { ...opts, message: 'r1' })
 
     // A clean draft (just published) has no pending changes.
-    const clean = editStatus('acme', { cwd }).data as {
+    const clean = (await editStatus('acme', opts)).data as {
       baseRevision: number
       added: string[]
       modified: string[]
@@ -301,11 +312,11 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     expect(clean.added.concat(clean.modified, clean.removed)).toEqual([])
 
     // Edit the draft, then status reports the modification against r1.
-    editPageUpdate('acme', 'home', { cwd, title: 'Home (edited)' })
+    await editPageUpdate('acme', 'home', { ...opts, title: 'Home (edited)' })
     const revsBefore = listFilesRel(path.join(cwd, 'storage', 'sites', 'acme', 'revisions')).length
     const historyBefore = readFileSync(path.join(cwd, 'storage', 'sites', 'acme', 'history.json'), 'utf8')
 
-    const status = editStatus('acme', { cwd }).data as { modified: string[] }
+    const status = (await editStatus('acme', opts)).data as { modified: string[] }
     expect(status.modified).toContain('pages/home.json')
 
     // status creates no revision and writes nothing.
@@ -313,20 +324,20 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     expect(readFileSync(path.join(cwd, 'storage', 'sites', 'acme', 'history.json'), 'utf8')).toBe(historyBefore)
   })
 
-  it('test_UAT_FC_REQ-11_failed_command_is_atomic', () => {
-    cmdNew('acme', { cwd })
+  it('test_UAT_FC_REQ-11_failed_command_is_atomic', async () => {
+    cmdNew('acme', opts)
     const before = snapshotDraft('acme')
 
     // Several distinct failures must each leave the draft byte-identical.
-    expect(() => editConfigSet('acme', 'nav.pattern', 'bogus-pattern', { cwd })).toThrow(CommandError)
-    expect(() => editPageAdd('acme', 'home', { cwd })).toThrow(CommandError) // duplicate
-    expect(() => editPageRm('acme', 'missing', { cwd })).toThrow(CommandError) // not found
+    await expect(editConfigSet('acme', 'nav.pattern', 'bogus-pattern', opts)).rejects.toThrow(CommandError)
+    await expect(editPageAdd('acme', 'home', opts)).rejects.toThrow(CommandError) // duplicate
+    await expect(editPageRm('acme', 'missing', opts)).rejects.toThrow(CommandError) // not found
 
     expect(draftsEqual(before, snapshotDraft('acme'))).toBe(true)
   })
 
   it('test_UAT_FC_REQ-11_json_envelope_shape', async () => {
-    cmdNew('acme', { cwd })
+    cmdNew('acme', opts)
 
     // Every structured-edit command, in --json mode, emits a single { ok, ... } line.
     const success = [

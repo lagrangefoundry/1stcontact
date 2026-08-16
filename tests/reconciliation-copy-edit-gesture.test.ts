@@ -52,6 +52,7 @@ import {
 } from '../packages/site-schema/src/l1/edit'
 import type { L1Node } from '@1stcontact/site-schema'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { fsOpts } from './support/site-factory'
 
 const REPO = path.resolve(__dirname, '..')
 const CLIENT_DIR = path.join(REPO, 'apps/control-app/src/builder')
@@ -217,13 +218,13 @@ describe('story-3bf94bd4 the edit gesture', () => {
     await browser?.close()
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-3bf94bd4-'))
     cmdNew('acme', { cwd })
     seedPage(cwd, 'acme')
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     if (cwd) fs.rmSync(cwd, { recursive: true, force: true })
   })
 
@@ -381,7 +382,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
 
     // WHY THE QUALIFICATION IS LOAD-BEARING: the same short address exists in
     // the page's own space and means something else entirely there.
-    expect(editCopyGet('acme', 'home', '0', { cwd }).data).toMatchObject({
+    expect((await editCopyGet('acme', 'home', '0', fsOpts(cwd))).data).toMatchObject({
       kind: 'container',
       fields: [],
     })
@@ -450,7 +451,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
 
         // The stored draft holds the new words too, read back independently of
         // the surface that wrote them.
-        expect(editCopyGet('acme', 'home', '0.0.0', { cwd }).data).toMatchObject({
+        expect((await editCopyGet('acme', 'home', '0.0.0', fsOpts(cwd))).data).toMatchObject({
           values: { text: 'A repainted band.' },
         })
 
@@ -532,7 +533,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
       // AC-997 — the confirm is the single moment anything is applied, and it
       // applies the whole change map at once.
       await cmdPublish('acme', { cwd, message: 'base' })
-      expect(editStatus('acme', { cwd }).data).toMatchObject({ modified: [] })
+      expect((await editStatus('acme', fsOpts(cwd))).data).toMatchObject({ modified: [] })
 
       const builder = await origin()
       try {
@@ -550,7 +551,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
         // ONE confirm is ONE change: the whole map arrived together and moved
         // exactly one file in the draft.
         expect(await saved.json()).toMatchObject({ changed: ['text'], values: { text: 'Applied whole.' } })
-        expect(editStatus('acme', { cwd }).data).toMatchObject({
+        expect((await editStatus('acme', fsOpts(cwd))).data).toMatchObject({
           modified: ['pages/home.json'],
           added: [],
           removed: [],
@@ -675,7 +676,7 @@ describe('story-3bf94bd4 the edit gesture', () => {
           }),
         })
         expect(accepted.status).toBe(200)
-        expect(editCopyGet('acme', 'home', '0.0.0', { cwd }).data).toMatchObject({
+        expect((await editCopyGet('acme', 'home', '0.0.0', fsOpts(cwd))).data).toMatchObject({
           values: { text: 'What the operator typed.' },
         })
       } finally {

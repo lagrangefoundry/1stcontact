@@ -32,8 +32,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { GlobalOptions } from '../commands'
 import { cmdPublish, ctxOf } from '../commands'
-import { draftCounter } from '../../store'
+import { fsSiteStore } from '../../store'
+import { CommandError } from '../errors'
 import { pageSegments } from '../segments'
+import type { EditOptions } from '../edit'
 import {
   editAssetAdd,
   editAssetGet,
@@ -124,8 +126,34 @@ const obj = (p: Params, name: string): Record<string, unknown> | undefined =>
   p[name] as Record<string, unknown> | undefined
 
 /** The component/slot scope an address is resolved in, read off the arguments. */
-function scopeOf(p: Params, opts: GlobalOptions): CopyTargetOptions {
+function scopeOf(p: Params, opts: EditOptions): CopyTargetOptions {
   return { ...opts, module: opt(p, 'module'), slot: opt(p, 'slot') }
+}
+
+/**
+ * Read a source file the operator named, for `add_asset` (REQ-142).
+ *
+ * The store no longer takes a path, and it should never have: a source file sits
+ * OUTSIDE the site, on whatever machine this host happens to be running on, and
+ * a store that accepted one would have to be a filesystem. So the read is here,
+ * in the Node-side host that actually has a disk, and what crosses into
+ * `edit.ts` is bytes.
+ *
+ * The refusal is the same `CommandError` `editAssetAdd` used to raise, with the
+ * same code, path and hint — the envelope a caller sees is unchanged by the
+ * layer that produces it.
+ */
+function readSourceFile(file: string): { name: string; bytes: Uint8Array } {
+  try {
+    return { name: path.basename(file), bytes: new Uint8Array(readFileSync(file)) }
+  } catch {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Source file '${file}' does not exist.`,
+      path: file,
+      hint: 'Pass a path to a readable file.',
+    })
+  }
 }
 
 /** One operation implementation, keyed by the `op` the declaration names. */
@@ -138,22 +166,26 @@ export type L1Operations = Record<string, (params: Params) => unknown>
  * is the whole of this surface's behaviour and it is worth being able to exercise
  * it without a runtime import of the AI library.
  *
+ * Every operation is ASYNC (REQ-142), because `edit.ts` is: the store behind it
+ * may be a database. `Toolbox.run` awaits what `surface.invoke` returns, so this
+ * needs nothing of the declaration and nothing of the host.
+ *
  * @param slug The site every operation acts on. Never a model-supplied value.
- * @param opts Store context (`cwd`, `sandbox`), as every `edit.ts` call takes.
+ * @param opts The store to act on, plus the context every `edit.ts` call takes.
  */
-export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operations {
+export function l1Operations(slug: string, opts: EditOptions): L1Operations {
   return {
-    describe_site: () => ({
-      config: (editConfigGet(slug, undefined, opts).data as { config: unknown }).config,
-      pages: (editPageList(slug, opts).data as { pages: unknown }).pages,
-      pending: editStatus(slug, opts).data,
+    describe_site: async () => ({
+      config: ((await editConfigGet(slug, undefined, opts)).data as { config: unknown }).config,
+      pages: ((await editPageList(slug, opts)).data as { pages: unknown }).pages,
+      pending: (await editStatus(slug, opts)).data,
     }),
 
-    list_pages: () => editPageList(slug, opts).data,
+    list_pages: async () => (await editPageList(slug, opts)).data,
 
-    describe_page: (p) => {
+    describe_page: async (p) => {
       const page = (
-        editPageGet(slug, req(p, 'page'), opts).data as { page: Record<string, unknown> }
+        (await editPageGet(slug, req(p, 'page'), opts)).data as { page: Record<string, unknown> }
       ).page
       const modules = Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
       return {
@@ -174,34 +206,36 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
 
     list_behaviors: () => editBehaviorList().data,
 
-    get_l1: (p) => editL1Get(slug, req(p, 'page'), req(p, 'path'), scopeOf(p, opts)).data,
+    get_l1: async (p) =>
+      (await editL1Get(slug, req(p, 'page'), req(p, 'path'), scopeOf(p, opts))).data,
 
-    list_assets: () => editAssetList(slug, opts).data,
+    list_assets: async () => (await editAssetList(slug, opts)).data,
 
-    get_asset: (p) => editAssetGet(slug, req(p, 'asset'), opts).data,
+    get_asset: async (p) => (await editAssetGet(slug, req(p, 'asset'), opts)).data,
 
-    get_config: (p) => editConfigGet(slug, req(p, 'key'), opts).data,
+    get_config: async (p) => (await editConfigGet(slug, req(p, 'key'), opts)).data,
 
     // REQ-133 — the palette, with the usage counts the delete and rename rules
     // are stated in. The assistant had no way to ask "what would changing this
     // color move" before this; without it, `set_config` on `palette` was an
     // edit made blind.
-    get_palette: () => editPaletteGet(slug, opts).data,
+    get_palette: async () => (await editPaletteGet(slug, opts)).data,
 
-    status: () => editStatus(slug, opts).data,
+    status: async () => (await editStatus(slug, opts)).data,
 
     // REQ-131 — the answer to "did anything move under me". The signal that
     // this is worth asking arrives in the per-turn reminder, so in the common
     // case (nothing changed) this is never called at all.
-    list_changes: (p) => editChanges(slug, p.since as number | undefined, opts).data,
+    list_changes: async (p) =>
+      (await editChanges(slug, p.since as number | undefined, opts)).data,
 
-    set_l1: (p) => {
-      const out = editL1Set(slug, req(p, 'page'), req(p, 'path'), p.node, scopeOf(p, opts))
+    set_l1: async (p) => {
+      const out = await editL1Set(slug, req(p, 'page'), req(p, 'path'), p.node, scopeOf(p, opts))
       return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
     },
 
-    add_page: (p) => {
-      const out = editPageAdd(slug, req(p, 'page'), {
+    add_page: async (p) => {
+      const out = await editPageAdd(slug, req(p, 'page'), {
         ...opts,
         title: opt(p, 'title'),
         path: opt(p, 'path'),
@@ -210,8 +244,8 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    update_page: (p) => {
-      const out = editPageUpdate(slug, req(p, 'page'), {
+    update_page: async (p) => {
+      const out = await editPageUpdate(slug, req(p, 'page'), {
         ...opts,
         title: opt(p, 'title'),
         path: opt(p, 'path'),
@@ -220,8 +254,8 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    add_component: (p) => {
-      const out = editModuleAdd(slug, req(p, 'page'), req(p, 'name'), req(p, 'behavior'), {
+    add_component: async (p) => {
+      const out = await editModuleAdd(slug, req(p, 'page'), req(p, 'name'), req(p, 'behavior'), {
         ...opts,
         slot: opt(p, 'slot'),
         config: obj(p, 'config'),
@@ -230,8 +264,8 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    configure_component: (p) => {
-      const out = editModuleConfigure(
+    configure_component: async (p) => {
+      const out = await editModuleConfigure(
         slug,
         req(p, 'page'),
         req(p, 'name'),
@@ -241,18 +275,18 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    remove_component: (p) => {
-      const out = editModuleRm(slug, req(p, 'page'), req(p, 'name'), opts)
+    remove_component: async (p) => {
+      const out = await editModuleRm(slug, req(p, 'page'), req(p, 'name'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    remove_page: (p) => {
-      const out = editPageRm(slug, req(p, 'page'), opts)
+    remove_page: async (p) => {
+      const out = await editPageRm(slug, req(p, 'page'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    set_config: (p) => {
-      const out = editConfigSet(slug, opt(p, 'key'), obj(p, 'settings'), opts)
+    set_config: async (p) => {
+      const out = await editConfigSet(slug, opt(p, 'key'), obj(p, 'settings'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 
@@ -261,23 +295,23 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
     // move one, and it has nothing to say about the references both of those
     // are defined in terms of. The guards live in the functions below, so they
     // hold for the assistant exactly as they hold for the popup.
-    set_palette_color: (p) => {
-      const out = editPaletteSet(slug, req(p, 'name'), req(p, 'color'), opts)
+    set_palette_color: async (p) => {
+      const out = await editPaletteSet(slug, req(p, 'name'), req(p, 'color'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    add_palette_color: (p) => {
-      const out = editPaletteAdd(slug, req(p, 'name'), req(p, 'color'), opts)
+    add_palette_color: async (p) => {
+      const out = await editPaletteAdd(slug, req(p, 'name'), req(p, 'color'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    remove_palette_color: (p) => {
-      const out = editPaletteRm(slug, req(p, 'name'), opts)
+    remove_palette_color: async (p) => {
+      const out = await editPaletteRm(slug, req(p, 'name'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 
-    rename_palette_color: (p) => {
-      const out = editPaletteRename(slug, req(p, 'name'), req(p, 'to'), opts)
+    rename_palette_color: async (p) => {
+      const out = await editPaletteRename(slug, req(p, 'name'), req(p, 'to'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 
@@ -286,13 +320,14 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
     // only writes were assets would otherwise hold a baseline that never
     // advanced, and would be told next turn that its own upload was somebody
     // else's work — the one thing the counter exists to prevent.
-    add_asset: (p) => {
-      const out = editAssetAdd(slug, req(p, 'file'), { ...opts, as: opt(p, 'as') })
+    add_asset: async (p) => {
+      const source = readSourceFile(req(p, 'file'))
+      const out = await editAssetAdd(slug, opt(p, 'as') ?? source.name, source.bytes, opts)
       return { ...(out.data as object), now: out.at }
     },
 
-    write_image: (p) => {
-      const out = editAssetWrite(slug, req(p, 'name'), req(p, 'svg'), {
+    write_image: async (p) => {
+      const out = await editAssetWrite(slug, req(p, 'name'), req(p, 'svg'), {
         ...opts,
         alt: opt(p, 'alt'),
         force: p.replace === true,
@@ -300,18 +335,25 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
       return { ...(out.data as object), now: out.at }
     },
 
-    remove_asset: (p) => {
-      const out = editAssetRm(slug, req(p, 'asset'), { ...opts, force: p.force === true })
+    remove_asset: async (p) => {
+      const out = await editAssetRm(slug, req(p, 'asset'), { ...opts, force: p.force === true })
       return { changed: out.data, message: out.human, now: out.at }
     },
 
     /**
      * DECLARED BUT NOT REACHABLE FROM A SESSION YET, and the reason is upstream.
      *
-     * `Toolbox.run` is synchronous: it invokes, serializes and audits in one
-     * pass, so an operation that returns a promise is serialized as `{}` and its
-     * failure is unobservable. `cmdPublish` awaits the published render, so this
-     * is the one declared operation that cannot be hosted correctly today.
+     * `publish` is declared and implemented, and `instances.json` does not grant
+     * `Publish` to the caretaker — so the manual never mentions it and the model
+     * cannot propose it. The operator publishes from the builder toolbar or
+     * `1c publish`, unchanged.
+     *
+     * The reason recorded here used to be that `Toolbox.run` was synchronous and
+     * would serialize a promise as `{}`. That is no longer true upstream —
+     * `Toolbox.run` awaits what `surface.invoke` returns, which is what lets
+     * REQ-142 make every operation above async. Whether to grant the group is
+     * now an operator decision rather than a technical impossibility, and this
+     * ticket does not take it.
      *
      * Declaring it is still right — the surface declares the whole API, and the
      * grant narrows it (DOC-30). So it is documented and validated, and
@@ -319,8 +361,7 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
      * manual therefore never mentions it and the model cannot propose it. The
      * operator publishes from the builder toolbar or `1c publish`, unchanged.
      *
-     * Left implemented so that the day `Toolbox.run` awaits, granting the group
-     * is the whole change.
+     * Left implemented, so granting the group is the whole change.
      */
     publish: async (p) => {
       const result = await cmdPublish(slug, { ...opts, message: opt(p, 'message') })
@@ -330,7 +371,7 @@ export function l1Operations(slug: string, opts: GlobalOptions = {}): L1Operatio
         // Publishing does not touch the draft, so this is the count as it
         // stands — reported for the same reason a write reports it, so a
         // caller's baseline stays current across every call it makes.
-        now: draftCounter(ctxOf(opts), slug),
+        now: await opts.store.counter(slug),
         added,
         modified,
         removed,
@@ -358,7 +399,7 @@ function l1ToolboxClass(): Promise<Untyped> {
   if (!bound) {
     bound = aiCore().then((lib) => {
       return class L1Toolbox extends lib.ToolboxSurface {
-        constructor(slug: string, opts: GlobalOptions = {}) {
+        constructor(slug: string, opts: EditOptions) {
           super(L1_DECLARATION)
           for (const [op, run] of Object.entries(l1Operations(slug, opts))) {
             ;(this as unknown as Params)[op] = run
@@ -458,7 +499,10 @@ export async function createL1Toolbox(
     )
   }
 
-  const surfaces: Untyped[] = [new L1Toolbox(slug, opts)]
+  // The AI host runs on the operator's machine, so the adapter it injects is the
+  // filesystem one (REQ-142). It is named here, once — the operations below it
+  // never learn which store they got.
+  const surfaces: Untyped[] = [new L1Toolbox(slug, { ...opts, store: fsSiteStore(ctxOf(opts)) })]
   let granted = instance
   if (knowledge !== null) {
     const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))

@@ -1,8 +1,5 @@
-import fs from 'node:fs'
-import path from 'node:path'
 import { renderSiteFiles, type RenderedSite } from '../render/render'
-import type { LoadedSite, StoreContext } from '../store'
-import { draftDir, loadSite, pathExists } from '../store'
+import type { DraftSnapshot, SiteStore } from '../store/site-store'
 import { InvalidDefinitionError } from './commands'
 import { MIME } from './serve'
 
@@ -25,87 +22,55 @@ import { MIME } from './serve'
  * PUBLISHED IS UNTOUCHED. `published` still renders at publish time and is
  * served off disk here and by `public-site` from R2. This is the draft-side
  * loop only.
+ *
+ * ONE SEAM, NOT TWO (REQ-142). This module used to declare its own `DraftStore`
+ * — a read-only interface with an `fsDraftStore` implementation — while
+ * `edit.ts` wrote through `node:fs` directly. So the seam DOC-12 §7 describes
+ * existed for reads and not for writes, and the read half had a shape the write
+ * half could never have adopted: its `asset()` returned an ABSOLUTE FILESYSTEM
+ * PATH, which is not a narrow interface with one convenience on it but the
+ * filesystem itself, reachable through the port. Both halves are now the one
+ * {@link SiteStore}, and assets move as bytes.
  */
 
 /** The channels rendered on request. `published` is a build artifact and is not one. */
 export type PreviewChannel = 'draft' | 'edit'
 
-/** A site's current draft, plus a token that changes whenever the draft does. */
-export interface DraftSnapshot {
-  loaded: LoadedSite
-  /**
-   * Opaque; equal iff the definition is unchanged. Keys the render cache, so a
-   * change made outside the builder — `1c copy set`, a hand-edited page — is
-   * picked up on the next request rather than needing the server restarted.
-   */
-  stamp: string
-}
+export type { DraftSnapshot } from '../store/site-store'
 
 /**
- * Where the preview reads definitions from.
+ * What a preview URL resolves to.
  *
- * The seam DOC-12 §7 names: phase 1 answers from the file-backed store on the
- * operator's machine, phase 2 answers from D1 by replacing the implementation
- * and nothing else. {@link PreviewRenderer} never learns which it got.
+ * `bytes` rather than a filename (REQ-142): an asset is whatever the store hands
+ * back, and a store with no filesystem has no name to hand over. The dev origin
+ * therefore buffers an asset instead of streaming it, which is the one behaviour
+ * this trade costs — acceptable where it lands, because this path serves an
+ * operator's own draft assets to their own browser.
  */
-export interface DraftStore {
-  /** The current draft of `slug`, or `null` when no such site exists. */
-  load(slug: string): DraftSnapshot | null
-  /**
-   * Absolute path of a file under the site's `assets/`, or `null`. Asset bytes
-   * are copied through rather than rendered, so they are the store's to serve.
-   */
-  asset(slug: string, rel: string): string | null
-}
-
-/** What a preview URL resolves to: rendered text, or an asset on disk. */
 export type PreviewFile =
   | { kind: 'text'; contentType: string; body: string }
-  | { kind: 'file'; file: string }
+  | { kind: 'bytes'; contentType: string; body: Uint8Array }
 
-/**
- * The mtime/size of every file that feeds the render. Cheap enough to take on
- * each request (a site.json and a handful of page files) and exact enough that
- * a re-render happens when — and only when — the definition moved.
- */
-function draftStamp(dir: string): string {
-  const rels = ['site.json']
-  const pagesDir = path.join(dir, 'pages')
-  if (pathExists(pagesDir)) {
-    for (const name of fs.readdirSync(pagesDir).sort()) rels.push(path.join('pages', name))
-  }
-  return rels
-    .map((rel) => {
-      const info = fs.statSync(path.join(dir, rel), { throwIfNoEntry: false })
-      return info ? `${rel}:${info.mtimeMs}:${info.size}` : `${rel}:-`
-    })
-    .join('|')
+/** The extension of `name`, `.` included, or `''` — `path.extname` without `path`. */
+function extname(name: string): string {
+  const base = name.slice(name.lastIndexOf('/') + 1)
+  const dot = base.lastIndexOf('.')
+  return dot <= 0 ? '' : base.slice(dot)
 }
 
-/** {@link DraftStore} over the file-backed store (DOC-12 §3). */
-export function fsDraftStore(ctx: StoreContext): DraftStore {
-  return {
-    load(slug) {
-      const dir = draftDir(ctx, slug)
-      if (!pathExists(dir)) return null
-      const result = loadSite(ctx, slug, 'draft')
-      // An invalid draft is the AUTHOR'S error and must surface as such. Before
-      // request-time rendering it could not: a broken edit left the last good
-      // render on disk, so the iframe kept showing a page that no longer
-      // described the definition, indefinitely and with nothing to signal it.
-      if (!result.ok) throw new InvalidDefinitionError(slug, result.errors)
-      return { loaded: result.value, stamp: draftStamp(dir) }
-    },
-
-    asset(slug, rel) {
-      const root = path.join(draftDir(ctx, slug), 'assets')
-      const abs = path.join(root, path.normalize(rel))
-      // Confined to the assets root: `..` in a URL can never reach the
-      // definition, the revisions, or anything else on the operator's disk.
-      if (abs !== root && !abs.startsWith(root + path.sep)) return null
-      return fs.statSync(abs, { throwIfNoEntry: false })?.isFile() ? abs : null
-    },
+/** Collapse `.`/`..` segments in a POSIX-style relative path. */
+function normalizeRel(name: string): string {
+  const out: string[] = []
+  for (const seg of name.split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..') {
+      if (out.length === 0) return '..'
+      out.pop()
+    } else {
+      out.push(seg)
+    }
   }
+  return out.join('/')
 }
 
 /**
@@ -119,7 +84,7 @@ export function fsDraftStore(ctx: StoreContext): DraftStore {
 export class PreviewRenderer {
   private readonly cache = new Map<string, { stamp: string; rendered: RenderedSite }>()
 
-  constructor(private readonly store: DraftStore) {}
+  constructor(private readonly store: SiteStore) {}
 
   /**
    * The artifact `rel` names inside `slug`'s `channel`, or `null` for a request
@@ -132,17 +97,27 @@ export class PreviewRenderer {
    * the ones production serves (REQ-113).
    */
   async file(slug: string, channel: PreviewChannel, rel: string): Promise<PreviewFile | null> {
-    const snapshot = this.store.load(slug)
+    const snapshot = await this.store.loadDraft(slug)
     if (snapshot === null) return null
+    // An invalid draft is the AUTHOR'S error and must surface as such. Before
+    // request-time rendering it could not: a broken edit left the last good
+    // render on disk, so the iframe kept showing a page that no longer
+    // described the definition, indefinitely and with nothing to signal it.
+    if (!snapshot.result.ok) throw new InvalidDefinitionError(slug, snapshot.result.errors)
 
     let name = decodeURIComponent(rel).replace(/^\/+/, '')
     if (name === '' || name.endsWith('/')) name += 'index.html'
-    name = path.normalize(name).split(path.sep).join('/')
+    name = normalizeRel(name)
     if (name === '..' || name.startsWith('../')) return null
 
     if (name.startsWith('assets/')) {
-      const file = this.store.asset(slug, name.slice('assets/'.length))
-      return file === null ? null : { kind: 'file', file }
+      const body = await this.store.readAsset(slug, name.slice('assets/'.length))
+      if (body === null) return null
+      return {
+        kind: 'bytes',
+        contentType: MIME[extname(name)] ?? 'application/octet-stream',
+        body,
+      }
     }
 
     const rendered = await this.render(slug, channel, snapshot)
@@ -151,13 +126,13 @@ export class PreviewRenderer {
     // somewhere else.
     const key = rendered.files.has(name)
       ? name
-      : path.extname(name) === '' && rendered.files.has(`${name}.html`)
+      : extname(name) === '' && rendered.files.has(`${name}.html`)
         ? `${name}.html`
         : null
     if (key === null) return null
     return {
       kind: 'text',
-      contentType: MIME[path.extname(key)] ?? 'application/octet-stream',
+      contentType: MIME[extname(key)] ?? 'application/octet-stream',
       body: rendered.files.get(key)!,
     }
   }
@@ -170,7 +145,8 @@ export class PreviewRenderer {
     const key = `${slug}\0${channel}`
     const hit = this.cache.get(key)
     if (hit && hit.stamp === snapshot.stamp) return hit.rendered
-    const rendered = await renderSiteFiles(snapshot.loaded, { edit: channel === 'edit' })
+    if (!snapshot.result.ok) throw new InvalidDefinitionError(slug, snapshot.result.errors)
+    const rendered = await renderSiteFiles(snapshot.result.value, { edit: channel === 'edit' })
     this.cache.set(key, { stamp: snapshot.stamp, rendered })
     return rendered
   }
