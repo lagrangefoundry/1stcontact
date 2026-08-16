@@ -6,7 +6,7 @@ title: Asking what the assistant is answers with the role it offers and whether 
   can run, without opening a conversation
 created_by: xgd
 created_at: '2026-08-10T08:35:25.190109+00:00'
-updated_at: '2026-08-16T05:37:46.618998+00:00'
+updated_at: '2026-08-16T05:45:59.607164+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
