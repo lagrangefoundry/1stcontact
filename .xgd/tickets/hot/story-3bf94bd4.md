@@ -6,9 +6,9 @@ title: Click the words on my page and change them, and watch the page update in 
   of me
 created_by: xgd
 created_at: '2026-08-07T02:15:12.017937+00:00'
-updated_at: '2026-08-16T04:19:55.652387+00:00'
+updated_at: '2026-08-16T22:01:10.900016+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -97,7 +97,10 @@ first two steps — pointing and filling in a form — are the operator's.
   announced without a mouse, and it holds the keyboard from the moment the
   dialog opens — on the tile the region currently holds.
 - **The words in a box, the parameters under it.** A run's words open in the
-  **dressed editing box** that mirrors the page's own presentation around them;
+  **dressed editing box** that mirrors the page's own presentation — both the
+  paint *behind* the words and, where a run's glyphs are painted by its own
+  background rather than by a colour, the paint that *is* the words, so no run
+  ever opens as an empty box the operator is typing into blind;
   how that run is set opens in a **quiet sheet beneath the box**, labelled, with
   the words still the thing the operator came for. Which half a field lands in is
   decided by **the kind of control the field declares** — never by the region's
@@ -248,6 +251,34 @@ open form.
   criterion, because a run that declares no size of its own is given no size
   control at all, so there is no gesture through which an operator can reach
   that path and no assertion an AC could carry for it.
+- **Two reads that both answer "what colour are these words", and the one
+  background that is not a backdrop.** The dressing asks two separate questions
+  and a run can answer either one. The backdrop read deliberately begins **one
+  element past** the edited run, because its question is what sits *behind* the
+  copy; an ancestor-or-sibling layer qualifies and the run's own background does
+  not. That is correct for a surface and wrong for the single case where the
+  run's background is not a surface at all: a gradient-filled run is compiled the
+  way every browser expects it — a background image on the run itself, clipped to
+  the text, with a transparent fill colour — so the glyphs **are** that
+  background showing through their own shape. Read separately the two halves are
+  each individually invisible, which is exactly what happened: the box copied a
+  transparent foreground over a correct backdrop and showed nothing. So the clip
+  is the condition that makes an element's own background readable as glyph paint
+  rather than as a surface, and it is carried across as its own set of
+  properties. It lands on the **control that draws the words**, not on the box,
+  for a mechanical reason: `background-image` does not inherit, and the box's own
+  background is the mirrored backdrop, which is a different thing. Each
+  declaration falls back to the property's initial value, so a run with no glyph
+  fill — every run in `storage/` but one — computes exactly what it computed
+  before those declarations existed.
+- **A foreground that paints nothing is not reproduced, and that is the general
+  backstop.** A resolved foreground that computes fully transparent is withheld
+  rather than written, leaving the box on the chrome's own colour — the same
+  fallback every segment with no preview already gets. It is deliberately not
+  scoped to the gradient case: it is what makes any future axis that paints its
+  glyphs some other way degrade to *legible but not yet mirrored* rather than to
+  invisible copy, which is the one failure the operator cannot diagnose by
+  looking.
 - **The parameter-to-preview mapping is a table, and the interesting part is
   what is absent from it.** A parameter with no entry shows nothing rather than
   a default that would dress the box in a value the page will not use. A run's
