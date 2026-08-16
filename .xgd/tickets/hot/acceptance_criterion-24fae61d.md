@@ -6,7 +6,7 @@ title: 'The assistant is offered only granted site operations: no filesystem ope
   and no operation that names a site'
 created_by: xgd
 created_at: '2026-08-10T08:36:02.679145+00:00'
-updated_at: '2026-08-16T05:09:05.206080+00:00'
+updated_at: '2026-08-16T05:22:34.763596+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
