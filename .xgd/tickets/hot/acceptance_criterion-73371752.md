@@ -3,12 +3,12 @@ uid: acceptance_criterion-73371752
 id: AC-1080
 type: acceptance_criterion
 title: 'What a consumer is told about the surface is a projection of it: every offered
-  operation, the error meanings, and the declared absences'
+  operation, the error meanings, the addressing rule, and the declared absences'
 created_by: xgd
 created_at: '2026-08-10T09:06:38.849239+00:00'
-updated_at: '2026-08-16T03:05:00.578898+00:00'
+updated_at: '2026-08-16T03:06:23.267216+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-93905de4
