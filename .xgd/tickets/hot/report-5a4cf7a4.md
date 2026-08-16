@@ -6,7 +6,7 @@ title: 'Capability-Intent Alignment: Builder Workspace: Chrome, Origin & Display
   (level=ac)'
 created_by: xgd
 created_at: '2026-08-16T09:43:06.493421+00:00'
-updated_at: '2026-08-16T09:46:46.844251+00:00'
+updated_at: '2026-08-16T09:46:56.326984+00:00'
 completed_at: null
 last_field_updated: body
 result: fail
@@ -92,3 +92,11 @@ All 30 ACs are status active, kind behavior, regression_only false. Twenty-five 
 | *the copy read/apply transport, semantics-free, over this origin* | REQ-117 | **gap: no AC** — violation 3 |
 
 **Coverage of the STORY-99 body is otherwise complete.** Every in-scope bullet maps to at least one AC: single address to AC-964 and AC-971; components consumed not copied to AC-961, AC-962, AC-963, AC-1030; scope written once to AC-960; one tab filling the window to AC-959, AC-975, AC-976; panel modes to AC-968, AC-969, AC-1029; toolbar to AC-970, AC-967, AC-971, AC-972, AC-1110; request-time channels to AC-1031 through AC-1036; split and persistence to AC-973 and AC-974; freshness to AC-977; confinement to AC-978 and AC-979. The anchoring paragraph in Technical Context, stated there as 'now … a criterion of its own', is AC-1030.
+
+
+
+**FINDINGS**
+
+| # | Severity | Property | Element | Resolution category | Issue | Suggested edit |
+|---|---|---|---|---|---|---|
+| 1 | violation | consistency | AC-966 (acceptance_criterion-4c720b7e) | ac-edit | AC-966 states the served bytes are 'identical to **the rendered artifact** the platform produced … not a placeholder, **a re-generation**, or a differently-serialised copy'. REQ-119 (free_and_reconciled, merged 2026-08-10) replaced exactly that model, and the STORY-99 body now reads 'The draft-side channels are produced on request, not fetched off a shelf … **There is no rendered artifact for the workspace to serve**' and 'one production of a page, with a writer and a reader over it'. The shipped path **is** a re-generation — byte-identical by construction, not by artifact-serving. The exclusion AC-966 makes is therefore false of what ships, and its premise (that an artifact exists to be served) is contradicted by its own sibling AC-1031. The evidence follows the stale wording: tests/reconciliation-builder-workspace-origin.test.ts:114-141 renders to disk in makeWorkspace (:83-91) and compares one page of one channel against storage/dist/sites/alpha/draft/index.html, with the comment 'not a placeholder, a re-generation, or a differently-serialised copy' at :116-117 | Rewrite AC-966 to its one surviving unique claim — *with a site selected, the display panel displays that site rendered in the active mode* — and drop the byte-identity and asset clauses to AC-1032 and AC-1031 respectively (see finding 4). Delete 'a re-generation' from the exclusion list: it names the shipped mechanism |
