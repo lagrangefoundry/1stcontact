@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-143
 created_by: xgd
 created_at: '2026-08-16T01:29:08.349684+00:00'
-updated_at: '2026-08-16T01:33:34.639092+00:00'
+updated_at: '2026-08-16T21:17:28.202559+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -51,5 +51,33 @@ Five questions where different answers produce materially different work. Each h
 **Recommendation:** **you** run `wrangler d1 create 1stcontact` and give me the id (or add it yourself); I'll land the binding with the name in place. I won't create resources on your account unprompted. Tell me if you'd rather I run it.
 
 One flag, not a question: the ticket's §4 risk is real and unchanged — remote D1 is unproven anywhere in the lagrange stack. Everything I build here will be proven against miniflare/workerd locally; first-remote-deploy stays an open unknown until `bin/deploy` runs for real.
+
+<!-- xgd-turn id="b62fc106-d296-442e-8be9-0c20d95b5346-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T21:17:28.069853+00:00" -->
+#### You
+Please read the docs - we have a design for tenancy - please use it
+
+```
+((.venv-working) ) martin@nyx 1stcontact %  wrangler d1 create 1stcontact
+
+ ⛅️ wrangler 4.38.0 (update available 4.123.0)
+──────────────────────────────────────────────
+✅ Successfully created DB '1stcontact' in region WNAM
+Created your new D1 database.
+
+To access your new D1 Database in your Worker, add the following snippet to your configuration file:
+{
+  "d1_databases": [
+    {
+      "binding": "_1stcontact",
+      "database_name": "1stcontact",
+      "database_id": "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+    }
+  ]
+}
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
