@@ -6,7 +6,7 @@ title: A failure after a turn has begun streaming is delivered inside the stream
   followed by the completion that releases the caller
 created_by: xgd
 created_at: '2026-08-10T08:36:16.777249+00:00'
-updated_at: '2026-08-16T05:09:11.722088+00:00'
+updated_at: '2026-08-16T05:22:40.643175+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
