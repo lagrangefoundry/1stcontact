@@ -6,14 +6,15 @@ title: A control the toolbar replaces stops reacting, so a workspace held open a
   nothing
 created_by: xgd
 created_at: '2026-08-10T11:19:04.966985+00:00'
-updated_at: '2026-08-10T11:28:01.127639+00:00'
+updated_at: '2026-08-16T10:03:30.077815+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
