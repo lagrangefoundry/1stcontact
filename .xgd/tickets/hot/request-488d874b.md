@@ -5,10 +5,10 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-16T01:16:12.740488+00:00'
+updated_at: '2026-08-16T01:37:45.373820+00:00'
 completed_at: null
-last_field_updated: body
-status: ready_to_reconcile
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -17,10 +17,18 @@ fields:
   - working_sha: 2dbf7e705ed58294e3ede858ee834530ca2f5912
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: c60cbf756a056f0afcca065147093aeae8f20361
     reconcile_sha: null
     main_sha: null
-  version: 0.1.48
+    working_sha_history: []
+  - working_sha: da7d31b388e51407e48754b243ee6ab3f4743a0e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8581a924ff56bc405b155186e11ad8ff3cc03cce
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.52
 ---
 
 # 1st contact system KB
