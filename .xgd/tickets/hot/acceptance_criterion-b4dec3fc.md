@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: A picture declares which part of itself its box shows
 created_by: xgd
 created_at: '2026-08-12T21:11:32.431804+00:00'
-updated_at: '2026-08-12T21:23:01.401331+00:00'
+updated_at: '2026-08-16T08:44:57.561097+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
