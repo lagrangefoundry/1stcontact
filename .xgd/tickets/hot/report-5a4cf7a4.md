@@ -6,7 +6,7 @@ title: 'Capability-Intent Alignment: Builder Workspace: Chrome, Origin & Display
   (level=ac)'
 created_by: xgd
 created_at: '2026-08-16T09:43:06.493421+00:00'
-updated_at: '2026-08-16T09:46:35.998308+00:00'
+updated_at: '2026-08-16T09:46:46.844251+00:00'
 completed_at: null
 last_field_updated: body
 result: fail
@@ -79,3 +79,16 @@ REQ-145 being draft is load-bearing: the STORY-99 clause 'the origin runs outsid
 **ALIGNMENT LEDGER**
 
 All 30 ACs are status active, kind behavior, regression_only false. Twenty-five are aligned with no finding: AC-959, AC-960, AC-961, AC-962, AC-963, AC-967, AC-968, AC-969, AC-970, AC-971, AC-972, AC-973, AC-974, AC-975, AC-976, AC-977, AC-978, AC-979, AC-1029, AC-1030, AC-1031, AC-1032, AC-1033, AC-1034, AC-1035, AC-1110. The exceptions and the two gaps are below.
+
+
+
+| Element | Intents aligned to | Outcome |
+|---|---|---|
+| AC-964 one host, nothing reinterpreted | REQ-115, REQ-119 (deviation clause) | aligned; evidence narrower than the criterion — warning 6 |
+| AC-965 unconfigured vs unreachable origin | REQ-115, via the capability body | **no story-body anchor** — warning 7 |
+| AC-966 view mode byte-identical to the rendered artifact | REQ-115, **superseded by REQ-119** | **stale: contradicts the request-time model; subsumed by AC-1032 and AC-1031** — violation 1, warning 4 |
+| AC-1036 channel addresses resolve as before, never outside the channel | REQ-119 | aligned; confinement half duplicates AC-978 — warning 5 |
+| *the origin serving the client code of the editing gesture from the source the renderer is built from* | REQ-117 | **gap: no AC** — violation 2 |
+| *the copy read/apply transport, semantics-free, over this origin* | REQ-117 | **gap: no AC** — violation 3 |
+
+**Coverage of the STORY-99 body is otherwise complete.** Every in-scope bullet maps to at least one AC: single address to AC-964 and AC-971; components consumed not copied to AC-961, AC-962, AC-963, AC-1030; scope written once to AC-960; one tab filling the window to AC-959, AC-975, AC-976; panel modes to AC-968, AC-969, AC-1029; toolbar to AC-970, AC-967, AC-971, AC-972, AC-1110; request-time channels to AC-1031 through AC-1036; split and persistence to AC-973 and AC-974; freshness to AC-977; confinement to AC-978 and AC-979. The anchoring paragraph in Technical Context, stated there as 'now … a criterion of its own', is AC-1030.
