@@ -6,7 +6,7 @@ title: 'Two sites are two conversations: a turn changes only its own site, and e
   transcript holds only its own turns'
 created_by: xgd
 created_at: '2026-08-10T08:35:52.915839+00:00'
-updated_at: '2026-08-16T05:22:32.651868+00:00'
+updated_at: '2026-08-16T05:46:08.969835+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
