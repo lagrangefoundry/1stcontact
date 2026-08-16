@@ -43,15 +43,15 @@ const unwrap = (answer: string): string =>
   answer.replace(/^<<<untrusted>>>\n/, '').replace(/\n<<<\/untrusted>>>$/, '')
 
 interface Box {
-  run: (tool: string, input: Record<string, unknown>) => string
+  run: (tool: string, input: Record<string, unknown>) => Promise<string>
   toolNames: () => string[]
   manual: () => string
 }
 
 const caretaker = (root = cwd): Promise<Box> => createL1Toolbox(SLUG, { cwd: root })
 
-const json = <T,>(box: Box, tool: string, input: Record<string, unknown> = {}): T =>
-  JSON.parse(unwrap(box.run(tool, input))) as T
+const json = async <T,>(box: Box, tool: string, input: Record<string, unknown> = {}): Promise<T> =>
+  JSON.parse(unwrap(await box.run(tool, input))) as T
 
 function fresh(prefix: string): string {
   const root = mkdtempSync(path.join(tmpdir(), prefix))
@@ -161,7 +161,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     const box = await caretaker()
 
     // A whole palette — several entries — in ONE call.
-    expect(box.run('set_config', { key: 'palette', settings: PALETTE })).not.toContain(
+    expect(await box.run('set_config', { key: 'palette', settings: PALETTE })).not.toContain(
       'SCHEMA_INVALID',
     )
     expect(readSite().palette).toEqual(PALETTE)
@@ -169,7 +169,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     // Naming ONE entry must not delete its siblings. Under replace-at-key this
     // call would drop `ink` and both surfaces, and nothing would say so until
     // someone looked at the site.
-    box.run('set_config', { key: 'palette', settings: { primary: { value: '#0f3f52' } } })
+    await box.run('set_config', { key: 'palette', settings: { primary: { value: '#0f3f52' } } })
     const palette = readSite().palette
     expect(palette.primary.value).toBe('#0f3f52')
     expect(palette.ink).toEqual(PALETTE.ink)
@@ -180,7 +180,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     // …and the merge reaches deeper than one level, shown where the settings
     // actually have depth: naming one typography field leaves the group intact.
     const typographyBefore = readSite().theme.typography
-    box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
+    await box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
     const typographyAfter = readSite().theme.typography
     expect(typographyAfter.baseSizePx).toBe(19)
     expect({ ...typographyAfter, baseSizePx: typographyBefore.baseSizePx }).toEqual(typographyBefore)
@@ -191,8 +191,8 @@ describe('story-b3de4571 — a site’s settings are written as structured value
       { label: 'How it works', target: { kind: 'anchor', pageId: 'home', moduleId: 'how' } },
       { label: 'Home', target: { kind: 'page', pageId: 'home' } },
     ]
-    box.run('set_config', { key: 'nav', settings: { pattern: 'in-page-anchors', entries } })
-    box.run('set_config', { key: 'nav', settings: { entries: [entries[1]] } })
+    await box.run('set_config', { key: 'nav', settings: { pattern: 'in-page-anchors', entries } })
+    await box.run('set_config', { key: 'nav', settings: { entries: [entries[1]] } })
     expect(readSite().nav.entries).toEqual([entries[1]])
     // ...while the scalar sibling written alongside it is still merged.
     expect(readSite().nav.pattern).toBe('in-page-anchors')
@@ -206,7 +206,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     // under the same rule, so a single scalar setting stays reachable without a
     // second operation.
     expect(
-      box.run('set_config', { settings: { config: { tagline: 'Sites that keep themselves' } } }),
+      await box.run('set_config', { settings: { config: { tagline: 'Sites that keep themselves' } } }),
     ).not.toContain('SCHEMA_INVALID')
     const site = readSite()
     expect(site.config.tagline).toBe('Sites that keep themselves')
@@ -227,7 +227,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     // command line requires the key positionally, so nothing reaches that branch
     // from either boundary. Its wording is therefore not asserted here.)
     const before = readFileSync(sitePath(), 'utf8')
-    const refused = box.run('set_config', { settings: 'in-page-anchors' as unknown as never })
+    const refused = await box.run('set_config', { settings: 'in-page-anchors' as unknown as never })
     expect(refused).toMatch(/must be an object/i)
     expect(readFileSync(sitePath(), 'utf8')).toBe(before)
 
@@ -236,9 +236,9 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     // accepted straight after, writing the single setting the refused call meant
     // and leaving the site's other settings whole.
     const TAGLINE = 'Sites that look after themselves'
-    expect(box.run('set_config', { key: 'config', settings: { tagline: TAGLINE } })).not.toContain(
-      'SCHEMA_INVALID',
-    )
+    expect(
+      await box.run('set_config', { key: 'config', settings: { tagline: TAGLINE } }),
+    ).not.toContain('SCHEMA_INVALID')
     const repaired = readSite()
     expect(repaired.config.tagline).toBe(TAGLINE)
     expect(repaired.config.businessName).toBeTruthy()
@@ -247,13 +247,13 @@ describe('story-b3de4571 — a site’s settings are written as structured value
 
   it('test_UAT_AC1097_a_settings_value_the_site_schema_rejects_leaves_the_site_unchanged', async () => {
     const box = await caretaker()
-    box.run('set_config', { key: 'palette', settings: PALETTE })
+    await box.run('set_config', { key: 'palette', settings: PALETTE })
     const before = readFileSync(sitePath(), 'utf8')
 
     // A palette entry whose value is not the declared form. Widening the
     // parameter to carry an object must not widen what the site accepts: the
     // shared validator still runs over the whole resulting definition.
-    const refused = box.run('set_config', {
+    const refused = await box.run('set_config', {
       key: 'palette',
       settings: { accent: { value: 'cornflower' } },
     })
@@ -261,7 +261,7 @@ describe('story-b3de4571 — a site’s settings are written as structured value
 
     // No part of the write lands — not even the keys that were individually fine.
     expect(readFileSync(sitePath(), 'utf8')).toBe(before)
-    const group = json<{ value: Record<string, unknown> }>(box, 'get_config', { key: 'palette' })
+    const group = await json<{ value: Record<string, unknown> }>(box, 'get_config', { key: 'palette' })
     expect(group.value).toEqual(PALETTE)
     expect(Object.keys(group.value)).not.toContain('accent')
   })
@@ -278,7 +278,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
 
   it('test_UAT_AC1098_the_catalog_is_listable_and_closed', async () => {
     const box = await caretaker()
-    const { behaviors } = json<{ behaviors: any[] }>(box, 'list_behaviors')
+    const { behaviors } = await json<{ behaviors: any[] }>(box, 'list_behaviors')
     expect(behaviors.length).toBeGreaterThan(0)
 
     const form = behaviors.find((b) => b.type === 'contact-form')
@@ -297,7 +297,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
 
     // Closed: a kind that is not in the set is NOT_FOUND, and the refusal names
     // what the catalog does hold and says a new kind is a developer's work.
-    const refused = box.run('add_component', {
+    const refused = await box.run('add_component', {
       page: 'home',
       name: 'checkout',
       behavior: 'payments',
@@ -345,7 +345,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
       ],
     }
     expect(
-      box.run('add_component', {
+      await box.run('add_component', {
         page: 'home',
         name: 'signup',
         behavior: 'contact-form',
@@ -370,15 +370,17 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
       label: string
       module?: string
     }
-    const map = json<{ segments: MapSegment[] }>(box, 'describe_page', { page: 'home' })
+    const map = await json<{ segments: MapSegment[] }>(box, 'describe_page', { page: 'home' })
     const inside = map.segments.find((s) => s.module === 'signup')
     expect(inside).toBeDefined()
-    const node = json<{ node: Record<string, unknown> }>(box, 'get_l1', {
-      page: 'home',
-      path: inside!.path,
-      module: 'signup',
-      slot: 'form',
-    }).node
+    const node = (
+      await json<{ node: Record<string, unknown> }>(box, 'get_l1', {
+        page: 'home',
+        path: inside!.path,
+        module: 'signup',
+        slot: 'form',
+      })
+    ).node
     expect(node).toEqual(readPage().modules[0].slots.form)
 
     // ...and REPLACED through the same write path: the words above the message
@@ -387,14 +389,16 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // call knows it is addressing a component.
     const label = map.segments.find((s) => s.module === 'signup' && s.kind === 'text')
     expect(label!.label).toBe('What do you need?')
-    const labelNode = json<{ node: Record<string, unknown> }>(box, 'get_l1', {
-      page: 'home',
-      path: label!.path,
-      module: 'signup',
-      slot: 'form',
-    }).node
+    const labelNode = (
+      await json<{ node: Record<string, unknown> }>(box, 'get_l1', {
+        page: 'home',
+        path: label!.path,
+        module: 'signup',
+        slot: 'form',
+      })
+    ).node
     expect(
-      box.run('set_l1', {
+      await box.run('set_l1', {
         page: 'home',
         path: label!.path,
         module: 'signup',
@@ -419,7 +423,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // A kind with no default look, added with no presentation, is refused with
     // the seams it needs named — not left to fail later at render.
     seedSlot('gallery', 'carousel')
-    const noLook = box.run('add_component', {
+    const noLook = await box.run('add_component', {
       page: 'home',
       name: 'gallery',
       behavior: 'carousel',
@@ -470,7 +474,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // still green.
     seedSlot('reviews', 'carousel')
     expect(
-      box.run('add_component', {
+      await box.run('add_component', {
         page: 'home',
         name: 'reviews',
         behavior: 'carousel',
@@ -497,7 +501,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // `action` is declared required by contact-form's OWN contract. A form with
     // nowhere to send its enquiries must be refused at the field, not discovered
     // at render — so this check runs ahead of the site's definition validator.
-    const refused = box.run('add_component', {
+    const refused = await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
@@ -530,13 +534,13 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
 
     // The page is unchanged, and no instance of that name exists on it.
     expect(readFileSync(pagePath(), 'utf8')).toBe(before)
-    const map = json<{ components: { id: string }[] }>(box, 'describe_page', { page: 'home' })
+    const map = await json<{ components: { id: string }[] }>(box, 'describe_page', { page: 'home' })
     expect(map.components.find((c) => c.id === 'signup')).toBeUndefined()
   })
 
   it('test_UAT_AC1101_reconfiguring_merges_and_removing_leaves_the_seam_in_place', async () => {
     const box = await caretaker()
-    box.run('add_component', {
+    await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
@@ -547,7 +551,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     // Merged, like a settings group: changing the button's words must not lose
     // the endpoint the form posts to.
     expect(
-      box.run('configure_component', {
+      await box.run('configure_component', {
         page: 'home',
         name: 'signup',
         config: { submitLabel: 'Get early access' },
@@ -559,7 +563,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     expect(config.fields).toEqual(FORM_CONFIG.fields)
 
     // The merged result is re-checked against the contract before it is stored.
-    const badMerge = box.run('configure_component', {
+    const badMerge = await box.run('configure_component', {
       page: 'home',
       name: 'signup',
       config: { fields: [{ name: 'phone', label: 'Phone', type: 'carrier-pigeon' }] },
@@ -569,15 +573,15 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
 
     // Removing takes only the instance off; the seam survives its occupant so
     // another component can be mounted there.
-    box.run('remove_component', { page: 'home', name: 'signup' })
+    await box.run('remove_component', { page: 'home', name: 'signup' })
     expect(readPage().modules).toEqual([])
     expect(JSON.stringify(readPage().l1.root)).toContain('"name":"signup-form"')
 
     // A name that is not on the page is NOT_FOUND for either operation.
-    expect(box.run('configure_component', { page: 'home', name: 'ghost', config: {} })).toContain(
+    expect(await box.run('configure_component', { page: 'home', name: 'ghost', config: {} })).toContain(
       'NOT_FOUND',
     )
-    expect(box.run('remove_component', { page: 'home', name: 'ghost' })).toContain('NOT_FOUND')
+    expect(await box.run('remove_component', { page: 'home', name: 'ghost' })).toContain('NOT_FOUND')
   })
 
   it('test_UAT_AC1102_describing_a_page_reports_its_components_and_their_configuration', async () => {
@@ -585,10 +589,10 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
 
     // A page with nothing on it still reports the list — present and empty, so a
     // caller can tell "none" from "not supported".
-    const empty = json<{ components: unknown[] }>(box, 'describe_page', { page: 'home' })
+    const empty = await json<{ components: unknown[] }>(box, 'describe_page', { page: 'home' })
     expect(empty.components).toEqual([])
 
-    box.run('add_component', {
+    await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
@@ -596,7 +600,7 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
       config: FORM_CONFIG,
     })
 
-    const map = json<{
+    const map = await json<{
       components: {
         id: string
         type: string
@@ -632,7 +636,7 @@ describe('story-b3de4571 — a page describes itself to a search engine', () => 
     const box = await caretaker()
 
     // Written on creation.
-    box.run('add_page', {
+    await box.run('add_page', {
       page: 'about',
       title: 'About',
       seo: { title: 'About XGD', description: 'Who builds it and why.' },
@@ -643,14 +647,14 @@ describe('story-b3de4571 — a page describes itself to a search engine', () => 
     })
 
     // Merged on update: improving a description must not clear the title.
-    box.run('update_page', { page: 'about', seo: { description: 'The people behind XGD.' } })
+    await box.run('update_page', { page: 'about', seo: { description: 'The people behind XGD.' } })
     expect(readPage('about').seoMeta).toEqual({
       title: 'About XGD',
       description: 'The people behind XGD.',
     })
 
     // An update naming nothing is refused, saying what may be passed.
-    const refused = box.run('update_page', { page: 'about' })
+    const refused = await box.run('update_page', { page: 'about' })
     expect(refused).toContain('SCHEMA_INVALID')
     const fromCli = await cli(cwd, 'page', 'update', SLUG, 'about')
     expect(fromCli.ok).toBe(false)
@@ -661,7 +665,7 @@ describe('story-b3de4571 — a page describes itself to a search engine', () => 
     expect(readPage('about').seoMeta.title).toBe('About XGD')
 
     // And it reaches the rendered document — the reason it is worth a parameter.
-    box.run('update_page', {
+    await box.run('update_page', {
       page: 'home',
       seo: { title: 'XGD — AI writes it.', description: 'A living spec of intended behaviour.' },
     })
@@ -740,7 +744,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   it('test_UAT_AC1104_a_drawing_becomes_an_ordinary_site_image_and_ships_unaltered', async () => {
     const box = await caretaker()
 
-    const written = json<{ asset: { id: string; src: string; alt: string } }>(box, 'write_image', {
+    const written = await json<{ asset: { id: string; src: string; alt: string } }>(box, 'write_image', {
       name: 'wordmark',
       svg: MARK,
       alt: 'The XGD wireframe mark',
@@ -753,12 +757,12 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
 
     // The listing every image picker reads reports it as an image.
-    const listed = json<{ assets: { src: string; kind: string }[] }>(box, 'list_assets')
+    const listed = await json<{ assets: { src: string; kind: string }[] }>(box, 'list_assets')
     expect(listed.assets.find((a) => a.src === '/assets/wordmark.svg')?.kind).toBe('image')
 
     // Referenced from a picture element through the ordinary L1 write path...
-    const root = json<{ node: any }>(box, 'get_l1', { page: 'home', path: '0' }).node
-    box.run('set_l1', {
+    const root = (await json<{ node: any }>(box, 'get_l1', { page: 'home', path: '0' })).node
+    await box.run('set_l1', {
       page: 'home',
       path: '0',
       node: {
@@ -782,7 +786,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     const before = readFileSync(sitePath(), 'utf8')
 
     for (const [what, hostile] of HOSTILE) {
-      const answer = box.run('write_image', { name: 'attack', svg: hostile, alt: what })
+      const answer = await box.run('write_image', { name: 'attack', svg: hostile, alt: what })
       expect(answer, what).toContain('SCHEMA_INVALID')
       // The refusal identifies the rule that was broken rather than saying only
       // "invalid" — and it is never a rewrite: nothing is stripped to make the
@@ -795,7 +799,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     expect(readFileSync(sitePath(), 'utf8')).toBe(before)
   })
 
-  it('test_UAT_AC1106_the_grammar_refuses_what_it_does_not_name_and_bounds_size_and_count', () => {
+  it('test_UAT_AC1106_the_grammar_refuses_what_it_does_not_name_and_bounds_size_and_count', async () => {
     // A well-formed drawing validates.
     expect(validateSvg(MARK).ok).toBe(true)
 
@@ -829,7 +833,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     // plain lowercase word of letters, digits and hyphens.
     const BAD_NAMES = ['../../etc/passwd', 'a/b', 'mark.png', '.hidden', 'Mark Two']
     for (const name of BAD_NAMES) {
-      expect(box.run('write_image', { name, svg: MARK }), name).toContain('SCHEMA_INVALID')
+      expect(await box.run('write_image', { name, svg: MARK }), name).toContain('SCHEMA_INVALID')
       // The refusal shows an ACCEPTABLE name rather than restating the rule —
       // read at the command line, where a refusal's own text survives.
       const fromCli = await cli(cwd, 'asset', 'write', SLUG, name, '--content', MARK)
@@ -842,20 +846,20 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     expect(existsSync(assetsDir) ? readdirSync(assetsDir) : []).toEqual([])
 
     // The stored filename is derived from the plain name under the one format.
-    const written = json<{ asset: { id: string } }>(box, 'write_image', {
+    const written = await json<{ asset: { id: string } }>(box, 'write_image', {
       name: 'wordmark',
       svg: MARK,
     })
     expect(written.asset.id).toBe('wordmark.svg')
 
     // A name already in use is a conflict, never a silent overwrite.
-    expect(box.run('write_image', { name: 'wordmark', svg: MARK })).toContain('CONFLICT')
+    expect(await box.run('write_image', { name: 'wordmark', svg: MARK })).toContain('CONFLICT')
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
 
     // Replacing is a deliberate act, and then the stored bytes are the new ones.
-    expect(box.run('write_image', { name: 'wordmark', svg: REDRAWN, replace: true })).not.toContain(
-      'CONFLICT',
-    )
+    expect(
+      await box.run('write_image', { name: 'wordmark', svg: REDRAWN, replace: true }),
+    ).not.toContain('CONFLICT')
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(REDRAWN)
   })
 
@@ -887,7 +891,7 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     expect(tools).not.toContain('add_asset')
     expect(tools).not.toContain('remove_asset')
 
-    box.run('write_image', { name: 'wordmark', svg: MARK, alt: 'mark' })
+    await box.run('write_image', { name: 'wordmark', svg: MARK, alt: 'mark' })
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
   })
 })
@@ -1055,41 +1059,41 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
 
     // ── the equivalent surface calls ────────────────────────────────────────
     const box = await caretaker(viaSurface)
-    box.run('add_component', {
+    await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
       slot: 'signup-form',
       config: FORM_CONFIG,
     })
-    box.run('configure_component', {
+    await box.run('configure_component', {
       page: 'home',
       name: 'signup',
       config: { submitLabel: 'Get early access' },
     })
-    box.run('add_component', {
+    await box.run('add_component', {
       page: 'home',
       name: 'spare',
       behavior: 'contact-form',
       slot: 'spare',
       config: FORM_CONFIG,
     })
-    box.run('remove_component', { page: 'home', name: 'spare' })
-    box.run('write_image', { name: 'wordmark', svg: MARK, alt: 'The XGD wireframe mark' })
-    box.run('write_image', {
+    await box.run('remove_component', { page: 'home', name: 'spare' })
+    await box.run('write_image', { name: 'wordmark', svg: MARK, alt: 'The XGD wireframe mark' })
+    await box.run('write_image', {
       name: 'wordmark',
       svg: REDRAWN,
       alt: 'The XGD wireframe mark',
       replace: true,
     })
-    box.run('add_page', {
+    await box.run('add_page', {
       page: 'about',
       title: 'About',
       seo: { title: 'About XGD', description: 'Who builds it and why.' },
     })
-    box.run('update_page', { page: 'about', seo: { description: 'The people behind XGD.' } })
-    box.run('set_config', { key: 'palette', settings: PALETTE })
-    box.run('set_config', { key: 'palette', settings: { primary: { value: '#0f3f52' } } })
+    await box.run('update_page', { page: 'about', seo: { description: 'The people behind XGD.' } })
+    await box.run('set_config', { key: 'palette', settings: PALETTE })
+    await box.run('set_config', { key: 'palette', settings: { primary: { value: '#0f3f52' } } })
 
     // ── the stored definitions agree ────────────────────────────────────────
     // The merge rule applied, the drawing under its generated filename, the

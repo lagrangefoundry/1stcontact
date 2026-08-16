@@ -1,8 +1,12 @@
 /**
- * The file-backed site store (DOC-12): path resolution, definition loading +
- * validation, full-snapshot revisions, whole-snapshot diffing, and the publish
- * history. This is the file-backed half of what the eventual D1/R2 layer
- * (REQ-7) will mirror.
+ * The site store (DOC-12): path resolution, definition loading + validation,
+ * full-snapshot revisions, whole-snapshot diffing, and the publish history.
+ *
+ * ⚠️ THIS BARREL IS NODE-ONLY (REQ-142). It re-exports `fsutil` and the
+ * filesystem adapter, so importing it pulls `node:fs` into the graph. Code that
+ * has to run in a Worker imports the port and the model modules directly —
+ * `./site-store`, `./assemble`, `./journal-model`, `./memory-store` — none of
+ * which reach the filesystem. `edit.ts` is the standing example.
  */
 export type { Root, RenderChannel, StoreContext } from './paths'
 export {
@@ -34,6 +38,21 @@ export {
 export type { SiteSource, LoadedSite, LoadResult } from './loadSite'
 export { loadSite } from './loadSite'
 
+export type { SiteParts } from './assemble'
+export { assembleSite } from './assemble'
+
+export type {
+  DraftSnapshot,
+  PendingChanges,
+  SiteStore,
+  SiteWrite,
+  StoredAsset,
+  StoredPage,
+} from './site-store'
+export { fsSiteStore } from './fs-store'
+export type { MemorySiteSeed, MemorySiteStore } from './memory-store'
+export { memorySiteStore } from './memory-store'
+
 export type { Snapshot } from './snapshot'
 export { snapshot, nextRevisionId } from './snapshot'
 
@@ -45,12 +64,13 @@ export { readHistory, appendHistory, liveRevision } from './history'
 export type { DraftBase } from './base'
 export { readDraftBase, writeDraftBase } from './base'
 
-export type { EditActor, JournalRecord, ChangeSlice } from './journal'
+export type { EditActor, JournalRecord, ChangeSlice, JournalFile } from './journal'
 export {
   appendChange,
   changesSince,
   clip,
   draftCounter,
+  readJournal,
   JOURNAL_TEXT_LIMIT,
   JOURNAL_WINDOW,
 } from './journal'

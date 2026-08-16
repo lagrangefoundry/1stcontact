@@ -14,6 +14,7 @@ import {
   L1_SURFACE_VERSION,
 } from '../tools/generate/src/cli/ai/toolbox'
 import type { L1Node } from '@1stcontact/site-schema'
+import { fsOpts } from './support/site-factory'
 
 /**
  * REQ-126 — **the L1 control surface as a declared API** (DOC-30).
@@ -160,7 +161,7 @@ describe('REQ-126 — the surface is declared as data', () => {
     // nothing documents, validates or audits. Checked without the framework, so
     // drift is caught even where the shared store is absent.
     const declared = (L1_DECLARATION.operations as { op: string }[]).map((o) => o.op).sort()
-    const implemented = Object.keys(l1Operations(SLUG, { cwd })).sort()
+    const implemented = Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()
     expect(implemented).toEqual(declared)
   })
 

@@ -35,6 +35,7 @@ import {
 // package, and a suite at the repo root resolves neither. Every other test here
 // reaches source the same way.
 import { validateSvg } from '../packages/site-schema/src/svg'
+import { fsOpts } from './support/site-factory'
 
 const SLUG = 'studio'
 
@@ -71,7 +72,7 @@ function unwrap(answer: string): string {
 }
 
 interface Box {
-  run: (tool: string, input: Record<string, unknown>) => string
+  run: (tool: string, input: Record<string, unknown>) => Promise<string>
   toolNames: () => string[]
   manual: () => string
 }
@@ -80,8 +81,12 @@ function caretaker(): Promise<Box> {
   return createL1Toolbox(SLUG, { cwd })
 }
 
-function json<T>(box: Box, tool: string, input: Record<string, unknown> = {}): T {
-  return JSON.parse(unwrap(box.run(tool, input))) as T
+async function json<T>(
+  box: Box,
+  tool: string,
+  input: Record<string, unknown> = {},
+): Promise<T> {
+  return JSON.parse(unwrap(await box.run(tool, input))) as T
 }
 
 function fresh(prefix: string): void {
@@ -116,7 +121,7 @@ describe('REQ-130 — settings are structured values, not strings', () => {
     // declared `string`, so a palette family — an object of objects — had no
     // shape that could carry it, and the only thing that worked was a JSON
     // document smuggled through a string parameter and re-read downstream.
-    const answer = box.run('set_config', { key: 'palette', settings: XGD_PALETTE })
+    const answer = await box.run('set_config', { key: 'palette', settings: XGD_PALETTE })
     expect(answer).not.toContain('SCHEMA_INVALID')
 
     expect(readSite().palette).toEqual(XGD_PALETTE)
@@ -124,18 +129,18 @@ describe('REQ-130 — settings are structured values, not strings', () => {
     // And the site still validates as a whole — the palette shape was already
     // described by `siteSchema`, which is why nothing new is validated here.
     const theme = { typography: { baseSizePx: 17 } }
-    box.run('set_config', { key: 'theme', settings: theme })
+    await box.run('set_config', { key: 'theme', settings: theme })
     expect(readSite().theme.typography.baseSizePx).toBe(17)
   })
 
   it('test_UAT_FC_REQ_130_naming_one_setting_leaves_its_siblings_alone', async () => {
     const box = await caretaker()
-    box.run('set_config', { key: 'palette', settings: XGD_PALETTE })
+    await box.run('set_config', { key: 'palette', settings: XGD_PALETTE })
 
     // The property that makes an object-valued write safe rather than dangerous.
     // Under replace-at-key semantics this call would delete `ink` and `surface`,
     // and nothing would say so until someone looked at the site.
-    box.run('set_config', { key: 'palette', settings: { primary: { value: '#1d5f77' } } })
+    await box.run('set_config', { key: 'palette', settings: { primary: { value: '#1d5f77' } } })
 
     const palette = readSite().palette
     expect(palette.primary.value).toBe('#1d5f77')
@@ -147,7 +152,7 @@ describe('REQ-130 — settings are structured values, not strings', () => {
     // deep since REQ-137, so the deeper case is shown where the depth actually
     // lives: naming one typography field leaves the rest of the group standing.
     const before = readSite().theme.typography
-    box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
+    await box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
     const after = readSite().theme.typography
     expect(after.baseSizePx).toBe(19)
     expect({ ...after, baseSizePx: before.baseSizePx }).toEqual(before)
@@ -164,7 +169,7 @@ describe('REQ-130 — settings are structured values, not strings', () => {
       { label: 'How it works', target: { kind: 'anchor', pageId: 'home', moduleId: 'how' } },
       { label: 'Home', target: { kind: 'page', pageId: 'home' } },
     ]
-    const answer = box.run('set_config', {
+    const answer = await box.run('set_config', {
       key: 'nav',
       settings: { pattern: 'in-page-anchors', entries },
     })
@@ -183,10 +188,10 @@ describe('REQ-130 — settings are structured values, not strings', () => {
     // Widening the parameter must not widen what the site accepts. The shared
     // validator runs over the whole resulting definition exactly as before, so a
     // structured value is checked as strictly as a scalar ever was.
-    expect(box.run('set_config', { key: 'nav', settings: { pattern: 'carousel' } })).toContain(
+    expect(await box.run('set_config', { key: 'nav', settings: { pattern: 'carousel' } })).toContain(
       'SCHEMA_INVALID',
     )
-    expect(box.run('set_config', { key: 'palette', settings: { ink: { value: 'red' } } })).toContain(
+    expect(await box.run('set_config', { key: 'palette', settings: { ink: { value: 'red' } } })).toContain(
       'SCHEMA_INVALID',
     )
     expect(readFileSync(sitePath(), 'utf8')).toBe(before)
@@ -212,7 +217,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
 
   it('test_UAT_FC_REQ_130_the_catalog_is_closed_and_says_what_a_component_needs', async () => {
     const box = await caretaker()
-    const { behaviors } = json<{ behaviors: any[] }>(box, 'list_behaviors')
+    const { behaviors } = await json<{ behaviors: any[] }>(box, 'list_behaviors')
 
     const form = behaviors.find((b) => b.type === 'contact-form')
     expect(form).toBeDefined()
@@ -230,7 +235,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
 
     // Authoring a NEW kind is development with a vetting bar, so the catalog is
     // closed and a miss says what it holds rather than inventing an instance.
-    const refused = box.run('add_component', {
+    const refused = await box.run('add_component', {
       page: 'home',
       name: 'x',
       behavior: 'payments',
@@ -245,7 +250,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
 
     // The ticket's second acceptance case, in one call — because L2 supplies the
     // look from the config, and the look is then ordinary L1.
-    const answer = box.run('add_component', {
+    const answer = await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
@@ -276,7 +281,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
     // `config` is checked against the behavior's OWN declared contract, not just
     // the site schema — which is the whole reason a caller can be handed a
     // component to configure at all.
-    const answer = box.run('add_component', {
+    const answer = await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
@@ -289,7 +294,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
 
   it('test_UAT_FC_REQ_130_configures_and_removes_an_instance', async () => {
     const box = await caretaker()
-    box.run('add_component', {
+    await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
@@ -299,7 +304,7 @@ describe('REQ-130 — components are instantiated, never authored', () => {
 
     // Merged, like a settings group: changing the button's words must not lose
     // the endpoint the form posts to.
-    box.run('configure_component', {
+    await box.run('configure_component', {
       page: 'home',
       name: 'signup',
       config: { submitLabel: 'Get early access' },
@@ -310,11 +315,11 @@ describe('REQ-130 — components are instantiated, never authored', () => {
     expect(config.fields).toHaveLength(1)
 
     // The page map is where a caller sees what is already there.
-    const map = json<{ components: any[] }>(box, 'describe_page', { page: 'home' })
+    const map = await json<{ components: any[] }>(box, 'describe_page', { page: 'home' })
     expect(map.components).toHaveLength(1)
     expect(map.components[0]).toMatchObject({ id: 'signup', type: 'contact-form', slot: 'signup-form' })
 
-    box.run('remove_component', { page: 'home', name: 'signup' })
+    await box.run('remove_component', { page: 'home', name: 'signup' })
     expect(readPage().modules).toEqual([])
     // The seam survives its occupant, so another component can go there.
     expect(JSON.stringify(readPage().l1.root)).toContain('"name":"signup-form"')
@@ -330,7 +335,7 @@ describe('REQ-130 — a page can describe itself to a search engine', () => {
   it('test_UAT_FC_REQ_130_seo_metadata_is_written_on_add_and_merged_on_update', async () => {
     const box = await caretaker()
 
-    box.run('add_page', {
+    await box.run('add_page', {
       page: 'about',
       title: 'About',
       seo: { title: 'About XGD', description: 'Who builds it and why.' },
@@ -342,7 +347,7 @@ describe('REQ-130 — a page can describe itself to a search engine', () => {
 
     // Merged: an operator asking for a better description must not lose the
     // title they already have.
-    box.run('update_page', { page: 'about', seo: { description: 'The people behind XGD.' } })
+    await box.run('update_page', { page: 'about', seo: { description: 'The people behind XGD.' } })
     expect(readPage('about').seoMeta).toEqual({
       title: 'About XGD',
       description: 'The people behind XGD.',
@@ -351,7 +356,7 @@ describe('REQ-130 — a page can describe itself to a search engine', () => {
 
   it('test_UAT_FC_REQ_130_seo_metadata_reaches_the_rendered_page', async () => {
     const box = await caretaker()
-    box.run('update_page', {
+    await box.run('update_page', {
       page: 'home',
       seo: { title: 'XGD — AI writes it.', description: 'A living spec of intended behaviour.' },
     })
@@ -443,7 +448,7 @@ describe('REQ-130 — the generated image is closed by content, not by extension
   it('test_UAT_FC_REQ_130_a_drawing_is_written_and_referenced_from_a_page', async () => {
     const box = await caretaker()
 
-    const written = json<{ asset: { id: string; src: string } }>(box, 'write_image', {
+    const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
       name: 'wordmark',
       svg: MARK,
       alt: 'The XGD wireframe mark',
@@ -455,12 +460,12 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
 
     // It is a first-class asset: the listing every picker reads reports it.
-    const listed = json<{ assets: { src: string; kind: string }[] }>(box, 'list_assets')
+    const listed = await json<{ assets: { src: string; kind: string }[] }>(box, 'list_assets')
     expect(listed.assets.find((a) => a.src === '/assets/wordmark.svg')?.kind).toBe('image')
 
     // ...and it reaches the page through the ordinary L1 write path.
-    const root = json<{ node: any }>(box, 'get_l1', { page: 'home', path: '0' }).node
-    box.run('set_l1', {
+    const root = (await json<{ node: any }>(box, 'get_l1', { page: 'home', path: '0' })).node
+    await box.run('set_l1', {
       page: 'home',
       path: '0',
       node: {
@@ -490,7 +495,7 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     // served same-origin from the site's own /assets/ — so the renderer's
     // URL-scheme allowlist neither applies nor helps.
     for (const [what, hostile] of HOSTILE) {
-      const answer = box.run('write_image', { name: 'attack', svg: hostile })
+      const answer = await box.run('write_image', { name: 'attack', svg: hostile })
       expect(answer, what).toContain('SCHEMA_INVALID')
     }
 
@@ -499,7 +504,7 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     expect(readFileSync(sitePath(), 'utf8')).toBe(before)
   })
 
-  it('test_UAT_FC_REQ_130_the_grammar_refuses_what_it_does_not_recognise', () => {
+  it('test_UAT_FC_REQ_130_the_grammar_refuses_what_it_does_not_recognise', async () => {
     // The property that makes the allowlist worth having: there is no
     // skip-what-we-do-not-know branch, so a construct nobody anticipated is a
     // refusal rather than a pass. Tested at the validator, because that is where
@@ -522,7 +527,7 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     expect(validateSvg(detailed).ok).toBe(true)
   })
 
-  it('test_UAT_FC_REQ_130_an_allowed_entity_does_not_vouch_for_the_ones_after_it', () => {
+  it('test_UAT_FC_REQ_130_an_allowed_entity_does_not_vouch_for_the_ones_after_it', async () => {
     // The rule is per-`&`, not per-value. A check that looked only at the first
     // `&` would let one legitimate entity stand surety for every entity behind
     // it — and the payload that exploits it is not the obvious one. `&#x28;` and
@@ -557,16 +562,16 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     // traverse because there is no path, and the one extension is the one text
     // format a model can actually produce.
     for (const name of ['../../etc/passwd', 'a/b', 'mark.png', '.hidden', 'Mark Two']) {
-      expect(box.run('write_image', { name, svg: MARK }), name).toContain('SCHEMA_INVALID')
+      expect(await box.run('write_image', { name, svg: MARK }), name).toContain('SCHEMA_INVALID')
     }
 
     // An existing name is a conflict rather than a silent overwrite; replacing
     // one is a deliberate act.
-    box.run('write_image', { name: 'wordmark', svg: MARK })
-    expect(box.run('write_image', { name: 'wordmark', svg: MARK })).toContain('CONFLICT')
+    await box.run('write_image', { name: 'wordmark', svg: MARK })
+    expect(await box.run('write_image', { name: 'wordmark', svg: MARK })).toContain('CONFLICT')
 
     const redrawn = MARK.replace('#2e86a3', '#1d5f77')
-    box.run('write_image', { name: 'wordmark', svg: redrawn, replace: true })
+    await box.run('write_image', { name: 'wordmark', svg: redrawn, replace: true })
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(redrawn)
   })
 })
@@ -591,7 +596,7 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
     // A method with no declaration is a capability nothing documents, validates
     // or audits; a declaration with no method is a startup failure on an
     // operator's machine with a turn in flight.
-    expect(Object.keys(l1Operations(SLUG, { cwd })).sort()).toEqual([...declared].sort())
+    expect(Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()).toEqual([...declared].sort())
 
     const groups = (L1_DECLARATION.groups as { group: string }[]).map((g) => g.group)
     const granted = (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups
@@ -636,7 +641,7 @@ describe('REQ-130 — the modal still reaches copy inside an AI-added component'
     fresh('req130-modal-')
     seedSlot()
     const box = await caretaker()
-    box.run('add_component', {
+    await box.run('add_component', {
       page: 'home',
       name: 'signup',
       behavior: 'contact-form',
@@ -659,7 +664,7 @@ describe('REQ-130 — the modal still reaches copy inside an AI-added component'
 
     // The map is the modal's own idea of where things are, and it must reach
     // inside the instance the assistant created.
-    const map = json<{ segments: { path: string; kind: string; module?: string; slot?: string }[] }>(
+    const map = await json<{ segments: { path: string; kind: string; module?: string; slot?: string }[] }>(
       box,
       'describe_page',
       { page: 'home' },

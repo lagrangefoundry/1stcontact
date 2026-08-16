@@ -16,6 +16,7 @@ import { createL1Toolbox, L1_DECLARATION } from '../tools/generate/src/cli/ai/to
 import { JOURNAL_WINDOW } from '../tools/generate/src/store'
 import type { ChangeSlice } from '../tools/generate/src/store'
 import type { L1Node } from '@1stcontact/site-schema'
+import { fsOpts } from './support/site-factory'
 
 /**
  * REQ-131 — **the draft change journal**.
@@ -62,25 +63,25 @@ function seedPage(): void {
   writeFileSync(pagePath(), JSON.stringify(home, null, 2))
 }
 
-function changes(since?: number): ChangeSlice {
-  return editChanges(SLUG, since, { cwd }).data as ChangeSlice
+async function changes(since?: number): Promise<ChangeSlice> {
+  return (await editChanges(SLUG, since, fsOpts(cwd))).data as ChangeSlice
 }
 
 // ── the counter ──────────────────────────────────────────────────────────────
 
 describe('REQ-131 — every write advances a count, and a refusal does not', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req131-counter-'))
     cmdNew(SLUG, { cwd })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
-  it('test_UAT_FC_REQ_131_a_write_returns_a_higher_count_and_a_refusal_returns_none', () => {
+  it('test_UAT_FC_REQ_131_a_write_returns_a_higher_count_and_a_refusal_returns_none', async () => {
     // AC-1. The count is the whole mechanism: it is what a caller holds so that
     // anything past it is, by construction, somebody else's work.
-    const first = editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'One.' }, { cwd })
-    const second = editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Two.' }, { cwd })
+    const first = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'One.' }, fsOpts(cwd))
+    const second = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Two.' }, fsOpts(cwd))
 
     expect(first.at).toBeGreaterThan(0)
     expect(second.at).toBeGreaterThan(first.at as number)
@@ -88,44 +89,42 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
     // A refused write is refused BEFORE a byte lands, so there is nothing to
     // record and nothing to count. An address that resolves to nothing is the
     // cheapest way to reach that path honestly.
-    expect(() =>
-      editCopySet(SLUG, 'home', '9.9.9', { text: 'nope' }, { cwd }),
-    ).toThrow()
+    await expect(editCopySet(SLUG, 'home', '9.9.9', { text: 'nope' }, fsOpts(cwd))).rejects.toThrow()
 
-    expect(changes().now).toBe(second.at)
-    expect(changes(second.at).changes).toEqual([])
+    expect((await changes()).now).toBe(second.at)
+    expect((await changes(second.at)).changes).toEqual([])
   })
 
-  it('test_UAT_FC_REQ_131_asking_since_the_current_count_is_the_cheap_nothing_happened_answer', () => {
+  it('test_UAT_FC_REQ_131_asking_since_the_current_count_is_the_cheap_nothing_happened_answer', async () => {
     // AC-2. An empty slice, not an error — this is the call the assistant makes
     // most often and it has to be boring.
-    const write = editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Only me.' }, { cwd })
+    const write = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Only me.' }, fsOpts(cwd))
 
-    const slice = changes(write.at)
+    const slice = await changes(write.at)
     expect(slice.changes).toEqual([])
     expect(slice.now).toBe(write.at)
     expect(slice.truncated).toBe(false)
     expect(slice.since).toBe(write.at)
   })
 
-  it('test_UAT_FC_REQ_131_a_caller_reading_its_own_count_back_never_sees_its_own_edits', () => {
+  it('test_UAT_FC_REQ_131_a_caller_reading_its_own_count_back_never_sees_its_own_edits', async () => {
     // AC-4, and the reason no actor filtering is needed anywhere in this design:
     // a caller that advances its baseline as it writes has already absorbed its
     // own work into it. The arithmetic attributes; the actor field only explains.
-    let baseline = changes().now
+    let baseline = (await changes()).now
     for (const text of ['A.', 'B.', 'C.']) {
-      const out = editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, { cwd })
-      expect(changes(baseline).changes).toHaveLength(1) // exactly the one just made
+      const out = await editCopySet(SLUG, 'home', HEADLINE_PATH, { text }, fsOpts(cwd))
+      expect((await changes(baseline)).changes).toHaveLength(1) // exactly the one just made
       baseline = out.at as number
     }
-    expect(changes(baseline).changes).toEqual([])
+    expect((await changes(baseline)).changes).toEqual([])
   })
 
-  it('test_UAT_FC_REQ_131_the_journal_is_not_a_revision_and_is_not_committed', () => {
+  it('test_UAT_FC_REQ_131_the_journal_is_not_a_revision_and_is_not_committed', async () => {
     // It lives beside the site, never inside `draft/` — so it cannot be captured
     // by a snapshot or perturb byte-identity — and it is gitignored, because a
     // record of every keystroke-settle is not something a checkout should carry.
-    editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Written.' }, { cwd })
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Written.' }, fsOpts(cwd))
 
     const siteRoot = path.join(cwd, 'storage', 'sites', SLUG)
     expect(existsSync(path.join(siteRoot, '.journal.json'))).toBe(true)
@@ -143,27 +142,27 @@ describe('REQ-131 — every write advances a count, and a refusal does not', () 
 // ── what a record says ───────────────────────────────────────────────────────
 
 describe('REQ-131 — a record says what happened, in words that outlive the address', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req131-records-'))
     cmdNew(SLUG, { cwd })
     seedPage()
   })
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
-  it('test_UAT_FC_REQ_131_a_client_copy_edit_records_the_page_a_label_and_both_texts', () => {
+  it('test_UAT_FC_REQ_131_a_client_copy_edit_records_the_page_a_label_and_both_texts', async () => {
     // AC-3. The record has to be readable by someone who was not there: the page
     // it happened on, something to recognise the thing by, and what the words
     // said before and after.
-    const before = changes().now
-    editCopySet(
+    const before = (await changes()).now
+    await editCopySet(
       SLUG,
       'home',
       HEADLINE_PATH,
       { text: 'A warmer welcome.' },
-      { cwd, actor: 'client' },
+      { ...fsOpts(cwd), actor: 'client' },
     )
 
-    const [record] = changes(before).changes
+    const [record] = (await changes(before)).changes
     expect(record.actor).toBe('client')
     expect(record.page).toBe('home')
     expect(record.label).toBe(HEADLINE) // the segment map's own label, not a second one
@@ -172,16 +171,16 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
     expect(record.summary).toContain('home')
   })
 
-  it('test_UAT_FC_REQ_131_a_record_survives_the_structural_change_that_invalidates_its_address', () => {
+  it('test_UAT_FC_REQ_131_a_record_survives_the_structural_change_that_invalidates_its_address', async () => {
     // AC-6. THE reason records carry text rather than a pointer. An L1 address is
     // render-scoped (DOC-28 §5.2): re-shape the tree and `0.0` means something
     // else, or nothing. The record still reads.
-    const before = changes().now
-    editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Still here.' }, { cwd, actor: 'client' })
+    const before = (await changes()).now
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Still here.' }, { ...fsOpts(cwd), actor: 'client' })
 
     // Now replace the whole root with a differently-shaped tree, so the address
     // the record was taken against no longer reaches what it reached.
-    editL1Set(
+    await editL1Set(
       SLUG,
       'home',
       '0',
@@ -193,10 +192,10 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
           { kind: 'box', children: [{ kind: 'text', text: 'Moved down a level.' }] },
         ],
       },
-      { cwd },
+      fsOpts(cwd),
     )
 
-    const [copyEdit, structural] = changes(before).changes
+    const [copyEdit, structural] = (await changes(before)).changes
     // Unresolvable now — and irrelevant, because nothing reads it to render the
     // answer.
     expect(copyEdit.path).toBe(HEADLINE_PATH)
@@ -208,14 +207,14 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
     expect(structural.after).toBe('Moved down a level.')
   })
 
-  it('test_UAT_FC_REQ_131_writes_beyond_the_page_tree_are_recorded_too', () => {
+  it('test_UAT_FC_REQ_131_writes_beyond_the_page_tree_are_recorded_too', async () => {
     // The journal covers the whole write surface, not only copy: an operator who
     // repaints the site between turns has changed it just as much.
-    const before = changes().now
-    editPaletteAdd(SLUG, 'primary', '#2e86a3', { cwd, actor: 'client' })
-    editPaletteSet(SLUG, 'primary', '#101822', { cwd, actor: 'client' })
+    const before = (await changes()).now
+    await editPaletteAdd(SLUG, 'primary', '#2e86a3', { ...fsOpts(cwd), actor: 'client' })
+    await editPaletteSet(SLUG, 'primary', '#101822', { ...fsOpts(cwd), actor: 'client' })
 
-    const [added, set] = changes(before).changes
+    const [added, set] = (await changes(before)).changes
     expect(added.op).toBe('palette.add')
     expect(added.after).toBe('#2e86a3')
     expect(set.op).toBe('palette.set')
@@ -223,22 +222,22 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
     expect(set.after).toBe('#101822')
   })
 
-  it('test_UAT_FC_REQ_131_an_over_old_baseline_says_so_rather_than_answering_half', () => {
+  it('test_UAT_FC_REQ_131_an_over_old_baseline_says_so_rather_than_answering_half', async () => {
     // AC-5. The window is bounded, so the honest answer past its edge is "I
     // cannot tell you everything" — which routes the caller to a full read
     // rather than to a confident, incomplete list.
-    const start = changes().now
+    const start = (await changes()).now
     for (let i = 0; i < JOURNAL_WINDOW + 5; i++) {
-      editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, { cwd })
+      await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: `Take ${i}.` }, fsOpts(cwd))
     }
 
-    const stale = changes(start)
+    const stale = await changes(start)
     expect(stale.truncated).toBe(true)
     expect(stale.changes.length).toBe(JOURNAL_WINDOW) // whatever remains, still returned
     expect(stale.now).toBe(start + JOURNAL_WINDOW + 5)
 
     // A baseline INSIDE the window is answered in full, as normal.
-    const recent = changes(stale.now - 2)
+    const recent = await changes(stale.now - 2)
     expect(recent.truncated).toBe(false)
     expect(recent.changes).toHaveLength(2)
   })
@@ -247,7 +246,7 @@ describe('REQ-131 — a record says what happened, in words that outlive the add
 // ── the declared surface ─────────────────────────────────────────────────────
 
 describe('REQ-131 — the operation is declared, granted, and marked third-party', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'req131-surface-'))
     cmdNew(SLUG, { cwd })
     seedPage()
@@ -275,7 +274,7 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
     // AC-8. A journal is the operator's own prose — the very words they typed —
     // re-entering the model's context. DOC-30 S5 names exactly this, and the
     // `inproc` default would have marked it trusted.
-    editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Words a person typed.' }, { cwd, actor: 'client' })
+    await editCopySet(SLUG, 'home', HEADLINE_PATH, { text: 'Words a person typed.' }, { ...fsOpts(cwd), actor: 'client' })
 
     const box = await createL1Toolbox(SLUG, { cwd })
     // `await`, because `Toolbox.run` is async in the shared library. It reads as
@@ -305,7 +304,7 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
     ) as { now: number }
 
     expect(written.now).toBeGreaterThan(0)
-    expect(changes(written.now).changes).toEqual([])
+    expect((await changes(written.now)).changes).toEqual([])
   })
 
   it('test_UAT_FC_REQ_131_every_write_hands_the_count_back_including_the_ones_that_answer_with_an_asset', async () => {
@@ -327,7 +326,7 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
       })) as string,
     ) as { now: number }
     expect(drawn.now).toBeGreaterThan(0)
-    expect(changes(drawn.now).changes).toEqual([])
+    expect((await changes(drawn.now)).changes).toEqual([])
 
     // And the declaration says so, so the model is told the field is there
     // rather than having to notice it. A returned field the manual never
@@ -375,7 +374,7 @@ describe('REQ-131 — a session is TOLD when the site moved under it', () => {
     rmSync(cwd, { recursive: true, force: true })
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     rmSync(sessionsDir({ cwd }), { recursive: true, force: true })
     resetAiHost()
   })

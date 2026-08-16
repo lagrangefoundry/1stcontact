@@ -1,9 +1,11 @@
 import { journalPath } from './paths'
 import type { StoreContext } from './paths'
 import { pathExists, readJson, writeJson } from './fsutil'
+import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
+import { emptyJournal, nextJournal, normalizeJournal, sliceSince } from './journal-model'
 
 /**
- * The draft change journal (REQ-131, DOC-33 §7.9 / §13).
+ * The draft change journal (REQ-131, DOC-33 §7.9 / §13), on the filesystem.
  *
  * WHAT PROBLEM THIS SOLVES. The page editor lets the operator change copy,
  * images and parameters on the draft at any moment, including between two turns
@@ -42,103 +44,31 @@ import { pathExists, readJson, writeJson } from './fsutil'
  * need to survive a clone: losing it degrades a caller to a full read (see
  * {@link ChangeSlice.truncated}), which is the same fallback an over-old
  * baseline already takes. Correctness never depends on the journal existing.
- */
-
-/** Who made a change. Recorded for the answer, never for the comparison. */
-export type EditActor = 'ai' | 'client' | 'cli'
-
-/** One entry in the journal, as it is stored and as it is read back. */
-export interface JournalRecord {
-  /** The counter this write produced. Strictly increasing across the site. */
-  at: number
-  /** When it landed, ISO-8601. */
-  ts: string
-  actor: EditActor
-  /** The operation that produced it, e.g. `copy.set`, `l1.set`, `palette.set`. */
-  op: string
-  /** The page it happened on, when it happened on one. */
-  page?: string
-  /** The address it was recorded against — for orientation only; see the note above. */
-  path?: string
-  module?: string
-  slot?: string
-  /** A human-readable identity for the thing that changed. */
-  label?: string
-  /** The text before, when the change was textual. Bounded. */
-  before?: string
-  /** The text after, when the change was textual. Bounded. */
-  after?: string
-  /** One line describing what happened, in the same words the command reports. */
-  summary: string
-}
-
-/** What {@link changesSince} answers with. */
-export interface ChangeSlice {
-  /** The counter that was asked about. */
-  since: number
-  /** The site's counter now. Equal to `since` when nothing has happened. */
-  now: number
-  /**
-   * True when the window no longer reaches back to `since`, so `changes` is not
-   * the whole story and the caller should re-read what it cares about instead.
-   */
-  truncated: boolean
-  changes: JournalRecord[]
-}
-
-/**
- * How many records are retained.
  *
- * Sized so that a whole consultation session (DOC-33's 4–5 hours) never
- * truncates in practice: the measured page carries 73 segments, so 500 records
- * is several complete rewrites of a page plus everything else a session does.
- * Truncation is a graceful degradation rather than a failure, so the number is
- * chosen to make it rare, not to make it impossible.
+ * THE ARITHMETIC IS NOT HERE (REQ-142). What counter a record gets, and what the
+ * window can still speak for, live in {@link ./journal-model} — shared with the
+ * in-memory adapter, so the two cannot come to disagree about the one number the
+ * whole mechanism rests on. This module is the `.journal.json` binding and
+ * nothing else.
  */
-export const JOURNAL_WINDOW = 500
 
-/** How much of a text value a record carries before it is cut. */
-export const JOURNAL_TEXT_LIMIT = 300
+export type { EditActor, JournalRecord, ChangeSlice, JournalFile } from './journal-model'
+export { clip, JOURNAL_TEXT_LIMIT, JOURNAL_WINDOW } from './journal-model'
 
-interface JournalFile {
-  version: 1
-  /** The monotone counter. Never decreases, and is NOT `records.length`. */
-  counter: number
-  records: JournalRecord[]
-}
-
-const EMPTY: JournalFile = { version: 1, counter: 0, records: [] }
-
-/**
- * Read the journal, or an empty one.
- *
- * A malformed or unreadable file reads as empty rather than throwing: the
- * journal is an optimisation over re-reading, and a corrupt one must degrade to
- * "I cannot tell you what changed" and never to "your edit failed".
- */
-function read(ctx: StoreContext, slug: string): JournalFile {
+/** Read the journal, or an empty one. Never throws — see `normalizeJournal`. */
+export function readJournal(ctx: StoreContext, slug: string): JournalFile {
   const file = journalPath(ctx, slug)
-  if (!pathExists(file)) return { ...EMPTY, records: [] }
+  if (!pathExists(file)) return emptyJournal()
   try {
-    const raw = readJson<Partial<JournalFile>>(file)
-    return {
-      version: 1,
-      counter: typeof raw.counter === 'number' ? raw.counter : 0,
-      records: Array.isArray(raw.records) ? raw.records : [],
-    }
+    return normalizeJournal(readJson<unknown>(file))
   } catch {
-    return { ...EMPTY, records: [] }
+    return emptyJournal()
   }
-}
-
-/** Cut a value to the record limit, marking that it was cut. */
-export function clip(text: string): string {
-  return text.length > JOURNAL_TEXT_LIMIT ? `${text.slice(0, JOURNAL_TEXT_LIMIT - 1)}…` : text
 }
 
 /** The site's current change count. Zero for a site nothing has been written to. */
 export function draftCounter(ctx: StoreContext, slug: string): number {
-  return read(ctx, slug).counter
+  return readJournal(ctx, slug).counter
 }
 
 /**
@@ -158,36 +88,17 @@ export function appendChange(
   slug: string,
   entry: Omit<JournalRecord, 'at' | 'ts'> & { ts?: string },
 ): number {
-  const journal = read(ctx, slug)
-  const at = journal.counter + 1
-  const record: JournalRecord = { ...entry, at, ts: entry.ts ?? new Date().toISOString() }
-  const records = [...journal.records, record].slice(-JOURNAL_WINDOW)
+  const journal = readJournal(ctx, slug)
+  const next = nextJournal(journal, entry)
   try {
-    writeJson(journalPath(ctx, slug), { version: 1, counter: at, records })
+    writeJson(journalPath(ctx, slug), next)
   } catch {
     return journal.counter
   }
-  return at
+  return next.counter
 }
 
-/**
- * Every change after `since`, plus where the counter stands now.
- *
- * `since` omitted means "everything retained", which is bounded by the window
- * and by each record's own text limit. `since` at the current counter is the
- * cheap "nothing happened" answer: an empty list, not an error.
- */
-export function changesSince(
-  ctx: StoreContext,
-  slug: string,
-  since?: number,
-): ChangeSlice {
-  const journal = read(ctx, slug)
-  const from = typeof since === 'number' && Number.isFinite(since) ? Math.max(0, Math.trunc(since)) : 0
-  const changes = journal.records.filter((r) => r.at > from)
-  // The oldest counter the window can still speak for. With no records at all
-  // that is "the next write", which is why an untouched site reports nothing
-  // truncated while a site whose records have aged out reports that it has.
-  const earliest = journal.records.length ? journal.records[0].at : journal.counter + 1
-  return { since: from, now: journal.counter, truncated: earliest > from + 1, changes }
+/** Every change after `since`, plus where the counter stands now. */
+export function changesSince(ctx: StoreContext, slug: string, since?: number): ChangeSlice {
+  return sliceSince(readJournal(ctx, slug), since)
 }

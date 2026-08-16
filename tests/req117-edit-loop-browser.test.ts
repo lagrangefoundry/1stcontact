@@ -20,6 +20,7 @@ import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { cmdNew, cmdRender, editCopyGet, startBuilder, type BuilderHandle } from '../tools/generate/src/cli'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { fsOpts } from './support/site-factory'
 
 const REPO = path.resolve(__dirname, '..')
 
@@ -175,7 +176,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 the loop in a real browser', () => {
         await expect.poll(() => seg(page).textContent(), { timeout: 20000 }).toContain(
           'Edited in the browser',
         )
-        expect(editCopyGet('alpha', pageId, addr, { cwd }).data).toMatchObject({
+        expect((await editCopyGet('alpha', pageId, addr, fsOpts(cwd))).data).toMatchObject({
           values: { text: 'Edited in the browser' },
         })
       } finally {
