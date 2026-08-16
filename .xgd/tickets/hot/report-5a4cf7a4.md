@@ -6,7 +6,7 @@ title: 'Capability-Intent Alignment: Builder Workspace: Chrome, Origin & Display
   (level=ac)'
 created_by: xgd
 created_at: '2026-08-16T09:43:06.493421+00:00'
-updated_at: '2026-08-16T09:47:37.873462+00:00'
+updated_at: '2026-08-16T09:47:46.305265+00:00'
 completed_at: null
 last_field_updated: body
 result: fail
@@ -118,3 +118,11 @@ All 30 ACs are status active, kind behavior, regression_only false. Twenty-five 
 **NOTES FOR THE EDITOR**
 
 **Findings 2, 3, 6 and 7 are one drift with one root cause.** STORY-99 was written against the REQ-115 origin — workspace document, components, browser source, channels, listing, publish — and its in-scope enumeration never grew as REQ-117 added two more seams to that same origin and as the CAP-85 body took on clauses about them. The story body is narrower than the capability body above it and narrower than the ACs below it, which is why one behaviour has an AC but no story bullet (finding 7), two have neither (findings 2 and 3), and the evidence for one AC quietly inherited the short list of the story (finding 6). Repairing the four independently will not hold; widen the STORY-99 origin enumeration once, then let the AC edits follow.
+
+
+
+**Findings 2 and 3 must be resolved in the same direction as REPORT-2100 findings 1 and 2, not independently.** Both admit two defensible resolutions: retain the seams here with reachability-only ACs, or narrow the CAP-85 body and let the editing capability own them whole. If the story-level editor picks 'narrow', authoring ACs here would create the duplication with AC-1006 and AC-999 that REPORT-2100 explicitly warns against. **Read REPORT-2100 (report-4d9be4ea) before acting on findings 2 and 3.**
+
+**Finding 1 is a different class and is independent of all of the above.** It is not a missing enumeration but a *superseded* claim left in place: REQ-119 changed what the origin does and AC-966 still describes the predecessor. It is repairable now, without waiting on the story-level cycle, and finding 4 is the same repair seen from the exclusivity side. The seven ACs authored on 2026-08-10 were written correctly against the new model; only AC-966, which predates them, was never revisited.
+
+**Not a finding, recorded.** AC-963 and AC-960 both assert scope-correctness of component references, which reads as duplication on a first pass. It is not: the AC-960 sweep enumerates *tracked* files, and the workspace document is generated, never committed — AC-963 says so explicitly, 'the one produced now, never a copy of it committed to the repository'. The two cover disjoint surfaces and both are needed.
