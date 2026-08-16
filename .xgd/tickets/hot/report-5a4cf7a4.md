@@ -6,7 +6,7 @@ title: 'Capability-Intent Alignment: Builder Workspace: Chrome, Origin & Display
   (level=ac)'
 created_by: xgd
 created_at: '2026-08-16T09:43:06.493421+00:00'
-updated_at: '2026-08-16T09:46:22.597778+00:00'
+updated_at: '2026-08-16T09:46:35.998308+00:00'
 completed_at: null
 last_field_updated: body
 result: fail
@@ -65,3 +65,17 @@ The capability has exactly one story — STORY-99 (story-e674c60a, story_kind: u
 | REQ-115 | request-a6740b4a | free_and_reconciled | 2026-07-31, merged 08-07 | Builder shell: webui consumption, site tab, multi-mode panel and toolbar. Origin of AC-959 through AC-979 | YES |
 | REQ-117 | request-395b67e6 | free_and_reconciled | 2026-07-31, merged 08-07 | Copy editing end-to-end. Contributes to **this** capability: /api/copy as a thin transport on the builder origin, and /framework/edit-client.js type-stripped from the source the renderer is built from | YES |
 | REQ-44 | — | free_and_reconciled | 2026-08-07 | Install preflight; builder explicitly ungated — no ask lands here | YES (no ask) |
+
+
+| BUG-32 | bug-5cabb340 | merged | 2026-08-08 | Component scope rename in lockstep, one definition site, browser-source exception, consumption evidence made unconditional. The window in which AC-1030 was authored | YES |
+| REQ-119 | request-64864801 | free_and_reconciled | 2026-07-31, merged 08-10 (BUNDLE-17 0198704b) | **Request-time draft and edit renders.** One render implementation (writer plus reader), *no artifact on disk*, memoised on the definition, invalid draft surfaced, published untouched. Origin of AC-1031 through AC-1036. Its own AC-1 (render inside the edge Worker) explicitly not attempted; deviation declared in STORY-99 | YES |
+| BUG-33 | bug-ede1fb8c | free_and_reconciled | 2026-08-10 (f1664c55) | Toolbar re-derives on mode **and** site; a replaced control is a detached, inert survivor. Origin of AC-1110. The only updated_by on STORY-99 | YES |
+| REQ-122 | — | free_and_reconciled | 2026-08-10 | Builder chat panel — the *content* of the secondary pane; owned elsewhere, correctly excluded (AC-973 says so explicitly) | YES (elsewhere) |
+| REQ-145 / REQ-147 | — | **draft** | 2026-08-15 | control-app becomes the builder, L1 render in workerd, proxy deleted; Access on the app host | NO — not active |
+| REQ-112 | — | **abandoned** | 2026-08-08 | — | NO |
+
+REQ-145 being draft is load-bearing: the STORY-99 clause 'the origin runs outside the edge Worker … deliberate and temporary' and the proxy-conditioned clause of AC-964 are **current, not stale**. Confirmed independently of REPORT-2100.
+
+**ALIGNMENT LEDGER**
+
+All 30 ACs are status active, kind behavior, regression_only false. Twenty-five are aligned with no finding: AC-959, AC-960, AC-961, AC-962, AC-963, AC-967, AC-968, AC-969, AC-970, AC-971, AC-972, AC-973, AC-974, AC-975, AC-976, AC-977, AC-978, AC-979, AC-1029, AC-1030, AC-1031, AC-1032, AC-1033, AC-1034, AC-1035, AC-1110. The exceptions and the two gaps are below.
