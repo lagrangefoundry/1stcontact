@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-142
 created_by: xgd
 created_at: '2026-08-16T00:22:57.314754+00:00'
-updated_at: '2026-08-16T00:29:06.248995+00:00'
+updated_at: '2026-08-16T00:35:24.416002+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -54,5 +54,11 @@ One addendum from the call-site survey I had running, which sharpens two of the 
 Also worth knowing: `builder.ts` and `fidelity.ts` contain non-UTF-8 bytes, so a plain `grep -r` silently skips them as binary. Not something to fix here, but it hid `builder.ts` from my first pass and would hide it from any later review of this refactor.
 
 I'll cut `free-REQ-142`, set `status=free_coding`, and implement on the recommendations above as soon as you confirm.
+
+<!-- xgd-turn id="2d28b353-2bb1-4a38-832b-a004a07be888-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T00:35:24.250472+00:00" -->
+#### You
+I was concerned about that - we need a site factory - please create one
 
 <!-- xgd-chat-end -->
