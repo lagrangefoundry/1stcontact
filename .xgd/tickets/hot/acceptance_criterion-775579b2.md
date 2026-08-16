@@ -6,14 +6,15 @@ title: A component is added to a page with its configuration alone and arrives r
   laid out from that configuration or from a presentation the caller supplies
 created_by: xgd
 created_at: '2026-08-10T09:34:09.207732+00:00'
-updated_at: '2026-08-16T01:03:03.283565+00:00'
+updated_at: '2026-08-16T01:57:03.374571+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
