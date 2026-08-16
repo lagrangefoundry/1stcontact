@@ -5,12 +5,13 @@ type: capability
 title: 'Assistant Pane: The Conversation Beside The Page'
 created_by: xgd
 created_at: '2026-08-10T08:45:31.120965+00:00'
-updated_at: '2026-08-10T08:45:31.120965+00:00'
+updated_at: '2026-08-16T04:42:18.701100+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   name: assistant_pane
+  uat_coverage: pass
 ---
 
 # Capability: Assistant Pane — The Conversation Beside The Page
