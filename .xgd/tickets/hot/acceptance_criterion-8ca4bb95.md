@@ -6,7 +6,7 @@ title: An unrecognized --size value is rejected with an error naming the accepte
   vocabulary
 created_by: xgd
 created_at: '2026-07-19T02:37:46.081665+00:00'
-updated_at: '2026-08-09T02:55:18.074696+00:00'
+updated_at: '2026-08-16T09:17:54.631956+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
