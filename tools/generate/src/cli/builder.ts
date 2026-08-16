@@ -3,8 +3,8 @@ import http from 'node:http'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { RenderChannel, StoreContext } from '../store'
-import { distDir } from '../store'
+import type { RenderChannel, SiteStore, StoreContext } from '../store'
+import { distDir, fsSiteStore } from '../store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
 import { cmdList, cmdPublish, ctxOf, InvalidDefinitionError, type GlobalOptions } from './commands'
 import {
@@ -18,7 +18,7 @@ import {
   editPaletteSet,
 } from './edit'
 import { CommandError } from './errors'
-import { fsDraftStore, PreviewRenderer, type PreviewChannel } from './preview'
+import { PreviewRenderer, type PreviewChannel } from './preview'
 import { NO_STORE, resolveStaticFile, sendFile } from './serve'
 import { WEBUI_PACKAGES, WEBUI_SCOPE, webuiExports, webuiPackageDir } from './webui'
 
@@ -235,6 +235,10 @@ export async function handleBuilderRequest(
 ): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const p = url.pathname
+  // Every `edit*` call below goes through this store (REQ-142). These routes are
+  // transports over the same functions `1c` dispatches to, so they hand over the
+  // same kind of options object it does.
+  const edit = { ...opts, store: builderStore(ctx) }
 
   /**
    * FRESHNESS, SET ONCE, FOR EVERY RESPONSE THIS HANDLER CAN PRODUCE.
@@ -355,7 +359,7 @@ export async function handleBuilderRequest(
         json(res, 400, { error: 'slug is required' })
         return
       }
-      json(res, 200, editAssetList(slug, opts).data)
+      json(res, 200, (await editAssetList(slug, edit)).data)
       return
     }
 
@@ -381,7 +385,7 @@ export async function handleBuilderRequest(
           json(res, 400, { error: 'slug is required' })
           return
         }
-        json(res, 200, editPaletteGet(slug, opts).data)
+        json(res, 200, (await editPaletteGet(slug, edit)).data)
         return
       }
 
@@ -404,20 +408,20 @@ export async function handleBuilderRequest(
           // operator's own hand in the builder, and the journal says so, which
           // is the difference between the assistant reading "you changed this"
           // and reading "something changed".
-          const mine = { ...opts, actor: 'client' as const }
+          const mine = { ...edit, actor: 'client' as const }
           const out =
             op === 'set'
-              ? editPaletteSet(slug, name, value, mine)
+              ? await editPaletteSet(slug, name, value, mine)
               : op === 'add'
-                ? editPaletteAdd(slug, name, value, mine)
+                ? await editPaletteAdd(slug, name, value, mine)
                 : op === 'rm'
-                  ? editPaletteRm(slug, name, mine)
-                  : editPaletteRename(slug, name, String(to ?? ''), mine)
+                  ? await editPaletteRm(slug, name, mine)
+                  : await editPaletteRename(slug, name, String(to ?? ''), mine)
           // The census travels back with every write, so the popup redraws from
           // what the store now holds rather than from its own guess at it — a
           // rename changes one name and no count, a delete changes the list, and
           // the client needs neither to know which.
-          json(res, 200, { ...(out.data as Record<string, unknown>), ...(editPaletteGet(slug, opts).data as Record<string, unknown>) })
+          json(res, 200, { ...(out.data as Record<string, unknown>), ...((await editPaletteGet(slug, edit)).data as Record<string, unknown>) })
           return
         }
         json(res, 400, { error: `unknown palette op '${op}'` })
@@ -442,7 +446,7 @@ export async function handleBuilderRequest(
           return typeof v === 'string' && v !== '' ? v : undefined
         }
         // `actor: 'client'` — REQ-131, as on the palette route above.
-        return { ...opts, actor: 'client' as const, module: read('module'), slot: read('slot') }
+        return { ...edit, actor: 'client' as const, module: read('module'), slot: read('slot') }
       }
 
       if (req.method === 'GET') {
@@ -452,7 +456,7 @@ export async function handleBuilderRequest(
           json(res, 400, { error: 'slug, page and path are required' })
           return
         }
-        json(res, 200, editCopyGet(slug, page, addr, scope(q)).data)
+        json(res, 200, (await editCopyGet(slug, page, addr, scope(q))).data)
         return
       }
 
@@ -473,7 +477,7 @@ export async function handleBuilderRequest(
         // byte, so a failure here leaves the draft and the rendered bytes
         // exactly as the user left them — the iframe they are looking at is
         // still accurate, which is what makes "surface the error" safe.
-        const out = editCopySet(slug, page, addr, values as Record<string, unknown>, scope(body))
+        const out = await editCopySet(slug, page, addr, values as Record<string, unknown>, scope(body))
         // REQ-119 — and nothing else. The save used to re-render BOTH channels
         // to disk here, because whichever one it skipped would go on serving the
         // page as it used to be, with nothing to signal the staleness. Rendering
@@ -599,11 +603,31 @@ export async function handleBuilderRequest(
  */
 const PREVIEWS = new Map<string, PreviewRenderer>()
 
+/**
+ * One {@link SiteStore} per context (REQ-142).
+ *
+ * The builder is the Node half of the system, so the adapter it injects is the
+ * filesystem one — named here, once, rather than reached for at each of the
+ * routes below. Swapping it is the whole of what DOC-12 §7's phase 2 asks of
+ * this module, which is what the port was for.
+ */
+const STORES = new Map<string, SiteStore>()
+
+export function builderStore(ctx: StoreContext): SiteStore {
+  const key = `${ctx.cwd} ${ctx.root}`
+  let store = STORES.get(key)
+  if (!store) {
+    store = fsSiteStore(ctx)
+    STORES.set(key, store)
+  }
+  return store
+}
+
 function previewRenderer(ctx: StoreContext): PreviewRenderer {
   const key = `${ctx.cwd} ${ctx.root}`
   let renderer = PREVIEWS.get(key)
   if (!renderer) {
-    renderer = new PreviewRenderer(fsDraftStore(ctx))
+    renderer = new PreviewRenderer(builderStore(ctx))
     PREVIEWS.set(key, renderer)
   }
   return renderer
@@ -646,21 +670,21 @@ async function servePreview(
     res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
     return
   }
-  if (file.kind === 'file') {
-    sendFile(res, file.file)
-    return
-  }
+  // Text or bytes, one response. An asset arrives as bytes now rather than as a
+  // filename to stream (REQ-142): the store owns where they live, and a store
+  // with no filesystem has no name to hand over.
+  const body = file.kind === 'text' ? file.body : Buffer.from(file.body)
   res
     .writeHead(200, {
       'content-type': file.contentType,
-      'content-length': Buffer.byteLength(file.body),
+      'content-length': Buffer.byteLength(body),
       // `no-store` for the same reason every other byte on this origin is: the
       // definition underneath changes while the iframe is pointed at it, and a
       // reload that answered from cache would show the edit as having silently
       // failed.
-      'cache-control': 'no-store, must-revalidate',
+      'cache-control': NO_STORE,
     })
-    .end(file.body)
+    .end(body)
 }
 
 function escapeHtml(s: string): string {

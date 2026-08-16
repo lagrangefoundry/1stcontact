@@ -10,6 +10,7 @@ import {
   L1_INSTANCES,
 } from '../tools/generate/src/cli/ai/toolbox'
 import type { L1Node } from '@1stcontact/site-schema'
+import { fsOpts } from './support/site-factory'
 
 /**
  * **Composing a page through the control surface** (story-189fc1ac).
@@ -604,7 +605,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     // forbids: the caller would have to choose, and the narrower one would
     // silently be the wrong choice for anything structural.
     const declared = (L1_DECLARATION.operations as { op: string }[]).map((o) => o.op).sort()
-    const implemented = Object.keys(l1Operations(SLUG, { cwd })).sort()
+    const implemented = Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()
 
     // Exact equality, in both directions: nothing implemented is undeclared, and
     // nothing declared is unimplemented.

@@ -33,6 +33,7 @@ import type { L1Node } from '../packages/site-schema/src/index'
 // iterates the registry rather than a hand-maintained list of module names.
 import { registry } from '../packages/framework/src/modules/registry'
 import type { BehaviorDefinition } from '../packages/framework/src/modules/behavior'
+import { fsOpts } from './support/site-factory'
 
 /**
  * story-af36c2cb — **the edit render**: a third render channel that deliberately
@@ -363,12 +364,12 @@ function resolveAddress(roots: L1Node[], address: string): L1Node | undefined {
 
 describe('story-af36c2cb — the edit render channel', () => {
   let cwd: string
-  beforeEach(() => {
+  beforeEach(async () => {
     cwd = mkdtempSync(path.join(tmpdir(), 'edit-render-'))
     cmdNew('acme', { cwd })
     seedPage(cwd, 'acme')
   })
-  afterEach(() => {
+  afterEach(async () => {
     rmSync(cwd, { recursive: true, force: true })
   })
 
@@ -979,7 +980,7 @@ describe('story-af36c2cb — the edit render channel', () => {
     const pageId = new RegExp(`${L1_EDIT_PAGE_ATTR}="([^"]*)"`).exec(indexHtml)![1]
     const address = addressOf(indexHtml, BAND_COPY)
     expect(address).not.toBe('')
-    const resolved = editCopyGet('stamped', pageId, address, { cwd }).data as {
+    const resolved = (await editCopyGet('stamped', pageId, address, fsOpts(cwd))).data as {
       kind: string
       values: Record<string, string>
     }

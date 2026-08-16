@@ -37,6 +37,7 @@ import {
   L1_INSTANCES,
 } from '../tools/generate/src/cli/ai/toolbox'
 import type { L1Node } from '@1stcontact/site-schema'
+import { fsOpts } from './support/site-factory'
 
 const SLUG = 'studio'
 const HEADLINE = 'A painted band.'
@@ -423,7 +424,7 @@ describe('REQ-129 — the AI-facing copy operations are retired, not shadowed', 
 
     // Declaration and implementation stay in correspondence — a method with no
     // declaration is a capability nothing documents, validates or audits.
-    expect(Object.keys(l1Operations(SLUG, { cwd })).sort()).toEqual([...declared].sort())
+    expect(Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()).toEqual([...declared].sort())
 
     const box = await caretaker()
     expect(box.toolNames()).toEqual(expect.arrayContaining(['get_l1', 'set_l1']))

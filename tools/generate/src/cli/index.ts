@@ -7,9 +7,11 @@ import {
   cmdPublish,
   cmdRender,
   cmdRevisions,
+  ctxOf,
   InvalidDefinitionError,
   type GlobalOptions,
 } from './commands'
+import { fsSiteStore } from '../store'
 import {
   editAssetAdd,
   editAssetGet,
@@ -38,6 +40,7 @@ import {
   editStatus,
   cmdApplyGapFixes,
   parseConfigValue,
+  type EditOptions,
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
@@ -66,6 +69,7 @@ import {
   clusterDefects,
   formatClusterReport,
 } from './fidelity'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
 import { cmdAlignedCrops } from './aligned-crops'
@@ -99,8 +103,8 @@ export { startServe, resolveStaticFile, sendFile, MIME } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
 export { startBuilder, handleBuilderRequest, chromeHtml } from './builder'
 export type { BuilderOptions, BuilderHandle } from './builder'
-export { PreviewRenderer, fsDraftStore } from './preview'
-export type { PreviewChannel, PreviewFile, DraftStore, DraftSnapshot } from './preview'
+export { PreviewRenderer } from './preview'
+export type { PreviewChannel, PreviewFile, DraftSnapshot } from './preview'
 export {
   webuiPackageDir,
   webuiExports,
@@ -1099,7 +1103,13 @@ export async function run(argv: string[]): Promise<void> {
         const gaps = report.deltas
           .filter((d) => d.property === 'gap')
           .map((d) => ({ text: d.text, expected: d.expected, actual: d.actual }))
-        emit(cmdApplyGapFixes(slug, gaps, { ...global, apply: flags.apply === true }), json)
+        emit(
+          await cmdApplyGapFixes(slug, gaps, {
+            ...editOptions(global),
+            apply: flags.apply === true,
+          }),
+          json,
+        )
       } catch (err) {
         fail(err, json)
       }
@@ -1166,12 +1176,12 @@ export async function run(argv: string[]): Promise<void> {
         const pageId = requireArg(rest[2], 'pageId')
         const addr = requireArg(rest[3], 'path')
         const scope = {
-          ...global,
+          ...editOptions(global),
           module: typeof flags.module === 'string' ? flags.module : undefined,
           slot: typeof flags.slot === 'string' ? flags.slot : undefined,
         }
         if (sub === 'get') {
-          emit(editCopyGet(slug, pageId, addr, scope), json)
+          emit(await editCopyGet(slug, pageId, addr, scope), json)
           return
         }
         if (sub !== 'set') throw unknownSub('copy', sub)
@@ -1202,7 +1212,7 @@ export async function run(argv: string[]): Promise<void> {
             path: 'values',
           })
         }
-        const out = editCopySet(slug, pageId, addr, values as Record<string, unknown>, scope)
+        const out = await editCopySet(slug, pageId, addr, values as Record<string, unknown>, scope)
         // BOTH channels, for the same reason `/api/copy` POST renders both: an
         // edit changes the page, not one rendering of it. Re-rendering only
         // `edit` leaves the draft showing whatever the last `1c render`
@@ -1237,7 +1247,7 @@ export async function run(argv: string[]): Promise<void> {
     case 'status': {
       const json = flags.json === true
       try {
-        emit(dispatchEdit(command, rest, flags, global), json)
+        emit(await dispatchEdit(command, rest, flags, global), json)
       } catch (err) {
         fail(err, json)
       }
@@ -1251,13 +1261,25 @@ export async function run(argv: string[]): Promise<void> {
   }
 }
 
+/**
+ * The CLI's store (REQ-142).
+ *
+ * `1c` edits `storage/sites/` on the operator's own machine (DOC-12 §3.1), so
+ * this is the ONE place in the CLI that names the filesystem adapter. Every
+ * `edit*` call below is handed the result and none of them can tell what it is.
+ */
+function editOptions(global: GlobalOptions): EditOptions {
+  return { ...global, store: fsSiteStore(ctxOf(global)) }
+}
+
 /** Route a structured-edit command to its handler; throws {@link CommandError}. */
-function dispatchEdit(
+async function dispatchEdit(
   command: string,
   rest: string[],
   flags: Record<string, string | boolean>,
   global: GlobalOptions,
-): EditOutput {
+): Promise<EditOutput> {
+  const opts = editOptions(global)
   const str = (name: string): string | undefined => {
     const v = flags[name]
     return typeof v === 'string' ? v : undefined
@@ -1280,7 +1302,7 @@ function dispatchEdit(
   }
 
   if (command === 'status') {
-    return editStatus(requireArg(rest[0], 'slug'), global)
+    return editStatus(requireArg(rest[0], 'slug'), opts)
   }
 
   // REQ-131 — the same journal the assistant reads, for the operator. It is on
@@ -1289,7 +1311,7 @@ function dispatchEdit(
   // to disagree about it.
   if (command === 'changes') {
     const since = str('since')
-    return editChanges(requireArg(rest[0], 'slug'), since === undefined ? undefined : Number(since), global)
+    return editChanges(requireArg(rest[0], 'slug'), since === undefined ? undefined : Number(since), opts)
   }
 
   // The catalog is the framework's, not a site's, so it takes no slug.
@@ -1306,7 +1328,7 @@ function dispatchEdit(
     switch (sub) {
       case 'add':
         return editModuleAdd(slug, pageId, requireArg(rest[3], 'moduleId'), requireArg(rest[4], 'type'), {
-          ...global,
+          ...opts,
           version: str('version') === undefined ? undefined : Number(str('version')),
           slot: str('slot'),
           config: jsonFlag('config'),
@@ -1324,28 +1346,28 @@ function dispatchEdit(
                 message: 'module set requires --config <json>.',
               })
             })(),
-          global,
+          opts,
         )
       case 'rm':
-        return editModuleRm(slug, pageId, requireArg(rest[3], 'moduleId'), global)
+        return editModuleRm(slug, pageId, requireArg(rest[3], 'moduleId'), opts)
       default:
         throw unknownSub('module', sub)
     }
   }
 
   if (command === 'page') {
-    const writeOpts = { ...global, title: str('title'), path: str('path'), seoMeta: jsonFlag('seo') }
+    const writeOpts = { ...opts, title: str('title'), path: str('path'), seoMeta: jsonFlag('seo') }
     switch (sub) {
       case 'list':
-        return editPageList(slug, global)
+        return editPageList(slug, opts)
       case 'get':
-        return editPageGet(slug, requireArg(rest[2], 'pageId'), global)
+        return editPageGet(slug, requireArg(rest[2], 'pageId'), opts)
       case 'add':
         return editPageAdd(slug, requireArg(rest[2], 'pageId'), writeOpts)
       case 'update':
         return editPageUpdate(slug, requireArg(rest[2], 'pageId'), writeOpts)
       case 'rm':
-        return editPageRm(slug, requireArg(rest[2], 'pageId'), { ...global, force })
+        return editPageRm(slug, requireArg(rest[2], 'pageId'), { ...opts, force })
       default:
         throw unknownSub('page', sub)
     }
@@ -1357,15 +1379,15 @@ function dispatchEdit(
   if (command === 'palette') {
     switch (sub) {
       case 'get':
-        return editPaletteGet(slug, global)
+        return editPaletteGet(slug, opts)
       case 'set':
-        return editPaletteSet(slug, requireArg(rest[2], 'name'), requireArg(rest[3], 'value'), global)
+        return editPaletteSet(slug, requireArg(rest[2], 'name'), requireArg(rest[3], 'value'), opts)
       case 'add':
-        return editPaletteAdd(slug, requireArg(rest[2], 'name'), requireArg(rest[3], 'value'), global)
+        return editPaletteAdd(slug, requireArg(rest[2], 'name'), requireArg(rest[3], 'value'), opts)
       case 'rm':
-        return editPaletteRm(slug, requireArg(rest[2], 'name'), global)
+        return editPaletteRm(slug, requireArg(rest[2], 'name'), opts)
       case 'rename':
-        return editPaletteRename(slug, requireArg(rest[2], 'from'), requireArg(rest[3], 'to'), global)
+        return editPaletteRename(slug, requireArg(rest[2], 'from'), requireArg(rest[3], 'to'), opts)
       default:
         throw unknownSub('palette', sub)
     }
@@ -1374,7 +1396,7 @@ function dispatchEdit(
   if (command === 'config') {
     switch (sub) {
       case 'get':
-        return editConfigGet(slug, rest[2], global)
+        return editConfigGet(slug, rest[2], opts)
       case 'set':
         // argv is the one place a value genuinely arrives as text, so it is the
         // one place the JSON re-read belongs (see `parseConfigValue`).
@@ -1382,7 +1404,7 @@ function dispatchEdit(
           slug,
           requireArg(rest[2], 'key'),
           parseConfigValue(requireArg(rest[3], 'value')),
-          global,
+          opts,
         )
       default:
         throw unknownSub('config', sub)
@@ -1392,20 +1414,36 @@ function dispatchEdit(
   // command === 'asset'
   switch (sub) {
     case 'list':
-      return editAssetList(slug, global)
+      return editAssetList(slug, opts)
     case 'get':
-      return editAssetGet(slug, requireArg(rest[2], 'assetName'), global)
-    case 'add':
-      return editAssetAdd(slug, requireArg(rest[2], 'file'), { ...global, as: str('as') })
+      return editAssetGet(slug, requireArg(rest[2], 'assetName'), opts)
+    case 'add': {
+      // The source file is the OPERATOR'S, not the store's (REQ-142), so the CLI
+      // is what opens it — and refuses a missing one with the envelope the
+      // command surface has always reported.
+      const file = requireArg(rest[2], 'file')
+      let bytes: Uint8Array
+      try {
+        bytes = new Uint8Array(readFileSync(file))
+      } catch {
+        throw new CommandError({
+          code: 'NOT_FOUND',
+          message: `Source file '${file}' does not exist.`,
+          path: file,
+          hint: 'Pass a path to a readable file.',
+        })
+      }
+      return editAssetAdd(slug, str('as') ?? path.basename(file), bytes, opts)
+    }
     case 'write':
       return editAssetWrite(
         slug,
         requireArg(rest[2], 'name'),
         requireArg(str('content'), 'content'),
-        { ...global, force, alt: str('alt') },
+        { ...opts, force, alt: str('alt') },
       )
     case 'rm':
-      return editAssetRm(slug, requireArg(rest[2], 'assetName'), { ...global, force })
+      return editAssetRm(slug, requireArg(rest[2], 'assetName'), { ...opts, force })
     default:
       throw unknownSub('asset', sub)
   }

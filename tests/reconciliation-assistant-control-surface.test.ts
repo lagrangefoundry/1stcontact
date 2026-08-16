@@ -17,6 +17,7 @@ import {
 } from '../tools/generate/src/cli/ai/toolbox'
 import { CARETAKER_ROLE } from '../tools/generate/src/cli/ai/roles'
 import type { L1Node } from '@1stcontact/site-schema'
+import { fsOpts } from './support/site-factory'
 
 /**
  * **The assistant's declared control surface** (story-93905de4).
@@ -190,7 +191,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     const declared = operations()
       .map((o) => o.op)
       .sort()
-    const callable = Object.keys(l1Operations(SLUG, { cwd })).sort()
+    const callable = Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()
     expect(callable).toEqual(declared)
 
     // Every operation that can change the site belongs to exactly one capability
@@ -498,7 +499,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     writeFileSync(homePath(), before)
     expect(headline()).toBe(HEADLINE)
 
-    editL1Set(SLUG, 'home', HEADLINE_PATH, replacement, { cwd })
+    await editL1Set(SLUG, 'home', HEADLINE_PATH, replacement, fsOpts(cwd))
 
     expect(draftBytes()).toBe(viaSurface)
   })

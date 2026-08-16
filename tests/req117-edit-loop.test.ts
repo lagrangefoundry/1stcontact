@@ -23,6 +23,7 @@ import {
   type BuilderHandle,
 } from '../tools/generate/src/cli'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { fsOpts } from './support/site-factory'
 
 const REPO = path.resolve(__dirname, '..')
 
@@ -78,7 +79,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
 
     // ...and it addresses a real node, which is the only thing that makes it
     // useful. Resolved through the definition, not the markup.
-    expect(() => editCopyGet('alpha', stamped, addr, { cwd })).not.toThrow()
+    await expect(editCopyGet('alpha', stamped, addr, fsOpts(cwd))).resolves.toBeTruthy()
   })
 
   it('test_UAT_FC_REQ-117_modal_reads_its_descriptors_from_the_segment', async () => {
@@ -105,7 +106,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     const res = await post({ slug: 'alpha', page: pageId, path: addr, values: { text: 'Hello loop' } })
     expect(res.status).toBe(200)
 
-    expect(editCopyGet('alpha', pageId, addr, { cwd }).data).toMatchObject({
+    expect((await editCopyGet('alpha', pageId, addr, fsOpts(cwd))).data).toMatchObject({
       values: { text: 'Hello loop' },
     })
     const html = await (await get('/preview/alpha/edit/')).text()
@@ -116,7 +117,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
     // AC4 — the refusal is the user's mistake, not a server fault, so it comes
     // back as a 400 carrying the validator's own message. A 500 would tell the
     // modal "the builder broke" and throw away the text that names the field.
-    const before = editCopyGet('alpha', pageId, addr, { cwd }).data as { values: unknown }
+    const before = (await editCopyGet('alpha', pageId, addr, fsOpts(cwd))).data as { values: unknown }
 
     const res = await post({ slug: 'alpha', page: pageId, path: addr, values: { nope: 'x' } })
     expect(res.status).toBe(400)
@@ -126,7 +127,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-117 edit loop over the builder origin', (
 
     // Byte-unchanged: the iframe the user is looking at is still accurate, which
     // is what makes "surface the error and keep the modal open" safe.
-    expect((editCopyGet('alpha', pageId, addr, { cwd }).data as { values: unknown }).values).toEqual(
+    expect(((await editCopyGet('alpha', pageId, addr, fsOpts(cwd))).data as { values: unknown }).values).toEqual(
       before.values,
     )
   })

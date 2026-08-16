@@ -1,5 +1,3 @@
-import { copyFileSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 import {
   applyCopyFields,
   collectL1PaletteRefs,
@@ -28,24 +26,9 @@ import {
   type BehaviorMeta,
   type BehaviorSlotValue,
 } from '@1stcontact/framework'
-import type { JournalRecord, Root, StoreContext } from '../store'
-import {
-  appendChange,
-  changesSince,
-  clip,
-  diffSnapshots,
-  draftCounter,
-  draftDir,
-  ensureDir,
-  listFilesRel,
-  liveRevision,
-  pathExists,
-  readHistory,
-  readJson,
-  removePath,
-  revisionDir,
-  writeJson,
-} from '../store'
+import type { JournalRecord } from '../store/journal-model'
+import { clip } from '../store/journal-model'
+import type { SiteStore, StoredPage } from '../store/site-store'
 import type { GlobalOptions } from './commands'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
@@ -63,6 +46,23 @@ import { labelOf } from './segments'
  *
  * These commands mutate the draft only. `publish` (REQ-9) remains the sole
  * creator of revisions; pending changes are *derived* by `status`, never logged.
+ *
+ * STORAGE IS A PORT, NOT A FILESYSTEM (REQ-142). Nothing here imports `node:fs`
+ * or `node:path`, and nothing here knows a path: every read and write goes
+ * through the {@link SiteStore} on `opts.store`, which the caller constructs and
+ * injects. That is what makes this module reachable from a Worker, where there
+ * is no filesystem to reach for — the `1c` CLI hands it `fsSiteStore`, the
+ * Worker will hand it the D1/R2 one, and neither is detected or chosen here.
+ *
+ * The store field is REQUIRED rather than defaulted, deliberately. A default
+ * would have to name an adapter, and naming the filesystem one would import it —
+ * putting `node:fs` back in this module's graph through the one door the port
+ * exists to close.
+ *
+ * EVERY COMMAND IS ASYNC, for the same reason: D1 and R2 are. The conversion is
+ * mechanical and changes no behaviour, but it is the load-bearing half of the
+ * port — a synchronous surface cannot be served by a remote store however clean
+ * its interface looks.
  */
 
 /** The data payload plus a human-readable rendering for one command result. */
@@ -81,9 +81,15 @@ export interface EditOutput {
   at?: number
 }
 
-function ctxOf(opts: GlobalOptions): StoreContext {
-  const root: Root = opts.sandbox ? 'sandbox' : 'sites'
-  return { cwd: opts.cwd ?? process.cwd(), root }
+/**
+ * What every command on this surface takes: the global options, plus the store
+ * it operates on.
+ *
+ * `store` is required. See the module docblock — a default would name an
+ * adapter, and naming one would import it.
+ */
+export interface EditOptions extends GlobalOptions {
+  store: SiteStore
 }
 
 /**
@@ -99,16 +105,19 @@ function ctxOf(opts: GlobalOptions): StoreContext {
  * the answer to the person who made it and in the answer to whoever finds it
  * later.
  */
-function note(
-  ctx: StoreContext,
+async function note(
   slug: string,
-  opts: GlobalOptions,
+  opts: EditOptions,
   out: EditOutput,
   entry: Omit<JournalRecord, 'at' | 'ts' | 'actor' | 'summary'>,
-): EditOutput {
+): Promise<EditOutput> {
   return {
     ...out,
-    at: appendChange(ctx, slug, { ...entry, actor: opts.actor ?? 'cli', summary: out.human }),
+    at: await opts.store.appendChange(slug, {
+      ...entry,
+      actor: opts.actor ?? 'cli',
+      summary: out.human,
+    }),
   }
 }
 
@@ -140,62 +149,51 @@ function fieldsText(values: Record<string, unknown>, fields: readonly string[]):
   return fields.map((name) => `${name}: ${show(name)}`).join('\n')
 }
 
-// ── on-disk helpers ────────────────────────────────────────────────────────
-
-function siteJsonPath(ctx: StoreContext, slug: string): string {
-  return path.join(draftDir(ctx, slug), 'site.json')
-}
-
-function pagesDirOf(ctx: StoreContext, slug: string): string {
-  return path.join(draftDir(ctx, slug), 'pages')
-}
-
-function assetsDirOf(ctx: StoreContext, slug: string): string {
-  return path.join(draftDir(ctx, slug), 'assets')
-}
+// ── store access ───────────────────────────────────────────────────────────
+//
+// Everything below reads and writes through `opts.store`. There is no path
+// arithmetic left in this module: a page is identified by its STORE NAME
+// (`home.json`), which is a key the store owns rather than a location on any
+// particular disk.
 
 /** Fail with NOT_FOUND unless the site has a draft we can operate on. */
-function requireDraft(ctx: StoreContext, slug: string): void {
-  if (!pathExists(draftDir(ctx, slug))) {
+async function requireDraft(slug: string, opts: EditOptions): Promise<void> {
+  if (!(await opts.store.hasDraft(slug))) {
     throw new CommandError({
       code: 'NOT_FOUND',
       message: `Site '${slug}' has no draft.`,
       path: slug,
-      hint: `Create it with '1c new ${slug}'${ctx.root === 'sandbox' ? ' --sandbox' : ''}.`,
+      hint: `Create it with '1c new ${slug}'${opts.sandbox ? ' --sandbox' : ''}.`,
     })
   }
 }
 
 /** Read the raw `site.json` metadata object (everything but pages). */
-function readBase(ctx: StoreContext, slug: string): Record<string, unknown> {
-  requireDraft(ctx, slug)
-  const p = siteJsonPath(ctx, slug)
-  if (!pathExists(p)) {
+async function readBase(slug: string, opts: EditOptions): Promise<Record<string, unknown>> {
+  await requireDraft(slug, opts)
+  const base = await opts.store.readSiteJson(slug)
+  if (base === null) {
     throw new CommandError({
       code: 'NOT_FOUND',
       message: `Site '${slug}' has no site.json.`,
       path: slug,
     })
   }
-  return readJson<Record<string, unknown>>(p)
+  return base
 }
 
-interface PageFile {
-  /** Path relative to `pages/`, e.g. `home.json`. */
-  rel: string
-  abs: string
-  page: Record<string, unknown>
-}
+/**
+ * One page as this module works with it.
+ *
+ * `name` is the store's key for the page (`home.json`) and is what a write names
+ * it by. It used to be accompanied by an absolute path; nothing here needs one
+ * any more, and the store is the only thing entitled to know where bytes live.
+ */
+type PageFile = StoredPage
 
-/** Read every `pages/*.json` file, sorted by filename (load order). */
-function readPageFiles(ctx: StoreContext, slug: string): PageFile[] {
-  const dir = pagesDirOf(ctx, slug)
-  return listFilesRel(dir)
-    .filter((rel) => rel.endsWith('.json'))
-    .map((rel) => {
-      const abs = path.join(dir, rel)
-      return { rel, abs, page: readJson<Record<string, unknown>>(abs) }
-    })
+/** Read every page, in load order. */
+function readPageFiles(slug: string, opts: EditOptions): Promise<PageFile[]> {
+  return opts.store.readPages(slug)
 }
 
 /** Locate the page file whose definition `id` matches `pageId`, or null. */
@@ -380,7 +378,7 @@ function assetReferences(files: PageFile[], assetName: string): AssetRefSite[] {
 // shape, not a rule it has to remember.
 
 /** A segment address on the CLI: the page, the path, and the scope it indexes. */
-export interface CopyTargetOptions extends GlobalOptions {
+export interface CopyTargetOptions extends EditOptions {
   /** The behavior-module instance whose slot roots the address, if any. */
   module?: string
   /** The named slot within that instance. */
@@ -479,16 +477,15 @@ interface ResolvedSegment {
   node: L1Node
 }
 
-function resolveSegment(
-  ctx: StoreContext,
+async function resolveSegment(
   slug: string,
   pageId: string,
   rawPath: string,
   target: CopyTargetOptions,
   /** Resolve against a deep clone, so a write can be abandoned without a trace. */
   clone: boolean,
-): { files: PageFile[] } & ResolvedSegment {
-  const files = readPageFiles(ctx, slug)
+): Promise<{ files: PageFile[] } & ResolvedSegment> {
+  const files = await readPageFiles(slug, target)
   const file = findPageFile(files, pageId)
   if (!file) {
     throw new CommandError({
@@ -498,8 +495,8 @@ function resolveSegment(
       hint: `List pages with '1c page list ${slug}'.`,
     })
   }
-  const path = parseL1Path(rawPath)
-  if (!path) {
+  const addr = parseL1Path(rawPath)
+  if (!addr) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',
       message: `'${rawPath}' is not a segment address.`,
@@ -508,7 +505,7 @@ function resolveSegment(
     })
   }
   const page = clone ? structuredClone(file.page) : file.page
-  const node = resolveL1Node(segmentRoots(page, pageId, target), path)
+  const node = resolveL1Node(segmentRoots(page, pageId, target), addr)
   if (!node) {
     throw new CommandError({
       code: 'NOT_FOUND',
@@ -543,13 +540,13 @@ const PICKER_KINDS: ReadonlySet<L1Node['kind']> = new Set(['image', 'box', 'cont
  * the page's, and reading them from anywhere else would offer a weight the
  * render cannot serve.
  */
-function segmentOptions(
+async function segmentOptions(
   node: L1Node,
   slug: string,
   page: Record<string, unknown>,
   base: Record<string, unknown>,
-  opts: GlobalOptions,
-): L1SegmentFieldOptions {
+  opts: EditOptions,
+): Promise<L1SegmentFieldOptions> {
   // REQ-140 — the palette is on EVERY kind that can carry a colour, which is
   // both of the kinds below. It comes from `site.json` rather than the page
   // because an entry is site-wide by construction, and reading it per-page is
@@ -560,7 +557,7 @@ function segmentOptions(
     // "this box was stamped" have to be the same question — an unpainted
     // wrapper is not clickable and must expose nothing, however many paint axes
     // are added later. On an `image` node it is simply false and unread.
-    return { assets: imageHandles(slug, opts), palette, paints: l1PaintsSurface(node) }
+    return { assets: await imageHandles(slug, opts), palette, paints: l1PaintsSurface(node) }
   }
   if (node.kind === 'text') return { fonts: documentFonts(page), palette }
   return {}
@@ -628,16 +625,15 @@ function panelBehind(
  * is a legitimate answer — a container or a module instance is a real segment
  * with no phase-1 control — so it reads as "nothing to edit here", not an error.
  */
-export function editCopyGet(
+export async function editCopyGet(
   slug: string,
   pageId: string,
   rawPath: string,
-  opts: CopyTargetOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const { page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
-  const derived = copyFieldsOf(node, segmentOptions(node, slug, page, base, opts))
+  opts: CopyTargetOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const { page, node } = await resolveSegment(slug, pageId, rawPath, opts, false)
+  const derived = copyFieldsOf(node, await segmentOptions(node, slug, page, base, opts))
   const data = {
     target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
     kind: node.kind,
@@ -681,21 +677,20 @@ export function editCopyGet(
  * clone is discarded and the draft is byte-unchanged, so the iframe still shows
  * exactly the state the user was editing.
  */
-export function editCopySet(
+export async function editCopySet(
   slug: string,
   pageId: string,
   rawPath: string,
   values: Record<string, unknown>,
-  opts: CopyTargetOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const { files, file, page, node } = resolveSegment(ctx, slug, pageId, rawPath, opts, true)
+  opts: CopyTargetOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const { files, file, page, node } = await resolveSegment(slug, pageId, rawPath, opts, true)
 
   // Read BEFORE the apply, because `applyCopyFields` mutates the node in place
   // and the journal's whole value is being able to say what the words used to
   // be (REQ-131).
-  const options = segmentOptions(node, slug, page, base, opts)
+  const options = await segmentOptions(node, slug, page, base, opts)
   const label = labelOf(node)
   const wasValues = copyFieldsOf(node, options)?.values ?? {}
 
@@ -715,7 +710,7 @@ export function editCopySet(
   // schema AND the L1 envelope over the whole resulting definition.
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
-  writeJson(file.abs, page)
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   const out: EditOutput = {
     data: {
       target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
@@ -730,8 +725,8 @@ export function editCopySet(
   // A call that changed nothing still wrote nothing worth telling anyone about,
   // so it does not advance the count — otherwise every no-op save from the modal
   // would look, to the assistant, exactly like the operator rewriting a heading.
-  if (applied.changed.length === 0) return { ...out, at: draftCounter(ctx, slug) }
-  return note(ctx, slug, opts, out, {
+  if (applied.changed.length === 0) return { ...out, at: await opts.store.counter(slug) }
+  return note(slug, opts, out, {
     op: 'copy.set',
     page: pageId,
     path: rawPath,
@@ -768,15 +763,14 @@ export function editCopySet(
 // that closure is a security finding, not a capability gap.
 
 /** Read the subtree at one address, exactly as stored. */
-export function editL1Get(
+export async function editL1Get(
   slug: string,
   pageId: string,
   rawPath: string,
-  opts: CopyTargetOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  requireDraft(ctx, slug)
-  const { node } = resolveSegment(ctx, slug, pageId, rawPath, opts, false)
+  opts: CopyTargetOptions,
+): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const { node } = await resolveSegment(slug, pageId, rawPath, opts, false)
   return {
     data: {
       target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
@@ -807,16 +801,15 @@ export function editL1Get(
  * meaning was enough. It is not enough for a subtree, and the declared
  * `SCHEMA_INVALID` meaning carries the fallback strategy because of it.
  */
-export function editL1Set(
+export async function editL1Set(
   slug: string,
   pageId: string,
   rawPath: string,
   node: unknown,
-  opts: CopyTargetOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+  opts: CopyTargetOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const file = findPageFile(files, pageId)
   if (!file) {
     throw new CommandError({
@@ -854,9 +847,8 @@ export function editL1Set(
 
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
-  writeJson(file.abs, page)
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -882,10 +874,9 @@ export function editL1Set(
 
 // ── page commands ────────────────────────────────────────────────────────────
 
-export function editPageList(slug: string, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  requireDraft(ctx, slug)
-  const pages = readPageFiles(ctx, slug).map((f) => ({
+export async function editPageList(slug: string, opts: EditOptions): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const pages = (await readPageFiles(slug, opts)).map((f) => ({
     id: f.page.id,
     slug: f.page.slug,
     title: f.page.title,
@@ -897,10 +888,13 @@ export function editPageList(slug: string, opts: GlobalOptions = {}): EditOutput
   return { data: { pages }, human }
 }
 
-export function editPageGet(slug: string, pageId: string, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  requireDraft(ctx, slug)
-  const file = findPageFile(readPageFiles(ctx, slug), pageId)
+export async function editPageGet(
+  slug: string,
+  pageId: string,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const file = findPageFile(await readPageFiles(slug, opts), pageId)
   if (!file) {
     throw new CommandError({
       code: 'NOT_FOUND',
@@ -912,7 +906,7 @@ export function editPageGet(slug: string, pageId: string, opts: GlobalOptions = 
   return { data: { page: file.page }, human: JSON.stringify(file.page, null, 2) }
 }
 
-export interface PageWriteOptions extends GlobalOptions {
+export interface PageWriteOptions extends EditOptions {
   title?: string
   path?: string
   /**
@@ -928,10 +922,13 @@ export interface PageWriteOptions extends GlobalOptions {
   seoMeta?: Record<string, unknown>
 }
 
-export function editPageAdd(slug: string, pageId: string, opts: PageWriteOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+export async function editPageAdd(
+  slug: string,
+  pageId: string,
+  opts: PageWriteOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
 
   if (findPageFile(files, pageId)) {
     throw new CommandError({
@@ -950,12 +947,15 @@ export function editPageAdd(slug: string, pageId: string, opts: PageWriteOptions
       hint: 'Pass a unique --path.',
     })
   }
-  const destAbs = path.join(pagesDirOf(ctx, slug), `${pageId}.json`)
-  if (pathExists(destAbs)) {
+  // A page file under this name but carrying a different `id` — the check above
+  // reads ids, this one reads the store's keys, and they are not the same
+  // question.
+  const name = `${pageId}.json`
+  if (files.some((f) => f.name === name)) {
     throw new CommandError({
       code: 'CONFLICT',
-      message: `Page file '${pageId}.json' already exists.`,
-      path: `${pageId}.json`,
+      message: `Page file '${name}' already exists.`,
+      path: name,
     })
   }
 
@@ -968,9 +968,8 @@ export function editPageAdd(slug: string, pageId: string, opts: PageWriteOptions
   }
   validateOrThrow(base, [...files.map((f) => f.page), newPage])
 
-  writeJson(destAbs, newPage)
+  await opts.store.write(slug, { pages: [{ name, page: newPage }] })
   return note(
-    ctx,
     slug,
     opts,
     { data: { page: newPage }, human: `Added page '${pageId}' (path: ${pageSlug}).` },
@@ -978,10 +977,13 @@ export function editPageAdd(slug: string, pageId: string, opts: PageWriteOptions
   )
 }
 
-export function editPageUpdate(slug: string, pageId: string, opts: PageWriteOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+export async function editPageUpdate(
+  slug: string,
+  pageId: string,
+  opts: PageWriteOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const file = findPageFile(files, pageId)
   if (!file) {
     throw new CommandError({
@@ -1015,9 +1017,8 @@ export function editPageUpdate(slug: string, pageId: string, opts: PageWriteOpti
   const pages = files.map((f) => (f === file ? updated : f.page))
   validateOrThrow(base, pages)
 
-  writeJson(file.abs, updated)
+  await opts.store.write(slug, { pages: [{ name: file.name, page: updated }] })
   return note(
-    ctx,
     slug,
     opts,
     { data: { page: updated }, human: `Updated page '${pageId}'.` },
@@ -1031,14 +1032,17 @@ export function editPageUpdate(slug: string, pageId: string, opts: PageWriteOpti
   )
 }
 
-export interface PageRmOptions extends GlobalOptions {
+export interface PageRmOptions extends EditOptions {
   force?: boolean
 }
 
-export function editPageRm(slug: string, pageId: string, opts: PageRmOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+export async function editPageRm(
+  slug: string,
+  pageId: string,
+  opts: PageRmOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const file = findPageFile(files, pageId)
   if (!file) {
     throw new CommandError({
@@ -1064,10 +1068,14 @@ export function editPageRm(slug: string, pageId: string, opts: PageRmOptions = {
   const newPages = files.filter((f) => f !== file).map((f) => f.page)
   validateOrThrow(newBase, newPages)
 
-  if (newBase !== base) writeJson(siteJsonPath(ctx, slug), newBase)
-  removePath(file.abs)
+  // The nav rewrite and the page removal are ONE write. They were two before,
+  // and a caller that crashed between them left a nav entry pointing at a page
+  // that no longer existed — an invalid site nothing had refused to create.
+  await opts.store.write(slug, {
+    ...(newBase !== base ? { siteJson: newBase } : {}),
+    removePages: [file.name],
+  })
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -1202,7 +1210,7 @@ export function editBehaviorList(): EditOutput {
   }
 }
 
-export interface ModuleAddOptions extends GlobalOptions {
+export interface ModuleAddOptions extends EditOptions {
   /** The catalog version to pin. Defaults to the catalog's current version. */
   version?: number
   /** The `slot` node in the page's L1 tree this instance mounts into. */
@@ -1223,16 +1231,15 @@ export interface ModuleAddOptions extends GlobalOptions {
  * afterwards exactly as it refines anything else. A behavior with no preset says
  * so, naming the slots it needs.
  */
-export function editModuleAdd(
+export async function editModuleAdd(
   slug: string,
   pageId: string,
   moduleId: string,
   type: string,
-  opts: ModuleAddOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+  opts: ModuleAddOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const file = requirePageFile(files, slug, pageId)
   const meta = requireBehavior(type, opts.version)
 
@@ -1268,9 +1275,8 @@ export function editModuleAdd(
   const page = { ...file.page, modules: [...moduleList(file.page), instance] }
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
-  writeJson(file.abs, page)
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -1288,16 +1294,15 @@ export function editModuleAdd(
  * {@link editConfigSet} follows and for the same reason. Presentation is not
  * reachable here: a slot is L1 and `set_l1` owns L1.
  */
-export function editModuleConfigure(
+export async function editModuleConfigure(
   slug: string,
   pageId: string,
   moduleId: string,
   config: Record<string, unknown>,
-  opts: GlobalOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const file = requirePageFile(files, slug, pageId)
 
   const page = structuredClone(file.page)
@@ -1323,9 +1328,8 @@ export function editModuleConfigure(
 
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
-  writeJson(file.abs, page)
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -1343,15 +1347,14 @@ export function editModuleConfigure(
 }
 
 /** Remove an instance from a page. Its `slot` node in the L1 tree is left alone. */
-export function editModuleRm(
+export async function editModuleRm(
   slug: string,
   pageId: string,
   moduleId: string,
-  opts: GlobalOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const file = requirePageFile(files, slug, pageId)
 
   const existing = moduleList(file.page)
@@ -1365,9 +1368,8 @@ export function editModuleRm(
   const page = { ...file.page, modules: existing.filter((m) => m.id !== moduleId) }
   validateOrThrow(base, files.map((f) => (f === file ? page : f.page)))
 
-  writeJson(file.abs, page)
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
   return note(
-    ctx,
     slug,
     opts,
     { data: { removed: moduleId }, human: `Removed '${moduleId}' from page '${pageId}'.` },
@@ -1377,9 +1379,12 @@ export function editModuleRm(
 
 // ── config commands ──────────────────────────────────────────────────────────
 
-export function editConfigGet(slug: string, key: string | undefined, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+export async function editConfigGet(
+  slug: string,
+  key: string | undefined,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   if (key === undefined) {
     return { data: { config: base }, human: JSON.stringify(base, null, 2) }
   }
@@ -1416,14 +1421,13 @@ export function editConfigGet(slug: string, key: string | undefined, opts: Globa
  * `siteSchema` over the whole resulting definition, and the palette, theme and
  * nav shapes are already described there. The gap was never the validator.
  */
-export function editConfigSet(
+export async function editConfigSet(
   slug: string,
   key: string | undefined,
   value: unknown,
-  opts: GlobalOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const scoped = key === undefined || key === ''
   const merged = mergeConfigValue(scoped ? base : getDotted(base, key), value)
   if (scoped && !isMapping(merged)) {
@@ -1434,13 +1438,12 @@ export function editConfigSet(
     })
   }
   const newBase = scoped ? (merged as Record<string, unknown>) : setDotted(base, key, merged)
-  const files = readPageFiles(ctx, slug)
+  const files = await readPageFiles(slug, opts)
   validateOrThrow(newBase, files.map((f) => f.page))
 
-  writeJson(siteJsonPath(ctx, slug), newBase)
+  await opts.store.write(slug, { siteJson: newBase })
   const where = scoped ? '(top level)' : key
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -1555,10 +1558,9 @@ function requirePaletteValue(value: unknown, path: string): string {
 }
 
 /** Read the palette with per-entry usage counts (REQ-133 AC-1, AC-11). */
-export function editPaletteGet(slug: string, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+export async function editPaletteGet(slug: string, opts: EditOptions): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const { entries } = paletteCensus(base, files.map((f) => f.page))
   return {
     data: { slug, entries },
@@ -1576,14 +1578,13 @@ export function editPaletteGet(slug: string, opts: GlobalOptions = {}): EditOutp
  * REQ-137's model buys and what this function deliberately does *not* have to
  * implement. The count is reported so the answer says how much moved.
  */
-export function editPaletteSet(
+export async function editPaletteSet(
   slug: string,
   name: string,
   value: unknown,
-  opts: GlobalOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const palette = paletteOf(base)
   if (!(name in palette)) {
     throw new CommandError({
@@ -1594,14 +1595,13 @@ export function editPaletteSet(
     })
   }
   const hex = requirePaletteValue(value, `palette.${name}.value`)
-  const files = readPageFiles(ctx, slug)
+  const files = await readPageFiles(slug, opts)
   const newBase = { ...base, palette: { ...palette, [name]: { ...palette[name], value: hex } } }
   validateOrThrow(newBase, files.map((f) => f.page))
-  writeJson(siteJsonPath(ctx, slug), newBase)
+  await opts.store.write(slug, { siteJson: newBase })
   const { entries } = paletteCensus(newBase, files.map((f) => f.page))
   const count = entries.find((e) => e.name === name)?.count ?? 0
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -1618,14 +1618,13 @@ export function editPaletteSet(
 }
 
 /** Add an entry (REQ-133 §5b / AC-6). Refused on a duplicate or a malformed name. */
-export function editPaletteAdd(
+export async function editPaletteAdd(
   slug: string,
   name: string,
   value: unknown,
-  opts: GlobalOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const palette = paletteOf(base)
   requirePaletteName(name, `palette.${name}`)
   if (name in palette) {
@@ -1637,12 +1636,11 @@ export function editPaletteAdd(
     })
   }
   const hex = requirePaletteValue(value, `palette.${name}.value`)
-  const files = readPageFiles(ctx, slug)
+  const files = await readPageFiles(slug, opts)
   const newBase = { ...base, palette: { ...palette, [name]: { value: hex } } }
   validateOrThrow(newBase, files.map((f) => f.page))
-  writeJson(siteJsonPath(ctx, slug), newBase)
+  await opts.store.write(slug, { siteJson: newBase })
   return note(
-    ctx,
     slug,
     opts,
     { data: { slug, name, value: hex, count: 0 }, human: `Added ${name} = ${hex}.` },
@@ -1664,9 +1662,12 @@ export function editPaletteAdd(
  * route to an invalid site, since every orphaned reference is a validation
  * failure (DOC-23 §6) rather than a fallback.
  */
-export function editPaletteRm(slug: string, name: string, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+export async function editPaletteRm(
+  slug: string,
+  name: string,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const palette = paletteOf(base)
   if (!(name in palette)) {
     throw new CommandError({
@@ -1675,7 +1676,7 @@ export function editPaletteRm(slug: string, name: string, opts: GlobalOptions = 
       path: `palette.${name}`,
     })
   }
-  const files = readPageFiles(ctx, slug)
+  const files = await readPageFiles(slug, opts)
   const pages = files.map((f) => f.page)
   const { counts } = paletteCensus(base, pages)
   const count = counts.get(name) ?? 0
@@ -1690,9 +1691,8 @@ export function editPaletteRm(slug: string, name: string, opts: GlobalOptions = 
   const { [name]: _gone, ...rest } = palette
   const newBase = { ...base, palette: rest }
   validateOrThrow(newBase, pages)
-  writeJson(siteJsonPath(ctx, slug), newBase)
+  await opts.store.write(slug, { siteJson: newBase })
   return note(
-    ctx,
     slug,
     opts,
     { data: { slug, name, removed: true }, human: `Removed ${name}.` },
@@ -1719,14 +1719,13 @@ export function editPaletteRm(slug: string, name: string, opts: GlobalOptions = 
  * The rule is about which decisions have a computable answer, not about how many
  * references are involved.
  */
-export function editPaletteRename(
+export async function editPaletteRename(
   slug: string,
   from: string,
   to: string,
-  opts: GlobalOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const palette = paletteOf(base)
   if (!(from in palette)) {
     throw new CommandError({
@@ -1744,7 +1743,7 @@ export function editPaletteRename(
       hint: 'Renaming onto an existing name would merge two colors — choose an unused name.',
     })
   }
-  const files = readPageFiles(ctx, slug)
+  const files = await readPageFiles(slug, opts)
   const pages = files.map((f) => f.page)
   const { counts } = paletteCensus(base, pages)
   const count = counts.get(from) ?? 0
@@ -1764,15 +1763,22 @@ export function editPaletteRename(
   const newPages = pages.map((page) => renameL1PaletteRef(page, from, to))
   validateOrThrow(newBase, newPages)
 
-  writeJson(siteJsonPath(ctx, slug), newBase)
-  files.forEach((file, i) => {
-    // Only the pages that actually moved: `mapL1PaletteRefs` returns an
-    // untouched subtree by identity, so a page with no reference to `from` is
-    // not rewritten and its file keeps its mtime.
-    if (newPages[i] !== file.page) writeJson(file.abs, newPages[i] as Record<string, unknown>)
+  // ONE call, and this is the case that made it the port's shape (REQ-142 AC-5).
+  // A rename that moved `site.json`'s key without every page's references would
+  // orphan them, and an orphan is a validation failure rather than a fallback —
+  // so the store is asked for one transition, and the D1 adapter can make that
+  // transition atomic without a caller here changing at all.
+  //
+  // Only the pages that actually moved: `mapL1PaletteRefs` returns an untouched
+  // subtree by identity, so a page with no reference to `from` is not rewritten
+  // and its file keeps its mtime.
+  await opts.store.write(slug, {
+    siteJson: newBase,
+    pages: files
+      .map((file, i) => ({ name: file.name, page: newPages[i] as Record<string, unknown> }))
+      .filter((_, i) => newPages[i] !== files[i].page),
   })
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -1841,7 +1847,13 @@ export interface SiteAsset {
   src: string
   alt: string
   kind: SiteAssetKind
-  /** A file for it exists under `draft/assets/`. */
+  /**
+   * The store holds bytes for it under the draft's `assets/`.
+   *
+   * Named for the filesystem because the picker and its tests already read this
+   * field by name; since REQ-142 it means "the store has it", which is the same
+   * question asked of a store that may have no disk.
+   */
   onDisk: boolean
   /** `site.json`'s `assets` array carries an entry for it. */
   registered: boolean
@@ -1862,12 +1874,11 @@ export interface SiteAsset {
  * provenance, is the honest answer: the picker can offer what exists, and a
  * future browser mode can show which files are undeclared.
  */
-export function listSiteAssets(slug: string, opts: GlobalOptions = {}): SiteAsset[] {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+export async function listSiteAssets(slug: string, opts: EditOptions): Promise<SiteAsset[]> {
+  const base = await readBase(slug, opts)
   const byHandle = new Map<string, SiteAsset>()
 
-  for (const rel of listFilesRel(assetsDirOf(ctx, slug))) {
+  for (const rel of await opts.store.listAssets(slug)) {
     const src = assetHandle(rel)
     const kind = assetKind(rel)
     byHandle.set(src, { id: rel, src, alt: '', kind, onDisk: true, registered: false })
@@ -1889,14 +1900,12 @@ export function listSiteAssets(slug: string, opts: GlobalOptions = {}): SiteAsse
 }
 
 /** The handles an image picker may offer — the listing, narrowed to images. */
-function imageHandles(slug: string, opts: GlobalOptions): string[] {
-  return listSiteAssets(slug, opts)
-    .filter((a) => a.kind === 'image')
-    .map((a) => a.src)
+async function imageHandles(slug: string, opts: EditOptions): Promise<string[]> {
+  return (await listSiteAssets(slug, opts)).filter((a) => a.kind === 'image').map((a) => a.src)
 }
 
-export function editAssetList(slug: string, opts: GlobalOptions = {}): EditOutput {
-  const assets = listSiteAssets(slug, opts)
+export async function editAssetList(slug: string, opts: EditOptions): Promise<EditOutput> {
+  const assets = await listSiteAssets(slug, opts)
   const human =
     assets.length === 0
       ? '(no assets)'
@@ -1906,9 +1915,12 @@ export function editAssetList(slug: string, opts: GlobalOptions = {}): EditOutpu
   return { data: { assets }, human }
 }
 
-export function editAssetGet(slug: string, assetName: string, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+export async function editAssetGet(
+  slug: string,
+  assetName: string,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const asset = assetRegistry(base).find((a) => a.id === assetName)
   if (!asset) {
     throw new CommandError({
@@ -1921,24 +1933,29 @@ export function editAssetGet(slug: string, assetName: string, opts: GlobalOption
   return { data: { asset }, human: JSON.stringify(asset, null, 2) }
 }
 
-export interface AssetAddOptions extends GlobalOptions {
-  /** Registered name (and on-disk filename); defaults to the source basename. */
+export interface AssetAddOptions extends EditOptions {
+  /** Registered name (and store name); defaults to the source basename. */
   as?: string
 }
 
-export function editAssetAdd(slug: string, file: string, opts: AssetAddOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const name = opts.as ?? path.basename(file)
-
-  if (!pathExists(file)) {
-    throw new CommandError({
-      code: 'NOT_FOUND',
-      message: `Source file '${file}' does not exist.`,
-      path: file,
-      hint: 'Pass a path to a readable file.',
-    })
-  }
+/**
+ * Register bytes the operator already had, under `name`.
+ *
+ * WHY IT TAKES BYTES AND NOT A PATH (REQ-142). It used to take a path on the
+ * operator's own machine and `copyFileSync` it in. That path was never the
+ * store's — it is a *source*, outside the site entirely, and in a Worker there
+ * is nothing it could name. So reading it moved OUT to the two callers that have
+ * a filesystem to read from: `1c asset add` and the AI toolbox's adapter. Both
+ * still take a `file` argument and both still refuse a missing one with the same
+ * NOT_FOUND envelope; what changed is which layer opens it.
+ */
+export async function editAssetAdd(
+  slug: string,
+  name: string,
+  bytes: Uint8Array,
+  opts: AssetAddOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const assets = assetRegistry(base)
   if (assets.some((a) => a.id === name)) {
     throw new CommandError({
@@ -1948,8 +1965,7 @@ export function editAssetAdd(slug: string, file: string, opts: AssetAddOptions =
       hint: 'Choose a different name with --as.',
     })
   }
-  const destAbs = path.join(assetsDirOf(ctx, slug), name)
-  if (pathExists(destAbs)) {
+  if ((await opts.store.listAssets(slug)).includes(name)) {
     throw new CommandError({
       code: 'CONFLICT',
       message: `Asset file '${name}' already exists in draft/assets.`,
@@ -1960,14 +1976,11 @@ export function editAssetAdd(slug: string, file: string, opts: AssetAddOptions =
 
   const newAsset: Record<string, unknown> = { id: name, src: name, alt: '' }
   const newBase = { ...base, assets: [...assets, newAsset] }
-  // Validate the registry before any byte hits disk.
-  validateOrThrow(newBase, readPageFiles(ctx, slug).map((f) => f.page))
+  // Validate the registry before any byte is stored.
+  validateOrThrow(newBase, (await readPageFiles(slug, opts)).map((f) => f.page))
 
-  ensureDir(assetsDirOf(ctx, slug))
-  copyFileSync(file, destAbs)
-  writeJson(siteJsonPath(ctx, slug), newBase)
+  await opts.store.write(slug, { siteJson: newBase, assets: [{ name, bytes }] })
   return note(
-    ctx,
     slug,
     opts,
     { data: { asset: newAsset }, human: `Added asset '${name}'.` },
@@ -2005,21 +2018,20 @@ const GENERATED_EXTENSION = '.svg'
 /** A name we are prepared to generate a filename from: one plain word. */
 const GENERATED_NAME = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
-export interface AssetWriteOptions extends GlobalOptions {
+export interface AssetWriteOptions extends EditOptions {
   /** Replace the bytes of an asset of this name that already exists. */
   force?: boolean
   /** Alt text recorded in the registry. */
   alt?: string
 }
 
-export function editAssetWrite(
+export async function editAssetWrite(
   slug: string,
   name: string,
   content: string,
-  opts: AssetWriteOptions = {},
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+  opts: AssetWriteOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
 
   const stem = name.toLowerCase().replace(new RegExp(`\\${GENERATED_EXTENSION}$`), '')
   if (!GENERATED_NAME.test(stem)) {
@@ -2044,8 +2056,8 @@ export function editAssetWrite(
 
   const assets = assetRegistry(base)
   const registered = assets.find((a) => a.id === filename)
-  const destAbs = path.join(assetsDirOf(ctx, slug), filename)
-  if ((registered || pathExists(destAbs)) && opts.force !== true) {
+  const stored = (await opts.store.listAssets(slug)).includes(filename)
+  if ((registered || stored) && opts.force !== true) {
     throw new CommandError({
       code: 'CONFLICT',
       message: `Site '${slug}' already has an image called '${filename}'.`,
@@ -2063,31 +2075,34 @@ export function editAssetWrite(
     ...base,
     assets: [...assets.filter((a) => a.id !== filename), entry],
   }
-  // The registry is validated before a byte hits disk, as everywhere else here.
-  validateOrThrow(newBase, readPageFiles(ctx, slug).map((f) => f.page))
+  // The registry is validated before a byte is stored, as everywhere else here.
+  validateOrThrow(newBase, (await readPageFiles(slug, opts)).map((f) => f.page))
 
-  ensureDir(assetsDirOf(ctx, slug))
-  writeFileSync(destAbs, content, 'utf8')
-  writeJson(siteJsonPath(ctx, slug), newBase)
+  // `TextEncoder` rather than `Buffer`: the byte count is part of the answer and
+  // has to be computable wherever this runs, not only under Node.
+  const bytes = new TextEncoder().encode(content)
+  await opts.store.write(slug, { siteJson: newBase, assets: [{ name: filename, bytes }] })
   return note(
-    ctx,
     slug,
     opts,
     {
       data: { asset: { ...entry, src: `/assets/${filename}` } },
-      human: `${registered ? 'Replaced' : 'Wrote'} image '${filename}' (${Buffer.byteLength(content, 'utf8')} bytes).`,
+      human: `${registered ? 'Replaced' : 'Wrote'} image '${filename}' (${bytes.length} bytes).`,
     },
     { op: 'asset.write', label: filename, after: clip(String(entry.alt ?? '')) },
   )
 }
 
-export interface AssetRmOptions extends GlobalOptions {
+export interface AssetRmOptions extends EditOptions {
   force?: boolean
 }
 
-export function editAssetRm(slug: string, assetName: string, opts: AssetRmOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
+export async function editAssetRm(
+  slug: string,
+  assetName: string,
+  opts: AssetRmOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
   const assets = assetRegistry(base)
   const asset = assets.find((a) => a.id === assetName)
   if (!asset) {
@@ -2098,7 +2113,7 @@ export function editAssetRm(slug: string, assetName: string, opts: AssetRmOption
     })
   }
 
-  const files = readPageFiles(ctx, slug)
+  const files = await readPageFiles(slug, opts)
   const refs = assetReferences(files, assetName)
   if (refs.length > 0 && !opts.force) {
     const first = refs[0]
@@ -2113,11 +2128,14 @@ export function editAssetRm(slug: string, assetName: string, opts: AssetRmOption
   const newBase = { ...base, assets: assets.filter((a) => a.id !== assetName) }
   validateOrThrow(newBase, files.map((f) => f.page))
 
-  writeJson(siteJsonPath(ctx, slug), newBase)
-  const fileAbs = path.join(assetsDirOf(ctx, slug), String(asset.src ?? assetName))
-  if (pathExists(fileAbs)) removePath(fileAbs)
+  // De-registering and removing the bytes are one write. Removing an asset the
+  // store does not hold is not an error, which is why there is no existence
+  // check in front of it.
+  await opts.store.write(slug, {
+    siteJson: newBase,
+    removeAssets: [String(asset.src ?? assetName)],
+  })
   return note(
-    ctx,
     slug,
     opts,
     {
@@ -2130,12 +2148,9 @@ export function editAssetRm(slug: string, assetName: string, opts: AssetRmOption
 
 // ── status ───────────────────────────────────────────────────────────────────
 
-export function editStatus(slug: string, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  requireDraft(ctx, slug)
-  const live = liveRevision(readHistory(ctx, slug))
-  const prevDir = live === null ? null : revisionDir(ctx, slug, live)
-  const changes = diffSnapshots(prevDir, draftDir(ctx, slug))
+export async function editStatus(slug: string, opts: EditOptions): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const { baseRevision: live, ...changes } = await opts.store.pendingChanges(slug)
   const total = changes.added.length + changes.modified.length + changes.removed.length
   const lines: string[] = [`baseRevision: ${live === null ? '(none)' : `r${live}`}`]
   for (const rel of changes.added) lines.push(`A  ${rel}`)
@@ -2160,10 +2175,13 @@ export function editStatus(slug: string, opts: GlobalOptions = {}): EditOutput {
  * previous write returned is the normal use, and it is what makes a caller's own
  * edits invisible to it: the count it holds already includes them.
  */
-export function editChanges(slug: string, since: number | undefined, opts: GlobalOptions = {}): EditOutput {
-  const ctx = ctxOf(opts)
-  requireDraft(ctx, slug)
-  const slice = changesSince(ctx, slug, since)
+export async function editChanges(
+  slug: string,
+  since: number | undefined,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const slice = await opts.store.changesSince(slug, since)
   const lines = slice.changes.map((c) => {
     const where = c.page ? ` on '${c.page}'` : ''
     const words = c.before !== undefined || c.after !== undefined ? `\n     "${c.before ?? ''}" → "${c.after ?? ''}"` : ''
@@ -2289,21 +2307,23 @@ export function planGapFixes(
   return fixes
 }
 
-export function cmdApplyGapFixes(
+export async function cmdApplyGapFixes(
   slug: string,
   gaps: Array<{ text: string; expected: string; actual: string }>,
-  opts: GlobalOptions & { apply?: boolean },
-): EditOutput {
-  const ctx = ctxOf(opts)
-  const base = readBase(ctx, slug)
-  const files = readPageFiles(ctx, slug)
+  opts: EditOptions & { apply?: boolean },
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
   const fixes = planGapFixes(
     gaps,
     files.map((f) => ({ page: f.page })),
   )
   validateOrThrow(base, files.map((f) => f.page))
   const apply = opts.apply === true
-  if (apply && fixes.length > 0) for (const file of files) writeJson(file.abs, file.page)
+  // `planGapFixes` mutated the pages in place, so every one of them is written —
+  // as one call, so a partial application is not a state the store can be left
+  // in by a caller that stops half way.
+  if (apply && fixes.length > 0) await opts.store.write(slug, { pages: files })
   const head = apply
     ? `adopt-gaps: adjusted spacing on ${fixes.length} boundary(ies)`
     : `adopt-gaps (dry-run): ${fixes.length} spacing change(s) to close section gaps; pass --apply to write`
@@ -2316,6 +2336,6 @@ export function cmdApplyGapFixes(
     human: lines.join('\n'),
   }
   // A dry run writes nothing, so it is not a change and must not look like one.
-  if (!apply || fixes.length === 0) return { ...out, at: draftCounter(ctx, slug) }
-  return note(ctx, slug, opts, out, { op: 'gaps.apply', label: `${fixes.length} boundaries` })
+  if (!apply || fixes.length === 0) return { ...out, at: await opts.store.counter(slug) }
+  return note(slug, opts, out, { op: 'gaps.apply', label: `${fixes.length} boundaries` })
 }
