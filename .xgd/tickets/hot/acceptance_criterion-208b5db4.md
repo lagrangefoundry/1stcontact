@@ -6,7 +6,7 @@ title: Every stamped address resolves to exactly one node — the one it was der
   from — and no address repeats within its namespace
 created_by: xgd
 created_at: '2026-08-06T21:26:38.090635+00:00'
-updated_at: '2026-08-10T08:49:53.656408+00:00'
+updated_at: '2026-08-16T04:18:42.402190+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
