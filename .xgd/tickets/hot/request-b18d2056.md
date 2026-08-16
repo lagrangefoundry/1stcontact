@@ -6,9 +6,9 @@ title: 'Workers-runtime test project: UATs that run inside workerd against real 
   and R2 bindings'
 created_by: xgd
 created_at: '2026-08-15T20:30:39.280519+00:00'
-updated_at: '2026-08-15T22:06:49.294192+00:00'
+updated_at: '2026-08-16T00:02:34.895321+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -111,9 +111,27 @@ This inverts lagrange-framework's `*.node.test.js`, and deliberately: there, wor
 
 `@cloudflare/vitest-pool-workers` is `"0.18.5"`, **not** `"^0.18.5"`.
 
-Each pool release pins an exact `miniflare`, and therefore an exact `workerd`, whose per-platform binary must actually be installable under this workspace's supply-chain policy. `^0.18.5` resolves to 0.18.8 → `workerd@1.20260722.1`, whose `@cloudflare/workerd-darwin-arm64@1.20260722.1` is still withheld by the minimum-release-age gate. The optional dependency then silently does not install and `workerd`'s postinstall fails with `Expected "2026-07-22" but got "workerd 2026-06-30"` — a resolution problem surfacing as a build-script crash.
+Each pool release pins an exact `miniflare`, and therefore an exact `workerd`. Installing `^0.18.5` (→ 0.18.8 → `workerd@1.20260722.1`) failed in `workerd`'s postinstall with `Expected "2026-07-22" but got "workerd 2026-06-30"`: the lockfile recorded `workerd@1.20260722.1: {}` — its `optionalDependencies` unresolved — so the platform binary was never linked and `install.js` validated against a stale one. 0.18.5 is the version lagrange-framework already runs and installed cleanly, so it was pinned.
 
-0.18.5 is the version lagrange-framework already runs, and its `workerd@1.20260710.1` binary installs cleanly here. The exact pin is what stops a routine `pnpm update` from reintroducing the failure; the reason is written into `vitest.workers.config.mts` beside the pin.
+> ### ⚠️ CORRECTION (2026-08-15, after promotion) — the diagnosis above was wrong
+>
+> This ticket originally recorded the cause as *"the platform binary is withheld by the workspace's minimum-release-age gate"*, inferred from a correlation with publish dates (35d old → installed, 23d → not). **That inference was wrong, and the pin does not do what this ticket claimed it does.**
+>
+> A later `pnpm update` reproduced the identical crash — `Expected "2026-08-11" but got "workerd 2026-07-10"` — this time via `wrangler` (^4.106.0 → 4.123.0 → `miniflare@5.20260811.1-alpha` → `workerd@1.20260811.1`), which the pool pin does not govern at all. Four controlled experiments on the same pnpm 11.9.0 then ruled the original theory out:
+>
+> | Experiment | Result |
+> |---|---|
+> | `@cloudflare/workerd-darwin-arm64@1.20260811.1` (3 days old) alone | **installs** — no age gate |
+> | `wrangler@4.123.0` in a clean dir | **installs**, binary linked |
+> | same, with a `minimumReleaseAgeExclude` list present | **installs** — the exclude list is not the trigger |
+> | the *entire post-update dependency set*, resolved from scratch | **installs**, both `workerd@1.20260710.1` and `1.20260811.1` binaries present, postinstall green |
+>
+> **Actual cause: pnpm 11.9.0's incremental resolution.** When it adds a *new version* of a package that already exists in the lockfile at another version, it can write the new entry with its `optionalDependencies` dropped (`workerd@1.20260811.1: {}`). The binary is then never linked, and `workerd`'s `install.js` resolves a hoisted sibling of the wrong version and throws. A from-scratch resolve of the same manifests never does this. `minimumReleaseAge` is set nowhere in this repo, in a parent, in `~/.npmrc`, or in pnpm's config; there is no `.pnpmfile.cjs`. pnpm self-reports `11.9.0 → 11.22.0` available.
+>
+> **Consequences for this ticket:**
+> - The exact pin *did* hold across `pnpm update` (the lockfile still records `specifier: 0.18.5` while everything around it moved), so it is not harmful — but it is not load-bearing for the reason given, and `^0.18.5` would have been equally fine.
+> - **The rationale comment in `vitest.workers.config.mts` states the wrong cause and should be corrected or removed.** Left in the tree pending a decision on whether to reopen this ticket for a comment-only commit or fold it into the dependency-bump work.
+> - The real lever, if the workerd postinstall crash recurs, is a from-scratch resolve or a pnpm upgrade — not version pinning.
 
 ## Evidence
 
