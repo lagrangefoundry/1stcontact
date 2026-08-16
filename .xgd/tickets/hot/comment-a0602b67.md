@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-16T01:01:46.496327+00:00'
+updated_at: '2026-08-16T01:02:53.246238+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -455,5 +455,11 @@ What the step does:
 5. **Writes `kb/system/awareness.md`** with the `(type: system, kind: awareness_report, kb: system)` frontmatter that makes it the ticket the report lookup finds — which is also what keeps it out of the corpus it describes.
 
 Two caveats on what's actually verified. The map path is covered by UATs against a stub describer, which proves the pipeline, the frontmatter, the report lookup and the corpus exclusion. It has **never run against a real describer or real embeddings**, because there are no Cloudflare credentials here — step 1 needs the index, so the map can't be built at all without them. And `1c kb status` reports the map as present or missing, but nothing yet re-runs the build when documents move; that's still a manual `1c kb build`.
+
+<!-- xgd-turn id="7a3ec25b-8ef0-47ee-82fe-71aa8105f89d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T01:02:53.086161+00:00" -->
+#### You
+What docs are included? Where do they live?
 
 <!-- xgd-chat-end -->
