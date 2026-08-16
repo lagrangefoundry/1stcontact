@@ -7,9 +7,9 @@ title: 'No edit through this surface can produce raw HTML or CSS: every control 
   a yes/no'
 created_by: xgd
 created_at: '2026-08-07T02:02:54.192416+00:00'
-updated_at: '2026-08-12T18:07:04.942153+00:00'
+updated_at: '2026-08-16T06:55:38.129702+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
