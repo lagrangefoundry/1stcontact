@@ -1,6 +1,10 @@
 {
   "permissions": {
     "allow": [
+      "Edit(/tmp/xgd/**)",
+      "Edit(/private/tmp/xgd/**)",
+      "Edit(.xgd/tmp/**)",
+      "Edit(.xgd/_staging/**)",
       "Write(/tmp/**)",
       "Write(/private/tmp/**)",
       "Write(.xgd/tmp/**)",
