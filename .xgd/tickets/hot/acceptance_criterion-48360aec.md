@@ -6,9 +6,9 @@ title: The retrofit writes a palette onto the site, rewrites every colour litera
   as a reference to it, and reports the before/after counts and the files it wrote
 created_by: xgd
 created_at: '2026-08-06T21:07:37.822422+00:00'
-updated_at: '2026-08-10T08:16:06.626740+00:00'
+updated_at: '2026-08-16T22:25:53.853765+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-5e7eb0c5
@@ -27,18 +27,20 @@ Running the retrofit on a stored site:
 - rewrites every colour literal in every page of the site as a reference into
   that palette, leaving no colour literal behind in the pages;
 - reports the distinct-literal count before, the palette entry count after,
-  each entry by name with its base value and how many steps it carries, and the
-  list of files it wrote (every rewritten page plus the site definition).
+  each entry by name with its single value, every colour that a fitted shade does
+  not reproduce exactly (with the entry and shade it now uses, the colour that
+  resolves to, and how far off it is), and the list of files it wrote (every
+  rewritten page plus the site definition).
 
 The palette is also obtainable as a single machine-readable document naming
-each entry with its base value and its steps.
+each entry with its value.
 
 ## Verification
 
 Census a stored site with a known colour count, run the retrofit, and assert:
 the reported entry count is materially below the reported literal count; the
-site definition now carries a palette with that many entries; no page contains
-a colour literal; and every file named in the report differs from its
-pre-retrofit content while no other file does. Re-run requesting machine-
-readable output and assert the emitted palette document matches the palette
-stored on the site.
+site definition now carries a palette with that many entries, each holding a
+single value; no page contains a colour literal; and every file named in the
+report differs from its pre-retrofit content while no other file does. Re-run
+requesting machine-readable output and assert the emitted palette document
+matches the palette stored on the site.
