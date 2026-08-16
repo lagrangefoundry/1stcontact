@@ -6,7 +6,7 @@ title: Duplicate text is paired by nearest rendered position, avoiding false swa
   while preserving genuine deltas
 created_by: xgd
 created_at: '2026-07-19T02:18:31.760590+00:00'
-updated_at: '2026-08-09T02:54:35.086393+00:00'
+updated_at: '2026-08-16T09:17:31.126944+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
