@@ -6,7 +6,7 @@ title: Content inside a behavior module's seam is addressable, rooted at the ins
   rather than the page
 created_by: xgd
 created_at: '2026-08-06T21:26:42.282183+00:00'
-updated_at: '2026-08-10T08:49:54.805154+00:00'
+updated_at: '2026-08-16T04:18:41.094620+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
