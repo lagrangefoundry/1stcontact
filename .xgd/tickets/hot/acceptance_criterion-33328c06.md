@@ -6,7 +6,7 @@ title: A turn is addressed to a conversation, not a site; naming a site instead 
   refused and changes nothing
 created_by: xgd
 created_at: '2026-08-10T08:35:34.989479+00:00'
-updated_at: '2026-08-16T05:08:56.367453+00:00'
+updated_at: '2026-08-16T05:13:59.942954+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -14,7 +14,7 @@ fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
