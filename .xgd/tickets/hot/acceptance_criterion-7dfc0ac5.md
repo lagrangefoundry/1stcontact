@@ -6,14 +6,15 @@ title: An assistant that cannot run right now is explained in the pane, with the
   history still shown
 created_by: xgd
 created_at: '2026-08-10T08:47:25.559727+00:00'
-updated_at: '2026-08-10T09:01:22.566837+00:00'
+updated_at: '2026-08-16T04:42:09.896962+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-7f437d57
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
