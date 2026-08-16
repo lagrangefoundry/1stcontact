@@ -6,14 +6,15 @@ title: Opening a conversation for a named site answers with its identifier, the 
   already spoken, and whether a turn can be run
 created_by: xgd
 created_at: '2026-08-10T08:35:29.808231+00:00'
-updated_at: '2026-08-10T08:42:35.391043+00:00'
+updated_at: '2026-08-16T05:08:55.116815+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
