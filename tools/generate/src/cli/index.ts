@@ -57,7 +57,7 @@ import {
 } from './shared-store'
 import { startServe } from './serve'
 import { startBuilder } from './builder'
-import { buildKb, exportCorpus, kbStatus, KB_USAGE } from './kb'
+import { buildKb, ensureConfig, exportCorpus, kbStatus, KB_USAGE } from './kb'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import {
   cmdValuesDiff,
@@ -631,9 +631,19 @@ export async function run(argv: string[]): Promise<void> {
     case 'kb': {
       const sub = rest[0] ?? 'status'
       if (sub === 'export') {
-        const { docs, removed, dir } = exportCorpus()
+        // The declaration too, so that `export` leaves a COHERENT tree rather
+        // than documents with nothing declaring what they belong to. Idempotent:
+        // an existing declaration is never overwritten.
+        ensureConfig()
+        const { docs, removed, skipped, dir } = exportCorpus()
         console.log(`corpus: ${docs.length} document(s) -> ${dir}`)
         if (removed.length) console.log(`removed: ${removed.join(', ')}`)
+        // Named, never a bare count: "3 skipped" tells an operator that
+        // something is missing without telling them what, which is the version
+        // of this message that generates a support question.
+        if (skipped.length) {
+          console.log(`not in the KB (no fields.system_kb): ${skipped.join(', ')}`)
+        }
         return
       }
       if (sub === 'build') {
