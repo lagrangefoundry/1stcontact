@@ -6,14 +6,15 @@ title: The catalog of component kinds is listable and closed, stating each kind'
   required configuration and whether it carries a default look
 created_by: xgd
 created_at: '2026-08-10T09:34:02.814621+00:00'
-updated_at: '2026-08-10T09:45:50.034279+00:00'
+updated_at: '2026-08-16T01:57:01.337559+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
