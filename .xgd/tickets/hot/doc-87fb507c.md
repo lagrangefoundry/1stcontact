@@ -5,9 +5,9 @@ type: doc
 title: 'Owner-Facing Mobile Companion: Technology and Web-Architecture Impact'
 created_by: xgd
 created_at: '2026-06-30T01:02:08.378124+00:00'
-updated_at: '2026-06-30T01:02:23.175893+00:00'
+updated_at: '2026-08-16T01:21:52.747770+00:00'
 completed_at: null
-last_field_updated: references
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
@@ -18,6 +18,7 @@ fields:
     title: Gendev Website Caretaker Architecture
   - title: Mobile app technology
     note: referenced item not copied from prior project
+  system_kb: true
 ---
 
 ## Overview
