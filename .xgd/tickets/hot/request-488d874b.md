@@ -5,7 +5,7 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-16T01:03:41.620025+00:00'
+updated_at: '2026-08-16T01:16:12.740488+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
@@ -144,13 +144,29 @@ silently dropping the whole knowledge surface.
 
 1. **The JS knowledge components are built in the framework**, not here — FW-1/2/3
    above. This repo stands up, builds, and consumes.
-2. **The whole doc set goes in, and the corpus question is closed.** Every `doc`
-   ticket, no curation pass. The system must scale to thousands of documents, so
-   the answer to a large corpus is chunk search and an awareness map, not a
-   hand-picked subset. Some documents are development-process knowledge rather
-   than product knowledge; whether that hurts retrieval is a question to answer
-   with data once the feature exists. Which documents to drop, and which to
-   generate, is a later editorial pass over a working mechanism — not a blocker.
+2. **Membership is opt-in, per document, on the document.** A `doc` ticket is in
+   the system KB when it carries `fields.system_kb: true`, and the export skips
+   every ticket that does not. Every doc carries it today, so the corpus is
+   unchanged — but the mechanism is now the one that decides, rather than the
+   absence of one.
+
+   **Inclusion and not exclusion**, deliberately. An exclusion list answers "what
+   did we throw out", which nobody asks; inclusion answers "what does the
+   assistant know", which is the question that matters and the one a reviewer
+   should be able to settle by reading a document's own frontmatter. It also
+   fails safe: a new document is outside the KB until somebody says otherwise, so
+   nothing reaches the assistant by default. The opposite default would put every
+   new document in front of a client-facing agent the moment it was written.
+
+   The decision lives on the TICKET rather than in a list in the KB declaration,
+   because it is a fact about the document and has to move with it. An id list
+   drifts silently — the document is retired or renamed and the list still names
+   it, with nothing to notice.
+
+   The system must still scale to thousands of documents, so the answer to a
+   large corpus remains chunk search and an awareness map, not a hand-picked
+   subset. This is the dial that makes an editorial pass possible when there is
+   retrieval data to justify one; it is not an instruction to curate now.
 3. **The awareness map is generated at build time. There is no hand-authored
    map.** Generating it is the point: a map over a corpus this size, spanning product,
    framework and process is exactly what goes stale when hand-maintained.
