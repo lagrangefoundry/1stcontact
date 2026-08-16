@@ -6,14 +6,15 @@ title: A conversation identifier the origin never issued is refused before anyth
   is streamed, and starts no conversation
 created_by: xgd
 created_at: '2026-08-10T08:35:48.124047+00:00'
-updated_at: '2026-08-10T08:42:34.531885+00:00'
+updated_at: '2026-08-16T05:09:01.918410+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
