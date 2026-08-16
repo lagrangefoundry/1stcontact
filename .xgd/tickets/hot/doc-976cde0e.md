@@ -5,12 +5,13 @@ type: doc
 title: The Page Editor — direct manipulation on the live preview
 created_by: xgd
 created_at: '2026-07-31T01:03:15.038551+00:00'
-updated_at: '2026-07-31T20:43:55.179114+00:00'
+updated_at: '2026-08-16T01:20:03.155840+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 # The Page Editor — direct manipulation on the live preview
