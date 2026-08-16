@@ -5,12 +5,13 @@ type: doc
 title: 'How-To: Faithful Founder-Site Reproduction (successor runbook)'
 created_by: xgd
 created_at: '2026-07-03T01:39:12.471124+00:00'
-updated_at: '2026-07-21T20:37:44.086164+00:00'
+updated_at: '2026-08-16T01:20:35.868985+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 # How-To: Faithful Site Reproduction (L1 world)
