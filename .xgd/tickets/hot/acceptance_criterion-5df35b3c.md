@@ -6,7 +6,7 @@ title: A turn that changes the site streams what the assistant did and said, end
   in exactly one completion, and the change is in the draft
 created_by: xgd
 created_at: '2026-08-10T08:35:43.022538+00:00'
-updated_at: '2026-08-16T05:08:57.791893+00:00'
+updated_at: '2026-08-16T05:22:26.596375+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
