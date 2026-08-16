@@ -6,9 +6,9 @@ title: A text-free media element folds to an image leaf with its resolved source
   alternative text and the framing it is seen through
 created_by: xgd
 created_at: '2026-07-29T04:04:57.769004+00:00'
-updated_at: '2026-08-12T21:49:08.863077+00:00'
+updated_at: '2026-08-16T08:03:15.354090+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
