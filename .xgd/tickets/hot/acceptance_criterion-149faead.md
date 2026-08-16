@@ -6,7 +6,7 @@ title: 'The edit channel is a render mode: its own output location, always rende
   from the draft, and never entering the site''s revision history'
 created_by: xgd
 created_at: '2026-08-06T21:27:40.830127+00:00'
-updated_at: '2026-08-10T08:49:52.498910+00:00'
+updated_at: '2026-08-16T04:18:43.586868+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
