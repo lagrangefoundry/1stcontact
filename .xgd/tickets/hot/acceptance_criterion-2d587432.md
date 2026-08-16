@@ -6,14 +6,15 @@ title: Size, weight and italic restyle the words in the editing box as each is c
   and nothing is written
 created_by: xgd
 created_at: '2026-08-13T01:08:41.637462+00:00'
-updated_at: '2026-08-13T01:38:03.043896+00:00'
+updated_at: '2026-08-16T04:17:58.977704+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: fail
 ---
 
 ## Criterion
