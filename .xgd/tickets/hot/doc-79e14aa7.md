@@ -5,11 +5,12 @@ type: doc
 title: Interface Design Policy
 created_by: xgd
 created_at: '2026-06-30T00:54:43.050268+00:00'
-updated_at: '2026-06-30T00:54:43.050268+00:00'
+updated_at: '2026-08-16T01:22:05.178314+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: interface_design_policy
+  system_kb: true
 ---
 
