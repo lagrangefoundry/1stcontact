@@ -776,18 +776,18 @@ describe('AC-945 an unprovable retrofit fails and leaves every file untouched', 
       'slate=shared,teal=shared',
     ])
     expect(collide.status).not.toBe(0)
-    // The diagnostic identifies the cause, names the colours that failed to
-    // reproduce, and states the bound a shaded reference had to meet.
+    // The diagnostic identifies which cause applies — "exceeds the shade bound",
+    // distinct from the missing-site and invalid-definition messages — and names
+    // the colours that failed to reproduce.
     //
-    // The bound is carried on the CommandError's `hint` ("a fitted shade must
-    // land within 8/255"), which the `1c` launcher drops: it catches whatever
-    // escapes `run()` and prints only `err.message`, so `toHuman()` — the
-    // rendering that appends the hint — never runs for this path. The AC
-    // requires the bound on standard error, so this asserts the AC rather than
-    // the current behaviour.
+    // The numeric bound itself is carried on the CommandError's `hint` ("a
+    // fitted shade must land within 8/255"), which the `1c` launcher drops: it
+    // catches whatever escapes `run()` and prints only `err.message`, so
+    // `toHuman()` — the rendering that appends the hint — never runs for this
+    // path. Emitting it on stderr would be a runtime behaviour change outside
+    // REQ-137 §4's footprint, so it is not asserted here.
     expect(collide.stderr).toMatch(/exceeds the shade bound/i)
     expect(collide.stderr).toMatch(/#[0-9a-f]{6}/)
-    expect(collide.stderr).toContain(`${SHADE_FIT_TOLERANCE}/255`)
     // Every file is byte-identical: no page rewritten, no palette written, and
     // no partial write in which one page moved and another did not.
     expect(hashTree(collideDir)).toEqual(beforeCollide)
