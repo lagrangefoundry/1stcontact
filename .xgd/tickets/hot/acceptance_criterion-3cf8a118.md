@@ -6,14 +6,15 @@ title: Choosing a background updates the panel's background and the re-rendered 
   shows it, leaving every other parameter and every asset byte untouched
 created_by: xgd
 created_at: '2026-08-10T08:23:13.812435+00:00'
-updated_at: '2026-08-10T08:31:10.639704+00:00'
+updated_at: '2026-08-16T06:55:46.778927+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
