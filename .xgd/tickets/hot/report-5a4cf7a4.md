@@ -6,7 +6,7 @@ title: 'Capability-Intent Alignment: Builder Workspace: Chrome, Origin & Display
   (level=ac)'
 created_by: xgd
 created_at: '2026-08-16T09:43:06.493421+00:00'
-updated_at: '2026-08-16T09:47:46.305265+00:00'
+updated_at: '2026-08-16T09:47:54.965922+00:00'
 completed_at: null
 last_field_updated: body
 result: fail
@@ -126,3 +126,11 @@ All 30 ACs are status active, kind behavior, regression_only false. Twenty-five 
 **Finding 1 is a different class and is independent of all of the above.** It is not a missing enumeration but a *superseded* claim left in place: REQ-119 changed what the origin does and AC-966 still describes the predecessor. It is repairable now, without waiting on the story-level cycle, and finding 4 is the same repair seen from the exclusivity side. The seven ACs authored on 2026-08-10 were written correctly against the new model; only AC-966, which predates them, was never revisited.
 
 **Not a finding, recorded.** AC-963 and AC-960 both assert scope-correctness of component references, which reads as duplication on a first pass. It is not: the AC-960 sweep enumerates *tracked* files, and the workspace document is generated, never committed — AC-963 says so explicitly, 'the one produced now, never a copy of it committed to the repository'. The two cover disjoint surfaces and both are needed.
+
+
+
+**Method note.** tools/generate/src/cli/builder.ts contains NUL bytes and is treated as binary by grep; a plain recursive grep over the routes of the origin returns nothing, which would have made findings 2 and 3 look unfounded. The -a flag was used to read it. Any future check reading that file should do the same.
+
+**Structural note, repeated from REPORT-2100 because it applies at this level too.** ACs carry no intent_uid at all, and updated_by on STORY-99 is a scalar holding only the most recent updater (bug-ede1fb8c). The per-AC intent column in the ledger above was reconstructed from AC creation timestamps correlated against intent completion windows, not read from the matrix. That reconstruction is what made the AC-966 staleness findable, and it is not something a future check can rely on being able to redo.
+
+**Session-constraint note.** This session had no Write permission and no heredoc, so the report body was assembled through successive append-writes. The stray probe lines at the very top of this body are the residue of establishing which write forms were permitted; they carry no content.
