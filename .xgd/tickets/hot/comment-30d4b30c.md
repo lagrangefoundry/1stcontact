@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-142
 created_by: xgd
 created_at: '2026-08-16T00:22:57.314754+00:00'
-updated_at: '2026-08-16T00:35:24.416002+00:00'
+updated_at: '2026-08-16T00:37:32.377224+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -59,6 +59,14 @@ I'll cut `free-REQ-142`, set `status=free_coding`, and implement on the recommen
 
 <!-- xgd-chat role="user" ts="2026-08-16T00:35:24.250472+00:00" -->
 #### You
+I was concerned about that - we need a site factory - please create one
+
+<!-- xgd-turn id="d5dbef78-18ac-4cd4-acb4-49d58ff4077f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T00:37:32.136418+00:00" -->
+#### You
+Lets go with your recommendations
+
 I was concerned about that - we need a site factory - please create one
 
 <!-- xgd-chat-end -->
