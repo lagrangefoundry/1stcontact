@@ -5,9 +5,9 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-16T01:02:11.718482+00:00'
+updated_at: '2026-08-16T01:03:41.620025+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: ready_to_reconcile
 fields:
   auto_merge_back: true
@@ -64,7 +64,9 @@ read by `DocDirStore`; the index is a release artefact beside it.
 ### 1. The corpus
 
 - **Corpus = files that ship with the release**, not seeded tickets. Every `doc`
-  ticket (32 today) exported to a corpus directory of frontmatter-bearing
+  ticket (33 at the time of writing, and deliberately not pinned — the export
+  reconciles against the store on every run) exported to a corpus directory of
+  frontmatter-bearing
   markdown, which is the shape `DocDirStore` reads.
 - The export is **repeatable** — it re-runs whenever the design docs move.
 - Filenames derive from the doc's human id, not its title: `DocDirStore`'s uid
@@ -150,7 +152,7 @@ silently dropping the whole knowledge surface.
    with data once the feature exists. Which documents to drop, and which to
    generate, is a later editorial pass over a working mechanism — not a blocker.
 3. **The awareness map is generated at build time. There is no hand-authored
-   map.** Generating it is the point: a map over 32 documents spanning product,
+   map.** Generating it is the point: a map over a corpus this size, spanning product,
    framework and process is exactly what goes stale when hand-maintained.
 
    The KB nevertheless declares `landscape: authored` at RUNTIME, and that is not
