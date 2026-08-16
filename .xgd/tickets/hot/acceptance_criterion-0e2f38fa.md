@@ -7,14 +7,15 @@ title: A picture's colour is adjusted through bounded percentage controls over t
   exactly as it found it, container and all
 created_by: xgd
 created_at: '2026-08-12T21:29:03.861779+00:00'
-updated_at: '2026-08-12T21:44:40.497992+00:00'
+updated_at: '2026-08-16T06:56:01.599000+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
