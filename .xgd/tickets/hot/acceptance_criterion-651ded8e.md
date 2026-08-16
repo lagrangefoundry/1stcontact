@@ -6,14 +6,15 @@ title: A composed drawing is written as an ordinary site image, referenceable fr
   a page, and ships into the render unaltered
 created_by: xgd
 created_at: '2026-08-10T09:34:32.846352+00:00'
-updated_at: '2026-08-10T09:45:48.196899+00:00'
+updated_at: '2026-08-16T01:57:18.652943+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
