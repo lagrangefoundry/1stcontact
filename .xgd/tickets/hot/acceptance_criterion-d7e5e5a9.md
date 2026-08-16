@@ -6,7 +6,7 @@ title: Which regions are editable is derived from the definition's structure, an
   a region with nothing to edit is neither stamped nor outlined
 created_by: xgd
 created_at: '2026-08-06T21:26:16.830197+00:00'
-updated_at: '2026-08-10T08:50:03.953800+00:00'
+updated_at: '2026-08-16T04:18:25.527614+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
