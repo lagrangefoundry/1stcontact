@@ -7,14 +7,15 @@ title: A picture carrying no framing parameters answers with the values a browse
   than with blanks
 created_by: xgd
 created_at: '2026-08-12T21:29:33.129250+00:00'
-updated_at: '2026-08-12T21:44:38.967108+00:00'
+updated_at: '2026-08-16T06:56:03.824678+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
