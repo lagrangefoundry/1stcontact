@@ -5,12 +5,13 @@ type: doc
 title: L1 Control Surface API — the documented, maintained way to change a site
 created_by: xgd
 created_at: '2026-08-08T21:12:39.376838+00:00'
-updated_at: '2026-08-09T00:49:55.784560+00:00'
+updated_at: '2026-08-16T01:19:57.030556+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 # L1 Control Surface API — the documented, maintained way to change a site
