@@ -6,14 +6,15 @@ title: Replacing an element replaces its whole subtree at that address and leave
   its siblings and the rest of the page untouched
 created_by: xgd
 created_at: '2026-08-10T09:19:58.095297+00:00'
-updated_at: '2026-08-10T09:29:37.182902+00:00'
+updated_at: '2026-08-16T02:37:30.413648+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-189fc1ac
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
