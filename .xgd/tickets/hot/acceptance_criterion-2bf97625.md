@@ -6,7 +6,7 @@ title: Workspace layout state survives closing and reopening, and every stored v
   is namespaced to this workspace
 created_by: xgd
 created_at: '2026-08-07T01:44:54.310703+00:00'
-updated_at: '2026-08-07T21:19:45.636523+00:00'
+updated_at: '2026-08-16T10:03:06.473440+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
