@@ -123,6 +123,9 @@ const FORM_CONFIG = {
   submitLabel: 'Join the waitlist',
 }
 
+/** A slide's whole presentation, for the kind that carries no default look. */
+const SLIDE_COPY = 'They shipped in a fortnight.'
+
 const MARK = [
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">',
   '<title>Wireframe mark</title>',
@@ -360,7 +363,37 @@ describe('story-b3de4571 — components are instantiated from a closed catalog',
     expect(listed.error!.code).toBe('SCHEMA_INVALID')
     expect(listed.error!.message).toContain('slide')
     expect(listed.error!.message).toMatch(/no default presentation/i)
-  }, 120000)
+
+    // Optional is not forbidden: the SAME kind, added with a presentation the
+    // caller authored, is accepted — which is the only route a kind with no
+    // default look has, and the reason the refusal above is a prompt rather than
+    // a dead end. Driven at the command line, the boundary the refusal above was
+    // read at, so the accepted and refused calls are compared like for like.
+    const supplied = await cli(
+      cwd,
+      'module',
+      'add',
+      SLUG,
+      'home',
+      'gallery',
+      'carousel',
+      '--slot',
+      'gallery',
+      '--config',
+      '{}',
+      '--slots',
+      JSON.stringify({ slide: [{ kind: 'text', text: SLIDE_COPY }] }),
+    )
+    expect(supplied.ok).toBe(true)
+
+    // What is stored is what was supplied — not a default derived behind it.
+    const carousel = readPage().modules.find((m: any) => m.id === 'gallery')
+    expect(carousel.slots.slide).toEqual([{ kind: 'text', text: SLIDE_COPY }])
+
+    // And it reaches the render, so a supplied presentation is a mounted one.
+    const rendered = await cmdRender(SLUG, { cwd })
+    expect(readFileSync(path.join(rendered.outDir, 'index.html'), 'utf8')).toContain(SLIDE_COPY)
+  }, 180000)
 
   it('test_UAT_AC1100_a_configuration_violating_the_kind_contract_is_refused_at_the_field', async () => {
     const box = await caretaker()
