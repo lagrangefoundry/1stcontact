@@ -6,14 +6,15 @@ title: A definition changed outside the workspace is shown on the next request, 
   no render step and no restart — and unwinds the same way
 created_by: xgd
 created_at: '2026-08-10T07:29:13.015523+00:00'
-updated_at: '2026-08-10T07:39:49.407596+00:00'
+updated_at: '2026-08-16T10:03:22.638213+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
