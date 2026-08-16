@@ -6,14 +6,15 @@ title: The operator's click-to-edit form opens and saves on an element the assis
   composed, leaving the assistant's styling intact
 created_by: xgd
 created_at: '2026-08-10T09:20:27.186022+00:00'
-updated_at: '2026-08-10T09:29:35.475320+00:00'
+updated_at: '2026-08-16T02:37:42.400502+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-189fc1ac
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
