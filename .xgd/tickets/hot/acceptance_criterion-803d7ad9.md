@@ -6,14 +6,15 @@ title: A changed size previews at the scale the dialog dressed the run at, so a 
   above the editing range still visibly responds
 created_by: xgd
 created_at: '2026-08-13T01:08:59.887914+00:00'
-updated_at: '2026-08-13T01:38:13.764540+00:00'
+updated_at: '2026-08-16T04:19:38.697746+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
