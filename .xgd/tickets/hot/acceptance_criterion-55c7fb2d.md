@@ -6,7 +6,7 @@ title: The stamp vocabulary is one published contract, so the render that writes
   and the client that reads it cannot drift
 created_by: xgd
 created_at: '2026-08-07T02:42:57.244108+00:00'
-updated_at: '2026-08-10T08:49:57.804772+00:00'
+updated_at: '2026-08-16T04:18:32.509489+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
