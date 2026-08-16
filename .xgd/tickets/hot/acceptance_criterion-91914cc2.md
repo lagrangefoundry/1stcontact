@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: '"Open in a new tab" always targets the exact document the pane is displaying'
 created_by: xgd
 created_at: '2026-08-07T01:44:41.216429+00:00'
-updated_at: '2026-08-07T21:19:42.831774+00:00'
+updated_at: '2026-08-16T10:03:03.442923+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
