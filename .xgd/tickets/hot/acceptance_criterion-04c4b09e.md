@@ -6,7 +6,7 @@ title: 'Registering a mode is an added entry: a mode the panel has never heard o
   works end to end'
 created_by: xgd
 created_at: '2026-08-07T01:44:32.309608+00:00'
-updated_at: '2026-08-07T21:19:40.914283+00:00'
+updated_at: '2026-08-16T10:02:58.499254+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
