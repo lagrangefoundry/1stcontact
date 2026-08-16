@@ -5,12 +5,13 @@ type: doc
 title: Internationalization & Localization Model
 created_by: xgd
 created_at: '2026-08-15T23:58:49.039815+00:00'
-updated_at: '2026-08-15T23:58:49.039815+00:00'
+updated_at: '2026-08-16T01:19:04.754045+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 # Internationalization & Localization Model
