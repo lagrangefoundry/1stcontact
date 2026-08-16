@@ -6,14 +6,15 @@ title: A node's own paint carries a typed colour adjustment, emitted as one decl
   in a fixed order
 created_by: xgd
 created_at: '2026-08-12T21:12:29.550273+00:00'
-updated_at: '2026-08-12T21:23:01.109227+00:00'
+updated_at: '2026-08-16T08:44:58.618542+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
