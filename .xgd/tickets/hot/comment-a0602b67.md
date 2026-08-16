@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-16T01:15:35.920324+00:00'
+updated_at: '2026-08-16T01:39:01.600563+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -539,5 +539,70 @@ Separately, `corpusPredicates` not emitting negation is worth raising upstream a
 <!-- xgd-chat role="user" ts="2026-08-16T01:15:35.771560+00:00" -->
 #### You
 Lets do this - the correct answer is INCLUSION - I would like to explicitly opt tickets in. Can you add a fields.system_kb, please as the filter - set it to true on all the current docs. Thank you
+
+<!-- xgd-turn id="62e1711e-c8a0-460c-a5c1-f9a35e5d0103-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T01:39:01.446280+00:00" -->
+#### Claude
+Clear — opt-in via `fields.system_kb`. Let me scope it on the ticket first, then cut a branch.
+
+Now the code. First the export filter:
+
+Now the declaration should carry the same predicate, so the KB is self-describing:
+
+The declaration and `bindKb` now risk disagreeing. Let me check whether I can just parse the config properly:
+
+`parseKbConfig` gives the whole KB. Let me make the declaration authoritative instead of hand-constructing it:
+
+Now the CLI output and the empty-corpus message:
+
+Now set the flag on all 33 docs:
+
+My success check matched the wrong line — let me verify what actually happened:
+
+All 33 carry `system_kb: true`. Now the UATs:
+
+The new declaration-driven binding will break my hand-written test fixtures. Let me verify the boolean round-trips first:
+
+Round-trips correctly — `DOC-Y` without the flag is excluded by the predicate. Now the fixtures:
+
+14 pass, but one of my new tests is vacuous — there are no opted-out docs right now, so its loop never runs. Let me make the rule itself testable:
+
+21 UATs passing. Let me confirm the real export end-to-end, then commit:
+
+`kb export` doesn't scaffold the declaration — let me fix that so the tree is coherent after either command:
+
+Working end to end. Let me commit and promote:
+
+Same race as before. Bumping on the merged tree:
+
+Done — merged to `xgd-working`, ticket back at `free_coded` with all four commits recorded.
+
+## What you have
+
+`fields.system_kb: true` is now the membership rule, set on all 33 doc tickets. Nothing changed about what's in the KB; what changed is that a mechanism decides it.
+
+```
+1c kb export
+corpus: 33 document(s) -> .../kb/system
+```
+
+A doc without the flag gets skipped and **named** — `not in the KB (no fields.system_kb): DOC-x, DOC-y` — because a silently missing document shows up far from its cause, as an assistant that doesn't know something it looks like it should. Opting a doc out later deletes its corpus file via the same path a deleted ticket takes, so it stops being searchable rather than merely stopping being refreshed.
+
+## Two things I did beyond the literal ask
+
+**The declaration is now actually used.** Adding the predicate to `kb/knowledge_bases.json` exposed that `bindKb` read only the `prompt` from that file and hand-constructed everything else — so editing the declared corpus predicate would have changed nothing, silently. It now goes through the library's `parseKbConfig`, so prompt, predicate, landscape and weight all come from the declaration. Without this the config file would have been decoration.
+
+**The predicate repeats the flag.** The export decides which files exist; the predicate decides which files belong to the KB. So a stray file arriving by another route isn't absorbed into the corpus on the next index build. I verified the whole chain empirically — `system_kb: true` survives into corpus frontmatter, parses back as a boolean, and a doc without it is dropped by `resolveCorpus`.
+
+`1c kb export` also scaffolds the declaration now, so either command leaves a coherent tree.
+
+## Tests
+
+21 UATs, all passing. Worth flagging one thing I corrected mid-way: my first version of the opt-out test iterated over docs *without* the flag — of which there are now none, so it passed vacuously while proving nothing. The rule is now asserted directly on synthetic tickets (absent, `false`, `1`, and the string `"true"` all excluded), with a separate UAT holding the export to what the rule says of the real store in both directions.
+
+The version race with REQ-142 recurred exactly as it did with REQ-139 — worth knowing that concurrent ticket promotion makes the branch-side bump unreliable; the bump has to happen on the merged tree.
+
+Still outstanding and unchanged: `1c kb build` has never run for real, since there are no Cloudflare credentials here. And I now have four findings to report upstream — the missing `bin`, the `DocDirStore` timestamp discrepancy, `corpusPredicates` not emitting negation, and that `Toolbox.run` going async has broken 74 pre-existing tests on this branch.
 
 <!-- xgd-chat-end -->
