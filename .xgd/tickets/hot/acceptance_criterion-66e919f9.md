@@ -6,9 +6,9 @@ title: 'A retrofit that cannot be proved lossless writes nothing: the command fa
   with a diagnostic and every file is left untouched'
 created_by: xgd
 created_at: '2026-08-06T21:08:29.338855+00:00'
-updated_at: '2026-08-10T08:16:02.288878+00:00'
+updated_at: '2026-08-16T22:25:54.951117+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-5e7eb0c5
@@ -21,14 +21,15 @@ fields:
 
 The retrofit writes only after it has proved the conversion is safe. When it
 cannot — because the named site has no stored draft definition to convert,
-because a derived reference would not reproduce the exact literal it replaces,
-or because the converted definition would not satisfy the site-definition
-contract — the command:
+because a derived reference would not reproduce the literal it replaces within
+the stated bound (byte-exactly, where the reference carries no shade, and
+byte-exactly for opacity in every case), or because the converted definition
+would not satisfy the site-definition contract — the command:
 
 - terminates with a non-zero exit status;
 - reports on standard error a diagnostic that identifies which of those causes
-  applies, naming the colours that failed to round-trip or the validation
-  problems found;
+  applies, naming the colours that failed to reproduce or the validation
+  problems found, and stating the bound a shaded reference had to meet;
 - leaves every file under the site byte-identical to before the command ran,
   including the site definition and every page.
 
@@ -39,7 +40,8 @@ palette is never written beside pages that still carry literals.
 
 Invoke the retrofit against a slug with no stored draft definition and assert a
 non-zero exit, a diagnostic naming the missing site on standard error, and no
-filesystem change. Exercise the round-trip and contract-validation failure paths
-by driving the conversion with input that cannot round-trip or that produces an
-invalid definition, and assert in each case the non-zero exit, the corresponding
-diagnostic, and that hashes of all the site's files are unchanged.
+filesystem change. Exercise the reproduction and contract-validation failure
+paths by driving the conversion with input whose references cannot land within
+the bound or that produces an invalid definition, and assert in each case the
+non-zero exit, the corresponding diagnostic, and that hashes of all the site's
+files are unchanged.
