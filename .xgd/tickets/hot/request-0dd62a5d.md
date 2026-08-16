@@ -5,10 +5,10 @@ type: request
 title: An async SiteStore port, with the filesystem behind it
 created_by: xgd
 created_at: '2026-08-15T20:31:09.480730+00:00'
-updated_at: '2026-08-15T21:42:26.388416+00:00'
+updated_at: '2026-08-16T00:38:27.133800+00:00'
 completed_at: null
-last_field_updated: depends_on
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 13
@@ -111,3 +111,60 @@ Worker-safe path never imports it. Follow that shape.
 ## Origin
 
 [[CHAT-25]]. Depends on [[REQ-141]] for the harness the fake-adapter UAT runs in.
+## 7. Decisions taken during implementation (2026-08-15)
+
+These were underdetermined by §5 and are recorded here because they are the shape
+REQ-143 builds on.
+
+**Injection.** The store is a required `store: SiteStore` field on the options object
+every `edit*` function already takes (`EditOptions extends GlobalOptions`). `edit.ts`
+imports the port's *types* only; `fsSiteStore(ctx)` lives in a Node-only entry
+(`store/fs-store.ts`) so the Worker-safe path never pulls `node:fs`, following
+`docs_store.js`'s `./node` split. Required rather than optional so the compiler
+finds every call site.
+
+**Port width.** §5's eight verbs are not sufficient for AC-2: `edit.ts` also reaches
+the change journal (`appendChange`/`changesSince`/`draftCounter`) and computes
+`status` by diffing the live revision against `draft/`. Both are port verbs —
+`counter`/`appendChange`/`changesSince` and a single `pendingChanges(slug)` — rather
+than left for REQ-143.
+
+**Asset sources.** `editAssetAdd` read a path on the operator's own disk, which is not
+the store and has no meaning in a Worker. The source read moves out to its two callers
+(the CLI and the AI toolbox adapter); the function takes bytes. `1c asset add <file>
+--as` and the tool's declared `file` parameter are unchanged, and the NOT_FOUND
+envelope for a missing source file is raised at the call site with identical
+code/path/hint.
+
+**Preview assets.** `DraftStore.asset()` returning an absolute path is the leak §5
+rules out, so it becomes `readAsset(slug, rel): Promise<Uint8Array | null>` and
+`PreviewFile`'s `{ kind: 'file' }` carries bytes. This trades `sendFile`'s streaming
+for a buffered read on the dev builder's asset path.
+
+**Scope held.** `commands.ts` (`new`/`publish`/`checkout`/`render`/history) stays on the
+filesystem directly; `FsSiteStore` delegates `loadDraft` to the existing `loadSite`.
+
+## 8. The site factory
+
+REQ-141 delivered the vitest project split and nothing else — there is no reusable site
+fixture. Every test that needs a site still rolls its own `mkdtemp` + `cmdNew` +
+`writeFileSync` preamble, and that preamble is precisely the thing that cannot cross
+into workerd.
+
+So this ticket also ships **one site factory, two backends behind the port**:
+
+- `makeFsSite(...)` — a temp-directory site plus its `FsSiteStore`, replacing the
+  hand-rolled preamble, with disposal.
+- `makeMemorySite(...)` — the same site over the in-memory adapter, no filesystem at
+  all. This is what AC-4 drives.
+
+Both return the same handle (`{ slug, store, opts }`), so a test written against one
+runs against the other unchanged. That equivalence is the factory's whole point: it is
+what makes "no caller depends on the filesystem" a property a test can assert rather
+than a claim.
+
+## 9. Acceptance criteria added
+
+7. A site factory under `tests/support/` yields the same handle over the filesystem
+   adapter and the in-memory adapter, and a UAT drives the same body of assertions
+   through both.
