@@ -6,7 +6,7 @@ title: 'Editing through the builder''s origin is the same surface: a rejected ed
   returns the validator''s own fault, and a saved edit leaves both renderings current'
 created_by: xgd
 created_at: '2026-08-07T02:02:58.806555+00:00'
-updated_at: '2026-08-10T07:40:28.824224+00:00'
+updated_at: '2026-08-16T06:55:39.241585+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
