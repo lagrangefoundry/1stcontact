@@ -6,14 +6,15 @@ title: Asking a painted panel what it exposes returns one closed picker of the s
   images for the background it carries, and nothing else of its paint
 created_by: xgd
 created_at: '2026-08-10T08:23:08.470214+00:00'
-updated_at: '2026-08-10T08:31:10.926998+00:00'
+updated_at: '2026-08-16T06:55:45.659043+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
