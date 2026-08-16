@@ -6,14 +6,15 @@ title: 'What a consumer is told about the surface is a projection of it: every o
   operation, the error meanings, the addressing rule, and the declared absences'
 created_by: xgd
 created_at: '2026-08-10T09:06:38.849239+00:00'
-updated_at: '2026-08-16T03:06:23.267216+00:00'
+updated_at: '2026-08-16T03:39:03.659557+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-93905de4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
