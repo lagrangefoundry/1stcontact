@@ -6,7 +6,7 @@ title: 'Capability-Intent Alignment: Builder Workspace: Chrome, Origin & Display
   (level=ac)'
 created_by: xgd
 created_at: '2026-08-16T09:43:06.493421+00:00'
-updated_at: '2026-08-16T09:44:22.482028+00:00'
+updated_at: '2026-08-16T09:46:07.399517+00:00'
 completed_at: null
 last_field_updated: body
 result: fail
@@ -38,3 +38,14 @@ PROBE-MULTILINE-MD
 | 1 | violation | AC-966 |
 
 Cross-story exclusivity is trivially satisfied because the capability has exactly one story. The question at this level is whether each AC follows from the body of STORY-99 and whether the thirty of them collectively cover its behavioural surface without overlapping each other.
+
+
+
+(The lines above are permission-probe artifacts from a session in which only append-writes were permitted. The report begins here.)
+
+**CAPABILITY-INTENT ALIGNMENT — Builder Workspace: Chrome, Origin and Display Panel — LEVEL: ac**
+
+**Result**: FAIL
+**Violations**: 3
+**Warnings**: 4
+**Needs review**: 0
