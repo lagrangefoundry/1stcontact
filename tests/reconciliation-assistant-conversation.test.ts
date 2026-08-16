@@ -207,7 +207,7 @@ afterEach(() => {
 
 describe('the assistant answers for itself before any conversation exists', () => {
   it('test_UAT_AC1051_capability_answer_names_the_role_and_readiness_without_a_conversation', async () => {
-    setModelClient(scriptedClient([says('should never run')]))
+    setModelClient(scriptedClient([says('Hello — what would you like to change?')]))
 
     const res = await fetch(`${base}api/ai/roles`)
     expect(res.status).toBe(200)
@@ -221,6 +221,17 @@ describe('the assistant answers for itself before any conversation exists', () =
 
     // Asking cost nothing: no site was named and no conversation was opened.
     expect(existsSync(sessionsDir({ cwd }))).toBe(false)
+
+    // The answer is about the ASSISTANT, not about any conversation — so opening
+    // one and speaking in it, which really does write a transcript, leaves the
+    // answer identical. Without this the invariance is only ever exercised in the
+    // not-ready state (AC-1060), never while the assistant can actually run.
+    await speak(base, SLUG, 'Hi there')
+    expect(existsSync(sessionsDir({ cwd }))).toBe(true)
+
+    const after = await fetch(`${base}api/ai/roles`)
+    expect(after.status).toBe(200)
+    expect(await after.json()).toEqual(status)
   })
 })
 
@@ -263,19 +274,29 @@ describe('a turn is addressed to a conversation, never to a site', () => {
     const opened = await open(base, SLUG)
     const before = draftBytes(cwd, SLUG)
 
-    const malformed: Array<{ body: unknown; names: string }> = [
+    const malformed: Array<{ body: unknown; missing: string[]; supplied: string[] }> = [
       // A site instead of the conversation — the request the old design accepted.
-      { body: { slug: SLUG, text: 'Change the headline' }, names: 'sessionId' },
-      { body: { text: 'Change the headline' }, names: 'sessionId' },
-      { body: { sessionId: opened.sessionId }, names: 'text' },
+      {
+        body: { slug: SLUG, text: 'Change the headline' },
+        missing: ['sessionId'],
+        supplied: ['text'],
+      },
+      { body: { text: 'Change the headline' }, missing: ['sessionId'], supplied: ['text'] },
+      { body: { sessionId: opened.sessionId }, missing: ['text'], supplied: ['sessionId'] },
+      { body: {}, missing: ['sessionId', 'text'], supplied: [] },
     ]
 
-    for (const { body, names } of malformed) {
+    for (const { body, missing, supplied } of malformed) {
       const res = await post(base, 'prompt', body)
       expect(res.status).toBe(400)
       expect(res.headers.get('content-type')).toContain('application/json')
       const error = ((await res.json()) as { error: string }).error
-      expect(error).toContain(names)
+      // The refusal has to IDENTIFY the omission, so each case reads both ways:
+      // the value left out is named, and a value that WAS supplied is not. A
+      // constant naming both would satisfy the first check while saying nothing
+      // about which one the caller actually missed.
+      for (const name of missing) expect(error).toContain(name)
+      for (const name of supplied) expect(error).not.toContain(name)
     }
 
     // Refused before any turn began: nothing was sent to the model, the draft is

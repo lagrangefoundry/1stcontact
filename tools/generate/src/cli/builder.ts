@@ -322,8 +322,16 @@ export async function handleBuilderRequest(
 
     if (p === '/api/ai/prompt' && req.method === 'POST') {
       const body = (await readJsonBody(req)) as { sessionId?: string; text?: string }
-      if (!body.sessionId || typeof body.text !== 'string') {
-        json(res, 400, { error: 'sessionId and text are required' })
+      // Named individually, not as a constant pair: a refusal that always says
+      // both tells the caller a turn was malformed but not which value it left
+      // out — and the request this most often is (a site named instead of a
+      // conversation) is exactly the one that needs to hear `sessionId`.
+      const missing: string[] = []
+      if (!body.sessionId) missing.push('sessionId')
+      if (typeof body.text !== 'string') missing.push('text')
+      if (missing.length > 0) {
+        const verb = missing.length === 1 ? 'is' : 'are'
+        json(res, 400, { error: `${missing.join(' and ')} ${verb} required` })
         return
       }
       await streamTurn(res, body.sessionId, body.text, opts)
