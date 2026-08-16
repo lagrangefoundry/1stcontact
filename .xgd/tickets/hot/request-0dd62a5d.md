@@ -5,9 +5,9 @@ type: request
 title: An async SiteStore port, with the filesystem behind it
 created_by: xgd
 created_at: '2026-08-15T20:31:09.480730+00:00'
-updated_at: '2026-08-16T00:38:27.133800+00:00'
+updated_at: '2026-08-16T01:21:41.469507+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -168,3 +168,58 @@ than a claim.
 7. A site factory under `tests/support/` yields the same handle over the filesystem
    adapter and the in-memory adapter, and a UAT drives the same body of assertions
    through both.
+
+## 10. What landed
+
+**The port** — `store/site-store.ts`: `hasDraft`, `readSiteJson`, `readPages`, `write`, `listAssets`,
+`readAsset`, `counter`, `appendChange`, `changesSince`, `pendingChanges`, `loadDraft`. Async
+throughout, no verb returns a path. Writes are ONE verb taking a whole change (`site.json` + N
+pages + page removals + asset bytes + asset removals).
+
+**Node-free supporting modules**, so the port can be imported without dragging `node:fs` behind it:
+`store/assemble.ts` (merge + validate, shared by both adapters — `loadSite` now delegates to it) and
+`store/journal-model.ts` (the counter arithmetic and window rule, previously welded to
+`.journal.json`).
+
+**Two adapters** — `store/fs-store.ts` (the only module in the port's world importing `node:fs`,
+carrying today's behaviour and today's non-atomicity unchanged) and `store/memory-store.ts`.
+
+**`edit.ts`** — all 31 exports async, `EditOptions.store` required, no `node:fs`/`node:path`/`../store`
+import left. `preview.ts`'s `DraftStore` is gone: `PreviewRenderer` takes a `SiteStore`, and
+`PreviewFile` carries bytes rather than a filename. Call sites updated in `index.ts` (one
+`editOptions()` naming the adapter), `builder.ts` (one `builderStore()`), and `ai/toolbox.ts`.
+
+**Test factory** — `tests/support/site-factory.ts`: `makeFsSite` / `makeMemorySite` behind one
+handle, `SITE_BACKENDS` for `describe.each`, `recordingStore` for the one-write claim, and `fsOpts`
+for suites that make their own temp tree.
+
+## 11. Evidence
+
+`tests/test_UAT_FC_REQ-142_site_store_port.test.ts` — 31 tests. The read/write/copy/L1/palette/asset
+bodies run twice, once per adapter; three tests assert a multi-file change crosses as a single
+`write`; one asserts both adapters answer identically for the same seed.
+
+Full suite: **56 failures in 11 files, which is exactly the pre-existing set on `xgd-working`** —
+same files, same counts. No assertion was changed. Two suites that were failing before this ticket
+(`reconciliation-beyond-l1-authoring`, `test_UAT_FC_REQ-130_beyond_l1`) now pass in full, for the
+reason in §12.
+
+`pnpm -r build` and `tsc -p tools/generate` clean.
+
+## 12. Finding: the toolbox suites were already broken, and why some of them recovered
+
+Eleven suites fail on `xgd-working` today, independently of this ticket. The cause is upstream:
+`@lagrangefoundry/ai`'s `Toolbox.run` is `async` and awaits `surface.invoke`, but these tests call
+`box.run(...)` without awaiting and assert on the returned value — so they assert against a Promise.
+
+That was *invisible* while `edit.ts` was synchronous: an un-awaited `box.run` still landed its write
+in the first microtask, so a test reading the site straight afterwards usually won. Making the write
+genuinely async loses that race. Two suites were repaired here because this ticket caused them to
+regress and leaving new failures was not acceptable — their `Box.run` type was corrected to
+`Promise<string>` and their call sites awaited. The other nine are untouched: they were broken
+before this ticket and their repair is not its business.
+
+Also recorded because it hid a consumer during this work: `builder.ts` and `fidelity.ts` contain NUL
+bytes (deliberate `\0` cache-key separators), so a plain `grep -r` classifies them as binary and
+skips them silently. `builder.ts` is a heavy consumer of `edit.ts` and is invisible to any survey
+that does not pass `grep -a`.
