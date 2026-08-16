@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: An adjustment at its identity emits nothing, and the identity differs per function
 created_by: xgd
 created_at: '2026-08-12T21:12:45.323080+00:00'
-updated_at: '2026-08-12T21:23:00.814432+00:00'
+updated_at: '2026-08-16T08:44:59.686291+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
