@@ -136,6 +136,18 @@ interface Group {
 
 const groups = (): Group[] => L1_DECLARATION.groups as Group[]
 
+interface Sequence {
+  name: string
+  steps: string[]
+  note: string
+}
+
+const sequences = (): Sequence[] => L1_DECLARATION.sequences as Sequence[]
+
+/** The capability groups this consumer is actually granted, read from the grant. */
+const grantedGroups = (): string[] =>
+  (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups
+
 beforeEach(() => {
   cwd = mkdtempSync(path.join(tmpdir(), 'surface-'))
   cmdNew(SLUG, { cwd })
@@ -248,13 +260,20 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // A consumer is never TOLD about a capability it does not have, so it cannot
     // propose one or probe for it. The manual offers an operation as
     // `- **tool** — summary` under its group's `### title`, so both forms must be
-    // absent for a group that was not granted.
+    // absent for a group that was not granted. Both the withheld groups and their
+    // operations are derived from the declaration and the grant rather than
+    // written out here, so re-wording a title upstream cannot leave this
+    // assertion silently satisfied.
     const manual = box.manual()
-    expect(manual).not.toContain('**add_asset**')
-    expect(manual).not.toContain('**remove_asset**')
-    expect(manual).not.toContain('**publish**')
-    expect(manual).not.toContain('### Managing images and fonts')
-    expect(manual).not.toContain('### Publishing')
+    const granted = grantedGroups()
+    const withheld = groups().filter((g) => !granted.includes(g.group))
+    expect(withheld.map((g) => g.group)).toEqual(
+      expect.arrayContaining(['ManageAssets', 'Publish']),
+    )
+    for (const group of withheld) {
+      expect(manual, group.group).not.toContain(`### ${group.title}`)
+      for (const tool of group.operations) expect(manual, tool).not.toContain(`**${tool}**`)
+    }
 
     // Calling one anyway is refused as a CAPABILITY decision and recorded as one,
     // rather than vanishing into "no such tool" with nothing to audit.
@@ -418,6 +437,20 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // behind the grant, because it is generated from it.
     for (const tool of box.toolNames()) expect(manual).toContain(tool)
 
+    // The addressing rule reaches the consumer THROUGH the projection. Take the
+    // overview's own addressing paragraph — identified by the wording, not by
+    // position — and require the manual to carry it, so the rule cannot come from
+    // a preamble written beside the manual while the declaration's own says
+    // something else.
+    const addressing = (L1_DECLARATION.overview as string)
+      .split('\n\n')
+      .filter((para) => /re-read/i.test(para))
+    expect(addressing).toHaveLength(1)
+    expect(addressing[0]).toMatch(/regenerat/i)
+    expect(manual).toContain(addressing[0])
+    expect(manual).toMatch(/re-read/i)
+    expect(manual).toMatch(/regenerat/i)
+
     // The declared absences by name, so a capability that is deliberately
     // impossible comes back as an ANSWER rather than a rejected attempt.
     expect(manual).toContain('Not available')
@@ -490,5 +523,70 @@ describe('the assistant control surface — declared once, granted narrowly, che
     editL1Set(SLUG, 'home', HEADLINE_PATH, replacement, { cwd })
 
     expect(draftBytes()).toBe(viaSurface)
+  })
+
+  it('test_UAT_AC1142_worked_sequences_are_declared_data_and_none_names_an_ungranted_operation', async () => {
+    // Read the sequences from the DECLARATION itself rather than through the
+    // format check — an empty list satisfies `validateData` unchanged, so the
+    // format check cannot witness that the sequences are there at all.
+    const list = sequences()
+    expect(list.length).toBeGreaterThan(0)
+
+    // Each names itself, orders at least two steps, and carries the note saying
+    // why that order is the order.
+    const declared = operations().map((o) => o.tool)
+    for (const seq of list) {
+      expect(typeof seq.name).toBe('string')
+      expect(seq.name.length, JSON.stringify(seq)).toBeGreaterThan(0)
+      expect(seq.steps.length, seq.name).toBeGreaterThanOrEqual(2)
+      expect(seq.note.length, seq.name).toBeGreaterThan(0)
+
+      // A sequence cannot name an operation the surface does not have, because it
+      // is part of the same declaration.
+      for (const step of seq.steps) expect(declared, `${seq.name} → ${step}`).toContain(step)
+    }
+
+    // An element is read before it is replaced — a replacement is the whole
+    // element, so anything not read is what would be lost — and the address it is
+    // replaced at is read from the page's map first.
+    const readThenWrite = list.filter(
+      (s) => s.steps.includes('get_l1') && s.steps.includes('set_l1'),
+    )
+    expect(readThenWrite.length).toBeGreaterThanOrEqual(2)
+    for (const seq of readThenWrite) {
+      expect(seq.steps.indexOf('get_l1'), seq.name).toBeLessThan(seq.steps.indexOf('set_l1'))
+      expect(seq.steps.indexOf('describe_page'), seq.name).toBeLessThan(seq.steps.indexOf('get_l1'))
+    }
+
+    const change = readThenWrite.find((s) => /change/i.test(s.name))
+    expect(change, list.map((s) => s.name).join(' | ')).toBeDefined()
+    expect(change!.note).toMatch(/whole/i)
+
+    // Adding or taking away goes the same read-then-write way, and names no
+    // insert or delete operation — because none is declared to name.
+    const addRemove = readThenWrite.find((s) => /\badd/i.test(s.name))
+    expect(addRemove, list.map((s) => s.name).join(' | ')).toBeDefined()
+    expect(declared.filter((tool) => /insert|delete/i.test(tool))).toEqual([])
+    expect(addRemove!.steps.filter((step) => /insert|delete/i.test(step))).toEqual([])
+    expect(addRemove!.note).toMatch(/insert|delete/i)
+
+    // And no sequence put in front of a consumer names an operation that consumer
+    // was not granted. Publishing is today's instance: "Publish deliberately"
+    // names `publish`, whose group the builder's assistant does not hold, so a
+    // manual that projected the sequences unfiltered would be teaching it a
+    // procedure it cannot carry out.
+    const box = await caretaker()
+    const offered = box.toolNames()
+    const manual = box.manual()
+
+    const ungranted = list.filter((s) => s.steps.some((step) => !offered.includes(step)))
+    expect(ungranted.map((s) => s.name)).toContain('Publish deliberately')
+    for (const seq of ungranted) {
+      expect(manual, seq.name).not.toContain(seq.name)
+      expect(manual, seq.name).not.toContain(seq.note)
+    }
+    for (const seq of list.filter((s) => manual.includes(s.name))) {
+      for (const step of seq.steps) expect(offered, `${seq.name} → ${step}`).toContain(step)
+    }
   })
 })
