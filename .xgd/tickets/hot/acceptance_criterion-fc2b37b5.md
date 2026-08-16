@@ -6,7 +6,7 @@ title: The fold carries the text pixel-mover families and populates the font res
   table with painted families only
 created_by: xgd
 created_at: '2026-07-29T04:05:32.871377+00:00'
-updated_at: '2026-08-09T08:19:43.758392+00:00'
+updated_at: '2026-08-16T08:03:18.834492+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
