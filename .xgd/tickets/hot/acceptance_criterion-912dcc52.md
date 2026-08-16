@@ -6,14 +6,15 @@ title: A draft that no longer validates is reported where the operator is lookin
   naming the offending field
 created_by: xgd
 created_at: '2026-08-10T07:29:18.175064+00:00'
-updated_at: '2026-08-10T07:39:49.024974+00:00'
+updated_at: '2026-08-16T10:03:27.079506+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
