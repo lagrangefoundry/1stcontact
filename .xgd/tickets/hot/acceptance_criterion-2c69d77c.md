@@ -6,14 +6,15 @@ title: A tile is labelled with the image's file name alone; the full handle it c
   survives only as its tooltip
 created_by: xgd
 created_at: '2026-08-12T16:23:35.939354+00:00'
-updated_at: '2026-08-12T16:23:35.939354+00:00'
+updated_at: '2026-08-16T04:19:32.518479+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
