@@ -6,9 +6,9 @@ title: 'Absolute values re-homed in L1: every colour, length, and radius is carr
   as a validated literal, with a palette overlay for colour'
 created_by: xgd
 created_at: '2026-07-19T03:09:25.918607+00:00'
-updated_at: '2026-08-16T22:14:06.458658+00:00'
+updated_at: '2026-08-16T22:17:06.622398+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
