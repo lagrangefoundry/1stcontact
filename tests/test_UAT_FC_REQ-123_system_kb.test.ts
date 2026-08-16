@@ -1,5 +1,13 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest'
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import {
@@ -11,6 +19,8 @@ import {
   corpusDocument,
   exportCorpus,
   kbStatus,
+  optedIn,
+  readDocTickets,
   resolveEmbedder,
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
@@ -33,6 +43,11 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 
 const STUB = path.resolve('tests/fixtures/kb-stub-model.mjs')
 
+/** How many `doc` tickets have opted into the system KB, per the store itself. */
+function optedInTicketCount(): number {
+  return readDocTickets().filter(optedIn).length
+}
+
 /**
  * A corpus small enough to reason about, with three clearly separate subjects.
  *
@@ -46,6 +61,8 @@ const CORPUS: Record<string, string> = {
 id: DOC-A
 type: doc
 title: Carousel behaviour module
+fields:
+  system_kb: true
 ---
 # Carousel behaviour module
 
@@ -57,6 +74,8 @@ slot, so the carousel ships no stylesheet of its own.
 id: DOC-B
 type: doc
 title: Storage and revisions
+fields:
+  system_kb: true
 ---
 # Storage and revisions
 
@@ -68,6 +87,8 @@ revision is immutable once written.
 id: DOC-C
 type: doc
 title: Typography and colour palette
+fields:
+  system_kb: true
 ---
 # Typography and colour palette
 
@@ -79,9 +100,24 @@ typed axes on an L1 text leaf rather than free-form CSS.
 function seedCorpus(root: string): void {
   const dir = corpusDir(root)
   rmSync(dir, { recursive: true, force: true })
-  writeFileSync(configPath(root), JSON.stringify({ knowledge_bases: {} }), 'utf8')
-  const fs = require('node:fs') as typeof import('node:fs')
-  fs.mkdirSync(dir, { recursive: true })
+  mkdirSync(dir, { recursive: true })
+  // A real declaration, carrying the same opt-in predicate the scaffold writes —
+  // the fixture has to exercise the corpus the build actually resolves, not a
+  // looser one that would pass whatever the predicate said.
+  writeFileSync(
+    configPath(root),
+    JSON.stringify({
+        knowledge_bases: {
+          system: {
+            prompt: 'Test system knowledge.',
+            corpus: { type: ['doc'], 'fields.system_kb': true },
+            landscape: 'authored',
+            source: 'shipped',
+          },
+        },
+      }),
+    'utf8',
+  )
   for (const [name, text] of Object.entries(CORPUS)) {
     writeFileSync(path.join(dir, name), text, 'utf8')
   }
@@ -318,10 +354,12 @@ describe('REQ-123 — the corpus export', () => {
 
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-  it('test_UAT_FC_REQ-123_every_doc_ticket_is_exported_and_reads_back_as_a_ticket', async () => {
-    // Decision 2: the WHOLE doc set, with no curation pass. The assertion is
-    // therefore about completeness — as many documents out as there are in.
+  it('test_UAT_FC_REQ-123_every_opted_in_doc_ticket_is_exported_and_reads_back_as_a_ticket', async () => {
+    // Membership is opt-in (`fields.system_kb`), and every doc carries it today —
+    // so this asserts completeness against what the store says is IN the KB, not
+    // against a hard-coded count that would go stale the next time a doc lands.
     expect(first.docs.length).toBeGreaterThan(0)
+    expect(first.docs.length).toBe(optedInTicketCount())
 
     const { DocDirStore } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing'))
     const { nodeDocReader } = await import(/* @vite-ignore */ sharedModuleUrl('ticketing', './node'))
@@ -352,6 +390,95 @@ describe('REQ-123 — the corpus export', () => {
     // file left behind would stay searchable, and confidently wrong, forever.
     expect(second.removed).toContain('DOC-GONE.md')
     expect(readdirSync(corpusDir(root))).not.toContain('DOC-GONE.md')
+  })
+
+  it('test_UAT_FC_REQ-123_only_an_explicit_true_opts_a_document_in', () => {
+    // The membership rule itself, asserted directly rather than through the
+    // export — because every doc is opted in today, so an export-driven test
+    // would have nothing to exclude and would pass vacuously.
+    //
+    // Strictly the boolean. A field arriving as the STRING "true" is a document
+    // whose frontmatter did not parse the way its author assumed; treating it as
+    // opt-in would hide that, and the failure it hides is a document silently
+    // reaching a client-facing assistant.
+    expect(optedIn({ fields: { system_kb: true } })).toBe(true)
+
+    expect(optedIn({ fields: {} })).toBe(false)
+    expect(optedIn({ fields: null })).toBe(false)
+    expect(optedIn({})).toBe(false)
+    expect(optedIn({ fields: { system_kb: false } })).toBe(false)
+    expect(optedIn({ fields: { system_kb: 'true' } })).toBe(false)
+    expect(optedIn({ fields: { system_kb: 1 } })).toBe(false)
+  })
+
+  it('test_UAT_FC_REQ-123_the_export_agrees_with_the_store_about_who_is_in', () => {
+    // The integration half: what the export produced is exactly what the rule
+    // says of the real ticket store — no document silently added, none silently
+    // dropped, and nothing reported as skipped that was in fact exported.
+    const tickets = readDocTickets()
+    const shouldBeIn = tickets.filter(optedIn).map((t) => t.id).sort()
+    const shouldBeOut = tickets.filter((t) => !optedIn(t)).map((t) => t.id).sort()
+
+    expect(second.docs.map((d) => d.id).sort()).toEqual(shouldBeIn)
+    expect(second.skipped).toEqual(shouldBeOut)
+
+    const onDisk = readdirSync(corpusDir(root)).filter((f) => f.endsWith('.md'))
+    for (const id of shouldBeOut) expect(onDisk).not.toContain(`${id}.md`)
+  }, 300_000)
+
+  it('test_UAT_FC_REQ-123_opting_a_document_out_removes_it_from_the_corpus', () => {
+    // Withdrawal has to be a DELETION, not merely a stop-refreshing: a document
+    // taken out of the KB must stop being searchable. It travels the same path a
+    // deleted ticket does, which is why that path is shared rather than special.
+    const dropped = mkdtempSync(path.join(tmpdir(), 'kb-optout-'))
+    try {
+      const dir = corpusDir(dropped)
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(path.join(dir, 'DOC-WAS-IN.md'), '---\nid: DOC-WAS-IN\ntype: doc\n---\n# Was in\n')
+
+      // Re-running the export with that document not opted in (it is not a real
+      // ticket at all, which is the same thing from the corpus's point of view).
+      const result = exportCorpus(dropped)
+
+      expect(result.removed).toContain('DOC-WAS-IN.md')
+      expect(readdirSync(dir)).not.toContain('DOC-WAS-IN.md')
+    } finally {
+      rmSync(dropped, { recursive: true, force: true })
+    }
+  }, 300_000)
+
+  it('test_UAT_FC_REQ-123_the_declaration_is_what_the_build_actually_uses', async () => {
+    // The declaration must be the thing in force, not a document describing what
+    // the code separately hard-codes. Editing the corpus predicate has to change
+    // the corpus — otherwise `knowledge_bases.json` is decoration, and a reader
+    // tuning it would get no error and no effect.
+    const scratch = mkdtempSync(path.join(tmpdir(), 'kb-decl-'))
+    try {
+      mkdirSync(corpusDir(scratch), { recursive: true })
+      writeFileSync(
+        configPath(scratch),
+        JSON.stringify({
+          knowledge_bases: {
+            system: {
+              prompt: 'Declared prompt, not a hard-coded one.',
+              corpus: { type: ['doc'], 'fields.system_kb': true },
+              landscape: 'authored',
+              source: 'shipped',
+              weight: 2.5,
+            },
+          },
+        }),
+        'utf8',
+      )
+
+      const binding = await bindKb(scratch)
+
+      expect(binding.kb.prompt).toBe('Declared prompt, not a hard-coded one.')
+      expect(binding.kb.weight).toBe(2.5)
+      expect([...binding.kb.corpus.terms.keys()]).toContain('fields.system_kb')
+    } finally {
+      rmSync(scratch, { recursive: true, force: true })
+    }
   })
 
   it('test_UAT_FC_REQ-123_a_structured_field_is_dropped_rather_than_stringified', () => {
