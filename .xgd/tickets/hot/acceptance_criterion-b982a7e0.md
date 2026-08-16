@@ -6,7 +6,7 @@ title: A refused operation comes back to the assistant within the same turn as a
   refusal it can correct, with the site untouched
 created_by: xgd
 created_at: '2026-08-10T08:36:07.515013+00:00'
-updated_at: '2026-08-16T05:22:38.500430+00:00'
+updated_at: '2026-08-16T05:46:17.251398+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
