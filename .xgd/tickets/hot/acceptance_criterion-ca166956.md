@@ -6,14 +6,15 @@ title: A drawing carrying anything executable, external or embedding is refused 
   with no byte written and no registry change
 created_by: xgd
 created_at: '2026-08-10T09:34:37.662775+00:00'
-updated_at: '2026-08-10T09:45:47.891217+00:00'
+updated_at: '2026-08-16T01:57:23.184132+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
