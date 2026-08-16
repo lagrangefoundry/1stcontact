@@ -5,10 +5,10 @@ type: request
 title: An async SiteStore port, with the filesystem behind it
 created_by: xgd
 created_at: '2026-08-15T20:31:09.480730+00:00'
-updated_at: '2026-08-16T01:21:41.469507+00:00'
+updated_at: '2026-08-16T01:22:17.086489+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -30,6 +30,11 @@ fields:
     - request-7bef34e0
     - request-23fd6e61
     - bundle-d9226698
+  commits:
+  - working_sha: b179902c314cff1f8027d9fa28d1c495df9ddda8
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.51
 ---
 
 # An async `SiteStore` port, with the filesystem behind it
