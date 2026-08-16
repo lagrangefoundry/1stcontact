@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-16T01:02:53.246238+00:00'
+updated_at: '2026-08-16T01:03:50.022782+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -461,5 +461,39 @@ Two caveats on what's actually verified. The map path is covered by UATs against
 <!-- xgd-chat role="user" ts="2026-08-16T01:02:53.086161+00:00" -->
 #### You
 What docs are included? Where do they live?
+
+<!-- xgd-turn id="7a3ec25b-8ef0-47ee-82fe-71aa8105f89d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T01:03:49.768667+00:00" -->
+#### Claude
+33 tickets, 33 files, exact reconciliation in both directions — no orphans, nothing missing.
+
+Two places, and the distinction matters:
+
+**Source of truth — the XGD ticket store.** Every `doc` ticket, reached only through `xgd ticket`. That's where docs are written, reviewed and versioned, and it's what's tracked in git.
+
+**The corpus — `kb/system/<DOC-ID>.md`.** One file per ticket, frontmatter plus body, gitignored because it's entirely derived. Alongside it the build writes `kb/system/index/`, `kb/system/chunks/` and `kb/system/awareness.md`. The one authored file in the tree is `kb/knowledge_bases.json`, which is tracked.
+
+## What's in it — all 33, no curation
+
+| | |
+|---|---|
+| **Framework & L1** | DOC-7 architecture principles · DOC-23 L1 substrate · DOC-24 framework purpose · DOC-27 L1 reproduction vocabulary · DOC-30 L1 control surface · DOC-22 styled text model |
+| **Behaviour modules** | DOC-25 contract & catalog · DOC-26 authoring & vetting · DOC-14 module lifecycle · DOC-20 conformance harness |
+| **Storage & rendering** | DOC-12 storage/versioning · DOC-13 reference capture · DOC-34 i18n |
+| **Builder app** | DOC-8 builder UI · DOC-28 page editor · DOC-10 chat persistence · DOC-16 design intelligence · DOC-33 consultation playbook |
+| **Policy** | DOC-1 architecture · DOC-2 security · DOC-3 interface design |
+| **Process & research** | DOC-19 reproduction runbook · DOC-21 growth loop · DOC-15 crawler coverage · DOC-17 design lessons · DOC-31 differentiation audit · DOC-32 design economics |
+| **Context** | DOC-4 · DOC-5 · DOC-6 · DOC-9 · DOC-11 · DOC-29 test asset catalogue |
+
+DOC-18 doesn't exist — the ids aren't contiguous.
+
+Worth noting: it was **32** when I started this session and is 33 now, because a doc ticket landed while I was working. Nothing had to be touched for that — the next `1c kb export` picked it up and the reconciliation above is clean. That's the argument for deriving the corpus rather than committing a second copy.
+
+That does leave a stale number in the ticket body, which says "32 today". Let me fix it.
+
+Ticket body updated — the count is no longer pinned, since the export reconciles against the store on every run.
+
+One thing I'd flag about the contents, now that the list is visible: roughly a third of the corpus is development-process and research material rather than product knowledge — DOC-21 (growth loop), DOC-15 (crawler coverage), DOC-29 (test asset catalogue), DOC-31/32 (market research). That's the corpus question you closed deliberately, and I think correctly for now: it's an editorial call to make against retrieval data, not a reason to hold up building the mechanism. The place it'll show up first is the awareness map — with 15 territories over 33 documents, some territories will be process rather than product, and a caretaker session primed with them is being told about parts of the system it has no use for. That's visible in `awareness.md` once you've run a real build, which is the point at which dropping documents becomes a judgement rather than a guess.
 
 <!-- xgd-chat-end -->
