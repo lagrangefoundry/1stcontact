@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-16T01:01:14.646191+00:00'
+updated_at: '2026-08-16T01:01:46.496327+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -435,5 +435,25 @@ One correction to something I said earlier: I'd suggested the KB declaration be 
 <!-- xgd-chat role="user" ts="2026-08-16T01:01:14.478939+00:00" -->
 #### You
 Did you create a build script for the awareness map?
+
+<!-- xgd-turn id="792c79a1-04b7-448f-bb00-df42f712b2c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T01:01:46.313706+00:00" -->
+#### Claude
+Yes — but it isn't a separate script; it's a step inside `1c kb build`. Let me show you exactly what's there.
+
+Yes. It's `buildMap()` at `tools/generate/src/cli/kb.ts:506`, called unconditionally from `buildKb()` at line 634 — so `1c kb build` always produces the map. There is deliberately no `--map` flag and no separate script.
+
+That's a departure from upstream worth flagging: the framework's `build-shipped-kb` makes the map **opt-in** (`--map`), because clustering plus one describe call per territory plus a validation search per access point is minutes and API calls. I made it unconditional because you said generating it is the whole point, and a build that silently produced an index with no map would leave the KB present but unable to prime a cold agent.
+
+What the step does:
+
+1. **Reads vectors back out of the index** rather than re-embedding — the map has to be clustered in the same vector space the reader searches.
+2. **Clusters** into `max(2, min(15, docs/2))` territories — for 32 documents that's 15. A count rather than a distance threshold, because with an unfamiliar model a threshold collapses to either one territory or one per document.
+3. **Describes** each territory through the seam (`resolveDescriber`, line 447), resolved eagerly so an unreachable backend fails before any territory is written rather than leaving a map half-written by two describers.
+4. **Validates access points** using the reader's own search — same index, ranking and KB scope, so the map can't promise routes that don't exist for the agent following it.
+5. **Writes `kb/system/awareness.md`** with the `(type: system, kind: awareness_report, kb: system)` frontmatter that makes it the ticket the report lookup finds — which is also what keeps it out of the corpus it describes.
+
+Two caveats on what's actually verified. The map path is covered by UATs against a stub describer, which proves the pipeline, the frontmatter, the report lookup and the corpus exclusion. It has **never run against a real describer or real embeddings**, because there are no Cloudflare credentials here — step 1 needs the index, so the map can't be built at all without them. And `1c kb status` reports the map as present or missing, but nothing yet re-runs the build when documents move; that's still a manual `1c kb build`.
 
 <!-- xgd-chat-end -->
