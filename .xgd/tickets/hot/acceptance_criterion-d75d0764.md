@@ -6,14 +6,15 @@ title: Adding and removing are expressed as replacing a group with one holding a
   more or fewer, and the result renders
 created_by: xgd
 created_at: '2026-08-10T09:20:02.805626+00:00'
-updated_at: '2026-08-10T09:29:36.905402+00:00'
+updated_at: '2026-08-16T02:37:32.075405+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-189fc1ac
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
