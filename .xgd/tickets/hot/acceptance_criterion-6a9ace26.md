@@ -6,14 +6,15 @@ title: The size the box OPENS at is clamped to an editing range while every othe
   presentation axis is exact — the box previews style, not layout
 created_by: xgd
 created_at: '2026-08-10T07:48:14.730623+00:00'
-updated_at: '2026-08-13T01:08:23.874832+00:00'
+updated_at: '2026-08-16T04:19:20.975393+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
