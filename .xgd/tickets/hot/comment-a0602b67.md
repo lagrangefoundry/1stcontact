@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-16T01:04:47.796985+00:00'
+updated_at: '2026-08-16T01:06:07.385343+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -501,5 +501,37 @@ One thing I'd flag about the contents, now that the list is visible: roughly a t
 <!-- xgd-chat role="user" ts="2026-08-16T01:04:47.544490+00:00" -->
 #### You
 Are the tickets extracted as part of the build process? When we decide to exclude some, how is this to be configured?
+
+<!-- xgd-turn id="c47d7bec-b002-4641-96c8-9c1e15aedf33-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T01:06:07.073894+00:00" -->
+#### Claude
+Let me check the code rather than assert from memory — the answer depends on what the corpus predicate can actually express.
+
+Confirmed both halves. Answers:
+
+## 1. Yes — the export is step one of every build
+
+`buildKb()` runs `ensureConfig()` → `exportCorpus()` → document index → chunk index → map, in that order (`kb.ts:610-634`). So `1c kb build` always re-reads the ticket store first; there's no way to index a stale corpus. `1c kb export` is that same step on its own, which is why it needs no credentials.
+
+## 2. Exclusion isn't configurable today — and the obvious place won't take it
+
+There is no filter anywhere: `readDocTickets()` runs `xgd ticket list --type doc` and everything it returns becomes a file. That's decision 2 working as intended, but it means the answer to "where do I configure it" is currently "nowhere", so it's worth being precise about what each candidate layer can actually do.
+
+**The KB's `corpus` predicate** in `kb/knowledge_bases.json` looks like the designed home — "a corpus is a stored query". But it can't express exclusion. `corpusPredicates` (`corpus.js:95`) only ever emits `path=value`, AND'd together, with multiple values allowed on `type` alone. The *store's* grammar does support `NOT` and `!=` (`read_slice.js:130`), so the capability exists one layer down and the corpus spec simply never reaches for it. So today you could say "only `doc_kind = architecture`" but not "everything except process docs", and not "architecture or policy".
+
+That gap is worth knowing even if we don't use this layer, because it's the one a reader would assume works.
+
+**My recommendation: the exclusion is a fact about the document, so it belongs on the ticket, and the filter belongs in the export.**
+
+- A field on the doc ticket — `fields.kb: false` — so the decision lives with the document and moves with it. A doc's own frontmatter is where a reviewer would look, and it survives renames and reorganisation.
+- The export skips those tickets, so no file is written. Filtering only at the predicate layer would leave orphan `.md` files sitting in `kb/system/` — harmless for retrieval (an unindexed uid resolves to no KBs, so `KnowledgeGet` refuses it with `not_in_corpus`, verified above) but they'd still be counted by `1c kb status` and still look like corpus to anyone reading the directory.
+- The export reports what it skipped, the same way it already reports removals. A silent exclusion list is how a document quietly stops being knowable.
+
+The alternative — an id list in `kb/knowledge_bases.json` — keeps the ticket store untouched and makes the whole policy readable in one place, which is a real advantage when you're tuning it. But it drifts: DOC-29 gets renamed or retired and the list still names it, with nothing to notice.
+
+I'd add it as a field plus an export filter, and report the skips. Want me to? It's a small change to `exportCorpus` plus a UAT, and it needs a decision from you on the field name and whether it's opt-out (`kb: false` on the few you drop) or opt-in (`kb: true` on the ones you keep). Opt-out is the lower-maintenance default and matches "everything is knowledge unless we say otherwise".
+
+Separately, `corpusPredicates` not emitting negation is worth raising upstream alongside the missing `bin` and the `DocDirStore` timestamp discrepancy — three findings from this build, none of which I've reported yet.
 
 <!-- xgd-chat-end -->
