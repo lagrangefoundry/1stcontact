@@ -5,14 +5,15 @@ type: acceptance_criterion
 title: An assistant that cannot run is explained without losing the operator's conversation
 created_by: xgd
 created_at: '2026-08-10T08:36:12.102287+00:00'
-updated_at: '2026-08-10T08:42:33.096066+00:00'
+updated_at: '2026-08-16T05:09:10.470204+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
