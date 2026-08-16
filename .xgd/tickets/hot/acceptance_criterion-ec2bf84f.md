@@ -6,7 +6,7 @@ title: Copy inside a behavior module's presentation slot is read and written thr
   the same operation, scoped by instance and slot
 created_by: xgd
 created_at: '2026-08-07T02:02:45.503091+00:00'
-updated_at: '2026-08-10T07:40:25.719519+00:00'
+updated_at: '2026-08-16T06:55:35.899823+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
