@@ -6,7 +6,7 @@ title: 'A retrofit that cannot be proved lossless writes nothing: the command fa
   with a diagnostic and every file is left untouched'
 created_by: xgd
 created_at: '2026-08-06T21:08:29.338855+00:00'
-updated_at: '2026-08-16T22:25:54.951117+00:00'
+updated_at: '2026-08-16T22:57:10.219076+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -29,7 +29,7 @@ would not satisfy the site-definition contract — the command:
 - terminates with a non-zero exit status;
 - reports on standard error a diagnostic that identifies which of those causes
   applies, naming the colours that failed to reproduce or the validation
-  problems found, and stating the bound a shaded reference had to meet;
+  problems found;
 - leaves every file under the site byte-identical to before the command ran,
   including the site definition and every page.
 
