@@ -6,7 +6,7 @@ title: In local preview, an extensionless page URL serves the page rendered for 
   slug, as HTML
 created_by: xgd
 created_at: '2026-08-06T19:02:23.345634+00:00'
-updated_at: '2026-08-09T13:50:13.204885+00:00'
+updated_at: '2026-08-16T07:23:57.194689+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
