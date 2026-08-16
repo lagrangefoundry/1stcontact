@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: One confirmed form is one change, however many fields were edited in it
 created_by: xgd
 created_at: '2026-08-07T02:16:33.376825+00:00'
-updated_at: '2026-08-12T16:22:05.514243+00:00'
+updated_at: '2026-08-16T04:18:53.617887+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
