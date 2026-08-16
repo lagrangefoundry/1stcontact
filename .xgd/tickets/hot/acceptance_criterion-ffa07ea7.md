@@ -6,14 +6,15 @@ title: 'Every call against the site is recorded: which operation, its effect, it
   arguments, allowed or refused and by which rule, and what became of it'
 created_by: xgd
 created_at: '2026-08-10T09:06:34.171389+00:00'
-updated_at: '2026-08-10T09:15:02.679185+00:00'
+updated_at: '2026-08-16T03:39:01.559669+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-93905de4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
