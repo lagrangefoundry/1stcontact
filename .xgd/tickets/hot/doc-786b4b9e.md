@@ -5,12 +5,13 @@ type: doc
 title: L1 Layout Substrate — the typed element tree
 created_by: xgd
 created_at: '2026-07-20T20:51:27.239081+00:00'
-updated_at: '2026-08-13T16:36:08.088615+00:00'
+updated_at: '2026-08-16T01:19:25.198274+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: system_kb
 status: null
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 # L1 Layout Substrate — the typed element tree
