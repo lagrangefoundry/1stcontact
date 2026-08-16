@@ -6,7 +6,7 @@ title: A rejected edit leaves the draft and the already-rendered page byte-for-b
   unchanged
 created_by: xgd
 created_at: '2026-08-07T02:02:22.269537+00:00'
-updated_at: '2026-08-10T07:40:19.611985+00:00'
+updated_at: '2026-08-16T06:55:29.872259+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
