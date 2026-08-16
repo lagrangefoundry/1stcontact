@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-144
 created_by: xgd
 created_at: '2026-08-15T22:03:50.245036+00:00'
-updated_at: '2026-08-15T22:22:57.982117+00:00'
+updated_at: '2026-08-16T01:18:33.150302+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,11 @@ I left both alone because creating the DNS record and deploying would make the b
 The secrets **mechanism** is documented and its dry-run path is tested, but I have not proved it end-to-end with a throwaway value — that means running `wrangler secret put` against a production Worker, which is an outward-facing change to production config. Want me to? (It's currently moot anyway: finding 2 means there's no Worker to put a secret on.)
 
 Also worth knowing: **CI can't run `bin/build`** as-is, because `1c preflight` needs the shared component store, which is installed out of band and absent in CI. `--skip-preflight` covers it, but I left CI untouched rather than half-wire it. That becomes load-bearing at REQ-145, when CI genuinely needs the store to build the browser artifacts.
+
+<!-- xgd-turn id="a06febbf-d37a-464f-a00e-5ccf9532197b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T01:18:32.863589+00:00" -->
+#### You
+Can you summarize the commands you created?
 
 <!-- xgd-chat-end -->
