@@ -6,14 +6,15 @@ title: The draft-side channels answer from the origin with no rendered artifact 
   disk, and serving one writes nothing back
 created_by: xgd
 created_at: '2026-08-10T07:29:02.418541+00:00'
-updated_at: '2026-08-10T07:39:50.117873+00:00'
+updated_at: '2026-08-16T10:03:20.554381+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
