@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-123
 created_by: xgd
 created_at: '2026-08-07T23:34:36.440093+00:00'
-updated_at: '2026-08-15T21:52:21.609281+00:00'
+updated_at: '2026-08-16T01:01:14.646191+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -429,5 +429,11 @@ I ran `1c kb export` — 32 documents in `kb/system/`, all gitignored since ever
 The full suite shows **74 failures — all pre-existing.** I verified by running the same twelve files with my changes stashed: 74 failed at baseline, 74 with my work. They're upstream `@lagrangefoundry/ai` drift (`Toolbox.run` is now async while those older suites call it synchronously). Not mine, but they are real and someone should fix them.
 
 One correction to something I said earlier: I'd suggested the KB declaration be generated. It's authored data — `kb/knowledge_bases.json` is committed and hand-editable, scaffolded only when absent, so a tuned prompt or weight survives the next build.
+
+<!-- xgd-turn id="792c79a1-04b7-448f-bb00-df42f712b2c1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-16T01:01:14.478939+00:00" -->
+#### You
+Did you create a build script for the awareness map?
 
 <!-- xgd-chat-end -->
