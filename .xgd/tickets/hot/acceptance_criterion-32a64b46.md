@@ -6,14 +6,15 @@ title: A message sent from the pane goes to the conversation on screen and the r
   arrives progressively in the message list
 created_by: xgd
 created_at: '2026-08-10T08:46:55.320006+00:00'
-updated_at: '2026-08-10T09:01:23.587561+00:00'
+updated_at: '2026-08-16T04:42:06.665768+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-7f437d57
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
