@@ -6,14 +6,15 @@ title: A replacement at an address that resolves to nothing is refused as not-fo
   and writes nothing
 created_by: xgd
 created_at: '2026-08-10T09:20:17.396113+00:00'
-updated_at: '2026-08-10T09:29:36.063930+00:00'
+updated_at: '2026-08-16T02:37:39.421326+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-189fc1ac
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
