@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-141
 created_by: xgd
 created_at: '2026-08-15T21:52:46.760321+00:00'
-updated_at: '2026-08-16T00:11:25.039607+00:00'
+updated_at: '2026-08-16T00:12:17.967042+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -149,5 +149,23 @@ I'd originally blamed a minimum-release-age gate withholding the platform binary
 <!-- xgd-chat role="user" ts="2026-08-16T00:11:24.730775+00:00" -->
 #### You
 I did the first. Are we good?
+
+<!-- xgd-turn id="8c62ac0c-4a24-42c7-964b-805ea4dd2cc8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T00:12:17.587108+00:00" -->
+#### Claude
+Let me verify rather than assume.
+
+Yes, you're good.
+
+- `pnpm-lock.yaml` matches HEAD; only `storage/sites/xgd/draft/pages/home.json` is dirty, which predates all of this.
+- Linked versions are back to the committed set: wrangler 4.106.0, vitest 4.1.9, astro 7.0.4, pool-workers 0.18.5.
+- Workerd project: 3/3 green in 1.6s. Build and typecheck clean.
+
+One cosmetic note: `node_modules/.pnpm` still holds orphaned store entries from the failed update (`workerd@1.20260811.1`, `miniflare@5.20260811.1-alpha`, and the 1.20260811.1 binary). Nothing references them — the linked tree is correct — so they're dead weight, not a hazard. `pnpm prune` or `pnpm store prune` clears them whenever you feel like it.
+
+## Still open
+
+The wrong-cause comment in `vitest.workers.config.mts` (lines about the supply-chain policy withholding the binary). REQ-141 is `free_coded`, so fixing it means either reopening that ticket for a comment-only commit, or letting whichever ticket takes the wrangler/astro/vitest bump carry it. The ticket body already records the correction and flags the comment as pending — say the word and I'll do either.
 
 <!-- xgd-chat-end -->
