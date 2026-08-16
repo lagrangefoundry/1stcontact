@@ -6,14 +6,15 @@ title: Switching sites faster than the answers arrive still leaves the pane on t
   site last chosen
 created_by: xgd
 created_at: '2026-08-10T08:47:35.145335+00:00'
-updated_at: '2026-08-10T09:01:21.922584+00:00'
+updated_at: '2026-08-16T04:42:12.400490+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-7f437d57
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
