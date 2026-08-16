@@ -6,14 +6,15 @@ title: The workspace document references each component through the entry point 
   component itself declares
 created_by: xgd
 created_at: '2026-08-07T01:44:05.435524+00:00'
-updated_at: '2026-08-07T23:16:15.669907+00:00'
+updated_at: '2026-08-16T10:02:48.892001+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
