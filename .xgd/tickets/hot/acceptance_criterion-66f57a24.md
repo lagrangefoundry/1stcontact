@@ -7,14 +7,15 @@ title: A parameter edit writes into the parameters the region already carries an
   container is left behind, and a change map that changes nothing produces no diff
 created_by: xgd
 created_at: '2026-08-12T18:08:28.462612+00:00'
-updated_at: '2026-08-12T21:28:34.280795+00:00'
+updated_at: '2026-08-16T06:55:59.040208+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
