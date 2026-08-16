@@ -6,7 +6,7 @@ title: The displayed site fills the browser window and follows a live resize, an
   the workspace page itself never scrolls
 created_by: xgd
 created_at: '2026-08-07T01:44:58.913298+00:00'
-updated_at: '2026-08-07T21:19:46.599200+00:00'
+updated_at: '2026-08-16T10:03:10.060526+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
