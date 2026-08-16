@@ -38,6 +38,8 @@ const CORPUS: Record<string, string> = {
 id: DOC-A
 type: doc
 title: Carousel behaviour module
+fields:
+  system_kb: true
 ---
 # Carousel behaviour module
 
@@ -47,6 +49,8 @@ The carousel rotates slides. Autoplay and interval are behavioural config.
 id: DOC-B
 type: doc
 title: Storage and revisions
+fields:
+  system_kb: true
 ---
 # Storage and revisions
 
@@ -58,11 +62,16 @@ Publishing snapshots the draft into a numbered revision and renders the output.
 async function buildFixtureKb(root: string): Promise<void> {
   const dir = corpusDir(root)
   mkdirSync(dir, { recursive: true })
-  writeFileSync(
-    configPath(root),
-    JSON.stringify({ knowledge_bases: { [SYSTEM_KB]: { prompt: 'Test system knowledge.' } } }),
-    'utf8',
-  )
+  writeFileSync(configPath(root), JSON.stringify({
+        knowledge_bases: {
+          system: {
+            prompt: 'Test system knowledge.',
+            corpus: { type: ['doc'], 'fields.system_kb': true },
+            landscape: 'authored',
+            source: 'shipped',
+          },
+        },
+      }), 'utf8')
   for (const [name, text] of Object.entries(CORPUS)) writeFileSync(path.join(dir, name), text, 'utf8')
 
   const lib = await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
