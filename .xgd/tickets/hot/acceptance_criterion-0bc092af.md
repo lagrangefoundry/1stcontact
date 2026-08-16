@@ -7,9 +7,9 @@ title: 'Choosing an image or adjusting how it is seen bakes nothing: no asset fi
   survives untouched'
 created_by: xgd
 created_at: '2026-08-07T04:41:27.360466+00:00'
-updated_at: '2026-08-12T21:28:27.319199+00:00'
+updated_at: '2026-08-16T06:55:44.472241+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
