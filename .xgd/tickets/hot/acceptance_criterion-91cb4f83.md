@@ -6,7 +6,7 @@ title: A carousel's slides are all simultaneously visible in the edit render, be
   the module declares its own behaviour-off state
 created_by: xgd
 created_at: '2026-08-06T21:25:58.008100+00:00'
-updated_at: '2026-08-10T08:50:01.807032+00:00'
+updated_at: '2026-08-16T04:18:27.725344+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
