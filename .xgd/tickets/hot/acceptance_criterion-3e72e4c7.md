@@ -6,14 +6,15 @@ title: A whole settings group is written in one call as a structured value, and 
   siblings at every depth survive it
 created_by: xgd
 created_at: '2026-08-10T09:33:47.564708+00:00'
-updated_at: '2026-08-10T09:45:50.881449+00:00'
+updated_at: '2026-08-16T01:56:52.385624+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-b3de4571
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
