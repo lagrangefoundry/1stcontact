@@ -7,14 +7,15 @@ title: Asking a copy region what it exposes returns how the run is set beside it
   from the document's declared faces
 created_by: xgd
 created_at: '2026-08-12T18:08:03.837269+00:00'
-updated_at: '2026-08-12T18:23:17.509868+00:00'
+updated_at: '2026-08-16T06:55:52.939475+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
