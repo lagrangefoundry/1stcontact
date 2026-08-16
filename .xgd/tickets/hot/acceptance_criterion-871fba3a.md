@@ -6,14 +6,15 @@ title: The pane shows what that site's conversation already contains, on first o
   and after the workspace is reloaded
 created_by: xgd
 created_at: '2026-08-10T08:46:30.897019+00:00'
-updated_at: '2026-08-10T09:01:24.292476+00:00'
+updated_at: '2026-08-16T04:42:04.234173+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-7f437d57
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
