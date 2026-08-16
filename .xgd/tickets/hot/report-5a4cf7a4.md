@@ -6,7 +6,7 @@ title: 'Capability-Intent Alignment: Builder Workspace: Chrome, Origin & Display
   (level=ac)'
 created_by: xgd
 created_at: '2026-08-16T09:43:06.493421+00:00'
-updated_at: '2026-08-16T09:44:14.811253+00:00'
+updated_at: '2026-08-16T09:44:22.482028+00:00'
 completed_at: null
 last_field_updated: body
 result: fail
@@ -27,3 +27,14 @@ PROBE-LINE-1
 PROBE-LINE-2
 
 PROBE-SIZE-TEST. The capability has exactly one story, STORY-99 (story-e674c60a, story_kind upgrade), carrying 30 active ACs. Cross-story exclusivity is therefore trivially satisfied; every question here is whether an AC follows from the body of STORY-99 and whether the 30 collectively cover it. The last ac-level check was REPORT-1626 dated 2026-08-07 with a PASS and zero findings, and it predates almost half of the current AC set. AC-1030 was authored on 2026-08-08. AC-1029, AC-1031 through AC-1036 and AC-1110 were authored on 2026-08-10, together with the REQ-119 rewrite of the STORY-99 body.
+
+PROBE-MULTILINE-MD
+
+**Result**: FAIL
+**Violations**: 3
+
+| # | Severity | Element |
+|---|---|---|
+| 1 | violation | AC-966 |
+
+Cross-story exclusivity is trivially satisfied because the capability has exactly one story. The question at this level is whether each AC follows from the body of STORY-99 and whether the thirty of them collectively cover its behavioural surface without overlapping each other.
