@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-141
 created_by: xgd
 created_at: '2026-08-15T21:52:46.760321+00:00'
-updated_at: '2026-08-15T23:56:29.168133+00:00'
+updated_at: '2026-08-16T00:02:49.868993+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -102,5 +102,46 @@ node_modules/.pnpm/workerd@1.20260811.1/node_modules/workerd: Running postinstal
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="f06c1c0a-0ce3-4d86-b0c6-2a93413c9694-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T00:02:49.672068+00:00" -->
+#### Claude
+The pin held for the pool — but `pnpm update` bumped something else that pulls a *fresher* workerd. Let me diagnose before touching anything.
+
+Two separate things happened here. Let me pin the mechanism down with a controlled experiment.
+
+The exclude list and release age are both red herrings — a *fresh* resolve of two coexisting workerd versions works fine. Let me test the actual post-update dependency set from scratch.
+
+Decisive. Let me correct the record on the ticket — the root cause I documented is wrong.
+
+I got the root cause wrong in REQ-141, and your `pnpm update` is what exposed it. Corrected the ticket.
+
+## What actually broke
+
+Not my pin, and not what I claimed. `pnpm update` bumped **wrangler** `^4.106.0 → 4.123.0`, which pulls `miniflare@5.20260811.1-alpha` → `workerd@1.20260811.1`. The pool pin doesn't govern wrangler at all.
+
+I'd originally blamed a minimum-release-age gate withholding the platform binary — inferred from a publish-date correlation (35d old installed, 23d didn't). That was coincidence. Four experiments on your same pnpm 11.9.0:
+
+| Test | Result |
+|---|---|
+| `@cloudflare/workerd-darwin-arm64@1.20260811.1` (3 days old) alone | installs — no age gate |
+| `wrangler@4.123.0`, clean dir | installs, binary linked |
+| same + a `minimumReleaseAgeExclude` list | installs — exclude list isn't the trigger |
+| **your entire post-update dep set, resolved from scratch** | installs, *both* workerd binaries, postinstall green |
+
+**Real cause: pnpm 11.9.0's incremental resolution.** Adding a new version of a package already in the lockfile at another version writes the entry with `optionalDependencies` dropped — your lockfile literally has `workerd@1.20260811.1: {}`. The binary never gets linked, so `install.js` resolves a hoisted sibling and throws `Expected "2026-08-11" but got "workerd 2026-07-10"`. A from-scratch resolve never does this. There's no `minimumReleaseAge` set anywhere and no `.pnpmfile.cjs`; pnpm reports `11.9.0 → 11.22.0` available.
+
+## Your tree is in a broken half-state
+
+`pnpm update` wrote the lockfile but crashed before writing package.json, so they now disagree — lockfile wants `wrangler ^4.123.0`, `astro ^7.2.2`, `vitest ^4.1.10`; package.json still says `^4.106.0`, `^7.0.4`, `^4.1.9`. `--frozen-lockfile` will fail. I haven't touched it — discarding your update is your call. Options:
+
+- **Restore**: `git checkout pnpm-lock.yaml && pnpm install` → back to the committed, known-good state.
+- **Keep the update**: `rm pnpm-lock.yaml && pnpm install` → proven to work, and rewrites package.json ranges to match. Then it wants its own ticket.
+- **Fix the tool**: `corepack use pnpm@11.22.0` and retry — likely fixes the incremental path, though I haven't verified that specific version.
+
+## One loose end
+
+`vitest.workers.config.mts` carries a comment stating the wrong cause, and REQ-141 is already `free_coded`. Want me to reopen it for a comment-only commit, or fold that into whichever ticket takes the dependency bump?
 
 <!-- xgd-chat-end -->
