@@ -5,12 +5,13 @@ type: doc
 title: L1 Reproduction Vocabulary (living draft)
 created_by: xgd
 created_at: '2026-07-23T01:29:19.345635+00:00'
-updated_at: '2026-07-23T01:29:19.345635+00:00'
+updated_at: '2026-08-16T01:20:15.715069+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: system_kb
 status: draft
 fields:
   doc_kind: architecture
+  system_kb: true
 ---
 
 **Status: provisional.** Terms are still being refined in discussion. The
