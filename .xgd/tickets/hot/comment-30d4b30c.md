@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-142
 created_by: xgd
 created_at: '2026-08-16T00:22:57.314754+00:00'
-updated_at: '2026-08-16T01:12:48.921864+00:00'
+updated_at: '2026-08-16T01:22:58.498837+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -128,5 +128,30 @@ Now the `await` pass over those same call sites:
 <!-- xgd-chat role="user" ts="2026-08-16T01:12:48.769682+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="e710f423-7ffb-4ef7-b74d-4fec6f9d44ed-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-16T01:22:58.303311+00:00" -->
+#### Claude
+Full suite: **56 failures across 11 files — exactly the pre-existing set**, file for file and count for count. Two previously-broken suites now pass in full. Let me record that and commit.
+
+Now lock, merge back, and mark the ticket:
+
+REQ-142 is landed on `xgd-working` at `b179902c3`, ticket at `free_coded`, branch cleaned.
+
+**The port** — `store/site-store.ts`: `hasDraft`, `readSiteJson`, `readPages`, `write`, `listAssets`, `readAsset`, `counter`, `appendChange`, `changesSince`, `pendingChanges`, `loadDraft`. Async throughout, and no verb returns a path. Writes are a single verb taking a whole change, so a palette rename — `site.json` plus every page referencing the entry — crosses as one call and the D1 adapter can make it atomic later without touching a caller.
+
+Two supporting modules had to come out from behind `node:fs` for that to be importable: `store/assemble.ts` (merge + validate, now shared — `loadSite` delegates to it) and `store/journal-model.ts` (the counter arithmetic, previously welded to `.journal.json`). Adapters are `fs-store.ts` — the only module in the port's world importing `node:fs`, carrying today's behaviour *and* today's non-atomicity unchanged — and `memory-store.ts`.
+
+`edit.ts`: 31 exports async, `store` required on the options object, no `node:fs`/`node:path`/`../store` import left. `preview.ts`'s `DraftStore` is gone; `PreviewRenderer` takes a `SiteStore` and `PreviewFile` carries bytes. The adapter is named exactly three times — `editOptions()` in the CLI, `builderStore()` in the builder, once in the AI host.
+
+**The site factory** you asked for is `tests/support/site-factory.ts`: `makeFsSite`/`makeMemorySite` behind one handle, `SITE_BACKENDS` for `describe.each`, `recordingStore` for the one-write claim, `fsOpts` for suites that build their own temp tree. The UAT's read/write/copy/L1/palette/asset bodies run twice, once per adapter — 31 tests.
+
+**On AC-1, precisely:** the full suite finishes at 56 failures in 11 files, which is exactly the pre-existing set on `xgd-working` — same files, same counts. No assertion changed.
+
+Two things you should know that I did not go looking for:
+
+- **Eleven suites are already broken on `xgd-working`**, independently of this work. `@lagrangefoundry/ai`'s `Toolbox.run` is async and awaits `surface.invoke`, but those tests call `box.run(...)` un-awaited and assert on the returned Promise. It was hidden while `edit.ts` was synchronous, because the write still landed in the first microtask. Two of them regressed under this change, so I corrected their `Box.run` type and awaited their call sites — and both now pass in full, which suggests the other nine would go the same way. I left them alone: they were broken before this ticket and repairing them is a separate job.
+- The `publish` docblock in `toolbox.ts` claimed `Toolbox.run` was synchronous and would serialize a promise as `{}`. That is no longer true upstream and is what made this conversion safe, so I corrected the text. I did not touch the grant — whether the caretaker gets `Publish` is now an operator decision rather than a technical impossibility.
 
 <!-- xgd-chat-end -->
