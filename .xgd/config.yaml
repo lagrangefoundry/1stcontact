@@ -26,6 +26,9 @@ dashboard:
   bind_address: 127.0.0.1
   default_port: 8888
   idle_timeout: NEVER
+  prompts:
+    free_code_extra: ''
+    investigate_extra: ''
 dispatcher:
   bundle_untangle_gap_commits: 50
   costs:
@@ -39,6 +42,7 @@ dispatcher:
   regression:
     auto_start: true
     scheduled_time: '23:00'
+    mode: 'off'
 merge_back:
   max_iterations: 5
   reconciliation:
