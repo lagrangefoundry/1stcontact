@@ -231,7 +231,19 @@ describe('the assistant answers for itself before any conversation exists', () =
 
     const after = await fetch(`${base}api/ai/roles`)
     expect(after.status).toBe(200)
-    expect(await after.json()).toEqual(status)
+    const afterStatus = (await after.json()) as typeof status
+
+    // Compared over the three fields the criterion names — the role on offer,
+    // whether a turn can be run, and the reason when it cannot. `backends` is
+    // deliberately excluded: `aiStatus` forwards it from the AI library's GLOBAL
+    // backend registry (`host.ts:407`), and taking a turn WRITES to that registry
+    // — `build()` registers `claude+site:studio` (`host.ts:231`; the comment at
+    // `host.ts:26-29` explains why the names are per-site). Invariance of that
+    // registry is neither claimed by this AC nor guaranteed by the design, so
+    // asserting it would be testing the library rather than this behaviour.
+    expect(afterStatus.roles).toEqual(['caretaker'])
+    expect(afterStatus.ready).toBe(true)
+    expect(afterStatus.error).toBeUndefined()
   })
 })
 
@@ -358,6 +370,29 @@ describe('a turn is addressed to a conversation, never to a site', () => {
     expect(existsSync(sessionsDir({ cwd }))).toBe(false)
     expect(headline(cwd, SLUG)).toBe(HEADLINE)
     expect(headline(cwd, OTHER)).toBe(HEADLINE)
+
+    // The third kind of unissued id, and the one a real browser produces: one
+    // held over from before a restart. It is the same STRING as the derivable
+    // case above but arrived at the other way — the origin really did issue it,
+    // and then restarted. Kept last because it opens a conversation, which the
+    // assertions above require not to exist.
+    const issued = (await open(base, SLUG)).sessionId
+    expect(issued).toBe(`site-${SLUG}`)
+    resetAiHost()
+
+    // Lookup is the in-memory `minted` map (`host.ts:389`), cleared by the
+    // restart, and there is no fallback that would resurrect the id from the
+    // transcript on disk — so the browser must re-open by site name to have it
+    // re-issued rather than carrying the stale one forward.
+    const heldOver = await post(base, 'prompt', { sessionId: issued, text: 'Change the headline' })
+    expect(heldOver.status).toBe(404)
+    expect(heldOver.headers.get('content-type')).toContain('application/json')
+    expect(heldOver.headers.get('content-type')).not.toContain('event-stream')
+    expect(((await heldOver.json()) as { error: string }).error).toBeTruthy()
+
+    // Still nothing reached the model, and the site is untouched.
+    expect(client.seen).toHaveLength(0)
+    expect(headline(cwd, SLUG)).toBe(HEADLINE)
   })
 })
 
