@@ -6,7 +6,7 @@ title: Hovering an editable region on the page marks that region, and only that 
   as the live one
 created_by: xgd
 created_at: '2026-08-07T02:16:15.374191+00:00'
-updated_at: '2026-08-10T08:50:04.966542+00:00'
+updated_at: '2026-08-16T04:18:06.335558+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
