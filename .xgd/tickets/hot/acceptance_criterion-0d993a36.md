@@ -6,7 +6,7 @@ title: 'No captured element is silently dropped: an unexpressed element becomes 
   typed residual, and a form control with geometry binds to its module instead'
 created_by: xgd
 created_at: '2026-07-29T04:05:44.833337+00:00'
-updated_at: '2026-08-09T08:19:44.658016+00:00'
+updated_at: '2026-08-16T08:03:20.112610+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
