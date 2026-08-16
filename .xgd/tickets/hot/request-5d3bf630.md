@@ -6,10 +6,10 @@ title: Draft change journal — let the AI know what changed without re-reading 
   site
 created_by: xgd
 created_at: '2026-08-11T22:46:46.266235+00:00'
-updated_at: '2026-08-15T01:57:16.594817+00:00'
+updated_at: '2026-08-16T01:16:22.651319+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   auto_merge_back: true
