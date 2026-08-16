@@ -6,14 +6,15 @@ title: One application typeface, set once through the workspace's own font token
   served from the workspace origin
 created_by: xgd
 created_at: '2026-08-10T07:46:38.639604+00:00'
-updated_at: '2026-08-10T08:18:29.757149+00:00'
+updated_at: '2026-08-16T04:19:17.286472+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-3bf94bd4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
