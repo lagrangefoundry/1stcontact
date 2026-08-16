@@ -7,14 +7,15 @@ title: 'An operation can be declared in full and still be withheld from a consum
   called'
 created_by: xgd
 created_at: '2026-08-10T09:06:08.116796+00:00'
-updated_at: '2026-08-10T09:15:04.219672+00:00'
+updated_at: '2026-08-16T03:38:46.397457+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-93905de4
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
