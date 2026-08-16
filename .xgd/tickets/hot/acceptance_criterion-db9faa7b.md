@@ -7,14 +7,15 @@ title: 'A bounded control''s range binds a change and never the status quo: an u
   rather than clamped'
 created_by: xgd
 created_at: '2026-08-12T18:08:23.057371+00:00'
-updated_at: '2026-08-12T21:28:33.200969+00:00'
+updated_at: '2026-08-16T06:55:57.705800+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
