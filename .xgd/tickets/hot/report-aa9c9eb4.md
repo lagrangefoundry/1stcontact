@@ -1,0 +1,472 @@
+---
+uid: report-aa9c9eb4
+id: REPORT-2175
+type: report
+title: 'Scoped quality: pass (68 tests, 0 failed)'
+created_by: xgd
+created_at: '2026-08-17T02:56:04.351261+00:00'
+updated_at: '2026-08-17T02:56:04.351261+00:00'
+completed_at: null
+last_field_updated: created_at
+result: pass
+fields:
+  report_kind: quality
+  subject_uid: reconcile-BUNDLE-18
+  commit: a8cefb9e3edbd70f4f53bf8e34b25eca1d8b3702
+---
+
+{
+  "timestamp": "2026-08-17T02:53:40.045785Z",
+  "lint": {
+    "status": "success",
+    "exit_code": 0,
+    "duration_seconds": 0.00010687485337257385,
+    "errors": 0,
+    "warnings": 0,
+    "error_list": [],
+    "warning_list": []
+  },
+  "build": {
+    "status": "success",
+    "exit_code": 0,
+    "duration_seconds": 0.0,
+    "errors": 0,
+    "error_list": [],
+    "stdout": "No tsconfig.json \u2014 type-check skipped (JS-only project)",
+    "stderr": ""
+  },
+  "preflight": {
+    "status": "pass",
+    "violations": []
+  },
+  "suites": {
+    "javascript-vitest": {
+      "suite_name": "javascript-vitest",
+      "status": "success",
+      "exit_code": 0,
+      "duration_seconds": 60.59302170807496,
+      "passed": 68,
+      "failed": 0,
+      "skipped": 0,
+      "errors": 0,
+      "total": 68,
+      "deselected": 1527,
+      "test_filter": [
+        "test_UAT_AC1000",
+        "test_UAT_AC1001",
+        "test_UAT_AC1002",
+        "test_UAT_AC1003",
+        "test_UAT_AC1004",
+        "test_UAT_AC1005",
+        "test_UAT_AC1006",
+        "test_UAT_AC1028",
+        "test_UAT_AC1037",
+        "test_UAT_AC1038",
+        "test_UAT_AC1039",
+        "test_UAT_AC1040",
+        "test_UAT_AC1041",
+        "test_UAT_AC1042",
+        "test_UAT_AC1043",
+        "test_UAT_AC1044",
+        "test_UAT_AC1050",
+        "test_UAT_AC1112",
+        "test_UAT_AC1113",
+        "test_UAT_AC1114",
+        "test_UAT_AC1115",
+        "test_UAT_AC1116",
+        "test_UAT_AC1123",
+        "test_UAT_AC1138",
+        "test_UAT_AC1139",
+        "test_UAT_AC1140",
+        "test_UAT_AC1143",
+        "test_UAT_AC1144",
+        "test_UAT_AC1145",
+        "test_UAT_AC1146",
+        "test_UAT_AC1147",
+        "test_UAT_AC716",
+        "test_UAT_AC928",
+        "test_UAT_AC929",
+        "test_UAT_AC930",
+        "test_UAT_AC931",
+        "test_UAT_AC932",
+        "test_UAT_AC939",
+        "test_UAT_AC940",
+        "test_UAT_AC941",
+        "test_UAT_AC942",
+        "test_UAT_AC943",
+        "test_UAT_AC944",
+        "test_UAT_AC945",
+        "test_UAT_AC946",
+        "test_UAT_AC947",
+        "test_UAT_AC993",
+        "test_UAT_AC994",
+        "test_UAT_AC995",
+        "test_UAT_AC996",
+        "test_UAT_AC997",
+        "test_UAT_AC998",
+        "test_UAT_AC999"
+      ],
+      "scope_ac_backed": false,
+      "coverage": null,
+      "lines_covered": 0,
+      "lines_total": 0,
+      "files_covered": [],
+      "junit_xml_path": null,
+      "stdout": "\"fullName\":\"REQ-136 \u2014 image framing, shape and colour adjustment test_UAT_FC_REQ-136_the_edit_render_paints_an_adjustment_exactly_as_the_page_does\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-136_the_edit_render_paints_an_adjustment_exactly_as_the_page_does\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-136 \u2014 image framing, shape and colour adjustment\"],\"fullName\":\"REQ-136 \u2014 image framing, shape and colour adjustment test_UAT_FC_REQ-136_the_fold_now_carries_a_captured_pan_and_colour_adjustment\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-136_the_fold_now_carries_a_captured_pan_and_colour_adjustment\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1786935221412,\"endTime\":1786935221412,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-18/tests/test_UAT_FC_REQ-136_image_framing.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"REQ-137 AC1 \u2014 a palette entry holds a single colour and `steps` is gone\"],\"fullName\":\"REQ-137 AC1 \u2014 a palette entry holds a single colour and `steps` is gone test_UAT_FC_REQ-137_an_entry_is_one_colour_and_a_step_is_not_a_field\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_an_entry_is_one_colour_and_a_step_is_not_a_field\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC1 \u2014 a palette entry holds a single colour and `steps` is gone\"],\"fullName\":\"REQ-137 AC1 \u2014 a palette entry holds a single colour and `steps` is gone test_UAT_FC_REQ-137_no_stored_site_carries_a_step\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_no_stored_site_carries_a_step\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1]\"],\"fullName\":\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1] test_UAT_FC_REQ-137_shade_mixes_toward_black_and_white_and_zero_is_the_entry\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_shade_mixes_toward_black_and_white_and_zero_is_the_entry\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1]\"],\"fullName\":\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1] test_UAT_FC_REQ-137_a_shade_only_ever_removes_chroma\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_a_shade_only_ever_removes_chroma\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1]\"],\"fullName\":\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1] test_UAT_FC_REQ-137_an_out_of_range_shade_is_a_validation_failure\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_an_out_of_range_shade_is_a_validation_failure\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1]\"],\"fullName\":\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1] test_UAT_FC_REQ-137_shade_and_alpha_are_independent_axes\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_shade_and_alpha_are_independent_axes\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1]\"],\"fullName\":\"REQ-137 AC2 \u2014 a reference carries a continuous shade on [-1, +1] test_UAT_FC_REQ-137_a_reference_counts_against_its_entry_at_every_shade\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_a_reference_counts_against_its_entry_at_every_shade\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step\"],\"fullName\":\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step test_UAT_FC_REQ-137_derivation_emits_entries_and_shades_and_never_a_step\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_derivation_emits_entries_and_shades_and_never_a_step\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step\"],\"fullName\":\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step test_UAT_FC_REQ-137_a_colour_a_mix_cannot_reach_becomes_its_own_exact_entry\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_a_colour_a_mix_cannot_reach_becomes_its_own_exact_entry\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step\"],\"fullName\":\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step test_UAT_FC_REQ-137_the_base_is_the_member_that_reaches_the_most_others\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_the_base_is_the_member_that_reaches_the_most_others\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step\"],\"fullName\":\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step test_UAT_FC_REQ-137_a_fit_that_would_change_a_colours_family_is_refused\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_a_fit_that_would_change_a_colours_family_is_refused\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step\"],\"fullName\":\"REQ-137 AC3/AC4 \u2014 derivation emits entries and shades, never a step test_UAT_FC_REQ-137_the_fit_is_searched_over_the_renderers_own_shade_function\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_the_fit_is_searched_over_the_renderers_own_shade_function\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC5 \u2014 the two retrofitted sites are on the new model and within the bound\"],\"fullName\":\"REQ-137 AC5 \u2014 the two retrofitted sites are on the new model and within the bound test_UAT_FC_REQ-137_retrofitted_sites_use_shades_and_resolve_within_the_bound\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_retrofitted_sites_use_shades_and_resolve_within_the_bound\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC5 \u2014 the two retrofitted sites are on the new model and within the bound\"],\"fullName\":\"REQ-137 AC5 \u2014 the two retrofitted sites are on the new model and within the bound test_UAT_FC_REQ-137_re_running_the_retrofit_on_a_stored_site_changes_nothing\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_re_running_the_retrofit_on_a_stored_site_changes_nothing\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-137 AC5 \u2014 the two retrofitted sites are on the new model and within the bound\"],\"fullName\":\"REQ-137 AC5 \u2014 the two retrofitted sites are on the new model and within the bound test_UAT_FC_REQ-137_resolution_leaves_no_reference_behind\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-137_resolution_leaves_no_reference_behind\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1786935221412,\"endTime\":1786935221412,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-18/tests/test_UAT_FC_REQ-137_palette_shade.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework)\"],\"fullName\":\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework) test_UAT_FC_REQ-138_a_clamped_headline_still_responds\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-138_a_clamped_headline_still_responds\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework)\"],\"fullName\":\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework) test_UAT_FC_REQ-138_the_box_keeps_the_scale_it_opened_at\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-138_the_box_keeps_the_scale_it_opened_at\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework)\"],\"fullName\":\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework) test_UAT_FC_REQ-138_weight_italic_and_capitalisation_restyle_the_box\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-138_weight_italic_and_capitalisation_restyle_the_box\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework)\"],\"fullName\":\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework) test_UAT_FC_REQ-138_turning_a_parameter_off_clears_it\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-138_turning_a_parameter_off_clears_it\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework)\"],\"fullName\":\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework) test_UAT_FC_REQ-138_an_untouched_parameter_keeps_its_opening_value\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-138_an_untouched_parameter_keeps_its_opening_value\",\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework)\"],\"fullName\":\"REQ-138 \u2014 live preview (webui components not installed \u2014 run `bin/install --lang js --component all` in lagrange-framework) test_UAT_FC_REQ-138_opening_the_modal_is_unchanged\",\"status\":\"skipped\",\"title\":\"test_UAT_FC_REQ-138_opening_the_modal_is_unchanged\",\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1786935221412,\"endTime\":1786935221412,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-18/tests/test_UAT_FC_REQ-138_live_preview.test.ts\"}]}",
+      "stderr": "",
+      "tests": [
+        {
+          "name": "AC-716 L1 leaf axes carry the absolute (literal) colour / length / radius value test_UAT_AC716_absolute_literals_carried_verbatim_and_malformed_rejected",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 censusing a site reports its colours and changes nothing test_UAT_AC939_census_reports_literals_counts_alpha_families_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 the census is a single JSON document for scripting test_UAT_AC940_census_json_is_one_parseable_document_agreeing_with_the_human_form",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 the retrofit writes a palette and reports the conversion test_UAT_AC941_assign_writes_palette_rewrites_pages_and_reports_counts_and_files",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 an alpha family collapses to one entry with opacity on the reference test_UAT_AC942_one_rgb_at_three_opacities_becomes_one_entry",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 derivation groups colours into roles rather than listing or merging them test_UAT_AC943_ramps_group_vivid_and_neutral_split_isolates_stand_alone",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 a completed retrofit renders byte-identically test_UAT_AC944_render_is_byte_identical_before_and_after_the_retrofit",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 an unprovable retrofit fails and leaves every file untouched test_UAT_AC945_unprovable_retrofit_exits_nonzero_diagnoses_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 derived names describe the colour and rename from the command line test_UAT_AC946_derived_names_describe_colours_and_rename_to_role_vocabulary",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5e7eb0c5 \u2014 a site arrives with literals, and re-assignment is idempotent test_UAT_AC947_repro_carries_literals_and_re_assignment_reproduces_the_palette",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-928 a site declares an arbitrary-size palette; every colour axis takes a literal or a reference test_UAT_AC928_palette_entries_and_every_colour_axis_accepts_either_form",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-929 a dangling reference fails validation, and resolution never substitutes a default test_UAT_AC929_unresolvable_references_are_rejected_and_resolution_fails_loudly",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-930 translucency is an axis of the reference, so one colour at several opacities is one entry test_UAT_AC930_one_rgb_at_several_alphas_collapses_to_one_entry_exactly",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-931 references resolve once at the load boundary, so the authoring form is invisible downstream test_UAT_AC931_a_referenced_document_loads_and_renders_identically_to_its_literal_twin",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-932 a retrofitted site yields a palette, not a colour list, and loses no colour test_UAT_AC932_retrofit_shrinks_the_palette_materially_and_paints_the_same_colours",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-939 censusing a site reports its colours and changes nothing test_UAT_AC939_census_reports_literals_counts_alpha_families_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-940 the census is a single JSON document for scripting test_UAT_AC940_census_json_is_one_parseable_document_agreeing_with_the_human_form",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-941 the retrofit writes a palette and reports the conversion test_UAT_AC941_assign_writes_palette_rewrites_pages_and_reports_entries_drift_and_files",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-942 an alpha family collapses to one entry with opacity on the reference test_UAT_AC942_one_rgb_at_three_opacities_becomes_one_entry_carrying_opacity_on_each_reference",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-943 a hue family is one entry plus a shade, with unreachable and mis-classifying fits refused test_UAT_AC943_families_collapse_onto_the_most_reaching_member_and_refused_fits_stand_alone",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-944 a completed retrofit moves no colour outside 8/255 and reports what it moved test_UAT_AC944_unshaded_references_are_exact_shaded_stay_within_the_bound_and_drift_is_reported",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-945 an unprovable retrofit fails and leaves every file untouched test_UAT_AC945_unprovable_retrofit_exits_nonzero_diagnoses_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-946 derived names describe the colour and rename from the command line test_UAT_AC946_derived_names_describe_colours_and_rename_to_role_vocabulary",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-947 assignment is a separate pass and a second run is a byte-identical fixpoint test_UAT_AC947_reproduced_sites_carry_literals_and_re_assignment_is_a_byte_identical_fixpoint",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-932 the palette is materially smaller than the distinct colour count, with no colour lost test_UAT_AC932_palette_is_materially_smaller_carries_no_step_and_loses_no_colour",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-1146 a colour the shade axis cannot reach becomes its own exact entry test_UAT_AC1146_a_more_saturated_member_earns_its_own_byte_exact_entry_rather_than_a_shade",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-1147 the retrofit fits over the same shade function the definition resolves through test_UAT_AC1147_reported_drift_is_reproduced_exactly_by_the_palette_models_own_resolution",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-1144 a reference carries a continuous shade on [-1, +1], mixed in Oklab test_UAT_AC1144_shade_is_continuous_signed_perceptually_even_and_range_checked",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-1145 the entry stays the unit of change: shade only removes chroma, and refs tally to the entry test_UAT_AC1145_a_shade_only_removes_chroma_and_every_reference_counts_against_its_entry",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1037_the_form_opens_inside_the_themed_root_and_follows_its_palette",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1038_one_application_typeface_set_through_the_shell_token_and_served_by_the_origin",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1039_the_fields_form_drops_heading_and_labels_while_dead_ends_keep_theirs",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1040_the_box_mirrors_the_pages_typography_and_the_paint_actually_under_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1041_only_the_sites_font_faces_cross_into_the_workspace_and_are_replaced_each_time",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1042_the_previewed_size_is_clamped_while_every_other_axis_is_exact",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1043_the_form_is_sized_for_copy_and_save_stays_reachable_at_every_window_size",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 how the edit form presents itself test_UAT_AC1044_a_lone_field_opens_in_its_control_and_two_fields_open_none",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the form the gesture opens test_UAT_AC994_clicking_a_copy_region_opens_one_form_over_that_regions_fields",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the form the gesture opens test_UAT_AC1001_a_region_with_nothing_editable_says_so_and_names_its_kind",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the form the gesture opens test_UAT_AC1002_the_nothing_to_edit_message_is_dismissible_by_button_escape_and_backdrop",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the form the gesture opens test_UAT_AC1000_closing_a_form_in_which_nothing_changed_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the form the gesture opens test_UAT_AC1003_a_rendering_without_the_page_coordinate_is_refused_before_anything_is_sent",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the form the gesture opens test_UAT_AC1050_a_painted_panel_opens_its_background_picker_over_the_same_transport",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC993_hovering_marks_only_the_hovered_region_and_never_moves_the_page",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC995_a_click_resolves_to_the_innermost_region_containing_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC996_a_click_inside_a_module_seam_names_that_instance_and_seam",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC998_after_a_save_the_page_shows_the_new_words_and_is_still_editable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC997_one_confirmed_form_is_one_change_however_many_fields_it_held",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC999_a_refused_edit_shows_its_own_reason_and_leaves_page_and_draft_unchanged",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC1004_copy_longer_than_its_box_still_reads_back_in_full",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC1005_a_page_being_viewed_is_not_marked_intercepted_or_editable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the edit gesture test_UAT_AC1006_the_browser_runs_one_address_resolution_served_from_the_renderers_own_source",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "AC-1143 \u2014 the glyphs' own paint test_UAT_AC1143_a_runs_own_background_previews_as_glyph_paint_drawn_on_the_words",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1112_the_closed_list_is_a_grid_of_thumbnails_and_the_dropdown_is_gone",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1113_a_tile_is_labelled_with_the_file_name_and_commits_the_full_handle",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1114_a_tile_shows_the_bytes_the_origin_serves_over_the_pages_own_channel",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1115_a_handle_the_origin_cannot_serve_keeps_a_named_selectable_tile",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1116_the_grid_is_one_keyboard_reachable_single_selection_group",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1043_the_thumbnail_grid_is_bounded_and_scrolls_within_its_own_bounds",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1028_the_handle_the_region_holds_is_the_tile_already_selected",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC997_a_picked_image_and_new_alt_text_travel_in_one_change",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 choosing an image by looking at it test_UAT_AC1000_a_dialog_closed_with_neither_control_touched_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the box follows the sheet test_UAT_AC1138_size_weight_and_italic_restyle_the_words_as_confirmed_and_write_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the box follows the sheet test_UAT_AC1139_a_changed_size_previews_at_the_scale_the_box_opened_at",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the box follows the sheet test_UAT_AC1140_only_a_parameter_the_operator_changed_overrides_the_box",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-3bf94bd4 the words in a box, the parameters under it test_UAT_AC1123_words_open_in_the_box_and_parameters_in_a_bounded_sheet_staging_into_one_save",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-118 \u2014 image selection test_UAT_AC1028_clicking_an_image_segment_offers_a_picker_of_the_sites_assets",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-118 image selection over the builder origin test_UAT_AC1028_the_modal_reads_its_picker_from_the_same_copy_transport",
+          "file": "",
+          "status": "passed"
+        }
+      ],
+      "hung_test": null,
+      "timeout_reason": null,
+      "partial_results": false,
+      "failures": []
+    }
+  },
+  "overall": {
+    "status": "success",
+    "issues": []
+  },
+  "validation": {
+    "anomalies": []
+  }
+}
