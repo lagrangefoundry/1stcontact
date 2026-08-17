@@ -2,26 +2,14 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import http from 'node:http'
 import path from 'node:path'
+import { MIME } from '../store/content-type'
 import type { RenderChannel, Root, StoreContext } from '../store'
 import { distDir } from '../store'
 import type { GlobalOptions } from './commands'
 
 /** Minimal MIME map for the static-preview server. */
-export const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2',
-  '.woff': 'font/woff',
-  '.ttf': 'font/ttf',
-}
+// One table, in the store's worker-safe half — see `store/content-type.ts`.
+export { MIME }
 
 export interface ServeOptions extends GlobalOptions {
   source?: RenderChannel
