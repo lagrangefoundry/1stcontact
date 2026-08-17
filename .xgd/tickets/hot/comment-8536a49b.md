@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-143
 created_by: xgd
 created_at: '2026-08-16T01:29:08.349684+00:00'
-updated_at: '2026-08-17T19:27:13.882304+00:00'
+updated_at: '2026-08-17T19:53:07.313217+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -109,5 +109,92 @@ Please continue
 <!-- xgd-chat role="user" ts="2026-08-17T19:27:13.741749+00:00" -->
 #### You
 Please complete this ticket
+
+<!-- xgd-turn id="d24bc570-c9bb-4a8a-952e-083769092479-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-17T19:53:07.166425+00:00" -->
+#### Claude
+I'll start by reading the ticket and checking the current state of the branch and work in progress.
+
+No REQ-143 work exists yet — the prior session's continue turns produced nothing on disk. Let me survey the ground properly.
+
+This is substantial multi-file work — cutting a branch first, per FREE-CODING.
+
+The blocker is the framework barrel pulling `.astro` components into `edit.ts`. Let me check whether an Astro-free subset is reachable.
+
+Confirmed the shape. Let me start implementing — first the Astro-free framework entry that makes the edit surface reachable from workerd.
+
+Now the framework's Astro-free catalog and worker entry:
+
+Now point the edit surface at the Astro-free entry:
+
+Edit surface now loads in workerd. Now the store — let me check the journal arithmetic I must mirror.
+
+Now the port additions — the CAS expectation and its typed error:
+
+Now `version()` on the two existing adapters:
+
+Now the D1 schema migration:
+
+Now the D1/R2 store itself:
+
+Now extract the shared contract so one body of assertions runs over all three adapters:
+
+Now rewire `site-factory.ts` to the shared seed:
+
+Now the D1/R2 fixture for the workerd project:
+
+Now update REQ-142's UAT to consume the shared contract, and write the REQ-143 workers suite:
+
+My SQL prose comments contain semicolons — strip comments before splitting:
+
+The atomicity test isn't yet exercising the rollback — the pre-read short-circuits before the batch runs. Let me make the in-batch guard the only gate:
+
+Now the node half of AC-6 — render byte-identity:
+
+Now the bindings and the migration hook:
+
+Now the config UAT pinning bindings and hook together:
+
+Now export the new store surface from the barrel and verify the whole build/typecheck:
+
+While that runs, let me update the ticket body to reflect what was actually built:
+
+Failures to triage. Let me look at the REQ-144 one — likely mine — while the sweep finishes:
+
+The REQ-144 guard caught a real bug of mine: `migrations_dir` landed *inside* `[vars]`, so wrangler would read it as an env var, not a config key.
+
+Pre-existing (identical 13/9 on both trees). Let me bump the version while the sweep finishes:
+
+Identical to baseline — zero new failures. Final verification of the affected suites:
+
+Now merge back to `xgd-working` under the shared lock:
+
+Both sides are wanted — the ACCESS vars landed on `xgd-working` while I was working. Keeping both:
+
+REQ-147 claimed 0.1.53 while I was working — re-bump and record both SHAs:
+
+REQ-143 is complete and at `free_coded` on `xgd-working` (commits `b71a8641`, `7ebc721b`, version 0.1.54).
+
+## What landed
+
+**The unblocker, which was not D1.** AC-1 required the edit surface's UATs to run in workerd, and they couldn't — `edit.ts` imported the framework barrel, which re-exports the module registry, which imports two `.astro` components. REQ-142 had removed the *filesystem* from `edit.ts` so it could run in a Worker; it still couldn't, and nothing said so. Split the catalog into contracts (`modules/catalog.ts`) and the component binding (`registry.ts`, now derived from it), behind a new `@1stcontact/framework/worker` entry.
+
+**The adapter** (`store/d1r2-store.ts` + `db/migrations/0001_site_store.sql`):
+- Tenancy per DOC-10 §4.1 — tenant is the account and the hard barrier, bound into the handle at construction; no verb takes a tenant argument. Unknown *and* inactive tenants are typed errors, never a handle that reads nothing.
+- Version CAS via `SiteWrite.expect`. The guard is a statement inside the batch that throws when the version moved. I placed it **after** the writes with no pre-read short-circuit — with the pre-read I first wrote, refusals never reached D1 and the atomicity test was vacuous. As built, a refused four-page write really executes and really is rolled back.
+- The fs adapter ignores `expect` rather than faking a CAS it has no transaction to honour.
+
+**One contract, three adapters.** The assertions moved to `tests/support/site-store-contract.ts` and are imported by both projects — not two files that agree today.
+
+## Two things to flag
+
+**AC-1 has a named exception.** The two `PreviewRenderer` cases stay node-only — not because of D1, but because the render needs Astro's container API, which workerd has no transform for. That's REQ-145's scope. **AC-6 is consequently proved in two halves** meeting at `LoadedSite` (workerd: import assembles identically; node: render is byte-identical across stores). Sound, but it is two tests, not one.
+
+**The §4 risk is unchanged.** Everything is proved against miniflare bindings. The remote database exists and the migration hook is wired, but `bin/deploy` has not been run against it — first-remote-deploy is still an open unknown.
+
+REQ-144's binding-parity UAT earned its keep: it caught `migrations_dir` landing inside `[vars]`, where wrangler would have read it as an env var. The merge back also conflicted with REQ-147's Access vars, which arrived mid-session; both sides kept, and REQ-147 had taken 0.1.53, hence the second commit.
+
+Full sweep: 56 failed / 60 passed across 12 files — **identical to the xgd-working baseline**, so zero new failures. Those are the pre-existing webui/chat-host suites. `pnpm -r build` and all typechecks clean.
 
 <!-- xgd-chat-end -->
