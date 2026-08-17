@@ -21,13 +21,22 @@
  * goes then, and nothing above it changes either time.
  */
 
-export interface Env {
+import { guardAccess, type AccessEnv } from './access'
+
+export interface Env extends AccessEnv {
   /** Origin of the builder dev server, e.g. `http://localhost:8787`. */
   BUILDER_ORIGIN?: string
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // FIRST, before anything is read or proxied. The builder is private
+    // (REQ-147): Access challenges at the edge, and this refuses anything that
+    // reached the Worker without having been challenged — the door a policy on
+    // `app.1stcontact.io` alone does not cover. See src/access.ts.
+    const refused = await guardAccess(request, env)
+    if (refused) return refused
+
     const origin = env.BUILDER_ORIGIN
     if (!origin) {
       return new Response(
