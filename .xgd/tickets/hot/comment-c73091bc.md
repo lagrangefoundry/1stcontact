@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-17T19:55:27.191796+00:00'
+updated_at: '2026-08-17T20:11:46.175702+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,17 @@ That leaves the local loop. `wrangler dev` uses miniflare's *local* D1/R2 by def
 At 21 points this is over the free-coding cap, and with Q1 and Q2 deferred it lands around 13 — the four phases in the ticket body, minus chat and publish. If you'd rather I keep chat and publish in, say so and I'll split the ticket instead of shrinking it; I won't quietly narrow the scope either way.
 
 Answer Q1–Q4 and I'll scope the ticket, cut `free-REQ-145`, and start.
+
+<!-- xgd-turn id="423b651e-9637-44fb-a8bd-79a1d7fb24cf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-17T20:11:46.032766+00:00" -->
+#### You
+We should upgrade the library to work as a worker it would be a 3rd version of the code - please create a ticket in lagrange-framewoirk to do this
+
+Lets build the framework first - please create a separate ticket for publish
+
+Q3? I don't understand what data?
+
+Q4 - most worker actions will bet tenant based, we should start there. We may find that I need admin controls that are cross tenant but we can cross that bridge when we come to it.
 
 <!-- xgd-chat-end -->
