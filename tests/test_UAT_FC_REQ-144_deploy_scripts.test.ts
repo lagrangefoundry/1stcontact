@@ -322,7 +322,15 @@ bucket_name = "1stcontact-sites"
 
     expect(report.failed.map((c: { name: string }) => c.name)).toEqual([])
     expect(report.ok).toBe(true)
-    expect(report.checks.filter((c: { status: string }) => c.status === 'skip')).toEqual([])
+    // Every SITE check ran. REQ-147 added control-app checks on an independent
+    // axis (`--control-origin` / `--workers-dev-origin`), and this origin is a
+    // public-site: they skip here because there is nothing to point them at, not
+    // because anything was left untested.
+    expect(
+      report.checks
+        .filter((c: { status: string }) => c.status === 'skip')
+        .map((c: { name: string }) => c.name),
+    ).toEqual(['control_app_challenges_unauthenticated', 'control_app_workers_dev_closed'])
     expect(report.checks.map((c: { name: string }) => c.name)).toContain('draft_assets_resolve')
   })
 

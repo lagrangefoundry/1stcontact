@@ -2,7 +2,18 @@ name = "1stcontact-control-app"
 main = "src/index.ts"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
-workers_dev = true
+
+# OFF, and this is a security control rather than tidiness (REQ-147).
+#
+# Cloudflare Access is attached to a HOSTNAME. `workers_dev = true` gives this
+# Worker a second hostname — `1stcontact-control-app.<subdomain>.workers.dev` —
+# that no Access policy covers, so the builder would be served to anyone who
+# guessed it while the policy on `app.1stcontact.io` looked perfectly correct.
+# `workers_dev` IS inherited by a named environment (unlike vars and bindings),
+# so the top-level declaration governs production too; it is repeated below
+# anyway, because a security control that depends on remembering which keys
+# inherit is one refactor from silently flipping back on.
+workers_dev = false
 
 # The builder's Node origin (REQ-115). A plain var, deliberately not an
 # [assets] binding — an assets binding makes `unstable_dev` hang, which would
@@ -16,11 +27,25 @@ workers_dev = true
 # not a silent degradation: the deployed Worker sees no BUILDER_ORIGIN at all
 # and answers every request with its own 503 (REQ-144). A UAT pins the two
 # sides together so the omission cannot recur unnoticed.
+# ACCESS_TEAM_DOMAIN / ACCESS_AUD identify the Access application this Worker
+# will accept tokens for (REQ-147). Neither is a secret — the team domain is
+# public and the AUD tag is an identifier, not a credential — so both live here
+# rather than in `wrangler secret`, where a value nobody can read would make the
+# gate unauditable.
+#
+# EMPTY MEANS DENY. Until they are filled in, the Worker answers 503 to every
+# request rather than serving unverified: an unconfigured gate that let traffic
+# through would be the exact hole this ticket closes. Fill them in per
+# apps/control-app/ACCESS.md, which is also where the granted identities are
+# recorded.
 [vars]
 BUILDER_ORIGIN = "http://localhost:8790"
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
 
 [env.production]
 name = "1stcontact-control-app"
+workers_dev = false
 routes = [
   { pattern = "app.1stcontact.io/*", zone_name = "1stcontact.io" }
 ]
@@ -31,3 +56,5 @@ routes = [
 # honest and diagnosable instead of looking like missing configuration.
 [env.production.vars]
 BUILDER_ORIGIN = "http://localhost:8790"
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""

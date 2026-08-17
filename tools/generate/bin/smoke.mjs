@@ -28,6 +28,9 @@
  *   - an unknown slug 404s, and does so INDISTINGUISHABLY from a slug that
  *     exists but has published nothing. A 404 that says which would answer
  *     questions about sites the asker has no business knowing exist.
+ *   - the control app is PRIVATE (REQ-147): unauthenticated callers are
+ *     challenged rather than served, on the Access hostname AND on the
+ *     workers.dev hostname an Access policy cannot cover.
  */
 
 /** Draft snapshots are content-addressed, so their bytes can never change. */
@@ -145,6 +148,9 @@ export async function runSmoke(options = {}) {
   const draft = options.draft
   const doFetch = options.fetch ?? globalThis.fetch
   const maxAssets = options.maxAssets ?? 200
+  const strip = (value) => (value ? value.replace(/\/+$/, '') : undefined)
+  const controlOrigin = strip(options.controlOrigin)
+  const workersDevOrigin = strip(options.workersDevOrigin)
   const checks = []
 
   const get = (url, init) => doFetch(url, { redirect: 'manual', ...init })
@@ -327,17 +333,81 @@ export async function runSmoke(options = {}) {
     }
   }
 
+  // ── the control app is private (REQ-147) ───────────────────────────────────
+  //
+  // Both checks assert a NEGATIVE — "this does not serve the builder" — which is
+  // why they are stated as "not 200" rather than as one expected status. Access
+  // answers a browser with a 302 to the login page and a non-browser with a 401;
+  // an unconfigured Worker answers 503; a retired workers.dev hostname does not
+  // resolve at all. Every one of those is the gate holding. Only a 200 is not.
+
+  if (controlOrigin) {
+    await check('control_app_challenges_unauthenticated', async () => {
+      const res = await get(`${controlOrigin}/`)
+      ensure(
+        res.status !== 200,
+        `GET ${controlOrigin}/ returned 200 to a caller with no Access token — ` +
+          'the builder is being served publicly',
+      )
+      const location = res.headers.get('location') ?? ''
+      const challenged =
+        (res.status >= 300 && res.status < 400 && location.includes('cloudflareaccess.com')) ||
+        res.status === 401 ||
+        res.status === 403
+      // A 503 is the Worker's own fail-closed answer to empty Access vars. Not
+      // serving, so not a failure — but reported, because it means the gate has
+      // not yet been proved against a real Access challenge.
+      ensure(
+        challenged || res.status === 503,
+        `GET ${controlOrigin}/ returned ${res.status}${location ? ` → ${location}` : ''}, ` +
+          'expected an Access challenge (302 to <team>.cloudflareaccess.com, or 401/403)',
+      )
+      return res.status === 503
+        ? '503 — the Worker refused: Access vars are empty, so no challenge was proved'
+        : `${res.status}${location ? ` → ${location}` : ''}`
+    })
+  } else {
+    skip('control_app_challenges_unauthenticated', 'no --control-origin given')
+  }
+
+  if (workersDevOrigin) {
+    await check('control_app_workers_dev_closed', async () => {
+      // The hostname is EXPECTED to have stopped resolving, so a throw is the
+      // success case here rather than an error — the one place in this script
+      // where that is true.
+      let res
+      try {
+        res = await get(`${workersDevOrigin}/`)
+      } catch (err) {
+        return `does not resolve (${err?.message ?? String(err)})`
+      }
+      ensure(
+        res.status !== 200,
+        `GET ${workersDevOrigin}/ returned 200 — the Worker still answers on workers.dev, ` +
+          'which no Access policy covers',
+      )
+      return `${res.status}`
+    })
+  } else {
+    skip('control_app_workers_dev_closed', 'no --workers-dev-origin given')
+  }
+
   const failed = checks.filter((c) => c.status === 'fail')
-  return { ok: failed.length === 0, origin, slug, draft, checks, failed }
+  return { ok: failed.length === 0, origin, slug, draft, controlOrigin, workersDevOrigin, checks, failed }
 }
 
 const USAGE = `bin/smoke — prove a deployed origin actually serves.
 
   bin/smoke [--origin <url>] [--slug <slug>] [--draft <sha>] [--max-assets <n>]
+            [--control-origin <url>] [--workers-dev-origin <url>]
 
-  --origin      default https://1stcontact.io
-  --slug        a deployed site; without it the site checks are skipped
-  --draft       a draft snapshot id; without it the snapshot checks are skipped
+  --origin              default https://1stcontact.io
+  --slug                a deployed site; without it the site checks are skipped
+  --draft               a draft snapshot id; without it the snapshot checks are skipped
+  --control-origin      the control app, e.g. https://app.1stcontact.io — asserts an
+                        unauthenticated caller is challenged, not served (REQ-147)
+  --workers-dev-origin  the control app's workers.dev hostname — asserts the door an
+                        Access policy cannot cover is shut
 
 Exits 0 when every check passes, 1 naming the ones that did not. Skipped checks
 never fail the run, but they are counted in the summary — a run that skipped
@@ -357,6 +427,15 @@ function parseArgs(argv) {
         const value = argv[i + 1]
         if (value === undefined) throw new Error(`${arg} needs a value`)
         opts[arg.slice(2)] = value
+        i += 1
+        break
+      }
+      case '--control-origin':
+      case '--workers-dev-origin': {
+        const value = argv[i + 1]
+        if (value === undefined) throw new Error(`${arg} needs a value`)
+        // --control-origin → controlOrigin
+        opts[arg.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value
         i += 1
         break
       }

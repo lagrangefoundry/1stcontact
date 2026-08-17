@@ -14,6 +14,10 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { unstable_dev, type UnstableDevWorker } from 'wrangler'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+// REQ-147 made the control app PRIVATE: the front verifies a Cloudflare Access
+// JWT before it proxies. What this AC pins — one host, same origin, verbatim —
+// is what an ADMITTED caller receives, so the caller here is admitted.
+import { startAccessTeam, type AccessTeam } from './support/access'
 import {
   chromeHtml,
   cmdNew,
@@ -158,13 +162,21 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
   let cwd: string
   let builder: BuilderHandle
   let worker: UnstableDevWorker
+  let access: AccessTeam
+  let admitted: Record<string, string>
 
   beforeAll(async () => {
     cwd = await makeWorkspace()
     builder = await startBuilder({ cwd, clientDir: path.join(REPO, 'apps/control-app/src/builder') })
+    access = await startAccessTeam()
+    admitted = await access.headers()
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
-      vars: { BUILDER_ORIGIN: builder.url.replace(/\/$/, '') },
+      vars: {
+        BUILDER_ORIGIN: builder.url.replace(/\/$/, ''),
+        ACCESS_TEAM_DOMAIN: access.teamDomain,
+        ACCESS_AUD: access.aud,
+      },
       experimental: { disableExperimentalWarning: true },
     })
   })
@@ -172,6 +184,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
   afterAll(async () => {
     await worker?.stop()
     await builder?.close()
+    await access?.close()
     if (cwd) fs.rmSync(cwd, { recursive: true, force: true })
   })
 
@@ -181,17 +194,26 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
    * something real occupied the route.
    */
   it('test_UAT_FC_REQ-115_control_app_fronts_the_builder_same_origin', async () => {
-    const res = await worker.fetch('/')
+    const res = await worker.fetch('/', { headers: admitted })
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/html')
     expect(await res.text()).toBe(chromeHtml())
 
     // Same host serves the API and the rendered channels, so the iframe is
     // same-origin and open-in-new-tab lands on the identical document.
-    const sites = (await (await worker.fetch('/api/sites')).json()) as { slug: string }[]
+    const sites = (await (await worker.fetch('/api/sites', { headers: admitted })).json()) as {
+      slug: string
+    }[]
     expect(sites.map((s) => s.slug).sort()).toEqual(['alpha', 'beta'])
-    expect((await worker.fetch('/preview/alpha/draft/')).status).toBe(200)
-    expect((await worker.fetch('/webui/webui-shell/src/index.js')).status).toBe(200)
+    expect((await worker.fetch('/preview/alpha/draft/', { headers: admitted })).status).toBe(200)
+    expect(
+      (await worker.fetch('/webui/webui-shell/src/index.js', { headers: admitted })).status,
+    ).toBe(200)
+
+    // The same host, to a caller Access has NOT admitted, is not a host at all
+    // (REQ-147): being one origin is what makes the iframe same-origin, and the
+    // gate is what makes that origin private.
+    expect((await worker.fetch('/')).status).toBe(401)
   })
 })
 
