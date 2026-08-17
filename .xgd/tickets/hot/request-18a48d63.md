@@ -5,10 +5,10 @@ type: request
 title: 'The Cloudflare SiteStore: definitions in D1, bytes in R2'
 created_by: xgd
 created_at: '2026-08-15T20:31:46.590606+00:00'
-updated_at: '2026-08-17T19:47:17.145747+00:00'
+updated_at: '2026-08-17T19:52:28.518554+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -31,6 +31,14 @@ fields:
     - request-7bef34e0
     - request-23fd6e61
     - bundle-d9226698
+  commits:
+  - working_sha: b71a8641182d62dd46b5fa6d0cf78a582cff4eb7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7ebc721b83ab6202fdec600cd0493b69964bac39
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.54
 ---
 
 # The Cloudflare `SiteStore`: definitions in D1, bytes in R2
