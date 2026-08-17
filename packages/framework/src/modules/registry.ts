@@ -1,43 +1,47 @@
 import type { BehaviorDefinition } from './behavior'
+import { CATALOG, catalog, getModuleMeta, latestModuleVersion } from './catalog'
 import ContactForm from './contact-form/index.astro'
-import { contactFormMeta } from './contact-form/meta'
 import Carousel from './carousel/index.astro'
-import { carouselMeta } from './carousel/meta'
 
 /**
- * The behavior-module catalog (REQ-85). Since the framework pivot layout is
- * owned by the L1 substrate (see `l1/render.ts`); the catalog holds only
- * **behavior modules** — vetted behavioural cores (a scroll-snap carousel, a
- * lead-capture form) that mount L1 presentation into their named slots.
- * `tools/generate` discovers modules through this registry; a site definition
- * pins each instance to an `id` + `version` and the generator resolves the
- * component via {@link getModule}.
+ * The behavior-module catalog **bound to its components** (REQ-85).
+ *
+ * Since the framework pivot layout is owned by the L1 substrate (see
+ * `l1/render.ts`); the catalog holds only **behavior modules** — vetted
+ * behavioural cores (a scroll-snap carousel, a lead-capture form) that mount L1
+ * presentation into their named slots. `tools/generate` discovers modules
+ * through this registry; a site definition pins each instance to an `id` +
+ * `version` and the generator resolves the component via {@link getModule}.
+ *
+ * ⚠️ THIS MODULE IS NODE/ASTRO-ONLY (REQ-143). The two `.astro` imports below
+ * need Astro's transform, so importing this file pulls that requirement into the
+ * graph. Code that must run in a Worker — the structured-edit surface, and
+ * anything reaching it — imports {@link ./catalog} instead, which is the same
+ * contracts without the render binding. The component map is derived from
+ * {@link CATALOG} rather than restated, so the two cannot drift.
  */
-const MODULES: BehaviorDefinition[] = [
-  { meta: contactFormMeta, Component: ContactForm },
-  { meta: carouselMeta, Component: Carousel },
-]
+const COMPONENTS: Record<string, BehaviorDefinition['Component']> = {
+  'contact-form': ContactForm,
+  carousel: Carousel,
+}
+
+const MODULES: BehaviorDefinition[] = CATALOG.map((meta) => {
+  const Component = COMPONENTS[meta.id]
+  if (!Component) {
+    // A contract in the catalog with no component is a framework bug, not a
+    // configuration one: it would surface as an unrenderable site rather than as
+    // a catalog miss, so it fails here where the cause is legible.
+    throw new Error(`Behavior '${meta.id}' is in the catalog with no component bound to it.`)
+  }
+  return { meta, Component }
+})
 
 /** Catalog keyed by `"<id>@<version>"`. */
 export const registry: ReadonlyMap<string, BehaviorDefinition> = new Map(
   MODULES.map((m) => [`${m.meta.id}@${m.meta.version}`, m]),
 )
 
-/**
- * REQ-93 — the catalog's current version of a behavior, for a caller that is
- * *creating* an instance rather than resolving a pinned one (the reproduction
- * importer, which has a captured behaviour and no version to pin yet). Existing
- * instances still pin their own version; this is only the pin's origin.
- */
-export function latestModuleVersion(id: string): number {
-  const versions = MODULES.filter((m) => m.meta.id === id).map((m) => m.meta.version)
-  if (versions.length === 0) {
-    throw new Error(
-      `Module not found in catalog: '${id}'. Known modules: ${[...registry.keys()].join(', ')}.`,
-    )
-  }
-  return Math.max(...versions)
-}
+export { catalog, getModuleMeta, latestModuleVersion }
 
 /**
  * Resolve a module by id + version, or throw a clear catalog-miss error naming
@@ -47,9 +51,7 @@ export function getModule(id: string, version: number): BehaviorDefinition {
   const def = registry.get(`${id}@${version}`)
   if (!def) {
     const known = [...registry.keys()].join(', ')
-    throw new Error(
-      `Module not found in catalog: '${id}' v${version}. Known modules: ${known}.`,
-    )
+    throw new Error(`Module not found in catalog: '${id}' v${version}. Known modules: ${known}.`)
   }
   return def
 }

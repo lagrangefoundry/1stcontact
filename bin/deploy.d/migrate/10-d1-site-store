@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# Apply the site store's D1 migrations before control-app is uploaded (REQ-143).
+#
+# THE ORDERING IS THE WHOLE POINT. `bin/deploy` runs this before it uploads, and
+# aborts the app's deploy if it exits non-zero. A Worker whose code assumes a
+# column that does not exist yet fails at request time, on production traffic,
+# with an error that names SQLite rather than the deploy that caused it. Failing
+# here instead costs a deploy and nothing else.
+#
+# WHY ONLY control-app. It is the only Worker with a `DB` binding — public-site
+# serves rendered bytes out of R2 and reaches no database. Hooks are run for
+# every app, so each one gates on the app it is for rather than the deploy
+# script learning which hooks apply where (see bin/deploy.d/migrate/README.md).
+set -euo pipefail
+
+[[ "$DEPLOY_APP" == "control-app" ]] || exit 0
+
+# Every wrangler invocation below resolves its config from the app directory.
+cd "$DEPLOY_APP_DIR"
+
+# `--remote` is the deployed database, not the local miniflare one. The
+# migrations directory is declared in the app's wrangler.toml (`migrations_dir`),
+# so it is not repeated here — one place names it, and a move does not have to be
+# remembered in two.
+if [[ "${DEPLOY_DRY_RUN:-0}" == "1" ]]; then
+  echo "    would apply D1 migrations to '1stcontact' (--env $DEPLOY_ENV --remote)"
+  # A rehearsal must make no change, so this LISTS rather than applies. It still
+  # reaches Cloudflare, so a missing binding, a bad database name or an expired
+  # token is caught by `--dry-run` instead of by the real thing.
+  npx wrangler d1 migrations list 1stcontact --env "$DEPLOY_ENV" --remote || {
+    echo "    (could not list migrations — check the D1 binding and credentials)" >&2
+    exit 1
+  }
+  exit 0
+fi
+
+npx wrangler d1 migrations apply 1stcontact --env "$DEPLOY_ENV" --remote

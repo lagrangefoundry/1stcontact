@@ -17,15 +17,20 @@ import {
   type L1Node,
   type L1SegmentFieldOptions,
 } from '@1stcontact/site-schema'
+// The Astro-free framework entry, deliberately not the barrel (REQ-143). The
+// barrel re-exports the module registry, which imports two `.astro` components
+// and would put this file — and every caller of it — back out of a Worker's
+// reach. What the edit surface needs is the behavior *contracts*, never their
+// components: it asks what exists and validates instances; it renders nothing.
 import {
+  catalog,
   l1PaintsSurface,
   latestModuleVersion,
   presetSlots,
-  registry,
   validateBehaviorInstance,
   type BehaviorMeta,
   type BehaviorSlotValue,
-} from '@1stcontact/framework'
+} from '@1stcontact/framework/worker'
 import type { JournalRecord } from '../store/journal-model'
 import { clip } from '../store/journal-model'
 import type { SiteStore, StoredPage } from '../store/site-store'
@@ -1118,10 +1123,10 @@ function requirePageFile(files: PageFile[], slug: string, pageId: string): PageF
 
 /** The catalog's contract for one behavior, or NOT_FOUND naming what it holds. */
 function requireBehavior(type: string, version: number | undefined): BehaviorMeta {
-  const known = [...new Set([...registry.values()].map((d) => d.meta.id))].sort()
+  const known = [...new Set([...catalog.values()].map((m) => m.id))].sort()
   const resolved = version ?? (known.includes(type) ? latestModuleVersion(type) : undefined)
-  const def = resolved === undefined ? undefined : registry.get(`${type}@${resolved}`)
-  if (!def) {
+  const meta = resolved === undefined ? undefined : catalog.get(`${type}@${resolved}`)
+  if (!meta) {
     throw new CommandError({
       code: 'NOT_FOUND',
       message:
@@ -1130,7 +1135,7 @@ function requireBehavior(type: string, version: number | undefined): BehaviorMet
       hint: `The catalog holds: ${known.join(', ')}. A new behavior is built by a developer, not configured here.`,
     })
   }
-  return def.meta
+  return meta
 }
 
 /** Turn the behavior contract's violations into one refusal the caller can act on. */
@@ -1161,7 +1166,7 @@ function moduleList(page: Record<string, unknown>): Record<string, unknown>[] {
  * framework's, not a site's.
  */
 export function editBehaviorList(): EditOutput {
-  const behaviors = [...registry.values()].map(({ meta }) => ({
+  const behaviors = [...catalog.values()].map((meta) => ({
     type: meta.id,
     version: meta.version,
     config: Object.fromEntries(

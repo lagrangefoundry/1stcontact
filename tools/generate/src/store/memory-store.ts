@@ -175,6 +175,11 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve({ baseRevision: null, added, modified: [], removed: [] })
     },
 
+    version(slug) {
+      const found = site(slug)
+      return Promise.resolve(found ? found.revision : null)
+    },
+
     loadDraft(slug): Promise<DraftSnapshot | null> {
       const found = site(slug)
       if (!found) return Promise.resolve(null)

@@ -82,6 +82,55 @@ export interface SiteWrite {
   assets?: StoredAsset[]
   /** Remove these assets by name. Removing one that is absent is not an error. */
   removeAssets?: string[]
+  /**
+   * The site {@link SiteStore.version} this change was computed against
+   * (REQ-143). Supply it and the write is a compare-and-set: if the site has
+   * moved on since, the write is refused with a {@link StoreConflictError} and
+   * nothing lands. Omit it and the write is unconditional.
+   *
+   * WHY IT IS THE CALLER'S TO SUPPLY. Every interesting command here is a
+   * read-modify-write — a palette rename reads `site.json` and every page, then
+   * writes both back. The lost update it can suffer is *between* the read and
+   * the write, which is a window only the caller can name. A store cannot infer
+   * it, because by the time `write` is called the read it should have been
+   * checked against has already happened.
+   *
+   * WHICH ADAPTERS HONOUR IT. The D1 one, where the check and the write are the
+   * same `db.batch()` and the guarantee is real. The filesystem adapter cannot —
+   * it is a sequence of `writeFileSync` calls with no transaction to attach a
+   * condition to — so it ignores this field rather than performing a
+   * check-then-write that would *look* like CAS while leaving the race intact. A
+   * caller therefore gets a genuine refusal or no refusal at all, never a
+   * reassuring one that does not hold.
+   */
+  expect?: number
+}
+
+/**
+ * A write refused because the site moved since the writer read it (REQ-143).
+ *
+ * Typed rather than a bare `Error` so the builder can report it as what it is —
+ * "someone else changed this; re-read and try again" — instead of surfacing a
+ * database message. It carries both versions because that is the whole content
+ * of the answer: what the writer thought it was changing, and what is actually
+ * there.
+ */
+export class StoreConflictError extends Error {
+  readonly name = 'StoreConflictError'
+  /** The version the writer supplied as {@link SiteWrite.expect}. */
+  readonly expected: number
+  /** The version the store actually holds. `null` when the site is gone. */
+  readonly actual: number | null
+
+  constructor(slug: string, expected: number, actual: number | null) {
+    super(
+      actual === null
+        ? `Site '${slug}' no longer exists (expected version ${expected}).`
+        : `Site '${slug}' has moved on: expected version ${expected}, found ${actual}.`,
+    )
+    this.expected = expected
+    this.actual = actual
+  }
 }
 
 /** A site's current draft, plus a token that changes whenever the draft does. */
@@ -147,4 +196,17 @@ export interface SiteStore {
 
   /** The current draft assembled and validated, or null when there is no draft. */
   loadDraft(slug: string): Promise<DraftSnapshot | null>
+
+  /**
+   * The site's write version — bumped by every {@link SiteStore.write} — or
+   * `null` when the store holds no such site (REQ-143).
+   *
+   * This is what a caller reads before a read-modify-write and passes back as
+   * {@link SiteWrite.expect}. It is deliberately NOT
+   * {@link SiteStore.counter}: the counter is the *journal's*, it moves only
+   * when a command chooses to record something, and a store that failed to
+   * journal leaves it unmoved on purpose. A version that could stand still
+   * across a write is not a version.
+   */
+  version(slug: string): Promise<number | null>
 }

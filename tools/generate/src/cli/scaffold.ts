@@ -1,4 +1,6 @@
-import { defaultTokens } from '@1stcontact/framework'
+// The Astro-free entry (REQ-143): the scaffolder is reachable from a Worker, and
+// the barrel would drag two `.astro` components in for the sake of a token table.
+import { defaultTokens } from '@1stcontact/framework/worker'
 import { RESPONSIVE_VIEWPORTS } from './capture/values-diff'
 
 /**

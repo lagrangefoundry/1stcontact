@@ -1,7 +1,10 @@
 {
+  // `@cloudflare/workers-types` is here for the D1/R2 adapter alone (REQ-143):
+  // it types the bindings `store/d1r2-store.ts` takes as parameters. It does not
+  // make this tool a Worker — every other module here is still node/Astro.
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["astro/client", "node"],
+    "types": ["astro/client", "node", "@cloudflare/workers-types"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts"]
