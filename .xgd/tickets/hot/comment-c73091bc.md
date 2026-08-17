@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-17T19:50:05.728579+00:00'
+updated_at: '2026-08-17T19:52:47.647480+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,15 @@ Want me to run the assets-binding spike, or work the open questions into the tic
 <!-- xgd-chat role="user" ts="2026-08-17T19:50:05.579495+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="7bb292cc-f91d-424b-9fea-82cc1968d590-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-17T19:52:47.422821+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+- Does `1c builder` survive as a local dev origin, or does `wrangler dev` replace it outright? Keeping both risks exactly the two-code-paths problem `CLAUDE.md` forbids. <-- replace it but can you make 1c builder call it too?
+  `published` is still served off disk here and from R2 by `public-site`. Which serves it after this? <-- This seems like a non-question how can we have a public product served from my laptop? The goal here is to move everything to the cloud
+  The `no-store` directive currently set once for every builder response — where does its equivalent live in the Worker? <-- I don't understand this question
 
 <!-- xgd-chat-end -->
