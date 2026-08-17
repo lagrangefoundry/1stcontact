@@ -5,10 +5,10 @@ type: request
 title: 'The builder is private: Cloudflare Access on app.1stcontact.io'
 created_by: xgd
 created_at: '2026-08-15T20:34:01.076509+00:00'
-updated_at: '2026-08-17T19:43:09.623719+00:00'
+updated_at: '2026-08-17T19:46:30.104914+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,11 @@ fields:
   ready_since: '2026-08-15T20:34:18.239366+00:00'
   depends_on:
   - REQ-144
+  commits:
+  - working_sha: 10532707034369e07d0c4cc20d81d1eb51daba10
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.53
 ---
 
 # The builder is private: Cloudflare Access on `app.1stcontact.io`
