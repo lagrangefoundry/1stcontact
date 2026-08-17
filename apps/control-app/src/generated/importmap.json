@@ -1,0 +1,16 @@
+{
+  "imports": {
+    "@lagrangefoundry/webui-shell": "/webui/webui-shell/src/index.js",
+    "@lagrangefoundry/webui-split": "/webui/webui-split/src/index.js",
+    "@lagrangefoundry/webui-fields": "/webui/webui-fields/src/index.js",
+    "@lagrangefoundry/webui-chat": "/webui/webui-chat/src/index.js",
+    "@lagrangefoundry/webui-markdown": "/webui/webui-markdown/src/index.js"
+  },
+  "styles": [
+    "/webui/webui-shell/src/shell.css",
+    "/webui/webui-split/src/split.css",
+    "/webui/webui-fields/src/fields.css",
+    "/webui/webui-chat/src/chat.css",
+    "/webui/webui-markdown/src/markdown.css"
+  ]
+}

@@ -24,7 +24,8 @@ import {
   startBuilder,
   type BuilderHandle,
 } from '../tools/generate/src/cli'
-import { renderSite, renderSiteFiles } from '../tools/generate/src/render'
+import { getModule } from '../packages/framework/src/modules/registry'
+import { astroContainer, renderSite, renderSiteFiles } from '../tools/generate/src/render'
 import { loadSite, type LoadedSite } from '../tools/generate/src/store'
 
 const REPO = path.resolve(__dirname, '..')
@@ -98,7 +99,15 @@ describe('REQ-119 request-time draft and edit renders', () => {
     for (const edit of [false, true]) {
       const outDir = path.join(cwd, 'out', edit ? 'edit' : 'draft')
       const pages = await renderSite(loaded, outDir, { edit })
-      const rendered = await renderSiteFiles(loaded, { edit })
+      // The same seam `renderSite` supplies (REQ-145): `renderSiteFiles` no
+      // longer imports Astro itself, so a caller rendering a behavior-module
+      // page injects the container. Passing what the writer passes is what keeps
+      // this a comparison of the two paths rather than of two configurations.
+      const rendered = await renderSiteFiles(loaded, {
+        edit,
+        createContainer: astroContainer,
+        resolveModule: getModule,
+      })
 
       expect(textFiles(outDir)).toEqual(new Map([...rendered.files]))
       // Every artifact, not just the pages — theme.css is where an L1 axis and a
