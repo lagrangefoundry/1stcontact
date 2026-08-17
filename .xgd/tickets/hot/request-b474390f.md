@@ -6,9 +6,9 @@ title: 'control-app becomes the builder: client as build artifact, routes and L1
   in workerd, proxy deleted'
 created_by: xgd
 created_at: '2026-08-15T20:33:04.522130+00:00'
-updated_at: '2026-08-17T21:09:37.833805+00:00'
+updated_at: '2026-08-17T21:09:39.580474+00:00'
 completed_at: null
-last_field_updated: commits
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -133,3 +133,75 @@ ticket, when there is a second tenant to need them.
 ## Origin
 
 [[CHAT-25]]. This is the first milestone where the builder genuinely runs on Cloudflare.
+
+
+---
+
+## Progress — 2026-08-17, commit `5352c5131a0da1350e980a06f3ca5338cfcf7d9b`
+
+**Not yet `free_coded`: phase 5 is incomplete.** See "what remains" below.
+
+### Landed
+
+Phases 1–4, verified end to end against `wrangler dev` with real local D1 and R2:
+both repo sites imported via `bin/publish`, then the chrome document, the site
+listing, a request-time render, a palette write and an asset fetch all served
+with **no Node origin running**. 18 UATs, 11 of them inside workerd.
+
+- `1c assets` — builder client, webui components and the framework bridges are
+  build artifacts. Nothing type-strips, transpiles or resolves a package per
+  request (AC-5).
+- The route table in `apps/control-app/src/router.ts`, over the same `edit*`
+  functions the CLI dispatches to (AC-1, AC-2).
+- `apps/control-app/src/index.ts` holds no proxy and no `BUILDER_ORIGIN` (AC-4).
+- `bin/publish` / `1c push` (AC-7), idempotent, with the Worker doing the writing.
+- `/api/ai/*` and `/api/publish` answer 501 naming their tickets (AC-9).
+
+### Two blockers the ticket did not anticipate
+
+1. **`getModuleCss()` read `.astro` sources off disk at render time** — for
+   *every* site, not only sites using a module, because `theme.css` folds module
+   chrome unconditionally. So no site could render in a Worker. The read moved to
+   build time (`modules/module-assets.ts`); the extraction is shared and a UAT
+   re-extracts to catch drift.
+2. **A lazy `import('astro/container')` is still resolved eagerly by a bundler**,
+   pulling Astro, markdown-remark, Shiki and Prism into the Worker. The container
+   and the module resolver are now injected by the node-only writer. This is the
+   same trap the registry posed, and the reason `render.ts` may name neither.
+
+### A latent REQ-143 bug, fixed
+
+`migrations_dir` was declared at the **top level** of `wrangler.toml`, where
+wrangler warns, ignores it, and looks in `apps/control-app/migrations` — so
+`wrangler d1 migrations apply` had never actually run. It belongs on the D1
+binding. A UAT now pins it.
+
+### A finding that changes AC-1's reach
+
+**Every site in `storage/sites/` mounts `contact-form`** — including on its home
+page — so no real site's draft channel renders until [[REQ-148]]. The ticket
+estimated "exactly one behavior module"; it is one *kind*, on every site. AC-1 is
+demonstrated against a scaffolded pure-L1 site, and a page mounting a behavior
+now fails with a message naming REQ-148 rather than an undefined component.
+REQ-148 is therefore a prerequisite for using this on real content, not a
+follow-up nicety.
+
+### What remains (phase 5)
+
+- **AC-8** — `1c builder` still starts the `node:http` server; it should spawn
+  `wrangler dev` instead, and `tools/generate/src/cli/builder.ts` should be
+  deleted along with the origin's now-dead routes.
+- **10 tests still assert the proxy architecture** and need rewriting against the
+  Worker: `req115-builder-shell`, `reconciliation-builder-workspace-origin`,
+  `reconciliation-builder-workspace-chrome`, `test_UAT_FC_REQ-147_access_gate`
+  (1), `test_UAT_FC_REQ-144_deploy_scripts` (2). They fail because the proxy they
+  drive is gone, which is the intended change.
+- **AC-6** — `pnpm -r build` across the whole workspace has not been run; the
+  three typechecks this ticket touches are clean and the Worker bundles
+  (805 KiB / 150 KiB gzipped).
+
+Unrelated pre-existing failures, confirmed identical on the untouched baseline
+and **not** caused by this work: 56 tests across the AI/toolbox and L1-surface
+families (`reconciliation-assistant-*`, `test_UAT_FC_REQ-122_*`,
+`test_UAT_FC_REQ-126/127/129_*`, `reconciliation-page-composition-surface`,
+`bug32-webui-scope-rebrand`).
