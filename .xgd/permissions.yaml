@@ -1,0 +1,7 @@
+interactive:
+  permissions:
+    additionalDirectories: []
+    allow: []
+    ask: []
+    defaultMode: bypassPermissions
+    deny: []
