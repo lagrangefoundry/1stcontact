@@ -1,6 +1,7 @@
 import path from 'node:path'
-import type { ValidationError } from '@1stcontact/site-schema'
-import { renderSite } from '../render/render'
+import { InvalidDefinitionError } from './errors'
+import type { GlobalOptions } from './options'
+import { renderSite } from '../render/write'
 import type { EditActor, RenderChannel, Root, StoreContext } from '../store'
 import {
   appendHistory,
@@ -26,42 +27,12 @@ import {
 import type { LoadedSite, SiteSource } from '../store'
 import { starterHomePage, starterSiteJson } from './scaffold'
 
-/** Options common to every command: working dir + which site tree to target. */
-export interface GlobalOptions {
-  cwd?: string
-  sandbox?: boolean
-  /**
-   * Who is making this change (REQ-131). Recorded on every journal record so the
-   * assistant can say WHO moved something, not only that it moved.
-   *
-   * Defaults to `cli`, which is what an unattributed caller genuinely is: the
-   * two callers that are not a person at a terminal — the AI host and the
-   * builder's own routes — each set it where they construct their options, and
-   * that is the only place the distinction is knowable. Nothing about detecting
-   * a change depends on this field (see `store/journal.ts`), so a caller that
-   * forgets it produces a slightly less informative record and never a wrong
-   * answer.
-   */
-  actor?: EditActor
-}
+
+export type { GlobalOptions } from './options'
 
 export function ctxOf(opts: GlobalOptions): StoreContext {
   const root: Root = opts.sandbox ? 'sandbox' : 'sites'
   return { cwd: opts.cwd ?? process.cwd(), root }
-}
-
-/** Thrown when a definition fails schema validation; carries path-pointed errors. */
-export class InvalidDefinitionError extends Error {
-  constructor(
-    public slug: string,
-    public errors: ValidationError[],
-  ) {
-    super(
-      `Invalid site definition '${slug}':\n` +
-        errors.map((e) => `  ${e.path}: ${e.message}`).join('\n'),
-    )
-    this.name = 'InvalidDefinitionError'
-  }
 }
 
 /** Load a definition or throw {@link InvalidDefinitionError} (writes nothing). */

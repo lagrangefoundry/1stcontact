@@ -10,6 +10,29 @@
  * surface is designed to be driven by an AI, not just a human at a terminal.
  */
 
+import type { ValidationError } from '@1stcontact/site-schema'
+
+/**
+ * Thrown when a definition fails schema validation; carries path-pointed errors.
+ *
+ * It lives here rather than in `commands.ts` because the request-time preview
+ * throws it and now runs in workerd (REQ-145), while `commands.ts` reaches
+ * `node:path` and the filesystem store. An error type is not a reason to drag a
+ * filesystem into a Worker.
+ */
+export class InvalidDefinitionError extends Error {
+  constructor(
+    public slug: string,
+    public errors: ValidationError[],
+  ) {
+    super(
+      `Invalid site definition '${slug}':\n` +
+        errors.map((e) => `  ${e.path}: ${e.message}`).join('\n'),
+    )
+    this.name = 'InvalidDefinitionError'
+  }
+}
+
 export type ErrorCode =
   | 'SCHEMA_INVALID'
   | 'NOT_FOUND'
