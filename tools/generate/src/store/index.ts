@@ -49,6 +49,24 @@ export type {
   StoredAsset,
   StoredPage,
 } from './site-store'
+export { StoreConflictError } from './site-store'
+
+export { MIME, contentTypeOf, extensionOf } from './content-type'
+
+export type { ImportSummary } from './import-site'
+export { importSite } from './import-site'
+
+// The Cloudflare adapter (REQ-143). Exported from the node barrel too — it is
+// worker-safe, but a node caller building the import path needs it, and a
+// separate barrel per runtime would be a second list to keep in step.
+export type {
+  SiteStoreEnv,
+  SiteStoreRoot,
+  TenantRecord,
+  TenantSiteStore,
+} from './d1r2-store'
+export { d1r2SiteStore, UnknownTenantError } from './d1r2-store'
+
 export { fsSiteStore } from './fs-store'
 export type { MemorySiteSeed, MemorySiteStore } from './memory-store'
 export { memorySiteStore } from './memory-store'
