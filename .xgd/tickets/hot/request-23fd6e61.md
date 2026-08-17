@@ -5,9 +5,9 @@ type: request
 title: 'The builder is private: Cloudflare Access on app.1stcontact.io'
 created_by: xgd
 created_at: '2026-08-15T20:34:01.076509+00:00'
-updated_at: '2026-08-17T19:30:22.294549+00:00'
+updated_at: '2026-08-17T19:43:09.623719+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -82,3 +82,92 @@ nothing is exposed *yet*. It becomes real the moment the builder works.
 
 [[CHAT-25]] — operator: "I don't want it publicly visible". Access chosen as the operator gate;
 customer accounts deferred to the tenancy model in [[REQ-143]].
+---
+
+## Implementation (free-coded, REQ-147)
+
+### What changed
+
+| File | Change |
+|---|---|
+| `apps/control-app/wrangler.toml` | `workers_dev = false` (top level **and** restated under `[env.production]`); `ACCESS_TEAM_DOMAIN` / `ACCESS_AUD` vars declared on both sides of the inheritance line |
+| `apps/control-app/src/access.ts` | new — Access JWT verification: JWKS fetch + cache, RS256 signature, `aud` / `iss` / `exp` / `nbf` / `iat`, and the `guardAccess` gate |
+| `apps/control-app/src/index.ts` | the gate runs **first**, before the origin is read or proxied |
+| `apps/control-app/ACCESS.md` | new — the policy record: why Access, the two controls, the vars, granted identities and reasons, service tokens, how to verify (AC6) |
+| `tools/generate/bin/smoke.mjs` | `--control-origin` / `--workers-dev-origin`: an unauthenticated caller is challenged, and the workers.dev door is shut (AC1, AC3) |
+| `tests/support/access.ts` | new — a stand-in Access team (real loopback JWKS + real RS256 signing) so the gate can be driven through real `workerd` |
+
+### Design decisions
+
+**The gate is stated twice, and neither statement is redundant.** `workers_dev = false`
+removes the hostname an Access policy cannot cover; the in-Worker check refuses anything that
+reached the Worker without a valid JWT, whatever route it took. Opening the builder now takes two
+independent mistakes rather than one.
+
+**The algorithm is pinned from the JWKS, never read from the token.** `alg: none` and the HS256
+confusion attack are both "believe the header", and a token is untrusted input including its
+statement about how to check it.
+
+**`aud` is checked, not just the signature.** Every Access application in a team is signed by the
+*same* keys, so a valid signature alone proves "someone in this team's Access", not "allowed into
+this application".
+
+**Fail closed, with no exception path.** Empty vars → 503 naming the missing var; unfetchable
+JWKS → 401; no token → 401. There is no configuration under which "we could not check" becomes
+"let it through". Two refusal codes on purpose: 503 sends the operator to `wrangler.toml`, 401 to
+the identity, and conflating them sends them hunting for the wrong problem.
+
+**No local-development bypass.** A "skip Access when local" flag would be a security control with
+an off switch, so there is none. The consequence is that `wrangler dev` on `control-app` needs
+Access configuration and a real token — the local builder surface is the Node origin itself
+(`1c builder`, `http://localhost:8790`), which is unproxied and unaffected. **Reversible if the
+workflow proves painful**; see the open question below.
+
+### ACs
+
+| AC | Evidence |
+|---|---|
+| 1 — unauthenticated is challenged, not served | `bin/smoke --control-origin`; UAT `smoke_accepts_a_protected_control_app` / `smoke_fails_when_the_builder_is_public` |
+| 2 — an identity off the policy is refused | Cloudflare-side; Access refuses before the Worker sees the request (recorded in ACCESS.md, not asserted here — it is Cloudflare's own enforcement) |
+| 3 — workers.dev does not serve | `control_app_answers_on_no_workers_dev_hostname` (the file that governs every deploy) + `bin/smoke --workers-dev-origin` |
+| 4 — the Worker rejects a request with no valid JWT | `worker_refuses_a_request_without_a_valid_access_jwt` (8 cases: absent, malformed, forged signature, `alg: none`, wrong `aud`, wrong `iss`, expired, unknown `kid`), plus the unconfigured and unfetchable-JWKS cases |
+| 5 — an admitted identity reaches the Worker | `a_valid_access_identity_reaches_the_worker`, `the_access_cookie_is_accepted_like_the_header`, `a_service_token_identity_is_accepted`, and the REQ-115 / story-e674c60a ACs below |
+| 6 — configuration recorded in the repository | `the_access_policy_is_recorded_in_the_repository` asserts the substance, not the file's existence |
+
+### Superseded matrix behaviour (intent conflict, deliberate)
+
+Three existing ACs pinned the pre-gate behaviour that *any* caller reaches the origin. What they
+are actually about — one host, verbatim forwarding, and distinct origin failures — is unchanged
+for an **admitted** caller, so their UATs now authenticate and each additionally asserts that an
+unadmitted caller gets 401:
+
+- `test_UAT_AC964_one_host_answers_every_route_with_the_origin_response_verbatim`
+- `test_UAT_AC965_unconfigured_and_unreachable_origins_are_distinct_failures`
+- `test_UAT_FC_REQ-115_control_app_fronts_the_builder_same_origin`
+
+`test_UAT_FC_REQ-144_smoke_passes_against_a_correct_origin` was widened: the two new control-app
+checks skip against a public-site origin, which the assertion now names rather than forbids.
+
+### Not done here, and why
+
+- **The Cloudflare-side objects** (the Access application, the policy, the identities) are created
+  in the dashboard. `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` therefore **ship empty**, and the Worker
+  is closed until they are filled in — which is the correct state for a private builder that is
+  not yet in use. ACCESS.md says exactly where both values come from.
+- **AC5 does not require a working builder.** It asserts the gate is not what stops one; the
+  end-to-end assertions belong to REQ-145 and REQ-146.
+- **SSE through Access** (`/api/ai/prompt`) is carried by REQ-146 — it needs a running assistant to
+  confirm against, and confirming it is the point.
+- **Draft snapshots on `public-site`** are untouched: still link-private, not authenticated
+  (DOC-12 §5.1).
+
+### Open questions for the operator
+
+1. **The two values.** What is the Access team domain and, once the application exists, its AUD
+   tag? Both are non-secret and go straight into `wrangler.toml`.
+2. **The identity list.** ACCESS.md records `martin-github@westhead.me` (from git config) as the
+   sole operator. Is that the address the Cloudflare identity will authenticate as, and is anyone
+   else to be granted?
+3. **Local `wrangler dev`.** The no-bypass decision above means `pnpm dev:control` answers 503
+   until the vars are set, and needs a real token thereafter. Acceptable, or is a documented local
+   escape wanted?
