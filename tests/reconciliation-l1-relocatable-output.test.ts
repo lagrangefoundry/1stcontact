@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url'
 import { renderL1Document, type L1Document, type L1Node } from '../packages/framework/src/index'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { loadSite } from '../tools/generate/src/store'
-import { renderSite } from '../tools/generate/src/render/render'
+import { renderSite } from '../tools/generate/src/render/write'
 
 /** The repository root — the real `storage/sites/` tree lives beneath it. */
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')

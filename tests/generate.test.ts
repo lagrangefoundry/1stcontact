@@ -9,8 +9,8 @@ import {
   cmdPublish,
   cmdRender,
   cmdRevisions,
-  InvalidDefinitionError,
 } from '../tools/generate/src/cli/commands'
+import { InvalidDefinitionError } from '../tools/generate/src/cli/errors'
 import { loadSite, listFilesRel, sameBytes } from '../tools/generate/src/store'
 
 /**

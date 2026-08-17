@@ -1,28 +1,57 @@
-import path from 'node:path'
-// `astro/container` is imported *lazily* (dynamic import in {@link renderSite}) so a
-// site with no behavior-module page — a folded L1 reproduction (REQ-88) or the empty
-// starter — renders with zero Astro involvement (`renderL1Document` is pure string
-// templating). The type is imported type-only, which the compiler erases at runtime.
+// `astro/container` is named here ONLY as a type, which the compiler erases.
+//
+// It used to be imported lazily, inside {@link renderSiteFiles}, on the argument
+// that a site with no behavior-module page renders with zero Astro involvement.
+// That is true at RUNTIME and false at BUILD time (REQ-145): a bundler resolves
+// a dynamic `import()` with a static specifier eagerly, so bundling this module
+// for a Worker pulled the whole of Astro in — and with it markdown-remark, Shiki
+// and Prism, which reach a `virtual:` specifier and a wasm package no Worker
+// bundle can resolve. The container is therefore INJECTED by the node-only
+// writer (`render/write.ts`), exactly as the module resolver is.
 import type { experimental_AstroContainer as AstroContainerType } from 'astro/container'
+// `@1stcontact/framework/worker`, NOT the barrel (REQ-145). The barrel
+// re-exports the module registry, which imports two `.astro` components — one
+// import of it makes this file, and therefore every render, node-only. The
+// worker entry is the same contracts with no render binding in the graph.
 import {
   CALLOUT_CSS,
   L1_EDIT_CSS,
   L1_EDIT_MARKER_ATTR,
   L1_EDIT_PAGE_ATTR,
   generateThemeCss,
-  getModule,
   getModuleCss,
   getModuleClientJs,
   renderL1Document,
-} from '@1stcontact/framework'
-import type { BehaviorDefinition } from '@1stcontact/framework'
+} from '@1stcontact/framework/worker'
+import type { BehaviorDefinition } from '@1stcontact/framework/worker'
 import type { Page, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
-import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
+
+/**
+ * The resolver used when the caller injects none (REQ-145).
+ *
+ * THIS MODULE NO LONGER NAMES THE REGISTRY, in any form. A behavior's Astro
+ * component can only be resolved where Astro's transform runs, and this file is
+ * bundled into a Worker — where even a *dynamic* `import()` of the registry is
+ * not safe, because a bundler resolves a static specifier at build time and
+ * would pull `.astro` into the bundle whether or not the branch ever runs.
+ *
+ * So the default moved OUT, to the node-only writer (`render/write.ts`), which
+ * injects `getModule`. A Worker rendering a pure-L1 site never needs one; a
+ * Worker asked to render a page that mounts a behavior gets this — a clear
+ * statement of the boundary REQ-148 moves, rather than an undefined `Component`
+ * failing three frames later.
+ */
+function unresolvableModule(type: string, version: number): BehaviorDefinition {
+  throw new Error(
+    `No module resolver was loaded for '${type}' v${version}: a page mounting a ` +
+      'behavior should have caused one to be imported (render.ts).',
+  )
+}
 
 /**
  * Resolve a module instance's `type` + `version` to its renderable definition.
- * Defaults to the framework catalog ({@link getModule}); the conformance harness
+ * Defaults to the framework catalog (`getModule`, imported lazily); the conformance harness
  * (REQ-39) injects a resolver backed by a test-only registry so deliberately-
  * broken fixture modules render through this *same* path without polluting the
  * shipping catalog.
@@ -35,6 +64,16 @@ export interface RenderSiteOptions {
   resolveModule?: ModuleResolver
   /** Extra CSS appended to `theme.css` — lets injected modules ship their own rules. */
   extraCss?: string
+  /**
+   * Make the Astro container a page with behavior modules is rendered through.
+   *
+   * Supplied by the caller rather than imported here, because naming
+   * `astro/container` in this module — even dynamically — puts Astro in the
+   * bundle of anything that bundles this file. `render/write.ts` supplies the
+   * real one; a Worker supplies none and renders L1, which is the boundary
+   * REQ-148 moves.
+   */
+  createContainer?: () => Promise<Container>
   /**
    * REQ-116 — render the **edit** channel (DOC-28 §5) rather than the ordinary
    * one: the same site and the same renderer, producing the page the editor
@@ -96,7 +135,7 @@ async function renderModuleInstances(
 ): Promise<string[]> {
   const parts: string[] = []
   for (const m of page.modules) {
-    // Unreachable in practice: renderSite creates the container whenever any page
+    // Unreachable in practice: renderSiteFiles creates the container whenever any page
     // has modules. Guard defensively so a future caller can't silently render a
     // module page against a missing container.
     if (!container) {
@@ -205,7 +244,7 @@ function homePage(site: Site): Page | undefined {
  * A rendered channel, in memory (REQ-119).
  *
  * Every text artifact the channel contains, keyed by its path relative to the
- * channel root — exactly the paths {@link renderSite} writes and exactly the
+ * channel root — exactly the paths `renderSite` (render/write.ts) writes and exactly the
  * paths a URL under `/preview/<slug>/<channel>/` names. Asset bytes are NOT
  * here: they are copied through unchanged and belong to whatever is serving,
  * not to the render.
@@ -213,14 +252,14 @@ function homePage(site: Site): Page | undefined {
 export interface RenderedSite {
   /** Relative path → its UTF-8 content (`theme.css`, `capabilities.js`, `*.html`). */
   files: ReadonlyMap<string, string>
-  /** The HTML page files, sorted — {@link renderSite}'s report of what it wrote. */
+  /** The HTML page files, sorted — the writer's report of what it wrote. */
   pages: string[]
 }
 
 /**
  * Render `loaded` to a set of files, touching no filesystem (REQ-119).
  *
- * This is **the** render. {@link renderSite} is a writer over it, and the
+ * This is **the** render. `renderSite` (render/write.ts) is a writer over it, and the
  * builder's request-time preview is a reader of it — so the build-time and
  * request-time paths cannot disagree, because there is nothing for them to
  * disagree about: adding an L1 axis or a head tag changes this function and
@@ -231,7 +270,6 @@ export async function renderSiteFiles(
   opts: RenderSiteOptions = {},
 ): Promise<RenderedSite> {
   const { site } = loaded
-  const resolveModule = opts.resolveModule ?? getModule
   const edit = opts.edit === true
   const files = new Map<string, string>()
 
@@ -264,9 +302,16 @@ export async function renderSiteFiles(
   const needsAstro = site.pages.some((p) => p.modules.length > 0)
   let container: Container | undefined
   if (needsAstro) {
-    const { experimental_AstroContainer } = await import('astro/container')
-    container = await experimental_AstroContainer.create()
+    if (!opts.createContainer) {
+      throw new Error(
+        'This site mounts a behavior module, which needs an Astro container, and none ' +
+          'was supplied. `1c render` supplies one (render/write.ts); a Worker cannot — ' +
+          'rendering behavior modules in workerd is REQ-148.',
+      )
+    }
+    container = await opts.createContainer()
   }
+  const resolveModule = opts.resolveModule ?? unresolvableModule
   const pages: string[] = []
 
   for (const page of site.pages) {
@@ -300,31 +345,4 @@ export async function renderSiteFiles(
   }
 
   return { files, pages: pages.sort() }
-}
-
-/**
- * Render `loaded` to `outDir`. The directory is emptied first so stale pages
- * never linger. Writes `<slug>.html` per page, an `index.html` alias for the
- * home page, the per-site `theme.css`, and copies `assets/` through.
- *
- * A thin writer over {@link renderSiteFiles} — every byte it emits is decided
- * there, so `1c render` and the builder's request-time preview cannot drift.
- */
-export async function renderSite(
-  loaded: LoadedSite,
-  outDir: string,
-  opts: RenderSiteOptions = {},
-): Promise<string[]> {
-  const rendered = await renderSiteFiles(loaded, opts)
-  emptyDir(outDir)
-  for (const [rel, text] of rendered.files) {
-    writeText(path.join(outDir, rel), text)
-  }
-
-  const assetsSrc = path.join(loaded.sourceDir, 'assets')
-  if (pathExists(assetsSrc)) {
-    copyDir(assetsSrc, path.join(outDir, 'assets'))
-  }
-
-  return rendered.pages
 }

@@ -27,7 +27,7 @@ import path from 'node:path'
 import { renderL1Document, type L1Document, type L1Node } from '../packages/framework/src/index'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import { loadSite } from '../tools/generate/src/store'
-import { renderSite } from '../tools/generate/src/render/render'
+import { renderSite } from '../tools/generate/src/render/write'
 
 let out: string
 let cwd: string

@@ -8,9 +8,10 @@ import {
   cmdRender,
   cmdRevisions,
   ctxOf,
-  InvalidDefinitionError,
   type GlobalOptions,
 } from './commands'
+import { cmdAssets, formatAssetReport } from './assets'
+import { pushSite } from './push'
 import { fsSiteStore } from '../store'
 import {
   editAssetAdd,
@@ -55,7 +56,7 @@ import {
 } from './colors'
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
-import { CommandError, EXIT_CODES } from './errors'
+import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
 import {
   assertSharedStore as assertSharedStoreImpl,
@@ -257,6 +258,22 @@ Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
     them missing — and a missing BROWSER component yields an import map that
     loads and then fails at the first import, in the operator's browser. This is
     where that is caught instead.
+
+Push a site to the cloud store (REQ-145) — what \`bin/publish\` runs:
+  1c push <slug> [--origin URL] [--token JWT] [--json]
+    Reads the local draft (definition + assets) and posts it to the builder Worker's
+    import route, which writes it into D1 and R2 through the same store it serves from.
+    Idempotent: re-running after an edit replaces each page and asset by name.
+    --origin defaults to http://localhost:8788 (\`wrangler dev\`). --token carries a
+    Cloudflare Access service-token JWT when the target is a deployed builder.
+    This is NOT \`1c publish\`, which mints a revision from a draft.
+
+Control-app assets (REQ-145) — the build step behind /builder, /webui and /framework:
+  1c assets [--json]
+    Copies the builder client and each installed webui component into
+    apps/control-app/dist-assets/, type-strips the framework bridges once, and
+    writes the derived import map the Worker serves in its chrome document.
+    Nothing is type-stripped, transpiled or resolved at request time afterwards.
 
 Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
   1c deploy <slug> [--channel draft|published] [--dry-run] [--prune] [--sandbox] [--json]
@@ -538,6 +555,41 @@ export async function run(argv: string[]): Promise<void> {
       } catch (err) {
         fail(err, json)
       }
+      return
+    }
+
+    case 'push': {
+      // REQ-145 — copy a local site's draft into the cloud store. The WORKER
+      // writes, through the bindings it serves from, because Node has neither a
+      // D1 nor an R2 binding and a second writer would be a second definition of
+      // what a site is made of. See push.ts.
+      const slug = requireSlug(rest[0])
+      const origin = typeof flags.origin === 'string' ? flags.origin : 'http://localhost:8788'
+      const token = typeof flags.token === 'string' ? flags.token : undefined
+      const result = await pushSite(fsSiteStore(ctxOf(global)), slug, {
+        origin,
+        accessToken: token,
+      })
+      if (flags.json === true) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      console.log(
+        `pushed ${result.slug} → ${origin}\n` +
+          `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
+          `  assets  ${result.landed.assets}\n` +
+          `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
+      )
+      return
+    }
+
+    case 'assets': {
+      // REQ-145 — the build step that replaces three request-time routes. It runs
+      // before the Worker is bundled, because the Worker serves what it emits.
+      const report = cmdAssets({ cwd: process.cwd() })
+      console.log(
+        flags.json === true ? JSON.stringify(report, null, 2) : formatAssetReport(report),
+      )
       return
     }
 

@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+#
+# `bin/publish` — copy local sites up to the cloud store (REQ-145).
+#
+# WHAT THIS IS, AND WHAT IT IS NOT. It copies a site's DRAFT — the definition and
+# its assets — from `storage/sites/` into the builder's D1 + R2 store, so the
+# Worker has something to serve. It does NOT mint a revision: that is
+# `1c publish`, a different operation on a different tier, and in the cloud it is
+# REQ-149. The two names are uncomfortably close; this one is about *where* the
+# bytes live, that one is about *which version* of them is live.
+#
+# THE WORKER DOES THE WRITING. Node has no D1 binding and no R2 binding, so the
+# alternatives were driving `wrangler d1 execute` with site JSON hand-escaped
+# into SQL, or a third store adapter over Cloudflare's HTTP API. Instead `1c push`
+# reads locally and posts to the Worker's import route, which writes through the
+# very store it serves from — so an import lands by exactly the path an edit
+# lands by, and the same command works against `wrangler dev` and production.
+#
+# ONE TARGET AT A TIME, NAMED. There is no "push everywhere" and no default that
+# reaches production: `--production` has to be typed. A script that guessed would
+# eventually guess wrong at the only moment it mattered.
+#
+# Usage:
+#   bin/publish                       # every local site → the local wrangler dev builder
+#   bin/publish xgd                   # one site → local
+#   bin/publish --production xgd      # one site → app.1stcontact.io (needs --token)
+#   bin/publish --origin URL xgd
+#
+# Cloudflare Access fronts the deployed builder, so `--production` needs a
+# service-token JWT in CF_ACCESS_TOKEN (or --token). See apps/control-app/ACCESS.md.
+#
+# Exit codes: 0 success; 1 anything else.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+PRODUCTION_ORIGIN="https://app.1stcontact.io"
+LOCAL_ORIGIN="http://localhost:8788"
+
+origin="$LOCAL_ORIGIN"
+token="${CF_ACCESS_TOKEN:-}"
+slugs=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --production)
+      origin="$PRODUCTION_ORIGIN"
+      shift
+      ;;
+    --origin)
+      origin="${2:?--origin needs a URL}"
+      shift 2
+      ;;
+    --token)
+      token="${2:?--token needs a JWT}"
+      shift 2
+      ;;
+    -h|--help)
+      sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    -*)
+      echo "bin/publish: unknown option '$1'" >&2
+      exit 1
+      ;;
+    *)
+      slugs+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# No slugs named means every site the local store holds. `1c list` prints
+# `<slug>\t<revision>`, so the slug is the first field.
+if [[ ${#slugs[@]} -eq 0 ]]; then
+  while IFS=$'\t' read -r slug _rest; do
+    [[ -z "$slug" || "$slug" == "(no sites)" ]] && continue
+    slugs+=("$slug")
+  done < <("$repo_root/bin/1c" list)
+fi
+
+if [[ ${#slugs[@]} -eq 0 ]]; then
+  echo "bin/publish: no sites in storage/sites/ to push." >&2
+  exit 1
+fi
+
+# Refused BEFORE the first push rather than after some have landed: a run that
+# half-succeeded because the credential was missing is worse than one that never
+# started, because the operator has to work out which sites moved.
+if [[ "$origin" == "$PRODUCTION_ORIGIN" && -z "$token" ]]; then
+  echo "bin/publish: $PRODUCTION_ORIGIN is behind Cloudflare Access." >&2
+  echo "  Set CF_ACCESS_TOKEN to a service-token JWT, or pass --token." >&2
+  echo "  See apps/control-app/ACCESS.md." >&2
+  exit 1
+fi
+
+echo "Pushing ${#slugs[@]} site(s) to $origin"
+for slug in "${slugs[@]}"; do
+  args=(push "$slug" --origin "$origin")
+  [[ -n "$token" ]] && args+=(--token "$token")
+  "$repo_root/bin/1c" "${args[@]}"
+done

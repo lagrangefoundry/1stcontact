@@ -34,7 +34,7 @@ import {
 import type { JournalRecord } from '../store/journal-model'
 import { clip } from '../store/journal-model'
 import type { SiteStore, StoredPage } from '../store/site-store'
-import type { GlobalOptions } from './commands'
+import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
 

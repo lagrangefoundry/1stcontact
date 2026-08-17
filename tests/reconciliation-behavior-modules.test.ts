@@ -553,8 +553,13 @@ describe('story-179b8c06 — behavior client behaviour ships once per page', () 
     const emptyCwd = mkdtempSync(path.join(tmpdir(), 'ac702-empty-'))
     try {
       vi.resetModules()
-      vi.doMock('../packages/framework/src/index', async (importOriginal) => {
-        const actual = await importOriginal<typeof import('../packages/framework/src/index')>()
+      // The seam is `@1stcontact/framework/worker`, which is what `render.ts`
+      // imports since REQ-145 — the barrel re-exports the `.astro`-bound
+      // registry, so the render could not reach it and run in workerd. Mocking
+      // the barrel here would substitute a module the render no longer loads and
+      // the arm would silently stop testing anything.
+      vi.doMock('../packages/framework/src/worker', async (importOriginal) => {
+        const actual = await importOriginal<typeof import('../packages/framework/src/worker')>()
         return { ...actual, getModuleClientJs: () => '' }
       })
       const commands = await import('../tools/generate/src/cli/commands')
