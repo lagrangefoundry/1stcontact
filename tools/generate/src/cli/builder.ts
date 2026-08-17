@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import type { RenderChannel, SiteStore, StoreContext } from '../store'
 import { distDir, fsSiteStore } from '../store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
-import { cmdList, cmdPublish, ctxOf, InvalidDefinitionError, type GlobalOptions } from './commands'
+import { cmdList, cmdPublish, ctxOf, type GlobalOptions } from './commands'
 import {
   editAssetList,
   editCopyGet,
@@ -17,7 +17,9 @@ import {
   editPaletteRm,
   editPaletteSet,
 } from './edit'
-import { CommandError } from './errors'
+import { CommandError, InvalidDefinitionError } from './errors'
+import { getModule } from '@1stcontact/framework/registry'
+import { astroContainer } from '../render/write'
 import { PreviewRenderer, type PreviewChannel } from './preview'
 import { NO_STORE, resolveStaticFile, sendFile } from './serve'
 import { WEBUI_PACKAGES, WEBUI_SCOPE, webuiExports, webuiPackageDir } from './webui'
@@ -635,7 +637,12 @@ function previewRenderer(ctx: StoreContext): PreviewRenderer {
   const key = `${ctx.cwd} ${ctx.root}`
   let renderer = PREVIEWS.get(key)
   if (!renderer) {
-    renderer = new PreviewRenderer(builderStore(ctx))
+    // The Node origin CAN render behavior modules, so it supplies both
+    // (REQ-145). The Worker supplies neither — that boundary is REQ-148.
+    renderer = new PreviewRenderer(builderStore(ctx), {
+      createContainer: astroContainer,
+      resolveModule: getModule,
+    })
     PREVIEWS.set(key, renderer)
   }
   return renderer

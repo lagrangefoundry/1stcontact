@@ -15,24 +15,44 @@ compatibility_flags = ["nodejs_compat"]
 # inherit is one refactor from silently flipping back on.
 workers_dev = false
 
-# Where `wrangler d1 migrations apply` looks (REQ-143). The migrations live at
-# the repo root, beside the schema they describe, rather than under this app —
-# they are the *platform's* schema and the D1 binding is only declared here
-# because control-app is the first Worker to reach the store.
-migrations_dir = "../../db/migrations"
-
-# The builder's Node origin (REQ-115). A plain var, deliberately not an
-# [assets] binding — an assets binding makes `unstable_dev` hang, which would
-# cost us the ability to test this Worker at all. This goes when the store is
-# reachable from a Worker (DOC-12 §7 phase 2) and the render can run here; see
-# src/index.ts for what REQ-119 moved and what it left.
+# The builder's browser assets (REQ-145), built by `1c assets`.
 #
-# Declared at the top level for `wrangler dev` and REPEATED under
-# [env.production] because a named environment does not inherit vars — the same
-# rule public-site's wrangler.toml records for bindings. Omitting the repeat is
-# not a silent degradation: the deployed Worker sees no BUILDER_ORIGIN at all
-# and answers every request with its own 503 (REQ-144). A UAT pins the two
-# sides together so the omission cannot recur unnoticed.
+# THE HANG IS GONE. This binding was refused before because an [assets] binding
+# made `unstable_dev` hang, which would have cost the ability to test this Worker
+# at all, which is why the proxy's origin stayed a plain var. Re-measured on wrangler
+# 4.106 the worker is ready in ~3s and both routes answer, so the constraint that
+# shaped the old design no longer holds and the note is replaced rather than
+# carried forward.
+#
+# `run_worker_first = true` IS THE SECURITY CONTROL, not a routing preference.
+# By default the assets binding answers BEFORE the Worker, which would serve
+# `/builder/*` and `/webui/*` to anyone who asked — the Access gate lives in
+# `fetch`, and bytes that never enter `fetch` are never gated. Running the Worker
+# first puts every asset behind the same verified identity as every route; the
+# router hands unmatched paths to `env.ASSETS` once the caller is known. A UAT
+# asserts an unauthenticated asset request is refused.
+[assets]
+directory = "./dist-assets"
+binding = "ASSETS"
+run_worker_first = true
+
+# TENANT_ID names the account this deployment serves (REQ-145). There is no
+# default: `d1r2SiteStore` refuses an unknown tenant at construction, and a
+# well-known fallback name would let a misconfigured Worker read and WRITE into
+# whichever tenant happened to carry it.
+#
+# ACCESS_DEV_OPEN is LOCAL ONLY and is declared at the top level DELIBERATELY.
+# `wrangler dev` reads [vars]; `wrangler deploy --env production` reads
+# [env.production.vars] and inherits nothing, so this key cannot reach the
+# deployed Worker unless someone restates it there — and a UAT fails the build if
+# anyone does. It has no effect at all once ACCESS_TEAM_DOMAIN / ACCESS_AUD are
+# set, so it cannot open a configured deployment either. See src/index.ts.
+#
+# Every var below is REPEATED under [env.production] because a named environment
+# does not inherit vars — the same rule public-site's wrangler.toml records for
+# bindings. Omitting a repeat is not a silent degradation: the deployed Worker
+# sees the key as absent (REQ-144). A UAT pins the two sides together so the
+# omission cannot recur unnoticed.
 # ACCESS_TEAM_DOMAIN / ACCESS_AUD identify the Access application this Worker
 # will accept tokens for (REQ-147). Neither is a secret — the team domain is
 # public and the AUD tag is an identifier, not a credential — so both live here
@@ -45,7 +65,8 @@ migrations_dir = "../../db/migrations"
 # apps/control-app/ACCESS.md, which is also where the granted identities are
 # recorded.
 [vars]
-BUILDER_ORIGIN = "http://localhost:8790"
+TENANT_ID = "1stcontact"
+ACCESS_DEV_OPEN = "1"
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
 
@@ -54,12 +75,22 @@ ACCESS_AUD = ""
 # [env.production] because a named environment inherits NEITHER vars nor
 # bindings. Forgetting the repeat is not a silent degradation — the deployed
 # Worker sees no binding at all and every store call throws on `undefined`, the
-# same class of failure REQ-144 hit with BUILDER_ORIGIN. A UAT pins the two sides
+# same class of failure REQ-144 hit with the proxy's origin var. A UAT pins the two sides
 # together so it cannot recur unnoticed.
 [[d1_databases]]
 binding = "DB"
 database_name = "1stcontact"
 database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+# Where `wrangler d1 migrations apply` looks (REQ-143). The migrations live at
+# the repo root, beside the schema they describe, rather than under this app —
+# they are the *platform's* schema and the D1 binding is only declared here
+# because control-app is the first Worker to reach the store.
+#
+# It belongs to the DATABASE, not to the top level (REQ-145). Declared top-level
+# it is an unknown key: wrangler warns, ignores it, and then looks in
+# `apps/control-app/migrations`, which does not exist — so `migrations apply` had
+# never actually run. A UAT now asserts the key sits on the binding.
+migrations_dir = "../../db/migrations"
 
 # The same bucket public-site already publishes rendered snapshots to. One
 # bucket, keyed by prefix: `<root>/<slug>/rev/NNNN/…` for deployed output,
@@ -75,19 +106,25 @@ routes = [
   { pattern = "app.1stcontact.io/*", zone_name = "1stcontact.io" }
 ]
 
-# A localhost origin is unreachable from a deployed Worker by any value of this
-# var, so production answers 502 rather than 503 until REQ-145 moves the routes
-# into workerd and deletes the proxy. That is the point: the failure becomes
-# honest and diagnosable instead of looking like missing configuration.
+# No ACCESS_DEV_OPEN here, and that absence is the security control (REQ-145).
+# A named environment inherits no vars, so the top-level declaration cannot reach
+# production; restating it here would open the deployed builder to anyone the
+# moment Access were unconfigured. A UAT asserts this block does not name it.
 [env.production.vars]
-BUILDER_ORIGIN = "http://localhost:8790"
+TENANT_ID = "1stcontact"
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
+
+[env.production.assets]
+directory = "./dist-assets"
+binding = "ASSETS"
+run_worker_first = true
 
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "1stcontact"
 database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+migrations_dir = "../../db/migrations"
 
 [[env.production.r2_buckets]]
 binding = "SITES"

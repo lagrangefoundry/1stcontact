@@ -1,4 +1,9 @@
 import { createMarkdownProcessor, type MarkdownRenderer } from '@astrojs/markdown-remark'
+import { CALLOUT_CSS } from './callout-css'
+
+// Re-exported from its old home: the constant moved so a Worker could reach it
+// without the markdown processor, not because callers should now look elsewhere.
+export { CALLOUT_CSS }
 import { assertSafeHtml } from './safety'
 import { resolveTextStyle, type TextRun } from './text-style'
 
@@ -48,29 +53,6 @@ function transformCallouts(html: string): string {
   })
 }
 
-/**
- * Static CSS backing the callout treatment (REQ-32). Folded into the per-site
- * stylesheet after the module component CSS so the two-class `blockquote.fc-*`
- * selectors win the specificity tie against a module's own `:global(blockquote)`
- * rule by source order. Nothing here is site-specific.
- *
- * REQ-114 — the bar takes `currentColor` and there are no per-role colour rules.
- * They were the last `--color-*` consumers outside the retired token palette; a
- * bar that follows the text colour needs no token at all, and a colour a site
- * actually wants to choose belongs in its L1 palette (DOC-23 §5).
- */
-export const CALLOUT_CSS = `/* callout / left-bar treatment (REQ-32) */
-blockquote.fc-callout {
-  margin: 0;
-  border-inline-start: var(--space-1) solid currentColor;
-  padding-inline-start: var(--space-6);
-  color: inherit;
-  /* A callout is a weight-emphasised statement — medium (500), a subtle step
-     above body copy without the slab of full bold. This is the one place a
-     callout's weight is defined; a site-def never sets a raw font-weight. */
-  font-weight: var(--font-weight-medium);
-}
-blockquote.fc-callout--italic { font-style: italic; }`
 
 /**
  * Markdown → HTML rendering for content fields typed `markdown` (DOC-7 §3.2).
