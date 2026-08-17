@@ -131,6 +131,23 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       return Promise.resolve({ baseRevision: live, ...diffSnapshots(prevDir, draftDir(ctx, slug)) })
     },
 
+    /**
+     * The stamp, as a number: a hash of every definition file's mtime and size.
+     *
+     * It satisfies the contract's "changes whenever the draft does" and nothing
+     * more. This adapter cannot offer compare-and-set (see
+     * {@link SiteWrite.expect}), so the version has no second job here — it is
+     * readable so that code written against the port stays adapter-agnostic, not
+     * because passing it back to `write` would protect anything.
+     */
+    version(slug) {
+      if (!pathExists(draftDir(ctx, slug))) return Promise.resolve(null)
+      const text = stamp(slug)
+      let hash = 0
+      for (let i = 0; i < text.length; i += 1) hash = (Math.imul(31, hash) + text.charCodeAt(i)) | 0
+      return Promise.resolve(hash >>> 0)
+    },
+
     loadDraft(slug): Promise<DraftSnapshot | null> {
       if (!pathExists(draftDir(ctx, slug))) return Promise.resolve(null)
       return Promise.resolve({ result: loadSite(ctx, slug, 'draft'), stamp: stamp(slug) })

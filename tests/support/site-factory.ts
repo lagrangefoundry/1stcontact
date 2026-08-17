@@ -1,10 +1,10 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import type { EditOptions } from '../../tools/generate/src/cli/edit'
-import { starterHomePage, starterSiteJson } from '../../tools/generate/src/cli/scaffold'
-import type { EditActor, Root, SiteStore } from '../../tools/generate/src/store'
+import type { Root, SiteStore } from '../../tools/generate/src/store'
 import { fsSiteStore, memorySiteStore } from '../../tools/generate/src/store'
+import type { SiteFixture, SiteSeedOptions } from './site-seed'
+import { siteSeed } from './site-seed'
 
 /**
  * One site, over either adapter (REQ-142 §8).
@@ -31,64 +31,11 @@ import { fsSiteStore, memorySiteStore } from '../../tools/generate/src/store'
  * drifts from it.
  */
 
-/** What a fixture hands back, identically for both adapters. */
-export interface SiteFixture {
-  slug: string
-  store: SiteStore
-  /** The options every `edit*` call takes, already carrying the store. */
-  opts: EditOptions
-  /**
-   * The directory the site lives under, for a test that needs to look at bytes
-   * directly. `null` on the in-memory adapter, which is the whole point of it —
-   * a test that reaches for this cannot run on both backends, and should say so.
-   */
-  cwd: string | null
-  /** Release whatever the fixture holds. Safe to call twice. */
-  dispose(): void
-}
-
-/** The definition a fixture starts from. Every field defaults to the scaffolder's. */
-export interface SiteSeedOptions {
-  slug?: string
-  /** Replaces `site.json` outright. */
-  siteJson?: Record<string, unknown>
-  /** Extra or replacement settings merged over the scaffolded `site.json`. */
-  patchSiteJson?: Record<string, unknown>
-  /** Replaces the page set outright, keyed by store name (`home.json`). */
-  pages?: Record<string, Record<string, unknown>>
-  assets?: Record<string, Uint8Array>
-  actor?: EditActor
-  /** Which tree the fs adapter targets. Ignored by the memory adapter. */
-  root?: Root
-}
-
-/** The one seed both adapters materialise. */
-export interface SiteSeed {
-  slug: string
-  siteJson: Record<string, unknown>
-  pages: Record<string, Record<string, unknown>>
-  assets: Record<string, Uint8Array>
-}
-
-let counter = 0
-
-/** A slug unique within a run, so two fixtures never collide in one store. */
-export function nextSlug(prefix = 'fixture'): string {
-  counter += 1
-  return `${prefix}-${counter}`
-}
-
-/** Resolve seed options to the definition both adapters will hold. */
-export function siteSeed(opts: SiteSeedOptions = {}): SiteSeed {
-  const slug = opts.slug ?? nextSlug()
-  const siteJson = { ...(opts.siteJson ?? starterSiteJson(slug)), ...(opts.patchSiteJson ?? {}) }
-  return {
-    slug,
-    siteJson,
-    pages: opts.pages ?? { 'home.json': starterHomePage(slug) },
-    assets: opts.assets ?? {},
-  }
-}
+// The seed, the fixture shape and the slug counter live in `site-seed.ts` —
+// worker-safe, because the D1/R2 fixture needs the same seed and cannot import
+// this module (it opens with `mkdtempSync`). Re-exported so no caller moved.
+export type { SiteFixture, SiteSeed, SiteSeedOptions } from './site-seed'
+export { nextSlug, siteSeed } from './site-seed'
 
 /** A site in a temp directory, with the filesystem adapter over it. */
 export function makeFsSite(options: SiteSeedOptions = {}): SiteFixture {

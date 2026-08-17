@@ -15,6 +15,12 @@ compatibility_flags = ["nodejs_compat"]
 # inherit is one refactor from silently flipping back on.
 workers_dev = false
 
+# Where `wrangler d1 migrations apply` looks (REQ-143). The migrations live at
+# the repo root, beside the schema they describe, rather than under this app —
+# they are the *platform's* schema and the D1 binding is only declared here
+# because control-app is the first Worker to reach the store.
+migrations_dir = "../../db/migrations"
+
 # The builder's Node origin (REQ-115). A plain var, deliberately not an
 # [assets] binding — an assets binding makes `unstable_dev` hang, which would
 # cost us the ability to test this Worker at all. This goes when the store is
@@ -43,6 +49,25 @@ BUILDER_ORIGIN = "http://localhost:8790"
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
 
+# The site store (REQ-143 / DOC-12 §7 phase 2): definitions in D1, asset bytes in
+# R2. Declared at the top level for `wrangler dev` and REPEATED under
+# [env.production] because a named environment inherits NEITHER vars nor
+# bindings. Forgetting the repeat is not a silent degradation — the deployed
+# Worker sees no binding at all and every store call throws on `undefined`, the
+# same class of failure REQ-144 hit with BUILDER_ORIGIN. A UAT pins the two sides
+# together so it cannot recur unnoticed.
+[[d1_databases]]
+binding = "DB"
+database_name = "1stcontact"
+database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+
+# The same bucket public-site already publishes rendered snapshots to. One
+# bucket, keyed by prefix: `<root>/<slug>/rev/NNNN/…` for deployed output,
+# `draft/<tenant>/<slug>/assets/…` for the draft assets this store writes.
+[[r2_buckets]]
+binding = "SITES"
+bucket_name = "1stcontact-sites"
+
 [env.production]
 name = "1stcontact-control-app"
 workers_dev = false
@@ -58,3 +83,12 @@ routes = [
 BUILDER_ORIGIN = "http://localhost:8790"
 ACCESS_TEAM_DOMAIN = ""
 ACCESS_AUD = ""
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "1stcontact"
+database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
+
+[[env.production.r2_buckets]]
+binding = "SITES"
+bucket_name = "1stcontact-sites"
