@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-17T20:16:32.707720+00:00'
+updated_at: '2026-08-17T20:46:33.846606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -172,5 +172,65 @@ Starting the protocol now: scoping REQ-145's body to match these decisions, then
 <!-- xgd-chat role="user" ts="2026-08-17T20:16:32.564951+00:00" -->
 #### You
 Q3 - I need a "publish" script in ./bin please to copy data locally to the cloud
+
+<!-- xgd-turn id="3c8bf8cb-eb35-4570-af13-166e3c9b0078-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-17T20:46:33.707984+00:00" -->
+#### Claude
+Noting one collision before I build it: `1c publish` already exists and means something different — it mints a revision from the draft. A `bin/publish` that means "copy local sites up to the cloud" will read as the same operation. I'll build `bin/publish` as you asked; if you'd rather it be `bin/push` or `bin/seed`, that's a one-word change.
+
+Scoping the ticket first, per protocol.
+
+Branch cut. Now the spike that gates phase 1 — whether an `[assets]` binding still hangs `unstable_dev` on wrangler 4.106.
+
+Spike result: **the assets binding no longer hangs.** Worker ready in 3.0s, `/anything` hit the Worker, `/probe.txt` served from assets. Phase 1 is unblocked on wrangler 4.106.
+
+Access fails closed on empty config, so `wrangler dev` would refuse every local request — I'll come back to that. Starting the portability splits.
+
+Portability splits typecheck clean. Now the build-artifact pipeline (phase 1).
+
+`build.mjs` can't import `webui.ts` — Node's type stripping rejects its parameter properties, and `webui.ts` is deliberately the only place `WEBUI_SCOPE` is written. Making it a `1c` command instead, where the existing Vite loader resolves TS.
+
+Phase 1 done. Now the Worker routes — checking the edit-function contracts first.
+
+Now the Worker itself.
+
+Now the wrangler config — assets binding, tenant, and the dev var.
+
+`run_worker_first = true` keeps Access in front of the assets, but then the Worker must hand unmatched paths to the assets binding itself — otherwise `/builder/main.js` 404s. Fixing that.
+
+The Worker's graph now pulls the framework barrel, which imports `.astro` modules. Checking the worker-safe entry.
+
+A blocker the ticket didn't anticipate: `getModuleCss()` reads `.astro` files off disk at render time — for *every* site, not just ones using modules. Let me look at the whole of it.
+
+Now `styles.ts` composes from the generated constants instead of reading disk.
+
+Chicken-and-egg: `1c` can't load until the generated file exists. Bootstrapping it once, then regenerating through the real path.
+
+Payloads are byte-identical; only my bootstrap's escaping differed. Now `render.ts` must stop importing the `.astro`-bearing barrel.
+
+Now `render.ts` switches to the worker entry and loads `getModule` lazily.
+
+Both typecheck. Now the critical check — whether the precompiled path renders byte-identical output.
+
+Several failures look pre-existing rather than mine. Checking against the untouched baseline.
+
+Clear separation: 56 failures are pre-existing (AI/toolbox and L1-surface families, failing identically on the untouched baseline). 11 are mine — 10 architectural (they test the proxy this ticket deletes) and **one real regression**. Investigating that.
+
+Only-real-regression fixed. Now `bin/publish` — the import route in the Worker, and the local half that feeds it.
+
+Now the Worker's import route.
+
+esbuild would follow that dynamic import and pull `.astro` into the Worker bundle. Better: the Node-only writer injects the resolver, so the Worker graph never names the registry.
+
+`edit.ts` reaches node-only `commands.ts` for a *type* — enough to fail the Worker's typecheck. Moving that type to a portable module.
+
+Both typecheck clean. The real proof — does it bundle for workerd?
+
+Markdown pulls Prism/Shiki into the bundle — via `CALLOUT_CSS`, which is only a string constant.
+
+Found it: the *lazy* `import('astro/container')` is still statically resolved by esbuild, pulling all of Astro. Same fix — inject it from the Node side.
+
+The Worker bundles clean — 805 KiB, 150 KiB gzipped. Verifying the render path still passes.
 
 <!-- xgd-chat-end -->
