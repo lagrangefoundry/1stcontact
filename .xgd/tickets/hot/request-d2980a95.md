@@ -5,10 +5,10 @@ type: request
 title: 'L1 palette: shade on the reference replaces named steps'
 created_by: xgd
 created_at: '2026-08-12T17:41:39.063912+00:00'
-updated_at: '2026-08-13T21:34:07.884412+00:00'
-completed_at: null
+updated_at: '2026-08-17T02:59:24.541609+00:00'
+completed_at: '2026-08-17T02:59:24.541609+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   depends_on: []
