@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-17T21:41:08.080851+00:00'
+updated_at: '2026-08-17T22:11:09.089636+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -325,5 +325,55 @@ Want me to finish phase 5 — the `1c builder` launcher and the test rewrite —
 <!-- xgd-chat role="user" ts="2026-08-17T21:41:07.925575+00:00" -->
 #### You
 please complete the work
+
+<!-- xgd-turn id="6af6045e-88dc-4b58-b679-6c4d8325108c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-17T22:11:08.941624+00:00" -->
+#### Claude
+Completing phase 5. First, what depends on the Node builder.
+
+36 test files drive `startBuilder`, mostly as an HTTP harness for unrelated features. Deleting it outright would mean rewriting all 36 — so instead I'll make it a thin Node *transport* over the Worker's one route table. First, injection.
+
+Now `builder.ts` becomes a Node transport over that one route table.
+
+Now the test suite — this is where the transport change gets validated.
+
+118 failures, up from 67. Several new clusters — likely one root cause each. Checking.
+
+Two root causes. First: Node callers of `renderSiteFiles` need the Node seam — adding one helper rather than patching each site ad hoc.
+
+Found it — an explicit `resolveModule: undefined` clobbers the default via spread. Fixing so absent means absent.
+
+Cluster A fixed. Now the transport's 404s.
+
+The transport itself works. Checking how that test builds its workspace.
+
+Found it: I keyed the preview cache by `tenantId`, which is `'local'` for every Node workspace — so one workspace's renderer served all the others. Keying by the store instance instead.
+
+5 of 6 pass. The last is `published` — which belongs with `/api/publish` in the Node transport, since that's the only implementation until REQ-149.
+
+Down to 39 mine, in 13 files. Most need the build artifacts — which the Node transport should serve off `dist-assets`, the same bytes wrangler's binding serves.
+
+503 is my `dist-assets` lookup using the test's temp cwd. Resolving it from the repo, as the old client-dir lookup did.
+
+15 failures left, all architectural. Working through them.
+
+`importmap.json` is a checked-in generated artifact — precisely what that scan forbids, and the repo already deleted an `index.html` for the same reason. Untracking it and making the build generate it.
+
+`kb.ts`/`fs-store.ts` are the pre-existing hit — bug32 is back to its baseline. Now the last proxy test.
+
+5 left. Taking the two simple ones first.
+
+`/` has no `cache-control` — the no-store wrapper lives in the Worker's `fetch`, so the Node transport bypasses it. That directive belongs in the router, where every host inherits it.
+
+Now the last three, in the builder-origin reconciliation suite.
+
+Those are now served by the assets fall-through, so they're declared by the *build*, not by a route literal. Deriving them from the build output.
+
+A genuine find: the transport's own three routes skip the wrapper. Restoring the set-once directive there, as the old origin had it.
+
+Two left — both assert the proxy that no longer exists. Rewriting them to the properties that survive.
+
+My splice cut into the `Probe` interface. Restoring from HEAD and re-applying the four edits precisely.
 
 <!-- xgd-chat-end -->
