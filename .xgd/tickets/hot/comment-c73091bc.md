@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-17T20:58:24.458263+00:00'
+updated_at: '2026-08-17T21:10:00.649825+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -238,5 +238,86 @@ The Worker bundles clean — 805 KiB, 150 KiB gzipped. Verifying the render path
 <!-- xgd-chat role="user" ts="2026-08-17T20:58:24.282009+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="2bcff6cd-b04d-4740-b35f-8f5f2ccac4cd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-17T21:10:00.417623+00:00" -->
+#### Claude
+The req119 failures are `PreviewRenderer` — it renders a module-mounting site and now has no container. Making that injectable so Node keeps its behaviour and the Worker stays clean.
+
+`req119` drives `startBuilder` — the Node server this ticket deletes, so it's in the architectural-rewrite set. First making `PreviewRenderer` injectable, which is needed regardless.
+
+`render.ts` has lost the `createContainer` edit and `builder.ts` lost its error import — files have been reverted under me. Checking the true state.
+
+The shell cwd had reset — my last two edits landed in the main repo instead of the worktree. Reverting those and re-applying in the right place.
+
+Main repo restored to its original state. Now re-applying in the worktree.
+
+req119 fully passes. Now `bin/publish` — wiring the CLI command and the script.
+
+Raw backticks inside the usage template literal. Escaping them.
+
+Now the end-to-end proof. The configured tenant needs a row before `forTenant` will hand back a handle — adding that bootstrap to the import path only.
+
+The import route sits after `storeFor`, which throws on a fresh database before it's reached. Moving it above.
+
+`migrations_dir` at top level is silently ignored — on wrangler 4.106 it belongs inside the D1 block. That's a latent REQ-143 config bug; fixing it.
+
+Migrations applied locally. Now the full end-to-end run.
+
+`bin/publish` lands both sites. Now does the Worker serve them?
+
+That's the documented REQ-148 boundary — `xgd` mounts `contact-form`. AC-1 is about a pure-L1 site; checking the other one.
+
+Every site mounts `contact-form` — even the one I expected to be pure-L1. Proving AC-1 with a scaffolded pure-L1 site.
+
+All routes work in workerd against real D1/R2. Verifying a write round-trip (AC-2).
+
+Write lands in D1 and reads back. (`theme.css` correctly omits it — an unreferenced palette entry emits no variable.) Cleaning up and committing.
+
+Now the UATs. Checking the existing workerd test pattern.
+
+8 of 11 pass; my hand-rolled fixture doesn't satisfy the schema. Using the repo's existing seed helper instead.
+
+All 11 workerd UATs pass. Adding the node-side UAT for the build artifacts and config pins.
+
+There's already a `wrangler-toml` support module — using that rather than adding a dependency.
+
+All 18 REQ-145 UATs pass (11 in workerd, 7 in node). Committing.
+
+Committed as `5352c5131`. Recording progress on the ticket.
+
+Committed on `free-REQ-145` as `5352c5131`, ticket updated. Here's where it stands.
+
+## What works
+
+The builder runs on Cloudflare. Verified end-to-end against `wrangler dev` with real local D1 and R2: both repo sites imported via `bin/publish`, then chrome, site listing, request-time render, a palette write and asset fetches all served **with no Node origin running**. 18 UATs, 11 of them executing inside workerd against real bindings.
+
+- **`1c assets`** — builder client, webui components and framework bridges are now build artifacts. Nothing type-strips or resolves a package per request.
+- **The route table** in `router.ts`, over the same `edit*` functions the CLI dispatches to — so the builder stays a second *producer* of edits, not a second write path.
+- **`bin/publish` / `1c push`** — the Worker does the writing, through the bindings it serves from, so an import lands by the same path an edit does. Idempotent.
+- **The proxy is gone.** `index.ts` has no `BUILDER_ORIGIN`.
+
+## Three things worth your attention
+
+**1. The ticket's central premise was wrong in a way that mattered.** It said the L1 renderer is already portable. `renderL1Document` is — but `renderSiteFiles` folds module CSS into `theme.css` for *every* site, and `getModuleCss()` read `.astro` files off disk to do it. So no site could render in a Worker, not merely no module. That read is now a build step with a drift-guard UAT. Separately, the "lazy" `import('astro/container')` is resolved *eagerly* by a bundler — it pulled Astro, Shiki and Prism into the Worker. Both now inject from the Node-only writer.
+
+**2. A latent REQ-143 bug: `wrangler d1 migrations apply` had never run.** `migrations_dir` was at the top level of `wrangler.toml`, where wrangler warns, ignores it, and looks somewhere that doesn't exist. Moved onto the D1 binding and pinned by a UAT.
+
+**3. REQ-148 is a prerequisite, not a follow-up.** Every site in `storage/sites/` mounts `contact-form` — including on its home page. The ticket estimated "exactly one behavior module"; it's one *kind*, on every site. So no real site's draft channel renders until REQ-148 lands. AC-1 is demonstrated against a scaffolded pure-L1 site, and a behavior page now fails naming REQ-148 rather than dying as an undefined component.
+
+## What I did not finish
+
+I stopped short of phase 5 rather than leaving it half-done:
+
+- **`1c builder` still starts the Node server** (AC-8). It should spawn `wrangler dev`, and `builder.ts` should be deleted with the origin's dead routes.
+- **10 tests still assert the proxy** and need rewriting against the Worker (`req115-builder-shell`, `reconciliation-builder-workspace-*`, one in the REQ-147 access gate, two in REQ-144 deploy scripts). They fail *because* the proxy is gone — intended, but the rewrite is real work.
+- **`pnpm -r build`** hasn't been run workspace-wide (AC-6). The three typechecks I touched are clean and the Worker bundles at 805 KiB / 150 KiB gzipped.
+
+I left the ticket at `draft` rather than `free_coded` for that reason — marking it done would misreport it.
+
+One thing I should flag: I introduced an `ACCESS_DEV_OPEN` var so `wrangler dev` isn't refused by the fail-closed Access gate. It only applies when Access is *unconfigured*, it's absent from `[env.production.vars]` (which inherits nothing), and a UAT fails the build if anyone restates it there — two independent mistakes to open production, the same standard REQ-147 set. But it is a bypass, and you should know it exists.
+
+Want me to finish phase 5 — the `1c builder` launcher and the test rewrite — or would you rather land REQ-148 first so this is usable on your actual sites?
 
 <!-- xgd-chat-end -->
