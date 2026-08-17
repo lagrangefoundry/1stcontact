@@ -46,6 +46,12 @@ import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { unstable_dev, type UnstableDevWorker } from 'wrangler'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+// REQ-147 made the control app PRIVATE: the front verifies a Cloudflare Access
+// JWT before it proxies anything. AC-964 and AC-965 are about what an ADMITTED
+// caller receives, so they now authenticate rather than assert the pre-gate
+// behaviour — the forwarding and failure-reporting contracts they pin are
+// unchanged, only unreachable to a caller Access has not admitted.
+import { startAccessTeam, type AccessTeam } from './support/access'
 import {
   chromeHtml,
   cmdNew,
@@ -592,6 +598,8 @@ describe('story-e674c60a control-app front', () => {
   let cwd: string
   let builder: BuilderHandle
   let worker: UnstableDevWorker
+  let access: AccessTeam
+  let admitted: Record<string, string>
 
   beforeAll(async () => {
     if (!WEBUI_INSTALLED) return
@@ -600,9 +608,15 @@ describe('story-e674c60a control-app front', () => {
       cwd,
       clientDir: path.join(REPO, 'apps/control-app/src/builder'),
     })
+    access = await startAccessTeam()
+    admitted = await access.headers()
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
-      vars: { BUILDER_ORIGIN: builder.url.replace(/\/$/, '') },
+      vars: {
+        BUILDER_ORIGIN: builder.url.replace(/\/$/, ''),
+        ACCESS_TEAM_DOMAIN: access.teamDomain,
+        ACCESS_AUD: access.aud,
+      },
       experimental: { disableExperimentalWarning: true },
     })
   }, 120000)
@@ -610,6 +624,7 @@ describe('story-e674c60a control-app front', () => {
   afterAll(async () => {
     await worker?.stop()
     await builder?.close()
+    await access?.close()
     if (cwd) fs.rmSync(cwd, { recursive: true, force: true })
   })
 
@@ -631,7 +646,7 @@ describe('story-e674c60a control-app front', () => {
     ]
 
     for (const route of routes) {
-      const viaWorker = await worker.fetch(route)
+      const viaWorker = await worker.fetch(route, { headers: admitted })
       const direct = await fetch(new URL(route, builder.url))
       expect(viaWorker.status, route).toBe(direct.status)
       expect(viaWorker.headers.get('content-type'), route).toBe(
@@ -648,7 +663,11 @@ describe('story-e674c60a control-app front', () => {
     expect(previewUrl('alpha', 'draft').startsWith('/')).toBe(true)
     expect(previewUrl('alpha', 'draft')).not.toMatch(/^https?:/)
     // …and that path is served by the very host serving the chrome.
-    expect((await worker.fetch(previewUrl('alpha', 'draft'))).status).toBe(200)
+    expect((await worker.fetch(previewUrl('alpha', 'draft'), { headers: admitted })).status).toBe(200)
+
+    // …and it is the GATE that stands between the two, not routing: the same
+    // route, unauthenticated, never reaches the origin at all (REQ-147 AC4).
+    expect((await worker.fetch(previewUrl('alpha', 'draft'))).status).toBe(401)
   })
 })
 
@@ -658,16 +677,23 @@ describe('story-e674c60a origin failure reporting', () => {
   it('test_UAT_AC965_unconfigured_and_unreachable_origins_are_distinct_failures', async () => {
     // AC-965 — neither condition returns a blank page nor a success status, and
     // the two are distinguishable, because "you never started it" and "it died"
-    // need different actions from the operator.
+    // need different actions from the operator. Both are ORIGIN failures, so
+    // both are read as an admitted caller sees them (REQ-147): a request that
+    // never passed the gate would report the gate, which is a third condition
+    // and not the one this AC is about.
+    const access = await startAccessTeam()
+    const admitted = await access.headers()
+    const gated = { ACCESS_TEAM_DOMAIN: access.teamDomain, ACCESS_AUD: access.aud }
+
     const unconfigured = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
-      vars: { BUILDER_ORIGIN: '' },
+      vars: { BUILDER_ORIGIN: '', ...gated },
       experimental: { disableExperimentalWarning: true },
     })
     let unconfiguredStatus: number
     let unconfiguredBody: string
     try {
-      const res = await unconfigured.fetch('/')
+      const res = await unconfigured.fetch('/', { headers: admitted })
       unconfiguredStatus = res.status
       unconfiguredBody = await res.text()
     } finally {
@@ -683,13 +709,13 @@ describe('story-e674c60a origin failure reporting', () => {
     const deadAddress = 'http://127.0.0.1:1'
     const unreachable = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
-      vars: { BUILDER_ORIGIN: deadAddress },
+      vars: { BUILDER_ORIGIN: deadAddress, ...gated },
       experimental: { disableExperimentalWarning: true },
     })
     let unreachableStatus: number
     let unreachableBody: string
     try {
-      const res = await unreachable.fetch('/')
+      const res = await unreachable.fetch('/', { headers: admitted })
       unreachableStatus = res.status
       unreachableBody = await res.text()
     } finally {
@@ -705,6 +731,8 @@ describe('story-e674c60a origin failure reporting', () => {
     expect(unreachableStatus).not.toBe(unconfiguredStatus)
     expect(unconfiguredStatus).toBeGreaterThanOrEqual(400)
     expect(unreachableStatus).toBeGreaterThanOrEqual(400)
+
+    await access.close()
   }, 180000)
 })
 
