@@ -35,7 +35,7 @@ import { validateModuleContent } from '../packages/framework/src/modules/validat
 import type { ModuleMeta } from '../packages/framework/src/modules/types'
 import { starterSiteJson, starterHomePage } from '../tools/generate/src/cli/scaffold'
 import { loadSite } from '../tools/generate/src/store'
-import { renderSite } from '../tools/generate/src/render/render'
+import { renderSite } from '../tools/generate/src/render/write'
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SITES = path.join(REPO, 'storage', 'sites')
