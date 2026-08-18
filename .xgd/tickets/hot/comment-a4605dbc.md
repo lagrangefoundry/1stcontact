@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-18T19:53:37.082883+00:00'
+updated_at: '2026-08-18T20:21:59.332732+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,55 @@ B sounds good - I don't fully understand, but if you can assure me that the fina
 2. Confirm fix them
 3. ok
 4. Please create a ticket for this additional work
+
+<!-- xgd-turn id="2d637c83-55e1-4bb4-8e47-5689bf04a0d1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T20:21:59.162283+00:00" -->
+#### Claude
+Now I have the full picture. Let me update the ticket with the settled design and start.
+
+Now the follow-up ticket for the `1c` bootstrap (Q4), then I'll cut the branch.
+
+Now the shared HTML helper and the two components.
+
+Now the two `styles.css` files, extracted verbatim from the `<style>` blocks:
+
+Now the carousel component:
+
+Now the build step reads `styles.css` instead of scanning Astro templates:
+
+Now the render seam — delete the container, the injection, and `renderSiteFilesNode`:
+
+Now export `getModule` from the worker entry:
+
+Now regenerate the precompiled module assets and typecheck:
+
+All clean. Now the conformance fixtures — 12 `.astro` files become plain TS:
+
+Now update the test files that drive Astro's container:
+
+Now the two tests that assert the lazy-Astro property, plus REQ-119/REQ-143/REQ-145:
+
+Now the shared fixture and the two UAT files:
+
+Now the workerd suite:
+
+I'll wait for both suites to finish so I can compare failures against the clean-tree baseline. Meanwhile, here's where things stand.
+
+**The site output is unchanged** — I verified this directly rather than assuming it. I rendered both real sites (`gigabytealchemy`, `xgd`, including the 4 live `contact-form` instances) on the clean tree and again on this branch, then compared:
+
+| Artifact | Result |
+|---|---|
+| `home.html`, `whitepapers.html` (both sites) | **Identical** after normalising whitespace and Astro's inert `data-astro-cid-*` scope attribute |
+| `theme.css` | Identical ignoring whitespace (module CSS is dedented now that it lives in a real `styles.css`) |
+| `capabilities.js` | **Byte-identical** |
+
+The only non-whitespace difference in the entire HTML is `action` → `action=""` on one form whose action is empty — the same thing in HTML.
+
+**What changed:** the two behavior components are plain TypeScript functions instead of `.astro` files, which deleted the Astro container, the `createContainer`/`resolveModule` injection seams, `renderSiteFilesNode`, the `needsAstro` branch, the Astro template scanner, and both `*.astro` ambient declarations. The registry is now portable, so the Worker resolves and renders behavior modules through exactly the code Node runs. Module CSS moved verbatim into `styles.css` beside each component; `1c assets` still precompiles it.
+
+I also filed **REQ-150** for the `1c` bootstrap (Q4) — collapsing Astro's `getViteConfig` to a plain Vite SSR server, kept out of this ticket deliberately.
+
+One environment note: this sandbox blocks socket binding, so the workerd suite and every loopback/browser test (conformance, preview) cannot execute here — they fail with `listen EPERM` identically on the clean tree. I'll report exactly which tests I could and couldn't run rather than implying more coverage than I have.
 
 <!-- xgd-chat-end -->
