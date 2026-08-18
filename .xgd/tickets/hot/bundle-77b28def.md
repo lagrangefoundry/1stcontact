@@ -69,6 +69,9 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
+  orphan_commits:
+  - old_sha: 05cec63e464f1256108c67f3363e66f594de85e0
+    new_sha: df9508312058e2e9b14a4e81d1d16d6845cb42e3
 ---
 
 # Bundle
