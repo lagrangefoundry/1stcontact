@@ -5,9 +5,9 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-15T21:43:28.471853+00:00'
+updated_at: '2026-08-18T19:57:01.044004+00:00'
 completed_at: null
-last_field_updated: depends_on
+last_field_updated: body
 status: draft
 fields:
   priority: low
@@ -23,46 +23,94 @@ fields:
   - REQ-147
 ---
 
-# Behavior modules render in workerd: `contact-form` precompiled
+# Behavior modules render in workerd: Astro leaves the render path
 
-> **Status: draft.** Last in the sequence, and separable — nothing else waits on it.
+> **Status: settled (CHAT session).** The mechanism chosen is **not** precompilation —
+> it is **removing Astro from the module render path entirely**. See §2.
 
 `render.ts` imports `astro/container` lazily, so a pure-L1 site already renders in workerd
 ([[REQ-145]]). A site using a **behavior module** does not: the container API needs the
 Vite/Astro transform to compile `.astro` sources, and workerd has no such transform.
 
-## 1. Scope is one module
+## 1. Scope is one mechanism, two modules
 
 Across all three sites in `storage/sites/`, exactly one behavior module is in use:
-`contact-form`, at 4 instances. `carousel` exists in the catalog but appears in no site. So this
-is not "port the Astro catalog" — it is one module plus the mechanism, with `carousel` following
-for free once the mechanism exists.
+`contact-form`, at 4 instances. `carousel` exists in the catalog but appears in no site.
+Both convert; the mechanism is shared, so nothing is per-module.
 
-## 2. Two things to move to build time
+## 2. The mechanism: delete Astro, don't precompile it
 
-- `packages/framework/src/modules/registry.ts` statically imports `./contact-form/index.astro`.
-  The compiled render function must be produced at **build time** and bundled into the Worker.
-  Astro's Cloudflare adapter does this for whole sites, so the mechanism is proven; the question
-  is applying it to the module catalog alone.
-- `modules/styles.ts` reads `index.astro` from disk **at runtime** with `readFileSync` to fold
-  its `<style>` block into the generated CSS. That folding moves into the build.
+The original framing was "precompile the `.astro` sources at build time and bundle the
+compiled render function." Investigation showed that is the wrong shape:
+
+- **Neither component uses any Astro runtime feature.** No islands, no hydration, no
+  `Astro.request`/`Astro.url`, no layouts, no child slots. Each reads `Astro.props`, runs
+  plain TypeScript, calls `renderL1Fragment` (pure TS, already worker-safe) and emits HTML
+  with a couple of `set:html` fragments.
+- Precompilation would still require Astro's **runtime** (`astro/runtime/server` plus a
+  factory executor) inside the Worker — the exact surface REQ-145 found drags
+  `markdown-remark`/Shiki/Prism and `virtual:` specifiers — and would add a build step plus
+  a bundled artifact that can go stale.
+
+So the components become **plain TypeScript functions** `(props) => string`. This *deletes*
+rather than adds:
+
+| Deleted | Why it can go |
+|---|---|
+| `astroContainer()` (`render/write.ts`) | nothing to create |
+| `RenderSiteOptions.createContainer` | no seam to inject |
+| the `needsAstro` branch in `renderSiteFiles` | there is one render path |
+| `unresolvableModule` + the resolver injection | the registry is now plain TS, so `render.ts` imports `getModule` directly |
+| `renderSiteFilesNode` | nothing left for it to inject |
+| `modules/extract-style.ts` | CSS moves to a real `styles.css` per module |
+| `astro-env.d.ts`, `astro-shims.d.ts` | no `.astro` to declare |
+| `AstroComponentFactory` from the behavior contract | replaced by `BehaviorComponent` |
+
+The one code path that remains is the one both node and workerd take, which is what makes
+AC-1 true by construction rather than by comparison.
+
+### Module CSS
+
+The invariant-element CSS moves out of each `.astro` `<style>` block into a real
+`styles.css` beside the component. `1c assets` still precompiles it into
+`module-assets.ts` (unchanged mechanism, unchanged drift UAT) — it just reads `styles.css`
+instead of scanning an Astro template, which is why the regex scanner in
+`extract-style.ts` (and its two documented footguns) is deleted. `client.js` is untouched.
+
+### Consequence: the registry becomes worker-safe
+
+With both components plain TS, `modules/registry.ts` no longer drags a transform into the
+graph, so `@1stcontact/framework/worker` can export `getModule` and `render.ts` can name it
+statically. That is what actually delivers "a site using `contact-form` renders in workerd".
 
 ## 3. Constraint that must not be lost
 
-[[DOC-25]] and `CLAUDE.md`: a conforming behavior module ships **zero CSS**, save a declared set
-of invariant elements pinned by obligation rather than taste — the honeypot must stay invisible,
-the Turnstile mount must sit where the widget expects it. Precompilation must not become a route
-by which module CSS re-enters, and the residual stylesheets being dismantled under REQ-96 must
-not be entrenched by being baked into a bundle.
+[[DOC-25]] and `CLAUDE.md`: a conforming behavior module ships **zero CSS**, save a declared
+set of invariant elements pinned by obligation rather than taste. The conversion moves the
+existing invariant CSS verbatim; it adds nothing and entrenches nothing REQ-96 is removing.
 
-## 4. Acceptance criteria (provisional)
+## 4. Acceptance criteria
 
-1. A site using `contact-form` renders in workerd, byte-identical to the Node render.
-2. No `.astro` file is read at request time; no Vite transform runs in the Worker.
-3. `carousel` renders through the same mechanism with no new per-module code, proving it is a
-   mechanism and not a special case.
-4. The module conformance harness ([[DOC-20]]) passes against precompiled modules.
-5. Module CSS is no larger than today's — precompilation does not entrench what REQ-96 is removing.
+1. A site using `contact-form` renders in workerd, producing the **same bytes as the Node
+   render** — structurally guaranteed, since both run the same function. (Parity is
+   node-vs-worker, **not** parity with today's Astro output: whitespace between elements
+   differs, which is semantically inert — whitespace-only text nodes are not flex items.)
+2. No `.astro` file exists on the render path, and no Vite/Astro transform runs in the
+   Worker. Astro appears nowhere in `packages/framework` or `tools/generate/src/render`.
+3. `carousel` converts through the same mechanism with no per-module machinery.
+4. The module conformance harness ([[DOC-20]]) passes; its 12 negative fixtures convert to
+   plain TS and still discriminate.
+5. Module CSS is byte-equivalent to today's (modulo the dedent from leaving the `<style>`
+   block) — the conversion neither adds rules nor entrenches ones REQ-96 removes.
+
+## 5. Supersession
+
+- **AC-739** ("the render path is Astro-free *unless a page needs Astro*") is superseded by
+  the stronger property: the render path is Astro-free, full stop. Its reconciliation UAT is
+  rewritten to assert the stronger invariant rather than the lazy-container one.
+- The `1c` bootstrap (`tools/generate/bin/1c.mjs`) boots a Vite server via Astro's
+  `getViteConfig` solely because the render path imported `.astro`. Collapsing it to a plain
+  Vite SSR server is **deliberately out of scope here** — filed separately.
 
 ## Origin
 
