@@ -5,9 +5,9 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-18T19:57:05.170448+00:00'
+updated_at: '2026-08-18T20:56:52.363854+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: low
@@ -111,6 +111,45 @@ existing invariant CSS verbatim; it adds nothing and entrenches nothing REQ-96 i
 - The `1c` bootstrap (`tools/generate/bin/1c.mjs`) boots a Vite server via Astro's
   `getViteConfig` solely because the render path imported `.astro`. Collapsing it to a plain
   Vite SSR server is **deliberately out of scope here** — filed separately.
+
+## 6. Verification, and what the sandbox prevented
+
+**Site output is unchanged.** Both real sites (`gigabytealchemy`, `xgd` — 4 live
+`contact-form` instances between them) were rendered on a clean `xgd-working` checkout and
+again on this branch:
+
+| Artifact | Result |
+|---|---|
+| `home.html`, `whitepapers.html` | identical after normalising whitespace and Astro's inert `data-astro-cid-*` scope attribute |
+| `theme.css` | identical ignoring whitespace (module CSS is dedented, leaving the `<style>` block) |
+| `capabilities.js` | byte-identical |
+
+The only non-whitespace difference anywhere is `action` → `action=""` on the one form whose
+configured action is empty — the same thing in HTML.
+
+**Test suites.** The full node project was run on this branch and on a clean checkout, and the
+FAILURE SETS were diffed. Branch-only failures: exactly two (`AC-809`, `AC-810`), both caused
+by a test helper that sliced a module's CSS block at `\n\n/* ` — correct while the chrome sat
+indented inside an `.astro` `<style>`, wrong now that `styles.css` is dedented. Both fixed
+(the helper now ends a block at the next *section* header); the branch's failure set is
+otherwise identical to the clean tree's.
+
+**What could NOT be verified in-session.** The session sandbox denies all socket binding
+(`listen EPERM` on loopback and on UNIX sockets), so:
+
+- the **workerd project is unrunnable** — Miniflare cannot listen, and the Node process
+  aborts rather than failing a test. `test_UAT_FC_REQ-148_behavior_in_workerd.workers.test.ts`
+  — the UAT for AC-1, the whole point of this ticket — has therefore **never executed**. It is
+  written, and it is unverified.
+- the **conformance harness (AC-4) cannot run**: every dimension serves a one-module page over
+  loopback first. `req39`/`req40`/`req41`/`req42`/`req85-conformance` fail at the serve on a
+  clean checkout too.
+- 51 of the 57 node test files that fail on a clean checkout fail for this reason.
+
+Filed against XGD's own tooling as a bug (body: `.xgd/tmp/REQ-148-sandbox-bug.md`; the report
+could not be filed from the session either, because the write allowlist does not cover the
+xgd repo's git object store). **Before this ticket is promoted, the workerd UAT and the
+conformance dimensions must be run somewhere with sockets.**
 
 ## Origin
 
