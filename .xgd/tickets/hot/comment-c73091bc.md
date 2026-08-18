@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-18T00:33:35.284422+00:00'
+updated_at: '2026-08-18T00:54:52.228079+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -381,5 +381,76 @@ My splice cut into the `Probe` interface. Restoring from HEAD and re-applying th
 <!-- xgd-chat role="user" ts="2026-08-18T00:33:35.138814+00:00" -->
 #### You
 Please complete this work
+
+<!-- xgd-turn id="55d460ad-ef8c-45f1-8d17-45b53dc1cfee-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T00:54:52.087237+00:00" -->
+#### Claude
+My line-range splice broke the file again. Restoring and redoing with exact-string replacement only.
+
+All 10 pass. Full suite to confirm nothing else moved.
+
+One new failure. Checking whether it's real or flaky.
+
+Now the full suite once more, to settle whether that navigation failure was flaky.
+
+Zero failures attributable to this work — the navigation one was flaky. Now the workerd suite and the full build (AC-6).
+
+`bin/build` passes end-to-end — and note production's bindings carry no `ACCESS_DEV_OPEN`. Now verifying `1c builder` actually starts wrangler.
+
+`1c builder` starts wrangler dev and serves. Committing phase 5.
+
+Now the ticket: recording completion and setting `free_coded`.
+
+The gate needs the branch merged back first.
+
+A file failed to load — the merged tree has no generated `importmap.json` yet, which is exactly the new build requirement. Running `1c assets`.
+
+A real bootstrap problem: the CLI now transitively imports the file `1c assets` generates. Fixing it at the entry point.
+
+It bootstraps clean now. Correcting one inaccuracy in that comment — `module-assets.ts` *is* committed; only the import map isn't.
+
+Both need the local D1 schema, which I'd applied by hand in the worktree — a test-environment dependency I introduced. Making the tests set it up themselves.
+
+Both pass. Final full-suite confirmation.
+
+REQ-145 is complete and `free_coded`, merged into `xgd-working` across three commits.
+
+## All nine acceptance criteria met
+
+| AC | |
+|---|---|
+| 1 — chrome, listing, draft + edit render with no Node origin | ✅ (pure-L1 site — caveat below) |
+| 2 — edits produce the same store state as the CLI | ✅ |
+| 3 — preview iframe same-origin, new tab identical URL | ✅ |
+| 4 — no proxy, no `BUILDER_ORIGIN` | ✅ |
+| 5 — nothing type-strips or reads source at request time | ✅ |
+| 6 — clean `pnpm -r build` and typecheck | ✅ `bin/build` green, both Workers bundle |
+| 7 — `bin/publish` copies a site into D1/R2, idempotent | ✅ |
+| 8 — `1c builder` starts `wrangler dev` | ✅ |
+| 9 — deferred routes 501 by name | ✅ |
+
+**Evidence:** node suite 1620 passing / 56 failing — *exactly* the pre-existing baseline, none attributable to this work. Workers suite 38/38 inside workerd against real D1 and R2. `bin/build` clean end-to-end. Verified live against `wrangler dev`: both your sites imported, then chrome, listing, render, a palette write and asset fetches all served.
+
+## The judgement call you should know about
+
+I did **not** delete the Node origin outright. 36 test files drive it over HTTP — mostly for features that just need *an* origin (copy modal, image picker, palette popup). Deleting it meant rewriting all 36.
+
+Instead `builder.ts` dropped from 730 lines to a **transport**: `node:http` in, `Request`/`Response` out, straight into the Worker's own `route()`. One route table, one set of edit functions, one render — two front doors. `CLAUDE.md` forbids two *implementations*; there is one. Three routes live only in the transport because no Worker can host them yet: `/api/ai/*` (framework REQ-103), `/api/publish` and the `published` channel (REQ-149).
+
+If you'd rather the Node path disappear entirely, that's a follow-up ticket to migrate those 36 files — say the word.
+
+## Four real defects this surfaced
+
+1. **`getModuleCss()` read `.astro` files off disk at render time** — for every site, so *nothing* could render in a Worker. Now precompiled at build time with a drift-guard UAT.
+2. **A "lazy" `import('astro/container')` is resolved eagerly by bundlers**, pulling Astro/Shiki/Prism into the Worker. Both the container and module resolver are now injected from the Node side.
+3. **`no-store` was in the Worker's `fetch`**, so the Node transport served the chrome document with no directive at all — the same hole the old `json()` helper opened, one layer up. It's the router's now.
+4. **`migrations_dir` sat at wrangler.toml's top level** since REQ-143, where wrangler warns, ignores it and looks elsewhere — `d1 migrations apply` had never once run.
+
+## Two things to keep in view
+
+**REQ-148 is a prerequisite, not a nicety.** Every site in `storage/sites/` mounts `contact-form`, including on its home page, so no *real* site renders through the Worker yet. AC-1 is demonstrated against a scaffolded pure-L1 site; a behavior page fails with a message naming REQ-148.
+
+**`ACCESS_DEV_OPEN` is a bypass.** It opens the Access gate for `wrangler dev`. It applies only when Access is unconfigured, is absent from `[env.production.vars]` (which inherits nothing), and a UAT fails the build if anyone restates it there — two independent mistakes to open production, the standard REQ-147 set. Still worth reading as what it is.
 
 <!-- xgd-chat-end -->
