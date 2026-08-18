@@ -170,11 +170,29 @@ export type WebuiPackage = (typeof WEBUI_PACKAGES)[number]
  * `import()`, which resolves a bare path relative to the *importing* module.
  */
 export function sharedModuleUrl(name: string, subpath = '.'): string {
+  return pathToFileURL(sharedModulePath(name, subpath)).href
+}
+
+/**
+ * The same module as an absolute PATH (REQ-146).
+ *
+ * {@link sharedModuleUrl} is for a runtime dynamic `import()`, which needs a URL.
+ * This is for a BUILD, which needs a path to write into a generated re-export
+ * that a bundler will follow — `1c assets` emits one so the Worker can reach the
+ * AI library without a bare specifier. Both go through the same single resolution
+ * point, so neither is a second guess at where the store is.
+ *
+ * Throws {@link MissingWebuiComponentError} when the component is absent OR when
+ * it declares no such subpath. The second case matters as much as the first: an
+ * upstream rung that moved would otherwise produce a build that succeeds and a
+ * Worker with no assistant.
+ */
+export function sharedModulePath(name: string, subpath = '.'): string {
   const target = webuiExports(name)[subpath]
   if (target === undefined) {
     throw new MissingWebuiComponentError(name)
   }
-  return pathToFileURL(path.join(webuiPackageDir(name), target.replace(/^\.\//, ''))).href
+  return path.join(webuiPackageDir(name), target.replace(/^\.\//, ''))
 }
 
 /**

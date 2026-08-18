@@ -5,7 +5,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["astro/client", "node", "@cloudflare/workers-types"],
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // REQ-146 — `ai/toolbox.ts` imports its surface declaration as data rather
+    // than reading it off disk, so the Worker can carry it in the bundle.
+    "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.json"]
 }

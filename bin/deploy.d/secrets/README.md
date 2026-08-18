@@ -57,5 +57,6 @@ Two rules that hold for every hook here:
 
 ## Who lands what
 
-No secret is required by REQ-144 — this is the mechanism, proved with a throwaway value.
-`ANTHROPIC_API_KEY` arrives with REQ-146, as its own hook file, and needs no change here.
+No secret was required by REQ-144 — that ticket shipped the mechanism, proved with a
+throwaway value. `ANTHROPIC_API_KEY` arrived with REQ-146 as `10-anthropic-api-key`,
+which needed no change here: the hook contract was already right.

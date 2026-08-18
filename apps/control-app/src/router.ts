@@ -13,7 +13,14 @@ import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/sr
 import type { RenderSiteOptions } from '../../../tools/generate/src/render/render'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import {
+  openSession,
+  streamPrompt,
+  UnknownSessionError,
+} from '../../../tools/generate/src/cli/ai/host-core'
+import { workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
+import { redactor } from './redact'
 import { storeFor, storeForImport, type StoreEnv } from './store'
 
 /**
@@ -62,6 +69,40 @@ const PREVIEW_CHANNELS: PreviewChannel[] = ['draft', 'edit']
  */
 const PREVIEWS = new WeakMap<TenantSiteStore, PreviewRenderer>()
 
+/**
+ * The chat host, ONE PER ISOLATE, and deliberately not per request (REQ-146).
+ *
+ * Every other route builds its store per request, because `forTenant` performs
+ * the tenant check and a cached handle would carry a check made against a row
+ * that may since have been deactivated. The chat routes cannot do that: the AI
+ * host keys its `SessionManager` cache by the store's OBJECT IDENTITY, so a new
+ * store per request is a new manager per request — the conversation would reset
+ * on every turn and the junction would be empty every time.
+ *
+ * So the chat host holds its own store for the life of the isolate. The tenant
+ * is still checked, once, when it is built; what is given up is re-checking a
+ * deactivation mid-isolate, on these two routes only. That is the right way
+ * round here and the wrong way round everywhere else, which is why it is stated
+ * rather than shared.
+ */
+let CHAT: Promise<WorkerHost> | null = null
+
+function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
+  if (!CHAT) {
+    CHAT = (async () => {
+      const tenantId = (env.TENANT_ID ?? '').trim()
+      const store = await (deps.store ?? storeFor)(env)
+      return workerHost(env, store, tenantId)
+    })()
+  }
+  return CHAT
+}
+
+/** Drop the cached chat host. For tests that rebuild bindings per case. */
+export function resetChatHost(): void {
+  CHAT = null
+}
+
 function previewRenderer(
   store: TenantSiteStore,
   render: RouterDeps['render'],
@@ -109,6 +150,19 @@ async function readJsonBody(request: Request): Promise<Record<string, unknown>> 
 export interface RouterEnv extends StoreEnv {
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
+  /**
+   * The Anthropic key, as a `wrangler secret` (REQ-146).
+   *
+   * A SECRET AND NOT A VAR: a var is readable in the dashboard and echoed by
+   * `wrangler deploy`, and this one is a bearer credential for a paid API. It is
+   * pushed by `bin/deploy.d/secrets/10-anthropic-api-key`, which carries the NAME
+   * and never the value.
+   *
+   * Optional, and absent must stay an ordinary state rather than a boot failure:
+   * a builder with no key still opens the conversation and still shows its
+   * history, and says why it cannot take a turn.
+   */
+  ANTHROPIC_API_KEY?: string
 }
 
 /**
@@ -152,6 +206,18 @@ export interface RouterDeps {
  */
 const NO_STORE = 'no-store, must-revalidate'
 
+/**
+ * The Worker's own secrets, for {@link redactor} (REQ-146, AC4).
+ *
+ * Listed rather than swept out of `env`, because `env` also carries bindings and
+ * ordinary vars — `TENANT_ID` is a short, common word, and scrubbing it out of
+ * error messages would destroy diagnostics to protect nothing. What belongs here
+ * is only what is a CREDENTIAL, and today that is one key.
+ */
+function secretsOf(env: RouterEnv): Array<string | undefined> {
+  return [env.ANTHROPIC_API_KEY]
+}
+
 function uncacheable(response: Response): Response {
   const headers = new Headers(response.headers)
   headers.set('cache-control', NO_STORE)
@@ -186,11 +252,9 @@ async function routeUncached(
     })
   }
 
-  // Deferred capabilities, answered before the store is constructed: neither
-  // needs one, and a store failure here would misreport why they are refused.
-  if (p.startsWith('/api/ai/')) {
-    return notImplemented('The builder assistant', 'lagrange-framework REQ-103')
-  }
+  // Still deferred, and answered before the store is constructed: it does not
+  // need one, and a store failure here would misreport why it is refused.
+  // Publishing needs revision storage the port does not have — REQ-149.
   if (p === '/api/publish') {
     return notImplemented('Publishing', 'REQ-149')
   }
@@ -217,10 +281,10 @@ async function routeUncached(
     try {
       const payload = (await readJsonBody(request)) as unknown as SitePayload
       if (!payload || typeof payload.slug !== 'string' || payload.slug === '') {
-          return json(400, { error: 'slug is required' })
+        return json(400, { error: 'slug is required' })
       }
       if (!Array.isArray(payload.pages) || !Array.isArray(payload.assets)) {
-          return json(400, { error: 'pages and assets must be arrays' })
+        return json(400, { error: 'pages and assets must be arrays' })
       }
       // This route runs BEFORE `storeFor` below, and uses its own handle,
       // because `forTenant` refuses an unknown tenant — which on a fresh
@@ -231,16 +295,20 @@ async function routeUncached(
       const write = payloadToWrite(payload)
       await importStore.write(payload.slug, write)
       return json(200, {
-          pages: write.pages.length,
-          assets: write.assets.length,
-          siteJson: write.siteJson !== undefined,
+        pages: write.pages.length,
+        assets: write.assets.length,
+        siteJson: write.siteJson !== undefined,
       })
     } catch (err) {
+      // Applied here too, though this route never touches a credential: a path
+      // that scrubs and a path that does not is an invitation to add a third
+      // that does not, and the cost when there is nothing to scrub is nil.
+      const scrub = redactor(secretsOf(env))
       if (err instanceof CommandError) {
-      return json(400, { error: err.message, ...err.toEnvelope() })
+        return json(400, { error: scrub(err.message), ...err.toEnvelope() })
       }
       const message = err instanceof Error ? err.message : String(err)
-      return json(500, { error: message })
+      return json(500, { error: scrub(message) })
     }
   }
 
@@ -311,6 +379,48 @@ async function routeUncached(
       const census = (await editPaletteGet(slug, edit)).data as Record<string, unknown>
       return json(200, { ...(out.data as Record<string, unknown>), ...census })
       }
+    }
+
+    /**
+     * The assistant's two calls (REQ-122 / REQ-127), now in workerd (REQ-146).
+     *
+     * THIN, exactly as the Node origin's were. Both are transports over
+     * `host-core.ts` — the same session model, the same tool loop, the same
+     * `edit.ts` write path every other route uses. Nothing here decides anything
+     * about a conversation.
+     *
+     * A SITE BECOMES A SESSION IN ONE PLACE, and it is not here: `openSession`
+     * takes the slug and hands back an id, and every turn afterwards carries
+     * only that id. `/api/ai/prompt` never sees a slug, which is what stops a
+     * late answer landing in a window that has since switched sites.
+     */
+    if (p === '/api/ai/session' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const slug = body.slug
+      if (typeof slug !== 'string' || slug === '') {
+        return json(400, { error: 'slug is required' })
+      }
+      const host = await chatHost(env, deps)
+      const session = await openSession(slug, {}, host.deps)
+      // Opening can run a tool-free turn's worth of policy — nothing to audit
+      // yet in practice, but flushed for the same reason the prompt route
+      // does it: the buffer is per host, and leaving records in it would
+      // attribute them to whatever turn drained next.
+      await host.flush(session.sessionId)
+      return json(200, session)
+    }
+
+    if (p === '/api/ai/prompt' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const { sessionId, text } = body
+      if (typeof sessionId !== 'string' || sessionId === '') {
+        return json(400, { error: 'sessionId is required' })
+      }
+      if (typeof text !== 'string') {
+        return json(400, { error: 'text is required' })
+      }
+      const host = await chatHost(env, deps)
+      return streamTurn(host, sessionId, text, redactor(secretsOf(env)))
     }
 
     /**
@@ -403,12 +513,89 @@ async function routeUncached(
     // envelope out to the modal at 400. Reporting it as 500 would tell the
     // client "the builder broke" for a rejected heading, and would throw away
     // the message naming which field was wrong and why.
+    // Scrubbed on the way out, not at the throw site: the message that carries a
+    // credential is the one nobody wrote — see `redact.ts`.
+    const scrub = redactor(secretsOf(env))
     if (err instanceof CommandError) {
-      return json(400, { error: err.message, ...err.toEnvelope() })
+      return json(400, { error: scrub(err.message), ...err.toEnvelope() })
     }
     const message = err instanceof Error ? err.message : String(err)
-    return json(500, { error: message })
+    return json(500, { error: scrub(message) })
   }
+}
+
+/**
+ * One turn, as the `data: {json}` frames the chat panel consumes.
+ *
+ * THE FRAMING IS THE CLIENT'S, not a standard SSE library's: `api.js` splits on
+ * a blank line and parses what follows `data:`. Restating it here rather than
+ * reaching for `text/event-stream` niceties keeps the two halves obviously the
+ * same shape.
+ *
+ * THE AUDIT IS FLUSHED IN A `finally`, INSIDE THE STREAM. That placement is the
+ * whole of AC3 and is not incidental:
+ *
+ *   - it is inside the stream, so it happens while the response is still open
+ *     and the isolate is still alive. A Worker may be torn down the moment the
+ *     response completes, and `ctx.waitUntil` is not reachable from here;
+ *   - it is in a `finally`, so an abandoned or failed turn still records what it
+ *     managed to do. An audit that only survives success is not an audit.
+ *
+ * AN ERROR MID-TURN BECOMES A FRAME, not a torn connection. The status line went
+ * out with the first byte, so there is no status code left to change — the panel
+ * has to be told in the channel it is already reading, and a dropped socket
+ * would render as a turn that simply stopped.
+ */
+function streamTurn(
+  host: WorkerHost,
+  sessionId: string,
+  text: string,
+  scrub: (text: string) => string,
+): Response {
+  const encoder = new TextEncoder()
+  const frame = (event: unknown): Uint8Array =>
+    encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const event of streamPrompt(sessionId, text, {}, host.deps)) {
+          controller.enqueue(frame(event))
+        }
+      } catch (err) {
+        const message =
+          err instanceof UnknownSessionError
+            ? 'That conversation is no longer open — reload the builder to start it again.'
+            : err instanceof Error
+              ? err.message
+              : String(err)
+        // The backend is the one component here that holds the credential, so
+        // this is the error path most likely to carry it — AC4.
+        controller.enqueue(frame({ kind: 'text', content: `\n\n_${scrub(message)}_` }))
+        controller.enqueue(frame({ kind: 'done' }))
+      } finally {
+        // Durable before the response ends. A failure to write the audit must
+        // not also fail the turn the operator already had — the records are
+        // gone either way, and taking the answer with them helps nobody.
+        try {
+          await host.flush(sessionId)
+        } catch {
+          // Deliberately swallowed; see above.
+        }
+        controller.close()
+      }
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      // The turn is generated as it goes; a proxy holding it back would turn a
+      // streaming answer into a long silence and then a wall of text.
+      'x-content-type-options': 'nosniff',
+    },
+  })
 }
 
 /** Render `rel` out of a draft-side channel and answer with it. */

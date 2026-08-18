@@ -28,6 +28,7 @@ import { cmdNew, cmdRender, startBuilder, type BuilderHandle } from '../tools/ge
 import {
   createL1Toolbox,
   l1Operations,
+  nodeOperations,
   L1_DECLARATION,
   L1_INSTANCES,
 } from '../tools/generate/src/cli/ai/toolbox'
@@ -596,7 +597,13 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
     // A method with no declaration is a capability nothing documents, validates
     // or audits; a declaration with no method is a startup failure on an
     // operator's machine with a turn in flight.
-    expect(Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()).toEqual([...declared].sort())
+    // Both halves — the agnostic core and the two operations that need a disk
+    // (REQ-146). Node's surface is their union.
+    const opsUnion = {
+      ...l1Operations(SLUG, fsOpts(cwd)),
+      ...nodeOperations(SLUG, fsOpts(cwd)),
+    }
+    expect(Object.keys(opsUnion).sort()).toEqual([...declared].sort())
 
     const groups = (L1_DECLARATION.groups as { group: string }[]).map((g) => g.group)
     const granted = (L1_INSTANCES.caretaker as { l1: { groups: string[] } }).l1.groups

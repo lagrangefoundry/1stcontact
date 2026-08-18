@@ -9,6 +9,7 @@ import {
   createL1Toolbox,
   fileAuditSink,
   l1Operations,
+  nodeOperations,
   L1_DECLARATION,
   L1_INSTANCES,
   L1_SURFACE_VERSION,
@@ -165,8 +166,19 @@ describe('REQ-126 — the surface is declared as data', () => {
     // method is a startup failure; a method with no declaration is a capability
     // nothing documents, validates or audits. Checked without the framework, so
     // drift is caught even where the shared store is absent.
+    //
+    // COMPOSED FROM BOTH HALVES since REQ-146. `l1Operations` is the
+    // runtime-agnostic core and `nodeOperations` supplies the two that need a
+    // disk (`add_asset` reads a file the operator names, `publish` snapshots a
+    // tree). Node's surface is their union, and it is the union the declaration
+    // describes — checking the core alone would assert that a declared
+    // operation is unimplemented, which is the opposite of the invariant.
     const declared = (L1_DECLARATION.operations as { op: string }[]).map((o) => o.op).sort()
-    const implemented = Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()
+    const opts = fsOpts(cwd)
+    const implemented = Object.keys({
+      ...l1Operations(SLUG, opts),
+      ...nodeOperations(SLUG, opts),
+    }).sort()
     expect(implemented).toEqual(declared)
   })
 
