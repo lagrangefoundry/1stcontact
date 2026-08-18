@@ -5,7 +5,7 @@ type: request
 title: The AI host moves into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-18T03:21:15.082454+00:00'
+updated_at: '2026-08-18T21:01:03.420012+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -188,3 +188,132 @@ moved to [[REQ-149]] with §2.
 ## Origin
 
 [[CHAT-25]]. After this, nothing in the authoring loop needs the operator's machine.
+
+
+---
+
+## What landed (2026-08-18)
+
+Commit `2765de0ff` — `feat(control-app): the AI host runs in workerd [FREE-CODED]`, v0.1.58.
+
+### The shape: core + two runtimes
+
+The split mirrors upstream's own `archive.js` / `file_archive.js` shape rather
+than inventing one.
+
+| New | Role |
+|---|---|
+| `tools/generate/src/cli/ai/toolbox-core.ts` | The tool surface. Names no filesystem; library and store are required parameters. |
+| `tools/generate/src/cli/ai/host-core.ts` | The host — session model, tool loop, per-turn change signal, the three entry points. Takes `HostDeps`. |
+| `apps/control-app/src/ai.ts` | **workerd's** runtime for those deps. |
+| `apps/control-app/src/redact.ts` | Secret scrubbing at the response boundary (AC4). |
+| `bin/deploy.d/secrets/10-anthropic-api-key` | Pushes the key as a `wrangler secret`. |
+
+`toolbox.ts` and `host.ts` remain the **Node** entry points and keep their
+existing API exactly — the ~30 call sites and the `1c` CLI are untouched, as §4
+required. `GlobalOptions` is imported from the leaf `cli/options.ts` rather than
+`commands.ts`, because a type-only import of the latter pulled the Astro module
+registry into the Worker's tsc program.
+
+### Four adapters, each replacing a disk
+
+| Node | workerd |
+|---|---|
+| `sharedModuleUrl('ai')` → dynamic `import()` of a file URL | the bundled `/workers` rung, statically imported |
+| `FileArchive(dir)` | `R2TranscriptArchive` |
+| file junction under the cwd | `memoryJunctions()` (REQ-103) |
+| `fileAuditSink` (`appendFileSync`) | `bufferedAuditSink` + a per-turn `flushAudit` |
+
+**The archive keeps the stored form byte for byte.** `Session.toFile()` /
+`fromFile()` round-trip the language-neutral session file, so a conversation
+archived by the Worker still loads in the Node host and in the Python peer. A
+Cloudflare-shaped row format would have made the two runtimes stop being the
+same product.
+
+**The audit is one R2 object per record, not a folded `.jsonl`.** R2 has no
+append; a read-modify-write would let two concurrent turns lose each other's
+records, and an audit that drops entries under load is worse than none because
+it reads as evidence. Distinct keys are append-only by construction.
+
+**The flush is in a `finally`, inside the stream.** Inside, because a Worker may
+be torn down the moment the response completes and `ctx.waitUntil` is not
+reachable from the route; in a `finally`, because an abandoned or failed turn
+must still record what it managed to do.
+
+**Transcripts and audit sit outside `draft/`** — `chat/<tenant>/<session>.md`
+and `audit/<tenant>/<session>/<n>.json`. `draft/` is the only prefix the site
+store composes, and nothing in the router derives an R2 root from a request
+(DOC-12 §7), so no URL can name a transcript.
+
+### Two deviations from §4 worth stating
+
+- **The store is required, not defaulted.** §4 proposed `createL1Toolbox` taking
+  a store *defaulted* to the filesystem. In the core it is required, and the
+  Node default lives in the `toolbox.ts` wrapper instead. A default reaching
+  `fsSiteStore` from the core would have put `node:fs` back on the Worker's
+  import graph — the exact thing AC6 forbids — so the default had to move up a
+  layer. Call sites see no difference.
+- **The chat host is one per isolate, not per request.** Every other route
+  builds its store per request so the tenant check is never stale. The chat
+  routes cannot: the `SessionManager` cache is keyed by the store's *object
+  identity*, so a fresh store per request is a fresh conversation per request.
+  The tenant is still checked once, when the host is built; what is given up is
+  re-checking a mid-isolate deactivation, on these two routes only. Stated in
+  `router.ts` rather than shared, because it is the wrong trade everywhere else.
+
+### AC4 — redaction is a backstop at the boundary
+
+Nothing formats a key into a response on purpose. The leak arrives from below:
+an SDK that puts the request it tried to send into the error it throws. So the
+scrub is applied at the last point before a string becomes a response body — the
+router's outer `catch` and the SSE turn — and matches on the Worker's *known
+secret values*, not on a pattern. A pattern is wrong in both directions: it
+misses a credential in an unexpected shape and mangles prose that happens to
+match.
+
+## Evidence
+
+**Verified here:**
+
+- `tests/test_UAT_FC_REQ-146_worker_ai_boundary.test.ts` — **11/11 pass**. Covers
+  AC4 (redaction, incl. secrets containing regex metacharacters), AC5 and AC6 by
+  walking the Worker's static import graph from `index.ts`. Per DOC-20's
+  "who tests the harness", four cases prove the walker is *non-vacuous* — a
+  deliberately-planted `node:fs` import and a planted filesystem-store import are
+  each caught, so a walker that followed nothing would fail rather than pass.
+- **The shipped bundle** (`wrangler deploy --dry-run`, 1.6 MB): AI library
+  present (`memoryJunctions`, `applyRecords`, `ArchiveSyncer`, `SessionManager`,
+  `fromFile`); `node:` specifiers are `events`, `path`, `process`, `stream` only;
+  **zero** `pathToFileURL`, `require.resolve`, `sharedModuleUrl`, or dynamic URL
+  import. The one `node:fs` string in the bundle is inside an upstream JSDoc
+  comment, not an import. AC5 + AC6.
+- **`1c assets`** emits the AI rung and resolves the component from a linked
+  worktree; `1c preflight` fails loudly when it is absent.
+- **The deploy hook** in all three branches: dry-run announces, `public-site`
+  no-ops silently, and a missing key exits non-zero with a message naming the
+  variable.
+- **Typecheck clean** on both `tools/generate` and `apps/control-app`.
+- **No regression in the AI test scope.** REQ-126 is at its pre-existing 7
+  failures (two regressions found mid-work — REQ-126 7→8 and REQ-130 0→1 — were
+  the same invariant, declaration↔implementation agreement now split across two
+  modules; both tests were updated to compose the two halves and both are back to
+  baseline). Every remaining failure in the scope is one of two pre-existing
+  buckets: sync calls on upstream's now-async `run` (`.toMatch()` got an object,
+  `answer.replace is not a function`), and the sandbox's `listen EPERM`. The
+  async-`run` failures were proved pre-existing by reproducing them with the
+  *pre*-REQ-103 library on the base commit.
+
+**NOT verified here — the gap, stated plainly:**
+
+`tests/test_UAT_FC_REQ-146_ai_host_in_workerd.workers.test.ts` — **9 UATs
+written, none executed.** The workers pool must bind a socket on 127.0.0.1 and
+this sandbox denies `listen` with `EPERM`. This is environmental and not
+specific to these tests: REQ-141's already-landed workers tests fail identically
+here. The nine cover AC1, AC2, AC3, AC7 and the R2 archive round-trip, each
+running inside workerd through the Worker's own `fetch` against real D1 and R2,
+with the Anthropic client as the single double — a streaming double that speaks
+the raw `content_block_start`/`_delta`/`_stop` protocol the backend actually
+consumes, because a finished-message double would assert against a fiction.
+
+**They must be run in an environment that permits socket binding before this is
+believed to work end to end.** AC1–AC3 and AC7 are argued, not demonstrated.
