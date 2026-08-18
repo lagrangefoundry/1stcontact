@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-18T17:34:54.318528+00:00'
+updated_at: '2026-08-18T17:41:47.347581+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -73,5 +73,14 @@ B sounds good - I don't fully understand, but if you can assure me that the fina
 2. Confirm fix them
 3. ok
 4. Please create a ticket for this additional work
+
+<!-- xgd-turn id="7e0d4f27-3155-4cd9-8a41-bebfb1c7a68c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-18T17:41:47.162476+00:00" -->
+#### You
+1. B sounds good - I don't fully understand, but if you can assure me that the final output (the site) looks the same, then I'm all for simplification 
+   2. Confirmed
+   3. Confirmed
+   4. Please create a ticket for this additional work
 
 <!-- xgd-chat-end -->
