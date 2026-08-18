@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-18T20:21:59.332732+00:00'
+updated_at: '2026-08-18T20:53:19.034166+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -141,5 +141,11 @@ The only non-whitespace difference in the entire HTML is `action` → `action=""
 I also filed **REQ-150** for the `1c` bootstrap (Q4) — collapsing Astro's `getViteConfig` to a plain Vite SSR server, kept out of this ticket deliberately.
 
 One environment note: this sandbox blocks socket binding, so the workerd suite and every loopback/browser test (conformance, preview) cannot execute here — they fail with `listen EPERM` identically on the clean tree. I'll report exactly which tests I could and couldn't run rather than implying more coverage than I have.
+
+<!-- xgd-turn id="ae6a4fa6-f92d-4874-8608-0fefb056fc0d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-18T20:53:18.796871+00:00" -->
+#### You
+Please can you create a detailed bug (xgd report-bug) describing the sandbox constraints, the specific ask for this project
 
 <!-- xgd-chat-end -->
