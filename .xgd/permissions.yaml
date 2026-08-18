@@ -1,7 +1,14 @@
 interactive:
   permissions:
-    additionalDirectories: []
-    allow: []
+    additionalDirectories:
+    - /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git
+    - /Users/martin/lagrangefoundry/1stcontact
+    allow:
+    - Edit(//Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/**)
+    - Edit(//Users/martin/lagrangefoundry/1stcontact/**)
     ask: []
     defaultMode: bypassPermissions
-    deny: []
+    deny:
+    - Edit(/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/main/.xgd/permissions.yaml)
+  sandbox:
+    filesystem_level: all_projects
