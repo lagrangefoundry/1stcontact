@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-18T01:00:37.684024+00:00'
+updated_at: '2026-08-18T01:02:09.229181+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -458,5 +458,47 @@ If you'd rather the Node path disappear entirely, that's a follow-up ticket to m
 <!-- xgd-chat role="user" ts="2026-08-18T01:00:37.503063+00:00" -->
 #### You
 With the completion of this bug, is anything ready to demonstrate from Cloudflare?
+
+<!-- xgd-turn id="9851d4e7-8c9b-4b09-a3cd-822188421fee-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T01:02:09.083659+00:00" -->
+#### Claude
+Let me check the actual deployment state rather than infer it.
+
+No — nothing is demonstrable from Cloudflare yet. I checked the account rather than inferring:
+
+| | State |
+|---|---|
+| `1stcontact-control-app` (the builder) | **Never deployed** — "This Worker does not exist on your account" |
+| `app.1stcontact.io` | Doesn't resolve |
+| D1 `1stcontact` | Exists, **0 tables** — migrations have never run remotely |
+| R2 `1stcontact-sites` | Exists; public-site 404s for every site path |
+| `1stcontact-public-site` | Deployed 2026-07-30, serving the placeholder `Hello from 1stcontact.io` |
+| Cloudflare Access | Unconfigured — `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD` empty; ACCESS.md records the builder as "not yet in use" |
+
+The zero-table D1 is worth noting: that's the `migrations_dir` bug I fixed this session. It sat at the top level of `wrangler.toml`, so `wrangler d1 migrations apply` looked in a directory that doesn't exist and silently did nothing — which is why the database has been empty since REQ-143 created it. The fix means the command now works; nobody has run it against production.
+
+**What's actually true after this ticket:** the code is ready to deploy — it bundles (807 KiB), it runs in workerd against real bindings, and the whole loop works locally against `wrangler dev` with real local D1/R2. What's missing is deployment, not implementation.
+
+## What a cloud demo needs, in order
+
+1. **Configure Access** — create the Zero Trust application, then put the team domain and AUD into *both* `[vars]` and `[env.production.vars]`. Until then the deployed Worker fails closed and 503s everything, by design.
+2. **Apply migrations remotely** — `wrangler d1 migrations apply 1stcontact --remote`. Newly possible.
+3. **Deploy** — `bin/build && bin/deploy`.
+4. **Point `app.1stcontact.io` at it** — the route is declared; the hostname needs to exist in the zone.
+5. **Seed it** — `bin/publish --production`, which needs an Access service token in `CF_ACCESS_TOKEN` because the import route sits behind the gate.
+
+## The honest caveat about what you'd see
+
+Even after all five, **your actual sites still won't render.** `xgd` and `gigabytealchemy` both mount `contact-form` on their home pages, so the draft channel returns the REQ-148 message rather than a page. A deployed demo today would show: the builder chrome loading, the site list coming out of D1, and a *scaffolded pure-L1 site* rendering and accepting edits.
+
+So there are two routes to something worth showing:
+
+- **Deploy now** — proves the builder genuinely runs on Cloudflare, demoed against a pure-L1 site. Roughly an hour, mostly Access setup.
+- **Land REQ-148 first** — then the same deployment renders your real sites, which is a far better demo.
+
+I'd do REQ-148 first unless you need the "it's on Cloudflare" milestone sooner. Publishing to the public side is separate again — that's REQ-149, and it's why `1stcontact.io` will keep serving the placeholder either way.
+
+Want me to start REQ-148, or prepare the deployment steps?
 
 <!-- xgd-chat-end -->
