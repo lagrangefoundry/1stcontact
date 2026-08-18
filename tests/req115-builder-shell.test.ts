@@ -14,6 +14,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { unstable_dev, type UnstableDevWorker } from 'wrangler'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { applyLocalD1Schema } from './support/local-d1'
 // REQ-147 made the control app PRIVATE: the front verifies a Cloudflare Access
 // JWT before it proxies. What this AC pins — one host, same origin, verbatim —
 // is what an ADMITTED caller receives, so the caller here is admitted.
@@ -177,6 +178,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
     // store through its own D1/R2 bindings and serves the build artifacts
     // through its assets binding, so what is under test here is the real thing
     // rather than a forwarder in front of one.
+    // The Worker reads its own D1 now, and miniflare's local database
+    // starts with no schema (REQ-145).
+    applyLocalD1Schema(REPO)
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {
