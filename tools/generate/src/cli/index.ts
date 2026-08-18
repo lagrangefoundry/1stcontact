@@ -8,9 +8,11 @@ import {
   cmdRender,
   cmdRevisions,
   ctxOf,
-  InvalidDefinitionError,
   type GlobalOptions,
 } from './commands'
+import { spawn } from 'node:child_process'
+import { cmdAssets, formatAssetReport } from './assets'
+import { pushSite } from './push'
 import { fsSiteStore } from '../store'
 import {
   editAssetAdd,
@@ -49,7 +51,7 @@ import { cmdFontsCheck, formatFontsReport } from './fonts'
 import { cmdColors, cmdColorsAssign, formatAssign, formatCensus } from './colors'
 import { cmdRefold, cmdRepro, cmdL1Gate } from './repro'
 import { cmdGate, formatGateReport } from './gate'
-import { CommandError, EXIT_CODES } from './errors'
+import { CommandError, EXIT_CODES, InvalidDefinitionError } from './errors'
 import { assertInstall, checkInstall, COMMAND_DEPS, INSTALL_COMMAND } from './preflight'
 import {
   assertSharedStore as assertSharedStoreImpl,
@@ -101,7 +103,7 @@ export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
 export { startServe, resolveStaticFile, sendFile, MIME } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
-export { startBuilder, handleBuilderRequest, chromeHtml } from './builder'
+export { startBuilder, handleBuilderRequest } from './builder'
 export type { BuilderOptions, BuilderHandle } from './builder'
 export { PreviewRenderer } from './preview'
 export type { PreviewChannel, PreviewFile, DraftSnapshot } from './preview'
@@ -229,10 +231,11 @@ Usage:
   1c checkout <slug> [<revId>] [--force] [--sandbox]
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
-  1c builder [--sandbox] [--port <n>]
-    The builder's dev origin (REQ-115): the shell chrome, the installed webui components,
-    /api/sites, /api/publish, and every rendered channel at /preview/<slug>/<channel>/.
-    The control-app Worker proxies to it, so the whole builder is one same-origin host.
+  1c builder [--port <n>] [--remote]
+    Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
+    routes, store and runtime as production. Serves what \`1c assets\` built, so run
+    that first. The store is the LOCAL simulated D1/R2; seed it with \`bin/publish\`.
+    --remote points at the deployed D1 and R2, which means editing production data.
 
 System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
   1c kb build
@@ -251,6 +254,22 @@ Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
     them missing — and a missing BROWSER component yields an import map that
     loads and then fails at the first import, in the operator's browser. This is
     where that is caught instead.
+
+Push a site to the cloud store (REQ-145) — what \`bin/publish\` runs:
+  1c push <slug> [--origin URL] [--token JWT] [--json]
+    Reads the local draft (definition + assets) and posts it to the builder Worker's
+    import route, which writes it into D1 and R2 through the same store it serves from.
+    Idempotent: re-running after an edit replaces each page and asset by name.
+    --origin defaults to http://localhost:8788 (\`wrangler dev\`). --token carries a
+    Cloudflare Access service-token JWT when the target is a deployed builder.
+    This is NOT \`1c publish\`, which mints a revision from a draft.
+
+Control-app assets (REQ-145) — the build step behind /builder, /webui and /framework:
+  1c assets [--json]
+    Copies the builder client and each installed webui component into
+    apps/control-app/dist-assets/, type-strips the framework bridges once, and
+    writes the derived import map the Worker serves in its chrome document.
+    Nothing is type-stripped, transpiled or resolved at request time afterwards.
 
 Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
   1c deploy <slug> [--channel draft|published] [--dry-run] [--prune] [--sandbox] [--json]
@@ -516,6 +535,41 @@ export async function run(argv: string[]): Promise<void> {
       return
     }
 
+    case 'push': {
+      // REQ-145 — copy a local site's draft into the cloud store. The WORKER
+      // writes, through the bindings it serves from, because Node has neither a
+      // D1 nor an R2 binding and a second writer would be a second definition of
+      // what a site is made of. See push.ts.
+      const slug = requireSlug(rest[0])
+      const origin = typeof flags.origin === 'string' ? flags.origin : 'http://localhost:8788'
+      const token = typeof flags.token === 'string' ? flags.token : undefined
+      const result = await pushSite(fsSiteStore(ctxOf(global)), slug, {
+        origin,
+        accessToken: token,
+      })
+      if (flags.json === true) {
+        console.log(JSON.stringify(result, null, 2))
+        return
+      }
+      console.log(
+        `pushed ${result.slug} → ${origin}\n` +
+          `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
+          `  assets  ${result.landed.assets}\n` +
+          `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
+      )
+      return
+    }
+
+    case 'assets': {
+      // REQ-145 — the build step that replaces three request-time routes. It runs
+      // before the Worker is bundled, because the Worker serves what it emits.
+      const report = cmdAssets({ cwd: process.cwd() })
+      console.log(
+        flags.json === true ? JSON.stringify(report, null, 2) : formatAssetReport(report),
+      )
+      return
+    }
+
     case 'new': {
       const slug = requireSlug(rest[0])
       const { draftDir } = cmdNew(slug, global)
@@ -618,13 +672,39 @@ export async function run(argv: string[]): Promise<void> {
     }
 
     case 'builder': {
-      const { url } = await startBuilder({
-        ...global,
-        port: typeof flags.port === 'string' ? Number(flags.port) : 8790,
+      // REQ-145 — `1c builder` starts `wrangler dev`, which IS the builder: the
+      // same routes, the same store and the same runtime as production. It used
+      // to start a `node:http` origin of its own, and keeping both would be the
+      // two-code-paths problem `CLAUDE.md` forbids — the operator's local loop
+      // would exercise something the deployed builder is not.
+      //
+      // The Node transport survives as a test harness only (`startBuilder`),
+      // over that same route table. It is not started here.
+      const port = typeof flags.port === 'string' ? flags.port : '8788'
+      const appDir = path.join(process.cwd(), 'apps', 'control-app')
+      const args = ['wrangler', 'dev', '--port', port]
+      // `--remote` edits the DEPLOYED database from a laptop. Local is the
+      // default because a dev loop that writes to production by default is one
+      // keystroke from losing a site; `bin/publish` seeds the local one.
+      if (flags.remote === true) args.push('--remote')
+
+      console.log(
+        `Builder (wrangler dev) on http://localhost:${port}\n` +
+          `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
+          '  seed it with `bin/publish`\n',
+      )
+      const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
+      await new Promise<void>((resolve, reject) => {
+        child.on('error', reject)
+        child.on('exit', (code) => {
+          if (code === 0 || code === null) resolve()
+          else reject(new CommandError({
+            code: 'ENVIRONMENT',
+            message: `wrangler dev exited with ${code}.`,
+            hint: 'Run `1c assets` first — the Worker serves what it builds.',
+          }))
+        })
       })
-      console.log(`Builder origin\n  ${url}`)
-      // Keep the process alive until the server closes.
-      await new Promise<void>(() => {})
       return
     }
 
