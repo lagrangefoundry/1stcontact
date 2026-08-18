@@ -74,6 +74,7 @@ fields:
     new_sha: df9508312058e2e9b14a4e81d1d16d6845cb42e3
   skipped_commits:
   - caeb60b401959fe54206c7c1877103ab9d6debbc
+  - 7a0261676b45494d231c6b7136bd6d0d181f9d1b
 ---
 
 # Bundle
