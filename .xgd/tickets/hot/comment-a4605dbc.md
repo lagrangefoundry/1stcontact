@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-18T20:57:11.247352+00:00'
+updated_at: '2026-08-18T21:26:27.786431+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -181,5 +181,11 @@ The file is in both checkouts (`/Users/martin/lagrangefoundry/1stcontact/.xgd/tm
 - **The ask**: permit loopback + UNIX sockets (this concedes nothing off-box — `allowedHosts: []` can stay), redirect or permit the wrangler log path, make `/dev/fd/*` readable, allow `ps`, and add the xgd store to the allowlist. If loopback can't be opened, XGD should announce it in a session banner and have `xgd quality run` classify socket-blocked failures as `environment` rather than `failure`.
 
 Separately, the comparison run finished while I was writing this: **branch-only failures were exactly the two I'd already fixed** (AC-809/AC-810, a test helper that sliced module CSS at `\n\n/* ` — correct when the chrome was indented inside an `.astro` `<style>`, wrong now it's dedented). I've recorded all of that in REQ-148, including an explicit statement that the workerd UAT for AC-1 and the conformance dimensions **have never executed** and must run somewhere with sockets before the ticket is promoted.
+
+<!-- xgd-turn id="39812f7e-09ea-4953-9483-d374e20f4871-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-18T21:26:27.660904+00:00" -->
+#### You
+ok I create the ticket manually, but I think I see the config fix for the ticket permissions - can you try creating a test ticket now please?
 
 <!-- xgd-chat-end -->
