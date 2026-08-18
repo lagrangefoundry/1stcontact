@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-18T00:54:52.228079+00:00'
+updated_at: '2026-08-18T01:00:37.684024+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -452,5 +452,11 @@ If you'd rather the Node path disappear entirely, that's a follow-up ticket to m
 **REQ-148 is a prerequisite, not a nicety.** Every site in `storage/sites/` mounts `contact-form`, including on its home page, so no *real* site renders through the Worker yet. AC-1 is demonstrated against a scaffolded pure-L1 site; a behavior page fails with a message naming REQ-148.
 
 **`ACCESS_DEV_OPEN` is a bypass.** It opens the Access gate for `wrangler dev`. It applies only when Access is unconfigured, is absent from `[env.production.vars]` (which inherits nothing), and a UAT fails the build if anyone restates it there — two independent mistakes to open production, the standard REQ-147 set. Still worth reading as what it is.
+
+<!-- xgd-turn id="9851d4e7-8c9b-4b09-a3cd-822188421fee-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-18T01:00:37.503063+00:00" -->
+#### You
+With the completion of this bug, is anything ready to demonstrate from Cloudflare?
 
 <!-- xgd-chat-end -->
