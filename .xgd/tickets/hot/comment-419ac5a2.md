@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-18T20:49:09.200960+00:00'
+updated_at: '2026-08-18T21:02:13.126087+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -381,5 +381,66 @@ The prior session's indentation touch made line 284 worse. Let me normalize that
 <!-- xgd-chat role="user" ts="2026-08-18T20:49:08.822748+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="b26144ce-14d5-4c86-bc32-7e9a2afaac3c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T21:02:12.838327+00:00" -->
+#### Claude
+I'll pick up from the indentation fix and get the test suite verified.
+
+A full node suite takes ~35 min and the sandbox's `listen` denial adds heavy noise. Let me launch it detached for a final number while I do focused verification.
+
+Both typecheck clean. Now the REQ-146 node-runnable UAT:
+
+Working directory drifted into `apps/control-app`. Returning to the worktree root:
+
+11/11 pass. Now the AI test scope — the area I split into core/wrapper:
+
+REQ-126 shows exactly 7 — the baseline the prior session recorded. Let me confirm every failure in the scope is the same pre-existing signature rather than anything I introduced:
+
+Every failure is one of two pre-existing buckets — the upstream async-`run` change (sync call on a now-Promise) and the sandbox's `listen` denial. Neither is reachable from my changes. Let me review the remaining new files before committing:
+
+Confirmed environmental — the workers pool needs to bind a socket, which this sandbox denies. That affects every workers test, including REQ-141's landed ones. Let me re-verify the bundle evidence for AC5/AC6, which I *can* check here:
+
+The AI rung emits. Now the decisive bundle check:
+
+The single `node:fs` is inside an upstream JSDoc comment, not an import — AC6 holds. Now confirming the AI library is genuinely bundled (AC5):
+
+All bundle evidence holds. Let me verify the deploy hook, then commit:
+
+All three hook branches behave correctly. Now the version bump and commit:
+
+Committed. Now the merge back per protocol — lock, merge by hand, then promote:
+
+Merged. Now updating the ticket body before promoting — let me read what's there first:
+
+Ticket read. Appending an implementation record rather than replacing:
+
+Lock released cleanly. Let me try to remove the branch ref:
+
+REQ-146 is landed and at `free_coded`. `2765de0ff`, v0.1.58, merged into `xgd-working`.
+
+## What shipped
+
+The AI host now runs in workerd. The split is **core + two runtimes**, mirroring upstream's own `archive.js`/`file_archive.js` shape:
+
+- `toolbox-core.ts` / `host-core.ts` — name no filesystem, take runtime as deps
+- `toolbox.ts` / `host.ts` — stay the Node entry points with their **existing API unchanged**, so the ~30 call sites and the `1c` CLI are untouched
+- `apps/control-app/src/ai.ts` — workerd's runtime
+
+Four adapters replace four disks: the bundled `/workers` rung for the resolved file URL, an R2 archive for `FileArchive`, `memoryJunctions()` for the file junction, and a buffered sink flushed per turn for the appending audit. The archive keeps the language-neutral session file byte for byte, so a conversation archived by the Worker still loads in the Node host and the Python peer.
+
+Two places I deviated from the ticket's §4 plan, both recorded on the ticket:
+
+- **The store is required, not defaulted.** §4 proposed defaulting it to the filesystem. A default reaching `fsSiteStore` from the core would put `node:fs` back on the Worker's import graph — exactly what AC6 forbids — so the Node default moved up into the wrapper.
+- **The chat host is one per isolate**, not per request. The `SessionManager` cache keys on the store's object identity, so a fresh store per request would reset the conversation every turn. The tenant is still checked once at build; what's given up is re-checking a mid-isolate deactivation, on those two routes only.
+
+## The gap you should know about
+
+**The 9 workerd UATs were written but never executed.** The workers pool must bind a socket on 127.0.0.1 and this sandbox denies `listen` with `EPERM` — environmental, not specific to my tests (REQ-141's already-landed workers tests fail identically here). Those nine cover **AC1, AC2, AC3 and AC7**. Those criteria are argued, not demonstrated. They need a run in an environment that permits socket binding before this is believed to work end to end.
+
+What I did verify: 11/11 node UATs pass (AC4, AC5, AC6 — including four cases proving the import-graph walker actually catches a planted `node:fs` import rather than passing vacuously); the shipped 1.6 MB bundle contains the AI library and zero `node:fs`/`pathToFileURL`/`require.resolve`/dynamic-URL imports; the deploy hook behaves in all three branches; both projects typecheck; and the AI test scope is at its pre-existing failure count, with every remaining failure traced to either upstream's now-async `run` or the sandbox's `listen` denial.
+
+Two loose ends: `.git/worktrees/free-REQ-146` metadata couldn't be deleted (sandbox denies writing there — `free-REQ-145` and `free-REQ-148` carry the same residue, so it's pre-existing). The branch ref and merge lock are both gone. And publishing stays 501 and stays REQ-149's, as you decided.
 
 <!-- xgd-chat-end -->
