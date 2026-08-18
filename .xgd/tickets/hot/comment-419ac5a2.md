@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-18T01:36:45.943750+00:00'
+updated_at: '2026-08-18T01:38:40.776183+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -71,5 +71,12 @@ My recommendation: **drop §2 and let REQ-149 own publish.** It's a storage-cont
 My recommendation is **(b) now, (a) next**, with REQ-146's body rewritten to say so and its acceptance criteria narrowed to what (b) actually proves.
 
 I've made no code changes and created no tickets. Tell me which way you want it and I'll update the ticket body accordingly and start.
+
+<!-- xgd-turn id="a7da3aac-2fa0-4161-94c9-73ef391f7a36-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-18T01:38:40.632864+00:00" -->
+#### You
+Yes, drop 2
+Wait for 103
 
 <!-- xgd-chat-end -->
