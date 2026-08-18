@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-18T21:26:27.786431+00:00'
+updated_at: '2026-08-18T21:27:53.069743+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -187,5 +187,34 @@ Separately, the comparison run finished while I was writing this: **branch-only 
 <!-- xgd-chat role="user" ts="2026-08-18T21:26:27.660904+00:00" -->
 #### You
 ok I create the ticket manually, but I think I see the config fix for the ticket permissions - can you try creating a test ticket now please?
+
+<!-- xgd-turn id="39812f7e-09ea-4953-9483-d374e20f4871-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T21:27:52.889638+00:00" -->
+#### Claude
+Tried it — **still blocked**, and I've pinned the exact cause.
+
+```
+$ xgd report-bug --title "TEST TICKET — sandbox write-permission probe (delete me)" ...
+Error: ticket://lagrangefoundry/xgd/ refused: git hash-object -w /tmp/…yaml failed:
+       error: unable to create temporary file: Operation not permitted
+```
+
+**The gap:** the xgd ticket store's root is `/Users/martin/lagrangefoundry/xgd` (per `~/.xgd/projects.yaml` line 26–29), and that path is absent from the sandbox write allowlist. Direct probes:
+
+| Path | Writable |
+|---|---|
+| `/Users/martin/lagrangefoundry/xgd` | **BLOCKED** |
+| `/Users/martin/lagrangefoundry/xgd/.git` | **BLOCKED** |
+| `/Users/martin/lagrangefoundry/xgd/.git/objects` | **BLOCKED** |
+| `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_xgd.git` | writable |
+
+The allowlist has all seven `~/.xgd/worktrees/git_github.com_lagrangefoundry_*.git` roots plus the current project's primary checkout (`/Users/martin/lagrangefoundry/1stcontact`) — but not the *other* projects' primary checkouts. The temp file `xgd` writes is fine; it's `git hash-object -w` failing to create its scratch file inside `.git/objects/`.
+
+**No workaround via the worktree.** I tested that too: `…/worktrees/…xgd.git/main` is writable, but its `.git` is a pointer (`gitdir: /Users/martin/lagrangefoundry/xgd/.git/worktrees/main`) and objects still land in the primary store — `git hash-object -w` from there fails identically.
+
+**The fix:** add `/Users/martin/lagrangefoundry/xgd` to the sandbox write allowlist. I can't apply it myself — the settings files that would carry it (`~/.claude-2/settings.json`, `1stcontact/.claude/settings.json`, `settings.local.json`) are all in the sandbox's `denyWithinAllow` list, and none of them currently contains the filesystem allowlist anyway (it looks derived from working dirs + `projects.yaml` worktree roots rather than written literally).
+
+The bug body is still at `.xgd/tmp/REQ-148-sandbox-bug.md` in both checkouts if you want to file it manually once the path opens up.
 
 <!-- xgd-chat-end -->
