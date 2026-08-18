@@ -5,10 +5,10 @@ type: bundle
 title: REQ-133 + BUG-35 + REQ-131 + REQ-140 + REQ-139 + 4 more
 created_by: xgd
 created_at: '2026-08-18T17:25:57.653435+00:00'
-updated_at: '2026-08-18T17:25:57.653435+00:00'
+updated_at: '2026-08-18T17:26:37.052657+00:00'
 completed_at: null
-last_field_updated: created_at
-status: ready_to_reconcile
+last_field_updated: status
+status: reconciling
 fields:
   commits:
   - working_sha: 8e66fef6becf576d5f54bfc1cc199ea2ba44c9b5
