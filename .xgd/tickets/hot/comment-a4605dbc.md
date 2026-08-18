@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-18T20:53:19.034166+00:00'
+updated_at: '2026-08-18T20:57:11.247352+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -147,5 +147,39 @@ One environment note: this sandbox blocks socket binding, so the workerd suite a
 <!-- xgd-chat role="user" ts="2026-08-18T20:53:18.796871+00:00" -->
 #### You
 Please can you create a detailed bug (xgd report-bug) describing the sandbox constraints, the specific ask for this project
+
+<!-- xgd-turn id="ae6a4fa6-f92d-4874-8608-0fefb056fc0d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T20:57:11.090270+00:00" -->
+#### Claude
+The bug is written but **`xgd report-bug` cannot run from this session** — which turned out to be the sharpest evidence for the report itself:
+
+```
+Error: ticket://lagrangefoundry/xgd/ refused: git hash-object -w /tmp/…yaml failed:
+       error: unable to create temporary file: Operation not permitted
+```
+
+The sandbox's write allowlist covers 1stcontact and its worktrees but not the **xgd repo's own git object store**, so an assistant that hits a tooling defect can't file it from the session that hit it. I added that as a finding and saved the body for you to file:
+
+```
+xgd report-bug \
+  --title "xgd claude sandbox blocks all socket binding: workerd suite unrunnable, 51 of 57 node test-file failures are environmental (1stcontact)" \
+  --fields '{"severity":"high"}' \
+  --body-file .xgd/tmp/REQ-148-sandbox-bug.md
+```
+
+The file is in both checkouts (`/Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/` and the `free-REQ-148` worktree).
+
+**What it says**, grounded in measurements from a clean `xgd-working` checkout:
+
+- No sockets at all — loopback TCP, `0.0.0.0`, and UNIX domain sockets are all `EPERM`. Probes included.
+- **51 of 57** failing node test files fail from this; 6 fail for genuine pre-existing reasons. The **workerd project is 0-of-3 runnable** — Miniflare's `listen()` throws an unhandled `'error'` and Node aborts, so those tests produce no result at all.
+- It removes exactly the layer that proves this product works: conformance (DOC-20 serves a one-module page and drives a browser), the builder/request-time render, and every workerd claim REQ-141/143/145/148 exist to make.
+- Blocked sockets don't fail fast — they burn the timeout. One file takes 1440s; a full run is 31 minutes, nearly all of it waiting.
+- The worst cost is signal: with 51 doomed files, telling your own regression from the floor requires running the same suite on a clean checkout and diffing failure sets. I did that for REQ-148; it cost an hour to learn my only two regressions were ones I'd already fixed.
+- Secondary frictions: unwritable `~/Library/Preferences/.wrangler/` (15 lines of EPERM noise before every test run), `diff <(a) <(b)` → `/dev/fd/11: Operation not permitted`, `ps` denied, `nice` warnings, `git push` failing so tickets stay local.
+- **The ask**: permit loopback + UNIX sockets (this concedes nothing off-box — `allowedHosts: []` can stay), redirect or permit the wrangler log path, make `/dev/fd/*` readable, allow `ps`, and add the xgd store to the allowlist. If loopback can't be opened, XGD should announce it in a session banner and have `xgd quality run` classify socket-blocked failures as `environment` rather than `failure`.
+
+Separately, the comparison run finished while I was writing this: **branch-only failures were exactly the two I'd already fixed** (AC-809/AC-810, a test helper that sliced module CSS at `\n\n/* ` — correct when the chrome was indented inside an `.astro` `<style>`, wrong now it's dedented). I've recorded all of that in REQ-148, including an explicit statement that the workerd UAT for AC-1 and the conformance dimensions **have never executed** and must run somewhere with sockets before the ticket is promoted.
 
 <!-- xgd-chat-end -->
