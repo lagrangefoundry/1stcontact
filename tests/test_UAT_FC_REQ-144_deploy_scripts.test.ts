@@ -109,6 +109,13 @@ describe('REQ-144 — build, deploy and smoke scripts', () => {
 
       for (const envName of envNames) {
         const missing = missingFromEnv(config, envName)
+        // ONE EXCEPTION, and it is the inverse of this rule rather than a hole in
+        // it: `ACCESS_DEV_OPEN` opens an unconfigured Access gate for
+        // `wrangler dev` (REQ-145), and its ABSENCE from production is what
+        // makes that safe. A named environment inheriting no vars is exactly why
+        // the top-level declaration cannot reach the deployed Worker. The REQ-145
+        // suite asserts it stays absent; this one must not demand it be present.
+        missing.vars = missing.vars.filter((v) => v !== 'ACCESS_DEV_OPEN')
         expect(
           missing.vars,
           `apps/${app}/wrangler.toml: [env.${envName}] does not repeat top-level vars ` +
@@ -165,10 +172,25 @@ bucket_name = "1stcontact-sites"
   })
 
   /** AC1 — the fix itself, stated as a fact about the file rather than a diff. */
-  it('test_UAT_FC_REQ-144_control_app_production_carries_the_builder_origin', () => {
+  /**
+   * REQ-145 DELETED THE VAR THIS ONCE PINNED. `control-app` proxied to a Node
+   * origin named by `BUILDER_ORIGIN`; it is the origin now, so the var is gone
+   * rather than emptied. What still has to hold is the property that made the
+   * original assertion worth writing — the deployed Worker must carry the
+   * configuration it cannot run without — so it is repointed at the store and
+   * tenancy that replaced it.
+   */
+  it('test_UAT_FC_REQ-144_control_app_production_carries_what_it_cannot_run_without', () => {
     const config = readWranglerConfig(path.join(REPO, 'apps', 'control-app', 'wrangler.toml'))
-    expect(config.topLevel.vars).toContain('BUILDER_ORIGIN')
-    expect(config.envs.production.vars).toContain('BUILDER_ORIGIN')
+    expect(config.topLevel.vars).not.toContain('BUILDER_ORIGIN')
+    expect(config.envs.production.vars).not.toContain('BUILDER_ORIGIN')
+
+    for (const key of ['TENANT_ID', 'ACCESS_TEAM_DOMAIN', 'ACCESS_AUD']) {
+      expect(config.envs.production.vars, key).toContain(key)
+    }
+    for (const binding of ['d1_databases:DB', 'r2_buckets:SITES', 'assets:ASSETS']) {
+      expect(config.envs.production.bindings, binding).toContain(binding)
+    }
   })
 
   /** AC3 — the three scripts exist and are runnable, not merely committed. */

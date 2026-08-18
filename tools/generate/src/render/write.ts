@@ -44,6 +44,32 @@ export async function astroContainer() {
 }
 
 /**
+ * The render, with the seam a NODE host can supply already injected (REQ-145).
+ *
+ * `renderSiteFiles` deliberately imports neither Astro nor the module registry,
+ * because it is bundled into a Worker and a bundler resolves a static specifier
+ * whether or not the branch runs. That makes the seam the CALLER's to supply —
+ * and every Node caller supplies the same one, so it is named once here instead
+ * of restated at each call site, where the third copy would be the one that
+ * quietly disagreed.
+ */
+export function renderSiteFilesNode(
+  loaded: LoadedSite,
+  opts: RenderSiteOptions = {},
+): ReturnType<typeof renderSiteFiles> {
+  // Per key, NOT a spread. A caller that passes `resolveModule: undefined` —
+  // the conformance harness does, forwarding an optional of its own — would
+  // otherwise overwrite the default with `undefined` and fail as though it had
+  // asked for no resolver at all. Absent must mean absent, not "explicitly
+  // nothing".
+  return renderSiteFiles(loaded, {
+    ...opts,
+    resolveModule: opts.resolveModule ?? getModule,
+    createContainer: opts.createContainer ?? astroContainer,
+  })
+}
+
+/**
  * Render `loaded` to `outDir`. The directory is emptied first so stale pages
  * never linger. Writes `<slug>.html` per page, an `index.html` alias for the
  * home page, the per-site `theme.css`, and copies `assets/` through.
@@ -56,11 +82,7 @@ export async function renderSite(
   outDir: string,
   opts: RenderSiteOptions = {},
 ): Promise<string[]> {
-  const rendered = await renderSiteFiles(loaded, {
-    resolveModule: getModule,
-    createContainer: astroContainer,
-    ...opts,
-  })
+  const rendered = await renderSiteFilesNode(loaded, opts)
   emptyDir(outDir)
   for (const [rel, text] of rendered.files) {
     writeText(path.join(outDir, rel), text)

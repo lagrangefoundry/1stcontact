@@ -209,14 +209,19 @@ describe('REQ-147 — the builder is private', () => {
    * that the gate is not what stops one.
    */
   it('test_UAT_FC_REQ-147_a_valid_access_identity_reaches_the_worker', async () => {
-    const net = stubNetwork()
+    stubNetwork()
     const token = await mint({ email: 'martin-github@westhead.me' })
 
     const response = await worker.fetch(GET({ 'cf-access-jwt-assertion': token }), ENV)
 
+    // What lies BEHIND the gate changed with REQ-145 — there is no origin to
+    // forward to any more, so an admitted caller now gets the Worker's own
+    // chrome document instead of a proxied body. The claim under test is
+    // unchanged and is the one this ticket owns: a valid identity is let
+    // through, and the gate is not what stops the builder working.
     expect(response.status).toBe(200)
-    expect(await response.text()).toBe('the builder')
-    expect(net.origin, 'the request never reached the builder origin').toHaveLength(1)
+    expect(response.headers.get('content-type')).toContain('text/html')
+    expect(await response.text()).toContain('1st Contact builder')
   })
 
   /** A browser holds the same JWT in a cookie; the gate must read either. */

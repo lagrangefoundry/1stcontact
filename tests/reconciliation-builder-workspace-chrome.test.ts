@@ -448,7 +448,13 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a split and persistence', () => 
 function* walk(dir: string): Generator<string> {
   if (!fs.existsSync(dir)) return
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
+    // `dist-assets` is BUILD OUTPUT (`1c assets`, REQ-145): copies of the very
+    // components and browser source these scans are checking for duplication of.
+    // Walking it would report the build as a second definition site and as
+    // vendored upstream source — the artifact accused of being the thing it was
+    // copied from. It is gitignored for the same reason.
+    if (entry.name === 'node_modules' || entry.name === 'dist-assets') continue
+    if (entry.name.startsWith('.')) continue
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) yield* walk(full)
     else if (/\.(ts|js|mjs|astro|html)$/.test(entry.name)) yield full

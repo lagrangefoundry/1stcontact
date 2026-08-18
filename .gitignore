@@ -176,8 +176,13 @@ Cargo.lock  # Remove this line if project is a binary/application
 # `wrangler dev` / `wrangler deploy [--dry-run]`. Never committed.
 .wrangler/
 
-# REQ-145 — the control app's asset build output. Built by `1c assets` from the
-# builder client and the out-of-repo shared component store; never a source of
-# truth, and never committed. `src/generated/importmap.json` is IS committed:
-# the Worker imports it, so a checkout must typecheck before `1c assets` runs.
+# REQ-145 — the control app's build output, both halves. Built by `1c assets`
+# from the builder client and the out-of-repo shared component store.
+#
+# `src/generated/importmap.json` is generated too, and is ignored for a REASON
+# the repo already enforces: a checked-in copy of a generator's output is a
+# SECOND DEFINITION SITE for the component scope, and BUG-32's scan fails on it
+# (an `index.html` was deleted for exactly this before). `bin/build` runs
+# `1c assets` before it typechecks, so the Worker always has one to import.
 /apps/control-app/dist-assets/
+/apps/control-app/src/generated/

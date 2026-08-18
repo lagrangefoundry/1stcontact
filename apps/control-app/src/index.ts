@@ -60,27 +60,17 @@ function isUnconfiguredLocalDev(env: Env): boolean {
 }
 
 /**
- * FRESHNESS, SET ONCE, FOR EVERY RESPONSE THIS WORKER CAN PRODUCE.
+ * The freshness directive is the ROUTER's, not this file's — see `router.ts`.
+ * It was here first, which left the Node transport (which calls `route()`
+ * directly) serving uncached-but-unmarked bytes: a per-host restatement is as
+ * forgettable as a per-route one.
  *
- * The builder rewrites its own bytes underneath the browser — a save changes the
- * very channel the frame is displaying — so a single cacheable response leaves
- * an operator looking at a stale page that appears to be working. Stamping here,
- * on the way out, means the directive covers the chrome document, every JSON
- * envelope, every rendered preview and every 400/404/500/501 alike.
- *
- * It is one wrapper rather than a header per route because a per-route
- * restatement is precisely how the last hole opened: the Node origin's `json()`
- * helper was written with its own two headers and never carried the directive,
- * so `/api/sites` — the response that populates the site selector — was
- * cacheable, and a newly created site could stay invisible behind a workspace
- * that looked correct. A route added tomorrow inherits this instead of needing
- * to remember it.
+ * What remains here is the failure this file alone can produce: a store that
+ * could not be constructed, before any route ran.
  */
-const NO_STORE = 'no-store, must-revalidate'
-
 function uncacheable(response: Response): Response {
   const headers = new Headers(response.headers)
-  headers.set('cache-control', NO_STORE)
+  headers.set('cache-control', 'no-store, must-revalidate')
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
@@ -92,7 +82,7 @@ export default {
     }
 
     try {
-      return uncacheable(await route(request, env))
+      return await route(request, env)
     } catch (err) {
       // Anything reaching here escaped the router's own handler — a store that
       // could not be constructed, most likely a missing binding or an unknown

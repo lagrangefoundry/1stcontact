@@ -10,6 +10,7 @@ import {
   ctxOf,
   type GlobalOptions,
 } from './commands'
+import { spawn } from 'node:child_process'
 import { cmdAssets, formatAssetReport } from './assets'
 import { pushSite } from './push'
 import { fsSiteStore } from '../store'
@@ -108,7 +109,7 @@ export { CommandError, EXIT_CODES } from './errors'
 export type { ErrorCode, CommandErrorShape } from './errors'
 export { startServe, resolveStaticFile, sendFile, MIME } from './serve'
 export type { ServeOptions, ServeHandle } from './serve'
-export { startBuilder, handleBuilderRequest, chromeHtml } from './builder'
+export { startBuilder, handleBuilderRequest } from './builder'
 export type { BuilderOptions, BuilderHandle } from './builder'
 export { PreviewRenderer } from './preview'
 export type { PreviewChannel, PreviewFile, DraftSnapshot } from './preview'
@@ -236,10 +237,11 @@ Usage:
   1c checkout <slug> [<revId>] [--force] [--sandbox]
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
-  1c builder [--sandbox] [--port <n>]
-    The builder's dev origin (REQ-115): the shell chrome, the installed webui components,
-    /api/sites, /api/publish, and every rendered channel at /preview/<slug>/<channel>/.
-    The control-app Worker proxies to it, so the whole builder is one same-origin host.
+  1c builder [--port <n>] [--remote]
+    Starts \`wrangler dev\` on apps/control-app — the builder itself, with the same
+    routes, store and runtime as production. Serves what \`1c assets\` built, so run
+    that first. The store is the LOCAL simulated D1/R2; seed it with \`bin/publish\`.
+    --remote points at the deployed D1 and R2, which means editing production data.
 
 System knowledge base (REQ-123) — what the builder AI knows, as a release artefact:
   1c kb build
@@ -695,13 +697,39 @@ export async function run(argv: string[]): Promise<void> {
     }
 
     case 'builder': {
-      const { url } = await startBuilder({
-        ...global,
-        port: typeof flags.port === 'string' ? Number(flags.port) : 8790,
+      // REQ-145 — `1c builder` starts `wrangler dev`, which IS the builder: the
+      // same routes, the same store and the same runtime as production. It used
+      // to start a `node:http` origin of its own, and keeping both would be the
+      // two-code-paths problem `CLAUDE.md` forbids — the operator's local loop
+      // would exercise something the deployed builder is not.
+      //
+      // The Node transport survives as a test harness only (`startBuilder`),
+      // over that same route table. It is not started here.
+      const port = typeof flags.port === 'string' ? flags.port : '8788'
+      const appDir = path.join(process.cwd(), 'apps', 'control-app')
+      const args = ['wrangler', 'dev', '--port', port]
+      // `--remote` edits the DEPLOYED database from a laptop. Local is the
+      // default because a dev loop that writes to production by default is one
+      // keystroke from losing a site; `bin/publish` seeds the local one.
+      if (flags.remote === true) args.push('--remote')
+
+      console.log(
+        `Builder (wrangler dev) on http://localhost:${port}\n` +
+          `  store: ${flags.remote === true ? 'REMOTE — this edits production data' : 'local'}\n` +
+          '  seed it with `bin/publish`\n',
+      )
+      const child = spawn('npx', args, { cwd: appDir, stdio: 'inherit' })
+      await new Promise<void>((resolve, reject) => {
+        child.on('error', reject)
+        child.on('exit', (code) => {
+          if (code === 0 || code === null) resolve()
+          else reject(new CommandError({
+            code: 'ENVIRONMENT',
+            message: `wrangler dev exited with ${code}.`,
+            hint: 'Run `1c assets` first — the Worker serves what it builds.',
+          }))
+        })
       })
-      console.log(`Builder origin\n  ${url}`)
-      // Keep the process alive until the server closes.
-      await new Promise<void>(() => {})
       return
     }
 
