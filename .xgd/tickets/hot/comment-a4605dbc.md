@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-18T01:37:08.034474+00:00'
+updated_at: '2026-08-18T17:34:54.318528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -63,5 +63,15 @@ Under B, node and worker run the *same* function, so node↔worker parity is str
 `tools/generate/bin/1c.mjs` boots a Vite server via Astro's `getViteConfig` *solely* because the render path imports `.astro`. With no `.astro` left, that could become a plain Vite SSR server. My recommendation is to **leave it alone in this ticket** — it keeps working, and changing the CLI bootstrap is a separate risk surface. Agree, or do you want it collapsed here?
 
 I'll hold off on the branch and any code until you answer. Once you do, I'll populate the ticket body with the settled design before writing anything.
+
+<!-- xgd-turn id="a7fe343f-90be-4c10-b0f1-feb2673cf314-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-18T17:34:54.068658+00:00" -->
+#### You
+B sounds good - I don't fully understand, but if you can assure me that the final output (the site) looks the same, then I'm all for simplification
+
+2. Confirm fix them
+3. ok
+4. Please create a ticket for this additional work
 
 <!-- xgd-chat-end -->
