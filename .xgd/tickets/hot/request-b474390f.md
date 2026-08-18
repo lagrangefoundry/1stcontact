@@ -6,7 +6,7 @@ title: 'control-app becomes the builder: client as build artifact, routes and L1
   in workerd, proxy deleted'
 created_by: xgd
 created_at: '2026-08-15T20:33:04.522130+00:00'
-updated_at: '2026-08-17T21:09:39.580474+00:00'
+updated_at: '2026-08-18T00:43:57.776217+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -205,3 +205,86 @@ and **not** caused by this work: 56 tests across the AI/toolbox and L1-surface
 families (`reconciliation-assistant-*`, `test_UAT_FC_REQ-122_*`,
 `test_UAT_FC_REQ-126/127/129_*`, `reconciliation-page-composition-surface`,
 `bug32-webui-scope-rebrand`).
+
+
+---
+
+## Completed — 2026-08-17
+
+Commits `5352c5131a0da1350e980a06f3ca5338cfcf7d9b` (phases 1–4) and
+`99f90873e2161a4d6e524de99d7dfc1f8afc8e47` (phase 5).
+
+### Phase 5, as landed
+
+The Node origin's duplicate route table is gone. `cli/builder.ts` drops from 730
+lines to a **transport**: `node:http` in, `Request`/`Response` out, into the
+Worker's own `route()`. One route table, one set of edit functions, one render —
+two front doors. `1c builder` spawns `wrangler dev` (AC-8).
+
+**Why the transport survives rather than being deleted.** 36 test files drive the
+builder over HTTP, most about features that merely need an origin — the copy
+modal, the image picker, the palette popup. Deleting it meant rewriting all 36.
+Keeping it as a transport costs no second implementation (`CLAUDE.md` forbids two
+*implementations*, and there is one) and lets those tests keep covering
+behavior-module pages the Worker cannot render until [[REQ-148]]. Three routes
+live there and nowhere else because no Worker can host them yet: `/api/ai/*`
+(lagrange-framework REQ-103), `/api/publish` and the `published` channel
+([[REQ-149]]). The router answers 501 for all three.
+
+### Two defects the transport surfaced
+
+- **The `no-store` directive was in the Worker's `fetch`**, so the Node transport
+  served the chrome document with no directive at all — the same hole the old
+  `json()` helper opened, one layer up. A per-*host* restatement is as forgettable
+  as a per-route one. It is the router's now.
+- **The preview-render cache was keyed by tenant id**, which is `local` for every
+  Node workspace — one workspace's renderer served all the others. Keyed by the
+  store object (a `WeakMap`) instead.
+
+### Acceptance criteria
+
+| AC | State |
+|---|---|
+| 1 — chrome, listing, draft + edit render with no Node origin | met (pure-L1 site; see the caveat below) |
+| 2 — edits produce the same store state as the CLI | met |
+| 3 — preview iframe same-origin, new tab identical URL | met |
+| 4 — no proxy, no `BUILDER_ORIGIN` | met |
+| 5 — nothing type-strips or reads source at request time | met |
+| 6 — clean `pnpm -r build` and typecheck | met (`bin/build` green; both Workers bundle) |
+| 7 — `bin/publish` copies a site into D1/R2, idempotent | met |
+| 8 — `1c builder` starts `wrangler dev` | met |
+| 9 — deferred routes answer 501 by name | met |
+
+**AC-1's caveat stands**: every site in `storage/sites/` mounts `contact-form`,
+so AC-1 is demonstrated against a scaffolded pure-L1 site. [[REQ-148]] is a
+prerequisite for using this on real content.
+
+### Evidence
+
+- Full node suite: **56 failures, exactly the pre-existing baseline** — none
+  attributable to this work. (The baseline is the AI/toolbox and L1-surface
+  families, confirmed failing identically on untouched `xgd-working`.)
+- Workers suite: **38/38**, inside workerd against real D1 and R2.
+- `bin/build`: preflight, assets, typecheck, both Worker bundles — clean.
+  control-app 807 KiB / 150 KiB gzipped.
+- End-to-end against `wrangler dev`: both repo sites imported via `bin/publish`;
+  chrome, listing, render, palette write and asset fetch all served.
+
+### Also fixed here
+
+`migrations_dir` sat at the top level of `wrangler.toml` since REQ-143, where
+wrangler warns, ignores it and looks elsewhere — `d1 migrations apply` had never
+run. Moved onto the D1 binding, pinned by a UAT.
+
+`importmap.json` is generated and gitignored rather than committed: a checked-in
+copy of a generator's output is a second definition site, which BUG-32's scan
+fails on. `bin/build` runs `1c assets` before the typecheck so a fresh checkout
+has one.
+
+### Note for review
+
+`ACCESS_DEV_OPEN` is a new var that opens the Access gate for `wrangler dev`. It
+applies only when Access is unconfigured, is absent from `[env.production.vars]`
+(which inherits nothing), and a UAT fails the build if anyone restates it there —
+two independent mistakes to open production, the standard REQ-147 set for
+`workers_dev`. It is still a bypass and should be read as one.
