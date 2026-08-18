@@ -10,6 +10,7 @@ import {
 } from '../../../tools/generate/src/cli/edit'
 import { CommandError, InvalidDefinitionError } from '../../../tools/generate/src/cli/errors'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
+import type { RenderSiteOptions } from '../../../tools/generate/src/render/render'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import { chromeHtml } from './chrome'
@@ -48,18 +49,27 @@ import { storeFor, storeForImport, type StoreEnv } from './store'
 const PREVIEW_CHANNELS: PreviewChannel[] = ['draft', 'edit']
 
 /**
- * One {@link PreviewRenderer} per isolate, so the render cache survives across
+ * One {@link PreviewRenderer} per STORE, so the render cache survives across
  * requests. A cache entry can never go stale: the renderer re-checks the
  * definition's stamp before reading it, which is a store read either way — the
  * cache saves the *render*, not the lookup that proves it current.
+ *
+ * Keyed by the store OBJECT, not by its tenant id. The Worker has one store per
+ * tenant per isolate, so the two are equivalent there — but the Node transport
+ * opens a store per workspace, all of them the same notional tenant, and a
+ * tenant-keyed cache handed the first workspace's renderer to every later one.
+ * A `WeakMap` also lets a finished workspace's renderer be collected with it.
  */
-const PREVIEWS = new Map<string, PreviewRenderer>()
+const PREVIEWS = new WeakMap<TenantSiteStore, PreviewRenderer>()
 
-function previewRenderer(store: TenantSiteStore): PreviewRenderer {
-  let renderer = PREVIEWS.get(store.tenantId)
+function previewRenderer(
+  store: TenantSiteStore,
+  render: RouterDeps['render'],
+): PreviewRenderer {
+  let renderer = PREVIEWS.get(store)
   if (!renderer) {
-    renderer = new PreviewRenderer(store)
-    PREVIEWS.set(store.tenantId, renderer)
+    renderer = new PreviewRenderer(store, render)
+    PREVIEWS.set(store, renderer)
   }
   return renderer
 }
@@ -101,7 +111,70 @@ export interface RouterEnv extends StoreEnv {
   ASSETS: Fetcher
 }
 
-export async function route(request: Request, env: RouterEnv): Promise<Response> {
+/**
+ * What the route table needs from its host, so that ONE route table can serve
+ * two transports (REQ-145).
+ *
+ * The Worker supplies neither and gets the defaults: a D1/R2 store from its
+ * bindings, and no render seam, which is what confines it to L1 (REQ-148).
+ * `1c builder`'s Node transport supplies both — a filesystem-backed store and
+ * the Astro container — so the test suite and the operator's local loop drive
+ * the SAME routing, edits and render as production rather than a second
+ * implementation that agrees with it today.
+ */
+export interface RouterDeps {
+  /** The store this request reads and writes through. */
+  store?: (env: RouterEnv) => Promise<TenantSiteStore>
+  /** The store an import writes through — it may register the configured tenant. */
+  importStore?: (env: RouterEnv) => Promise<TenantSiteStore>
+  /**
+   * The Astro container and module resolver, for a host that can supply them.
+   * Absent means a page mounting a behavior fails by name — see REQ-148.
+   */
+  render?: Pick<RenderSiteOptions, 'createContainer' | 'resolveModule'>
+}
+
+/**
+ * FRESHNESS, SET ONCE, FOR EVERY RESPONSE THIS ROUTE TABLE CAN PRODUCE.
+ *
+ * The builder rewrites its own bytes underneath the browser — a save changes the
+ * very channel the frame is displaying — so a single cacheable response leaves
+ * an operator looking at a stale page that appears to be working. Stamping on
+ * the way out covers the chrome document, every JSON envelope, every rendered
+ * preview, every build artifact and every 400/404/500/501 alike.
+ *
+ * IT LIVES HERE, NOT IN THE WORKER'S `fetch`. It was in `fetch` first, and the
+ * Node transport — which calls `route()` directly — therefore served the chrome
+ * document with no directive at all. That is the same hole the Node origin's
+ * `json()` helper once opened, rediscovered one layer up: a per-HOST
+ * restatement is as forgettable as a per-route one. One wrapper, at the only
+ * point every host shares.
+ */
+const NO_STORE = 'no-store, must-revalidate'
+
+function uncacheable(response: Response): Response {
+  const headers = new Headers(response.headers)
+  headers.set('cache-control', NO_STORE)
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  })
+}
+
+export async function route(
+  request: Request,
+  env: RouterEnv,
+  deps: RouterDeps = {},
+): Promise<Response> {
+  return uncacheable(await routeUncached(request, env, deps))
+}
+
+async function routeUncached(
+  request: Request,
+  env: RouterEnv,
+  deps: RouterDeps = {},
+): Promise<Response> {
   const url = new URL(request.url)
   const p = url.pathname
   const method = request.method
@@ -153,7 +226,7 @@ export async function route(request: Request, env: RouterEnv): Promise<Response>
       // because `forTenant` refuses an unknown tenant — which on a fresh
       // database is every request, including the one that would populate it.
       // `storeForImport` registers the configured tenant and no other.
-      const importStore = await storeForImport(env)
+      const importStore = await (deps.importStore ?? storeForImport)(env)
       await importStore.createDraft(payload.slug)
       const write = payloadToWrite(payload)
       await importStore.write(payload.slug, write)
@@ -171,7 +244,7 @@ export async function route(request: Request, env: RouterEnv): Promise<Response>
     }
   }
 
-  const store = await storeFor(env)
+  const store = await (deps.store ?? storeFor)(env)
   // `actor: 'client'` — REQ-131. A write arriving on these routes is the
   // operator's own hand in the builder, and the journal says so, which is the
   // difference between the assistant reading "you changed this" and reading
@@ -317,7 +390,7 @@ export async function route(request: Request, env: RouterEnv): Promise<Response>
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
       }
-      return servePreview(store, slug, channel as PreviewChannel, preview[3] ?? '/')
+      return servePreview(store, slug, channel as PreviewChannel, preview[3] ?? '/', deps.render)
     }
 
     // Not a route: the build artifacts, or a genuine 404 from the binding that
@@ -344,10 +417,11 @@ async function servePreview(
   slug: string,
   channel: PreviewChannel,
   rel: string,
+  render: RouterDeps['render'],
 ): Promise<Response> {
   let file
   try {
-    file = await previewRenderer(store).file(slug, channel, rel)
+    file = await previewRenderer(store, render).file(slug, channel, rel)
   } catch (err) {
     // A definition that no longer validates is the one failure this route can
     // hit that the OPERATOR can fix, and it is visible the moment it happens
@@ -370,7 +444,10 @@ async function servePreview(
   // Text or bytes, one response. An asset arrives as bytes rather than as a
   // filename to stream: the store owns where they live, and a store with no
   // filesystem has no name to hand over.
-  const body: BodyInit = file.kind === 'text' ? file.body : (file.body as Uint8Array)
+  // Cast because this module is typechecked under two libs: the Worker's, where
+  // a Uint8Array is a BodyInit, and tools/generate's, where the DOM's narrower
+  // union does not name it. The runtime accepts both.
+  const body = (file.kind === 'text' ? file.body : file.body) as unknown as BodyInit
   return new Response(body, {
     status: 200,
     headers: { 'content-type': file.contentType },

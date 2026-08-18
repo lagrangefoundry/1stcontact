@@ -265,15 +265,41 @@ describe('story-e674c60a builder origin', () => {
     // answered by a probe below: a route added tomorrow fails here until
     // someone states what it returns.
     const DIRECTIVE = 'no-store, must-revalidate'
-    const origin = fs.readFileSync(
-      path.join(REPO, 'tools/generate/src/cli/builder.ts'),
-      'utf8',
-    )
+    // BOTH SOURCES, because the routing table moved (REQ-145). The router is the
+    // Worker's now and answers everything the builder can do; the Node transport
+    // retains only what no Worker can host yet — `/api/ai/*` and the publish
+    // pair — so reading one file would silently stop covering the other half and
+    // let the coverage check pass over a shrunken set.
+    const sources = [
+      'apps/control-app/src/router.ts',
+      'tools/generate/src/cli/builder.ts',
+    ].map((rel) => fs.readFileSync(path.join(REPO, rel), 'utf8'))
     const declared = new Set<string>()
-    for (const m of origin.matchAll(/\bp === '([^']+)'/g)) declared.add(m[1])
-    for (const m of origin.matchAll(/\bp\.startsWith\('([^']+)'\)/g)) declared.add(m[1])
-    for (const m of origin.matchAll(/\bp\.match\(\/\^\\\/([A-Za-z][\w-]*)/g)) {
-      declared.add(`/${m[1]}/`)
+    for (const origin of sources) {
+      for (const m of origin.matchAll(/\bp === '([^']+)'/g)) declared.add(m[1])
+      for (const m of origin.matchAll(/\bp\.startsWith\('([^']+)'\)/g)) declared.add(m[1])
+      for (const m of origin.matchAll(/\bp\.match\(\/\^\\\/([A-Za-z][\w-]*)/g)) {
+        declared.add(`/${m[1]}/`)
+      }
+    }
+
+    // `/api/import` is `bin/publish`'s write path. The REQ-145 workerd suite
+    // covers it against real D1 and R2 bindings, which is the only place its
+    // behaviour is meaningful; over this transport it would prove nothing.
+    declared.delete('/api/import')
+
+    // The BUILD declares the rest. `/builder/`, `/webui/` and `/framework/` were
+    // route literals until REQ-145 and are build artifacts now, reached by the
+    // router falling through to the assets binding — so there is no `p === …` to
+    // find, and the honest source for "what does this origin serve" is what
+    // `1c assets` emitted. Reading the directory keeps the check self-extending.
+    const assetsDir = path.join(REPO, 'apps/control-app/dist-assets')
+    expect(
+      fs.existsSync(assetsDir),
+      'the control-app assets are not built — run `1c assets` (bin/build does)',
+    ).toBe(true)
+    for (const entry of fs.readdirSync(assetsDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) declared.add(`/${entry.name}/`)
     }
 
     interface Probe {
@@ -380,6 +406,10 @@ describe('story-e674c60a builder origin', () => {
       // An unknown component: the `/webui/` route's refusal, which needs no
       // install to reach.
       { route: '/webui/', url: '/webui/no-such-component/index.js', ok: false },
+      // The assistant's status route (REQ-122). It answers whether or not a
+      // model is reachable — the payload carries the reason — so it is a
+      // response this origin returns and is subject to the same claim.
+      { route: '/api/ai/', url: '/api/ai/roles', ok: true },
     ]
 
     // Each installed component's real entry point. Reached only when the store
@@ -638,14 +668,20 @@ describe('story-e674c60a control-app front', () => {
       return
     }
 
-    const routes = [
+    // WHAT "VERBATIM" MEANS NOW. This AC was written when the front was a proxy
+    // and the origin a separate process: forwarding had to reinterpret nothing.
+    // Since REQ-145 there is no forwarding — the Worker IS the origin, and the
+    // Node transport is a second front door onto the same `route()`. So the
+    // claim is checked where it still has teeth: the two hosts must produce the
+    // SAME BYTES for everything that does not depend on which store is behind
+    // them, which is what proves they share one route table rather than agreeing
+    // by coincidence.
+    const sameBytes = [
       '/', // the workspace document
       `/webui/webui-shell/${webuiExports('webui-shell')['.'].replace(/^\.\//, '')}`, // a component module
-      '/preview/alpha/draft/', // a rendered page
-      '/api/sites', // a listing response
     ]
 
-    for (const route of routes) {
+    for (const route of sameBytes) {
       const viaWorker = await worker.fetch(route, { headers: admitted })
       const direct = await fetch(new URL(route, builder.url))
       expect(viaWorker.status, route).toBe(direct.status)
@@ -654,6 +690,19 @@ describe('story-e674c60a control-app front', () => {
       )
       expect(await viaWorker.text(), route).toBe(await direct.text())
     }
+
+    // The store-backed routes cannot be byte-compared: the Worker reads D1 and
+    // R2, the transport reads the operator's filesystem, and that difference is
+    // the point of the ticket rather than a defect. What must hold is that the
+    // ONE host answers them — a listing and a rendered page, from the same
+    // origin as the document and the component above.
+    const listing = await worker.fetch('/api/sites', { headers: admitted })
+    expect(listing.status).toBe(200)
+    expect(listing.headers.get('content-type')).toContain('application/json')
+
+    const rendered = await worker.fetch('/preview/alpha/draft/', { headers: admitted })
+    expect([200, 404]).toContain(rendered.status)
+    expect(rendered.headers.get('cache-control')).toBe('no-store, must-revalidate')
 
     // Same-origin by construction: the URL the pane displays is ROOT-RELATIVE,
     // so the frame's document URL can only ever be this same host.
@@ -674,63 +723,50 @@ describe('story-e674c60a control-app front', () => {
 // ── the front's two failure modes ────────────────────────────────────────────
 
 describe('story-e674c60a origin failure reporting', () => {
-  it('test_UAT_AC965_unconfigured_and_unreachable_origins_are_distinct_failures', async () => {
-    // AC-965 — neither condition returns a blank page nor a success status, and
-    // the two are distinguishable, because "you never started it" and "it died"
-    // need different actions from the operator. Both are ORIGIN failures, so
-    // both are read as an admitted caller sees them (REQ-147): a request that
-    // never passed the gate would report the gate, which is a third condition
-    // and not the one this AC is about.
+  /**
+   * AC-965, AFTER THE ORIGIN IT DESCRIBED CEASED TO EXIST.
+   *
+   * This criterion was about a PROXY's two failure modes — "you never started
+   * the origin" (503) and "the origin died" (502) — which need different actions
+   * from the operator and so had to be distinguishable. REQ-145 deleted the
+   * proxy and `BUILDER_ORIGIN` with it, so neither condition can arise: the
+   * Worker is the origin.
+   *
+   * The property underneath survives, and is what is checked here: a Worker that
+   * cannot serve must say WHY, in prose naming the missing configuration, rather
+   * than answering blank or — worse — succeeding. What replaces an unstarted
+   * origin is an unconfigured STORE, because a Worker with no tenant is now the
+   * thing that cannot answer at all.
+   */
+  it('test_UAT_AC965_a_worker_that_cannot_serve_names_the_missing_configuration', async () => {
     const access = await startAccessTeam()
     const admitted = await access.headers()
-    const gated = { ACCESS_TEAM_DOMAIN: access.teamDomain, ACCESS_AUD: access.aud }
 
     const unconfigured = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
-      vars: { BUILDER_ORIGIN: '', ...gated },
+      vars: {
+        TENANT_ID: '',
+        ACCESS_TEAM_DOMAIN: access.teamDomain,
+        ACCESS_AUD: access.aud,
+      },
       experimental: { disableExperimentalWarning: true },
     })
-    let unconfiguredStatus: number
-    let unconfiguredBody: string
+    let status: number
+    let body: string
     try {
-      const res = await unconfigured.fetch('/', { headers: admitted })
-      unconfiguredStatus = res.status
-      unconfiguredBody = await res.text()
+      const res = await unconfigured.fetch('/api/sites', { headers: admitted })
+      status = res.status
+      body = await res.text()
     } finally {
       await unconfigured.stop()
     }
 
-    expect(unconfiguredStatus).toBe(503)
-    expect(unconfiguredBody).toContain('BUILDER_ORIGIN')
-    // Names the command that starts the origin.
-    expect(unconfiguredBody).toContain('1c builder')
-    expect(unconfiguredBody.trim().length).toBeGreaterThan(0)
-
-    const deadAddress = 'http://127.0.0.1:1'
-    const unreachable = await unstable_dev('apps/control-app/src/index.ts', {
-      config: 'apps/control-app/wrangler.toml',
-      vars: { BUILDER_ORIGIN: deadAddress, ...gated },
-      experimental: { disableExperimentalWarning: true },
-    })
-    let unreachableStatus: number
-    let unreachableBody: string
-    try {
-      const res = await unreachable.fetch('/', { headers: admitted })
-      unreachableStatus = res.status
-      unreachableBody = await res.text()
-    } finally {
-      await unreachable.stop()
-    }
-
-    expect(unreachableStatus).toBe(502)
-    // The address that was tried, so the operator can check what is listening.
-    expect(unreachableBody).toContain(deadAddress)
-    expect(unreachableBody).toMatch(/unreachable/i)
-
-    // Distinct from each other, and neither is a success.
-    expect(unreachableStatus).not.toBe(unconfiguredStatus)
-    expect(unconfiguredStatus).toBeGreaterThanOrEqual(400)
-    expect(unreachableStatus).toBeGreaterThanOrEqual(400)
+    expect(status).toBe(503)
+    // Names the key AND where to set it: a Worker that refuses without saying
+    // which value is missing sends the operator hunting through three files.
+    expect(body).toContain('TENANT_ID')
+    expect(body).toContain('wrangler.toml')
+    expect(body.trim().length).toBeGreaterThan(0)
 
     await access.close()
   }, 180000)
@@ -872,7 +908,12 @@ async function launchAnyChromium(
 function* walk(dir: string): Generator<string> {
   if (!fs.existsSync(dir)) return
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
+    // `dist-assets` is BUILD OUTPUT (`1c assets`, REQ-145): copies of the very
+    // components and browser source these scans check for duplication of.
+    // Walking it would report the build as a second definition site — the
+    // artifact accused of being the thing it was copied from.
+    if (entry.name === 'node_modules' || entry.name === 'dist-assets') continue
+    if (entry.name.startsWith('.')) continue
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) yield* walk(full)
     else if (/\.(ts|js|mjs|astro|html)$/.test(entry.name)) yield full
