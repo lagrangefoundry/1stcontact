@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-18T01:38:40.776183+00:00'
+updated_at: '2026-08-18T01:41:33.146039+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -78,5 +78,50 @@ I've made no code changes and created no tickets. Tell me which way you want it 
 #### You
 Yes, drop 2
 Wait for 103
+
+<!-- xgd-turn id="a7da3aac-2fa0-4161-94c9-73ef391f7a36-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T01:41:32.863358+00:00" -->
+#### Claude
+Decision recorded: REQ-146 is AI-host-only, and it waits on lagrange-framework REQ-103. That leaves no code to write in this session — the deliverable is the ticket body, which is a document change and correctly sits outside the free-coding protocol (no branch, no UAT, no commit).
+
+Let me get the raw body so I preserve it rather than retype it.
+
+Now I'll write the updated body — preserving §1 and Origin, dropping §2, and recording what I verified about the REQ-103 blocker.
+
+Now the fields — recording the cross-repo blocker.
+
+A local REQ-103 exists and is unrelated (L1 texture axis) — so my `[[REQ-103]]` wikilinks would resolve to the wrong ticket. Fixing that, following the convention REQ-145's router already uses (plain, unbracketed).
+
+Line 38–39 has a doubling across the line break my collapse missed. Fixing.
+
+Body is updated. Now the fields — and there's a hazard worth checking: all six local dependencies have landed, so nothing local marks this as blocked any more.
+
+`draft` still requires a human to advance (`foreign_goal.py:63` — *"draft/open still need a human"*), so there's no risk of a headless run picking this up now that its local dependencies have cleared. The banner in the body carries the reason. No invented blocker field needed.
+
+Last field change — the ticket lost half its scope to REQ-149:
+
+Let me record the non-obvious trap I hit — it's a sharpening of an existing memory rather than a new one.
+
+Done. No code was written, which is the correct outcome of your two decisions — REQ-146 is now a blocked, AI-host-only ticket. Since this was a document change, the free-coding protocol didn't apply: no branch, no UAT, no `[FREE-CODED]` commit.
+
+**What changed on REQ-146:**
+
+- **Title:** "The AI host and publish move into workerd" → **"The AI host moves into workerd"**
+- **Story points:** 13 → 8
+- **Status:** stays `draft`, with a banner stating it waits on lagrange-framework REQ-103
+- **§2 publish → deleted**, replaced by a short "Publish is not here" section pointing at REQ-149 and recording *why* the split should stay (publish is a new storage contract, not a relocation — the port has no revision concept at all)
+- **New "What actually blocks this"** section recording the three structural blockers I verified, so the next person doesn't re-derive them:
+  1. `sharedModuleUrl('ai')` → `require.resolve` → `pathToFileURL` → dynamic `import()` of a file URL (`webui.ts:172`) — impossible in workerd
+  2. `core.js` → `session.js` → `session_log.js` uses `appendFileSync`/`openSync`/`writeFileSync` — REQ-103's gap 1
+  3. the package isn't a dependency of this repo, so there's nothing to bundle from `apps/control-app`
+- **Acceptance criteria** trimmed from 6 to 5: the publish-revision and `sandbox`-unreachable criteria moved to REQ-149, and I added one asserting no runtime dynamic import survives on the Worker path
+- §1 and Origin preserved verbatim
+
+**Two things worth flagging:**
+
+A local **REQ-103 already exists** in 1stcontact — "L1 cannot express texture", `free_and_reconciled` — completely unrelated to the lagrange-framework REQ-103 you're waiting on. My first draft used `[[REQ-103]]`, which would have silently wikilinked to the wrong ticket. Corrected to plain `lagrange-framework REQ-103`, matching the convention the router's 501 comments already use. Worth watching for elsewhere.
+
+There's **no local signal that this ticket is blocked**. All six entries in `depends_on` have landed, and a cross-repo blocker has nowhere to live in `depends_on`/`blocked_by` since those resolve against the local store. What protects it is `draft` status — `draft`/`open` still need a human, so a headless `xgd develop` won't pick it up. If you ever move REQ-146 out of `draft` before REQ-103 lands, it becomes eligible with nothing to stop it.
 
 <!-- xgd-chat-end -->
