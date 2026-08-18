@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-18T03:16:32.397572+00:00'
+updated_at: '2026-08-18T03:46:34.533637+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -129,5 +129,145 @@ There's **no local signal that this ticket is blocked**. All six entries in `dep
 <!-- xgd-chat role="user" ts="2026-08-18T03:16:32.092432+00:00" -->
 #### You
 REQ-103 is complete please proceed
+
+<!-- xgd-turn id="88ec0bf8-46f2-425f-9ff3-745c283c3949-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T03:46:34.183525+00:00" -->
+#### Claude
+Let me verify REQ-103's state and — critically — whether the *installed* copy reflects it, since components arrive by deliberate install rather than by npm.
+
+REQ-103 is `ready_to_reconcile` at version 0.0.162. Now the installed copy:
+
+The installed copy is **stale** — it lacks REQ-103's new `./workers` entry and still has 4 filesystem calls in `session_log.js`. Let me check the source repo state before re-installing.
+
+REQ-103 is genuinely complete and substantial. Let me read the new consumer contract.
+
+`@lagrangefoundry/ticketing` is already installed. First, refresh the stale `ai` component.
+
+Both are comments now, and `session_log.js` has zero fs calls. The blockers are gone. Now let me understand the full scope — what `/api/ai/*` served before REQ-145 removed it.
+
+This is a substantial job. Let me map the remaining Node coupling precisely before cutting the branch.
+
+Let me settle a few unknowns that determine the design.
+
+Now let me check the build path — whether wrangler can resolve the bare specifier from the flat store.
+
+Blockers are cleared and I have the design. Per protocol, updating the ticket first, then cutting the branch.
+
+Ticket is scoped. Now cutting the branch.
+
+Branch cut. Now — critically — the worktree is exactly the linked-worktree case `sharedModuleUrl` exists to handle. Let me verify bare-specifier resolution there before committing to the design.
+
+Confirmed — and this is decisive: the worktree's `node_modules` has no `@lagrangefoundry`, so a bare specifier fails there for *both* Node and the bundler. Let me see how the app is built.
+
+`1c preflight` already exists to fail loudly on a missing component, and `src/generated/` is established precedent for generated code the Worker imports. Let me see what `1c assets` does.
+
+Let me test whether the existing component resolution works at all inside the worktree — REQ-145's build depends on it too.
+
+`1c assets` **works** in the worktree — so component resolution does succeed there. Let me find out how, since that determines the design.
+
+`webuiPackageDir` resolves reliably in the worktree through the `1c` CLI. That confirms the design. Let me check the generated-dir precedent.
+
+The design is settled. Highest-risk unknown is whether the library actually bundles for workerd — let me spike that before writing real code.
+
+The library bundles for workerd — 669 KiB. Let me confirm the AI code is genuinely in there and no `node:fs` reached it.
+
+Spike confirms it: AI code bundles, and only `node:path`/`stream`/`process`/`events` — no `node:fs`, exactly REQ-103's claim. Cleaning up and starting the real work.
+
+`FileArchive` translates almost directly to R2 — same stored form, so transcripts stay interoperable with the Python peer. Let me check REQ-143's key layout.
+
+Design is settled. R2 keys: `chat/<tenant>/<session>.md` for transcripts, `audit/<tenant>/...` append-only — both outside `draft/`, so no URL can derive them. Starting implementation.
+
+Now I'll add the AI rung emission to the assets build.
+
+Now `sharedModulePath` in `webui.ts` — the path counterpart to `sharedModuleUrl`.
+
+Now `toolbox.ts` — static JSON, injectable library and store.
+
+Now the toolbox changes.
+
+Now the injectable library and store in `createL1Toolbox`.
+
+Now the audit sink — a buffering sink that flushes durably, since upstream's `emit` is sync and swallows failures.
+
+Now `host.ts` — injectable library, store, archive and junctions.
+
+Now threading deps through, and removing the `process.cwd()` dependency for the Worker.
+
+Now the archive/junction construction and the async counter.
+
+`toolbox.ts` still pulls `node:fs` for two Node-only helpers — which would put `node:fs` in the Worker bundle, exactly what AC6 forbids. Let me see how deep that goes.
+
+`add_asset` and `publish` are the only Node-bound ops, and neither is granted to the caretaker. Let me check whether anything actually exercises them.
+
+Let me settle empirically whether the Worker can import `host.ts` as-is — that decides how far the split must go.
+
+Bundling `host.ts` fails outright — it drags in the Astro module registry. The split is mandatory. Let me size it.
+
+Only one non-test importer of `./host`. I'll keep `toolbox.ts`/`host.ts` as the Node entry points (zero churn for existing callers) and extract runtime-agnostic cores the Worker imports — mirroring upstream's own `archive.js`/`file_archive.js` split.
+
+Now remove the file audit sink and `auditPath` from core, and make `createL1Toolbox` require its library and store.
+
+Now the Node entry point `toolbox.ts`, which restores today's exact API on top of the core.
+
+Now writing the Node entry point that restores the existing API.
+
+Typecheck passes. Now the same split for the host.
+
+host-core is clean. Now the Node host wrapper.
+
+The priming document needs the toolbox's manual, which only exists after the box is built — so it must be a factory, not a value. Fixing that in both files.
+
+Typecheck is clean. Now the critical regression check — the existing AI tests must still pass with the Node wrapper.
+
+Let me check whether these tests were already failing before my changes.
+
+Those 5 were already failing on the base commit — pre-existing, not my regression. Let me get a proper before/after baseline across all the AI tests.
+
+Two new failures vs. baseline (REQ-126: 7→8, REQ-130: 0→1). Let me find them.
+
+Both regressions are the same invariant — declaration ↔ implementation agreement, now split across two modules. Let me update them to compose both halves, preserving what they check.
+
+Back to baseline. Let me confirm parity across the whole set.
+
+Parity confirmed. But those 29 pre-existing failures deserve scrutiny — I upgraded the `ai` component as part of this work, so "pre-existing" may mean "caused by the REQ-103 upgrade". Let me check.
+
+Let me definitively determine whether my component upgrade caused those 29 failures, by temporarily installing the pre-REQ-103 version.
+
+Definitive: the same 29 failures occur with the *pre*-REQ-103 library and base code. They're pre-existing, from the earlier upstream async-`run` change — not from my work. Restoring the real component.
+
+Environment fully restored. Now the Worker runtime — the R2-backed archive, audit flush, and session wiring.
+
+Now the Worker's AI runtime.
+
+The generated shim needs types for `tsc`. Emitting a `.d.ts` beside it.
+
+Now wiring the routes in the router.
+
+Now the two chat routes themselves.
+
+Now the SSE streaming helper, which is where the audit flush and error handling live.
+
+I introduced it — my import chain reaches the Astro registry. Let me trace it.
+
+A type-only import of `../commands` pulls it into tsc's program. `GlobalOptions` needs to live in a leaf module. There's already an `options.ts`.
+
+`GlobalOptions` already lives in the leaf `options.ts` — `commands.ts` just re-exports it. Pointing the cores at the leaf.
+
+Both typecheck clean. Now the decisive test — does the Worker actually bundle?
+
+Bundle verified: AI library present, and only `node:events/path/process/stream` — **no `node:fs`**. Now the deploy secret hook.
+
+The README already specifies this hook exactly, naming REQ-146. Writing it.
+
+Now the UATs. REQ-141 built a workers-runtime test project — let me use it.
+
+Now writing the REQ-146 UATs.
+
+Real plumbing works — the error is from the double's shape. Let me check what the backend actually calls.
+
+The backend now streams (`stream: true`) — which is also the root cause of the repo's 29 pre-existing failures. Let me build a correct streaming double.
+
+Now I can build a faithful streaming double.
 
 <!-- xgd-chat-end -->
