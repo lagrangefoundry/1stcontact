@@ -5,9 +5,9 @@ type: request
 title: The AI host moves into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-18T01:39:41.089134+00:00'
+updated_at: '2026-08-18T01:40:14.716394+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -25,7 +25,7 @@ fields:
 
 # The AI host moves into workerd
 
-> **Status: draft, blocked.** Waiting on **lagrange-framework [[REQ-103]]**, which is itself
+> **Status: draft, blocked.** Waiting on **lagrange-framework REQ-103**, which is itself
 > still draft. See "What actually blocks this" below — the blockers are structural, not the
 > four loose ends this ticket originally listed.
 
@@ -61,8 +61,7 @@ becomes a session in exactly one place, and no operation takes a `slug` paramete
 
 The four items above are real but secondary — each is a small change once the host can load at
 all. Three structural blockers sit underneath them, and all three are lagrange-framework
-[[REQ-103]]'s to remove. Verified against the working tree and the installed package on
-2026-08-17:
+REQ-103's to remove. Verified against the working tree and the installed package on 2026-08-17:
 
 1. **The library is loaded by file URL at runtime.** `host.ts` reaches it through
    `sharedModuleUrl('ai')` (`tools/generate/src/cli/webui.ts:172`), which does `require.resolve`
