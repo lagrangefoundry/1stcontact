@@ -6,10 +6,10 @@ title: 'control-app becomes the builder: client as build artifact, routes and L1
   in workerd, proxy deleted'
 created_by: xgd
 created_at: '2026-08-15T20:33:04.522130+00:00'
-updated_at: '2026-08-18T00:43:57.776217+00:00'
+updated_at: '2026-08-18T00:44:13.926244+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 13
@@ -22,7 +22,14 @@ fields:
   - REQ-144
   - REQ-147
   commits:
-  - 5352c5131a0da1350e980a06f3ca5338cfcf7d9b
+  - working_sha: 5352c5131a0da1350e980a06f3ca5338cfcf7d9b
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 99f90873e2161a4d6e524de99d7dfc1f8afc8e47
+    reconcile_sha: null
+    main_sha: null
+  version: 0.1.56
 ---
 
 # `control-app` becomes the builder, and the proxy is deleted
