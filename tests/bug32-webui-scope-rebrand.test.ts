@@ -27,7 +27,10 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { chromeHtml, WEBUI_PACKAGES, WEBUI_SCOPE } from '../tools/generate/src/cli'
+import { WEBUI_PACKAGES, WEBUI_SCOPE } from '../tools/generate/src/cli'
+// The chrome document is the Worker's since REQ-145 — it composes it from the
+// import map `1c assets` derives, rather than resolving packages per request.
+import { chromeHtml } from '../apps/control-app/src/chrome'
 
 const REPO = path.resolve(__dirname, '..')
 
