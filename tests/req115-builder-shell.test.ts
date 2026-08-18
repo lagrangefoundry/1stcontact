@@ -19,7 +19,6 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 // is what an ADMITTED caller receives, so the caller here is admitted.
 import { startAccessTeam, type AccessTeam } from './support/access'
 import {
-  chromeHtml,
   cmdNew,
   cmdRender,
   cmdRevisions,
@@ -30,6 +29,10 @@ import {
   WEBUI_SCOPE,
   type BuilderHandle,
 } from '../tools/generate/src/cli'
+// The chrome document is the Worker's since REQ-145.
+import { chromeHtml } from '../apps/control-app/src/chrome'
+import { readSitePayload } from '../tools/generate/src/cli/push'
+import { fsSiteStore } from '../tools/generate/src/store'
 
 const REPO = path.resolve(__dirname, '..')
 
@@ -170,10 +173,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
     builder = await startBuilder({ cwd, clientDir: path.join(REPO, 'apps/control-app/src/builder') })
     access = await startAccessTeam()
     admitted = await access.headers()
+    // No BUILDER_ORIGIN: since REQ-145 this Worker IS the origin. It reads the
+    // store through its own D1/R2 bindings and serves the build artifacts
+    // through its assets binding, so what is under test here is the real thing
+    // rather than a forwarder in front of one.
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {
-        BUILDER_ORIGIN: builder.url.replace(/\/$/, ''),
         ACCESS_TEAM_DOMAIN: access.teamDomain,
         ACCESS_AUD: access.aud,
       },
@@ -199,12 +205,26 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
     expect(res.headers.get('content-type')).toContain('text/html')
     expect(await res.text()).toBe(chromeHtml())
 
-    // Same host serves the API and the rendered channels, so the iframe is
-    // same-origin and open-in-new-tab lands on the identical document.
+    // ONE HOST, and that is the whole claim: the chrome, the JSON API, the
+    // rendered channels and the browser assets all answer here, so the preview
+    // iframe is never cross-origin and "open in new tab" resolves to the
+    // identical URL the iframe loads.
+    //
+    // The site is pushed up first (REQ-145) rather than assumed present. This
+    // Worker reads D1, not the operator's disk, so asserting against whatever
+    // the local database happened to contain would be a test of leftover state.
+    const pushed = await readSitePayload(fsSiteStore({ cwd, root: 'sites' }), 'alpha')
+    const imported = await worker.fetch('/api/import', {
+      method: 'POST',
+      headers: { ...admitted, 'content-type': 'application/json' },
+      body: JSON.stringify(pushed),
+    })
+    expect(imported.status).toBe(200)
+
     const sites = (await (await worker.fetch('/api/sites', { headers: admitted })).json()) as {
       slug: string
     }[]
-    expect(sites.map((s) => s.slug).sort()).toEqual(['alpha', 'beta'])
+    expect(sites.map((s) => s.slug)).toContain('alpha')
     expect((await worker.fetch('/preview/alpha/draft/', { headers: admitted })).status).toBe(200)
     expect(
       (await worker.fetch('/webui/webui-shell/src/index.js', { headers: admitted })).status,
@@ -212,8 +232,10 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 control-app front', () => {
 
     // The same host, to a caller Access has NOT admitted, is not a host at all
     // (REQ-147): being one origin is what makes the iframe same-origin, and the
-    // gate is what makes that origin private.
+    // gate is what makes that origin private. The ASSET is checked too — it is
+    // served by falling through the router, so it is gated like every route.
     expect((await worker.fetch('/')).status).toBe(401)
+    expect((await worker.fetch('/webui/webui-shell/src/index.js')).status).toBe(401)
   })
 })
 
@@ -298,7 +320,13 @@ function requireConfig(): { SITE_TAB: { id: string; label: string } } {
 function* walk(dir: string): Generator<string> {
   if (!fs.existsSync(dir)) return
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
+    // `dist-assets` is BUILD OUTPUT (`1c assets`, REQ-145): copies of the very
+    // components and browser source these scans are checking for duplication of.
+    // Walking it would report the build as a second definition site and as
+    // vendored upstream source — the artifact accused of being the thing it was
+    // copied from. It is gitignored for the same reason.
+    if (entry.name === 'node_modules' || entry.name === 'dist-assets') continue
+    if (entry.name.startsWith('.')) continue
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) yield* walk(full)
     else if (/\.(ts|js|mjs|astro|html)$/.test(entry.name)) yield full
