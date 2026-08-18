@@ -14,8 +14,12 @@
 #      does not fail here by default: it yields an import map that loads, renders
 #      chrome, and dies at the first `import` in the operator's browser. Failing
 #      loudly here is the whole point of running it first.
-#   2. TYPECHECK (`pnpm -r build`) — each workspace package's own build script.
-#   3. BUNDLE — each Worker compiled to `apps/<app>/dist/` through the very
+#   2. ASSETS (`1c assets`) — the builder client, the webui components and the
+#      framework bridges as build artifacts, plus the precompiled module chrome
+#      and the derived import map. Before the typecheck, because the Worker's
+#      source imports two of them and neither is committed (REQ-145).
+#   3. TYPECHECK (`pnpm -r build`) — each workspace package's own build script.
+#   4. BUNDLE — each Worker compiled to `apps/<app>/dist/` through the very
 #      wrangler invocation that deploys it, minus the upload. A bundle that
 #      cannot be built is a deploy that would have failed at the last step.
 #
@@ -45,12 +49,13 @@ for arg in "$@"; do
       cat <<'EOF'
 bin/build — produce every deployable artifact.
 
-  bin/build                  preflight, typecheck, bundle every apps/*/ Worker
+  bin/build                  preflight, assets, typecheck, bundle every apps/*/ Worker
   bin/build --skip-preflight  skip the shared-store / install check
 
-Stages: `1c preflight` (shared component store + declared packages), then
-`pnpm -r build`, then a per-app `wrangler deploy --env production --dry-run
---outdir dist`. Exit 6 means the environment is wrong, not the code.
+Stages: `1c preflight` (shared component store + declared packages), `1c assets`
+(the control app's build artifacts — the Worker imports two of them, and neither
+is committed), then `pnpm -r build`, then a per-app `wrangler deploy --env
+production --dry-run --outdir dist`. Exit 6 means the environment is wrong.
 EOF
       exit 0
       ;;
@@ -83,6 +88,15 @@ if [[ $skip_preflight -eq 0 ]]; then
   step "Preflight"
   "$repo_root/bin/1c" preflight
 fi
+
+# BEFORE the typecheck, not after (REQ-145). `1c assets` writes two things the
+# Worker's own source imports: the derived import map, and the precompiled module
+# chrome the render composes `theme.css` from. Neither is committed — a
+# checked-in copy of a generator's output is a second definition site, which
+# BUG-32's scan fails on — so a fresh checkout cannot typecheck until this has
+# run.
+step "Control-app assets"
+"$repo_root/bin/1c" assets
 
 step "Typecheck and package builds"
 pnpm -r build
