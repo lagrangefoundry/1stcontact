@@ -5,9 +5,9 @@ type: request
 title: The AI host moves into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-18T01:40:58.280431+00:00'
+updated_at: '2026-08-18T03:21:15.082454+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -25,9 +25,9 @@ fields:
 
 # The AI host moves into workerd
 
-> **Status: draft, blocked.** Waiting on **lagrange-framework REQ-103**, which is itself
-> still draft. See "What actually blocks this" below — the blockers are structural, not the
-> four loose ends this ticket originally listed.
+> **Unblocked 2026-08-17.** lagrange-framework REQ-103 landed (`5c82f6251`, v0.0.162,
+> `ready_to_reconcile`) and the component has been re-installed into the shared store. All three
+> structural blockers below are gone; §2 is kept as the record of what was waited on and why.
 
 The last thing binding the builder to a Node process, once [[REQ-145]] has moved the routes.
 
@@ -57,37 +57,60 @@ What is genuinely left here:
 The structural properties should survive untouched: the surface stays declared as data, a slug
 becomes a session in exactly one place, and no operation takes a `slug` parameter.
 
-## 2. What actually blocks this
+## 2. What blocked this, and how REQ-103 removed it
 
 The four items above are real but secondary — each is a small change once the host can load at
-all. Three structural blockers sit underneath them, and all three are lagrange-framework
-REQ-103's to remove. Verified against the working tree and the installed package on 2026-08-17:
+all. Three structural blockers sat underneath them, and all three were lagrange-framework
+REQ-103's to remove. **All three are now cleared** — re-verified against the refreshed package:
 
-1. **The library is loaded by file URL at runtime.** `host.ts` reaches it through
+1. **~~The library is loaded by file URL at runtime.~~ CLEARED — but only for the Worker.**
+   `host.ts` reaches it through
    `sharedModuleUrl('ai')` (`tools/generate/src/cli/webui.ts:172`), which does `require.resolve`
    → `pathToFileURL` → a dynamic `import()` of that URL. workerd has no filesystem and no
-   dynamic import of an arbitrary URL. This needs a **static, bundled** import — which is a
-   change to how the library is delivered, not a relocation of the host.
+   dynamic import of an arbitrary URL. REQ-103 adds a fourth `exports` rung —
+   **`@lagrangefoundry/ai/workers`** — that a bundler can follow statically.
 
-2. **`@lagrangefoundry/ai/core` is not workerd-safe yet.** `core.js` → `session.js` →
-   `session_log.js` uses `fs.appendFileSync`, `fs.openSync` and `fs.writeFileSync`. That is
-   precisely REQ-103's gap 1 — *"the session junction is a file, not a port — and that was on
-   purpose"* — which REQ-103 says contradicts a deliberate design decision and owes [[DOC-21]] an
-   amendment rather than a silent reversal.
+   Note this does **not** delete `sharedModuleUrl`. It closes a real hazard on the *Node* path:
+   a bare specifier resolves the shared store by walking up from the importing file, which finds
+   it from the main checkout and finds nothing from a linked `git worktree`. So the library
+   becomes an **injected dependency** — the Worker host passes the statically imported
+   `/workers` rung, the Node host passes what `sharedModuleUrl` resolves — which is the same
+   two-transport shape [[REQ-145]] used for `RouterDeps`, not a mode flag.
 
-3. **The package is not a dependency of this repo.** It is installed out-of-repo at the workspace
-   root (`node_modules/@lagrangefoundry/ai`) by lagrange-framework's deliberate install, and
-   `webui.ts` states it is *never vendored into this repo*. So there is nothing for wrangler or
-   esbuild to bundle from `apps/control-app` today.
+2. **~~`@lagrangefoundry/ai/core` is not workerd-safe.~~ CLEARED.** `session_log.js` now holds
+   zero filesystem calls and nothing reachable from `/core` imports `node:fs`, `node:os` or
+   `node:child_process`. REQ-103 drew the junction's storage as a port at the **byte** layer
+   (`JunctionStorage`) rather than around `SessionLog`, so record framing, `seq`, timestamping,
+   the torn-trailing-line rule and the byte cursor stay single-implementation — adapters express
+   only "append these bytes", "read from this offset", "replace atomically", and so cannot encode
+   a divergence from the Python peer. Two adapters ship: file and memory. [[DOC-21]] §15 records
+   the reversal of its "Not a port" decision.
 
-**Why we wait rather than work around.** The tempting shortcut is to port the session junction
-here, against D1. REQ-103 rejects that in its own words: it would be a **third** implementation,
-after `components/ai/py` and `components/ai/js`, and one that would drift from both. The session
-model belongs in the library that owns it.
+   REQ-103 also found the failure this ticket would otherwise have shipped: under `nodejs_compat`
+   `node:fs` **resolves** in workerd and gives a per-isolate ephemeral filesystem, so a
+   file-backed junction *passes a test in workerd* and loses every session in production. A
+   successful import is not evidence; the guard is a static import-graph check.
 
-The route says so already. [[REQ-145]] landed `/api/ai/*` as a deliberate 501 naming this
-blocker (`apps/control-app/src/router.ts`) — *"the route exists, the capability does not yet"* —
-so nothing is silently broken while this waits.
+3. **~~The package is not a dependency of this repo.~~ CLEARED, with a caveat that stays.**
+   It is installed out-of-repo at the workspace root (`node_modules/@lagrangefoundry/ai`) by
+   lagrange-framework's deliberate install, and `webui.ts` states it is *never vendored*. That
+   flat store is a normal ancestor `node_modules`, so a bundler resolves the bare specifier
+   without a `package.json` entry. The caveat is `bin/install`'s own stated cost — the dependency
+   stays **implicit**, so a fresh clone on another machine gets nothing with no diagnostic
+   pointing at `bin/install`. The build must fail loudly rather than emit a Worker whose chat
+   route is silently absent.
+
+**Why we waited rather than worked around.** The tempting shortcut was to port the session
+junction here, against D1. REQ-103 rejects that in its own words: it would be a **third**
+implementation, after `components/ai/py` and `components/ai/js`, and one that would drift from
+both. The session model belongs in the library that owns it — and the packaging REQ-103 shipped
+is a re-export list over the same code the Node barrel runs, with one shared UAT running a turn
+against both junction adapters, which is what makes "a packaging, not a third implementation" a
+checked claim rather than an intention.
+
+[[REQ-145]] landed `/api/ai/*` as a deliberate 501 naming this blocker
+(`apps/control-app/src/router.ts`) — *"the route exists, the capability does not yet"* — so
+nothing was silently broken while this waited. This ticket replaces that 501 with the handler.
 
 ## 3. Publish is not here
 
@@ -101,7 +124,49 @@ store-level diff — so it is a new storage contract with four unsettled design 
 REQ-149 poses and this ticket never did. The `sandbox` constraint ([[DOC-12]] §7) and the
 forward-only `live` advance travel with it.
 
-## 4. Acceptance criteria (provisional)
+## 4. What this ticket does
+
+The Node coupling that is left is not in the library any more — it is in this repo's two AI
+files, and each piece is a seam that already half exists.
+
+| Where | Today | After |
+|---|---|---|
+| `host.ts` `ai()` | `import(sharedModuleUrl('ai'))` | injected library; Worker passes `/workers` |
+| `toolbox.ts` `aiCore()` | `import(sharedModuleUrl('ai','./core'))` | same injection |
+| `toolbox.ts` L1 surface | `readFileSync(l1-surface.json)` | static JSON import, bundled as data |
+| `toolbox.ts` instances | `readFileSync(instances.json)` | static JSON import, bundled as data |
+| `toolbox.ts` store | `fsSiteStore(ctxOf(opts))`, hardcoded | injected `SiteStore` |
+| `toolbox.ts` `fileAuditSink` | `appendFileSync` | buffered sink + durable flush |
+| `host.ts` archive | `FileArchive(sessionsDir(opts))` | store-backed `TranscriptArchive` |
+| `host.ts` junction | `logDir` under the workspace | `memoryJunctions()` (REQ-103) |
+| `host.ts` baseline | `draftCounter(ctxOf(opts), slug)` — sync, fs | `store.counter(slug)` — async, ported |
+| API key | `process.env.ANTHROPIC_API_KEY` | `env.ANTHROPIC_API_KEY`, a `wrangler secret` |
+
+**The store is injected, not detected.** `createL1Toolbox` names `fsSiteStore` at line 505 today;
+that becomes a parameter defaulted to the filesystem, so the ~30 existing call sites and the `1c`
+CLI are unchanged while the Worker passes the D1/R2 store. Same shape as `RouterDeps` — one
+implementation, two hosts, no mode flag.
+
+**The transcript reconciles with [[REQ-143]] rather than adding a store.** REQ-103 offers
+`TicketSessionArchive` over a `TicketClient`, which would mean standing up ticketing's D1 schema
+alongside the site store. This ticket instead implements the same `TranscriptArchive` port
+(`apply` / `load` / `list`) over the bindings REQ-143 already built — which is what §1 asked for:
+*reconciled with whatever REQ-143 built rather than inventing a third store*. The junction in
+front of it is `memoryJunctions()`, and `ArchiveSyncer` drains one into the other during the
+turn, so an eviction costs the turn in flight and not the conversation.
+
+**The audit sink buffers and flushes.** Upstream's `emit` is deliberately sync and swallows sink
+failures, so an `await` cannot be introduced there. The Worker's sink appends to a per-turn
+buffer and the route flushes it durably before the response completes. AC3 is about survival, so
+the test kills the isolate and reads the audit back.
+
+**Two capabilities stay refused, by name.** The `publish` operation on the surface reaches
+`cmdPublish`, which is filesystem-bound and is [[REQ-149]]'s; it is not in the `caretaker` grant
+today and must not arrive with this change. The system KB (`openKnowledgeRuntime`) is
+filesystem-bound too, and degrades to `null` — an assistant that knows its tools but not the
+design corpus, which is the documented degradation, not a failure.
+
+## 5. Acceptance criteria
 
 1. A chat turn runs end to end in workerd, with the API key read from a secret, and its edits
    land in the store [[REQ-143]] built.
@@ -109,7 +174,13 @@ forward-only `live` advance travel with it.
 3. Every AI write is audited durably; the audit survives a Worker restart.
 4. No API key appears in logs, error envelopes, or client responses.
 5. The AI library is bundled at build time — no `require.resolve`, no `pathToFileURL`, no
-   runtime dynamic import remains on the Worker path.
+   runtime dynamic import remains on the Worker path, and the build fails loudly if the
+   component is absent rather than shipping a Worker with no chat.
+6. No filesystem-backed junction or archive can reach the Worker path. `node:fs` resolves under
+   `nodejs_compat` and silently loses sessions, so this is asserted over the import graph rather
+   than by a passing turn.
+7. The `publish` operation is not reachable from the assistant in the Worker — it is
+   [[REQ-149]]'s and is filesystem-bound.
 
 Criteria 4 and 5 of the original list — the publish revision and the unreachable `sandbox` key —
 moved to [[REQ-149]] with §2.
