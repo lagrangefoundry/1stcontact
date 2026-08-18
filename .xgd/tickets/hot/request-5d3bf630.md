@@ -6,10 +6,10 @@ title: Draft change journal — let the AI know what changed without re-reading 
   site
 created_by: xgd
 created_at: '2026-08-11T22:46:46.266235+00:00'
-updated_at: '2026-08-16T01:16:22.651319+00:00'
+updated_at: '2026-08-18T17:26:07.111977+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   auto_merge_back: true
@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.1.45
   story_points: 5
+  bundled_in: bundle-77b28def
 ---
 
 # Draft change journal — let the AI know what changed without re-reading the site
