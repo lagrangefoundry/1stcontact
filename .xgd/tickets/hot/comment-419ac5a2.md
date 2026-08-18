@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-18T03:46:34.533637+00:00'
+updated_at: '2026-08-18T17:26:23.164180+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -269,5 +269,11 @@ Real plumbing works — the error is from the double's shape. Let me check what 
 The backend now streams (`stream: true`) — which is also the root cause of the repo's 29 pre-existing failures. Let me build a correct streaming double.
 
 Now I can build a faithful streaming double.
+
+<!-- xgd-turn id="280984df-4a2b-4088-aff2-65afcc0502ac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-18T17:26:22.202468+00:00" -->
+#### You
+please finish this ticket
 
 <!-- xgd-chat-end -->
