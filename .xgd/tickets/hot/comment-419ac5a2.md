@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-18T17:26:23.164180+00:00'
+updated_at: '2026-08-18T17:38:32.569131+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -275,5 +275,79 @@ Now I can build a faithful streaming double.
 <!-- xgd-chat role="user" ts="2026-08-18T17:26:22.202468+00:00" -->
 #### You
 please finish this ticket
+
+<!-- xgd-turn id="280984df-4a2b-4088-aff2-65afcc0502ac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-18T17:38:32.169832+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me first check the state of the branch and what's already done.
+
+Good — the branch has substantial work in flight. Let me survey exactly where it stopped.
+
+Confirmed I'm in the REQ-146 worktree. Let me read the test file — that's where the prior session stopped.
+
+The test file is complete. Let me try running it to see where it actually stands.
+
+Now let me run the REQ-146 UAT to see where it stands.
+
+The sandbox blocks socket listening. Let me confirm this is environmental, not specific to my test.
+
+Confirmed environmental: REQ-141's landed workers test fails identically — the sandbox denies `listen` on 127.0.0.1. I'll verify everything that doesn't need a socket, and flag the gap. Let me start with typecheck and the bundle.
+
+Both typecheck clean. Now the decisive AC5/AC6 check — does the Worker actually bundle, and is `node:fs` absent?
+
+Let me run the asset build and then the wrangler dry-run to verify the bundle.
+
+The AI rung resolves from the worktree. Now the decisive bundle check.
+
+The Worker bundles. Now verifying AC5/AC6 against the actual emitted bundle.
+
+One `node:fs` occurrence but not as a module specifier — let me see what it actually is.
+
+It's a doc comment — `node:fs` is genuinely absent as an import. Now confirming the AI library is actually bundled.
+
+AC5/AC6 verified against the shipped bundle. But the test file's docstring promises a static import-graph assertion that doesn't exist yet — and unlike the workerd tests, that one *can* run here. Let me check the remaining pieces first.
+
+Two issues to check: the misindentation, and — more seriously — `err.message` is passed through verbatim, which would leak the key that AC4 forbids. Let me confirm.
+
+Confirmed — AC4 is genuinely not met: `err.message` goes to the client verbatim. Let me see the surrounding error paths.
+
+Both paths leak. The credential is the Worker's, not the AI host's, so redaction belongs at the response boundary. Let me check the node test project's include rules first.
+
+The node project picks up non-`.workers` tests — so redaction and the import-graph guard can both be proven here. Let me start a full node-suite baseline running while I write the fix.
+
+Now the redaction module — a leaf so it's testable in the node project.
+
+Now wire it into the router's two error paths.
+
+Now the two error paths that surface raw messages.
+
+Now let me fix the misindentation I noticed in the new route handlers.
+
+No enforced formatter, but that indentation is plainly wrong. Fixing the three in the new routes.
+
+Now the node-runnable UAT covering AC4, AC5 and AC6 — the ones that don't need a socket.
+
+A real finding — the filesystem store is reachable from the Worker's graph. Let me trace how.
+
+Let me trace the exact chain rather than guess.
+
+Both chains — let me check whether they're type-only, which would be erased and explain the clean bundle.
+
+Both are type-only imports — erased at compile time, which is why the real bundle is clean. My walker is wrong to follow them. Let me confirm the elision semantics.
+
+No `verbatimModuleSyntax`, so type-only imports are fully elided. Let me check whether esbuild is available — bundling for real would be stronger evidence than a hand-rolled walk.
+
+esbuild isn't a direct dependency — reaching into the pnpm store would reintroduce exactly the machine-specific-path hazard this ticket fights. The static walk stays, done correctly. Let me fix it to skip type-only imports.
+
+All 7 pass — but a walker that followed nothing would also pass all of them. Per DOC-20's "who tests the harness", let me prove the discriminator discriminates.
+
+11 pass and the walk is proven non-vacuous. Let me check the baseline and the deploy hook.
+
+While that runs, let me verify the deploy secret hook.
+
+Executable and contract-conformant. Let me verify it in a dry run.
+
+The secrets hook didn't fire — only the migrate hook did. Let me find out why.
 
 <!-- xgd-chat-end -->
