@@ -46,6 +46,7 @@ import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { unstable_dev, type UnstableDevWorker } from 'wrangler'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { applyLocalD1Schema } from './support/local-d1'
 // REQ-147 made the control app PRIVATE: the front verifies a Cloudflare Access
 // JWT before it proxies anything. AC-964 and AC-965 are about what an ADMITTED
 // caller receives, so they now authenticate rather than assert the pre-gate
@@ -640,6 +641,9 @@ describe('story-e674c60a control-app front', () => {
     })
     access = await startAccessTeam()
     admitted = await access.headers()
+    // The Worker reads its own D1 now, and miniflare's local database
+    // starts with no schema (REQ-145).
+    applyLocalD1Schema(REPO)
     worker = await unstable_dev('apps/control-app/src/index.ts', {
       config: 'apps/control-app/wrangler.toml',
       vars: {

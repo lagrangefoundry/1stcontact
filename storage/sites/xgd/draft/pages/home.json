@@ -569,7 +569,7 @@
                 {
                   "kind": "text",
                   "id": "h1-a",
-                  "text": "AI writes it.",
+                  "text": "AI writes the code.",
                   "axes": {
                     "color": {
                       "ref": "text",

@@ -58,9 +58,35 @@ try {
 
 let exitCode = 0
 try {
-  const mod = await server.ssrLoadModule('/tools/generate/src/cli/index.ts')
-  await mod.run(process.argv.slice(2))
-  exitCode = process.exitCode ?? 0
+  // `assets` IS THE BOOTSTRAP, so it must not load the CLI barrel (REQ-145).
+  //
+  // The barrel reaches the builder transport, which reaches the Worker's router
+  // and its chrome document — and the chrome document imports the very import
+  // map this command generates. That map is NOT committed: it names each webui
+  // component's entry point, and a checked-in copy of a generator's output is a
+  // second definition site for the component scope, which BUG-32's scan fails
+  // on. So on a fresh checkout the barrel cannot load at all, and `1c assets`
+  // could never run to fix it.
+  //
+  // (The other generated file, `module-assets.ts`, IS committed — it carries no
+  // scope, so the same objection does not apply, and a UAT re-extracts it from
+  // the `.astro` sources to catch drift.)
+  //
+  // Loading the one module it needs breaks the cycle. This is the only command
+  // with that property: it is the one whose output everything else imports.
+  const argv = process.argv.slice(2)
+  if (argv[0] === 'assets') {
+    const assets = await server.ssrLoadModule('/tools/generate/src/cli/assets.ts')
+    const report = assets.cmdAssets({ cwd: process.cwd() })
+    console.log(
+      argv.includes('--json') ? JSON.stringify(report, null, 2) : assets.formatAssetReport(report),
+    )
+    exitCode = 0
+  } else {
+    const mod = await server.ssrLoadModule('/tools/generate/src/cli/index.ts')
+    await mod.run(argv)
+    exitCode = process.exitCode ?? 0
+  }
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err))
   exitCode = 1
