@@ -5,7 +5,7 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-19T23:22:43.182588+00:00'
+updated_at: '2026-08-19T23:23:10.820241+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -208,3 +208,20 @@ by file against `git status`). Two families:
 - `~/Library/Preferences/.wrangler/` writes denied (above).
 - Writes to the sibling `xgd` repo's `.git/objects` and `.xgd/_locks` are still denied, so
   `xgd ticket update` cannot run against that store (`report-bug` create does work).
+
+
+**Correction to the failure grouping above:** there are four pre-existing families, not two.
+The two not listed:
+
+- **Assistant conversation state** — the assistant's turn never lands: `expected ['user'] to
+  deeply equal ['user','assistant']`, `expected 'The old headline.' to be 'A new headline.'`,
+  and a `meta: {ts}` field now present on messages that the UATs don't expect. Hits
+  `reconciliation-assistant-conversation`, `reconciliation-builder-assistant-pane`,
+  `test_UAT_FC_REQ-122_chat_panel`, `test_UAT_FC_REQ-122_chat_host`,
+  `test_UAT_FC_REQ-127_session_binding`.
+- **BUG-32 scope literal restated** — `bug32-webui-scope-rebrand` finds the superseded scope
+  written in `tools/generate/src/cli/kb.ts` and `tools/generate/src/store/fs-store.ts`.
+  Neither file is in this ticket's changed set.
+
+The 14 failing files by family: tool-surface shape (5), assistant conversation (5),
+wrangler EPERM (3), scope literal (1).
