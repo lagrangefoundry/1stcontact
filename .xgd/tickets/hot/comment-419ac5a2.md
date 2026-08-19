@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-18T21:02:13.126087+00:00'
+updated_at: '2026-08-19T22:25:32.570624+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -442,5 +442,11 @@ Two places I deviated from the ticket's §4 plan, both recorded on the ticket:
 What I did verify: 11/11 node UATs pass (AC4, AC5, AC6 — including four cases proving the import-graph walker actually catches a planted `node:fs` import rather than passing vacuously); the shipped 1.6 MB bundle contains the AI library and zero `node:fs`/`pathToFileURL`/`require.resolve`/dynamic-URL imports; the deploy hook behaves in all three branches; both projects typecheck; and the AI test scope is at its pre-existing failure count, with every remaining failure traced to either upstream's now-async `run` or the sandbox's `listen` denial.
 
 Two loose ends: `.git/worktrees/free-REQ-146` metadata couldn't be deleted (sandbox denies writing there — `free-REQ-145` and `free-REQ-148` carry the same residue, so it's pre-existing). The branch ref and merge lock are both gone. And publishing stays 501 and stays REQ-149's, as you decided.
+
+<!-- xgd-turn id="c8530a70-f8a6-43b4-a7ac-5a31e495d9d2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-19T22:25:32.155447+00:00" -->
+#### You
+I have changed the sandbox permissions - can you run the tests now?
 
 <!-- xgd-chat-end -->
