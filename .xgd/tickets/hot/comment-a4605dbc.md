@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T22:25:41.894935+00:00'
+updated_at: '2026-08-19T22:29:06.153589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -228,5 +228,33 @@ Do you have permissions now?
 <!-- xgd-chat role="user" ts="2026-08-19T22:25:41.607920+00:00" -->
 #### You
 Do you have permissions now?
+
+<!-- xgd-turn id="a156b4b1-21c5-4530-a112-14c4b46cb030-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-19T22:29:05.841187+00:00" -->
+#### Claude
+Yes — both blockers are gone. Let me confirm with the tests that couldn't run before.
+
+Workerd suite is fully green. Now the node suite — previously 51 of 57 files failed environmentally.
+
+Yes — permissions are open now, and it changed the picture materially.
+
+**What works:**
+
+| Previously blocked | Now |
+|---|---|
+| TCP loopback binding | **Works** — this was the core blocker |
+| `xgd report-bug` into the xgd store | **Works** — created BUG-1217 as a probe |
+| **workerd test project** | **Runs — 4 files, 40 tests, all green** |
+
+Still blocked: writes to `/Users/martin/lagrangefoundry/xgd/.git/objects` directly, and `…/xgd/.xgd/_locks/` — so `xgd ticket update` against the xgd store fails even though `report-bug` (create) succeeds. Minor, and not on the path of this ticket. The probe ticket **BUG-1217** in the xgd store needs deleting by hand; I couldn't close it.
+
+**The substantive result:** the REQ-148 evidence I told you had never executed has now executed.
+
+The workerd suite ran green apart from one failure, and the failure was the *expected* one: `test_UAT_FC_REQ-145_a_page_mounting_a_behavior_names_the_ticket_that_renders_it`. That test was REQ-145 pinning the gap — it asserted that a page mounting `contact-form` fails with a 500 naming REQ-148. It now returns 200, because REQ-148 closed the gap. I deleted that superseded case; REQ-148's own three UATs (`…behavior_in_workerd.workers.test.ts`) already prove the positive — the draft channel renders, the served bytes are the component's own output, the edit channel switches behaviour off. Re-run: **40/40 pass.**
+
+So AC-1 is now backed by executed evidence rather than a promise.
+
+The node suite (previously 51 of 57 files failing environmentally) is running in the background now; I'll report the comparison against the clean-tree baseline when it lands. The conformance dimensions ride in that project, so this is also the first chance they've had to execute.
 
 <!-- xgd-chat-end -->
