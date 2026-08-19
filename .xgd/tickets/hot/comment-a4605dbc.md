@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T23:44:38.546822+00:00'
+updated_at: '2026-08-19T23:45:59.981024+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -410,5 +410,11 @@ That unblocks 15 skipped conformance tests plus the browser-gated tests across ~
 Only run it in the main checkout too if you want the browser tests runnable there — the worktree has its own `node_modules`, but the browser cache is shared, so one install serves both.
 
 The other two blockers aren't installs, they're sandbox permissions — add write access to `~/Library/Preferences/.wrangler/` (clears 3 files that currently hang to 60s timeouts) and to `/Users/martin/lagrangefoundry/xgd/.xgd/_locks/` (lets `xgd ticket update` work against the sibling repo, so I could close BUG-1217 myself).
+
+<!-- xgd-turn id="455ed0c1-5a07-4939-9ff3-81cfeadd7ddc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-19T23:45:59.703635+00:00" -->
+#### You
+Shouuldn't I install it in working too? Feels weird to install it on a temporary branch
 
 <!-- xgd-chat-end -->
