@@ -113,36 +113,7 @@ roles:
       - Edit
       - Glob
       - Grep
-      - Bash(xgd ticket get:*)
-      - Bash(xgd ticket list:*)
-      - Bash(xgd ticket update:*)
-      - Bash(xgd ticket add-comment:*)
-      - Bash(xgd report:*)
-      - Bash(xgd report-bug:*)
-      - Bash(xgd quality:*)
-      - Bash(xgd workflow:*)
-      - Bash(xgd working-timeline:*)
-      - Bash(xgd todo:create)
-      - Bash(git log:*)
-      - Bash(git diff:*)
-      - Bash(git show:*)
-      - Bash(git status:*)
-      - Bash(git blame:*)
-      - Bash(git add:*)
-      - Bash(git commit:*)
-      - Bash(git rm:*)
-      - Bash(git cherry-pick:*)
-      - Bash(rm:*)
-      - Bash(mv:*)
-      - Bash(git mv:*)
-      - Bash(git clean:*)
-      - Bash(git restore:*)
-      - Bash(pytest:*)
-      - Bash(python -m pytest:*)
-      - Bash(python3:*)
-      - Bash(ruff:*)
-      - Bash(mypy:*)
-      - Bash(bin/**:*)
+      - Bash(*)
     mode: bypassPermissions
     network: 'on'
     mach_lookup: 'on'
