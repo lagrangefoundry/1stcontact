@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T23:43:48.199201+00:00'
+updated_at: '2026-08-19T23:44:38.546822+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -373,5 +373,42 @@ Two things needing your call: the probe ticket **BUG-1217** in the xgd store nee
 <!-- xgd-chat role="user" ts="2026-08-19T23:43:47.795480+00:00" -->
 #### You
 please give me any install commands you need to run
+
+<!-- xgd-turn id="ceca655e-0f9e-435a-9f6c-2e08fe1387e1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-19T23:44:38.186015+00:00" -->
+#### Claude
+Let me get the exact versions so the commands are precise.
+
+One install command. The workspace pins Playwright **1.61.1**, and every browser you have is exactly one release too new:
+
+| Engine | Needed (1.61.1) | Installed |
+|---|---|---|
+| chromium | 1228 | 1234 |
+| chromium-headless-shell | 1228 | 1234 |
+| firefox | 1532 | 1538 |
+| webkit | 2311 | 2336 |
+
+Run this outside the sandbox (needs network):
+
+```bash
+cd /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-148/tools/generate
+./node_modules/.bin/playwright install chromium firefox webkit
+```
+
+Using the local `./node_modules/.bin/playwright` matters — your ambient `npx playwright` is 1.62.0, which is what installed the 1234/1538/2336 set that 1.61.1 won't accept.
+
+To verify it took:
+
+```bash
+ls ~/Library/Caches/ms-playwright/
+# expect chromium-1228, chromium_headless_shell-1228, firefox-1532, webkit-2311
+```
+
+That unblocks 15 skipped conformance tests plus the browser-gated tests across ~20 more files (`req39`/`req41`/`req42`, `reconciliation-l1-substrate`, `req82`, `bug24`, `bug25`, and others). Chromium alone covers most of them; firefox and webkit are needed for the three cross-browser files (`req42-conformance-x-browser`, `reconciliation-l1-substrate`, `reconciliation-l1-language`).
+
+Only run it in the main checkout too if you want the browser tests runnable there — the worktree has its own `node_modules`, but the browser cache is shared, so one install serves both.
+
+The other two blockers aren't installs, they're sandbox permissions — add write access to `~/Library/Preferences/.wrangler/` (clears 3 files that currently hang to 60s timeouts) and to `/Users/martin/lagrangefoundry/xgd/.xgd/_locks/` (lets `xgd ticket update` work against the sibling repo, so I could close BUG-1217 myself).
 
 <!-- xgd-chat-end -->
