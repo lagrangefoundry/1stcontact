@@ -33,6 +33,7 @@ import { cmdNew, cmdRender, startBuilder, type BuilderHandle } from '../tools/ge
 import {
   createL1Toolbox,
   l1Operations,
+  nodeOperations,
   L1_DECLARATION,
   L1_INSTANCES,
 } from '../tools/generate/src/cli/ai/toolbox'
@@ -430,7 +431,20 @@ describe('REQ-129 — the AI-facing copy operations are retired, not shadowed', 
 
     // Declaration and implementation stay in correspondence — a method with no
     // declaration is a capability nothing documents, validates or audits.
-    expect(Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()).toEqual([...declared].sort())
+    //
+    // COMPOSED FROM BOTH HALVES since REQ-146, for the same reason REQ-126's
+    // twin of this assertion is: `l1Operations` is the runtime-agnostic core and
+    // `nodeOperations` supplies the two that need a disk (`add_asset` reads a
+    // file the operator names, `publish` snapshots a tree). Node's surface is
+    // their union, and the union is what the declaration describes — checking
+    // the core alone asserts a declared operation is unimplemented, which is the
+    // opposite of the invariant.
+    const opts = fsOpts(cwd)
+    const implemented = Object.keys({
+      ...l1Operations(SLUG, opts),
+      ...nodeOperations(SLUG, opts),
+    }).sort()
+    expect(implemented).toEqual([...declared].sort())
 
     const box = await caretaker()
     expect(box.toolNames()).toEqual(expect.arrayContaining(['get_l1', 'set_l1']))
