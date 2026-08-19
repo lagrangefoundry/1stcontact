@@ -44,12 +44,15 @@ import { storeFor, storeForImport, type StoreEnv } from './store'
  * served before `fetch` are bytes served to anyone. Falling through here means
  * an asset is delivered only to a caller the gate has already verified.
  *
- * TWO ROUTES ANSWER 501, deliberately and by name. The chat panel needs a
- * library that loads itself from an out-of-repo artifact store by file URL
- * (lagrange-framework REQ-103), and publish needs revision storage the port does
- * not have ([[REQ-149]]). A 404 would read as a routing bug and send someone
- * looking for the handler that was lost; a 501 naming the ticket says what is
- * true — the route exists, the capability does not yet.
+ * PUBLISH ANSWERS 501, deliberately and by name: it needs revision storage the
+ * port does not have ([[REQ-149]]). A 404 would read as a routing bug and send
+ * someone looking for the handler that was lost; a 501 naming the ticket says
+ * what is true — the route exists, the capability does not yet.
+ *
+ * `/api/ai/*` was the other such route, deferred to lagrange-framework REQ-103
+ * because the library loaded itself from an out-of-repo artifact store by file
+ * URL. REQ-103 landed the `/workers` packaging and [[REQ-146]] wired it in, so
+ * those routes now answer for real.
  */
 
 /** The channels a preview URL may name. `published` is served from R2 by public-site. */

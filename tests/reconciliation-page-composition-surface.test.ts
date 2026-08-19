@@ -6,6 +6,7 @@ import { cmdNew, cmdRender, startBuilder, type BuilderHandle } from '../tools/ge
 import {
   createL1Toolbox,
   l1Operations,
+  nodeOperations,
   L1_DECLARATION,
   L1_INSTANCES,
 } from '../tools/generate/src/cli/ai/toolbox'
@@ -612,7 +613,18 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     // forbids: the caller would have to choose, and the narrower one would
     // silently be the wrong choice for anything structural.
     const declared = (L1_DECLARATION.operations as { op: string }[]).map((o) => o.op).sort()
-    const implemented = Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()
+    //
+    // COMPOSED FROM BOTH HALVES since REQ-146: `l1Operations` is the
+    // runtime-agnostic core and `nodeOperations` supplies the two that need a
+    // disk (`add_asset` reads a file the operator names, `publish` snapshots a
+    // tree). Node's surface is their union, and the union is what the
+    // declaration describes — checking the core alone asserts a declared
+    // operation is unimplemented, which is the opposite of the invariant.
+    const pcOpts = fsOpts(cwd)
+    const implemented = Object.keys({
+      ...l1Operations(SLUG, pcOpts),
+      ...nodeOperations(SLUG, pcOpts),
+    }).sort()
 
     // Exact equality, in both directions: nothing implemented is undeclared, and
     // nothing declared is unimplemented.

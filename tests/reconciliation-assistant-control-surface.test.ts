@@ -11,6 +11,7 @@ import {
   createL1Toolbox,
   fileAuditSink,
   l1Operations,
+  nodeOperations,
   L1_DECLARATION,
   L1_INSTANCES,
   L1_SURFACE_VERSION,
@@ -208,7 +209,18 @@ describe('the assistant control surface — declared once, granted narrowly, che
     const declared = operations()
       .map((o) => o.op)
       .sort()
-    const callable = Object.keys(l1Operations(SLUG, fsOpts(cwd))).sort()
+    //
+    // COMPOSED FROM BOTH HALVES since REQ-146: `l1Operations` is the
+    // runtime-agnostic core and `nodeOperations` supplies the two that need a
+    // disk (`add_asset` reads a file the operator names, `publish` snapshots a
+    // tree). Node's surface is their union, and the union is what the
+    // declaration describes — checking the core alone asserts a declared
+    // operation is unimplemented, which is the opposite of the invariant.
+    const acOpts = fsOpts(cwd)
+    const callable = Object.keys({
+      ...l1Operations(SLUG, acOpts),
+      ...nodeOperations(SLUG, acOpts),
+    }).sort()
     expect(callable).toEqual(declared)
 
     // Every operation that can change the site belongs to exactly one capability
