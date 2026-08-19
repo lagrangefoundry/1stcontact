@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T23:17:12.459356+00:00'
+updated_at: '2026-08-19T23:23:26.768898+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -320,5 +320,52 @@ Shard 8 green. Re-running shard 1 (to capture its full failed-file list) and sha
 <!-- xgd-chat role="user" ts="2026-08-19T23:17:11.890762+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="7725880a-ed06-4efd-9403-c61989f4a544-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-19T23:23:26.455602+00:00" -->
+#### Claude
+Shard 1 was SIGKILLed (exit 137 — memory pressure), no summary written. The orphan forks are now gone, so retrying with reduced concurrency:
+
+All two known families again, none in my changed set. Confirming my two fixes in shards 3 and 4:
+
+REQ-143 fixed (6 failures → 3, all remaining pre-existing). Now shard 4:
+
+Conformance fixture fix confirmed too. Now verifying I didn't break anything with the migrated changes — typecheck plus the workerd project:
+
+Typecheck clean. Updating the ticket per protocol:
+
+Full sweep done, all in the foreground.
+
+## workerd — green
+**4 files / 40 tests, 0 failures.** REQ-148's own UATs pass: a behavior-module site renders its draft channel, the served bytes are the component's own output, the edit channel switches the behaviour off. AC-1 now rests on executed evidence rather than a promise.
+
+## Three defects found and fixed
+
+1. **Superseded REQ-145 boundary test** — asserted mounting `contact-form` fails with a 500 naming REQ-148. It returns 200 now because REQ-148 closed the gap. Deleted.
+2. **`renderSiteFilesNode` left dangling** — removing the Astro container path deleted the wrapper but `test_UAT_FC_REQ-143_render_store_independence.test.ts` still imported it. Identical signature, so a rename to `renderSiteFiles`. Verified green.
+3. **Work stranded in the wrong worktree** — the 11 converted `.ts` conformance fixtures, the `options.ts` import fix, and the `renderSiteFiles` async doc paragraph had been written into the main `1stcontact` checkout, not `free-REQ-148`. `req40-conformance-security.test.ts` was failing at import. All migrated; `tsc --noEmit` clean.
+
+On (3) I did **not** copy the main worktree's `throws-on-render.ts` — it has a module-level `throw` that crashes at import rather than at render. The worktree's version is the correct one.
+
+## node — 233 files, 8 shards, ~1746 tests: 14 files / 60 tests failing
+
+None are REQ-148's. I checked each failing file against the changed set; four pre-existing families:
+
+| Family | Files | Signature |
+|---|---|---|
+| Tool-surface return shape | 5 | `answer.replace is not a function`, `.toMatch()` got object |
+| Assistant conversation state | 5 | assistant turn never lands; unexpected `meta.ts` on messages |
+| Wrangler registry EPERM | 3 | sandbox denies `~/Library/Preferences/.wrangler/` → 60s timeouts |
+| BUG-32 scope literal | 1 | superseded scope restated in `kb.ts`, `fs-store.ts` |
+
+The first two look like real product regressions from other work and want their own tickets — say the word and I'll file them.
+
+## Still blocked
+- **Conformance browser dimensions skip (15 tests).** `tools/generate`'s Playwright wants chromium build **1228**; only **1234** is installed, and network egress is blocked so it can't be downloaded. Not REQ-148's doing.
+- `~/Library/Preferences/.wrangler/` writes denied.
+- The sibling `xgd` repo: `report-bug` (create) works, but `.git/objects` and `.xgd/_locks` writes are denied, so `xgd ticket update` fails there.
+
+Two things needing your call: the probe ticket **BUG-1217** in the xgd store needs deleting by hand (I can't close it), and the **main worktree still holds the now-duplicated stranded changes** — I left them rather than reverting someone else's checkout.
 
 <!-- xgd-chat-end -->
