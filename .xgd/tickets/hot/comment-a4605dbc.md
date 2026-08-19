@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T23:45:59.981024+00:00'
+updated_at: '2026-08-19T23:46:32.713433+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -416,5 +416,35 @@ The other two blockers aren't installs, they're sandbox permissions — add writ
 <!-- xgd-chat role="user" ts="2026-08-19T23:45:59.703635+00:00" -->
 #### You
 Shouuldn't I install it in working too? Feels weird to install it on a temporary branch
+
+<!-- xgd-turn id="455ed0c1-5a07-4939-9ff3-81cfeadd7ddc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-19T23:46:32.456335+00:00" -->
+#### Claude
+Your instinct is right, but the mechanism is worth pinning down first — `playwright install` doesn't install *into* the branch at all.
+
+Yes — install from working. And the reason it feels weird is worth correcting: the command never writes into the branch anyway.
+
+`playwright install` downloads into a machine-global cache, `~/Library/Caches/ms-playwright/`. That's outside both checkouts — it's the same directory that already holds the 1234/1538/2336 set, and it's what the earlier failure pointed at (`Executable doesn't exist at ~/Library/Caches/ms-playwright/chromium_headless_shell-1228/...`). Nothing lands in the worktree, and deleting `free-REQ-148` would leave the browsers untouched.
+
+All the `cd` does is choose *which* `playwright` binary computes the revision numbers to fetch. Both checkouts pin `^1.61.1`, both resolve to 1.61.1, and `git diff xgd-working free-REQ-148 -- tools/generate/package.json` is empty — so the two invocations are byte-for-byte equivalent in effect. Run it from working:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact/tools/generate
+./node_modules/.bin/playwright install chromium firefox webkit
+```
+
+That checkout has its own `./node_modules/.bin/playwright` at 1.61.1, so the local-bin point still holds — don't use ambient `npx playwright`, which is 1.62.0 and is what put the too-new set there in the first place.
+
+Verify the same way:
+
+```bash
+ls ~/Library/Caches/ms-playwright/
+# expect chromium-1228, chromium_headless_shell-1228, firefox-1532, webkit-2311
+```
+
+The REQ-148 worktree picks it up automatically, since it reads the same cache.
+
+One caveat worth knowing: the pin is a caret, so whenever the lockfile floats 1.61.1 to a newer minor, the required revisions move and you'll need to re-run this. That's the mechanism that produced the current mismatch.
 
 <!-- xgd-chat-end -->
