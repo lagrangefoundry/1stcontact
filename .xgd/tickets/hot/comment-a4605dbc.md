@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T23:23:26.768898+00:00'
+updated_at: '2026-08-19T23:43:48.199201+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -367,5 +367,11 @@ The first two look like real product regressions from other work and want their 
 - The sibling `xgd` repo: `report-bug` (create) works, but `.git/objects` and `.xgd/_locks` writes are denied, so `xgd ticket update` fails there.
 
 Two things needing your call: the probe ticket **BUG-1217** in the xgd store needs deleting by hand (I can't close it), and the **main worktree still holds the now-duplicated stranded changes** — I left them rather than reverting someone else's checkout.
+
+<!-- xgd-turn id="ceca655e-0f9e-435a-9f6c-2e08fe1387e1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-19T23:43:47.795480+00:00" -->
+#### You
+please give me any install commands you need to run
 
 <!-- xgd-chat-end -->
