@@ -5,13 +5,13 @@ type: request
 title: The AI host moves into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-18T21:01:12.116112+00:00'
+updated_at: '2026-08-19T23:21:35.240124+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: free_coded
 fields:
   priority: medium
-  story_points: 8
+  story_points: 9
   auto_merge_back: true
   needs_review: true
   depends_on:
@@ -22,9 +22,8 @@ fields:
   - REQ-145
   - REQ-147
   commits:
-  - working_sha: 2765de0ffc0c192fac87ba24ba476a7093563268
-    reconcile_sha: null
-    main_sha: null
+  - 2765de0ffc0c192fac87ba24ba476a7093563268
+  - 2ee204b4e70f1b3080dcccbeac90c6ae7ff5d1a9
   version: 0.1.58
 ---
 
