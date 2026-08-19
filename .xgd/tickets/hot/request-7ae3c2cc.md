@@ -5,7 +5,7 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-18T20:56:52.363854+00:00'
+updated_at: '2026-08-19T23:22:43.182588+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -154,3 +154,57 @@ conformance dimensions must be run somewhere with sockets.**
 ## Origin
 
 [[CHAT-25]]. The only remaining thing that needs Node in the render path.
+
+
+## Verification run — 2026-08-19 (sandbox permissions restored)
+
+Loopback socket binding now works, so the suites that could never execute have executed.
+
+**workerd project: 4 files / 40 tests, all green.** REQ-148's own UATs
+(`test_UAT_FC_REQ-148_behavior_in_workerd.workers.test.ts`) pass — a behavior-module site
+renders its draft channel, the served bytes are the component's own output, and the edit
+channel switches the behaviour off. AC-1 now rests on executed evidence.
+
+Three defects were found and fixed in this run:
+
+1. **Superseded REQ-145 boundary test.**
+   `test_UAT_FC_REQ-145_a_page_mounting_a_behavior_names_the_ticket_that_renders_it` asserted
+   that mounting `contact-form` fails with a 500 naming REQ-148. It now returns 200 because
+   REQ-148 closed that gap. Deleted — REQ-148's own UATs carry the positive.
+
+2. **`renderSiteFilesNode` left dangling.** Removing the Astro container path deleted the
+   wrapper, but `test_UAT_FC_REQ-143_render_store_independence.test.ts` still imported it
+   (`TypeError: renderSiteFilesNode is not a function`). The signature is identical since the
+   wrapper only supplied defaults now built in, so this was a rename to `renderSiteFiles`.
+
+3. **Work stranded in the wrong worktree.** The 11 converted `.ts` conformance fixtures, the
+   `options.ts` type-only import fix (`../store` barrel → `../store/journal-model`), and the
+   `renderSiteFiles` async doc paragraph had been written into the main `1stcontact` checkout
+   instead of this worktree. `req40-conformance-security.test.ts` was failing at import
+   (`Cannot find module './fixtures/conformance/xss-url'`). All migrated here.
+   The main worktree's `throws-on-render.ts` was NOT copied: it carried a module-level `throw`
+   that crashes at import rather than at render. This worktree's version is correct.
+
+`tsc --noEmit -p tools/generate` is clean.
+
+### Node project: 233 files, 8 shards, ~1746 tests — 14 files / 60 tests failing
+
+Every remaining failure is pre-existing and outside this ticket's changed set (verified file
+by file against `git status`). Two families:
+
+- **Tool-surface return-shape drift** — `answer.replace is not a function`,
+  `.toMatch() expects a string, but got object`, `expected [] to include 'NOT_FOUND'`.
+  The surface returns an object/array where the UATs expect a string. Hits REQ-122, REQ-126,
+  REQ-127, REQ-129, and the reconciliation assistant/composition suites. Needs its own ticket.
+- **Sandbox EPERM on `~/Library/Preferences/.wrangler/registry`** — the dev registry write is
+  denied, so `public-site.test.ts` and `req115-builder-shell.test.ts` hang to a 60s timeout.
+  Environmental, not a code defect.
+
+### Still blocked environmentally
+
+- Conformance **browser** dimensions skip: `tools/generate`'s Playwright wants chromium build
+  1228; only 1234 is installed, and network egress is blocked so it cannot be downloaded.
+  15 tests skipped across the four conformance files. Not caused by REQ-148.
+- `~/Library/Preferences/.wrangler/` writes denied (above).
+- Writes to the sibling `xgd` repo's `.git/objects` and `.xgd/_locks` are still denied, so
+  `xgd ticket update` cannot run against that store (`report-bug` create does work).
