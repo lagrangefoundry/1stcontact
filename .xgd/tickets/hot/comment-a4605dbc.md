@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T22:29:06.153589+00:00'
+updated_at: '2026-08-19T22:30:40.504292+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -256,5 +256,11 @@ The workerd suite ran green apart from one failure, and the failure was the *exp
 So AC-1 is now backed by executed evidence rather than a promise.
 
 The node suite (previously 51 of 57 files failing environmentally) is running in the background now; I'll report the comparison against the clean-tree baseline when it lands. The conformance dimensions ride in that project, so this is also the first chance they've had to execute.
+
+<!-- xgd-turn id="408ce32e-fdde-4b70-9ca8-9bbdca37324e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-19T22:30:40.196129+00:00" -->
+#### You
+Background tests die in this environment, please run all tests in the foreground
 
 <!-- xgd-chat-end -->
