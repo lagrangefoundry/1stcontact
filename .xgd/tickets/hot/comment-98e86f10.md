@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-18T01:38:06.795700+00:00'
+updated_at: '2026-08-19T23:48:49.561953+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,11 @@ I've read the full store chain (`site-store.ts`, `fs-store`, `d1r2-store`, `memo
 5. **Is checkout in scope for the Worker?** AC-4 requires history readable and checkout forward-only. Checkout has to move into the service anyway for the fs path, but there's no `/api/checkout` route today. I'd add the service verb + a `GET /api/revisions` read route, and leave a Worker checkout route out unless you want it — say if you want it in.
 
 Once you answer these I'll write the ticket body up, cut `free-REQ-149`, and implement.
+
+<!-- xgd-turn id="837ae2c8-ef06-410c-8e5b-df1316620de3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-19T23:48:49.267387+00:00" -->
+#### You
+Have you read the design docs - I think your questions are mostly answered there - can you check and come back with gaps please?
 
 <!-- xgd-chat-end -->
