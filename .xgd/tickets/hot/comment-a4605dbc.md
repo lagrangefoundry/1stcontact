@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T23:46:32.713433+00:00'
+updated_at: '2026-08-19T23:47:46.566795+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -446,5 +446,11 @@ ls ~/Library/Caches/ms-playwright/
 The REQ-148 worktree picks it up automatically, since it reads the same cache.
 
 One caveat worth knowing: the pin is a caret, so whenever the lockfile floats 1.61.1 to a newer minor, the required revisions move and you'll need to re-run this. That's the mechanism that produced the current mismatch.
+
+<!-- xgd-turn id="7dfd0572-e155-428c-87f8-415ec9932569-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-19T23:47:46.339614+00:00" -->
+#### You
+ok done
 
 <!-- xgd-chat-end -->
