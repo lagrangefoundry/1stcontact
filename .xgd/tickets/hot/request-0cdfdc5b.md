@@ -5,9 +5,9 @@ type: request
 title: The AI host moves into workerd
 created_by: xgd
 created_at: '2026-08-15T20:33:27.556016+00:00'
-updated_at: '2026-08-19T23:21:35.240124+00:00'
+updated_at: '2026-08-19T23:22:18.000505+00:00'
 completed_at: null
-last_field_updated: commits
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -302,22 +302,46 @@ match.
   the same invariant, declaration↔implementation agreement now split across two
   modules; both tests were updated to compose the two halves and both are back to
   baseline). Every remaining failure in the scope is one of two pre-existing
-  buckets: sync calls on upstream's now-async `run` (`.toMatch()` got an object,
-  `answer.replace is not a function`), and the sandbox's `listen EPERM`. The
-  async-`run` failures were proved pre-existing by reproducing them with the
-  *pre*-REQ-103 library on the base commit.
+  bucket: sync calls on upstream's now-async `run` (`.toMatch()` got an object,
+  `answer.replace is not a function`), proved pre-existing by reproducing them
+  with the *pre*-REQ-103 library on the base commit. (A second bucket, the
+  sandbox's `listen EPERM`, was environmental and is gone — see below.)
 
-**NOT verified here — the gap, stated plainly:**
+**Verified after the sandbox was opened (2ee204b4e):**
 
-`tests/test_UAT_FC_REQ-146_ai_host_in_workerd.workers.test.ts` — **9 UATs
-written, none executed.** The workers pool must bind a socket on 127.0.0.1 and
-this sandbox denies `listen` with `EPERM`. This is environmental and not
-specific to these tests: REQ-141's already-landed workers tests fail identically
-here. The nine cover AC1, AC2, AC3, AC7 and the R2 archive round-trip, each
-running inside workerd through the Worker's own `fetch` against real D1 and R2,
-with the Anthropic client as the single double — a streaming double that speaks
-the raw `content_block_start`/`_delta`/`_stop` protocol the backend actually
-consumes, because a finished-message double would assert against a fiction.
+The `listen EPERM` that blocked every workers test was a sandbox restriction, not
+a defect. With socket binding permitted:
 
-**They must be run in an environment that permits socket binding before this is
-believed to work end to end.** AC1–AC3 and AC7 are argued, not demonstrated.
+- **All 47 workers tests pass**, across all four files. That includes
+  `tests/test_UAT_FC_REQ-146_ai_host_in_workerd.workers.test.ts` — **9/9** — so
+  **AC1, AC2, AC3 and AC7 are now demonstrated, not argued**. Each runs inside
+  workerd through the Worker's own `fetch` against real D1 and R2, with the
+  Anthropic client as the single double: a streaming double that speaks the raw
+  `content_block_start`/`_delta`/`_stop` protocol the backend actually consumes,
+  because a finished-message double would assert against a fiction.
+- **All five packages typecheck** (`site-schema`, `framework`, `public-site`,
+  `control-app`, `generate`).
+
+**Three landed assertions had to be corrected**, because REQ-146 made them false.
+Each still states its invariant; none was deleted:
+
+- REQ-145's `deferred_capabilities_answer_501_naming_their_ticket` pinned
+  `/api/ai/roles` at 501 naming lagrange-framework REQ-103. That deferral is
+  gone. The invariant is about the *shape* of a deferral, not about any
+  particular route staying deferred forever — so a route graduating is expected
+  to leave the test. Publish (REQ-149) still holds it up.
+- REQ-129's and the two reconciliation surfaces' declaration-vs-implementation
+  checks compared the declaration against `l1Operations` alone. Since the
+  core/wrapper split that is only half of Node's surface: `nodeOperations`
+  supplies `add_asset` and `publish`, the two that need a disk. Comparing against
+  the core alone asserts a *declared* operation is unimplemented — the opposite
+  of the invariant. All three now compose both halves, matching the fix REQ-126's
+  twin assertion already got in `2765de0ff`.
+
+Measured, not assumed: on the three touched node files the correction takes
+28 failed / 9 passed → 27 failed / 10 passed. Every remaining failure is the
+pre-existing async-`run` bucket, each failing at a `box.run(...)` call *past* the
+corrected assertion.
+
+The router's header comment was updated to match: `/api/ai/*` is no longer
+described as deferred, and publish is the one route that answers 501.
