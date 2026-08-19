@@ -1,14 +1,148 @@
-interactive:
-  permissions:
-    additionalDirectories:
-    - /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git
-    - /Users/martin/lagrangefoundry/1stcontact
-    allow:
-    - Edit(//Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/**)
-    - Edit(//Users/martin/lagrangefoundry/1stcontact/**)
-    ask: []
-    defaultMode: bypassPermissions
-    deny:
-    - Edit(/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/main/.xgd/permissions.yaml)
-  sandbox:
-    filesystem_level: all_projects
+directory-spaces:
+  project:
+    includes:
+    - ${project_perimeter}
+    excludes:
+    - path: .xgd/config.yaml
+      comment: Project-wide quality/build config — main-only, dashboard-edited (REQ-709).
+    - path: .xgd/quality.yaml
+      comment: Quality gate configuration — main-only, dashboard-edited (REQ-709).
+    - path: .xgd/permissions.yaml
+      comment: The policy governing this very session — must never be self-editable.
+    - path: .xgd/surfaces.yaml
+      comment: Surface/exposure configuration — main-only, dashboard-edited (REQ-709).
+    - path: ${main}/.xgd/config.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree (BUG-1194).
+    - path: ${main}/.xgd/quality.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree (BUG-1194).
+    - path: ${main}/.xgd/permissions.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree (BUG-1194).
+    - path: ${main}/.xgd/surfaces.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree (BUG-1194).
+    - path: ${dist}/**
+      comment: The entire installed xgd distribution — engine code and prompts (incl.
+        session_roles.yaml) — a fixed package-install path, not project-relative;
+        the Edit tool can reach it directly (DOC-981 §15/§16, REQ-807).
+  all_projects:
+    includes:
+    - ${all_projects_perimeter}
+    excludes:
+    - path: .xgd/config.yaml
+      comment: Project-wide quality/build config — main-only, dashboard-edited (REQ-709).
+    - path: .xgd/quality.yaml
+      comment: Quality gate configuration — main-only, dashboard-edited (REQ-709).
+    - path: .xgd/permissions.yaml
+      comment: The policy governing this very session — must never be self-editable.
+    - path: .xgd/surfaces.yaml
+      comment: Surface/exposure configuration — main-only, dashboard-edited (REQ-709).
+    - path: ${main}/.xgd/config.yaml
+      comment: Absolute main-anchored form — protects the home project's real file
+        regardless of cwd.
+    - path: ${main}/.xgd/quality.yaml
+      comment: Absolute main-anchored form — protects the home project's real file
+        regardless of cwd.
+    - path: ${main}/.xgd/permissions.yaml
+      comment: Absolute main-anchored form — protects the home project's real file
+        regardless of cwd.
+    - path: ${main}/.xgd/surfaces.yaml
+      comment: Absolute main-anchored form — protects the home project's real file
+        regardless of cwd.
+    - path: ${dist}/**
+      comment: The entire installed xgd distribution — a fixed package-install path,
+        not project-relative (REQ-807).
+    - path: ${each_project.main}/.xgd/config.yaml
+      comment: Multiplied per OTHER registered project (DOC-981 §12.2) — an all_projects-scoped
+        session must not edit any in-scope project's governance files, not just the
+        home project's.
+    - path: ${each_project.main}/.xgd/quality.yaml
+      comment: Multiplied per OTHER registered project (DOC-981 §12.2).
+    - path: ${each_project.main}/.xgd/permissions.yaml
+      comment: Multiplied per OTHER registered project (DOC-981 §12.2).
+    - path: ${each_project.main}/.xgd/surfaces.yaml
+      comment: Multiplied per OTHER registered project (DOC-981 §12.2).
+  user:
+    includes:
+    - ${home}
+    excludes:
+    - path: .xgd/config.yaml
+      comment: Project-wide quality/build config — main-only, dashboard-edited (REQ-709).
+    - path: .xgd/quality.yaml
+      comment: Quality gate configuration — main-only, dashboard-edited (REQ-709).
+    - path: .xgd/permissions.yaml
+      comment: The policy governing this very session — must never be self-editable.
+    - path: .xgd/surfaces.yaml
+      comment: Surface/exposure configuration — main-only, dashboard-edited (REQ-709).
+    - path: ${main}/.xgd/config.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree.
+    - path: ${main}/.xgd/quality.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree.
+    - path: ${main}/.xgd/permissions.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree.
+    - path: ${main}/.xgd/surfaces.yaml
+      comment: Absolute main-anchored form — protects the real file when this session's
+        cwd is a non-main worktree.
+    - path: ${dist}/**
+      comment: The entire installed xgd distribution — a fixed package-install path,
+        not project-relative (REQ-807).
+  'off': {}
+sandbox:
+  excluded_commands:
+  - command: xgd branch clean *
+    comment: Validated ticket-scoped worktree teardown (cmd_clean) — .git/worktrees/**
+      blocks pre-existing entries under any WHERE grant regardless of role (BUG-1195),
+      so the wrapper's own internal ticket-existence + merged-ancestor checks must
+      run unsandboxed.
+  - command: xgd report-bug *
+    comment: Cross-project bug delivery to the registered xgd project via the ticket
+      API's own resolver (REQ-787) — Bash-allowlisted for every headless role, so
+      this closes DOC-981 §10.5's report-bug/all_projects tension without granting
+      all_projects WHERE to any role just to make this one command work.
+roles:
+  interactive:
+    where: project
+    what:
+      tools:
+      - Read
+      - Edit
+      - Glob
+      - Grep
+      - Bash(xgd ticket get:*)
+      - Bash(xgd ticket list:*)
+      - Bash(xgd ticket update:*)
+      - Bash(xgd ticket add-comment:*)
+      - Bash(xgd report:*)
+      - Bash(xgd report-bug:*)
+      - Bash(xgd quality:*)
+      - Bash(xgd workflow:*)
+      - Bash(xgd working-timeline:*)
+      - Bash(xgd todo:create)
+      - Bash(git log:*)
+      - Bash(git diff:*)
+      - Bash(git show:*)
+      - Bash(git status:*)
+      - Bash(git blame:*)
+      - Bash(git add:*)
+      - Bash(git commit:*)
+      - Bash(git rm:*)
+      - Bash(git cherry-pick:*)
+      - Bash(rm:*)
+      - Bash(mv:*)
+      - Bash(git mv:*)
+      - Bash(git clean:*)
+      - Bash(git restore:*)
+      - Bash(pytest:*)
+      - Bash(python -m pytest:*)
+      - Bash(python3:*)
+      - Bash(ruff:*)
+      - Bash(mypy:*)
+      - Bash(bin/**:*)
+    mode: bypassPermissions
+    network: 'on'
+    mach_lookup: 'on'
