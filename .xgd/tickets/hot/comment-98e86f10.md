@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-19T23:48:49.561953+00:00'
+updated_at: '2026-08-19T23:54:01.526870+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -68,5 +68,43 @@ Once you answer these I'll write the ticket body up, cut `free-REQ-149`, and imp
 <!-- xgd-chat role="user" ts="2026-08-19T23:48:49.267387+00:00" -->
 #### You
 Have you read the design docs - I think your questions are mostly answered there - can you check and come back with gaps please?
+
+<!-- xgd-turn id="837ae2c8-ef06-410c-8e5b-df1316620de3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-19T23:54:01.117904+00:00" -->
+#### Claude
+I re-read the docs (DOC-12 in full, plus DOC-10 §4.1, DOC-28, DOC-8, DOC-5/DOC-1 policy) and the code seams. You were right — four of my five questions are answered. Here's what's settled, then the genuine gaps.
+
+## Answered by the docs
+
+**Q1 — one implementation, two adapters.** DOC-12 §7: *"The Worker reaches storage through a single `SiteStore` accessor; phase 2 swaps only its implementation"*, and *"everything but the store itself survives phase 2 unchanged"*. Phase 1 explicitly keeps `1c` as the renderer with local canonical definitions. So AC-7 is the REQ-142 pattern, not cloud-only publish. Withdrawn.
+
+**Q1′ — where revisions live.** DOC-12 §7's phase-2 row is explicit: bytes at R2 `<root>/<slug>/rev/NNNN/{out,source}/`, metadata as D1 revision rows (`history.json` → `revisions` table). The migration header agrees (*"Revision snapshots likewise stay in R2"*). And DOC-12 requires `source/` to ship beside `out/` so a revision is a **complete** snapshot — that constraint survives phase 2, since D1 holds only the mutable draft.
+
+**Q3 (ticket's) — snapshot without a directory.** DOC-12 §4 already defines `changes` over store-shaped path strings (`site.json`, `pages/home.json`, `assets/logo.svg`) — exactly the store's key space. No new computation to invent.
+
+**Q4 (mine) — behavior modules.** Not a doc question: REQ-148 is in flight and *deletes* Astro from the render path rather than precompiling, so `contact-form` renders in workerd. REQ-149 just takes a dependency on it. Withdrawn.
+
+**Q5 — checkout in the Worker.** DOC-28 §10's toolbar is site selector · View/Edit · open-in-new-tab · Publish. No checkout, no rollback; revision-diff is listed only as a possible future panel mode. So: service verb + a history read route, no Worker checkout route.
+
+**Publish vs deploy (ticket Q4).** DOC-12 splits *storing* from *serving* and they move independently; deploy is transport, publish is minting. They stay two commands.
+
+## Gaps — these need your call
+
+1. **AC-3 contradicts DOC-12 §5.** DOC-12 makes content-addressing explicitly a *preview* property (*"a preview snapshot... deliberately not a revision"*) and `publish` mints unconditionally. A no-op republish returning the existing revision is a real change to the documented model. Keep AC-3? (I'd say yes — then DOC-12 §5 needs a line.)
+
+2. **Tenancy of the published keyspace.** DOC-10 §4.1 and the migration make the tenant the hard barrier and say two accounts may each own `home`. But DOC-12 §7's R2 keys and public-site's URLs are slug-only, untenanted — so two tenants' `home` collide in both. DOC-12 §9 defers the URL scheme entirely. Options: state a global-uniqueness invariant for published slugs now (cheap, one deployment per tenant today), or put the tenant in the published key (breaks public-site's URL grammar and DOC-12 §7). Recommend the former plus a note.
+
+3. **`basedOn` has nowhere to live in D1.** The fs store has `writeDraftBase`; the `sites` table has no base-revision column and there is no `site_revisions` table. This ticket needs migration `0002` (revisions table + a base column). Confirm that's in scope.
+
+4. **`/preview/<slug>/published` currently 501s naming REQ-149.** No doc says whether the builder serves published itself or hands off — DOC-12 says public-site serves published. Recommend a 302 to the public-site URL so there stays exactly one serving path. Confirm.
+
+5. **Manifest vs D1 as the revision record.** DOC-12 phase 2 says D1; public-site's seam comment says phase 2 *replaces its implementation* to read D1; but AC-2 says public-site is unchanged. Both hold only if D1 is the authority and `manifest.json` is written on publish as a derived serving index — two records of `live`. The alternative is manifest-only (no D1 revisions table), which is simpler but grows the manifest into `history.json`, which DOC-12 §5.1 deliberately kept it from becoming. I lean D1-authoritative + derived manifest; say if you'd rather stay manifest-only for now.
+
+Minor, non-blocking: **DOC-8 is stale.** DOC-28 cites DOC-8 §3.2 (multi-mode display panel), §4.1 (three render channels) and §13 Q3 — none of which exist in the stored DOC-8, which still commits to in-browser rendering that DOC-12 §11 withdrew. Worth a rewrite at some point; it doesn't block this ticket.
+
+Also in scope by implication, flagging so it isn't a surprise: R2 has no server-side copy, so writing a complete revision snapshot means a get+put per asset per publish (DOC-12 §8 accepts full snapshots for MVP), and `/api/sites` should stop reporting `latest: null` once revisions exist.
+
+Answer 1–5 and I'll write the ticket body, cut `free-REQ-149`, and implement.
 
 <!-- xgd-chat-end -->
