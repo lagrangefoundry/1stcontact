@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T22:30:40.504292+00:00'
+updated_at: '2026-08-19T23:00:48.820721+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -262,5 +262,57 @@ The node suite (previously 51 of 57 files failing environmentally) is running in
 <!-- xgd-chat role="user" ts="2026-08-19T22:30:40.196129+00:00" -->
 #### You
 Background tests die in this environment, please run all tests in the foreground
+
+<!-- xgd-turn id="408ce32e-fdde-4b70-9ca8-9bbdca37324e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-19T23:00:48.095908+00:00" -->
+#### Claude
+The detached run died — confirms your point. Two things in that output worth flagging before I re-run:
+
+12 orphaned vitest forks from the **free-REQ-146** worktree are still running — a dead session's leftovers, not mine. They'll contend for CPU during the run. Want me to kill those too?
+
+Meanwhile, running the node suite in the foreground, sharded to fit under the 10-minute command cap (233 files):
+
+Shard 1/8 done: **5 files failed, 20 tests failed, 233 passed (253 total)**, 484s. The visible failures are in `tests/test_UAT_FC_REQ-129_l1_authoring.test.ts` — `box.run(...)` returning an array/object where the test expects a string (`expected [] to include 'SCHEMA_INVALID'`). That shape mismatch looks unrelated to REQ-148's Astro removal, but I need a baseline to be sure.
+
+Capturing full output from here on so I can analyze without re-running.
+
+Shard 2/8: **29 files, 207 passed, 3 skipped, 0 failures.**
+
+`renderSiteFilesNode is not a function` — that one is very likely mine. Checking:
+
+Confirmed — this is mine. Let me see what replaced it:
+
+Signature is identical — the wrapper only supplied defaults that are now built in. Pure rename in the test:
+
+REQ-143 green. Now the other two shard-3 failures — checking whether they touch anything REQ-148 changed:
+
+Both look pre-existing, not REQ-148. Verifying:
+
+Neither offender file — nor anything chat-related — is in my changed set. Both are pre-existing failures unrelated to REQ-148. Continuing:
+
+One is mine — the conformance fixtures. Checking:
+
+The 11 missing fixtures were written into the **main worktree** instead of the REQ-148 worktree. Confirming:
+
+Both tracked changes are genuine REQ-148 work stranded in the main worktree. Migrating everything across:
+
+The main-worktree `throws-on-render.ts` has a module-level `throw` that would crash at *import* time rather than render time — the REQ-148 worktree version is the correct one. Keeping that, copying the other 11:
+
+Now the two tracked-file changes:
+
+Now re-running the conformance test that was failing on the missing fixtures:
+
+Green — but 2 files and 15 tests **skipped**. Checking why, since these are the conformance dimensions:
+
+Chromium is installed, so `chromiumAvailable()` is failing for another reason. Testing it directly:
+
+Conformance skips because of a Playwright browser-build mismatch: `tools/generate`'s Playwright wants chromium build **1228**, but only **1234** is installed. Trying the download:
+
+Network egress is blocked (`allowedHosts: []`), so build 1228 can't be downloaded — the conformance browser dimensions stay skipped for an environmental reason, not a code one. Continuing the sweep:
+
+Same two pre-existing families (tool-surface `answer` shape drift; `~/Library/Preferences/.wrangler` EPERM causing wrangler-registry timeouts). Continuing:
+
+Shard 8 green. Re-running shard 1 (to capture its full failed-file list) and shards 3–4 (to confirm my two fixes landed):
 
 <!-- xgd-chat-end -->
