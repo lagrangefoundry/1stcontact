@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-19T22:25:32.570624+00:00'
+updated_at: '2026-08-19T22:56:15.187830+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -448,5 +448,15 @@ Two loose ends: `.git/worktrees/free-REQ-146` metadata couldn't be deleted (sand
 <!-- xgd-chat role="user" ts="2026-08-19T22:25:32.155447+00:00" -->
 #### You
 I have changed the sandbox permissions - can you run the tests now?
+
+<!-- xgd-turn id="c8530a70-f8a6-43b4-a7ac-5a31e495d9d2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-19T22:56:14.305655+00:00" -->
+#### Claude
+Now the fix — REQ-145's UAT still asserts the AI routes are deferred, which REQ-146 made false.
+
+Now generate assets in the worktree and re-run the full workers project there.
+
+Applying the same both-halves composition REQ-126 got.
 
 <!-- xgd-chat-end -->
