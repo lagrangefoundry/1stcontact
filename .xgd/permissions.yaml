@@ -106,7 +106,7 @@ sandbox:
       all_projects WHERE to any role just to make this one command work.
 roles:
   interactive:
-    where: project
+    where: all_projects
     what:
       tools:
       - Read
