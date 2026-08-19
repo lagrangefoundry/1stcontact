@@ -196,12 +196,12 @@ describe('REQ-145 — the builder runs in workerd', () => {
   it('test_UAT_FC_REQ-145_deferred_capabilities_answer_501_naming_their_ticket', async () => {
     // AC-9. A 404 would read as a routing bug and send someone hunting for a
     // handler that was lost; these routes exist and their capability does not.
-    const chat = await call('/api/ai/roles')
-    expect(chat.status).toBe(501)
-    expect((await chat.json()) as { ticket: string }).toMatchObject({
-      ticket: expect.stringContaining('REQ-103'),
-    })
-
+    //
+    // `/api/ai/*` USED to be asserted here, deferred to lagrange-framework
+    // REQ-103. REQ-146 landed it, so the deferral is gone and asserting it would
+    // now pin the absence of a capability that exists. The invariant this test
+    // states is about the SHAPE of a deferral, not about any particular route
+    // staying deferred forever — so a route graduating is expected to leave here.
     const publish = await call('/api/publish', { method: 'POST' })
     expect(publish.status).toBe(501)
     expect((await publish.json()) as { ticket: string }).toMatchObject({ ticket: 'REQ-149' })
