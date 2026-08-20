@@ -6,9 +6,9 @@ title: A band overlay in any browser-understood colour syntax is captured with a
   preserved, via the lossless-serialization probe
 created_by: xgd
 created_at: '2026-08-20T04:39:15.823530+00:00'
-updated_at: '2026-08-20T04:39:15.823530+00:00'
+updated_at: '2026-08-20T05:40:51.786362+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-d5de22a5
@@ -29,3 +29,12 @@ This is what AC-816's translucent-fill backdrop exclusion depends on: if the ove
 
 ## Verification
 Capture a page whose hero band carries a translucent overlay authored, in turn, as `color-mix(in oklab, …)`, `oklab(… / .3)`, `oklch(… / .3)` and `color(srgb … / .3)`; assert each is recorded as the band's overlay with a non-1 alpha. Assert the recorded channel values for a translucent overlay are exact against its declared colour (the lossless-serialization path), not the premultiplied-round-trip values a pixel read-back would produce. Assert an opaque fill and a fully transparent fill are not recorded as overlays, and an invalid colour string resolves to none. Then capture that same modern-syntax scrim as a full-bleed fill and assert AC-816's translucent-fill exclusion drops it from the backdrop index *because* it is present as the band's overlay.
+**Evidence gating.** Only a real engine resolves `color-mix()` / `oklab()` /
+`oklch()` / `color()` (jsdom's `getComputedStyle` returns a modern-colour-space
+token verbatim), so the modern-syntax bullet and the lossless-serialization
+precision bullet are browser-gated and skip where no Chromium is provisioned. The
+engine-independent half — alpha preserved on a resolvable translucent fill, an
+opaque fill and a fully transparent fill refused, an invalid colour string
+resolving to nothing, and a veil that does not blanket the band refused — runs
+headlessly over the real `EXTRACT_SCRIPT`, so this criterion contributes
+assertions in every run.
