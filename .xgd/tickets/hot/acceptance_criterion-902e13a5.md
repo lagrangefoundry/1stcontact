@@ -3,12 +3,12 @@ uid: acceptance_criterion-902e13a5
 id: AC-1239
 type: acceptance_criterion
 title: The assistant is offered the read and the four palette writes, the writes in
-  one separately grantable group, and meets the same refusals an operator does
+  one separately grantable group, and meets the same guards an operator does
 created_by: xgd
 created_at: '2026-08-20T01:20:55.408545+00:00'
-updated_at: '2026-08-20T06:28:49.369137+00:00'
+updated_at: '2026-08-20T06:32:00.871120+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-ee073693
