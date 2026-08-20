@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: --out persists the N-way table to a named file
 created_by: xgd
 created_at: '2026-07-23T10:29:33.526404+00:00'
-updated_at: '2026-08-16T09:18:09.311602+00:00'
+updated_at: '2026-08-20T06:59:58.844984+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
