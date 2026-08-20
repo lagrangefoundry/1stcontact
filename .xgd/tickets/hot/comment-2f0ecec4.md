@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-27
 created_by: xgd
 created_at: '2026-08-18T17:40:16.676796+00:00'
-updated_at: '2026-08-20T22:00:36.783957+00:00'
+updated_at: '2026-08-20T22:02:33.155681+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -166,5 +166,71 @@ Want me to scope tickets for the asset-upload and cloud-site-creation gaps? Both
 <!-- xgd-chat role="user" ts="2026-08-20T22:00:36.682334+00:00" -->
 #### You
 Worth stating so it doesn't get counted as debt: `capture`, `repro`, `refold`, `gate`, `l1-gate`, `shot`, `diff`, `values-diff`, `responsive-diff`, `adopt-gaps`, `kb build`, `preflight`, `assets`. That's the fidelity/reproduction pipeline and the build toolchain — developer instruments, not operator surface. They have no business in the builder UI. Same for `bin/build` / `bin/deploy` / `bin/smoke`: shipping the platform is a laptop-and-CI activity by design.  <-- but, the cloud based AI cannot execute CLI, I assume it has tools that we created for it to access these via cloud based API's, does it?
+
+<!-- xgd-turn id="82261c3d-a9be-4af3-acc9-b695280fdfdf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T22:02:32.978817+00:00" -->
+#### Claude
+Good challenge — let me verify rather than assume.
+
+You're right, and my split was wrong. Let me correct it precisely.
+
+## What the cloud AI actually has
+
+Exactly two surfaces, and I can enumerate them:
+
+- **The L1 control surface** — 27 operations (`l1-surface.json`), of which the caretaker is granted 7 groups. All of them are site-editing: read, `set_l1`, pages, components, config, palette, `write_image`.
+- **The knowledge surface** — the system KB… *locally only*. See below.
+
+There is **no capture tool, no screenshot tool, no diff tool, no gate tool**. Not withheld by grant — not declared at all. The toolbox has zero operations outside site editing. So no, we did not build cloud APIs for those, and the cloud AI cannot reach them by any route.
+
+## Where I was wrong
+
+Three of the things I listed are not developer instruments. DOC-13 is explicit about it:
+
+**§6 — "Screenshots — the AI's eyes."** Not my paraphrase, that's the section title. *"The same driver screenshots **our own** output to close the AI's perception loop."* That's a product capability, and in the cloud it doesn't exist.
+
+**§2 — the driver seam was built for this migration.** *"Behind a Cloudflare-Browser-Rendering-shaped driver seam. A pure `BrowserDriver` interface mirrors the CF Browser Rendering / `@cloudflare/puppeteer` surface; a **local Playwright** driver implements it now, a CF driver later."* And §8: *"Swap the Playwright driver for a CF Browser Rendering driver behind the same seam; `storage/references/` bytes move to R2. The capture pipeline, schema, and bundle are unchanged."*
+
+So `capture` and `shot` were *designed* as cloud capabilities with the seam pre-cut. Current state: `playwright-driver.ts` is the only implementation, no `wrangler.toml` declares a browser binding, `@cloudflare/puppeteer` isn't a dependency, and **there is no ticket for it.** The seam has been sitting there waiting since DOC-13 and nobody has cashed it.
+
+That also kills DOC-9 §2.1's "convert existing site (killer demo, pre-launch)" in the cloud — you can't ingest a reference site without a browser.
+
+## A second one this turn surfaced
+
+`apps/control-app/src/ai.ts:186` builds `workerHost()` and never sets `knowledgeSurface`. It defaults to `null`. Meanwhile `host.ts:135-165` (Node) opens `kb/` from disk and constructs a `KnowledgeToolbox`.
+
+**The deployed assistant has no access to the system knowledge base.** It knows its tools; it does not know DOC-23, DOC-25, DOC-33 or any of the design corpus. And `host-core.ts:339` frames null as *"an ordinary state, not an error"* — correct for an operator who never ran `1c kb build`, but in the Worker it means this degrades **silently**. You'd experience it as an assistant that's mysteriously worse in the cloud, with nothing in the logs.
+
+Worth noting `1c kb build` already calls Cloudflare for embeddings — what's missing is index storage (Vectorize or D1) and the Worker-side surface. Also unticketed.
+
+## The corrected three-way split
+
+| Genuinely CLI — developer instruments | Genuinely CLI — platform shipping | **Product capability, missing in cloud** |
+|---|---|---|
+| `gate`, `l1-gate`, `values-diff`, `responsive-diff`, `adopt-gaps`, `crop`, `aligned-crops`, `repro`, `refold`, `diff` | `preflight`, `assets`, `bin/build`, `bin/deploy`, `bin/smoke` | `capture`, `shot`, `kb` |
+
+The left column is DOC-21's framework growth loop — a developer growing L1 capability against a reference. That genuinely has no business in the builder UI. The right column I mislabelled.
+
+## The theme underneath
+
+Put this together with last turn's asset-upload gap and it's one coherent hole rather than three:
+
+- The cloud assistant **cannot see** — no screenshot of its own output, no capture of a reference.
+- It **cannot receive** — no file upload, `ManageAssets` ungranted, and an explicit surface *absence* saying files must be "on the machine."
+- It **can only draw** — `write_image` emits SVG, into a void it can't inspect.
+
+So the cloud assistant is blind and can't be handed anything. It can author confidently in a vocabulary it understands, and never check the result. For text-and-palette work that's survivable; for "take this client from nothing to a live site" (DOC-33), it isn't.
+
+## Unticketed gaps, now four
+
+1. **Asset upload** — route + UI + `ManageAssets` grant
+2. **Site creation in the cloud** — `POST /api/sites`
+3. **CF Browser Rendering driver** — seam exists, implementation doesn't; unblocks `capture` + `shot` + reference ingestion
+4. **KB in the Worker** — index storage + `knowledgeSurface` wiring, plus making its absence loud rather than silent
+
+Plus REQ-149, which is cut and empty.
+
+Shall I scope all four? I'd suggest (3) and (4) get written up first even if they're built later — both are cases where the design already decided the answer and only the wiring is missing, and (4) in particular is the kind of silent degradation that's much cheaper to notice now than to diagnose in three months.
 
 <!-- xgd-chat-end -->
