@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-20T11:31:10.360904+00:00'
+updated_at: '2026-08-20T11:50:23.497221+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -174,6 +174,21 @@ position therefore survive the fold instead of being replaced by module defaults
 A control with no geometry at any sampled width has nothing to mount at and stays
 a residual.
 
+The fold derives each seam's **behavioural config from the capture alone**: the
+field list and each field's label from the a11y tree's accessible name, each
+field's type from the captured input type — falling back to the control's height
+when the bundle recorded none, a control materially taller than the form's
+shortest being a multi-line box — and the submission endpoint from the captured
+form action. It **invents nothing**: where the capture carries no such fact, or
+carries an endpoint that is not a safe URL, the derivation takes an honest default
+(an unnamed control still becomes a field under a positional label; a form with no
+action posts to its own URL) and records a **derivation gap** naming what was
+missing, so an honest default is never mistaken for a captured fact. That channel
+is deliberately **distinct from the typed element residual** below: the form *was*
+mounted, so a missing endpoint names a gap in what the capture saw, not a gap in
+L1's expressive power, and conflating the two would make a successfully mounted
+form read as an un-foldable field.
+
 Anything the fold still cannot express is **signalled, not dropped**: each such
 element becomes a typed residual naming its kind, the reason, the painted axes it
 carried and the widths it appeared at, so a folder-power gap reads as a framework
@@ -189,10 +204,17 @@ names is rewritten from the captured origin to the bundle's own mirrored asset,
 and a handle with **no** mirrored asset fails the run outright with a re-capture
 instruction rather than hotlinking the origin — a reproduction that reaches over
 the network is neither reproducible offline nor honestly gate-able, since the
-perceptual gate would then be blind to image regressions. Rewriting handles is a
-materialization concern, not a fold concern: the folded document keeps the
-handles the capture recorded. The verb is **idempotent** — a re-run wipes the
-target and rebuilds it, so re-materializing after a fold change never leaves half
+perceptual gate would then be blind to image regressions. The rewrite reports the
+**opposite channel** too: a mirrored `image` or `font` asset the folded document
+references **nowhere** — the bundle carries the bytes but the fold emitted no leaf
+and no `@font-face` for them — is surfaced as a **fold gap** rather than silently
+dropped, because it names folder power the reproduction is missing rather than a
+broken reproduction. It is a different measure from the gate's reference-coverage
+media proxy, which asks the same question of the retained *reference manifest* on
+the gate verb rather than of the folded document, so the two numbers are not one.
+Rewriting handles is a materialization concern, not a fold concern: the folded
+document keeps the handles the capture recorded. The verb is **idempotent** — a
+re-run wipes the target and rebuilds it, so re-materializing after a fold change never leaves half
 of a previous reproduction behind. (How an imported reproduction interacts with an
 already-scaffolded slug — that it replaces the page document wholesale — is
 AC-876's under the site-import capability and is not restated here.)
@@ -215,7 +237,8 @@ renders as a complete reproduction on its own.
 **In scope:** the fold to one L1 document in the full language (text, image, box,
 backdrops in the background layer, reconstructed surfaces with the self-painting
 run excepted from them and the full-bleed bar as a second band-seeding path, page
-band, behaviour seams with rebased control leaves,
+band, behaviour seams with rebased control leaves and their capture-derived
+behavioural config with its distinct derivation-gap channel,
 font table), the band's translucent scrim carried on the section-background box
 (the image-or-scrim fold condition and its per-axis widest read), the framing and
 colour-adjustment axes a captured picture or surface
@@ -226,7 +249,8 @@ section-edge and representative-row attribution rules), the no-wrap
 threshold axis, the recovered centred content column and the column-anchored node
 geometry that refers to it, oracle retention, the materialization of a folded
 bundle into a servable site (page document, mounted seams, asset localization with
-a hard failure on an unmirrored handle, idempotent rebuild), the offline re-fold,
+a hard failure on an unmirrored handle and a reported fold gap on a mirrored asset
+no node references, idempotent rebuild), the offline re-fold,
 geometry keyframes + interpolate/snap classification + visibility rules, the typed
 residual signal for unexpressed elements, the advisory hint sidecar, and
 supersession of the pre-L1 `adopt-values` reproduction command.
@@ -294,6 +318,11 @@ story); how the gate presents the residual channel.
   `borderLeft`) stays on the card box where the text leaf cannot carry it. Before
   BUG-21 the card path outset such a run by an inferred padding, giving every
   button twice its height.
+- The derived config is bounded by what a resting capture can see, which is why
+  each fallback carries a gap rather than a guess: height is the only evidence of
+  a multi-line box when no input type was recorded, and no evidence at all names
+  an endpoint. A fabricated endpoint would be the one derivation that silently
+  sends real leads somewhere, so it is the one the fold refuses outright.
 - Rebasing a control to its seam changes only the ORIGIN of its geometry, never the
   measured box: the seam's own rect is the union of the cluster (widened to hold a
   claimed submit button), and each control's keyframe is its captured box minus the
@@ -329,7 +358,11 @@ story); how the gate presents the residual channel.
   that origin stayed up and blinded the perceptual gate to image regressions, so
   handle rewriting and its hard failure live in the materialization verb, not in
   the fold. The bundle's mirrored assets are the only source consulted; nothing is
-  fetched at materialization time.
+  fetched at materialization time. The bug had **two** halves and both are here:
+  the hard failure on an unmirrored handle (a broken reproduction) and its
+  converse, the mirrored asset no node references (a fold gap). The second is
+  reported rather than treated as a no-op precisely because the bytes prove the
+  capture saw something the fold could not place.
 - REQ-136 — the framing pair (which part of a picture its box shows) and the
   colour-adjustment stack were both read by the capture all along and dropped by
   the fold, because the substrate had nowhere to put them. The adjustment was
