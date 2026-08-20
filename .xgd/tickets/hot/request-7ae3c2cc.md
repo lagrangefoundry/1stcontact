@@ -22,11 +22,12 @@ fields:
   - REQ-145
   - REQ-147
   commits:
-  - working_sha: a6e92ca2603cba91fb5b905c826566ac208737ac
+  - working_sha: a28d2f522f0e5f06629ca9084ac14349b988ed85
     reconcile_sha: null
     main_sha: null
     working_sha_history:
     - ade64575a4706348dc54df0ed2d2b3f384fe3eb2
+    - a6e92ca2603cba91fb5b905c826566ac208737ac
   - working_sha: 055378794f49f1dc39b20fdcf54aa7fa0b1190e3
     reconcile_sha: null
     main_sha: null
