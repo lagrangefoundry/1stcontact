@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-20T21:05:00.563078+00:00'
+updated_at: '2026-08-20T21:20:35.464125+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -168,5 +168,89 @@ Ping me when the install finishes and I'll run the full node suite, bump the ver
 <!-- xgd-chat role="user" ts="2026-08-20T21:05:00.462188+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="d73c556d-bc72-421b-8793-5c275fd0d432-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:20:35.375679+00:00" -->
+#### Claude
+I'll pick up where the prior session left off — checking whether the install landed and the worktree state.
+
+All my edits are intact; the install still hasn't run. Let me try it now — bypass mode may allow it.
+
+Hard deny on `pnpm install*` — a deliberate policy, so I won't work around it. Let me check whether the tree is actually usable as-is.
+
+`vite` isn't resolvable and `astro` is still linked — the tree genuinely needs the relink, and `pnpm-lock.yaml` is still stale (not in the modified list), which only `pnpm` itself can regenerate. Let me do everything else first.
+
+Ticket body is already complete and status is `free_coding`. Let me check exactly what the lockfile situation requires.
+
+Lockfile is tracked with `astro` in 3 importers — only `pnpm` can regenerate that, so the commit is genuinely gated on their install. But I can still de-risk it now with ephemeral, reversible local scaffolding. Let me reconnoitre first.
+
+Zero real `astro` imports remain and the manifests are clean. Now let me run the suite against a temporarily simulated post-install tree (ephemeral, gitignored, auto-restored).
+
+59 failures — I need a baseline to know which are mine. Let me capture the full failing-file list and run the unmodified branch-base in parallel.
+
+Main checkout has advanced past my branch base, so I'll take an exact baseline by stashing in place.
+
+Baseline: **13 files / 59 tests failing**. Modified: **13 files / 59 tests failing**, with `+5` passes — exactly my new UAT file. Zero regressions. Let me confirm the REQ-150 regression scope explicitly.
+
+All 10 regression-scope files pass (48 tests), tree restored cleanly. Let me check the remaining gates and CI expectations.
+
+CI uses `pnpm install --frozen-lockfile` — so the stale lockfile is a hard blocker. But I need to resolve a contradiction: `astro` just appeared in `package.json` again.
+
+Wrong cwd — those last greps read the main checkout. Let me re-verify in the worktree.
+
+Manifests are correct. Let me check the one discrepancy — the ticket body says `vite` was also added as a root devDependency, but it isn't there.
+
+Neither Vitest config imports `vite` — so the root devDependency the ticket body mentions isn't needed and was correctly omitted. Let me review the full diff before writing up.
+
+The diff is coherent and complete. Let me correct the one inaccuracy in the ticket body and record the verification results.
+
+Relative path broke (the CLI chdirs) and my `rm` fired. Let me rebuild with an absolute path.
+
+Everything restored (the one stash entry is a pre-existing `free-REQ-146` WIP, not mine). Let me confirm the new UAT file's shape before reporting.
+
+All work is complete and verified, but **not committed** — and it can't be, correctly, until one command runs that this session is denied.
+
+## Where it stands
+
+Every source change from the settled scope is written and passing:
+
+| | |
+|---|---|
+| `tools/generate/bin/1c.mjs` | plain `createServer()` from `vite`; `getViteConfig`, the inline Astro config, and the `createRequire(import.meta.resolve('astro/package.json'))` hop all gone |
+| `vitest.node.config.mts` | `getViteConfig` → `defineConfig` from `vitest/config` |
+| `package.json` ×3, `pnpm-workspace.yaml` | `astro` removed; `vite` added to `tools/generate` as a runtime `dependencies` entry |
+| tsconfigs ×2 | `astro/client` types dropped |
+| 4 test files + 2 new | container spies → the stronger static resolution check; 5 new `test_UAT_FC_REQ-150_*` UATs |
+
+**Verification** (full node suite run twice in the worktree, same `node_modules`, change stashed then applied, with the post-install tree simulated by store symlinks that I reversed afterwards):
+
+- baseline: 13 files / 59 tests failing · applied: 13 files / 59 tests failing — **identical**, with `+1` file and `+5` passes that are exactly the new UAT file. Zero regressions.
+- The 59 failures are pre-existing breakage at this branch point (`test_UAT_FC_REQ-129_l1_authoring` and others), untouched by this work.
+- Declared regression scope run on its own: **10 files, 48 tests, all pass**.
+- Statically: no source file imports `astro` or any `astro/*` subpath, and no `package.json` declares it. `@astrojs/markdown-remark` untouched.
+
+The worktree and `node_modules` are fully restored — no scaffolding left behind.
+
+## The blocker
+
+`pnpm-lock.yaml` is **tracked** and still lists `astro` in all three importers, and both `.github/workflows/ci.yml` and `deploy.yml` run `pnpm install --frozen-lockfile`. Committing the manifest edits against a stale lockfile would land a commit that fails CI on contact. Only pnpm can regenerate it — hand-editing a lockfile that size isn't a defensible substitute, and the symlinks I used for verification don't touch it.
+
+`Bash(pnpm install*)` is on your hard-deny list in `~/.claude-2/settings.json`, so I can't run it, and I didn't try to route around it.
+
+**Please run:**
+
+```bash
+cd /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-150
+pnpm install --offline
+```
+
+`vite@8.1.0` is already in that worktree's store, so offline should resolve. If it objects to the `^8.1.0` range, say so and I'll pin it exact.
+
+## After that
+
+I'll re-run the full suite on the real tree, bump the version, commit with `[FREE-CODED]`, `xgd branch lock` + merge into `xgd-working`, `move-to-free-coded`, and `xgd branch clean`.
+
+The ticket body is current: I corrected one inaccuracy (it claimed `vite` was also added as a root devDependency — it isn't, and shouldn't be, since both Vitest configs use `vitest/config` and Vitest carries its own Vite) and appended the verification numbers and this outstanding step. Status remains `free_coding`.
 
 <!-- xgd-chat-end -->
