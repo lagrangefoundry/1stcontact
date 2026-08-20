@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T21:32:51.901152+00:00'
+updated_at: '2026-08-20T21:35:20.556837+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -400,5 +400,11 @@ Two things worth your eye before I start, because both are deletions of working 
 Everything else is additive or internal. Story points still read 13 and that's honest — migration, port verbs, the service, render-to-store, `public-site`'s swap, and two deletions.
 
 Say go and I'll set `status=free_coding`, cut `free-REQ-149`, and build it.
+
+<!-- xgd-turn id="b2f5782a-866d-4611-b6ee-e761f80a4601-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:35:20.467315+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
 
 <!-- xgd-chat-end -->
