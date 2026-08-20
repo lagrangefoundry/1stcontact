@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-19 free-coded commits (REQ-133, BUG-35, REQ-
   REQ-140, REQ-139, REQ-123, REQ-141, REQ-144, REQ-142)'
 created_by: xgd
 created_at: '2026-08-20T01:12:52.279101+00:00'
-updated_at: '2026-08-20T02:01:06.105900+00:00'
+updated_at: '2026-08-20T02:29:42.344202+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -134,7 +134,7 @@ fields:
       the last PUBLISHED revision, file-level, no ordering, no actor, no before/after).
       The journal, the counter, the tool, the CLI verb and the reminder signal are
       one mechanism and are documented as one story rather than scattered across three.
-    story_uid: null
+    story_uid: story-6cd17452
   - index: 4
     component: Structured Copy Editing — colour fields and the faithfulness lock
     item_type: upgrade
