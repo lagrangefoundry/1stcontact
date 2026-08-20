@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T23:40:06.877404+00:00'
+updated_at: '2026-08-20T23:56:19.773091+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -987,5 +987,15 @@ This has outgrown a DOC-33 edit. What I think it now is:
 3. **A small capture ticket** — the diagnostic needs the CHAT-29 image gaps closed plus one external local-search lookup.
 
 Want me to start with (1)? It's the load-bearing one, and DOC-33's restructure reads much more cleanly once the personas exist to hang it on.
+
+<!-- xgd-turn id="6540757c-06f8-43cc-a60c-c29bd48e1beb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T23:56:19.675813+00:00" -->
+#### You
+t also passes the blank-question test, and I think that test now generalises usefully: **ask questions inside the client's expertise; show artifacts for questions inside ours.** "What's your brand personality" is our domain → blank stare. "How many enquiries a week do you get, and would you like more" is theirs → instant, specific, true. Verbal for their expertise, visual for ours. <-- let me rif on this for a second because it's really important, my friend is a sole proprietor shameless a little bit of help with things like delivery and catering service but basically it's her so she is very supply constrained. Once her booking sheet is full her customers go on a waiting list. So, the question of how many warm leads she needs is really important. She interviewed a Webb consulting company who were proposing to charge her $300 per month now in my mind to earn that fee, I would expect them to be getting her dozens of warm leads a week. But if she can only handle at most 10 clients what is she going to do with a dozen warm leads a week? I'm not saying that it doesn't make sense to build the best website possible and the most effective funnel, but what I am saying is that there is a limit to how much she should be putting into the marketing effort, buying expensive SEM for leads that she must throw away would be obviously ridiculous. Getting that understanding out of her requires a certain amount of insight and deduction because if you asked her she would just tell you she needed more leads... the "what would success look like in six months" question I think would help with this if we could pin her down on actual numbers but again the solution isn't to build a bad site or a leaky funnel it's to not over spend type of funnel activities
+
+Migration <-- I like where you're going with this and I'd really want to drill into this question because I am drawn to your conclusion that the audience of people that already have websites maybe a stronger real market for my product people who understand the problems with the sites that they have that my tool can fix. But I think we're a little stranded here there may be many things that she likes about her sight I'm sure she likes the images imagine she likes the style in the layout and I also think that we are wasting tokens and her time building a new site if she doesn't care. What she cares about is more leads we know how to do that and the most efficient way would be to copy her site first.
+
+No I think we can probably do pretty good reproductions. What this requires is an automated loop a list of candidate sites and we set an AI at the problem of extending the reproduction capability site-by-site. That's quite a lot of infrastructure to set up and maintain so I have been hesitating to do it until I feel that I can justify the work my friend needs that I think. And without reproducing the reproduction capability I don't know how to give it to her.
 
 <!-- xgd-chat-end -->
