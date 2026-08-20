@@ -6,10 +6,10 @@ title: The fold derives a no-wrap threshold from the reference's own measured li
   count
 created_by: xgd
 created_at: '2026-08-20T12:47:51.967329+00:00'
-updated_at: '2026-08-20T12:47:51.967329+00:00'
+updated_at: '2026-08-20T12:49:19.445246+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
