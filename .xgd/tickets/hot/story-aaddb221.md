@@ -6,9 +6,9 @@ title: 'Values-diff noise management: an exact capture reported as counted defec
   in repair order, rolled up to ranked causes'
 created_by: xgd
 created_at: '2026-08-20T03:39:47.100579+00:00'
-updated_at: '2026-08-20T06:01:14.310424+00:00'
+updated_at: '2026-08-20T07:00:27.707726+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: unplanned
 fields:
   intent_uid: request-07d0e3e1
@@ -17,6 +17,7 @@ fields:
   story_points: 3
   updated_by:
   - request-3a11304d
+  uat_coverage: pass
 ---
 
 ## Story
