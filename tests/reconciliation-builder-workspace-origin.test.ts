@@ -112,9 +112,15 @@ describe('story-e674c60a builder origin', () => {
   const get = (p: string, init?: RequestInit) => fetch(new URL(p, builder.url), init)
 
   it('test_UAT_AC966_view_mode_serves_the_real_rendered_artifact_byte_identical', async () => {
-    // AC-966 — the pane shows the operator's ACTUAL rendered site: the bytes on
-    // the wire are the bytes on disk, not a placeholder, a re-generation, or a
-    // differently-serialised copy.
+    // AC-966 — the pane shows the operator's ACTUAL rendered site, whole: real
+    // content rather than a placeholder, with the assets it references
+    // resolving over the same origin.
+    //
+    // The bytes are produced when the request arrives (REQ-119), so "equal to
+    // what the render writes" is an equality by construction, and asserting it
+    // across both channels and the whole artifact set belongs to AC-1032. The
+    // disk comparison kept here is incidental to that: this fixture has already
+    // rendered, so it is the cheapest way to say "real content".
     const res = await get('/preview/alpha/draft/')
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/html')
