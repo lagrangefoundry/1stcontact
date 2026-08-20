@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-145
 created_by: xgd
 created_at: '2026-08-16T22:21:59.514582+00:00'
-updated_at: '2026-08-20T21:04:57.945158+00:00'
+updated_at: '2026-08-20T21:08:38.813700+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -506,5 +506,30 @@ Want me to start REQ-148, or prepare the deployment steps?
 <!-- xgd-chat role="user" ts="2026-08-20T21:04:57.750960+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="29df0641-8ae9-43cc-a06f-1026c5e96cf6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:08:38.620438+00:00" -->
+#### Claude
+REQ-145 is closed out at **`free_coded`**.
+
+The code had already landed on 2026-08-17 — all nine ACs met, described in the ticket body. What was missing was only the promotion gate, so this session was verification and ceremony rather than new implementation.
+
+**What I found and had to work around.** The dispatcher's resync rebased this work onto a newer `main` twice, re-authoring every SHA. That left the ticket pointing at the current values but the branch pointing at dead ones, which is why `xgd branch clean` refused: `free-REQ-145`'s tip is no longer an ancestor of `xgd-working`, even though its content is there. The refusal is correct behaviour, so rather than override it blind I checked the content directly — every one of the 47 files the branch's REQ-145 commits touched is **byte-identical** between the branch and `xgd-working`. Nothing was lost in the rebase.
+
+**Re-verified on the post-resync tree**, not on the pre-rebase branch:
+
+| | |
+|---|---|
+| `test_UAT_FC_REQ-145_build_artifacts` | 7/7 (node) |
+| `test_UAT_FC_REQ-145_builder_in_workerd` | 10/10 (workerd, real D1 + R2) |
+| Commits `cb403366d`, `16edb7521`, `7a1822f52` | all ancestors of `xgd-working` |
+| Version 0.1.59 | `xgd_version_bump --check` passes |
+
+The version bump shows in no single commit's diff — `merge_version_max` absorbed it during the rebase — but it is present in the commit trees, which is what the gate checks.
+
+Worktree and local branch are torn down. `origin/free-REQ-145` is still on the remote; deleting a remote branch is outward-facing, so I left it for you.
+
+**Two things unchanged by this.** REQ-148 is still a prerequisite for rendering any real site through the Worker — every site in `storage/sites/` mounts `contact-form`. And nothing is deployed: no `1stcontact-control-app` Worker on the account, `app.1stcontact.io` doesn't resolve, D1 has no tables, Access unconfigured. The ticket is done; the Cloudflare demo isn't.
 
 <!-- xgd-chat-end -->
