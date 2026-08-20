@@ -6,10 +6,10 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-08-20T04:41:33.263551+00:00'
+updated_at: '2026-08-20T04:45:08.514758+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-e59210c5
   capability_uid: capability-7e4714b7
