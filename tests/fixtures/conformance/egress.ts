@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-40 negative fixture (test infrastructure, NOT a shipping module): a module
  * that issues a network request to an off-allowlist origin. The image points at a
@@ -7,9 +8,7 @@
  * harness's `security.egress` check MUST flag any origin outside the served page.
  * The scheme is `http`, so this is egress only, not an unsafe-scheme violation.
  */
----
-
-<section style="padding: 40px">
+export const egress: BehaviorComponent = () => `<section style="padding: 40px">
   <h2>Egress fixture</h2>
   <img src="http://127.0.0.1:9/tracker.gif" alt="" />
-</section>
+</section>`

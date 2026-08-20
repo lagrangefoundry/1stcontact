@@ -12,9 +12,9 @@ import {
 } from '../tools/generate/src'
 
 const carouselMeta = getModule('carousel', 3).meta
-import Overflow from './fixtures/conformance/overflow.astro'
-import PageError from './fixtures/conformance/page-error.astro'
-import Collapsed from './fixtures/conformance/collapsed.astro'
+import { overflow as Overflow } from './fixtures/conformance/overflow'
+import { pageError as PageError } from './fixtures/conformance/page-error'
+import { collapsed as Collapsed } from './fixtures/conformance/collapsed'
 
 /**
  * UATs for REQ-39 — the conformance harness core ([[DOC-20]]). The harness is

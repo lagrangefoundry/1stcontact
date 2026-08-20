@@ -2,9 +2,10 @@
 
 The **L1 layout substrate**, the **behavior-module** catalog, and the
 theme-token system that renders every 1st Contact site (DOC-7 security half,
-DOC-23, DOC-24). Server-side render only — module components are Astro
-components compiled by the consuming build (`tools/generate`); there is no
-in-browser renderer (DOC-7 §2.4 / DOC-12).
+DOC-23, DOC-24). Server-side render only — a behavior module is a plain
+TypeScript function of its props (REQ-148), so the render runs in Node and in
+workerd through the same code; there is no in-browser renderer (DOC-7 §2.4 /
+DOC-12).
 
 Since the framework pivot (REQ-79 / REQ-84) **layout is owned by L1**, not by
 semantic layout modules. The old header/hero/footer/text-block/services-grid/layer
@@ -33,7 +34,13 @@ AI *configures*, never writes code for.
   - `registry.ts` — `registry` + `getModule(id, version)`. The catalog holds the
     behavior modules only.
   - `carousel`, `contact-form` — the current behavior modules, each a `meta.ts`
-    contract plus an `index.astro` component with scoped, token-driven CSS.
+    contract, a `component.ts` render function, a `client.js` of vetted client
+    behaviour, and a `styles.css` carrying only its invariant-element chrome
+    (DOC-25 §10.3). `1c assets` precompiles the last two into
+    `module-assets.ts` so a runtime with no filesystem can compose `theme.css`
+    and `capabilities.js`.
+  - `html.ts` — the two explicit string sinks (`escapeHtml`, `attr`) a module's
+    own markup goes through. They were the Astro compiler's job until REQ-148.
   - `dials.ts` — shared per-instance dial enums + the length/step resolvers
     (`resolveStep`, `classifyLength`, `responsiveStepVars`, … — the
     absolute-or-overlay seam) reused across behavior modules.
@@ -42,6 +49,7 @@ AI *configures*, never writes code for.
 
 ## Testing
 
-Module components and the L1 renderer are exercised via Astro's container API
-under Vitest (the `.astro` transform is wired through `getViteConfig` in the
-root `vitest.config.mts`). UATs live in `tests/`.
+Module components and the L1 renderer are exercised by calling them: both are
+plain functions, so a UAT renders one directly and asserts on the HTML. UATs
+live in `tests/`; the workerd half of the render (`*.workers.test.ts`) runs in
+Miniflare against real bindings.

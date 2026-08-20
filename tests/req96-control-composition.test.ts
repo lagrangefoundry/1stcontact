@@ -55,7 +55,13 @@ function moduleCss(slug: string): string {
   const all = getModuleCss()
   const start = all.indexOf(`/* module: ${slug} */`)
   expect(start, `module ${slug} present in theme.css`).toBeGreaterThanOrEqual(0)
-  const next = all.indexOf('\n\n/* ', start + 1)
+  // REQ-148 — end at the next SECTION header (the next module, or the
+  // responsive-typography tail), not at any top-level comment. The chrome used to
+  // sit indented inside an `.astro` `<style>` block, so a comment of its own never
+  // began at column 0; it is a dedented `styles.css` now, and the loose pattern
+  // truncated a module's block at its first internal comment.
+  const m = /\n\n\/\* (?:module: |responsive )/.exec(all.slice(start + 1))
+  const next = m ? start + 1 + m.index : -1
   return all.slice(start, next < 0 ? all.length : next).replace(/\/\*[\s\S]*?\*\//g, '')
 }
 

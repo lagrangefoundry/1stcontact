@@ -1,14 +1,18 @@
 /**
- * REQ-89 — Astro boots on every `1c` command.
+ * REQ-89, as REQ-148 left it.
  *
- * Two halves are proven here:
+ * REQ-89's claim was that the render path is Astro-*lazy*: a container is
+ * constructed only when a page actually mounts a behavior module. REQ-148
+ * SUPERSEDES that with the stronger property — no container is constructed for
+ * any page, ever, because a behavior module is a plain function of its props and
+ * there is no container to construct. The two render assertions below therefore
+ * make the same measurement and expect the stronger answer; the lazy branch they
+ * used to prove is gone rather than moved.
  *
- *  1. The render path is Astro-lazy: `renderSite` constructs an `AstroContainer`
- *     ONLY when a page actually has behavior modules. A folded-L1 reproduction
- *     (REQ-88) renders with zero Astro container involvement; a module page still
- *     renders identically, creating the container on demand.
- *  2. The `1c` launcher no longer leaks Astro's "Missing pages directory" WARN to
- *     stderr on a non-rendering command.
+ * The third assertion is untouched REQ-89: the `1c` launcher must not leak
+ * Astro's "Missing pages directory" WARN on a non-rendering command. Its Vite
+ * bootstrap is still Astro's — collapsing that to a plain Vite SSR server is
+ * REQ-150, deliberately kept out of REQ-148.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { spawnSync } from 'node:child_process'
@@ -90,8 +94,8 @@ afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
-describe('REQ-89 — Astro is lazy in the render path', () => {
-  it('test_UAT_FC_REQ-89_l1_site_renders_without_astro_container', async () => {
+describe('REQ-148 — Astro is absent from the render path', () => {
+  it('test_UAT_FC_REQ-148_l1_site_renders_without_astro_container', async () => {
     // Import a folded L1 bundle as a raw-L1 home page site.
     const ref = path.join(cwd, 'bundle')
     writeL1(ref, foldToL1(l1Oracle()))
@@ -108,7 +112,7 @@ describe('REQ-89 — Astro is lazy in the render path', () => {
     expect(createSpy).not.toHaveBeenCalled()
   })
 
-  it('test_UAT_FC_REQ-89_module_site_renders_with_astro_container', async () => {
+  it('test_UAT_FC_REQ-148_module_site_renders_without_astro_container', async () => {
     cmdNew('acme', { cwd })
     seedModules(cwd, 'acme')
 
@@ -120,8 +124,10 @@ describe('REQ-89 — Astro is lazy in the render path', () => {
     expect(themeCss).toContain('.carousel__track')
     const html = readFileSync(path.join(outDir, 'index.html'), 'utf8')
     expect(html).toContain('data-fc-type="carousel"')
-    // … and the container WAS created on demand.
-    expect(createSpy).toHaveBeenCalled()
+    // … and NO container was created for it either (REQ-148). This is the
+    // assertion that used to read `toHaveBeenCalled()`: the module render no
+    // longer goes through Astro at all, which is what lets it run in workerd.
+    expect(createSpy).not.toHaveBeenCalled()
   })
 
   it('test_UAT_FC_REQ-89_cli_boots_no_missing_pages_warning', () => {

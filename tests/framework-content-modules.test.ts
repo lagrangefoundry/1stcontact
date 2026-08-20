@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import {
@@ -20,11 +19,8 @@ import { contactFormPreset } from '../packages/framework/src/l2/contact-form'
  * capability contract's config/slot bounds.
  */
 
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(Component: Parameters<Container['renderToString']>[0], props: unknown) {
-  container ??= await AstroContainer.create()
-  return container.renderToString(Component, { props: props as Record<string, unknown> })
+function render(Component: BehaviorComponent, props: unknown): string {
+  return Component(props as BehaviorProps)
 }
 
 const textNode = { kind: 'text', text: 'slide' }

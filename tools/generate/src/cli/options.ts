@@ -1,4 +1,10 @@
-import type { EditActor } from '../store'
+// From the model module, NOT the `../store` barrel (REQ-148). The barrel reaches
+// `fs-store`, so a type-only import of it still puts `node:fs` in the type graph
+// of everything that imports this file — including the Worker's route table,
+// which has no Node types and no business having them. Until now that graph
+// typechecked only because the deleted `*.astro` ambient pulled Astro's `.d.ts`
+// in, and with it `@types/node`, by accident.
+import type { EditActor } from '../store/journal-model'
 
 /**
  * Options every command shares (REQ-145).
