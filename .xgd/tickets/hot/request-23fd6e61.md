@@ -18,9 +18,11 @@ fields:
   depends_on:
   - REQ-144
   commits:
-  - working_sha: 10532707034369e07d0c4cc20d81d1eb51daba10
+  - working_sha: fc75f0ca26d8e2953514bca9dc9b04cc1b6d0b6d
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - 10532707034369e07d0c4cc20d81d1eb51daba10
   version: 0.1.53
 ---
 
