@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-16T10:03:41.184485+00:00'
+updated_at: '2026-08-20T01:33:40.513292+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -42,7 +42,29 @@ the surface where an operator *sees* the site instead.
   every site in the store are all reachable from one origin. That is not a
   convenience: it is why the frame showing the site is not a foreign document,
   and why "open this properly in a new tab" lands on the identical URL the frame
-  is already displaying rather than a lookalike.
+  is already displaying rather than a lookalike. The operations the workspace
+  performs against a site — listing what the store holds, publishing, and
+  reading and applying a change to a site's copy — are reachable from that same
+  origin.
+- **The origin carries the write path's operations, and adds no semantics to
+  them.** Reading a piece of a site's copy and applying a change to it are
+  reachable over this origin, but the origin decides nothing about either: it
+  hands the request to the very operations the command line dispatches to, and
+  hands their answer back unchanged. So an edit the write path refuses arrives
+  as *that path's own* refusal — carrying the machine-readable reason it gives,
+  the place in the site it points at, and the hint it offers — rather than as a
+  server failure that has thrown the reason away, and an operator sees the same
+  explanation here as at a command line. The browser code the editing gesture
+  runs inside the displayed page is served from this origin too, produced from
+  the same source the renderer itself is built from rather than kept as a
+  hand-written second copy, so the code in the page and the markup it binds to
+  cannot drift apart.
+- **The two ways the origin can fail to answer are told apart.** An origin that
+  was never configured and an origin that is configured but not answering are
+  distinct, self-explanatory failures — never a blank page, and never a success:
+  the unconfigured case names the command that starts the origin, and the
+  unreachable case names the address that was tried. An operator can tell from
+  the response alone which of the two happened and what to do about it.
 - **Chrome built from shared components, consumed not copied.** The workspace is
   assembled from the shared UI components the wider system already ships. They
   are consumed from an installed copy that lives outside this repository,
@@ -75,7 +97,13 @@ the surface where an operator *sees* the site instead.
   that collapses to a few lines tall is the failure this exists to prevent, and
   a page-level scrollbar is the visible sign that the height chain has leaked
   again. Every name the workspace shows has exactly one definition site, so
-  renaming it is a one-line change and no second copy can drift.
+  renaming it is a one-line change and no second copy can drift. The tab itself
+  is declared once and whole, and every option that declaration carries reaches
+  the chrome intact — filling the window is one of those options, so a mounting
+  step that rebuilds a tab from only the properties it happens to know about
+  discards the rest without a word and the frame collapses. Adding an option to
+  a tab declaration requires no change to the mounting step: a silently narrowed
+  tab declaration is the failure this exists to prevent.
 - **A display panel with modes, not a preview.** The pane is not "the preview";
   it is a pane that can show any of several registered ways of looking at the
   current site, of which the normal view is one and the editable render is
@@ -130,13 +158,23 @@ the surface where an operator *sees* the site instead.
   file's contents come back, and every tree behaves identically, so the
   confinement cannot be present on one tree and missing on another. It works by
   clamping an escaping path back inside the tree, so such a request is answered
-  as *not found* rather than singled out as forbidden.
+  as *not found* rather than singled out as forbidden. A request that names
+  something this origin does not serve at all is answered the same way: a
+  rendering channel that is not one of the site's, a page or a site the store
+  does not hold, or a component the workspace does not consume is reported as
+  not found — never satisfied from a neighbouring directory, and never answered
+  as a success carrying unrelated content.
 
 **Out of scope**
 
-- Editing of any kind: clicking a segment, the field modal, and the write path
-  behind it are separate stories. The editable *mode* is registered here and
-  shows the editable rendering; the gesture that changes anything is not.
+- Edit semantics and the editing gesture: clicking a segment, the field modal,
+  and what the write path validates, writes and refuses — including what a
+  refusal carries — are separate stories. This story owns only that those
+  read/apply operations are reachable over this origin as a transport that
+  changes none of it, and that the gesture's browser code is served from here;
+  what that code does once the browser runs it is not this story's. The editable
+  *mode* is registered here and shows the editable rendering; the gesture that
+  changes anything is not.
 - What the assistant pane *does*. This story owns the split's geometry and what
   it remembers; the conversation the secondary pane hosts, and everything behind
   it, belongs to its own capability.
@@ -196,6 +234,20 @@ the surface where an operator *sees* the site instead.
   from the edge. The acceptance criteria here are written about *one origin* and
   *what an operator observes*, not about a proxy, so they survive that change
   unaltered.
+- **The edit seam is a transport, and the bridge is derived rather than
+  written.** The origin's read and apply routes call the same two functions the
+  command line's copy commands dispatch to, so there is one implementation of
+  what an edit means and no second opinion at the origin; a refusal is returned
+  with the reason object those functions produce, as a request-level refusal
+  rather than an origin fault, because the caller is the browser and the fault
+  is in what was asked. The gesture's client bytes are produced from the
+  renderer's own source at serve time rather than maintained as a parallel
+  hand-written file — the same reasoning as one production of a page: two
+  sources of the same knowledge drift, and this pair's drift would only be
+  visible in a browser. Like the Node origin itself, *how* those bytes are
+  produced is expected to change when the origin moves into the edge runtime;
+  the criteria are written about what the origin answers, not about the
+  mechanism, so they survive that move.
 - **The scope moves in lockstep with upstream, and only forward.** The scope the
   shared components are published under belongs to the wider system, not to this
   repository. When it changes there, it changes here in a single step: the store
