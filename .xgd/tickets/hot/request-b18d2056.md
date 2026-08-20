@@ -6,9 +6,9 @@ title: 'Workers-runtime test project: UATs that run inside workerd against real 
   and R2 bindings'
 created_by: xgd
 created_at: '2026-08-15T20:30:39.280519+00:00'
-updated_at: '2026-08-20T21:03:42.903060+00:00'
+updated_at: '2026-08-20T21:03:59.438047+00:00'
 completed_at: '2026-08-20T21:02:49.280994+00:00'
-last_field_updated: status
+last_field_updated: ready_since
 status: ready_to_implement
 fields:
   priority: high
@@ -22,7 +22,7 @@ fields:
     evaluated_at: '2026-08-15T20:31:58.367726+00:00'
     evaluated_against:
     - bundle-d9226698
-  ready_since: '2026-08-15T21:38:04.123726+00:00'
+  ready_since: '2026-08-20T21:03:59.354265+00:00'
   depends_on: []
   commits:
   - working_sha: 8d8b81ccb2eb1144a7acede987c05c55c706a7aa
