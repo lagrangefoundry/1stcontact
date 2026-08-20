@@ -110,6 +110,19 @@ function l1HostDocument(widths: number[]): unknown {
   }
 }
 
+/**
+ * The exact L1 host document the `mountInL1` shape mounts into, over whatever
+ * width ladder this harness probes. Exported as test-infrastructure — the
+ * attributability claim ("the seam spans the viewport at every probed width, so
+ * an overflow observed under this mode is the behaviour's own") is a property of
+ * this document's geometry, and proving it needs no browser. `oneModulePage`
+ * below builds the mounted page from this same function, so the host under test
+ * and the host that ships cannot drift.
+ */
+export function conformanceL1HostDocument(): unknown {
+  return l1HostDocument([...RESPONSIVE_WIDTHS])
+}
+
 /** Build a validated single-module page JSON from a fixture. */
 function oneModulePage(
   slug: string,
@@ -142,7 +155,7 @@ function oneModulePage(
     // The full ladder, whatever this run probes: a keyframe at every width means
     // the slot spans exactly the viewport at each one, so the wrapper can never
     // be the thing that overflows.
-    page.l1 = l1HostDocument([...RESPONSIVE_WIDTHS])
+    page.l1 = conformanceL1HostDocument()
   }
   return page
 }

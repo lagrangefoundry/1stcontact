@@ -33,7 +33,19 @@ import type { ControlRow, FoldedForm, FoldResidual } from '../tools/generate/src
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { cmdRender } from '../tools/generate/src/cli/commands'
 import { writeForms, writeL1 } from '../tools/generate/src/cli/capture/bundle'
-import { serveOneModulePage } from '../tools/generate/src/conformance'
+import {
+  assertModuleConforms,
+  chromiumAvailable,
+  ConformanceError,
+  conformanceL1HostDocument,
+  createPlaywrightDriver,
+  serveOneModulePage,
+  type ConformanceFixture,
+  type ConformanceOptions,
+  type ModuleResolver,
+} from '../tools/generate/src'
+import type { BehaviorDefinition } from '@1stcontact/framework'
+import ThrowsOnRender from './fixtures/conformance/throws-on-render.astro'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -131,6 +143,59 @@ const contactInstance = (over: Record<string, unknown> = {}): Record<string, unk
   ...over,
 })
 
+// ── conformance fixtures (AC-1344: the two shipping shapes) ──────────────────
+
+/** Browser-dimension arms need a real engine; absent one they report `skipped`. */
+const itB = it.runIf(await chromiumAvailable())
+
+/** A test-only catalog entry whose core throws during SSR — the discriminator. */
+const resolveThrows: ModuleResolver = (type) => {
+  if (type !== 'fc-throws') throw new Error(`Unknown isolation fixture: ${type}`)
+  const meta: BehaviorDefinition['meta'] = {
+    id: 'fc-throws',
+    version: 1,
+    kind: 'behavior',
+    config: {},
+    slots: {},
+    conformance: { obligations: ['isolation'] },
+  }
+  return { meta, Component: ThrowsOnRender }
+}
+
+/** Degenerate-but-schema-valid input: must degrade inertly in EITHER shape. */
+const contactDegenerate: ConformanceFixture = {
+  label: 'contact-degenerate',
+  props: {
+    version: latestModuleVersion('contact-form'),
+    config: { action: 'https://example.com/lead', fields: 'not-a-list' },
+    slots: {},
+  },
+}
+
+/** A well-formed shipping fixture — the baseline both shapes are run against. */
+const contactShipping: ConformanceFixture = {
+  label: 'contact-form-shipping-shape',
+  props: {
+    version: latestModuleVersion('contact-form'),
+    config: { action: '/leads', fields: [{ name: 'email', label: 'Your email', type: 'email' }] },
+  },
+}
+
+/**
+ * The distinct ACs a conformance run reported, sorted — `[]` when it conformed.
+ * Stated as a set rather than pass/fail so the two shapes can be compared even
+ * where a run legitimately reports something.
+ */
+async function reportedAcs(opts: ConformanceOptions): Promise<string[]> {
+  return assertModuleConforms('contact-form', [contactShipping], opts).then(
+    () => [],
+    (e: unknown) => {
+      if (!(e instanceof ConformanceError)) throw e
+      return [...new Set(e.violations.map((v) => v.ac))].sort()
+    },
+  )
+}
+
 let cwd: string
 beforeEach(() => {
   cwd = mkdtempSync(path.join(tmpdir(), 'req93-'))
@@ -215,6 +280,61 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
       expect(result.errors.some((e) => c.match.test(e.message)), c.label).toBe(true)
       expect(result.errors.some((e) => c.match.test(e.message) && c.path.test(e.path)), c.label).toBe(true)
     }
+  })
+
+  it('test_UAT_AC1343_deliberately_legal_compositions_are_not_rejected', () => {
+    // The other half of the rule, and the half a suite of rejection cases cannot
+    // reach: two compositions are deliberately LEGAL, and an implementation that
+    // over-tightened to "every seam must be bound" would satisfy every rejection
+    // row above while breaking both of these.
+    const accepted = (label: string, page: Record<string, unknown>): void => {
+      const result = validateSite({ ...baseSite, pages: [page] })
+      // Name the errors on failure — a bare `false` here says nothing about which
+      // over-tightening caused it.
+      expect(
+        result.ok ? [] : result.errors.map((e) => `${e.path}: ${e.message}`),
+        label,
+      ).toEqual([])
+    }
+
+    // Legal 1 — a seam no module binds. An unfilled mount point renders as the
+    // inert labelled placeholder (AC-723); requiring it to be filled would make an
+    // L1 tree undeclarable ahead of the behaviour that fills it.
+    accepted('an L1 tree whose only seam is unbound', {
+      id: 'home',
+      slug: 'home',
+      title: 'Home',
+      l1: docWithSlot(),
+      modules: [],
+    })
+
+    // …and the mixed case a reproduction actually hits: two seams, one bound and
+    // one still waiting. Per-seam, not per-page.
+    const twoSeams = {
+      ...docWithSlot(),
+      root: {
+        kind: 'box',
+        children: [
+          { kind: 'slot', name: 'form-0', behavior: 'contact-form' },
+          { kind: 'slot', name: 'form-1', behavior: 'contact-form' },
+        ],
+      },
+    } as L1Document
+    accepted('one seam bound, a sibling seam unbound', {
+      id: 'home',
+      slug: 'home',
+      title: 'Home',
+      l1: twoSeams,
+      modules: [contactInstance()],
+    })
+
+    // Legal 2 — the empty starter: neither modules nor an L1 tree. `modules`
+    // defaults to `[]`, so the key is genuinely absent, as `1c new` writes it.
+    accepted('a page with neither modules nor an L1 tree', {
+      id: 'home',
+      slug: 'home',
+      title: 'Home',
+    })
   })
 
   // ── 2. fold ────────────────────────────────────────────────────────────────
@@ -472,6 +592,128 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
   })
 
   // ── 5. conformance ─────────────────────────────────────────────────────────
+
+  it('test_UAT_AC1344_mounted_host_seam_spans_the_viewport_at_every_probed_width', () => {
+    // The attributability premise of the mounted shape: an overflow observed under
+    // it is the *behaviour's*, never the wrapper's. That only holds if the host
+    // seam is exactly the viewport at every width the harness probes — so this is
+    // asserted against the harness's own host document, not restated in prose.
+    const host = conformanceL1HostDocument() as L1Document
+    const { html, css } = renderL1Document(host)
+
+    const seamClass = /<div class="([^"]+)"[^>]*data-l1-slot="mount"/.exec(html)?.[1]
+    expect(seamClass, 'the host document renders exactly one named seam').toBeTruthy()
+    const seamSelector = `.${seamClass!.split(/\s+/).at(-1)!}`
+
+    // Every width declaration the seam carries, keyed by the breakpoint it opens
+    // at (`null` = the base rule, in force below the ladder).
+    const widthsBySplit = new Map<number | null, string>()
+    for (const block of css.split(/\n(?=@media|\.)/)) {
+      const at = /^@media \(min-width: (\d+)px\)/.exec(block)
+      const rule = new RegExp(`\\${seamSelector} \\{ ([^}]*) \\}`).exec(block)
+      if (!rule) continue
+      const width = /(?:^|; )width: ([^;]+)/.exec(rule[1])?.[1]
+      if (width) widthsBySplit.set(at ? Number(at[1]) : null, width)
+    }
+
+    // A keyframe at every probed width — a gap would leave one probe measuring an
+    // interpolation fitted to a segment it does not belong to.
+    expect([...widthsBySplit.keys()].filter((k): k is number => k !== null).sort((a, b) => a - b)).toEqual(LADDER)
+    expect(widthsBySplit.has(null), 'a base rule covers widths below the ladder').toBe(true)
+
+    // …and each of those declarations is the viewport IDENTITY. Two admissible
+    // forms: a literal px equal to the breakpoint it is held at, or the emitter's
+    // interpolation `calc(Apx + (D * (100vw - Apx) / D))`, which is `100vw` for
+    // any A exactly when the two deltas match. Checked structurally rather than by
+    // evaluating at a sample, so a value that happens to coincide at one probe but
+    // diverges between them cannot pass.
+    for (const [at, value] of widthsBySplit) {
+      const literal = /^(\d+)px$/.exec(value)
+      if (literal) {
+        // The base rule holds the lowest keyframe; a media rule holds its own.
+        expect(Number(literal[1]), `seam width at ${at ?? 'base'}`).toBe(at ?? LADDER[0])
+        continue
+      }
+      const lerp = /^calc\((\d+)px \+ \((-?[\d.]+) \* \(100vw - (\d+)px\) \/ (-?[\d.]+)\)\)$/.exec(value)
+      expect(lerp, `seam width at ${at ?? 'base'} is px or an interpolation: ${value}`).toBeTruthy()
+      const [, origin, rise, from, run] = lerp!
+      expect(origin, `interpolation origin at ${at ?? 'base'}`).toBe(from)
+      expect(rise, `interpolation slope at ${at ?? 'base'} is 1 (= 100vw)`).toBe(run)
+    }
+  })
+
+  it('test_UAT_AC1344_conformance_discriminates_in_both_shipping_shapes', async () => {
+    // The load-bearing half: the obligations must actually RUN against the mounted
+    // shape, not be skipped into a silent pass. Proven with a behaviour that breaks
+    // its obligation — if the mounted run were a no-op it would report success.
+    // The `isolation` dimension is render-level, so this arm needs no browser.
+    const flaggedAcs = async (opts: ConformanceOptions): Promise<string[]> =>
+      assertModuleConforms('fc-throws', [{ label: 'throws', props: { config: {}, slots: {} } }], {
+        dimension: 'isolation',
+        resolveModule: resolveThrows,
+        ...opts,
+      }).then(
+        () => [],
+        (e: unknown) => {
+          if (!(e instanceof ConformanceError)) throw e
+          return [...new Set(e.violations.map((v) => v.ac))].sort()
+        },
+      )
+
+    const standalone = await flaggedAcs({})
+    const mounted = await flaggedAcs({ mountInL1: true })
+    expect(standalone).toEqual(['isolation.render-throws'])
+    // Same AC set, same verdict — the second shipping shape is checked, not waved
+    // through. Compared as a set rather than "mounted also failed", so a mounted
+    // run that quietly checked a *different*, easier obligation would not pass.
+    expect(mounted).toEqual(standalone)
+  }, 60000)
+
+  it('test_UAT_AC1344_both_shipping_shapes_conform_and_report_a_per_dimension_outcome', async () => {
+    // The positive counterpart: a real catalog behaviour conforms in BOTH shapes,
+    // for the dimension asked for. Without this the discriminator above could be
+    // satisfied by a harness that fails everything mounted.
+    for (const mountInL1 of [false, true]) {
+      await expect(
+        assertModuleConforms('contact-form', [contactDegenerate], { dimension: 'isolation', mountInL1 }),
+        `isolation, mounted=${mountInL1}`,
+      ).resolves.toBeUndefined()
+    }
+  }, 60000)
+
+  itB('test_UAT_AC1344_browser_dimensions_run_over_the_same_ac_set_in_both_shapes', async () => {
+    // The universal browser dimensions, driven for real in both shapes. The two
+    // runs differ ONLY in `mountInL1`, so any difference in what they report is a
+    // difference the shipping shape caused.
+    const base: ConformanceOptions = {
+      driverFactory: createPlaywrightDriver,
+      keepSandboxOnFailure: false,
+    }
+    for (const dimension of ['safety', 'security'] as const) {
+      const standalone = await reportedAcs({ ...base, dimension })
+      const mounted = await reportedAcs({ ...base, dimension, mountInL1: true })
+      expect(mounted, `${dimension} outcome parity`).toEqual(standalone)
+    }
+  }, 240000)
+
+  itB('test_UAT_AC1344_a_defect_visible_only_when_mounted_is_reported_as_failing', async () => {
+    // The defect class the second shape exists to catch. Same module, same fixture,
+    // same stylesheet in both runs — the rule is simply inert standalone, because
+    // nothing on a bare module-stack page has a `[data-l1-slot]` ancestor. It bites
+    // only once the behaviour is mounted into a seam.
+    const opts: ConformanceOptions = {
+      driverFactory: createPlaywrightDriver,
+      keepSandboxOnFailure: false,
+      extraCss: '[data-l1-slot] .contact-form { width: 4000px; }',
+    }
+    const standalone = await reportedAcs(opts)
+    const mounted = await reportedAcs({ ...opts, mountInL1: true })
+
+    expect(standalone, 'conforms standalone — the rule matches nothing there').not.toContain(
+      'safety.overflow',
+    )
+    expect(mounted, 'reported as failing once mounted').toContain('safety.overflow')
+  }, 240000)
 
   it('test_UAT_AC1344_mounted_behavior_carries_its_conformance_obligations', async () => {
     // A mounted behaviour is a shipping shape, so the universal ACs must be
