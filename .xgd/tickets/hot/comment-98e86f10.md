@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T21:35:20.556837+00:00'
+updated_at: '2026-08-20T22:05:22.796976+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -406,5 +406,45 @@ Say go and I'll set `status=free_coding`, cut `free-REQ-149`, and build it.
 <!-- xgd-chat role="user" ts="2026-08-20T21:35:20.467315+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="b2f5782a-866d-4611-b6ee-e761f80a4601-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T22:05:22.706726+00:00" -->
+#### Claude
+Starting with the code I'll be changing. Let me read the store port and the publish path.
+
+I have what I need — no blocking questions. Cutting the branch.
+
+Working in the new worktree. Let me map the deploy-command surface I'm deleting.
+
+Now implementing. Starting with the worker-safe revision model.
+
+Now the publish service — one implementation over the port.
+
+Now the filesystem adapter's revision verbs.
+
+Now the D1/R2 adapter — the new half.
+
+Now the module-level helpers the D1 adapter needs.
+
+Now `commands.ts` — publish, checkout and revisions become thin wrappers over the service.
+
+Now the router: the real `/api/publish`, the published-channel redirect, and live revisions in `/api/sites`.
+
+Now the public-site rewrite — D1 as the only record, draft channel gone.
+
+Now the AI toolbox and the builder client.
+
+Baseline captured: 10 pre-existing failing files. Now the same run with my changes.
+
+13 newly-failing files. Let me separate real breakage from tests of deleted features.
+
+Two are real test-churn; one is a genuine finding — my 409 bypasses the router's scrubber. Fixing that properly.
+
+Now the shared test fixture, so suites seed R2 through the same key builders the adapter writes with.
+
+Now delete the suites that test removed features, and write the end-to-end workers UAT.
+
+Now the end-to-end UAT in workerd — real D1, real R2, real publish, real serve.
 
 <!-- xgd-chat-end -->
