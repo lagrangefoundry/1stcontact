@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-19T23:54:01.526870+00:00'
+updated_at: '2026-08-20T00:05:28.752830+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -106,5 +106,11 @@ Minor, non-blocking: **DOC-8 is stale.** DOC-28 cites DOC-8 §3.2 (multi-mode di
 Also in scope by implication, flagging so it isn't a surprise: R2 has no server-side copy, so writing a complete revision snapshot means a get+put per asset per publish (DOC-12 §8 accepts full snapshots for MVP), and `/api/sites` should stop reporting `latest: null` once revisions exist.
 
 Answer 1–5 and I'll write the ticket body, cut `free-REQ-149`, and implement.
+
+<!-- xgd-turn id="7893d046-9a8c-46dc-b55d-4c53467ca98b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T00:05:28.604838+00:00" -->
+#### You
+Can you explain all of these in more detail I'm afraid I'm not following
 
 <!-- xgd-chat-end -->
