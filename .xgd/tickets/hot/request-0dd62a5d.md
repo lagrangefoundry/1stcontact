@@ -31,9 +31,11 @@ fields:
     - request-23fd6e61
     - bundle-d9226698
   commits:
-  - working_sha: b179902c314cff1f8027d9fa28d1c495df9ddda8
+  - working_sha: 98974dc408394d08bf01e8b3e1c30d8f08a971df
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - b179902c314cff1f8027d9fa28d1c495df9ddda8
   version: 0.1.51
   bundled_in: bundle-77b28def
 ---
