@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T23:06:55.813933+00:00'
+updated_at: '2026-08-20T23:09:31.079791+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -789,5 +789,92 @@ I love the idea that we start with the hero section, if we could create a hero s
 Another benefits of hero section in 15 minutes is that 15 minute consultation trailer becomes a lot more interesting…
 
 But let's take some time to really flash out what this experience would look like I want the user to see more site at each term and yes we do need to make the decisions in something approximating the right order but how do we help the users imagination visualize what it's gonna look like because we need that inspiration and excitement to drive the process
+
+<!-- xgd-turn id="ca4c8e19-fb86-4d94-9a0c-b954ecf9b9f0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T23:09:30.985854+00:00" -->
+#### Claude
+## Your rephrasing is better than mine
+
+"Some things are harder to change than others, and that should drive the conversation" — that's a *conversational* rule rather than a taxonomy, which is what it needs to be. The operational version: **spend conversation in proportion to reversibility.** A hard-to-reverse choice earns real discussion and a divergent spread. An easy one gets shown, not discussed — you don't ask someone what colour they want, you show them six and let them flick.
+
+That single rule collapses a lot of DOC-33's stage machinery into something the AI can apply in the moment.
+
+## What makes something non-generic — and where it sits
+
+This is the important question, and the answer is awkward in a useful way. The three ingredients sit in completely different places:
+
+**Bespoke content architecture — the shape of the argument.** DOC-31's biggest lever, and it's the *most* expensive to reverse, because the copy is shaped by it. You can't iterate your way there from a default; you have to diverge at the start or you never get there.
+
+**Specificity — the true, particular facts.** Twenty-two years, not fifteen. One van. Won't do gas. This is *cheap to change* (it's text) but *expensive to extract* — it's the whole reason interrogation exists. It accumulates continuously through the session and it can't be front-loaded.
+
+**Restraint and the locked palette.** Almost entirely free, in both directions. It's a discipline, not a decision — what you *left out*. Costs nothing, changes anytime, and it's a large fraction of the taste gap.
+
+So: **the differentiators sit at opposite ends of the cost curve, and that *is* the scheduling problem.** Only one thing genuinely has to be got right early — the shape of the argument. Everything else is either free to keep churning or accumulates as you go.
+
+Which gives me one real pushback on your concrete proposal. Six looks × two images × six palettes × four fonts is a *cheap-axis* spread. It's great and I want it — but not first. If the opening spread varies only the free stuff, the client anchors on a look before the argument exists, and then you spend the session refining a **default architecture with nice colours**, which is precisely template DNA wearing better clothes.
+
+So: **diverge early on what's expensive; diverge continuously on what's cheap.**
+
+The first spread's heroes must differ in *what they claim and how they claim it* — a promise, a proof, a provocation, a demonstration, a plain statement of competence. Because here's the thing: **the hero isn't a section, it's the first sentence of the argument.** Choosing between argumentatively distinct heroes *is* choosing an architecture — by pointing, in fifteen minutes, instead of by discussion in forty. That's the move that makes your whole inversion safe rather than reckless.
+
+Then the palette/font/image explosion gets its own moment, later, and it can be as big and playful as you like because it costs nothing and reverses instantly.
+
+## Computers as Theatre
+
+Laurel's central argument is the one you need, and it's counterintuitive: **constraint is what makes it enjoyable.** A blank stage is not more engaging than a well-shaped scene, it's less — you enjoy a play *because* you can't wander offstage. So structure isn't the enemy of fun here. A *procedural* structure is. DOC-33 already calls them acts, which was a good instinct that then got followed with gates and exit conditions instead of dramaturgy.
+
+Three things transfer directly:
+
+**Engagement over interactivity.** Not "how many controls do they have" but "how completely are they in it." A client who's arguing with a hero is more engaged than one with a full editor and nothing to react to.
+
+**Rising action, not one reveal.** DOC-33 banks everything on the Act III reveal — two hours of exposition that the reveal has to *repay*. Bad dramatic bet. You want a beat every fifteen minutes and a proper mid-point turn.
+
+**The audience doesn't see the machinery.** The client should never experience eleven stages. They experience a story that happens to have a shape.
+
+And one thing that falls straight out of Laurel that I think is the best structural idea in this whole conversation: **the climax is the return to the top of the page.** Going back to the hero at the end — now that we know how the argument finishes — isn't just a quality check, it's the dramatically correct ending. Same opening image, transformed by everything since. That's a satisfying shape, and it's free.
+
+## The inverted role — briefly, since you parked it
+
+Worth naming the specific instincts that fight this, because they're all trained-in: the LLM asks open questions when it should propose; offers exhaustive options when it should curate three; accepts the client's framing when a director sometimes must refuse it; over-confirms ("so what I'm hearing is…") in a way that kills momentum; and has no native sense of *pacing* — when to linger and when to cut.
+
+The playbook can give the arc. What it can't give is per-beat direction — which is, I suspect, where your "dynamic help" instinct is pointing. Parking it as you said, but flagging that the signal it would run on is cheap and sitting right there: answers getting shorter, agreement without elaboration, a spread where the client rejected *nothing* (which means the spread wasn't divergent enough), or a client volunteering something unprompted — the last one being the signal to abandon the plan and dig.
+
+## The experience
+
+Four mechanisms, then the arc.
+
+**1. Every turn moves the page.** The hard rule, and the one that delivers the magic you described. No turn produces only text. If the client says "we do emergency call-outs, 24 hours," a line appears in the hero *while they're still talking*. If the AI has nothing to change, it asks a question whose answer will change something. This alone is most of the difference between our thing and a chat window that eventually emits a website.
+
+**2. Build by resolution, not by addition.** Your scaffold idea, pushed further. From about minute twenty there is **always a whole page on screen** — every section present, styled, in the chosen palette, with real headings and provisional bodies. Unworked sections are visibly provisional but *not ugly*: correct aspect-ratio image blocks tinted from the palette, not grey rectangles.
+
+The client is never "starting," they're always "finishing." It's how a painter blocks in a whole canvas before refining any part of it — which is the same training you're describing from engineering sketching, applied down a level.
+
+**One refinement on the greeking:** don't use Lorem Ipsum. Use **plausible-but-wrong real English.** "Serving the local area for over fifteen years." Lorem ipsum extracts nothing; wrong-but-plausible English extracts *corrections* — "it's twenty-two years, and we're not local, we cover three counties." You've turned the placeholder into another interrogation instrument, for free, on exactly the principle that runs through all of this: **people critique better than they author.** It needs to be marked as provisional in the chrome and the AI should point at it directly — "I guessed at these, which are wrong?" — so it gets corrected rather than passively accepted.
+
+**3. The carousel as a standing surface, not an event.** Any time there's a real choice, it becomes a spread you can flip through. The flicking matters: "here are three, choose" is a test, but flipping back and forth is *play*, and the preference emerges from the play rather than being demanded. (Consultation chrome, per DOC-28 — not L1, not the client's site.)
+
+**4. Bracket the space with deliberately wrong examples.** For calibration, extremes beat plausible options. "Here's your business dressed as a law firm. Here's it as a surf school." Nobody can answer "how formal do you want to be," but everyone can place themselves between two things that are obviously too far in each direction. It's also genuinely funny, which is not a side benefit — a client who laughed in minute twelve is a client who's still giving you real answers in hour three.
+
+### The arc
+
+| | Beat | What's on screen |
+|---|---|---|
+| **0–2 min** | **Cold open.** Not intake. Either their existing site read back to them, or a strawman in their trade. Establishes in sixty seconds that this is visual and fast | Something, immediately |
+| **2–12 min** | **Thin brief.** What you do, who for, the one action, does money change hands here | Notes forming |
+| **~15 min** | **First spread — the argument.** Three to six heroes, *argumentatively* distinct. They flip, react, reject | Their business, three ways |
+| **~20 min** | **The unfurl.** The page opens out beneath the chosen hero — full scaffold, real headings, provisional bodies | A whole site |
+| **20 min–2 hr** | **Rising action.** Section by section, ghost → real. Spreads where the choice is real. Specificity accumulating | The page sharpening |
+| **midpoint** | **The look explosion.** *Now* the cheap-axis spread — six palettes, four fonts, image treatments. Lands far harder here than at the start, because there's a full page for it to transform | Same site, six ways |
+| **late** | **Return to the top.** The hero, remade to earn the argument it now has to open | The opening image, transformed |
+| **end** | **Critique, ship, handoff.** More necessary in a fluid model, not less | The site, and the story of it |
+
+And you're right about the trailer. If hero-in-15 works, the free consultation ends with the client looking at **their own business, three ways, on a carousel** — which is a wildly better conversion instrument than a summary of what we discussed. It's a trailer in the proper sense: a real scene from the actual production, not a description of one. The ledger persists, so the paid session opens warm rather than cold.
+
+---
+
+Two things this still needs, both of which I'd want to nail before writing it up as doctrine. The **rubric** is now a hard blocker rather than a parallel workstream — rendering divergent heroes at minute fifteen without an encoded point of view means rendering the model's default six times over. And the **hero-in-15 claim needs testing against the four arrival states**, because "nothing but a product" has no imagery, no name in place, and possibly no idea what they do, and that's the session where fifteen minutes may be optimistic.
+
+Want me to write this up now — as a restructure of DOC-33 with the arc, the four mechanisms, and the cheap/expensive rule replacing §6 and the plain pass? Or is there another lens you want to put on it first?
 
 <!-- xgd-chat-end -->
