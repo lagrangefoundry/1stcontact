@@ -6,10 +6,10 @@ title: Removing an entry nothing references succeeds and leaves every other entr
   untouched
 created_by: xgd
 created_at: '2026-08-20T01:19:56.621891+00:00'
-updated_at: '2026-08-20T01:19:56.621891+00:00'
+updated_at: '2026-08-20T01:50:36.634576+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ee073693
   kind: behavior
