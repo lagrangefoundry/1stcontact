@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A multi-file command reaches storage as exactly one whole change
 created_by: xgd
 created_at: '2026-08-20T05:10:23.349350+00:00'
-updated_at: '2026-08-20T05:10:23.349350+00:00'
+updated_at: '2026-08-20T05:24:46.931226+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
