@@ -93,6 +93,40 @@ describe('REQ-58 T2 — multi-viewport terminal-fails on a reference with no lad
 
 // ── pure: --multi-viewport is a boolean flag, not a value-taking one ─────────
 
+const CLI_SOURCES = ['../tools/generate/src/cli/index.ts'].map((rel) =>
+  fileURLToPath(new URL(rel, import.meta.url)),
+)
+
+/**
+ * Every flag name the CLI reads in a boolean context, derived from its source.
+ *
+ * A read is boolean if the name is compared to `true`, negated, coerced with
+ * `Boolean(...)`, used as the whole condition of an `if`, or short-circuited /
+ * used as a ternary condition. Reads that are `typeof`-guarded as strings or
+ * handed to a parser (`parseSize(flags.size)`) are value-taking and excluded.
+ */
+function booleanFlagReadsInCliSource(): Set<string> {
+  const names = new Set<string>()
+  for (const file of CLI_SOURCES) {
+    const src = readFileSync(file, 'utf8')
+    const read = /flags(?:\.([A-Za-z][\w-]*)|\['([^']+)'\])/g
+    for (let m = read.exec(src); m !== null; m = read.exec(src)) {
+      const name = m[1] ?? m[2]
+      const before = src.slice(0, m.index)
+      const after = src.slice(m.index + m[0].length)
+      const isBoolean =
+        /^\s*(===|!==)\s*true\b/.test(after) || // flags.x === true
+        (/\bif\s*\(\s*$/.test(before) && /^\s*\)/.test(after)) || // if (flags.x)
+        /!\s*$/.test(before) || // !flags.x
+        /\bBoolean\(\s*$/.test(before) || // Boolean(flags.x)
+        /^\s*(&&|\|\|)/.test(after) || // flags.x && …
+        /^\s*\?[^?]/.test(after) // flags.x ? … : …
+      if (isBoolean) names.add(name)
+    }
+  }
+  return names
+}
+
 describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', () => {
   it('test_UAT_FC_REQ-58_multiviewport_flag_is_boolean', () => {
     // `values-diff --multi-viewport <slug> --ref <dir>`: unless the parser knows
@@ -118,6 +152,7 @@ describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', 
     // same discipline REQ-44 applies to the gated command set.
     expect([...BOOLEAN_FLAGS].sort()).toEqual([
       'apply',
+      'assign',
       'classify',
       'clusters',
       'collapse',
@@ -131,6 +166,18 @@ describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', 
       'sandbox',
       'tolerant',
     ])
+  })
+
+  it('test_UAT_FC_REQ-58_boolean_flag_set_is_derived_from_the_cli_source', () => {
+    // The literal above pins the registry to itself: it goes red when someone
+    // edits the registry, and stays green in the failure mode that actually
+    // happens — a boolean flag added to a verb and never registered. That is how
+    // `--collapse`/`--clusters`/`--edit`/`--dry-run`/`--prune`/`--apply` drifted
+    // six behind, and how `--assign` then survived a sweep that searched only for
+    // `flags.x === true`. So the set is derived from the CLI source instead, over
+    // *every* truthiness form, and asserted equal to the registry.
+    const booleanReads = booleanFlagReadsInCliSource()
+    expect([...booleanReads].sort()).toEqual([...BOOLEAN_FLAGS].sort())
   })
 
   it.each([...BOOLEAN_FLAGS])('test_UAT_FC_REQ-58_boolean_flag_never_swallows_the_slug — --%s', (flag) => {

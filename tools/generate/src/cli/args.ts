@@ -17,6 +17,12 @@ export interface ParsedArgs {
  * REQ-58 fixed for `--multi-viewport`; the guarantee is CLI-wide, so the set is
  * pinned entire in evidence. Adding a boolean flag to a command without adding
  * it here is a visible regression rather than a silent reopening of the hole.
+ *
+ * The evidence derives the boolean reads from the CLI source rather than
+ * restating this list, and it counts *every* truthiness form — `=== true`, a
+ * bare `if (flags.x)`, `!flags.x`, `Boolean(flags.x)`, `flags.x &&`, a ternary
+ * condition. A sweep that recognised only `=== true` is how `--assign` stayed
+ * unregistered while the set was believed complete.
  */
 export const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   'sandbox',
@@ -32,6 +38,7 @@ export const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   'dry-run',
   'prune',
   'apply',
+  'assign',
 ])
 const ALIASES: Record<string, string> = { m: 'message' }
 
