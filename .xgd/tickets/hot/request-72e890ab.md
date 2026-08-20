@@ -5,10 +5,10 @@ type: request
 title: 'Crawler + batch coverage engine (Phase 1: corpus + classification)'
 created_by: xgd
 created_at: '2026-07-02T00:20:08.548533+00:00'
-updated_at: '2026-08-20T21:38:26.429716+00:00'
+updated_at: '2026-08-20T21:38:30.944872+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   story_points: 8
   priority: medium
