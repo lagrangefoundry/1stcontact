@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T22:37:19.627815+00:00'
+updated_at: '2026-08-20T22:39:58.772699+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -686,5 +686,17 @@ Want me to fold these into DOC-33 as revisions — a new §on reference material
 I have another idea running through my head maybe this is crazy it's certainly else complexity but it could be powerful. Another aspects to the way I like to do design and actually the way I was taught to do design in my early engineering days was to produce multiple early sketches. Make a point of diversifying early rather than trying to go down one path. Another way to prevent anchoring the user too much to begin with would be to present them with three sites or six sites. Or one site with three color pallets we can put the sites on a carousel so that the user could easily flip from one to another and imaging a nice animation that brings one site in on a rotation with another folding away.
 
 So I want to push a little harder on our decision-making structure I actually think it is logical but suboptimal for a real human being. I think we should aim to get a basic hero section created in the first 15 minutes. We should live with the constant for front knowledge that refactoring is cheap if we get to the bottom of the page and it turns out we got the hero image wrong or the text subtitle wrong, who cares we change it. So I actually feel my intuition is quite strong on this that we should turn your decision-making process on its head - you are working on the promise that we should be careful not to lock the user in too early to a design. I think we should use different mechanisms to do that I think we should make the design fluid I think we should be constantly going back and questioning whether we're making the right calls on top of the page as we get to the bottom but what if we write the front page and style it at the same time and then go back and revise
+
+<!-- xgd-turn id="33d52ea2-a365-465a-8d37-2484a69e9ed4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T22:39:58.682231+00:00" -->
+#### You
+I have another idea running through my head maybe this is crazy it's certainly else complexity but it could be powerful. Another aspects to the way I like to do design and actually the way I was taught to do design in my early engineering days was to produce multiple early sketches. Make a point of diversifying early rather than trying to go down one path. Another way to prevent anchoring the user too much to begin with would be to present them with three sites or six sites. Or one site with three color pallets we can put the sites on a carousel so that the user could easily flip from one to another and imaging a nice animation that brings one site in on a rotation with another folding away.
+
+So I want to push a little harder on our decision-making structure I actually think it is logical but suboptimal for a real human being. I think we should aim to get a basic hero section created in the first 15 minutes. We should live with the constant for front knowledge that refactoring is cheap if we get to the bottom of the page and it turns out we got the hero image wrong or the text subtitle wrong, who cares we change it. So I actually feel my intuition is quite strong on this that we should turn your decision-making process on its head - you are working on the promise that we should be careful not to lock the user in too early to a design. I think we should use different mechanisms to do that I think we should make the design fluid I think we should be constantly going back and questioning whether we're making the right calls on top of the page as we get to the bottom but what if we write the front page and style it at the same time and then go back and revise
+
+Let me say something explicitly that maybe lost here somewhere. Whilst clearly getting the right outcome is highly desirable a critical part of getting there is that the process is fun. The user has to enjoy this they have to be excited and inspired by the activity. I actually believe that an approach where the user is excited and inspired will get to a better result that one where the user is trying to make decisions in a vacuum and is bored, frustrated and confused even if the latter process appears on paper to be more logical.
+
+Perhaps we could model us as a TDD type exercise where we are constantly trying to build a minimal viable product and refine it with the premise that we factoring is always cheap.
 
 <!-- xgd-chat-end -->
