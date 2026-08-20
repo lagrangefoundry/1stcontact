@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-20T02:55:11.964208+00:00'
+updated_at: '2026-08-20T03:08:18.608480+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,64 @@ Tell me **(a) or (b)**, and for (b) whether the reconciliation-UAT rewrite is au
 2 - yes
 
 Please proceed
+
+<!-- xgd-turn id="1f7270a0-0f92-4d8a-bfd1-ab448c1dd07d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T03:08:18.408859+00:00" -->
+#### Claude
+Protocol read. Starting Step 1 — scope the ticket with the settled decisions.
+
+Now the dependency edits.
+
+Now the workspace build-approval list, then install.
+
+Now a spike to prove plain Vite actually boots the CLI (vite isn't linked yet, so resolve it by path):
+
+Now the tsconfigs.
+
+Now rewrite the two container-spy test files.
+
+I need `pnpm install` to relink (it's blocked by permissions here). While that's pending, let me run everything that doesn't depend on it.
+
+Everything that can be verified without a relink is done. I'm blocked on one step.
+
+## Need you to run one command
+
+`pnpm install` is denied to me by the permission rules, and the tree can't be verified until it runs — `astro` is still linked in `node_modules` and `vite` (now a direct dep of `tools/generate`) is not. There's no network in my sandbox, so it has to be the offline form:
+
+```bash
+cd /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-150
+pnpm install --offline
+```
+
+`vite@8.1.0` is already in that worktree's store (556 MB, populated), so offline resolution should work. If it complains about resolving `^8.1.0`, tell me and I'll pin it to exact `8.1.0`.
+
+## What's done so far
+
+| File | Change |
+|---|---|
+| `tools/generate/bin/1c.mjs` | plain `createServer()` from `vite`; `getViteConfig`, the inline Astro config, and the `createRequire(import.meta.resolve('astro/package.json'))` hop all gone. Kept `configFile: false`, `middlewareMode`/`ws: false` (REQ-37), `logLevel: 'error'`, the REQ-145 `assets` branch, and the stdout diversion |
+| `vitest.node.config.mts` | `getViteConfig` → `defineConfig` from `vitest/config` |
+| `vitest.config.mts` | routing rationale rewritten — the split now rests on the filesystem, not the `.astro` transform |
+| `tools/generate/tsconfig.json`, `packages/framework/tsconfig.json` | `astro/client` out; framework pinned to `"types": []` |
+| `package.json` ×3, `pnpm-workspace.yaml` | `astro` removed, `vite` added to `tools/generate`, `@astrojs/compiler-*` approvals dropped |
+| `tests/support/astro-absent.ts` | **new** — `expectNoAstroContainerToConstruct()`, the container spy's replacement |
+| `tests/req89-astro-lazy.test.ts`, `tests/reconciliation-1c-astro-free-render.test.ts` | 5 container spies → the resolution check; render assertions untouched |
+| `tests/test_UAT_FC_REQ-141_project_routing.test.ts` | the "keeps the `.astro` transform" assertion inverted |
+| `tests/req119-request-time-render.test.ts` | dropped a dangling `astroContainer` import — REQ-148 deleted that export, so it has silently been `undefined` ever since |
+| `tests/test_UAT_FC_REQ-150_plain_vite_bootstrap.test.ts` | **new** — 5 UATs |
+
+## Already proven, by spike
+
+I ran the new bootstrap against a Vite resolved straight out of the `.pnpm` store, in this fresh worktree (which had no `apps/control-app/src/generated/` — the genuine REQ-145 cold-start state):
+
+- `1c assets` → exit 0, correct report, **0 bytes on stderr**, on a checkout where the barrel could not have loaded. AC-3.
+- `1c help` → exit 0, 17 KB of usage on stdout, **0 bytes stderr**. `1c list` → exit 0, **0 bytes stderr**. AC-1/AC-2.
+- `1c assets --json` → parses as exactly one document, **0 bytes stderr**. AC-2.
+- The pre-change launcher fails identically on the missing `generated/` dir, so that was worktree state, not a regression.
+
+`tests/req119`, `REQ-141`, `REQ-148 astro-free-render`, and the CLI output-hygiene reconciliation UATs pass now (23 tests). The rest — every test that spawns `1c.mjs` — can't run until `vite` is linked.
+
+Ping me when the install finishes and I'll run the full node suite, bump the version, commit, merge back, and set `free_coded`.
 
 <!-- xgd-chat-end -->
