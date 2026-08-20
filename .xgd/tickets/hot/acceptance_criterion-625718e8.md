@@ -6,15 +6,15 @@ title: resolveSurfaceGradient authors a gradient value into a panel surface fill
   and no fill when under-specified
 created_by: xgd
 created_at: '2026-08-20T04:34:14.951994+00:00'
-updated_at: '2026-08-20T04:34:14.951994+00:00'
+updated_at: '2026-08-20T05:03:48.566225+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-82eb6908
   kind: behavior
   regression_only: false
-  uat_coverage: pending
+  uat_coverage: pass
 ---
 
 ## Criterion
