@@ -6,10 +6,10 @@ title: contact-form presentation treatments are authored via capability config +
   slots, not module dials
 created_by: xgd
 created_at: '2026-07-22T20:43:49.826626+00:00'
-updated_at: '2026-08-16T08:45:04.179925+00:00'
+updated_at: '2026-08-20T07:44:43.079443+00:00'
 completed_at: null
-last_field_updated: uat_coverage
-status: pending
+last_field_updated: status
+status: deprecated
 fields:
   story_uid: story-46e3b3c7
   kind: behavior
