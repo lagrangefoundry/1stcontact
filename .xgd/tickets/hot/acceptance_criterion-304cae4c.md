@@ -6,15 +6,15 @@ title: Each folded node carries a geometry keyframe per sampled width matching t
   captured box
 created_by: xgd
 created_at: '2026-07-22T19:42:27.611238+00:00'
-updated_at: '2026-08-20T11:01:08.538613+00:00'
+updated_at: '2026-08-20T14:39:25.377918+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
