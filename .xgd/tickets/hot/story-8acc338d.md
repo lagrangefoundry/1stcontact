@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-20T10:59:51.341552+00:00'
+updated_at: '2026-08-20T11:17:23.825740+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -24,10 +24,11 @@ fields:
 sample ladder into one renderable L1 reproduction document in the *full* L1
 language — text, media, painted surfaces, backdrops, the page band and the
 behaviour seams with their controls — plus advisory structural hints, while
-keeping the raw ladder as an acceptance oracle, letting me re-fold offline
-against it, and signalling anything it still cannot express, **so that**
-reproducing a captured site becomes near-mechanical — capture, fold, render,
-gate — and whatever the folder still lacks is named rather than lost.
+keeping the raw ladder as an acceptance oracle, materializing the result as a
+servable site, letting me re-fold offline against it, and signalling anything it
+still cannot express, **so that** reproducing a captured site becomes
+near-mechanical — capture, fold, render, gate — and whatever the folder still
+lacks is named rather than lost.
 
 ## Description
 `1c capture page <url>` samples a page across a fixed width ladder (the retained
@@ -41,7 +42,10 @@ ladder is retained unchanged as the acceptance oracle the fold is gated against.
 The fold emits the **full language**, not text alone:
 - a **text** leaf for a styled run, carrying the typography axes plus the text
   pixel-mover families the language expresses (gradient fill, decoration,
-  small-caps, list marker, text shadow);
+  small-caps, list marker, text shadow) — and, when the run is **self-painting**
+  (its own border box already spans the surface it sits on: a fully-rounded pill,
+  or a control with authored vertical inset), that surface too, so the fill,
+  corner radius, border and shadow ride on the text leaf itself;
 - an **image** leaf for a text-free media element, carrying its resolved source
   and alternative text (captured onto the media field and carried through the
   manifest), a height-bearing geometry track and its image axes — including how
@@ -63,7 +67,12 @@ The fold emits the **full language**, not text alone:
   the solid fill the most runs sit on becomes the document background band, and
   every run whose surface differs from the band (or carries a gradient the body
   cannot paint) gets a backing box emitted before the content so each leaf paints
-  over its own surface;
+  over its own surface. A **self-painting run is the exception in both
+  directions**: it carries its surface on its own text leaf (above) and
+  contributes nothing to this reconstruction — no row, no backing box — because a
+  box behind it would duplicate the pill as a card and its own fill would
+  otherwise be read as evidence of the band or card it sits in. The enclosing card
+  is defined by its other runs;
 - a **font resource table** binding each painted family handle to its served
   substance, populated only with the families a folded text leaf actually paints.
 
@@ -77,6 +86,23 @@ written as mirrors of one another so the next axis to become responsive inherits
 the rule rather than re-deriving it. Before this the fold read *every* non-geometry
 axis from the widest present sample alone, so a desktop font size and a desktop
 inset were both replayed at mobile.
+
+**The ladder has a second sampling axis: the viewport's HEIGHT.** Width alone
+cannot tell a `100vh` hero from a hero that happens to be 800px tall, so selected
+ladder widths are re-shot at a second viewport height, and the fold reads that
+pair as **evidence about the height axis rather than as a keyframe** — the
+keyframe ladder deliberately skips the probe, so no width gains a sample the page
+was never laid out at. Each node's measured change in top edge and in height per
+unit of viewport height folds to a small derivative carried on its geometry:
+`{heightFactor: 1}` on the hero and `{yFactor: 1}` on everything below it state
+the same fact in the same units, which a locally-pinned pixel height cannot. Two
+attribution rules keep it honest: a **band takes its response from its section
+edges**, not from the runs it contains (a `min-h-screen` hero's copy sits in the
+top half and does not move, while the band below it starts a full viewport height
+down), and a **reconstructed card inherits its representative row's**. A response
+indistinguishable from zero emits no axis at all, so a page with no
+viewport-relative rule gains nothing. The response is **measured, never
+inferred**: the fold reads two boxes and a height difference, not an authored unit.
 
 **Padding is a folded axis, not a geometry side-effect.** A text, image or box leaf
 carries the per-side padding the reference painted — a scalar, plus a track for a
@@ -137,6 +163,24 @@ element becomes a typed residual naming its kind, the reason, the painted axes i
 carried and the widths it appeared at, so a folder-power gap reads as a framework
 gap instead of vanishing.
 
+**A folded bundle is materialized as a servable site.** The fold produces a
+document; a second verb (`1c repro <slug> --ref <bundle>`) makes it a site — one
+whose page document *is* the bundle's folded L1 document, with the recovered
+behaviour seams mounted into it, so the ordinary render / serve / shot / compare
+loop runs against the reproduction unchanged. Materialization is where the
+reproduction is made **self-contained**: every media handle the folded document
+names is rewritten from the captured origin to the bundle's own mirrored asset,
+and a handle with **no** mirrored asset fails the run outright with a re-capture
+instruction rather than hotlinking the origin — a reproduction that reaches over
+the network is neither reproducible offline nor honestly gate-able, since the
+perceptual gate would then be blind to image regressions. Rewriting handles is a
+materialization concern, not a fold concern: the folded document keeps the
+handles the capture recorded. The verb is **idempotent** — a re-run wipes the
+target and rebuilds it, so re-materializing after a fold change never leaves half
+of a previous reproduction behind. (How an imported reproduction interacts with an
+already-scaffolded slug — that it replaces the page document wholesale — is
+AC-876's under the site-import capability and is not restated here.)
+
 Because the folded document and its forms are a pure function of the retained
 oracle and the *current* fold, the capability also exposes an **offline re-fold**:
 re-deriving both from a bundle's own retained ladder, rewriting only what the fold
@@ -153,27 +197,34 @@ nothing in the render/reproduction path consumes them, and the folded L1 documen
 renders as a complete reproduction on its own.
 
 **In scope:** the fold to one L1 document in the full language (text, image, box,
-backdrops in the background layer, reconstructed surfaces, page band, behaviour
-seams with rebased control leaves, font table), the framing and colour-adjustment
-axes a captured picture or surface carries, per-side padding and the per-width
-scalar track any non-geometry axis earns by varying across the ladder, the no-wrap
+backdrops in the background layer, reconstructed surfaces with the self-painting
+run excepted from them, page band, behaviour seams with rebased control leaves,
+font table), the framing and colour-adjustment axes a captured picture or surface
+carries, per-side padding and the per-width scalar track any non-geometry axis
+earns by varying across the ladder, the viewport-height probe pair and the
+measured per-node height response the fold derives from it (including its
+section-edge and representative-row attribution rules), the no-wrap
 threshold axis, the recovered centred content column and the column-anchored node
-geometry that refers to it, oracle retention, the offline re-fold,
+geometry that refers to it, oracle retention, the materialization of a folded
+bundle into a servable site (page document, mounted seams, asset localization with
+a hard failure on an unmirrored handle, idempotent rebuild), the offline re-fold,
 geometry keyframes + interpolate/snap classification + visibility rules, the typed
 residual signal for unexpressed elements, the advisory hint sidecar, and
 supersession of the pre-L1 `adopt-values` reproduction command.
 
 **Out of scope:** the L1 typed tree / envelope / renderer themselves, including the
-axis vocabulary these folded values land in, the `control` node kind and its
-emitter, and the resource-table form (owned by the L1 Layout Substrate capability);
-what a behavior module declares and how it wires a bound control (owned by the
-behavior-module contract); the capture-side rules that decide a band's extent and
-index the backdrops, and the values-diff axis coverage (owned by the values-diff
-fidelity capability); the editor surface that writes the same framing parameters by
-hand (owned by the structured copy-editing capability); the end-to-end reproduction
-acceptance gate, its fidelity pairing of non-text leaves, and structure recovery
-(owned by the 3-Probe Reproduction Gate story); how the gate presents the residual
-channel.
+axis vocabulary these folded values land in (the height-response axis among them)
+and how the renderer replays it, the `control` node kind and its emitter, and the
+resource-table form (owned by the L1 Layout Substrate capability); what a behavior
+module declares and how it wires a bound control (owned by the behavior-module
+contract); the capture-side rules that decide a band's extent, index the backdrops
+and shoot the height probe, and the values-diff axis coverage (owned by the
+values-diff fidelity capability); the editor surface that writes the same framing
+parameters by hand (owned by the structured copy-editing capability); how an
+import interacts with an already-scaffolded slug (owned by the site-import
+capability); the end-to-end reproduction acceptance gate, its fidelity pairing of
+non-text leaves, and structure recovery (owned by the 3-Probe Reproduction Gate
+story); how the gate presents the residual channel.
 
 ## Technical Context
 - Builds on the L1 Layout Substrate (CAP-70, plan item 1): the fold emits a typed
@@ -185,10 +236,31 @@ channel.
 - Box and image leaves pin all four sides (height included) because their extent is
   not derivable from content; a text leaf's height stays natural from flow, so its
   keyframes omit height.
+- The height response is a **finite difference**, so it needs a pair: a probe is
+  joined to its ladder projection at the same width and the same engine, and a
+  width with no such pair simply contributes no response. Elements are joined
+  across the pair by the same identity + document-order queue the responsive
+  tables use; sections join by index. The factors are measured at the probe width
+  and applied at every width — the rules that produce them (`min-h-screen` and its
+  kin) are not themselves width-varying, and re-probing at every width would
+  multiply capture cost by the ladder length. Ratios are snapped to eighths to
+  absorb sub-pixel noise (a measured 0.9975 is the `100vh` rule) without inventing
+  structure.
 - A backdrop is recognised from the folded geometry rather than from a capture-side
   flag: a painted background image always is one, and a solid fill is one when it
   spans the viewport. Backdrops are ordered after the section-background boxes they
   are a peer of, because a nested backdrop sits inside the section it overlays.
+- **Two families of self-painting run**, both discovered as reconstruction defects.
+  A **pill** (BUG-20) is recognised by radius saturation — a radius reaching half
+  the run's painted height is what a badge is and what a card never is; its
+  authored radius is often a sentinel (`rounded-full` computes to 33554400px) and
+  is clamped into the envelope, which renders identically. A **padded control**
+  (BUG-21) — a button, a submit link — has only modest rounding, so pill
+  saturation misses it; it is recognised by authored vertical inset over its own
+  fill, guarded so an ancestor-attributed treatment (a gradient, an accent
+  `borderLeft`) stays on the card box where the text leaf cannot carry it. Before
+  BUG-21 the card path outset such a run by an inferred padding, giving every
+  button twice its height.
 - Rebasing a control to its seam changes only the ORIGIN of its geometry, never the
   measured box: the seam's own rect is the union of the cluster (widened to hold a
   claimed submit button), and each control's keyframe is its captured box minus the
@@ -208,16 +280,23 @@ channel.
 - REQ-88 — taking a capture bundle all the way to a servable, gate-able site is the
   largest single intent shaping this fold. Driving a real reproduction end to end is
   what surfaced the fidelity gaps it closed: per-width padding tracks, the no-wrap
-  threshold, the centred content column with column-anchored geometry, and the use
-  of the *captured* surface-bearing box for a reconstructed card, so a card's edges
-  are a measured fact rather than arithmetic over where its text happens to sit.
-- BUG-17 / BUG-18 / BUG-21 are the three defects behind those axes. The fold dropped
-  element padding outright (BUG-17); it read a text run's axes from the widest cell
-  only, so type rendered at desktop size on mobile (BUG-18); and a control surface
-  box double-applied padding when the fold computed its own inset/outset pair rather
-  than adopting the captured surface shape (BUG-21). BUG-18's own root cause — axes
-  taken from the widest present sample — is still the rule for the *base* value of
-  every axis; the responsive track is layered over it, not a replacement for it.
+  threshold, the centred content column with column-anchored geometry, the
+  viewport-height probe and the response it folds to, and the use of the *captured*
+  surface-bearing box for a reconstructed card, so a card's edges are a measured
+  fact rather than arithmetic over where its text happens to sit.
+- BUG-17 / BUG-18 / BUG-21 are three of the defects behind those axes. The fold
+  dropped element padding outright (BUG-17); it read a text run's axes from the
+  widest cell only, so type rendered at desktop size on mobile (BUG-18); and a
+  control surface box double-applied padding when the fold computed its own
+  inset/outset pair rather than adopting the captured surface shape (BUG-21).
+  BUG-18's own root cause — axes taken from the widest present sample — is still
+  the rule for the *base* value of every axis; the responsive track is layered over
+  it, not a replacement for it.
+- BUG-23 — a reproduction that still named the captured origin rendered only while
+  that origin stayed up and blinded the perceptual gate to image regressions, so
+  handle rewriting and its hard failure live in the materialization verb, not in
+  the fold. The bundle's mirrored assets are the only source consulted; nothing is
+  fetched at materialization time.
 - REQ-136 — the framing pair (which part of a picture its box shows) and the
   colour-adjustment stack were both read by the capture all along and dropped by
   the fold, because the substrate had nowhere to put them. The adjustment was
