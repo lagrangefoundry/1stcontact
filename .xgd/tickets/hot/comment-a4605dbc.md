@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-19T23:47:46.566795+00:00'
+updated_at: '2026-08-20T00:17:51.675873+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -452,5 +452,35 @@ One caveat worth knowing: the pin is a caret, so whenever the lockfile floats 1.
 <!-- xgd-chat role="user" ts="2026-08-19T23:47:46.339614+00:00" -->
 #### You
 ok done
+
+<!-- xgd-turn id="7dfd0572-e155-428c-87f8-415ec9932569-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T00:17:51.524111+00:00" -->
+#### Claude
+Revisions are all correct now, firefox and webkit launch. Chromium crashes on launch — getting detail:
+
+Both fail, but differently — and the second one is diagnostic. Let me test the likely root cause:
+
+Unix sockets work and the binary runs standalone. Running it manually to see the real stderr:
+
+Found the real blocker — and it isn't the install:
+
+```
+FATAL: bootstrap_check_in org.chromium.Chromium.MachPortRendezvousServer.25687: Permission denied (1100)
+```
+
+Chromium needs to register a **Mach bootstrap service** with launchd for its multi-process port rendezvous. The sandbox denies that. Trying the one flag combination that might avoid it:
+
+`--single-process` alone works — it rendered a DOM. Testing whether Playwright can launch that way:
+
+Playwright works with `--single-process`, including layout measurement (`getComputedStyle`, `boundingBox`) — which is exactly what the conformance dimensions measure. Checking whether the driver already has a seam for launch args:
+
+No seam — two bare `.launch()` calls. I'll patch in a temporary, env-gated one to gather the evidence, then revert it (this is a sandbox workaround, not something that belongs in the product):
+
+All 20 conformance tests pass (was 5 passed / 15 skipped) — that validates my fixture conversion end-to-end. Now the wider browser-gated set:
+
+Only failure is the three-engine cross-browser test timing out at 240s — it now *runs* (it used to skip) but is slow under `--single-process`. Running batch B:
+
+Batch B hit the 590s cap. Splitting it:
 
 <!-- xgd-chat-end -->
