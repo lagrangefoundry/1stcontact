@@ -120,10 +120,10 @@ function copyDir(from: string, to: string): number {
 /**
  * The AI library's Worker rung, as a module wrangler can follow (REQ-146).
  *
- * THE PROBLEM THIS SOLVES IS RESOLUTION, NOT PACKAGING. `@lagrangefoundry/ai`
+ * THE PROBLEM THIS SOLVES IS RESOLUTION, NOT PACKAGING. The AI component
  * lives in the out-of-repo shared store, which `bin/install` populates and
  * `webui.ts` says is *never vendored into this repo*. Nothing records it in a
- * `package.json`, so a bare `import '@lagrangefoundry/ai/workers'` in the Worker
+ * `package.json`, so a bare `import` of its `/workers` rung in the Worker
  * resolves by walking up from the importing file — which finds the store from the
  * main checkout and finds NOTHING from a linked `git worktree`. That is the same
  * silent-skip hazard {@link sharedModuleUrl} exists to close, met again at build
@@ -179,7 +179,7 @@ function writeAiWorkersShim(generatedDir: string): string {
 }
 
 /**
- * What the Worker reaches for out of `@lagrangefoundry/ai/workers`.
+ * What the Worker reaches for out of the AI component's `/workers` rung.
  *
  * Listed rather than wildcarded so an upstream rename surfaces as a typecheck
  * failure here instead of as `undefined is not a function` inside a turn.
