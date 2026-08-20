@@ -6,15 +6,15 @@ title: Vertical spacing is compared as the gap between adjacent visual rows — 
   wrong gap is one delta
 created_by: xgd
 created_at: '2026-08-20T04:36:04.887872+00:00'
-updated_at: '2026-08-20T04:36:04.887872+00:00'
+updated_at: '2026-08-20T05:13:04.041975+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-d5de22a5
   kind: behavior
   regression_only: false
-  uat_coverage: pending
+  uat_coverage: pass
 ---
 
 ## Criterion
