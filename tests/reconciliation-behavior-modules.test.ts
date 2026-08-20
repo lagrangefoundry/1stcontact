@@ -494,11 +494,6 @@ describe('story-179b8c06 — contact-form functional render + L1 controls', () =
 // AC-702 — Behavior client behaviour ships as one page-referenced asset
 // ════════════════════════════════════════════════════════════════════════════
 describe('story-179b8c06 — behavior client behaviour ships once per page', () => {
-  afterEach(() => {
-    vi.doUnmock('../packages/framework/src/index')
-    vi.resetModules()
-  })
-
   it('test_UAT_AC702_client_behaviour_ships_as_one_page_referenced_asset', async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), 'ac702-'))
     try {
@@ -569,19 +564,16 @@ describe('story-179b8c06 — behavior client behaviour ships once per page', () 
     }
 
     // The asset + reference are emitted precisely BECAUSE the catalog ships
-    // client behaviour. With a catalog that ships none, neither is produced —
-    // the framework catalog is the one seam substituted here (the render
-    // pipeline itself is real).
+    // client behaviour. With a catalog that ships none, neither is produced.
+    //
+    // The substituted thing is the CATALOG's client behaviour, through
+    // `cmdRender`'s own `clientJs` seam — the companion to its `resolveModule`
+    // seam. The render pipeline, the loader, the store and the emitter are all
+    // the real ones; nothing about the code under test is mocked.
     const emptyCwd = mkdtempSync(path.join(tmpdir(), 'ac702-empty-'))
     try {
-      vi.resetModules()
-      vi.doMock('../packages/framework/src/index', async (importOriginal) => {
-        const actual = await importOriginal<typeof import('../packages/framework/src/index')>()
-        return { ...actual, getModuleClientJs: () => '' }
-      })
-      const commands = await import('../tools/generate/src/cli/commands')
-      commands.cmdNew('nojs', { cwd: emptyCwd })
-      const { outDir } = await commands.cmdRender('nojs', { cwd: emptyCwd })
+      cmdNew('nojs', { cwd: emptyCwd })
+      const { outDir } = await cmdRender('nojs', { cwd: emptyCwd, clientJs: () => '' })
 
       expect(existsSync(path.join(outDir, 'capabilities.js'))).toBe(false)
       const pageHtml = readFileSync(path.join(outDir, 'index.html'), 'utf8')
@@ -589,6 +581,21 @@ describe('story-179b8c06 — behavior client behaviour ships once per page', () 
       expect(pageHtml).not.toMatch(/<script type="module"/)
     } finally {
       rmSync(emptyCwd, { recursive: true, force: true })
+    }
+
+    // The seam is a substitution, not a disabling: the SAME command over the
+    // SAME starter site writes the asset and references it once when the catalog
+    // does ship behaviour. Without this arm the check above would also pass if
+    // `clientJs` were ignored entirely.
+    const realCwd = mkdtempSync(path.join(tmpdir(), 'ac702-real-'))
+    try {
+      cmdNew('withjs', { cwd: realCwd })
+      const { outDir } = await cmdRender('withjs', { cwd: realCwd })
+      expect(existsSync(path.join(outDir, 'capabilities.js'))).toBe(true)
+      const pageHtml = readFileSync(path.join(outDir, 'index.html'), 'utf8')
+      expect(pageHtml.match(/<script type="module" src="\.\/capabilities\.js"><\/script>/g)?.length).toBe(1)
+    } finally {
+      rmSync(realCwd, { recursive: true, force: true })
     }
 
     // And the real catalog does ship client behaviour — the positive arm above

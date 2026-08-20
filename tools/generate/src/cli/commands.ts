@@ -123,6 +123,14 @@ export interface RenderOptions extends GlobalOptions {
    * draft; a revision is immutable and there is nothing on it to edit.
    */
   edit?: boolean
+  /**
+   * The catalog's folded client behaviour (default: framework
+   * `getModuleClientJs`) — see `RenderSiteOptions.clientJs`. Whether
+   * `capabilities.js` is written, and whether a page references it, is a
+   * property of the catalog, so substituting one here is how the
+   * no-client-behaviour branch is reached without faking the render itself.
+   */
+  clientJs?: () => string
 }
 
 export interface RenderResult {
@@ -142,7 +150,7 @@ export async function cmdRender(slug: string, opts: RenderOptions = {}): Promise
   const loaded = loadOrThrow(ctx, slug, source)
   const channel: RenderChannel = edit ? 'edit' : source === 'draft' ? 'draft' : 'published'
   const outDir = opts.out ?? distDir(ctx, slug, channel)
-  const files = await renderSite(loaded, outDir, { edit })
+  const files = await renderSite(loaded, outDir, { edit, clientJs: opts.clientJs })
   return { outDir, files }
 }
 

@@ -33,6 +33,18 @@ export type ModuleResolver = (type: string, version: number) => BehaviorDefiniti
 export interface RenderSiteOptions {
   /** Module catalog to resolve each instance against (default: framework `getModule`). */
   resolveModule?: ModuleResolver
+  /**
+   * The catalog's folded client behaviour (default: framework
+   * `getModuleClientJs`).
+   *
+   * The companion seam to {@link resolveModule}: that one substitutes which
+   * modules the render resolves, this one substitutes what client code they
+   * ship. Both exist because whether `capabilities.js` is written at all — and
+   * whether a page references it — is a property OF THE CATALOG, so the only
+   * honest way to exercise the no-client-behaviour branch is to hand the real
+   * pipeline a catalog that ships none.
+   */
+  clientJs?: () => string
   /** Extra CSS appended to `theme.css` — lets injected modules ship their own rules. */
   extraCss?: string
   /**
@@ -124,6 +136,7 @@ async function renderPage(
   page: Page,
   resolveModule: ModuleResolver,
   edit: boolean,
+  hasClientJs: boolean,
 ): Promise<string> {
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
@@ -178,7 +191,7 @@ async function renderPage(
     // REQ-116 — never in the edit channel. Behaviour scripts are exactly what
     // makes the page work, and the edit render's contract is that it does not:
     // nothing submits, nothing fetches, nothing autoplays.
-    !edit && getModuleClientJs() ? '<script type="module" src="./capabilities.js"></script>' : '',
+    hasClientJs ? '<script type="module" src="./capabilities.js"></script>' : '',
   ]
     .filter(Boolean)
     .map((line) => `  ${line}`)
@@ -252,7 +265,7 @@ export async function renderSiteFiles(
   // REQ-116 — the edit channel writes no client bundle at all. No page in it
   // references one, so shipping the file would leave live behaviour sitting in
   // the directory one stray <script> away from making the page work again.
-  const clientJs = edit ? '' : getModuleClientJs()
+  const clientJs = edit ? '' : (opts.clientJs ?? getModuleClientJs)()
   if (clientJs) files.set('capabilities.js', `${clientJs}\n`)
 
   // Astro is only needed to render behavior modules. A pure folded-L1
@@ -282,7 +295,7 @@ export async function renderSiteFiles(
           'snapshot root, because emitted asset URLs are relative to it (REQ-109)',
       )
     }
-    const html = await renderPage(container, site, page, resolveModule, edit)
+    const html = await renderPage(container, site, page, resolveModule, edit, Boolean(clientJs))
     const file = `${page.slug}.html`
     files.set(file, html)
     pages.push(file)
