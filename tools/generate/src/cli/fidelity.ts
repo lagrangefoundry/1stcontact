@@ -348,10 +348,11 @@ export function collapseMultiViewport(cells: StateDiff[]): CollapsedDefect[] {
   }
   const CLASS_ORDER = { flat: 0, structural: 1, emergent: 2 }
   const out: CollapsedDefect[] = [...groups.values()].map((g) => {
-    const structural =
-      new Set(g.refs).size > 1 ||
-      (present > 1 && g.widths.size < present) ||
-      (g.text.startsWith('§') && g.property.startsWith('padding'))
+    // REQ-73 retired the section band-padding deltas, so `§<n>` rows never carry a
+    // `padding` property any more; structural is purely "the reference is not a
+    // single scalar to copy" — it varies across the ladder, or it fires at only some
+    // widths (a fluid reference against our fixed value).
+    const structural = new Set(g.refs).size > 1 || (present > 1 && g.widths.size < present)
     const repairClass: CollapsedDefect['repairClass'] = g.valueType === 'B' ? 'emergent' : structural ? 'structural' : 'flat'
     return {
       text: g.text,
@@ -392,7 +393,7 @@ export function formatCollapsedReport(cells: StateDiff[]): string {
   const byClass = (cls: CollapsedDefect['repairClass']): CollapsedDefect[] => defects.filter((d) => d.repairClass === cls)
   const HEAD: Record<CollapsedDefect['repairClass'], string> = {
     flat: 'Type-A flat - copy the reference value (the `expected` column)',
-    structural: 'Type-A structural - author the responsive ladder / section spacing',
+    structural: 'Type-A structural - author the responsive ladder',
     emergent: 'Type-B - emergent residual (shrinks once Type-A is right; do not set directly)',
   }
   const derivedNote = derived.length > 0 ? ` (+${derived.length} derived position drift, not counted)` : ''
@@ -530,6 +531,29 @@ export function formatClusterReport(cells: StateDiff[]): string {
   return lines.join('\n')
 }
 
+/**
+ * REQ-76 — which multi-viewport view the dispatcher emits, extracted from the
+ * command switch so the PRECEDENCE is testable without a real render. `--clusters`
+ * wins over `--collapse` when both are given (the causes ARE the roll-up of the
+ * collapsed rows, so the clustered view is strictly the more digested one), and
+ * `--json` chooses the serialisation, not the view. Returns the exact string the
+ * dispatcher writes to stdout plus the view it chose.
+ */
+export function selectMultiViewportPayload(
+  cells: StateDiff[],
+  opts: { clusters: boolean; collapse: boolean; json: boolean },
+): { view: 'clusters' | 'collapsed' | 'cells'; output: string } {
+  const view = opts.clusters ? 'clusters' : opts.collapse ? 'collapsed' : 'cells'
+  if (opts.json) {
+    const payload =
+      view === 'clusters' ? clusterDefects(collapseMultiViewport(cells)) : view === 'collapsed' ? collapseMultiViewport(cells) : cells
+    return { view, output: JSON.stringify(payload, null, 2) }
+  }
+  const text =
+    view === 'clusters' ? formatClusterReport(cells) : view === 'collapsed' ? formatCollapsedReport(cells) : formatMultiViewportReport(cells)
+  return { view, output: text }
+}
+
 function repairPlanLines(cells: StateDiff[]): string[] {
   // Group every delta by (text, property); a group is one defect across widths.
   const present = cells.filter((c) => !c.missing).length
@@ -550,11 +574,9 @@ function repairPlanLines(cells: StateDiff[]): string[] {
   // ladder (responsive), OR the delta fires at only SOME widths — meaning the ref
   // MATCHES our (fixed) value at the others, i.e. it is fluid and we are fixed (the
   // wordmark 36-vs-72 case a raw ref-value check misses, since it only deltas where it
-  // differs). Section band padding is structural too (padding-vs-margin as a system).
+  // differs). REQ-73 retired the section band-padding input to this rule.
   const isStructural = (g: { text: string; property: string; refs: Set<string>; cells: number }): boolean =>
-    g.refs.size > 1 ||
-    (present > 1 && g.cells < present) ||
-    (g.text.startsWith('§') && g.property.startsWith('padding'))
+    g.refs.size > 1 || (present > 1 && g.cells < present)
   let aFlat = 0
   let aStructural = 0
   let b = 0

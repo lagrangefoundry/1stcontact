@@ -6,6 +6,8 @@ import {
   formatCollapsedReport,
   clusterDefects,
   formatClusterReport,
+  formatMultiViewportReport,
+  selectMultiViewportPayload,
   parseArgs,
   EXTRACT_SCRIPT,
   type CollapsedDefect,
@@ -687,6 +689,53 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     expect(clustered[0]).not.toHaveProperty('repairClass')
   })
 
+  it('test_UAT_AC1289_clusters_takes_precedence_over_collapse_in_both_serialisations', () => {
+    // AC-1289's last Verification clause: `--clusters --collapse --json` must emit the
+    // CLUSTERED CAUSES, not the collapsed rows. The dispatcher's choice is the pure
+    // `selectMultiViewportPayload`, so the precedence is provable without a render.
+    const cells: StateDiff[] = [375, 1280].map((viewportWidth) => ({
+      engine: 'chromium',
+      viewportWidth,
+      state: 'rest',
+      missing: false,
+      report: diffManifests(
+        mani('ref', [el('Run', { color: '#111111' }), el('Btn', { fontWeight: 400 })]),
+        mani('a', [el('Run', { color: '#222222' }), el('Btn', { fontWeight: 700 })]),
+      ),
+    }))
+
+    // --clusters --collapse --json → the ranked causes document, NOT the collapsed rows.
+    const both = selectMultiViewportPayload(cells, { clusters: true, collapse: true, json: true })
+    expect(both.view).toBe('clusters')
+    const doc = JSON.parse(both.output) as DefectCause[]
+    expect(doc.length).toBeGreaterThan(0)
+    expect(doc.every((c) => typeof c.disposition === 'string')).toBe(true)
+    expect(doc.some((c) => 'repairClass' in (c as unknown as Record<string, unknown>))).toBe(false)
+    // …and it is the same document `--clusters --json` alone emits: collapse adds nothing.
+    expect(both.output).toBe(selectMultiViewportPayload(cells, { clusters: true, collapse: false, json: true }).output)
+    expect(both.output).toBe(JSON.stringify(clusterDefects(collapseMultiViewport(cells)), null, 2))
+    // The losing view is genuinely different, so precedence is an observable choice.
+    const collapsedOnly = selectMultiViewportPayload(cells, { clusters: false, collapse: true, json: true })
+    expect(collapsedOnly.view).toBe('collapsed')
+    expect(collapsedOnly.output).not.toBe(both.output)
+    expect((JSON.parse(collapsedOnly.output) as CollapsedDefect[])[0]).toHaveProperty('repairClass')
+
+    // Text mode makes the same call: clusters wins, and it is the cluster report.
+    const bothText = selectMultiViewportPayload(cells, { clusters: true, collapse: true, json: false })
+    expect(bothText.view).toBe('clusters')
+    expect(bothText.output).toBe(formatClusterReport(cells))
+    expect(bothText.output).not.toBe(formatCollapsedReport(cells))
+
+    // With neither flag the raw per-cell view stands — the helper adds no view of its own.
+    expect(selectMultiViewportPayload(cells, { clusters: false, collapse: false, json: false })).toEqual({
+      view: 'cells',
+      output: formatMultiViewportReport(cells),
+    })
+    expect(selectMultiViewportPayload(cells, { clusters: false, collapse: false, json: true }).output).toBe(
+      JSON.stringify(cells, null, 2),
+    )
+  })
+
   it('test_UAT_AC1312_gap_axis_measures_relative_spacing_and_reports_the_correction', () => {
     // Two stacked rows; the gap between them differs (ref 40 vs ours 80). Reported as a
     // single `gap` delta whose expected→actual IS the correction (drift-free, relative).
@@ -839,11 +888,13 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     //   1. `Flat`       — author-set, wrong identically at every width  → flat
     //   2. `Varying`    — author-set, reference DIFFERS across widths   → structural
     //   3. `NarrowOnly` — author-set, wrong at only some widths         → structural
-    //   4. `§0` padding — section spacing (padding-vs-margin as a system) → structural
-    //   5. the `Top → Bottom` gap — emergent geometry               → emergent
-    // (Case 5 uses `gap` rather than `position`: position is a DERIVED axis and is
+    //   4. the `Top → Bottom` gap — emergent geometry                   → emergent
+    // (Case 4 uses `gap` rather than `position`: position is a DERIVED axis and is
     // deliberately kept out of the repair-class groups — AC-1287 — so it could not
     // stand in for the Type-B group here.)
+    // REQ-73 retired the section band-padding deltas, so there is no section-spacing
+    // case: `§<n>` rows carry only overlay / contentAnchor / textAlign, and the
+    // classifier no longer keys on them.
     const cell = (width: number): StateDiff => {
       const report = diffManifests(
         mani('ref', [
@@ -861,13 +912,6 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
           el('Bottom', { box: box(0, 100, 200, 20) }), // gap 80 — emergent residual
         ]),
       )
-      // Case 4 — a section-spacing delta. Constructed directly because the band's
-      // vertical padding is no longer COMPARED (AC-1313) while the classifier rule
-      // that calls such a row structural remains part of the contract.
-      report.deltas.push({
-        text: '§0', role: 'section', property: 'paddingTopPx', expected: '96', actual: '0',
-        kind: 'padding', tier: 'MEDIUM', magnitude: 96, severity: 10, valueType: 'A',
-      } as (typeof report.deltas)[number])
       return { engine: 'chromium', viewportWidth: width, state: 'rest', missing: false, report }
     }
     const cells = [cell(375), cell(1280)]
@@ -877,7 +921,9 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     expect(cls('Flat')).toBe('flat')
     expect(cls('Varying')).toBe('structural') // reference varies across the ladder
     expect(cls('NarrowOnly')).toBe('structural') // fires at only one of two widths
-    expect(cls('§0')).toBe('structural') // section spacing
+    // REQ-73 — no `§<n>` padding row can exist, so nothing reaches the classifier
+    // by that route: the deltas the pipeline produced carry no section-scoped text.
+    expect(defects.some((d) => d.text.startsWith('§'))).toBe(false)
     expect(defects.find((d) => d.property === 'gap')?.repairClass).toBe('emergent') // Type-B geometry
 
     // Every counted defect carries a class — none falls through unclassified.
@@ -892,10 +938,11 @@ describe('REQ-64 values-diff — Type-A coverage gaps (padding sides, text-align
     expect(iStructural).toBeGreaterThan(iFlat) // flat → structural
     expect(iEmergent).toBeGreaterThan(iStructural) // structural → emergent
     // The order is stated up front, with the per-group counts.
-    expect(report).toMatch(/A-flat 1 -> A-structural 3 -> B 1\s+\(fix in that order\)/)
-    // …and each row carries the reference value to transcribe.
+    expect(report).toMatch(/A-flat 1 -> A-structural 2 -> B 1\s+\(fix in that order\)/)
+    // …and each row carries the reference value to transcribe (a scalar for the flat
+    // defect, the ladder range for the structural one).
     expect(report).toContain('#111111')
-    expect(report).toContain('96')
+    expect(report).toContain('36 .. 72')
   })
 
   it('test_UAT_FC_REQ-79_reference_fout_does_not_flag_correct_render', () => {

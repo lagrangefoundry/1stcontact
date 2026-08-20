@@ -55,11 +55,7 @@ import {
   cmdValuesDiff,
   cmdValuesDiffMultiViewport,
   formatReport,
-  formatMultiViewportReport,
-  formatCollapsedReport,
-  collapseMultiViewport,
-  clusterDefects,
-  formatClusterReport,
+  selectMultiViewportPayload,
 } from './fidelity'
 import path from 'node:path'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
@@ -122,6 +118,7 @@ export {
 export { cmdValuesDiff, cmdValuesDiffMultiViewport, formatReport, formatMultiViewportReport } from './fidelity'
 export { collapseMultiViewport, formatCollapsedReport, type CollapsedDefect } from './fidelity'
 export { clusterDefects, formatClusterReport, type DefectCause } from './fidelity'
+export { selectMultiViewportPayload } from './fidelity'
 export {
   cmdResponsiveDiff,
   buildResponsiveTable,
@@ -791,16 +788,16 @@ export async function run(argv: string[]): Promise<void> {
         // (the x-viewport multiplier removed), grouped in repair order.
         // REQ-76 — `--clusters` rolls those defects up into ranked CAUSES with a
         // fix/review/accept disposition (the noise-management view).
-        const collapse = flags.collapse === true
-        const clusters = flags.clusters === true
-        if (flags.json === true) {
-          const payload = clusters ? clusterDefects(collapseMultiViewport(cells)) : collapse ? collapseMultiViewport(cells) : cells
-          console.log(JSON.stringify(payload, null, 2))
-        } else {
-          console.log(
-            clusters ? formatClusterReport(cells) : collapse ? formatCollapsedReport(cells) : formatMultiViewportReport(cells),
-          )
-        }
+        // Clusters wins over collapse when both are given; `--json` picks the
+        // serialisation, not the view. Both decisions live in one pure helper so the
+        // precedence is provable without a real render (AC-1289).
+        console.log(
+          selectMultiViewportPayload(cells, {
+            clusters: flags.clusters === true,
+            collapse: flags.collapse === true,
+            json: flags.json === true,
+          }).output,
+        )
         // A missing cell or any per-cell delta is a fidelity failure to clear.
         if (cells.some((c) => c.missing || (c.report?.deltas.length ?? 0) > 0)) process.exitCode = 1
         return
