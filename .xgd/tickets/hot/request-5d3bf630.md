@@ -15,9 +15,11 @@ fields:
   auto_merge_back: true
   needs_review: false
   commits:
-  - working_sha: ceed377a03fb9f1c1bf084dd224d70cb58d6110f
+  - working_sha: 28272e3222ba5dc3d2057167a246c5154ab51c79
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - ceed377a03fb9f1c1bf084dd224d70cb58d6110f
   version: 0.1.45
   story_points: 5
   bundled_in: bundle-77b28def
