@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-27
 created_by: xgd
 created_at: '2026-08-18T17:40:16.676796+00:00'
-updated_at: '2026-08-20T23:10:48.987812+00:00'
+updated_at: '2026-08-20T23:17:15.880173+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -238,5 +238,51 @@ Shall I scope all four? I'd suggest (3) and (4) get written up first even if the
 <!-- xgd-chat role="user" ts="2026-08-20T23:10:48.892597+00:00" -->
 #### You
 There is **no capture tool, no screenshot tool, no diff tool, no gate tool**. Not withheld by grant — not declared at all. The toolbox has zero operations outside site editing. So no, we did not build cloud APIs for those, and the cloud AI cannot reach them by any route. <-- OK, we need to create tooling for these please? Can you create reqs? The tools should enable the capture of any site. screenshot of captured sites AND authored sites (including drafts and prior versions). diff should also be able to compare anything. I don't remember what the gate tool does but I think I need that too. Please create the smallest reasonable number of REQ tickets to implement these in the cloud as AI tools.
+
+<!-- xgd-turn id="22199972-1291-4e19-8488-c98f36e8d7ce-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T23:17:15.783958+00:00" -->
+#### Claude
+Let me understand `gate` and the rest properly before writing tickets.
+
+Now I understand the pipeline and — importantly — found two blockers that shape the decomposition. Let me check the ticket CLI.
+
+I have what I need. Four blockers shape this — two of which aren't in any ticket yet (`sharp` is native and can't run in workerd; no operation in any surface can return an image). Writing the tickets now.
+
+Now creating them.
+
+REQ-151–153 were already taken by the i18n series, so these land at 154–157. Fixing the cross-references before creating the rest.
+
+Four tickets created, all `draft`, 47 points total.
+
+| | Ticket | Depends on |
+|---|---|---|
+| **REQ-154** — 8pt | The headless browser in the cloud: a Browser Rendering driver behind the existing seam | REQ-147 |
+| **REQ-155** — 13pt | Capture in workerd: a ReferenceStore port, with the filesystem behind it | 154, 143 |
+| **REQ-156** — 13pt | The image layer leaves native code: `sharp` off the fidelity path | 155 |
+| **REQ-157** — 13pt | The fidelity surface: the assistant can look, compare and judge | 154, 155, 156, 149 |
+
+(151–153 were already taken by the i18n series — my earlier survey missed them, the ticket list paginates at 100.)
+
+## Why four and not two
+
+Each is a different *kind* of blocker, and three of them I found by reading code rather than by inventing scope:
+
+**REQ-154 — no browser.** DOC-13 §2 cut the `BrowserDriver` seam for exactly this migration and §8 states it in one line, so the mechanism is decided. But there's one genuine design question I made the ticket settle explicitly: `1c shot <slug>` screenshots *our own output*, which in the cloud lives behind Cloudflare Access. A browser the Worker launches is an unauthenticated client — **it will screenshot the Access challenge page and nothing will error.** The ticket names three options (service token / bypass policy / no self-fetch at all), requires the choice be recorded in DOC-13, and has an AC that fails today under all three.
+
+**REQ-155 — nowhere to put captures.** `bundle.ts` is fourteen `mkdirSync`/`writeFileSync` calls. Same port shape as REQ-142/143, and separated for the same stated reason. Two things it needs that `SiteStore` didn't: a list verb (`reextract.ts` uses `readdirSync`), and real bundle *identity* — on disk a bundle is a path you typed, but an AI tool needs a name it can pass around.
+
+**REQ-156 — `sharp` is native and cannot run in workerd.** This was in no ticket and no design doc. It's a declared dependency (`1c preflight` lists it), and every pixel-comparing verb goes through it. The good news is it's seven call sites doing four PNG operations — decode, encode, dimensions, crop. No resize, no colour management. That's a codec, not an imaging library. The AC that matters is that the *verdicts* don't move: `gate`'s three-way reconciliation compares numeric floors, and a codec swap that shifts them silently invalidates every fidelity result recorded to date. Only the last AC depends on 155, so most of this can run in parallel with 154.
+
+**REQ-157 — the surface.** Two things worth flagging:
+
+- I made "compare anything to anything" concrete as a single **picture source** vocabulary — captured reference, draft, edit channel, published revision, arbitrary URL — resolved in one place, so `compare` takes any two in any combination. That's what makes draft-vs-revision ("what did I just change") and revision-vs-revision ("what changed between releases") fall out for free. Shooting a published revision is why it depends on REQ-149.
+- **The risk that could sink it:** no operation in any surface returns an image. `get_asset` returns "its file and its alt text." The Anthropic wire format *does* accept an image block in a `tool_result` and `api_tools.js:407` passes the output straight through — so the transport isn't the problem. What's undecided is whether a Toolbox operation may *declare* a byte return; every `returns` in `l1-surface.json` names a JSON shape. That's likely an upstream `@lagrangefoundry/ai` change, as REQ-103 was. The ticket says settle it first, and has an AC that a tool returning "a screenshot exists at this key" satisfies nothing.
+
+On `gate`, since you asked: it runs `l1-gate`, `values-diff` and the perceptual diff and makes their **disagreement** the finding. `l1-gate` is blind to colour/font/media by design, and `values-diff` can only compare elements present in both manifests — so a page whose capture missed its imagery passes both while the pixels are 80% wrong. `gate` catches that and names the cause (`capture-incomplete` / `reproduction-wrong` / `unexplained-disagreement`). Worth having: without it the assistant would confidently work value deltas against a reference that was never valid.
+
+I left `repro`, `refold`, `adopt-gaps`, `values-diff --clusters` and the rest of the framework-growth loop (DOC-21) out of the AI surface deliberately — noted in REQ-155 — since nothing you described asks for them. Say the word if you want them in scope.
+
+All four are `draft`, so nothing moves until you promote them.
 
 <!-- xgd-chat-end -->
