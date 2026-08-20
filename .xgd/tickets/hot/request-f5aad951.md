@@ -5,10 +5,10 @@ type: request
 title: 'Bespoke-module lifecycle: draft-module rendering + publish-gate-on-hardening'
 created_by: xgd
 created_at: '2026-07-02T00:20:05.021809+00:00'
-updated_at: '2026-08-20T21:38:24.906916+00:00'
+updated_at: '2026-08-20T21:38:29.620768+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   story_points: 5
   priority: medium
