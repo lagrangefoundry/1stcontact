@@ -6,7 +6,7 @@ title: Section band vertical padding is captured but no longer compared; textAli
   and element padding are unaffected
 created_by: xgd
 created_at: '2026-08-20T04:36:09.436537+00:00'
-updated_at: '2026-08-20T05:13:05.039909+00:00'
+updated_at: '2026-08-20T06:58:49.518098+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
