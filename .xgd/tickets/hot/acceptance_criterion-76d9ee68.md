@@ -6,9 +6,9 @@ title: A fold-synthesized backing surface is not a sibling overlap, but a captur
   one is — and both stay subject to the clip check
 created_by: xgd
 created_at: '2026-07-29T04:20:06.192885+00:00'
-updated_at: '2026-08-20T13:08:36.759019+00:00'
+updated_at: '2026-08-20T14:39:42.128709+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-24098299
