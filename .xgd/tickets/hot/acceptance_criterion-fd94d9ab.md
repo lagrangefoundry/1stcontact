@@ -6,7 +6,7 @@ title: A captured backdrop folds to a box leaf in the background layer whose edg
   bound reconstructed bands
 created_by: xgd
 created_at: '2026-08-06T01:45:20.870131+00:00'
-updated_at: '2026-08-16T08:03:21.474004+00:00'
+updated_at: '2026-08-20T14:39:29.372281+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
