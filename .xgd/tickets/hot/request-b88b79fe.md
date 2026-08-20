@@ -6,9 +6,9 @@ title: 'The headless browser in the cloud: a Browser Rendering driver behind the
   seam'
 created_by: xgd
 created_at: '2026-08-20T23:16:00.449069+00:00'
-updated_at: '2026-08-20T23:16:00.449069+00:00'
+updated_at: '2026-08-20T23:16:27.614503+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -55,7 +55,7 @@ the cloud our own output is served from `app.1stcontact.io/preview/<slug>/<chann
 A browser launched by the Worker is a **new, unauthenticated client**. It will be challenged, and
 it will faithfully screenshot the challenge page. Nothing errors; the picture is simply wrong.
 This is the one genuine design question in the ticket and it must be settled here, with reasons
-recorded, rather than discovered inside [[REQ-154]].
+recorded, rather than discovered inside [[REQ-157]].
 
 Three candidates:
 
