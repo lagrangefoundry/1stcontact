@@ -6,7 +6,7 @@ title: Noise treatment is a reversible layer over an exact capture, with an oper
   dial
 created_by: xgd
 created_at: '2026-08-20T03:40:53.576512+00:00'
-updated_at: '2026-08-20T05:03:53.341354+00:00'
+updated_at: '2026-08-20T07:00:17.767480+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
