@@ -6,9 +6,9 @@ title: 'Palette management: read the site''s colours with their usage counts, an
   change, add, remove or rename them under guards the store enforces'
 created_by: xgd
 created_at: '2026-08-20T01:19:10.715657+00:00'
-updated_at: '2026-08-20T01:50:33.928940+00:00'
+updated_at: '2026-08-20T06:29:36.715645+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-77b28def
@@ -118,6 +118,19 @@ change would move and no way to remove or rename at all.
   the origin, where it is observable, and assert the operation's own result at the other two
   callers. Flagged rather than absorbed: if the intent is read strictly, the command-line and
   assistant responses are the half that does not yet match it.
+- **Divergence to note — what a refusal tells the assistant.** The guards are identical across
+  the three callers and each caller is refused for the same reason at the same place, but the
+  three do not learn the same *sentence*. The store's `CommandError` names the count (`'primary'
+  is used 3 times and cannot be deleted.`) and the command line prints it verbatim. The assistant
+  does not see it: rendering a refusal belongs to the toolbox, which renders from the per-code
+  text carried in the surface declaration, so what reaches the model is the code (`CONFLICT`) and
+  that code's declared sentence. The count is still reachable — `get_palette` reports it per entry
+  and the removal operation's own declared description sends the model there — so the assistant
+  can still talk a removal through, but from the read rather than from the refusal. Flagged
+  rather than absorbed: read strictly, "the assistant meets the same refusal an operator meets"
+  is true of the guard, the code and the unchanged draft, and not of the wording. Closing it
+  would mean carrying the thrown error's own message through the toolbox's refusal renderer,
+  which is upstream of this repository.
 - **Divergence to note — renaming an entry to its own name.** The collision guard compares only
   against *other* entries, so renaming an entry to the name it already has is accepted and
   performs a write that changes nothing. The intent is silent on this case; it is recorded here
