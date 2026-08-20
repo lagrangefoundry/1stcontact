@@ -5,13 +5,13 @@ type: capability
 title: 'Builder Workspace: Chrome, Origin & Display Panel'
 created_by: xgd
 created_at: '2026-08-07T01:41:35.258770+00:00'
-updated_at: '2026-08-16T10:03:42.225488+00:00'
+updated_at: '2026-08-20T03:01:04.953987+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
 fields:
   name: builder_workspace
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 # Capability: Builder Workspace — Chrome, Origin & Display Panel
