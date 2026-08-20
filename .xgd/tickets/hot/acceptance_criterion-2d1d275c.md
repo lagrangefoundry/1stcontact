@@ -6,15 +6,15 @@ title: The page's centred content column is recovered as a document constant, re
   unless it reproduces every sample
 created_by: xgd
 created_at: '2026-08-20T12:53:17.686158+00:00'
-updated_at: '2026-08-20T12:56:52.109722+00:00'
+updated_at: '2026-08-20T13:52:02.775496+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
