@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-27
 created_by: xgd
 created_at: '2026-08-18T17:40:16.676796+00:00'
-updated_at: '2026-08-20T22:02:33.155681+00:00'
+updated_at: '2026-08-20T23:10:48.987812+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -232,5 +232,11 @@ So the cloud assistant is blind and can't be handed anything. It can author conf
 Plus REQ-149, which is cut and empty.
 
 Shall I scope all four? I'd suggest (3) and (4) get written up first even if they're built later — both are cases where the design already decided the answer and only the wiring is missing, and (4) in particular is the kind of silent degradation that's much cheaper to notice now than to diagnose in three months.
+
+<!-- xgd-turn id="22199972-1291-4e19-8488-c98f36e8d7ce-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T23:10:48.892597+00:00" -->
+#### You
+There is **no capture tool, no screenshot tool, no diff tool, no gate tool**. Not withheld by grant — not declared at all. The toolbox has zero operations outside site editing. So no, we did not build cloud APIs for those, and the cloud AI cannot reach them by any route. <-- OK, we need to create tooling for these please? Can you create reqs? The tools should enable the capture of any site. screenshot of captured sites AND authored sites (including drafts and prior versions). diff should also be able to compare anything. I don't remember what the gate tool does but I think I need that too. Please create the smallest reasonable number of REQ tickets to implement these in the cloud as AI tools.
 
 <!-- xgd-chat-end -->
