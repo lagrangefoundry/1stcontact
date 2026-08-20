@@ -6,9 +6,9 @@ title: A region that exposes nothing answers with an empty field list and succee
   rather than failing
 created_by: xgd
 created_at: '2026-08-07T02:02:08.300539+00:00'
-updated_at: '2026-08-16T06:55:26.146070+00:00'
+updated_at: '2026-08-20T02:54:24.535762+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -19,22 +19,27 @@ fields:
 
 ## Criterion
 
-Requesting the editable fields of a region that exposes nothing — a painted
-panel carrying **no** background image, a behavior-module instance — **succeeds**
-and returns an empty field list, with a human-readable statement that the region
-has nothing to edit. It is not reported as a failure, a missing region, or an
-error of any kind.
+Requesting the editable fields of a region that exposes nothing — a behavior
+module's mounted seam, which holds no words of its own, no image and no paint —
+**succeeds** and returns an empty field list, with a human-readable statement
+that the region has nothing to edit. It is not reported as a failure, a missing
+region, or an error of any kind.
 
 Which regions these are is decided by the surface's own derivation, not by the
-caller, and the set is a shrinking one as region kinds gain fields: an image
+caller, and the set is a **shrinking** one as region kinds gain fields. An image
 region is not one of them, because it exposes which image goes there and its alt
-text; nor is a painted panel that carries a background image, because it exposes
-which image sits behind it.
+text. Nor is a painted panel any longer, in either of its forms: one carrying a
+background image exposes that image, and one carrying no background image
+exposes its fill — which is the whole of why the worked example of "nothing to
+edit here" is now a module's seam rather than a panel. A region an operator can
+see outlined and click should have something inside it.
 
 ## Verification
 
-Address, in a seeded site, a painted panel carrying paint but no background
-image and a module-instance region. Assert each request succeeds (success
-outcome, zero exit status) and that the returned field list is empty. Contrast
-with a copy region of the same page, which returns one field; an image region,
-which returns two; and a painted panel carrying a background, which returns one.
+Address, in a seeded site, a module-instance region and assert the request
+succeeds (success outcome, zero exit status) with an empty field list and the
+human-readable "nothing to edit" statement. Contrast with a copy region of the
+same page, which returns its words alongside its colour and type; an image
+region, which returns its image, its alt text and its framing controls; a
+painted panel carrying a background, which returns that background and its fill;
+and a panel painting only a rounded corner, which returns its fill.
