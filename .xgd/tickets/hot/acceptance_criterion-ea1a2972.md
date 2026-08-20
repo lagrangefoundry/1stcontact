@@ -6,7 +6,7 @@ title: When the band scan finds no bands at all, capture falls back to one body-
   band
 created_by: xgd
 created_at: '2026-08-20T04:39:10.791531+00:00'
-updated_at: '2026-08-20T05:04:35.068839+00:00'
+updated_at: '2026-08-20T06:58:51.465941+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
