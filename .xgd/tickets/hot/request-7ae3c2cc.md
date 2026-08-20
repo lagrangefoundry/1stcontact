@@ -5,7 +5,7 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-19T23:23:10.820241+00:00'
+updated_at: '2026-08-20T00:46:34.391029+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -225,3 +225,66 @@ The two not listed:
 
 The 14 failing files by family: tool-surface shape (5), assistant conversation (5),
 wrangler EPERM (3), scope literal (1).
+
+
+## Landed — free-coded
+
+Version **0.1.60**. Commits: `ade64575a` (the work), `055378794` (merge into
+`xgd-working`; carries the version bump because `xgd-working` had already taken
+0.1.59 while this branch was open).
+
+### What shipped
+
+The mechanism is removal, not precompilation, as §2 settled. Behavior components are
+plain TypeScript functions returning HTML (`modules/html.ts`,
+`carousel/component.ts`, `contact-form/component.ts`). With no Astro container to
+inject, the registry is portable and `render.ts` names `getModule` itself, so
+`renderSiteFilesNode` — which existed only to hold the container and the
+`.astro`-bound resolver — is deleted along with the `*.astro` ambient declarations.
+`renderSiteFiles` is now the single render entry for both the CLI and the Worker.
+
+Two consequences worth recording, neither in the original scope:
+
+- **A latent type leak surfaced.** The deleted `*.astro` ambient had been pulling
+  Astro's `.d.ts`, and with it `@types/node`, into the Worker's type graph by
+  accident. `options.ts` now imports `EditActor` from `../store/journal-model`
+  instead of the `../store` barrel, which reaches `fs-store` and would otherwise put
+  `node:fs` in the type graph of the Worker's route table.
+- **REQ-145's boundary UAT is deleted, not fixed.**
+  `test_UAT_FC_REQ-145_a_page_mounting_a_behavior_names_the_ticket_that_renders_it`
+  asserted the 500 that this ticket eliminates. REQ-148's own UATs carry the positive.
+
+The 12 conformance fixtures convert from `.astro` to `.ts` behavior components.
+
+### Merge resolution
+
+`apps/control-app/src/router.ts` conflicted where `xgd-working` had added the
+per-isolate chat host (REQ-146) in the same region this ticket dropped
+`previewRenderer`'s injected `render`. Kept the chat host verbatim, took the
+single-arg `previewRenderer(store)`, and verified no call site still passes the
+second argument and that `RouterDeps` no longer declares `render`. REQ-146's worker
+AI boundary UATs pass 11/11 on the merged tree.
+
+### Evidence
+
+- **workers project: 5 files / 49 tests green** on the merged tree, including the
+  three REQ-148 UATs — a behavior-module site renders its draft channel, the served
+  bytes are the component's own output, the edit channel switches the behaviour off.
+- **conformance: 20/20** across req39/40/41/85 against the converted fixtures
+  (previously 5 passed, 15 skipped for want of a browser).
+- **browser-gated suites: 23 of 24 files green** (118/119 and 101/102 across two
+  batches) once the matching Playwright build was installed.
+- `tsc --noEmit -p tools/generate` clean.
+
+### Known-failing, none caused by this ticket
+
+The node project has 14 files / 60 tests failing, every one outside this ticket's
+changed set (checked file by file). Four pre-existing families: tool-surface return
+shape (5 files), assistant conversation state (5), sandbox EPERM on
+`~/Library/Preferences/.wrangler` (3), BUG-32 scope literal (1). The first two look
+like real regressions from other work and want their own tickets.
+
+Two cross-engine tests (`req42-conformance-x-browser`,
+`reconciliation-l1-substrate` AC-688) time out rather than fail; chromium only runs
+here under `--single-process` because the sandbox denies Mach bootstrap
+registration, which makes them slow. Environmental.
