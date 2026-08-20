@@ -6,10 +6,10 @@ title: The build discovers every Worker in the tree and bundles each against the
   environment, after the preflight passes
 created_by: xgd
 created_at: '2026-08-20T05:30:58.617490+00:00'
-updated_at: '2026-08-20T05:30:58.617490+00:00'
+updated_at: '2026-08-20T05:57:21.292697+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
