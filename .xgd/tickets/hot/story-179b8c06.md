@@ -5,7 +5,7 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-08-20T10:09:09.302055+00:00'
+updated_at: '2026-08-20T10:27:49.666956+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: updated
@@ -14,7 +14,7 @@ fields:
   capability_uid: capability-ae9d65d6
   story_kind: upgrade
   story_points: 3
-  uat_coverage: fail
+  uat_coverage: pass
   updated_by: bundle-0385746c
 ---
 
