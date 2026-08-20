@@ -6,9 +6,9 @@ title: 'Capability-Intent Alignment: Framework Substrate: L1 Layout, Values & Be
   Modules (level=story)'
 created_by: xgd
 created_at: '2026-08-20T07:39:47.409613+00:00'
-updated_at: '2026-08-20T07:39:47.409613+00:00'
+updated_at: '2026-08-20T07:39:56.021359+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 result: fail
 fields:
   report_kind: capability_validation
@@ -23,7 +23,7 @@ fields:
 # Level: story
 
 **Result**: FAIL
-**Violations**: 5
+**Violations**: 6
 **Warnings**: 1
 **Needs review**: 0
 
