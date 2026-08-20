@@ -6,10 +6,10 @@ title: Build, deploy and smoke-test scripts, and the [vars] inheritance bug behi
   the production 503
 created_by: xgd
 created_at: '2026-08-15T20:32:18.642216+00:00'
-updated_at: '2026-08-18T17:26:16.306445+00:00'
-completed_at: null
+updated_at: '2026-08-20T12:49:55.550441+00:00'
+completed_at: '2026-08-20T12:49:55.550441+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 5
