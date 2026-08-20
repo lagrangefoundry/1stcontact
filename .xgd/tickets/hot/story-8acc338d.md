@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-20T12:06:01.057524+00:00'
+updated_at: '2026-08-20T12:25:17.497326+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -92,6 +92,26 @@ The fold emits the **full language**, not text alone:
 - a **font resource table** binding each painted family handle to its served
   substance, populated only with the families a folded text leaf actually paints.
 
+**A reconstructed surface takes its rect from the element that painted it.** A
+card's edges and corners are a measured fact rather than arithmetic over where its
+text happens to sit: the fold adopts the *captured* surface-bearing box wherever the
+capture resolved one. Two rules qualify that adoption. A surface as wide as the
+viewport is the page **band**, not a card — bands are reconstructed separately, and
+adopting a band's rect stretches a narrow accent rule across the whole section — so
+such a row keeps its own run box instead. And where no card-shaped fill was resolved
+but the run bears an **asymmetric accent rule**, the fold takes the rect of the
+element that *bears* the rule, which is commonly a fill-less wrapper the run sits
+inside: without it the rule lands indented from the reference by that wrapper's
+padding and, because a border paints inside its own border box, prints over the
+first glyph. The bearer's rect is consulted only where no fill was resolved, so a
+card painting both a fill and an accent keeps one rect for both; and corner rounding
+follows the resolved *surface* shape only, so a row that fell back to its accent
+bearer never inherits a radius that was not its own. The captured rect doubles as an
+**exact grouping identity** — runs painted by the same element are one card and runs
+painted by different elements never merge, with proximity arbitrating only those
+rows whose surface the capture could not resolve — so sibling tiles can neither
+merge nor drift.
+
 **What varies across the ladder becomes a track — not geometry alone.** Any scalar
 axis whose measured value differs across the sampled widths folds to its own
 per-width keyframe track; an axis holding one value everywhere stays a plain
@@ -132,13 +152,40 @@ threshold axis carries the reference's own line count across engines instead of
 letting rounding re-decide it per browser.
 
 **The page's centred content column is recovered as a document constant.** Where
-content actually sits at each captured width is fitted to the two constants that
-reproduce every sampled origin and extent — a container maximum and a horizontal
-inset — and the fit is rejected unless it reproduces *all* of them, so a page with
-no centred column keeps its keyframes untouched. A node inside the column expresses
-its geometry against that column (a column anchor) rather than against the page
-edge, so the reproduction re-centres at unsampled widths instead of holding a
-captured absolute offset.
+content actually sits at each captured width is fitted to a container maximum and a
+horizontal inset that reproduce every sampled *origin*, plus — where the page's
+content stops short of that container — a **content cap** that reproduces the
+*extent*; and the fit is rejected unless it reproduces *all* of the samples, so a
+page with no centred column keeps its keyframes untouched. A node inside the column
+expresses its geometry against that column (a column anchor) rather than against
+the page edge, so the reproduction re-centres at unsampled widths instead of
+holding a captured absolute offset.
+
+**A column anchor is fitted per axis, not as one undivided thing.** A node's **left
+edge** and its **extent** are fitted against the column separately, and either may
+anchor while the other keeps its keyframes — because alignment is a property the
+page shares across siblings while a node's width is its own business. Coupling them
+(anchoring only where both axes fit) leaves neighbouring runs on two different
+models and splits text the reference keeps flush: one hero line whose width happened
+to equal the column extent anchored while its three neighbours kept drifting
+keyframes, 31px apart at an unsampled width — worse than not anchoring at all. An
+extent may also anchor with its own **narrower maximum** — a nested cap, where a run
+fills the column until that maximum takes over — admitted only when more samples
+than unknowns support the fit and only at a plausible share of the column, so a
+width that merely *correlates* with the column over the sampled range (a
+shrink-to-fit glyph extent under responsive type) is refused rather than
+extrapolated off-sample.
+
+Two further rules keep an anchored left edge honest. Where a node's offset inside
+the column has no closed form — typically because the page changes layout **mode**
+at a breakpoint, a 3-up grid stacking below `md` — the column origin still carries
+the node and only the small residual offset inside the column is keyframed,
+snapping wherever the node's own geometry snaps; without that agreement the two
+halves of one position disagree about where the page's breakpoints are and a grid
+column slides off the right edge between samples. And a **full-bleed element
+spanning the viewport is never anchored at all**: its left edge is absolutely zero,
+and writing that as origin-plus-negative-origin and then interpolating the residual
+walks the band off the left edge at unsampled widths.
 
 **How a measured value becomes a typed axis.** Folding is not transcription: a
 computed CSS string is admitted only on terms that keep the folded definition
@@ -250,7 +297,10 @@ nothing in the render/reproduction path consumes them, and the folded L1 documen
 renders as a complete reproduction on its own.
 
 **In scope:** the fold to one L1 document in the full language (text, image, box,
-backdrops in the background layer, reconstructed surfaces with the self-painting
+backdrops in the background layer, reconstructed surfaces measured from the
+captured surface-bearing rect — never a viewport-wide band — with the accent
+bearer's rect as the no-fill fallback and that rect's use as an exact grouping
+identity, with the self-painting
 run excepted from them and the full-bleed bar as a second band-seeding path, page
 band, behaviour seams with rebased control leaves and their capture-derived
 behavioural config (field list, each field's label and the reference-side
@@ -263,8 +313,10 @@ carries, per-side padding and the per-width scalar track any non-geometry axis
 earns by varying across the ladder, the viewport-height probe pair and the
 measured per-node height response the fold derives from it (including its
 section-edge and representative-row attribution rules), the no-wrap
-threshold axis, the recovered centred content column and the column-anchored node
-geometry that refers to it, oracle retention, the materialization of a folded
+threshold axis, the recovered centred content column (container, inset and content
+cap) and the column-anchored node geometry that refers to it — fitted per axis,
+with the capped extent, the keyframed inset fallback and the full-bleed
+refusal — oracle retention, the materialization of a folded
 bundle into a servable site (page document, mounted seams, asset localization with
 a hard failure on an unmirrored handle and a reported fold gap on a mirrored asset
 no node references, idempotent rebuild), the offline re-fold,
@@ -372,7 +424,19 @@ story); how the gate presents the residual channel.
   threshold, the centred content column with column-anchored geometry, the
   viewport-height probe and the response it folds to, and the use of the *captured*
   surface-bearing box for a reconstructed card, so a card's edges are a measured
-  fact rather than arithmetic over where its text happens to sit.
+  fact rather than arithmetic over where its text happens to sit — with the two
+  qualifiers the Description states: a viewport-wide surface is the band and is
+  refused as a card's rect, and the accepted rect doubles as the grouping identity
+  that decides which runs are one card.
+- The column fit is a *reproduction* test, not a resemblance test, in two further
+  ways the Description's rules rest on. Its origin is the **modal** left edge —
+  the edge the most content shares, not the minimum — because a real page has more
+  than one gutter (this reference sets its header wider than its content column)
+  and taking the extreme made the fit fail outright. And a nested cap on an
+  anchored extent is admitted only on an **over-determined** fit, because a
+  two-unknown fit through two points is interpolation rather than evidence: the
+  hero title's shrink-to-fit width fits any two of its samples and then "verifies"
+  against the cap, yielding a coefficient that runs kilometres wide off-sample.
 - BUG-17 / BUG-18 / BUG-21 are three of the defects behind those axes. The fold
   dropped element padding outright (BUG-17); it read a text run's axes from the
   widest cell only, so type rendered at desktop size on mobile (BUG-18); and a
