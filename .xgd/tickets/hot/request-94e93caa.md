@@ -5,9 +5,9 @@ type: request
 title: Reserve locale-shaped page slugs
 created_by: xgd
 created_at: '2026-08-20T21:59:29.784434+00:00'
-updated_at: '2026-08-20T21:59:29.784434+00:00'
+updated_at: '2026-08-20T21:59:46.456137+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: low
@@ -55,7 +55,7 @@ belongs in the implementation rather than in this ticket's assumptions.
 
 ## Test approach
 
-UATs named `test_UAT_FC_REQ-<id>_*` covering AC 1–3, with AC 2 parameterized over
+UATs named `test_UAT_FC_REQ-153_*` covering AC 1–3, with AC 2 parameterized over
 near-miss slugs that begin with a language code. Regression scope is the site-schema
 validation suite.
 
