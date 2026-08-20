@@ -5,7 +5,7 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-08-20T03:18:50.141398+00:00'
+updated_at: '2026-08-20T03:41:30.673492+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -40,6 +40,14 @@ render visibly differed, or fixes a pairing/false-delta bug in the other directi
   superseded and which the L1 renderer never calls. The live L1 gradient axis
   (linear + radial `surfaceGradient` / `gradientFill`) is **not** owned here — see
   the value-axis ownership rule below.
+- **The values-diff report surface — noise management over an exact capture.** The
+  false-positive half of the animating invariant: the per-axis noise layer applied
+  as a per-run overlay above an exact capture (never baked into it), the
+  `--collapse` dedup that counts defects rather than per-viewport cells, the
+  demotion of a derived axis to a drill-down diagnostic, the Type-A / Type-B
+  repair-order classification, and the `--clusters` roll-up into ranked causes each
+  carrying a fix / review / accept disposition. What an axis *records* and what the
+  report *counts* are separate decisions; both are owned here.
 - **Size-aware and cross-size diffing** — the shared `--size` viewport selector on
   `values-diff` and pixel `diff`, the per-width reference screenshots capture
   persists, and the standalone `responsive-diff` N-way cross-size node analysis with
@@ -131,6 +139,27 @@ it), BUG-15 (the all-collapse fallback to a body-spanning band), BUG-25
 (modern-syntax scrim capture). All five are now carried by STORY-75 and the
 bundle is attributed in its `updated_by`. A single skipped intent, not a
 matrix-genesis boundary — BUNDLE-8 reconciled the same day and was attributed.
+
+Unbundled-intent repair (2026-08-19). Every ledger built for this capability up
+to attempt 7 enumerated *bundles* only, and this store also carries intent as
+individually free-coded `request` tickets that reconcile without ever being
+bundled. A store-wide sweep found four such intents live in this capability's
+scope and expressed by no story: REQ-64 (the noise audit — the false-positive
+sibling of REQ-63's coverage audit), REQ-76 (`--clusters` cause roll-up), REQ-72
+(in-browser resolution of gradient stop colours to hex, without which a captured
+gradient carries a direction and no stops) and REQ-73 (the adjacent-gap axis and
+the paired retirement of section band vertical padding). REQ-64 and REQ-76 are
+now carried by **STORY-116**, a sibling report-surface story, because they concern
+what the diff *reports* rather than what the capture *records*; REQ-72 is carried
+by STORY-76 and REQ-73 by STORY-75, each attributed in `updated_by`. REQ-66 needed
+no action — it is genuinely retired and STORY-84 records the supersession.
+
+Two live unbundled intents in this cluster are deliberately **not** swept in:
+REQ-74 (`adopt-gaps` writes a repair into a site) and REQ-78 (the `1c
+aligned-crops` verb's own meaning). Both are unstoried matrix-wide, but this
+capability is capture-and-compare and the CLI ownership rule keeps a verb's
+meaning with its owning capability, so they are cross-capability gaps to file
+rather than CAP-63 story edits.
 
 BUNDLE-10's remaining members are deliberately **not** swept in here:
 BUG-12/13/14/17/18/19/20/23 and REQ-88/REQ-93 are fold / L1-pipeline (CAP-71 /
