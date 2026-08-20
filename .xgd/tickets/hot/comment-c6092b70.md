@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-20T03:08:18.608480+00:00'
+updated_at: '2026-08-20T21:05:00.563078+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -162,5 +162,11 @@ I ran the new bootstrap against a Vite resolved straight out of the `.pnpm` stor
 `tests/req119`, `REQ-141`, `REQ-148 astro-free-render`, and the CLI output-hygiene reconciliation UATs pass now (23 tests). The rest — every test that spawns `1c.mjs` — can't run until `vite` is linked.
 
 Ping me when the install finishes and I'll run the full node suite, bump the version, commit, merge back, and set `free_coded`.
+
+<!-- xgd-turn id="d73c556d-bc72-421b-8793-5c275fd0d432-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:05:00.462188+00:00" -->
+#### You
+please complete the free-coding of this ticket
 
 <!-- xgd-chat-end -->
