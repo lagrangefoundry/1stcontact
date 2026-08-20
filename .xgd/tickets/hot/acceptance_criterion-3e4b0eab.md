@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: --multi-viewport keeps the site slug as a positional in either flag order
 created_by: xgd
 created_at: '2026-07-19T03:01:36.569827+00:00'
-updated_at: '2026-08-16T09:18:13.875536+00:00'
+updated_at: '2026-08-20T04:40:15.098219+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e15a19ef
@@ -17,6 +17,8 @@ fields:
 ---
 
 ## Criterion
+**Scope note.** This criterion is retained deliberately as the **named REQ-58 regression instance** — the originally-reported fault, where `--multi-viewport` swallowed the following positional. The *general* guarantee (that every registered boolean flag preserves `<slug>` as a positional in both flag orders, with the registered set derived from the CLI source rather than restated) is AC-1290's, and `--multi-viewport` is one member of that registry. This AC is the anchor for the specific flag the fault was reported through; AC-1290 is the surface.
+
 When `values-diff` is invoked with the `--multi-viewport` flag and a site slug,
 the slug is retained as the command's positional argument regardless of whether
 the flag appears before or after it:
