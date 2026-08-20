@@ -5,7 +5,7 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-20T07:42:29.909336+00:00'
+updated_at: '2026-08-20T08:02:30.470992+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -373,8 +373,8 @@ emitter's zero-look baseline / inert degradation / attribute refusal, and
 relocatable document-relative URL emission with its flat-snapshot invariant), the
 one-colour-system guarantee over everything the renderer emits, and
 the round-trip / cross-browser fidelity guarantees. The renderer's **seam
-emission** is in scope on both sides of the mount: `renderL1Document` /
-`renderL1Fragment` accept a `mounts` map keyed by slot name, and a seam named in
+emission** is in scope on both sides of the mount: `renderL1Document` accepts a
+`mounts` map keyed by slot name, and a seam named in
 that map emits the bound behavior's already-rendered fragment as the slot
 element's content — inside the *same* positioned box the seam already occupies,
 so a mounted behaviour is painted, measured and placed by the seam's own axes and
