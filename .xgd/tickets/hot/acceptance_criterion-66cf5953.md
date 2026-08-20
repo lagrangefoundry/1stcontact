@@ -6,7 +6,7 @@ title: Module-invariant elements and the names they would source are excluded fr
   capture and pairing
 created_by: xgd
 created_at: '2026-08-06T01:46:18.506624+00:00'
-updated_at: '2026-08-16T09:17:40.000272+00:00'
+updated_at: '2026-08-20T06:58:53.462145+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
