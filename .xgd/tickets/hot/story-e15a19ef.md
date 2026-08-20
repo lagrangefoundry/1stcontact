@@ -6,9 +6,9 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-08-20T03:18:04.796214+00:00'
+updated_at: '2026-08-20T03:58:35.614156+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -36,11 +36,27 @@ inside a browser launch.
 ## Description
 Five CLI-correctness guarantees for the `1c` command line:
 
-1. **Boolean flag parsing.** The `--multi-viewport` flag is a boolean toggle, not
-   a value-taking option. Invoking `values-diff --multi-viewport <slug>` (or
-   `values-diff <slug> --multi-viewport`) preserves `<slug>` as a positional in
-   either order, instead of the flag consuming `<slug>` as its value and failing
-   with a missing-slug error.
+1. **Boolean flag parsing — for the flag set as a whole, not one flag.** A flag
+   the CLI reads as a boolean toggle must parse as boolean: it takes no value and
+   does not consume the token that follows it. The parser decides this ahead of
+   the command switch, from a single registry of boolean flag names, so the
+   guarantee holds for whichever verb was named rather than per command.
+
+   The fault it closes is one signature repeated across the verb set. A boolean
+   flag the registry does not know is parsed as value-taking, so it swallows the
+   next non-`--` token; every one of these commands then takes its `<slug>` from
+   the first positional, so the slug is gone and the command dies with
+   `Missing required <slug>`. `values-diff --multi-viewport <slug>` is the
+   originally-reported instance (REQ-58), and `values-diff --collapse <slug>`,
+   `deploy --prune <slug>`, `render --edit <slug>` and `adopt-gaps --apply <slug>`
+   are the same fault reached through a different verb.
+
+   So the registry is asserted **entire** in evidence, not sampled: the boolean
+   set is pinned as a set, and each member is proved to preserve `<slug>` as a
+   positional whether the flag precedes or follows it. Adding a boolean flag to a
+   command without registering it is then a visible regression rather than a
+   silent reopening of the hole — the same discipline guarantee 5 applies to its
+   gated command set.
 
 2. **`--json` output hygiene and a quiet bootstrap.** A `values-diff` command run
    with `--json` prints exactly one well-formed JSON document to stdout. The
@@ -114,20 +130,31 @@ Five CLI-correctness guarantees for the `1c` command line:
    envelope under `--json`; a message naming which check failed and which
    packages; and a hint that is the literal install command to run.
 
-In scope: argument-parsing correctness for boolean flags, propagation of
-store-selecting flags into the render/serve a sub-command triggers, stdout/stderr
-separation and bootstrap quiet for scriptable output, whether the render path
-engages Astro at all, and the pre-command check that the installed tree matches
-the declared dependencies. Out of scope: the content/shape of the diff or crop
-artifacts themselves (covered by the values-diff, size-aware diff, and
-aligned-crops capabilities), the L1 reproduction pipeline whose output the
-Astro-free render path serves (covered by the L1 substrate, fold, and
-reproduction-gate capabilities), and *performing* an install — the preflight
-reports and names the remedy, it never runs it.
+In scope: argument-parsing correctness for the boolean flag set as a whole,
+propagation of store-selecting flags into the render/serve a sub-command triggers,
+stdout/stderr separation and bootstrap quiet for scriptable output, whether the
+render path engages Astro at all, and the pre-command check that the installed
+tree matches the declared dependencies. Out of scope: the content/shape of the
+diff or crop artifacts themselves, and the *meaning* of any individual verb —
+what a flag makes a command decide belongs to the capability owning that verb,
+while the guarantee that the flag parses at all belongs here (see the capability's
+CLI ownership rule); the L1 reproduction pipeline whose output the Astro-free
+render path serves (covered by the L1 substrate, fold, and reproduction-gate
+capabilities); and *performing* an install — the preflight reports and names the
+remedy, it never runs it.
 
 ## Technical Context
 - Guarantees 1–2 reconciled from bundle-ab9e0cb6 (REQ-58 pass-3), plan item 5,
   commits 4f681c73 (boolean flag) and a4323720 (--json stdout hygiene).
+- Guarantee 1 is implemented once, as the `BOOLEAN_FLAGS` registry in
+  `tools/generate/src/cli/args.ts`, consulted by `parseArgs` before the command
+  switch. REQ-58 reported it through `--multi-viewport`, but the registry is the
+  guarantee's whole surface: an unregistered name falls to the value-taking
+  branch and eats the following token. The registry had drifted six flags behind
+  the CLI (`collapse`, `clusters`, `edit`, `dry-run`, `prune`, `apply`), each
+  reachable by a command that reads its `<slug>` from the first positional; it is
+  now complete and pinned as a set in evidence, with per-member coverage in both
+  flag orders, so drift fails a test instead of a user's invocation.
 - Guarantee 3 reconciled from bundle-31e474b9 (BUNDLE-7), plan item 9, commit
   09fa7cf5. `aligned-crops` previously rendered and served from `sites/` even
   under `--sandbox`; the store tree (`sandbox` + `cwd`) plus `source` is now
@@ -169,7 +196,8 @@ reports and names the remedy, it never runs it.
   honest about being pointed at the right files.
 - The gated set is pinned as a whole in evidence, so adding a browser-driving
   command without gating it is a visible regression rather than a silent
-  reopening of the hole.
+  reopening of the hole. Guarantees 1 and 5 now share that discipline: both are
+  dispatch-level registries whose evidence is only meaningful asserted entire.
 - **Deliberately out of this repo (intent split by REQ-44 itself).** The
   "re-install after a commit changes a dependency manifest" rule belongs to the
   workflow engine and is filed as REQ-745 (`lagrangefoundry/xgd`) with its
@@ -180,11 +208,12 @@ reports and names the remedy, it never runs it.
   with install scripts skipped, so a package directory can exist while its native
   binary or downloaded browser does not. The module still resolves, so the
   resolution check cannot see it; that decision is carried by REQ-22.
-- Related capabilities: CAP-63 (1c Values-Diff Fidelity), CAP-65 (1c
-  Size-Aware Diffing) — the commands whose output this hygiene protects, and the
-  same commands guarantee 5 gates; the aligned-crops perceptual pipeline whose
-  store routing guarantee 3 protects; the L1 substrate/fold/gate capabilities
-  that produce the L1-only pages guarantee 4 lets render without Astro.
+- Belongs to capability CAP-63 (`capability-aa030c83`, `1c_capture_diff_fidelity`),
+  which owns CLI *mechanism* for the whole verb set. Related: the capture and
+  diff verbs whose output this hygiene protects and which guarantee 5 gates, the
+  aligned-crops perceptual pipeline whose store routing guarantee 3 protects, and
+  the L1 substrate/fold/gate capabilities that produce the L1-only pages
+  guarantee 4 lets render without Astro.
 
 ## Dependencies
 None.
