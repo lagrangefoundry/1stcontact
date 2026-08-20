@@ -6,10 +6,10 @@ title: The map is generated from the corpus it describes, names its territories 
   the corpus's own words, and names any territory with no way in
 created_by: xgd
 created_at: '2026-08-20T04:17:08.039683+00:00'
-updated_at: '2026-08-20T04:17:08.039683+00:00'
+updated_at: '2026-08-20T04:37:23.861104+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
