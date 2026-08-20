@@ -6,9 +6,9 @@ title: --clusters rolls defects into ranked, dispositioned causes without mergin
   a phantom across widths
 created_by: xgd
 created_at: '2026-08-20T03:40:59.513113+00:00'
-updated_at: '2026-08-20T03:40:59.513113+00:00'
+updated_at: '2026-08-20T04:40:02.569527+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-aaddb221
@@ -36,6 +36,12 @@ says so when that is narrower than the run, so a mobile-only defect and a
 desktop-only defect are not merged into one apparently-large cause that exists at
 no single width.
 
+The clustered view is **scriptable, not screen-only**: under `--json` the ranked
+causes are emitted as a machine-readable document — each cause carrying its
+count, severity tier, representative elements, width set and disposition —
+rather than the text report, and it takes precedence over `--collapse` when both
+are given. The two views carry the same causes; only the serialisation differs.
+
 ## Verification
 
 Cluster a collapsed defect set containing two properties that share a cause, a
@@ -45,4 +51,8 @@ single cause with the summed count; the unmapped property produces its own cause
 dispositioned `review`; the capture artifact is dispositioned `accept`; causes
 are ranked and the summary line reports the per-disposition totals; and the cause
 covering the disjoint-width defects reports both widths rather than presenting
-itself as firing across the whole run.
+itself as firing across the whole run. Re-run the same set with `--clusters
+--json` and assert the emitted document parses and carries the same ranked causes
+— same count, ordering, width sets and dispositions — as the text view; and that
+`--clusters --collapse --json` emits the clustered causes, not the collapsed
+rows.
