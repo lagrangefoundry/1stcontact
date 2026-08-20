@@ -6,7 +6,7 @@ title: Every 1c command boots quietly — no 'Missing pages directory' warning o
   stream
 created_by: xgd
 created_at: '2026-07-29T04:32:56.846020+00:00'
-updated_at: '2026-08-16T09:18:17.550655+00:00'
+updated_at: '2026-08-20T06:59:40.363763+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
