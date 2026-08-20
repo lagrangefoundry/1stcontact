@@ -6,10 +6,10 @@ title: Deploy targets default to every discovered app, honour named apps, and re
   an unknown one listing those that exist
 created_by: xgd
 created_at: '2026-08-20T05:31:16.393986+00:00'
-updated_at: '2026-08-20T05:31:16.393986+00:00'
+updated_at: '2026-08-20T05:57:19.914254+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
