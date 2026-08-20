@@ -6,7 +6,7 @@ title: A painted background image is compared by mirrored basename, so a correct
   raises no delta
 created_by: xgd
 created_at: '2026-08-06T01:46:13.532357+00:00'
-updated_at: '2026-08-16T09:17:38.837577+00:00'
+updated_at: '2026-08-20T06:58:54.453808+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
