@@ -6,9 +6,9 @@ title: --collapse reports one row per defect across the viewport ladder, and sta
   the raw total it compressed
 created_by: xgd
 created_at: '2026-08-20T03:40:55.091996+00:00'
-updated_at: '2026-08-20T03:40:55.091996+00:00'
+updated_at: '2026-08-20T04:39:58.567994+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-aaddb221
@@ -30,6 +30,12 @@ The point is that the count becomes monotonic in fidelity: one wrong value is on
 defect however many rungs of the ladder it appears at, so a genuine repair moves
 the number by one rather than being lost in a six-fold multiplier.
 
+The collapsed view is **scriptable, not screen-only**: under `--json` the same
+collapsed defect rows are emitted as a machine-readable document — one entry per
+defect, each carrying its element, property, folded expected/actual values and
+the width set it fires at — rather than the text report. The two views carry the
+same defects; only the serialisation differs.
+
 ## Verification
 
 Build a multi-viewport cell set in which one element/property is wrong at every
@@ -39,3 +45,7 @@ rollup. Collapse it and assert: three cells of the first become one row carrying
 all three widths and a single scalar expected value; the second becomes one row
 whose expected value is rendered as a range; the systemic rollup produces no row;
 and the header reports both the collapsed defect count and the larger raw total.
+Re-run the same set with `--collapse --json` and assert the emitted document
+parses and carries exactly the same defect entries — same count, same
+element/property pairs, same width sets, same folded values — as the text view's
+rows.
