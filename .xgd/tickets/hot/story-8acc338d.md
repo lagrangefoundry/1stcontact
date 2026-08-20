@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-20T11:50:23.497221+00:00'
+updated_at: '2026-08-20T12:06:01.057524+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -174,12 +174,27 @@ position therefore survive the fold instead of being replaced by module defaults
 A control with no geometry at any sampled width has nothing to mount at and stays
 a residual.
 
-The fold derives each seam's **behavioural config from the capture alone**: the
-field list and each field's label from the a11y tree's accessible name, each
-field's type from the captured input type — falling back to the control's height
-when the bundle recorded none, a control materially taller than the form's
-shortest being a multi-line box — and the submission endpoint from the captured
-form action. It **invents nothing**: where the capture carries no such fact, or
+The fold derives each seam's **behavioural config from the capture alone**, and
+the enumeration is complete — the field list; each field's label from the a11y
+tree's accessible name; each field's type from the captured input type, falling
+back to the control's height when the bundle recorded none, a control materially
+taller than the form's shortest being a multi-line box; **where the reference
+renders each field's label**; the submission endpoint from the captured form
+action; and, where a claimed submit button was lifted into the seam, **that
+button's own words** as the form's submit copy. Nothing else about a seam is
+derived.
+
+Label placement is read from the a11y tree's **name source**: a name sourced from
+the placeholder folds to placeholder labelling, anything else to a visible label
+above the box. It has to be derived rather than styled because the a11y tree is
+its only witness — a label above the box and the same words inside it are both
+just text near a box, so no painted axis can hold the difference — and getting it
+wrong costs geometry, not polish: a label row the reference never had pushes every
+field below it down, so the whole form drifts progressively further off with each
+field. The captured submit wording is behavioural copy in the same sense — it
+names the action, while the button's *look* is already owned by its `control`
+leaf — and carrying it is what keeps the reproduction saying the reference's verb
+instead of falling back to the module's own default. It **invents nothing**: where the capture carries no such fact, or
 carries an endpoint that is not a safe URL, the derivation takes an honest default
 (an unnamed control still becomes a field under a positional label; a form with no
 action posts to its own URL) and records a **derivation gap** naming what was
@@ -238,7 +253,9 @@ renders as a complete reproduction on its own.
 backdrops in the background layer, reconstructed surfaces with the self-painting
 run excepted from them and the full-bleed bar as a second band-seeding path, page
 band, behaviour seams with rebased control leaves and their capture-derived
-behavioural config with its distinct derivation-gap channel,
+behavioural config (field list, each field's label and the reference-side
+placement of that label, each field's type, the endpoint, and the claimed submit
+button's wording) with its distinct derivation-gap channel,
 font table), the band's translucent scrim carried on the section-background box
 (the image-or-scrim fold condition and its per-axis widest read), the framing and
 colour-adjustment axes a captured picture or surface
@@ -323,6 +340,16 @@ story); how the gate presents the residual channel.
   a multi-line box when no input type was recorded, and no evidence at all names
   an endpoint. A fabricated endpoint would be the one derivation that silently
   sends real leads somewhere, so it is the one the fold refuses outright.
+- Label placement and submit wording are the two derived facts with **no painted
+  witness** — both are read off what the capture recorded *about* the controls (the
+  accessible tree's name source; the claimed chip's text) rather than off pixels,
+  and both cost geometry when wrong rather than merely looking different. A label
+  row the reference never had displaces every field beneath it, so the error
+  accumulates down the form; a submit button rendered from the module's default
+  wording leaves the reference's own chip stranded as a page-level run beside the
+  form it belongs to. Where the parameter lives in the module's declared config,
+  and why it is not an L1 axis, is the behavior-module contract's to state, not
+  this story's — the fold's half is only that the fact is read off the capture.
 - Rebasing a control to its seam changes only the ORIGIN of its geometry, never the
   measured box: the seam's own rect is the union of the cluster (widened to hold a
   claimed submit button), and each control's keyframe is its captured box minus the
