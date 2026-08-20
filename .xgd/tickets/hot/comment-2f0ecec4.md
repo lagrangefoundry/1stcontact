@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-27
 created_by: xgd
 created_at: '2026-08-18T17:40:16.676796+00:00'
-updated_at: '2026-08-20T21:42:11.101664+00:00'
+updated_at: '2026-08-20T21:45:29.057823+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -95,5 +95,70 @@ Want me to file the `1c pull` gap as a ticket, or raise REQ-148's priority?
 OK, I am returning to this after implementing all of those tickets and their dependencies.
 
 I am surprised that the workflow is described in terms of CLII am expecting everything at this point to be processable from the cloud can you confirm what the experience will be like. I am expecting we have UI that needs building here help me understand what our gaps are
+
+<!-- xgd-turn id="f0cb4954-a21e-45c2-a564-8d47d93441d9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:45:28.965829+00:00" -->
+#### Claude
+Let me re-survey — a lot will have changed since I last looked.
+
+You're right that the CLI framing is out of date — that was accurate when the cloud had three routes. It now has fifteen. Here's what actually exists.
+
+## What already works entirely in the browser
+
+`app.1stcontact.io` serves the builder chrome, with the client shipped through the `ASSETS` binding behind `run_worker_first` so Access gates the bytes too. Inside it:
+
+| Surface | Route | State |
+|---|---|---|
+| Site selector | `GET /api/sites` | ✅ |
+| View / Edit toggle, open-in-new-tab | — | ✅ |
+| Live preview, rendered on request in workerd | `/preview/<slug>/{draft,edit}/…` | ✅ |
+| Click-to-edit copy modal | `GET,POST /api/copy` | ✅ |
+| Image *selection* from existing assets | `GET /api/assets` | ✅ |
+| Palette / Colors popup | `GET,POST /api/palette` | ✅ |
+| Page style — text colour, panel background | via palette | ✅ (REQ-140) |
+| AI chat panel, streaming | `POST /api/ai/session`, `/api/ai/prompt` | ✅ (REQ-146) |
+| Behavior modules in the render path | — | ✅ (REQ-148, no Astro at request time) |
+
+The chat panel is doing most of the heavy lifting, and it's much more capable than the toolbar suggests. The caretaker's granted toolbox covers `set_l1` (any element — words, images, layout, appearance, *and what's there at all*), `add_page`/`update_page`/`remove_page`, `add_component`/`configure_component`/`remove_component`, `set_config`, the four palette ops, and `write_image`. Structure editing — which DOC-28 §8 marks "phase 3, may never happen" for direct manipulation — is already reachable through conversation.
+
+So for a site that already exists in the cloud store, editing is a browser activity. That part is done.
+
+## The blocker: nothing can leave the cloud builder
+
+**REQ-149 is not implemented.** `free-REQ-149` is cut but has zero commits — `git log xgd-working..free-REQ-149` is empty. Concretely, right now:
+
+- `POST /api/publish` returns 501 naming REQ-149, and the toolbar's **Publish button is wired to it** — it's a live button that fails.
+- `/preview/<slug>/published` also 501s.
+- `GET /api/sites` returns `latest: null` for every site, because no revisions can exist.
+
+Everything you do in the cloud builder is a draft that stays a draft. That's the single thing standing between "the tool is usable in the cloud" and "the tool is demonstrable in the cloud."
+
+There's a second half to it that's easy to miss: the AI surface *defines* a `Publish` group, but `instances.json` grants the caretaker only seven of the nine groups — `Publish` and `ManageAssets` are both withheld, and `roles.ts` says so deliberately. Landing the route won't make the assistant able to publish; the grant has to change too.
+
+## Three real UI gaps
+
+**1. You cannot create a site in the cloud.** There's no `POST /api/sites` and no "New site" in the toolbar. `1c new` is CLI-only, and the sole path into the cloud store is `POST /api/import` — i.e. `bin/publish` from your laptop. The cloud builder can edit sites but cannot originate one. Given your plan to build the next couple of sites in the cloud, this is the first wall you hit.
+
+**2. You cannot upload a file.** This one isn't a missing route in one layer, it's consistent all the way down: `/api/assets` is GET-only, the image-picker is pick-only, `ManageAssets` isn't granted, and the AI surface carries an explicit *absence* entry — "Uploading a picture, or any file … each has to be a file on the machine." In the cloud there is no machine. The assistant can `write_image` (draw an SVG) and nothing else. **A client's logo or photographs cannot get into a cloud-built site at all.** For real site creation that's disqualifying, and it needs three things built together: a drop target in the editor, a `POST /api/assets` route, and the R2 write behind it.
+
+**3. No history, no revert, no journal view.** `1c revisions`, `1c checkout`, `1c status`, `1c changes` have no UI. The assistant can read the journal via `list_changes`, but there's no operator surface, and no undo (also an explicit designed absence). This is mostly downstream of REQ-149 — a revisions panel is meaningless until revisions exist — but it's the obvious next UI once they do.
+
+Also, operationally: `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are still empty strings in `wrangler.toml`, both top-level and under `[env.production]`. Production answers 503 to everything until you configure the Access application per `ACCESS.md`. Not a code gap, but it means nobody can see any of the above yet.
+
+## What legitimately stays CLI
+
+Worth stating so it doesn't get counted as debt: `capture`, `repro`, `refold`, `gate`, `l1-gate`, `shot`, `diff`, `values-diff`, `responsive-diff`, `adopt-gaps`, `kb build`, `preflight`, `assets`. That's the fidelity/reproduction pipeline and the build toolchain — developer instruments, not operator surface. They have no business in the builder UI. Same for `bin/build` / `bin/deploy` / `bin/smoke`: shipping the platform is a laptop-and-CI activity by design.
+
+REQ-150 (drop Astro's Vite bootstrap from the CLI) is likewise CLI hygiene — low priority, no cloud bearing.
+
+## Suggested order
+
+1. **REQ-149** — it's cut and untouched, and three UI surfaces are already leaning on it (Publish button, published channel, `latest` in the site list).
+2. **Asset upload** — unticketed as far as I can see, and it's the gap that makes cloud-native site creation impossible rather than merely awkward. Needs route + UI + the `ManageAssets` grant.
+3. **Site creation in the cloud** — smaller than it sounds; `createDraft` already exists on the store and `/api/import` already calls it.
+4. **Revisions/history panel** — after 1.
+
+Want me to scope tickets for the asset-upload and cloud-site-creation gaps? Both look unticketed, and asset upload in particular spans three layers, so it's worth writing down before it gets built piecemeal.
 
 <!-- xgd-chat-end -->
