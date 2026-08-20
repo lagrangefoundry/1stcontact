@@ -6,14 +6,15 @@ title: 'The entry stays the unit of colour change: a shade only removes chroma, 
   every reference counts against its entry'
 created_by: xgd
 created_at: '2026-08-16T22:15:46.795414+00:00'
-updated_at: '2026-08-16T22:21:49.847117+00:00'
+updated_at: '2026-08-20T10:08:57.604995+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c490f1cf
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
