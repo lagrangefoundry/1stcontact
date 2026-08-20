@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-17
 created_by: xgd
 created_at: '2026-07-03T18:06:34.269085+00:00'
-updated_at: '2026-07-03T18:16:04.377152+00:00'
+updated_at: '2026-08-20T21:36:51.355575+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -139,5 +139,11 @@ You're right to hesitate. REQ-17 as written **conflates two things at very diffe
 **Recommendation: split REQ-17.** Keep the capability-spec/gap-log as the near-term piece (extend-first, resolution-agnostic), and defer the site-local-module rendering + hardening gate into its own ticket that lands alongside the harden pass. That also fixes the framing bug — the gap-log stops being "the on-ramp to new modules" and becomes "the on-ramp to *extensions*, occasionally new modules."
 
 Want me to reframe the REQ-17 body around the extend-first capability-spec (and file the bespoke-lifecycle half as a separate deferred ticket)? I'll only touch the ticket once you confirm the direction — no code yet.
+
+<!-- xgd-turn id="224de269-d930-414d-be28-56f1e37df9ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:36:51.220760+00:00" -->
+#### You
+I think this ticket has been superseeded by development that went in a different direction. If so please move it to abandoned.
 
 <!-- xgd-chat-end -->
