@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T22:42:15.485080+00:00'
+updated_at: '2026-08-20T23:06:55.813933+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -769,5 +769,25 @@ On the carousel specifically: the reason it's more than decoration is that flick
 On fun: I'd put it more strongly than a preference. The quality of the output is bounded by the quality of signal extracted from the client, and a bored client gives short agreeable answers. *"Yeah, that's fine"* is the sound of a session failing. An excited client argues, corrects, and volunteers things you never asked. Fun isn't traded against rigour — **fun is the extraction mechanism.** And DOC-33 bets all its drama on one reveal two hours in, which has to repay two hours of tedium to break even. Distributed delight is the more robust bet.
 
 This is a big enough change that it's a restructure of DOC-33, not an amendment — §6 replaced, the plain pass retired, plurality and the cheap/expensive split promoted into a new principles section. Want me to write that, or keep pulling first?
+
+<!-- xgd-turn id="ca4c8e19-fb86-4d94-9a0c-b954ecf9b9f0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T23:06:55.717824+00:00" -->
+#### You
+Lets set aside cost as a factor for now - it is too soon to optimise for that. Lets build an amazing experience that makes website creation magical and fun and then worry about what we need to charge for it later.
+
+Can I rephrase your refactoring statement: Some things are harder to change than others that should help drive the conversation with the user.
+
+To your first point: What are the things that make something non-generic? Are they in the bucket of hard to refactor or cheap? When in the process do those have to be nailed down?
+
+I remember a book which I never really gave enough time to but I loved the title and the premise "Computers as Theatre" - the analogy of UIs as theatrical experiences. With a conversational interface like ours I think that is even more true.
+
+Another thing to call out is this is an inverted role for a LLM. All of the LLM interactions I have are really open and driven by me. What we are trying to do here is to make the LLM drive the conversation since this is not particularly natural for it I think it will need help. Possibly even dynamic help more than just a single play book but we can worry about the structure of the LLM support when we get there let's focus on the experience.
+
+I love the idea that we start with the hero section, if we could create a hero section and a single story section, a lot of of the rest of the site could be filled out. For example we could fill it with Epsom Lorum text but real headings. Let's be generous with the pieces of the puzzle that are extremely cheap to factor let's offer the user six different looks of the site with two different images and six different pallets and four different fonts. I love the carousel idea for looking at different versions.
+
+Another benefits of hero section in 15 minutes is that 15 minute consultation trailer becomes a lot more interesting…
+
+But let's take some time to really flash out what this experience would look like I want the user to see more site at each term and yes we do need to make the decisions in something approximating the right order but how do we help the users imagination visualize what it's gonna look like because we need that inspiration and excitement to drive the process
 
 <!-- xgd-chat-end -->
