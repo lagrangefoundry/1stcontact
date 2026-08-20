@@ -6,7 +6,7 @@ title: Per-side padding folds as an axis, with a per-width track for any side th
   varies across the ladder
 created_by: xgd
 created_at: '2026-08-20T12:47:47.578171+00:00'
-updated_at: '2026-08-20T13:46:57.538667+00:00'
+updated_at: '2026-08-20T14:39:22.755695+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
