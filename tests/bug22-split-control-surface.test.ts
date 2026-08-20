@@ -28,7 +28,7 @@
 import { describe, expect, it } from 'vitest'
 import { JSDOM } from 'jsdom'
 import { EXTRACT_SCRIPT, flattenSignals, diffManifests, type RawSignals } from '../tools/generate/src/cli'
-import type { ValueDelta } from '../tools/generate/src/cli/capture'
+import type { ValueDelta, ValueManifest } from '../tools/generate/src/cli/capture'
 
 type Box = [x: number, y: number, w: number, h: number]
 
@@ -166,6 +166,45 @@ describe('BUG-22 — split text+box controls resolve against the surface-bearing
       )
     expect(on(diff(chip(12), chip(12)), 'Coming soon', 'shape'), 'identical chips agree').toEqual([])
     expect(on(diff(chip(12), chip(0)), 'Coming soon', 'shape'), 'a lost pill is still a defect').toHaveLength(1)
+  })
+
+  it('test_UAT_AC1311_a_pre_surface_bundle_leaves_the_resolution_inert', () => {
+    // Every bundle captured before the `surface` record existed carries none. The
+    // resolution must then do NOTHING — not throw, and not read the label's zeros
+    // as if they were a bearing box — leaving the pre-BUG-22 own-axis comparison
+    // exactly as it was. Every other case here builds its manifests through
+    // `flattenSignals`, where `surface` is always present, so this is the only
+    // path that exercises the backward-compatibility guard.
+    const strip = (m: ValueManifest): ValueManifest => ({
+      ...m,
+      elements: m.elements.map((el) => {
+        const legacy = { ...el }
+        delete legacy.surface
+        return legacy
+      }),
+    })
+    const legacyRef = strip(flattenSignals(referencePage(), 'ref'))
+    const repro = flattenSignals(reproductionPage(), 'repro')
+
+    const cases = [
+      // A pre-`surface` reference bundle diffed against a current reproduction …
+      ['pre-surface reference', diffManifests(legacyRef, repro).deltas],
+      // … and a wholly legacy pair, where neither side records one.
+      ['both sides pre-surface', diffManifests(legacyRef, strip(repro)).deltas],
+    ] as const
+
+    for (const [label, deltas] of cases) {
+      // The diff ran to completion and still compared the page.
+      expect(deltas.length, label).toBeGreaterThan(0)
+      // No row is attributed to a surface — the bearing-box comparison never fired.
+      expect(deltas.filter((d) => `${d.expected} ${d.actual}`.includes('surface')), label).toEqual([])
+      expect(on(deltas, 'Subscribe', 'size'), label).toEqual([])
+      expect(on(deltas, 'Subscribe', 'position'), label).toEqual([])
+      // Inert means unchanged, not silenced: the label's own square corner is
+      // still compared on its own axes, which is the shape row a legacy bundle
+      // reported before the record existed.
+      expect(on(deltas, 'Subscribe', 'shape'), label).toHaveLength(1)
+    }
   })
 
   it('test_UAT_AC1311_band_runs_gain_no_surface_geometry_noise', () => {
