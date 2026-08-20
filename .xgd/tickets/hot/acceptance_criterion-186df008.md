@@ -6,10 +6,10 @@ title: A column anchor is fitted per axis, with the capped extent, the keyframed
   fallback and the full-bleed refusal
 created_by: xgd
 created_at: '2026-08-20T12:53:22.219235+00:00'
-updated_at: '2026-08-20T12:53:22.219235+00:00'
+updated_at: '2026-08-20T12:56:55.955753+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
