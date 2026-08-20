@@ -6,7 +6,7 @@ title: Capture emits one validated full-language L1 reproduction document spanni
   the sampled width ladder
 created_by: xgd
 created_at: '2026-07-22T19:42:22.229224+00:00'
-updated_at: '2026-08-16T08:03:05.259767+00:00'
+updated_at: '2026-08-20T14:39:38.744816+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
@@ -14,7 +14,7 @@ fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
