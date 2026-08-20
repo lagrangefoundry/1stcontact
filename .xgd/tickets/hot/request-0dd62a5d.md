@@ -5,10 +5,10 @@ type: request
 title: An async SiteStore port, with the filesystem behind it
 created_by: xgd
 created_at: '2026-08-15T20:31:09.480730+00:00'
-updated_at: '2026-08-18T17:26:18.725439+00:00'
-completed_at: null
+updated_at: '2026-08-20T12:49:46.811541+00:00'
+completed_at: '2026-08-20T12:49:46.811541+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 13
