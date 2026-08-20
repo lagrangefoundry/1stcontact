@@ -5,9 +5,9 @@ type: request
 title: '1c CLI: boot a plain Vite SSR server, not Astro''s'
 created_by: xgd
 created_at: '2026-08-18T19:57:23.404053+00:00'
-updated_at: '2026-08-20T02:58:29.298468+00:00'
+updated_at: '2026-08-20T21:19:59.106052+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: low
@@ -107,8 +107,12 @@ weakened by it. The render-output assertions in both files (module markup, folde
 `astro`, which is precisely why the bootstrap needs
 `createRequire(import.meta.resolve('astro/package.json'))` to find it. With `astro` gone the
 launcher must be able to `import { createServer } from 'vite'` directly, so `vite` is added
-as a real dependency of `tools/generate` (whose `bin` the launcher is) and as a root
-devDependency for the Vitest configs.
+as a real dependency of `tools/generate` — whose `bin` the launcher is, and which imports it
+at run time, so `dependencies` rather than `devDependencies` is the correct field.
+
+No *root* `vite` entry is needed. Both Vitest configs take `defineConfig` from
+`vitest/config`, and Vitest carries its own Vite; only the launcher imports the package by
+name.
 
 ### The stdout→stderr diversion
 
@@ -136,3 +140,50 @@ Regression scope: `tests/req37-launcher.test.ts`, `tests/req89-astro-lazy.test.t
 `tests/reconciliation-1c-install-preflight.test.ts`,
 `tests/test_UAT_FC_REQ-141_project_routing.test.ts`,
 `tests/test_UAT_FC_REQ-148_astro_free_render.test.ts`, plus the full node suite.
+---
+
+## Implementation status (2026-08-20)
+
+All source changes are written and verified. The cycle is **blocked on one command the
+session cannot run**, described under "Outstanding" below.
+
+### Verified
+
+Measured by running the node suite twice in this worktree against the same `node_modules`:
+once with the change stashed (exact branch-base baseline) and once with it applied, where
+the post-install tree was simulated by linking `vite` out of the pnpm store and moving the
+`astro` links aside (both reversed afterwards — `node_modules` is gitignored, so nothing
+about this reaches the commit).
+
+| Run | Test files | Tests |
+|---|---|---|
+| baseline (change stashed) | 13 failed / 217 passed / 4 skipped | 59 failed / 1631 passed / 67 skipped |
+| with the change applied | 13 failed / 218 passed / 4 skipped | 59 failed / 1636 passed / 67 skipped |
+
+The failure counts are **identical**, and the deltas are exactly the new UAT file and its
+five tests. The 59 pre-existing failures (`test_UAT_FC_REQ-129_l1_authoring` and others) are
+baseline breakage on this branch point and are untouched by this work.
+
+The declared regression scope was then run on its own against the simulated tree —
+`req37-launcher`, `req89-astro-lazy`, `req119-request-time-render`,
+`reconciliation-1c-astro-free-render`, `reconciliation-1c-cli-output-hygiene`,
+`reconciliation-1c-install-preflight`, `test_UAT_FC_REQ-141_project_routing`,
+`test_UAT_FC_REQ-145_build_artifacts`, `test_UAT_FC_REQ-148_astro_free_render`,
+`test_UAT_FC_REQ-150_plain_vite_bootstrap` — **10 files, 48 tests, all passing**.
+
+Statically confirmed as well: no source file in the repository imports `astro` or any
+`astro/*` subpath (the only surviving occurrence is one explanatory comment), and no
+`package.json` declares `astro`. `@astrojs/markdown-remark` is untouched.
+
+### Outstanding — `pnpm install`
+
+`pnpm-lock.yaml` is tracked and still lists `astro` in all three importers, and both
+`.github/workflows/ci.yml` and `deploy.yml` run `pnpm install --frozen-lockfile`. Committing
+the manifest edits without regenerating the lockfile would therefore land a commit that
+fails CI on contact. Only pnpm can regenerate it — hand-editing a lockfile of this size is
+not a defensible substitute, and the symlink scaffolding used for verification above does
+not touch it.
+
+`pnpm install*` is on this environment's hard-deny list, so the session cannot run it. The
+remaining steps — install, full-suite re-run on the real tree, version bump, `[FREE-CODED]`
+commit, merge back to `xgd-working`, `move-to-free-coded` — are otherwise ready to go.
