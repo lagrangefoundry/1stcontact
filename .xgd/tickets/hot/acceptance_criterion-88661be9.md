@@ -6,14 +6,15 @@ title: Every defect carries a Type-A flat / Type-A structural / Type-B repair cl
   and the report prints in that order
 created_by: xgd
 created_at: '2026-08-20T03:40:58.273135+00:00'
-updated_at: '2026-08-20T03:40:58.273135+00:00'
+updated_at: '2026-08-20T05:13:08.089192+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-aaddb221
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
