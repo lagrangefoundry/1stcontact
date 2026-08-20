@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: An Astro container is constructed only for pages that carry behavior modules
 created_by: xgd
 created_at: '2026-07-29T04:33:06.638626+00:00'
-updated_at: '2026-08-16T09:18:18.800633+00:00'
+updated_at: '2026-08-20T06:59:39.367020+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
