@@ -6,9 +6,9 @@ title: 'Values-diff noise management: an exact capture reported as counted defec
   in repair order, rolled up to ranked causes'
 created_by: xgd
 created_at: '2026-08-20T03:39:47.100579+00:00'
-updated_at: '2026-08-20T03:39:47.100579+00:00'
+updated_at: '2026-08-20T04:00:19.281000+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: request-07d0e3e1
@@ -39,7 +39,7 @@ The **false-positive half** of this capability's animating invariant. Its siblin
 
    The order is load-bearing, not cosmetic: chasing a Type-B residual before its Type-A causes are corrected is measuring a moving target. This is the classification the sibling capture story's surface-bearing-box closure leans on when it says a phantom radius delta "led the printed repair order with a step that had no value to copy".
 
-5. **`--clusters`: ranked causes with a disposition.** Even collapsed, a diff is a flat list of ~112 rows. The counted (non-derived) defects roll up into a small set of **causes** via a fixed delta-property → cause map, several properties sharing one cause where they evidence one decision (arrangement + containment = layout structure; shape + border + outline = control styling). Each cause carries a count, its worst severity tier, representative elements, and a default **disposition** — `fix`, `review`, or `accept` — so a webfont-FOUT capture artifact is dispositioned `accept` while vertical spacing is dispositioned `fix`. Causes are ranked, and the report opens with a one-line "N causes: X fix / Y review / Z accept" summary. "Do I care about the Type-B residual?" becomes a per-cause call.
+5. **`--clusters`: ranked causes with a disposition.** Even collapsed, a diff is a flat list of ~112 rows. The counted (non-derived) defects roll up into a small set of **causes** via a fixed delta-property → cause map, several properties sharing one cause where they evidence one decision (arrangement + containment = layout structure; shape + border = control styling — the shipped map also folds `outline` into that cause, see Technical Context). Each cause carries a count, its worst severity tier, representative elements, and a default **disposition** — `fix`, `review`, or `accept` — so a webfont-FOUT capture artifact is dispositioned `accept` while vertical spacing is dispositioned `fix`. Causes are ranked, and the report opens with a one-line "N causes: X fix / Y review / Z accept" summary. "Do I care about the Type-B residual?" becomes a per-cause call.
 
 6. **A cluster must not manufacture a phantom cause.** Clustering is **viewport-aware**: each cause records the union of the widths its members fire at, and a cause that fires only at some widths says so. Without it, the collapsed view merged a mobile-only wrapping defect with a desktop glyph-width defect into one apparently-large "our columns are too wide" cause that did not exist at any single width. The rule is the same one the noise layer itself obeys — a roll-up may compress the report, never invent a defect the render does not show.
 
@@ -53,6 +53,7 @@ The **false-positive half** of this capability's animating invariant. Its siblin
 - **Counting is a correctness property, not presentation.** A count that multiplies one defect by six viewports, or by every element downstream of one spacing cause, is not merely verbose — it makes the metric non-monotonic in fidelity, so a genuine improvement need not move it. Dedup-by-defect and the derived-axis demotion exist to restore that monotonicity, which is what makes the gate number usable as a gate.
 - **A/B is a statement about how a value is obtained, and therefore about how it is repaired.** A Type-A value exists in the reference and can be transcribed; a Type-B value is produced by layout from the Type-A values around it. That is why the order is A-flat → A-structural → B and not a severity ordering: severity says how bad a delta looks, the repair class says whether there is anything to *do* about it directly. `gap` is the instructive case — Type-B (a sum) yet linearly invertible, so it is emergent but directly actionable.
 - The cause map is deliberately a fixed table rather than an inferred grouping: an unmapped property falls through to itself with a `review` disposition, so a newly added axis surfaces as its own cause instead of being silently absorbed into a neighbour.
+- **`outline`'s membership in the control-styling cause comes from the code, not from REQ-76.** The intent's taxonomy names two members (`shape` + `border`); the shipped `CAUSE_MAP` (`tools/generate/src/cli/fidelity.ts:463-465`) maps a third, `outline`, to the same `control styling` cause with the same `fix` disposition. That is consistent with the map's own rule — several properties share a cause where they evidence one decision, and `outline` is a captured axis of the sibling capture story that reads as the same authored control treatment — but it is a code-sourced extension of the intent's table, recorded here so the difference is deliberate rather than a drifted paraphrase.
 - Both views are available as JSON as well as text, so the collapsed defects and the ranked causes are scriptable rather than screen-only.
 
 ## Dependencies
