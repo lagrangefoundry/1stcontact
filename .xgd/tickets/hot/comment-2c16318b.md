@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-12T00:37:17.417994+00:00'
+updated_at: '2026-08-20T21:44:51.820388+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -545,5 +545,11 @@ REQ-123's five questions; the DOC-25 capability-catalogue amendment; REQ-131's i
 CHAT-20 put playbooks at phase 4, *after* the example-pool phase and after closing the L1 gaps. We've pulled it to phase 2. DOC-33 leans on the rubric in several places — restraint calibration, the critique checklists, the design-direction options in stages 3 and 6 — and **the rubric doesn't exist yet**. DOC-31 gives us the findings, but not our encoded point of view.
 
 So DOC-33 is written against something unwritten. I don't think that was wrong — the structure was mostly independent of the rubric, and writing it surfaced REQ-131 and the capability-catalogue gap, which the example-pool phase wouldn't have. But it does mean **DOC-33 isn't done; it's due a second pass after the example pool**, and the honest thing is to record that in the document rather than let it read as finished. Want me to add that?
+
+<!-- xgd-turn id="4d35ceda-8d66-4c8f-9050-d623a5002c83-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:44:51.700721+00:00" -->
+#### You
+I'm coming back to this now after sometime. Can you summarize what we have in doc 33 what are the different stages that we are going to take a user through. The decisions you have listed look like tool scope questions that we can get to you eventually I'm more interested in the big picture of the flow and how the AI will guide a novice web creator through this experience
 
 <!-- xgd-chat-end -->
