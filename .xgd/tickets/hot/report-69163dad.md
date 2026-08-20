@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-19 free-coded commits (REQ-133, BUG-35, REQ-
   REQ-140, REQ-139, REQ-123, REQ-141, REQ-144, REQ-142)'
 created_by: xgd
 created_at: '2026-08-20T01:12:52.279101+00:00'
-updated_at: '2026-08-20T03:00:28.811485+00:00'
+updated_at: '2026-08-20T03:41:45.426952+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -320,7 +320,7 @@ fields:
       this work as what it was waiting for, so this is explicit supersession rather
       than a new capability bucket. BUG-35, REQ-139''s client half and REQ-140''s
       client half all land on this one story, so they are one item rather than three.'
-    story_uid: null
+    story_uid: story-3bf94bd4
   - index: 6
     component: 'System Knowledge Base: Corpus, Index & Generated Map'
     item_type: feature
