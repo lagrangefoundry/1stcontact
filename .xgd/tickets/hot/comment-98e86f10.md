@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T00:07:42.704132+00:00'
+updated_at: '2026-08-20T00:53:44.113860+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -249,5 +249,19 @@ All three can hold only if publish writes *both*: D1 rows as the builder's autho
 | 5 | Revision record | D1 authoritative, manifest derived and written last |
 
 Say "go with your defaults" and I'll write the ticket body, cut `free-REQ-149` and build it — or overrule any of them and I'll work to that instead.
+
+<!-- xgd-turn id="739a7a6f-f689-493f-a914-139541059ae7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T00:53:43.964342+00:00" -->
+#### You
+## Gap 1 — should publishing an unchanged draft be a no-op? - yes
+Gap 2 — the published keyspace has no tenant in it
+Option A 
+
+Gap 3 — the draft's lineage pointer has nowhere to live in D1 - yes make it happen
+
+Gap 4 — what should `/preview/<slug>/published` do? redirect
+
+Gap 5 — is D1 or the manifest the record of revisions?D1-authoritative - but do we really need a manifest? I have a strong alergic reaction to duplicated data. If we can figure out a way to have one canonical source of truth this would be stronger IMO
 
 <!-- xgd-chat-end -->
