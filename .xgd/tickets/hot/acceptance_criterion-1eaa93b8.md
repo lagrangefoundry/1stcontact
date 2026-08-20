@@ -6,9 +6,9 @@ title: L1 leaf axes carry the absolute literal as the base of the value model, v
   by the envelope
 created_by: xgd
 created_at: '2026-07-22T20:28:07.019876+00:00'
-updated_at: '2026-08-09T05:40:32.480194+00:00'
+updated_at: '2026-08-20T08:03:30.138443+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c490f1cf
@@ -19,28 +19,33 @@ fields:
 
 ## Criterion
 
-The absolute (literal) value is the **base** of the value model, carried directly by
-L1 leaf axes and guaranteed well-formed by the envelope validator. For colour it is
-the base of a two-form model rather than the only admissible form:
+The absolute (literal) value is the **base** of the value model: it is carried
+directly by the L1 leaf axes, with no named scale interposed, and it is guaranteed
+well-formed by the envelope validator rather than by convention.
 
-- A colour axis on an L1 leaf accepts a hex literal (`#rgb` / `#rrggbb` /
-  `#rrggbbaa`) which is emitted verbatim, **or** a reference into the site palette
-  which resolves to a hex before anything paints. A non-hex value (e.g. `rgb(...)`,
-  a keyword, or `url(...)`) is rejected by validation in either form.
-- A length / geometry / radius axis accepts a finite numeric px literal, emitted
-  verbatim, and is rejected by the envelope validator when non-finite or out of
-  range (font-size 1–400, geometry ±100k, length within envelope bounds). These
-  axes are literal-only — no named scale exists for them.
+The length / geometry / radius half is where that base stands alone — those axes
+are **literal-only**, and no named scale exists for them:
 
-A document that uses only literals needs no palette and is unaffected by the
-widening, so a captured site's concrete values still land verbatim with no inference
-and nothing gated on a palette existing.
+- A length / geometry / radius axis accepts a finite numeric px literal, which is
+  emitted verbatim, so a captured site's concrete measurements land exactly as
+  measured with no inference and nothing rounded to a step.
+- The envelope validator rejects such a value when it is non-finite or out of
+  range (font-size 1–400, geometry ±100k, length within envelope bounds). The
+  bound is the validator's, not the emitter's — an out-of-range *document* is
+  refused rather than silently clamped into shape.
+
+Colour is the one axis whose base has since been widened to a second admissible
+form. Which forms a colour axis accepts, and how a palette reference resolves, are
+**not** this criterion's subject: AC-928 owns the accepted forms and AC-931 owns
+the widening's effect on a literal-only document. What this criterion asserts of
+colour is only that the hex literal remains the base form on the leaf axis itself.
 
 ## Verification
 
-Author (or fold from a capture) an L1 document whose leaf axes set distinct absolute
-colour and length/radius literals; validate and render it, and confirm each literal
-is carried through verbatim, that the same document validates and renders identically
-with no palette declared, and that a malformed literal (non-hex colour, non-finite /
-out-of-range number) is rejected by the envelope validator. Detailed L1 axis and
-envelope behaviour is owned by the L1 substrate story.
+Author (or fold from a capture) an L1 document whose leaf axes set distinct
+absolute length / geometry / radius literals; validate and render it, and confirm
+each literal is carried through verbatim to the emitted CSS, with no scale name,
+step or token appearing anywhere on the path. Confirm the envelope validator
+rejects a non-finite and an out-of-range number on those axes. Detailed L1 axis and
+envelope behaviour is owned by the L1 substrate story; the colour value model is
+owned by AC-928 / AC-931.
