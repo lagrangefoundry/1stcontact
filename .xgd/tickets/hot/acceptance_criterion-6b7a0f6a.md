@@ -6,10 +6,10 @@ title: Reading the palette answers with every entry and how many places referenc
   it, counting the definition and every page at any position in the family
 created_by: xgd
 created_at: '2026-08-20T01:19:33.772362+00:00'
-updated_at: '2026-08-20T01:19:33.772362+00:00'
+updated_at: '2026-08-20T01:50:37.602721+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ee073693
   kind: behavior
