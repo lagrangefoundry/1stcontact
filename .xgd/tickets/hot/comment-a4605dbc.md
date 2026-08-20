@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-20T00:42:43.593136+00:00'
+updated_at: '2026-08-20T00:47:08.570361+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -488,5 +488,76 @@ Batch B hit the 590s cap. Splitting it:
 <!-- xgd-chat role="user" ts="2026-08-20T00:42:43.431515+00:00" -->
 #### You
 PLease complete the free coding protocol
+
+<!-- xgd-turn id="8d2e9cb1-e1df-46b0-980b-309a5397616f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T00:47:08.415147+00:00" -->
+#### Claude
+First priority: revert the temporary sandbox patch so it can't be committed.
+
+Patch reverted, driver identical to HEAD. Now the protocol doc:
+
+Protocol steps 4–8 remain. First, the blocker: the `xgd-working` checkout is dirty with the now-duplicated stranded changes, which would foul the merge. Verifying content parity before I clear it:
+
+The `options.ts` fix is missing — `git apply --3way` rolled the whole patch back when `render.ts` failed (git apply is atomic). Re-applying it alone:
+
+Now clearing the duplicated work from the `xgd-working` checkout (content verified present in the branch):
+
+`xgd-working` is clean. Now the version bump the gate requires:
+
+60 files staged; the temporary driver patch is correctly absent. Committing:
+
+Now step 5 — lock and merge into `xgd-working`:
+
+Two conflicts. Resolving them in the `xgd-working` worktree (the protocol's sanctioned exception):
+
+`xgd-working`已 moved to 0.1.59, so my 0.1.58 is taken. Checking the router conflict before resolving both:
+
+HEAD added a REQ-146 chat host block; my branch changed `previewRenderer`'s signature (the renderer no longer needs an injected `render`). Both must survive. Let me see the full function on each side:
+
+Resolution: keep HEAD's chat host block, take my `previewRenderer`. Applying:
+
+Now checking for call sites that merged cleanly and would still pass the removed argument:
+
+Consistent — single-arg everywhere in source (the `dist/index.js` hit is a build artifact). Now the version:
+
+Files need staging to clear the unmerged state. Then verifying the merged tree before I commit it:
+
+Merged tree: 5 files / 49 tests green. Now the tests most exposed to that conflict resolution:
+
+Only 1 of 3 files ran — checking why:
+
+REQ-146's boundary test passes (11 tests) — the chat-host resolution is sound. Committing the merge:
+
+Now updating the ticket body to match what actually landed, then the gate:
+
+Gate passed. Final step — tear down the branch:
+
+Free-coding protocol complete. REQ-148 is at `free_coded`, working tree clean.
+
+| Step | Result |
+|---|---|
+| Ticket scoped, `free_coding` | already set |
+| Branch `free-REQ-148` | already cut |
+| Version bump | 0.1.57 → **0.1.60** |
+| Commit `[FREE-CODED]` | `ade64575a` — 60 files, +1093/−857 |
+| `xgd branch lock` → manual merge | `055378794`, 2 conflicts resolved |
+| `move-to-free-coded` | passed; both SHAs recorded, version gate green |
+| `xgd branch clean` | worktree removed, branch deleted, lock released |
+
+**Two things I caught while closing out, both of which would have shipped broken:**
+
+The `options.ts` import fix was silently missing. My earlier `git apply --3way` reported "Applied cleanly" for `options.ts` but then failed on `render.ts` — and `git apply` is atomic, so it rolled *both* back. I only noticed because I re-verified content parity before clearing the duplicate. Re-applied and typechecked.
+
+The `router.ts` merge conflict was the exact "clean merges escape a conversion" trap: `xgd-working` added the per-isolate chat host (REQ-146) in the same region where this ticket dropped `previewRenderer`'s injected `render`. I kept the chat host verbatim, took the single-arg signature, then checked that no call site still passes the second argument and that `RouterDeps` no longer declares `render`. REQ-146's boundary UATs pass 11/11 on the merged tree.
+
+The temporary `--single-process` patch to `playwright-driver.ts` was reverted before staging — the driver is byte-identical to HEAD and is not in the commit.
+
+**Verification on the merged tree:** workers 5 files / 49 tests green, conformance 20/20, browser-gated 23 of 24 files green, `tsc` clean.
+
+**Left for you:**
+- The ticket is at `free_coded`. Promotion to `ready_to_reconcile` is your call — I don't set it.
+- The tool-surface return-shape drift (5 files) and assistant-conversation state (5 files) look like real regressions from other work. I did not file tickets, since that's your decision.
+- BUG-1217 in the xgd store still needs deleting by hand.
 
 <!-- xgd-chat-end -->
