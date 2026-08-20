@@ -6,10 +6,10 @@ title: An unrecognised form of the command is refused with usage and a failing e
   and builds nothing
 created_by: xgd
 created_at: '2026-08-20T04:16:36.184734+00:00'
-updated_at: '2026-08-20T04:16:36.184734+00:00'
+updated_at: '2026-08-20T04:37:27.608926+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
