@@ -5,9 +5,9 @@ type: request
 title: Site locale identity, and rendered lang/dir
 created_by: xgd
 created_at: '2026-08-20T21:59:13.430458+00:00'
-updated_at: '2026-08-20T21:59:13.430458+00:00'
+updated_at: '2026-08-20T21:59:43.117028+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -95,7 +95,7 @@ it — the payments and calendar modules will both need it (see the money/time R
 
 ## Test approach
 
-UATs named `test_UAT_FC_REQ-<id>_*` covering AC 1–6: derivation, override, both render
+UATs named `test_UAT_FC_REQ-151_*` covering AC 1–6: derivation, override, both render
 paths, RTL, and the validation failures. Regression scope is the site-schema validation
 suite and both renderer suites.
 
