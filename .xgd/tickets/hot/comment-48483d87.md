@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-20T21:46:04.727760+00:00'
+updated_at: '2026-08-20T21:48:29.487596+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -245,5 +245,80 @@ The two implementation rows — the four config fields and the `lang`/`dir` fix 
 <!-- xgd-chat role="user" ts="2026-08-20T21:46:04.577222+00:00" -->
 #### You
 If there are any important foundational requirements that come out of this conversation particularly things that would be expensive to add later once we have sites up and running, please can you describe what needs to be done here and then we will create tickets for them
+
+<!-- xgd-turn id="0bac10af-30c5-4b50-ac95-e8627ebff602-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:48:29.286818+00:00" -->
+#### Claude
+Let me check what's already in the ground, since the cost of retrofit depends on what's live and what's already baked.
+
+Two sites, both draft-only — **zero published revisions**. Nothing is live yet, so the window is fully open. Let me check a couple of load-bearing details.
+
+Confirmed: **zero published revisions across both sites.** Nothing is live, so every item below currently costs hours rather than a migration. That window closes the first time a customer site is published.
+
+One structural fact that changes the ranking: `sites.site_json` is a **verbatim TEXT blob** (`db/migrations/0001_site_store.sql`), so adding fields to `siteConfigSchema` needs **no DB migration**. The schema fields are cheap forever. What isn't cheap is everything that bakes a US/English assumption while they're absent.
+
+---
+
+## Tier 1 — genuinely expensive or irreversible once sites are live
+
+### FR-1 · Site locale identity
+Add `country`, `locale`, `currency`, `timezone` to `siteConfigSchema` (`packages/site-schema/src/schema.ts:872`), all derived from `country` with individual override, `country` itself optional defaulting to `US` so the two existing sites validate unchanged. Needs a country→locale/currency/timezone derivation table (at minimum IE/GB/US) and exposure into the render context.
+
+**Why now:** the field is cheap at any time — but every week without it, more code hardcodes the assumption. `<html lang="en">` in two renderers is that pattern already underway. This is the field that stops the bleeding, not a migration risk.
+
+**Size:** ~2h.
+
+### FR-2 · Renderers emit `lang`/`dir` from locale
+Two hardcoded literals: `packages/framework/src/l1/render.ts:2465` and `tools/generate/src/render/render.ts:188`. `dir` derives from the locale's script (RTL for ar/he/fa/ur).
+
+**Why now — this is the one that actually bites:** published revisions are **immutable R2 snapshots**. Every site published before this fix carries `lang="en"` permanently. Fixing the renderer does *not* fix published artifacts — each live site needs republishing, which is an operational act that may sweep in unapproved draft changes. Plus search engines index `lang`; a wrong value costs re-crawl time to recover.
+
+**Size:** ~1h. Should ship with FR-1 — same seam.
+
+### FR-3 · Money representation constraint
+Money is `{amount_minor: integer, currency: ISO-4217}`. Never a float, never a display string as the source of truth. Formatting only via `Intl.NumberFormat` with the currency passed in — **not** division by 100 (JPY has 0 minor units, KWD has 3).
+
+Worth shipping a single shared `formatMoney(amount_minor, currency, locale)` helper now, so there is one obviously-correct way to do it the moment payments arrives.
+
+**Why now:** costs nothing today. Later means lossy string-parsing of stored prices across live sites, with no clean inverse.
+
+**Size:** ~1h for the helper; the constraint itself is free.
+
+### FR-4 · Time representation — and a conflict I need to flag
+Instants in UTC plus an IANA zone id. Never wall-clock strings, never fixed offsets. Existing system timestamps are already `toISOString()` throughout, so the codebase is currently *correct* — this is about keeping it that way when the calendar lands.
+
+**The conflict:** `packages/framework/src/buildInfo.ts:1-8` states that *"modules must never call `new Date()` at render time"*, because a page rendered twice from the same source must be byte-identical. A calendar module renders **time-varying availability**. Those cannot both hold as stated.
+
+The failure mode if it's not resolved before authoring is ugly: a published immutable snapshot with *"next available: 3 September"* baked into the HTML is wrong the following day and **cannot self-heal**. The resolution is that time-varying content must be client-rendered or fetched at request time, never derived from the render clock — but that needs deciding explicitly, because it constrains how the calendar module is built.
+
+**This is not in DOC-34.** §8.2 covers formatting and storage but not the determinism tension. It needs a short amendment either way.
+
+---
+
+## Tier 2 — cheap insurance, your call
+
+### FR-5 · Reserve locale-shaped page slugs
+`slug: z.string()` (line 540) has no pattern constraint. A page slugged `de` would collide with a future `/de/` locale prefix. A refinement rejecting bare ISO-639 two-letter codes costs ~30 minutes and removes an awkward future ambiguity — but it's only insurance against multilingual, which DOC-34 §9 defers.
+
+---
+
+## Deliberately not proposing
+
+Multilingual variants, locale bundles, multi-currency display, and the L1 money annotation are all recorded as deferred in DOC-34 §9 — no tickets. `hreflang` only matters once multilingual exists. A `country` column on `tenants` *would* be a real migration, but that serves **our** billing (DOC-32), which is a different concern from this document's scope — worth its own ticket if you want it, not folded in here.
+
+---
+
+## Suggested split
+
+| Ticket | Contents | Size |
+|---|---|---|
+| **A** — locale identity + rendering | FR-1 + FR-2 | ~half a day, code + UATs |
+| **B** — money/time constraints | FR-3 helper; FR-4 as binding spec on unwritten modules | ~1h code, rest is doc |
+| **C** — slug reservation | FR-5 | ~30min, optional |
+
+A is the one with a closing window. B is free now and expensive to skip. C is discretionary.
+
+Want me to amend DOC-34 with the FR-4 determinism resolution first? That's a document change so it needs no branch — and it's a genuine gap I introduced by not spotting `buildInfo.ts` when I wrote §8.2.
 
 <!-- xgd-chat-end -->
