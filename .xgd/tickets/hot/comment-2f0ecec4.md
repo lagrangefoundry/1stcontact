@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-27
 created_by: xgd
 created_at: '2026-08-18T17:40:16.676796+00:00'
-updated_at: '2026-08-18T17:42:52.561128+00:00'
+updated_at: '2026-08-20T21:42:11.101664+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -87,5 +87,13 @@ One asymmetry worth naming: **there is `1c push` but no `1c pull`.** If you buil
 Re-prioritise **REQ-148 above REQ-149**: it's the difference between "the cloud builder renders demo sites" and "the cloud builder renders nothing you own". Then REQ-146, which is the demo you actually want to give. REQ-149 last, since local publish + `1c deploy` covers the public-site path in the meantime.
 
 Want me to file the `1c pull` gap as a ticket, or raise REQ-148's priority?
+
+<!-- xgd-turn id="f0cb4954-a21e-45c2-a564-8d47d93441d9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:42:11.012461+00:00" -->
+#### You
+OK, I am returning to this after implementing all of those tickets and their dependencies.
+
+I am surprised that the workflow is described in terms of CLII am expecting everything at this point to be processable from the cloud can you confirm what the experience will be like. I am expecting we have UI that needs building here help me understand what our gaps are
 
 <!-- xgd-chat-end -->
