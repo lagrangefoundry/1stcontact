@@ -6,15 +6,15 @@ title: The viewport-height probe pair folds to a measured per-node height respon
   attributed by section edge and representative row
 created_by: xgd
 created_at: '2026-08-20T12:53:27.275910+00:00'
-updated_at: '2026-08-20T12:56:57.272929+00:00'
+updated_at: '2026-08-20T13:46:59.373216+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
