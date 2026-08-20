@@ -6,15 +6,15 @@ title: A folded bundle materializes into a servable site with its seams mounted 
   every media handle localized
 created_by: xgd
 created_at: '2026-08-20T12:48:46.262574+00:00'
-updated_at: '2026-08-20T12:49:21.473401+00:00'
+updated_at: '2026-08-20T13:54:56.201238+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
