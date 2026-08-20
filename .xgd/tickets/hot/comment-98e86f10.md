@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T00:05:28.752830+00:00'
+updated_at: '2026-08-20T00:07:42.704132+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,142 @@ Answer 1–5 and I'll write the ticket body, cut `free-REQ-149`, and implement.
 <!-- xgd-chat role="user" ts="2026-08-20T00:05:28.604838+00:00" -->
 #### You
 Can you explain all of these in more detail I'm afraid I'm not following
+
+<!-- xgd-turn id="7893d046-9a8c-46dc-b55d-4c53467ca98b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T00:07:42.556661+00:00" -->
+#### Claude
+Sure. Let me back up and set the scene first, because the five questions only make sense against what publish actually does.
+
+## The orientation
+
+Today `1c publish` (`tools/generate/src/cli/commands.ts:154`) does seven things on the local filesystem:
+
+1. validates the draft (`loadOrThrow`) — if it fails, nothing is written;
+2. reads `history.json` to find the current live revision;
+3. mints the next id (highest + 1);
+4. copies `draft/` to `revisions/0002/` — a directory copy;
+5. diffs the old revision directory against the new one to produce `changes`;
+6. appends an entry to `history.json`;
+7. re-parents the draft (`base.json` now says "I descend from 0002") and renders the result to `storage/dist/<slug>/published/`.
+
+Separately, `1c deploy` uploads rendered bytes to R2 at `sites/<slug>/rev/0002/out/` and rewrites `sites/<slug>/manifest.json`, which is what `public-site` reads to serve `https://1stcontact.io/site/<slug>/`.
+
+REQ-149 has to make steps 2–7 happen inside a Worker, where there are no directories — only D1 rows and R2 objects. Steps 4, 5, 6 and 7 have no equivalent there today. Every question below is a consequence of that.
+
+---
+
+## Gap 1 — should publishing an unchanged draft be a no-op?
+
+**Today:** publish always mints. Run it twice with no edits and you get revision 0002, byte-identical to 0001, with an empty `changes` list. DOC-12 §5 says this in as many words: *"Publish always renders."* Content-addressing — same bytes, same id, genuine no-op — is something DOC-12 §5.1 attaches deliberately to *preview snapshots*, and it takes care to say a preview *"is deliberately not a revision."*
+
+**Why it's now a question:** on the CLI you type `1c publish` on purpose. In the builder it becomes a toolbar button (DOC-28 §10), and people double-click buttons, and press them again when they aren't sure it worked. Under today's rule that behaviour silently fills history with identical revisions.
+
+AC-3 on your ticket asks for the opposite: publishing twice with no intervening edit returns the same revision. The check is nearly free — publish already computes the diff for `changes`, so the rule is just *"if the diff against live is empty, return live and mint nothing."*
+
+Two things worth knowing before you choose:
+
+- It changes what `-m "message"` means. Re-publishing an unchanged draft with a new message would do nothing at all, message included. (The alternative — mint a revision whose only change is its message — is worse.)
+- It does **not** weaken forward-only. Check out revision 3 while 5 is live and the draft now differs from live, so the diff is non-empty and publish mints 6. Rollback still works exactly as DOC-12 §5 describes.
+
+**My recommendation:** adopt AC-3, and have the builder say "no changes to publish" rather than silently doing nothing. DOC-12 §5 then needs one sentence added, because as written it says the opposite.
+
+---
+
+## Gap 2 — the published keyspace has no tenant in it
+
+This one is the most consequential, so bear with the detail.
+
+**Two halves of a site's life, two addressing schemes.** REQ-143 made the *draft* side tenanted, and did it thoroughly — the migration header is emphatic: *"TENANCY IS A COLUMN, NOT A NAMING CONVENTION."* Every D1 row is keyed `(tenant_id, slug)`, draft asset bytes live at `draft/<tenant>/<slug>/assets/…`, and the comment states the intent plainly: two accounts may each own a site called `home` without colliding.
+
+The *published* side, which predates all of that (REQ-110/111), has no tenant anywhere:
+
+```
+sites/<slug>/manifest.json          ← the index of what is live
+sites/<slug>/rev/0002/out/…         ← the bytes
+https://1stcontact.io/site/<slug>/  ← the public URL
+```
+
+**Why publish is where this bites.** Until now the writer of those keys was `1c deploy` running on your laptop, against your own definitions. REQ-149 makes the writer a multi-tenant Worker holding a D1 database in which slugs are only unique *within* a tenant. So: tenant A publishes `home` → `sites/home/…`. Tenant B publishes their `home` → the same keys. B's publish overwrites A's live site, and `public-site` serves it, because nothing in that path ever knew a tenant existed.
+
+Nothing breaks today — `TENANT_ID = "1stcontact"` is hardcoded in `wrangler.toml` and there is exactly one tenant. But this is the ticket that makes the collision *reachable*, and it's cheaper to close now than after there are published sites to migrate.
+
+**Option A — declare published slugs globally unique.** A slug is claimed platform-wide by whoever publishes it first. Public URLs stay `/site/<slug>/`, DOC-12 §7's layout is untouched, `public-site` needs no change at all. To make it real rather than aspirational, publish records the owning tenant in the manifest and refuses to write a manifest owned by somebody else. That's one additive field that `public-site`'s reader ignores, and roughly ten lines in the publish path.
+
+**Option B — put the tenant in the key** (`sites/<tenant>/<slug>/…`). Safe by construction, no claim rule needed. But it changes DOC-12 §7's documented layout, `public-site`'s `manifestKey()`, and the public URL grammar — or, if you want to keep `/site/<slug>/` public, it forces a slug→tenant lookup in D1 on every public request, which is a database read on the hot serving path that the manifest design specifically avoids.
+
+**My recommendation:** A. It keeps the public serving path exactly as DOC-12 §7 documents it, and the guard makes the collision impossible rather than merely unlikely. The genuine long-term answer is per-tenant hostnames — subdomains and custom domains — which DOC-12 §9 already lists as deferred and additive.
+
+---
+
+## Gap 3 — the draft's lineage pointer has nowhere to live in D1
+
+**What lineage is.** On disk each draft carries a small `base.json` saying which revision it descends from (`readDraftBase` / `writeDraftBase`). It does two jobs:
+
+- it becomes `basedOn` in the history entry, which is how you can tell "revision 6 came from checking out 3 and republishing" apart from "revision 6 is an ordinary edit on top of 5" (DOC-12 §4: *"`basedOn` is recorded when the draft was `checkout`'d from a non-latest revision"*);
+- it's the baseline for checkout's dirty check — "you have uncommitted changes, publish them or pass `--force`."
+
+**The problem.** The `sites` table has exactly these columns: `tenant_id`, `slug`, `site_json`, `version`, `counter`, `created_at`, `updated_at`. No lineage column. And there is no revisions table at all — the migration says explicitly *"Revision snapshots likewise stay in R2."*
+
+So a Worker doing step 6 and step 7 of publish has nowhere to write either the revision record or the re-parented base pointer. This isn't a design choice so much as a missing piece: REQ-149 needs a `db/migrations/0002_*.sql` adding a `site_revisions` table (tenant, slug, id, published_at, published_by, message, based_on, changes, sha) and a base-revision column on `sites`.
+
+I'm flagging it because a schema migration is a bigger thing than "port a function", and because it's the one part of this that gap 5 could delete entirely. **What I need is just confirmation that a migration is in scope for this ticket.**
+
+---
+
+## Gap 4 — what should `/preview/<slug>/published` do?
+
+**Where this comes from:** the builder's preview route (`apps/control-app/src/router.ts:492`) serves `draft` and `edit` by rendering on request from the store. It refuses `published` with a 501 naming your ticket, and the comment explains why: *"`published` is not here: it is the immutable artifact a publish produced, it lives in R2, and `public-site` serves it. Re-deriving it from today's draft would make the published channel show unpublished work."*
+
+Once publish exists, that route has to answer something. Two ways:
+
+- **Redirect** (302 to `https://1stcontact.io/site/<slug>/`). One serving path for published bytes, exactly as DOC-12 §7 assigns it. The cost: the iframe leaves the Access-gated origin, so a site that has never been published shows `public-site`'s 404 rather than a builder-shaped message.
+- **Proxy** — control-app reads the manifest and streams the bytes itself. Everything stays same-origin and behind Access, but it duplicates `public-site`'s resolve-and-serve logic, which is precisely what that seam exists to own, and creates a second reader of the manifest with its own caching rules to keep in step.
+
+Worth noting DOC-28 §10's toolbar has no "published" mode at all — it's site selector, View/Edit toggle, open-in-new-tab, Publish. So this route is reachable mainly by hand-typed URL, which argues for the cheap answer.
+
+**My recommendation:** redirect.
+
+---
+
+## Gap 5 — is D1 or the manifest the record of revisions?
+
+This is the one where three documents genuinely disagree, so let me lay them side by side.
+
+- **DOC-12 §7**, phase 2 column: history log → *"D1 `revisions` table"*.
+- **`apps/public-site/src/site-store.ts`**, the seam comment: *"Phase 2 answers from D1 (`sites` / `revisions` / `pages`) by replacing the implementation and nothing else."*
+- **Your AC-2**: `public-site` serves the resulting revision through its existing seam, **unchanged**.
+
+All three can hold only if publish writes *both*: D1 rows as the builder's authority, and `manifest.json` as a derived serving index that `public-site` keeps reading exactly as it does now. The D1 swap on the reading side then becomes a later ticket, which is what the seam was built for.
+
+**The cost of that is duplication of `live`**, recorded in two places with no transaction spanning D1 and R2. If the D1 write lands and the manifest write doesn't, the builder believes revision 5 is live while the world still serves 4. That's containable by ordering the writes — bytes first, then D1, then the manifest flip last — so a mid-failure leaves an orphaned snapshot nobody can see, rather than a manifest pointing at bytes that don't exist. But it's real, and it's worth choosing knowingly.
+
+**The alternative — manifest-only.** No `revisions` table, no migration (gap 3 mostly evaporates), one source of truth, no skew. Publish becomes: write bytes, rewrite manifest. The price is that `basedOn`, author and the per-path `changes` list all move into the manifest, growing it into the `history.json` that DOC-12 §5.1 deliberately kept it from becoming; every "show me the history" becomes an R2 GET of an unbounded file; and the builder's history UI ends up reading R2, which is the opposite of the direction DOC-12 §7 and that seam comment both point.
+
+**My recommendation:** D1-authoritative with a derived manifest, manifest written last. But manifest-only is a defensible smaller step for a single-tenant MVP, and if you'd rather take it I'll do that and leave the revisions table to the ticket that moves `public-site` onto D1.
+
+---
+
+## The three minor ones
+
+**`/api/sites` reports `latest: null` for every site** (`router.ts:327`), with a comment saying so is honest because no revisions exist yet. Once they do, it should report the live revision. Small, but it's in this ticket's scope by definition.
+
+**Copying asset bytes into a revision is get-then-put.** DOC-12 §8 chooses full snapshots for the MVP — a revision copies the whole working set — and DOC-12 §7 requires `source/` to ship beside `out/` so a revision is complete on its own. The Workers R2 binding has no server-side copy, so each asset is read into the isolate and written back out on every publish. Fine for the sites we have; it's the one place publish could get slow on an image-heavy site, and worth knowing before it surprises us.
+
+**DOC-8 is stale.** DOC-28 cites DOC-8 §3.2 (the multi-mode display panel), §4.1 (three render channels) and §13 — none of which exist in the stored DOC-8, which still commits to in-browser rendering that DOC-12 §11 withdrew. Doesn't block this ticket; worth a rewrite sometime.
+
+---
+
+## What I need from you
+
+| # | Question | My default if you just say "go" |
+|---|---|---|
+| 1 | Unchanged draft: no-op, or always mint? | No-op (AC-3); add a line to DOC-12 §5 |
+| 2 | Tenant in the published keyspace? | No — globally unique published slugs, enforced by an owner field in the manifest |
+| 3 | Migration `0002` in scope? | Yes (unless you pick manifest-only in Q5) |
+| 4 | `/preview/<slug>/published` | 302 to `public-site` |
+| 5 | Revision record | D1 authoritative, manifest derived and written last |
+
+Say "go with your defaults" and I'll write the ticket body, cut `free-REQ-149` and build it — or overrule any of them and I'll work to that instead.
 
 <!-- xgd-chat-end -->
