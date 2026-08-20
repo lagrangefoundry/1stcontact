@@ -26,8 +26,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { defaultTokens, latestModuleVersion, renderL1Document } from '../packages/framework/src/index'
-import { validateSite, type L1Document } from '../packages/site-schema/src/index'
+import { defaultTokens, latestModuleVersion, renderL1Document, renderL1Fragment } from '../packages/framework/src/index'
+import { validateSite, type L1Document, type L1Node } from '../packages/site-schema/src/index'
 import { clusterControls, foldToL1, foldedFormFor } from '../tools/generate/src/l1'
 import type { ControlRow, FoldedForm, FoldResidual } from '../tools/generate/src/l1'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
@@ -360,6 +360,67 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
     // An unbound slot name mounts nothing (no cross-talk between seams).
     const other = renderL1Document(docWithSlot(), { mounts: { elsewhere: '<b>x</b>' } })
     expect(other.html).not.toContain('<b>x</b>')
+  })
+
+  it('test_UAT_AC723_two_instances_of_one_behavior_keep_disjoint_class_namespaces', () => {
+    // Two instances of the SAME behavior — identical subtrees — mounted into two
+    // seams of one page. Each fragment is rendered under a prefix unique to its
+    // instance, which is what keeps one mount's rules off the other's nodes and
+    // off the host document's. Stated as a property of the emission, not of any
+    // particular caller, so it outlives whichever layer passes the prefix.
+    const subtree = (): L1Node[] => [
+      {
+        kind: 'box',
+        axes: { surfaceFill: '#101828', borderRadiusPx: 8 },
+        children: [{ kind: 'text', text: 'Send', axes: { color: '#ffffff' } }],
+      },
+    ]
+    const a = renderL1Fragment(subtree(), 'form-0-form')
+    const b = renderL1Fragment(subtree(), 'form-1-form')
+
+    const classesIn = (html: string): Set<string> =>
+      new Set([...html.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)))
+    const aClasses = classesIn(a.htmls.join(''))
+    const bClasses = classesIn(b.htmls.join(''))
+
+    // Both instances DID emit classes — otherwise disjointness is vacuous.
+    expect(aClasses.size).toBeGreaterThan(1)
+    expect(bClasses.size).toBe(aClasses.size)
+    expect([...aClasses].filter((c) => bClasses.has(c))).toEqual([])
+
+    // Each instance's rules select only its own nodes: every class a fragment's
+    // selectors name is one it emitted itself, and none of the other's.
+    const selected = (css: string): Set<string> =>
+      new Set([...css.matchAll(/\.([A-Za-z0-9_-]*l1-\d+)/g)].map((m) => m[1]))
+    expect(selected(a.css)).toEqual(aClasses)
+    expect(selected(b.css)).toEqual(bClasses)
+
+    // …and neither collides with the host document that mounts them. Compared as
+    // whole class tokens, not substrings — the host's `l1-0` reads as a fragment
+    // of `form-0-form-l1-0` but selects nothing inside it.
+    const twoSeams = {
+      widths: [375, 1280],
+      root: {
+        kind: 'box',
+        children: ['form-0', 'form-1'].map((name) => ({ kind: 'slot', name, behavior: 'contact-form' })),
+      },
+    } as L1Document
+    const page = renderL1Document(twoSeams, {
+      mounts: { 'form-0': a.htmls.join(''), 'form-1': b.htmls.join('') },
+    })
+    const hostClasses = new Set([...selected(page.css)])
+    expect(hostClasses.size).toBeGreaterThan(0)
+    for (const c of hostClasses) {
+      expect(aClasses.has(c)).toBe(false)
+      expect(bClasses.has(c)).toBe(false)
+    }
+
+    // The guard is load-bearing: drop the per-instance distinction and the two
+    // instances emit the very same class names — the collision it prevents.
+    const shared = renderL1Fragment(subtree(), 'form')
+    expect(classesIn(renderL1Fragment(subtree(), 'form').htmls.join(''))).toEqual(
+      classesIn(shared.htmls.join('')),
+    )
   })
 
   it('test_UAT_FC_REQ-93_reproduction_renders_real_a11y_labelled_controls', async () => {
