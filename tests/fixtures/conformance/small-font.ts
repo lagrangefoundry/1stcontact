@@ -1,16 +1,15 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-41 negative fixture (test infrastructure, NOT a shipping module): a module
  * whose body copy renders at 8px — below the 12px mobile legibility floor. The
  * paragraph carries its own direct text node, so the harness's
  * `responsive.font-floor` check flags it in the mobile band. Inline styles only.
  */
----
-
-<section style="padding: 24px">
+export const smallFont: BehaviorComponent = () => `<section style="padding: 24px">
   <h2>Small-font fixture</h2>
   <p style="font-size: 8px">
     This paragraph is set at 8px, which is below the mobile legibility floor and
     should be flagged.
   </p>
-</section>
+</section>`

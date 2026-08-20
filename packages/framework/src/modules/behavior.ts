@@ -1,4 +1,3 @@
-import type { AstroComponentFactory } from 'astro/runtime/server/index.js'
 import { l1ControlNames, l1NodeSchema, type L1Node } from '@1stcontact/site-schema'
 import type { L1ControlTag } from '../l1/render'
 
@@ -149,10 +148,41 @@ export interface BehaviorInstance {
   slots: Record<string, BehaviorSlotValue>
 }
 
+/**
+ * What the renderer hands a behavior's core for one instance.
+ *
+ * `slots` is the raw instance value — a single L1 subtree, or an array for a
+ * `repeated` slot — exactly as the page schema validated it. Each behavior
+ * narrows the slots it cares about itself, and isolation (REQ-85) requires it to
+ * drop a shape it cannot use rather than throw.
+ */
+export interface BehaviorProps {
+  /** Behavioural, data-only config (never aesthetics — DOC-25 §2). */
+  config?: Record<string, unknown>
+  /** Named L1 presentation slots, keyed as declared in {@link BehaviorMeta.slots}. */
+  slots?: Record<string, BehaviorSlotValue | undefined>
+  /** Namespaces this instance's slot classes so two on a page never collide. */
+  instanceId?: string
+  /** REQ-116 — render the edit channel: the module's own behaviour switched off. */
+  edit?: boolean
+}
+
+/**
+ * A behavior's renderable core: props in, HTML out (REQ-148).
+ *
+ * PLAIN TYPESCRIPT, DELIBERATELY. These were Astro components, which put Astro's
+ * transform on the render path and so confined the render to Node — a Worker has
+ * no way to compile `.astro`. Neither component used an Astro feature, so the
+ * file extension was buying nothing and costing the whole of workerd. As plain
+ * functions both hosts run the *same* code, which is why node/worker parity is
+ * structural rather than something to compare bytes for.
+ */
+export type BehaviorComponent = (props: BehaviorProps) => string
+
 /** A registry entry: a behavior's contract paired with its renderable component. */
 export interface BehaviorDefinition {
   meta: BehaviorMeta
-  Component: AstroComponentFactory
+  Component: BehaviorComponent
 }
 
 /** Compile-time assertion: a module's `meta` must satisfy {@link BehaviorMeta}. */

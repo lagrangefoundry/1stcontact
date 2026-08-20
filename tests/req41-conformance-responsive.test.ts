@@ -11,10 +11,10 @@ import {
 } from '../tools/generate/src'
 
 const carouselMeta = getModule('carousel', 3).meta
-import MobileOverflow from './fixtures/conformance/mobile-overflow.astro'
-import SmallTapTarget from './fixtures/conformance/small-tap-target.astro'
-import SmallFont from './fixtures/conformance/small-font.astro'
-import ResponsiveClean from './fixtures/conformance/responsive-clean.astro'
+import { mobileOverflow as MobileOverflow } from './fixtures/conformance/mobile-overflow'
+import { smallTapTarget as SmallTapTarget } from './fixtures/conformance/small-tap-target'
+import { smallFont as SmallFont } from './fixtures/conformance/small-font'
+import { responsiveClean as ResponsiveClean } from './fixtures/conformance/responsive-clean'
 
 /**
  * UATs for REQ-41 — the conformance harness **responsive dimension** ([[DOC-20]]

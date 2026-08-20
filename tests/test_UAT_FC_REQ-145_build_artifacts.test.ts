@@ -32,9 +32,10 @@ const toml = readFileSync(WRANGLER, 'utf8')
 
 describe('REQ-145 — build artifacts and the config that must match them', () => {
   it('test_UAT_FC_REQ-145_precompiled_module_chrome_matches_its_sources', async () => {
-    // The drift guard. `1c assets` writes `module-assets.ts` by extracting the
-    // modules' `<style>` blocks and `client.js`; this re-runs that extraction
-    // against the same sources and demands the same bytes. Editing a module and
+    // The drift guard. `1c assets` writes `module-assets.ts` from the modules'
+    // `styles.css` and `client.js` (REQ-148 moved the chrome out of an `.astro`
+    // `<style>` block and deleted the scanner); this re-reads the same sources
+    // and demands the same bytes. Editing a module and
     // forgetting to rebuild fails HERE rather than in a render nobody inspects.
     const fresh = composeModuleAssets(REPO)
     expect(MODULE_CSS).toBe(fresh.css)
@@ -51,9 +52,14 @@ describe('REQ-145 — build artifacts and the config that must match them', () =
     // The property the whole ticket rests on, asserted against the SOURCE rather
     // than against a successful run: `render.ts` is bundled into a Worker, and a
     // bundler resolves a static specifier whether or not the branch executes. So
-    // naming `astro/container` or the `.astro`-bound registry anywhere in this
-    // file — even inside a dynamic `import()` behind an untaken `if` — puts them
-    // in the Worker's bundle. That is exactly how it failed the first time.
+    // naming `astro/container` or the framework BARREL anywhere in this file —
+    // even inside a dynamic `import()` behind an untaken `if` — puts them in the
+    // Worker's bundle. That is exactly how it failed the first time.
+    //
+    // REQ-148 removed the reason the registry was on this list (its components
+    // were `.astro`); `render.ts` reaches `getModule` through the worker entry
+    // now, so the registry assertion below holds for a different reason — the
+    // direct path is simply not the one it uses.
     const render = readFileSync(path.join(REPO, 'tools/generate/src/render/render.ts'), 'utf8')
     const runtime = render
       .split('\n')
