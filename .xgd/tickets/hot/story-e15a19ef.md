@@ -6,9 +6,9 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-08-20T07:18:33.307464+00:00'
+updated_at: '2026-08-20T07:19:18.367608+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -87,12 +87,15 @@ Five CLI-correctness guarantees for the `1c` command line:
 3. **Store-selecting flags propagate into sub-commands.** A command that itself
    drives a render and a serve must forward the store-selection flags it received
    to those sub-commands. `aligned-crops --sandbox` renders and serves the
-   sandbox reproduction (from the sandbox store) and emits its crop pairs from it,
-   instead of silently rendering/serving from the `sites/` tree — which, for a
-   sandbox reproduction, would diff an absent or stale site against the reference
-   and produce no valid crops. The source selection (`draft`/`published`, default
-   `draft`) and the working directory are forwarded alongside `--sandbox`; with no
-   `--sandbox` flag the command falls through to the `sites/` tree.
+   sandbox reproduction (from the sandbox store), instead of silently
+   rendering/serving from the `sites/` tree — which, for a sandbox reproduction,
+   would diff an absent or stale site against the reference and produce no valid
+   crops. The source selection (`draft`/`published`, default `draft`) and the
+   working directory are forwarded alongside `--sandbox`; with no `--sandbox`
+   flag the command falls through to the `sites/` tree. What the command then
+   emits from that reproduction — the drift-aligned crop pairs themselves — is
+   the `aligned-crops` verb's own meaning, owned by the capability that owns the
+   verb rather than by this CLI-mechanism story.
 
 4. **The render path is Astro-free unless a page needs Astro.** The Astro
    container is constructed only when the site actually has a page carrying
