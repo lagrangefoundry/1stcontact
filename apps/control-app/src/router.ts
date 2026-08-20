@@ -10,7 +10,6 @@ import {
 } from '../../../tools/generate/src/cli/edit'
 import { CommandError, InvalidDefinitionError } from '../../../tools/generate/src/cli/errors'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
-import type { RenderSiteOptions } from '../../../tools/generate/src/render/render'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
@@ -106,13 +105,10 @@ export function resetChatHost(): void {
   CHAT = null
 }
 
-function previewRenderer(
-  store: TenantSiteStore,
-  render: RouterDeps['render'],
-): PreviewRenderer {
+function previewRenderer(store: TenantSiteStore): PreviewRenderer {
   let renderer = PREVIEWS.get(store)
   if (!renderer) {
-    renderer = new PreviewRenderer(store, render)
+    renderer = new PreviewRenderer(store)
     PREVIEWS.set(store, renderer)
   }
   return renderer
@@ -172,23 +168,23 @@ export interface RouterEnv extends StoreEnv {
  * What the route table needs from its host, so that ONE route table can serve
  * two transports (REQ-145).
  *
- * The Worker supplies neither and gets the defaults: a D1/R2 store from its
- * bindings, and no render seam, which is what confines it to L1 (REQ-148).
- * `1c builder`'s Node transport supplies both — a filesystem-backed store and
- * the Astro container — so the test suite and the operator's local loop drive
- * the SAME routing, edits and render as production rather than a second
- * implementation that agrees with it today.
+ * The Worker supplies none and gets the default: a D1/R2 store from its
+ * bindings. `1c builder`'s Node transport supplies a filesystem-backed store, so
+ * the test suite and the operator's local loop drive the SAME routing, edits and
+ * render as production rather than a second implementation that agrees with it
+ * today.
+ *
+ * REQ-148 — the render is no longer one of these. It used to be: a behavior
+ * module was an Astro component, so rendering one was a capability of the HOST,
+ * injected here, and the Worker simply lacked it. Behavior components are plain
+ * functions now, so both transports render every page through the same code and
+ * there is nothing left to inject.
  */
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv) => Promise<TenantSiteStore>
   /** The store an import writes through — it may register the configured tenant. */
   importStore?: (env: RouterEnv) => Promise<TenantSiteStore>
-  /**
-   * The Astro container and module resolver, for a host that can supply them.
-   * Absent means a page mounting a behavior fails by name — see REQ-148.
-   */
-  render?: Pick<RenderSiteOptions, 'createContainer' | 'resolveModule'>
 }
 
 /**
@@ -503,7 +499,7 @@ async function routeUncached(
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
       }
-      return servePreview(store, slug, channel as PreviewChannel, preview[3] ?? '/', deps.render)
+      return servePreview(store, slug, channel as PreviewChannel, preview[3] ?? '/')
     }
 
     // Not a route: the build artifacts, or a genuine 404 from the binding that
@@ -607,11 +603,10 @@ async function servePreview(
   slug: string,
   channel: PreviewChannel,
   rel: string,
-  render: RouterDeps['render'],
 ): Promise<Response> {
   let file
   try {
-    file = await previewRenderer(store, render).file(slug, channel, rel)
+    file = await previewRenderer(store).file(slug, channel, rel)
   } catch (err) {
     // A definition that no longer validates is the one failure this route can
     // hit that the OPERATOR can fix, and it is visible the moment it happens

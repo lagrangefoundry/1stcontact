@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -29,8 +28,8 @@ import type {
   BehaviorValidationError,
   ConformanceObligation,
 } from '../packages/framework/src/index'
-import Carousel from '../packages/framework/src/modules/carousel/index.astro'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import { carousel as Carousel } from '../packages/framework/src/modules/carousel/component'
+import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
 import { advanceTrack, enhanceCarousel } from '../packages/framework/src/modules/carousel/client.js'
 import {
   assertModuleConforms,
@@ -39,7 +38,7 @@ import {
   type ModuleResolver,
 } from '../tools/generate/src'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
-import ThrowsOnRender from './fixtures/conformance/throws-on-render.astro'
+import { throwsOnRender as ThrowsOnRender } from './fixtures/conformance/throws-on-render'
 
 /**
  * Reconciliation UATs for story-179b8c06 — **behavior modules**: a vetted
@@ -56,16 +55,13 @@ import ThrowsOnRender from './fixtures/conformance/throws-on-render.astro'
 /** A minimal valid L1 subtree (a single text node — the L1 security envelope's atom). */
 const textNode = { kind: 'text', text: 'Hi' }
 
-// ── SSR render helpers (Astro container API — the tools/generate render path) ──
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function renderCarousel(props: unknown): Promise<string> {
-  container ??= await AstroContainer.create()
-  return container.renderToString(Carousel, { props: props as Record<string, unknown> })
+// ── SSR render helpers — the tools/generate render path (REQ-148: a behavior is
+// a plain function of its props, so calling it IS the render) ──
+function renderCarousel(props: unknown): string {
+  return Carousel(props as Parameters<typeof Carousel>[0])
 }
-async function renderContactForm(props: unknown): Promise<string> {
-  container ??= await AstroContainer.create()
-  return container.renderToString(ContactForm, { props: props as Record<string, unknown> })
+function renderContactForm(props: unknown): string {
+  return ContactForm(props as Parameters<typeof ContactForm>[0])
 }
 
 // ════════════════════════════════════════════════════════════════════════════
