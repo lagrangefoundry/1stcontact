@@ -5,10 +5,10 @@ type: request
 title: 1st contact system KB
 created_by: xgd
 created_at: '2026-08-07T23:31:49.993341+00:00'
-updated_at: '2026-08-18T17:26:14.524578+00:00'
-completed_at: null
+updated_at: '2026-08-20T12:50:05.432946+00:00'
+completed_at: '2026-08-20T12:50:05.432946+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   auto_merge_back: true
   needs_review: false
