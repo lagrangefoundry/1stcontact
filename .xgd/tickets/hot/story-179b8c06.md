@@ -5,9 +5,9 @@ type: story
 title: 'Behavior modules: vetted core + typed config + L1 presentation slots'
 created_by: xgd
 created_at: '2026-07-22T19:53:38.072019+00:00'
-updated_at: '2026-08-16T08:45:10.295333+00:00'
+updated_at: '2026-08-20T07:43:13.087887+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -150,6 +150,38 @@ as a valid L1 node (the **security line** — slot content can never smuggle raw
 HTML/CSS/JS past the L1 envelope); and every control binding is checked in both
 directions.
 
+### Where a behaviour sits on the page — the composition rule
+Instance validity is not enough: a module also has to have somewhere to *be*. A
+page is one L1 document — the single page body — and behaviours mount **into** it
+at declared seams rather than competing with it. An earlier rule made the two
+shapes mutually exclusive (a page was an L1 document **or** a module stack), which
+stranded the behavioural half of every reproduction: a captured page is routinely
+100% L1 layout plus one behaviour. The rule protecting against *two competing page
+bodies* is therefore not "never both" but:
+
+> modules may accompany an L1 page when each **binds by name to a `slot` present
+> in that L1 tree**.
+
+Binding is validated, never best-effort. Each of these is a rejection with a
+machine-readable path to the offending element, not a silent no-op:
+
+| Rejected | Why |
+|---|---|
+| a module on an L1 page that names no slot | it has no place on the page body |
+| a `slot` naming a seam absent from the tree | the mount point does not exist |
+| one seam named by two modules | the mount point is contested |
+| two seams sharing a name | the mount point is ambiguous — neither module can be resolved onto it |
+| a `slot` on a module when the page has no L1 tree at all | the name resolves against nothing |
+
+The one case that is deliberately **legal** is the converse: a seam no module
+binds. That is an unfilled mount point, and it renders as the inert labelled
+placeholder (STORY-83). A page with neither modules nor an L1 tree is also legal —
+the empty starter.
+
+The seam inventory this resolution reads is the tree's slot names **in document
+order with duplicates preserved**, precisely so the ambiguous case above can be
+seen at all; deduping the walk would hide it.
+
 The contract is published under the `Behavior*` names: a behavior's contract type,
 its config-field, slot and control specs, its slot values, its instance shape, its
 catalog entry, and its conformance declaration all resolve from the framework
@@ -167,16 +199,24 @@ island scripts).
 
 **In scope**: the behavior contract (config / slots / controls / conformance) and
 its published `Behavior*` naming, instance validation incl. the slot-as-L1
-security line and the two-directional control check, the zero-CSS obligation and
+security line and the two-directional control check, the **page composition rule**
+— that modules may accompany an L1 page only by binding by name to exactly one
+existing seam, with each of the rejection cases above an error rather than a
+silent no-op — the zero-CSS obligation and
 its two declared carve-outs (invariant elements, and the edit-channel settled
 state), the two reframed survivor behavior modules and
 their observable behaviour, the L2 default-look preset, the shipped-client-JS
 asset, and the isolation conformance dimension — including its client-side half,
-that an enhancement never cancels a baseline it cannot itself complete.
+that an enhancement never cancels a baseline it cannot itself complete — and that
+conformance is exercised in both shipping shapes, standalone and mounted into an
+L1 seam.
 
 **Out of scope**: the L1 substrate itself (STORY-83 / CAP-70) — including the
 `control` node kind, its emitter and the emitter's own safety properties, and the
-L1 slot leaf's renamed field, all of which STORY-83 owns; the capture→L1 fold
+L1 slot leaf's renamed field, and the renderer's emission of a bound seam (the
+`mounts` map, and a mounted fragment being emitted inside the seam's own
+positioned box) — all of which STORY-83 owns, this story stopping at *whether* a
+binding is valid; the capture→L1 fold
 (STORY-84 / CAP-71), including folding a captured control into a `control` node
 and excluding invariant elements from the reproduction value gate; future behavior
 modules (payments, auth, email-capture); the deleted pre-pivot layout modules and
@@ -260,6 +300,16 @@ their dials (superseded — tracked as upgrades to STORY-80/81/82).
   input must render without throwing and still emit a structurally-intact page
   band; it always runs (needs no browser). The other four dimensions
   (safety/security/x-browser/responsive) are the DOC-20 universal ACs.
+- **Conformance is checked in both of a behaviour's shipping shapes.** The
+  harness carries a `mountInL1` fixture mode that, instead of building the page
+  as a bare module stack, gives the fixture an L1 host document and binds the
+  instance to a seam in it by name — the same validated binding any real page
+  uses. The universal ACs then run against the *mounted* shape. A behaviour that
+  conforms standalone but not once mounted (or the reverse) is a real defect, and
+  without the second mode nothing would catch it. The host document carries a
+  geometry keyframe at every probed width, so the seam spans exactly the viewport
+  at each one and the wrapper can never be the thing that overflows — an overflow
+  under this mode is the behaviour's own.
 - **The settled-state carve-out was added by the edit-render work, and is
   recorded here deliberately.** The edit render is owned by another story, but the
   *obligation it places on a behavior module* is a change to this contract, so it
