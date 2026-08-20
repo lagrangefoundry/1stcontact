@@ -3,6 +3,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { redactor, REDACTED } from '../apps/control-app/src/redact'
+// The component scope is DECLARED in `webui.ts` and written nowhere else
+// (BUG-32 / AC-960). Spelling it here would be a second definition site, so
+// the specifier this test forbids is composed from the declaration.
+import { WEBUI_SCOPE } from '../tools/generate/src/cli/webui'
 
 /**
  * REQ-146 — **the boundary properties of the AI host in workerd**.
@@ -266,7 +270,7 @@ describe('REQ-146 — what the Worker may import, and what it may say', () => {
     for (const [file, source] of graph) {
       const code = withoutComments(source)
       expect(code, path.relative(repoRoot, file)).not.toMatch(
-        /from\s+['"]@lagrangefoundry\/ai['"]/,
+        new RegExp(`from\\s+['"]${WEBUI_SCOPE}/ai['"]`),
       )
     }
   })
