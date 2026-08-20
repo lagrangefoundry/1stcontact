@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: BUNDLE-19 free-coded commits (REQ-133, BUG-35, REQ-
   REQ-140, REQ-139, REQ-123, REQ-141, REQ-144, REQ-142)'
 created_by: xgd
 created_at: '2026-08-20T01:12:52.279101+00:00'
-updated_at: '2026-08-20T01:12:52.279101+00:00'
+updated_at: '2026-08-20T01:22:35.964710+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-77b28def
@@ -49,7 +49,7 @@ fields:
       value MAY BE and how a reference resolves — not how an entry is added, renamed
       or removed. STORY-100 owns segment fields, not a site-level command group with
       its own census and its own server-side guards. Genuinely new capability bucket.
-    story_uid: null
+    story_uid: story-ee073693
   - index: 2
     component: Builder Palette Popup
     item_type: feature
