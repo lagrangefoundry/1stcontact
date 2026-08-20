@@ -9,7 +9,8 @@
  *
  *   AC-705  sample-fidelity probe matches reproduced boxes to the oracle
  *           (text by normalized text, image/box by kind — both by document-order
- *           occurrence; controls and empty runs excluded from the measure)
+ *           occurrence; controls and empty runs excluded from the measure), and
+ *           diverts slot-covered oracle text to the ungraded `mounted` channel
  *   AC-706  off-sample probe asserts the envelope at unsampled widths
  *   AC-707  content-robustness probe under perturbed (grown) content
  *   AC-708  combined gate over the absolute-base / structure-overlay split
@@ -24,6 +25,7 @@ import {
   evaluateLayout,
   foldToL1,
   offSampleProbe,
+  oracleBoxes,
   promoteToFlow,
   sampleFidelityProbe,
   threeProbeGate,
@@ -225,6 +227,44 @@ function mixedKindOracle(): MultiStateCapture {
     },
   }))
   return { url: 'http://mixed.test/', notes: [], projections }
+}
+
+/** The words the reference's form renders on its own submit affordance. */
+const SUBMIT = 'Send enquiry'
+
+/**
+ * A capture whose form seam covers a run the oracle also carries as text: two
+ * fields plus the submit affordance that visibly belongs to them.
+ *
+ * The submit run carries text, so the oracle classifies it as a `text` sample —
+ * but the fold *claims* it into the form's `slot` (REQ-93), lifting it out of the
+ * page body so the mounted behaviour renders it once rather than twice. The
+ * reproduced tree therefore has no text leaf to pair that sample against, which
+ * is exactly the case the third `mounted` channel exists for: the run is markup
+ * L1 does not emit, so grading it would fail a correct reproduction.
+ */
+function mountedFormOracle(): MultiStateCapture {
+  const projections: StateProjection[] = LADDER.map((width) => ({
+    engine: 'chromium',
+    viewport: { width, height: 900 },
+    state: 'rest',
+    manifest: {
+      source: `mounted@${width}`,
+      viewport: { width, height: 900 },
+      sections: [],
+      elements: [
+        text(HEADLINE, { x: 20, y: 20, width: width - 40, height: 48 }),
+        // Two fields, 20px apart — one cluster, one form.
+        textless({ role: 'textbox', a11yRole: 'textbox', box: { x: 40, y: 300, width: 260, height: 40 } }),
+        textless({ role: 'textbox', a11yRole: 'textbox', box: { x: 40, y: 360, width: 260, height: 40 } }),
+        // The form's own button: a TEXT run (it carries words) with the button
+        // role, sitting 20px under the fields — inside the submit-proximity
+        // threshold, so the fold claims it into this form's seam.
+        { ...text(SUBMIT, { x: 40, y: 420, width: 140, height: 40 }), role: 'button', a11yRole: 'button' },
+      ],
+    },
+  }))
+  return { url: 'http://mounted.test/', notes: [], projections }
 }
 
 /** An image element sharing the fixture's geometry, for surplus-occurrence probes. */
@@ -505,6 +545,57 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     expect(boxUnmatched.pass).toBe(false)
     expect(boxUnmatched.unmatched).toEqual([{ text: '(box)', width: 1024 }])
     expect(boxUnmatched.residuals).toEqual([])
+  })
+
+  it('test_UAT_AC705_slot_covered_oracle_text_is_diverted_to_the_mounted_channel', () => {
+    const cap = mountedFormOracle()
+    const doc = foldToL1(cap)
+
+    // Setup, stated as assertions so the fixture cannot rot into a no-op: the
+    // fold emitted the behaviour seam, and it claimed the submit run — so no
+    // reproduced TEXT leaf carries those words at any captured width. Without
+    // this the sample below would simply pair and never reach the third channel.
+    const leaves = evaluateLayout(doc, 1440).leaves
+    const slots = leaves.filter((l) => l.kind === 'slot')
+    expect(slots).toHaveLength(1)
+    expect(leaves.some((l) => l.kind === 'text' && l.text === SUBMIT)).toBe(false)
+    // The oracle DOES carry it — it is a text sample, not an excluded control.
+    const submitSamples = oracleBoxes(cap).filter((o) => o.text === SUBMIT)
+    expect(submitSamples).toHaveLength(LADDER.length)
+    expect(submitSamples.every((o) => o.kind === 'text')).toBe(true)
+    // Its box centre falls inside the seam the module mounts at.
+    const seam = slots[0].box
+    const at1440 = submitSamples.find((o) => o.width === 1440)!.box
+    expect(at1440.x + at1440.width / 2).toBeGreaterThanOrEqual(seam.x)
+    expect(at1440.x + at1440.width / 2).toBeLessThanOrEqual(seam.x + seam.width)
+    expect(at1440.y + at1440.height / 2).toBeGreaterThanOrEqual(seam.y)
+    expect(at1440.y + at1440.height / 2).toBeLessThanOrEqual(seam.y + seam.height)
+
+    // Diverted: counted and surfaced on `mounted`, once per captured width, and
+    // never graded. Because `mounted` does not feed the verdict, a correct
+    // reproduction of a page with a mounted form still passes.
+    const report = sampleFidelityProbe(doc, cap, { tolerancePx: 2 })
+    expect(report.pass).toBe(true)
+    expect(report.residuals).toEqual([])
+    expect(report.unmatched).toEqual([])
+    expect(report.mounted).toEqual(LADDER.map((width) => ({ text: SUBMIT, width })))
+    // Surfaced, not dropped: the run is visible in the report with its width.
+    expect(report.mounted.every((m) => m.text === SUBMIT)).toBe(true)
+    // The page-level headline is unaffected — it pairs and is graded as usual.
+    expect(report.maxDelta).toBeLessThanOrEqual(2)
+
+    // The diversion is keyed on the SLOT RECT, not on the text. Move the same
+    // oracle words clear of every slot — the reproduced document is untouched —
+    // and the identical sample now grades as a genuine coverage gap.
+    const moved = structuredClone(cap)
+    for (const p of moved.projections) {
+      p.manifest.elements.find((e) => e.text === SUBMIT)!.box!.y = 800
+    }
+    const outside = sampleFidelityProbe(doc, moved, { tolerancePx: 2 })
+    expect(outside.pass).toBe(false)
+    expect(outside.mounted).toEqual([])
+    expect(outside.unmatched).toEqual(LADDER.map((width) => ({ text: SUBMIT, width })))
+    expect(outside.residuals).toEqual([])
   })
 
   it('test_UAT_AC706_off_sample_envelope_holds_at_unsampled_widths', () => {

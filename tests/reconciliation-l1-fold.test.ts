@@ -11,7 +11,8 @@
  *   AC-690  the raw multi-viewport ladder is retained as the acceptance oracle,
  *           over the same widths the folded document declares
  *   AC-691  each folded node carries a geometry keyframe per sampled width equal
- *           to its captured box; typography axes come from the widest sample
+ *           to its captured box (an image/box leaf pins its height too, a text
+ *           leaf's is natural); typography axes come from the widest sample
  *   AC-692  fluid-width transitions fold to `interpolate`; reflows fold to `snap`
  *   AC-693  a node present only across a subrange carries a bounded visibility
  *           rule; a node present at every width carries none
@@ -22,8 +23,12 @@
  *   AC-696  the pre-L1 `adopt-values` reproduction command is removed; the
  *           independent `adopt-gaps` sibling is unaffected
  *
- * The fold/render/validator probes run everywhere; the real-browser branch of the
- * hint probe (AC-694) skips cleanly on a runner without Chromium installed.
+ * The fold/render/validator probes run everywhere. AC-694 is split in two: the
+ * sidecar's emission/persistence holds on any runner, while the extractor's own
+ * dimensions (ancestry, position mode, sibling repetition, parent layout, authored
+ * sizing units, @media breakpoints) can only be read out of a live CSS engine and
+ * are gated with `it.skipIf` — so a browserless run REPORTS that gap as a skip
+ * rather than passing silently.
  */
 import { createServer, type Server } from 'node:http'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
@@ -31,7 +36,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import { validateL1, type L1Node } from '../packages/site-schema/src/index'
+import { validateL1, type L1Keyframe, type L1Node } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
 import { foldToL1 } from '../tools/generate/src'
 import * as cli from '../tools/generate/src/cli/index'
@@ -55,6 +60,13 @@ import {
 } from '../tools/generate/src/cli/capture'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
+
+// Probed once, at module scope, so the real-engine hint UAT declares itself
+// SKIPPED on a browserless runner instead of returning early and reading green —
+// the idiom `capture.test.ts` / `bug25-*` / `bug27-*` already use. A silent
+// early return is how AC-694's uncovered dimensions stayed invisible for four
+// assessment cycles.
+const browserOk = await chromiumAvailable()
 
 // A complete RawRun with sensible defaults — the fold needs `box`, the rest are
 // the required geometry/typography fields the extractor always emits.
@@ -219,6 +231,25 @@ function textLeaves(root: L1Node): Extract<L1Node, { kind: 'text' }>[] {
   return out
 }
 
+/** Every leaf of one kind in the folded tree, in document order. */
+function leavesOfKind(root: L1Node, kind: L1Node['kind']): L1Node[] {
+  const out: L1Node[] = []
+  const walk = (n: L1Node): void => {
+    const children = n.kind === 'box' || n.kind === 'container' ? (n.children ?? []) : []
+    if (children.length === 0 && n.kind === kind) out.push(n)
+    children.forEach(walk)
+  }
+  walk(root)
+  return out
+}
+
+/** The keyframe ladder of a geometry-bearing leaf. */
+function keyframesOf(node: L1Node): L1Keyframe[] {
+  const geo = (node as { geometry?: { keyframes: L1Keyframe[] } }).geometry
+  if (!geo) throw new Error(`leaf ${node.kind} carries no geometry`)
+  return geo.keyframes
+}
+
 /** A resting projection at one width — the shape `foldToL1` consumes. */
 function proj(width: number, elements: ValueElement[]): StateProjection {
   return {
@@ -331,6 +362,19 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
       1280: { x: 60, y: 140, width: 1160, height: 56 },
     }
     const fontByWidth: Record<number, number> = { 320: 24, 768: 32, 1280: 44 }
+    // An image leaf and a painted box leaf, each with a DIFFERENT captured height
+    // at each width — so a keyframe that pinned one height everywhere, or dropped
+    // height as the text path does, fails rather than coincidentally agreeing.
+    const imgBoxes: Record<number, ValueElement['box']> = {
+      320: { x: 0, y: 500, width: 320, height: 180 },
+      768: { x: 0, y: 520, width: 768, height: 432 },
+      1280: { x: 0, y: 540, width: 1280, height: 720 },
+    }
+    const panelBoxes: Record<number, ValueElement['box']> = {
+      320: { x: 20, y: 800, width: 200, height: 80 },
+      768: { x: 30, y: 1000, width: 220, height: 100 },
+      1280: { x: 40, y: 1200, width: 240, height: 120 },
+    }
     const widths = [320, 768, 1280]
     const multiState: MultiStateCapture = {
       url: 'http://fixture.test/',
@@ -340,6 +384,21 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
           elt('Headline', boxes[w]!, fontByWidth[w]!),
           // A second run whose type is IDENTICAL at every sampled width.
           elt('Static Tagline', { x: 20, y: 300, width: w - 40, height: 30 }, 20),
+          textless({
+            a11yRole: 'img',
+            objectFit: 'cover',
+            intrinsicAspect: 1.5,
+            src: 'https://cdn.example.com/hero.jpg',
+            alt: 'Hero',
+            box: imgBoxes[w]!,
+          }),
+          textless({
+            role: 'separator',
+            a11yRole: 'separator',
+            surfaceFill: '#f0eee9',
+            borderRadiusPx: 8,
+            box: panelBoxes[w]!,
+          }),
         ]),
       ),
     }
@@ -381,6 +440,29 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     if (tagline?.kind === 'text') {
       expect(tagline.axes?.fontSizePx).toBe(20)
       expect(tagline.responsive?.fontSizePx).toBeUndefined()
+    }
+
+    // The positive half of the height rule. A text leaf's extent is natural from
+    // flow (asserted undefined above); an IMAGE or BOX leaf has no such source,
+    // so every one of its keyframes pins all four sides — the captured height
+    // included, at each width it was measured.
+    const measured: Array<[L1Node['kind'], Record<number, ValueElement['box']>]> = [
+      ['image', imgBoxes],
+      ['box', panelBoxes],
+    ]
+    for (const [kind, expected] of measured) {
+      const found = leavesOfKind(doc.root, kind)
+      expect(found).toHaveLength(1)
+      const kfs = keyframesOf(found[0])
+      expect(kfs.map((k) => k.at)).toEqual(widths)
+      for (const w of widths) {
+        const kf = kfs.find((k) => k.at === w)!
+        const box = expected[w]!
+        expect(kf.x).toBe(Math.round(box.x))
+        expect(kf.y).toBe(Math.round(box.y))
+        expect(kf.width).toBe(Math.round(box.width))
+        expect(kf.height).toBe(Math.round(box.height))
+      }
     }
   })
 
@@ -437,9 +519,12 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     }
   })
 
-  it('test_UAT_AC694_capture_emits_advisory_structural_hint_sidecar', async () => {
-    // The capture always emits an advisory sidecar: breakpoints in ascending
-    // order and per-node authored sizing units.
+  it('test_UAT_AC694_capture_writes_the_advisory_hint_sidecar_into_the_bundle', async () => {
+    // The sidecar half that holds without a browser: the capture pass ALWAYS
+    // emits `hints.json` alongside the fold, and it round-trips through
+    // `readHints`. The *content* of the sidecar is the extractor's, and is
+    // asserted against a real engine in the sibling UAT below — a driver seam
+    // cannot prove an extractor that only runs in page scope.
     const cwd = mkdtempSync(path.join(tmpdir(), 'ac694-'))
     tmpDirs.push(cwd)
     const result = await cmdCapturePage('http://fixture.test/', {
@@ -448,41 +533,118 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
       isEngineAvailable: async () => true,
     })
     expect(existsSync(path.join(result.bundleDir, 'hints.json'))).toBe(true)
-    const hints = readHints(result.bundleDir)
-    expect(hints).not.toBeNull()
-    expect(hints!.mediaBreakpoints).toEqual([...hints!.mediaBreakpoints].sort((a, b) => a - b))
-    expect(hints!.nodes.some((n) => n.widthUnit === 'percent')).toBe(true)
-
-    // With a real engine, the same pass reports the parent's computed layout
-    // (flex + justify-content) and a percentage-sized child against a real @media
-    // breakpoint. Skip cleanly where Chromium is unavailable.
-    if (!(await chromiumAvailable())) return
-    const html = `<!doctype html><html><head><style>
-      .row { display: flex; justify-content: space-between; gap: 24px; }
-      .col { width: 50%; height: 200px; background: #eee; }
-      @media (min-width: 600px) { .row { gap: 40px; } }
-    </style></head><body>
-      <section class="row"><div class="col">A</div><div class="col">B</div></section>
-    </body></html>`
-    const server = createServer((_req, res) => {
-      res.setHeader('content-type', 'text/html; charset=utf-8')
-      res.end(html)
-    })
-    servers.push(server)
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
-    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`
-
-    const real = await captureStructuralHints(url)
-    // Real @media breakpoint reported, in ascending order.
-    expect(real.mediaBreakpoints).toContain(600)
-    expect(real.mediaBreakpoints).toEqual([...real.mediaBreakpoints].sort((a, b) => a - b))
-    // Parent computed layout (flex + justify-content) reported for the columns.
-    const flexChild = real.nodes.find((n) => n.parentLayout?.display.includes('flex'))
-    expect(flexChild).toBeDefined()
-    expect(flexChild?.parentLayout?.justifyContent).toBe('space-between')
-    // Authored sizing unit (%) reported for a column.
-    expect(real.nodes.some((n) => n.widthUnit === 'percent')).toBe(true)
+    // Persisted losslessly: what the page returned is what the bundle holds, so
+    // a later reader sees every dimension the extractor reported.
+    expect(readHints(result.bundleDir)).toEqual(CANNED_HINTS)
+    // Retained as its OWN sidecar, not merged into the folded document — the
+    // hints are advisory and nothing in the render path consumes them (AC-695).
+    expect(readL1(result.bundleDir)).not.toHaveProperty('hints')
   })
+
+  it.skipIf(!browserOk)(
+    'test_UAT_AC694_structural_hints_report_ancestry_layout_units_and_breakpoints',
+    async () => {
+      // Every dimension the Criterion names, read out of a REAL engine — the
+      // sidecar's whole reason to exist is the relationships the painted-geometry
+      // fold deliberately omits, and only a live CSS engine resolves them.
+      //
+      // The fixture is built so each dimension has a discriminator: a flex row
+      // (gap overridden by a real @media rule, so a reported gap proves the
+      // COMPUTED value not the base rule), two identical columns (repetition), a
+      // positioned child (position mode), and a sibling grid (template columns,
+      // and a parent whose non-flex layout must null the flex-only axes).
+      const html = `<!doctype html><html><head><style>
+      .row { display: flex; flex-direction: row; justify-content: space-between; gap: 24px; position: relative; }
+      .col { width: 50%; height: 200px; background: #eee; }
+      .pinned { position: absolute; top: 10px; left: 10px; width: 80px; height: 40px; background: #ccc; }
+      .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; }
+      .cell { height: 100px; background: #ddd; }
+      @media (min-width: 600px) { .row { gap: 40px; } }
+      @media (max-width: 1200px) { .grid { gap: 20px; } }
+    </style></head><body>
+      <section class="row"><div class="col">A</div><div class="col">B</div><div class="pinned">P</div></section>
+      <section class="grid"><div class="cell">C</div><div class="cell">D</div></section>
+    </body></html>`
+      const server = createServer((_req, res) => {
+        res.setHeader('content-type', 'text/html; charset=utf-8')
+        res.end(html)
+      })
+      servers.push(server)
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`
+
+      // Default viewport is 1280 wide, so `min-width: 600px` applies and
+      // `max-width: 1200px` does not — the gaps below are the discriminator.
+      const real = await captureStructuralHints(url)
+
+      // ── the page's real @media breakpoints, ascending ──────────────────────
+      expect(real.mediaBreakpoints).toContain(600)
+      expect(real.mediaBreakpoints).toContain(1200)
+      expect(real.mediaBreakpoints).toEqual([...real.mediaBreakpoints].sort((a, b) => a - b))
+
+      // ── authored sizing unit per axis (the token, not the resolved px) ─────
+      // `width: 50%` survives as `percent` even though the engine resolves it to
+      // px; `width: 80px` / `height: 100px` stay `px`. Both halves, so the unit
+      // is read from the matched rule rather than reported as a constant.
+      const cols = real.nodes.filter((n) => n.tag === 'div' && n.widthUnit === 'percent')
+      expect(cols).toHaveLength(2)
+      const pinned = real.nodes.find((n) => n.position === 'absolute')
+      expect(pinned).toBeDefined()
+      expect(pinned!.widthUnit).toBe('px')
+      const cells = real.nodes.filter((n) => n.tag === 'div' && n.heightUnit === 'px' && n.widthUnit === null)
+      expect(cells).toHaveLength(2)
+
+      // ── position mode ─────────────────────────────────────────────────────
+      // Three distinct modes on one page: the row is `relative`, its pinned
+      // child `absolute`, and the ordinary columns `static`.
+      const row = real.nodes.find((n) => n.tag === 'section' && n.display.includes('flex'))
+      expect(row).toBeDefined()
+      expect(row!.position).toBe('relative')
+      for (const col of cols) expect(col.position).toBe('static')
+
+      // ── ancestry: parentId chains the columns up to the section, then body ──
+      const byId = new Map(real.nodes.map((n) => [n.id, n]))
+      for (const col of cols) expect(col.parentId).toBe(row!.id)
+      const bodyNode = byId.get(row!.parentId!)
+      expect(bodyNode?.tag).toBe('body')
+      expect(bodyNode?.parentId).toBeNull() // the walk's root — the chain terminates
+
+      // ── sibling-repetition count ──────────────────────────────────────────
+      // Two columns share a tag+class signature → 2 each; the positioned child
+      // sits beside them with a different signature → 1. Reporting the parent's
+      // child count instead would say 3 for all three.
+      for (const col of cols) expect(col.repeatCount).toBe(2)
+      expect(pinned!.repeatCount).toBe(1)
+      for (const cell of cells) expect(cell.repeatCount).toBe(2)
+
+      // ── the parent's computed layout ──────────────────────────────────────
+      // Flex: mode, direction, distribution, and the gap the @media rule won.
+      const colLayout = cols[0].parentLayout!
+      expect(colLayout.display).toContain('flex')
+      expect(colLayout.flexDirection).toBe('row')
+      expect(colLayout.justifyContent).toBe('space-between')
+      expect(colLayout.gap).toBe('40px') // the computed value, not the 24px base
+      expect(colLayout.gridTemplateColumns).toBeNull() // flex-only axes, nulled
+
+      // Grid: template columns resolved to real tracks in the authored 1fr:2fr
+      // ratio, and the gap the un-matched max-width rule did NOT change.
+      const cellLayout = cells[0].parentLayout!
+      expect(cellLayout.display).toContain('grid')
+      expect(cellLayout.gap).toBe('16px')
+      expect(cellLayout.flexDirection).toBeNull() // grid parent — no flex direction
+      const tracks = cellLayout.gridTemplateColumns!.split(/\s+/).map(parseFloat)
+      expect(tracks).toHaveLength(2)
+      expect(tracks[1] / tracks[0]).toBeCloseTo(2, 1)
+
+      // A node whose parent is NOT a flex/grid container reports the parent's
+      // display with every distribution axis null — the axes are conditional on
+      // the container mode, not always-present.
+      expect(row!.parentLayout!.display).toBe('block')
+      expect(row!.parentLayout!.justifyContent).toBeNull()
+      expect(row!.parentLayout!.gap).toBeNull()
+    },
+    180000,
+  )
 
   it('test_UAT_AC695_folded_document_renders_without_hint_sidecar', () => {
     const multiState: MultiStateCapture = {
