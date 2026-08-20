@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T00:53:44.113860+00:00'
+updated_at: '2026-08-20T00:56:40.946605+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -263,5 +263,83 @@ Gap 3 — the draft's lineage pointer has nowhere to live in D1 - yes make it ha
 Gap 4 — what should `/preview/<slug>/published` do? redirect
 
 Gap 5 — is D1 or the manifest the record of revisions?D1-authoritative - but do we really need a manifest? I have a strong alergic reaction to duplicated data. If we can figure out a way to have one canonical source of truth this would be stronger IMO
+
+<!-- xgd-turn id="739a7a6f-f689-493f-a914-139541059ae7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T00:56:40.774688+00:00" -->
+#### Claude
+Good — 1 through 4 locked. On 5, your instinct is right and I think we can actually get there; let me check what deleting the manifest would cost before I commit to it.
+
+Yes — we can get to one canonical record, and it's a better design than what I proposed. Let me lay out what it costs, because the cost is mostly *deletions*, which is the good kind.
+
+## Why I hedged, and why the hedge doesn't survive scrutiny
+
+I kept the manifest because `public-site` reads it. But `public-site` caches every 200 in the edge Cache API (`apps/public-site/src/index.ts:52`), so the store is touched only on a cold miss — the manifest was never a hot-path optimisation, it was just where the truth happened to live. And its own seam comment already promises the swap: *"Phase 2 answers from D1 (`sites` / `revisions` / `pages`) by replacing the implementation and nothing else."* Your AC-2 said "through its existing seam, unchanged" — the seam is the interface, and it stays unchanged. I read it too literally.
+
+So: **D1 is the only record. R2 holds bytes and nothing authoritative.**
+
+## What the manifest is actually doing, and where each job goes
+
+It's carrying four jobs, which is why deleting it touches more than one thing:
+
+| Job | Moves to |
+|---|---|
+| which revision is live | derived — `MAX(id)` over the revisions table |
+| vouching for a URL-supplied preview sha before it becomes an R2 key | a row lookup, same guarantee |
+| GC roots for `1c deploy --prune` | D1 rows |
+| deploy's "already deployed" check | publish's own no-op check (Gap 1) |
+
+Note the first one: **`live` must not be a stored column.** DOC-12 §4 is explicit — *"No `head` field (live = highest id)"* — and §10 already made REQ-7 drop `published_revision_id` for exactly this reason. Storing it would be reintroducing the duplication the model rejected once. It's one join, and it's cached at the edge anyway.
+
+## The schema that falls out (migration `0002`)
+
+```sql
+-- Gap 3: the draft's lineage pointer.
+ALTER TABLE sites ADD COLUMN base_revision INTEGER;
+
+-- The revision record. Immutable once written; live = MAX(id).
+CREATE TABLE site_revisions (
+  tenant_id, slug, id INTEGER,
+  published_at, published_by, message,
+  based_on INTEGER,        -- DOC-12 §4: set when the draft was checked out from a non-latest revision
+  changes TEXT,            -- the per-path diff, as DOC-12 §4 defines it
+  sha TEXT,                -- audit, not addressing
+  PRIMARY KEY (tenant_id, slug, id)
+);
+
+-- Gap 2's slug claim AND public-site's slug → tenant resolution, one table.
+CREATE TABLE published_sites (
+  slug TEXT PRIMARY KEY,   -- the PK *is* the global-uniqueness guarantee
+  tenant_id TEXT NOT NULL,
+  first_published_at TEXT NOT NULL
+);
+```
+
+That last table is the part I like: gap 2 asked for a slug claim, and `public-site` needs slug → tenant to find the rows. One table does both, and the primary key makes tenant B's collision a constraint violation at publish time rather than a check someone has to remember to write.
+
+`public-site` then resolves with a single query joining those two, builds the prefix from the row's own values, and serves `sites/<slug>/rev/NNNN/out/`. The key security property is preserved verbatim — no URL component reaches an R2 key unless the store vouched for it; it's just a row vouching instead of a JSON object.
+
+The R2 layout in DOC-12 §7 doesn't change at all, except that the `manifest.json` row disappears. And `source/` stays beside `out/`: D1 holds only the *mutable* draft, so R2's `source/` is the only copy of what the definition looked like at revision N — that's what makes checkout possible, and it isn't duplication because nothing else holds that fact.
+
+## The consequence you should look at hardest
+
+**A single canonical record in D1 means the CLI can no longer be a publisher.** `1c deploy` runs in Node with no D1 binding — the same wall that made `bin/publish` POST to `/api/import` rather than write the database (`router.ts:268`: *"THE WORKER IS THE WRITER, deliberately"*). The alternative is shelling `wrangler d1 execute` with hand-escaped SQL, which that comment already rejected.
+
+So `1c deploy --channel published` doesn't get ported — it gets **deleted**. Its whole job (ship a revision's bytes, record it live) is what publish now does inside the Worker with both bindings in hand. This is your ticket's own Q4 answered in the strongest form, and AC-7 in its literal sense: one publish implementation, no local second path.
+
+`1c publish` against the *filesystem* store survives untouched, for local dev and the reproduction pipeline. That isn't duplication — a given site lives in exactly one store, and each store keeps its own record (`history.json` on disk, rows in the cloud). One algorithm above the port; the port grows revision-*storage* verbs, not a `publish()` verb.
+
+## The one thing I need you to decide
+
+Deleting `1c deploy` takes draft **preview snapshots** with it — the sha-addressed shareable draft links at `/site/<slug>/draft/<sha>/` (DOC-12 §5.1), the "send the client a link to review before it goes live" feature. They're manifest-backed too, so they can't stay behind while revisions move; a half-manifest would be exactly the legacy-mode split `CLAUDE.md` forbids.
+
+- **Port them in this ticket** — a `POST /api/preview` route: the Worker already renders draft, so it's render → hash → put bytes → insert a `site_previews` row, and a CLI command that calls it. Maybe a day, reusing machinery publish needs anyway. Keeps a working feature working.
+- **Drop them, reinstate later** as a "Share draft" button in the builder toolbar. Smaller now; the feature is gone in the meantime. Note the builder's own draft preview is unaffected either way — that's `/preview/<slug>/draft/` behind Access, already live from REQ-145.
+
+Two things I'd defer explicitly rather than pretend away: **`--prune` has no home** once deploy dies (orphaned bytes from an interrupted publish are unreachable and cost only storage — a Worker maintenance route later), and the R2 `sandbox/` root becomes dead weight, since only the Worker writes R2 and it only ever writes its own tenant's real sites.
+
+Also worth saying plainly: this is more than "port publish". It's migration `0002`, revision storage in the port, the publish service, render-to-R2, `public-site`'s store swap, and deleting deploy. Still one coherent unit — splitting it would leave a half-migrated manifest between tickets — but it's a fat 13.
+
+Tell me previews (port or drop) and I'll write the ticket body, cut `free-REQ-149`, and start.
 
 <!-- xgd-chat-end -->
