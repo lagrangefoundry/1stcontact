@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T22:39:58.772699+00:00'
+updated_at: '2026-08-20T22:42:15.485080+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -698,5 +698,76 @@ So I want to push a little harder on our decision-making structure I actually th
 Let me say something explicitly that maybe lost here somewhere. Whilst clearly getting the right outcome is highly desirable a critical part of getting there is that the process is fun. The user has to enjoy this they have to be excited and inspired by the activity. I actually believe that an approach where the user is excited and inspired will get to a better result that one where the user is trying to make decisions in a vacuum and is bored, frustrated and confused even if the latter process appears on paper to be more logical.
 
 Perhaps we could model us as a TDD type exercise where we are constantly trying to build a minimal viable product and refine it with the premise that we factoring is always cheap.
+
+<!-- xgd-turn id="33d52ea2-a365-465a-8d37-2484a69e9ed4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T22:42:15.401905+00:00" -->
+#### Claude
+Your intuition is right, and I think I can say why in a way that makes it a principle rather than a preference.
+
+## A novice cannot author, but they can critique
+
+That's the whole thing. Every mechanism in the session should convert an authoring task into a critique task.
+
+"What's your brand personality?" is authoring — silence or boilerplate. Six heroes on a carousel is critiquing — and people are *ferociously* articulate when reacting to something wrong. Show a plumber a hero reading *"Quality plumbing you can trust"* and they'll say "no, everyone says that, we're the ones who actually turn up." **You just got the positioning statement that stage 2's interrogation was trying to extract in forty minutes of questioning.**
+
+That reframes DOC-33's stage 2 rule. It says *interrogate, never generate*, because AI-written positioning is generic and the client accepts it passively. But that failure comes from generating **one** thing. Generate three deliberately divergent ones and the client becomes a critic instead of a recipient. The rule was right about the danger and wrong about the cause — the danger isn't generation, it's singularity.
+
+And DOC-33 already knows this. §7.1 is *options, not iterations*, for exactly this reason. It just never applies it to the first artifact — it thinks plurality starts once you have content. Plurality should **open** the session. Same shape of error as the restraint one: right principle, not applied where it matters most.
+
+So: anti-anchoring by **plurality**, not by **deferral**. Plurality is the better mechanism and it's the one that's fun. Deferral was never fun; it was just safe.
+
+## The honest boundary: what's actually cheap to refactor
+
+Here's where I'll hold a line, because "refactoring is cheap" is true of one track and false of the other.
+
+| Cheap to change late | Expensive to change late |
+|---|---|
+| Palette, typography, spacing rhythm | Primary conversion action |
+| Imagery and framing | Positioning |
+| Section-level layout treatment | In-page capabilities (payments especially) |
+| Copy — the client does it themselves | Content architecture (moderately) |
+
+The right-hand column isn't expensive in *tokens*. It's expensive because **the words hang off it.** Change "book" to "enquire" at hour three and every CTA, every proof point, the whole shape of the argument moves. That's not a refactor, it's a rewrite, and the client pays for it in their own time.
+
+But look at what that implies, because it's the good news: **the expensive things don't need pixels to decide, and the cheap things can't be decided without them.** You don't need to see a site to know you want people to phone you. You absolutely need to see six sites to know which register is yours.
+
+DOC-33's error isn't front-loading the brief — it's assuming the two tracks must be *sequential*. They're orthogonal. The argument track runs in conversation; the surface track runs in artifacts; they interleave from minute zero, and each sharpens the other.
+
+## The TDD analogy holds, and it's load-bearing
+
+It maps better than you might expect, but the useful part is where it *nearly* breaks. TDD is safe because it has an oracle — the suite tells you objectively when refactoring broke something. Design has no oracle, so unbounded fluidity drifts into incoherence.
+
+Except it does have one: **the brief is the test suite.** Primary action, audience, positioning, capabilities — those are the assertions. Every visual refactor gets checked against "does this still serve the one thing we want visitors to do." That's DOC-33's stage-9 purpose check, promoted from a shipping gate to a continuous invariant.
+
+Which resolves the tension with "hero in 15 minutes": you don't skip the brief, you **draft it in pencil at minute 10 and ink it by minute 45** — sharpened by the artifacts, exactly as above. Ten minutes gets you what you do, who for, one desired action, and whether money changes hands on the page. That's enough to render from. Positioning is the one that the heroes extract rather than precede.
+
+The ledger, incidentally, needs no structural change — append-only with supersession was already built for a world where decisions get revisited. Only the vocabulary is wrong. "Locked" becomes **settling**: expensive decisions firm up early, cheap ones stay fluid until a late freeze, and the freeze can be genuinely late precisely because refactoring was cheap all along.
+
+## Roughly what it looks like
+
+- **0–10 min — thin brief.** Fast, conversational, no blank questions.
+- **10–25 min — first spread.** Three to six heroes, real divergence, carousel. They flip, argue, react. Out falls: a direction, a rough restraint level, and a much sharper positioning extracted from what they *rejected*.
+- **25 min on — build down the page, styled.** Variants where the choice is real, a single proposal where it isn't. Content and design together, always.
+- **Continuously — revisit the top.** Scheduled, not incidental: when the page is structurally complete, go back and ask whether the hero still holds now we know how the argument ends.
+- **Late — consolidate, critique, ship.** Act IV survives intact and matters *more* in a fluid model, because fluid processes drift.
+
+The plain pass is the main casualty, and I think it should go. It existed to solve anchoring-by-deferral; we're solving anchoring-by-plurality instead, so it's redundant — and its worst property (a novice seeing a monochrome page and assuming we broke something) evaporates.
+
+On the carousel specifically: the reason it's more than decoration is that flicking back and forth is a *comparison* instrument, and comparison is where preference surfaces without being demanded. "Here are three options, choose" is a test. Flipping between them is play, and the preference emerges from the play. Worth noting it belongs to the consultation surface (DOC-28 chrome), not to L1 — same distinction DOC-33 makes about draft affordances.
+
+## Three risks worth naming
+
+**The generic-default trap — this is the big one.** DOC-31's central finding is that the model's untutored output *is* template DNA. Render at minute 15 without a rubric and you render the default; the client picks one, you refine it, and you've anchored the entire site on the exact thing the product exists to escape. Six variants that are three shades of the same idea is Wix with extra steps. **This makes the rubric and the corpus a hard prerequisite, not a parallel workstream** — the inversion is only safe once we have an encoded point of view for the sketches to diverge *along*.
+
+**"Refactoring is cheap" is a platform promise, not a fact.** It holds only if palette, type and rhythm are role-based tokens end to end, so a palette swap is a token change rather than the AI rewriting forty L1 nodes. DOC-33 §6 suggests the editor already works this way; it now needs to be guaranteed, and that's a genuine L1 requirement.
+
+**Cost.** Six variants with vision passes at every decision is a lot of images. Two mitigations, both of which you've half-stated: generate variants in **subagents** (no relationship needed, parallel, cheap), and **vary parametrically wherever possible** — one site × three palettes is one render pipeline and three token sets, not three design efforts. Structural divergence is the expensive kind; spend it only at the top of the session where it pays.
+
+---
+
+On fun: I'd put it more strongly than a preference. The quality of the output is bounded by the quality of signal extracted from the client, and a bored client gives short agreeable answers. *"Yeah, that's fine"* is the sound of a session failing. An excited client argues, corrects, and volunteers things you never asked. Fun isn't traded against rigour — **fun is the extraction mechanism.** And DOC-33 bets all its drama on one reveal two hours in, which has to repay two hours of tedium to break even. Distributed delight is the more robust bet.
+
+This is a big enough change that it's a restructure of DOC-33, not an amendment — §6 replaced, the plain pass retired, plurality and the cheap/expensive split promoted into a new principles section. Want me to write that, or keep pulling first?
 
 <!-- xgd-chat-end -->
