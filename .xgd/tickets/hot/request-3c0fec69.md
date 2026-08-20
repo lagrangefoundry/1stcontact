@@ -19,12 +19,16 @@ fields:
   - REQ-135
   story_points: 8
   commits:
-  - working_sha: b2699987b3d4281051bb078d209d3a8099cd7054
+  - working_sha: 61f337fe5484521b99156c5e45a5fa8fe128fad9
     reconcile_sha: null
     main_sha: null
-  - working_sha: e70668dd1ce02f09ab7f914cbaa5ac672454535a
+    working_sha_history:
+    - b2699987b3d4281051bb078d209d3a8099cd7054
+  - working_sha: 45cccf0cd08603a8a490af33152ae01949ec71e5
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - e70668dd1ce02f09ab7f914cbaa5ac672454535a
   version: 0.1.46
   bundled_in: bundle-77b28def
 ---
