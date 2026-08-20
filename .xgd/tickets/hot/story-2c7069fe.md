@@ -5,9 +5,9 @@ type: story
 title: 'Responsive-diff: cross-size N-way node analysis with change classifier'
 created_by: xgd
 created_at: '2026-07-19T02:50:30.568218+00:00'
-updated_at: '2026-08-16T09:18:39.902264+00:00'
+updated_at: '2026-08-20T03:59:20.642511+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -34,12 +34,12 @@ In scope:
 Out of scope: reproduction fidelity between transitions (this captures the discrete state at each size, not a continuous relationship); authoring the per-breakpoint overrides themselves (that is the framework's per-breakpoint dial capability).
 
 ## Technical Context
-Reproduces REQ-61 behaviour from the bundle-ab9e0cb6 reconciliation (commits b92a5cbe N-way table Phase 1, cb388975 classifier Phase 2). Belongs to CAP-65 (1c Size-Aware Diffing), whose body already reserves this downstream `responsive-diff` command; it reads the same persisted viewport ladder that CAP-65's `--size` diff work (plan item 3) establishes, hence the dependency. Change detection is deliberately a small discrete-state signal (font size, weight, colour, rounded box geometry, arrangement), not an exhaustive style diff; geometry is rounded so sub-pixel jitter never reads as a change. The command is invoked as `1c responsive-diff --ref <captureBundleDir> [--sizes mobile,tablet,desktop] [--classify] [--out <file>] [--json]`.
+Reproduces REQ-61 behaviour from the bundle-ab9e0cb6 reconciliation (commits b92a5cbe N-way table Phase 1, cb388975 classifier Phase 2). Belongs to CAP-63 (`capability-aa030c83`, `1c_capture_diff_fidelity`), whose scope covers size-aware and cross-size diffing and already reserves this downstream `responsive-diff` command; it reads the same persisted viewport ladder that the sibling `--size` diff story (plan item 3, STORY-77) establishes, hence the dependency. Change detection is deliberately a small discrete-state signal (font size, weight, colour, rounded box geometry, arrangement), not an exhaustive style diff; geometry is rounded so sub-pixel jitter never reads as a change. The command is invoked as `1c responsive-diff --ref <captureBundleDir> [--sizes mobile,tablet,desktop] [--classify] [--out <file>] [--json]`.
 
 Divergence note: the reconciliation plan described a positional slug; the implemented CLI takes the bundle via a required `--ref` flag. The story is grounded in the implemented `--ref` interface.
 
 ## Dependencies
-Plan item 3 — 1c Size-Aware Diffing (the persisted viewport ladder this command reads).
+Plan item 3 — the size-aware `--size` diff story (STORY-77), which establishes the persisted viewport ladder this command reads.
 
 ## Story Points
 3
