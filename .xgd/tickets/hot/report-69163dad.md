@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-19 free-coded commits (REQ-133, BUG-35, REQ-
   REQ-140, REQ-139, REQ-123, REQ-141, REQ-144, REQ-142)'
 created_by: xgd
 created_at: '2026-08-20T01:12:52.279101+00:00'
-updated_at: '2026-08-20T03:41:45.426952+00:00'
+updated_at: '2026-08-20T04:18:41.273074+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -375,7 +375,7 @@ fields:
       an operator-facing build pipeline that runs with no session and no model — `1c
       kb export` needs no credentials at all — while item 7 is what a conversation
       knows.
-    story_uid: null
+    story_uid: story-c4f329d3
   - index: 7
     component: AI Site Assistant — the session's knowledge surface
     item_type: upgrade
