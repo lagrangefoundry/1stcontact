@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
-import Carousel from '../packages/framework/src/modules/carousel/index.astro'
+import { carousel as Carousel } from '../packages/framework/src/modules/carousel/component'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
 import { getModule } from '../packages/framework/src/modules/registry'
 import { advanceTrack, enhanceCarousel } from '../packages/framework/src/modules/carousel/client.js'
@@ -16,11 +15,8 @@ import { advanceTrack, enhanceCarousel } from '../packages/framework/src/modules
  * pipeline's `capabilities.js`, not a per-module island script.
  */
 
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(props: unknown) {
-  container ??= await AstroContainer.create()
-  return container.renderToString(Carousel, { props: props as Record<string, unknown> })
+function render(props: unknown): string {
+  return Carousel(props as Parameters<typeof Carousel>[0])
 }
 
 // Two L1-authored slides (a text node each — the slide's whole presentation).

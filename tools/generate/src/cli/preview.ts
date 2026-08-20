@@ -1,4 +1,4 @@
-import { renderSiteFiles, type RenderedSite, type RenderSiteOptions } from '../render/render'
+import { renderSiteFiles, type RenderedSite } from '../render/render'
 import type { DraftSnapshot, SiteStore } from '../store/site-store'
 import { MIME } from '../store/content-type'
 import { InvalidDefinitionError } from './errors'
@@ -85,21 +85,13 @@ export class PreviewRenderer {
   private readonly cache = new Map<string, { stamp: string; rendered: RenderedSite }>()
 
   /**
-   * `renderOpts` carries what a behavior-module page needs and a pure-L1 page does
-   * not: an Astro container and a module resolver (REQ-145). Both are INJECTED
-   * rather than imported, because naming either from a module a Worker bundles
-   * pulls Astro and the `.astro` registry into that bundle — a bundler resolves
-   * a static specifier whether or not the branch ever runs.
-   *
-   * A Node caller passes them (`render/write.ts` exports both). The Worker
-   * passes neither and renders L1, which is every site here but one; a page that
-   * mounts a behavior then fails with a message naming REQ-148 rather than
-   * rendering half of itself.
+   * REQ-148 — there are no render seams to inject any more. This class used to
+   * take an Astro container and a module resolver, because a behavior-module page
+   * needed a transform a Worker could not run; behavior components are plain
+   * functions now, so both hosts render every page — L1 or behavior — through the
+   * same {@link renderSiteFiles}.
    */
-  constructor(
-    private readonly store: SiteStore,
-    private readonly renderOpts: Pick<RenderSiteOptions, 'createContainer' | 'resolveModule'> = {},
-  ) {}
+  constructor(private readonly store: SiteStore) {}
 
   /**
    * The artifact `rel` names inside `slug`'s `channel`, or `null` for a request
@@ -162,7 +154,6 @@ export class PreviewRenderer {
     if (hit && hit.stamp === snapshot.stamp) return hit.rendered
     if (!snapshot.result.ok) throw new InvalidDefinitionError(slug, snapshot.result.errors)
     const rendered = await renderSiteFiles(snapshot.result.value, {
-      ...this.renderOpts,
       edit: channel === 'edit',
     })
     this.cache.set(key, { stamp: snapshot.stamp, rendered })

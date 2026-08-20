@@ -11,6 +11,10 @@
  *     (the earlier stdout→stderr diversion had only moved the noise).
  *   • AC-739 — the render path is Astro-free unless a page needs Astro: the
  *     container is constructed only when a page carries behavior modules.
+ *     SUPERSEDED BY REQ-148, which makes the stronger claim true: no page needs
+ *     Astro, because a behavior module is a plain function of its props. Part
+ *     (c) below therefore expects no container for a MODULE page too — the
+ *     measurement is unchanged and the answer is the stronger one.
  *
  * The sibling stdout/stderr-hygiene criteria (AC-656/657/658/659) and the
  * aligned-crops sandbox routing (AC-720) are covered in
@@ -131,10 +135,10 @@ describe('story-e15a19ef — the 1c bootstrap is quiet on both streams', () => {
   }, 120_000)
 })
 
-// ── AC-739: the Astro container is created only for behavior-module pages ────
+// ── AC-739, as REQ-148 left it: no Astro container is created for ANY page ──
 
-describe('story-e15a19ef — Astro is engaged only when a page carries modules', () => {
-  it('test_UAT_AC739_astro_container_created_only_for_module_pages', async () => {
+describe('story-e15a19ef — Astro is never engaged by the render (REQ-148)', () => {
+  it('test_UAT_AC739_astro_container_never_created_for_any_page', async () => {
     // ── (a) A site whose pages are all L1 reproductions ──────────────────────
     // Fold a capture to L1 and import it as a raw-L1 home page, then render it
     // through the ordinary render entry point with container creation observed.
@@ -170,8 +174,10 @@ describe('story-e15a19ef — Astro is engaged only when a page carries modules',
     createSpy = vi.spyOn(experimental_AstroContainer, 'create')
     const modOut = (await cmdRender('acme', { cwd })).outDir
 
-    // The container was created on demand …
-    expect(createSpy).toHaveBeenCalled()
+    // REQ-148 — no container here either. This read `toHaveBeenCalled()` while a
+    // behavior module was an Astro component; it is the assertion whose flip IS
+    // the ticket, and the reason the same render now runs in workerd.
+    expect(createSpy).not.toHaveBeenCalled()
     // … and the page renders exactly as before: module markup, its theme CSS,
     // and the client script are all present.
     const modHtml = readFileSync(path.join(modOut, 'index.html'), 'utf8')

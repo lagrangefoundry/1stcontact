@@ -2,9 +2,7 @@ import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getModule } from '@1stcontact/framework/registry'
 import { route, type RouterDeps, type RouterEnv } from '../../../../apps/control-app/src/router'
-import { astroContainer } from '../render/write'
 import type { SiteStore, StoreContext } from '../store'
 import { fsSiteStore } from '../store'
 import type { TenantSiteStore } from '../store/d1r2-store'
@@ -117,10 +115,6 @@ function depsFor(ctx: StoreContext): RouterDeps {
   return {
     store,
     importStore: store,
-    // The Node origin CAN render behavior modules. The Worker cannot until
-    // REQ-148, and that difference is a capability of the HOST, injected here,
-    // rather than a fork in the render.
-    render: { createContainer: astroContainer, resolveModule: getModule },
   }
 }
 

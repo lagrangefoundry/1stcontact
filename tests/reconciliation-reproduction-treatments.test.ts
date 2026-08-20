@@ -17,13 +17,12 @@
  *           labelling stays a fixed accessibility obligation of the core.
  */
 import { describe, expect, it } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 
 import { validateL1, type L1Document } from '../packages/site-schema/src/index'
 import { renderL1Document, registry, getModule } from '../packages/framework/src/index'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
 
 // ════════════════════════════════════════════════════════════════════════════
 // AC-719 — card/band + footer visual treatments live in L1 leaf axes, not dials
@@ -139,7 +138,6 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
     expect(Object.keys(contactFormMeta.slots)).toEqual(['form'])
     expect((contactFormMeta as Record<string, unknown>).dials).toBeUndefined()
 
-    const container = await AstroContainer.create()
 
     // (b) REQ-96 — the submit button IS an L1 control leaf: the module supplies
     // `<button type=submit>` and its label, L1 supplies the class and every paint
@@ -154,8 +152,9 @@ describe('STORY-82 — contact-form presentation via capability config + L1 slot
         { kind: 'control', control: 'submit', axes: { surfaceFill: '#e11d48' } },
       ],
     }
-    const rendered = await container.renderToString(ContactForm, {
-      props: { config: { ...config, submitLabel: 'Send message' }, slots: { form } },
+    const rendered = ContactForm({
+      config: { ...config, submitLabel: 'Send message' },
+      slots: { form },
     })
     expect(rendered).toMatch(/<button[^>]*class="[^"]*contact-form-form-l1-\d+"[^>]*type="submit"/)
     expect(rendered).toContain('Send message')

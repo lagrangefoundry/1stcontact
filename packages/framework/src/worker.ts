@@ -2,26 +2,26 @@
  * `@1stcontact/framework/worker` — the framework surface reachable from workerd
  * (REQ-143).
  *
- * WHY A SECOND ENTRY POINT EXISTS. The package's main entry re-exports the
- * module *registry*, which imports two `.astro` components. That is correct for
- * the render path and unusable everywhere else: an `.astro` file cannot be
- * parsed by any build that does not carry Astro's transform, so one import of
- * the barrel makes the importer node-only — transitively, and silently, since
- * nothing about `latestModuleVersion` suggests it drags a component in.
+ * WHY A SECOND ENTRY POINT EXISTS. The package's main entry re-exports
+ * `renderMarkdown`, and with it `@astrojs/markdown-remark` — Shiki, Prism, a
+ * `virtual:` specifier and a wasm package no Worker bundle can resolve. One
+ * import of the barrel therefore makes the importer node-only, transitively and
+ * silently, since nothing about `latestModuleVersion` suggests it drags a
+ * markdown pipeline in.
  *
- * That is exactly what had happened to the structured-edit surface. REQ-142 took
- * the filesystem out of `edit.ts` so it could run in a Worker (DOC-12 §7 phase
- * 2), and it still could not: it imported the barrel. This entry is the missing
- * half — the same contracts, validators and L1 predicates, with no render
- * binding anywhere in the graph.
+ * That is what had happened to the structured-edit surface. REQ-142 took the
+ * filesystem out of `edit.ts` so it could run in a Worker (DOC-12 §7 phase 2),
+ * and it still could not: it imported the barrel. This entry is the missing
+ * half — the same contracts, validators, L1 predicates and render, with nothing
+ * unbundlable in the graph.
  *
  * WHAT MAY BE EXPORTED HERE. Anything whose transitive imports are plain
  * TypeScript. `l1/render.ts` qualifies despite its name: it emits HTML as
- * strings and imports only `@1stcontact/site-schema`. `behavior.ts` qualifies
- * because its one Astro import is `import type`, erased before any runtime sees
- * it. A `.astro` import — direct or transitive — does not qualify, and the
- * workerd suite is what says so: it loads this entry, so a regression here is a
- * failing test rather than a discovery at deploy time.
+ * strings and imports only `@1stcontact/site-schema`. Since REQ-148 the module
+ * *registry* qualifies too — its two behavior components are plain functions,
+ * not `.astro` files. The workerd suite is what enforces this: it loads this
+ * entry, so a regression here is a failing test rather than a discovery at
+ * deploy time.
  */
 
 // The theme tokens. Plain data with no imports at all, and the scaffolder's
@@ -32,6 +32,14 @@ export type { ThemeTokens, DeepPartial } from './tokens'
 // The behavior catalog as contracts — no components. See `modules/catalog.ts`.
 export { CATALOG, catalog, getModuleMeta, latestModuleVersion } from './modules/catalog'
 
+// The catalog WITH its components (REQ-148). This used to be the one thing this
+// entry could not carry: the components were `.astro` files, so `getModule`
+// could only be reached where Astro's transform ran, and `render.ts` took it as
+// an injected seam that a Worker simply never supplied. They are plain functions
+// now, so the resolver is portable and the Worker renders a behavior module
+// through exactly the code Node runs.
+export { registry, getModule } from './modules/registry'
+
 // The behavior contract and its validators.
 export {
   validateBehaviorConfig,
@@ -41,9 +49,9 @@ export {
   resolveControlNames,
 } from './modules/behavior'
 export type {
-  // The component-bound form. The TYPE is safe here — a resolver's signature
-  // names it — while the registry that produces one is not (see below).
   BehaviorDefinition,
+  BehaviorComponent,
+  BehaviorProps,
   BehaviorMeta,
   BehaviorConfigSpec,
   BehaviorConfigType,
@@ -70,12 +78,8 @@ export { l1PaintsSurface } from './l1/render'
 // Each export below reaches only plain TypeScript: `l1/render.ts` emits HTML as
 // strings, `tokens` is data, `markdown.ts` holds a CSS constant, and
 // `modules/styles.ts` reads the PRECOMPILED module chrome (`module-assets.ts`)
-// rather than the `.astro` sources it used to open at render time.
+// rather than the `styles.css` sources it used to open at render time.
 //
-// `getModule` is deliberately NOT here. It resolves a behavior's Astro
-// component, so it cannot be reached without the transform; `render.ts` imports
-// it dynamically, behind the same test that decides whether a container is
-// needed at all. That is REQ-148's boundary, and this is the line it sits on.
 export { generateThemeCss } from './tokens'
 export { getModuleCss, getModuleClientJs } from './modules/styles'
 export { CALLOUT_CSS } from './modules/callout-css'

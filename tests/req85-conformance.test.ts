@@ -7,7 +7,7 @@ import {
   type ConformanceFixture,
   type ModuleResolver,
 } from '../tools/generate/src'
-import ThrowsOnRender from './fixtures/conformance/throws-on-render.astro'
+import { throwsOnRender as ThrowsOnRender } from './fixtures/conformance/throws-on-render'
 
 /**
  * UATs for REQ-85 acceptance `conformance` — both capability modules satisfy the

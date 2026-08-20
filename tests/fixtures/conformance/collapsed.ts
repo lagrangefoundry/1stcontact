@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-39 negative fixture (test infrastructure, NOT a shipping module): a module
  * whose expected-content band is collapsed to zero height. The inner container
@@ -6,12 +7,10 @@
  * `scrollHeight` behind a zero `clientHeight`, which the harness's
  * `safety.collapsed` check MUST flag red. Inline styles only.
  */
----
-
-<section style="padding: 40px">
+export const collapsed: BehaviorComponent = () => `<section style="padding: 40px">
   <h2>Collapsed-container fixture</h2>
   <div style="height: 0px; overflow: hidden">
     <h3>This heading lives inside a container collapsed to zero height</h3>
     <p>The content is present in the DOM with real intrinsic height, but the container clips it to nothing.</p>
   </div>
-</section>
+</section>`

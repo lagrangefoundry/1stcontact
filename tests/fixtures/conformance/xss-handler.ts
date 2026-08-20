@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-40 negative fixture (test infrastructure, NOT a shipping module): a module
  * that emits an inline event handler from would-be content. A real module never
@@ -6,9 +7,7 @@
  * script surface — the harness's `security.script` check MUST flag it red. The
  * `src=x` fails to load, firing `onerror`, which also trips the execution sentinel.
  */
----
-
-<section style="padding: 40px">
+export const xssHandler: BehaviorComponent = () => `<section style="padding: 40px">
   <h2>Inline-handler fixture</h2>
   <img src="x" alt="" onerror="window.__fcXssExecuted=true" />
-</section>
+</section>`

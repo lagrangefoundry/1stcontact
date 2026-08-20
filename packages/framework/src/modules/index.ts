@@ -64,6 +64,8 @@ export type {
   BehaviorSlotValue,
   BehaviorInstance,
   BehaviorDefinition,
+  BehaviorComponent,
+  BehaviorProps,
   BehaviorConformance,
   ConformanceObligation,
   BehaviorValidationError,

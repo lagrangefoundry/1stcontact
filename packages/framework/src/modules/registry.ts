@@ -1,7 +1,7 @@
 import type { BehaviorDefinition } from './behavior'
 import { CATALOG, catalog, getModuleMeta, latestModuleVersion } from './catalog'
-import ContactForm from './contact-form/index.astro'
-import Carousel from './carousel/index.astro'
+import { contactForm } from './contact-form/component'
+import { carousel } from './carousel/component'
 
 /**
  * The behavior-module catalog **bound to its components** (REQ-85).
@@ -13,16 +13,18 @@ import Carousel from './carousel/index.astro'
  * through this registry; a site definition pins each instance to an `id` +
  * `version` and the generator resolves the component via {@link getModule}.
  *
- * ⚠️ THIS MODULE IS NODE/ASTRO-ONLY (REQ-143). The two `.astro` imports below
- * need Astro's transform, so importing this file pulls that requirement into the
- * graph. Code that must run in a Worker — the structured-edit surface, and
- * anything reaching it — imports {@link ./catalog} instead, which is the same
- * contracts without the render binding. The component map is derived from
- * {@link CATALOG} rather than restated, so the two cannot drift.
+ * THIS MODULE RUNS ANYWHERE (REQ-148). It used to be node-only: the two
+ * components were `.astro` files, so importing this file pulled Astro's
+ * transform into the graph and confined every importer to Node. They are plain
+ * TypeScript functions now, so the registry is reachable from workerd and a
+ * behavior renders there through exactly the code Node runs. {@link ./catalog}
+ * remains the contracts-only entry for callers that want no component binding at
+ * all; the component map below is derived from {@link CATALOG} rather than
+ * restated, so the two cannot drift.
  */
 const COMPONENTS: Record<string, BehaviorDefinition['Component']> = {
-  'contact-form': ContactForm,
-  carousel: Carousel,
+  'contact-form': contactForm,
+  carousel,
 }
 
 const MODULES: BehaviorDefinition[] = CATALOG.map((meta) => {

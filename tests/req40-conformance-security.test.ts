@@ -12,10 +12,10 @@ import {
 } from '../tools/generate/src'
 
 const carouselMeta = getModule('carousel', 3).meta
-import XssUrl from './fixtures/conformance/xss-url.astro'
-import XssHandler from './fixtures/conformance/xss-handler.astro'
-import CssBreakout from './fixtures/conformance/css-breakout.astro'
-import Egress from './fixtures/conformance/egress.astro'
+import { xssUrl as XssUrl } from './fixtures/conformance/xss-url'
+import { xssHandler as XssHandler } from './fixtures/conformance/xss-handler'
+import { cssBreakout as CssBreakout } from './fixtures/conformance/css-breakout'
+import { egress as Egress } from './fixtures/conformance/egress'
 
 /**
  * UATs for REQ-40 — the conformance harness **security dimension** ([[DOC-20]]

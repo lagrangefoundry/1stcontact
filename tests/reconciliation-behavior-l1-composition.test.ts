@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -16,8 +15,8 @@ import {
 } from '../packages/framework/src/index'
 import type { BehaviorSlotValue } from '../packages/framework/src/index'
 import { l1NodeSchema, validateL1 } from '../packages/site-schema/src/index'
-import Carousel from '../packages/framework/src/modules/carousel/index.astro'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import { carousel as Carousel } from '../packages/framework/src/modules/carousel/component'
+import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 
 /**
@@ -38,12 +37,10 @@ import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
  * itself for the generated stylesheet.
  */
 
-// ── SSR render helpers (Astro container API — the tools/generate render path) ──
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-async function render(Component: unknown, props: unknown): Promise<string> {
-  container ??= await AstroContainer.create()
-  return container.renderToString(Component as never, { props: props as Record<string, unknown> })
+// ── SSR render helper — the tools/generate render path (REQ-148: a behavior is
+// a plain function of its props, so this IS the render, not a stand-in for it) ──
+function render(Component: unknown, props: unknown): string {
+  return (Component as (p: unknown) => string)(props)
 }
 
 /**
@@ -51,11 +48,25 @@ async function render(Component: unknown, props: unknown): Promise<string> {
  * stripped — a rule is what ships, and a comment saying the module no longer
  * sets `flex-basis` must not read as the module setting it.
  */
+/**
+ * Where the section beginning at `start` ends: the next `/* module: … *​/` header,
+ * or the responsive-typography tail `getModuleCss()` appends after the last one.
+ */
+function nextSection(css: string, start: number): number {
+  const m = /\n\n\/\* (?:module: |responsive )/.exec(css.slice(start + 1))
+  return m ? start + 1 + m.index : -1
+}
+
 function moduleCss(slug: string): string {
   const all = getModuleCss()
   const start = all.indexOf(`/* module: ${slug} */`)
   expect(start, `module ${slug} present in the generated stylesheet`).toBeGreaterThanOrEqual(0)
-  const next = all.indexOf('\n\n/* ', start + 1)
+  // REQ-148 — end at the next SECTION header, not at any top-level comment. The
+  // chrome used to live indented inside an `.astro` `<style>` block, so a comment
+  // of its own never began at column 0 and `\n\n/* ` could only be the next
+  // section. It lives in a real `styles.css` now, dedented, so the loose pattern
+  // truncated a module's block at its first internal comment.
+  const next = nextSection(all, start)
   return all.slice(start, next < 0 ? all.length : next).replace(/\/\*[\s\S]*?\*\//g, '')
 }
 
@@ -487,12 +498,16 @@ describe('story-179b8c06 — the generated stylesheet carries chrome, not source
     expect(css).not.toMatch(/set:html/)
     expect(css).not.toMatch(/<section|<ul\b|<li\b|<form\b/)
 
-    // `carousel` is the module that does BOTH — its frontmatter comment names the
-    // tag and its body emits a self-closing one — so its full chrome block must
-    // survive: the rules before the construct AND the ones after it.
+    // `carousel`'s full chrome block must survive intact: the rules before its
+    // internal comments and the ones after them. (Before REQ-148 this guarded a
+    // regex scanner over an `.astro` template, which could swallow the block at a
+    // doc comment mentioning `<style>` or at a self-closing `<style set:html>`;
+    // the chrome is a plain `styles.css` now and the scanner is deleted, but the
+    // assertion still holds — the generated stylesheet must carry chrome, never
+    // component source.)
     const start = css.indexOf('/* module: carousel */')
     expect(start).toBeGreaterThanOrEqual(0)
-    const next = css.indexOf('\n\n/* ', start + 1)
+    const next = nextSection(css, start)  // a section header, not any comment (REQ-148)
     const carouselBlock = css.slice(start, next < 0 ? css.length : next)
     expect(carouselBlock).toMatch(/scroll-snap-type/)
     expect(carouselBlock).toMatch(/\[data-carousel-dot\]\[data-carousel-current\]/)

@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { JSDOM } from 'jsdom'
 
 import { contactFormMeta } from '../packages/framework/src/index'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
 import { enhanceAllContactForms } from '../packages/framework/src/modules/contact-form/client.js'
 
 /**
@@ -53,9 +52,6 @@ const FORM_SLOT = {
   ],
 }
 
-type Container = Awaited<ReturnType<typeof AstroContainer.create>>
-let container: Container
-
 interface Mounted {
   form: HTMLFormElement
   window: JSDOM['window']
@@ -70,10 +66,7 @@ interface Mounted {
  * and attach the shipped client behaviour exactly as the browser would.
  */
 async function mountForm(action: string): Promise<Mounted> {
-  container ??= await AstroContainer.create()
-  const html = await container.renderToString(ContactForm as never, {
-    props: { config: { ...FORM_CONFIG, action }, slots: { form: FORM_SLOT } },
-  })
+  const html = ContactForm({ config: { ...FORM_CONFIG, action }, slots: { form: FORM_SLOT } })
   const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`, {
     url: 'https://site.test/contact',
   })

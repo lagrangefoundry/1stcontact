@@ -1,7 +1,6 @@
 import path from 'node:path'
 import type { LoadedSite } from '../store/loadSite'
 import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
-import { getModule } from '@1stcontact/framework/registry'
 import { renderSiteFiles, type RenderSiteOptions } from './render'
 
 /**
@@ -19,55 +18,13 @@ import { renderSiteFiles, type RenderSiteOptions } from './render'
  * byte; this is the same thin writer it always was, in a file whose imports
  * declare what it needs.
  *
- * IT IS ALSO WHERE THE MODULE RESOLVER NOW LIVES. `getModule` reaches the
- * registry and its two `.astro` imports, so naming it from `render.ts` would put
- * them in the Worker's bundle — a bundler resolves a static specifier at build
- * time, so even a dynamic `import()` behind an untaken branch would be pulled
- * in. This file is node-only by construction, which makes it the right place to
- * supply the default; the Worker supplies none and renders L1, which is exactly
- * the boundary REQ-148 moves.
+ * IT NO LONGER INJECTS ANYTHING (REQ-148). It used to supply the two seams a
+ * Worker could not reach — an Astro container, and the module resolver that
+ * reached the `.astro`-bound registry. Behavior components are plain TypeScript
+ * functions now, so there is no container at all and the registry is portable:
+ * `render.ts` names `getModule` itself, and `renderSiteFilesNode` (which existed
+ * only to hold those two defaults) is gone with them.
  */
-
-/**
- * The Astro container, created on demand (REQ-89, REQ-145).
- *
- * Exported because a caller that renders a behavior module through
- * {@link renderSiteFiles} directly — the conformance harness, a UAT — needs the
- * same one, and because this is the single place in the repository that names
- * `astro/container` outside Astro's own build. Anything importing this file is
- * node-only, which is the property that makes the import safe here and unsafe in
- * `render.ts`.
- */
-export async function astroContainer() {
-  const { experimental_AstroContainer } = await import('astro/container')
-  return experimental_AstroContainer.create()
-}
-
-/**
- * The render, with the seam a NODE host can supply already injected (REQ-145).
- *
- * `renderSiteFiles` deliberately imports neither Astro nor the module registry,
- * because it is bundled into a Worker and a bundler resolves a static specifier
- * whether or not the branch runs. That makes the seam the CALLER's to supply —
- * and every Node caller supplies the same one, so it is named once here instead
- * of restated at each call site, where the third copy would be the one that
- * quietly disagreed.
- */
-export function renderSiteFilesNode(
-  loaded: LoadedSite,
-  opts: RenderSiteOptions = {},
-): ReturnType<typeof renderSiteFiles> {
-  // Per key, NOT a spread. A caller that passes `resolveModule: undefined` —
-  // the conformance harness does, forwarding an optional of its own — would
-  // otherwise overwrite the default with `undefined` and fail as though it had
-  // asked for no resolver at all. Absent must mean absent, not "explicitly
-  // nothing".
-  return renderSiteFiles(loaded, {
-    ...opts,
-    resolveModule: opts.resolveModule ?? getModule,
-    createContainer: opts.createContainer ?? astroContainer,
-  })
-}
 
 /**
  * Render `loaded` to `outDir`. The directory is emptied first so stale pages
@@ -82,7 +39,7 @@ export async function renderSite(
   outDir: string,
   opts: RenderSiteOptions = {},
 ): Promise<string[]> {
-  const rendered = await renderSiteFilesNode(loaded, opts)
+  const rendered = await renderSiteFiles(loaded, opts)
   emptyDir(outDir)
   for (const [rel, text] of rendered.files) {
     writeText(path.join(outDir, rel), text)

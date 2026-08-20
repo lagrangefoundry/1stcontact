@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-40 negative fixture (test infrastructure, NOT a shipping module): a module
  * that lets a content value break out of an inline-style declaration context. The
@@ -6,9 +7,7 @@
  * of breakout a colour field must never permit. The harness's
  * `security.css-breakout` check MUST flag the stray `{`/`}` red.
  */
----
-
-<section style="padding: 40px">
+export const cssBreakout: BehaviorComponent = () => `<section style="padding: 40px">
   <h2>CSS-breakout fixture</h2>
   <div style="color: red;}body{display:none">Styled by attacker-controlled value.</div>
-</section>
+</section>`

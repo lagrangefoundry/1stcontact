@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-40 negative fixture (test infrastructure, NOT a shipping module): a module
  * that emits an unsafe URL scheme. A `javascript:` anchor href and a
@@ -7,10 +8,8 @@
  * them red. The container render keeps attributes, so the schemes survive to the
  * DOM the probe scans.
  */
----
-
-<section style="padding: 40px">
+export const xssUrl: BehaviorComponent = () => `<section style="padding: 40px">
   <h2>Unsafe-URL fixture</h2>
   <a href="javascript:window.__fcXssExecuted=true">click me</a>
   <a href="data:text/html,<h1>owned</h1>">and me</a>
-</section>
+</section>`
