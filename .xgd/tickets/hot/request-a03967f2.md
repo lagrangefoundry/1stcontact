@@ -5,9 +5,9 @@ type: request
 title: Money and time representation, and the render-determinism resolution
 created_by: xgd
 created_at: '2026-08-20T21:59:25.587137+00:00'
-updated_at: '2026-08-20T21:59:25.587137+00:00'
+updated_at: '2026-08-20T21:59:44.575475+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -104,7 +104,7 @@ and [[DOC-25]] §11:
 
 ## Test approach
 
-UATs named `test_UAT_FC_REQ-<id>_*` covering AC 1–4, with the DST case using explicit fixed
+UATs named `test_UAT_FC_REQ-152_*` covering AC 1–4, with the DST case using explicit fixed
 instants (no reliance on the ambient clock — see AC 4). Regression scope is the framework
 render suite.
 
