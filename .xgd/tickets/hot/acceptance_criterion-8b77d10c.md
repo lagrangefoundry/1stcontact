@@ -6,10 +6,10 @@ title: Closing without confirming — by the control, by Escape, or by clicking 
   — answers the opener with nothing, exactly once, and changes no state
 created_by: xgd
 created_at: '2026-08-20T01:59:15.831285+00:00'
-updated_at: '2026-08-20T01:59:15.831285+00:00'
+updated_at: '2026-08-20T02:20:59.094459+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4300366a
   kind: behavior
