@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-19 free-coded commits (REQ-133, BUG-35, REQ-
   REQ-140, REQ-139, REQ-123, REQ-141, REQ-144, REQ-142)'
 created_by: xgd
 created_at: '2026-08-20T01:12:52.279101+00:00'
-updated_at: '2026-08-20T05:12:21.127721+00:00'
+updated_at: '2026-08-20T05:33:06.479447+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -548,7 +548,7 @@ fields:
       provisioning were never run in session' — which `bin/smoke` is the answer to,
       but the answer is a new operator capability rather than a change to what the
       server does, so it is a feature beside those stories and not an upgrade to them.
-    story_uid: null
+    story_uid: story-d5167ced
 ---
 
 # Reconciliation Plan — BUNDLE-19
