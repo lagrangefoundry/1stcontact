@@ -6,7 +6,7 @@ title: Run-composited surfaces are reconstructed as a page background band plus 
   box leaves
 created_by: xgd
 created_at: '2026-07-29T04:05:20.467187+00:00'
-updated_at: '2026-08-20T12:47:28.847547+00:00'
+updated_at: '2026-08-20T13:09:56.665372+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -62,13 +62,15 @@ bar from an evenly-tiled card grid, whose small, even gaps keep it as cards. The
 are ordered so the majority rule still wins the page; the bar path only rescues a strip
 the majority rule cannot see.
 
-A **self-painting run** — one whose own border box already spans the surface it
-sits on (a fully-rounded pill, or a control with authored vertical inset) — is
-excepted in both directions: it carries that surface on its own text leaf, and it
-contributes nothing to this reconstruction. No row, no backing box, and its fill is
-not evidence for the band or for any card signature; the enclosing card is defined
-by its other runs. A backing box behind such a run would duplicate the pill as a
-card.
+**A self-painting run paints its own surface on its own text leaf.** A run whose own
+border box already spans the surface it sits on — a fully-rounded pill (its radius
+reaching half its painted height), or a control carrying authored vertical inset over its
+own fill — folds the fill, corner radius, border and shadow **onto the text leaf itself**,
+with the radius clamped into the L1 length envelope (any radius at or past half the height
+paints the same pill). It is excepted in both directions: because it carries that surface
+itself, it contributes nothing to this reconstruction — no row, no backing box, and its
+fill is not evidence for the band or for any card signature; the enclosing card is defined
+by its other runs. A backing box behind such a run would duplicate the pill as a card.
 
 ## Verification
 Fold a multi-viewport capture whose runs carry composited fills; assert the document
@@ -97,3 +99,21 @@ left and right edges of a full-width row, and assert their fill seeds a full-ble
 rather than two tiny cards; fold an evenly-tiled three-up row of the same fill and assert
 it stays cards. Assert the page's own band is still chosen by the majority rule when both
 paths apply.
+
+Self-painting run — **both** families, each asserted in both directions:
+- **Pill.** Fold a capture holding a run whose own radius saturates (reaching half its
+  painted height) over its own fill, and assert its **text leaf** carries that fill,
+  radius, border and shadow; that **no** backing box is emitted for it; and that a
+  saturating sentinel radius is clamped into the envelope's length range rather than
+  rejected.
+- **Padded control.** Fold a capture holding a run with authored vertical inset over its
+  own fill (a button-shaped run whose rounding is modest, so pill saturation does not
+  catch it) and assert the same: surface on the text leaf, no backing box, and the leaf's
+  box not outset by an inferred padding.
+- **Contributes no evidence.** In a card whose other runs share one fill, assert a
+  self-painting run of a *different* fill inside it neither seeds a band nor forms its own
+  card nor perturbs the enclosing card's signature or rect — the card is defined by its
+  other runs, and the page band is still chosen from the non-self-painting runs.
+- **Not over-applied.** Assert a run with only *horizontal* padding, and a run whose
+  vertical inset accompanies a surface gradient or a `border-left` accent bar, each stay
+  on the card path and still emit their backing box — the exception does not swallow them.
