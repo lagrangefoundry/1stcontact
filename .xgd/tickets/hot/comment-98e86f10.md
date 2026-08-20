@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T00:56:40.946605+00:00'
+updated_at: '2026-08-20T21:27:58.833027+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -341,5 +341,11 @@ Two things I'd defer explicitly rather than pretend away: **`--prune` has no hom
 Also worth saying plainly: this is more than "port publish". It's migration `0002`, revision storage in the port, the publish service, render-to-R2, `public-site`'s store swap, and deleting deploy. Still one coherent unit — splitting it would leave a half-migrated manifest between tickets — but it's a fat 13.
 
 Tell me previews (port or drop) and I'll write the ticket body, cut `free-REQ-149`, and start.
+
+<!-- xgd-turn id="cb161374-c2a2-4bb0-be7c-ba25ffb047df-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:27:58.728272+00:00" -->
+#### You
+**A single canonical record in D1 means the CLI can no longer be a publisher. <-- we could maybe modify the CLI so it hits an endpoint, right? But I have no hard requiirement to maintain the CLI it is for dev and test only**
 
 <!-- xgd-chat-end -->
