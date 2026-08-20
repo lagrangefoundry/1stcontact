@@ -6,7 +6,7 @@ title: Gate report carries fold residuals as a channel distinct from probe resid
   and unmatched entries
 created_by: xgd
 created_at: '2026-07-29T04:20:20.495518+00:00'
-updated_at: '2026-08-16T08:03:39.273922+00:00'
+updated_at: '2026-08-20T14:39:47.897359+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
