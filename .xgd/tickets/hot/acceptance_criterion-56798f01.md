@@ -6,10 +6,10 @@ title: Each entry point names its store once at start-up, and the assistant's to
   adapter edits through the one it named
 created_by: xgd
 created_at: '2026-08-20T15:59:43.588551+00:00'
-updated_at: '2026-08-20T15:59:43.588551+00:00'
+updated_at: '2026-08-20T16:00:06.922984+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
