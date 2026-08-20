@@ -6,10 +6,10 @@ title: A run whose glyphs are painted by a gradient has its colour offered unava
   with a reason, still in position, while the same control on an ordinary run is untouched
 created_by: xgd
 created_at: '2026-08-20T02:57:26.639515+00:00'
-updated_at: '2026-08-20T02:57:26.639515+00:00'
+updated_at: '2026-08-20T03:25:22.956140+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
