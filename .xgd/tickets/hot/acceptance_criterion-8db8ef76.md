@@ -6,9 +6,9 @@ title: A slot leaf renders as an inert labelled placeholder when unbound, and as
   same box carrying the mounted behaviour's fragment when bound
 created_by: xgd
 created_at: '2026-07-24T22:54:24.547238+00:00'
-updated_at: '2026-08-20T08:02:49.596533+00:00'
+updated_at: '2026-08-20T08:17:18.010053+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -42,6 +42,17 @@ than instance data (every value inside it passed the module's own escaping / URL
 sinks on the way in), so it is inserted verbatim. `data-l1-slot` and
 `data-l1-behavior` are emitted identically in both cases.
 
+**Per-instance class namespaces.** A mounted fragment's classes are drawn from a
+**per-instance prefix**, so the styling of one mount can never reach another's
+nodes or the host document's. Two instances of the *same* behavior mounted into
+two seams of one page emit **disjoint** class-name sets, and each instance's rules
+select only its own nodes; the same holds between any mounted fragment and the
+document that hosts it. This is a property of the emission, not of any one caller:
+whoever renders a fragment supplies a value unique to that instance, and the
+renderer namespaces every class in that subtree under it. Without it the second
+carousel on a page, or a mounted form against its host, would emit the same class
+names as the first and cross-style it.
+
 The attribute names the *behavior* module id: REQ-87 renamed the runtime module
 type, and the emitted attribute is `data-l1-behavior`, not the pre-rename
 `data-l1-capability`.
@@ -65,3 +76,12 @@ as its content, with no wrapper element interposed between the seam and the
 fragment, and with its `data-l1-slot` / `data-l1-behavior` attributes and its own
 axis-derived class unchanged from the unbound render; the seams absent from the
 map still render empty.
+
+Finally, render **two instances of one behavior** — the same subtree, each under
+its own per-instance prefix — and mount them into two seams of the same document.
+Observe: the two fragments' class-name sets are disjoint, neither fragment's class
+names appear in the other's markup or rules, and neither collides with the classes
+the host document emitted for its own nodes; each fragment's rules therefore select
+only its own nodes. Confirm the guard is load-bearing by rendering the same subtree
+twice under one shared prefix and observing that the class names then coincide —
+the collision the per-instance namespace exists to prevent.
