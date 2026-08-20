@@ -6,9 +6,9 @@ title: A painted backing surface is not a sibling overlap, but is still subject 
   the horizontal-clip check
 created_by: xgd
 created_at: '2026-07-29T04:20:06.192885+00:00'
-updated_at: '2026-08-16T08:03:38.084383+00:00'
+updated_at: '2026-08-20T12:47:36.746241+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -31,7 +31,10 @@ design, not a collision.
 - A surface box whose right edge extends beyond the viewport is still reported as a
   horizontal clip — surfaces are exempt from the overlap check only, not from the
   envelope.
-- Inert placeholder slots are likewise excluded from the overlap check.
+- Inert placeholder slots are likewise excluded from the overlap check — and likewise
+  remain subject to the horizontal-clip check: a slot whose right edge runs past the
+  viewport is still reported. **Both** overlap-exempt leaf kinds are exempt from that
+  one check only; neither is exempt from the envelope.
 - Adding backing surfaces to a document therefore does not change its off-sample or
   content-robustness verdict, and does not change its sample-fidelity verdict for the
   content leaves.
@@ -41,5 +44,7 @@ Fold a capture whose runs carry a composited panel fill so backing surface boxes
 emitted, and assert evaluation reports no overlap findings naming those boxes while the
 document's content-leaf findings are unchanged from the same capture folded without
 surfaces. Construct a surface box extending beyond the viewport and assert a
-horizontal-clip finding is reported for it. Assert the sample-fidelity report for the
-text leaves is unchanged by the presence of the surfaces.
+horizontal-clip finding is reported for it. Construct a placeholder slot extending beyond
+the viewport and assert a horizontal-clip finding is reported for it too, while a slot
+sitting under its own content still yields no overlap finding. Assert the sample-fidelity
+report for the text leaves is unchanged by the presence of the surfaces.
