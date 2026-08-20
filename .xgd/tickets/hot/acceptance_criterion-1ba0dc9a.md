@@ -6,14 +6,15 @@ title: A behavior module may accompany an L1 page only by binding by name to exa
   one existing seam; every unresolvable binding is a rejection with a path
 created_by: xgd
 created_at: '2026-08-20T08:04:08.273673+00:00'
-updated_at: '2026-08-20T08:04:08.273673+00:00'
+updated_at: '2026-08-20T08:06:29.618621+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
