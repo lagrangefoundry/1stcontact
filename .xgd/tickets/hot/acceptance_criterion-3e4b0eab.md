@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: --multi-viewport keeps the site slug as a positional in either flag order
 created_by: xgd
 created_at: '2026-07-19T03:01:36.569827+00:00'
-updated_at: '2026-08-20T04:40:15.098219+00:00'
+updated_at: '2026-08-20T06:59:33.567886+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-e15a19ef
