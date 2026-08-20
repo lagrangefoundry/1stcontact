@@ -6,10 +6,10 @@ title: Storage answers every question totally, for a site it holds and one it do
   not
 created_by: xgd
 created_at: '2026-08-20T05:10:13.236829+00:00'
-updated_at: '2026-08-20T05:10:13.236829+00:00'
+updated_at: '2026-08-20T05:24:47.575612+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
