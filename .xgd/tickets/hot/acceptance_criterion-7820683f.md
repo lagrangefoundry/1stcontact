@@ -6,10 +6,10 @@ title: Every Worker's named environment repeats every top-level variable and bin
   with bindings found structurally
 created_by: xgd
 created_at: '2026-08-20T05:31:46.270991+00:00'
-updated_at: '2026-08-20T05:31:46.270991+00:00'
+updated_at: '2026-08-20T05:57:18.115332+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
