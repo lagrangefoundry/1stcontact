@@ -6,10 +6,10 @@ title: 'Workers-runtime test project: UATs that run inside workerd against real 
   and R2 bindings'
 created_by: xgd
 created_at: '2026-08-15T20:30:39.280519+00:00'
-updated_at: '2026-08-20T21:30:09.117480+00:00'
+updated_at: '2026-08-20T21:30:18.786896+00:00'
 completed_at: '2026-08-20T21:02:49.280994+00:00'
 last_field_updated: status
-status: draft
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
@@ -108,7 +108,7 @@ Role
 
 ## The routing convention
 
-`*.workers.test.ts`** runs in workerd; every other **`*.test.ts`** runs in node.**
+`*.workers.test.ts`** runs in workerd; every other `*.test.ts` runs in node.**
 
 Stated once, in the root config's doc comment. No per-file opt-in comment, no directory split — a file's runtime is legible from its name alone.
 
