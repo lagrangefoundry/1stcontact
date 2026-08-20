@@ -6,9 +6,9 @@ title: Content-robustness probe asserts the envelope holds under perturbed (grow
   content
 created_by: xgd
 created_at: '2026-07-22T20:07:13.870340+00:00'
-updated_at: '2026-08-16T08:03:29.656239+00:00'
+updated_at: '2026-08-20T13:09:19.600011+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -21,10 +21,16 @@ fields:
 The content-robustness probe grows every text run's effective length and every pinned
 box/image height by a scale factor (default 2.5×), evaluates the document at each
 captured width, and reports pass = true with empty findings exactly when the perturbed
-layout produces no sibling overlap and no clip.
+layout keeps the evaluator's **full envelope**: no sibling overlap, no horizontal clip
+beyond the viewport, and no pinned container whose flowed content overruns its pinned
+height.
 
 - A purely-pinned region whose grown content overruns a fixed-position sibling produces
   an overlap finding and pass = false.
+- A **pinned container** whose grown interior content exceeds its pinned keyframe height
+  produces a clip finding and pass = false — content that has nowhere to go inside a box
+  that cannot grow is exactly the failure this probe exists to catch, and it is reported
+  even when nothing crossed the viewport edge.
 - A region whose interior flows (siblings reflow to absorb the extra content) keeps the
   envelope and reports pass = true.
 - Findings are reported per captured width, so the report names the widths at which the
@@ -40,6 +46,11 @@ layout produces no sibling overlap and no clip.
 Run the probe at 2.5× on a folded fixture of pinned sibling text runs and assert
 pass = false with at least one overlap finding. Run it on the equivalent flow-structured
 document and assert pass = true with empty findings.
+
+Pinned container: run the probe on a document whose flow container is pinned to the
+height its unperturbed content exactly fills, and assert the grown content produces a
+clip finding naming that container with pass = false, while the same container left
+unpinned (sizing to its content) passes.
 
 Multi-region: run the probe on a fold whose page carries several independently-colliding
 bands, and assert the pinned base reports overlap findings spanning more than one band
