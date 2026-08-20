@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: --sizes selects and orders the table columns
 created_by: xgd
 created_at: '2026-07-19T02:50:57.222389+00:00'
-updated_at: '2026-08-16T09:18:01.479742+00:00'
+updated_at: '2026-08-20T07:00:11.902457+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
