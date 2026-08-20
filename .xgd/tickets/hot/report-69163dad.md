@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-19 free-coded commits (REQ-133, BUG-35, REQ-
   REQ-140, REQ-139, REQ-123, REQ-141, REQ-144, REQ-142)'
 created_by: xgd
 created_at: '2026-08-20T01:12:52.279101+00:00'
-updated_at: '2026-08-20T02:29:42.344202+00:00'
+updated_at: '2026-08-20T03:00:28.811485+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -228,7 +228,7 @@ fields:
       as the thing it was deferring, so this is explicit supersession (Case 2), not
       a new capability. REQ-140 and REQ-139 both land on this one story, so they are
       one item rather than two.'
-    story_uid: null
+    story_uid: story-37a3921b
   - index: 5
     component: In-Page Copy Editing — the colour row, the lock's face, and the box
       that mirrors the words
