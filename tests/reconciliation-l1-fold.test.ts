@@ -31,7 +31,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import { validateL1 } from '../packages/site-schema/src/index'
+import { validateL1, type L1Node } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
 import { foldToL1 } from '../tools/generate/src'
 import * as cli from '../tools/generate/src/cli/index'
@@ -182,6 +182,43 @@ function elt(text: string, box: ValueElement['box'], fontSizePx = 18): ValueElem
   return { text, role: 'body', color: '#111111', fontFamily: 'Arial', fontSizePx, fontWeight: 400, box }
 }
 
+/** A text-free captured element — the shape media and painted panels arrive in. */
+function textless(over: Partial<ValueElement> & { box: ValueElement['box'] }): ValueElement {
+  return {
+    text: '',
+    role: 'img',
+    color: '',
+    fontFamily: '',
+    fontSizePx: 0,
+    fontWeight: 0,
+    textless: true,
+    ...over,
+  }
+}
+
+/** Every leaf kind in the folded tree, in document order. */
+function leafKinds(root: L1Node): string[] {
+  const out: string[] = []
+  const walk = (n: L1Node): void => {
+    const children = n.kind === 'box' || n.kind === 'container' ? (n.children ?? []) : []
+    if (children.length === 0) out.push(n.kind)
+    children.forEach(walk)
+  }
+  walk(root)
+  return out
+}
+
+/** Every text leaf in the folded tree, in document order. */
+function textLeaves(root: L1Node): Extract<L1Node, { kind: 'text' }>[] {
+  const out: Extract<L1Node, { kind: 'text' }>[] = []
+  const walk = (n: L1Node): void => {
+    if (n.kind === 'text') out.push(n)
+    if (n.kind === 'box' || n.kind === 'container') (n.children ?? []).forEach(walk)
+  }
+  walk(root)
+  return out
+}
+
 /** A resting projection at one width — the shape `foldToL1` consumes. */
 function proj(width: number, elements: ValueElement[]): StateProjection {
   return {
@@ -224,6 +261,39 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     expect(l1!.widths).toEqual(LADDER)
     expect(l1!.root.kind).toBe('box')
 
+    // The document is a FULL-LANGUAGE reproduction, not a text-only one: a
+    // capture carrying runs, media and painted panels folds to leaves of more
+    // than one kind.
+    const mixed = foldToL1({
+      url: 'http://fixture.test/',
+      notes: [],
+      projections: LADDER.map((w) =>
+        proj(w, [
+          elt('Headline', { x: 20, y: 40, width: w - 40, height: 48 }),
+          textless({
+            a11yRole: 'img',
+            objectFit: 'cover',
+            intrinsicAspect: 1.5,
+            src: 'https://cdn.example.com/hero.jpg',
+            alt: 'Hero',
+            box: { x: 0, y: 120, width: w, height: 300 },
+          }),
+          textless({
+            role: 'separator',
+            a11yRole: 'separator',
+            surfaceFill: '#f0eee9',
+            borderRadiusPx: 8,
+            box: { x: 40, y: 460, width: w - 80, height: 4 },
+          }),
+        ]),
+      ),
+    })
+    expect(validateL1(mixed).ok).toBe(true)
+    const kinds = new Set(leafKinds(mixed.root))
+    expect(kinds.size).toBeGreaterThan(1)
+    expect(kinds.has('text')).toBe(true)
+    expect(kinds.has('image')).toBe(true)
+
     // If no resting sample can be folded, the fold fails explicitly rather than
     // emitting an empty/invalid document.
     const emptyLadder: MultiStateCapture = { url: 'http://fixture.test/', notes: [], projections: [] }
@@ -265,12 +335,17 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
     const multiState: MultiStateCapture = {
       url: 'http://fixture.test/',
       notes: [],
-      projections: widths.map((w) => proj(w, [elt('Headline', boxes[w]!, fontByWidth[w]!)])),
+      projections: widths.map((w) =>
+        proj(w, [
+          elt('Headline', boxes[w]!, fontByWidth[w]!),
+          // A second run whose type is IDENTICAL at every sampled width.
+          elt('Static Tagline', { x: 20, y: 300, width: w - 40, height: 30 }, 20),
+        ]),
+      ),
     }
 
     const doc = foldToL1(multiState)
-    const leaves = doc.root.kind === 'box' ? doc.root.children ?? [] : []
-    const node = leaves.find((n) => n.kind === 'text' && n.text === 'Headline')
+    const node = textLeaves(doc.root).find((n) => n.text === 'Headline')
     expect(node?.kind).toBe('text')
     if (node?.kind === 'text') {
       const kfs = node.geometry!.keyframes
@@ -284,8 +359,28 @@ describe('Reconciliation — story-8acc338d capture → L1 fold + advisory hints
         expect(kf.y).toBe(Math.round(box.y))
         expect(kf.width).toBe(Math.round(box.width))
       }
-      // Typography axes are taken from the widest present sample (1280 → 44px).
-      expect(node.axes.fontSizePx).toBe(44)
+      // A TEXT leaf's keyframes carry no height — its extent is natural from
+      // flow, unlike a box/image/backing-surface leaf, which pins all four.
+      for (const kf of kfs) expect(kf.height).toBeUndefined()
+      // Typography axes are taken from the widest present sample (1280 → 44px)…
+      expect(node.axes?.fontSizePx).toBe(44)
+      // …and because the measured size VARIES across the ladder, that base
+      // scalar is layered with its own per-width track carrying the captured
+      // value at each width. Without this, a regression that dropped the track
+      // entirely would still satisfy the widest-sample assertion above.
+      const track = node.responsive?.fontSizePx
+      expect(track).toBeDefined()
+      expect(track!.keyframes.map((k) => k.at)).toEqual(widths)
+      expect(track!.keyframes.map((k) => k.value)).toEqual(widths.map((w) => fontByWidth[w]!))
+    }
+
+    // An axis holding ONE value at every sampled width stays a plain scalar with
+    // no track — the track is emitted on measured variance, not by default.
+    const tagline = textLeaves(doc.root).find((n) => n.text === 'Static Tagline')
+    expect(tagline?.kind).toBe('text')
+    if (tagline?.kind === 'text') {
+      expect(tagline.axes?.fontSizePx).toBe(20)
+      expect(tagline.responsive?.fontSizePx).toBeUndefined()
     }
   })
 

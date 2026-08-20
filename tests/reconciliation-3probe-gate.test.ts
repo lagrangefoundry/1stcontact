@@ -34,7 +34,7 @@ import type {
   ValueElement,
 } from '../tools/generate/src/cli/capture'
 import { validateL1 } from '../packages/site-schema/src/index'
-import type { L1Node } from '../packages/site-schema/src/index'
+import type { L1Document, L1Node } from '../packages/site-schema/src/index'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 
@@ -237,6 +237,68 @@ function extraImage(width: number, y: number): ValueElement {
     alt: 'Surplus',
     box: { x: 10, y, width: width - 20, height: 100 },
   })
+}
+
+// ── the pinned-container fixture (AC-706 / AC-707 / AC-710) ──────────────────
+//
+// One mechanism, seen from three probes: a flow container pinned to a fixed
+// keyframe height whose in-flow content stacks past it. The evaluator reports it
+// under `clip` naming both heights and the CONTAINER's path — AC-710 grades the
+// finding's shape, AC-706 catches it at an unsampled intermediate width, and
+// AC-707 catches it under grown content.
+
+/** A geometry-free (in-flow) text leaf — 16px type on a 22px line box. */
+function flowText(text: string, extra: Partial<L1Node> = {}): L1Node {
+  return {
+    kind: 'text',
+    text,
+    axes: { color: '#111827', fontFamily: 'Arial', fontSizePx: 16, fontWeight: 400 },
+    ...extra,
+  } as L1Node
+}
+
+/** Three one-line rows: 3 × 22px + 2 × 10px gap = 86px of stacked content. */
+function threeRows(text = 'Alpha row'): L1Node[] {
+  return [flowText(text), flowText(text), flowText(text)]
+}
+
+/**
+ * A `stack` container pinned by its own geometry at every ladder width, holding
+ * `children` in flow, nested one level under the root so the container's own
+ * index path (`0.0`) is distinct from the paths of the leaves inside it (`0.0.n`).
+ *
+ * `pinnedHeight` omitted → the keyframes carry no height at all, so the container
+ * sizes to its content and no overflow is possible.
+ */
+function pinnedContainerDoc(children: L1Node[], pinnedHeight?: number): L1Document {
+  const container = {
+    kind: 'container',
+    layout: 'stack',
+    gapPx: 10,
+    geometry: {
+      keyframes: LADDER.map((at) => ({
+        at,
+        x: 0,
+        y: 0,
+        width: 300, // fits inside the narrowest ladder rung (320) and off-sample 500
+        ...(pinnedHeight === undefined ? {} : { height: pinnedHeight }),
+      })),
+    },
+    children,
+  } as L1Node
+  const doc: L1Document = {
+    widths: LADDER,
+    background: '#ffffff',
+    root: { kind: 'container', layout: 'stack', gapPx: 0, children: [container] } as L1Node,
+  }
+  const result = validateL1(doc)
+  expect(result.ok, JSON.stringify(result)).toBe(true)
+  return doc
+}
+
+/** The pinned-box content-overflow findings of a finding list. */
+function pinnedOverflows(findings: { kind: string; detail: string; paths: string[] }[]) {
+  return findings.filter((f) => f.kind === 'clip' && /exceeds pinned box height/.test(f.detail))
 }
 
 /**
@@ -466,6 +528,28 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     const at900 = failReport.byWidth.find((w) => w.width === 900)!
     expect(at900.findings).toEqual([])
 
+    // Fail #2: a pinned container that only overruns its pinned height at an
+    // UNSAMPLED width. The middle row is visible across [400, 700) only, so at
+    // every captured ladder rung the container holds two rows (64px, the hidden
+    // row still costing its gap) inside its 70px pin, and at the off-sample
+    // 500px it holds three (86px) and overruns.
+    // The probe's pass condition is exactly the evaluator's finding set, so it
+    // fails that width even though no leaf crossed the viewport edge.
+    const bandRow = flowText('Mid-width only', { visibility: { fromPx: 400, untilPx: 700 } })
+    const pinnedDoc = pinnedContainerDoc(
+      [flowText('Alpha row'), bandRow, flowText('Beta row')],
+      70,
+    )
+    const pinnedReport = offSampleProbe(pinnedDoc)
+    expect(pinnedReport.pass).toBe(false)
+    const pinnedAt500 = pinnedReport.byWidth.find((w) => w.width === 500)!
+    expect(pinnedOverflows(pinnedAt500.findings)).toHaveLength(1)
+    expect(pinnedOverflows(pinnedAt500.findings)[0].paths).toEqual(['0.0'])
+    // 900 is past the band, so the container is back inside its pin there.
+    expect(pinnedReport.byWidth.find((w) => w.width === 900)!.findings).toEqual([])
+    // …and every CAPTURED width stays clean — only the off-sample probe sees it.
+    for (const w of pinnedDoc.widths) expect(evaluateLayout(pinnedDoc, w).findings).toEqual([])
+
     // The probe also holds after region-aware recovery on a MULTI-REGION page
     // (hero / grid / footer): each colliding region becomes its own flow stack
     // and no sibling is left pinned, so the envelope holds at both off-sample
@@ -495,6 +579,49 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     const after = contentRobustnessProbe(flowed, { scale: 2.5 })
     expect(after.pass).toBe(true)
     for (const w of after.byWidth) expect(w.findings).toEqual([])
+
+    // ── pinned container: content with nowhere to go inside a box that cannot
+    // grow. The container is pinned to exactly the 86px its unperturbed rows
+    // fill, so at rest it is clean; at 2.5× each row wraps to three lines and
+    // the interior stacks to 218px, which the pin cannot absorb. Nothing crosses
+    // the viewport edge — this is the clip the probe exists to catch.
+    const COPY = 'A line of body copy that fits.' // 30 chars: 1 line at rest, 3 grown
+    const pinnedExact = pinnedContainerDoc([flowText(COPY), flowText(COPY), flowText(COPY)], 86)
+    const atRest = contentRobustnessProbe(pinnedExact, { scale: 1 })
+    expect(atRest.pass).toBe(true)
+    for (const w of atRest.byWidth) expect(w.findings).toEqual([])
+
+    const grown = contentRobustnessProbe(pinnedExact, { scale: 2.5 })
+    expect(grown.pass).toBe(false)
+    const grownClips = pinnedOverflows(grown.byWidth.flatMap((w) => w.findings))
+    expect(grownClips.length).toBe(base.widths.length) // reported at every captured width
+    expect(grownClips[0].detail).toMatch(/content height 218px/)
+    expect(grownClips[0].detail).toMatch(/pinned box height 86px/)
+    expect(grownClips[0].paths).toEqual(['0.0']) // names the container
+
+    // The same container left UNPINNED sizes to its content, so the grown rows
+    // have somewhere to go and the envelope holds.
+    const unpinned: L1Document = {
+      widths: LADDER,
+      background: '#ffffff',
+      root: {
+        kind: 'container',
+        layout: 'stack',
+        gapPx: 0,
+        children: [
+          {
+            kind: 'container',
+            layout: 'stack',
+            gapPx: 10,
+            children: [flowText(COPY), flowText(COPY), flowText(COPY)],
+          },
+        ],
+      } as L1Node,
+    }
+    expect(validateL1(unpinned).ok).toBe(true)
+    const unpinnedGrown = contentRobustnessProbe(unpinned, { scale: 2.5 })
+    expect(unpinnedGrown.pass).toBe(true)
+    for (const w of unpinnedGrown.byWidth) expect(w.findings).toEqual([])
 
     // The same holds on a MULTI-REGION page (hero / grid / footer), where a
     // single flat pile with one shared median gap could not keep every region's
@@ -668,6 +795,35 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     expect(clip.detail).toMatch(/\d+px/)
     expect(clip.paths.length).toBeGreaterThanOrEqual(1)
     for (const p of clip.paths) expect(p).toMatch(/^\d+(\.\d+)*$/)
+
+    // ── the third envelope violation: pinned-box content overflow ─────────────
+    // A flow container pinned to 40px whose three in-flow rows stack to 86px.
+    // Nothing crosses the viewport edge here, so this is reported by the flow
+    // walk itself, not by the horizontal-clip pass.
+    const overflowing = pinnedContainerDoc(threeRows(), 40)
+    const overflowResult = evaluateLayout(overflowing, 900)
+    const pinnedClips = pinnedOverflows(overflowResult.findings)
+    expect(pinnedClips).toHaveLength(1)
+    const pinnedClip = pinnedClips[0]
+    expect(pinnedClip.kind).toBe('clip')
+    // The detail names BOTH magnitudes — the flowed content height and the
+    // pinned box height — not just "it overflowed".
+    expect(pinnedClip.detail).toMatch(/content height 86px/)
+    expect(pinnedClip.detail).toMatch(/pinned box height 40px/)
+    // …and the path is the CONTAINER's own, not a leaf's inside it.
+    expect(pinnedClip.paths).toEqual(['0.0'])
+    const leafPaths = overflowResult.leaves.map((l) => l.path)
+    expect(leafPaths).not.toContain('0.0')
+    expect(leafPaths).toEqual(['0.0.0', '0.0.1', '0.0.2'])
+    // It is the ONLY finding: no sibling overlap, no viewport clip.
+    expect(overflowResult.findings).toHaveLength(1)
+
+    // Negative 1 — the same container pinned to a height that accommodates its
+    // content raises nothing.
+    expect(evaluateLayout(pinnedContainerDoc(threeRows(), 200), 900).findings).toEqual([])
+    // Negative 2 — the same container carrying NO pinned height at all sizes to
+    // its content, so there is nothing to overflow.
+    expect(evaluateLayout(pinnedContainerDoc(threeRows()), 900).findings).toEqual([])
   })
 
   it('test_UAT_AC724_value_render_deterministic_and_per_occurrence_faithful', () => {

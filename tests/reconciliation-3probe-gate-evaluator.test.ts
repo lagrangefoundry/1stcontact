@@ -468,6 +468,96 @@ describe('story-24098299 — painted backing surfaces', () => {
     })
     expect(evaluateLayout(slotDoc, 1024).findings.filter((f) => f.kind === 'overlap')).toEqual([])
 
+    // …but a slot that runs past the viewport edge is a clip like any other leaf
+    // — the slot exemption, like the surface one, is from the overlap check only.
+    const wideSlot = mkDoc({
+      kind: 'box',
+      children: [
+        {
+          kind: 'slot',
+          name: 'carousel',
+          geometry: { keyframes: [{ at: 320, x: 0, y: 0, width: 1400, height: 200 }] },
+        },
+      ],
+    })
+    const wideSlotRes = evaluateLayout(wideSlot, 1024)
+    const slotClip = wideSlotRes.findings.find((f) => f.kind === 'clip')
+    expect(slotClip).toBeDefined()
+    expect(slotClip!.detail).toMatch(/1400px exceeds viewport 1024px/)
+    expect(slotClip!.paths).toEqual([wideSlotRes.leaves.find((l) => l.kind === 'slot')!.path])
+
+    // ── the discriminator: exemption is keyed on SYNTHESIZED identity ──────────
+    // Two genuinely captured standalone surfaces (`box-*`) that intersect are
+    // real painted content colliding, and the overlap IS reported naming both.
+    // Without this the exemption could be read as "painted surfaces never
+    // collide", which would silently swallow a real reproduction defect.
+    const capturedPair = mkDoc({
+      kind: 'box',
+      children: [
+        {
+          kind: 'box',
+          id: 'box-3',
+          axes: { surfaceFill: PANEL },
+          geometry: { keyframes: [{ at: 320, x: 0, y: 0, width: 300, height: 200 }] },
+        },
+        {
+          kind: 'box',
+          id: 'box-7',
+          axes: { surfaceFill: BAND },
+          geometry: { keyframes: [{ at: 320, x: 100, y: 100, width: 300, height: 200 }] },
+        },
+      ],
+    })
+    const pairRes = evaluateLayout(capturedPair, 1024)
+    const pairOverlaps = pairRes.findings.filter((f) => f.kind === 'overlap')
+    expect(pairOverlaps).toHaveLength(1)
+    expect(new Set(pairOverlaps[0].paths)).toEqual(new Set(['0.0', '0.1']))
+
+    // The identical geometry under SYNTHESIZED ids reports nothing — so the
+    // difference above is the id, not the shape.
+    const synthesizedPair = mkDoc({
+      kind: 'box',
+      children: [
+        {
+          kind: 'box',
+          id: 'section-band-0',
+          axes: { surfaceFill: PANEL },
+          geometry: { keyframes: [{ at: 320, x: 0, y: 0, width: 300, height: 200 }] },
+        },
+        {
+          kind: 'box',
+          id: 'card-1',
+          axes: { surfaceFill: BAND },
+          geometry: { keyframes: [{ at: 320, x: 100, y: 100, width: 300, height: 200 }] },
+        },
+      ],
+    })
+    expect(evaluateLayout(synthesizedPair, 1024).findings.filter((f) => f.kind === 'overlap')).toEqual([])
+
+    // A captured surface sitting under content it appears to back is likewise
+    // still reported — "looks like a background" is not the exemption either.
+    const capturedUnderContent = mkDoc({
+      kind: 'box',
+      children: [
+        {
+          kind: 'box',
+          id: 'box-11',
+          axes: { surfaceFill: PANEL },
+          geometry: { keyframes: [{ at: 320, x: 0, y: 0, width: 400, height: 200 }] },
+        },
+        {
+          kind: 'text',
+          text: 'Sits on the captured panel',
+          axes: { color: '#111111', fontFamily: 'Arial', fontSizePx: 18, fontWeight: 400 },
+          geometry: { keyframes: [{ at: 320, x: 20, y: 40, width: 300 }] },
+        },
+      ],
+    })
+    const underRes = evaluateLayout(capturedUnderContent, 1024)
+    const underOverlaps = underRes.findings.filter((f) => f.kind === 'overlap')
+    expect(underOverlaps).toHaveLength(1)
+    expect(new Set(underOverlaps[0].paths)).toEqual(new Set(['0.0', '0.1']))
+
     // Sample fidelity for the text leaves is untouched by the surfaces.
     const withFidelity = sampleFidelityProbe(withDoc, withCap, { tolerancePx: 2 })
     const withoutFidelity = sampleFidelityProbe(withoutDoc, withoutCap, { tolerancePx: 2 })

@@ -375,6 +375,191 @@ describe('AC-731 run-composited surfaces are reconstructed as a page background 
     expect(css).toContain(`body { background-color: ${BAND} }`)
     expect(css).toContain(`background-color: ${PANEL}`)
     expect(css).toContain('background-image: linear-gradient(90deg,')
+
+    // ── Adopted rect: the card's edges are a MEASURED fact ────────────────────
+    // Where the capture resolved a surface-bearing box for a row, the backing box
+    // adopts THAT rect rather than computing one over where the row's runs sit.
+    const CARD = '#e8dfd3'
+    const MISSED = '#cfd8e3'
+    const surfaceOf = (
+      box: { x: number; y: number; width: number; height: number },
+      borderRadiusPx = 0,
+    ) => ({ self: false, box, borderRadiusPx, boxShadow: null, border: null })
+    const bandRuns = (w: number) => [
+      run('Band A', { x: 20, y: 40, width: w - 40, height: 40 }, { surfaceFill: BAND }),
+      run('Band B', { x: 20, y: 100, width: w - 40, height: 40 }, { surfaceFill: BAND }),
+      run('Band C', { x: 20, y: 160, width: w - 40, height: 40 }, { surfaceFill: BAND }),
+    ]
+    /** The `card-*` backing boxes of a fold, keyed by the fill they carry. */
+    const cardsByFill = (d: ReturnType<typeof foldToL1>) => {
+      const out = new Map<string, ReturnType<typeof leavesOf>[number]>()
+      for (const n of leavesOf(d)) {
+        const fill = n.kind === 'box' ? n.axes?.surfaceFill : undefined
+        if ((n.id ?? '').startsWith('card-') && typeof fill === 'string') out.set(fill, n)
+      }
+      return out
+    }
+    const rectOf = (n: ReturnType<typeof leavesOf>[number], at: number) => {
+      const kf = n.geometry!.keyframes.find((k) => k.at === at)!
+      return { x: kf.x, y: kf.y, width: kf.width, height: kf.height }
+    }
+
+    const adoptedDoc = foldToL1(
+      multiFrom((w) => [
+        ...bandRuns(w),
+        // A card row whose captured surface box is strictly larger than the union
+        // of its runs (280×120 around a 180×40 run) — the card's own edges.
+        run(
+          'Measured card',
+          { x: 60, y: 320, width: 180, height: 40 },
+          { surfaceFill: CARD, surface: surfaceOf({ x: 40, y: 300, width: 280, height: 120 }, 12) },
+        ),
+        // The same treatment with NO resolved surface — the capture missed it.
+        run('Missed card', { x: 60, y: 600, width: 180, height: 40 }, { surfaceFill: MISSED }),
+      ]),
+    )
+    expect(validateL1(adoptedDoc).ok).toBe(true)
+    const adoptedCards = cardsByFill(adoptedDoc)
+    for (const at of LADDER) {
+      // The measured card takes the captured rect verbatim, at every width…
+      expect(rectOf(adoptedCards.get(CARD)!, at)).toEqual({ x: 40, y: 300, width: 280, height: 120 })
+      // …and the row whose surface was missed falls back to its own run box, and
+      // reaches no further than it. Only that row falls back.
+      expect(rectOf(adoptedCards.get(MISSED)!, at)).toEqual({ x: 60, y: 600, width: 180, height: 40 })
+    }
+
+    // ── Band guard: a viewport-wide resolved surface is the page band, not a card
+    const QUOTE = '#dbe7d4'
+    const guardedDoc = foldToL1(
+      multiFrom((w) => [
+        ...bandRuns(w),
+        // The surface resolved for this quote spans the whole viewport — it is the
+        // section behind it, with no card element between. Adopting that rect would
+        // stretch the 4px accent rule across the entire section.
+        run(
+          'Pull quote',
+          { x: 60, y: 320, width: 180, height: 40 },
+          {
+            surfaceFill: QUOTE,
+            borderLeft: { widthPx: 4, color: '#ffb900' },
+            surface: surfaceOf({ x: 0, y: 280, width: w, height: 200 }),
+          },
+        ),
+      ]),
+    )
+    expect(validateL1(guardedDoc).ok).toBe(true)
+    for (const at of LADDER) {
+      expect(rectOf(cardsByFill(guardedDoc).get(QUOTE)!, at)).toEqual({
+        x: 60,
+        y: 320,
+        width: 180,
+        height: 40,
+      })
+    }
+    // The guard is keyed on the surface spanning the viewport, not on the row:
+    // the SAME row whose surface stops short of the viewport edge is a card and
+    // does adopt that rect.
+    const cardedDoc = foldToL1(
+      multiFrom((w) => [
+        ...bandRuns(w),
+        run(
+          'Pull quote',
+          { x: 60, y: 320, width: 180, height: 40 },
+          {
+            surfaceFill: QUOTE,
+            borderLeft: { widthPx: 4, color: '#ffb900' },
+            surface: surfaceOf({ x: 0, y: 280, width: w - 1, height: 200 }),
+          },
+        ),
+      ]),
+    )
+    for (const at of LADDER) {
+      expect(rectOf(cardsByFill(cardedDoc).get(QUOTE)!, at)).toEqual({
+        x: 0,
+        y: 280,
+        width: at - 1,
+        height: 200,
+      })
+    }
+
+    // ── Accent-bearer fallback: a fill-less accent takes its BEARER's rect ─────
+    // No card-shaped fill resolves for this run, but it bears an asymmetric rule.
+    // The rule belongs to the padded wrapper the run sits inside, so the box lands
+    // at the wrapper's rect — not indented from the reference by that padding.
+    const accentDoc = foldToL1(
+      multiFrom((w) => [
+        ...bandRuns(w),
+        run(
+          'Accented line',
+          { x: 80, y: 320, width: 160, height: 40 },
+          {
+            borderLeft: { widthPx: 4, color: '#ffb900' },
+            accentBox: { x: 40, y: 300, width: 260, height: 80 },
+          },
+        ),
+      ]),
+    )
+    expect(validateL1(accentDoc).ok).toBe(true)
+    const accentCard = leavesOf(accentDoc).find(
+      (n) => n.kind === 'box' && (n.id ?? '').startsWith('card-'),
+    )!
+    expect(accentCard).toBeDefined()
+    for (const at of LADDER) {
+      expect(rectOf(accentCard, at)).toEqual({ x: 40, y: 300, width: 260, height: 80 })
+    }
+    // Rounding follows the resolved SURFACE shape only — a row that fell back to
+    // its accent bearer never inherits a radius that was not its own.
+    expect(accentCard.kind === 'box' && accentCard.axes?.borderRadiusPx).toBeFalsy()
+    expect(accentCard.kind === 'box' && accentCard.axes?.borderLeft?.widthPx).toBe(4)
+
+    // ── Grouping identity: the adopted rect decides membership outright ────────
+    // Two rows with an identical surface signature and near proximity but
+    // DIFFERENT captured rects are two cards — sibling tiles cannot merge…
+    const TILE = '#f2e6d8'
+    const splitDoc = foldToL1(
+      multiFrom((w) => [
+        ...bandRuns(w),
+        run(
+          'Tile one',
+          { x: 60, y: 320, width: 160, height: 40 },
+          { surfaceFill: TILE, surface: surfaceOf({ x: 40, y: 300, width: 200, height: 80 }) },
+        ),
+        run(
+          'Tile two',
+          { x: 60, y: 400, width: 160, height: 40 },
+          { surfaceFill: TILE, surface: surfaceOf({ x: 40, y: 390, width: 200, height: 80 }) },
+        ),
+      ]),
+    )
+    const splitCards = leavesOf(splitDoc).filter(
+      (n) => n.kind === 'box' && (n.id ?? '').startsWith('card-'),
+    )
+    expect(splitCards).toHaveLength(2)
+
+    // …while two rows the capture painted with ONE element are one card, over the
+    // same fill, signature and spacing that just produced two above.
+    const mergedDoc = foldToL1(
+      multiFrom((w) => [
+        ...bandRuns(w),
+        run(
+          'Tile one',
+          { x: 60, y: 320, width: 160, height: 40 },
+          { surfaceFill: TILE, surface: surfaceOf({ x: 40, y: 300, width: 200, height: 170 }) },
+        ),
+        run(
+          'Tile two',
+          { x: 60, y: 400, width: 160, height: 40 },
+          { surfaceFill: TILE, surface: surfaceOf({ x: 40, y: 300, width: 200, height: 170 }) },
+        ),
+      ]),
+    )
+    const mergedCards = leavesOf(mergedDoc).filter(
+      (n) => n.kind === 'box' && (n.id ?? '').startsWith('card-'),
+    )
+    expect(mergedCards).toHaveLength(1)
+    for (const at of LADDER) {
+      expect(rectOf(mergedCards[0], at)).toEqual({ x: 40, y: 300, width: 200, height: 170 })
+    }
   })
 })
 
