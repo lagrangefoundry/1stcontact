@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T23:09:31.079791+00:00'
+updated_at: '2026-08-20T23:35:12.287234+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -876,5 +876,21 @@ And you're right about the trailer. If hero-in-15 works, the free consultation e
 Two things this still needs, both of which I'd want to nail before writing it up as doctrine. The **rubric** is now a hard blocker rather than a parallel workstream — rendering divergent heroes at minute fifteen without an encoded point of view means rendering the model's default six times over. And the **hero-in-15 claim needs testing against the four arrival states**, because "nothing but a product" has no imagery, no name in place, and possibly no idea what they do, and that's the session where fifteen minutes may be optimistic.
 
 Want me to write this up now — as a restructure of DOC-33 with the arc, the four mechanisms, and the cheap/expensive rule replacing §6 and the plain pass? Or is there another lens you want to put on it first?
+
+<!-- xgd-turn id="018a8dc6-1a3f-43fa-9054-e74b5621793f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T23:35:12.191819+00:00" -->
+#### You
+So I think we're making good progress but I also feel concerned that we are assuming what the client cares about I think there are different clients I think this is a situation where we need personas.
+
+For example I have a friend with the one whose site we have been critiquing joyful culinary creations. She started interviewing consulting organizations because she "wants a better website. So I have spent a little time, not as much as I would like but a little time trying to understand what that means. And as far as I can tell the answer is not I would like to spend four hours with an AI critiquing the pallet and the font family. What she wants is a very specific outcome: more warm leads for her business. She is a creative person she probably has strong feelings when we get into it about how her sight should be presented but her situation worries me a little. Take a look at the related conversation in this project called "the future of reproduction" I keep feeling drawn to the need to attempt to reproduce sites as a mechanism for proving the accessibility of our L1 language and to speak to this user problem.
+
+Let me try to be clear where I am going with this, I think the playbook that we are discussing would not work for this customer. I have had a discussion with you about the question of how could she get more Traffic, and obviously it's not just Traffic it's qualified Traffic how can she get more potential customers to visit her website and how can she convert more of those visitor to customers. And there are a number of very astute observations that you pointed out. Her business is local I don't think she has much of a presence on Google maps or local search capabilities, her CTA is very high cost, there is no sign up for the mailing list it is getting in touch for a consultation which is a big step. So there's a lot that could be done to improve her positioning and her funnel. This is the problem that first contact is intended to solve. The site builder we are discussing is merely the first of a series of tools to help support the small business marketing problem – of course you have read the documents so you are aware of this bigger picture.
+
+So my point here is that if my friend were to come to this discussion we need to identify within the first couple of turns what she is trying to achieve. If we start redesigning her hero image from step one we will at best to be missing a huge opportunity. What she needs in her 15 minute consultation is to have the critique that must exist in one of these chat sessions of her site and how our tool has the feature features to help her sight generate more traffic. Now, an open question that I haven't spent much time on yet is does she have to migrate her sight in order to take advantage of our other features? Unfortunately, I actually think she does because we're gonna have a bunch of ideas about ways to tweak her positioning ways to change her funnel which needs site modifications and if we don't have access to the site then that's a big round-trip that isn't gonna really be practical.
+
+So I'm still stuck on this customer because well in some ways it was discussions with her that motivated this product, I actually do need a lot of the features for myself but the product of it to make it into something that other people can use was motivated by her situation. So our story so far is first time Webb owners. People building a site for the first time. What have we got for people who already have a site and who want to make it better? I think that's a huge audience. Do we just decide something we punt on the stage and pick it up later?
+
+More generally I think there is the question of ensuring that we are not driving the customer down the wrong street. I hear what you're saying about constraints and I think that is very important in our thinking here there is a version of this tool we could publish with no playbook where this conversation is completely relevant we just expose the AI and let people hack it and see what happens so in some ways what we discussing here is an optimization but I think it's the optimization that makes the product something interesting. An early on in the conversation we need to make sure that we understand what the customers pain points are so that we are most effectively addressing them.
 
 <!-- xgd-chat-end -->
