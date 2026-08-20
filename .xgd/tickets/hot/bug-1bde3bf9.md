@@ -6,10 +6,10 @@ title: 'Copy modal: Capitalisation never previews — UA reset blocks text-trans
   on the text control'
 created_by: xgd
 created_at: '2026-08-13T21:16:02.231743+00:00'
-updated_at: '2026-08-18T17:26:05.840239+00:00'
-completed_at: null
+updated_at: '2026-08-20T12:50:35.916163+00:00'
+completed_at: '2026-08-20T12:50:35.916163+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   severity: medium
   priority: medium
