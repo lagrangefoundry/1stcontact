@@ -5,26 +5,19 @@ type: report
 title: Resync anchor
 created_by: xgd
 created_at: '2026-08-20T02:23:19.787410+00:00'
-updated_at: '2026-08-20T03:27:42.670540+00:00'
+updated_at: '2026-08-20T12:49:22.136874+00:00'
 completed_at: null
-last_field_updated: blocked_by_dirty_working
+last_field_updated: result
 fields:
   report_kind: resync_run
   subject_uid: resync-anchor
   blocked_by_dirty_working: false
-  skipped_commits:
-  - caeb60b401959fe54206c7c1877103ab9d6debbc
-  - 7a0261676b45494d231c6b7136bd6d0d181f9d1b
-  - 06ad8ad645f3c03adec7c526467300009e198a45
-  - 87306fa43ea10900fecabea6d00f47b11184a3e2
-  - af9b8ab43f70ce0f44b736ebe92ca3491d9b0e0f
-  - c60cbf756a056f0afcca065147093aeae8f20361
-  - 8581a924ff56bc405b155186e11ad8ff3cc03cce
-  - 7ebc721b83ab6202fdec600cd0493b69964bac39
+  skipped_commits: []
   orphan_commits: []
+result: running
 ---
 
 {
   "status": "running",
-  "message": "Resync anchor created"
+  "message": "Resync anchor resumed"
 }
