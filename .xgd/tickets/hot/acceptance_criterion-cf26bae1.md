@@ -6,7 +6,7 @@ title: Every boolean flag the CLI reads is registered — the set is derived fro
   CLI source, not restated
 created_by: xgd
 created_at: '2026-08-20T04:14:22.133484+00:00'
-updated_at: '2026-08-20T05:13:45.100346+00:00'
+updated_at: '2026-08-20T06:59:32.583963+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
