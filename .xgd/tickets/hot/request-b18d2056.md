@@ -6,10 +6,10 @@ title: 'Workers-runtime test project: UATs that run inside workerd against real 
   and R2 bindings'
 created_by: xgd
 created_at: '2026-08-15T20:30:39.280519+00:00'
-updated_at: '2026-08-20T21:02:49.280994+00:00'
+updated_at: '2026-08-20T21:03:42.903060+00:00'
 completed_at: '2026-08-20T21:02:49.280994+00:00'
 last_field_updated: status
-status: free_and_reconciled
+status: ready_to_implement
 fields:
   priority: high
   story_points: 3
