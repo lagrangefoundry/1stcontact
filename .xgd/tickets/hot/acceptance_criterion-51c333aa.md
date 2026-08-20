@@ -6,14 +6,15 @@ title: A reference carries a continuous shade on [-1, +1], mixing the entry towa
   black or white in Oklab
 created_by: xgd
 created_at: '2026-08-16T22:15:38.010665+00:00'
-updated_at: '2026-08-16T22:21:50.155342+00:00'
+updated_at: '2026-08-20T10:08:56.724154+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-c490f1cf
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
