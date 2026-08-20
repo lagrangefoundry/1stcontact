@@ -6,15 +6,15 @@ title: The captured surface gradient is the nearest painting ancestor's, skippin
   text-fill and stopping at the first opaque solid
 created_by: xgd
 created_at: '2026-08-20T04:34:10.031129+00:00'
-updated_at: '2026-08-20T04:34:10.031129+00:00'
+updated_at: '2026-08-20T05:03:47.480322+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-82eb6908
   kind: behavior
   regression_only: false
-  uat_coverage: pending
+  uat_coverage: pass
 ---
 
 ## Criterion
