@@ -5,9 +5,9 @@ type: story
 title: L1 layout substrate rendered safe by construction
 created_by: xgd
 created_at: '2026-07-22T19:31:28.526898+00:00'
-updated_at: '2026-08-16T08:45:05.974147+00:00'
+updated_at: '2026-08-20T07:42:29.909336+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -372,7 +372,17 @@ safe renderer
 emitter's zero-look baseline / inert degradation / attribute refusal, and
 relocatable document-relative URL emission with its flat-snapshot invariant), the
 one-colour-system guarantee over everything the renderer emits, and
-the round-trip / cross-browser fidelity guarantees.
+the round-trip / cross-browser fidelity guarantees. The renderer's **seam
+emission** is in scope on both sides of the mount: `renderL1Document` /
+`renderL1Fragment` accept a `mounts` map keyed by slot name, and a seam named in
+that map emits the bound behavior's already-rendered fragment as the slot
+element's content — inside the *same* positioned box the seam already occupies,
+so a mounted behaviour is painted, measured and placed by the seam's own axes and
+costs no extra wrapper. Because the fragment is framework-rendered markup rather
+than instance data (every value inside it passed the module's own escaping / URL
+sinks on the way in) it is inserted verbatim, and per-instance class **prefix
+namespacing** keeps one mount's rules from colliding with another's or with the
+host document's.
 
 **Out of scope**: mechanically folding a multi-viewport capture into an L1
 document — including *populating* the new axes and the resource table from a
@@ -385,9 +395,19 @@ what forms a colour axis admits, the site palette's shape, reference resolution
 and dangling-reference rejection (REQ-114, STORY-80), of which this story carries
 only the page-level document fields and the absence of any second colour system;
 and the census/retrofit tooling that converts an existing site's literals to
-palette references (REQ-114's `1c colors`, a separate story). In L1, a `slot` renders as an
-inert labelled placeholder — a `div` carrying its slot name and, when declared,
-its target behavior-module id, with no module code and no behaviour attached.
+palette references (REQ-114's `1c colors`, a separate story); and the page
+composition rule that decides *whether* a given module may bind to a given seam —
+which modules may accompany an L1 page, and every way a binding can be rejected
+(REQ-93's schema half, STORY-85), of which this story carries only what the
+renderer emits once a binding has already been proved.
+
+**How a `slot` renders depends on whether it is bound.** An **unbound** seam —
+one no module mounts into — renders as the inert labelled placeholder: a `div`
+carrying its slot name and, when declared, its target behavior-module id, with no
+module code and no behaviour attached. A **bound** seam renders that same `div`,
+with the same name and behavior attributes and the same axes, carrying the
+mounted behavior's fragment as its content. Leaving a seam unbound is legal, not
+an error — it is how an L1 tree declares a mount point the page has not filled.
 
 ## Technical Context
 - L1 is the substrate on which the platform's structured-only security boundary
@@ -703,8 +723,8 @@ None (this is the foundational substrate; plan items 2, 3, 4, 6, 7, 8 depend on 
 3
 
 ## Merged from STORY-81 (overlap cluster 2 resolution)
-The reconciliation `upgrade` story STORY-81 ("Responsive dials …", CAP-68, now
-archived) recorded that the former **per-breakpoint module length dials**
+The reconciliation `upgrade` story STORY-81 (then "Responsive dials …", CAP-68)
+recorded that the former **per-breakpoint module length dials**
 (`{ base, sm?, md?, lg?, xl? }`) and the header `navCollapse` dial were deleted by
 the REQ-79 pivot. Their responsive-across-widths intent is re-homed here: per-viewport
 variation is carried by this substrate's geometry keyframes (interpolate|snap).
@@ -714,3 +734,12 @@ behavioural duplicate of AC-684 and was reassigned here; the AC-level dedup pass
 provenance note folded into AC-684, and its duplicate test file
 (tests/reconciliation-responsive-keyframes.test.ts) retired. That behaviour remains
 covered by tests/reconciliation-l1-substrate.test.ts.
+
+**What was merged here is only STORY-81's pre-REQ-104 delivery.** STORY-81 stood
+archived from 2026-07-23 until REQ-104 (reconciled 2026-08-06) revived it with
+distinct behaviour — it is now "Responsive layout: a container's layout mode
+varies per breakpoint and a row can wrap", and carries its own criteria again.
+The two scopes do not overlap: what came here is per-viewport variation of
+*length* parameters (this substrate's geometry keyframes); what STORY-81 owns
+today is per-width variation of a container's *layout mode* and row wrapping.
+Read the merge note above as historical, and STORY-81 as live.
