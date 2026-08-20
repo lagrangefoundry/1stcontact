@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Rendered-text-extent delta surfaces when computed font values match
 created_by: xgd
 created_at: '2026-07-19T02:17:55.085255+00:00'
-updated_at: '2026-08-16T09:17:27.343236+00:00'
+updated_at: '2026-08-20T06:59:09.986683+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
