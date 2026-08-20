@@ -6,9 +6,9 @@ title: Every painted panel exposes the colour it is filled with, written the sam
   way, while a region that paints nothing is offered none
 created_by: xgd
 created_at: '2026-08-20T02:56:22.392206+00:00'
-updated_at: '2026-08-20T03:25:24.245938+00:00'
+updated_at: '2026-08-20T06:32:36.832948+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-37a3921b
@@ -29,6 +29,14 @@ and could be clicked, outlined and opened only to be told so. Setting a fill on
 it lands alongside whatever it already paints, leaving every other parameter it
 carries byte-identical.
 
+**A panel painted only by a palette reference is still a painted panel.** A fill
+holding a reference is paint on the strength of the axis being there, not of what
+the reference happens to compile to on the surface reading it — the editor reads
+the definition before the palette is folded, so a rule that asked what colour the
+fill produces *today* would report a panel with nothing else on it as painting
+nothing. It would then stop being addressable and stop offering the field, and
+the surface would take the panel away at the moment somebody used it.
+
 The fill is offered on the panel and **not** on a run of copy or an image region
 that happens to carry one, because a folded run's box is glyph-tight: filling it
 paints a tight rectangle behind the words rather than the background anybody
@@ -42,12 +50,15 @@ can use.
 ## Verification
 
 Seed a page carrying a panel with a fill, a panel painting only a rounded corner,
-a run of copy that also carries a fill parameter, an unpainted container, and a
-module seam. Assert the first two expose a fill field — the first reporting its
-current fill, the second reporting no value — and that the run exposes no fill
-field despite carrying one. Assert the unpainted container and the seam expose no
-fill: the seam answers with an empty field list, and the unpainted container is
-not addressable at all. Write a palette reference into each of the two panels'
-fills and assert the stored panels carry the reference, that the re-rendered page
-paints it, and that the rounded corner and any other parameter the panel held are
-untouched.
+a panel whose only paint is its fill, a run of copy that also carries a fill
+parameter, an unpainted container, and a module seam. Assert the first three
+expose a fill field — the first reporting its current fill, the second reporting
+no value — and that the run exposes no fill field despite carrying one. Assert
+the unpainted container and the seam expose no fill: the seam answers with an
+empty field list, and the unpainted container is not addressable at all. Write a
+palette reference into each of the panels' fills and assert the stored panels
+carry the reference, that the re-rendered page paints it, and that the rounded
+corner and any other parameter the panel held are untouched. For the panel whose
+only paint is its fill — the one with no second axis to keep it alive — assert
+that after the reference lands it still exposes the fill field, still reports the
+reference as its value, and is still stamped with an address by the edit render.
