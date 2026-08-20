@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-141
 created_by: xgd
 created_at: '2026-08-15T21:52:46.760321+00:00'
-updated_at: '2026-08-20T21:35:10.909181+00:00'
+updated_at: '2026-08-20T21:35:48.974720+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -173,5 +173,16 @@ The wrong-cause comment in `vitest.workers.config.mts` (lines about the supply-c
 <!-- xgd-chat role="user" ts="2026-08-20T21:35:10.821795+00:00" -->
 #### You
 If the correction is in the ticket we are good
+
+<!-- xgd-turn id="6ff5c379-ae3a-44d8-933d-ee2943bc7567-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:35:48.891401+00:00" -->
+#### Claude
+Confirmed — the correction is in the ticket body, in full: the four experiments, the ruled-out age-gate theory, and pnpm 11.9.0's incremental resolution named as the actual cause.
+
+Two things worth knowing:
+
+- REQ-141 has since gone to **`free_and_reconciled`** (bundle-77b28def), so it's closed — reopening it isn't an option now.
+- The wrong-cause comment is still in `vitest.workers.config.mts:23-28` ("still withheld", "supply-chain policy"). It's a comment in a test-config file, so it costs nothing to correct whenever the wrangler/astro/vitest bump gets its own ticket — the ticket record already contradicts it, which was the part that mattered.
 
 <!-- xgd-chat-end -->
