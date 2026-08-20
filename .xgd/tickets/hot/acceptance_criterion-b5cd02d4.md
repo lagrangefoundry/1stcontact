@@ -6,7 +6,7 @@ title: A band overlay in any browser-understood colour syntax is captured with a
   preserved, via the lossless-serialization probe
 created_by: xgd
 created_at: '2026-08-20T04:39:15.823530+00:00'
-updated_at: '2026-08-20T05:40:59.598551+00:00'
+updated_at: '2026-08-20T06:58:46.826762+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
