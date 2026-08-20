@@ -7,9 +7,9 @@ title: Change the words, how they are set, which images appear on my page and ho
   AI uses
 created_by: xgd
 created_at: '2026-08-07T02:01:01.053881+00:00'
-updated_at: '2026-08-20T03:25:21.133333+00:00'
+updated_at: '2026-08-20T06:33:15.110455+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -443,7 +443,13 @@ consequence for what this surface writes.
   asking the same question of each ancestor and stopping at the first hit:
   nearest rather than outermost, because the panel a person means is the one
   immediately behind the words, and a link that opened an empty modal would be
-  the symptom of guessing.
+  the symptom of guessing. That question is asked of the paint *parameter*, not
+  of the colour it currently resolves to: this surface reads the definition
+  before the palette is folded, so a panel filled from the palette still holds
+  the reference here. Answering from the resolved colour would have made the one
+  gesture the escalation exists to enable — painting that panel from the palette
+  — the gesture that removes the row and un-addresses the panel, which is the
+  capability breaking its own round trip.
 - **Why every painted panel now has something to edit.** Before colour, a panel
   painting only a rounded corner or only an image answered with an empty field
   list: a region an operator could see outlined, click and open, to be told there
