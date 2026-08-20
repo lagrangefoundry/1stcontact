@@ -6,10 +6,10 @@ title: Preflight reports every shared component and package, and refuses an inco
   environment naming what is absent and its remedy
 created_by: xgd
 created_at: '2026-08-20T05:30:53.978782+00:00'
-updated_at: '2026-08-20T05:30:53.978782+00:00'
+updated_at: '2026-08-20T05:57:21.595745+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
