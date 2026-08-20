@@ -68,6 +68,17 @@ const REPO = path.resolve(__dirname, '..')
  */
 const SUPERSEDED_SCOPES = [['@gendev', 'labs'].join('')]
 
+/**
+ * A one-pixel JPEG. Real bytes, so the image reference AC-966 walks out of the
+ * rendered document resolves to something the origin actually has to serve.
+ */
+const ONE_PIXEL_JPEG = Buffer.from(
+  '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a' +
+    'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAA' +
+    'AAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==',
+  'base64',
+)
+
 if (!WEBUI_INSTALLED) console.warn(`story-e674c60a origin suites: ${WEBUI_SKIP_REASON}`)
 
 /** A loud report for evidence this machine genuinely cannot produce. */
@@ -111,38 +122,158 @@ describe('story-e674c60a builder origin', () => {
 
   const get = (p: string, init?: RequestInit) => fetch(new URL(p, builder.url), init)
 
-  it('test_UAT_AC966_view_mode_serves_the_real_rendered_artifact_byte_identical', async () => {
-    // AC-966 — the pane shows the operator's ACTUAL rendered site, whole: real
-    // content rather than a placeholder, with the assets it references
-    // resolving over the same origin.
+  it('test_UAT_AC966_the_pane_shows_the_selected_sites_whole_rendering_over_this_origin', async () => {
+    // AC-966 — what an operator is looking at IS the site: the address the
+    // display panel puts in the pane answers with that site's own rendered home
+    // page, and every reference that page carries resolves over this same
+    // origin, so the pane holds the rendering WHOLE rather than a shell with
+    // broken references or a placeholder that merely looks like one.
     //
-    // The bytes are produced when the request arrives (REQ-119), so "equal to
-    // what the render writes" is an equality by construction, and asserting it
-    // across both channels and the whole artifact set belongs to AC-1032. The
-    // disk comparison kept here is incidental to that: this fixture has already
-    // rendered, so it is the cheapest way to say "real content".
-    const res = await get('/preview/alpha/draft/')
+    // Equality with what `1c render` writes — same file set, same bytes — is
+    // AC-1032's claim and is deliberately not restated here in weaker form.
+    // What is asserted instead is the criterion's own guard: THE SITE UNDER
+    // TEST HAS NEVER BEEN RENDERED TO DISK. Reading the expectation out of
+    // `dist` (as this UAT used to) cannot distinguish "produced from the
+    // definition on request" from "handed back off a shelf", because it needs
+    // the shelf to exist before it can compare against it.
+    const { previewUrl } = (await import('../apps/control-app/src/builder/api.js')) as {
+      previewUrl: (slug: string, channel: string) => string
+    }
+
+    // A site created in the real store, given real content — copy of its own
+    // and an image drawn from its own assets — and never rendered.
+    const slug = 'unrendered'
+    const marker = 'The copy only this site carries.'
+    cmdNew(slug, { cwd })
+    const draft = path.join(cwd, 'storage/sites', slug, 'draft')
+    fs.writeFileSync(path.join(draft, 'assets', 'hero.jpg'), ONE_PIXEL_JPEG)
+    const homeJson = path.join(draft, 'pages', 'home.json')
+    const home = JSON.parse(fs.readFileSync(homeJson, 'utf8')) as {
+      l1: { root: { children: unknown[] } }
+    }
+    home.l1.root.children = [
+      { kind: 'text', id: 'home-copy', text: marker, axes: { fontSizePx: 32 } },
+      { kind: 'image', src: 'assets/hero.jpg', alt: 'A hero image' },
+    ]
+    fs.writeFileSync(homeJson, JSON.stringify(home, null, 2))
+    expect(
+      fs.existsSync(path.join(cwd, 'storage/dist/sites', slug)),
+      'the guard is void unless the site is genuinely unrendered',
+    ).toBe(false)
+
+    // The address the DISPLAY PANEL puts in the pane, from the workspace's own
+    // browser module, rather than a path this test made up.
+    const displayed = previewUrl(slug, 'draft')
+    const page = new URL(displayed, builder.url)
+    const res = await fetch(page)
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/html')
+    const html = await res.text()
 
-    const onDisk = fs.readFileSync(
-      path.join(cwd, 'storage/dist/sites/alpha/draft/index.html'),
+    // That site's real content, from its own definition — not a placeholder,
+    // and not some other site's page answered out of a neighbouring directory.
+    expect(html).toContain(marker)
+
+    // Whole. The references are read OUT OF THE RETURNED DOCUMENT, so a renamed
+    // stylesheet or a rewritten image address is caught here rather than
+    // silently stepped over by globbing an output directory.
+    const stylesheets = [
+      ...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g),
+    ].map((m) => m[1])
+    const images = [...html.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1])
+    expect(stylesheets, 'the document references no stylesheet').not.toHaveLength(0)
+    expect(images, 'the document references no image').not.toHaveLength(0)
+
+    for (const ref of [...stylesheets, ...images]) {
+      const target = new URL(ref, page)
+      // Same origin: a reference that left this origin is not something the
+      // pane can be relied on to be showing.
+      expect(target.origin, ref).toBe(new URL(builder.url).origin)
+      const refRes = await fetch(target)
+      expect(refRes.status, ref).toBe(200)
+      expect((await refRes.arrayBuffer()).byteLength, ref).toBeGreaterThan(0)
+    }
+    // The stylesheet arrives AS a stylesheet — a 200 of the wrong kind renders
+    // an unstyled page, which is the failure this clause is about.
+    const cssRes = await fetch(new URL(stylesheets[0], page))
+    expect(cssRes.headers.get('content-type')).toContain('text/css')
+  })
+
+  it('test_UAT_AC1240_the_edit_client_is_served_derived_from_the_renderers_own_source', async () => {
+    // AC-1240 — the gesture's client code is answered BY THIS ORIGIN, as
+    // browser-executable script, and its bytes are derived at serve time from
+    // the renderer's own source. A hand-written second copy of that code would
+    // be free to drift from the markup the renderer emits, and the drift would
+    // show up only in a browser — nowhere a test can see it.
+    //
+    // What that code DOES once a browser runs it — the click, the resolution,
+    // the modal — is AC-1006's subject under the editing-gesture capability.
+    // This criterion owns what the origin answers with.
+    const res = await get('/framework/edit-client.js')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('javascript')
+    const served = await res.text()
+    expect(served.length).toBeGreaterThan(0)
+
+    // DERIVED, not authored. The source is located in the framework package and
+    // derived here exactly as the origin derives it; the served bytes must be
+    // that derivation, so a file written separately beside it fails.
+    const require = createRequire(import.meta.url)
+    const ts = require('typescript') as typeof import('typescript')
+    const source = fs.readFileSync(
+      path.join(REPO, 'packages/framework/src/l1/edit-client.ts'),
       'utf8',
     )
-    expect(await res.text()).toBe(onDisk)
-
-    // The assets the page references resolve over the SAME origin, so the
-    // rendered document is whole rather than a shell with broken references.
-    const assets = fs
-      .readdirSync(path.join(cwd, 'storage/dist/sites/alpha/draft'))
-      .filter((f) => /\.(css|js)$/.test(f))
-    expect(assets.length).toBeGreaterThan(0)
-    for (const asset of assets) {
-      const assetRes = await get(`/preview/alpha/draft/${asset}`)
-      expect(assetRes.status, asset).toBe(200)
-      expect(await assetRes.text()).toBe(
-        fs.readFileSync(path.join(cwd, 'storage/dist/sites/alpha/draft', asset), 'utf8'),
+    const derived = ts
+      .transpileModule(source, {
+        compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+      })
+      .outputText.replace(
+        /(['"])@1stcontact\/site-schema\1/g,
+        "'/framework/site-schema-edit.js'",
       )
+    expect(served).toBe(derived)
+
+    // Browser-executable, rather than the TypeScript passed through: the source
+    // carries build-time-only syntax and none of it survives into the answer.
+    expect(source).toMatch(/\b(import\s+type|interface\s+\w+\s*\{)/)
+    expect(served).not.toMatch(/\bimport\s+type\b/)
+    expect(served).not.toMatch(/\binterface\s+\w+\s*\{/)
+    // Its package import is rewritten to a sibling THIS origin answers for, so
+    // the module a browser loads has nothing left to resolve elsewhere. What
+    // that sibling contains is AC-1006's claim, not this one's.
+    expect(served).not.toContain('@1stcontact/site-schema')
+    expect((await get('/framework/site-schema-edit.js')).status).toBe(200)
+
+    // NO SECOND COPY of the served code in the workspace's own application
+    // sources. Checked as CONTENT — substantial statements of the derived
+    // module appearing verbatim in a file that ships beside it — because that
+    // is what a copy looks like whatever it chooses to name its functions.
+    const appSources: string[] = []
+    const walkApp = (dir: string): void => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const abs = path.join(dir, entry.name)
+        if (entry.isDirectory()) walkApp(abs)
+        else if (/\.(js|ts|mjs)$/.test(entry.name)) appSources.push(abs)
+      }
+    }
+    walkApp(path.join(REPO, 'apps/control-app/src'))
+    expect(appSources.length).toBeGreaterThan(0)
+
+    const statements = served
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 40 && !line.startsWith('*') && !line.startsWith('//'))
+      .slice(0, 40)
+    expect(statements.length, 'nothing distinctive enough to detect a copy by').toBeGreaterThan(5)
+    for (const file of appSources) {
+      const text = fs.readFileSync(file, 'utf8')
+      const rel = path.relative(REPO, file)
+      for (const statement of statements) {
+        expect(text, `${rel} carries a second copy of the served client code`).not.toContain(
+          statement,
+        )
+      }
     }
   })
 

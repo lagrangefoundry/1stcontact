@@ -382,34 +382,89 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar', () => {
 
 describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a split and persistence', () => {
   it('test_UAT_AC973_the_split_drags_collapses_to_a_rail_and_reopens_to_its_width', () => {
-    const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
+    // THE ONE STAND-IN, and it is geometry rather than behaviour. The divider
+    // turns a pointer delta into a ratio by dividing by its container's width,
+    // and jsdom computes no layout, so every box measures 0×0 — a real gesture
+    // would be reduced to nothing by arithmetic rather than by the component.
+    // Handing the container a box makes the shipped handler reachable; the
+    // divider, its drag reduction and the layout it writes are all real. Pixels
+    // themselves are AC-975's subject, measured in a real browser.
+    const CONTAINER_WIDTH = 1000
+    const realRect = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function (): DOMRect {
+      return {
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: CONTAINER_WIDTH,
+        bottom: 800,
+        width: CONTAINER_WIDTH,
+        height: 800,
+        toJSON: () => ({}),
+      } as DOMRect
+    }
 
-    // AC-973 — the display panel is the PRIMARY, beside the assistant pane.
-    // REQ-122 replaced the placeholder that stood there with the live chat panel;
-    // this criterion is about the split's two halves, not what fills the second.
-    expect(app.split.element.contains(app.panel.element)).toBe(true)
-    expect(app.split.element.querySelector('.builder-chat')).toBeTruthy()
-    // …separated by a real divider the operator can drag.
-    expect(app.split.element.querySelector('.split__divider, [class*="divider"]')).toBeTruthy()
+    try {
+      const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
+      const splitEl = app.split.element as HTMLElement
 
-    // Dragging changes their relative widths. jsdom does no layout, so the
-    // split RATIO — the model the divider drives and the stylesheet consumes —
-    // is what can be observed here; AC-975 measures real pixels in a browser.
-    const initial = app.split.getSplit()
-    app.split.setSplit(37)
-    expect(app.split.getSplit()).toBeCloseTo(37, 5)
-    expect(app.split.getSplit()).not.toBeCloseTo(initial, 5)
+      // AC-973 — the display panel is the PRIMARY, beside the assistant pane.
+      // REQ-122 replaced the placeholder that stood there with the live chat
+      // panel; this criterion is about the split's two halves, not what fills
+      // the second.
+      const primary = splitEl.querySelector('.split-primary') as HTMLElement
+      const secondary = splitEl.querySelector('.split-secondary') as HTMLElement
+      const divider = splitEl.querySelector('.split-divider') as HTMLElement
+      expect(primary?.contains(app.panel.element)).toBe(true)
+      expect(secondary?.querySelector('.builder-chat')).toBeTruthy()
+      // …separated by a real divider the operator can drag.
+      expect(divider).toBeTruthy()
 
-    // Collapses to a narrow rail…
-    app.split.collapse('secondary')
-    expect(app.split.isCollapsed()).toBeTruthy()
+      // DRAGGED, not driven. A pointer gesture on the divider element itself —
+      // press, move, release — so what is evidenced is the gesture wired to the
+      // ratio, which setting the ratio directly cannot show. The follow-up
+      // events go to the document because that is where the component listens
+      // once the handle has (tried to) capture the pointer.
+      const initial = app.split.getSplit() as number
+      const widthBefore = primary.style.width
+      divider.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 650 }))
+      document.dispatchEvent(new MouseEvent('pointermove', { bubbles: true, clientX: 750 }))
+      document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, clientX: 750 }))
 
-    // …and reopening restores the width it had BEFORE the collapse, not the
-    // default it started from.
-    app.split.expand()
-    expect(app.split.isCollapsed()).toBeFalsy()
-    expect(app.split.getSplit()).toBeCloseTo(37, 5)
-    expect(app.split.getSplit()).not.toBeCloseTo(initial, 5)
+      // 100px of a 1000px container is ten points of the split, and the widths
+      // the component WROTE onto the panes moved with it.
+      const dragged = app.split.getSplit() as number
+      expect(dragged).toBeCloseTo(initial + 10, 5)
+      expect(primary.style.width).toBe(`${dragged}%`)
+      expect(primary.style.width).not.toBe(widthBefore)
+      // The other side takes what is left (`flex: 1`, which the DOM expands to
+      // its longhand), so the two widths are complementary rather than both
+      // pinned.
+      expect(secondary.style.flexGrow).toBe('1')
+      expect(secondary.style.width).toBe('')
+
+      // Collapses to a rail — asserted as the pane RENDERS it (the marker the
+      // stylesheet keys its rail width off, and the divider withdrawn), not as
+      // a boolean read back out of the model.
+      app.split.collapse('secondary')
+      expect(secondary.classList.contains('is-rail')).toBe(true)
+      expect(splitEl.classList.contains('split--collapsed')).toBe(true)
+      expect(divider.style.display).toBe('none')
+      expect(splitEl.querySelector('.split-rail-restore')).toBeTruthy()
+      expect(app.split.isCollapsed()).toBeTruthy()
+
+      // …and reopening restores the width it had BEFORE the collapse — the one
+      // the drag left behind, not the default it started from.
+      app.split.expand()
+      expect(secondary.classList.contains('is-rail')).toBe(false)
+      expect(splitEl.classList.contains('split--collapsed')).toBe(false)
+      expect(app.split.getSplit()).toBeCloseTo(dragged, 5)
+      expect(primary.style.width).toBe(`${dragged}%`)
+      expect(app.split.getSplit()).not.toBeCloseTo(initial, 5)
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = realRect
+    }
   })
 
   it('test_UAT_AC974_layout_state_survives_reopening_and_is_namespaced', () => {
