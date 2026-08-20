@@ -6,15 +6,15 @@ title: With its text unedited, a page lays out identically at every ladder width
   or not a run's width is floored
 created_by: xgd
 created_at: '2026-08-07T02:57:42.053252+00:00'
-updated_at: '2026-08-20T08:47:27.473401+00:00'
+updated_at: '2026-08-20T08:47:30.723131+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-d0a8cfad
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
