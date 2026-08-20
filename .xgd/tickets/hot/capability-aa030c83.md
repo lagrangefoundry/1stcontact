@@ -5,9 +5,9 @@ type: capability
 title: 1c Capture & Diff Fidelity
 created_by: xgd
 created_at: '2026-07-19T02:17:11.713654+00:00'
-updated_at: '2026-08-16T09:18:42.242235+00:00'
+updated_at: '2026-08-20T03:18:50.141398+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   name: 1c_capture_diff_fidelity
@@ -120,3 +120,20 @@ ownership rule above. The CAP-66 merge is what made a CLI-wide story sit inside 
 domain-named capability; the asymmetry is a naming artifact of that merge, not a
 misfiling, and the rule states the boundary explicitly so the question does not
 have to be re-litigated per verb.
+
+BUNDLE-10 attribution repair (2026-08-19). Story-level capability-intent
+alignment found `bundle-4ff83a8b` (BUNDLE-10, free_and_reconciled 2026-07-29)
+referenced by no ticket anywhere in the matrix, while five of its members were
+live in this capability's capture-and-compare spine and unexpressed by any story:
+BUG-22 (the surface-bearing box, and the diff resolving a split control against
+it), BUG-15 (the all-collapse fallback to a body-spanning band), BUG-25
+(per-text-node run geometry), BUG-16 (capture-time font settling) and BUG-24
+(modern-syntax scrim capture). All five are now carried by STORY-75 and the
+bundle is attributed in its `updated_by`. A single skipped intent, not a
+matrix-genesis boundary — BUNDLE-8 reconciled the same day and was attributed.
+
+BUNDLE-10's remaining members are deliberately **not** swept in here:
+BUG-12/13/14/17/18/19/20/23 and REQ-88/REQ-93 are fold / L1-pipeline (CAP-71 /
+CAP-70) and BUG-21 is a framework control-surface defect. The same skipped
+intent is likely to have left gaps in those capabilities and is worth checking
+against them separately.
