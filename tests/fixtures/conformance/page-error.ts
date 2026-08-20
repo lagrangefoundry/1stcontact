@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-39 negative fixture (test infrastructure, NOT a shipping module): a module
  * that throws an uncaught page error. A valid 1x1 data-URI GIF loads
@@ -7,13 +8,11 @@
  * MUST flag red. Using `onload` (an attribute) rather than a <script> block is
  * deliberate: the container render drops <script>, but keeps attributes.
  */
----
-
-<section style="padding: 40px">
+export const pageError: BehaviorComponent = () => `<section style="padding: 40px">
   <h2>Page-error fixture</h2>
   <img
     src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="
     alt=""
     onload="__fcConformanceUndefinedFunction()"
   />
-</section>
+</section>`

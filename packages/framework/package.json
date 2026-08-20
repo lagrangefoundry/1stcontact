@@ -7,7 +7,6 @@
     ".": "./src/index.ts",
     "./tokens": "./src/tokens/index.ts",
     "./modules": "./src/modules/index.ts",
-    "./registry": "./src/modules/registry.ts",
     "./worker": "./src/worker.ts"
   },
   "scripts": {

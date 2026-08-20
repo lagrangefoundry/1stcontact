@@ -1,0 +1,57 @@
+/*
+ * REQ-96 — every rule here is behavioural mechanics or an invariant state
+ * signal. There is deliberately no `gap`, no `flex-basis`, and nothing about a
+ * dot's size or colour: a slide's width is its own L1 subtree's sizing, and a
+ * dot's look is the L1 control node naming it.
+ */
+
+/* The track — a pure CSS scroll-snap row: genuinely swipeable/scrollable, no JS. */
+.carousel__track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  width: 100%;
+  scrollbar-width: none;
+}
+.carousel__track::-webkit-scrollbar { display: none; }
+
+/* A slide is a snap target sized by its own content — never by a view dial. */
+.carousel__slide {
+  scroll-snap-align: center;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/*
+ * REQ-116 — the settled state, for the edit render only.
+ *
+ * The slides are all in the DOM already (a scroll track, not `display: none`),
+ * so their copy is reachable — but with behaviour off they sit scrolled out of
+ * view, which makes them awkward to click and impossible to see. Nothing in
+ * the edit channel is interactive enough to reveal them, so the track wraps
+ * and every slide is on screen simultaneously.
+ *
+ * The rule keys off the document-level `data-fc-edit` marker the page
+ * assembler sets on `<body>`, so it is inert in every other channel. Any future
+ * behavior module that hides content behind its behaviour declares its own
+ * settled state the same way — the channel does not need to know what a
+ * carousel is.
+ */
+[data-fc-edit] .carousel__track {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  scroll-snap-type: none;
+}
+
+/*
+ * The one invariant state signal (DOC-25 §10.3): which slide is current must
+ * be discernible, and a static L1 subtree has no state axis to say it with.
+ * Opacity is the minimal, size- and colour-agnostic way to express it, so the
+ * dot's actual look stays entirely L1's.
+ */
+[data-carousel-dot] { opacity: 0.4; }
+[data-carousel-dot][data-carousel-current] { opacity: 1; }

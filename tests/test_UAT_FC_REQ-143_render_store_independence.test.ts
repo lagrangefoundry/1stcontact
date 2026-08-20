@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { renderSiteFilesNode } from '../tools/generate/src/render'
+import { renderSiteFiles } from '../tools/generate/src/render'
 import { fsSiteStore } from '../tools/generate/src/store/fs-store'
 import { importSite } from '../tools/generate/src/store/import-site'
 import { memorySiteStore } from '../tools/generate/src/store/memory-store'
@@ -94,8 +94,8 @@ describe('REQ-143 — the render is a pure function of the assembled site', () =
       // store by design and is documented as read by nothing at request time.
       expect({ ...fromMemory, sourceDir: '' }).toEqual({ ...fromFs, sourceDir: '' })
 
-      const renderedFromFs = await renderSiteFilesNode(fromFs)
-      const renderedFromMemory = await renderSiteFilesNode(fromMemory)
+      const renderedFromFs = await renderSiteFiles(fromFs)
+      const renderedFromMemory = await renderSiteFiles(fromMemory)
 
       expect(renderedFromMemory.pages).toEqual(renderedFromFs.pages)
       expect([...renderedFromMemory.files.keys()].sort()).toEqual(
@@ -124,8 +124,8 @@ describe('REQ-143 — the render is a pure function of the assembled site', () =
     expect(summary.siteJson).toBe(true)
     expect(summary.pages.length).toBeGreaterThan(0)
 
-    const before = await renderSiteFilesNode(unwrap((await source.loadDraft(slug))!.result, slug))
-    const after = await renderSiteFilesNode(unwrap((await destination.loadDraft(slug))!.result, slug))
+    const before = await renderSiteFiles(unwrap((await source.loadDraft(slug))!.result, slug))
+    const after = await renderSiteFiles(unwrap((await destination.loadDraft(slug))!.result, slug))
 
     for (const [file, content] of before.files) {
       expect(after.files.get(file), `${slug}/${file}`).toBe(content)

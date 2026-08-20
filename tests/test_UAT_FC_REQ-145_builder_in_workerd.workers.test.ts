@@ -239,47 +239,6 @@ describe('REQ-145 — the builder runs in workerd', () => {
     expect(await res.text()).toContain('Access is not configured')
   })
 
-  it('test_UAT_FC_REQ-145_a_page_mounting_a_behavior_names_the_ticket_that_renders_it', async () => {
-    // The REQ-148 boundary, stated rather than discovered. Every site in
-    // `storage/sites/` mounts `contact-form`, so this is the failure an operator
-    // meets first — it must name what is missing instead of failing as an
-    // undefined component three frames down.
-    const payload = pureL1Site()
-    const slug = payload.slug
-    const page = payload.pages[0].page as {
-      modules: unknown[]
-      l1: { root: { children: unknown[] } }
-    }
-    // A behavior must name the L1 seam it mounts into (REQ-93), so the slot is
-    // declared as well as bound — otherwise the draft fails VALIDATION and never
-    // reaches the render, which would make this test assert its own mistake.
-    page.l1.root.children.push({ kind: 'slot', name: 'form' })
-    page.modules = [
-      {
-        id: 'form',
-        type: 'contact-form',
-        version: 4,
-        slot: 'form',
-        config: {
-          action: 'https://example.com/submit',
-          fields: [{ name: 'email', label: 'Email', type: 'email', required: true }],
-        },
-        slots: {
-          form: {
-            kind: 'container',
-            layout: 'stack',
-            children: [{ kind: 'control', control: 'email' }],
-          },
-        },
-      },
-    ]
-    await importSitePayload(payload)
-
-    const res = await call(`/preview/${slug}/draft/`)
-    expect(res.status).toBeGreaterThanOrEqual(500)
-    expect(await res.text()).toContain('REQ-148')
-  })
-
   it('test_UAT_FC_REQ-145_no_tenant_configured_is_a_loud_failure_not_an_empty_answer', async () => {
     // A deployment that cannot name its tenant serves nothing, and says which
     // key is missing. Defaulting to a well-known name would let a misconfigured

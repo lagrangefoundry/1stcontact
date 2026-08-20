@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-41 negative fixture (test infrastructure, NOT a shipping module): a module
  * that overflows horizontally ONLY on the mobile band. A fixed 460px-wide block
@@ -7,12 +8,10 @@
  * widths and passes at desktop — the evidence that the viewport axis matters.
  * Inline styles only — the container render drops scoped <style>.
  */
----
-
-<section style="padding: 24px">
+export const mobileOverflow: BehaviorComponent = () => `<section style="padding: 24px">
   <h2>Mobile-overflow fixture</h2>
   <div style="width: 460px; height: 100px; background: #334155; color: #fff">
     This block is a fixed 460px wide — it fits at desktop widths but overflows the
     320px and 375px mobile viewports.
   </div>
-</section>
+</section>`
