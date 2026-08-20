@@ -6,9 +6,9 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-16T08:03:50.702281+00:00'
+updated_at: '2026-08-20T10:59:51.341552+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-31e474b9
@@ -67,6 +67,37 @@ The fold emits the **full language**, not text alone:
 - a **font resource table** binding each painted family handle to its served
   substance, populated only with the families a folded text leaf actually paints.
 
+**What varies across the ladder becomes a track — not geometry alone.** Any scalar
+axis whose measured value differs across the sampled widths folds to its own
+per-width keyframe track; an axis holding one value everywhere stays a plain
+scalar read from the widest sample, so a page that does not vary gains no bloat.
+Two axis families use this rule today — a text run's numeric type axes (size, line
+height, letter spacing) and the four sides of an element's padding — and they are
+written as mirrors of one another so the next axis to become responsive inherits
+the rule rather than re-deriving it. Before this the fold read *every* non-geometry
+axis from the widest present sample alone, so a desktop font size and a desktop
+inset were both replayed at mobile.
+
+**Padding is a folded axis, not a geometry side-effect.** A text, image or box leaf
+carries the per-side padding the reference painted — a scalar, plus a track for a
+side that varies. Without it a leaf's pinned box reproduced with its content flush
+to its own edges.
+
+**A run is pinned unbreakable from the width the reference stopped wrapping it.**
+The fold hands a run a fixed-width box whose slack over its own glyphs is routinely
+a fraction of a pixel, and each engine measures glyphs differently — so a no-wrap
+threshold axis carries the reference's own line count across engines instead of
+letting rounding re-decide it per browser.
+
+**The page's centred content column is recovered as a document constant.** Where
+content actually sits at each captured width is fitted to the two constants that
+reproduce every sampled origin and extent — a container maximum and a horizontal
+inset — and the fit is rejected unless it reproduces *all* of them, so a page with
+no centred column keeps its keyframes untouched. A node inside the column expresses
+its geometry against that column (a column anchor) rather than against the page
+edge, so the reproduction re-centres at unsampled widths instead of holding a
+captured absolute offset.
+
 **How a measured value becomes a typed axis.** Folding is not transcription: a
 computed CSS string is admitted only on terms that keep the folded definition
 honest and small. **The browser's own default is not worth carrying** — a value
@@ -124,7 +155,10 @@ renders as a complete reproduction on its own.
 **In scope:** the fold to one L1 document in the full language (text, image, box,
 backdrops in the background layer, reconstructed surfaces, page band, behaviour
 seams with rebased control leaves, font table), the framing and colour-adjustment
-axes a captured picture or surface carries, oracle retention, the offline re-fold,
+axes a captured picture or surface carries, per-side padding and the per-width
+scalar track any non-geometry axis earns by varying across the ladder, the no-wrap
+threshold axis, the recovered centred content column and the column-anchored node
+geometry that refers to it, oracle retention, the offline re-fold,
 geometry keyframes + interpolate/snap classification + visibility rules, the typed
 residual signal for unexpressed elements, the advisory hint sidecar, and
 supersession of the pre-L1 `adopt-values` reproduction command.
@@ -171,6 +205,19 @@ channel.
   rather than being silently closed with a guess. This is the value-level analogue
   of the element-level promise, reported through the comparison instead of the
   residual list.
+- REQ-88 — taking a capture bundle all the way to a servable, gate-able site is the
+  largest single intent shaping this fold. Driving a real reproduction end to end is
+  what surfaced the fidelity gaps it closed: per-width padding tracks, the no-wrap
+  threshold, the centred content column with column-anchored geometry, and the use
+  of the *captured* surface-bearing box for a reconstructed card, so a card's edges
+  are a measured fact rather than arithmetic over where its text happens to sit.
+- BUG-17 / BUG-18 / BUG-21 are the three defects behind those axes. The fold dropped
+  element padding outright (BUG-17); it read a text run's axes from the widest cell
+  only, so type rendered at desktop size on mobile (BUG-18); and a control surface
+  box double-applied padding when the fold computed its own inset/outset pair rather
+  than adopting the captured surface shape (BUG-21). BUG-18's own root cause — axes
+  taken from the widest present sample — is still the rule for the *base* value of
+  every axis; the responsive track is layered over it, not a replacement for it.
 - REQ-136 — the framing pair (which part of a picture its box shows) and the
   colour-adjustment stack were both read by the capture all along and dropped by
   the fold, because the substrate had nowhere to put them. The adjustment was
