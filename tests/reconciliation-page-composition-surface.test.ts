@@ -139,7 +139,12 @@ function unwrap(answer: string): string {
 }
 
 interface Box {
-  run: (tool: string, input: Record<string, unknown>) => string
+  /**
+   * `Toolbox.run` awaits what `surface.invoke` returns — REQ-142 made every L1
+   * operation async, and the model's tool loop awaits the answer. So does every
+   * call below.
+   */
+  run: (tool: string, input: Record<string, unknown>) => Promise<string>
   toolNames: () => string[]
   manual: () => string
 }
@@ -148,8 +153,8 @@ function caretaker(): Promise<Box> {
   return createL1Toolbox(SLUG, { cwd }) as Promise<Box>
 }
 
-function json<T>(box: Box, tool: string, input: Record<string, unknown> = {}): T {
-  return JSON.parse(unwrap(box.run(tool, input))) as T
+async function json<T>(box: Box, tool: string, input: Record<string, unknown> = {}): Promise<T> {
+  return JSON.parse(unwrap(await box.run(tool, input))) as T
 }
 
 interface Segment {
@@ -196,8 +201,8 @@ function moduleWalks(
 const subtreeSize = (node: L1Node): number => walk([node]).length
 
 /** Add the contact form the seeded seam was put there for. */
-function addForm(box: Box): void {
-  const answer = box.run('add_component', {
+async function addForm(box: Box): Promise<void> {
+  const answer = await box.run('add_component', {
     page: 'home',
     name: 'signup',
     behavior: 'contact-form',
@@ -221,9 +226,9 @@ describe('the page map answers where every element is', () => {
 
   it('test_UAT_AC1083_map_emits_every_element_with_its_address_kind_and_scope', async () => {
     const box = await caretaker()
-    addForm(box)
+    await addForm(box)
 
-    const map = json<PageMap>(box, 'describe_page', { page: 'home' })
+    const map = await json<PageMap>(box, 'describe_page', { page: 'home' })
     const stored = readPage()
 
     // Compared against a walk of the STORED definition written here, not against
@@ -271,9 +276,9 @@ describe('the page map answers where every element is', () => {
 
   it('test_UAT_AC1084_labels_identify_an_element_and_carry_no_styling', async () => {
     const box = await caretaker()
-    addForm(box)
+    await addForm(box)
 
-    const answer = box.run('describe_page', { page: 'home' })
+    const answer = await box.run('describe_page', { page: 'home' })
     const map = JSON.parse(unwrap(answer)) as PageMap
     const at = (address: string): Segment =>
       map.segments.find((s) => s.path === address && s.module === undefined) as Segment
@@ -347,9 +352,9 @@ describe('the page map answers where every element is', () => {
       return rest as L1Node
     }
     writeRoot(unstyled(SEEDED_ROOT))
-    const light = box.run('describe_page', { page: 'home' })
+    const light = await box.run('describe_page', { page: 'home' })
     writeRoot(SEEDED_ROOT)
-    const heavy = box.run('describe_page', { page: 'home' })
+    const heavy = await box.run('describe_page', { page: 'home' })
     expect(heavy).toBe(light)
   })
 })
@@ -362,9 +367,9 @@ describe('one address reads and writes the element at it', () => {
 
   it('test_UAT_AC1085_get_returns_the_subtree_exactly_as_stored', async () => {
     const box = await caretaker()
-    addForm(box)
+    await addForm(box)
 
-    const read = json<{ target: Record<string, unknown>; node: L1Node }>(box, 'get_l1', {
+    const read = await json<{ target: Record<string, unknown>; node: L1Node }>(box, 'get_l1', {
       page: 'home',
       path: '0.0',
     })
@@ -382,13 +387,13 @@ describe('one address reads and writes the element at it', () => {
 
     // The reply states where it read from: the page and the address asked for,
     // and an unscoped read is attributed to no component on the page.
-    const map = json<PageMap>(box, 'describe_page', { page: 'home' })
+    const map = await json<PageMap>(box, 'describe_page', { page: 'home' })
     expect(read.target).toMatchObject({ pageId: 'home', path: '0.0' })
     expect(map.components.map((c) => c.id)).not.toContain(read.target.module)
 
     // ...and, inside a component instance, the scope the address is resolved in.
     const inSlot = map.segments.find((s) => s.module !== undefined) as Segment
-    const scoped = json<{ target: Record<string, unknown>; node: L1Node }>(box, 'get_l1', {
+    const scoped = await json<{ target: Record<string, unknown>; node: L1Node }>(box, 'get_l1', {
       page: 'home',
       path: inSlot.path,
       module: inSlot.module,
@@ -412,8 +417,8 @@ describe('one address reads and writes the element at it', () => {
     const box = await caretaker()
     const before = readPage()
 
-    const read = json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: '0' })
-    const answer = box.run('set_l1', { page: 'home', path: '0', node: read.node })
+    const read = await json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: '0' })
+    const answer = await box.run('set_l1', { page: 'home', path: '0', node: read.node })
 
     // Asserted FIRST: a refused write also leaves the page unchanged, so
     // unchanged-ness on its own is not evidence of a round trip.
@@ -426,7 +431,7 @@ describe('one address reads and writes the element at it', () => {
 
   it('test_UAT_AC1087_replacing_an_element_replaces_its_subtree_and_spares_its_siblings', async () => {
     const box = await caretaker()
-    box.run('add_page', { page: 'about', title: 'About' })
+    await box.run('add_page', { page: 'about', title: 'About' })
     const otherPage = draftBytes('about')
 
     const before = homeRoot() as { children: L1Node[] }
@@ -445,7 +450,7 @@ describe('one address reads and writes the element at it', () => {
       ],
     }
     const answer = JSON.parse(
-      box.run('set_l1', { page: 'home', path: '0.1', node: replacement }),
+      await box.run('set_l1', { page: 'home', path: '0.1', node: replacement }),
     ) as { changed: string[]; message: string }
 
     // The reply names the address that changed.
@@ -480,9 +485,10 @@ describe('one address reads and writes the element at it', () => {
 
     // Map → read the group → write it back with one more child. Both halves are
     // needed, so this cannot pass by accident.
-    const map = json<PageMap>(box, 'describe_page', { page: 'home' })
+    const map = await json<PageMap>(box, 'describe_page', { page: 'home' })
     const rootAddress = map.segments[0].path
-    const root = json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: rootAddress }).node
+    const root = (await json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: rootAddress }))
+      .node
     const originalChildren = (root as { children: L1Node[] }).children.length
 
     const nav: L1Node = {
@@ -495,9 +501,9 @@ describe('one address reads and writes the element at it', () => {
       ],
     }
     const withNav = { ...root, children: [nav, ...(root as { children: L1Node[] }).children] }
-    expect(box.run('set_l1', { page: 'home', path: rootAddress, node: withNav })).not.toContain(
-      'SCHEMA_INVALID',
-    )
+    expect(
+      await box.run('set_l1', { page: 'home', path: rootAddress, node: withNav }),
+    ).not.toContain('SCHEMA_INVALID')
 
     const stored = homeRoot() as { children: L1Node[] }
     expect(stored.children).toHaveLength(originalChildren + 1)
@@ -513,12 +519,13 @@ describe('one address reads and writes the element at it', () => {
     expect(html).toMatch(/<a[^>]+href="#contact"[^>]*>Contact<\/a>/)
 
     // Removing is the same call with one fewer child.
-    const back = json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: rootAddress }).node
+    const back = (await json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: rootAddress }))
+      .node
     const withoutNav = {
       ...back,
       children: (back as { children: L1Node[] }).children.slice(1),
     }
-    box.run('set_l1', { page: 'home', path: rootAddress, node: withoutNav })
+    await box.run('set_l1', { page: 'home', path: rootAddress, node: withoutNav })
     expect((homeRoot() as { children: L1Node[] }).children).toHaveLength(originalChildren)
   }, 180000)
 })
@@ -545,7 +552,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     ]
 
     for (const node of refused) {
-      const answer = box.run('set_l1', { page: 'home', path: '0.0.0', node })
+      const answer = await box.run('set_l1', { page: 'home', path: '0.0.0', node })
       expect(answer, JSON.stringify(node)).toContain('SCHEMA_INVALID')
     }
 
@@ -562,7 +569,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     // offending field (the write path reports it and a `1c` user sees it; the
     // tool layer renders only the declared meaning), so the declared meaning
     // carries the STRATEGY rather than promising specifics it cannot deliver.
-    const answer = box.run('set_l1', {
+    const answer = await box.run('set_l1', {
       page: 'home',
       path: '0.0.0',
       node: { kind: 'text', text: 'x', axes: { fontSizePx: 'huge' } },
@@ -579,7 +586,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
 
     // Beyond the tree: refused as not-found, and told where a real address comes
     // from rather than left to guess a neighbouring one.
-    const missing = box.run('set_l1', {
+    const missing = await box.run('set_l1', {
       page: 'home',
       path: '9.9.9',
       node: { kind: 'text', text: 'nope' },
@@ -589,7 +596,7 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
 
     // Not an address at all: refused as malformed rather than resolved to
     // something nearby.
-    const malformed = box.run('set_l1', {
+    const malformed = await box.run('set_l1', {
       page: 'home',
       path: 'first.heading',
       node: { kind: 'text', text: 'nope' },
@@ -619,9 +626,9 @@ describe('the closed vocabulary is what refuses markup, stylesheets and scripts'
     expect(box.toolNames()).not.toContain('get_copy')
     expect(box.toolNames()).not.toContain('set_copy')
     expect(box.manual()).not.toContain('set_copy')
-    expect(box.run('set_copy', { page: 'home', path: '0.0.0', values: { text: 'x' } })).toMatch(
-      /unknown tool|not enabled/i,
-    )
+    expect(
+      await box.run('set_copy', { page: 'home', path: '0.0.0', values: { text: 'x' } }),
+    ).toMatch(/unknown tool|not enabled/i)
 
     // A grant naming a group the surface does not declare is a startup failure on
     // an operator's machine with a turn in flight.
@@ -652,7 +659,7 @@ describe("the click-to-edit gesture still works on what the assistant composed",
     fresh('compose-modal-')
 
     const box = await caretaker()
-    box.run('set_l1', {
+    await box.run('set_l1', {
       page: 'home',
       path: '0.1',
       node: {

@@ -125,7 +125,12 @@ function unwrap(answer: string): string {
 }
 
 interface Box {
-  run: (tool: string, input: Record<string, unknown>) => string
+  /**
+   * `Toolbox.run` awaits what `surface.invoke` returns — REQ-142 made every L1
+   * operation async, and the model's tool loop awaits the answer. So does every
+   * call below.
+   */
+  run: (tool: string, input: Record<string, unknown>) => Promise<string>
   toolNames: () => string[]
   manual: () => string
 }
@@ -134,8 +139,8 @@ function caretaker(): Promise<Box> {
   return createL1Toolbox(SLUG, { cwd })
 }
 
-function json<T>(box: Box, tool: string, input: Record<string, unknown> = {}): T {
-  return JSON.parse(unwrap(box.run(tool, input))) as T
+async function json<T>(box: Box, tool: string, input: Record<string, unknown> = {}): Promise<T> {
+  return JSON.parse(unwrap(await box.run(tool, input))) as T
 }
 
 interface Segment {
@@ -158,7 +163,7 @@ describe('REQ-129 — the page map shows the whole page', () => {
 
   it('test_UAT_FC_REQ_129_map_emits_every_element_including_layout_containers', async () => {
     const box = await caretaker()
-    const map = json<{ segments: Segment[] }>(box, 'describe_page', { page: 'home' })
+    const map = await json<{ segments: Segment[] }>(box, 'describe_page', { page: 'home' })
 
     // Every node, not only the ones with copy fields. Compared against a walk of
     // the seed itself, so this cannot pass by agreeing with the implementation
@@ -174,7 +179,7 @@ describe('REQ-129 — the page map shows the whole page', () => {
 
   it('test_UAT_FC_REQ_129_map_labels_are_recognisable_and_carry_no_axes', async () => {
     const box = await caretaker()
-    const answer = box.run('describe_page', { page: 'home' })
+    const answer = await box.run('describe_page', { page: 'home' })
     const map = JSON.parse(unwrap(answer)) as { segments: Segment[] }
 
     // A label identifies a node among its siblings and no more. The map is the
@@ -204,7 +209,7 @@ describe('REQ-129 — a subtree reads and writes verbatim', () => {
 
   it('test_UAT_FC_REQ_129_get_l1_returns_the_subtree_exactly_as_stored', async () => {
     const box = await caretaker()
-    const read = json<{ node: unknown }>(box, 'get_l1', { page: 'home', path: '0.0' })
+    const read = await json<{ node: unknown }>(box, 'get_l1', { page: 'home', path: '0.0' })
 
     // Byte-for-byte the stored subtree. Verbatim is the DECISION, not a default:
     // the palette ref stays a ref and the responsive track stays a track,
@@ -229,8 +234,8 @@ describe('REQ-129 — a subtree reads and writes verbatim', () => {
     // The property the whole pair rests on, measured rather than argued: if a
     // read cannot be written back unchanged, every edit silently loses whatever
     // the read dropped, and the loss compounds one turn at a time.
-    const read = json<{ node: unknown }>(box, 'get_l1', { page: 'home', path: '0' })
-    const answer = box.run('set_l1', { page: 'home', path: '0', node: read.node })
+    const read = await json<{ node: unknown }>(box, 'get_l1', { page: 'home', path: '0' })
+    const answer = await box.run('set_l1', { page: 'home', path: '0', node: read.node })
 
     // The write must have been ACCEPTED — a refused write also leaves the page
     // unchanged, so without this the assertion below passes on failure.
@@ -247,7 +252,7 @@ describe('REQ-129 — a subtree reads and writes verbatim', () => {
   it('test_UAT_FC_REQ_129_set_l1_replaces_a_subtree_and_keeps_its_siblings', async () => {
     const box = await caretaker()
 
-    const answer = box.run('set_l1', {
+    const answer = await box.run('set_l1', {
       page: 'home',
       path: '0.1',
       node: { kind: 'text', text: 'A quieter close.', axes: { fontSizePx: 18 } },
@@ -283,10 +288,11 @@ describe('REQ-129 — the assistant composes structure it could not reach before
     // The ticket's acceptance case, run the way a session runs it. It needs BOTH
     // halves — reading a subtree with its axes, and writing one back with
     // structure and roles — so it cannot pass by accident.
-    const map = json<{ segments: Segment[] }>(box, 'describe_page', { page: 'home' })
+    const map = await json<{ segments: Segment[] }>(box, 'describe_page', { page: 'home' })
     const rootAddress = map.segments[0].path
 
-    const root = json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: rootAddress }).node
+    const root = (await json<{ node: L1Node }>(box, 'get_l1', { page: 'home', path: rootAddress }))
+      .node
 
     const nav: L1Node = {
       kind: 'container',
@@ -300,7 +306,7 @@ describe('REQ-129 — the assistant composes structure it could not reach before
     // Adding is replacing the group with a group that has one more child. There
     // is no insert operation and the surface says so.
     const withNav = { ...root, children: [nav, ...(root as { children: L1Node[] }).children] }
-    box.run('set_l1', { page: 'home', path: rootAddress, node: withNav })
+    await box.run('set_l1', { page: 'home', path: rootAddress, node: withNav })
 
     const stored = homeRoot() as { children: Record<string, unknown>[] }
     expect(stored.children[0]).toEqual(nav)
@@ -355,7 +361,7 @@ describe('REQ-129 — the closed vocabulary is what refuses markup now', () => {
     ]
 
     for (const node of rejected) {
-      const answer = box.run('set_l1', { page: 'home', path: '0.0.0', node })
+      const answer = await box.run('set_l1', { page: 'home', path: '0.0.0', node })
       expect(answer, JSON.stringify(node)).toContain('SCHEMA_INVALID')
     }
 
@@ -376,7 +382,7 @@ describe('REQ-129 — the closed vocabulary is what refuses markup now', () => {
     // plus the surface's declared meaning and drops the host message, with no
     // per-call detail channel. Recorded as an upstream finding; until it lands,
     // the declared meaning has to carry the strategy rather than the specifics.
-    const answer = box.run('set_l1', {
+    const answer = await box.run('set_l1', {
       page: 'home',
       path: '0.0.0',
       node: { kind: 'text', text: 'x', axes: { fontSizePx: 'huge' } },
@@ -391,7 +397,7 @@ describe('REQ-129 — the closed vocabulary is what refuses markup now', () => {
     const box = await caretaker()
     const before = draftBytes()
 
-    const answer = box.run('set_l1', {
+    const answer = await box.run('set_l1', {
       page: 'home',
       path: '9.9.9',
       node: { kind: 'text', text: 'nope' },
@@ -430,7 +436,7 @@ describe('REQ-129 — the AI-facing copy operations are retired, not shadowed', 
     expect(box.toolNames()).toEqual(expect.arrayContaining(['get_l1', 'set_l1']))
     expect(box.toolNames()).not.toContain('set_copy')
     expect(box.manual()).not.toContain('set_copy')
-    expect(box.run('set_copy', { page: 'home', path: '0.0.0', values: { text: 'x' } })).toMatch(
+    expect(await box.run('set_copy', { page: 'home', path: '0.0.0', values: { text: 'x' } })).toMatch(
       /unknown tool|not enabled/i,
     )
   })
@@ -472,7 +478,7 @@ describe('REQ-129 — the click-to-edit modal still works on what the AI authore
     // The assistant authors a subtree of its own — a container holding a text run
     // and an image, none of it written by hand.
     const box = await caretaker()
-    box.run('set_l1', {
+    await box.run('set_l1', {
       page: 'home',
       path: '0.1',
       node: {

@@ -98,11 +98,16 @@ function seedPage(cwd: string, slug: string): void {
 }
 
 let cwd: string
-let box: { run: (tool: string, input: Record<string, unknown>) => string }
+let box: { run: (tool: string, input: Record<string, unknown>) => Promise<string> }
 const SLUG = 'studio'
 
-/** Call a tool the way the model's tool loop does: input in, string out. */
-function call(name: string, input: Record<string, unknown> = {}): string {
+/**
+ * Call a tool the way the model's tool loop does: input in, string out.
+ *
+ * `Toolbox.run` awaits what `surface.invoke` returns (REQ-142 made every
+ * operation async), so the loop awaits it too — and so does this.
+ */
+async function call(name: string, input: Record<string, unknown> = {}): Promise<string> {
   return box.run(name, input)
 }
 
@@ -111,8 +116,8 @@ function call(name: string, input: Record<string, unknown> = {}): string {
  * model is told about (REQ-126) — site copy is text a third party wrote — so a
  * consumer strips them after being told what they mean.
  */
-function callJson<T>(name: string, input: Record<string, unknown> = {}): T {
-  const answer = call(name, input)
+async function callJson<T>(name: string, input: Record<string, unknown> = {}): Promise<T> {
+  const answer = (await call(name, input))
     .replace(/^<<<untrusted>>>\n/, '')
     .replace(/\n<<<\/untrusted>>>$/, '')
   return JSON.parse(answer) as T
@@ -144,12 +149,12 @@ afterEach(() => {
 })
 
 describe('REQ-122 — the AI changes the site through the tool surface', () => {
-  it('maps a page it has never seen and changes the words it finds there', () => {
+  it('maps a page it has never seen and changes the words it finds there', async () => {
     // The AI's actual opening move: it knows a slug and nothing else.
-    const site = callJson<{ pages: { id: string }[] }>('describe_site')
+    const site = await callJson<{ pages: { id: string }[] }>('describe_site')
     expect(site.pages.map((p) => p.id)).toContain('home')
 
-    const map = callJson<{ segments: Segment[] }>('describe_page', { page: 'home' })
+    const map = await callJson<{ segments: Segment[] }>('describe_page', { page: 'home' })
 
     // The map is the only place the address comes from — nothing here computes
     // one, because the model cannot either.
@@ -159,11 +164,13 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
 
     // Read the element, change the part that was asked for, write it back
     // (REQ-129). A write is a whole element, so a read is not optional.
-    const node = callJson<{ node: Record<string, unknown> }>('get_l1', {
-      page: 'home',
-      path: found!.path,
-    }).node
-    const result = call('set_l1', {
+    const node = (
+      await callJson<{ node: Record<string, unknown> }>('get_l1', {
+        page: 'home',
+        path: found!.path,
+      })
+    ).node
+    const result = await call('set_l1', {
       page: 'home',
       path: found!.path,
       node: { ...node, text: 'A quieter band.' },
@@ -175,8 +182,8 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
     expect(l1.root.children[0].children[0].text).toBe('A quieter band.')
   })
 
-  it('maps copy inside behavior modules, carrying the scope the write path needs', () => {
-    const map = callJson<{ segments: Segment[] }>('describe_page', { page: 'home' })
+  it('maps copy inside behavior modules, carrying the scope the write path needs', async () => {
+    const map = await callJson<{ segments: Segment[] }>('describe_page', { page: 'home' })
 
     // A slide and a form intro are editable words on the page. A model shown only
     // the page's own L1 would report them as unchangeable — they are not.
@@ -187,13 +194,15 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
 
     // The scope travels with the address, so handing the map's entry straight
     // back is a valid write — which is the property that makes the map usable.
-    const slideNode = callJson<{ node: Record<string, unknown> }>('get_l1', {
-      page: 'home',
-      path: slide!.path,
-      module: slide!.module,
-      slot: slide!.slot,
-    }).node
-    call('set_l1', {
+    const slideNode = (
+      await callJson<{ node: Record<string, unknown> }>('get_l1', {
+        page: 'home',
+        path: slide!.path,
+        module: slide!.module,
+        slot: slide!.slot,
+      })
+    ).node
+    await call('set_l1', {
       page: 'home',
       path: slide!.path,
       module: slide!.module,
@@ -206,14 +215,14 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
     expect(gallery?.slots.slide[0].text).toBe('Our newest work.')
   })
 
-  it('reports a refused change as something the AI can correct, leaving the draft untouched', () => {
+  it('reports a refused change as something the AI can correct, leaving the draft untouched', async () => {
     const before = readFileSync(
       path.join(cwd, 'storage', 'sites', SLUG, 'draft', 'pages', 'home.json'),
       'utf8',
     )
 
     // An address the model guessed rather than read — the most likely bad call.
-    const refusal = call('set_l1', {
+    const refusal = await call('set_l1', {
       page: 'home',
       path: '9.9.9',
       node: { kind: 'text', text: 'nope' },
@@ -231,22 +240,22 @@ describe('REQ-122 — the AI changes the site through the tool surface', () => {
     ).toBe(before)
   })
 
-  it('answers a tool failure rather than throwing, so one bad call cannot end the turn', () => {
+  it('answers a tool failure rather than throwing, so one bad call cannot end the turn', async () => {
     // The loop treats a throw as a broken turn. Every failure mode must resolve.
-    expect(call('describe_page', { page: 'does-not-exist' })).toContain('NOT_FOUND')
-    expect(call('get_config', { key: 'nope.nope' })).toContain('NOT_FOUND')
-    expect(call('set_l1', { page: 'home', path: '0.0.0', node: 'not an object' })).toMatch(
+    expect(await call('describe_page', { page: 'does-not-exist' })).toContain('NOT_FOUND')
+    expect(await call('get_config', { key: 'nope.nope' })).toContain('NOT_FOUND')
+    expect(await call('set_l1', { page: 'home', path: '0.0.0', node: 'not an object' })).toMatch(
       /must be an object/i,
     )
-    expect(call('no_such_tool', {})).toMatch(/unknown tool/i)
+    expect(await call('no_such_tool', {})).toMatch(/unknown tool/i)
   })
 
-  it('adds a page, and refuses to add it twice', () => {
-    expect(call('add_page', { page: 'contact', title: 'Contact us' })).toMatch(/contact/)
+  it('adds a page, and refuses to add it twice', async () => {
+    expect(await call('add_page', { page: 'contact', title: 'Contact us' })).toMatch(/contact/)
 
-    const pages = callJson<{ pages: { id: string }[] }>('list_pages')
+    const pages = await callJson<{ pages: { id: string }[] }>('list_pages')
     expect(pages.pages.map((p) => p.id)).toContain('contact')
 
-    expect(call('add_page', { page: 'contact' })).toContain('CONFLICT')
+    expect(await call('add_page', { page: 'contact' })).toContain('CONFLICT')
   })
 })

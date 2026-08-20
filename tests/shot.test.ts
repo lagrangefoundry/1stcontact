@@ -77,12 +77,14 @@ class FakeDriver implements BrowserDriver {
  * framework pivot (REQ-84) the starter is empty and the surviving asset-ref sink
  * is a carousel slide's `image`, so we author a carousel with one image slide.
  */
-function siteWithImageLogo(cwd: string, slug: string): void {
+async function siteWithImageLogo(cwd: string, slug: string): Promise<void> {
   cmdNew(slug, { cwd })
   // Register a real PNG under the draft's assets/ so render copies it through.
+  // Awaited: `editAssetAdd` goes through the async `SiteStore` port (REQ-142),
+  // and the page authored below is only correct once the asset is registered.
   const staged = path.join(cwd, 'logo.png')
   copyFileSync(FIXTURE_PNG, staged)
-  editAssetAdd(slug, staged, { cwd, as: 'logo.png' })
+  await editAssetAdd(slug, staged, { cwd, as: 'logo.png' })
   // Author a carousel whose slide image points at the served absolute path — the
   // exact shape that used to render blank when the page couldn't reach its own
   // assets.
@@ -109,7 +111,7 @@ function siteWithImageLogo(cwd: string, slug: string): void {
 describe('1c shot — page screenshot primitive (REQ-13)', () => {
   itB('test_UAT_FC_REQ-13_shot_draft_assets_load', async () => {
     const cwd = freshCwd()
-    siteWithImageLogo(cwd, 'acme')
+    await siteWithImageLogo(cwd, 'acme')
     const out = path.join(cwd, 'draft-shot.png')
 
     // Wrap the real Playwright driver so we can assert, on the served page, that

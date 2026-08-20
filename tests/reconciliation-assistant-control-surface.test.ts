@@ -109,7 +109,12 @@ function unwrap(answer: string): string {
 }
 
 interface Toolbox {
-  run: (tool: string, input: Record<string, unknown>) => string
+  /**
+   * `Toolbox.run` awaits what `surface.invoke` returns — REQ-142 made every L1
+   * operation async, and the model's tool loop awaits the answer. So does every
+   * call below.
+   */
+  run: (tool: string, input: Record<string, unknown>) => Promise<string>
   toolNames: () => string[]
   manual: () => string
 }
@@ -290,7 +295,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     // Calling one anyway is refused as a CAPABILITY decision and recorded as one,
     // rather than vanishing into "no such tool" with nothing to audit.
     const before = draftBytes()
-    const answer = box.run('add_asset', { file: '/etc/hosts', as: 'hosts.png' })
+    const answer = await box.run('add_asset', { file: '/etc/hosts', as: 'hosts.png' })
 
     expect(answer).toMatch(/not enabled/i)
     expect(draftBytes()).toBe(before)
@@ -315,7 +320,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     expect(box.manual()).not.toMatch(/set_l1/)
 
     const before = draftBytes()
-    const answer = box.run('set_l1', {
+    const answer = await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
       node: { kind: 'text', text: 'nope' },
@@ -332,13 +337,13 @@ describe('the assistant control surface — declared once, granted narrowly, che
 
     // One schema check, run BEFORE invocation — the security model, not an
     // optimisation. Each fault is named specifically enough to correct.
-    const wrongType = box.run('set_l1', {
+    const wrongType = await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
       node: 'not an object',
     })
-    const missing = box.run('set_l1', { page: 'home', node: { kind: 'text', text: 'x' } })
-    const undeclared = box.run('describe_page', { page: 'home', colour: 'red' })
+    const missing = await box.run('set_l1', { page: 'home', node: { kind: 'text', text: 'x' } })
+    const undeclared = await box.run('describe_page', { page: 'home', colour: 'red' })
 
     expect(wrongType).toMatch(/must be an object/i)
     expect(missing).toMatch(/requires parameter 'path'/)
@@ -360,7 +365,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
     const before = draftBytes()
 
     // An address composed rather than read — the likeliest well-formed bad call.
-    const refusal = box.run('set_l1', {
+    const refusal = await box.run('set_l1', {
       page: 'home',
       path: '9.9.9',
       node: { kind: 'text', text: 'nope' },
@@ -384,14 +389,14 @@ describe('the assistant control surface — declared once, granted narrowly, che
 
     // Everything a read returns is somebody else's words — page copy, a title, a
     // setting — so it comes back wrapped, opened and closed around the payload.
-    const read = box.run('describe_page', { page: 'home' })
+    const read = await box.run('describe_page', { page: 'home' })
     expect(read.startsWith(UNTRUSTED_OPEN)).toBe(true)
     expect(read.trimEnd().endsWith(UNTRUSTED_CLOSE)).toBe(true)
     expect(read).toContain(HEADLINE)
 
     // A write's confirmation is the surface's own words about the caller's own
     // change; marking it would only teach a consumer to ignore the markers.
-    const written = box.run('set_l1', {
+    const written = await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
       node: { kind: 'text', text: 'Something else.' },
@@ -408,13 +413,13 @@ describe('the assistant control surface — declared once, granted narrowly, che
   it('test_UAT_AC1079_every_call_against_the_site_is_recorded', async () => {
     const box = await caretaker()
 
-    box.run('describe_page', { page: 'home' })
-    box.run('set_l1', {
+    await box.run('describe_page', { page: 'home' })
+    await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
       node: { kind: 'text', text: 'Recorded.' },
     })
-    box.run('set_l1', { page: 'home', path: '9.9.9', node: { kind: 'text', text: 'refused' } })
+    await box.run('set_l1', { page: 'home', path: '9.9.9', node: { kind: 'text', text: 'refused' } })
 
     // One record per call, whatever the outcome.
     const lines = auditLines()
@@ -505,7 +510,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
 
     // Read the page's map and take an address from it — nothing here composes
     // one, because a consumer cannot either.
-    const map = JSON.parse(unwrap(box.run('describe_page', { page: 'home' }))) as {
+    const map = JSON.parse(unwrap(await box.run('describe_page', { page: 'home' }))) as {
       segments: { path: string; label: string }[]
     }
     const found = map.segments.find((s) => s.label === HEADLINE)
@@ -513,7 +518,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
 
     const replacement = { kind: 'text', text: 'A quieter band.', axes: { fontSizePx: 32 } }
     const before = draftBytes()
-    const answer = box.run('set_l1', { page: 'home', path: found!.path, node: replacement })
+    const answer = await box.run('set_l1', { page: 'home', path: found!.path, node: replacement })
 
     // The declared change report: what changed, and a line in plain words.
     const change = JSON.parse(answer) as { changed: string[]; message: string }

@@ -176,7 +176,24 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-122 the assistant is in the split', () =>
     await app.chat.getChat().send('Make the heading bigger')
 
     expect(transport.asked.streamPrompt).toEqual([['site-beta', 'Make the heading bigger']])
-    expect(app.chat.getChat().getMessages()).toEqual([
+
+    // Compared on ROLE AND COPY, which is the whole of the claim: which turns
+    // the conversation holds, in which order, saying exactly what. The count is
+    // still exact, so a dropped or duplicated turn still fails.
+    //
+    // The projection is deliberate and its reason is upstream, not local. The
+    // installed `webui-chat` stamps its OWN wall-clock time on a turn that went
+    // through `send()` — `appendMessage('user', text, { ts: nowIso() })` at
+    // `webui-chat/src/index.js:343`, surfaced by `getMessages()` at `:451-456`,
+    // which omits `meta` when there is none. Nothing in this repo passes a
+    // `meta`: `chat.js:105` replays a session with `appendMessage(role, markdown)`
+    // and two arguments only, which is why the replay assertions above compare
+    // whole records and still pass. So the field is the component's, it is a
+    // clock reading and therefore not stably assertable, and it is not what
+    // REQ-122 claims. Asserting its ABSENCE was asserting a property this test
+    // never meant to hold.
+    const turns = app.chat.getChat().getMessages()
+    expect(turns.map(({ role, markdown }) => ({ role, markdown }))).toEqual([
       { role: 'user', markdown: 'Make the heading bigger' },
       { role: 'assistant', markdown: 'Done — the heading is bigger.' },
     ])

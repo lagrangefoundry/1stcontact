@@ -310,9 +310,17 @@ describe('AC-939 censusing a site reports its colours and changes nothing', () =
   it('test_UAT_AC939_census_reports_literals_counts_alpha_families_and_writes_nothing', () => {
     // A site whose colours are known: `xgd` carries an RGB used at three
     // opacities (#2e86a3 at full, 0.65 and 0.33), which is the alpha family the
-    // census must surface. `harbor-cafe` carries no colour literals at all.
+    // census must surface. Beside it, a site carrying no colour literals at all.
+    //
+    // SYNTHESISED, not stored (REQ-140). The bare specimen used to be a copy of
+    // the stored `harbor-cafe` example, which was deleted as dead — it was built
+    // on the semantic layout modules the framework pivot removed, and assertions
+    // like this one were the last thing still reading it. The claim is about a
+    // document with no colour literals, not about that particular site, so it is
+    // stated directly: `paintedSandboxSite` with an empty colour list is exactly
+    // a page with nothing to census.
     const colourful = seedSandbox('xgd', 'shade939-colourful')
-    const bare = seedSandbox('harbor-cafe', 'shade939-bare')
+    const bare = paintedSandboxSite('shade939-bare', [])
     const beforeColourful = hashTree(colourful)
     const beforeBare = hashTree(bare)
 
@@ -1025,7 +1033,12 @@ describe('AC-932 the palette is materially smaller than the distinct colour coun
 
     // A site with no L1 colour axes carries no palette at all and still
     // satisfies the site-definition contract.
-    const bareDir = seedTemp(cwd, 'harbor-cafe', 'small-bare')
+    //
+    // SYNTHESISED, not stored (REQ-140) — see the note in AC-939 above. A page
+    // painted with an empty colour list is precisely "no L1 colour axes", which
+    // is what this claim is about; the deleted `harbor-cafe` example was only
+    // ever standing in for it.
+    const bareDir = paintedSite(cwd, 'small-bare', [])
     expect(cmdColors('small-bare', { cwd }).colors).toEqual([])
     expect(paletteOf(bareDir)).toBeUndefined()
     const bare = readJsonFile<Record<string, unknown>>(path.join(draftOf(bareDir), 'site.json'))

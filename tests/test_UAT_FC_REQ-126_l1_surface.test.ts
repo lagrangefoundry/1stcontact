@@ -112,7 +112,12 @@ function unwrap(answer: string): string {
 
 /** The caretaker's Toolbox for the seeded site, audited to disk like the real host. */
 function caretaker(): Promise<{
-  run: (tool: string, input: Record<string, unknown>) => string
+  /**
+   * `Toolbox.run` awaits what `surface.invoke` returns — REQ-142 made every L1
+   * operation async, and the model's tool loop awaits the answer. So does every
+   * call below.
+   */
+  run: (tool: string, input: Record<string, unknown>) => Promise<string>
   toolNames: () => string[]
   manual: () => string
 }> {
@@ -224,7 +229,7 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
     const box = await caretaker()
     const before = draftBytes()
 
-    const answer = box.run('add_asset', { file: '/etc/hosts', as: 'hosts.png' })
+    const answer = await box.run('add_asset', { file: '/etc/hosts', as: 'hosts.png' })
 
     expect(answer).toMatch(/not enabled/i)
     expect(draftBytes()).toBe(before)
@@ -251,7 +256,7 @@ describe('REQ-126 — the surface declares the whole API and the grant narrows i
     expect(box.manual()).not.toMatch(/set_l1/)
 
     const before = draftBytes()
-    const answer = box.run('set_l1', {
+    const answer = await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
       node: { kind: 'text', text: 'nope' },
@@ -272,13 +277,13 @@ describe('REQ-126 — arguments are validated before anything reaches edit.ts', 
 
     // Each of these used to be a hand-rolled check inside its own handler. They
     // are now one schema check that runs before invocation.
-    const wrongType = box.run('set_l1', {
+    const wrongType = await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
       node: 'not an object',
     })
-    const missing = box.run('set_l1', { page: 'home', node: { kind: 'text', text: 'x' } })
-    const unknown = box.run('describe_page', { page: 'home', colour: 'red' })
+    const missing = await box.run('set_l1', { page: 'home', node: { kind: 'text', text: 'x' } })
+    const unknown = await box.run('describe_page', { page: 'home', colour: 'red' })
 
     expect(wrongType).toMatch(/must be an object/i)
     expect(missing).toMatch(/requires parameter 'path'/)
@@ -297,7 +302,7 @@ describe('REQ-126 — arguments are validated before anything reaches edit.ts', 
     const before = draftBytes()
 
     // An address the model composed rather than read — the likeliest bad call.
-    const refusal = box.run('set_l1', {
+    const refusal = await box.run('set_l1', {
       page: 'home',
       path: '9.9.9',
       node: { kind: 'text', text: 'nope' },
@@ -319,7 +324,7 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
   it('test_UAT_FC_REQ_126_map_then_write_lands_on_the_draft', async () => {
     const box = await caretaker()
 
-    const map = JSON.parse(unwrap(box.run('describe_page', { page: 'home' }))) as {
+    const map = JSON.parse(unwrap(await box.run('describe_page', { page: 'home' }))) as {
       segments: { path: string; label: string }[]
     }
     const found = map.segments.find((s) => s.label === HEADLINE)
@@ -328,7 +333,7 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
     // one, because the model cannot either.
     expect(found?.path).toBe(HEADLINE_PATH)
 
-    const answer = box.run('set_l1', {
+    const answer = await box.run('set_l1', {
       page: 'home',
       path: found!.path,
       node: { kind: 'text', text: 'A quieter band.', axes: { fontSizePx: 32 } },
@@ -351,14 +356,14 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
     // Every read on this surface returns text somebody else wrote: page copy, a
     // page title, a config value. `inproc` would default all of it TRUSTED, which
     // is wrong for a product whose whole job is editing other people's prose.
-    const read = box.run('describe_page', { page: 'home' })
+    const read = await box.run('describe_page', { page: 'home' })
     expect(read.startsWith(UNTRUSTED_OPEN)).toBe(true)
     expect(read.trimEnd().endsWith(UNTRUSTED_CLOSE)).toBe(true)
     expect(read).toContain(HEADLINE)
 
     // A write's confirmation is the surface's own words about the model's own
     // change, so marking it would only train the model to ignore the markers.
-    const written = box.run('set_l1', {
+    const written = await box.run('set_l1', {
       page: 'home',
       path: HEADLINE_PATH,
       node: { kind: 'text', text: 'Something else.' },
@@ -371,9 +376,9 @@ describe('REQ-126 — the declared surface still drives the one write path', () 
 
   it('test_UAT_FC_REQ_126_every_call_against_the_site_is_recorded', async () => {
     const box = await caretaker()
-    box.run('describe_page', { page: 'home' })
-    box.run('set_l1', { page: 'home', path: HEADLINE_PATH, node: { kind: 'text', text: 'Recorded.' } })
-    box.run('set_l1', { page: 'home', path: '9.9.9', node: { kind: 'text', text: 'refused' } })
+    await box.run('describe_page', { page: 'home' })
+    await box.run('set_l1', { page: 'home', path: HEADLINE_PATH, node: { kind: 'text', text: 'Recorded.' } })
+    await box.run('set_l1', { page: 'home', path: '9.9.9', node: { kind: 'text', text: 'refused' } })
 
     const lines = auditLines()
     expect(lines).toHaveLength(3)
