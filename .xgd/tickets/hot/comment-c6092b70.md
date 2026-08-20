@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-20T00:54:26.823035+00:00'
+updated_at: '2026-08-20T00:56:50.316270+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -51,5 +51,48 @@ Status is `draft`, 2 story points, low priority. Ready to implement whenever you
 <!-- xgd-chat role="user" ts="2026-08-20T00:54:26.685141+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="7ca0924b-0712-43cb-9755-acc462425cd6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T00:56:50.166323+00:00" -->
+#### Claude
+I've done the legwork. Here's what I found, then two questions that change the shape of the work.
+
+## Current state (verified)
+
+- No `.astro` files remain anywhere (`find` outside `node_modules` → empty). REQ-148 landed on this branch.
+- `tools/generate/bin/1c.mjs` boots via `getViteConfig()` + the `createRequire(import.meta.resolve('astro/package.json'))` Vite lookup. That `createRequire` dance exists because **`vite` is not a direct dependency of anything** — it only arrives transitively through `astro`. So the rewrite needs `vite` added as a real dep of `tools/generate`.
+- `astro` is declared in three `package.json`s (root, `tools/generate`, `packages/framework`). `packages/framework/src` imports nothing from `astro` — only `@astrojs/markdown-remark`, which stays.
+
+**But `astro` is still load-bearing in four places outside the bootstrap:**
+
+| File | Use |
+|---|---|
+| `vitest.node.config.mts:2` | exports `getViteConfig({...})` as the whole node project config |
+| `tests/req89-astro-lazy.test.ts:23` | `spyOn(experimental_AstroContainer, 'create')` — 2 assertions |
+| `tests/reconciliation-1c-astro-free-render.test.ts:30` | same spy — **reconciliation UAT AC-739**, 3 assertions |
+| `tests/test_UAT_FC_REQ-141_project_routing.test.ts:53` | asserts `vitest.node.config.mts` *contains* `from 'astro/config'` |
+
+Plus `types: ["astro/client"]` in `tools/generate/tsconfig.json` and `packages/framework/tsconfig.json`, and the `@astrojs/compiler-*` entries in `pnpm-workspace.yaml`.
+
+## Question 1 — how far does "check whether `astro` can be dropped" go?
+
+The four ACs cover only the bootstrap; the dep removal is a sentence in "What to change". Two readings:
+
+- **(a) Bootstrap only.** Rewrite `1c.mjs`, leave `astro` installed, and report that full removal is blocked on the vitest config + 3 test files. Small, self-contained, matches the ACs literally.
+- **(b) Full removal.** Also convert `vitest.node.config.mts` to plain `defineConfig` (the Astro plugin there transforms nothing now either), retire the `astro/container` spies, fix the REQ-141 assertion, swap `astro/client` → `vite/client` in both tsconfigs, and drop the dep from all three packages.
+
+**I recommend (b)** — (a) leaves a ~200MB dep and an Astro-plugin'd test transform in place for zero remaining `.astro` files, which is exactly the residue this ticket exists to clear, and it directly contradicts the no-legacy-modes rule in CLAUDE.md. But (b) is roughly 3× the ticket's 2 points.
+
+## Question 2 — if (b): may I rewrite the AC-739 container-spy assertions?
+
+Without `astro` installed there is no `experimental_AstroContainer` to spy on. The measurement "no Astro container was constructed" would be replaced by the **static** form REQ-148 already uses in `test_UAT_FC_REQ-148_astro_free_render.test.ts`: no `astro` specifier anywhere in the render graph. That's strictly stronger — the spy proves it for one render, the scan proves it for every possible one — but it does mean editing a **reconciliation** UAT (`reconciliation-1c-astro-free-render.test.ts`), which is reconciled truth, not free-coded test material. REQ-148 already flipped assertions in that file, so there's precedent; I want your explicit OK before touching it again.
+
+## Things I'm *not* asking about (I'll just settle them)
+
+- **The stdout→stderr diversion.** The ticket says verify before removing. I'll boot the new server, check both streams on `1c help`/`list`/a `--json` command, and keep the diversion if anything at all leaks. Default lean: keep it — it's cheap defense-in-depth for *any* boot noise, and AC-2 is about the observable streams, not about the guard's absence.
+- **`vite` as a direct dep** of `tools/generate` — required either way.
+
+Tell me **(a) or (b)**, and for (b) whether the reconciliation-UAT rewrite is authorized. Then I'll cut `branch-REQ-150`, update the ticket body with the settled scope, and implement.
 
 <!-- xgd-chat-end -->
