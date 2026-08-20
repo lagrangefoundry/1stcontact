@@ -6,7 +6,7 @@ title: pixel diff --size pairs the reproduction shot at that viewport against th
   same-width reference screenshot
 created_by: xgd
 created_at: '2026-07-19T02:37:37.992655+00:00'
-updated_at: '2026-08-20T06:38:53.259750+00:00'
+updated_at: '2026-08-20T06:59:50.403448+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
