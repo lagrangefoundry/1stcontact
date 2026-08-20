@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-17
 created_by: xgd
 created_at: '2026-07-03T18:06:34.269085+00:00'
-updated_at: '2026-08-20T21:36:51.355575+00:00'
+updated_at: '2026-08-20T21:38:41.122686+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -145,5 +145,23 @@ Want me to reframe the REQ-17 body around the extend-first capability-spec (and 
 <!-- xgd-chat role="user" ts="2026-08-20T21:36:51.220760+00:00" -->
 #### You
 I think this ticket has been superseeded by development that went in a different direction. If so please move it to abandoned.
+
+<!-- xgd-turn id="224de269-d930-414d-be28-56f1e37df9ad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:38:41.035073+00:00" -->
+#### Claude
+Confirmed superseded, and REQ-17 is now `abandoned` (body annotated with why; title and original scope preserved).
+
+**Evidence it was superseded** — the framework pivot (REQ-79 / REQ-84 / REQ-85 / REQ-96) removed the premise under each deliverable:
+
+| REQ-17 deliverable | Where it went |
+|---|---|
+| `1c render` resolves site-local `.astro` modules | Gone. Layout is the L1 substrate ([[DOC-23]]); a gap is closed by adding a typed L1 primitive, not a bespoke module dir. `packages/framework/src/modules/registry.ts` is now a **compile-time** registry of plain TS behavior components — deliberately, because REQ-148 requires behaviors to render in workerd. Per-site dynamic module loading is now *against* the architecture. |
+| `hardened` marker + `1c publish` gate | Survives as *process*, not a CLI flag: [[DOC-26]] §4 vetting obligations (contract, `validateBehavior*`, [[DOC-20]]'s five universal ACs incl. isolation, vetted `client.js`, security review). Nothing now produces the "unhardened site-local module" state the gate was for. |
+| Capability spec / gap-log | Owned by [[DOC-21]]'s attribution ladder, with the REQ-85 rungs (L1 axis → configure an existing behavior → new behavior module). |
+
+That last row also resolves the open design question from the prior session: your extend-first instinct is now the ladder's *default*, so the reframe REQ-17 needed already landed elsewhere.
+
+No code was written against this ticket, so there's nothing to revert or commit.
 
 <!-- xgd-chat-end -->
