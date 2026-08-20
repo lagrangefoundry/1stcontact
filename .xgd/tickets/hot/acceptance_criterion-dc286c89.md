@@ -6,10 +6,10 @@ title: A rename onto an existing name or a malformed name is refused where the w
   happens and leaves the draft byte-unchanged — no partially-renamed state is reachable
 created_by: xgd
 created_at: '2026-08-20T01:20:21.857266+00:00'
-updated_at: '2026-08-20T01:20:21.857266+00:00'
+updated_at: '2026-08-20T01:50:35.583410+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-ee073693
   kind: behavior
