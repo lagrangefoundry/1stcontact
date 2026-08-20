@@ -6,10 +6,10 @@ title: A document that leaves the knowledge base is deleted from the corpus and 
   being searchable
 created_by: xgd
 created_at: '2026-08-20T04:16:48.552286+00:00'
-updated_at: '2026-08-20T04:16:48.552286+00:00'
+updated_at: '2026-08-20T04:37:25.915399+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c4f329d3
   kind: behavior
