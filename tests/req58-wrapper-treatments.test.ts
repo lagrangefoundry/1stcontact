@@ -38,8 +38,10 @@ describe('REQ-58 items 3b/4 — wrapper accent bar + card fill (real Chromium)',
   const tmpDirs: string[] = []
 
   beforeAll(async () => {
-    server = await serveDir(FIXTURES)
+    // Probe the browser before binding a socket — a serveDir-first hook hard-fails
+    // rather than skipping where 127.0.0.1 cannot be bound, taking the file down.
     if (browserOk) {
+      server = await serveDir(FIXTURES)
       const cwd = mkdtempSync(path.join(tmpdir(), 'req58-cap-'))
       tmpDirs.push(cwd)
       capture = (await cmdCapturePage(`${server.origin}/req58-treatments.html`, { cwd })).capture

@@ -43,7 +43,16 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromiumAvailable, cmdCapturePage, flattenCapture, type Capture, type Field } from '../tools/generate/src/cli'
+import { JSDOM } from 'jsdom'
+import {
+  EXTRACT_SCRIPT,
+  chromiumAvailable,
+  cmdCapturePage,
+  flattenCapture,
+  type Capture,
+  type Field,
+  type RawSignals,
+} from '../tools/generate/src/cli'
 import { foldToL1 } from '../tools/generate/src'
 import {
   diffManifests,
@@ -54,22 +63,27 @@ import {
 } from '../tools/generate/src/cli/capture'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
+const browserOk = await chromiumAvailable()
 
 // ── Part A — the capture sees the backdrops and the collapsed header ──────────
 
 describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole subtrees (real Chromium)', () => {
-  let server: { origin: string; close: () => Promise<void> }
+  let server: { origin: string; close: () => Promise<void> } | undefined
   let capture: Capture | undefined
   const tmpDirs: string[] = []
 
   beforeAll(async () => {
+    // Probe the browser BEFORE binding a socket. `serveDir` first meant that on a
+    // runner which cannot listen on 127.0.0.1 the hook did not degrade to a skip —
+    // it hard-failed (`listen EPERM`) and timed out, taking the whole file with it.
+    // A file that cannot run is indistinguishable from a file with no ACs to a
+    // name-index sweep, which is how AC-815's vacuous coverage stayed invisible.
+    if (!browserOk) return
     server = await serveDir(FIXTURES)
-    if (await chromiumAvailable()) {
-      const cwd = mkdtempSync(path.join(tmpdir(), 'bug27-cap-'))
-      tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/bug27-nested-backdrop.html`, { cwd })
-      capture = res.capture
-    }
+    const cwd = mkdtempSync(path.join(tmpdir(), 'bug27-cap-'))
+    tmpDirs.push(cwd)
+    const res = await cmdCapturePage(`${server.origin}/bug27-nested-backdrop.html`, { cwd })
+    capture = res.capture
   }, 180000)
 
   afterAll(async () => {
@@ -77,10 +91,13 @@ describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole
     for (const d of tmpDirs) rmSync(d, { recursive: true, force: true })
   })
 
+  // `it.runIf`, not a wrapper that returns early: a wrapper reports PASS on a
+  // runner with no Chromium, so these would read green — and fully covered —
+  // wherever the browser is absent. A skip is honest; a vacuous pass is not.
+  // (Same rule as bug24-scrim-alpha.test.ts:260-263.)
   const itA = (name: string, fn: (fields: Field[], capture: Capture) => void) =>
-    it(name, () => {
-      if (!capture) return // Chromium unavailable — skip silently
-      fn(capture.sections.flatMap((s) => s.fields ?? []), capture)
+    it.runIf(browserOk)(name, () => {
+      fn(capture!.sections.flatMap((s) => s.fields ?? []), capture!)
     })
 
   itA('test_UAT_AC816_nested_background_image_is_captured', (fields) => {
@@ -144,6 +161,143 @@ describe('story-d5de22a5 — AC-815/816 capture reads nested backdrops and whole
     }
     const texts = cap.sections.flatMap((s) => s.content.map((r) => r.text))
     expect(texts.some((t) => t.includes('spam.example'))).toBe(false)
+  })
+})
+
+// ── Part A′ — AC-815's geometry, headless (real EXTRACT_SCRIPT over jsdom) ────
+//
+// AC-815 is a geometry computation over element rects: band box = painted extent
+// of the subtree, clamped to the document canvas. That needs no paint — only real
+// rects — so the whole criterion runs headlessly through the real in-page script
+// with layout stubbed per class (the REQ-72 / BUG-15 harness,
+// req72-gradient-capture.test.ts:56-67). Part A above stays as the real-engine
+// sibling; this is the coverage that exists on every runner.
+
+type Box = [x: number, y: number, w: number, h: number]
+
+const DOC_W = 1280
+const DOC_H = 1600
+
+const rect =(x: number, y: number, w: number, h: number) =>
+  ({ x, y, width: w, height: h, left: x, top: y, right: x + w, bottom: y + h, toJSON() {} }) as unknown as DOMRect
+
+/** Run the real EXTRACT_SCRIPT over a DOM, stubbing layout via a class→box map. */
+function extract(html: string, boxByClass: Record<string, Box>): RawSignals {
+  const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true })
+  dom.window.Element.prototype.getBoundingClientRect = function () {
+    const cls = (this as Element).className || ''
+    const b = boxByClass[cls]
+    return b ? rect(...b) : rect(0, 0, 0, 0)
+  }
+  Object.defineProperty(dom.window.Element.prototype, 'scrollWidth', { configurable: true, get: () => DOC_W })
+  Object.defineProperty(dom.window.Element.prototype, 'scrollHeight', { configurable: true, get: () => DOC_H })
+  const win = dom.window as unknown as { eval(s: string): unknown }
+  return win.eval(EXTRACT_SCRIPT) as RawSignals
+}
+
+/**
+ * One page carrying all four of AC-815's cases at once:
+ *  - `.hdr` — a header with ZERO in-flow height whose absolutely-positioned nav
+ *    paints a full 64px bar (the BUG-27 root cause);
+ *  - `.carousel` — a band whose off-stage slide's border box runs 3300px wide
+ *    under `overflow: hidden`, so it paints far less than it measures;
+ *  - `.band` — a conventionally laid-out band, its child inside its own box;
+ *  - `.spam` — a block parked at `left:-33554430px`, painting nothing.
+ */
+const SUBTREE_PAGE = [
+  '<!doctype html><html><body>',
+  '<header class="hdr" style="position:relative">',
+  '<nav class="nav" style="position:absolute;top:0;left:0">',
+  '<img class="logo" src="/logo.png" alt="Chef logo">',
+  '<span class="nav-a">Meet the Chef</span>',
+  '<span class="nav-b">Our Services</span>',
+  '</nav></header>',
+  '<section class="carousel" style="overflow:hidden;background-color:rgb(20,20,20)">',
+  '<div class="slide-on">On stage</div>',
+  '<div class="slide-off">Off stage</div>',
+  '</section>',
+  '<section class="band" style="background-color:rgb(255,255,255)">',
+  '<p class="copy">Conventional band copy</p>',
+  '</section>',
+  '<div class="spam" style="position:absolute"><span class="spam-link">visit spam.example now</span></div>',
+  '</body></html>',
+].join('')
+
+const SUBTREE_BOXES: Record<string, Box> = {
+  // The header's OWN box is 0px tall — this is the fact that dropped the subtree.
+  hdr: [0, 0, DOC_W, 0],
+  nav: [0, 0, DOC_W, 64],
+  logo: [16, 12, 120, 40],
+  'nav-a': [200, 20, 140, 24],
+  'nav-b': [360, 20, 140, 24],
+  carousel: [0, 64, DOC_W, 400],
+  'slide-on': [0, 64, DOC_W, 400],
+  // Overlaps the canvas at x=900 and runs to x=3300 — clipped, so it paints only
+  // as far as the page. An unclamped union would box the band 3300px wide.
+  'slide-off': [900, 64, 2400, 400],
+  band: [0, 464, DOC_W, 300],
+  copy: [40, 500, 600, 40],
+  spam: [-33554430, 0, 200, 20],
+  'spam-link': [-33554430, 0, 200, 20],
+}
+
+describe('story-d5de22a5 — AC-815 a band is boxed at its subtree, clamped to the canvas (headless)', () => {
+  const signals = extract(SUBTREE_PAGE, SUBTREE_BOXES)
+  /** Every text a band carries, whether loose content or a detected repeated group. */
+  const textsOf = (b: RawSignals['bands'][number]) =>
+    b.content.concat(...b.items).map((r) => (r as { text: string }).text)
+  const bandAt = (y: number) => signals.bands.find((b) => Math.round(b.box.y) === y)
+
+  it('test_UAT_AC815_collapsed_band_is_boxed_at_its_painted_subtree', () => {
+    // Pre-fix the header was qualified on its own >=8px height, read 0, and the
+    // whole subtree was dropped before extraction — unrecoverable downstream.
+    const hdr = bandAt(0)
+    expect(hdr, `collapsed header survives as a band; got ${JSON.stringify(signals.bands.map((b) => b.box))}`)
+      .toBeDefined()
+    // Boxed at what it paints — the nav bar — not at its own zero-height rect.
+    expect(hdr!.box.height).toBe(64)
+    expect(hdr!.box.width).toBe(DOC_W)
+  })
+
+  it('test_UAT_AC815_collapsed_band_subtree_reaches_the_manifest', () => {
+    const hdr = bandAt(0)!
+    expect(textsOf(hdr)).toContain('Meet the Chef')
+    expect(textsOf(hdr)).toContain('Our Services')
+    const logo = (hdr.fields ?? []).find((f) => (f as { alt?: string }).alt === 'Chef logo')
+    expect(logo, 'logo inside the collapsed header is captured').toBeDefined()
+    expect((logo as { src?: string }).src).toMatch(/logo\.png$/)
+  })
+
+  it('test_UAT_AC815_clipped_overflow_does_not_widen_a_band_past_the_document', () => {
+    // The off-stage slide measures out to x=3300 but is clipped at the band edge.
+    // scrollWidth/scrollHeight are the bound: overflow that really extends the
+    // page grows them, overflow that is clipped does not.
+    const car = bandAt(64)
+    expect(car, 'carousel band captured').toBeDefined()
+    expect(car!.box.x).toBe(0)
+    expect(car!.box.width).toBe(DOC_W)
+    expect(car!.box.x + car!.box.width).toBeLessThanOrEqual(DOC_W)
+  })
+
+  it('test_UAT_AC815_offscreen_block_yields_no_band_and_inflates_none', () => {
+    // A subtree that paints nothing ON the page contributes no band at all.
+    const spam = signals.bands.find((b) => textsOf(b).some((t) => t.includes('spam.example')))
+    expect(spam, 'off-canvas block did not become a band').toBeUndefined()
+    // …and it inflates no other band: every box stays on the canvas.
+    for (const b of signals.bands) {
+      expect(b.box.x).toBeGreaterThanOrEqual(0)
+      expect(b.box.y).toBeGreaterThanOrEqual(0)
+      expect(b.box.x + b.box.width).toBeLessThanOrEqual(DOC_W)
+      expect(b.box.y + b.box.height).toBeLessThanOrEqual(DOC_H)
+    }
+  })
+
+  it('test_UAT_AC815_a_conventional_band_box_is_unchanged', () => {
+    // The other direction: measuring the subtree must leave an ordinary band
+    // alone — its children are already inside its own box, so the union IS it.
+    const band = bandAt(464)
+    expect(band, 'conventional band captured').toBeDefined()
+    expect([band!.box.x, band!.box.y, band!.box.width, band!.box.height]).toEqual([0, 464, DOC_W, 300])
   })
 })
 

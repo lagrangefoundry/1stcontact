@@ -20,6 +20,7 @@ import { chromiumAvailable, cmdCapturePage, flattenCapture, type Capture } from 
  */
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
+const browserOk = await chromiumAvailable()
 const driverSrc = readFileSync(
   fileURLToPath(new URL('../tools/generate/src/cli/capture/playwright-driver.ts', import.meta.url)),
   'utf8',
@@ -56,18 +57,20 @@ describe('REQ-36 capture settle — driver behaviour', () => {
 // ── Part B: the capture actually reveals below-fold content (real Chromium) ────
 
 describe('REQ-36 capture reveals below-fold lazy/animated content (real Chromium)', () => {
-  let server: { origin: string; close: () => Promise<void> }
+  let server: { origin: string; close: () => Promise<void> } | undefined
   let capture: Capture | undefined
   const tmpDirs: string[] = []
 
   beforeAll(async () => {
+    // Probe the browser BEFORE binding a socket: on a runner that cannot listen
+    // on 127.0.0.1 a serveDir-first hook hard-fails instead of degrading to a
+    // skip, and takes the whole file — every AC it carries — down with it.
+    if (!browserOk) return
     server = await serveDir(FIXTURES)
-    if (await chromiumAvailable()) {
-      const cwd = mkdtempSync(path.join(tmpdir(), 'req36-cap-'))
-      tmpDirs.push(cwd)
-      const res = await cmdCapturePage(`${server.origin}/req36-lazy.html`, { cwd })
-      capture = res.capture
-    }
+    const cwd = mkdtempSync(path.join(tmpdir(), 'req36-cap-'))
+    tmpDirs.push(cwd)
+    const res = await cmdCapturePage(`${server.origin}/req36-lazy.html`, { cwd })
+    capture = res.capture
   }, 120000)
 
   afterAll(async () => {
@@ -75,11 +78,10 @@ describe('REQ-36 capture reveals below-fold lazy/animated content (real Chromium
     for (const d of tmpDirs) rmSync(d, { recursive: true, force: true })
   })
 
-  const itB = (name: string, fn: () => void) =>
-    it(name, () => {
-      if (!capture) return // Chromium unavailable — skip silently
-      fn()
-    })
+  // `it.runIf`, not a wrapper that returns early: a wrapper reports PASS on a
+  // runner with no Chromium, so a genuinely broken settle step would read green
+  // wherever the browser is absent. A skip is honest; a vacuous pass is not.
+  const itB = it.runIf(browserOk)
 
   itB('test_UAT_FC_REQ-36_capture_below_fold_fadein_text_is_present', () => {
     // The "How it works" heading is inside a `.elementor-invisible` block far

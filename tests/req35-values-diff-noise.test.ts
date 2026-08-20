@@ -246,8 +246,10 @@ describe('REQ-35 capture flags inferred colours (real Chromium)', () => {
   let capture: Capture
 
   beforeAll(async () => {
-    server = await serveDir(FIXTURES)
+    // Probe the browser before binding a socket — a serveDir-first hook hard-fails
+    // rather than skipping where 127.0.0.1 cannot be bound, taking the file down.
     if (browserOk) {
+      server = await serveDir(FIXTURES)
       cwd = mkdtempSync(path.join(tmpdir(), 'req35-cap-'))
       tmpDirs.push(cwd)
       const res = await cmdCapturePage(`${server.origin}/req35-inferred.html`, { cwd })
