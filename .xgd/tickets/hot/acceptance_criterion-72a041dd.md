@@ -6,7 +6,7 @@ title: A missing or differing panel surface gradient surfaces as a delta; a matc
   or absent one produces none
 created_by: xgd
 created_at: '2026-07-19T02:28:35.187988+00:00'
-updated_at: '2026-08-16T09:17:47.534540+00:00'
+updated_at: '2026-08-20T06:59:21.312559+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
