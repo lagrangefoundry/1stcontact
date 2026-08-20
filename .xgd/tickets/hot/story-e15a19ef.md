@@ -6,7 +6,7 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-08-20T03:58:35.614156+00:00'
+updated_at: '2026-08-20T04:13:38.841306+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -48,15 +48,24 @@ Five CLI-correctness guarantees for the `1c` command line:
    the first positional, so the slug is gone and the command dies with
    `Missing required <slug>`. `values-diff --multi-viewport <slug>` is the
    originally-reported instance (REQ-58), and `values-diff --collapse <slug>`,
-   `deploy --prune <slug>`, `render --edit <slug>` and `adopt-gaps --apply <slug>`
-   are the same fault reached through a different verb.
+   `deploy --prune <slug>`, `render --edit <slug>`, `adopt-gaps --apply <slug>`
+   and `colors --assign <slug>` are the same fault reached through a different
+   verb.
 
-   So the registry is asserted **entire** in evidence, not sampled: the boolean
-   set is pinned as a set, and each member is proved to preserve `<slug>` as a
-   positional whether the flag precedes or follows it. Adding a boolean flag to a
-   command without registering it is then a visible regression rather than a
-   silent reopening of the hole — the same discipline guarantee 5 applies to its
-   gated command set.
+   So the registry is asserted **entire** in evidence, not sampled — and the set
+   it is asserted against is **derived from the CLI source** rather than restated
+   as a literal. Every flag name the CLI reads in a boolean context must be
+   registered, and each registered member is proved to preserve `<slug>` as a
+   positional whether the flag precedes or follows it. Deriving the set is what
+   makes the guarantee bite on the failure that actually occurs: a boolean flag
+   added to a verb and never registered. A set pinned only to itself goes red
+   when the registry is edited and stays green in exactly that case — which is
+   how six flags drifted behind the CLI, and how `--assign` then survived a sweep
+   that recognised only the `flags.x === true` read form. The derivation counts
+   every truthiness form (`=== true`, a bare `if`, negation, `Boolean(...)`,
+   short-circuit, ternary condition), so an unregistered boolean fails a test
+   rather than a user's invocation — the same discipline guarantee 5 applies to
+   its gated command set.
 
 2. **`--json` output hygiene and a quiet bootstrap.** A `values-diff` command run
    with `--json` prints exactly one well-formed JSON document to stdout. The
@@ -150,11 +159,15 @@ remedy, it never runs it.
   `tools/generate/src/cli/args.ts`, consulted by `parseArgs` before the command
   switch. REQ-58 reported it through `--multi-viewport`, but the registry is the
   guarantee's whole surface: an unregistered name falls to the value-taking
-  branch and eats the following token. The registry had drifted six flags behind
-  the CLI (`collapse`, `clusters`, `edit`, `dry-run`, `prune`, `apply`), each
-  reachable by a command that reads its `<slug>` from the first positional; it is
-  now complete and pinned as a set in evidence, with per-member coverage in both
-  flag orders, so drift fails a test instead of a user's invocation.
+  branch and eats the following token. Drift has been found twice — first six
+  flags (`collapse`, `clusters`, `edit`, `dry-run`, `prune`, `apply`), then
+  `--assign`, which `tools/generate/src/cli/index.ts` reads as a bare
+  `if (flags.assign)` and which a `flags.x === true` sweep therefore missed while
+  the set was believed complete. The story asserts the *discipline*, not a
+  point-in-time count: evidence derives the boolean reads from the CLI source
+  over every truthiness form and asserts that derived set equals the registry,
+  with per-member coverage in both flag orders. Completeness is therefore a
+  standing test result rather than a claim in this body.
 - Guarantee 3 reconciled from bundle-31e474b9 (BUNDLE-7), plan item 9, commit
   09fa7cf5. `aligned-crops` previously rendered and served from `sites/` even
   under `--sandbox`; the store tree (`sandbox` + `cwd`) plus `source` is now
