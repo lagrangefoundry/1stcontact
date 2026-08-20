@@ -27,7 +27,7 @@
 import { describe, expect, it } from 'vitest'
 import { validateL1 } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/index'
-import { foldToL1, partitionProbes } from '../tools/generate/src'
+import { evaluateLayout, foldToL1, partitionProbes } from '../tools/generate/src'
 import type {
   MultiStateCapture,
   SectionValues,
@@ -435,6 +435,15 @@ describe('AC-1352 a viewport-height probe pair folds to a measured height deriva
           run({ text: 'lower band', surfaceFill: '#e8dfd3', box: { x: 0, y: height + 200, width, height: 29 } }),
           1,
         ),
+        // Two card-shaped rows — a distinct fill, far narrower than the viewport,
+        // so each folds to its own `card-*` box rather than joining a band. The
+        // first travels with the viewport (it sits below the fold), the second is
+        // pinned inside the hero's top half and does not move between the pair.
+        lines(
+          run({ text: 'Card copy', surfaceFill: '#f4f0ea', box: { x: 24, y: height + 260, width: 260, height: 40 } }),
+          1,
+        ),
+        lines(run({ text: 'Badge copy', surfaceFill: '#ffe9c7', box: { x: 24, y: 200, width: 180, height: 40 } }), 1),
       ],
       sections: [
         { box: { x: 0, y: 0, width, height } },
@@ -448,6 +457,49 @@ describe('AC-1352 a viewport-height probe pair folds to a measured height deriva
 
   const responseOf = (n: Record<string, unknown>) =>
     (n.geometry as { viewportResponse?: { yFactor?: number; heightFactor?: number } } | undefined)?.viewportResponse
+
+  /** The reconstructed card box painting `fill` — cards are named by paint order,
+   *  so the surface itself is the stable handle. */
+  const cardWith = (doc: ReturnType<typeof foldToL1>, fill: string) =>
+    nodeWith(
+      doc,
+      (n) =>
+        typeof n.id === 'string' &&
+        (n.id as string).startsWith('card-') &&
+        (n.axes as { surfaceFill?: string } | undefined)?.surfaceFill === fill,
+    )
+
+  /**
+   * A page whose band is closed by one of TWO lower section edges that travel at
+   * different rates: section 2's bottom moves 2× the viewport delta while section
+   * 1's bottom moves 1×. The band's own content height decides which edge closes
+   * it at each width, so a content height that varies across the ladder makes the
+   * sampled widths disagree about the band's height rule.
+   */
+  function threeSectionPage(contentHeightAt: (width: number) => number): MultiStateCapture {
+    const at = (width: number, height: number, probe: boolean): ProjSpec => ({
+      width,
+      height,
+      elements: [
+        lines(
+          run({
+            text: 'Band copy',
+            surfaceFill: '#123456',
+            box: { x: 0, y: height + 10, width, height: contentHeightAt(width) },
+          }),
+          1,
+        ),
+      ],
+      sections: [
+        { box: { x: 0, y: 0, width, height } },
+        { box: { x: 0, y: height, width, height: 300 } },
+        // The probe stretches this section's own height too, so its bottom edge
+        // travels twice as far as its top: two edges, two different factors.
+        { box: { x: 0, y: height + 300, width, height: probe ? 500 : 300 } },
+      ] as unknown as SectionValues[],
+    })
+    return multi([...LADDER.map((w) => at(w, LADDER_H[w], false)), at(1280, 1000, true)])
+  }
 
   it('test_UAT_AC1352_probe_pair_folds_a_measured_snapped_height_response', () => {
     const doc = foldToL1(heroPage({ probeHeight: 1000 }))
@@ -489,6 +541,28 @@ describe('AC-1352 a viewport-height probe pair folds to a measured height deriva
     // section edges it grows — so the still run must not suppress the growth.
     expect(responseOf(textNode(doc, 'Hero title'))).toBeUndefined()
     expect(responseOf(heroBand)?.heightFactor).toBe(1)
+
+    // ── Attribution rule 2: a card inherits its REPRESENTATIVE ROW's response ──
+    // A card is reconstructed from the runs it encloses and has no measured box of
+    // its own, so the only honest source of a height response is the row it was
+    // built from. The card below the fold travels one viewport height down…
+    expect(responseOf(cardWith(doc, '#f4f0ea'))?.yFactor).toBe(1)
+    // …while the card pinned in the hero's top half carries none, so the
+    // inheritance is the row's own measurement rather than a property of cardhood.
+    expect(responseOf(cardWith(doc, '#ffe9c7'))).toBeUndefined()
+
+    // ── A band whose sampled widths DISAGREE carries no response ──────────────
+    // When every width closes the band on the same section edge, the difference of
+    // its two edge responses is one height rule and folds…
+    const agreeing = foldToL1(threeSectionPage(() => 580))
+    expect(validateL1(agreeing).ok).toBe(true)
+    expect(responseOf(nodeWith(agreeing, (n) => n.id === 'section-band-0'))).toEqual({ yFactor: 1, heightFactor: 1 })
+    // …but when the narrow rungs close it on an edge travelling at 1× and the wide
+    // ones on an edge travelling at 2×, the samples describe two different rules.
+    // The fold emits nothing rather than adopting whichever sample came first.
+    const disagreeing = foldToL1(threeSectionPage((w) => (w <= 375 ? 280 : 580)))
+    expect(validateL1(disagreeing).ok).toBe(true)
+    expect(responseOf(nodeWith(disagreeing, (n) => n.id === 'section-band-0'))).toBeUndefined()
 
     // ── A response indistinguishable from zero emits no axis at all ───────────
     const inert = foldToL1(
@@ -812,6 +886,42 @@ describe('AC-1351 a node inside the column expresses its geometry against that c
     expect(steep.column).toEqual(NARROW)
     expect(anchorOf(textNode(steep, 'Steep coefficient'))?.width).toBeUndefined()
     expect(anchorOf(textNode(steep, 'Steep coefficient'))?.x).toBeTruthy()
+    // …and that refusal is what keeps it sane off-sample: laid out at widths the
+    // ladder never sampled, the run stays inside the envelope its own samples
+    // described (200px…500px) instead of extrapolating the coefficient outwards.
+    const steepWidths = LADDER.map((w) => 2.5 * extentOf(w, NARROW) - 500)
+    const [lo, hi] = [Math.min(...steepWidths), Math.max(...steepWidths)]
+    for (const at of [600, 900, 1150]) {
+      const laid = evaluateLayout(steep, at).leaves.find((l) => l.text === 'Steep coefficient')!.box
+      expect(laid.width, `steep width @${at}`).toBeGreaterThanOrEqual(lo - 1)
+      expect(laid.width, `steep width @${at}`).toBeLessThanOrEqual(hi + 1)
+    }
+
+    // ── The two-distinct-extents guard ───────────────────────────────────────
+    // A column whose content cap bites at EVERY sampled width has one extent all
+    // the way up the ladder, so `px + fraction * extent` is under-determined: a
+    // constant 272px run is reproduced exactly by `fraction: 1` and by
+    // `fraction: 0, px: 272` alike. One extent cannot separate the constant from
+    // the fraction, so no width anchor is fitted even though every sample fits.
+    const FLAT: ColumnShape = { containerPx: 1152, insetPx: 24, maxWidthPx: 272 }
+    expect(new Set(LADDER.map((w) => extentOf(w, FLAT))).size).toBe(1)
+    const oneExtent = foldToL1(columnPage(() => [], FLAT))
+    expect(anchorOf(textNode(oneExtent, 'Full column run'))).toBeUndefined()
+    // …and with nothing anchored to it, the column it would have been fitted
+    // against is not carried on the document either.
+    expect(oneExtent.column).toBeUndefined()
+    // What was refused is the GUARD, not the fit: the SAME page whose cap is one
+    // breakpoint wider gives the ladder two distinct extents, and then both axes
+    // resolve. The only difference between the two runs is how many extents the
+    // samples showed.
+    const WIDER: ColumnShape = { ...FLAT, maxWidthPx: 320 }
+    expect(new Set(LADDER.map((w) => extentOf(w, WIDER))).size).toBe(2)
+    const twoExtents = foldToL1(columnPage(() => [], WIDER))
+    expect(twoExtents.column).toEqual(WIDER)
+    expect(anchorOf(textNode(twoExtents, 'Full column run'))).toEqual({
+      x: { px: 0, fraction: 0 },
+      width: { px: 0, fraction: 1 },
+    })
 
     // ── The keyframed residual inset ─────────────────────────────────────────
     // A 3-up grid that stacks below a breakpoint changes layout MODE there, so its
@@ -846,6 +956,20 @@ describe('AC-1351 a node inside the column expresses its geometry against that c
     const tileSegments = (tile.geometry as { segments?: unknown }).segments
     expect(tileAnchor.x!.pxTrack!.segments).toEqual(tileSegments)
     expect(tileSegments).toContain('snap')
+    // …and that agreement is the whole point: laid out at an unsampled width just
+    // BELOW the breakpoint the grid is still stacked, so the third tile fills the
+    // column and stays inside the viewport. An inset that interpolated across the
+    // mode change instead would carry two thirds of the column's offset into a
+    // full-width tile and slide it off the right edge.
+    const justBelow = evaluateLayout(grid, 767)
+    const tileAt767 = justBelow.leaves.find((l) => l.text === 'Third tile')!.box
+    // The inset snapped back to its stacked value (0), so the tile sits on the
+    // column origin rather than two thirds of the way across it…
+    expect(Math.abs(tileAt767.x - originOf(767)), 'third tile left @767').toBeLessThanOrEqual(1)
+    // …and its right edge is therefore inside the viewport. Interpolated, the
+    // inset at 767 would be ~594px and carry the tile past 767 entirely.
+    expect(tileAt767.x + tileAt767.width, 'third tile right edge @767').toBeLessThanOrEqual(767)
+    expect(justBelow.findings.filter((f) => f.kind === 'clip')).toEqual([])
 
     // ── Full-bleed refusal ───────────────────────────────────────────────────
     // A band's left edge is absolutely zero. Written as origin-plus-negative-origin
