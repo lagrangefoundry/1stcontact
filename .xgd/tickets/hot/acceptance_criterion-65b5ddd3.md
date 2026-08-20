@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Surface fill is compared as the effective alpha-composited colour
 created_by: xgd
 created_at: '2026-07-19T02:18:14.917042+00:00'
-updated_at: '2026-08-20T06:38:51.455464+00:00'
+updated_at: '2026-08-20T06:58:45.902488+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
