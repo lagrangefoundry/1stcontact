@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-16T00:02:30.955909+00:00'
+updated_at: '2026-08-20T21:46:04.727760+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -239,5 +239,11 @@ Corpus re-exported: 33 documents. `kb/system/` is gitignored — it's derived, s
 ## Not done
 
 The two implementation rows — the four config fields and the `lang`/`dir` fix — are still open. Those are code, so they need a scope ticket, a branch and UATs. Say the word and I'll cut it under CHAT-26.
+
+<!-- xgd-turn id="0bac10af-30c5-4b50-ac95-e8627ebff602-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:46:04.577222+00:00" -->
+#### You
+If there are any important foundational requirements that come out of this conversation particularly things that would be expensive to add later once we have sites up and running, please can you describe what needs to be done here and then we will create tickets for them
 
 <!-- xgd-chat-end -->
