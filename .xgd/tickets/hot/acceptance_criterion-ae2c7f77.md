@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: The split cost nothing the single runtime provided
 created_by: xgd
 created_at: '2026-08-20T05:10:51.268524+00:00'
-updated_at: '2026-08-20T16:14:06.221907+00:00'
+updated_at: '2026-08-20T16:15:05.201967+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-3f4a5f2b
@@ -25,10 +25,12 @@ Splitting the test runtimes cost nothing the single runtime provided.
 - The Workers runtime does not depend on the Astro transform, so a component-render test cannot
   be routed there by accident and pass for the wrong reason.
 - No *behavioural* assertion is conditioned on which runtime it runs in: routing decides where a
-  test runs, never what a behavioural test claims. The deliberate exception is the
-  runtime-identity probes AC-1328 owns — a workers-marked file asserting the Workers user agent,
-  an unmarked file asserting it is not — which exist to prove the routing happened and could not
-  be runtime-independent without ceasing to prove it.
+  test runs, never what a behavioural test claims. The deliberate exception is everything AC-1328
+  owns — the probes that prove the routing itself happened (a file asserting which runtime it
+  loaded in, whether by user agent, by a global only one runtime has, or by using a filesystem
+  module at load time) and the real database and object-store bindings that exist only in the
+  Workers runtime. Those assertions are runtime-dependent by design and could not be otherwise
+  without ceasing to prove what AC-1328 requires them to prove.
 
 This criterion is about the routing axis only. Whether a store is observable from an assertion is
 a separate claim, carried by AC-1325 and scoped there to the body of editing assertions — a
@@ -47,4 +49,4 @@ still routes through Astro's own build configuration, with the same aliases and 
 the Workers runtime's configuration carries no Astro transform. Assert over the routed test
 sources that no *behavioural* assertion branches on the runtime it is executing in — the
 expectation a behavioural test carries is the same one under either runtime — excluding the
-runtime-identity probes AC-1328 requires, which assert the runtime by design.
+routing-and-binding probes AC-1328 owns, which assert the runtime and its bindings by design.
