@@ -6,14 +6,15 @@ title: --clusters rolls defects into ranked, dispositioned causes without mergin
   a phantom across widths
 created_by: xgd
 created_at: '2026-08-20T03:40:59.513113+00:00'
-updated_at: '2026-08-20T04:40:02.569527+00:00'
+updated_at: '2026-08-20T05:13:09.077342+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-aaddb221
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
