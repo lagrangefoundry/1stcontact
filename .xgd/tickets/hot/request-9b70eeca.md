@@ -6,10 +6,10 @@ title: 'D1 schema: accounts, sites (draft + published), revisions, slug validati
   1stcontact seed'
 created_by: xgd
 created_at: '2026-06-30T16:59:17.587362+00:00'
-updated_at: '2026-07-02T00:19:11.164600+00:00'
+updated_at: '2026-08-20T21:39:30.354735+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   priority: medium
   story_points: 3
@@ -19,7 +19,7 @@ fields:
 
 ## Scope
 
-> ⚠️ **Model update (2026-06-30):** this ticket predates [[DOC-12]] (Site Storage, Versioning & Rendering Model) and must be reconciled before implementation: (1) **drop `published_revision_id`** — the model is forward-only, so the live site is always the latest revision (derivable, no pointer); (2) **revisions must snapshot the entire site** (definition + assets + metadata), not the `definition` column alone — assets are versioned in R2 with the revision; (3) **adopt per-page granularity** (a `pages` table, per [[DOC-5]]) rather than single `draft_definition`/`published_definition` JSON blobs. The schemas below are the pre-reconciliation draft.
+> ⚠️ **Model update (2026-06-30):** this ticket predates [[DOC-12]] (Site Storage, Versioning & Rendering Model) and must be reconciled before implementation: (1) **drop **`published_revision_id` — the model is forward-only, so the live site is always the latest revision (derivable, no pointer); (2) **revisions must snapshot the entire site** (definition + assets + metadata), not the `definition` column alone — assets are versioned in R2 with the revision; (3) **adopt per-page granularity** (a `pages` table, per [[DOC-5]]) rather than single `draft_definition`/`published_definition` JSON blobs. The schemas below are the pre-reconciliation draft.
 
 D1 schema for the multi-site, draft/published, revision-tracked data model. Accounts, sites, revisions, and the foreign-key bones to support per-account multi-site even though v1 UX exposes only the single-site path.
 
@@ -41,9 +41,9 @@ None. Foundational for REQ-11 (source project) (API lifecycle) and REQ-12 (sourc
 
 Sequential numbered migrations:
 
-**`002_accounts.sql`**
+`002_accounts.sql`
 
-```sql
+```
 CREATE TABLE accounts (
   id            TEXT PRIMARY KEY,           -- UUID
   email         TEXT NOT NULL UNIQUE,
@@ -52,11 +52,12 @@ CREATE TABLE accounts (
   created_at    INTEGER NOT NULL,           -- unix millis
   updated_at    INTEGER NOT NULL
 );
+
 ```
 
-**`003_sites.sql`**
+`003_sites.sql`
 
-```sql
+```
 CREATE TABLE sites (
   id                     TEXT PRIMARY KEY,    -- UUID
   account_id             TEXT NOT NULL REFERENCES accounts(id),
@@ -72,11 +73,12 @@ CREATE TABLE sites (
 
 CREATE INDEX idx_sites_account_id ON sites(account_id);
 CREATE INDEX idx_sites_slug ON sites(slug);
+
 ```
 
-**`004_revisions.sql`**
+`004_revisions.sql`
 
-```sql
+```
 CREATE TABLE revisions (
   id              TEXT PRIMARY KEY,           -- UUID
   site_id         TEXT NOT NULL REFERENCES sites(id),
@@ -89,6 +91,7 @@ CREATE TABLE revisions (
 
 CREATE INDEX idx_revisions_site_id ON revisions(site_id);
 CREATE INDEX idx_revisions_site_id_published_at ON revisions(site_id, published_at DESC);
+
 ```
 
 ### Reserved slug list
@@ -99,6 +102,7 @@ A static list in code (`packages/site-schema/src/reserved-slugs.ts`) of slugs th
 api, app, www, admin, preview, ftp, mail, blog,
 status, dashboard, control, docs, help, support,
 1stcontact, gendev, gendevlabs
+
 ```
 
 The `INSERT` for the 1st Contact marketing site (existing `sites/1stcontact/site.json`) uses slug `1stcontact` from this reserved list — operator-owned, not user-allocatable.
@@ -107,13 +111,15 @@ The `INSERT` for the 1st Contact marketing site (existing `sites/1stcontact/site
 
 `packages/site-schema/src/slug.ts`:
 
-```typescript
+```
 function isValidSlug(s: string): boolean
 function isReservedSlug(s: string): boolean
 function suggestAlternativeSlug(taken: string): string[]
+
 ```
 
 - Valid slug: 3–40 chars, lowercase ASCII + digits + hyphens, no leading/trailing hyphen, no consecutive hyphens.
+
 - Suggestions on collision: `<slug>-<short-hash>`, `<slug>-co`, `<slug>-app`, etc.
 
 ### Seed data
@@ -127,28 +133,40 @@ A one-time seed migration `005_seed_1stcontact.sql` that inserts the platform-ow
 ## UATs (`test_UAT_FC_<REQ-ID>_*`)
 
 - `migrations_apply_clean` — fresh D1, apply all migrations including seed; tables exist, indexes exist, seed row present.
+
 - `migrations_reversible` — each migration has a `DROP` counterpart that leaves the schema empty.
+
 - `slug_validation_accepts_valid` — `acme`, `my-bakery`, `a-1-b` accepted.
+
 - `slug_validation_rejects_invalid` — empty, too short, too long, uppercase, special chars, consecutive hyphens, leading/trailing hyphen, all rejected.
+
 - `slug_validation_rejects_reserved` — `api`, `www`, `admin`, `preview`, `1stcontact` rejected as reserved.
+
 - `slug_collision_suggestions_non_empty` — `suggestAlternativeSlug('taken')` returns at least three candidates not equal to the input.
+
 - `unique_constraint_on_slug` — inserting two sites with the same slug fails with a unique-constraint violation.
+
 - `seed_1stcontact_loads_real_definition` — the seeded `1stcontact` site's `draft_definition` parses to a valid Site per the `@1stcontact/site-schema` validator from REQ-3.
 
 ## Out of scope
 
 - Magic-link / sessions tables — separate auth REQ.
+
 - Custom-domain mappings — later REQ (paid feature).
+
 - Asset records (R2 refs) — already partly covered in REQ-3's `AssetRef` type; binary storage and full asset CRUD comes with a later REQ.
+
 - Audit log table — later, alongside system-action audit.
+
 - Soft-delete columns — later if needed; v1 sites are not deletable.
 
 ## Risks / open items
 
 - **JSON column size** — D1 SQLite TEXT columns hold large JSON fine; site definitions are typically well under 1MB. Add a guard in API REQs that rejects definitions exceeding 5MB pre-persist.
-- **Slug-uniqueness race** — `INSERT` race on slug uniqueness is handled by the UNIQUE constraint at the DB level. API REQs catch the constraint violation and return a 409 with suggestions.
-- **Bootstrap path** — the 1st Contact site is authored file-backed (`sites/1stcontact/site.json`) as a seed fixture. This REQ's seed migration loads it into D1, its canonical home — the same file→D1 migration every site follows. `tools/generate` reads file-backed seeds today and should be updated by a later REQ to read from D1 when available; once it does, filespace is purely an authoring/seed convenience.
 
+- **Slug-uniqueness race** — `INSERT` race on slug uniqueness is handled by the UNIQUE constraint at the DB level. API REQs catch the constraint violation and return a 409 with suggestions.
+
+- **Bootstrap path** — the 1st Contact site is authored file-backed (`sites/1stcontact/site.json`) as a seed fixture. This REQ's seed migration loads it into D1, its canonical home — the same file→D1 migration every site follows. `tools/generate` reads file-backed seeds today and should be updated by a later REQ to read from D1 when available; once it does, filespace is purely an authoring/seed convenience.
 
 ## Coordination note from REQ-20 (source project) (added 2026-06-18)
 
@@ -158,20 +176,24 @@ REQ-20 (source project) (web fetch safety + R2 assets) is landing **before** thi
 
 KV counters in `FETCH_RATE_KV` and `BROWSER_BUDGET_KV` are keyed by `account_id`. Switching from `"default"` to real account IDs migrates cleanly (existing default-keyed counters become orphaned and age out via TTL).
 
-
-
 ## Implementation note (2026-06-20, commit 8ea7a82)
 
 Landed as specified above. Notes for downstream REQs:
 
 - **Migration numbering follows the existing 4-digit convention** (`0002_*`–`0005_*`) rather than the 3-digit numbering shown in the original ticket, to match `0001_create_leads.sql`. Lexicographic ordering is preserved.
-- **Down migrations live in `db/migrations-down/`** (sibling directory), one `.down.sql` per forward migration. They are NOT in `db/migrations/` because `wrangler d1 migrations` scans that directory and would treat down files as forward migrations. The `migrations_reversible` UAT applies them via the test helper.
+
+- **Down migrations live in **`db/migrations-down/` (sibling directory), one `.down.sql` per forward migration. They are NOT in `db/migrations/` because `wrangler d1 migrations` scans that directory and would treat down files as forward migrations. The `migrations_reversible` UAT applies them via the test helper.
+
 - **Seed IDs are deterministic, not UUIDs**: `acct_1stcontact_platform`, `site_1stcontact`, `rev_1stcontact_seed`. Recognisable as platform-owned and stable across rebuilds. Customer accounts will use UUIDs.
+
 - **Seed JSON embedded inline** in `0005_seed_1stcontact.sql` as a SQL string literal (single quotes doubled per SQLite). The seed is a frozen snapshot of `sites/1stcontact/site.json` at commit time; future drift is expected (a later REQ should update `tools/generate` to read from D1).
-- **`extractAccountId` left header-driven**: per the coordination note, the swap to session-cookie resolution belongs to the auth REQ. This REQ is schema-only.
-- **`SITES_DB` binding name** used in the test helper; wrangler.toml currently binds `LEADS_DB`. The API REQ (REQ-11 (source project)) will add the new D1 binding to wrangler.toml — this REQ does not modify wrangler config.
+
+- `extractAccountId`** left header-driven**: per the coordination note, the swap to session-cookie resolution belongs to the auth REQ. This REQ is schema-only.
+
+- `SITES_DB`** binding name** used in the test helper; wrangler.toml currently binds `LEADS_DB`. The API REQ (REQ-11 (source project)) will add the new D1 binding to wrangler.toml — this REQ does not modify wrangler config.
 
 UATs (8 files, 53 tests) all pass. The two failing tests in the broader suite (REQ-30 (source project) and BUG-5 doc-drift guards) are pre-existing on `main` and unrelated.
 
 ## Model note (2026-07-01)
+
 > Per [[DOC-14]], the D1 model must also: store **site-local / draft modules** (bespoke-module artifacts) and **gate publish on module hardening** (a site cannot publish while depending on an unhardened bespoke module). Fold into this ticket's reconciliation before implementation.
