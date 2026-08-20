@@ -6,9 +6,9 @@ title: 'Values-diff closes capture blind spots: rendered-text extent, composited
   fill, box border, and duplicate-text pairing'
 created_by: xgd
 created_at: '2026-07-19T02:17:40.688184+00:00'
-updated_at: '2026-08-20T03:38:21.032277+00:00'
+updated_at: '2026-08-20T03:59:42.810555+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -83,7 +83,7 @@ Extends the `1c capture` + `values-diff` pipeline with fidelity closures, each t
 **Out of scope:** gradient axes (separate story), size-aware / viewport-ladder diffing, the perceptual pixel diff, any framework authoring dials, how mirrored assets are *named* (owned by the asset-mirroring capability — only the capture-side use of the mirror is owned here), and what the fold *does* with a captured backdrop, scrim or control (owned by the fold story). Glyph/icon *shape* hashing and independent per-side border *colours* / inline-SVG fill are documented as deferred residuals (presence + dominant-edge + style covers the observed cases).
 
 ## Technical Context
-- Belongs to capability **1c Values-Diff Fidelity** (`capability-aa030c83`); the unifying mandate is the invariant "0 value-diffs ⟺ pixel-faithful". Coverage closes false negatives; noise closes false positives — only with both does the invariant hold and the operator's eye stop being the QA layer.
+- Belongs to capability **1c Capture & Diff Fidelity** (CAP-63, `capability-aa030c83`, `1c_capture_diff_fidelity`); the unifying mandate is the invariant "0 value-diffs ⟺ pixel-faithful". Coverage closes false negatives; noise closes false positives — only with both does the invariant hold and the operator's eye stop being the QA layer.
 - The rendered-text-extent comparison is a *ratio* rather than an absolute band because the extent scales with text length; a fixed-px band could not separate a meaningful short-label difference from sub-pixel rounding on a long line. A global `--tolerant` flag widens the ratio band as an accepted-gap escape hatch.
 - Every axis is **additive and backward-tolerant**: a value absent on either side (a bundle captured before the axis existed) is skipped rather than reported, so each closure can only *reduce* false negatives.
 - Treatment presence-vs-value split is deliberate: engine-variant strings (backdrop-filter, outline) are compared as presence; carriers of a meaningful discrete value (blend mode, pseudo-content, the typography treatments, object-position) are value-compared.
