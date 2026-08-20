@@ -6,14 +6,15 @@ title: 'Conformance is exercised in both shipping shapes: standalone, and mounte
   into an L1 seam through the same validated binding a real page uses'
 created_by: xgd
 created_at: '2026-08-20T08:04:16.402860+00:00'
-updated_at: '2026-08-20T08:04:16.402860+00:00'
+updated_at: '2026-08-20T08:06:30.512494+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-179b8c06
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
