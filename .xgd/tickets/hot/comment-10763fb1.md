@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-141
 created_by: xgd
 created_at: '2026-08-15T21:52:46.760321+00:00'
-updated_at: '2026-08-16T00:12:17.967042+00:00'
+updated_at: '2026-08-20T21:35:10.909181+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -167,5 +167,11 @@ One cosmetic note: `node_modules/.pnpm` still holds orphaned store entries from 
 ## Still open
 
 The wrong-cause comment in `vitest.workers.config.mts` (lines about the supply-chain policy withholding the binary). REQ-141 is `free_coded`, so fixing it means either reopening that ticket for a comment-only commit, or letting whichever ticket takes the wrangler/astro/vitest bump carry it. The ticket body already records the correction and flags the comment as pending — say the word and I'll do either.
+
+<!-- xgd-turn id="6ff5c379-ae3a-44d8-933d-ee2943bc7567-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:35:10.821795+00:00" -->
+#### You
+If the correction is in the ticket we are good
 
 <!-- xgd-chat-end -->
