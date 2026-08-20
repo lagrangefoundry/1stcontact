@@ -6,7 +6,7 @@ title: A command that loads a declared runtime dependency refuses before doing a
   work when that dependency does not resolve
 created_by: xgd
 created_at: '2026-08-07T03:12:41.704325+00:00'
-updated_at: '2026-08-16T09:18:19.990500+00:00'
+updated_at: '2026-08-20T06:59:38.376218+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
