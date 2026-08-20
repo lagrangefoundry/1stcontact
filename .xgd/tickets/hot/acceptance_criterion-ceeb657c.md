@@ -6,10 +6,10 @@ title: No knowledge base built is an ordinary state and is silent; one that was 
   and cannot be opened is reported
 created_by: xgd
 created_at: '2026-08-20T04:42:15.957143+00:00'
-updated_at: '2026-08-20T04:42:15.957143+00:00'
+updated_at: '2026-08-20T05:03:43.188511+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
