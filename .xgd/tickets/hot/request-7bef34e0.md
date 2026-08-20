@@ -18,9 +18,11 @@ fields:
   ready_since: '2026-08-15T20:34:18.239366+00:00'
   depends_on: []
   commits:
-  - working_sha: cd6f00c6e0802569098bbfccc0befd33bc9d78b4
+  - working_sha: 4fb1e2a5ff34c77dbfcf28fe137d2d7f8930ce80
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - cd6f00c6e0802569098bbfccc0befd33bc9d78b4
   version: 0.1.50
   bundled_in: bundle-77b28def
 ---
