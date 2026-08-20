@@ -5,9 +5,9 @@ type: acceptance_criterion
 title: A rejected document returns the full list of per-field errors
 created_by: xgd
 created_at: '2026-07-22T19:32:29.199138+00:00'
-updated_at: '2026-08-09T05:40:22.484472+00:00'
+updated_at: '2026-08-20T08:42:18.522476+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d0a8cfad
@@ -32,12 +32,16 @@ list with its path **anchored inside the page that carries it** — e.g.
 document-local path with no page context. So the caller written to consume these
 messages (an author, or an AI self-correcting per DOC-8 §6) is pointed at the
 offending node in the file it is editing, and a multi-page definition names which
-page is at fault.
+page is at fault. **That page-prefixing behaviour is owned and pinned by
+AC-849/AC-850** (the authoring-envelope criteria), which assert the
+`/pages/N/l1/…` prefix, the multi-page case, and that the prefix holds for every
+reported path; this criterion pins the shape of the error list itself, at the
+document validator.
 
 ## Verification
 Submit a document containing several distinct envelope violations at once and
 observe the failure result carries a list with one path+message entry per
 violation (not a single generic error), each path locating the field at fault.
-Submit the equivalent as a page inside a multi-page site definition and observe
-every reported path is prefixed into that page's L1 body and names the offending
-node.
+Do **not** re-assert the `/pages/N/l1/…` prefixing here: AC-849/AC-850 own that
+clause and drive it through `validateSite`, so repeating it would duplicate their
+evidence rather than add any.
