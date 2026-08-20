@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-27
 created_by: xgd
 created_at: '2026-08-18T17:40:16.676796+00:00'
-updated_at: '2026-08-20T21:45:29.057823+00:00'
+updated_at: '2026-08-20T22:00:36.783957+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -160,5 +160,11 @@ REQ-150 (drop Astro's Vite bootstrap from the CLI) is likewise CLI hygiene — l
 4. **Revisions/history panel** — after 1.
 
 Want me to scope tickets for the asset-upload and cloud-site-creation gaps? Both look unticketed, and asset upload in particular spans three layers, so it's worth writing down before it gets built piecemeal.
+
+<!-- xgd-turn id="82261c3d-a9be-4af3-acc9-b695280fdfdf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T22:00:36.682334+00:00" -->
+#### You
+Worth stating so it doesn't get counted as debt: `capture`, `repro`, `refold`, `gate`, `l1-gate`, `shot`, `diff`, `values-diff`, `responsive-diff`, `adopt-gaps`, `kb build`, `preflight`, `assets`. That's the fidelity/reproduction pipeline and the build toolchain — developer instruments, not operator surface. They have no business in the builder UI. Same for `bin/build` / `bin/deploy` / `bin/smoke`: shipping the platform is a laptop-and-CI activity by design.  <-- but, the cloud based AI cannot execute CLI, I assume it has tools that we created for it to access these via cloud based API's, does it?
 
 <!-- xgd-chat-end -->
