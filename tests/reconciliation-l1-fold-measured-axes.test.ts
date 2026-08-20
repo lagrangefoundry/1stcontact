@@ -547,3 +547,320 @@ describe('AC-1352 a viewport-height probe pair folds to a measured height deriva
     for (const n of allNodes(flatPair)) expect(responseOf(n)).toBeUndefined()
   })
 })
+
+// ── AC-1350 / AC-1351: the centred content column and its per-axis anchors ────
+
+/** The reference column both criteria are fitted against: `max-w-6xl mx-auto px-6`
+ *  with a nested `max-w-4xl` content cap. */
+const COLUMN = { containerPx: 1152, insetPx: 24, maxWidthPx: 896 }
+
+interface ColumnShape {
+  containerPx: number
+  insetPx: number
+  maxWidthPx?: number
+}
+
+/** Where a column's content starts at `width` — the closed form the fit recovers. */
+const originOf = (width: number, c: ColumnShape = COLUMN): number =>
+  Math.max(0, (width - c.containerPx) / 2) + c.insetPx
+
+/** How wide that content runs at `width`. */
+const extentOf = (width: number, c: ColumnShape = COLUMN): number => {
+  const inner = Math.min(c.containerPx, width) - 2 * c.insetPx
+  return c.maxWidthPx === undefined ? inner : Math.min(c.maxWidthPx, inner)
+}
+
+/** A page laid out in `c`: three runs filling the column, plus anything extra. */
+function columnPage(
+  extra: (width: number) => ValueElement[] = () => [],
+  c: ColumnShape = COLUMN,
+): MultiStateCapture {
+  return overLadder((width) => ({
+    elements: [
+      ...['Full column run', 'Second column run', 'Third column run'].map((text, i) =>
+        lines(
+          run({ text, box: { x: originOf(width, c), y: 200 + i * 40, width: extentOf(width, c), height: 29 } }),
+          1,
+        ),
+      ),
+      ...extra(width),
+    ],
+  }))
+}
+
+describe('AC-1350 the centred content column is recovered as a document constant', () => {
+  it('test_UAT_AC1350_column_is_fitted_from_content_and_rejected_unless_every_sample_reproduces', () => {
+    // ── The clean fit ─────────────────────────────────────────────────────────
+    const doc = foldToL1(columnPage())
+    expect(validateL1(doc).ok).toBe(true)
+    expect(doc.column).toEqual(COLUMN)
+    // …and it is a REPRODUCTION of the page, not a resemblance: the recovered
+    // constants replay every sampled origin and extent to within a pixel.
+    for (const w of LADDER) {
+      expect(Math.abs(originOf(w, doc.column!) - originOf(w)), `origin @${w}`).toBeLessThanOrEqual(1)
+      expect(Math.abs(extentOf(w, doc.column!) - extentOf(w)), `extent @${w}`).toBeLessThanOrEqual(1)
+    }
+
+    // ── Modal origin, not the minimum ─────────────────────────────────────────
+    // A real page has more than one gutter: this one sets its header 8px wider
+    // than its content column. The extreme edge is the header's, which is not the
+    // column the page is laid out in — taking the minimum makes the fit fail.
+    const withHeader = foldToL1(
+      columnPage((width) => [
+        lines(
+          run({
+            text: 'Outdented header',
+            box: { x: originOf(width) - 8, y: 100, width: extentOf(width) + 16, height: 29 },
+          }),
+          1,
+        ),
+      ]),
+    )
+    expect(withHeader.column).toEqual(COLUMN)
+    expect(withHeader.column!.insetPx).toBe(24) // the content column's, not the header's 16
+
+    // ── A full-bleed band contributes no evidence ─────────────────────────────
+    // It spans the viewport and says nothing about the column its contents sit in.
+    const withBand = foldToL1(
+      columnPage((width) => [
+        lines(run({ text: 'band', surfaceFill: '#030717', box: { x: 0, y: 60, width, height: 29 } }), 1),
+      ]),
+    )
+    expect(withBand.column).toEqual(COLUMN)
+
+    // ── The content cap ───────────────────────────────────────────────────────
+    // Emitted where content stops short of what the container would allow…
+    expect(doc.column!.maxWidthPx).toBe(896)
+    // …and absent where the content fills the container at every width.
+    const fills = foldToL1(columnPage(() => [], { containerPx: 1152, insetPx: 24 }))
+    expect(fills.column).toEqual({ containerPx: 1152, insetPx: 24 })
+    expect(fills.column!.maxWidthPx).toBeUndefined()
+
+    // ── Rejection: a page with no centred column keeps its keyframes ──────────
+    // Left-aligned content at a constant gutter — no container ever engages, so
+    // there is nothing to fit and the fold must not invent one.
+    const flush = foldToL1(
+      overLadder((width) => ({
+        elements: [lines(run({ text: 'Flush left', box: { x: 40, y: 100, width: width - 80, height: 29 } }), 1)],
+      })),
+    )
+    expect(flush.column).toBeUndefined()
+    expect((textNode(flush, 'Flush left').geometry as { anchor?: unknown }).anchor).toBeUndefined()
+
+    // ── Rejection: one bad sample rejects the WHOLE column ────────────────────
+    // Perturbing a single sampled origin beyond a pixel must not be absorbed by
+    // fitting the remaining samples — the fit is verified against every one.
+    const perturbed = foldToL1(
+      overLadder((width) => ({
+        elements: ['Full column run', 'Second column run', 'Third column run'].map((text, i) =>
+          lines(
+            run({
+              text,
+              box: {
+                x: originOf(width) + (width === 1024 ? 6 : 0),
+                y: 200 + i * 40,
+                width: extentOf(width),
+                height: 29,
+              },
+            }),
+            1,
+          ),
+        ),
+      })),
+    )
+    expect(perturbed.column).toBeUndefined()
+
+    // ── Rejection: too little evidence to be identifiable ─────────────────────
+    // At least three sampled widths are needed; a two-width capture fits nothing.
+    const twoWidths = foldToL1(
+      multi(
+        [320, 1440].map((width) => ({
+          width,
+          height: LADDER_H[width],
+          elements: [
+            lines(
+              run({ text: 'Full column run', box: { x: originOf(width), y: 200, width: extentOf(width), height: 29 } }),
+              1,
+            ),
+          ],
+        })),
+      ),
+    )
+    expect(twoWidths.column).toBeUndefined()
+
+    // ── A column nothing refers to is not emitted ─────────────────────────────
+    // Every run here sits exactly on the column, so the fit itself succeeds — but
+    // each is present at only ONE width, so no node can anchor to it. The column
+    // is carried on the document only when some node actually uses it.
+    const unreferenced = foldToL1(
+      overLadder((width) => ({
+        elements: [
+          lines(
+            run({ text: `Row at ${width}`, box: { x: originOf(width), y: 200, width: extentOf(width), height: 29 } }),
+            1,
+          ),
+        ],
+      })),
+    )
+    expect(unreferenced.column).toBeUndefined()
+    for (const n of allNodes(unreferenced)) {
+      expect((n.geometry as { anchor?: unknown } | undefined)?.anchor).toBeUndefined()
+    }
+    // The fit itself was never in doubt: the SAME page whose one run keeps its
+    // identity across the ladder — so it spans enough frames to anchor — does
+    // carry the column. The only difference is whether anything refers to it.
+    const referenced = foldToL1(
+      overLadder((width) => ({
+        elements: [
+          lines(run({ text: 'Row', box: { x: originOf(width), y: 200, width: extentOf(width), height: 29 } }), 1),
+        ],
+      })),
+    )
+    expect(referenced.column).toEqual(COLUMN)
+    expect((textNode(referenced, 'Row').geometry as { anchor?: unknown }).anchor).toBeTruthy()
+  })
+})
+
+describe('AC-1351 a node inside the column expresses its geometry against that column', () => {
+  const anchorOf = (n: Record<string, unknown>) =>
+    (n.geometry as { anchor?: { x?: unknown; width?: unknown } } | undefined)?.anchor
+
+  it('test_UAT_AC1351_column_anchors_are_fitted_per_axis_with_cap_track_and_refusals', () => {
+    // ── Both axes fit: the run IS the column ──────────────────────────────────
+    const doc = foldToL1(columnPage())
+    const full = textNode(doc, 'Full column run')
+    expect(anchorOf(full)).toEqual({ x: { px: 0, fraction: 0 }, width: { px: 0, fraction: 1 } })
+
+    // At an UNSAMPLED width the anchor is a closed form of the column, not an
+    // interpolation of the captured absolute offsets: one static rule, no media
+    // query re-deriving `left` between the 1024 and 1280 rungs (which read 55.5px
+    // at 1150 where the reference is still flat at 24px).
+    const { css } = renderL1Document(doc)
+    expect(css).toContain('left: calc(max(0px, (100vw - 1152px) / 2) + 24px)')
+    expect(css).toContain('width: min(896px, (min(1152px, 100vw) - 48px))')
+    expect(css).not.toMatch(/left: calc\(24px \+ \(64 \* \(100vw - 1024px\)/)
+
+    // ── Per-axis independence ─────────────────────────────────────────────────
+    // Hero lines sharing a left edge but with differing widths: ALL take their
+    // left from the column (alignment is shared across siblings, so they stay
+    // flush at an unsampled width) while only the fitting ones anchor their width.
+    const perAxis = foldToL1(
+      columnPage((width) => [
+        // Its own narrower maximum takes over above a breakpoint — a nested cap.
+        lines(
+          run({
+            text: 'Capped',
+            box: { x: originOf(width), y: 500, width: Math.min(768, extentOf(width)), height: 29 },
+          }),
+          1,
+        ),
+        // A shrink-to-fit glyph extent — nobody's column function.
+        lines(
+          run({ text: 'Shrink to fit', box: { x: originOf(width), y: 600, width: 120 + width / 100, height: 29 } }),
+          1,
+        ),
+      ]),
+    )
+    for (const t of ['Full column run', 'Capped', 'Shrink to fit']) {
+      expect(anchorOf(textNode(perAxis, t))?.x, t).toBeTruthy()
+    }
+    // A nested maximum is a CAPPED column term — not a reason to drop the anchor.
+    expect(anchorOf(textNode(perAxis, 'Capped'))?.width).toEqual({ px: 0, fraction: 1, maxPx: 768 })
+    // …and the run whose width does not fit keeps its width keyframes rather than
+    // losing its left-edge anchor along with them.
+    expect(anchorOf(textNode(perAxis, 'Shrink to fit'))?.width).toBeUndefined()
+    expect(anchorOf(textNode(perAxis, 'Shrink to fit'))?.x).toBeTruthy()
+
+    // ── The cap needs an over-determined fit ──────────────────────────────────
+    // Three samples below the cap support it (above); with only TWO below, a
+    // two-unknown fit through two points is interpolation, not evidence, and the
+    // cap is refused rather than fitted.
+    const shallowCap = foldToL1(
+      columnPage((width) => [
+        lines(
+          run({
+            text: 'Capped early',
+            box: { x: originOf(width), y: 500, width: Math.min(400, extentOf(width)), height: 29 },
+          }),
+          1,
+        ),
+      ]),
+    )
+    expect(anchorOf(textNode(shallowCap, 'Capped early'))?.width).toBeUndefined()
+    expect(anchorOf(textNode(shallowCap, 'Capped early'))?.x).toBeTruthy()
+
+    // ── The plausible-share guard ────────────────────────────────────────────
+    // A width that fits the column affinely but at a STEEP coefficient is
+    // tracking something else that merely correlates with the column over the
+    // sampled range; extrapolating it off-sample is how a run ends up kilometres
+    // wide, so the fit is refused even though it reproduces every sample exactly.
+    const NARROW: ColumnShape = { containerPx: 800, insetPx: 20, maxWidthPx: 400 }
+    const steep = foldToL1(
+      columnPage(
+        (width) => [
+          lines(
+            run({
+              text: 'Steep coefficient',
+              box: { x: originOf(width, NARROW), y: 500, width: 2.5 * extentOf(width, NARROW) - 500, height: 29 },
+            }),
+            1,
+          ),
+        ],
+        NARROW,
+      ),
+    )
+    expect(steep.column).toEqual(NARROW)
+    expect(anchorOf(textNode(steep, 'Steep coefficient'))?.width).toBeUndefined()
+    expect(anchorOf(textNode(steep, 'Steep coefficient'))?.x).toBeTruthy()
+
+    // ── The keyframed residual inset ─────────────────────────────────────────
+    // A 3-up grid that stacks below a breakpoint changes layout MODE there, so its
+    // third column's offset inside the column has no closed form. The column
+    // origin still carries it and the residual becomes a track — one that inherits
+    // the node's OWN geometry segments, so both halves of the position agree about
+    // where the page's breakpoints are.
+    const grid = foldToL1(
+      columnPage((width) => [
+        lines(
+          run({
+            text: 'Third tile',
+            box: {
+              x: originOf(width) + (width >= 768 ? (2 * extentOf(width)) / 3 : 0),
+              y: 700,
+              width: width >= 768 ? extentOf(width) / 3 : extentOf(width),
+              height: 29,
+            },
+          }),
+          1,
+        ),
+      ]),
+    )
+    const tile = textNode(grid, 'Third tile')
+    const tileAnchor = anchorOf(tile) as { x?: { pxTrack?: { keyframes: unknown; segments?: unknown } } }
+    expect(tileAnchor.x?.pxTrack, 'the residual inset is keyframed').toBeDefined()
+    expect(tileAnchor.x!.pxTrack!.keyframes).toEqual(
+      LADDER.map((at) => ({ at, value: at >= 768 ? Math.round(((2 * extentOf(at)) / 3) * 100) / 100 : 0 })),
+    )
+    // The track's segments are the node's own — the geometry already classifies
+    // the mode change as a snap, and the inset must agree with it.
+    const tileSegments = (tile.geometry as { segments?: unknown }).segments
+    expect(tileAnchor.x!.pxTrack!.segments).toEqual(tileSegments)
+    expect(tileSegments).toContain('snap')
+
+    // ── Full-bleed refusal ───────────────────────────────────────────────────
+    // A band's left edge is absolutely zero. Written as origin-plus-negative-origin
+    // and interpolated, the residual walks it off the left edge between samples.
+    const banded = foldToL1(
+      columnPage((width) => [
+        lines(run({ text: 'band', surfaceFill: '#030717', box: { x: 0, y: 60, width, height: 29 } }), 1),
+      ]),
+    )
+    expect(anchorOf(textNode(banded, 'band'))).toBeUndefined()
+    expect(anchorOf(textNode(banded, 'Full column run'))?.x).toBeTruthy()
+    // Its left edge stays at zero rather than walking negative.
+    for (const kf of (textNode(banded, 'band').geometry as { keyframes: Array<{ x: number }> }).keyframes) {
+      expect(kf.x).toBe(0)
+    }
+    expect(renderL1Document(banded).css).not.toMatch(/left: calc\(max\(0px, \(100vw - 1152px\) \/ 2\) \+ -/)
+  })
+})
