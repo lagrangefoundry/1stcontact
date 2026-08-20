@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-41 positive fixture (test infrastructure, NOT a shipping module): a
  * well-formed responsive band that exercises the mobile-band checks' positive
@@ -7,9 +8,7 @@
  * font-floor checks do not false-positive on legitimate interactive content.
  * Inline styles only.
  */
----
-
-<section style="padding: 24px">
+export const responsiveClean: BehaviorComponent = () => `<section style="padding: 24px">
   <h2 style="font-size: 24px">Responsive-clean fixture</h2>
   <p style="font-size: 16px; max-width: 60ch">
     A fluid paragraph that reflows within any viewport, with a properly-sized
@@ -21,4 +20,4 @@
   >
     Get started
   </button>
-</section>
+</section>`

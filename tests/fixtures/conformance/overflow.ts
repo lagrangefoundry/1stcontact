@@ -1,4 +1,5 @@
----
+import type { BehaviorComponent } from '@1stcontact/framework'
+
 /**
  * REQ-39 negative fixture (test infrastructure, NOT a shipping module): a module
  * that overflows horizontally. A fixed 4000px-wide block forces
@@ -6,11 +7,9 @@
  * `safety.overflow` check MUST flag red. Inline styles only — the container
  * render drops scoped <style>.
  */
----
-
-<section style="padding: 40px">
+export const overflow: BehaviorComponent = () => `<section style="padding: 40px">
   <h2>Overflow fixture</h2>
   <div style="width: 4000px; height: 120px; background: #334155; color: #fff">
     This block is 4000px wide and spills far past the viewport.
   </div>
-</section>
+</section>`
