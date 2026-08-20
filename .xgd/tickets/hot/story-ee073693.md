@@ -6,10 +6,10 @@ title: 'Palette management: read the site''s colours with their usage counts, an
   change, add, remove or rename them under guards the store enforces'
 created_by: xgd
 created_at: '2026-08-20T01:19:10.715657+00:00'
-updated_at: '2026-08-20T01:19:10.715657+00:00'
+updated_at: '2026-08-20T01:50:33.928940+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-77b28def
   capability_uid: capability-a0bba4ec
