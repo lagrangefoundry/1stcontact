@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-148
 created_by: xgd
 created_at: '2026-08-18T01:34:21.630824+00:00'
-updated_at: '2026-08-20T00:17:51.675873+00:00'
+updated_at: '2026-08-20T00:42:43.593136+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -482,5 +482,11 @@ All 20 conformance tests pass (was 5 passed / 15 skipped) — that validates my 
 Only failure is the three-engine cross-browser test timing out at 240s — it now *runs* (it used to skip) but is slow under `--single-process`. Running batch B:
 
 Batch B hit the 590s cap. Splitting it:
+
+<!-- xgd-turn id="8d2e9cb1-e1df-46b0-980b-309a5397616f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T00:42:43.431515+00:00" -->
+#### You
+PLease complete the free coding protocol
 
 <!-- xgd-chat-end -->
