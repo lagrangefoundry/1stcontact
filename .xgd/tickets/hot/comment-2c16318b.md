@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T21:46:05.553175+00:00'
+updated_at: '2026-08-20T22:27:33.246601+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -615,5 +615,19 @@ Worth flagging since you're re-entering:
 The **free 15-minute consult** is defined as Act I truncated — same opener, same ingestion, stopping before the brief locks. Where exactly it stops is one of the open calls.
 
 And the document leans on the design rubric in several places (restraint calibration, the stage 3 and 6 option sets, the critique checklists) — **and the rubric doesn't exist yet**. DOC-31 gives findings, not our encoded point of view. So DOC-33's structure is settled; its taste layer is written against something unwritten and is due a second pass after the example pool.
+
+<!-- xgd-turn id="7114212c-4892-443b-acba-27f51bfe7e83-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T22:27:33.085449+00:00" -->
+#### You
+So all this is very logical it seems correct from the point of view of decision-making. But let's put a different lens on it I am concerned from the point of view of user motivation that this is an extremely dry approach.
+
+Let's put this lens on the process for a minute the problem being that at this point it's gonna be at least two hours into the process before the user sees a site and then its deliberately bland. If they were on Wix, they would start with a template at least.
+
+The "magic" of this experience is for them to witness the site appearing next to them as they type.
+
+I'm not seeing anything in your discussion about reference materials - if I were building a website from scratch, one of the first things I would want to do is to look at comparables - to get an idea of both content - what kinds of things are presented as well as style and layout. I also imagine that we will want to create examples, strawman sites for plumbers and caterers and app producers... your story does not include showing those.
+
+One final thing that struck me I am unsure if I agree that restraint level can be meaningful in stage one. People need to look at things to know whether they're too much in stage one they have nothing to look at. Somehow I feel this needs to be more interactive
 
 <!-- xgd-chat-end -->
