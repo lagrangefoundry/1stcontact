@@ -27,7 +27,7 @@ import type {
  *
  * THIS IS THE ONLY MODULE IN THE PORT'S WORLD THAT IMPORTS `node:fs`, and it is
  * imported by the CLI rather than by `edit.ts`. That is the whole shape:
- * `@lagrangefoundry/ticketing`'s `docs_store.js` keeps its filesystem reader
+ * the shared `ticketing` component's `docs_store.js` keeps its filesystem reader
  * behind a separate entry point so the Worker-safe path never reaches it, and
  * this follows it. If this module ever appears in a Worker's import graph, the
  * seam has been undone.

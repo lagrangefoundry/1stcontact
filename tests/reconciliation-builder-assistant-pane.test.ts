@@ -328,8 +328,23 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — one site, chosen in one pl
     // appearing here would mean the previous site was carried into the turn.
     expect(sent).toEqual([['site-beta', 'Make the heading bigger']])
 
+    // Compared on ROLE AND COPY, which is the whole of the claim: which turns
+    // the conversation holds, in which order, saying exactly what. The counts
+    // stay exact, so a dropped, duplicated or late-arriving turn still fails.
+    //
+    // The projection is deliberate and its reason is upstream, not local. A turn
+    // that went through `send()` carries the installed `webui-chat`'s OWN
+    // wall-clock stamp — `appendMessage('user', text, { ts: nowIso() })` at
+    // `webui-chat/src/index.js:343`, surfaced by `getMessages()` at `:451-456`,
+    // which omits `meta` when there is none. Nothing in this repo passes a
+    // `meta`, which is why the REPLAY assertions above compare whole records and
+    // still pass. So the field is the component's, it is a clock reading and
+    // therefore not stably assertable, and it is not what AC-1065 claims.
+    const roleAndCopy = (turns: Turn[]): Array<{ role: string; markdown: string }> =>
+      turns.map(({ role, markdown }) => ({ role, markdown }))
+
     // Mid-turn the reply was already partly rendered…
-    expect(midTurn).toEqual([
+    expect(midTurn.map(roleAndCopy)).toEqual([
       [
         { role: 'user', markdown: 'Make the heading bigger' },
         { role: 'assistant', markdown: 'Done — ' },
@@ -338,7 +353,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — one site, chosen in one pl
 
     // …and it ends as ONE completed assistant message, not one per delta.
     const messages = app.chat.getChat().getMessages()
-    expect(messages).toEqual([
+    expect(roleAndCopy(messages)).toEqual([
       { role: 'user', markdown: 'Make the heading bigger' },
       { role: 'assistant', markdown: 'Done — the heading is bigger.' },
     ])
@@ -401,8 +416,13 @@ describe.skipIf(!WEBUI_INSTALLED)('story-7f437d57 — one site, chosen in one pl
 
     // DISTINCT from what was said: the reply is still there, and the activity
     // did not leak into the message text.
+    // Role and copy again — this turn went through `send()`, so `webui-chat`
+    // stamped its own `meta.ts` on it (see AC-1065 above for the provenance).
+    // The claim here is that the reply is still there and says what it said,
+    // which is exactly these two fields.
     const messages = acting.getMessages()
-    expect(messages[messages.length - 1]).toEqual({
+    const last = messages[messages.length - 1]
+    expect({ role: last.role, markdown: last.markdown }).toEqual({
       role: 'assistant',
       markdown: 'Done — the heading is bigger.',
     })

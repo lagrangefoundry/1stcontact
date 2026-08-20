@@ -68,7 +68,15 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contentTypeFor } from '../apps/public-site/src/content-type'
 import { missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
-import { COMMAND_DEPS, SHARED_STORE_INSTALL_COMMAND, sharedComponents } from '../tools/generate/src/cli'
+// `WEBUI_SCOPE` is imported rather than written: AC-960 declares the component
+// scope exactly once, and every reference — this suite's included — composes it
+// from that declaration.
+import {
+  COMMAND_DEPS,
+  SHARED_STORE_INSTALL_COMMAND,
+  sharedComponents,
+  WEBUI_SCOPE,
+} from '../tools/generate/src/cli'
 import { EXIT_CODES } from '../tools/generate/src/cli/errors'
 import {
   EXPECTED_CONTENT_TYPES,
@@ -452,7 +460,7 @@ describe('story-d5167ced — the environment preflight', () => {
 
       // ── one BROWSER component made unresolvable ─────────────────────────────
       const browser = components.find((c) => c.surface === 'browser')!.component
-      const brokenBrowser = preflight([`@lagrangefoundry/${browser}`])
+      const brokenBrowser = preflight([`${WEBUI_SCOPE}/${browser}`])
 
       // Both halves are reported before either refuses, so an operator missing
       // one of each learns both in a single run.
@@ -461,18 +469,18 @@ describe('story-d5167ced — the environment preflight', () => {
 
       // The refusal names the component, the surface it serves, and why a browser
       // component's absence is not merely a missing file.
-      expect(brokenBrowser.all).toContain(`@lagrangefoundry/${browser} (browser) does not resolve`)
+      expect(brokenBrowser.all).toContain(`${WEBUI_SCOPE}/${browser} (browser) does not resolve`)
       expect(brokenBrowser.all).toContain('the browser import map would name a module nothing serves')
 
       // ── one SERVER component made unresolvable ──────────────────────────────
       const server = components.find((c) => c.surface === 'server')!.component
-      const brokenServer = preflight([`@lagrangefoundry/${server}`])
+      const brokenServer = preflight([`${WEBUI_SCOPE}/${server}`])
       expect(brokenServer.out).toContain(`MISS  shared/server  ${server}`)
-      expect(brokenServer.all).toContain(`@lagrangefoundry/${server} (server) does not resolve`)
+      expect(brokenServer.all).toContain(`${WEBUI_SCOPE}/${server} (server) does not resolve`)
       // A server component dies on its dynamic import, not in an import map, so
       // the browser sentence is not attached to it.
       expect(brokenServer.all).not.toContain(
-        `@lagrangefoundry/${server} (server) does not resolve — the browser import map`,
+        `${WEBUI_SCOPE}/${server} (server) does not resolve — the browser import map`,
       )
 
       // The refusal is a refusal, not advice: an environment-specific exit code
@@ -539,7 +547,7 @@ describe('story-d5167ced — the build discovers every Worker and bundles it for
       const broken = realRepoShims('build-broken')
       const hidden = {
         ...broken.env,
-        UAT_HIDDEN_SPECS: JSON.stringify(['@lagrangefoundry/webui-shell']),
+        UAT_HIDDEN_SPECS: JSON.stringify([`${WEBUI_SCOPE}/webui-shell`]),
         NODE_OPTIONS: `--import ${hook}`,
       }
       const stopped = sh(path.join(REPO, 'bin', 'build'), [], { cwd: REPO, env: hidden })
@@ -555,7 +563,7 @@ describe('story-d5167ced — the build discovers every Worker and bundles it for
         cwd: REPO,
         env: {
           ...skipped.env,
-          UAT_HIDDEN_SPECS: JSON.stringify(['@lagrangefoundry/webui-shell']),
+          UAT_HIDDEN_SPECS: JSON.stringify([`${WEBUI_SCOPE}/webui-shell`]),
           NODE_OPTIONS: `--import ${hook}`,
         },
       })

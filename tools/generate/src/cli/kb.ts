@@ -11,8 +11,8 @@
  *   build    corpus -> vector index, chunk index, awareness map (the library)
  *   wire     index + map -> the chat session's priming and tools (`ai/host.ts`)
  *
- * The middle step is `@lagrangefoundry/knowledge` composed directly rather than
- * its `build-shipped-kb` CLI, which is not reachable: the package declares
+ * The middle step is the shared `knowledge` component composed directly rather
+ * than its `build-shipped-kb` CLI, which is not reachable: the package declares
  * `files: ["src"]` and no `bin`, so the packed artifact the shared store holds
  * has no executable. The functions the CLI calls ARE exported, so this composes
  * the same pipeline in the same order — it does not reimplement any of it, and
@@ -386,7 +386,7 @@ export function ensureConfig(root: string = kbRoot()): string {
 // ── the library, and the KB as the runtime sees it ───────────────────────────
 
 let knowledge: Promise<Untyped> | null = null
-/** `@lagrangefoundry/knowledge`, Worker-safe root. */
+/** The shared `knowledge` component, Worker-safe root. */
 function km(): Promise<Untyped> {
   if (!knowledge) knowledge = import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
   return knowledge
@@ -492,8 +492,8 @@ export async function resolveEmbedder(env = process.env): Promise<Untyped> {
  * The describe seam: who writes the map's paragraphs.
  *
  * Defaults to the AI bridge, which is a default this repo is ALLOWED to have and
- * the knowledge component is not: reaching a model means importing
- * `@lagrangefoundry/ai-knowledge`, and the knowledge component cannot depend on
+ * the knowledge component is not: reaching a model means importing the shared
+ * `ai-knowledge` component, and the knowledge component cannot depend on
  * the bridge that binds it — the dependency runs the other way. We are the host,
  * so we are the layer that gets to name one.
  *

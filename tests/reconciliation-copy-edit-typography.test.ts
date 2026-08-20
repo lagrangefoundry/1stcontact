@@ -251,8 +251,17 @@ interface Field {
   locked?: boolean
 }
 
-/** The four shapes of control this surface is capable of offering, and no fifth. */
-const CONTROL_SHAPES = ['string', 'enum', 'integer', 'boolean']
+/**
+ * The shapes of control this surface is capable of offering, and no other.
+ *
+ * REQ-140 added `'color'` as the fifth — see
+ * `packages/site-schema/src/l1/edit.ts:187`, where the union is declared, and
+ * `:170`, which notes it is the first entry whose value is not a scalar. The
+ * set stays CLOSED; it simply has one more member than it did when AC-991 was
+ * first written, and a colour is still a pick from a palette the site declares
+ * rather than anything that could carry code.
+ */
+const CONTROL_SHAPES = ['string', 'enum', 'integer', 'boolean', 'color']
 
 describe('story-37a3921b — how a run of copy is set, through the same write path', () => {
   let cwd: string
@@ -326,12 +335,14 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
   })
 
   it('test_UAT_AC1117_a_copy_region_reports_how_the_run_is_set_beside_its_words', async () => {
-    // AC-1117 — the words first, and beside them the four parameters: size as a
-    // bounded whole number, weight as a closed pick, italic as a yes/no, and
-    // capitalisation as the keyword list the parameter itself admits.
+    // AC-1117 — the words first, and beside them the parameters: colour as a
+    // palette pick (REQ-140), size as a bounded whole number, weight as a closed
+    // pick, italic as a yes/no, and capitalisation as the keyword list the
+    // parameter itself admits.
     const fields = await fieldsOf(A_HEADLINE)
     expect(fields.map((f) => f.name)).toEqual([
       'text',
+      'color',
       'fontSizePx',
       'fontWeight',
       'italic',
@@ -364,7 +375,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
       fontSizePx: { keyframes: [{ at: 320, value: 36 }, { at: 768, value: 54 }, { at: 1440, value: 72 }] },
     })
 
-    // Every field offered is one of the four shapes, and every closed list is
+    // Every field offered is one of the closed shapes, and every closed list is
     // non-empty — a list-typed field with no list would be a free string wearing
     // a narrower label.
     for (const field of fields) {
@@ -372,10 +383,12 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
       if (field.type === 'enum') expect(field.enum!.length, field.name).toBeGreaterThan(0)
     }
 
-    // Nothing else about the run is exposed: not its colour, not its family, and
-    // nothing geometric — even though the run carries all three.
+    // Nothing else about the run is exposed: not its family, and nothing
+    // geometric — even though the run carries both. (Colour WAS withheld here
+    // until REQ-140 gave it a control of its own; it is asserted as an offered
+    // field above rather than as a withheld one.)
     const names = fields.map((f) => f.name)
-    for (const withheld of ['color', 'fontFamily', 'letterSpacingPx', 'lineHeightPx', 'geometry']) {
+    for (const withheld of ['fontFamily', 'letterSpacingPx', 'lineHeightPx', 'geometry']) {
       expect(names, withheld).not.toContain(withheld)
     }
     expect(draftAxes(A_HEADLINE)).toMatchObject({ color: '#f6f7f4', fontFamily: SATOSHI_STACK })
@@ -391,7 +404,13 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     // weight chooser, because a chooser holding its only option is a label.
     const system = await fieldsOf(A_SYSTEM)
     expect(system.map((f) => f.name)).not.toContain('fontWeight')
-    expect(system.map((f) => f.name)).toEqual(['text', 'fontSizePx', 'italic', 'textTransform'])
+    expect(system.map((f) => f.name)).toEqual([
+      'text',
+      'color',
+      'fontSizePx',
+      'italic',
+      'textTransform',
+    ])
 
     // Inside a behavior module's presentation slot the answer has the same
     // shape, and the faces are the PAGE's own — a served face is declared once
@@ -400,6 +419,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
     const slotFields = await fieldsOf(A_SLIDE, '--module', 'gallery', '--slot', 'slide')
     expect(slotFields.map((f) => f.name)).toEqual([
       'text',
+      'color',
       'fontSizePx',
       'fontWeight',
       'italic',
@@ -777,7 +797,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
       ...pageRooted.map((addr) => [addr]),
       [A_SLIDE, '--module', 'gallery', '--slot', 'slide'],
     ]
-    const seen = { string: 0, enum: 0, integer: 0, boolean: 0 } as Record<string, number>
+    const seen = { string: 0, enum: 0, integer: 0, boolean: 0, color: 0 } as Record<string, number>
     for (const [addr, ...scope] of reads) {
       const got = await get(addr, ...scope)
       expect(got.ok, addr).toBe(true)
@@ -799,7 +819,7 @@ describe('story-37a3921b — how a run of copy is set, through the same write pa
         seen[field.type] += 1
       }
     }
-    // The sweep actually saw all four shapes — an all-string page would never
+    // The sweep actually saw every shape — an all-string page would never
     // enter the branches above and would prove nothing.
     for (const shape of CONTROL_SHAPES) expect(seen[shape], shape).toBeGreaterThan(0)
   })
