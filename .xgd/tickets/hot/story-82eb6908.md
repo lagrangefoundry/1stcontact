@@ -6,9 +6,9 @@ title: 'Gradients as a first-class value: stop positions and panel surface gradi
   — captured, authored, and diffed'
 created_by: xgd
 created_at: '2026-07-19T02:28:13.696712+00:00'
-updated_at: '2026-08-20T03:37:32.160242+00:00'
+updated_at: '2026-08-20T03:59:43.780407+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -37,10 +37,10 @@ Promotes gradients from a colour-and-direction check to a first-class captured, 
 
 **In scope:** capture of stop positions and surface gradients; the in-browser resolution of gradient stop colours to hex on both the text-fill and panel capture paths; the stop-position and surface-gradient comparison axes and tolerances; the standalone gradient content-field value and the shared resolver that authors it into a surface fill.
 
-**Out of scope:** homing the resolved gradient surface fill as an authored render on a specific module (the resolver is exported for any module's surface, but no module currently owns a padded/rounded/inset gradient-panel render); radial/conic gradients (linear sweep with a captured angle only); the solid composited surface-fill axis (that is [[values_diff_fidelity]]'s surfaceFill, a sibling captured alongside the surface gradient).
+**Out of scope:** homing the resolved gradient surface fill as an authored render on a specific module (the resolver is exported for any module's surface, but no module currently owns a padded/rounded/inset gradient-panel render); radial/conic gradients (linear sweep with a captured angle only); the solid composited surface-fill axis (that is [[1c_capture_diff_fidelity]]'s surfaceFill, a sibling captured alongside the surface gradient).
 
 ## Technical Context
-- Reuses the existing gradient comparison used for text-fill gradients (direction tolerance, colour-stop equality); the surface-gradient axis maps to the same gradient defect kind, and stop-position tolerance is a new gate parameter (default 2). Sits alongside [[values_diff_fidelity]] (CAP-63), which owns the composited solid `surfaceFill` axis and element pairing this comparison relies on.
+- Reuses the existing gradient comparison used for text-fill gradients (direction tolerance, colour-stop equality); the surface-gradient axis maps to the same gradient defect kind, and stop-position tolerance is a new gate parameter (default 2). Sits alongside the rest of [[1c_capture_diff_fidelity]] (CAP-63), which owns the composited solid `surfaceFill` axis and element pairing this comparison relies on.
 - **A capture-side colour parser narrower than the browser's own is a silent-skip machine.** The hexification in item 3 is the same lesson as the band-overlay scrim probe on the sibling capture story: the failure mode is not a wrong value but an *absent* one, and an absent stop list reads as "gradient matches" rather than "gradient unknown" — so the axis reports clean exactly where it has no evidence. Resolving through the engine puts the parser's vocabulary permanently in step with the syntaxes stylesheets are authored in.
 - The gradient's stop colours resolve literal-or-role identically to the value system's colour dial, an instance of the "absolute values are the base; a palette is a design overlay" mandate that the length/colour value system (plan item 6) formalises.
 - Captured shapes are optional/back-compatible: pre-existing bundles without stop positions or surface gradients still parse (positions default to unset, surface gradient to none), so a stale bundle does not fabricate deltas. A pre-REQ-72 bundle whose stops captured empty likewise raises no delta rather than a false one.
