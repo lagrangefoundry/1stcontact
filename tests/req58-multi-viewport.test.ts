@@ -168,7 +168,7 @@ describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', 
     ])
   })
 
-  it('test_UAT_FC_REQ-58_boolean_flag_set_is_derived_from_the_cli_source', () => {
+  it('test_UAT_AC1290_boolean_flag_set_is_derived_from_the_cli_source', () => {
     // The literal above pins the registry to itself: it goes red when someone
     // edits the registry, and stays green in the failure mode that actually
     // happens — a boolean flag added to a verb and never registered. That is how
@@ -180,7 +180,22 @@ describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', 
     expect([...booleanReads].sort()).toEqual([...BOOLEAN_FLAGS].sort())
   })
 
-  it.each([...BOOLEAN_FLAGS])('test_UAT_FC_REQ-58_boolean_flag_never_swallows_the_slug — --%s', (flag) => {
+  it('test_UAT_AC1290_the_derivation_goes_red_when_a_registered_flag_is_dropped', () => {
+    // The assertion above is only worth having if it FAILS in the drift case, so
+    // prove it is load-bearing: drop one member from the registry while its boolean
+    // read stays in the CLI source, and the derived set must no longer match. This
+    // is the exact shape of the six-flag drift — the read exists, the registration
+    // does not — so if this comparison could not see it, neither could the UAT.
+    const derived = [...booleanFlagReadsInCliSource()].sort()
+    for (const dropped of BOOLEAN_FLAGS) {
+      const mutilated = [...BOOLEAN_FLAGS].filter((f) => f !== dropped).sort()
+      expect(derived, `dropping --${dropped} must break the derivation`).not.toEqual(mutilated)
+    }
+    // …and equally when a flag is registered that the CLI never reads as a boolean.
+    expect(derived).not.toEqual([...BOOLEAN_FLAGS, 'never-read-anywhere'].sort())
+  })
+
+  it.each([...BOOLEAN_FLAGS])('test_UAT_AC1290_boolean_flag_never_swallows_the_slug — --%s', (flag) => {
     // Every command reached by these flags takes `slug = requireSlug(rest[0])`, so
     // a flag parsed as value-taking eats the slug and the command dies with the
     // exact `Missing required <slug>` signature REQ-58 fixed. Proved for each
