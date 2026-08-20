@@ -6,15 +6,15 @@ title: The surface-bearing box is captured, and shape/border/surface geometry re
   against it when the two sides split a control differently
 created_by: xgd
 created_at: '2026-08-20T04:36:00.316232+00:00'
-updated_at: '2026-08-20T04:36:00.316232+00:00'
+updated_at: '2026-08-20T05:04:34.169577+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-d5de22a5
   kind: behavior
   regression_only: false
-  uat_coverage: pending
+  uat_coverage: pass
 ---
 
 ## Criterion
