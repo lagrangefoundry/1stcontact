@@ -5,13 +5,13 @@ type: capability
 title: 'L1 Reproduction Pipeline: Fold & Acceptance Gate'
 created_by: xgd
 created_at: '2026-07-22T19:41:21.754682+00:00'
-updated_at: '2026-08-20T14:39:54.797183+00:00'
+updated_at: '2026-08-20T14:58:00.521555+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
 fields:
   name: l1_reproduction_pipeline
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 # Capability: L1 Reproduction Pipeline — Fold & Acceptance Gate
