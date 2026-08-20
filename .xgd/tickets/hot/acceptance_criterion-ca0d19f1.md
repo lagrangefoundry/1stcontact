@@ -6,7 +6,7 @@ title: A seam's behavioural config is derived from the capture alone; an honest 
   records a derivation gap
 created_by: xgd
 created_at: '2026-08-20T12:47:57.523733+00:00'
-updated_at: '2026-08-20T13:54:55.289466+00:00'
+updated_at: '2026-08-20T14:39:18.520163+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
