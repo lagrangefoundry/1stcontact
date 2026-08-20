@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: The editing surface and the port import no filesystem module
 created_by: xgd
 created_at: '2026-08-20T15:43:36.500476+00:00'
-updated_at: '2026-08-20T15:43:36.500476+00:00'
+updated_at: '2026-08-20T15:43:52.005072+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-3f4a5f2b
   kind: behavior
