@@ -6,7 +6,7 @@ title: A run's geometry is measured per text node when its element holds more th
   one run
 created_by: xgd
 created_at: '2026-08-20T04:35:55.447837+00:00'
-updated_at: '2026-08-20T05:40:57.503761+00:00'
+updated_at: '2026-08-20T06:58:48.621918+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
