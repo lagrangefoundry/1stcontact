@@ -6,15 +6,15 @@ title: A section folds a background box when it paints an image or a scrim, each
   read from the widest width carrying it
 created_by: xgd
 created_at: '2026-08-20T12:47:43.235410+00:00'
-updated_at: '2026-08-20T12:49:14.425302+00:00'
+updated_at: '2026-08-20T13:46:56.101676+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-8acc338d
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
