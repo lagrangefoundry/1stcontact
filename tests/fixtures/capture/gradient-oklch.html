@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Modern-colour-space gradient fixture</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; }
+      /* An opaque section band the panel floats on (mirrors gradient-panel.html). */
+      .band { background: #e8dfd3; padding: 64px; }
+      /* REQ-72 — the panel sweep is authored in oklch(), the colour space a
+         Tailwind gradient computes to. The TS-side stop regex reads only
+         `#hex`/`rgb()`, so without the in-browser hexification this captures as
+         `135deg []` — an empty stop list that matches ANY reproduction. */
+      .panel {
+        background-image: linear-gradient(135deg, oklch(0.97 0.01 250) 0%, oklch(0.92 0.02 250) 100%);
+        border-radius: 12px;
+        padding: 40px;
+      }
+      .panel p { margin: 0; color: #334155; font-size: 20px; }
+      /* The text-FILL half of the same claim: a background-clip:text sweep whose
+         stops are a modern colour space and a color-mix() blend. */
+      .wordmark {
+        margin: 48px 64px 0;
+        font-size: 56px;
+        font-weight: 700;
+        background-image: linear-gradient(
+          90deg,
+          oklch(0.75 0.16 45) 0%,
+          color-mix(in oklab, oklch(0.7 0.19 35) 70%, #ffffff) 100%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="band">
+      <div class="panel">
+        <p>What We're Exploring</p>
+      </div>
+    </section>
+    <h1 class="wordmark">Gigabyte Alchemy</h1>
+  </body>
+</html>

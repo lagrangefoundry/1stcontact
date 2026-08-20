@@ -147,6 +147,97 @@ describe('REQ-35 values-diff — inferred reference colour is low-confidence', (
   })
 })
 
+// ── AC-1285 — the treatment is a reversible LAYER over an exact capture ───────
+
+describe('AC-1285 — noise treatment is a reversible layer, with an operator dial', () => {
+  /**
+   * The property that distinguishes "a layer over an exact capture" from "a
+   * looser capture": the same bundle, re-reported with the dial moved, yields a
+   * different report while both sides' captured values stay byte-identical. Two
+   * differences ride the same declared per-axis rule — the REQ-58 rendered-text
+   * extent band (`renderedTextBoxToleranceRatio`, default 1.2% of the extent) —
+   * one inside it and one well outside.
+   */
+  const REF_EXTENT = { x: 20, y: 100, width: 400, height: 24 }
+  const SUBVISUAL = { x: 20, y: 100, width: 402, height: 24 } // +0.5% — inside the band
+  const VISIBLE = { x: 20, y: 160, width: 440, height: 24 } //   +10%  — outside every rule
+
+  function bundle(): { dir: string; actualPath: string } {
+    const dir = freshDir()
+    writeRefBundle(dir, [
+      run('Sub-visual line', { renderedTextBox: { ...REF_EXTENT } }),
+      run('Visible line', { renderedTextBox: { ...REF_EXTENT, y: 160 } }),
+    ])
+    const actualPath = writeActualManifest(dir, [
+      el('Sub-visual line', { renderedTextBox: { ...SUBVISUAL } }),
+      el('Visible line', { renderedTextBox: { ...VISIBLE } }),
+    ])
+    return { dir, actualPath }
+  }
+
+  /** The exact captured extents on BOTH sides, read back off disk. */
+  function capturedExtents(dir: string, actualPath: string) {
+    const capture = JSON.parse(readFileSync(path.join(dir, 'capture.json'), 'utf8')) as Capture
+    const actual = JSON.parse(readFileSync(actualPath, 'utf8')) as ValueManifest
+    const ref = capture.sections[0].content.map((r) => (r as ContentRun).renderedTextBox?.width)
+    const act = actual.elements.map((e) => e.renderedTextBox?.width)
+    return { ref, act }
+  }
+
+  it('test_UAT_AC1285_noise_layer_suppresses_at_report_time_and_is_reversible', async () => {
+    const { dir, actualPath } = bundle()
+    const before = readFileSync(path.join(dir, 'capture.json'), 'utf8')
+    const beforeActual = readFileSync(actualPath, 'utf8')
+
+    // (1) Default treatment: the visible difference is reported; the sub-visual
+    //     one is absorbed by a DECLARED per-axis rule, not by a blanket fudge.
+    const exact = await cmdValuesDiff({ refBundleDir: dir, actualManifestPath: actualPath })
+    expect(hasDelta(exact.deltas, 'Visible line', 'renderedTextBox')).toBe(true)
+    expect(hasDelta(exact.deltas, 'Sub-visual line', 'renderedTextBox')).toBe(false)
+
+    // (2) The SAME bundle, re-reported with that axis's dial widened past 10%:
+    //     the previously reported delta is now absorbed. Nothing was re-captured.
+    const widened = await cmdValuesDiff({
+      refBundleDir: dir,
+      actualManifestPath: actualPath,
+      diffOptions: { renderedTextBoxToleranceRatio: 0.2 },
+    })
+    expect(hasDelta(widened.deltas, 'Visible line', 'renderedTextBox')).toBe(false)
+    expect(hasDelta(widened.deltas, 'Sub-visual line', 'renderedTextBox')).toBe(false)
+
+    // (3) The capture is untouched by either run — both sides still carry their
+    //     exact extents, so the suppression happened at comparison time.
+    expect(readFileSync(path.join(dir, 'capture.json'), 'utf8')).toBe(before)
+    expect(readFileSync(actualPath, 'utf8')).toBe(beforeActual)
+    const { ref, act } = capturedExtents(dir, actualPath)
+    expect(ref).toEqual([400, 400])
+    expect(act).toEqual([402, 440])
+
+    // (4) Reversible without re-capturing: turn the dial back and the delta
+    //     returns from the same stored bundle. A widened run is a decision about
+    //     the REPORT, never a loss of captured signal.
+    const again = await cmdValuesDiff({ refBundleDir: dir, actualManifestPath: actualPath })
+    expect(hasDelta(again.deltas, 'Visible line', 'renderedTextBox')).toBe(true)
+    expect(again.deltas.length).toBe(exact.deltas.length)
+  })
+
+  it('test_UAT_AC1285_a_difference_outside_every_rule_survives_the_treatment', async () => {
+    // The other half of the claim: only a difference a declared rule covers is
+    // neutralised. A 10% extent gap is outside the default band AND outside the
+    // loose `--tolerant` band (3%), so it survives the widest blanket treatment
+    // the operator can ask for — a surviving delta is one the render shows.
+    const { dir, actualPath } = bundle()
+    const tolerant = await cmdValuesDiff({
+      refBundleDir: dir,
+      actualManifestPath: actualPath,
+      diffOptions: { tolerant: true },
+    })
+    expect(hasDelta(tolerant.deltas, 'Visible line', 'renderedTextBox')).toBe(true)
+    // …while the sub-visual one stays absorbed under the same run.
+    expect(hasDelta(tolerant.deltas, 'Sub-visual line', 'renderedTextBox')).toBe(false)
+  })
+})
+
 // ── source fix: the capture emits colorInferred for unresolvable colours ──────
 
 describe('REQ-35 capture flags inferred colours (real Chromium)', () => {

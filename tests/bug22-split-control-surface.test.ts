@@ -106,7 +106,7 @@ const on = (deltas: ValueDelta[], text: string, property: string) =>
   deltas.filter((d) => d.text === text && d.property === property)
 
 describe('BUG-22 — split text+box controls resolve against the surface-bearing node', () => {
-  it('test_UAT_FC_BUG-22_capture_records_which_box_paints_the_surface', () => {
+  it('test_UAT_AC1311_capture_records_which_box_paints_the_surface', () => {
     // The discriminator the diff needs: on a conventional page the control paints
     // its own surface; in the flat L1 tree a sibling backing box does.
     const ref = flattenSignals(referencePage(), 'ref').elements.find((e) => e.text === 'Subscribe')
@@ -119,7 +119,7 @@ describe('BUG-22 — split text+box controls resolve against the surface-bearing
     expect(repro?.borderRadiusPx, 'the label itself is square — the phantom source').toBe(0)
   })
 
-  it('test_UAT_FC_BUG-22_no_phantom_shape_delta_when_the_backing_box_carries_the_radius', () => {
+  it('test_UAT_AC1311_no_phantom_shape_delta_when_the_backing_box_carries_the_radius', () => {
     const deltas = diff(referencePage(), reproductionPage())
     expect(
       on(deltas, 'Subscribe', 'shape'),
@@ -129,7 +129,7 @@ describe('BUG-22 — split text+box controls resolve against the surface-bearing
     expect(deltas.filter((d) => d.valueType === 'A' && d.property === 'shape')).toEqual([])
   })
 
-  it('test_UAT_FC_BUG-22_surface_geometry_defect_is_reported', () => {
+  it('test_UAT_AC1311_surface_geometry_defect_is_reported', () => {
     // BUG-21: the backing box is 2× the reference height (100 vs 50) and offset.
     // The label's own box matches, so without resolving the surface this defect
     // had no comparison at all — the scoreboard was silent on it.
@@ -142,7 +142,7 @@ describe('BUG-22 — split text+box controls resolve against the surface-bearing
     expect(size[0].magnitude).toBeGreaterThanOrEqual(50)
   })
 
-  it('test_UAT_FC_BUG-22_a_genuinely_square_backing_box_still_reports_the_shape_defect', () => {
+  it('test_UAT_AC1311_a_genuinely_square_backing_box_still_reports_the_shape_defect', () => {
     // The resolution must not become a blanket suppressor: when the reproduction
     // really did lose the rounding, the delta is real and must still fire.
     const deltas = diff(referencePage(), reproductionPage({ backing: [413, 3900, 123, 50], backingRadiusPx: 0 }))
@@ -154,7 +154,7 @@ describe('BUG-22 — split text+box controls resolve against the surface-bearing
     expect(on(deltas, 'Subscribe', 'size')).toEqual([])
   })
 
-  it('test_UAT_FC_BUG-22_self_painting_controls_on_both_sides_are_unaffected', () => {
+  it('test_UAT_AC1311_self_painting_controls_on_both_sides_are_unaffected', () => {
     // BUG-20's self-painting chip folds its surface onto the text leaf, so both
     // sides are `self` — the own-axis comparison stays in force, unchanged.
     const chip = (r: number): RawSignals =>
@@ -168,7 +168,7 @@ describe('BUG-22 — split text+box controls resolve against the surface-bearing
     expect(on(diff(chip(12), chip(0)), 'Coming soon', 'shape'), 'a lost pill is still a defect').toHaveLength(1)
   })
 
-  it('test_UAT_FC_BUG-22_band_runs_gain_no_surface_geometry_noise', () => {
+  it('test_UAT_AC1311_band_runs_gain_no_surface_geometry_noise', () => {
     // Every run sits on *some* painted surface (its band). Resolution is scoped to
     // controls the two sides represent differently, so an ordinary run must not
     // start reporting its band's geometry once per run.

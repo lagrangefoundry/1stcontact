@@ -78,7 +78,7 @@ const missingTexts = (deltas: { property: string; text: string }[]): string[] =>
   deltas.filter((d) => d.property === 'missing').map((d) => d.text).sort()
 
 describe('BUG-15 — values-diff reads the flat, absolutely-positioned L1 DOM', () => {
-  it('test_UAT_FC_BUG-15_extract_populates_content_from_collapsed_flat_tree', () => {
+  it('test_UAT_AC1315_extract_populates_content_from_collapsed_flat_tree', () => {
     // The wrapper collapses to height 0, so the ≥8px top-level band scan finds
     // nothing. Pre-fix the actual manifest was empty; post-fix the body-band
     // fallback collects every leaf.
@@ -90,7 +90,7 @@ describe('BUG-15 — values-diff reads the flat, absolutely-positioned L1 DOM', 
     expect(texts).toContain('Caption row')
   })
 
-  it('test_UAT_FC_BUG-15_scoreboard_moves_when_render_changes', () => {
+  it('test_UAT_AC1315_scoreboard_moves_when_render_changes', () => {
     // The reference (target) and two DIFFERENT reproductions of it.
     const target = flattenSignals(flatL1(FULL), 'target')
     const renderHeadingOnly = flattenSignals(flatL1([FULL[0]]), 'renderA')
@@ -113,7 +113,7 @@ describe('BUG-15 — values-diff reads the flat, absolutely-positioned L1 DOM', 
     expect(missingTexts(reportA.deltas)).not.toEqual(missingTexts(reportB.deltas))
   })
 
-  it('test_UAT_FC_BUG-15_semantic_multiband_dom_bypasses_fallback', () => {
+  it('test_UAT_AC1315_semantic_multiband_dom_bypasses_fallback', () => {
     // No-regression guard: a conventional multi-section page still segments into
     // its real top-level bands — the body-span fallback stays dormant (it must
     // fire ONLY when the ≥8px scan is empty), so a normal site is unaffected.

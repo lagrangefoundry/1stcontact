@@ -151,5 +151,20 @@ describe('story-82eb6908 — gradients as a first-class value', () => {
       panelGradient: 'not-a-gradient',
     })
     expect(notAnObject.some((e) => e.field === 'panelGradient')).toBe(true)
+
+    // A stop colour given as a palette-role NAME rather than a `#hex` literal is
+    // rejected — the point of the REQ-114 retirement. The error names the
+    // offending stop's colour field, not just the gradient.
+    const roleStop = validateModuleContent(gradientMeta, {
+      panelGradient: { angleDeg: 135, stops: ['#f1f5f9', 'accent'] },
+    })
+    expect(roleStop.some((e) => e.field === 'panelGradient.stops[1].color')).toBe(true)
+
+    // A direction that is neither a degrees number nor a listed alias is rejected
+    // with an error naming the direction field.
+    const badDirection = validateModuleContent(gradientMeta, {
+      panelGradient: { angleDeg: 'sideways', stops: ['#f1f5f9', '#0f9d6e'] },
+    })
+    expect(badDirection.some((e) => e.field === 'panelGradient.angleDeg')).toBe(true)
   })
 })

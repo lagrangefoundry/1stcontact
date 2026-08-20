@@ -23,7 +23,8 @@ import {
  * diffable value (not just a text-fill gradient). The text-block panel that first
  * carried it went away with the semantic layout modules (REQ-84), but the three
  * surviving seams the ticket proved are exercised here directly: the shared
- * `resolveSurfaceGradient` resolver (absolute-or-overlay stops), the `gradient`
+ * `resolveSurfaceGradient` resolver (AC-1309 — literal stops only since REQ-114
+ * retired the palette-role alias, which is why the old AC-637 is deprecated), the `gradient`
  * content-field validation (`validateModuleContent`, on a synthetic meta), the
  * values-diff `surfaceGradient` axis (present-vs-missing false-match), and the
  * capture recording BOTH the gradient AND the composited solid it sits on.
@@ -65,12 +66,12 @@ function hasDelta(deltas: { text: string; property: string }[], textSub: string,
 
 // ── the shared resolver authors a gradient surface fill ──────────────────────
 
-describe('REQ-62 gradient panel — resolver (AC-637)', () => {
-  it('test_UAT_AC637_surface_gradient_resolves_absolute_or_overlay', () => {
-    // AC-637: a `gradient` content value (direction + two-or-more stops) resolves,
-    // via the shared surface-gradient resolver, to a panel/card
-    // `background-image: linear-gradient(...)` surface fill carrying the authored
-    // direction and stop colours.
+describe('REQ-62 gradient panel — resolver (AC-1309)', () => {
+  it('test_UAT_AC1309_surface_gradient_resolves_direction_and_stops', () => {
+    // AC-1309: a gradient value (direction + two-or-more stops) resolves, via the
+    // shared surface-gradient resolver, to a panel/card
+    // `background-image: linear-gradient(...)` surface fill carrying the resolved
+    // direction and the stop colours in painted order.
     //
     // REQ-114 — the literal-or-alias stop is now literal-only. The palette-role
     // half of "absolute or overlay" resolved to `var(--color-…)`, a custom property
@@ -81,10 +82,52 @@ describe('REQ-62 gradient panel — resolver (AC-637)', () => {
     const css = resolveSurfaceGradient({ angleDeg: 135, stops: ['#f1f5f9', '#0f9d6e'] })
     expect(css).toBe('background-image: linear-gradient(135deg, #f1f5f9 0%, #0f9d6e 100%)')
 
-    // AC-637: when fewer than two stops are supplied the value is under-specified
+    // It is a SURFACE fill, not the text-fill resolver's job: no clip to the
+    // glyphs and no forced transparent text ride along with it.
+    expect(css).not.toContain('background-clip')
+    expect(css).not.toContain('color:')
+
+    // A degrees literal emits `<n>deg`; a direction alias emits its keyword form.
+    expect(resolveSurfaceGradient({ angleDeg: 'to-br', stops: ['#f1f5f9', '#0f9d6e'] })).toBe(
+      'background-image: linear-gradient(to bottom right, #f1f5f9 0%, #0f9d6e 100%)',
+    )
+  })
+
+  it('test_UAT_AC1309_stop_positions_are_verbatim_or_evenly_distributed', () => {
+    // An authored position is pasted verbatim — the captured offset is the value
+    // being reproduced, so the resolver must not redistribute it.
+    expect(
+      resolveSurfaceGradient({
+        angleDeg: 90,
+        stops: [
+          { color: '#f5e6a3', position: 0 },
+          { color: '#f5e6a3', position: 60 },
+          { color: '#ff6b35', position: 100 },
+        ],
+      }),
+    ).toBe('background-image: linear-gradient(90deg, #f5e6a3 0%, #f5e6a3 60%, #ff6b35 100%)')
+
+    // Unpositioned stops are distributed evenly across 0–100% so the sweep spans
+    // the surface rather than bunching at one end.
+    expect(resolveSurfaceGradient({ angleDeg: 90, stops: ['#000000', '#888888', '#ffffff'] })).toBe(
+      'background-image: linear-gradient(90deg, #000000 0%, #888888 50%, #ffffff 100%)',
+    )
+  })
+
+  it('test_UAT_AC1309_no_fill_when_underspecified_or_stop_is_not_a_literal', () => {
+    // AC-1309: when fewer than two stops are supplied the value is under-specified
     // and resolves to no fill (empty declaration), so the caller keeps its solid
     // treatment rather than painting a degenerate gradient.
     expect(resolveSurfaceGradient({ angleDeg: 135, stops: ['#f1f5f9'] })).toBe('')
+    expect(resolveSurfaceGradient({ angleDeg: 135, stops: [] })).toBe('')
+
+    // A stop colour that is not a `#hex` literal — including a palette-role name,
+    // which REQ-114 retired — drops the WHOLE gradient rather than emitting a
+    // partial sweep in a colour the author never chose.
+    expect(resolveSurfaceGradient({ angleDeg: 135, stops: ['accent', '#0f9d6e'] })).toBe('')
+    expect(
+      resolveSurfaceGradient({ angleDeg: 135, stops: ['#f1f5f9', { color: 'accent', position: 100 }] }),
+    ).toBe('')
   })
 })
 
