@@ -142,7 +142,7 @@ afterEach(() => {
 // ── 1. schema ────────────────────────────────────────────────────────────────
 
 describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
-  it('test_UAT_FC_REQ-93_slot_bound_module_accompanies_an_l1_page', () => {
+  it('test_UAT_AC1343_slot_bound_module_accompanies_an_l1_page', () => {
     // The headline change: `l1` + a module is now legal, *because* the module
     // names a slot that exists in the tree. The L1 document is still the single
     // page body; the behaviour mounts into it.
@@ -151,7 +151,7 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-93_unresolvable_bindings_fail_with_a_machine_readable_path', () => {
+  it('test_UAT_AC1343_unresolvable_bindings_fail_with_a_machine_readable_path', () => {
     // Every way a binding can fail to resolve is an error with a path an AI caller
     // can self-correct from — never a silent no-op (REQ-88's `anchor`-without-
     // `column` principle).
@@ -346,7 +346,7 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
 
   // ── 4. render ──────────────────────────────────────────────────────────────
 
-  it('test_UAT_FC_REQ-93_mounted_fragment_replaces_the_inert_placeholder', () => {
+  it('test_UAT_AC723_mounted_fragment_replaces_the_inert_placeholder', () => {
     // With no mount the slot stays the labelled Phase-D placeholder…
     const bare = renderL1Document(docWithSlot())
     expect(bare.html).toContain('data-l1-slot="form-0"')
@@ -412,7 +412,7 @@ describe('REQ-93 — an L1 page hosts behavior modules in its slots', () => {
 
   // ── 5. conformance ─────────────────────────────────────────────────────────
 
-  it('test_UAT_FC_REQ-93_mounted_behavior_carries_its_conformance_obligations', async () => {
+  it('test_UAT_AC1344_mounted_behavior_carries_its_conformance_obligations', async () => {
     // A mounted behaviour is a shipping shape, so the universal ACs must be
     // checkable against it exactly as against a standalone one. Prove the harness
     // actually mounts (rather than silently ignoring the flag) by inspecting what
