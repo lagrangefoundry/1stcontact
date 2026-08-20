@@ -5,7 +5,7 @@ type: request
 title: 'Crawler + batch coverage engine (Phase 1: corpus + classification)'
 created_by: xgd
 created_at: '2026-07-02T00:20:08.548533+00:00'
-updated_at: '2026-07-02T00:20:09.056339+00:00'
+updated_at: '2026-08-20T21:38:26.429716+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -37,3 +37,5 @@ REQ-12 (capture), REQ-13 (screenshot / eyes), [[DOC-15]], [[DOC-14]] (classifica
 
 ## Out of scope
 Phases 2–3 execution ([[DOC-15]]); customer-facing "site like X" ([[DOC-15]] §7); IP/legal sign-off for at-scale public use.
+
+-
