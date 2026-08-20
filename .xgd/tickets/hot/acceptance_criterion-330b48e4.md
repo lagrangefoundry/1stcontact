@@ -6,9 +6,9 @@ title: Sample-fidelity probe matches reproduced leaf boxes to the oracle at ever
   captured width within tolerance
 created_by: xgd
 created_at: '2026-07-22T20:07:08.347043+00:00'
-updated_at: '2026-08-16T08:03:27.226646+00:00'
+updated_at: '2026-08-20T12:47:32.862686+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-24098299
@@ -33,6 +33,21 @@ empty run, which never becomes a leaf at all; and a form control, which since RE
 is no longer dropped but binds to its behavior module — it folds into that module's
 mount seam rather than into a painted L1 leaf of its own, so the module owns its box
 and the probe has nothing of its own to measure against.
+
+**The oracle admits the width ladder only.** A height-probe re-shoot of a ladder width at
+a second viewport height is deduped out — the first projection at a `(width, state)` key
+is the ladder and any later one is evidence, not a sample. This is the gate-side
+counterpart of the fold's rule that the keyframe ladder skips the probe: admitting the
+re-shoot would hand the measure a second full set of oracle rows at a width whose
+reproduced-leaf queues are already drained, reporting every run on the page as unmatched.
+
+**Which reproduced leaves are paired against.** The non-text queue is built from
+**captured** non-text leaves only. A fold-synthesized backing surface — a reconstructed
+band, section background or card — never enters it: it is a fold-invented box painted
+behind text runs whose source elements the oracle classifies as `text` and which are
+already measured through their own text leaves, so it has no oracle counterpart. Leaving
+it in the queue would shift every real box leaf by the number of surfaces before it and
+report phantom deltas. A genuine captured standalone surface still pairs normally.
 
 **Pairing rule (per captured width).** Pairing is by **occurrence index in document
 order** on both sides, within a key:
@@ -59,13 +74,20 @@ Consequences, all observable in the report:
   nearest-box or last-writer match.
 - Pairing is order-defined on both sides, so the verdict is reproducible run to run.
 
-Report shape:
+Report shape — **three** channels, of which two grade:
 - Any paired leaf whose box exceeds tolerance on any axis is reported as a residual
   carrying the leaf's text (or kind label), the width, and the per-axis deltas
   (dx, dy, dw).
 - Any oracle sample with no reproduced leaf left to pair with is reported as an
   unmatched entry (text or kind label, width).
-- If either the residual list or the unmatched list is non-empty, pass = false.
+- Oracle **text** whose box centre falls inside a behaviour slot's rect is diverted
+  instead to a third `mounted` channel: it is counted and surfaced but never graded,
+  because that run is rendered by a mounted behavior module rather than by L1. The
+  diversion happens only on the text path and only where no reproduced leaf paired —
+  grading L1 on markup it does not emit would fail a correct reproduction, while dropping
+  it quietly would turn every mounted region into an ungraded hole nobody could see.
+- The verdict is residuals-plus-unmatched only: if either list is non-empty, pass = false,
+  and mounted text can therefore neither fail a run nor rescue one.
 - The report also exposes the largest observed per-axis delta, across text and non-text
   comparisons alike.
 
@@ -104,3 +126,20 @@ delta. Append a surplus oracle occurrence of a kind at one width — exhausting 
 reproduced leaves of that kind — and assert exactly one unmatched entry labelled by
 that kind at that width, with no residuals and the remaining occurrences still pairing
 cleanly; assert this for the image kind and for the box kind alike.
+
+Width-ladder-only oracle: append to the same capture a height-probe projection that
+re-shoots an existing ladder width at a second viewport height, and assert the report is
+unchanged — pass = true with empty unmatched, rather than one unmatched entry per run at
+that width.
+
+Mounted channel: fold a capture whose form seam contains a submit button whose words the
+oracle also carries as a text sample, and assert that text appears exactly once in
+`mounted` (with its width), never in `residuals` or `unmatched`, and that pass = true.
+Move the same oracle text outside every slot rect and assert it moves to `unmatched` and
+pass = false — so the diversion is the slot rect, not the text.
+
+Synthesized-surface exclusion: fold a capture whose runs carry composited fills so
+reconstructed band/card boxes are emitted ahead of a genuine captured standalone surface
+box, and assert the box-kind comparisons still pair the captured surface against its own
+oracle sample — pass = true with no residuals — rather than shifting by the number of
+synthesized surfaces before it.
