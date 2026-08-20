@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T22:29:02.268312+00:00'
+updated_at: '2026-08-20T22:37:19.627815+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -678,5 +678,13 @@ All three fixes need the same thing that doesn't exist: the corpus, plus your st
 Worth noting they're the same build item. **Build the strawmen by running DOC-33 on fictional clients.** It stress-tests the playbook before a paying client does, it generates the reference set, and it forces the rubric out of DOC-31's findings into an encoded point of view. If a strawman comes out templatey, that's the rubric telling you it isn't done.
 
 Want me to fold these into DOC-33 as revisions — a new §on reference material, the restraint amendment, and a "visual beats" line through §6 — or do you want to keep pulling on this first?
+
+<!-- xgd-turn id="def28f2d-1579-4695-a823-60aa28c902b1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T22:37:19.531436+00:00" -->
+#### You
+I have another idea running through my head maybe this is crazy it's certainly else complexity but it could be powerful. Another aspects to the way I like to do design and actually the way I was taught to do design in my early engineering days was to produce multiple early sketches. Make a point of diversifying early rather than trying to go down one path. Another way to prevent anchoring the user too much to begin with would be to present them with three sites or six sites. Or one site with three color pallets we can put the sites on a carousel so that the user could easily flip from one to another and imaging a nice animation that brings one site in on a rotation with another folding away.
+
+So I want to push a little harder on our decision-making structure I actually think it is logical but suboptimal for a real human being. I think we should aim to get a basic hero section created in the first 15 minutes. We should live with the constant for front knowledge that refactoring is cheap if we get to the bottom of the page and it turns out we got the hero image wrong or the text subtitle wrong, who cares we change it. So I actually feel my intuition is quite strong on this that we should turn your decision-making process on its head - you are working on the promise that we should be careful not to lock the user in too early to a design. I think we should use different mechanisms to do that I think we should make the design fluid I think we should be constantly going back and questioning whether we're making the right calls on top of the page as we get to the bottom but what if we write the front page and style it at the same time and then go back and revise
 
 <!-- xgd-chat-end -->
