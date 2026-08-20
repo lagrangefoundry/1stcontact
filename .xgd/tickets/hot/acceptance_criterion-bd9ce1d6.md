@@ -6,15 +6,15 @@ title: The editing gesture's client code is served from this origin, derived fro
   the renderer's own source rather than hand-copied
 created_by: xgd
 created_at: '2026-08-20T01:54:44.494436+00:00'
-updated_at: '2026-08-20T01:54:44.494436+00:00'
+updated_at: '2026-08-20T03:00:57.457089+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-e674c60a
   kind: behavior
   regression_only: false
-  uat_coverage: fail
+  uat_coverage: pass
 ---
 
 ## Criterion
