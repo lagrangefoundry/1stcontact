@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-20T21:56:43.078554+00:00'
+updated_at: '2026-08-20T22:00:51.967580+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -326,5 +326,41 @@ Want me to amend DOC-34 with the FR-4 determinism resolution first? That's a doc
 <!-- xgd-chat role="user" ts="2026-08-20T21:56:42.826288+00:00" -->
 #### You
 OK, please create REQ tickets for these
+
+<!-- xgd-turn id="f6a2b615-5c6e-4389-9551-128454595e60-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T22:00:51.824671+00:00" -->
+#### Claude
+Let me match the existing REQ conventions before writing.
+
+Conventions confirmed: create at `status: draft` (never `ready_to_implement`), house body shape is Why / What to change / Acceptance criteria / Origin. Writing the three now.
+
+All three created. Now correcting the `REQ-<id>` placeholders in the test-naming sections to the real ids.
+
+HEAD moved between my two `git log` calls — let me check what happened.
+
+A background XGD workflow (resync / sync_working_to_main) has been committing on `xgd-working` concurrently with this session. Let me confirm where my `pnpm-lock.yaml` change went.
+
+Three REQs created, all at `status: draft` per FREE-CODING.md ("always create at `draft`"), awaiting your promotion.
+
+| | Title | Priority | Pts | Depends |
+|---|---|---|---|---|
+| **REQ-151** | Site locale identity, and rendered `lang`/`dir` | high | 3 | — |
+| **REQ-152** | Money and time representation, and the render-determinism resolution | medium | 2 | REQ-151 |
+| **REQ-153** | Reserve locale-shaped page slugs | low | 1 | — |
+
+Each carries Why / What to change / Acceptance criteria / Test approach / Origin, matching the REQ-150 house shape, with UAT names pinned to the real ticket ids and origin wikilinks back to `[[CHAT-26]]` and `[[DOC-34]]`.
+
+A few things worth surfacing:
+
+**REQ-151 leads with the closing window** — the immutability of published revisions, evidenced against `commands.ts:107` and the two empty `history.json` files. That's the argument for doing it now rather than when it's obviously needed, so it's stated in the ticket rather than living only in this conversation.
+
+**REQ-152 carries the DOC-34 gap I flagged.** Rather than leaving the determinism amendment as a loose end, it's deliverable #4 in the ticket: resolve the `buildInfo.ts` conflict, then record it in both DOC-34 §8.2 and the `buildInfo.ts` comment. The proposed resolution (render stays byte-deterministic; time-varying content is client-rendered, never render-clock-derived) is written down as a proposal, not a decision — it's yours to confirm. AC 4 pins the determinism guarantee so the fix can't quietly break it.
+
+**REQ-153 is framed as discretionary**, matching how I described it — including the point that it becomes moot if you pick subdomain or query-param routing instead.
+
+**On the `pnpm-lock.yaml` change I flagged last turn — it's gone, and not by my hand.** A background XGD workflow (`resync` / `sync_working_to_main`) has been committing on `xgd-working` throughout this session; its reset discarded the working-tree modification. HEAD's lockfile has zero occurrences of the versions my install introduced, and the tree is clean. So the problem resolved itself, but you should know the concurrent workflow also discarded whatever was modified in that file *before* I started — that wasn't mine and I can't recover it.
+
+The only outstanding tree change is ` D .xgd/working-merge.lock`, which was there at session start and belongs to that workflow.
 
 <!-- xgd-chat-end -->
