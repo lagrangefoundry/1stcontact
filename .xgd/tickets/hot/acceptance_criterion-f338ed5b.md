@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Text-fill gradient stop-position drift surfaces as a gradient delta
 created_by: xgd
 created_at: '2026-07-19T02:28:26.733969+00:00'
-updated_at: '2026-08-16T09:17:45.275552+00:00'
+updated_at: '2026-08-20T06:59:23.329574+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
