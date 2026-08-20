@@ -6,9 +6,9 @@ title: 'Capture-time font settling: a post-settle web-font barrier, mirrored fac
   offline, and a real-painted-face fontLoaded probe'
 created_by: xgd
 created_at: '2026-08-20T04:39:05.904089+00:00'
-updated_at: '2026-08-20T04:39:05.904089+00:00'
+updated_at: '2026-08-20T05:40:52.743324+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-d5de22a5
@@ -30,3 +30,12 @@ The invariant this defends: a value set captured against the wrong face silently
 
 ## Verification
 Capture a page whose below-fold section is the only user of a webfont face; assert that face's runs record `fontLoaded: true` and their captured `fontFamily` and box metrics match those measured with the face pre-warmed — i.e. the below-fold run is not measured against the fallback. Capture a page referencing a face whose URL 404s and assert the capture completes within its bound and reports `fontLoaded: false` for that run rather than hanging or claiming `true`. Re-extract a written bundle offline whose HTML references a mirrored webfont by absolute URL; assert the request is served from the mirror and the run's `fontLoaded`/family/metrics match the live capture, and assert an extensionless mirrored CSS file is served with a `text/css` content type. Assert an absolute URL with **no** mirror is left unrewritten. Capture a run painted at weight 700 where only weight 400 was loaded and assert `fontLoaded: false`.
+**Evidence gating.** Mechanism (a)'s post-settle barrier and mechanism (b)'s
+end-to-end offline serve (including the extensionless-CSS `text/css` clause, which
+is decided inside the re-extract server and has no exported seam) are browser-gated
+and skip where no Chromium is provisioned. Two halves run headlessly over real
+entry points: mechanism (b)'s URL rewrite (`rewriteMirroredRefs`, including the
+no-mirror-left-unrewritten clause) and mechanism (c)'s probe construction — the
+full shorthand carrying style, the run's real numeric weight and its size, passed
+the run's own text, with an unloaded face reported `fontLoaded: false` rather than
+assumed true.
