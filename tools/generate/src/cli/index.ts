@@ -497,33 +497,47 @@ export async function run(argv: string[]): Promise<void> {
       // checked and BOTH are reported before either throws, so an operator who
       // is missing an npm package and a shared component learns that in one
       // run rather than one install at a time.
-      const declared = [...new Set(Object.values(COMMAND_DEPS).flat())].sort()
-      const install = checkInstall({ repoRoot: process.cwd(), required: declared })
-      const store = checkSharedStoreImpl()
+      //
+      // THE REFUSAL IS RENDERED HERE, through `fail()`, exactly as the four
+      // commands below do it. An uncaught throw escapes to `bin/1c.mjs`, whose
+      // handler prints `err.message` and sets exit code 1 — which drops the
+      // `hint:` line naming the command that installs the missing components,
+      // and flattens `ENVIRONMENT` (6) into a general failure. `bin/build`
+      // documents 0/6/1 and branches on the 6, so both halves of REQ-144 §3 —
+      // the named remedy and the environment-specific code — depend on the
+      // refusal going through the renderer rather than past it.
+      const json = flags.json === true
+      try {
+        const declared = [...new Set(Object.values(COMMAND_DEPS).flat())].sort()
+        const install = checkInstall({ repoRoot: process.cwd(), required: declared })
+        const store = checkSharedStoreImpl()
 
-      for (const { component, surface } of store.checked) {
-        const ok = !store.missing.some((m) => m.component === component)
-        console.log(`${ok ? 'ok  ' : 'MISS'}  shared/${surface}  ${component}`)
-      }
-      for (const pkg of declared) {
-        const ok = !install.findings.some((f) => f.packages?.includes(pkg))
-        console.log(`${ok ? 'ok  ' : 'MISS'}  npm            ${pkg}`)
-      }
+        for (const { component, surface } of store.checked) {
+          const ok = !store.missing.some((m) => m.component === component)
+          console.log(`${ok ? 'ok  ' : 'MISS'}  shared/${surface}  ${component}`)
+        }
+        for (const pkg of declared) {
+          const ok = !install.findings.some((f) => f.packages?.includes(pkg))
+          console.log(`${ok ? 'ok  ' : 'MISS'}  npm            ${pkg}`)
+        }
 
-      if (!install.ok) {
-        throw new CommandError({
-          code: 'ENVIRONMENT',
-          message:
-            'The installed dependencies do not match what is declared.\n' +
-            install.findings.map((f) => `  - ${f.detail}`).join('\n'),
-          hint: `Run \`${INSTALL_COMMAND}\` at the repo root, then retry.`,
-        })
+        if (!install.ok) {
+          throw new CommandError({
+            code: 'ENVIRONMENT',
+            message:
+              'The installed dependencies do not match what is declared.\n' +
+              install.findings.map((f) => `  - ${f.detail}`).join('\n'),
+            hint: `Run \`${INSTALL_COMMAND}\` at the repo root, then retry.`,
+          })
+        }
+        assertSharedStoreImpl()
+        console.log(
+          `\nPreflight passed: ${store.checked.length} shared components, ` +
+            `${declared.length} declared packages.`,
+        )
+      } catch (err) {
+        fail(err, json)
       }
-      assertSharedStoreImpl()
-      console.log(
-        `\nPreflight passed: ${store.checked.length} shared components, ` +
-          `${declared.length} declared packages.`,
-      )
       return
     }
 

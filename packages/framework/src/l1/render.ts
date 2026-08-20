@@ -13,6 +13,7 @@
  */
 import {
   isSafeUrl,
+  mapL1PaletteRefs,
   resolveL1Palette,
   L1_EDIT_HOT_CLASS,
   L1_EDIT_MARKER_ATTR,
@@ -1825,6 +1826,13 @@ interface RenderState {
 }
 
 /**
+ * The hex a palette reference stands in for while {@link l1PaintsSurface} asks
+ * whether an axis paints. Any valid hex would do — it is compared against
+ * nothing and emitted nowhere.
+ */
+const PAINT_PROBE_HEX = '#000000'
+
+/**
  * True when this node paints something — which is exactly when a `box` or a
  * `container` is a segment (see {@link segmentKind}).
  *
@@ -1835,10 +1843,28 @@ interface RenderState {
  * and a caller re-deriving it from its own list of paint axes would drift the
  * first time an axis is added to `surfaceDecls`. So the rule stays stated once,
  * here, and the escalation asks it rather than guessing.
+ *
+ * THE QUESTION IS ABOUT THE AXIS, NOT THE CSS IT COMPILES TO TODAY (REQ-135).
+ * On the published path the palette is folded before render, so a colour axis
+ * holds a hex by the time it reaches {@link surfaceDecls}. On the EDITOR read
+ * path it is not: a panel painted `{ ref: 'ink' }` still holds the reference,
+ * `cssColor` accepts hex only, and asking `surfaceDecls` its bare question would
+ * answer that a panel painted from the palette paints nothing. That breaks the
+ * new capability's own round trip — the escalation row exists to set that fill,
+ * so the one gesture it enables would delete the row, and `segmentKind` below
+ * would stop stamping an address on a panel whose only paint is a reference.
+ *
+ * So the axes are asked with every reference standing in for the hex it will
+ * resolve to. The stand-in is never rendered: this function answers yes/no and
+ * discards the declarations. `mapL1PaletteRefs` is REQ-133's ONE structural
+ * walk, so this reaches a reference wherever one is legal — a fill, an overlay
+ * colour, a gradient stop — rather than special-casing `surfaceFill` and
+ * drifting again the next time a colour axis is added.
  */
 export function l1PaintsSurface(node: L1Node): boolean {
   if (node.kind !== 'box' && node.kind !== 'container') return false
-  return surfaceDecls(node.axes ?? {}).length > 0
+  const axes = mapL1PaletteRefs(node.axes ?? {}, () => PAINT_PROBE_HEX) as L1SurfaceAxes
+  return surfaceDecls(axes).length > 0
 }
 
 /**

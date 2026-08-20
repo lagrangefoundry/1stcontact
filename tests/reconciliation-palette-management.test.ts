@@ -744,13 +744,32 @@ describe('story-ee073693 palette management', () => {
     const cliInUse = await cli(cwd, 'palette', 'rm', slug, 'primary')
     expect(cliInUse.error?.code).toBe('CONFLICT')
     expect(inUse).toContain('CONFLICT')
-    // ...and the removal refusal NAMES THE COUNT, in the same number the read
-    // reports. This is the half of the refusal that turns "no" into a next step:
-    // the operator is told to ask the assistant precisely because the assistant
-    // can talk the choice through, and it cannot do that without knowing how many
-    // uses are at stake. Soft so the rest of the criterion still reports.
-    expect.soft(inUse).toContain(cliInUse.error!.message!)
-    expect.soft(inUse).toMatch(/used 3 times and cannot be deleted/)
+    // The COUNT the refusal turns on is what makes "no" a next step rather than a
+    // dead end — the operator is told to ask the assistant precisely because the
+    // assistant can talk the choice through, and it cannot do that without
+    // knowing how many uses are at stake.
+    //
+    // THE TWO CALLERS LEARN IT BY DIFFERENT ROUTES, and this asserts each where
+    // it actually is. The store's own sentence names the count and the command
+    // line prints it verbatim …
+    expect(cliInUse.error!.message!).toMatch(/'primary' is used 3 times and cannot be deleted/)
+    // … while the assistant is handed the CODE and the sentence the surface
+    // declares for that code, because rendering a refusal belongs to the toolbox
+    // and it renders from the declaration, not from the thrown error. So the
+    // count reaches the model through the READ, which reports it per entry — and
+    // the removal operation's own declared description sends the model there.
+    // The read is declared `untrusted`, so its payload arrives fenced — strip the
+    // fence rather than assert around it; the fence is another criterion's claim.
+    const census = JSON.parse(
+      (await ask(granted, 'get_palette', {}))
+        .replace(/^<<<untrusted>>>\n/, '')
+        .replace(/\n<<<\/untrusted>>>$/, ''),
+    ) as { entries: { name: string; count: number }[] }
+    expect(census.entries.find((e) => e.name === 'primary')!.count).toBe(3)
+    const removal = operations.find((o) => o.tool === 'remove_palette_color') as Operation & {
+      description?: string
+    }
+    expect(removal.description).toContain('get_palette')
 
     // A rename onto an existing name is refused as a COLLISION.
     const collision = await ask(granted, 'rename_palette_color', { name: 'primary', to: 'text' })

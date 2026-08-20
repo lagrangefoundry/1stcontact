@@ -111,6 +111,12 @@ const A_WRAPPER = '0.7'
 const A_SYSTEM = '0.8'
 /** The seam a behavior module mounts into. */
 const A_SEAM = '0.9'
+/**
+ * A panel whose ONLY paint is its fill — nothing else to keep it a segment once
+ * that fill becomes a palette reference. Last in the children so the addresses
+ * above are undisturbed.
+ */
+const A_FILL_ONLY_PANEL = '0.10'
 
 /** The run on a page whose root paints nothing — no panel behind it to escalate to. */
 const A_BARE_PAGE_COPY = '0.0'
@@ -248,6 +254,12 @@ function seedRichSite(cwd: string, slug: string): void {
         axes: { fontFamily: 'system-ui, sans-serif', fontSizePx: 16, color: SYSTEM_COLOR },
       },
       { kind: 'slot', name: 'gallery' },
+      // Paints by its fill and by NOTHING ELSE. Every other painted panel here
+      // carries a second axis, so each of them stays a segment on the strength
+      // of that axis alone — which is exactly how a fill that stops counting as
+      // paint hides. This one has nothing to fall back on: the moment its fill
+      // becomes a palette reference, it is either still painted or it is gone.
+      { kind: 'box', id: 'fill-only', axes: { surfaceFill: PANEL_FILL } },
     ],
   } as L1Node
 
@@ -662,6 +674,28 @@ describe('story-37a3921b — a region’s colour, and the controls it cannot hon
     const html = await renderedHtml(cwd)
     expect(html).toContain(PALETTE.ink.value)
     expect(html).toContain(PALETTE.moss.value)
+
+    // AND A PANEL WHOSE ONLY PAINT IS THAT REFERENCE IS STILL A PAINTED PANEL.
+    // The two panels above each keep a second axis, so neither can tell whether
+    // the fill still counts — they stay segments on the radius alone. This one
+    // holds nothing else: if a reference stopped reading as paint, it would stop
+    // being addressable and stop exposing the field, and the surface would have
+    // taken the panel away the moment somebody used it.
+    const fillOnlyBefore = await readFields(cwd, A_FILL_ONLY_PANEL)
+    expect(fieldNames(fillOnlyBefore)).toEqual(['surfaceFill'])
+    expectOk(
+      await setFields(cwd, A_FILL_ONLY_PANEL, { surfaceFill: { ref: 'ink' } }),
+      A_FILL_ONLY_PANEL,
+    )
+    expect(axesOf(cwd, A_FILL_ONLY_PANEL)).toEqual({ surfaceFill: { ref: 'ink' } })
+
+    const fillOnlyAfter = await readFields(cwd, A_FILL_ONLY_PANEL)
+    expect(fillOnlyAfter.ok).toBe(true)
+    expect(fieldNames(fillOnlyAfter)).toEqual(['surfaceFill'])
+    expect(fillOnlyAfter.data!.values).toMatchObject({ surfaceFill: { ref: 'ink' } })
+    expect(await renderedHtml(cwd, true)).toContain(
+      `${L1_EDIT_PATH_ATTR}="${A_FILL_ONLY_PANEL}"`,
+    )
   })
 
   it('test_UAT_AC1278_a_run_also_answers_with_the_nearest_painted_panel_behind_it_and_its_fill', async () => {
