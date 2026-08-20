@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-08-20T01:34:06.552500+00:00'
+updated_at: '2026-08-20T01:54:14.927348+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -57,7 +57,13 @@ the surface where an operator *sees* the site instead.
   as *that path's own* refusal — carrying the machine-readable reason it gives,
   the place in the site it points at, and the hint it offers — rather than as a
   server failure that has thrown the reason away, and an operator sees the same
-  explanation here as at a command line. The browser code the editing gesture
+  explanation here as at a command line. That fidelity is not restated as a
+  criterion here: it is owned by the write path's own story, whose criterion
+  (AC-992) asserts that the origin's editing endpoint exposes the same read and
+  write operations as the command line and that a refusal carries the same code,
+  path and hint. What this story claims is only the transport — that those
+  operations are reachable over this origin and that the origin interposes no
+  semantics of its own between the request and them. The browser code the editing gesture
   runs inside the displayed page is served from this origin too, produced from
   the same source the renderer itself is built from rather than kept as a
   hand-written second copy, so the code in the page and the markup it binds to
@@ -85,7 +91,11 @@ the surface where an operator *sees* the site instead.
   declared in a single place, everything that generates a reference composes it
   from that declaration, and it appears as a literal nowhere else in the
   repository — not in a generated artifact checked in beside the generator, not
-  in a comment. One surface cannot compose it: the workspace's own browser
+  in a comment. The sweep that establishes this covers every tracked text file
+  save a declared exclusion list, bounded and recorded rather than convenient:
+  the ticket and workflow store, whose retention of the previous namespace is a
+  recorded operator decision, and dependency lockfiles. One surface cannot
+  compose it: the workspace's own browser
   source is served to the browser verbatim and can read no build-time value, so
   it names components directly. That is a declared, bounded exception, and it is
   held in step by the requirement that every component the browser source names
@@ -126,7 +136,11 @@ the surface where an operator *sees* the site instead.
   where it is through this; only its contents are replaced, so it never drops out
   of the layout. A control the strip replaces is released with it and stops
   reacting, so a workspace held open does not accumulate updaters writing to
-  controls that have left the document. The controls act on real things: the site
+  controls that have left the document. Disposal is symmetric: tearing the
+  chrome down releases the strip's controls, and the strip's own responsiveness
+  to what is displayed, exactly as replacement does — so mounting the chrome
+  again does not leave the previous strip still reacting alongside the new one.
+  The controls act on real things: the site
   selector lists the sites the store actually holds, and publish goes through the
   platform's existing publish behaviour and adds no semantics of its own.
 - **The draft-side channels are produced on request, not fetched off a shelf.**
