@@ -17,9 +17,11 @@ fields:
   - REQ-133
   - REQ-135
   commits:
-  - working_sha: 6b94ba96367a3f0cb7ec6dfc7f5dfe3d5661dae5
+  - working_sha: 5983c45588ea2e50f9828c437f36da11f94b6567
     reconcile_sha: null
     main_sha: null
+    working_sha_history:
+    - 6b94ba96367a3f0cb7ec6dfc7f5dfe3d5661dae5
   version: 0.1.47
   story_points: 3
   bundled_in: bundle-77b28def
