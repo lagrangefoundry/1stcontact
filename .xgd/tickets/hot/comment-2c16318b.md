@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T21:44:51.820388+00:00'
+updated_at: '2026-08-20T21:46:05.553175+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -551,5 +551,69 @@ So DOC-33 is written against something unwritten. I don't think that was wrong �
 <!-- xgd-chat role="user" ts="2026-08-20T21:44:51.700721+00:00" -->
 #### You
 I'm coming back to this now after sometime. Can you summarize what we have in doc 33 what are the different stages that we are going to take a user through. The decisions you have listed look like tool scope questions that we can get to you eventually I'm more interested in the big picture of the flow and how the AI will guide a novice web creator through this experience
+
+<!-- xgd-turn id="4d35ceda-8d66-4c8f-9050-d623a5002c83-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:46:05.456482+00:00" -->
+#### Claude
+Here's DOC-33 as it stands, from the client's side of the screen.
+
+## The frame
+
+The client sees **four acts**; the AI tracks **eleven stages** underneath them. Acts are the legible progress markers and the natural break points — a 4–5 hour session won't be one sitting. Stages are where the gates live.
+
+The spine of the whole thing is one artifact: **the decision ledger** — the chat ticket's body, appended at each gate. Every entry records the decision, **why**, and what was rejected. That "why" is what lets the AI drop the transcript at each gate and still resolve downstream conflicts without re-asking. It's also the thing the client walks away with.
+
+## The four acts
+
+**Act I — The Brief** (45–60 min) · *stages 0–2*
+
+Ingestion happens before the client arrives: if they have a site or assets, a background pass reads and *looks at* them, so the opener is specific rather than generic. Stage 0 is short and confirmatory — "here's what I understand you've already settled; tell me what I've got wrong."
+
+Stage 1 is the constitution. **One** primary conversion action from a fixed menu (call / book / enquire / buy / subscribe / visit), with a destination recorded even for limbs we don't operate yet. Plus audience, scope band, **restraint level**, and **capability commitments**. Restraint being decided here rather than at the end is what stops stage 8 becoming "because we can". Capabilities being decided here is because payments and email capture are built *into* the page — commit to them late and the architecture has to be redone.
+
+Stage 2 is positioning, and the rule is **interrogation, not generation**. The AI is forbidden from writing the client's positioning statement for them, even when they're floundering — a plausible AI-written motto is exactly the generic template DNA DOC-31 flags, and every piece of copy descends from it. So instead: what do customers choose instead of you? What do you refuse to do? Who's a bad fit?
+
+**Act II — The Story** (60–90 min) · *stages 3–5*
+
+Stage 3 is content architecture, and it's the highest-leverage stage in the session. The question is never "what sections do you want" — it's *what shape is the argument this page makes*. A chronology, a comparison, a sustained demonstration, a process walk. Reaching for hero → three cards → testimonials is where sites become templates, and inventing an alternative costs nothing technically.
+
+Stage 4 is copy, and **the site appears here — deliberately plain**. Monochrome, one typeface, no decoration, with draft affordances so it reads as scaffolding rather than failure. Three reasons: it forces the messaging conversation to be about messaging, it stops the client anchoring on an aesthetic before we've discussed aesthetics, and it makes the Act III reveal genuinely dramatic — the before/after happens inside the session. The AI must frame it out loud *before* it appears, or a novice assumes something broke.
+
+Stage 5 is assets. Every gap resolves in-session — use what they have, reframe it, generate it, or design around its absence. "Designing around it" is offered as a peer option, not a consolation, because a good section with no photo beats one with a stock handshake.
+
+**Act III — The Design** (90–120 min) · *stages 6–8*
+
+Stage 6 locks a small palette with roles and a type pairing with a reason. "Locked" means later stages spend from the system rather than extending it.
+
+Stage 7 is layout, with the AI looking at what it made and iterating.
+
+Stage 8 is a **single signature moment** — or a recorded decision that there isn't one. For a plumber, nothing is frequently the right answer, and it's a legitimate outcome rather than a stage we failed.
+
+**Act IV — Ship** (30 min) · *stages 9–10*
+
+Critique runs as a fresh-context subagent against four checks, the sharpest being the structural diagnostic: *strip the copy, swap the photos — is the architecture still generic?* Then publish, plus the ledger handed over as a plain-English design record, plus a caretaker introduction.
+
+## How a novice is actually guided
+
+Five mechanics do most of the work:
+
+**Options, not iterations.** At every real decision, two or three *structurally distinct* directions to choose between. A client with no design vocabulary can't say what they want, but can reliably say which of three they prefer and why — and the why is the valuable part. Refining a single proposal drifts toward the model's default, which is the templatey pull the product exists to escape.
+
+**Never leave them staring at a blank question.** "What's your brand personality?" produces silence or boilerplate. "You come across as more careful than flashy — is that right?" produces an answer.
+
+**One push, then their call.** When a client wants something that works against their own stated objective, push back once, tied to that objective. If they reaffirm, do it and record both positions under *Client calls*. Never twice.
+
+**Two channels.** The AI decides and owns structure; the client adjusts — the exact words, which photo, and (once the palette locks) parameters within the system. Handed over because they're better placed to judge it, not because it's cheaper. Disclosure is staged: copy controls at stage 4, visual controls at stage 7, so aesthetic fiddling can't start before the plain pass has done its job.
+
+**Bounded refinement, but only of decisions.** Two rounds of decision-level rework per stage; adjustment-level is unbounded because they do it themselves. That split is what stops the cap landing on the fiddling that makes a client feel heard.
+
+## Two loose threads in the flow itself
+
+Worth flagging since you're re-entering:
+
+The **free 15-minute consult** is defined as Act I truncated — same opener, same ingestion, stopping before the brief locks. Where exactly it stops is one of the open calls.
+
+And the document leans on the design rubric in several places (restraint calibration, the stage 3 and 6 option sets, the critique checklists) — **and the rubric doesn't exist yet**. DOC-31 gives findings, not our encoded point of view. So DOC-33's structure is settled; its taste layer is written against something unwritten and is due a second pass after the example pool.
 
 <!-- xgd-chat-end -->
