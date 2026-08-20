@@ -6,14 +6,15 @@ title: --collapse reports one row per defect across the viewport ladder, and sta
   the raw total it compressed
 created_by: xgd
 created_at: '2026-08-20T03:40:55.091996+00:00'
-updated_at: '2026-08-20T04:39:58.567994+00:00'
+updated_at: '2026-08-20T05:13:06.041437+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-aaddb221
   kind: behavior
   regression_only: false
+  uat_coverage: pass
 ---
 
 ## Criterion
