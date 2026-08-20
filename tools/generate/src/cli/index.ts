@@ -180,7 +180,7 @@ export type {
   PerceptualFloor,
   ReconcileInput,
 } from './gate'
-export { parseArgs } from './args'
+export { parseArgs, BOOLEAN_FLAGS } from './args'
 export { withCleanStdout } from './stdio'
 export {
   assertInstall,

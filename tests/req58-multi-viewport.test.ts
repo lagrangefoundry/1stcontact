@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  BOOLEAN_FLAGS,
   chromiumAvailable,
   cmdCapturePage,
   cmdValuesDiffMultiViewport,
@@ -106,6 +107,45 @@ describe('REQ-58 T2 — --multi-viewport does not swallow the slug positional', 
     const after = parseArgs(['values-diff', 'gigabytealchemy', '--ref', 'bundle/dir', '--multi-viewport'])
     expect(after.flags['multi-viewport']).toBe(true)
     expect(after.positionals).toEqual(['values-diff', 'gigabytealchemy'])
+    expect(after.flags.ref).toBe('bundle/dir')
+  })
+
+  it('test_UAT_FC_REQ-58_boolean_flag_set_is_pinned_entire', () => {
+    // The guarantee is CLI-wide, not `--multi-viewport`-shaped: it is implemented
+    // once, as this allowlist, ahead of the command switch. Pinning the set entire
+    // is what makes a boolean flag added to a verb without registering it here a
+    // visible regression rather than a silent reopening of REQ-58's hole — the
+    // same discipline REQ-44 applies to the gated command set.
+    expect([...BOOLEAN_FLAGS].sort()).toEqual([
+      'apply',
+      'classify',
+      'clusters',
+      'collapse',
+      'compare-years',
+      'dry-run',
+      'edit',
+      'force',
+      'json',
+      'multi-viewport',
+      'prune',
+      'sandbox',
+      'tolerant',
+    ])
+  })
+
+  it.each([...BOOLEAN_FLAGS])('test_UAT_FC_REQ-58_boolean_flag_never_swallows_the_slug — --%s', (flag) => {
+    // Every command reached by these flags takes `slug = requireSlug(rest[0])`, so
+    // a flag parsed as value-taking eats the slug and the command dies with the
+    // exact `Missing required <slug>` signature REQ-58 fixed. Proved for each
+    // member in both orders, so the guarantee holds for whichever verb was named.
+    const before = parseArgs(['verb', `--${flag}`, 'gigabytealchemy', '--ref', 'bundle/dir'])
+    expect(before.flags[flag]).toBe(true)
+    expect(before.positionals).toEqual(['verb', 'gigabytealchemy'])
+    expect(before.flags.ref).toBe('bundle/dir')
+
+    const after = parseArgs(['verb', 'gigabytealchemy', '--ref', 'bundle/dir', `--${flag}`])
+    expect(after.flags[flag]).toBe(true)
+    expect(after.positionals).toEqual(['verb', 'gigabytealchemy'])
     expect(after.flags.ref).toBe('bundle/dir')
   })
 })

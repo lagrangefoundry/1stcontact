@@ -8,7 +8,31 @@ export interface ParsedArgs {
   flags: Record<string, string | boolean>
 }
 
-const BOOLEAN_FLAGS = new Set(['sandbox', 'force', 'json', 'tolerant', 'compare-years', 'multi-viewport', 'classify'])
+/**
+ * Every flag the CLI reads as a boolean toggle, across the whole verb set.
+ *
+ * A name absent from here is parsed as value-taking, so it consumes the next
+ * non-`--` token — which for these commands is the `<slug>` positional, and the
+ * command then dies with `Missing required <slug>`. That is the exact fault
+ * REQ-58 fixed for `--multi-viewport`; the guarantee is CLI-wide, so the set is
+ * pinned entire in evidence. Adding a boolean flag to a command without adding
+ * it here is a visible regression rather than a silent reopening of the hole.
+ */
+export const BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
+  'sandbox',
+  'force',
+  'json',
+  'tolerant',
+  'compare-years',
+  'multi-viewport',
+  'classify',
+  'collapse',
+  'clusters',
+  'edit',
+  'dry-run',
+  'prune',
+  'apply',
+])
 const ALIASES: Record<string, string> = { m: 'message' }
 
 export function parseArgs(argv: string[]): ParsedArgs {
