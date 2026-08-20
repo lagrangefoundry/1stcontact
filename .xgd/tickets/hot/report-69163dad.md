@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: BUNDLE-19 free-coded commits (REQ-133, BUG-35, REQ-
   REQ-140, REQ-139, REQ-123, REQ-141, REQ-144, REQ-142)'
 created_by: xgd
 created_at: '2026-08-20T01:12:52.279101+00:00'
-updated_at: '2026-08-20T01:22:35.964710+00:00'
+updated_at: '2026-08-20T02:01:06.105900+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -88,7 +88,7 @@ fields:
       is one more action spec rather than a branch. STORY-101 owns the segment dialog
       alone. The popup is the reusable component two other items consume, so it is
       documented once rather than absorbed into either caller.
-    story_uid: null
+    story_uid: story-4300366a
   - index: 3
     component: Draft Change Journal
     item_type: feature
