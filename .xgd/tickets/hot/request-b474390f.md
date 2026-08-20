@@ -6,9 +6,9 @@ title: 'control-app becomes the builder: client as build artifact, routes and L1
   in workerd, proxy deleted'
 created_by: xgd
 created_at: '2026-08-15T20:33:04.522130+00:00'
-updated_at: '2026-08-20T21:06:20.963991+00:00'
+updated_at: '2026-08-20T21:08:18.173431+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -266,3 +266,30 @@ met
 ### Note for review
 
 `ACCESS_DEV_OPEN` is a new var that opens the Access gate for `wrangler dev`. It applies only when Access is unconfigured, is absent from `[env.production.vars]` (which inherits nothing), and a UAT fails the build if anyone restates it there — two independent mistakes to open production, the standard REQ-147 set for `workers_dev`. It is still a bypass and should be read as one.
+
+
+---
+
+## Free-coding closed — 2026-08-20
+
+Status `free_coding` → **`free_coded`**. The implementation was complete on 2026-08-17 (see the section above); only the promotion gate had not been run.
+
+**Commits, after the resync remap.** The dispatcher's resync rebased this work onto a newer `main` twice, re-authoring every SHA. `fields.commits` now carries the live values, each verified an ancestor of `xgd-working`:
+
+| Live SHA | Subject | Superseded |
+|---|---|---|
+| `cb403366d` | the builder renders in workerd; assets become a build step | `5352c5131` → `755c557ed` |
+| `16edb7521` | `1c builder` starts wrangler dev; one route table, two transports | `99f90873e` → `c71f541fb` |
+| `7a1822f52` | `1c assets` must not import what it generates | `11c5908bd` → `4902b47d8` |
+
+Version claimed: **0.1.59** (the bump was absorbed into the rebase by `merge_version_max`, so no single commit shows it as a diff; `xgd_version_bump --check` confirms it against the commit trees).
+
+**Re-verified on the post-resync tree**, not merely on the pre-rebase branch:
+
+- `test_UAT_FC_REQ-145_build_artifacts` — 7/7 (node)
+- `test_UAT_FC_REQ-145_builder_in_workerd` — 10/10 (workerd, real D1 + R2 bindings)
+- Every file the branch's REQ-145 commits touched is byte-identical between `free-REQ-145` and `xgd-working` (47 files, zero differences) — the rebase carried the work intact.
+
+**Branch teardown.** `xgd branch clean` refuses `free-REQ-145` because resync rewrote its SHAs, so ancestry no longer holds even though the content landed — the refusal is correct and the byte-identity check above is what stands in for it. Worktree and local branch removed by hand; `origin/free-REQ-145` left in place.
+
+**Still true, and unchanged by this promotion:** [[REQ-148]] remains a prerequisite for rendering any real site through the Worker, and nothing is deployed to Cloudflare yet — the account has no `1stcontact-control-app` Worker, `app.1stcontact.io` does not resolve, D1 has no tables, and Access is unconfigured.
