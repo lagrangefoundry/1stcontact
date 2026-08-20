@@ -6,9 +6,9 @@ title: A band's captured box is the painted extent of its subtree, clamped to th
   document canvas
 created_by: xgd
 created_at: '2026-08-06T01:46:04.827484+00:00'
-updated_at: '2026-08-20T06:38:24.583663+00:00'
+updated_at: '2026-08-20T06:39:16.906721+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d5de22a5
@@ -44,3 +44,22 @@ and a hidden block positioned far off-canvas. Assert the header band is boxed at
 painted nav bar and its logo and links appear in the manifest; assert the carousel's
 band is no wider than the document; assert the off-canvas block yields no band; and
 assert a conventional band's box is unchanged from its own border box.
+
+**Evidence gating.** This criterion is a geometry computation over element rects, so
+its whole surface is provable without a paint. The load-bearing evidence is therefore
+**headless and runs on every runner**: `tests/bug27-nested-backdrop-capture.test.ts`
+Part A′ drives the real `EXTRACT_SCRIPT` — the exact in-page script Chromium
+evaluates — over a jsdom DOM with layout stubbed per class, covering all four clauses
+(`test_UAT_AC815_collapsed_band_is_boxed_at_its_painted_subtree`,
+`…_collapsed_band_subtree_reaches_the_manifest`,
+`…_clipped_overflow_does_not_widen_a_band_past_the_document`,
+`…_offscreen_block_yields_no_band_and_inflates_none`,
+`…_a_conventional_band_box_is_unchanged`). Both halves are red-checked: reverting
+`paintedExtent` to the element's own box fails the two subtree clauses, and dropping
+the canvas clamp fails the two extent clauses.
+
+Part A of the same file is the real-engine sibling (`cmdCapturePage` against a
+committed fixture in headless Chromium) and is gated with `it.runIf(browserOk)` — a
+skip, never a wrapper that returns early. A wrapper reports PASS where no browser
+exists, which is how this criterion previously read fully covered while asserting
+nothing on every runner in this environment.
