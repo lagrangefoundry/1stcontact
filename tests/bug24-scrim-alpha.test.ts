@@ -35,13 +35,16 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { JSDOM } from 'jsdom'
 import { renderL1Document } from '../packages/framework/src/index'
 import { foldToL1 } from '../tools/generate/src'
 import {
+  EXTRACT_SCRIPT,
   chromiumAvailable,
   cmdCapturePage,
   flattenCapture,
   type Capture,
+  type RawSignals,
 } from '../tools/generate/src/cli'
 import type {
   MultiStateCapture,
@@ -154,7 +157,85 @@ describe('BUG-24 — a scrim folds onto the section background box', () => {
   })
 })
 
-// ── Part B: the capture actually reads a modern-syntax scrim (real Chromium) ───
+// ── Part B: the probe's discrimination rules, browser-free ────────────────────
+
+/**
+ * The engine-independent half of AC-1316. Only a real browser resolves
+ * `color-mix()` / `oklab()` / `oklch()` / `color()`, so those syntaxes are proved
+ * in Part C. What does NOT depend on the engine is what the probe does once a
+ * colour resolves: preserve a partial alpha, and refuse to record an opaque fill,
+ * a fully transparent one, or an unparseable string as a scrim. Those run here,
+ * over the real `EXTRACT_SCRIPT`, so this AC contributes assertions headlessly.
+ */
+describe('BUG-24 — the scrim probe discriminates (EXTRACT_SCRIPT under jsdom)', () => {
+  type Box = [x: number, y: number, w: number, h: number]
+  const rect = (x: number, y: number, w: number, h: number) =>
+    ({ x, y, width: w, height: h, left: x, top: y, right: x + w, bottom: y + h, toJSON() {} }) as unknown as DOMRect
+
+  /** Run the real EXTRACT_SCRIPT over a DOM, stubbing layout via a class→box map. */
+  function extract(html: string, boxByClass: Record<string, Box>): RawSignals {
+    const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true })
+    dom.window.Element.prototype.getBoundingClientRect = function () {
+      const cls = (this as Element).className || ''
+      const b = boxByClass[cls]
+      return b ? rect(...b) : rect(0, 0, 0, 0)
+    }
+    Object.defineProperty(dom.window.Element.prototype, 'scrollWidth', { configurable: true, get: () => 1280 })
+    Object.defineProperty(dom.window.Element.prototype, 'scrollHeight', { configurable: true, get: () => 1600 })
+    const win = dom.window as unknown as { eval(s: string): unknown }
+    return win.eval(EXTRACT_SCRIPT) as RawSignals
+  }
+
+  /** One hero band carrying a full-bleed veil painted in `veilColor`. */
+  const bandWithVeil = (veilColor: string): RawSignals =>
+    extract(
+      '<!doctype html><html><body>' +
+        '<section class="hero" style="background-color: rgb(15, 23, 42)">' +
+        `<div class="veil" style="background-color: ${veilColor}"></div>` +
+        '<h1 class="title">Dreaming of healthier meals</h1>' +
+        '</section></body></html>',
+      { hero: [0, 0, 1280, 600], veil: [0, 0, 1280, 600], title: [80, 200, 600, 64] },
+    )
+
+  it('test_UAT_AC1316_a_translucent_veil_is_recorded_with_its_alpha_preserved', () => {
+    // The whole point of the axis: a colour carrying its OWN alpha (not element
+    // opacity) is the band's overlay, and the alpha survives capture.
+    const overlay = bandWithVeil('rgba(2, 6, 24, 0.3)').bands[0].overlay
+    expect(overlay, 'the veil is recorded as the band overlay').toBeTruthy()
+    expect(overlay!.opacity).toBeCloseTo(0.3, 2)
+    expect(overlay!.color.toLowerCase()).toBe('#020618')
+  })
+
+  it('test_UAT_AC1316_opaque_transparent_and_invalid_fills_are_not_scrims', () => {
+    // An opaque fill is not a veil — it replaces what is behind it rather than
+    // tinting it, so recording it as an overlay would double-paint the band.
+    expect(bandWithVeil('rgb(2, 6, 24)').bands[0].overlay).toBeNull()
+    // A fully transparent fill paints nothing, so it is not a veil either.
+    expect(bandWithVeil('rgba(2, 6, 24, 0)').bands[0].overlay).toBeNull()
+    // A string that is not a valid colour resolves to NOTHING rather than to a
+    // default — the probe must not invent a scrim out of unparseable input.
+    expect(bandWithVeil('not-a-colour').bands[0].overlay).toBeNull()
+  })
+
+  it('test_UAT_AC1316_a_veil_that_does_not_blanket_the_band_is_not_its_overlay', () => {
+    // A scrim is full-bleed by definition. A small translucent chip inside the
+    // band is a component's own tint, not the band's veil, so it must not be
+    // promoted to the band overlay (the false-positive direction of the axis).
+    const sig = extract(
+      '<!doctype html><html><body>' +
+        '<section class="hero" style="background-color: rgb(15, 23, 42)">' +
+        '<span class="chip" style="background-color: rgba(2, 6, 24, 0.3)">New</span>' +
+        '<h1 class="title">Dreaming of healthier meals</h1>' +
+        '</section></body></html>',
+      { hero: [0, 0, 1280, 600], chip: [80, 100, 120, 32], title: [80, 200, 600, 64] },
+    )
+    expect(sig.bands[0].overlay).toBeNull()
+  })
+})
+
+// ── Part C: the capture actually reads a modern-syntax scrim (real Chromium) ───
+
+const browserOk = await chromiumAvailable()
 
 describe('BUG-24 capture resolves a colour-with-alpha scrim (real Chromium)', () => {
   let server: { origin: string; close: () => Promise<void> }
@@ -163,7 +244,7 @@ describe('BUG-24 capture resolves a colour-with-alpha scrim (real Chromium)', ()
 
   beforeAll(async () => {
     server = await serveDir(FIXTURES)
-    if (await chromiumAvailable()) {
+    if (browserOk) {
       const cwd = mkdtempSync(path.join(tmpdir(), 'bug24-cap-'))
       tmpDirs.push(cwd)
       const res = await cmdCapturePage(`${server.origin}/bug24-scrim.html`, { cwd })
@@ -176,13 +257,12 @@ describe('BUG-24 capture resolves a colour-with-alpha scrim (real Chromium)', ()
     for (const d of tmpDirs) rmSync(d, { recursive: true, force: true })
   })
 
-  const itB = (name: string, fn: () => void) =>
-    it(name, () => {
-      if (!capture) return // Chromium unavailable — skip silently
-      fn()
-    })
+  // `it.runIf`, not a wrapper that returns early: a wrapper reports PASS on a
+  // runner with no Chromium, so a genuinely broken scrim probe would read green
+  // wherever the browser is absent. A skip is honest; a vacuous pass is not.
+  const itB = it.runIf(browserOk)
 
-  itB('test_UAT_FC_BUG-24_capture_records_a_color_mix_scrim_with_its_alpha', () => {
+  itB('test_UAT_AC1316_capture_records_a_color_mix_scrim_with_its_alpha', () => {
     // AC1 — the root cause. The fixture's veil is authored as
     // `color-mix(in oklab, #020618 30%, transparent)`; Chromium computes it to a
     // modern-syntax colour that the old rgba() regex could not parse, so the
@@ -199,7 +279,7 @@ describe('BUG-24 capture resolves a colour-with-alpha scrim (real Chromium)', ()
     expect(Math.abs(b - 0x18)).toBeLessThanOrEqual(1)
   })
 
-  itB('test_UAT_FC_BUG-24_capture_does_not_invent_a_scrim_on_a_plain_band', () => {
+  itB('test_UAT_AC1316_capture_does_not_invent_a_scrim_on_a_plain_band', () => {
     // The probe must discriminate: the fixture's second band paints an opaque
     // solid and no veil, so it must stay overlay-free. Without this, "always
     // return a scrim" would pass the test above.

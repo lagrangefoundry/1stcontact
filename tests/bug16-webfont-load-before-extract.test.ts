@@ -38,6 +38,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { JSDOM } from 'jsdom'
 import {
   chromiumAvailable,
   cmdCapturePage,
@@ -46,6 +47,7 @@ import {
   rewriteMirroredRefs,
   type Capture,
   type ContentRun,
+  type RawSignals,
 } from '../tools/generate/src/cli/capture'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/capture', import.meta.url))
@@ -91,7 +93,7 @@ const itB = it.runIf(browserOk)
 
 describe('BUG-16 — captured webfonts load before measurement', () => {
   // ── 1. Offline re-extraction serves the mirrored cross-origin face ──────────
-  itB('test_UAT_FC_BUG-16_reextract_serves_mirrored_crossorigin_webfont', async () => {
+  itB('test_UAT_AC1314_reextract_serves_mirrored_crossorigin_webfont', async () => {
     // The fixture's @font-face src is a non-resolving `.invalid` host, so the face
     // can ONLY load from the mirrored /alchemy.ttf the rewrite points it at. If the
     // rewrite were absent the face would fail and the run would read
@@ -114,7 +116,7 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
   }, 120000)
 
   // ── 2. The rewrite itself (pure, browser-independent) ───────────────────────
-  it('test_UAT_FC_BUG-16_rewrite_maps_mirrored_absolute_urls', () => {
+  it('test_UAT_AC1314_rewrite_maps_mirrored_absolute_urls', () => {
     const mirrored = new Set(['alchemy.ttf', 'css2', '8vIJ7ww63mVu7gt79mT7PkRXMw.woff2'])
     // A mirrored cross-origin font URL is rewritten to its loopback basename.
     expect(rewriteMirroredRefs('src:url(https://fonts.gstatic.invalid/s/x/alchemy.ttf)', mirrored)).toBe(
@@ -135,7 +137,7 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
   })
 
   // ── 3. Live capture: a resolvable webfont is never recorded as a fallback ────
-  itB('test_UAT_FC_BUG-16_live_capture_webfont_not_fallback', async () => {
+  itB('test_UAT_AC1314_live_capture_webfont_not_fallback', async () => {
     // webfont.html declares the face only at weight 600 (the Cinzel@600 shape) and
     // places a second heading far below the fold, so the post-settle barrier is
     // exercised. Every declared face resolves locally, so no visible run may report
@@ -156,8 +158,80 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
     }
   }, 120000)
 
+  // ── 3b. The fontLoaded probe asks the RIGHT question (browser-free) ─────────
+
+  /**
+   * Mechanism (c) says the load check is built from the full shorthand — style +
+   * the run's **real numeric weight** + size — and is passed the run's own text,
+   * rather than a bare size-and-family that implies weight 400/normal. That claim
+   * is about the query the probe issues, so it can be proved by supplying the
+   * `document.fonts` API the probe calls and recording what it was asked. Only the
+   * FontFaceSet is supplied (jsdom has none); the probe itself is the shipped code.
+   *
+   * This is the engine-independent half of (c): the browser UATs above prove the
+   * end-to-end outcome, this proves the mechanism that produces it, and it runs
+   * where no Chromium is provisioned.
+   */
+  it('test_UAT_AC1314_font_probe_asks_for_the_real_weight_style_and_the_runs_own_text', () => {
+    const asked: Array<{ shorthand: string; text?: string }> = []
+    const dom = new JSDOM(
+      '<!doctype html><html><body><section class="band">' +
+        '<h1 class="hero" style="font-family: Alchemy, serif; font-weight: 700; font-size: 56px; font-style: italic">Gigabyte Alchemy</h1>' +
+        '<p class="plain" style="font-family: serif; font-weight: 400; font-size: 18px">Generic face</p>' +
+        '</section></body></html>',
+      { runScripts: 'dangerously', pretendToBeVisual: true },
+    )
+    const boxes: Record<string, [number, number, number, number]> = {
+      band: [0, 0, 1280, 400],
+      hero: [20, 40, 1240, 64],
+      plain: [20, 140, 1240, 24],
+    }
+    dom.window.Element.prototype.getBoundingClientRect = function () {
+      const b = boxes[(this as Element).className || '']
+      const [x, y, w, h] = b ?? [0, 0, 0, 0]
+      return { x, y, width: w, height: h, left: x, top: y, right: x + w, bottom: y + h, toJSON() {} } as unknown as DOMRect
+    }
+    Object.defineProperty(dom.window.Element.prototype, 'scrollWidth', { configurable: true, get: () => 1280 })
+    Object.defineProperty(dom.window.Element.prototype, 'scrollHeight', { configurable: true, get: () => 1600 })
+    // The FontFaceSet the probe queries: record every question, and answer "not
+    // loaded" so the honest-reporting half is exercised too.
+    Object.defineProperty(dom.window.document, 'fonts', {
+      configurable: true,
+      value: {
+        check(shorthand: string, text?: string) {
+          asked.push({ shorthand, text })
+          return false
+        },
+      },
+    })
+    const signals = (dom.window as unknown as { eval(s: string): unknown }).eval(EXTRACT_SCRIPT) as RawSignals
+    const runs = signals.bands.flatMap((b) => b.content)
+
+    // The named face was probed with the FULL shorthand — italic, the real 700,
+    // and the run's size — not a bare `56px "Alchemy"` implying 400/normal.
+    const query = asked.find((a) => a.shorthand.includes('Alchemy'))
+    expect(query, `the named face was probed; asked: ${JSON.stringify(asked)}`).toBeDefined()
+    expect(query!.shorthand).toContain('italic')
+    expect(query!.shorthand).toContain('700')
+    expect(query!.shorthand).toContain('56px')
+    expect(query!.shorthand).not.toMatch(/\b400\b/)
+    // …and it was passed the run's own text, so a subsetted webfont is judged only
+    // on the glyphs it actually renders.
+    expect(query!.text).toBe('Gigabyte Alchemy')
+
+    // A generic keyword needs no load and is never probed at all.
+    expect(asked.some((a) => a.shorthand.includes('serif"'))).toBe(false)
+
+    // The FontFaceSet said "not loaded", so the run reports it honestly rather
+    // than assuming true — the false-`true` this mechanism exists to prevent.
+    const hero = runs.find((r) => r.text.trim() === 'Gigabyte Alchemy')
+    expect(hero?.fontLoaded).toBe(false)
+    // The generic-face run is not dragged down with it.
+    expect(runs.find((r) => r.text.trim() === 'Generic face')?.fontLoaded).not.toBe(false)
+  })
+
   // ── 4. EXTRACT_SCRIPT stays synchronous (jsdom contract) ────────────────────
-  it('test_UAT_FC_BUG-16_extract_script_stays_synchronous', () => {
+  it('test_UAT_AC1314_extract_script_stays_synchronous', () => {
     // The font barrier lives in the DRIVER, never inside EXTRACT_SCRIPT, because
     // jsdom callers `win.eval(EXTRACT_SCRIPT)` and consume the result directly — an
     // async IIFE would hand them a Promise and break them. Pin the contract.
@@ -167,7 +241,7 @@ describe('BUG-16 — captured webfonts load before measurement', () => {
   })
 
   // ── 5. The FULL declared stack round-trips into the reproduction's CSS ───────
-  itB('test_UAT_FC_BUG-16_full_font_stack_reaches_rendered_css', async () => {
+  itB('test_UAT_AC1314_full_font_stack_reaches_rendered_css', async () => {
     // Capturing only the primary family drops every fallback. An unmatched family
     // name is still valid CSS — it just resolves to no font — so a reproduction
     // emitting the lone first token has nothing left to fall back to and silently
