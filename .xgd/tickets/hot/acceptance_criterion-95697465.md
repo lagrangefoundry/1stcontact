@@ -6,10 +6,10 @@ title: Every field marked unavailable carries a plain-English reason, and no fie
   is marked unavailable without one, on every region of every stored site
 created_by: xgd
 created_at: '2026-08-20T02:57:20.815550+00:00'
-updated_at: '2026-08-20T02:57:20.815550+00:00'
+updated_at: '2026-08-20T03:25:23.278425+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
