@@ -6,7 +6,7 @@ title: A gradient-typed content field accepts a well-formed gradient and rejects
   malformed value
 created_by: xgd
 created_at: '2026-07-19T02:28:51.641780+00:00'
-updated_at: '2026-08-20T05:03:52.327136+00:00'
+updated_at: '2026-08-20T06:59:16.726635+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
