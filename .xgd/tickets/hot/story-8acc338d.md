@@ -6,7 +6,7 @@ title: Fold a multi-viewport capture into one L1 reproduction document with advi
   structural hints
 created_by: xgd
 created_at: '2026-07-22T19:41:46.012167+00:00'
-updated_at: '2026-08-20T11:17:23.825740+00:00'
+updated_at: '2026-08-20T11:31:10.360904+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -55,7 +55,15 @@ The fold emits the **full language**, not text alone:
   carrying the surface's own colour adjustment alongside the fill, border,
   shadow and backdrop blur it already folded;
 - a **backdrop** box leaf for a captured element that paints *behind* content — a
-  background photograph at any depth, or a full-bleed opaque panel fill. A
+  background photograph at any depth, or a full-bleed panel fill, opaque or
+  translucent. The same box also carries the band's **translucent scrim** — a
+  colour with its own alpha, layered above the background image within that one
+  box — so a hero veil over a photograph survives the fold instead of the picture
+  reproducing unveiled at full brightness. A section therefore folds when it
+  paints an image **or** a scrim, so an overlay over a solid band with no image is
+  carried just as faithfully; and each of the two axes is read from the widest
+  width that carries *it*, rather than both off one widest sample, since a section
+  may paint an image at some widths and only a scrim at others. A
   backdrop is placed in the document's **background layer**, behind the runs of
   the band it sits under, rather than in document order (which would paint a hero
   photograph over the hero's own headline). Its edges join the section-edge set
@@ -67,7 +75,15 @@ The fold emits the **full language**, not text alone:
   the solid fill the most runs sit on becomes the document background band, and
   every run whose surface differs from the band (or carries a gradient the body
   cannot paint) gets a backing box emitted before the content so each leaf paints
-  over its own surface. A **self-painting run is the exception in both
+  over its own surface. A fill **also** seeds a band on a second path: when its
+  same-fill, untreated runs share a horizontal row whose union spans the full
+  content width *and* whose largest internal horizontal gap dominates — a
+  full-bleed footer or nav strip whose items hug the left and right edges
+  (space-between). No single run there is full-width, so the majority rule alone
+  misses it and each run wrongly becomes a tiny card exposing the page background
+  across the bar. The dominant-gap test is what discriminates a distributed bar
+  from an evenly-tiled card grid, whose small, even gaps keep it as cards. A
+  **self-painting run is the exception in both
   directions**: it carries its surface on its own text leaf (above) and
   contributes nothing to this reconstruction — no row, no backing box — because a
   box behind it would duplicate the pill as a card and its own fill would
@@ -198,8 +214,11 @@ renders as a complete reproduction on its own.
 
 **In scope:** the fold to one L1 document in the full language (text, image, box,
 backdrops in the background layer, reconstructed surfaces with the self-painting
-run excepted from them, page band, behaviour seams with rebased control leaves,
-font table), the framing and colour-adjustment axes a captured picture or surface
+run excepted from them and the full-bleed bar as a second band-seeding path, page
+band, behaviour seams with rebased control leaves,
+font table), the band's translucent scrim carried on the section-background box
+(the image-or-scrim fold condition and its per-axis widest read), the framing and
+colour-adjustment axes a captured picture or surface
 carries, per-side padding and the per-width scalar track any non-geometry axis
 earns by varying across the ladder, the viewport-height probe pair and the
 measured per-node height response the fold derives from it (including its
@@ -217,8 +236,9 @@ axis vocabulary these folded values land in (the height-response axis among them
 and how the renderer replays it, the `control` node kind and its emitter, and the
 resource-table form (owned by the L1 Layout Substrate capability); what a behavior
 module declares and how it wires a bound control (owned by the behavior-module
-contract); the capture-side rules that decide a band's extent, index the backdrops
-and shoot the height probe, and the values-diff axis coverage (owned by the
+contract); the capture-side rules that decide a band's extent, index the backdrops,
+detect a band's scrim and project it onto the section values, and shoot the height
+probe, and the values-diff axis coverage (owned by the
 values-diff fidelity capability); the editor surface that writes the same framing
 parameters by hand (owned by the structured copy-editing capability); how an
 import interacts with an already-scaffolded slug (owned by the site-import
@@ -250,6 +270,19 @@ story); how the gate presents the residual channel.
   flag: a painted background image always is one, and a solid fill is one when it
   spans the viewport. Backdrops are ordered after the section-background boxes they
   are a peer of, because a nested backdrop sits inside the section it overlays.
+- BUG-24 — the scrim had **two** independent root causes, and only one of them is
+  this story's. The capture-side half (detecting the veil and projecting it onto
+  the section values) belongs to the values-diff fidelity capability; the fold-side
+  half is here — the projection was carried end to end all along, but the section
+  fold read the background-image handle *only*, so a correctly captured scrim could
+  not round-trip and a hero veil over a photograph was dropped. Nothing new is
+  emitted for it: the renderer already layers the scrim above the background image
+  within one box, so the scrim needs no node of its own — which is why the fold
+  condition widens to image-or-scrim rather than the box gaining a child.
+- BUG-19 — the bar rule is a *second* seeding path within the per-surface fill
+  attribution the majority rule already implements, not a replacement for it. The
+  two are ordered so the majority band still wins the page, and the bar only
+  rescues a strip the majority rule cannot see.
 - **Two families of self-painting run**, both discovered as reconstruction defects.
   A **pill** (BUG-20) is recognised by radius saturation — a radius reaching half
   the run's painted height is what a badge is and what a card never is; its
