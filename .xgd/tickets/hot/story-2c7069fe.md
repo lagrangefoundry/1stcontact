@@ -5,9 +5,9 @@ type: story
 title: 'Responsive-diff: cross-size N-way node analysis with change classifier'
 created_by: xgd
 created_at: '2026-07-19T02:50:30.568218+00:00'
-updated_at: '2026-08-20T03:59:20.642511+00:00'
+updated_at: '2026-08-20T07:00:26.805555+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
