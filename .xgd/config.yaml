@@ -22,6 +22,8 @@ claude_code:
     planner:
       model: opus
   timeout: 1800
+  headless_permission_mode: dontAsk
+  headless_sandbox_enabled: true
 dashboard:
   bind_address: 127.0.0.1
   default_port: 8888
@@ -29,6 +31,7 @@ dashboard:
   prompts:
     free_code_extra: ''
     investigate_extra: ''
+    complete_extra: ''
 dispatcher:
   bundle_untangle_gap_commits: 50
   costs:
