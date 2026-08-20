@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T21:27:58.833027+00:00'
+updated_at: '2026-08-20T21:32:51.901152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -347,5 +347,58 @@ Tell me previews (port or drop) and I'll write the ticket body, cut `free-REQ-14
 <!-- xgd-chat role="user" ts="2026-08-20T21:27:58.728272+00:00" -->
 #### You
 **A single canonical record in D1 means the CLI can no longer be a publisher. <-- we could maybe modify the CLI so it hits an endpoint, right? But I have no hard requiirement to maintain the CLI it is for dev and test only**
+
+<!-- xgd-turn id="cb161374-c2a2-4bb0-be7c-ba25ffb047df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T21:32:51.807219+00:00" -->
+#### Claude
+I'll check what actually depends on the local publish path before answering — that determines whether "CLI as a client" is a small change or a large deletion.
+
+Answer to your question, then what it changes.
+
+## Yes — but you don't need HTTP, because the endpoint already runs inside the CLI
+
+`tools/generate/src/cli/builder.ts` isn't a second server; its own header says it's a **transport** — `node:http` in, `Request`/`Response` out, straight into `apps/control-app/src/router.ts`'s `route()`. One route table, two front doors.
+
+And publish is already sitting on that seam, half-built:
+
+- the builder UI already POSTs `/api/publish` (`builder/api.js:228`)
+- the shared router already has the path, 501-ing and naming your ticket (`router.ts:257`)
+- the Node transport **intercepts `/api/publish` before delegating** and calls `cmdPublish` on the filesystem (`builder.ts:366`)
+
+That interception is precisely the second code path AC-7 is about. So the deliverable is: put publish in the shared route table, delete the interception. Then `1c publish` doesn't need to become an HTTP client at all — it calls the same `publish()` service the route calls, handing it the fs-backed store. Same singleness, no running server required, and the 26 test files that call `cmdPublish` keep working untouched.
+
+## What "dev and test only" actually buys
+
+I checked what the local publish path holds up: 26 test files call `cmdPublish` (mostly as setup, so there's a published channel to render/serve/deploy from), `published` is the *default* source for `1c serve` and several repro commands, and the whole capture/render/diff/gate pipeline is CLI-only with no cloud equivalent. So deleting it isn't cheap.
+
+More importantly it wouldn't reduce duplication. `history.json` and the D1 rows are records of **different sites in different stores** — never the same fact stored twice. The thing you reacted to was `manifest.json` vs D1 describing *one* site, and that's the one being deleted. Two adapters behind one port is the REQ-142/143 pattern already in place for drafts; the algorithm stays a single function.
+
+Where your remark does pay: it removes the last hesitation about deleting `1c deploy --channel published` **and preview snapshots**. Both are CLI-delivered and manifest-backed. If the CLI isn't a product surface, dropping them costs nothing that matters, and the real feature — "Share draft" — comes back properly as a builder toolbar button later. **So: previews dropped.** That closes the last open question.
+
+Let me write this up.
+
+Ticket body written (title and origin preserved; the four open questions are now seven recorded decisions D1–D7, with the schema, scope, revised ACs and deferrals).
+
+**The design, in one line each:**
+
+| | |
+|---|---|
+| D1 | Unchanged draft → no-op, returns the live revision |
+| D2 | Published slugs globally unique, claimed on first publish (`published_sites` table) |
+| D3 | Migration `0002`: `site_revisions`, `published_sites`, `sites.base_revision` |
+| D4 | `/preview/<slug>/published` → 302 to `public-site` |
+| D5 | **D1 is the only record. `manifest.json` deleted. `live` derived, never stored** |
+| D6 | One `publish()` service over the port; route handler and `1c publish` both call it; **`1c deploy` deleted** |
+| D7 | Draft preview snapshots dropped; return later as a builder "Share draft" button |
+
+Two things worth your eye before I start, because both are deletions of working behaviour:
+
+- **`1c deploy` goes.** After this the only path from a local site to the cloud is `bin/publish` (import into D1) then publish. That's already how drafts get there, so it isn't a new step — but it does mean no laptop can put bytes in R2 any more, by design.
+- **Shareable draft links go with it** (`/site/<slug>/draft/<sha>/`). The builder's own Access-gated draft preview is unaffected.
+
+Everything else is additive or internal. Story points still read 13 and that's honest — migration, port verbs, the service, render-to-store, `public-site`'s swap, and two deletions.
+
+Say go and I'll set `status=free_coding`, cut `free-REQ-149`, and build it.
 
 <!-- xgd-chat-end -->
