@@ -6,9 +6,9 @@ title: Off-sample probe asserts the layout envelope holds at unsampled intermedi
   widths
 created_by: xgd
 created_at: '2026-07-22T20:07:11.256057+00:00'
-updated_at: '2026-08-20T13:09:15.453114+00:00'
+updated_at: '2026-08-20T14:39:40.392955+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: active
 fields:
   story_uid: story-24098299
