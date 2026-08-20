@@ -268,9 +268,10 @@ describe('story-e674c60a builder origin', () => {
     const DIRECTIVE = 'no-store, must-revalidate'
     // BOTH SOURCES, because the routing table moved (REQ-145). The router is the
     // Worker's now and answers everything the builder can do; the Node transport
-    // retains only what no Worker can host yet — `/api/ai/*` and the publish
-    // pair — so reading one file would silently stop covering the other half and
-    // let the coverage check pass over a shrunken set.
+    // still serves its own copy of the assistant routes, and publish is the one
+    // capability only it has (REQ-149 owns the Worker's) — so reading one file
+    // would silently stop covering the other half and let the coverage check
+    // pass over a shrunken set.
     const sources = [
       'apps/control-app/src/router.ts',
       'tools/generate/src/cli/builder.ts',
@@ -407,10 +408,13 @@ describe('story-e674c60a builder origin', () => {
       // An unknown component: the `/webui/` route's refusal, which needs no
       // install to reach.
       { route: '/webui/', url: '/webui/no-such-component/index.js', ok: false },
-      // The assistant's status route (REQ-122). It answers whether or not a
-      // model is reachable — the payload carries the reason — so it is a
-      // response this origin returns and is subject to the same claim.
-      { route: '/api/ai/', url: '/api/ai/roles', ok: true },
+      // `/api/ai/roles` (REQ-122) stood here as the PREFIX route `/api/ai/`,
+      // because the Worker declared the whole family with one
+      // `p.startsWith('/api/ai/')` while it answered 501. REQ-146 replaced that
+      // with a handler per path, so the prefix is no longer a route anything
+      // declares — and the URL it probed is already covered by the `/api/ai/`
+      // group above, alongside `session` and `prompt`. Removed rather than
+      // relabelled: relabelling would duplicate that probe.
     ]
 
     // Each installed component's real entry point. Reached only when the store
