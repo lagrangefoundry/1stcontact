@@ -5,9 +5,9 @@ type: capability
 title: 'L1 Reproduction Pipeline: Fold & Acceptance Gate'
 created_by: xgd
 created_at: '2026-07-22T19:41:21.754682+00:00'
-updated_at: '2026-08-16T08:03:52.893705+00:00'
+updated_at: '2026-08-20T12:06:01.939202+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   name: l1_reproduction_pipeline
@@ -18,7 +18,9 @@ fields:
 
 The mechanical pipeline that turns a multi-viewport site capture into a renderable
 L1 reproduction document, and the acceptance boundary that decides whether the
-result is good enough: **capture → fold → render → gate**.
+result is good enough: **capture → fold → render → gate**. That boundary is wider
+than the analytic probes alone — it ends at a single reconciled verdict over every
+eye that grades a reproduction.
 
 ## Scope
 
@@ -33,12 +35,25 @@ result is good enough: **capture → fold → render → gate**.
 - **Demand-driven structure recovery** — repairing only the regions that fail a
   probe (recursively promoting colliding regions to flow) and returning a valid L1
   document.
+- **The cross-gate acceptance verdict** — the reconciliation over the three eyes
+  that grade a reproduction, because each is blind where the others see and
+  nothing compared them to each other. The two browser-free signals (the geometry
+  gate above, and reference coverage over the bundle) run first, so a stale or
+  half-captured bundle fails before a headless browser starts; the perceptual and
+  value eyes then run through the same offline seams their own verbs expose. It
+  carries a perceptual floor that fails a run regardless of what the value gates
+  say, names the likely cause and the one next step it implies rather than just
+  passing or failing, treats value deltas as evidence rather than exit code, and
+  refuses outright a bundle with no retained reference manifest — coverage
+  measured against nothing reports clean.
 
 ## Out of scope
 
 The L1 typed tree, envelope validator, and safe renderer themselves (framework
 substrate capability), and the `1c` capture/values-diff axes the fold consumes
-(capture & diff fidelity capability).
+(capture & diff fidelity capability). The perceptual and value eyes' own
+measurement contracts are likewise out of scope — they are reconciled here, not
+defined here.
 
 ## History
 
