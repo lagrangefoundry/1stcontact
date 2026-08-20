@@ -5,13 +5,13 @@ type: request
 title: '1c CLI: boot a plain Vite SSR server, not Astro''s'
 created_by: xgd
 created_at: '2026-08-18T19:57:23.404053+00:00'
-updated_at: '2026-08-20T02:58:23.712409+00:00'
+updated_at: '2026-08-20T02:58:29.298468+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: low
-  story_points: 2
+  story_points: 5
   depends_on:
   - REQ-148
   auto_merge_back: true
