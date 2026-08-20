@@ -6,10 +6,10 @@ title: 'Draft change journal: know what changed since you last looked, without r
   the site'
 created_by: xgd
 created_at: '2026-08-20T02:25:25.761224+00:00'
-updated_at: '2026-08-20T02:25:25.761224+00:00'
+updated_at: '2026-08-20T02:46:12.200469+00:00'
 completed_at: null
-last_field_updated: created_at
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-77b28def
   capability_uid: capability-702b7c02
