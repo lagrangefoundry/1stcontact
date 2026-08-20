@@ -6,9 +6,9 @@ title: 'Size-aware diffing: compare a captured site at a chosen viewport across 
   persisted ladder'
 created_by: xgd
 created_at: '2026-07-19T02:36:39.277949+00:00'
-updated_at: '2026-08-16T09:18:38.606900+00:00'
+updated_at: '2026-08-20T03:59:19.705284+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -39,7 +39,7 @@ Out of scope: the standalone cross-size `responsive-diff` analysis command (sepa
 ## Technical Context
 - Shares the `mobile|tablet|desktop` viewport vocabulary already used by the shot/viewport preset system; the same vocabulary is reused by the downstream `responsive-diff` command.
 - The values-diff reference at a size comes from the persisted multi-viewport ladder; a single deterministic reference cell is chosen per width (prefer the primary engine at rest). This reuses the multi-viewport capture landed under REQ-58.
-- Generalizes CAP-63 (1c Values-Diff Fidelity), which compares at a single fixed width, to a caller-chosen width across the ladder.
+- Generalizes this capability's single-fixed-width comparison — CAP-63 (`capability-aa030c83`, `1c_capture_diff_fidelity`) — to a caller-chosen width across the ladder.
 - Divergence note for regression: `--size` is optional and defaults to the legacy single-width path, so existing single-width diff behavior is preserved byte-for-byte when the flag is absent.
 
 ## Dependencies
