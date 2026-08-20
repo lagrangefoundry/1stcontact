@@ -6,10 +6,10 @@ title: A hook that fails aborts that app before anything is uploaded, and the de
   exits non-zero
 created_by: xgd
 created_at: '2026-08-20T05:31:11.977465+00:00'
-updated_at: '2026-08-20T05:31:11.977465+00:00'
+updated_at: '2026-08-20T05:57:20.222228+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-d5167ced
   kind: behavior
