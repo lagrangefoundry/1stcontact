@@ -6,10 +6,10 @@ title: A change to an unavailable colour is refused with that field's own reason
   while re-posting its unchanged value saves the rest of the region
 created_by: xgd
 created_at: '2026-08-20T02:57:54.611225+00:00'
-updated_at: '2026-08-20T02:57:54.611225+00:00'
+updated_at: '2026-08-20T03:25:22.346899+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
