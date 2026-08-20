@@ -5,7 +5,7 @@ type: request
 title: 'Bespoke-module lifecycle: draft-module rendering + publish-gate-on-hardening'
 created_by: xgd
 created_at: '2026-07-02T00:20:05.021809+00:00'
-updated_at: '2026-07-02T00:20:05.568226+00:00'
+updated_at: '2026-08-20T21:38:24.906916+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -37,3 +37,33 @@ REQ-9 (`1c` CLI / render), [[DOC-14]], [[DOC-12]] (publish gate).
 
 ## Out of scope
 The XGD harden pass itself (its own workflow); the in-session drafting UX (builder).
+
+
+---
+
+## ABANDONED — superseded by the framework pivot (2026-08-20)
+
+This ticket was written against the [[DOC-14]] two-tier *layout*-module model, which
+the framework pivot (REQ-79 / REQ-84 / REQ-85 / REQ-96) withdrew. Every deliverable
+above has either moved or evaporated:
+
+- **Module resolution for site-local modules.** There are no layout modules to author
+  site-locally any more — layout is owned by the L1 substrate ([[DOC-23]]), and a
+  composition gap is closed by **adding a typed L1 primitive**, never by a bespoke
+  module dir. "Module" now means a *behavior* module, and the catalog is a
+  compile-time registry of plain TS components bound in
+  `packages/framework/src/modules/registry.ts` — deliberately so, because REQ-148
+  requires behaviors to render in workerd. Per-site dynamic module loading at render
+  time is now against the architecture, not a missing feature.
+- **Hardened marker + publish gate.** The gate concept survives, but as *process*, not
+  a `1c publish` flag: [[DOC-26]] §4 defines the vetting obligations a behavior must
+  clear (contract, `validateBehavior*`, the five universal conformance ACs of
+  [[DOC-20]] incl. isolation, vetted `client.js`, security review) before a site can
+  go live on it. Nothing in the current architecture produces the "unhardened
+  site-local module" state this ticket proposed to gate against.
+- **Capability spec / gap-log.** Owned by [[DOC-21]] (reproduction-driven growth
+  loop) — its attribution ladder, with the REQ-85 update rungs (L1 axis → configure
+  an existing behavior → new behavior module). The extend-first framing this ticket's
+  design discussion identified as missing is now the ladder's default.
+
+No code was written against this ticket.
