@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-26
 created_by: xgd
 created_at: '2026-08-15T23:36:00.037329+00:00'
-updated_at: '2026-08-20T21:48:29.487596+00:00'
+updated_at: '2026-08-20T21:56:43.078554+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -320,5 +320,11 @@ Multilingual variants, locale bundles, multi-currency display, and the L1 money 
 A is the one with a closing window. B is free now and expensive to skip. C is discretionary.
 
 Want me to amend DOC-34 with the FR-4 determinism resolution first? That's a document change so it needs no branch — and it's a genuine gap I introduced by not spotting `buildInfo.ts` when I wrote §8.2.
+
+<!-- xgd-turn id="f6a2b615-5c6e-4389-9551-128454595e60-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-20T21:56:42.826288+00:00" -->
+#### You
+OK, please create REQ tickets for these
 
 <!-- xgd-chat-end -->
