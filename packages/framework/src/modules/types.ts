@@ -1,4 +1,4 @@
-import type { AstroComponentFactory } from 'astro/runtime/server/index.js'
+import type { BehaviorComponent } from './behavior'
 
 /**
  * Module contract types (DOC-7 §3.1). Every module file exports a `moduleMeta`
@@ -83,7 +83,7 @@ export interface ModuleMeta {
 /** A registry entry: a module's contract paired with its renderable component. */
 export interface ModuleDefinition {
   meta: ModuleMeta
-  Component: AstroComponentFactory
+  Component: BehaviorComponent
 }
 
 /**
