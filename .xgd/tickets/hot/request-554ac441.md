@@ -5,9 +5,9 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-17T20:14:14.189240+00:00'
+updated_at: '2026-08-20T21:32:38.378140+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -33,7 +33,7 @@ contract inside a routing change.
 
 ## What publish does today, and why none of it survives the move
 
-`cmdPublish` (`tools/generate/src/cli/commands.ts:183`) is filesystem all the way
+`cmdPublish` (`tools/generate/src/cli/commands.ts:154`) is filesystem all the way
 down:
 
 | Step | Today | In a Worker |
@@ -52,62 +52,207 @@ version. It has no revision, no history and no publish verb. `SiteStoreRoot` add
 tenants and `slugs()`; `TenantSiteStore` adds `createDraft` / `forget`. That is the
 whole surface.
 
-## The two halves that already exist and should not be rebuilt
+## Where publish already half-exists
 
-**`1c deploy` already ships snapshots to R2** (`tools/generate/src/deploy/`), with a
-content-addressed layout and a per-site manifest at `<root>/<slug>/manifest.json`
-recording `live`, `revisions[]` and `previews[]` ([[REQ-110]]).
+`/api/publish` is already a seam with three parties leaning on it and nothing
+behind it:
 
-**`public-site` already reads it** (`apps/public-site/src/site-store.ts`), resolving
-a channel to an R2 key prefix through a seam whose own comment anticipates this
-work: "Phase 2 answers from D1 (`sites` / `revisions` / `pages`) by replacing the
-implementation and nothing else."
+- the builder UI already POSTs it (`apps/control-app/src/builder/api.js:228`);
+- the shared route table already has the path, `501`-ing and naming this ticket
+  (`apps/control-app/src/router.ts:257`);
+- the Node transport **intercepts it before delegating**, and answers with a
+  bespoke `cmdPublish` call on the filesystem
+  (`tools/generate/src/cli/builder.ts:366`).
 
-And `db/migrations/0001_site_store.sql` records the split it expects: "Revision
-snapshots likewise stay in R2, where `1c deploy` already writes them."
+That interception is the second code path AC-7 names. `builder.ts` is otherwise a
+*transport* — `node:http` in, `Request`/`Response` out, into the same `route()` the
+deployed Worker calls — so publish is the one route where the two front doors
+disagree about what a route does. Closing that is the shape of this ticket.
 
-So the shape is largely decided. Publish mints the revision, deploy ships it; this
-ticket is about making the *minting* half exist where there is no disk, and about
-whether the two stay separate once both run in the same Worker.
+`1c deploy` (`tools/generate/src/deploy/`) already ships snapshots to R2 under a
+content-addressed layout with a per-site `manifest.json` recording `live`,
+`revisions[]` and `previews[]` ([[REQ-110]]), and `public-site` already reads it
+(`apps/public-site/src/site-store.ts`). Both change here — see D5 and D6.
 
-## The questions this ticket has to settle
+## Decisions
 
-1. **Where do revisions live?** The migration's answer is D1 rows for the metadata
-   (a `revisions` table, which `public-site`'s seam already names) plus R2 for the
-   bytes. Confirm against the alternative — manifest-only, no D1 — which keeps one
-   source of truth but makes "list history" an R2 read.
-2. **Does the port grow publish verbs, or does publish sit above it?** A
-   `publish()` on `SiteStore` would have to be implementable by the in-memory
-   adapter and the fs adapter too. A publish *service* over the port keeps the port
-   small but needs revision storage of its own.
-3. **What is a snapshot without a directory?** `diffSnapshots` compares two trees.
-   The store-level equivalent is a diff of two definition sets, which is a different
-   computation, not a port of the same one.
-4. **Do publish and deploy stay two commands?** They are separate today because one
-   is local and one is remote. In the Worker both are local to the same bindings.
-   Merging them is tempting and may be right — but `--dry-run`, `--prune` and
-   `--sandbox` are deploy's, and a merged verb inherits all three.
+### D1 — publishing an unchanged draft is a no-op
 
-## Acceptance criteria (provisional)
+Publish computes the diff against live anyway; when it is empty, return the live
+revision and mint nothing. The CLI mints unconditionally today, so this is a
+visible behaviour change, adopted because publish becomes a toolbar button
+([[DOC-28]] §10) and buttons get pressed twice. Forward-only is unaffected: a
+draft checked out from an earlier revision differs from live, so the diff is
+non-empty and publish mints.
+
+Consequence: re-publishing an unchanged draft with a new `-m` message does
+nothing, message included. [[DOC-12]] §5 states the opposite and needs one
+sentence.
+
+### D2 — published slugs are globally unique, claimed on first publish
+
+The draft side is tenanted to the bone (`draft/<tenant>/<slug>/...`, every D1 row
+keyed `(tenant_id, slug)`); the published side predates it and has no tenant
+anywhere (`sites/<slug>/...`, `/site/<slug>/`). Until now the writer was `1c deploy`
+on the operator's laptop; this ticket makes the writer a multi-tenant Worker, so
+tenant B publishing `home` would overwrite tenant A's live site.
+
+Resolved by a claim table rather than by putting the tenant in the key: the public
+URL grammar and [[DOC-12]] §7's R2 layout are untouched, and `public-site` needs
+no slug-to-tenant read on the hot path beyond the one row it already has to fetch.
+Per-tenant hostnames remain the real long-term answer and stay deferred
+([[DOC-12]] §9).
+
+### D3 — migration `0002` adds the revision record and the draft's lineage pointer
+
+The `sites` table has no lineage column and there is no revisions table. Both are
+needed. See "Schema" below.
+
+### D4 — `/preview/<slug>/published` redirects to `public-site`
+
+`302` to the public URL. One serving path for published bytes, as [[DOC-12]] §7
+assigns it. Cost: a never-published site shows `public-site`'s 404 rather than a
+builder-shaped message. The alternative — proxying — duplicates the resolve-and-
+serve logic that seam exists to own. The route is reachable mainly by hand-typed
+URL; [[DOC-28]] §10's toolbar has no published mode.
+
+### D5 — D1 is the only record; `manifest.json` is deleted
+
+The manifest was never a hot-path optimisation — `public-site` caches every 200 in
+the edge Cache API (`apps/public-site/src/index.ts:52`), so the store is touched
+only on a cold miss. Its own seam comment already promises the swap: "Phase 2
+answers from D1 (`sites` / `revisions` / `pages`) by replacing the implementation
+and nothing else." AC-2's "unchanged" is about the *seam*, which is the interface,
+and it stays unchanged.
+
+The manifest is carrying four jobs, which all have homes:
+
+| Job | Moves to |
+|---|---|
+| which revision is live | derived — `MAX(id)` over the revisions table |
+| vouching for a URL-supplied sha before it becomes an R2 key | a row lookup, same guarantee |
+| GC roots for `--prune` | D1 rows |
+| deploy's "already deployed" check | publish's own no-op check (D1) |
+
+`live` is **derived, never stored**: [[DOC-12]] §4 is explicit ("No `head` field —
+live = highest id") and §10 already made [[REQ-7]] drop `published_revision_id` for
+this reason. Storing it would reintroduce the duplication the model rejected once.
+
+R2 keeps bytes and nothing authoritative. `source/` still ships beside `out/`,
+because D1 holds only the *mutable* draft — R2's `source/` is the only copy of what
+the definition looked like at revision N, which is what makes checkout possible.
+That is not duplication; nothing else holds that fact.
+
+### D6 — one publish implementation, called two ways; `1c deploy` is deleted
+
+Publish is a service function over the port, called by the `/api/publish` route
+handler and by `1c publish`. The CLI does not become an HTTP client — it does not
+need to, because the endpoint already runs inside it (the Node transport), and
+calling the service directly keeps `1c publish` a one-shot command with no server
+dependency. The transport's bespoke interception is deleted.
+
+The port grows revision **storage** verbs (read history, append a revision, write
+and read a snapshot), not a `publish()` verb, so the algorithm exists once above
+two adapters — the [[REQ-142]]/[[REQ-143]] pattern already in place for drafts.
+This is not duplicated data: a given site lives in exactly one store, and each
+store keeps its own record (`history.json` on disk, rows in the cloud).
+
+`1c deploy` is deleted rather than ported. Its whole job — ship a revision's bytes,
+record it live — is what publish now does inside the Worker with both bindings in
+hand. This is AC-7 in its literal sense.
+
+### D7 — draft preview snapshots are dropped, not ported
+
+The sha-addressed shareable draft links at `/site/<slug>/draft/<sha>/`
+([[DOC-12]] §5.1) are manifest-backed, so they cannot stay behind while revisions
+move — a half-manifest would be exactly the legacy-mode split `CLAUDE.md` forbids.
+They are delivered only by `1c deploy`, and the CLI is a dev and test surface, not
+a product one. The real feature returns later as a "Share draft" button in the
+builder toolbar.
+
+The builder's own draft preview (`/preview/<slug>/draft/`, behind Access) is
+unaffected — that is [[REQ-145]] and stays live.
+
+## Schema (migration `0002`)
+
+```sql
+ALTER TABLE sites ADD COLUMN base_revision INTEGER;   -- D3: the draft's lineage pointer
+
+CREATE TABLE site_revisions (                          -- immutable once written; live = MAX(id)
+  tenant_id, slug, id INTEGER,
+  published_at, published_by, message,
+  based_on INTEGER,        -- DOC-12 section 4: set when the draft was checked out from a non-latest revision
+  changes TEXT,            -- the per-path diff, as DOC-12 section 4 defines it
+  sha TEXT,                -- audit, not addressing
+  PRIMARY KEY (tenant_id, slug, id)
+);
+
+CREATE TABLE published_sites (                         -- D2: the PK *is* the uniqueness guarantee
+  slug TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  first_published_at TEXT NOT NULL
+);
+```
+
+## Scope
+
+- migration `0002` (above);
+- revision storage verbs on the store port, implemented by the fs adapter (over
+  `revisions/` + `history.json`, largely existing) and the D1/R2 adapter (new);
+- a `publish()` service over the port: validate, diff, no-op or mint, snapshot,
+  render, record, re-parent;
+- `/api/publish` in the shared route table; the Node transport's interception
+  deleted;
+- render-to-store, so the Worker can write `out/` without a filesystem;
+- `public-site`'s store swapped onto D1 behind its existing seam;
+- `/preview/<slug>/published` redirects (`302`);
+- `/api/sites` reports the live revision instead of `latest: null`
+  (`router.ts:327`);
+- `1c deploy` and preview snapshots deleted;
+- [[DOC-12]] section 5 amended for D1, section 5.1 for D7.
+
+## Acceptance criteria
 
 1. `/api/publish` in the control-app Worker mints a revision, renders it and writes
    it to R2, with no filesystem anywhere on the path.
-2. `public-site` serves the resulting revision through its existing seam, unchanged.
+2. `public-site` serves the resulting revision through its existing seam — the
+   interface unchanged, the implementation reading D1.
 3. Publishing twice with no intervening edit is a no-op that returns the same
-   revision, matching `1c deploy`'s content-addressed behaviour.
+   revision.
 4. Revision history is readable — `basedOn` lineage, message, author, changes — and
    a checkout of an earlier revision is forward-only, as the CLI's is.
 5. An invalid draft publishes nothing: the failure happens before any write, as it
    does today.
 6. The CLI and the Worker produce the same store state from the same publish, on the
    same store — one implementation, not two.
-7. Whatever the answer to question 4, there is exactly one publish implementation
-   afterwards; the local path is not left behind as a second code path
-   (`CLAUDE.md`: replace fully).
+7. There is exactly one publish implementation afterwards, and no second route
+   handler for it: the Node transport's `/api/publish` interception and
+   `1c deploy` are gone (`CLAUDE.md`: replace fully).
+8. A second tenant cannot publish over a slug another tenant has claimed; the
+   attempt fails and the live site is untouched.
+9. No site's live revision is recorded in two places: `manifest.json` no longer
+   exists and `live` is derived, never stored.
+
+## Out of scope / deferred
+
+- **`--prune` has no home** once deploy is deleted. Orphaned bytes from an
+  interrupted publish are unreachable and cost only storage; a Worker maintenance
+  route later.
+- **The R2 `sandbox/` root becomes dead weight** — only the Worker writes R2 now,
+  and it only ever writes its own tenant's real sites.
+- **Per-tenant hostnames** (subdomains, custom domains) remain [[DOC-12]] section 9's
+  deferred, additive work.
+- **Copying asset bytes is get-then-put.** The Workers R2 binding has no
+  server-side copy, so a full snapshot ([[DOC-12]] section 8) reads each asset into
+  the isolate and writes it back on every publish. Fine at current sizes; the one
+  place publish could get slow on an image-heavy site.
+- **[[DOC-8]] is stale** — [[DOC-28]] cites 3.2, 4.1 and 13 Q3, none of which
+  exist in the stored document, which still commits to in-browser rendering that
+  [[DOC-12]] section 11 withdrew. Does not block this ticket.
 
 ## Origin
 
-Split out of [[REQ-145]] §4, where "which serves `published` after this?" was listed
-as an open question. Reading it resolved: everything moves to the cloud. Reading is
-cheap — `public-site` already does it — so REQ-145 keeps the read and this ticket
-takes the write.
+Split out of [[REQ-145]] section 4, where "which serves `published` after this?" was
+listed as an open question. Reading it resolved: everything moves to the cloud.
+Reading is cheap — `public-site` already does it — so REQ-145 keeps the read and
+this ticket takes the write.
