@@ -6,15 +6,15 @@ title: 'Gradient stop colours are resolved in-browser to #rrggbb before the stop
   are parsed'
 created_by: xgd
 created_at: '2026-08-20T04:34:05.003843+00:00'
-updated_at: '2026-08-20T05:03:40.887676+00:00'
+updated_at: '2026-08-20T05:03:46.471992+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: pending
 fields:
   story_uid: story-82eb6908
   kind: behavior
   regression_only: false
-  uat_coverage: pending
+  uat_coverage: pass
 ---
 
 ## Criterion
