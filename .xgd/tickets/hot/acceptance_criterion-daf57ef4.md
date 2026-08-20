@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: Image object-position (crop within its box) is captured and compared exactly
 created_by: xgd
 created_at: '2026-07-22T20:17:38.620849+00:00'
-updated_at: '2026-08-16T09:17:35.706914+00:00'
+updated_at: '2026-08-20T06:59:03.485575+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
