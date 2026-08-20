@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-146
 created_by: xgd
 created_at: '2026-08-18T01:34:27.741530+00:00'
-updated_at: '2026-08-20T02:54:28.160218+00:00'
+updated_at: '2026-08-20T02:56:43.076866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -482,5 +482,47 @@ Please continue
 <!-- xgd-chat role="user" ts="2026-08-20T02:54:27.645612+00:00" -->
 #### You
 Is this ticket complete?
+
+<!-- xgd-turn id="7eb824cf-c134-4ab9-bb78-ee11e1ca552d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T02:56:42.595643+00:00" -->
+#### Claude
+I'll check the actual state rather than answer from the prior context.
+
+Ticket, commits, and merge state all check out. Let me verify the test claims rather than take the body at its word.
+
+A real problem — the referenced config file doesn't exist on `xgd-working`. Let me find out whether that's REQ-146's doing.
+
+My error — the configs live at the repo root, not in `apps/control-app`. Re-running from the right place.
+
+49/49 workers tests pass. Now the REQ-146 tests specifically, plus the node-side UAT.
+
+Everything verifies. One protocol step is outstanding — the branch teardown.
+
+**Yes — REQ-146 is complete.** I verified it rather than reading it off the ticket, and closed the one step that was outstanding.
+
+## Verified just now
+
+| Check | Result |
+|---|---|
+| Ticket status | `free_coded`, v0.1.61, 9 story points |
+| All 4 commits ancestors of `xgd-working` | ✅ `2765de0ff`, `2ee204b4e`, `b60b52e8f`, `5932f17ff` |
+| Branch merged, nothing unmerged | ✅ `xgd-working..free-REQ-146` empty |
+| Workers test project | **49/49 pass** (5 files) |
+| `test_UAT_FC_REQ-146_ai_host_in_workerd.workers.test.ts` | **9/9 pass** — AC1, AC2, AC3, AC7 |
+| `test_UAT_FC_REQ-146_worker_ai_boundary.test.ts` | **11/11 pass** — AC4, AC5, AC6 |
+| Working tree | clean |
+
+All seven acceptance criteria are now demonstrated by executing tests, not argued. The gap I flagged at the end of the earlier session — the nine workerd UATs written but never run, because the sandbox denied `listen` — is closed; they run and pass.
+
+## What I did in this turn
+
+The only genuinely incomplete thing was **step 5 of the free-coding protocol**: `free-REQ-146` still had a live worktree and branch ref. `xgd branch clean REQ-146` removed both and released the lock. That's now done, and no REQ-146 worktree or branch remains.
+
+Worth noting for the record: my first test run failed with `Projects definition references a non-existing file`. That was my mistake, not a defect — I ran `vitest` from `apps/control-app`, but the project configs live at the repo root, so the relative project paths resolved against the wrong cwd. Run from the repo root it's clean.
+
+## State
+
+The ticket sits at `free_coded`, which is the correct resting state — nothing auto-fires. Promotion to `ready_to_reconcile` is your call. Publishing remains 501 and remains REQ-149's, per your decision to drop §2.
 
 <!-- xgd-chat-end -->
