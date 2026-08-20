@@ -6,10 +6,10 @@ title: A run of copy exposes the colour its words are painted in, reporting what
   holds and writing only a reference into the site's palette
 created_by: xgd
 created_at: '2026-08-20T02:56:15.730109+00:00'
-updated_at: '2026-08-20T02:56:15.730109+00:00'
+updated_at: '2026-08-20T03:25:24.606218+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-37a3921b
   kind: behavior
