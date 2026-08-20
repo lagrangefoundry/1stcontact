@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-20T22:27:33.246601+00:00'
+updated_at: '2026-08-20T22:29:02.268312+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -629,5 +629,54 @@ The "magic" of this experience is for them to witness the site appearing next to
 I'm not seeing anything in your discussion about reference materials - if I were building a website from scratch, one of the first things I would want to do is to look at comparables - to get an idea of both content - what kinds of things are presented as well as style and layout. I also imagine that we will want to create examples, strawman sites for plumbers and caterers and app producers... your story does not include showing those.
 
 One final thing that struck me I am unsure if I agree that restraint level can be meaningful in stage one. People need to look at things to know whether they're too much in stage one they have nothing to look at. Somehow I feel this needs to be more interactive
+
+<!-- xgd-turn id="7114212c-4892-443b-acba-27f51bfe7e83-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-20T22:29:02.182108+00:00" -->
+#### Claude
+Three good hits. Let me take them in reverse order, because the third one is the crack that the other two widen.
+
+## Restraint at stage 1 contradicts the document's own rule
+
+§7.2 says: never leave them staring at a blank question — if they can't answer, propose and ask for yes/no/nearest. Stage 1 then asks *"where do you sit between conversion-first professional trust and brand-experience-first signalling?"* That is the blankest question in the document, asked of the person least equipped to answer it, at the moment they have seen nothing. DOC-33 already knows this is wrong; it just didn't apply its own rule to itself.
+
+So the fix isn't to move restraint later. It's that **restraint cannot be elicited as a question — it has to be elicited as a choice between artifacts.** You put six real sites up and ask which one feels like the business they want to be. Restraint falls out of the pointing. Nobody has to know the word.
+
+One genuine amendment though: restraint should be the **one stage-1 decision with a scheduled re-check at stage 6.** Everything else stage 1 locks — primary action, audience, capabilities — is a *fact about the business*, and no amount of looking at pages produces better evidence for it. Restraint is a *taste judgment*, and taste judgments do improve with exposure. That's a principled distinction rather than a fudge, and it costs one question at the top of Act III: "you told me careful-not-flashy before you'd seen anything — still true now you've seen these?"
+
+## The reference gap is real, and it's two different gestures
+
+You're right that it's missing entirely, which is odd given DOC-31 is built on a reference corpus. But I'd split it, because the two jobs have opposite risk profiles:
+
+**Content comparables — in-vertical, at stage 3.** The novice's actual first question is not "what should this look like", it's *"what am I even supposed to put on this thing?"* A caterer doesn't know that menus, dietary handling, service radius, and a gallery are the load-bearing four until they've seen five caterer sites. DOC-33 never answers this question anywhere. Low template risk — you're extracting a checklist of obligations, not a look.
+
+**Style references — deliberately cross-vertical, at stage 1.** This is the restraint instrument above, and it must *not* be their competitors. The moment you show a plumber three plumber sites and ask which they like, you have built Wix's template gallery with extra steps and a slower checkout. Show them registers from outside their trade and the question becomes "which of these feels like us" rather than "make me that one."
+
+That split is what lets you have reference material without rebuilding the thing the product exists to escape.
+
+## The motivation problem — and where the magic actually is
+
+I think DOC-33 optimises hard for decision quality and pays for it in felt momentum, and for a novice who's never bought design before, the trade is currently priced wrong. But I don't think the answer is a styled page at minute 10 — that genuinely does poison stage 2, and the anchoring reasoning is sound.
+
+The answer is that **the plain pass shouldn't be the first thing they see.** There should be a visual beat roughly every twenty minutes, none of which is a styled version of their page:
+
+| ~5 min | **Ingestion echo** — "here's what I found on your current site." Only works for one arrival state, but it's the strongest possible opener when it does |
+| ~15 min | **The reference spread** — pointing exercise, restraint falls out |
+| ~45 min | **Architecture sketches** — stage 3's options *rendered*, not described |
+| ~2 hr | Plain pass |
+
+The middle one is the biggest miss. DOC-33 says "offer two or three structurally different options" at stage 3 — but as prose. A novice cannot evaluate "a chronology versus a sustained demonstration" as words. They can absolutely evaluate three wireframes with their own business name across the top. And structural sketches are the *safest* thing to show early: they carry no aesthetic to anchor on, which is precisely the property that makes them showable before the design system exists.
+
+That also repairs the plain pass. Right now it reads as "here's your site, it's ugly, trust me for another hour." After a chosen architecture sketch it reads as "here's the shape *you picked*, now we put your words in it" — same pixels, completely different emotional event, because they've already had two visual moments and understand what sequence they're in.
+
+On the "appearing as you type" magic specifically: that moment already exists in the document — stage 4 writes copy into the live site turn by turn. It's just buried two hours deep. Moving the sketch earlier surfaces it sooner, and honestly stage 4 is where I'd spend effort making the typing *visible* rather than batch-applied, because that's the beat that no template product can give them: not a site that was already there, but a site that appeared because they talked.
+
+## What this depends on
+
+All three fixes need the same thing that doesn't exist: the corpus, plus your strawmen — plumber, caterer, app producer.
+
+Worth noting they're the same build item. **Build the strawmen by running DOC-33 on fictional clients.** It stress-tests the playbook before a paying client does, it generates the reference set, and it forces the rubric out of DOC-31's findings into an encoded point of view. If a strawman comes out templatey, that's the rubric telling you it isn't done.
+
+Want me to fold these into DOC-33 as revisions — a new §on reference material, the restraint amendment, and a "visual beats" line through §6 — or do you want to keep pulling on this first?
 
 <!-- xgd-chat-end -->
