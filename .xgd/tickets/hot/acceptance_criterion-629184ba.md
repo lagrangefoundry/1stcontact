@@ -6,7 +6,7 @@ title: 'Capture-time font settling: a post-settle web-font barrier, mirrored fac
   offline, and a real-painted-face fontLoaded probe'
 created_by: xgd
 created_at: '2026-08-20T04:39:05.904089+00:00'
-updated_at: '2026-08-20T05:40:58.713421+00:00'
+updated_at: '2026-08-20T06:58:47.766359+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: pending
