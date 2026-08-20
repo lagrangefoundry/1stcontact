@@ -6,7 +6,7 @@ title: values-diff --size against a bundle with no persisted ladder fails loudly
   re-capture guidance
 created_by: xgd
 created_at: '2026-07-19T02:37:12.061401+00:00'
-updated_at: '2026-08-16T09:17:51.218006+00:00'
+updated_at: '2026-08-20T06:59:56.829464+00:00'
 completed_at: null
 last_field_updated: uat_coverage
 status: active
