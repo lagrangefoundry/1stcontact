@@ -84,7 +84,11 @@ function readPages(slug: string): unknown[] {
 // ── AC1 — an entry is one colour ─────────────────────────────────────────────
 
 describe('REQ-137 AC1 — a palette entry holds a single colour and `steps` is gone', () => {
-  it('test_UAT_FC_REQ-137_an_entry_is_one_colour_and_a_step_is_not_a_field', () => {
+  // AC-928 owns this clause: "the entry object is closed, so a definition
+  // carrying a step is *rejected* rather than read-and-ignored". The test was
+  // written for REQ-137, the same intent that rewrote AC-928, so it is retargeted
+  // rather than duplicated into the palette-overlay file.
+  it('test_UAT_AC928_an_entry_carrying_a_step_is_rejected', () => {
     expect(siteSchema.l1PaletteEntrySchema.safeParse({ value: '#2e86a3' }).success).toBe(true)
 
     // Not merely ignored — *rejected*. The entry schema is strict, so a document
@@ -99,7 +103,10 @@ describe('REQ-137 AC1 — a palette entry holds a single colour and `steps` is g
     expect(siteSchema.l1PaletteEntrySchema.safeParse({ value: '#2e86a3a6' }).success).toBe(false)
   })
 
-  it('test_UAT_FC_REQ-137_no_stored_site_carries_a_step', () => {
+  // AC-928's store-walk clause: "the claim holds of the store, not only of the
+  // schema … enumerate the store by directory … assert the walk actually
+  // examined the stored entries — the count is part of the assertion."
+  it('test_UAT_AC928_no_stored_site_carries_a_step', () => {
     // The claim is about the store, not only the schema: no `site.json` on disk
     // declares a step, and no page reference names one.
     let entriesSeen = 0

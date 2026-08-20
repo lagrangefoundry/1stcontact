@@ -441,6 +441,28 @@ describe('story-179b8c06 — contact-form functional render + L1 controls', () =
     expect(html).toMatch(/name="hp_company_url"[^>]*tabindex="-1"/)
     expect(html).toMatch(/data-turnstile-target/)
 
+    // The contract behind that paint: the behavior meta's `config` is a closed
+    // *behavioural* surface, and the whole presentation surface is the single
+    // required `form` slot. The retired aesthetic dials (REQ-84/REQ-96) have no
+    // home to hide in — neither a `dials` bag nor a config key.
+    expect(Object.keys(contactFormMeta.config).sort()).toEqual([
+      'action',
+      'fields',
+      'submitLabel',
+      'successMessage',
+    ])
+    for (const gone of [
+      'fieldLabels',
+      'submitInline',
+      'submitColor',
+      'submitColour',
+      'submitTreatment',
+    ]) {
+      expect(Object.keys(contactFormMeta.config)).not.toContain(gone)
+    }
+    expect(Object.keys(contactFormMeta.slots)).toEqual(['form'])
+    expect((contactFormMeta as Record<string, unknown>).dials).toBeUndefined()
+
     // REQ-96 — the module paints NO control of its own: no default button, no
     // field chrome class. An unauthored form is an empty form, loudly.
     expect(html).not.toMatch(/contact-form__submit/)

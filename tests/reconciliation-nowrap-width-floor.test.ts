@@ -19,6 +19,10 @@
  * substring-matched on the stylesheet: `min-width: 686px` CONTAINS
  * `width: 686px`, so a `toContain` check passes with or without the behaviour.
  * That false pass is exactly the shape of the bug under test.
+ *
+ * For the same reason, each criterion that has a *measured* half carries it in a
+ * separate `it.runIf(HAVE_CHROMIUM)` test rather than behind an early return.
+ * A criterion whose arm did not run must report **skipped**, never passed.
  */
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -34,8 +38,17 @@ import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 const LADDER_H: Record<number, number> = { 320: 800, 375: 800, 768: 1024, 1024: 768, 1280: 800, 1440: 900 }
 
-/** A real engine is needed for the rendered-box halves; they skip cleanly without one. */
+/**
+ * A real engine is needed for the rendered-box halves.
+ *
+ * Each such half is its own `it.runIf(HAVE_CHROMIUM)` test rather than an
+ * `if (!HAVE_CHROMIUM) return` tail inside the stylesheet test. An early return
+ * reports the whole test as **passed** on a machine with no engine, which is the
+ * one outcome a measurement arm must never produce: the criterion it proves did
+ * not run. Split this way, an absent engine surfaces as **skipped**.
+ */
 const HAVE_CHROMIUM = await engineAvailable('chromium')
+const itChromium = it.runIf(HAVE_CHROMIUM)
 
 // ── Capture fixtures ─────────────────────────────────────────────────────────
 
@@ -181,10 +194,12 @@ async function measure<T>(html: string, css: string, widths: number[], probe: st
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('AC-1009 — a run that cannot wrap treats its captured width as a floor', () => {
-  it('test_UAT_AC1009_unwrappable_run_floors_its_captured_width_while_a_wrapping_run_keeps_it_fixed', async () => {
-    // (a) one line at every ladder width — the display heading an operator edits;
-    // (b) three lines everywhere — its width is what decides its line breaks.
-    const ms = multi(
+  /**
+   * (a) one line at every ladder width — the display heading an operator edits;
+   * (b) three lines everywhere — its width is what decides its line breaks.
+   */
+  const fixture = (): MultiStateCapture =>
+    multi(
       LADDER.map((width) => ({
         width,
         height: LADDER_H[width],
@@ -194,7 +209,9 @@ describe('AC-1009 — a run that cannot wrap treats its captured width as a floo
         ],
       })),
     )
-    const doc = foldToL1(ms)
+
+  it('test_UAT_AC1009_unwrappable_run_floors_its_captured_width_while_a_wrapping_run_keeps_it_fixed', () => {
+    const doc = foldToL1(fixture())
     const { css, html } = renderL1Document(doc)
 
     const pinned = widthDecls(css, classOf(html, 'Gigabyte Alchemy'))
@@ -223,17 +240,23 @@ describe('AC-1009 — a run that cannot wrap treats its captured width as a floo
     const ctrlDecls = widthDecls(frag.css, ctrlCls)
     expect(ctrlDecls.some((d) => d.prop === 'min-width' && d.value === '240px')).toBe(true)
     expect(ctrlDecls.filter((d) => d.prop === 'width').every((d) => d.value === 'auto')).toBe(true)
+  })
 
-    // Rendered: longer copy grows the box instead of vanishing outside it.
-    if (!HAVE_CHROMIUM) return
-    // Comfortably longer than the 686px the reference measured, so the box has
-    // to grow for the string to be drawn at all.
-    const longer =
-      'Gigabyte Alchemy — Applied Intelligence for Operating Businesses, End to End, From First Contact to Renewal'
-    const edited = JSON.parse(JSON.stringify(doc)) as L1Document
-    ;(edited.root as { children: { text?: string }[] }).children[0].text = longer
-    const rendered = renderL1Document(edited)
-    const probe = `(() => {
+  // The rendered half of the same criterion: longer copy grows the box instead
+  // of vanishing outside it. Engine-gated, so it reports as skipped — never as a
+  // pass — when no browser is installed.
+  itChromium(
+    'test_UAT_AC1009_edited_run_grows_its_box_in_a_real_browser_instead_of_painting_outside_it',
+    async () => {
+      const doc = foldToL1(fixture())
+      // Comfortably longer than the 686px the reference measured, so the box has
+      // to grow for the string to be drawn at all.
+      const longer =
+        'Gigabyte Alchemy — Applied Intelligence for Operating Businesses, End to End, From First Contact to Renewal'
+      const edited = JSON.parse(JSON.stringify(doc)) as L1Document
+      ;(edited.root as { children: { text?: string }[] }).children[0].text = longer
+      const rendered = renderL1Document(edited)
+      const probe = `(() => {
       var el = Array.prototype.slice.call(document.body.querySelectorAll('*')).filter(function (n) {
         return !n.children.length && (n.textContent || '').indexOf('Gigabyte Alchemy') === 0;
       })[0];
@@ -242,18 +265,20 @@ describe('AC-1009 — a run that cannot wrap treats its captured width as a floo
       var b = el.getBoundingClientRect(), t = r.getBoundingClientRect();
       return { box: b.width, text: t.width, right: t.right - b.right };
     })()`
-    const [at1440] = await measure<{ box: number; text: number; right: number }>(
-      rendered.html,
-      rendered.css,
-      [1440],
-      probe,
-    )
-    // The box grew past the captured 686px to hold the longer string, and the
-    // glyphs end inside the box — nothing is painted outside the painting area.
-    expect(at1440.box).toBeGreaterThan(686)
-    expect(at1440.box).toBeGreaterThanOrEqual(at1440.text - 1)
-    expect(at1440.right).toBeLessThanOrEqual(1)
-  }, 300000)
+      const [at1440] = await measure<{ box: number; text: number; right: number }>(
+        rendered.html,
+        rendered.css,
+        [1440],
+        probe,
+      )
+      // The box grew past the captured 686px to hold the longer string, and the
+      // glyphs end inside the box — nothing is painted outside the painting area.
+      expect(at1440.box).toBeGreaterThan(686)
+      expect(at1440.box).toBeGreaterThanOrEqual(at1440.text - 1)
+      expect(at1440.right).toBeLessThanOrEqual(1)
+    },
+    300000,
+  )
 })
 
 describe('AC-1010 — the floor is gated by wrap threshold and by node kind', () => {
@@ -371,13 +396,16 @@ describe('AC-1010 — the floor is gated by wrap threshold and by node kind', ()
 })
 
 describe('AC-1011 — a relaxed rung also releases its fixed width', () => {
-  it('test_UAT_AC1011_every_floored_rung_resets_its_width_so_no_lower_segment_extrapolation_survives', async () => {
-    // Widths that GROW across the ladder, so the lowest segment's fitted line
-    // extrapolates wildly above its own segment. With the reset missing, the
-    // upper rungs emit only `min-width`, stop overriding `width`, and the base
-    // rule's `calc()` sizes the run at every width above it.
-    const captured: Record<number, number> = { 320: 280, 375: 420, 768: 520, 1024: 600, 1280: 660, 1440: 686 }
-    const ms = multi(
+  /**
+   * Widths that GROW across the ladder, so the lowest segment's fitted line
+   * extrapolates wildly above its own segment. With the reset missing, the upper
+   * rungs emit only `min-width`, stop overriding `width`, and the base rule's
+   * `calc()` sizes the run at every width above it.
+   */
+  const captured: Record<number, number> = { 320: 280, 375: 420, 768: 520, 1024: 600, 1280: 660, 1440: 686 }
+
+  const fixture = (): MultiStateCapture =>
+    multi(
       LADDER.map((width) => ({
         width,
         height: LADDER_H[width],
@@ -386,7 +414,14 @@ describe('AC-1011 — a relaxed rung also releases its fixed width', () => {
         ],
       })),
     )
-    const { css, html } = renderL1Document(foldToL1(ms))
+
+  /** What the lowest segment's fitted line reaches at the top of the ladder, had
+   * it stayed live. It runs to several times the viewport, which is the whole
+   * reason the reset matters. */
+  const extrapolated = captured[320] + ((captured[375] - captured[320]) / (375 - 320)) * (1440 - 320)
+
+  it('test_UAT_AC1011_every_floored_rung_resets_its_width_so_no_lower_segment_extrapolation_survives', () => {
+    const { css, html } = renderL1Document(foldToL1(fixture()))
     const cls = classOf(html, 'Gigabyte Alchemy')
     const decls = widthDecls(css, cls)
     const rungs = byRung(decls)
@@ -400,33 +435,36 @@ describe('AC-1011 — a relaxed rung also releases its fixed width', () => {
       expect(ds.some((d) => d.prop === 'width' && d.value === 'auto'), `rung ${at ?? 'base'} resets width`).toBe(true)
     }
     expect(floored, 'the fixture actually floors some rungs').toBeGreaterThan(1)
-
-    // What the lowest segment's fitted line reaches at the top of the ladder,
-    // had it stayed live. It runs to several times the viewport, which is the
-    // whole reason the reset matters.
-    const extrapolated = captured[320] + ((captured[375] - captured[320]) / (375 - 320)) * (1440 - 320)
     expect(extrapolated, 'the fixture discriminates: the low segment extrapolates wildly').toBeGreaterThan(2 * 1440)
+  })
 
-    if (!HAVE_CHROMIUM) return
-    const probe = `(() => {
+  // The measured half: engine-gated so an absent browser reports as skipped.
+  itChromium(
+    'test_UAT_AC1011_each_rung_measures_to_its_own_captured_floor_in_a_real_browser',
+    async () => {
+      const { css, html } = renderL1Document(foldToL1(fixture()))
+      const cls = classOf(html, 'Gigabyte Alchemy')
+      const probe = `(() => {
       var el = document.querySelector('.${cls}');
       return { width: el.getBoundingClientRect().width };
     })()`
-    const measured = await measure<{ width: number }>(html, css, LADDER, probe)
-    for (const [i, w] of LADDER.entries()) {
-      const got = measured[i].width
-      // The run tracks its content against THAT rung's floor — its own captured
-      // value — and never the lower segment's extrapolated value.
-      expect(got, `at ${w}px`).toBeGreaterThanOrEqual(captured[w] - 1.5)
-      expect(got, `at ${w}px`).toBeLessThanOrEqual(captured[w] + 1.5)
-      expect(got, `at ${w}px`).toBeLessThan(extrapolated)
-    }
-  }, 300000)
+      const measured = await measure<{ width: number }>(html, css, LADDER, probe)
+      for (const [i, w] of LADDER.entries()) {
+        const got = measured[i].width
+        // The run tracks its content against THAT rung's floor — its own captured
+        // value — and never the lower segment's extrapolated value.
+        expect(got, `at ${w}px`).toBeGreaterThanOrEqual(captured[w] - 1.5)
+        expect(got, `at ${w}px`).toBeLessThanOrEqual(captured[w] + 1.5)
+        expect(got, `at ${w}px`).toBeLessThan(extrapolated)
+      }
+    },
+    300000,
+  )
 })
 
 describe('AC-1012 — the relaxation is invisible for content that has not been edited', () => {
-  it('test_UAT_AC1012_unedited_page_lays_out_identically_whether_the_run_is_floored_or_fixed', async () => {
-    const ms = multi(
+  const fixture = (): MultiStateCapture =>
+    multi(
       LADDER.map((width) => ({
         width,
         height: LADDER_H[width],
@@ -437,7 +475,13 @@ describe('AC-1012 — the relaxation is invisible for content that has not been 
         ],
       })),
     )
-    const { css, html } = renderL1Document(foldToL1(ms))
+
+  // The engine-free arm: the stylesheet-equality proxy. It is a proxy and says so
+  // — the criterion's own claim is about *measured* boxes, and that is the
+  // engine-gated test below, which reports as skipped rather than passing when no
+  // browser is installed.
+  it('test_UAT_AC1012_floored_and_fixed_stylesheets_differ_only_in_their_width_declarations', () => {
+    const { css, html } = renderL1Document(foldToL1(fixture()))
     const fixed = holdFixed(css)
 
     // The counterfactual is a real counterfactual: the floor is gone from the
@@ -456,26 +500,34 @@ describe('AC-1012 — the relaxation is invisible for content that has not been 
         .replace(/;\s*(?=[;}])/g, '')
         .replace(/\{\s*;/g, '{')
     expect(strip(fixed)).toBe(strip(css))
+  })
 
-    if (!HAVE_CHROMIUM) return
-    const floorBoxes = await measure<Box[]>(html, css, LADDER, BOXES_PROBE)
-    const fixedBoxes = await measure<Box[]>(html, fixed, LADDER, BOXES_PROBE)
+  // The criterion proper: measured bounding boxes, floored vs fixed.
+  itChromium(
+    'test_UAT_AC1012_unedited_page_lays_out_identically_whether_the_run_is_floored_or_fixed',
+    async () => {
+      const { css, html } = renderL1Document(foldToL1(fixture()))
+      const fixed = holdFixed(css)
+      const floorBoxes = await measure<Box[]>(html, css, LADDER, BOXES_PROBE)
+      const fixedBoxes = await measure<Box[]>(html, fixed, LADDER, BOXES_PROBE)
 
-    for (const [i, w] of LADDER.entries()) {
-      const a = floorBoxes[i]
-      const b = fixedBoxes[i]
-      expect(a.length, `node count at ${w}px`).toBe(b.length)
-      expect(a.length).toBeGreaterThan(1)
-      for (const [j, box] of a.entries()) {
-        const other = b[j]
-        expect(box.cls, `class at ${w}px #${j}`).toBe(other.cls)
-        // Every node's bounding box is identical while the text is the
-        // reference text — the floor's value IS the captured width, so
-        // relaxing it costs no reproduction fidelity.
-        for (const axis of ['x', 'y', 'width', 'height'] as const) {
-          expect(box[axis], `${box.cls}.${axis} at ${w}px`).toBeCloseTo(other[axis], 1)
+      for (const [i, w] of LADDER.entries()) {
+        const a = floorBoxes[i]
+        const b = fixedBoxes[i]
+        expect(a.length, `node count at ${w}px`).toBe(b.length)
+        expect(a.length).toBeGreaterThan(1)
+        for (const [j, box] of a.entries()) {
+          const other = b[j]
+          expect(box.cls, `class at ${w}px #${j}`).toBe(other.cls)
+          // Every node's bounding box is identical while the text is the
+          // reference text — the floor's value IS the captured width, so
+          // relaxing it costs no reproduction fidelity.
+          for (const axis of ['x', 'y', 'width', 'height'] as const) {
+            expect(box[axis], `${box.cls}.${axis} at ${w}px`).toBeCloseTo(other[axis], 1)
+          }
         }
       }
-    }
-  }, 300000)
+    },
+    300000,
+  )
 })

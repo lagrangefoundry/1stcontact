@@ -4,26 +4,27 @@
  * copyright/colour overrides".
  *
  * The REQ-79 framework pivot re-homed these treatments off the deleted module
- * dials onto the two surviving post-pivot surfaces. One UAT per AC, exercised at
- * the real boundary (the module catalog, the L1 validator + renderer, and the
- * contact-form capability's SSR render):
+ * dials onto the two surviving post-pivot surfaces. One UAT per live AC,
+ * exercised at the real boundary (the module catalog, the L1 validator and the
+ * L1 renderer):
  *
  *   AC-719  card/band veil + footer copyright/colour treatments are expressed as
  *           L1 leaf axes (colour/opacity literals), not services-grid/footer
  *           module dials — those modules no longer exist in the catalog, and the
  *           L1 envelope rejects out-of-envelope (non-hex / freeform-CSS) values.
- *   AC-718  contact-form presentation (submit look, intro framing) is authored
- *           via capability config + named L1 slots, not aesthetic dials; field
- *           labelling stays a fixed accessibility obligation of the core.
+ *
+ * AC-718 (contact-form presentation) was **deprecated** by REQ-96: its criterion
+ * moved to AC-701 under STORY-85, and its UAT moved with it — the closed
+ * config-key set, the absent aesthetic dials and the single required `form` slot
+ * are now asserted inside `test_UAT_AC701_*` in
+ * `reconciliation-behavior-modules.test.ts`. Nothing here claims that criterion.
  */
 import { describe, expect, it } from 'vitest'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 
 import { validateL1, type L1Document } from '../packages/site-schema/src/index'
 import { renderL1Document, registry, getModule } from '../packages/framework/src/index'
 import { contactFormMeta } from '../packages/framework/src/modules/contact-form/meta'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
 
 // ════════════════════════════════════════════════════════════════════════════
 // AC-719 — card/band + footer visual treatments live in L1 leaf axes, not dials
@@ -108,65 +109,5 @@ describe('STORY-82 — card/band + footer treatments are L1 leaf axes', () => {
       root: { kind: 'text', text: 'x', style: 'border: 1px solid red; position: fixed' },
     }
     expect(validateL1(freeformCss).ok).toBe(false)
-  })
-})
-
-// ════════════════════════════════════════════════════════════════════════════
-// AC-718 — contact-form presentation is capability config + L1 slots, not dials
-// ════════════════════════════════════════════════════════════════════════════
-describe('STORY-82 — contact-form presentation via capability config + L1 slots', () => {
-  const config = {
-    action: 'https://example.com/lead',
-    fields: [
-      { name: 'name', label: 'Your name', type: 'text', required: true },
-      { name: 'email', label: 'Email', type: 'email', required: false },
-    ],
-  }
-
-  it('test_UAT_AC718_contact_form_presentation_via_config_and_l1_controls', async () => {
-    // (a) The behavior meta carries only behavioural/functional config — no
-    // aesthetic dials (fieldLabels / submitInline / submitColor) remain — and its
-    // whole presentation surface is the required `form` slot.
-    expect(Object.keys(contactFormMeta.config).sort()).toEqual([
-      'action',
-      'fields',
-      'submitLabel',
-      'successMessage',
-    ])
-    for (const gone of ['fieldLabels', 'submitInline', 'submitColor', 'submitColour', 'submitTreatment']) {
-      expect(Object.keys(contactFormMeta.config)).not.toContain(gone)
-    }
-    expect(Object.keys(contactFormMeta.slots)).toEqual(['form'])
-    expect((contactFormMeta as Record<string, unknown>).dials).toBeUndefined()
-
-    const container = await AstroContainer.create()
-
-    // (b) REQ-96 — the submit button IS an L1 control leaf: the module supplies
-    // `<button type=submit>` and its label, L1 supplies the class and every paint
-    // axis. `submitInline` would have been a dial; the button's position is now
-    // wherever the L1 subtree puts it.
-    const form = {
-      kind: 'container',
-      layout: 'stack',
-      children: [
-        { kind: 'control', control: 'name' },
-        { kind: 'control', control: 'email' },
-        { kind: 'control', control: 'submit', axes: { surfaceFill: '#e11d48' } },
-      ],
-    }
-    const rendered = await container.renderToString(ContactForm, {
-      props: { config: { ...config, submitLabel: 'Send message' }, slots: { form } },
-    })
-    expect(rendered).toMatch(/<button[^>]*class="[^"]*contact-form-form-l1-\d+"[^>]*type="submit"/)
-    expect(rendered).toContain('Send message')
-    expect(rendered).toContain('background-color: #e11d48')
-    // The module contributes no competing paint of its own.
-    expect(rendered).not.toMatch(/contact-form__submit/)
-
-    // (c) REQ-88's a11y obligation is unchanged: every control keeps a
-    // programmatic <label> bound to it, whatever the presentation does.
-    expect(rendered).toMatch(/<label[^>]*for="cf-name"[^>]*>Your name<\/label>/)
-    expect(rendered).toMatch(/<input[^>]*id="cf-name"[^>]*type="text"[^>]*required/)
-    expect(rendered).toMatch(/<label[^>]*for="cf-email"[^>]*>Email<\/label>/)
   })
 })
