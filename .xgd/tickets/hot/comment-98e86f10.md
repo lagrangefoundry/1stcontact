@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-20T23:37:20.819210+00:00'
+updated_at: '2026-08-21T00:07:23.386210+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -452,5 +452,35 @@ Now the end-to-end UAT in workerd — real D1, real R2, real publish, real serve
 <!-- xgd-chat role="user" ts="2026-08-20T23:37:20.722466+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="34c0a5b1-cfcd-4de8-8705-28cf58817d5f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T00:07:23.266505+00:00" -->
+#### Claude
+Resuming — the last test run was OOM-killed. Let me re-verify state and continue.
+
+Now the two remaining request-time-render suites, which assert the published channel is served off disk.
+
+Now the three public-site suites. Let me strengthen the fixture so a real publish produces the bytes.
+
+Rewriting req113 over the new fixture — same assertions, one channel.
+
+Now req111 — the public-site serving contract.
+
+Rewriting req111 — same serving contract, one channel, D1 as the record.
+
+Two expectation errors on my side (one reveals pre-existing behaviour worth noting). Fixing.
+
+Now the last one — clean-page-urls.
+
+All three public-site suites pass. Full node suite now, to compare against baseline.
+
+That was a stale build artifact, not a regression. Final verification run — both projects.
+
+Workers project fully green. Final full node run.
+
+All 10 failing files are the baseline's pre-existing environment failures. Final typecheck across packages.
+
+Now updating the ticket body to record what the implementation actually settled, then marking it `free_coded`.
 
 <!-- xgd-chat-end -->
