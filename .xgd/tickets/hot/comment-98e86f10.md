@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T20:08:55.188586+00:00'
+updated_at: '2026-08-21T20:10:11.582161+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -968,5 +968,60 @@ Still outstanding from earlier and unrelated to this: the stale comment in `bin/
 <!-- xgd-chat role="user" ts="2026-08-21T20:08:55.091200+00:00" -->
 #### You
 ok so how do I deploy to Cloudflare?
+
+<!-- xgd-turn id="cf31bd80-9f47-4aea-a3c5-e53b440a2214-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T20:10:11.481687+00:00" -->
+#### Claude
+Let me read the deploy script properly rather than paraphrase it.
+
+Here's the sequence. `bin/deploy` does **not** build, so the order matters.
+
+```bash
+npx wrangler login                    # or export CLOUDFLARE_API_TOKEN
+
+bin/build                             # preflight + 1c assets + typecheck + bundle
+bin/deploy --dry-run                  # rehearses everything, uploads nothing
+bin/deploy                            # control-app, then public-site
+bin/smoke --slug xgd                  # prove the deployed origin serves
+```
+
+`bin/deploy` discovers apps alphabetically, so **control-app goes first** — and its migrate hook runs `wrangler d1 migrations apply --remote` before the upload. That's the right order: `0002` lands on the real database before public-site starts reading `site_revisions`. A failing hook aborts that app's deploy before anything uploads.
+
+Then to get a site up there:
+
+```bash
+bin/publish --production xgd          # import into the real D1/R2 (needs CF_ACCESS_TOKEN)
+# then the publish button, or POST /api/publish on app.1stcontact.io
+```
+
+## Two things to settle before you run it
+
+**1. Access is unconfigured, so the deployed builder will refuse everything.**
+
+`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are both `""` in `[env.production.vars]`. Empty means deny — the Worker answers 503 to every request rather than serving unverified. You need the Access application created in Cloudflare and both values filled in, per `apps/control-app/ACCESS.md`.
+
+`public-site` is unaffected — no Access on it — so published sites would serve even with the builder locked.
+
+**2. Check whether anything is currently live, because this is the one thing that can break it.**
+
+Sites published by the old `1c deploy` have their bytes and a `manifest.json` in R2 but **no rows in D1**. The new `public-site` reads D1. So anything live today starts 404-ing the moment it deploys — bytes intact, nothing saying which revision is live. There's no backfill; REQ-149 assumed the manifest had no readers left.
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://1stcontact.io/site/xgd/
+```
+
+A 404 (or a connection failure) means nothing is live and this evaporates. A 200 means stop and tell me — a backfill is maybe twenty lines, but it needs writing before you deploy, not after.
+
+Given Access has never been configured, I'd expect nothing to have been published through the Worker. But an old laptop-side `1c deploy` could have put something there, and I can't check from here.
+
+## Two stale surfaces this ticket left behind
+
+Neither blocks the deploy:
+
+- `bin/smoke --draft <sha>` — five checks against the draft-preview channel REQ-149 deleted. Gated behind the flag, so plain `bin/smoke` is fine, but nothing can produce a `<sha>` any more. Dead code.
+- `bin/deploy.d/migrate/10-d1-site-store` — its comment says public-site "reaches no database", which stopped being true when I gave it a `DB` binding. The gating behaviour is still correct; only the stated reason is wrong.
+
+Both are my mess from REQ-149. Want me to clear them up in the same way — reopen, fix, re-promote?
 
 <!-- xgd-chat-end -->
