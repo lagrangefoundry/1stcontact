@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-21T01:38:22.598716+00:00'
+updated_at: '2026-08-21T02:08:24.458306+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -258,5 +258,83 @@ The ticket body is current: I corrected one inaccuracy (it claimed `vite` was al
 <!-- xgd-chat role="user" ts="2026-08-21T01:38:22.502641+00:00" -->
 #### You
 Done
+
+<!-- xgd-turn id="36a68b54-8b37-44ec-832d-b121de7a45f1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:08:24.373232+00:00" -->
+#### Claude
+Let me verify the install landed.
+
+Install landed correctly — lockfile updated with zero `astro` importers, `astro` gone from `node_modules`, `vite` linked and resolving. Now the real-tree suite.
+
+Lockfile diff is clean (1292 deletions = astro's tree, 9 insertions = the `vite` entry). But the suite shows **14 files / 60 tests** failing vs the baseline's 13/59 — one file more. Let me find out why.
+
+`EPERM` writing to `~/Library/Preferences/.wrangler/registry` — a sandbox filesystem restriction, not my change. Let me confirm it's environmental and re-run my regression scope on the real tree.
+
+`public-site` fails identically in the **unmodified main checkout** — definitively a sandbox EPERM artifact, not my change. But my regression scope just ran 9 files/43 tests instead of 10/48. Let me find the missing one.
+
+All 10 exist. Let me run the REQ-150 UAT file on its own.
+
+My 5 UATs pass on the real tree. Let me pin down the 10-vs-9 collection difference in the batch run.
+
+All 10 files collected, 48 tests — the earlier 9/43 was contention from running two vitest instances concurrently. Let me get a clean pass/fail summary.
+
+10/10 files, 48/48 tests pass. The change touched `vitest.config.mts`, so let me verify the workers project too.
+
+Workers project: 5 files / 49 tests, all pass. Everything is verified — proceeding with the commit sequence.
+
+Version bumped to 0.1.62 (main checkout is at 0.1.61, so no collision). Let me check the commit convention.
+
+`xgd-working` has advanced to **0.2.0** while I was working — my 0.1.62 bump is now stale. Let me look.
+
+1892 commits of divergence. Before anything else, let me check whether the files I touched changed on `xgd-working`.
+
+`xgd-working`'s history was remapped/resynced (I see `remap_commits` and `resync` in its log), so the ancestry no longer lines up. Let me check whether my work is still applicable — starting with the launcher.
+
+Identical. Let me check all touched files that way.
+
+Only two files differ. Let me see both.
+
+`package.json` differs only by version (→ 0.2.1 for me). But `req119` has a REQ-149 change on `xgd-working` — I must not clobber it. Let me see my edit to that file.
+
+My req119 edit (lines 25, 99–113) doesn't overlap the REQ-149 change (lines 226–250), so it merges clean. Let me check the total content divergence.
+
+Two important findings: my branch is 88 files behind `xgd-working`'s publish/revision work, and **`tests/reconciliation-site-storage-port.test.ts` on `xgd-working` uses `astro/container`** — a file my branch doesn't know about. Merging back as-is would break it.
+
+No `.astro` files exist on either branch — so `reconciliation-site-storage-port.test.ts` on `xgd-working` is *already* broken (it imports a deleted `index.astro`). It's the one remaining astro site I haven't handled. Let me revert my premature bump and commit the verified work as a safe point.
+
+The checkout reverted my astro removal too. Let me redo it.
+
+Clean. Committing the verified work as a safe point.
+
+Now bringing `xgd-working` into the branch so I can handle its remaining astro site.
+
+This merge is bogus — 32 conflicts including `add/add` on files I never touched, because `xgd-working`'s history was remapped and the merge-base is meaningless. Aborting.
+
+My branch content for every touched file already matches `xgd-working`, so the right move is to rebuild the branch on top of it and re-apply my delta.
+
+Cherry-pick applied cleanly. Let me verify the REQ-149 change survived and check the remaining astro sites.
+
+Both changes coexist. One real astro site remains: `reconciliation-site-storage-port.test.ts`. Let me read it.
+
+This is the same conversion I applied elsewhere, on a file that's already broken (it imports a deleted `index.astro`). Let me see how REQ-148 renders modules now.
+
+Now converting that file. Let me check the component's signature first.
+
+Let me check whether the AC matrix keys on the full UAT name before I touch it.
+
+The AC is matched on number, not description, so the tail can be renamed. Converting the file now.
+
+The file now runs fully (7 pass) — it was failing at import before. One assertion is too broad: it matches the word "astro" in my explanatory comments. It should test for a specifier, as my other conversions do.
+
+8/8 pass — that file was entirely broken before. Now let me establish an `xgd-working` baseline to compare against.
+
+Main checkout is exactly at `xgd-working` tip. Running the baseline there.
+
+Baseline: **9 files / 23 tests** failing (and `site-storage-port` shows a collection error — the broken import I just fixed). Now the rebased branch.
+
+Same 8 failing files as baseline (minus the one I fixed), but +2 failed tests. Let me compare those files test-by-test across both trees.
+
+Branch: 22 failed / 40 passed of 63. Now the same 8 files on `xgd-working`.
 
 <!-- xgd-chat-end -->
