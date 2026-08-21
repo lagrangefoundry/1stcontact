@@ -10,8 +10,8 @@
  *
  *   - the library, resolved out of the out-of-repo shared store by file URL;
  *   - the filesystem {@link SiteStore} adapter;
- *   - the two operations that genuinely need a disk — `add_asset`, which reads a
- *     file the operator names, and `publish`, which snapshots a directory tree;
+ *   - the one operation that genuinely needs a disk — `add_asset`, which reads
+ *     a file the operator names;
  *   - the append-only file audit sink;
  *   - the system KB bridge, itself loaded by file URL.
  *
@@ -36,7 +36,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { GlobalOptions } from '../commands'
-import { cmdPublish, ctxOf } from '../commands'
+import { ctxOf } from '../commands'
 import { fsSiteStore } from '../../store'
 import { CommandError } from '../errors'
 import { sharedModuleUrl } from '../webui'
@@ -98,14 +98,18 @@ function readSourceFile(file: string): { name: string; bytes: Uint8Array } {
 }
 
 /**
- * The operations only a host with a disk can implement.
+ * The operation only a host with a disk can implement.
  *
- * NEITHER IS GRANTED TO THE CARETAKER. `instances.json` withholds `ManageAssets`
- * and `Publish`, so the manual never mentions them and the model cannot propose
- * one; they are declared because the surface declares the whole API and the
- * grant narrows it (DOC-30). Supplying them here keeps that true for Node while
- * making their absence in a Worker a fact about the runtime rather than a second
- * declaration.
+ * ONE, SINCE REQ-149. `publish` was the other, because publishing meant copying a
+ * directory tree; it is a sequence of port verbs now, so it moved to
+ * `toolbox-core.ts` and works against whichever store the host has. What is left
+ * is `add_asset`, which reads a file the operator names — genuinely a disk.
+ *
+ * IT IS NOT GRANTED TO THE CARETAKER. `instances.json` withholds `ManageAssets`,
+ * so the manual never mentions it and the model cannot propose it; it is declared
+ * because the surface declares the whole API and the grant narrows it (DOC-30).
+ * Supplying it here keeps that true for Node while making its absence in a Worker
+ * a fact about the runtime rather than a second declaration.
  */
 export function nodeOperations(slug: string, opts: EditOptions): Partial<L1Operations> {
   return {
@@ -113,30 +117,6 @@ export function nodeOperations(slug: string, opts: EditOptions): Partial<L1Opera
       const source = readSourceFile(req(p, 'file'))
       const out = await editAssetAdd(slug, opt(p, 'as') ?? source.name, source.bytes, opts)
       return { ...(out.data as object), now: out.at }
-    },
-
-    /**
-     * `publish` snapshots a directory tree, which is why it is here and not in
-     * the core. Doing it without a filesystem is a new storage contract — a
-     * revision, a history, a store-level diff — and that is REQ-149's, not a
-     * relocation of this.
-     */
-    publish: async (p: Params) => {
-      const result = await cmdPublish(slug, { ...opts, message: opt(p, 'message') })
-      const { added, modified, removed } = result.changes
-      return {
-        id: result.id,
-        // Publishing does not touch the draft, so this is the count as it
-        // stands — reported for the same reason a write reports it, so a
-        // caller's baseline stays current across every call it makes.
-        now: await opts.store.counter(slug),
-        added,
-        modified,
-        removed,
-        message:
-          `Published revision ${result.id} — ` +
-          `${added.length} added, ${modified.length} changed, ${removed.length} removed.`,
-      }
     },
   }
 }

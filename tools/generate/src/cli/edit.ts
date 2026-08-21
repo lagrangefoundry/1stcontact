@@ -17,6 +17,7 @@ import {
   type L1Node,
   type L1SegmentFieldOptions,
 } from '@1stcontact/site-schema'
+import { pendingChanges } from '../publish/publish'
 // The Astro-free framework entry, deliberately not the barrel (REQ-143). The
 // barrel re-exports the module registry, which imports two `.astro` components
 // and would put this file — and every caller of it — back out of a Worker's
@@ -2155,7 +2156,7 @@ export async function editAssetRm(
 
 export async function editStatus(slug: string, opts: EditOptions): Promise<EditOutput> {
   await requireDraft(slug, opts)
-  const { baseRevision: live, ...changes } = await opts.store.pendingChanges(slug)
+  const { baseRevision: live, ...changes } = await pendingChanges(opts.store, slug)
   const total = changes.added.length + changes.modified.length + changes.removed.length
   const lines: string[] = [`baseRevision: ${live === null ? '(none)' : `r${live}`}`]
   for (const rel of changes.added) lines.push(`A  ${rel}`)

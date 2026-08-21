@@ -35,6 +35,22 @@ import {
 
 const REPO = path.resolve(__dirname, '..')
 
+/**
+ * Move `beta`'s draft, so a publish has something to mint.
+ *
+ * Written through the page file rather than an edit command because what this
+ * suite is about is the toolbar's aim — which slug reaches publish — and the
+ * edit is only there to make the draft differ from the live revision.
+ */
+function editBetaHeadline(cwd: string, text: string): void {
+  const file = path.join(cwd, 'storage/sites/beta/draft/pages/home.json')
+  const page = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+    l1: { root: { children: Array<{ text: string }> } }
+  }
+  page.l1.root.children[0].text = text
+  fs.writeFileSync(file, JSON.stringify(page, null, 2), 'utf8')
+}
+
 /** The listing the workspace is mounted over — `alpha` first, so it opens there. */
 const SITES = [
   { slug: 'alpha', latest: null },
@@ -220,8 +236,8 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     //
     // The transport half first, on every machine: the origin's publish
     // operation is the platform's own `publish`, reached over HTTP.
-    expect(cmdRevisions('beta', { cwd })).toHaveLength(0)
-    expect(cmdRevisions('alpha', { cwd })).toHaveLength(0)
+    expect(await cmdRevisions('beta', { cwd })).toHaveLength(0)
+    expect(await cmdRevisions('alpha', { cwd })).toHaveLength(0)
 
     const res = await get('/api/publish', {
       method: 'POST',
@@ -232,10 +248,10 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     expect(await res.json()).toMatchObject({ id: 1 })
 
     // A new entry in THAT site's history — and the other site is untouched.
-    const revisions = cmdRevisions('beta', { cwd })
+    const revisions = await cmdRevisions('beta', { cwd })
     expect(revisions).toHaveLength(1)
     expect(revisions[0]).toMatchObject({ id: 1, message: 'from the workspace' })
-    expect(cmdRevisions('alpha', { cwd })).toHaveLength(0)
+    expect(await cmdRevisions('alpha', { cwd })).toHaveLength(0)
 
     // Locked in the same form a command-line publish produces: an immutable
     // snapshot directory holding the draft as it was. Proven by publishing
@@ -245,16 +261,20 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     await cmdPublish('alpha', { cwd, message: 'from the cli' })
     const viaCli = path.join(cwd, 'storage/sites/alpha/revisions/0001')
     expect(fs.readdirSync(viaWorkspace).sort()).toEqual(fs.readdirSync(viaCli).sort())
-    expect(Object.keys(cmdRevisions('beta', { cwd })[0]).sort()).toEqual(
-      Object.keys(cmdRevisions('alpha', { cwd })[0]).sort(),
+    expect(Object.keys((await cmdRevisions('beta', { cwd }))[0]).sort()).toEqual(
+      Object.keys((await cmdRevisions('alpha', { cwd }))[0]).sort(),
     )
 
-    // The published channel was rendered, and the workspace origin serves it.
+    // The published channel was rendered — and the origin REDIRECTS to it
+    // rather than serving it (REQ-149 D4). One serving path for published
+    // bytes: public-site owns them, and a second origin answering the same
+    // question would be the duplicate resolve-and-serve that seam exists to
+    // prevent.
     const published = path.join(cwd, 'storage/dist/sites/beta/published/index.html')
     expect(fs.existsSync(published)).toBe(true)
-    const servedRes = await get('/preview/beta/published/')
-    expect(servedRes.status).toBe(200)
-    expect(await servedRes.text()).toBe(fs.readFileSync(published, 'utf8'))
+    const servedRes = await get('/preview/beta/published/', { redirect: 'manual' })
+    expect(servedRes.status).toBe(302)
+    expect(servedRes.headers.get('location')).toBe('https://1stcontact.io/site/beta/')
 
     if (!WEBUI_INSTALLED) {
       unverified(
@@ -281,13 +301,25 @@ describe('story-e674c60a workspace mounted over its origin', () => {
     app.panel.setSite('beta')
     expect(app.panel.getSite()).toBe('beta')
 
+    // `beta` was published above and has not moved since, and REQ-149 made
+    // publishing an unchanged draft a NO-OP. So the draft is edited first — not
+    // to work around the rule, but because the button under test mints a
+    // revision only when there is something to mint, and a test that clicked it
+    // on an unchanged site would be asserting the old behaviour.
+    editBetaHeadline(cwd, 'Displayed-site publish.')
+
     ;(app.toolbar.get('publish') as HTMLButtonElement).click()
 
-    await vi.waitFor(() => expect(cmdRevisions('beta', { cwd })).toHaveLength(2))
+    await vi.waitFor(async () => expect(await cmdRevisions('beta', { cwd })).toHaveLength(2))
     // The site the workspace was NOT displaying gained nothing.
-    expect(cmdRevisions('alpha', { cwd })).toHaveLength(1)
-    // …and the published channel of the displayed site is re-rendered and served.
-    expect((await get('/preview/beta/published/')).status).toBe(200)
+    expect(await cmdRevisions('alpha', { cwd })).toHaveLength(1)
+    // …and the published channel of the displayed site is re-rendered, and the
+    // origin points at where it is served from (REQ-149 D4).
+    expect(
+      fs.readFileSync(path.join(cwd, 'storage/dist/sites/beta/published/index.html'), 'utf8'),
+    ).toContain('Displayed-site publish.')
+    const redirected = await get('/preview/beta/published/', { redirect: 'manual' })
+    expect(redirected.status).toBe(302)
 
     app.destroy()
   })

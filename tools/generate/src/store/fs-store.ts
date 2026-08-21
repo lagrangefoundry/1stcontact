@@ -1,24 +1,27 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { StoreContext } from './paths'
-import { draftDir, revisionDir } from './paths'
+import { distDir, draftDir, revisionDir } from './paths'
 import {
+  emptyDir,
   ensureDir,
   listFilesRel,
   pathExists,
   readJson,
   removePath,
   writeJson,
+  writeText,
 } from './fsutil'
-import { diffSnapshots } from './diff'
-import { liveRevision, readHistory } from './history'
+import { readDraftBase, writeDraftBase } from './base'
+import { appendHistory, readHistory } from './history'
 import { appendChange, changesSince, draftCounter } from './journal'
 import { loadSite } from './loadSite'
+import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
 import type {
   DraftSnapshot,
-  PendingChanges,
   SiteStore,
   SiteWrite,
+  StoredAsset,
   StoredPage,
 } from './site-store'
 
@@ -41,6 +44,14 @@ import type {
  * uncheckable. The D1 adapter is where multi-file atomicity arrives, and the
  * one-verb shape of {@link SiteWrite} is what lets it arrive without touching a
  * caller.
+ *
+ * REVISIONS ARRIVED WITHOUT MOVING (REQ-149). The five revision verbs read and
+ * write exactly what DOC-12 §4 already specified — `revisions/NNNN/`,
+ * `history.json`, `.draft-base.json` — and the rendered output still lands in
+ * `storage/dist/<root>/<slug>/published/`, where `1c serve --source published`
+ * and the fidelity gate look for it. What changed is WHO drives them: publish is
+ * `publish.ts`'s single sequence over the port, so the operator's disk and the
+ * Worker's D1 now run the same publish rather than two that agree by inspection.
  */
 export function fsSiteStore(ctx: StoreContext): SiteStore {
   const siteJsonPath = (slug: string): string => path.join(draftDir(ctx, slug), 'site.json')
@@ -125,10 +136,78 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       return Promise.resolve(changesSince(ctx, slug, since))
     },
 
-    pendingChanges(slug): Promise<PendingChanges> {
-      const live = liveRevision(readHistory(ctx, slug))
-      const prevDir = live === null ? null : revisionDir(ctx, slug, live)
-      return Promise.resolve({ baseRevision: live, ...diffSnapshots(prevDir, draftDir(ctx, slug)) })
+    // ── revisions (REQ-149) ─────────────────────────────────────────────────
+    //
+    // The same `revisions/NNNN/` tree and `history.json` DOC-12 §4 has always
+    // described — reached through the port instead of by `commands.ts` directly,
+    // so the publish that drives them is the one the Worker drives too.
+
+    revisions(slug): Promise<RevisionEntry[]> {
+      return Promise.resolve(readHistory(ctx, slug).revisions)
+    },
+
+    async writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
+      // The frozen definition, as a complete byte copy — a revision directory is
+      // what `loadSite(ctx, slug, <id>)` reads, so it has to be shaped exactly
+      // like a draft.
+      const dir = revisionDir(ctx, slug, entry.id)
+      emptyDir(dir)
+      if (content.source.siteJson !== null) {
+        writeJson(path.join(dir, 'site.json'), content.source.siteJson)
+      }
+      for (const { name, page } of content.source.pages) {
+        writeJson(path.join(dir, 'pages', name), page)
+      }
+      for (const { name, bytes } of content.source.assets) {
+        ensureDir(path.join(dir, 'assets'))
+        fs.writeFileSync(path.join(dir, 'assets', name), bytes)
+      }
+
+      // The rendered artifact. It lands where `1c serve --source published`,
+      // `1c shot` and the fidelity gate already look for it, so publishing keeps
+      // feeding the reproduction loop rather than only the cloud.
+      const out = distDir(ctx, slug, 'published')
+      emptyDir(out)
+      for (const [rel, text] of content.out) writeText(path.join(out, rel), text)
+      for (const { name, bytes } of content.source.assets) {
+        ensureDir(path.join(out, 'assets'))
+        fs.writeFileSync(path.join(out, 'assets', name), bytes)
+      }
+
+      // LAST, so the log never names a revision whose bytes are not all there.
+      appendHistory(ctx, slug, entry)
+    },
+
+    readRevision(slug, id): Promise<StoredSnapshot | null> {
+      const dir = revisionDir(ctx, slug, id)
+      if (!pathExists(dir)) return Promise.resolve(null)
+      const siteJsonFile = path.join(dir, 'site.json')
+      const pages: StoredPage[] = listFilesRel(path.join(dir, 'pages'))
+        .filter((rel) => rel.endsWith('.json'))
+        .map((rel) => ({
+          name: rel,
+          page: readJson<Record<string, unknown>>(path.join(dir, 'pages', rel)),
+        }))
+      const assets: StoredAsset[] = listFilesRel(path.join(dir, 'assets')).map((rel) => ({
+        name: rel,
+        bytes: new Uint8Array(fs.readFileSync(path.join(dir, 'assets', rel))),
+      }))
+      return Promise.resolve({
+        siteJson: pathExists(siteJsonFile)
+          ? readJson<Record<string, unknown>>(siteJsonFile)
+          : null,
+        pages,
+        assets,
+      })
+    },
+
+    draftBase(slug) {
+      return Promise.resolve(readDraftBase(ctx, slug).basedOn)
+    },
+
+    setDraftBase(slug, id) {
+      writeDraftBase(ctx, slug, id)
+      return Promise.resolve()
     },
 
     /**

@@ -130,7 +130,7 @@ async function openWorkspace(): Promise<Workspace> {
   const ws: Workspace = {
     cwd,
     builder,
-    get: (p: string) => fetch(new URL(p, builder.url)),
+    get: (p: string, init?: RequestInit) => fetch(new URL(p, builder.url), init),
   }
   OPEN.push(ws)
   return ws
@@ -365,11 +365,17 @@ describe('story-e674c60a request-time render', () => {
       await cmdPublish(SLUG, { cwd: ws.cwd, message: 'first' })
 
       const publishedDir = distDirOf(ws.cwd, 'published')
-      const artifact = fs.readFileSync(path.join(publishedDir, 'index.html'), 'utf8')
-      const served = await ws.get(`/preview/${SLUG}/published/`)
-      expect(served.status).toBe(200)
-      expect(await served.text(), 'the published channel is not the artifact publishing produced')
-        .toBe(artifact)
+      const artifactPath = path.join(publishedDir, 'index.html')
+      const artifact = fs.readFileSync(artifactPath, 'utf8')
+
+      // The origin REDIRECTS to where published bytes are served rather than
+      // serving them (REQ-149 D4) — public-site owns that channel, and a second
+      // origin answering the same question would be the duplicated
+      // resolve-and-serve the seam exists to prevent. What matters for this UAT
+      // is unchanged: the published channel is an ARTIFACT, not a re-derivation.
+      const served = await ws.get(`/preview/${SLUG}/published/`, { redirect: 'manual' })
+      expect(served.status).toBe(302)
+      expect(served.headers.get('location')).toBe(`https://1stcontact.io/site/${SLUG}/`)
 
       // Move the draft on, without publishing again.
       const UNPUBLISHED = 'Work that has not been published yet.'
@@ -380,10 +386,13 @@ describe('story-e674c60a request-time render', () => {
         expect(html, `${channel} did not follow the draft`).toContain(UNPUBLISHED)
       }
 
-      const after = await ws.get(`/preview/${SLUG}/published/`)
-      expect(after.status).toBe(200)
-      const afterBody = await after.text()
-      expect(afterBody, 'unpublished work reached the published address').not.toContain(
+      // The artifact did not move with the draft. This is the whole claim, and
+      // it is asserted against the bytes publishing produced rather than against
+      // a response, because those bytes are what a publish puts in front of the
+      // public — deriving the published channel from today's draft is exactly
+      // the mistake this UAT exists to catch.
+      const afterBody = fs.readFileSync(artifactPath, 'utf8')
+      expect(afterBody, 'unpublished work reached the published artifact').not.toContain(
         UNPUBLISHED,
       )
       expect(afterBody, 'the published channel moved with the draft').toBe(artifact)

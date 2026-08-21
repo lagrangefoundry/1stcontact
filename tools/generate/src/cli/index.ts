@@ -46,7 +46,6 @@ import {
   type EditOutput,
 } from './edit'
 import { cmdCapturePage } from './capture'
-import { cmdDeploy, formatDeployReport } from '../deploy'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import {
   cmdColors,
@@ -234,7 +233,12 @@ Usage:
     behaviour or motion script — so all content shows at once, and every editable region
     is outlined and stamped with its address. Never published; lands in dist/<slug>/edit/.
   1c publish <slug> [-m "message"] [--by <id>] [--sandbox]
+    Freezes the draft as the next revision, renders it, and records what changed.
+    An UNCHANGED draft mints nothing and says so (REQ-149) — publishing twice in a
+    row is a no-op, not a second revision describing no difference.
   1c checkout <slug> [<revId>] [--force] [--sandbox]
+    Replaces the draft with a revision. Forward-only: publishing afterwards mints a
+    NEW highest revision recording what it descended from — history never rewinds.
   1c revisions <slug> [--sandbox]
   1c serve <slug> [--source draft|published] [--sandbox] [--port <n>]
   1c builder [--port <n>] [--remote]
@@ -276,20 +280,6 @@ Control-app assets (REQ-145) — the build step behind /builder, /webui and /fra
     apps/control-app/dist-assets/, type-strips the framework bridges once, and
     writes the derived import map the Worker serves in its chrome document.
     Nothing is type-stripped, transpiled or resolved at request time afterwards.
-
-Deploy (REQ-110) — ship a rendered snapshot to the R2 artifact store:
-  1c deploy <slug> [--channel draft|published] [--dry-run] [--prune] [--sandbox] [--json]
-    Renders first, always — there is no way to ship stale bytes. The snapshot (out/ plus the
-    source/ it was rendered from, so R2 holds a COMPLETE DOC-12 revision) is content-addressed:
-    redeploying identical bytes is a no-op that returns the same URL.
-    --channel draft (default) publishes an immutable, shareable PREVIEW snapshot; it never enters
-    history.json and never mints a revision number. --channel published ships the current latest
-    revision and moves the manifest's live pointer; it refuses when history.json is empty
-    (publish mints the revision, deploy ships it).
-    --dry-run prints the full plan and writes nothing. --prune deletes snapshot objects the
-    manifest does not reference — the orphans an interrupted deploy leaves behind.
-    --sandbox deploys under the sandbox/ R2 root, which nothing serves: the snapshot is uploaded
-    and indexed but has no URL. To exercise the serving path, use a throwaway slug in storage/sites/.
 
 Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
   1c capture page <url>
@@ -616,7 +606,7 @@ export async function run(argv: string[]): Promise<void> {
 
     case 'revisions': {
       const slug = requireSlug(rest[0])
-      const revs = cmdRevisions(slug, global)
+      const revs = await cmdRevisions(slug, global)
       if (revs.length === 0) {
         console.log('(no revisions)')
         return
@@ -643,38 +633,25 @@ export async function run(argv: string[]): Promise<void> {
 
     case 'publish': {
       const slug = requireSlug(rest[0])
-      const { id, outDir, changes } = await cmdPublish(slug, {
+      const { id, outDir, changes, published } = await cmdPublish(slug, {
         ...global,
         message: typeof flags.message === 'string' ? flags.message : undefined,
         by: typeof flags.by === 'string' ? flags.by : undefined,
       })
+      // REQ-149 D1 — an unchanged draft mints nothing, and says so rather than
+      // reporting a revision number the operator would reasonably read as new.
+      if (!published) {
+        console.log(`Already published as r${id} — the draft has no changes.`)
+        return
+      }
       const n = changes.added.length + changes.modified.length + changes.removed.length
       console.log(`Published revision r${id} (${n} change(s)) → ${outDir}`)
       return
     }
 
-    case 'deploy': {
-      // REQ-110 — render + content-address + upload. Render chatter is diverted so
-      // `--json` stays a single clean document.
-      const slug = requireSlug(rest[0])
-      if (flags.channel !== undefined && flags.channel !== 'draft' && flags.channel !== 'published') {
-        throw new Error(`Invalid --channel '${String(flags.channel)}'. Use draft|published.`)
-      }
-      const result = await withCleanStdout(() =>
-        cmdDeploy(slug, {
-          ...global,
-          channel: flags.channel === 'published' ? 'published' : 'draft',
-          dryRun: flags['dry-run'] === true,
-          prune: flags.prune === true,
-        }),
-      )
-      console.log(flags.json === true ? JSON.stringify(result, null, 2) : formatDeployReport(result))
-      return
-    }
-
     case 'checkout': {
       const slug = requireSlug(rest[0])
-      const { id, draftDir } = cmdCheckout(slug, parseRev(rest[1]), {
+      const { id, draftDir } = await cmdCheckout(slug, parseRev(rest[1]), {
         ...global,
         force: flags.force === true,
       })

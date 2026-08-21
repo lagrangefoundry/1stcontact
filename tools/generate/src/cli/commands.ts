@@ -4,27 +4,27 @@ import type { GlobalOptions } from './options'
 import { renderSite } from '../render/write'
 import type { EditActor, RenderChannel, Root, StoreContext } from '../store'
 import {
-  appendHistory,
-  copyDir,
-  diffSnapshots,
   distDir,
   draftDir,
-  emptyDir,
   ensureDir,
+  fsSiteStore,
   listDirs,
-  liveRevision,
+  liveRevisionOf,
   loadSite,
-  nextRevisionId,
   pathExists,
-  readDraftBase,
   readHistory,
-  revisionDir,
   siteDir,
-  snapshot,
   writeDraftBase,
   writeJson,
 } from '../store'
-import type { LoadedSite, SiteSource } from '../store'
+import type { LoadedSite, RevisionEntry, SiteSource } from '../store'
+import {
+  checkoutRevision,
+  publishSite,
+  revisionHistory,
+  type CheckoutResult,
+  type PublishResult,
+} from '../publish/publish'
 import { starterHomePage, starterSiteJson } from './scaffold'
 
 
@@ -84,16 +84,15 @@ export function cmdList(opts: GlobalOptions = {}): SiteListing[] {
   const ctx = ctxOf(opts)
   return listSlugs(ctx).map((slug) => ({
     slug,
-    latest: liveRevision(readHistory(ctx, slug)),
+    latest: liveRevisionOf(readHistory(ctx, slug).revisions),
   }))
 }
 
 // ── revisions ─────────────────────────────────────────────────────────────────
 
 /** The publish log, newest-first. */
-export function cmdRevisions(slug: string, opts: GlobalOptions = {}) {
-  const ctx = ctxOf(opts)
-  return [...readHistory(ctx, slug).revisions].sort((a, b) => b.id - a.id)
+export function cmdRevisions(slug: string, opts: GlobalOptions = {}): Promise<RevisionEntry[]> {
+  return revisionHistory(fsSiteStore(ctxOf(opts)), slug)
 }
 
 // ── render ────────────────────────────────────────────────────────────────────
@@ -139,51 +138,32 @@ export interface PublishOptions extends GlobalOptions {
   now?: string
 }
 
-export interface PublishResult {
-  id: number
-  revisionDir: string
+export interface CliPublishResult extends PublishResult {
+  /** Where the rendered output landed, for the CLI's report. */
   outDir: string
-  changes: ReturnType<typeof diffSnapshots>
 }
 
 /**
- * Snapshot `draft/` to the next locked revision, diff it against the previous
- * live revision, append the history entry, then render the new latest to the
- * public `published/` output. Publish always renders.
+ * `1c publish` — the publish service, over the filesystem store.
+ *
+ * A CLIENT, NOT AN IMPLEMENTATION (REQ-149 AC-6/AC-7). Every step that used to
+ * be here — mint an id, copy a directory, diff two trees, append `history.json`,
+ * render — is `publishSite`'s, and the builder's `/api/publish` calls the same
+ * function against D1 and R2. What is left is the two things only a CLI knows:
+ * which store it is talking to, and where to tell the operator to look.
+ *
+ * It does NOT go over HTTP to reach the Worker. It could — the route exists —
+ * but that would make a one-shot command depend on a running server to do
+ * something it can do directly, and the thing worth sharing was the sequence
+ * rather than a wire format.
  */
-export async function cmdPublish(slug: string, opts: PublishOptions = {}): Promise<PublishResult> {
+export async function cmdPublish(
+  slug: string,
+  opts: PublishOptions = {},
+): Promise<CliPublishResult> {
   const ctx = ctxOf(opts)
-  // Validate the draft before mutating anything; an invalid draft writes nothing.
-  loadOrThrow(ctx, slug, 'draft')
-
-  const prevId = liveRevision(readHistory(ctx, slug))
-  const prevDir = prevId === null ? null : revisionDir(ctx, slug, prevId)
-
-  const id = nextRevisionId(ctx, slug)
-  const snap = snapshot(ctx, slug)
-  // nextRevisionId is computed before the copy; they must agree.
-  if (snap.id !== id) {
-    throw new Error(`Revision id race: expected ${id}, snapshot produced ${snap.id}`)
-  }
-
-  const changes = diffSnapshots(prevDir, snap.dir)
-  const basedOn = readDraftBase(ctx, slug).basedOn
-  appendHistory(ctx, slug, {
-    id,
-    publishedAt: opts.now ?? new Date().toISOString(),
-    message: opts.message ?? '',
-    by: opts.by ?? null,
-    basedOn,
-    changes,
-  })
-  // The new revision is now the draft's lineage parent.
-  writeDraftBase(ctx, slug, id)
-
-  const loaded = loadOrThrow(ctx, slug, 'latest')
-  const outDir = distDir(ctx, slug, 'published')
-  await renderSite(loaded, outDir)
-
-  return { id, revisionDir: snap.dir, outDir, changes }
+  const result = await publishSite(fsSiteStore(ctx), slug, opts)
+  return { ...result, outDir: distDir(ctx, slug, 'published') }
 }
 
 // ── checkout ──────────────────────────────────────────────────────────────────
@@ -192,46 +172,20 @@ export interface CheckoutOptions extends GlobalOptions {
   force?: boolean
 }
 
-export interface CheckoutResult {
-  id: number
+export interface CliCheckoutResult extends CheckoutResult {
   draftDir: string
 }
 
 /**
- * Copy a revision (default: latest) into `draft/`. Refuses when `draft/` has
- * uncommitted changes versus the current live revision, unless `--force`.
- * Forward-only: checking out an old revision then publishing creates a new
- * highest revision (it never rewinds history).
+ * `1c checkout` — replace the draft with a revision. Forward-only: publishing
+ * afterwards mints a NEW highest revision and records what it descended from.
  */
-export function cmdCheckout(
+export async function cmdCheckout(
   slug: string,
   revId?: number,
   opts: CheckoutOptions = {},
-): CheckoutResult {
+): Promise<CliCheckoutResult> {
   const ctx = ctxOf(opts)
-  const history = readHistory(ctx, slug)
-  const live = liveRevision(history)
-  if (live === null) {
-    throw new Error(`Site '${slug}' has no revisions to check out.`)
-  }
-  const target = revId ?? live
-  if (!pathExists(revisionDir(ctx, slug, target))) {
-    throw new Error(`Revision ${target} does not exist for site '${slug}'.`)
-  }
-
-  const draft = draftDir(ctx, slug)
-  if (!opts.force && pathExists(draft)) {
-    const dirty = diffSnapshots(revisionDir(ctx, slug, live), draft)
-    const changed = dirty.added.length + dirty.modified.length + dirty.removed.length
-    if (changed > 0) {
-      throw new Error(
-        `draft/ has uncommitted changes (${changed} file(s)); publish them or pass --force to discard.`,
-      )
-    }
-  }
-
-  emptyDir(draft)
-  copyDir(revisionDir(ctx, slug, target), draft)
-  writeDraftBase(ctx, slug, target)
-  return { id: target, draftDir: draft }
+  const result = await checkoutRevision(fsSiteStore(ctx), slug, revId, opts)
+  return { ...result, draftDir: draftDir(ctx, slug) }
 }

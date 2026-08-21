@@ -33,6 +33,7 @@ import l1Surface from './l1-surface.json'
 import l1Instances from './instances.json'
 import { CommandError } from '../errors'
 import { pageSegments } from '../segments'
+import { publishSite } from '../../publish/publish'
 import type { EditOptions } from '../edit'
 import {
   editAssetAdd,
@@ -165,16 +166,21 @@ export function l1Operations(
   /**
    * Operations this runtime can supply and the core cannot (REQ-146).
    *
-   * `add_asset` reads a file off the operator's disk and `publish` snapshots a
-   * directory tree; both are Node's, and both would drag `node:fs` and the whole
-   * Astro-backed command layer into a Worker bundle that has no use for either.
-   * They live in `toolbox.ts` — the Node entry point — and arrive here.
+   * `add_asset` reads a file off the operator's disk; that is Node's, and it
+   * would drag `node:fs` and the whole Astro-backed command layer into a Worker
+   * bundle that has no use for either. It lives in `toolbox.ts` — the Node entry
+   * point — and arrives here.
    *
-   * NEITHER IS GRANTED TO THE CARETAKER (`instances.json` withholds
-   * `ManageAssets` and `Publish`), so their absence changes nothing a session can
-   * reach: the Toolbox refuses an ungranted operation before it would look for a
-   * method. A host that DOES grant them must supply them, and the Toolbox's own
-   * startup binding check is what says so.
+   * `publish` USED TO BE ONE OF THESE and no longer is (REQ-149). It was here
+   * because publishing meant snapshotting a directory tree; it is a port verb
+   * now, so it sits in the core with every other operation and works against
+   * whichever store the host supplied.
+   *
+   * NOT GRANTED TO THE CARETAKER (`instances.json` withholds `ManageAssets`), so
+   * its absence changes nothing a session can reach: the Toolbox refuses an
+   * ungranted operation before it would look for a method. A host that DOES
+   * grant it must supply it, and the Toolbox's own startup binding check is what
+   * says so.
    */
   extra: Partial<L1Operations> = {},
 ): L1Operations {
@@ -186,6 +192,29 @@ export function l1Operations(
     }),
 
     list_pages: async () => (await editPageList(slug, opts)).data,
+
+    /**
+     * Freeze the draft as a revision and render it (REQ-149).
+     *
+     * IN THE CORE NOW. It was Node-only while publishing meant copying a
+     * directory; `publishSite` sequences port verbs, so this operation runs
+     * wherever the toolbox does — which is the point of the port.
+     */
+    publish: async (p) => {
+      const result = await publishSite(opts.store, slug, { message: opt(p, 'message') })
+      const { added, modified, removed } = result.changes
+      return {
+        id: result.id,
+        published: result.published,
+        // Publishing does not touch the draft, so this is the count as it
+        // stands — reported for the same reason a write reports it, so a
+        // caller's baseline stays current across every call it makes.
+        now: await opts.store.counter(slug),
+        added,
+        modified,
+        removed,
+      }
+    },
 
     describe_page: async (p) => {
       const page = (

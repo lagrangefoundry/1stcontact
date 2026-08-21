@@ -127,7 +127,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 builder origin', () => {
   })
 
   it('test_UAT_FC_REQ-115_publish_creates_a_revision_through_the_existing_path', async () => {
-    expect(cmdRevisions('alpha', { cwd })).toHaveLength(0)
+    expect(await cmdRevisions('alpha', { cwd })).toHaveLength(0)
 
     const res = await get('/api/publish', {
       method: 'POST',
@@ -139,15 +139,22 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 builder origin', () => {
 
     // The existing DOC-12 publish ran: history appended, revision locked, and
     // the published channel rendered and served.
-    const revisions = cmdRevisions('alpha', { cwd })
+    const revisions = await cmdRevisions('alpha', { cwd })
     expect(revisions).toHaveLength(1)
     expect(revisions[0]).toMatchObject({ id: 1, message: 'first' })
     expect(fs.existsSync(path.join(cwd, 'storage/sites/alpha/revisions/0001'))).toBe(true)
-    expect((await get('/preview/alpha/published/')).status).toBe(200)
+    expect(
+      fs.existsSync(path.join(cwd, 'storage/dist/sites/alpha/published/index.html')),
+    ).toBe(true)
+    // The origin REDIRECTS the published channel to public-site (REQ-149 D4)
+    // rather than serving it: published bytes have one serving path.
+    const published = await get('/preview/alpha/published/', { redirect: 'manual' })
+    expect(published.status).toBe(302)
+    expect(published.headers.get('location')).toBe('https://1stcontact.io/site/alpha/')
 
     // A malformed call changes nothing.
     expect((await get('/api/publish', { method: 'POST', body: '{}' })).status).toBe(400)
-    expect(cmdRevisions('alpha', { cwd })).toHaveLength(1)
+    expect(await cmdRevisions('alpha', { cwd })).toHaveLength(1)
   })
 
   it('test_UAT_FC_REQ-115_static_trees_refuse_traversal', async () => {

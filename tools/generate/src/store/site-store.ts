@@ -1,6 +1,6 @@
 import type { LoadResult } from './assemble'
-import type { ChangeSet } from './history'
 import type { ChangeSlice, JournalRecord } from './journal-model'
+import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
 
 /**
  * The `SiteStore` port (REQ-142): everything the structured-edit surface needs
@@ -37,6 +37,16 @@ import type { ChangeSlice, JournalRecord } from './journal-model'
  * single caller. The filesystem adapter cannot be atomic and does not pretend to
  * be — REQ-142 carries today's atomicity characteristics forward unchanged, and
  * improves them nowhere.
+ *
+ * REVISIONS ARE PART OF IT NOW (REQ-149). The port covered drafts only, and
+ * publish was therefore `commands.ts`'s, filesystem all the way down — which is
+ * why the builder's `/api/publish` answered 501 in workerd. The five verbs at the
+ * bottom of {@link SiteStore} are the storage a publish needs and nothing more:
+ * read the log, freeze a revision, read one back, and move the draft's lineage
+ * pointer. THE ALGORITHM IS NOT HERE — `publish.ts` sequences those verbs, once,
+ * above whichever adapter it was handed. A `publish()` verb on the port would
+ * have put the sequencing inside every adapter and made "one implementation"
+ * (REQ-149 AC-6) a thing to maintain rather than a thing that is structurally so.
  *
  * TWO ADAPTERS, BOTH CURRENT. `fsSiteStore` (the operator's git-tracked
  * `storage/sites/`, DOC-12 §3.1) and the Worker's D1/R2 one are both live; this
@@ -150,12 +160,6 @@ export interface DraftSnapshot {
   stamp: string
 }
 
-/** What has changed on the draft since the revision it descends from. */
-export interface PendingChanges extends ChangeSet {
-  /** The live revision the draft is compared against, or null before any publish. */
-  baseRevision: number | null
-}
-
 /** Storage for one site tree, addressed by slug. */
 export interface SiteStore {
   /** True when the site has a draft to operate on. */
@@ -191,8 +195,43 @@ export interface SiteStore {
   /** Every change after `since`, plus where the counter stands now. */
   changesSince(slug: string, since?: number): Promise<ChangeSlice>
 
-  /** The draft's file-level differences from the revision it descends from. */
-  pendingChanges(slug: string): Promise<PendingChanges>
+  /**
+   * Every published revision, oldest first. Empty when nothing is published.
+   *
+   * THE LOG IS THE WHOLE RECORD. There is no companion "which one is live" verb,
+   * because live is the highest id and {@link liveRevisionOf} derives it — a
+   * stored pointer is a second place for the same fact to be, and DOC-12 §4
+   * refused one for exactly that reason.
+   */
+  revisions(slug: string): Promise<RevisionEntry[]>
+
+  /**
+   * Freeze `content` as the revision `entry` names, and append `entry` to the
+   * log — one act, because a revision that lists in the history and serves
+   * nothing is worse than a publish that failed outright.
+   *
+   * The store writes the rendered output AND copies `content.source.assets`
+   * alongside it. Callers never name a destination: where a revision's bytes
+   * live is the adapter's business, which is what lets one publish service drive
+   * a directory tree and an R2 bucket without knowing which it has.
+   */
+  writeRevision(slug: string, entry: RevisionEntry, content: RevisionContent): Promise<void>
+
+  /** A revision's frozen definition, or null when the store holds no such revision. */
+  readRevision(slug: string, id: number): Promise<StoredSnapshot | null>
+
+  /**
+   * The revision the current draft descends from, or null before any publish.
+   *
+   * Distinct from "the live revision" and only equal to it most of the time: a
+   * checkout of an older revision re-parents the draft onto THAT one, and the
+   * difference is precisely what `basedOn` records when the next publish mints
+   * (DOC-12 §4).
+   */
+  draftBase(slug: string): Promise<number | null>
+
+  /** Re-parent the draft onto `id`. Publish and checkout are the only callers. */
+  setDraftBase(slug: string, id: number | null): Promise<void>
 
   /** The current draft assembled and validated, or null when there is no draft. */
   loadDraft(slug: string): Promise<DraftSnapshot | null>
