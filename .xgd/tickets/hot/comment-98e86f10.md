@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:13:16.366203+00:00'
+updated_at: '2026-08-21T02:17:13.261363+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -857,5 +857,13 @@ That 503 is a real defect, and it's the first thing anyone will hit on a fresh d
 It's a chicken-and-egg: the tenant is only created by `/api/import`, so the builder can't render until you've pushed a site into it, and it won't tell you that.
 
 I noticed this because of your blank page, not because I was looking for it — the tests never caught it because every fixture creates its tenant first. It's outside REQ-149's scope and I'd rather not quietly widen a merged ticket. Want me to file it? My instinct on the fix is that the asset fall-through shouldn't need a store at all — it serves build artifacts, which have nothing to do with a tenant.
+
+<!-- xgd-turn id="4e3943b9-533c-43ab-9b72-8572a06796bb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:17:13.170737+00:00" -->
+#### You
+I don't know that I really care we should get an error are you saying we should get a different era? You said we shouldn't get content of the tenants database is empty.
+
+By the way I restarted and then I ran builder and restarted and I'm not seeing anything on the page yet
 
 <!-- xgd-chat-end -->
