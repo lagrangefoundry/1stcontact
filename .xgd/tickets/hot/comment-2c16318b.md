@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T02:18:38.705226+00:00'
+updated_at: '2026-08-21T02:20:17.516437+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1884,5 +1884,29 @@ Two things still outstanding from earlier offers, in the order I'd do them given
 <!-- xgd-chat role="user" ts="2026-08-21T02:18:38.615151+00:00" -->
 #### You
 Did you create a document for the updated reproduction system?
+
+<!-- xgd-turn id="86890635-9b5b-4f4b-93a5-d06a2a1a2c23-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:20:17.426866+00:00" -->
+#### Claude
+No — I didn't. It's captured in CHAT-21's body (the Elementor evidence and the two-programs argument) but there's no doc for it.
+
+Worth flagging what I found while checking: **REQ-80 already identified the same root cause**, from a different angle and back in July — Elementor's element-id-scoped rules in `post-<id>.css` being invisible to the extractor, which is exactly why the hero is orphaned. It's marked **abandoned**, and the reasoning explains why: it was assessed as a *diagnostic-completeness* gap rather than a fidelity blocker, because the perceptual gate sees the rendered backgrounds anyway and the reproduction was hand-transcribed.
+
+That assessment was correct for the goal it was judged against — DOC-21's framework-growth flywheel, where a human transcribes and the perceptual gate scores the result. It's the wrong assessment for the goal we identified in this session, where nobody is hand-transcribing and the fold has to stand on its own for a paying customer. Same finding, opposite priority, because the purpose changed.
+
+That's actually a good argument for writing the doc: the importer keeps getting evaluated against the flywheel's criteria and correctly deprioritised, and it'll happen again unless the second program is written down as a separate thing with its own success measure.
+
+Shall I write it now? I'd cover:
+
+- **Purpose split** — importer vs [[DOC-21]] flywheel: different corpora (*sites our customers have* vs *sites we admire*), different outputs (customers vs L1 capability), different success metrics (widget-vocabulary coverage vs perceptual similarity)
+- **Reproduction's job is consent, not fidelity** — which sets the bar at *recognisable and improvable* and makes migration instrumental rather than aspirational
+- **Why Elementor is a transform, not an inference** — the element-id join, the closed widget vocabulary, the 53-selector evidence from Sarah's capture
+- **Current state, measured** — copy at 101%, hero and logo absent, with the specific mechanisms
+- **Coverage as a countable metric** — % of widget types, enumerable from Elementor's docs rather than discovered by crawling
+- **Detection as free qualification** — the generator meta tag as both a market boundary and a session input
+- **REQ-80's relationship** — unabandon or supersede, and why its original assessment was right at the time
+
+That last one needs your call: REQ-80 is abandoned with sound reasoning. I'd supersede rather than revive, so the record shows the priority changed because the purpose did.
 
 <!-- xgd-chat-end -->
