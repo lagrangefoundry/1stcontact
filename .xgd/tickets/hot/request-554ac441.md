@@ -5,10 +5,10 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-21T01:37:44.898561+00:00'
+updated_at: '2026-08-21T02:24:12.344901+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: free_coding
 fields:
   priority: medium
   story_points: 13
