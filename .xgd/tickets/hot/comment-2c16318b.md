@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:29:08.847705+00:00'
+updated_at: '2026-08-21T01:32:50.353279+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1542,5 +1542,11 @@ DOC-33 §11 files this as *"off the site — consumes the positioning, post-ship
 ---
 
 That feels like the whole picture now — five limbs, the loop they close, and a persona defined well enough to write down. Want me to write DOC-35 §4.5 up properly, including the limb sequence and the "attention as a service" framing? I'd also add a short cross-reference note to DOC-33 flagging that §11 undersells two of the limbs, without restructuring it.
+
+<!-- xgd-turn id="04e7f571-5db9-467e-9c18-8dec2ada4b7f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:32:50.261794+00:00" -->
+#### You
+Right and here's the beauty of it I need all of that to sell both products...so....
 
 <!-- xgd-chat-end -->
