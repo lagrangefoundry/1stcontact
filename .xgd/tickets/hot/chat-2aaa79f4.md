@@ -5,7 +5,7 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-11T23:39:33.707274+00:00'
+updated_at: '2026-08-21T00:37:47.125911+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -314,6 +314,88 @@ it.
 
 Nice symmetry: the ledger now has the same shape as [[REQ-131]]'s draft change journal —
 append-only, read-forward, latest-wins. Two artifacts, one discipline.
+
+
+
+---
+
+## Session 2 — the playbook doesn't fit real customers (→ [[DOC-35]])
+
+Reopened DOC-33 under a different lens: motivation and fit, not decision quality. Six things came
+out, and they compound into a restructure rather than an amendment.
+
+**1. Anti-anchoring by plurality, not by deferral.** DOC-33 defers everything aesthetic to Act III
+so the client can't anchor. But anchoring happens to a *single* artifact; six artifacts define a
+space instead. DOC-33 already believes this (§7.1, options-not-iterations) and simply never applies
+it to the *first* artifact. Plurality should open the session. Consequence: **the plain pass dies**
+— it existed to solve anchoring-by-deferral, and its worst property (a novice seeing a monochrome
+page and assuming we broke it) evaporates with it.
+
+**2. Hard-to-reverse things earn conversation; easy ones get shown, not discussed.** The two biggest
+differentiators sit at *opposite* ends of that curve — content architecture is the most expensive to
+change, palette/type/restraint are nearly free — and that is the whole scheduling problem. So:
+**diverge early on what's expensive, diverge continuously on what's cheap.** A first spread that
+varies only palette and font is a wasted spread; the heroes must differ *argumentatively*. The hero
+is not a section, it's the first sentence of the argument, so choosing between heroes *is* choosing
+an architecture — by pointing, in fifteen minutes, instead of by discussion in forty.
+
+**3. Fun is the extraction mechanism, not a nice-to-have.** Output quality is bounded by signal
+quality, and a bored client gives short agreeable answers — *"yeah, that's fine"* is the sound of a
+session failing. Also: DOC-33 banks all its drama on one reveal two hours in, which has to *repay*
+two hours of tedium. Distributed delight is the more robust bet. Working mechanics: **every turn
+moves the page**; **build by resolution not addition** (whole page in ghost from ~minute 20, real
+headings, provisional bodies, sharpening section by section); the carousel as a standing comparison
+surface; deliberately-wrong extremes to bracket the space. One refinement on the operator's
+scaffold idea: **not Lorem Ipsum — plausible-but-wrong real English**, because it extracts
+corrections where greeking extracts nothing.
+
+**4. DOC-33 segments on inventory; it should segment on diagnosis.** Two clients with identical
+assets can need opposite sessions. Also — DOC-32 §2B says the buyer purchases *an outcome, not an
+artifact*, calls it the single most important framing, and DOC-33 then builds eleven stages all of
+which produce a site and none of which produce a result.
+
+**5. The playbook is a checklist wearing a script's clothes.** Its stages fuse *what must be
+decided* with *the order we say things in*. Break the weld and one product serves everyone: the
+decision set is invariant (the ledger, unchanged — append-only-with-supersession was already the
+right shape); the **opening** is set by persona; **mode** and **register** float continuously.
+
+**6. Three real populations, not invented ones** — a supply-capped caterer, a network of
+technology-anxious first-timers, and a fluent solo founder. They break the single-flow assumption
+in three different directions.
+
+All of the above, plus the capacity/safety-stock diagnosis and the elicitation rules, is now
+captured in **[[DOC-35]]**. DOC-33's own restructure is deferred and scoped in DOC-35 §10.
+
+### Also established here
+
+**Reproduction's job is consent, not fidelity.** It's how you show someone a change to their site
+before they've agreed to move — which lowers the bar from pixel-perfect to *recognisable and
+improvable*, and makes migration instrumental ("to fix this, I need to be able to change it") rather
+than aspirational.
+
+**Elementor is a transform, not an inference — and that unblocks the reproduction question.**
+Checked against the real capture in `storage/references/joyfulculinarycreations.com/`:
+- WordPress 7.0.2 + **Elementor 4.2.0**; the entire page is **eleven widget types**.
+- The existing `l1.json` fold carries **all the copy** — 865 words against 859 in the capture.
+- Images are where it breaks, exactly as [[CHAT-29]] predicted: the **hero and the logo are absent
+  entirely**. The hero lives only in `assets/post-4401.css` as a `background-image` on an
+  `elementor-background-overlay`; the logo comes via the `theme-site-logo` widget.
+- Elementor's per-page CSS is **entirely keyed by element ID** (`.elementor-4401
+  .elementor-element.elementor-element-8d3c33b`, 53 distinct selectors), and those IDs appear in the
+  markup as `data-id`. The style↔element mapping is *handed to us*, not deduced.
+
+So folding Elementor → L1 is ~15–20 deterministic per-widget mappings plus a section/column rule —
+not the [[DOC-21]] flywheel, whose six XGD-level gaps (§8) target a different problem. Detection is
+free (`<meta name="generator">`), coverage becomes countable (% of widget types, enumerable from
+Elementor's docs), and the market concentration is enormous.
+
+**Keep the two programs separate.** DOC-21/DOC-15's corpus is *sites we admire* and its output is L1
+capability. The importer's corpus is *sites our customers actually have* and its output is
+customers. We have built toward the first and nothing toward the second.
+
+### Next
+
+Solopreneur/founder persona (DOC-35 §4.5) — the one persona deliberately left as a stub.
 
 
 <!-- xgd-chat-end -->
