@@ -1,11 +1,12 @@
 import { assembleSite } from './assemble'
 import type { ChangeSlice, JournalFile, JournalRecord } from './journal-model'
 import { emptyJournal, nextJournal, sliceSince } from './journal-model'
+import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
 import type {
   DraftSnapshot,
-  PendingChanges,
   SiteStore,
   SiteWrite,
+  StoredAsset,
   StoredPage,
 } from './site-store'
 
@@ -25,12 +26,15 @@ import type {
  * through the same {@link assembleSite}. A test that passes against it passes
  * because the surface works, not because the double was told to agree.
  *
- * WHAT IT DELIBERATELY IS NOT. Not a revision store. `pendingChanges` reports
- * every file as `added` against no base revision, which is exactly what
- * `diffSnapshots(null, draft)` reports for a site that has never published —
- * publish and checkout are `commands.ts`'s and stay on the filesystem
- * (DOC-12 §4). Nor is it the D1/R2 adapter or a sketch of one; that is REQ-143,
- * and it answers to a real database rather than to a Map.
+ * IT IS A REVISION STORE NOW (REQ-149), and that is not scope creep. The
+ * revision verbs are part of the port, so an adapter that answered "no
+ * revisions" would make the publish service untestable against the one adapter
+ * that exists to prove no caller needs a filesystem. Revisions are held the same
+ * way drafts are — in a Map, deep-copied on the way in and out — so a frozen
+ * revision really is frozen: mutating the draft afterwards cannot reach it.
+ *
+ * WHAT IT DELIBERATELY IS NOT. Not the D1/R2 adapter or a sketch of one; that is
+ * REQ-143, and it answers to a real database rather than to a Map.
  *
  * ATOMICITY. {@link SiteWrite} lands in one synchronous mutation here, so this
  * adapter *is* atomic — not as a promise the port makes (the filesystem one is
@@ -45,6 +49,14 @@ interface MemorySite {
   journal: JournalFile
   /** Bumped on every write; the whole of `DraftSnapshot.stamp`. */
   revision: number
+  /** The publish log, oldest first. Live is the highest id (DOC-12 §4). */
+  history: RevisionEntry[]
+  /** Frozen definitions by revision id. */
+  snapshots: Map<number, StoredSnapshot>
+  /** Rendered output by revision id — what a published request would serve. */
+  outputs: Map<number, Map<string, string>>
+  /** The revision the draft descends from. */
+  basedOn: number | null
 }
 
 /** The definition a site is seeded with. Pages are keyed by store name. */
@@ -61,6 +73,16 @@ export interface MemorySiteStore extends SiteStore {
   forget(slug: string): void
   /** The slugs this store holds a draft for, sorted. */
   slugs(): string[]
+  /**
+   * The rendered bytes a revision published, or null.
+   *
+   * The port has no read verb for rendered output — nothing in the system needs
+   * one, because each adapter's output is served by whatever already serves that
+   * store (`1c serve` off disk, `public-site` off R2). This is the in-memory
+   * adapter's own surface, so a UAT can assert that a publish rendered what it
+   * claimed to without a bucket or a filesystem to look in.
+   */
+  renderedRevision(slug: string, id: number): Map<string, string> | null
 }
 
 /** A deep copy, so a caller mutating what it read cannot reach into the store. */
@@ -90,6 +112,10 @@ export function memorySiteStore(): MemorySiteStore {
         assets: new Map(Object.entries(seed.assets ?? {}).map(([n, b]) => [n, b.slice()])),
         journal: emptyJournal(),
         revision: 0,
+        history: [],
+        snapshots: new Map(),
+        outputs: new Map(),
+        basedOn: null,
       })
     },
 
@@ -159,20 +185,55 @@ export function memorySiteStore(): MemorySiteStore {
       return Promise.resolve<ChangeSlice>(sliceSince(journal, since))
     },
 
-    pendingChanges(slug): Promise<PendingChanges> {
+    revisions(slug): Promise<RevisionEntry[]> {
+      return Promise.resolve(copy(site(slug)?.history ?? []))
+    },
+
+    writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
+      const found = require(slug)
+      // Deep-copied in, so the snapshot cannot be reached through the draft it
+      // was taken from. A revision that moved when its draft did would not be a
+      // revision.
+      found.snapshots.set(entry.id, {
+        siteJson: copy(content.source.siteJson),
+        pages: content.source.pages.map((p) => ({ name: p.name, page: copy(p.page) })),
+        assets: content.source.assets.map((a) => ({
+          name: a.name,
+          bytes: new Uint8Array(a.bytes),
+        })),
+      })
+      found.outputs.set(entry.id, new Map(content.out))
+      found.history.push(copy(entry))
+      return Promise.resolve()
+    },
+
+    readRevision(slug, id): Promise<StoredSnapshot | null> {
+      const held = site(slug)?.snapshots.get(id)
+      if (!held) return Promise.resolve(null)
+      return Promise.resolve({
+        siteJson: copy(held.siteJson),
+        pages: held.pages.map((p: StoredPage) => ({ name: p.name, page: copy(p.page) })),
+        assets: held.assets.map((a: StoredAsset) => ({
+          name: a.name,
+          bytes: new Uint8Array(a.bytes),
+        })),
+      })
+    },
+
+    draftBase(slug) {
+      return Promise.resolve(site(slug)?.basedOn ?? null)
+    },
+
+    setDraftBase(slug, id) {
       const found = site(slug)
-      if (!found) {
-        return Promise.resolve({ baseRevision: null, added: [], modified: [], removed: [] })
-      }
-      // Everything is `added` against no base, which is what `diffSnapshots`
-      // reports for a draft that has never been published — the only state a
-      // store with no revisions can be in.
-      const added = [
-        ...(found.siteJson ? ['site.json'] : []),
-        ...pageNames(found).map((name) => `pages/${name}`),
-        ...[...found.assets.keys()].sort().map((name) => `assets/${name}`),
-      ].sort()
-      return Promise.resolve({ baseRevision: null, added, modified: [], removed: [] })
+      if (found) found.basedOn = id
+      return Promise.resolve()
+    },
+
+    /** The rendered bytes a revision published. The adapter's own test surface. */
+    renderedRevision(slug, id) {
+      const out = site(slug)?.outputs.get(id)
+      return out ? new Map(out) : null
     },
 
     version(slug) {

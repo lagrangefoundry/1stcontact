@@ -7,9 +7,8 @@ import type { SiteStore, StoreContext } from '../store'
 import { fsSiteStore } from '../store'
 import type { TenantSiteStore } from '../store/d1r2-store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
-import { cmdList, cmdPublish, ctxOf, type GlobalOptions } from './commands'
-import { distDir } from '../store'
-import { resolveStaticFile, sendFile } from './serve'
+import { cmdList, ctxOf, type GlobalOptions } from './commands'
+import { resolveStaticFile } from './serve'
 import { MIME } from '../store/content-type'
 
 /**
@@ -39,16 +38,17 @@ import { MIME } from '../store/content-type'
  * real thing — same routes, same store, same runtime as production. See
  * `cli/index.ts`.
  *
- * THREE ROUTES LIVE HERE AND NOWHERE ELSE. `/api/ai/*` needs a library that
+ * ONE ROUTE LIVES HERE AND NOWHERE ELSE: `/api/ai/*`, which needs a library that
  * loads itself from an out-of-repo artifact store by file URL
- * (lagrange-framework REQ-103); `/api/publish` and the `published` channel need
- * the filesystem revision store ([[REQ-149]]). None is a duplicate: the Worker
- * has no implementation of any of them, it answers 501, and these are the only
- * ones that exist. They move to the router the moment their tickets land.
+ * (lagrange-framework REQ-103). It is not a duplicate — the Worker has no
+ * implementation of it — and it moves to the router the moment that ticket lands.
  *
- * `published` is deliberately NOT re-derived from today's draft — it is the
- * immutable artifact `publish` produced from a locked revision, so serving it
- * from anywhere else would show unpublished work as published.
+ * `/api/publish` AND THE `published` CHANNEL USED TO BE HERE TOO, intercepted on
+ * the way past and answered from the filesystem revision store. [[REQ-149]] put
+ * revisions on the port, so the router's own handlers serve both — and the
+ * interceptions are DELETED rather than kept as a local fast path. They were the
+ * one place where this transport and the deployed Worker disagreed about what a
+ * route does, which is exactly the thing this file exists not to be.
  */
 
 export interface BuilderOptions extends GlobalOptions {
@@ -299,16 +299,16 @@ export async function handleBuilderRequest(
    * FRESHNESS, SET ONCE, BEFORE ANY ROUTING — for this transport's OWN routes.
    *
    * The router stamps everything it answers (`router.ts`), and {@link send}
-   * carries that through verbatim. The three routes below never reach the
-   * router, so without this they would be the one uncacheable-by-intent origin
-   * serving cacheable bytes — the same hole, in the same shape, one layer along.
+   * carries that through verbatim. The chat routes below never reach the router,
+   * so without this they would be the one uncacheable-by-intent origin serving
+   * cacheable bytes — the same hole, in the same shape, one layer along.
    * `setHeader` before routing means every `writeHead` here merges it.
    */
   res.setHeader('cache-control', 'no-store, must-revalidate')
 
-  // ── the capabilities the Worker does not have ────────────────────────────
-  // Not duplicates of a router route: the router answers 501 for both, because
-  // no implementation of them can run in workerd yet. These are the only ones.
+  // ── the one capability the Worker does not have ──────────────────────────
+  // Not a duplicate of a router route: the deployed Worker has no local model
+  // host, so there is nothing here for it to disagree with.
   try {
     if (p === '/api/ai/roles' && req.method === 'GET') {
       json(res, 200, await aiStatus(opts))
@@ -346,36 +346,6 @@ export async function handleBuilderRequest(
       return
     }
 
-    // /preview/<slug>/published/… — the publish-time artifact, off disk.
-    const published = p.match(/^\/preview\/([^/]+)\/published(\/.*)?$/)
-    if (published) {
-      const slug = decodeURIComponent(published[1])
-      const file = await resolveStaticFile(distDir(ctx, slug, 'published'), published[2] ?? '/')
-      if (file === 'forbidden') {
-        res.writeHead(403, { 'content-type': 'text/plain' }).end('Forbidden')
-        return
-      }
-      if (!file) {
-        res.writeHead(404, { 'content-type': 'text/plain' }).end('Not found')
-        return
-      }
-      sendFile(res, file)
-      return
-    }
-
-    if (p === '/api/publish' && req.method === 'POST') {
-      const body = await readJsonBody(req)
-      if (typeof body.slug !== 'string') {
-        json(res, 400, { error: 'slug is required' })
-        return
-      }
-      const result = await cmdPublish(body.slug, {
-        ...opts,
-        message: typeof body.message === 'string' ? body.message : undefined,
-      })
-      json(res, 200, { id: result.id, changes: result.changes })
-      return
-    }
   } catch (err) {
     json(res, 500, { error: err instanceof Error ? err.message : String(err) })
     return

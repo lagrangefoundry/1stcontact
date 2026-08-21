@@ -1,109 +1,72 @@
 /**
- * REQ-111 — `public-site` serves deployed sites out of R2.
+ * REQ-111 — `public-site` serves published sites out of R2.
  *
- * `1c deploy` (REQ-110) put snapshots in a bucket, but the Worker in front of
- * that bucket was a stub returning a greeting: nothing had ever actually been
- * served. These UATs pin the serving contract through the Worker's real entry
- * point — `fetch(Request, Env, ExecutionContext)` — with the bucket seeded by a
- * real `1c deploy` run, so what is served is what the deploy pipeline genuinely
- * writes rather than a hand-built fixture that agrees with the implementation.
+ * The Worker in front of the bucket was once a stub returning a greeting;
+ * nothing had ever actually been served. These UATs pin the serving contract
+ * through the Worker's real entry point — `fetch(Request, Env, ExecutionContext)`
+ * — with the bucket seeded by a REAL PUBLISH, so what is served is what the
+ * publish path genuinely produces rather than a hand-built fixture that agrees
+ * with the implementation.
  *
- * R2 is faked at the binding, which is the one boundary we do not own; every
- * layer above it (route grammar, `SiteStore`, header policy, cache) is real.
+ * R2 and D1 are faked at the BINDING, which is the one boundary this repo does
+ * not own; every layer above them (route grammar, `SiteStore`, header policy,
+ * cache) is real. The end-to-end path over genuine bindings — publish in
+ * control-app, serve from public-site — is
+ * `test_UAT_FC_REQ-149_publish_in_the_cloud.workers.test.ts`.
+ *
+ * ONE CHANNEL SINCE REQ-149. Half of these cases addressed sha-named draft
+ * snapshots. Those are gone with the deploy manifest that indexed them (D7), and
+ * so is the manifest itself: D1 is the only record of what is live, which is why
+ * "point `live` at an older revision" below is a database row rather than a
+ * rewritten JSON object.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { beforeEach, describe, expect, it } from 'vitest'
 import worker from '../apps/public-site/src/index'
+import type { Env } from '../apps/public-site/src/index'
 import { parseRoute } from '../apps/public-site/src/routes'
 import { contentTypeFor } from '../apps/public-site/src/content-type'
-import { cmdNew, cmdPublish } from '../tools/generate/src/cli/commands'
-import { draftDir, readJson, writeJson } from '../tools/generate/src/store'
+import { publishedOutPrefix } from '../tools/generate/src/store/revision-model'
+import { starterHomePage, starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import {
-  assertNoReservedSegment,
-  cmdDeploy,
-  MemoryR2Client,
-  manifestKey,
-  type SiteManifest,
-} from '../tools/generate/src/deploy'
+  emptyPublished,
+  publishInto,
+  type FakeBucket,
+  type PublishedFixture,
+} from './fixtures/published-site'
 
 const SLUG = 'acme'
 const ORIGIN = 'https://1stcontact.io'
 
-let cwd: string
-let client: MemoryR2Client
+const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>'
 
-const ctx = {
-  get cwd() {
-    return cwd
-  },
-  root: 'sites' as const,
-}
+let published: PublishedFixture
 
 beforeEach(() => {
-  cwd = mkdtempSync(path.join(tmpdir(), 'req111-'))
-  client = new MemoryR2Client()
-  cmdNew(SLUG, { cwd })
-  // An asset that travels through the render into `out/assets/`, so the served
-  // page has something to reference besides its own stylesheet.
-  mkdirSync(path.join(draftDir(ctx, SLUG), 'assets'), { recursive: true })
-  writeFileSync(
-    path.join(draftDir(ctx, SLUG), 'assets', 'logo.svg'),
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>',
-    'utf8',
-  )
+  published = emptyPublished()
 })
 
-afterEach(() => {
-  rmSync(cwd, { recursive: true, force: true })
-})
-
-/** Set the home page's single L1 text leaf — the marker rendered into the HTML. */
-function setPageText(marker: string): void {
-  const file = path.join(draftDir(ctx, SLUG), 'pages', 'home.json')
-  const page = readJson<Record<string, unknown>>(file)
+/** The home page with its single L1 text leaf set to `marker`. */
+function homePage(marker: string): Record<string, unknown> {
+  const page = starterHomePage(SLUG) as unknown as Record<string, unknown>
   const l1 = page.l1 as { root: { children: Array<{ text: string }> } }
   l1.root.children[0].text = marker
-  writeJson(file, page)
+  return page
 }
 
-function deploy(opts: Parameters<typeof cmdDeploy>[1] = {}) {
-  return cmdDeploy(SLUG, { cwd, client, now: '2026-07-30T12:00:00.000Z', ...opts })
-}
-
-// ── the R2 binding, faked over the bytes a real deploy wrote ──────────────────
-
-/** Counts reads so a test can prove a warm request never reached the store. */
-class FakeBucket {
-  reads = 0
-
-  constructor(private readonly objects: Map<string, Buffer>) {}
-
-  async get(key: string) {
-    this.reads++
-    const buf = this.objects.get(key)
-    if (buf === undefined) return null
-    return {
-      key,
-      size: buf.byteLength,
-      httpEtag: `"${key.length}-${buf.byteLength}"`,
-      body: new Blob([new Uint8Array(buf)]).stream(),
-      text: async () => buf.toString('utf8'),
-    }
-  }
-
-  async head(key: string) {
-    this.reads++
-    const buf = this.objects.get(key)
-    if (buf === undefined) return null
-    return { key, size: buf.byteLength, httpEtag: `"${key.length}-${buf.byteLength}"` }
-  }
-}
-
-function bucket(): FakeBucket {
-  return new FakeBucket(client.objects)
+/**
+ * Publish revision `n` of the site with `marker` on its home page.
+ *
+ * An asset travels through the render into `out/assets/`, so the served page has
+ * something to reference besides its own stylesheet — a page that 200s while its
+ * image 404s is a broken page, not a served one.
+ */
+async function publishRevision(marker: string): Promise<number> {
+  const { id } = await publishInto(published, SLUG, {
+    siteJson: starterSiteJson(SLUG) as unknown as Record<string, unknown>,
+    pages: { 'home.json': homePage(marker) },
+    assets: { 'logo.svg': new TextEncoder().encode(LOGO) },
+  })
+  return id
 }
 
 interface Fetched {
@@ -112,8 +75,11 @@ interface Fetched {
 }
 
 /** Drive the Worker's real entry point for one request. */
-async function call(pathAndQuery: string, opts: { method?: string; bucket?: FakeBucket } = {}): Promise<Fetched> {
-  const b = opts.bucket ?? bucket()
+async function call(
+  pathAndQuery: string,
+  opts: { method?: string; bucket?: FakeBucket } = {},
+): Promise<Fetched> {
+  const b = opts.bucket ?? published.bucket
   const waits: Promise<unknown>[] = []
   const executionCtx = {
     waitUntil: (p: Promise<unknown>) => void waits.push(p),
@@ -122,8 +88,10 @@ async function call(pathAndQuery: string, opts: { method?: string; bucket?: Fake
   }
   const res = await worker.fetch(
     new Request(`${ORIGIN}${pathAndQuery}`, { method: opts.method ?? 'GET' }),
-    // The fake stands in for the R2 binding only; the store above it is real.
-    { SITES: b as unknown as R2Bucket },
+    {
+      SITES: b as unknown as R2Bucket,
+      DB: published.db as unknown as D1Database,
+    } as Env,
     executionCtx as unknown as ExecutionContext,
   )
   await Promise.all(waits)
@@ -132,16 +100,6 @@ async function call(pathAndQuery: string, opts: { method?: string; bucket?: Fake
 
 async function get(pathAndQuery: string): Promise<Response> {
   return (await call(pathAndQuery)).res
-}
-
-async function manifest(): Promise<SiteManifest> {
-  const raw = await client.get(manifestKey('sites', SLUG))
-  if (raw === null) throw new Error('no manifest in R2')
-  return JSON.parse(raw) as SiteManifest
-}
-
-function putManifest(m: SiteManifest): void {
-  client.objects.set(manifestKey('sites', SLUG), Buffer.from(JSON.stringify(m, null, 2) + '\n', 'utf8'))
 }
 
 /** Every document-relative URL the page asks the browser to load. */
@@ -155,42 +113,57 @@ function relativeReferences(html: string): string[] {
   return [...found]
 }
 
-// ── UATs ─────────────────────────────────────────────────────────────────────
+describe('REQ-111 — public-site serves published sites', () => {
+  it('test_UAT_FC_REQ-111_serves_live_published_revision', async () => {
+    await publishRevision('PUBLISHED-MARKER')
 
-describe('REQ-111 — public-site serves deployed snapshots', () => {
-  it('test_UAT_FC_REQ-111_serves_preview_snapshot', async () => {
-    setPageText('PREVIEW-MARKER')
-    const deployed = await deploy()
-
-    const base = `/site/${SLUG}/draft/${deployed.sha}/`
-    const res = await get(base)
+    const res = await get(`/site/${SLUG}/`)
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8')
 
     const html = await res.text()
-    expect(html).toContain('PREVIEW-MARKER')
+    expect(html).toContain('PUBLISHED-MARKER')
     expect(html).toContain('<title>')
 
-    // The page is only served if everything it asks for is served too — a page
-    // that 200s while its stylesheet 404s is a broken page, not a served one.
-    const refs = relativeReferences(html)
-    expect(refs).toContain('./theme.css')
-    for (const ref of refs) {
-      const target = new URL(ref, `${ORIGIN}${base}`)
-      const asset = await get(`${target.pathname}${target.search}`)
-      expect(asset.status, `asset ${ref} → ${target.pathname}`).toBe(200)
+    // The page is only served if everything it asks for is served too.
+    const references = relativeReferences(html)
+    expect(references.length).toBeGreaterThan(0)
+    for (const ref of references) {
+      const target = new URL(ref, `${ORIGIN}/site/${SLUG}/`)
+      expect((await get(target.pathname)).status, ref).toBe(200)
     }
 
-    // Assets that ship with the snapshot but are not referenced are reachable too.
-    const logo = await get(`${base}assets/logo.svg`)
+    const logo = await get(`/site/${SLUG}/assets/logo.svg`)
     expect(logo.status).toBe(200)
     expect(logo.headers.get('content-type')).toBe('image/svg+xml')
     expect(await logo.text()).toContain('<svg')
   })
 
+  it('test_UAT_FC_REQ-111_live_is_the_highest_revision_and_never_a_stored_pointer', async () => {
+    await publishRevision('REVISION-ONE')
+    const first = await get(`/site/${SLUG}/`)
+    expect(first.status).toBe(200)
+    expect(await first.text()).toContain('REVISION-ONE')
+
+    await publishRevision('REVISION-TWO')
+    expect(await (await get(`/site/${SLUG}/`)).text()).toContain('REVISION-TWO')
+
+    // What is served follows the LOG and nothing else — live is `MAX(id)`,
+    // derived, never a pointer that could disagree with what it points into
+    // (DOC-12 §4, REQ-149 D5). Wind the log back and the older revision serves,
+    // with both snapshots still in the bucket untouched.
+    expect(published.db.live.get(SLUG)).toBe(2)
+    published.db.live.set(SLUG, 1)
+    expect(await (await get(`/site/${SLUG}/`)).text()).toContain('REVISION-ONE')
+
+    // A live revision whose bytes were never uploaded is a 404, not a 500.
+    published.db.live.set(SLUG, 99)
+    expect((await get(`/site/${SLUG}/`)).status).toBe(404)
+  })
+
   it('test_UAT_FC_REQ-111_bare_path_redirects_to_trailing_slash', async () => {
-    const deployed = await deploy()
-    const bare = `/site/${SLUG}/draft/${deployed.sha}`
+    await publishRevision('PUBLISHED-MARKER')
+    const bare = `/site/${SLUG}`
 
     const redirect = await get(bare)
     expect(redirect.status).toBe(301)
@@ -198,10 +171,15 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
 
     // Why it is load-bearing, not cosmetic: assets are document-relative
     // (REQ-109), so from the bare form `./theme.css` resolves one level too high
-    // — to a path that is, correctly, nothing at all.
+    // — out of the site entirely, to `/site/theme.css`, which the grammar reads
+    // as a SITE called `theme.css`. It redirects once and then 404s, because no
+    // such site is published. The stylesheet is not what comes back, which is
+    // the whole point.
     const misresolved = new URL('./theme.css', `${ORIGIN}${bare}`)
-    expect(misresolved.pathname).toBe(`/site/${SLUG}/draft/theme.css`)
-    expect((await get(misresolved.pathname)).status).toBe(404)
+    expect(misresolved.pathname).toBe('/site/theme.css')
+    const missed = await get(misresolved.pathname)
+    expect(missed.status).toBe(301)
+    expect((await get(missed.headers.get('location') as string)).status).toBe(404)
 
     // After following the redirect, the same relative URL lands on the object.
     const followed = await get(redirect.headers.get('location') as string)
@@ -213,82 +191,28 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
     const withQuery = await get(`${bare}?utm=1`)
     expect(withQuery.status).toBe(301)
     expect(withQuery.headers.get('location')).toBe(`${bare}/?utm=1`)
-
-    // The published channel's site root redirects on the same rule.
-    const site = await get(`/site/${SLUG}`)
-    expect(site.status).toBe(301)
-    expect(site.headers.get('location')).toBe(`/site/${SLUG}/`)
   })
 
-  it('test_UAT_FC_REQ-111_serves_live_published_revision', async () => {
-    setPageText('REVISION-ONE')
-    cmdPublish(SLUG, { cwd, message: 'first' })
-    await deploy({ channel: 'published' })
+  it('test_UAT_FC_REQ-111_published_urls_get_the_short_ttl', async () => {
+    await publishRevision('PUBLISHED-MARKER')
 
-    const first = await get(`/site/${SLUG}/`)
-    expect(first.status).toBe(200)
-    expect(await first.text()).toContain('REVISION-ONE')
+    // A published URL is not revision-scoped, so it cannot be cached immutably —
+    // the accepted v1 wart, pinned here so it cannot drift into `immutable` and
+    // strand a visitor on a revision that no longer exists.
+    const res = await get(`/site/${SLUG}/`)
+    expect(res.headers.get('cache-control')).toBe('public, max-age=60')
+    expect(res.headers.get('cache-control')).not.toContain('immutable')
+    expect((await get(`/site/${SLUG}/theme.css`)).headers.get('cache-control')).toBe(
+      'public, max-age=60',
+    )
 
-    setPageText('REVISION-TWO')
-    cmdPublish(SLUG, { cwd, message: 'second' })
-    await deploy({ channel: 'published' })
-
-    const second = await get(`/site/${SLUG}/`)
-    expect(await second.text()).toContain('REVISION-TWO')
-
-    // What is served follows `manifest.live` and nothing else: point it back at
-    // the first revision and the first revision is what comes out, with both
-    // snapshots still sitting in the bucket untouched.
-    const m = await manifest()
-    expect(m.live).toBe(2)
-    putManifest({ ...m, live: 1 })
-    expect(await (await get(`/site/${SLUG}/`)).text()).toContain('REVISION-ONE')
-
-    // A live revision whose bytes were never uploaded is a 404, not a 500.
-    putManifest({ ...m, live: 99 })
-    expect((await get(`/site/${SLUG}/`)).status).toBe(404)
-  })
-
-  it('test_UAT_FC_REQ-111_immutable_cache_on_sha_paths', async () => {
-    const preview = await deploy()
-    cmdPublish(SLUG, { cwd, message: 'first' })
-    await deploy({ channel: 'published' })
-
-    // A snapshot id names its own bytes, so those bytes can never change.
-    const draft = await get(`/site/${SLUG}/draft/${preview.sha}/`)
-    expect(draft.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
-    expect((await get(`/site/${SLUG}/draft/${preview.sha}/theme.css`)).headers.get('cache-control'))
-      .toBe('public, max-age=31536000, immutable')
-
-    // A published URL is not revision-scoped, so it gets the short TTL instead —
-    // the accepted v1 wart, pinned here so it cannot drift into `immutable`.
-    const published = await get(`/site/${SLUG}/`)
-    expect(published.headers.get('cache-control')).toBe('public, max-age=60')
-    expect(published.headers.get('cache-control')).not.toContain('immutable')
-  })
-
-  it('test_UAT_FC_REQ-111_draft_is_noindex', async () => {
-    const preview = await deploy()
-    cmdPublish(SLUG, { cwd, message: 'first' })
-    await deploy({ channel: 'published' })
-
-    const draft = await get(`/site/${SLUG}/draft/${preview.sha}/`)
-    expect(draft.headers.get('x-robots-tag')).toBe('noindex')
-
-    // Every draft-channel response, not just the successful ones: a crawler that
-    // reached a preview should be told so whatever it found there.
-    expect((await get(`/site/${SLUG}/draft/${preview.sha}`)).headers.get('x-robots-tag'))
-      .toBe('noindex')
-    expect((await get(`/site/${SLUG}/draft/${preview.sha}/nope.css`)).headers.get('x-robots-tag'))
-      .toBe('noindex')
-
-    // The published site is meant to be indexed.
-    expect((await get(`/site/${SLUG}/`)).headers.get('x-robots-tag')).toBeNull()
-    expect((await get(`/site/${SLUG}/theme.css`)).headers.get('x-robots-tag')).toBeNull()
+    // A published site is meant to be indexed. `noindex` belonged to the draft
+    // previews REQ-149 removed, and must not survive as a stray header.
+    expect(res.headers.get('x-robots-tag')).toBeNull()
   })
 
   it('test_UAT_FC_REQ-111_unknown_slug_and_missing_object_404', async () => {
-    const preview = await deploy() // a draft exists; nothing is published yet
+    await publishRevision('PUBLISHED-MARKER')
 
     async function shape(p: string) {
       const res = await get(p)
@@ -302,19 +226,17 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
     // A site that does not exist and a site with nothing published are the same
     // answer — otherwise the 404 becomes an oracle for which slugs are taken.
     const unknown = await shape('/site/nobody-here/')
-    const unpublished = await shape(`/site/${SLUG}/`)
+    const unpublished = await shape('/site/never-published/')
     expect(unknown.status).toBe(404)
     expect(unknown).toEqual(unpublished)
     expect(unknown.body).toBe('Not Found')
 
-    // A missing object inside a real snapshot, an unknown snapshot id, and a
-    // directory-shaped path all 404 — and none of them lists anything.
+    // A missing object inside a real site and a directory-shaped path both 404 —
+    // and neither lists anything.
     for (const p of [
-      `/site/${SLUG}/draft/${preview.sha}/does-not-exist.css`,
-      `/site/${SLUG}/draft/${'0'.repeat(12)}/`,
-      `/site/${SLUG}/draft/${preview.sha}/assets/`,
-      `/site/${SLUG}/draft/`,
-      `/site/${SLUG}/draft`,
+      `/site/${SLUG}/does-not-exist.css`,
+      `/site/${SLUG}/assets/`,
+      `/site/${SLUG}/assets`,
     ]) {
       const res = await shape(p)
       expect(res.status, p).toBe(404)
@@ -323,8 +245,8 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
       expect(res.body, p).not.toContain('sites/')
     }
 
-    // Nothing outside a snapshot's `out/` is addressable — not the manifest,
-    // not the `source/` half of the artifact.
+    // NOTHING OUTSIDE A REVISION'S `out/` IS ADDRESSABLE — in particular not the
+    // `source/` half, which holds the definition the render came from.
     //
     // Dot-segment traversal is normalised away by URL parsing before dispatch
     // (`..` and its `%2e%2e` spelling alike), so those attempts land on some
@@ -332,11 +254,10 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
     // only that they never reach the object. `%2f` is *not* normalised, so that
     // spelling does reach the parser — and is refused there.
     for (const p of [
-      `/site/${SLUG}/../manifest.json`,
-      `/site/${SLUG}/%2e%2e/manifest.json`,
-      `/site/${SLUG}/draft/${preview.sha}/%2e%2e/source/site.json`,
-      `/site/${SLUG}/draft/${preview.sha}/..%2fsource%2fsite.json`,
-      `/site/${SLUG}/draft/${preview.sha}//theme.css`,
+      `/site/${SLUG}/../rev/0001/source/site.json`,
+      `/site/${SLUG}/%2e%2e/source/site.json`,
+      `/site/${SLUG}/..%2fsource%2fsite.json`,
+      `/site/${SLUG}//theme.css`,
     ]) {
       const res = await get(p)
       const final = res.status === 301 ? await get(res.headers.get('location') as string) : res
@@ -346,9 +267,9 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
   })
 
   it('test_UAT_FC_REQ-111_content_types', async () => {
-    const preview = await deploy()
-    const base = `/site/${SLUG}/draft/${preview.sha}/`
-    const prefix = `sites/${SLUG}/preview/${preview.sha}/out`
+    const id = await publishRevision('PUBLISHED-MARKER')
+    const base = `/site/${SLUG}/`
+    const prefix = publishedOutPrefix(SLUG, id)
 
     const expected: Record<string, string> = {
       'index.html': 'text/html; charset=utf-8',
@@ -363,15 +284,15 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
       'favicon.ico': 'image/x-icon',
       'robots.txt': 'text/plain; charset=utf-8',
       'download.bin': 'application/octet-stream',
-      'LICENSE': 'application/octet-stream',
+      LICENSE: 'application/octet-stream',
     }
 
     // Objects the starter render does not produce are seeded directly into the
-    // snapshot the manifest already vouches for — the mapping under test is the
-    // served path's extension, not how the bytes got there.
+    // revision D1 already vouches for — the mapping under test is the served
+    // path's extension, not how the bytes got there.
     for (const rel of Object.keys(expected)) {
-      if (!client.objects.has(`${prefix}/${rel}`)) {
-        client.objects.set(`${prefix}/${rel}`, Buffer.from('x', 'utf8'))
+      if (!published.bucket.objects.has(`${prefix}/${rel}`)) {
+        published.bucket.objects.set(`${prefix}/${rel}`, Buffer.from('x', 'utf8'))
       }
     }
 
@@ -385,8 +306,8 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
   })
 
   it('test_UAT_FC_REQ-111_warm_requests_are_served_from_cache', async () => {
-    const preview = await deploy()
-    const url = `/site/${SLUG}/draft/${preview.sha}/theme.css`
+    await publishRevision('PUBLISHED-MARKER')
+    const url = `/site/${SLUG}/theme.css`
 
     const store = new Map<string, Response>()
     const fake = {
@@ -402,7 +323,7 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
     const globals = globalThis as { caches?: unknown }
     globals.caches = fake
     try {
-      const shared = bucket()
+      const shared = published.bucket
       const cold = await call(url, { bucket: shared })
       expect(cold.res.status).toBe(200)
       const readsAfterCold = shared.reads
@@ -414,9 +335,9 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
       // The whole point: a warm hit does not touch the store.
       expect(shared.reads).toBe(readsAfterCold)
 
-      // A 404 is never cached — it is also the answer for "not deployed yet",
-      // which stops being true the moment someone deploys.
-      const missing = `/site/${SLUG}/draft/${preview.sha}/absent.css`
+      // A 404 is never cached — it is also the answer for "not published yet",
+      // which stops being true the moment someone publishes.
+      const missing = `/site/${SLUG}/absent.css`
       await call(missing, { bucket: shared })
       const readsAfterMiss = shared.reads
       await call(missing, { bucket: shared })
@@ -426,72 +347,51 @@ describe('REQ-111 — public-site serves deployed snapshots', () => {
     }
   })
 
-  it('test_UAT_FC_REQ-111_draft_segment_is_reserved', () => {
-    // `draft` is the preview channel's first segment inside a site, so a
-    // published snapshot may not contain a top-level entry of that name.
-    expect(parseRoute('/site/acme/draft/abcdef123456/')).toEqual({
-      kind: 'asset',
-      slug: 'acme',
-      channel: 'draft',
-      ref: 'abcdef123456',
-      path: 'index.html',
-    })
-
-    // Deploy refuses the collision outright, so it is impossible rather than
-    // merely unlikely — and the operator who caused it sees the error, rather
-    // than a visitor wondering why a page vanished.
-    const file = (rel: string) => ({ rel, abs: `/tmp/${rel}`, bytes: 1 })
-    expect(() =>
-      assertNoReservedSegment([file('out/index.html'), file('out/draft/index.html')]),
-    ).toThrow(/reserved/)
-    expect(() => assertNoReservedSegment([file('out/index.html'), file('out/draft')])).toThrow(
-      /reserved/,
-    )
-
-    // Names that merely start with it, and the `source/` half of the artifact,
-    // are unaffected — the guard is about one exact top-level segment.
-    expect(() =>
-      assertNoReservedSegment([
-        file('out/draft.html'),
-        file('out/assets/draft/x.svg'),
-        file('source/draft/site.json'),
-      ]),
-    ).not.toThrow()
-  })
-
   it('test_UAT_FC_REQ-111_route_grammar', async () => {
     expect(parseRoute('/')).toEqual({ kind: 'apex' })
     expect(parseRoute('/site/acme/')).toEqual({
       kind: 'asset',
       slug: 'acme',
-      channel: 'published',
       path: 'index.html',
     })
-    expect(parseRoute('/site/acme/about.html')).toEqual({
+    expect(parseRoute('/site/acme/about.html')).toMatchObject({
       kind: 'asset',
       slug: 'acme',
-      channel: 'published',
       path: 'about.html',
     })
     expect(parseRoute('/site/acme')).toEqual({
       kind: 'redirect',
       location: '/site/acme/',
-      channel: 'published',
     })
     // Percent-encoding is decoded once, into the key — never twice, and never
     // into an extra path segment.
-    expect(parseRoute('/site/acme/assets/my%20logo.svg')).toEqual({
+    expect(parseRoute('/site/acme/assets/my%20logo.svg')).toMatchObject({
       kind: 'asset',
       slug: 'acme',
-      channel: 'published',
       path: 'assets/my logo.svg',
     })
+
+    // `draft` is an ORDINARY SEGMENT again (REQ-149 D7): the preview channel
+    // that reserved it is gone, so a published site may hold a page of that name
+    // and it addresses like any other. (`/site/acme/draft/` resolves to the key
+    // `draft`, not `draft/index.html` — a nested directory URL has never had the
+    // index mapping the SITE ROOT gets, which predates this ticket and is not
+    // changed by it.)
+    expect(parseRoute('/site/acme/draft/')).toMatchObject({
+      kind: 'asset',
+      slug: 'acme',
+      path: 'draft',
+    })
+    expect(parseRoute('/site/acme/draft/abcdef123456/')).toMatchObject({
+      kind: 'asset',
+      slug: 'acme',
+      path: 'draft/abcdef123456',
+    })
+
     for (const bad of [
       '/site',
       '/site/',
       '/nope/acme/',
-      '/site/acme/draft/',
-      '/site/acme/draft/not-hex/',
       '/site/../etc/',
       '/site/acme/%2fetc/passwd',
       '/site/acme/%zz',

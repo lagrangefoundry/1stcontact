@@ -868,7 +868,7 @@ describe('story-af36c2cb — the edit render channel', () => {
     // Lock a revision, then diverge the draft from it.
     const published = await cmdPublish('acme', { cwd, now: '2026-01-01T00:00:00.000Z' })
     expect(published.id).toBe(1)
-    const revisionsBefore = cmdRevisions('acme', { cwd })
+    const revisionsBefore = await cmdRevisions('acme', { cwd })
     expect(revisionsBefore).toHaveLength(1)
 
     const DRAFT_ONLY_COPY = 'Only the draft says this.'
@@ -899,7 +899,7 @@ describe('story-af36c2cb — the edit render channel', () => {
     // content-addressed.
     await cmdRender('acme', { cwd, edit: true })
     await cmdRender('acme', { cwd, source: 'draft', edit: true })
-    expect(cmdRevisions('acme', { cwd })).toEqual(revisionsBefore)
+    expect(await cmdRevisions('acme', { cwd })).toEqual(revisionsBefore)
     const history = JSON.parse(
       readFileSync(path.join(cwd, 'storage', 'sites', 'acme', 'history.json'), 'utf8'),
     )

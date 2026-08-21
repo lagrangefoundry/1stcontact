@@ -1,33 +1,34 @@
 import { contentTypeFor } from './content-type'
-import { parseRoute, type Channel, type Route } from './routes'
-import { R2SiteStore, type SiteStore } from './site-store'
+import { parseRoute, type Route } from './routes'
+import { D1SiteStore, type SiteStore } from './site-store'
 
 /**
  * `public-site` — the generic multi-tenant site server (REQ-111).
  *
- * Serves the snapshots `1c deploy` writes to R2: content-addressed draft
- * previews and each site's live published revision. Everything about *where*
- * the bytes live is behind {@link SiteStore}, so the D1 phase (REQ-7) replaces
- * one class and leaves the request path untouched.
+ * Serves each site's live published revision: D1 says which revision that is,
+ * R2 holds its bytes. Everything about *where* the truth lives is behind
+ * {@link SiteStore}, and REQ-149 replaced one class behind it — the request path
+ * below did not change, which is what the seam was for.
  *
- * There is no authentication. Draft previews are unguessable-URL-private by
- * deliberate decision — real ACLs arrive with login, and holding publication
- * hostage to access control is not a trade worth making for v1.
+ * ONE CHANNEL (REQ-149 D7). The sha-addressed draft previews are gone with the
+ * deploy manifest that indexed them; sharing a draft returns as a builder
+ * toolbar button rather than as a second channel here.
+ *
+ * There is no authentication, and published sites are public by definition.
  */
 
 export interface Env {
-  /** The bucket `1c deploy` publishes snapshots to (`1stcontact-sites`). */
+  /** The bucket the control-app publishes rendered revisions to. */
   SITES: R2Bucket
+  /** The database holding the revision log — which revision is live (REQ-149). */
+  DB: D1Database
 }
-
-/** Snapshot ids name their own bytes, so those bytes can never change. */
-const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable'
 
 /**
  * Published URLs are not revision-scoped, so `/site/<slug>/assets/x.svg` cannot
- * be cached immutably. A deploy therefore has a ≤60s window in which a client
+ * be cached immutably. A publish therefore has a ≤60s window in which a client
  * can pair new HTML with cached old CSS. Accepted for v1; the fix is either
- * revision-scoped published asset paths or a purge-on-deploy hook, and both are
+ * revision-scoped published asset paths or a purge-on-publish hook, and both are
  * additive to this.
  */
 const PUBLISHED_CACHE = 'public, max-age=60'
@@ -50,11 +51,12 @@ export default {
       if (hit) return hit
     }
 
-    const response = await route(request, new R2SiteStore(env.SITES), env.SITES)
+    const response = await route(request, new D1SiteStore(env.DB), env.SITES)
 
     // Only successful responses are stored. A 404 is the answer for both "never
-    // existed" and "not deployed yet", and the second stops being true the
-    // moment someone deploys — caching it would make a fresh deploy look broken.
+    // existed" and "not published yet", and the second stops being true the
+    // moment someone publishes — caching it would make a fresh publish look
+    // broken.
     if (cache && request.method === 'GET' && response.status === 200) {
       ctx.waitUntil(cache.put(request, response.clone()))
     }
@@ -88,10 +90,7 @@ async function route(request: Request, store: SiteStore, bucket: R2Bucket): Prom
     case 'redirect':
       return new Response(null, {
         status: 301,
-        headers: withDraftPolicy(
-          new Headers({ location: `${parsed.location}${url.search}` }),
-          parsed.channel,
-        ),
+        headers: new Headers({ location: `${parsed.location}${url.search}` }),
       })
 
     case 'asset':
@@ -109,11 +108,11 @@ async function serve(
   store: SiteStore,
   bucket: R2Bucket,
 ): Promise<Response> {
-  const prefix = await store.resolve(target.slug, target.channel, target.ref)
-  // An unknown slug, a site with nothing published, and an expired preview id
-  // are one answer, not three: a 404 that says which one would answer questions
-  // about sites the asker has no business knowing exist.
-  if (prefix === null) return notFound(target.channel)
+  const prefix = await store.resolve(target.slug)
+  // An unknown slug and a site with nothing published are one answer, not two: a
+  // 404 that said which would answer questions about sites the asker has no
+  // business knowing exist.
+  if (prefix === null) return notFound()
 
   // REQ-113 — the exact key first, then the extensionless → `.html` mapping the
   // route marked eligible. Ordered, not merged: a real object always wins, so
@@ -121,8 +120,8 @@ async function serve(
   const candidates = [target.path]
   if (target.htmlFallback) candidates.push(target.htmlFallback)
 
-  const headers = withDraftPolicy(new Headers(), target.channel)
-  headers.set('cache-control', target.channel === 'draft' ? IMMUTABLE_CACHE : PUBLISHED_CACHE)
+  const headers = new Headers()
+  headers.set('cache-control', PUBLISHED_CACHE)
 
   if (request.method === 'HEAD') {
     for (const candidate of candidates) {
@@ -136,7 +135,7 @@ async function serve(
       if (head.httpEtag) headers.set('etag', head.httpEtag)
       return new Response(null, { status: 200, headers })
     }
-    return notFound(target.channel)
+    return notFound()
   }
 
   for (const candidate of candidates) {
@@ -148,25 +147,12 @@ async function serve(
   }
   // A missing object is a 404 and never a directory listing: the bucket's key
   // space is not a browsable filesystem and must not become one by accident.
-  return notFound(target.channel)
+  return notFound()
 }
 
-function notFound(channel?: Channel): Response {
-  const headers = withDraftPolicy(
-    new Headers({ 'content-type': 'text/plain; charset=utf-8' }),
-    channel,
-  )
-  return new Response('Not Found', { status: 404, headers })
-}
-
-/**
- * Keep preview snapshots out of search indexes.
- *
- * Applied to every draft-channel response, not only the successful ones: a
- * preview is a private artifact shared by URL, and a crawler that reached one
- * should be told so whatever it found there.
- */
-function withDraftPolicy(headers: Headers, channel?: Channel): Headers {
-  if (channel === 'draft') headers.set('x-robots-tag', 'noindex')
-  return headers
+function notFound(): Response {
+  return new Response('Not Found', {
+    status: 404,
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  })
 }
