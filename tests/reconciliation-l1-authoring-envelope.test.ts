@@ -150,7 +150,7 @@ describe('story-d0a8cfad — the authoring path is held to the L1 safety envelop
     await expect(cmdPublish('authored', { cwd })).rejects.toThrow(
       /\/pages\/0\/l1\/root\/children\/0\/axes\/fontSizePx/,
     )
-    expect(cmdRevisions('authored', { cwd })).toEqual([])
+    expect(await cmdRevisions('authored', { cwd })).toEqual([])
 
     // Returned to envelope, the same on-disk site renders and publishes again.
     const good = structuredClone(page)
@@ -158,7 +158,7 @@ describe('story-d0a8cfad — the authoring path is held to the L1 safety envelop
     writeFileSync(homePath, JSON.stringify(good, null, 2))
     await expect(cmdRender('authored', { cwd })).resolves.toBeTruthy()
     await expect(cmdPublish('authored', { cwd })).resolves.toBeTruthy()
-    expect(cmdRevisions('authored', { cwd })).toHaveLength(1)
+    expect(await cmdRevisions('authored', { cwd })).toHaveLength(1)
   })
 
   it('test_UAT_AC850_range_url_over_cap_and_duplicate_id_each_rejected_when_authored', () => {

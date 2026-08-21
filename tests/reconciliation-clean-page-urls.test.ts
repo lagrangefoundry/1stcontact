@@ -25,15 +25,22 @@
  * preview is driven over the preview server's real loopback address (and, where
  * a traversing request must survive client-side normalisation, over a raw
  * socket). The deployed half is driven through the Worker's real entry point
- * over bytes a real `1c deploy` wrote. R2 is faked at the binding — the one
- * boundary we do not own; the route grammar, deploy index and header policy
- * above it are all real.
+ * over bytes a real `1c publish` wrote. R2 and D1 are faked at the binding — the
+ * one boundary we do not own; the route grammar, the store and the header policy
+ * above them are all real.
+ *
+ * ONE CHANNEL SINCE REQ-149. The deployed half used to run against a sha-named
+ * draft snapshot AND the live revision. Draft snapshots are gone with the deploy
+ * manifest that indexed them (D7), so every case below addresses the published
+ * URL — which is the one this story was always about: the link an author writes,
+ * in production.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -43,12 +50,19 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import worker from '../apps/public-site/src/index'
 import { parseRoute } from '../apps/public-site/src/routes'
-import { SERVABLE_ROOT } from '../apps/public-site/src/site-store'
 import { cmdNew, cmdPublish, cmdRender } from '../tools/generate/src/cli/commands'
 import { startServe, type ServeHandle } from '../tools/generate/src/cli'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
-import { distDir, draftDir, readJson, writeJson } from '../tools/generate/src/store'
-import { cmdDeploy, MemoryR2Client, manifestKey, type SiteManifest } from '../tools/generate/src/deploy'
+import {
+  distDir,
+  draftDir,
+  fsSiteStore,
+  publishedOutPrefix,
+  readJson,
+  writeJson,
+} from '../tools/generate/src/store'
+import { readDraftSnapshot } from '../tools/generate/src/publish/publish'
+import { seedPublished, emptyPublished, type PublishedFixture } from './fixtures/published-site'
 
 const SLUG = 'acme'
 const ORIGIN = 'https://1stcontact.io'
@@ -65,7 +79,7 @@ const DOTTED = 'DOTTED-DIR-MARKER'
 const SECRET = 'SECRET-OUTSIDE-MARKER'
 
 let cwd: string
-let client: MemoryR2Client
+let published: PublishedFixture
 let handles: ServeHandle[] = []
 
 const ctx = {
@@ -77,7 +91,8 @@ const ctx = {
 
 beforeEach(() => {
   cwd = mkdtempSync(path.join(tmpdir(), 'story-clean-urls-'))
-  client = new MemoryR2Client()
+  published = emptyPublished()
+  liveRevision = 0
   handles = []
   cmdNew(SLUG, { cwd })
   mkdirSync(path.join(draftDir(ctx, SLUG), 'assets'), { recursive: true })
@@ -219,9 +234,9 @@ class FakeBucket {
 
   constructor(private readonly objects: Map<string, Buffer>) {}
 
-  /** Keys read that name bytes inside a snapshot (not the deploy index). */
+  /** Keys read that name bytes inside a revision's rendered output. */
   get snapshotReads(): string[] {
-    return this.readKeys.filter((k) => /\/(preview|rev)\//.test(k))
+    return this.readKeys.filter((k) => k.includes('/rev/'))
   }
 
   async get(key: string) {
@@ -252,7 +267,7 @@ interface Fetched {
 
 /** Drive the Worker's real entry point for one request. */
 async function call(pathAndQuery: string, method = 'GET'): Promise<Fetched> {
-  const bucket = new FakeBucket(client.objects)
+  const bucket = new FakeBucket(published.bucket.objects)
   const waits: Promise<unknown>[] = []
   const executionCtx = {
     waitUntil: (p: Promise<unknown>) => void waits.push(p),
@@ -261,7 +276,10 @@ async function call(pathAndQuery: string, method = 'GET'): Promise<Fetched> {
   }
   const res = await worker.fetch(
     new Request(`${ORIGIN}${pathAndQuery}`, { method }),
-    { SITES: bucket as unknown as R2Bucket },
+    {
+      SITES: bucket as unknown as R2Bucket,
+      DB: published.db as unknown as D1Database,
+    },
     executionCtx as unknown as ExecutionContext,
   )
   await Promise.all(waits)
@@ -272,42 +290,51 @@ async function get(pathAndQuery: string, method = 'GET'): Promise<Response> {
   return (await call(pathAndQuery, method)).res
 }
 
-/** Deploy the draft snapshot through the real command; returns its id. */
-async function deployDraft(): Promise<string> {
-  const deployed = await cmdDeploy(SLUG, { cwd, client, now: '2026-07-30T12:00:00.000Z' })
-  return deployed.sha
-}
-
 /**
- * Mint a revision and ship it. `publish` and `deploy` are two steps by design —
- * a published deploy with no live revision is refused — so both are needed
- * before a published URL serves anything.
+ * Publish the site, and put what publishing produced where `public-site` looks.
+ *
+ * A REAL publish against the filesystem store renders the bytes; the fixture
+ * only relocates them, at keys the shared key builders decide. So "the deployed
+ * site serves the page" is a claim about the product's own render rather than
+ * about markup this file wrote — which is what the deploy-driven fixture bought
+ * before `1c deploy` was removed.
  */
-async function deployPublished(): Promise<void> {
-  await cmdPublish(SLUG, { cwd, message: 'first' })
-  await cmdDeploy(SLUG, {
-    cwd,
-    client,
-    now: '2026-07-30T12:00:00.000Z',
-    channel: 'published',
-  })
-  // Keyed by the root the Worker serves (BUG-31) — the deploy index is addressed
-  // by root on both sides, so reading any other root reads a manifest that
-  // nothing on the serving path would ever consult.
-  const raw = await client.get(manifestKey(SERVABLE_ROOT, SLUG))
-  const manifest = JSON.parse(raw as string) as SiteManifest
-  // Guard the guard: a published channel with no live revision would 404 for
+let liveRevision = 0
+
+async function publishToBucket(): Promise<void> {
+  const store = fsSiteStore(ctx)
+  const result = await cmdPublish(SLUG, { cwd, message: 'first' })
+  // Guard the guard: a published site with no live revision would 404 for
   // reasons that have nothing to do with this story.
-  expect(manifest.live, 'site must have a live revision').not.toBeNull()
+  expect(result.id, 'site must have a live revision').toBeGreaterThan(0)
+  liveRevision = result.id
+
+  const source = await readDraftSnapshot(store, SLUG)
+  const out = new Map<string, string>()
+  for (const rel of listRendered(distDir(ctx, SLUG, 'published'))) {
+    out.set(rel, readFileSync(path.join(distDir(ctx, SLUG, 'published'), rel), 'utf8'))
+  }
+  seedPublished(published, SLUG, result.id, { source, out })
 }
 
-/** The stored bytes of one object inside a preview snapshot. */
-function previewKey(sha: string, rel: string): string {
-  return `sites/${SLUG}/preview/${sha}/out/${rel}`
+/** Every rendered file under `dir`, as store-relative paths. */
+function listRendered(dir: string, prefix = ''): string[] {
+  const out: string[] = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix === '' ? entry.name : `${prefix}/${entry.name}`
+    if (entry.isDirectory()) out.push(...listRendered(path.join(dir, entry.name), rel))
+    else out.push(rel)
+  }
+  return out
+}
+
+/** The stored key of one object inside the live revision's rendered output. */
+function publishedKey(rel: string): string {
+  return `${publishedOutPrefix(SLUG, liveRevision)}/${rel}`
 }
 
 function storedText(key: string): string {
-  const buf = client.objects.get(key)
+  const buf = published.bucket.objects.get(key)
   if (buf === undefined) throw new Error(`no object at ${key}`)
   return buf.toString('utf8')
 }
@@ -358,19 +385,18 @@ describe('STORY — a clean page URL resolves the same in preview and in product
   })
 
   it('test_UAT_AC916_deployed_site_serves_the_slug_only_url_on_both_forms_and_for_head', async () => {
-    const sha = await deployDraft()
+    await publishToBucket()
 
     // Snapshot-addressed preview.
-    const draftRes = await get(`/site/${SLUG}/draft/${sha}/whitepapers`)
+    const draftRes = await get(`/site/${SLUG}/whitepapers`)
     expect(draftRes.status).toBe(200)
     const draftBody = await draftRes.text()
     expect(draftBody).toContain(PAPERS)
     expect(draftBody).not.toContain(HOME)
-    expect(draftBody).toBe(storedText(previewKey(sha, 'whitepapers.html')))
+    expect(draftBody).toBe(storedText(publishedKey('whitepapers.html')))
 
     // The published address resolves its prefix differently, so it earns its own
     // assertion rather than an assumption.
-    await deployPublished()
     const publishedRes = await get(`/site/${SLUG}/whitepapers`)
     expect(publishedRes.status).toBe(200)
     const publishedBody = await publishedRes.text()
@@ -379,7 +405,7 @@ describe('STORY — a clean page URL resolves the same in preview and in product
     expect(`/site/${SLUG}/whitepapers`).not.toMatch(/\/(draft|rev)\//)
 
     // HEAD is a separate branch through the server, so it can (and did) drift.
-    const head = await get(`/site/${SLUG}/draft/${sha}/whitepapers`, 'HEAD')
+    const head = await get(`/site/${SLUG}/whitepapers`, 'HEAD')
     expect(head.status).toBe(draftRes.status)
     expect(head.headers.get('content-type')).toBe(draftRes.headers.get('content-type'))
     expect(head.headers.get('content-type')).toContain('text/html')
@@ -418,8 +444,8 @@ describe('STORY — a clean page URL resolves the same in preview and in product
 
     // The deployed half. Same claim, and additionally: the mapping is a genuine
     // last resort — an exactly-matching key is the ONLY lookup performed.
-    const sha = await deployDraft()
-    const base = `/site/${SLUG}/draft/${sha}`
+    await publishToBucket()
+    const base = `/site/${SLUG}`
     const deployed: { label: string; url: string; rel: string; type: string }[] = [
       { label: 'explicit .html', url: `${base}/whitepapers.html`, rel: 'whitepapers.html', type: 'text/html' },
       { label: 'snapshot root', url: `${base}/`, rel: 'index.html', type: 'text/html' },
@@ -430,8 +456,8 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       const { res, bucket } = await call(c.url)
       expect(res.status, c.label).toBe(200)
       expect(res.headers.get('content-type'), c.label).toContain(c.type)
-      expect(await res.text(), c.label).toBe(storedText(previewKey(sha, c.rel)))
-      expect(bucket.snapshotReads, c.label).toEqual([previewKey(sha, c.rel)])
+      expect(await res.text(), c.label).toBe(storedText(publishedKey(c.rel)))
+      expect(bucket.snapshotReads, c.label).toEqual([publishedKey(c.rel)])
     }
   })
 
@@ -454,10 +480,10 @@ describe('STORY — a clean page URL resolves the same in preview and in product
 
     // The deployed half. Seeded directly into the snapshot the index already
     // vouches for: what is under test is the URL rule, not how bytes got there.
-    const sha = await deployDraft()
-    const base = `/site/${SLUG}/draft/${sha}`
-    client.objects.set(
-      previewKey(sha, 'v1.2/page.html'),
+    await publishToBucket()
+    const base = `/site/${SLUG}`
+    published.bucket.objects.set(
+      publishedKey('v1.2/page.html'),
       Buffer.from(`<!DOCTYPE html><html>${DOTTED}</html>`, 'utf8'),
     )
 
@@ -467,7 +493,7 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       expect(await res.text(), rel).toBe('Not Found')
       // Not eligible at all: the exact key was the only candidate tried, so no
       // `.html` sibling could have been returned under the asset's type.
-      expect(bucket.snapshotReads, rel).toEqual([previewKey(sha, rel)])
+      expect(bucket.snapshotReads, rel).toEqual([publishedKey(rel)])
       expect(parseRoute(`${base}/${rel}`), rel).toMatchObject({ htmlFallback: undefined })
     }
 
@@ -488,8 +514,8 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       expectNoPageMarkup(res.body, `local ${url}`)
     }
 
-    const sha = await deployDraft()
-    const base = `/site/${SLUG}/draft/${sha}`
+    await publishToBucket()
+    const base = `/site/${SLUG}`
     for (const rel of ['nope', 'assets/nope']) {
       const { res, bucket } = await call(`${base}/${rel}`)
       expect(res.status, rel).toBe(404)
@@ -497,8 +523,8 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       // The mapping really was consulted and still found nothing — it resolves a
       // page that exists, it never invents one.
       expect(bucket.snapshotReads, rel).toEqual([
-        previewKey(sha, rel),
-        previewKey(sha, `${rel}.html`),
+        publishedKey(rel),
+        publishedKey(`${rel}.html`),
       ])
     }
   })
@@ -511,9 +537,8 @@ describe('STORY — a clean page URL resolves the same in preview and in product
     const handle = await preview()
     expect((await local(handle, '/whitepapers')).type).toContain('text/html')
 
-    const sha = await deployDraft()
-    await deployPublished()
-    const forms = [`/site/${SLUG}/draft/${sha}/whitepapers`, `/site/${SLUG}/whitepapers`]
+    await publishToBucket()
+    const forms = [`/site/${SLUG}/whitepapers`, `/site/${SLUG}/whitepapers`]
     for (const url of forms) {
       for (const method of ['GET', 'HEAD']) {
         const res = await get(url, method)
@@ -525,7 +550,7 @@ describe('STORY — a clean page URL resolves the same in preview and in product
     // The assertion discriminates: a non-HTML asset served by exact match still
     // declares its own type, in both environments.
     expect((await local(handle, '/assets/logo.svg')).type).toContain('image/svg+xml')
-    const base = `/site/${SLUG}/draft/${sha}`
+    const base = `/site/${SLUG}`
     expect((await get(`${base}/theme.css`)).headers.get('content-type')).toContain('text/css')
     expect((await get(`${base}/assets/logo.svg`)).headers.get('content-type')).toContain(
       'image/svg+xml',
@@ -533,8 +558,8 @@ describe('STORY — a clean page URL resolves the same in preview and in product
   })
 
   it('test_UAT_AC921_a_page_has_one_clean_url_and_it_is_the_slash_free_one', async () => {
-    const sha = await deployDraft()
-    const base = `/site/${SLUG}/draft/${sha}`
+    await publishToBucket()
+    const base = `/site/${SLUG}`
 
     // A directory-shaped URL is never eligible: a page gets exactly one clean
     // address, not a second one that would break every asset on it.
@@ -620,8 +645,8 @@ describe('STORY — a clean page URL resolves the same in preview and in product
   })
 
   it('test_UAT_AC923_a_url_the_address_grammar_rejects_never_reaches_the_mapping', async () => {
-    const sha = await deployDraft()
-    const base = `/site/${SLUG}/draft/${sha}`
+    await publishToBucket()
+    const base = `/site/${SLUG}`
 
     // Every one of these reaches the grammar as written, and every one is shaped
     // so its last segment carries NO extension — i.e. it would be eligible if it
@@ -635,7 +660,6 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       `${base}/%zz`, // malformed percent-encoding
       `/site/-not-a-slug/whitepapers`, // site name outside the permitted shape
       `/site/${'x'.repeat(200)}/whitepapers`,
-      `/site/${SLUG}/draft/not-hex/whitepapers`, // snapshot id outside the shape
       `/notsite/${SLUG}/whitepapers`,
     ]
     for (const p of rejected) {
@@ -650,6 +674,16 @@ describe('STORY — a clean page URL resolves the same in preview and in product
       expect(route.kind, p).toBe('not-found')
       expect((route as { htmlFallback?: string }).htmlFallback, p).toBeUndefined()
     }
+
+    // `draft` NO LONGER GUARDS ANYTHING (REQ-149 D7). It used to prefix the
+    // preview channel, so `…/draft/not-hex/…` was rejected for carrying a
+    // malformed snapshot id. The channel is gone, so the segment is ordinary:
+    // it addresses a page like any other, and a site may legitimately have one.
+    expect(parseRoute(`${base}/draft/not-hex/whitepapers`)).toMatchObject({
+      kind: 'asset',
+      slug: SLUG,
+      path: 'draft/not-hex/whitepapers',
+    })
 
     // Dot-shaped and empty components are rejected by the grammar by name — URL
     // parsing collapses them before dispatch, so they are stated here directly.

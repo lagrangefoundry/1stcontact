@@ -32,7 +32,7 @@ import {
   setModelClient,
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
-import { JOURNAL_TEXT_LIMIT, JOURNAL_WINDOW } from '../tools/generate/src/store'
+import { JOURNAL_TEXT_LIMIT, JOURNAL_WINDOW, revisionDir } from '../tools/generate/src/store'
 import type { ChangeSlice, JournalRecord } from '../tools/generate/src/store'
 import type { L1Node } from '@1stcontact/site-schema'
 import { fsOpts } from './support/site-factory'
@@ -504,26 +504,25 @@ describe('story-6cd17452 — the journal degrades, and is never a revision', () 
       expect(existsSync(path.join(siteRoot(), 'draft', '.journal.json'))).toBe(false)
 
       const withJournal = await cmdPublish(SLUG, { cwd, message: 'with a journal' })
-      const a = filesUnder(withJournal.revisionDir)
+      const a = filesUnder(revisionDir({ cwd, root: 'sites' }, SLUG, withJournal.id))
       expect(a).toContain('site.json')
       expect(a).toContain(path.join('pages', 'home.json'))
       expect(a.some((f) => f.includes('journal'))).toBe(false)
 
-      // The same draft content published with NO change history at all produces
-      // the same artefact, byte for byte.
+      // AND REMOVING THE JOURNAL DOES NOT MAKE THE DRAFT LOOK CHANGED.
+      //
+      // This used to be asserted by publishing the same content twice and
+      // comparing the two revision directories byte for byte. REQ-149 made an
+      // unchanged publish a NO-OP, so there is no second directory to compare —
+      // and the no-op is a sharper instrument for the same property: publish
+      // diffs the draft against the live revision, so if the journal were part
+      // of the definition, deleting it would show up as a change and mint r2.
       rmSync(journalFile())
       const withoutJournal = await cmdPublish(SLUG, { cwd, message: 'without a journal' })
-
-      const b = filesUnder(withoutJournal.revisionDir)
-      expect(b).toEqual(a)
-      for (const rel of a) {
-        expect(
-          readFileSync(path.join(withoutJournal.revisionDir, rel)).equals(
-            readFileSync(path.join(withJournal.revisionDir, rel)),
-          ),
-          rel,
-        ).toBe(true)
-      }
+      expect(withoutJournal.published).toBe(false)
+      expect(withoutJournal.id).toBe(withJournal.id)
+      expect(withoutJournal.changes).toEqual({ added: [], modified: [], removed: [] })
+      expect(filesUnder(revisionDir({ cwd, root: 'sites' }, SLUG, withJournal.id))).toEqual(a)
 
       // And it is excluded from version control, so an edit leaves no tracked
       // working-tree modification beyond the draft content it changed.

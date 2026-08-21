@@ -268,10 +268,11 @@ describe('story-e674c60a builder origin', () => {
     const DIRECTIVE = 'no-store, must-revalidate'
     // BOTH SOURCES, because the routing table moved (REQ-145). The router is the
     // Worker's now and answers everything the builder can do; the Node transport
-    // still serves its own copy of the assistant routes, and publish is the one
-    // capability only it has (REQ-149 owns the Worker's) — so reading one file
+    // still serves its own copy of the assistant routes — so reading one file
     // would silently stop covering the other half and let the coverage check
-    // pass over a shrunken set.
+    // pass over a shrunken set. (Publish was the transport's other exclusive
+    // capability until REQ-149 put revisions on the store port; it is the
+    // router's now, and this reads both files either way.)
     const sources = [
       'apps/control-app/src/router.ts',
       'tools/generate/src/cli/builder.ts',
@@ -311,6 +312,15 @@ describe('story-e674c60a builder origin', () => {
       init?: RequestInit
       /** Whether a 200 is the expected answer, so error probes stay honest. */
       ok: boolean
+      /**
+       * The route answers with a redirect (REQ-149 D4).
+       *
+       * Followed automatically, `fetch` would leave the wire and try to reach
+       * `1stcontact.io` — so the probe must NOT follow, and its success shape is
+       * a 302 rather than a 200. The directive claim is unchanged: a cached
+       * redirect is exactly as wrong as cached bytes.
+       */
+      redirect?: boolean
     }
     const probes: Probe[] = [
       // The workspace document. Hand-written, and it does NOT travel the
@@ -340,6 +350,12 @@ describe('story-e674c60a builder origin', () => {
         ok: false,
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
+      // The publish log (REQ-149), in both shapes. It reads rather than writes,
+      // so the success probe is safe to run before anything is published — an
+      // unpublished site answers with an empty log, which is still a 200.
+      { route: '/api/revisions', url: '/api/revisions?slug=alpha', ok: true },
+      { route: '/api/revisions', url: '/api/revisions', ok: false },
+
       { route: '/api/assets', url: '/api/assets?slug=alpha', ok: true },
       { route: '/api/assets', url: '/api/assets', ok: false },
       { route: '/api/copy', url: '/api/copy', ok: false },
@@ -384,12 +400,13 @@ describe('story-e674c60a builder origin', () => {
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
 
-      // A rendered page in EACH channel — `published` produced by the publish
-      // probe above, so it is the channel in the form the platform makes it —
-      // plus the two ways a preview request fails.
+      // A rendered page in EACH channel, plus the two ways a preview request
+      // fails. `published` REDIRECTS since REQ-149 (D4) — a 302 is still a
+      // response this origin returns, and the directive must be on it too: a
+      // cached redirect is exactly as wrong as cached bytes.
       { route: '/preview/', url: '/preview/alpha/draft/', ok: true },
       { route: '/preview/', url: '/preview/alpha/edit/', ok: true },
-      { route: '/preview/', url: '/preview/alpha/published/', ok: true },
+      { route: '/preview/', url: '/preview/alpha/published/', ok: true, redirect: true },
       { route: '/preview/', url: '/preview/alpha/nosuchchannel/', ok: false },
       { route: '/preview/', url: '/preview/alpha/draft/no-such-asset.css', ok: false },
 
@@ -452,13 +469,15 @@ describe('story-e674c60a builder origin', () => {
 
     for (const probe of [...probes, unrouted]) {
       const method = (probe.init?.method ?? 'GET') as string
-      const res = await get(probe.url, probe.init)
+      const init = probe.redirect ? { ...probe.init, redirect: 'manual' as const } : probe.init
+      const res = await get(probe.url, init)
       await res.arrayBuffer()
       const where = `${method} ${probe.url}`
       // The exact directive, not merely "contains no-store": one behaviour
       // across the whole origin, never three near-misses.
       expect(res.headers.get('cache-control'), where).toBe(DIRECTIVE)
-      if (probe.ok) expect(res.status, where).toBe(200)
+      if (probe.redirect) expect(res.status, where).toBe(302)
+      else if (probe.ok) expect(res.status, where).toBe(200)
       else expect(res.status, where).toBeGreaterThanOrEqual(400)
     }
   })

@@ -2,11 +2,17 @@ import { assembleSite } from './assemble'
 import { contentTypeOf } from './content-type'
 import type { ChangeSlice, JournalRecord } from './journal-model'
 import { JOURNAL_WINDOW } from './journal-model'
+import type { RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+import {
+  PUBLISHED_ROOT,
+  publishedOutPrefix,
+  publishedSourcePrefix,
+} from './revision-model'
 import type {
   DraftSnapshot,
-  PendingChanges,
   SiteStore,
   SiteWrite,
+  StoredAsset,
   StoredPage,
 } from './site-store'
 import { StoreConflictError } from './site-store'
@@ -40,11 +46,20 @@ import { StoreConflictError } from './site-store'
  * with {@link UnknownTenantError}, so there is no such thing as a handle that
  * silently reads nothing.
  *
- * WHAT IT DELIBERATELY IS NOT. Not a revision store. `pendingChanges` reports
- * every file as `added` against no base revision — the only state a store with
- * no revisions can be in — exactly as the in-memory adapter does. Publish and
- * checkout are `commands.ts`'s and are still file-backed (DOC-12 §4); moving
- * them is a later ticket, and pretending here would be worse than saying so.
+ * IT IS A REVISION STORE NOW (REQ-149). Metadata is D1 rows (`site_revisions`);
+ * the frozen definition and the rendered output are R2 objects under
+ * `sites/<slug>/rev/<NNNN>/`, which is the layout `public-site` already reads.
+ * There is NO manifest object any more: D1 is the only record, and the live
+ * revision is derived as the highest id rather than stored anywhere (DOC-12 §4).
+ *
+ * THE PUBLISHED SIDE HAS NO TENANT IN ITS KEYS, and that is deliberate rather
+ * than an oversight carried forward. `/site/<slug>/` is the public URL grammar
+ * and `sites/<slug>/rev/...` is the layout beneath it; threading a tenant through
+ * both would change every published URL to protect against something a claim
+ * can prevent outright. So the FIRST publish of a slug claims it in
+ * `published_sites`, and a second tenant reaching for the same one is refused
+ * with {@link SlugClaimedError} BEFORE any byte is written. Per-tenant hostnames
+ * are the real long-term answer (DOC-12 §9) and remain additive to this.
  */
 
 /** The two bindings this adapter needs, named as the Workers declare them. */
@@ -140,6 +155,104 @@ function isUnsafeName(name: string): boolean {
   return name.includes('/') || name.includes('\\') || name === '..' || name.startsWith('../')
 }
 
+/** A publish refused because another account already owns the public slug. */
+export class SlugClaimedError extends Error {
+  readonly name = 'SlugClaimedError'
+  readonly slug: string
+
+  constructor(slug: string) {
+    super(
+      `The published address '${slug}' is already in use by another account. ` +
+        'Rename the site and publish again.',
+    )
+    this.slug = slug
+  }
+}
+
+/**
+ * Claim `slug` for `tenantId`, or refuse (REQ-149 D2).
+ *
+ * ONE STATEMENT DECIDES IT. The insert is conditional (`ON CONFLICT DO NOTHING`)
+ * and the read that follows asks who actually holds the row — so two tenants
+ * publishing the same new slug at the same moment both attempt the insert,
+ * exactly one wins, and the loser reads the winner's tenant id rather than its
+ * own. A read-then-insert would leave the window open between the two.
+ *
+ * Re-claiming a slug this tenant already holds is a no-op, which is what makes
+ * every publish after the first ordinary.
+ */
+async function claimSlug(
+  DB: D1Database,
+  tenantId: string,
+  slug: string,
+  at: string,
+): Promise<void> {
+  await DB.prepare(
+    'INSERT INTO published_sites (slug, tenant_id, first_published_at) VALUES (?, ?, ?) ' +
+      'ON CONFLICT (slug) DO NOTHING',
+  )
+    .bind(slug, tenantId, at)
+    .run()
+  const row = await DB.prepare('SELECT tenant_id FROM published_sites WHERE slug = ?')
+    .bind(slug)
+    .first<{ tenant_id: string }>()
+  if (!row || row.tenant_id !== tenantId) throw new SlugClaimedError(slug)
+}
+
+/** One revision as `site_revisions` holds it. */
+interface RevisionRow {
+  id: number
+  published_at: string
+  published_by: string | null
+  message: string
+  based_on: number | null
+  changes: string
+  sha: string
+}
+
+function rowToRevision(row: RevisionRow): RevisionEntry {
+  return {
+    id: row.id,
+    publishedAt: row.published_at,
+    by: row.published_by,
+    message: row.message,
+    basedOn: row.based_on,
+    changes: decode<RevisionEntry['changes']>(row.changes),
+    sha: row.sha,
+  }
+}
+
+/** Put UTF-8 text, typed. R2 stores bytes; the content type is metadata. */
+async function putText(
+  bucket: R2Bucket,
+  key: string,
+  body: string,
+  contentType: string,
+): Promise<void> {
+  await bucket.put(key, new TextEncoder().encode(body) as unknown as ArrayBuffer, {
+    httpMetadata: { contentType },
+  })
+}
+
+/**
+ * Every key under `prefix`, following the cursor.
+ *
+ * R2 truncates a listing, so a single `list()` would silently lose a page or an
+ * asset from a large revision — and the loss would show up as a checkout that
+ * quietly dropped files rather than as an error.
+ */
+async function listKeys(bucket: R2Bucket, prefix: string): Promise<string[]> {
+  const keys: string[] = []
+  let cursor: string | undefined
+  for (;;) {
+    const page = await bucket.list({ prefix, cursor })
+    for (const object of page.objects) keys.push(object.key)
+    if (!page.truncated) break
+    cursor = page.cursor
+  }
+  return keys
+}
+
 export function d1r2SiteStore(env: SiteStoreEnv): SiteStoreRoot {
   const { DB, SITES } = env
 
@@ -230,10 +343,18 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // The child tables cascade from `sites` (see the migration), so one delete
       // is the whole site — but D1 only enforces that with foreign keys on, so
       // they are deleted explicitly rather than assumed.
+      const published = await SITES.list({ prefix: `${PUBLISHED_ROOT}/${slug}/` })
+      for (const object of published.objects) await SITES.delete(object.key)
       await DB.batch([
         DB.prepare('DELETE FROM site_changes WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
         DB.prepare('DELETE FROM site_assets WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
         DB.prepare('DELETE FROM site_pages WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
+        DB.prepare('DELETE FROM site_revisions WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
+        // The claim goes with it, so the slug becomes available again. Scoped to
+        // this tenant in the WHERE clause: a handle must never be able to
+        // release another account's claim, even on a slug it cannot otherwise
+        // reach.
+        DB.prepare('DELETE FROM published_sites WHERE slug = ? AND tenant_id = ?').bind(slug, tenantId),
         DB.prepare('DELETE FROM sites WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
       ])
     },
@@ -456,15 +577,137 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       return { since: from, now: counter, truncated: earliest > from + 1, changes }
     },
 
-    async pendingChanges(slug): Promise<PendingChanges> {
-      const row = await siteRow(slug)
-      if (!row) return { baseRevision: null, added: [], modified: [], removed: [] }
-      const added = [
-        ...(row.site_json ? ['site.json'] : []),
-        ...(await pageNames(slug)).map((name) => `pages/${name}`),
-        ...(await assetNames(slug)).map((name) => `assets/${name}`),
-      ].sort()
-      return { baseRevision: null, added, modified: [], removed: [] }
+    // -- revisions (REQ-149) -------------------------------------------------
+
+    async revisions(slug): Promise<RevisionEntry[]> {
+      const { results } = await DB.prepare(
+        'SELECT id, published_at, published_by, message, based_on, changes, sha ' +
+          'FROM site_revisions WHERE tenant_id = ? AND slug = ? ORDER BY id',
+      )
+        .bind(tenantId, slug)
+        .all<RevisionRow>()
+      return (results ?? []).map(rowToRevision)
+    },
+
+    async writeRevision(slug, entry: RevisionEntry, content: RevisionContent) {
+      // THE CLAIM COMES FIRST, before a single byte is written, because AC-8 is
+      // that a refused publish leaves the live site untouched. Checking after the
+      // upload would mean a rejected tenant had already overwritten the very
+      // objects the other tenant is serving.
+      await claimSlug(DB, tenantId, slug, entry.publishedAt)
+
+      const source = publishedSourcePrefix(slug, entry.id)
+      const out = publishedOutPrefix(slug, entry.id)
+
+      // `source/` travels with `out/`, so what lands is a complete DOC-12
+      // revision rather than only its render. D1 holds the MUTABLE draft; this is
+      // the only copy of what the definition looked like at revision N, which is
+      // what makes a checkout possible at all.
+      if (content.source.siteJson !== null) {
+        await putText(SITES, `${source}/site.json`, JSON.stringify(content.source.siteJson, null, 2), 'application/json')
+      }
+      for (const { name, page } of content.source.pages) {
+        await putText(SITES, `${source}/pages/${name}`, JSON.stringify(page, null, 2), 'application/json')
+      }
+      for (const { name, bytes } of content.source.assets) {
+        if (isUnsafeName(name)) continue
+        await SITES.put(`${source}/assets/${name}`, bytes as unknown as ArrayBuffer, {
+          httpMetadata: { contentType: contentTypeOf(name) },
+        })
+      }
+
+      for (const [rel, text] of content.out) {
+        await putText(SITES, `${out}/${rel}`, text, contentTypeOf(rel))
+      }
+      // The rendered tree carries the assets it references, exactly as the
+      // filesystem writer copies `assets/` through — a published page whose
+      // images resolved only while the draft still held them would be a site
+      // that decays.
+      for (const { name, bytes } of content.source.assets) {
+        if (isUnsafeName(name)) continue
+        await SITES.put(`${out}/assets/${name}`, bytes as unknown as ArrayBuffer, {
+          httpMetadata: { contentType: contentTypeOf(name) },
+        })
+      }
+
+      // LAST. The row is what makes the revision exist — `revisions()` reads it
+      // and `liveRevisionOf` derives live from it — so writing it only after
+      // every object has landed means the log can never name a revision that
+      // serves a 404.
+      await DB.prepare(
+        'INSERT INTO site_revisions ' +
+          '(tenant_id, slug, id, published_at, published_by, message, based_on, changes, sha) ' +
+          'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+        .bind(
+          tenantId,
+          slug,
+          entry.id,
+          entry.publishedAt,
+          entry.by,
+          entry.message,
+          entry.basedOn,
+          encode(entry.changes),
+          entry.sha,
+        )
+        .run()
+    },
+
+    async readRevision(slug, id): Promise<StoredSnapshot | null> {
+      const row = await DB.prepare(
+        'SELECT id FROM site_revisions WHERE tenant_id = ? AND slug = ? AND id = ?',
+      )
+        .bind(tenantId, slug, id)
+        .first<{ id: number }>()
+      // The ROW vouches for the revision, never the bucket's key space. An
+      // interrupted publish can leave objects behind; without a row they are
+      // unreachable rather than quietly readable as a revision nobody finished.
+      if (!row) return null
+
+      const prefix = publishedSourcePrefix(slug, id)
+      const siteJsonObject = await SITES.get(`${prefix}/site.json`)
+      const siteJson = siteJsonObject
+        ? decode<Record<string, unknown>>(await siteJsonObject.text())
+        : null
+
+      const pages: StoredPage[] = []
+      for (const key of await listKeys(SITES, `${prefix}/pages/`)) {
+        const object = await SITES.get(key)
+        if (!object) continue
+        pages.push({
+          name: key.slice(`${prefix}/pages/`.length),
+          page: decode<Record<string, unknown>>(await object.text()),
+        })
+      }
+      pages.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+
+      const assets: StoredAsset[] = []
+      for (const key of await listKeys(SITES, `${prefix}/assets/`)) {
+        const object = await SITES.get(key)
+        if (!object) continue
+        assets.push({
+          name: key.slice(`${prefix}/assets/`.length),
+          bytes: new Uint8Array(await object.arrayBuffer()),
+        })
+      }
+      assets.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+
+      return { siteJson, pages, assets }
+    },
+
+    async draftBase(slug) {
+      const row = await DB.prepare(
+        'SELECT base_revision FROM sites WHERE tenant_id = ? AND slug = ?',
+      )
+        .bind(tenantId, slug)
+        .first<{ base_revision: number | null }>()
+      return row?.base_revision ?? null
+    },
+
+    async setDraftBase(slug, id) {
+      await DB.prepare('UPDATE sites SET base_revision = ? WHERE tenant_id = ? AND slug = ?')
+        .bind(id, tenantId, slug)
+        .run()
     },
 
     async version(slug) {

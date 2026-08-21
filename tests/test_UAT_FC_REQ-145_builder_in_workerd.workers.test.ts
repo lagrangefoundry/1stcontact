@@ -193,23 +193,17 @@ describe('REQ-145 — the builder runs in workerd', () => {
     }
   })
 
-  it('test_UAT_FC_REQ-145_deferred_capabilities_answer_501_naming_their_ticket', async () => {
-    // AC-9. A 404 would read as a routing bug and send someone hunting for a
-    // handler that was lost; these routes exist and their capability does not.
-    //
-    // `/api/ai/*` USED to be asserted here, deferred to lagrange-framework
-    // REQ-103. REQ-146 landed it, so the deferral is gone and asserting it would
-    // now pin the absence of a capability that exists. The invariant this test
-    // states is about the SHAPE of a deferral, not about any particular route
-    // staying deferred forever — so a route graduating is expected to leave here.
-    const publish = await call('/api/publish', { method: 'POST' })
-    expect(publish.status).toBe(501)
-    expect((await publish.json()) as { ticket: string }).toMatchObject({ ticket: 'REQ-149' })
-
-    // `published` is the same deferral seen from the preview route.
-    const published = await call('/preview/anything/published/')
-    expect(published.status).toBe(501)
-  })
+  // AC-9 — `test_UAT_FC_REQ-145_deferred_capabilities_answer_501_naming_their_ticket`
+  // STOOD HERE, and is gone because the last deferral graduated.
+  //
+  // It asserted the SHAPE of a deferral: a route that exists while its
+  // capability does not answers 501 naming the ticket that will land it, rather
+  // than 404ing and sending someone hunting for a handler that was lost. It
+  // covered `/api/ai/*` until REQ-146 landed that, then `/api/publish` and the
+  // `published` channel until REQ-149 landed those. Its own note said a route
+  // graduating was expected to leave — every one now has, so the test has no
+  // subject and is deleted rather than kept as an assertion about nothing.
+  // `notImplemented()` went with it; the next deferral brings both back.
 
   it('test_UAT_FC_REQ-145_build_artifacts_are_served_behind_the_gate_not_ahead_of_it', async () => {
     // The security property behind `run_worker_first = true`. If the assets

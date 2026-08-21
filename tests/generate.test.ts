@@ -251,7 +251,7 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     await cmdPublish('acme', { cwd, message: 'r2' })
 
     // draft now equals r2 (clean); checking out r1 replaces it with r1's contents.
-    cmdCheckout('acme', 1, { cwd })
+    await cmdCheckout('acme', 1, { cwd })
     expect(dirsIdentical(sitePath('acme', 'draft'), sitePath('acme', 'revisions', '0001'))).toBe(true)
   })
 
@@ -266,12 +266,12 @@ describe('1c CLI — storage, versioning & render (REQ-9)', () => {
     await cmdPublish('acme', { cwd, message: 'r2' })
 
     // Roll back to r1 and publish: creates a NEW highest revision == r1's content.
-    cmdCheckout('acme', 1, { cwd })
+    await cmdCheckout('acme', 1, { cwd })
     const { id } = await cmdPublish('acme', { cwd, message: 'rollback' })
     expect(id).toBe(3)
     expect(dirsIdentical(sitePath('acme', 'revisions', '0003'), sitePath('acme', 'revisions', '0001'))).toBe(true)
 
-    const revs = cmdRevisions('acme', { cwd })
+    const revs = await cmdRevisions('acme', { cwd })
     const r3 = revs.find((r) => r.id === 3)!
     expect(r3.basedOn).toBe(1)
   })

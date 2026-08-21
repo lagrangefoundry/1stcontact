@@ -226,9 +226,13 @@ describe('REQ-119 request-time draft and edit renders', () => {
     const { outDir } = await cmdPublish(SLUG, { cwd, message: 'req119' })
     const published = path.join(outDir, 'index.html')
     expect(fs.existsSync(published)).toBe(true)
-    expect(await (await get(`/preview/${SLUG}/published/`)).text()).toBe(
-      fs.readFileSync(published, 'utf8'),
-    )
+    const artifact = fs.readFileSync(published, 'utf8')
+
+    // The builder REDIRECTS the published channel to public-site (REQ-149 D4)
+    // rather than serving it: one serving path for published bytes.
+    const redirected = await get(`/preview/${SLUG}/published/`, { redirect: 'manual' })
+    expect(redirected.status).toBe(302)
+    expect(redirected.headers.get('location')).toBe(`https://1stcontact.io/site/${SLUG}/`)
 
     // Now move the draft. The draft-side channels follow it; published does not.
     const pagePath = path.join(cwd, 'storage', 'sites', SLUG, 'draft', 'pages', 'home.json')
@@ -240,7 +244,11 @@ describe('REQ-119 request-time draft and edit renders', () => {
 
     try {
       expect(await (await get(`/preview/${SLUG}/draft/`)).text()).toContain(marker)
-      expect(await (await get(`/preview/${SLUG}/published/`)).text()).not.toContain(marker)
+      // The published ARTIFACT is what a visitor gets, and it did not move with
+      // the draft — asserted against the bytes rather than a response, since the
+      // builder no longer serves them.
+      expect(fs.readFileSync(published, 'utf8')).not.toContain(marker)
+      expect(fs.readFileSync(published, 'utf8')).toBe(artifact)
     } finally {
       fs.writeFileSync(pagePath, before)
     }

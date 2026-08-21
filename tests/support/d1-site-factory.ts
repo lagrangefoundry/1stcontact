@@ -28,26 +28,38 @@ export function storeEnv(): SiteStoreEnv {
 }
 
 /**
- * Apply the schema.
+ * Apply the schema — EVERY migration, in order.
  *
- * The migration file is imported as text and executed, rather than restated
+ * The migration files are imported as text and executed, rather than restated
  * here: a fixture with its own CREATE TABLEs proves the fixture's schema, and
  * would keep passing after the real migration drifted from it.
+ *
+ * THE LIST IS EXPLICIT (REQ-149). A glob would be tidier and would also be
+ * unordered, and `0002` alters a table `0001` creates — so the one property that
+ * must hold is the one a glob would leave to chance. Adding a migration means
+ * adding a line here, which is a diff a reviewer sees.
  */
+const MIGRATIONS = [
+  () => import('../../db/migrations/0001_site_store.sql?raw'),
+  () => import('../../db/migrations/0002_revisions.sql?raw'),
+]
+
 export async function applySchema(): Promise<void> {
   const { DB } = storeEnv()
-  const sql = (await import('../../db/migrations/0001_site_store.sql?raw')).default as string
-  // Comments are stripped BEFORE splitting on the terminator, not after: the
-  // migration's prose explains a design and prose contains semicolons, so
-  // splitting first cuts a comment in half and feeds SQLite the remainder.
-  const statements = sql
-    .split('\n')
-    .filter((line) => !line.trim().startsWith('--'))
-    .join('\n')
-    .split(';')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0)
-  for (const statement of statements) await DB.prepare(statement).run()
+  for (const load of MIGRATIONS) {
+    const sql = (await load()).default as string
+    // Comments are stripped BEFORE splitting on the terminator, not after: the
+    // migration's prose explains a design and prose contains semicolons, so
+    // splitting first cuts a comment in half and feeds SQLite the remainder.
+    const statements = sql
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('--'))
+      .join('\n')
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+    for (const statement of statements) await DB.prepare(statement).run()
+  }
 }
 
 /** The tenant every fixture belongs to unless a test names another. */

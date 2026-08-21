@@ -389,14 +389,26 @@ describe('REQ-146 — the AI host runs in workerd', () => {
     expect(Array.isArray(session.turns)).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-146_publish_is_not_reachable_from_the_worker', async () => {
-    // AC7. `publish` snapshots a directory tree; it is REQ-149's and is absent
-    // from the Worker's surface entirely. The route says so by name rather than
-    // 404ing, which would read as a routing bug.
-    const refused = await post('/api/publish', { slug: 'anything' })
-    expect(refused.status).toBe(501)
-    const body = (await refused.json()) as { ticket: string }
-    expect(body.ticket).toBe('REQ-149')
+  it('test_UAT_FC_REQ-146_the_worker_carries_only_the_operations_it_can_run', async () => {
+    // AC7, restated for the boundary as it now stands.
+    //
+    // IT USED TO NAME `publish`. That was correct while publishing meant copying
+    // a directory tree: the operation lived in `toolbox.ts` (the Node entry
+    // point) and the route answered 501 naming REQ-149. REQ-149 put revisions on
+    // the store port, so publish is an ordinary port-driven operation in
+    // `toolbox-core.ts` and the route answers for real — asserting its absence
+    // now would pin the absence of a capability that exists.
+    //
+    // The INVARIANT is unchanged and is what this asserts: an operation that
+    // needs a disk is absent from the Worker's surface, and `add_asset` — which
+    // reads a file the operator names — is the one that still does.
+    const core = await import('../tools/generate/src/cli/ai/toolbox-core')
+    const operations = core.l1Operations('anything', {
+      store: {} as never,
+      actor: 'client',
+    } as never)
+    expect(Object.keys(operations)).toContain('publish')
+    expect(Object.keys(operations)).not.toContain('add_asset')
   })
 
   it('test_UAT_FC_REQ-146_the_r2_archive_round_trips_the_neutral_session_file', async () => {

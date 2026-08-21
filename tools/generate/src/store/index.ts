@@ -9,8 +9,8 @@
  * which reach the filesystem. `edit.ts` is the standing example.
  */
 export type { Root, RenderChannel, StoreContext } from './paths'
+export { padRevision } from './revision-model'
 export {
-  padRevision,
   siteDir,
   draftDir,
   revisionsDir,
@@ -43,13 +43,28 @@ export { assembleSite } from './assemble'
 
 export type {
   DraftSnapshot,
-  PendingChanges,
   SiteStore,
   SiteWrite,
   StoredAsset,
   StoredPage,
 } from './site-store'
 export { StoreConflictError } from './site-store'
+
+export type { ChangeSet, RevisionContent, RevisionEntry, StoredSnapshot } from './revision-model'
+export {
+  canonicalJson,
+  diffSnapshots,
+  PUBLISHED_ROOT,
+  publishedOutPrefix,
+  publishedPrefix,
+  publishedSourcePrefix,
+  isEmptyChangeSet,
+  liveRevisionOf,
+  nextRevisionOf,
+  snapshotEntries,
+  snapshotSha,
+  REVISION_SHA_LENGTH,
+} from './revision-model'
 
 export { MIME, contentTypeOf, extensionOf } from './content-type'
 
@@ -65,19 +80,14 @@ export type {
   TenantRecord,
   TenantSiteStore,
 } from './d1r2-store'
-export { d1r2SiteStore, UnknownTenantError } from './d1r2-store'
+export { d1r2SiteStore, SlugClaimedError, UnknownTenantError } from './d1r2-store'
 
 export { fsSiteStore } from './fs-store'
 export type { MemorySiteSeed, MemorySiteStore } from './memory-store'
 export { memorySiteStore } from './memory-store'
 
-export type { Snapshot } from './snapshot'
-export { snapshot, nextRevisionId } from './snapshot'
-
-export { diffSnapshots } from './diff'
-
-export type { ChangeSet, RevisionEntry, History } from './history'
-export { readHistory, appendHistory, liveRevision } from './history'
+export type { History } from './history'
+export { readHistory, appendHistory } from './history'
 
 export type { DraftBase } from './base'
 export { readDraftBase, writeDraftBase } from './base'

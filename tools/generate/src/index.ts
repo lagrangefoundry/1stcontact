@@ -7,7 +7,6 @@ export { renderSite } from './render'
 export type { ModuleResolver, RenderSiteOptions } from './render'
 export * from './cli'
 // R2 artifact store + `1c deploy` (REQ-110).
-export * from './deploy'
 export * from './conformance'
 // L1 round-trip gate (REQ-82) — render/serve/capture an L1 doc + diff vs L1.
 export * from './l1'

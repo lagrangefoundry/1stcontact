@@ -1,35 +1,20 @@
 import type { StoreContext } from './paths'
 import { historyPath } from './paths'
+import type { RevisionEntry } from './revision-model'
 import { pathExists, readJson, writeJson } from './fsutil'
 
 /**
- * The publish history (`history.json`, DOC-12 §4): an append-only, forward-only
- * log of revisions. The live revision is always the highest id (`live = latest`),
- * so there is no separate pointer to keep in sync.
+ * `history.json` (DOC-12 §4) — the filesystem adapter's revision log.
+ *
+ * An append-only, forward-only record. The live revision is always the highest
+ * id, so there is no pointer to keep in sync; {@link liveRevisionOf} derives it.
+ *
+ * ADAPTER-INTERNAL SINCE REQ-149. This is where `fsSiteStore` keeps its log, and
+ * the only place that reads or writes the file. The VOCABULARY — what a revision
+ * entry is, what a change set is, how the two are compared — moved to
+ * `revision-model.ts`, which reaches no filesystem, so the Worker's adapter and
+ * this one share the model rather than each carrying a copy of it.
  */
-
-/** A whole-snapshot file-change list (`diffSnapshots` output). */
-export interface ChangeSet {
-  added: string[]
-  modified: string[]
-  removed: string[]
-}
-
-/** One published revision's metadata. */
-export interface RevisionEntry {
-  /** Monotonic revision id; matches the `revisions/NNNN/` directory. */
-  id: number
-  /** ISO-8601 timestamp the revision was published. */
-  publishedAt: string
-  /** Operator-supplied publish message. */
-  message: string
-  /** Identifier of who published, or null. */
-  by: string | null
-  /** The revision this one descends from (set when checked out from history). */
-  basedOn: number | null
-  /** Files changed versus the previous live revision. */
-  changes: ChangeSet
-}
 
 export interface History {
   revisions: RevisionEntry[]
@@ -40,12 +25,6 @@ export function readHistory(ctx: StoreContext, slug: string): History {
   const p = historyPath(ctx, slug)
   if (!pathExists(p)) return { revisions: [] }
   return readJson<History>(p)
-}
-
-/** The live (highest) revision id, or null when nothing has been published. */
-export function liveRevision(history: History): number | null {
-  if (history.revisions.length === 0) return null
-  return history.revisions.reduce((max, r) => Math.max(max, r.id), 0)
 }
 
 /** Append a revision entry and persist. Returns the updated history. */

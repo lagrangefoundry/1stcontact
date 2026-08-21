@@ -11,6 +11,10 @@ import {
 import { CommandError, InvalidDefinitionError } from '../../../tools/generate/src/cli/errors'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
 import { payloadToWrite, type SitePayload } from '../../../tools/generate/src/cli/push'
+import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
+import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
+import { SlugClaimedError } from '../../../tools/generate/src/store/d1r2-store'
+import { publicSiteUrl } from './public-url'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
   openSession,
@@ -43,10 +47,11 @@ import { storeFor, storeForImport, type StoreEnv } from './store'
  * served before `fetch` are bytes served to anyone. Falling through here means
  * an asset is delivered only to a caller the gate has already verified.
  *
- * PUBLISH ANSWERS 501, deliberately and by name: it needs revision storage the
- * port does not have ([[REQ-149]]). A 404 would read as a routing bug and send
- * someone looking for the handler that was lost; a 501 naming the ticket says
- * what is true — the route exists, the capability does not yet.
+ * PUBLISH ANSWERS FOR REAL NOW ([[REQ-149]]). It was the last 501: the port had
+ * no notion of a revision, so the capability genuinely did not exist here. The
+ * port has five revision verbs and `publish.ts` sequences them, so this route is
+ * a transport over the same function `1c publish` calls — which is why the Node
+ * transport no longer intercepts the path on its way past.
  *
  * `/api/ai/*` was the other such route, deferred to lagrange-framework REQ-103
  * because the library loaded itself from an out-of-repo artifact store by file
@@ -130,14 +135,6 @@ function text(status: number, body: string): Response {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-/** A capability this Worker does not have yet, named by the ticket that lands it. */
-function notImplemented(what: string, ticket: string): Response {
-  return json(501, {
-    error: `${what} is not available in the Worker yet — ${ticket}.`,
-    ticket,
-  })
 }
 
 async function readJsonBody(request: Request): Promise<Record<string, unknown>> {
@@ -251,13 +248,6 @@ async function routeUncached(
     })
   }
 
-  // Still deferred, and answered before the store is constructed: it does not
-  // need one, and a store failure here would misreport why it is refused.
-  // Publishing needs revision storage the port does not have — REQ-149.
-  if (p === '/api/publish') {
-    return notImplemented('Publishing', 'REQ-149')
-  }
-
     /**
    * POST /api/import — one whole site, copied up from a local store (REQ-145).
    *
@@ -320,12 +310,58 @@ async function routeUncached(
 
   try {
     if (p === '/api/sites' && method === 'GET') {
-      // `latest` is null for every site: this store holds no revisions, and
-      // saying so is better than implying one. `publish` mints them and is
-      // REQ-149; until then the site selector shows an unpublished site, which
-      // is what it is.
+      // `latest` is the live revision — the highest id in the log, derived and
+      // never stored (REQ-149). It read `null` for every site while the store
+      // held no revisions; saying so was better than implying one, and now there
+      // is something true to say.
       const slugs = await store.slugs()
-      return json(200, slugs.map((slug) => ({ slug, latest: null })))
+      return json(
+        200,
+        await Promise.all(
+          slugs.map(async (slug) => ({
+            slug,
+            latest: liveRevisionOf(await store.revisions(slug)),
+          })),
+        ),
+      )
+    }
+
+    /**
+     * POST /api/publish — freeze the draft as a revision and render it (REQ-149).
+     *
+     * A TRANSPORT, exactly like every other route here. `publishSite` is the one
+     * implementation and `1c publish` calls the same function against the
+     * filesystem store; nothing about what a publish IS is decided in this file.
+     *
+     * THE TWO NON-500 FAILURES ARE NAMED, and BOTH ARE MAPPED IN THE CATCH AT
+     * THE BOTTOM rather than here. An invalid draft is an
+     * `InvalidDefinitionError` carrying the path-pointed validation errors the
+     * toolbar shows; a slug another account already publishes under is a 409,
+     * because it is neither a malformed request nor this server breaking — it is
+     * a name that is taken. Catching either locally would mean building an
+     * `error:` value outside the one place that scrubs them (REQ-146 AC4), and
+     * the next such route would inherit the omission.
+     */
+    if (p === '/api/publish' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.slug !== 'string' || body.slug === '') {
+        return json(400, { error: 'slug is required' })
+      }
+      const result = await publishSite(store, body.slug, {
+        message: typeof body.message === 'string' ? body.message : undefined,
+      })
+      return json(200, {
+        id: result.id,
+        changes: result.changes,
+        published: result.published,
+        url: publicSiteUrl(body.slug),
+      })
+    }
+
+    if (p === '/api/revisions' && method === 'GET') {
+      const slug = url.searchParams.get('slug')
+      if (!slug) return json(400, { error: 'slug is required' })
+      return json(200, await revisionHistory(store, slug))
     }
 
     if (p === '/api/assets' && method === 'GET') {
@@ -488,13 +524,19 @@ async function routeUncached(
      * workerd. `published` is not here: it is the immutable artifact a publish
      * produced, it lives in R2, and `public-site` serves it. Re-deriving it from
      * today's draft would make the published channel show unpublished work.
+     *
+     * SO `published` REDIRECTS rather than being served (REQ-149 D4). One serving
+     * path for published bytes, as DOC-12 §7 assigns it. Proxying instead would
+     * duplicate the resolve-and-serve logic that seam exists to own, and the cost
+     * of the redirect — a never-published site shows public-site's 404 rather
+     * than a builder-shaped message — lands on a URL the toolbar never produces.
      */
     const preview = p.match(/^\/preview\/([^/]+)\/([^/]+)(\/.*)?$/)
     if (preview) {
       const slug = decodeURIComponent(preview[1])
       const channel = decodeURIComponent(preview[2])
       if (channel === 'published') {
-      return notImplemented('The published channel', 'REQ-149')
+      return Response.redirect(publicSiteUrl(slug, preview[3] ?? '/'), 302)
       }
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
@@ -517,6 +559,25 @@ async function routeUncached(
     const scrub = redactor(secretsOf(env))
     if (err instanceof CommandError) {
       return json(400, { error: scrub(err.message), ...err.toEnvelope() })
+    }
+    // A draft that does not validate is the AUTHOR'S error, like a rejected
+    // change map — 400, carrying the path-pointed errors so the toolbar can say
+    // which field is wrong rather than "publish failed". It is deliberately not
+    // folded into `CommandError`: this one carries a LIST of errors, and
+    // flattening it to a single code/path/hint would throw away the part the
+    // author needs.
+    if (err instanceof InvalidDefinitionError) {
+      return json(400, {
+        error: scrub(err.message),
+        code: 'INVALID_DEFINITION',
+        errors: err.errors.map((e) => ({ path: e.path, message: scrub(e.message) })),
+      })
+    }
+    // A published address another account already owns (REQ-149 D2). 409 rather
+    // than 400 or 500: the request is well-formed and the server is fine — the
+    // name is taken, and the only thing that resolves it is choosing another.
+    if (err instanceof SlugClaimedError) {
+      return json(409, { error: scrub(err.message) })
     }
     const message = err instanceof Error ? err.message : String(err)
     return json(500, { error: scrub(message) })

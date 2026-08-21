@@ -4,12 +4,26 @@ compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# The bucket `1c deploy` publishes rendered snapshots to (REQ-110/REQ-111).
+# The bucket the control-app publishes rendered revisions to (REQ-110/REQ-111).
 # Declared at the top level for `wrangler dev` and repeated under
 # [env.production] because a named environment does not inherit bindings.
 [[r2_buckets]]
 binding = "SITES"
 bucket_name = "1stcontact-sites"
+
+# The revision log (REQ-149). This Worker READS ONLY: it asks which revision is
+# live and never writes a row — publishing is control-app's, behind Access. The
+# binding is the same database control-app declares, because there is one record
+# of what is published and this is it; the deploy manifest that used to answer
+# this question from R2 is deleted.
+#
+# No `migrations_dir` here, deliberately. Migrations belong to the database and
+# are applied once, by the Worker that owns the schema (control-app). Declaring
+# them in two places would let two deploys race the same migration.
+[[d1_databases]]
+binding = "DB"
+database_name = "1stcontact"
+database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"
 
 [env.production]
 name = "1stcontact-public-site"
@@ -32,3 +46,8 @@ routes = [
 [[env.production.r2_buckets]]
 binding = "SITES"
 bucket_name = "1stcontact-sites"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "1stcontact"
+database_id = "0434cd88-07e0-4eb2-a7d8-7370c333534c"

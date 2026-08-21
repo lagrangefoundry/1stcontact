@@ -2,7 +2,8 @@ import path from 'node:path'
 import type { StoreContext } from './paths'
 import { draftDir, revisionDir } from './paths'
 import { listFilesRel, pathExists, readJson } from './fsutil'
-import { liveRevision, readHistory } from './history'
+import { readHistory } from './history'
+import { liveRevisionOf } from './revision-model'
 import { assembleSite } from './assemble'
 import type { LoadResult } from './assemble'
 
@@ -20,7 +21,7 @@ export type SiteSource = 'draft' | 'latest' | number | string
 function resolveSourceDir(ctx: StoreContext, slug: string, source: SiteSource): string {
   if (source === 'draft') return draftDir(ctx, slug)
   if (source === 'latest') {
-    const id = liveRevision(readHistory(ctx, slug))
+    const id = liveRevisionOf(readHistory(ctx, slug).revisions)
     if (id === null) {
       throw new Error(`Site '${slug}' has no published revisions to load as 'latest'.`)
     }
