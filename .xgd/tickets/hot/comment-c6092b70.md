@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-21T02:08:24.458306+00:00'
+updated_at: '2026-08-21T20:07:32.622718+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -336,5 +336,11 @@ Baseline: **9 files / 23 tests** failing (and `site-storage-port` shows a collec
 Same 8 failing files as baseline (minus the one I fixed), but +2 failed tests. Let me compare those files test-by-test across both trees.
 
 Branch: 22 failed / 40 passed of 63. Now the same 8 files on `xgd-working`.
+
+<!-- xgd-turn id="35153393-f3ec-47e6-86ce-8ef69180db81-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T20:07:32.484105+00:00" -->
+#### You
+please complete the free-coding of this ticket
 
 <!-- xgd-chat-end -->
