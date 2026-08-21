@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T01:38:08.427373+00:00'
+updated_at: '2026-08-21T01:44:18.273164+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -542,5 +542,102 @@ One latent behaviour I noticed and deliberately did not touch: `/site/<slug>/<di
 <!-- xgd-chat role="user" ts="2026-08-21T01:38:08.343046+00:00" -->
 #### You
 ok so, moment of truth - walk me through how to see it in action?
+
+<!-- xgd-turn id="ff7bd918-3fb9-46a1-bb5a-13d8fe4d670b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T01:44:18.190787+00:00" -->
+#### Claude
+Let me work out the actual recipe and verify it rather than hand you a guess.
+
+Let me actually run it end-to-end here first, so I hand you something verified. Starting with the migration against the existing local D1.
+
+Wrangler sees `0002` pending against the existing local DB — that's the real upgrade path. Applying it.
+
+Migration applied cleanly to an existing DB. Now the crux — the two Workers must share one local D1. Let me verify that works.
+
+Confirmed — they don't share a store by default. Let me verify the `--persist-to` fix by actually running both.
+
+`wrangler dev` is blocked by my sandbox (it needs `~/Library/Preferences/.wrangler/registry`) — that's my constraint, not the code's. Let me nail the recipe with what I can verify.
+
+`-c` is single-valued here, so it's two processes sharing a persist dir. Let me verify the parts I *can* run — starting with whether a demo publish would dirty the tree.
+
+Good — `storage/sandbox/` is gitignored, so I can demo without dirtying anything. Running the real publish:
+
+That's the whole publish contract working. Let me clean up the stray process and confirm nothing tracked was touched.
+
+Tree is clean. Here's the walkthrough.
+
+## Part 1 — the publish contract (I just ran all of this)
+
+I demoed in the gitignored `storage/sandbox/` root so nothing tracked was touched. The site is still there if you want to poke at it:
+
+```bash
+1c new demo --sandbox
+1c publish demo --sandbox -m "first cut"
+#   → Published revision r1 (2 change(s))
+
+1c publish demo --sandbox -m "second press of the button"
+#   → Already published as r1 — the draft has no changes.      ← D1, the no-op
+
+1c copy set demo home '0.0' --values '{"text":"Publishing now happens in the cloud."}' --sandbox
+1c publish demo --sandbox -m "reworded the headline"
+#   → Published revision r2 (1 change(s))
+
+1c checkout demo 1 --sandbox && 1c publish demo --sandbox -m "rolled back"
+#   → Published revision r3
+```
+
+The log afterwards is the part worth looking at:
+
+| | basedOn | sha | |
+|---|---|---|---|
+| r1 | — | `bdf2923067e5` | first cut |
+| r2 | 1 | `e699d430a179` | reworded the headline |
+| r3 | 1 | `bdf2923067e5` | rolled back |
+
+Forward-only: the rollback minted **r3**, r2 is still on disk, and `basedOn: 1` records where it came from. And `r3.sha == r1.sha` — the digest independently confirms the rollback republished byte-identical content.
+
+`1c revisions demo --sandbox` prints the log. Same `publishSite` function the Worker calls.
+
+## Part 2 — the cloud half
+
+This needs your machine: `wrangler dev` won't start under my sandbox (it wants `~/Library/Preferences/.wrangler/registry`, which I can't write). Nothing to do with the code.
+
+I already applied `0002` to your **local** D1 — and usefully, it went on top of an existing `0001` database, so the `ALTER TABLE` upgrade path is proven, not just the from-scratch one.
+
+```bash
+1c assets                    # the builder serves what this builds — re-run it,
+                             # a full test run wipes dist-assets partway through
+1c builder                   # wrangler dev on :8788, local D1 + R2
+bin/publish xgd              # import the local site into that store
+```
+
+Then publish — toolbar button in the builder, or:
+
+```bash
+curl -sX POST localhost:8788/api/publish \
+  -H 'content-type: application/json' -d '{"slug":"xgd","message":"hello cloud"}'
+# → {"id":1,"published":true,"changes":{...},"url":"https://1stcontact.io/site/xgd/"}
+```
+
+`GET localhost:8788/api/revisions?slug=xgd` shows the log; `/preview/xgd/published/` 302s to the public URL.
+
+**To see it actually served**, public-site needs the *same* local store — and by default it gets its own. I confirmed the two state directories are separate. So:
+
+```bash
+cd apps/public-site
+npx wrangler dev --port 8789 \
+  --persist-to /Users/martin/lagrangefoundry/1stcontact/apps/control-app/.wrangler/state
+```
+
+Then `http://localhost:8789/site/xgd/`.
+
+## The one thing I couldn't verify
+
+That last step — **two `wrangler dev` processes against one local SQLite store**. The path is right and the flag is right, but whether miniflare surfaces control-app's writes to public-site's process live, or needs a restart between publish and view, I can't test from here. If it comes up empty, restart the public-site process after publishing before concluding anything is wrong.
+
+If that turns out to be a real friction point, the fix is a `bin/dev` that starts both with a shared `--persist-to` — say the word and I'll file it.
+
+Worth knowing: the publish→serve crossing *is* proven end-to-end, in `test_UAT_FC_REQ-149_publish_in_the_cloud.workers.test.ts` — real D1, real R2, both Workers' own `fetch`, one miniflare instance. That's what makes me confident the code is right and this is purely a local two-process plumbing question.
 
 <!-- xgd-chat-end -->
