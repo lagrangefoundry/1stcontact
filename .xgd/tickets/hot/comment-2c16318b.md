@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:37:48.015155+00:00'
+updated_at: '2026-08-21T01:40:41.473509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1613,5 +1613,11 @@ The one thing I can't judge from here is how much of the builder is genuinely us
 Given the deadline, I think the more urgent artifact is a **session protocol** — the runnable version of DOC-33 + DOC-35 for you to work from, with what to say, what to show, what to record, and the specific claims each session is testing. DOC-35 §4.5 is important but it's not date-bound.
 
 Want me to write the protocol first, and §4.5 after?
+
+<!-- xgd-turn id="b36b87c7-a67f-4856-abc0-8fb9f3b5529d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:40:41.384607+00:00" -->
+#### You
+I will be a long way from a working product, but I can have the site builder up and running,  I can have them log in and I can have them launch a site. That's credible in 2 weeks from where we are and my intention is to take an hour to onboard each of them so I can watch and feel their pain and see their confusion. There's about 8 of them so its a strong cohort.
 
 <!-- xgd-chat-end -->
