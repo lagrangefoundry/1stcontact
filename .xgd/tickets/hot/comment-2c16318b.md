@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T02:00:28.635003+00:00'
+updated_at: '2026-08-21T02:01:41.438286+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1761,5 +1761,47 @@ On deletion -
 There are two levels 
 1. 1c customers: there everything we do should be stored by tenant. Wouldn't we just nuke the tenant? 
 2. Their customers: a feature of the user portal from day one would be data deletion. We would store email, consent, billing and payments history. Perhaps that list would grow but the idea would be that delete all my data will exist from day one and we will maintain it as we add new data
+
+<!-- xgd-turn id="46f60a41-4cff-4e10-9015-6dc389fc3e12-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:01:41.337210+00:00" -->
+#### Claude
+## Level 1 — yes, and your framing is cleaner than mine
+
+Tenant-nuke is right, provided everything genuinely *is* tenant-scoped. So the only real question is: **what have we deliberately let escape the tenant boundary?** — and per the last turn, the answer is "quite a lot, on purpose." Cross-tenant benchmarks, refusal aggregates, spread-rejection stats, any transcript promoted to a few-shot exemplar. None of those are inside the tenant, so nuking it doesn't touch them.
+
+The rule I'd write down now, while there's nothing to migrate: **anything crossing the tenant boundary is either irreversibly aggregated at the moment it crosses, or it carries the tenant key so it dies with the tenant. Never a third category.** Get that right and tenant-nuke really is the whole story for level 1.
+
+Where crypto-shredding still earns its keep is narrower than I implied — it's not an alternative to tenant-nuke, it's what makes tenant-nuke *true* against storage you can't rewrite. Two cases: **backups** (you can't retroactively excise a row from last month's snapshot) and **append-only history**. The second one may be pointed: if the ledger and transcript really do live as a `chat` ticket body and comment in the git-backed ticketing store, then deletion means excising from git history — which is exactly the property that store was chosen for. Encrypting per tenant and destroying the key sidesteps both without giving up append-only.
+
+## Level 2 — right instinct, three things you can't delete
+
+**Payment history isn't deletable.** Tax and financial record retention (typically 6–7 years) overrides erasure requests, and that's explicitly carved out in GDPR. So the honest feature is *"delete everything we're allowed to,"* with transactions **redacted to the legal minimum** rather than removed. Promising "delete all my data" and then keeping invoices is worse than promising the accurate thing.
+
+**Consent records are a paradox.** You have to retain proof of consent, and proof of the deletion request itself — deleting the consent record destroys your evidence that you were ever allowed to hold the data, and that you complied when asked.
+
+**And suppression lists are the counterintuitive one.** If someone unsubscribes and you delete them completely, the next time their address arrives in an import you'll happily mail them again — causing precisely the harm they asked you to prevent. So you retain a hash of the address *specifically in order to keep not-mailing them*. Everyone builds this wrong the first time.
+
+## Whose button is it?
+
+Structurally, for end-customer data **Sarah is the controller and we're the processor.** Her customer's deletion request goes to *her*, she actions it, and it has to propagate through our stores — and we need to be able to show that it did.
+
+That's a design consequence rather than a legal one: the feature isn't "a delete button in the portal," it's a **processor obligation we're taking on for her**, which means the flow is two-party and auditable, and our agreement with her has to say so.
+
+## The fix for "maintain it as we add new data"
+
+That promise decays — every new limb adds a store and eventually someone forgets. The mechanism that doesn't decay: **deletion derives from a registry.** Every store holding person-scoped data registers itself and declares its behaviour — `delete`, `redact`, or `retain-with-reason`. Erasure iterates the registry. Adding an unregistered store becomes a **test failure rather than a memory failure**.
+
+Two things fall out for free. The registry *is* an always-accurate data inventory, which is the annoying part of writing a privacy policy. And it forces the retention exceptions above to be declared explicitly rather than discovered during an incident.
+
+## Why "day one" is more right than it looks
+
+Because of the closed loop. A single person record ends up fragmented across capture, list, billing, analytics, and post-attribution in the marketing calendar — five limbs holding pieces of one human. Sweeping all of them is trivial when there's one limb and a genuine project when there are five.
+
+So: registry at limb one, and every subsequent limb pays a two-line tax instead of a retrofit.
+
+---
+
+This is now a decent chunk of a document on its own. Shall I fold deletion into the telemetry doc — the escape-boundary rule, the registry, the three retention exceptions, controller/processor — since the two are really one design (what you collect determines what you have to be able to destroy)?
 
 <!-- xgd-chat-end -->
