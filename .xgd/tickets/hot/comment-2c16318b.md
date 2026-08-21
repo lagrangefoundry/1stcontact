@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:40:41.473509+00:00'
+updated_at: '2026-08-21T01:41:44.345660+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1619,5 +1619,35 @@ Want me to write the protocol first, and §4.5 after?
 <!-- xgd-chat role="user" ts="2026-08-21T01:40:41.384607+00:00" -->
 #### You
 I will be a long way from a working product, but I can have the site builder up and running,  I can have them log in and I can have them launch a site. That's credible in 2 weeks from where we are and my intention is to take an hour to onboard each of them so I can watch and feel their pain and see their confusion. There's about 8 of them so its a strong cohort.
+
+<!-- xgd-turn id="b36b87c7-a67f-4856-abc0-8fb9f3b5529d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T01:41:44.267051+00:00" -->
+#### Claude
+That's a proper cohort study, and eight is enough to see a pattern rather than an anecdote.
+
+An hour doesn't fit DOC-33's session — but it fits the **trailer arc** almost exactly: outcome question, thin brief, first spread, choose, unfurl, publish. Which is convenient, because that arc is precisely the part of today's design that's least tested and most load-bearing. If hero-in-15 works eight times, everything downstream is worth building. If it doesn't, you've saved yourself months.
+
+**The discipline that will be hardest: don't rescue them.** You said you want to feel their pain — but when someone you know is floundering two feet away, you will help within about four seconds, and the finding dies with the confusion. The rule that works is: when they stall, don't explain, **ask.** *"What are you thinking right now?"* You get the data and they still feel supported. Count to ten before offering anything.
+
+**Sequence them in batches, not a run.** If all eight are on consecutive days you'll end up with eight recordings of the same failure. Do two, leave a real gap to change something, then three, gap, then three. You get a baseline *and* a tested change.
+
+And think about who goes first. Not your most enthusiastic or most technical — you'll get a falsely optimistic read. Someone middling and honest. Put your most anxious person second or third, once the roughest edges are off, because they're your design centre and you want that session to yield findings rather than a rescue.
+
+**Login is finding number one, and you should only make one person suffer it.** For a technology-anxious user, account creation plus email verification is pure friction with no reward, arriving before anything good has happened. Let *one* person do it unassisted and watch closely — then pre-create the accounts for the other seven so the hour goes on the thing you're actually trying to learn.
+
+**The free corpus you'll collect: their words.** Whatever they call the top of the page — "the front bit," "the picture at the start" — is what the AI should call it. Eight anxious novices talking about websites for an hour is directly the register vocabulary DOC-35 §9.6 needs, and you cannot get it any other way. Write down phrasings verbatim, not summaries.
+
+**A five-minute form beforehand** — what you do, business name if you have one, any photos — buys back logistics time *and* tests DOC-33's pre-session ingestion. I'd expect the asset gap to be the finding: most of them probably have almost no usable imagery, which puts stage 5's "design around the absence" under real load immediately.
+
+**And the actual outcome test is free: ask them in a month.** Did they change anything? Did they show anyone? Is it still up? That tells you more about whether the product works than anything you'll observe in the room, and it costs one message.
+
+One framing note for them: be openly early about it. *"This is rough, you're helping me, and you'll come out with a real site"* is honest, it makes every rough edge acceptable rather than damning, and with this population it'll probably make them more invested rather than less.
+
+---
+
+Given all that, the protocol I write should target **8 × 1 hour** rather than the 4–5 hour session — a facilitation script with the hour's arc, the observation sheet tied to DOC-35's testable claims, the don't-rescue rule, the batching plan, and a one-page pre-session form. Then §4.5 after.
+
+Shall I write it?
 
 <!-- xgd-chat-end -->
