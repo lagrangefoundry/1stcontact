@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T01:35:42.146941+00:00'
+updated_at: '2026-08-21T01:38:08.427373+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -536,5 +536,11 @@ Net **−1,831 lines**.
 **Three assertions I inverted rather than deleted.** REQ-145's "deferred capabilities answer 501" had no subject left — publish was the last deferral, and the test's own note said a graduating route was expected to leave, so it and `notImplemented()` are gone. REQ-146's "publish is not reachable from the Worker" was restated around `add_asset`, which is now the only operation that genuinely needs a disk.
 
 One latent behaviour I noticed and deliberately did not touch: `/site/<slug>/<dir>/` resolves to the key `<dir>`, not `<dir>/index.html` — only the site root gets the index mapping. It predates this ticket. Say the word if you want it filed.
+
+<!-- xgd-turn id="ff7bd918-3fb9-46a1-bb5a-13d8fe4d670b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:38:08.343046+00:00" -->
+#### You
+ok so, moment of truth - walk me through how to see it in action?
 
 <!-- xgd-chat-end -->
