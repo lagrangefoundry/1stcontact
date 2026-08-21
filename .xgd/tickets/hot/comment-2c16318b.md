@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:05:09.627351+00:00'
+updated_at: '2026-08-21T01:14:14.394699+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1359,5 +1359,15 @@ For you specifically it's close to forced: you're building 1st Contact anyway, s
 And the non-template point isn't vanity for XGD in particular. You're selling development methodology to developers — for that audience the site is *evidence about the maker*. There's a recursion worth noticing: XGD's site gets built by 1st Contact, which gets built with XGD. Both sites are proof of their own product, which is high leverage and unforgiving in both directions.
 
 The thing I'd want to pin down next, if you want to keep going: **which limb do you actually need first for XGD to start selling?** My guess is capture-plus-list, because it's the only one that turns existing traffic into an asset — but you know what XGD's near-term motion looks like and I don't.
+
+<!-- xgd-turn id="87294b05-28d8-4207-b75f-7d8ef1d2a9e0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:14:14.304148+00:00" -->
+#### You
+Right shaman need invoicing and one off billing which is simpler but admitedly another feature - but look  - when you have billing against the emails that you collected from the website you have the full end to end funnel you understand where customers came from and how much they spent with you that gives the AI an opportunity to provide real business insights with no friction to the business owner.
+
+XGD needs email capture (for whitepaper download) -> admin email view and management -> mailing list -> user portal -> subscription billing.
+
+Unfortunately XGD is still pre-beta in terms of quality. I am obviously using it and loving it but it's not ready to share with the world yet I am still spending too much time fixing bugs and refractoring pieces. It is conceivable at first contact will actually ship as a paid product before XGD does - I certainly see the two racing at the moment
 
 <!-- xgd-chat-end -->
