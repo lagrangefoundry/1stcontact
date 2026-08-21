@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:41:44.345660+00:00'
+updated_at: '2026-08-21T01:43:20.390117+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1649,5 +1649,11 @@ One framing note for them: be openly early about it. *"This is rough, you're hel
 Given all that, the protocol I write should target **8 × 1 hour** rather than the 4–5 hour session — a facilitation script with the hour's arc, the observation sheet tied to DOC-35's testable claims, the don't-rescue rule, the batching plan, and a one-page pre-session form. Then §4.5 after.
 
 Shall I write it?
+
+<!-- xgd-turn id="a24bfde6-1059-46db-9c22-e4efdeba9ed3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:43:20.299689+00:00" -->
+#### You
+**Login is finding number one, and you should only make one person suffer it.** For a technology-anxious user, account creation plus email verification is pure friction with no reward, arriving before anything good has happened. Let *one* person do it unassisted and watch closely — then pre-create the accounts for the other seven so the hour goes on the thing you're actually trying to learn. <-- the plan is magic link sign in - so sign up/sign in have the same friction modulo T&C which may not be ready...
 
 <!-- xgd-chat-end -->
