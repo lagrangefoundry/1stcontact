@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:17:13.261363+00:00'
+updated_at: '2026-08-21T02:18:23.097726+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -865,5 +865,34 @@ I noticed this because of your blank page, not because I was looking for it — 
 I don't know that I really care we should get an error are you saying we should get a different era? You said we shouldn't get content of the tenants database is empty.
 
 By the way I restarted and then I ran builder and restarted and I'm not seeing anything on the page yet
+
+<!-- xgd-turn id="4e3943b9-533c-43ab-9b72-8572a06796bb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:18:23.005823+00:00" -->
+#### Claude
+Let me check the live state rather than theorise.
+
+Two different failures; you've moved from one to the other. Current state:
+
+| | |
+|---|---|
+| `/builder/main.js` | **200** |
+| `/webui/*` (all 5 components) | **404** |
+
+The 503/tenant problem is gone. What's left is purely missing assets — and the pattern is diagnostic: `builder/` serves, `webui/` doesn't. That's exactly the shape of a manifest built when `dist-assets` held only `builder/`, which is what it held before I re-ran `1c assets`. Wrangler snapshots the asset manifest at startup, so a server started before the rebuild keeps 404ing the new files no matter how many times you reload.
+
+The files are definitely on disk now (`dist-assets/webui/webui-shell/src/index.js`, 5,793 bytes, all five components).
+
+**Stop the builder and run this one line**, so the ordering can't be wrong:
+
+```bash
+1c assets && 1c builder
+```
+
+## On your question about the error
+
+No — I'm not asking for a different error code. I'm saying you got **no visible error at all**. The chrome document returned 200 because it's answered before the store is built; only its imports 503'd. So the browser had a page that loaded successfully and silently did nothing, with the actual message buried in a network response body. Blank screen, no diagnosis.
+
+That's moot for you now — the tenant exists — and it is *not* what's causing your current blank page. Different failure, same symptom, which is precisely why the silent-blank behaviour is worth something eventually. Noted, not filed; say the word if you want it.
 
 <!-- xgd-chat-end -->
