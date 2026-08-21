@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:18:23.097726+00:00'
+updated_at: '2026-08-21T02:22:34.571342+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -894,5 +894,11 @@ The files are definitely on disk now (`dist-assets/webui/webui-shell/src/index.j
 No — I'm not asking for a different error code. I'm saying you got **no visible error at all**. The chrome document returned 200 because it's answered before the store is built; only its imports 503'd. So the browser had a page that loaded successfully and silently did nothing, with the actual message buried in a network response body. Blank screen, no diagnosis.
 
 That's moot for you now — the tenant exists — and it is *not* what's causing your current blank page. Different failure, same symptom, which is precisely why the silent-blank behaviour is worth something eventually. Noted, not filed; say the word if you want it.
+
+<!-- xgd-turn id="c97972cd-d22d-4f9a-aab5-ed2c636c06fb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:22:34.476362+00:00" -->
+#### You
+Sure please wire up so it gives an errror
 
 <!-- xgd-chat-end -->
