@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:43:20.390117+00:00'
+updated_at: '2026-08-21T01:44:05.408260+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1655,5 +1655,30 @@ Shall I write it?
 <!-- xgd-chat role="user" ts="2026-08-21T01:43:20.299689+00:00" -->
 #### You
 **Login is finding number one, and you should only make one person suffer it.** For a technology-anxious user, account creation plus email verification is pure friction with no reward, arriving before anything good has happened. Let *one* person do it unassisted and watch closely — then pre-create the accounts for the other seven so the hour goes on the thing you're actually trying to learn. <-- the plan is magic link sign in - so sign up/sign in have the same friction modulo T&C which may not be ready...
+
+<!-- xgd-turn id="a24bfde6-1059-46db-9c22-e4efdeba9ed3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T01:44:05.320022+00:00" -->
+#### Claude
+Right — and it's the better choice for this cohort for a reason beyond signup friction: **these people will log in maybe monthly, so every login is effectively a first login.** Password auth punishes infrequent users specifically, and password reset is the worst flow in software to put in front of someone who's already nervous. Magic link makes every visit identical and forgiving. That's a retention argument, not an onboarding one, and it's the stronger case.
+
+Three failure modes worth watching in the sessions, because they're the ones that are invisible unless you're in the room:
+
+**The device switch.** They're on a laptop, their email is on their phone. They click the link on the phone and are now logged in on the wrong device, with the laptop still sitting on "check your email." This is very common with less technical users and it's the one I'd bet money on seeing. The cheap fix is offering a **6-digit code** alongside the link — it survives the switch entirely, and it's what most consumer apps have converged on for exactly this reason.
+
+**The retry loop.** Email takes twenty seconds, nothing visibly happens, anxious user assumes they did it wrong and clicks "resend" — which invalidates the first link, which they then click, which fails. Now they're in a state they can't reason about. Worth making sure old links either stay valid or fail with something human.
+
+**Spam.** Silent, and they won't think to check. You'll see it as "it didn't arrive."
+
+All three are observable in a watched session, which makes these eight hours a genuinely good test of the auth flow — *provided you can see the phone*. If they check email on a device you're not watching, you lose the observation entirely. Worth asking them to put the phone where you can see it.
+
+On T&Cs: for eight people you know, in a concierge session, I wouldn't let formal terms block anything. Two things I would do, both cheap and both plain English rather than legal:
+
+- **What you'll do with their data** — you're collecting their email and their business content. One paragraph, said out loud, is fine and honestly better suited to this audience than a document.
+- **What "live" means, and for how long.** If someone puts that URL on a business card and the platform changes underneath them, that's a real harm. *"This is early — I'll keep it running, but don't print it yet"* is the honest version and it costs nothing to say.
+
+That second one isn't a legal concern, it's a product-honesty one, and it's the one I'd actually worry about with this group.
+
+Still happy to write the 8×1hr protocol whenever you want it.
 
 <!-- xgd-chat-end -->
