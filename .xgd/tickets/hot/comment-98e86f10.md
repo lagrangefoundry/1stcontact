@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:07:47.077124+00:00'
+updated_at: '2026-08-21T02:11:11.269129+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -809,5 +809,11 @@ If the answer is "nothing is live yet", this evaporates. The evidence points tha
 That was true until this ticket gave public-site a `DB` binding. The hook's *behaviour* is still right — migrations should run once, from the schema owner — but the stated reason is now false and would mislead whoever reads it next.
 
 It's a comment-only fix. REQ-149 is already `free_coded` and merged, so folding it in means reopening the ticket and appending the commit. Want me to do that, or file it separately?
+
+<!-- xgd-turn id="60994785-9c97-4303-8f91-a3d027ded7f7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:11:11.184227+00:00" -->
+#### You
+I ran your commands and I see the xgd site and the whitepapers page. 8788 is blank though
 
 <!-- xgd-chat-end -->
