@@ -48,11 +48,24 @@ describe('REQ-141 project routing', () => {
     expect(root).not.toContain('include:')
   })
 
-  it('keeps the .astro transform the single config existed for', () => {
-    const node = read('vitest.node.config.mts')
-    expect(node).toContain("from 'astro/config'")
-    expect(node).toContain('getViteConfig({')
-    // The workerd project must NOT go through it — the transform cannot run there.
-    expect(read('vitest.workers.config.mts')).not.toContain('astro')
+  it('names no Astro plugin in either project config', () => {
+    // This test used to assert the OPPOSITE for the node project: the config was
+    // Astro's `getViteConfig` precisely so behavior-module `.astro` components
+    // could be transformed, and the workerd project had to stay clear of it
+    // because that transform cannot run there. REQ-148 removed the last `.astro`
+    // file and REQ-150 removed the dependency, so the asymmetry the assertion
+    // recorded no longer exists — the two configs are now plain Vitest configs
+    // that differ only in pool and routing.
+    //
+    // Matched on the IMPORT SPECIFIER rather than the bare word: both configs
+    // carry comments explaining the removal, and those legitimately spell
+    // `.astro`. What must not come back is a resolvable dependency on it.
+    for (const config of ['vitest.node.config.mts', 'vitest.workers.config.mts']) {
+      const source = read(config)
+      expect(source, config).not.toMatch(/from ['"]astro/)
+      expect(source, config).not.toMatch(/import\(['"]astro/)
+      expect(source, config).not.toMatch(/getViteConfig\s*\(/)
+      expect(source, config).toContain("from 'vitest/config'")
+    }
   })
 })

@@ -1,10 +1,16 @@
 {
-  // `@cloudflare/workers-types` is here for the D1/R2 adapter alone (REQ-143):
-  // it types the bindings `store/d1r2-store.ts` takes as parameters. It does not
-  // make this tool a Worker — every other module here is still node/Astro.
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["astro/client", "node", "@cloudflare/workers-types"],
+    // `@cloudflare/workers-types` is here for the D1/R2 adapter alone (REQ-143):
+    // it types the bindings `store/d1r2-store.ts` takes as parameters. It does not
+    // make this tool a Worker — every other module here is still node.
+    //
+    // `astro/client` used to sit alongside them, carrying the ambient declarations
+    // an `.astro` import needed. REQ-148 removed the last such import and REQ-150
+    // removed Astro. Nothing here imports a non-code asset, so no replacement
+    // ambient is required — `resolveJsonModule` below covers the only non-`.ts`
+    // import that remains.
+    "types": ["node", "@cloudflare/workers-types"],
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     // REQ-146 — `ai/toolbox.ts` imports its surface declaration as data rather
     // than reading it off disk, so the Worker can carry it in the bundle.

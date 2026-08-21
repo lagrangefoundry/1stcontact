@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { getViteConfig } from 'astro/config'
+import { defineConfig } from 'vitest/config'
 import {
   WEBUI_PACKAGES,
   WEBUI_SCOPE,
@@ -52,17 +52,19 @@ function webuiAliases(): Array<{ find: string; replacement: string }> {
   return aliases
 }
 
-// The node/Astro project — the repository's default runtime.
+// The node project — the repository's default runtime.
 //
-// Astro's `getViteConfig` wires the `.astro` transform plugin into Vitest so
-// framework module components can be imported and rendered via the container
-// API. Plain `.ts` UATs (site-schema, naming) are unaffected. This is why the
-// split exists at all: the transform is a Vite plugin running in node, and it
-// has no counterpart under workerd.
+// This was `getViteConfig` from `astro/config`, which wired Astro's `.astro`
+// transform plugin into Vitest so framework module components could be rendered
+// through the container API. REQ-148 made every behavior module a plain
+// TypeScript function and deleted the last `.astro` file, so the plugin had
+// nothing left to transform; REQ-150 dropped it, and Astro with it. The split
+// from the workerd project survives on its own terms — these tests touch a real
+// filesystem, which workerd does not have.
 //
-// The include is what it has always been; the exclude is the only new line,
-// handing `*.workers.test.ts` to the sibling project.
-export default getViteConfig({
+// The include/exclude pair is the whole routing convention: `*.workers.test.ts`
+// belongs to the sibling project, everything else runs here.
+export default defineConfig({
   resolve: { alias: webuiAliases() },
   test: {
     name: 'node',

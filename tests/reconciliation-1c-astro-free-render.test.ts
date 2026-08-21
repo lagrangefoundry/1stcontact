@@ -5,16 +5,22 @@
  * Two guarantees reconciled from bundle-cceaba25 (BUNDLE-8), plan item 4,
  * commit 5dc46d0f (REQ-89):
  *
- *   • AC-738 — every `1c` command boots quietly: the Astro-backed Vite bootstrap
- *     no longer emits "Missing pages directory" on *either* stream, because the
- *     inline Astro config's `logLevel: 'error'` gates the logger that emits it
- *     (the earlier stdout→stderr diversion had only moved the noise).
+ *   • AC-738 — every `1c` command boots quietly: the bootstrap no longer emits
+ *     "Missing pages directory" on *either* stream. REQ-89 achieved that by
+ *     gating Astro's logger with the inline Astro config's `logLevel: 'error'`;
+ *     REQ-150 replaced the Astro-backed Vite server with a plain one, so the
+ *     plugin that scanned for `src/pages` is gone and there is no logger left to
+ *     gate. The AC is a claim about the streams, so the assertion is unchanged.
  *   • AC-739 — the render path is Astro-free unless a page needs Astro: the
  *     container is constructed only when a page carries behavior modules.
  *     SUPERSEDED BY REQ-148, which makes the stronger claim true: no page needs
  *     Astro, because a behavior module is a plain function of its props. Part
  *     (c) below therefore expects no container for a MODULE page too — the
  *     measurement is unchanged and the answer is the stronger one.
+ *     REQ-150 then removed the `astro` dependency, which removes the container
+ *     factory the parts below spied on. They now assert that no container can be
+ *     constructed at all (`expectNoAstroContainerToConstruct`) — the same
+ *     guarantee, established for every render rather than for the observed one.
  *
  * The sibling stdout/stderr-hygiene criteria (AC-656/657/658/659) and the
  * aligned-crops sandbox routing (AC-720) are covered in
@@ -27,7 +33,6 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { experimental_AstroContainer } from 'astro/container'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { foldToL1 } from '../tools/generate/src/l1'
@@ -37,6 +42,7 @@ import type {
   StateProjection,
   ValueElement,
 } from '../tools/generate/src/cli/capture'
+import { expectNoAstroContainerToConstruct } from './support/astro-absent'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
@@ -102,18 +108,19 @@ afterEach(() => {
 
 describe('story-e15a19ef — the 1c bootstrap is quiet on both streams', () => {
   it('test_UAT_AC738_commands_boot_without_missing_pages_warning', () => {
-    // Drive the real `1c` binary as a subprocess so the launcher's Astro-backed
-    // Vite bootstrap runs for real — that bootstrap scans the working root for a
-    // pages directory before any CLI code loads, and used to log
-    // "[WARN] Missing pages directory: src/pages" on every invocation.
+    // Drive the real `1c` binary as a subprocess so the launcher's Vite bootstrap
+    // runs for real. Under Astro that bootstrap scanned the working root for a
+    // pages directory before any CLI code loaded, and logged
+    // "[WARN] Missing pages directory: src/pages" on every invocation; REQ-150
+    // removed the plugin that scanned, so the noise has no source rather than a
+    // muted one.
     //
     // Both commands here are non-rendering (they never build a site), which is
     // exactly the case the AC calls out: the warning must be absent because it is
-    // suppressed at its source, not merely diverted between streams.
+    // gone at its source, not merely diverted between streams.
     //
-    // Run from the repo root — the launcher roots its Astro Vite server at the
-    // repo and Astro's `.astro` compile cache is cwd-sensitive; the operator
-    // always invokes `1c` in-repo.
+    // Run from the repo root — the launcher roots its Vite server at the repo;
+    // the operator always invokes `1c` in-repo.
     const bin = path.join(repoRoot, 'tools', 'generate', 'bin', '1c.mjs')
 
     for (const command of ['help', 'list']) {
@@ -146,38 +153,33 @@ describe('story-e15a19ef — Astro is never engaged by the render (REQ-148)', ()
     writeL1(ref, foldToL1(l1Oracle()))
     cmdRepro('l1only', { cwd, ref })
 
-    let createSpy = vi.spyOn(experimental_AstroContainer, 'create')
     const l1Out = (await cmdRender('l1only', { cwd })).outDir
 
     const l1Html = readFileSync(path.join(l1Out, 'index.html'), 'utf8')
     expect(l1Html).toContain(HEADLINE) // the expected page HTML rendered …
     expect(l1Html).not.toContain('data-fc-type') // … carrying no module hooks …
-    expect(createSpy).not.toHaveBeenCalled() // … with no container constructed.
-    vi.restoreAllMocks()
+    expectNoAstroContainerToConstruct() // … with no container constructed.
 
     // ── (b) The empty starter — no pages carry modules either ────────────────
     cmdNew('starter', { cwd })
 
-    createSpy = vi.spyOn(experimental_AstroContainer, 'create')
     const starterOut = (await cmdRender('starter', { cwd })).outDir
 
     const starterHtml = readFileSync(path.join(starterOut, 'index.html'), 'utf8')
     expect(starterHtml).toContain('<html') // a real document was emitted …
     expect(starterHtml).not.toContain('data-fc-type') // … with no module hooks …
-    expect(createSpy).not.toHaveBeenCalled() // … and no container constructed.
-    vi.restoreAllMocks()
+    expectNoAstroContainerToConstruct() // … and no container constructed.
 
     // ── (c) A site with at least one behavior-module page ────────────────────
     cmdNew('acme', { cwd })
     seedModules(cwd, 'acme')
 
-    createSpy = vi.spyOn(experimental_AstroContainer, 'create')
     const modOut = (await cmdRender('acme', { cwd })).outDir
 
     // REQ-148 — no container here either. This read `toHaveBeenCalled()` while a
     // behavior module was an Astro component; it is the assertion whose flip IS
     // the ticket, and the reason the same render now runs in workerd.
-    expect(createSpy).not.toHaveBeenCalled()
+    expectNoAstroContainerToConstruct()
     // … and the page renders exactly as before: module markup, its theme CSS,
     // and the client script are all present.
     const modHtml = readFileSync(path.join(modOut, 'index.html'), 'utf8')
