@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T00:40:36.376252+00:00'
+updated_at: '2026-08-21T01:03:30.157410+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1289,5 +1289,17 @@ I don't think the useful axis is funded-solo vs bootstrap-side-project. Those di
 Kill Bill looks like the second (real growing usage, the question is commercial conversion and the OSS-vs-enterprise dual-audience tension). XGD and 1st Contact look more like the first.
 
 If you want to push further, the things I'd need are: for Kill Bill, where their traffic actually comes from today and what the two audiences are being asked to do; for XGD and 1st Contact, whether you think the constraint right now is comprehension or awareness — because if it's awareness, the honest answer for your own sites is the same one we'd give a stranger.
+
+<!-- xgd-turn id="982d7c73-f931-4883-ae23-4b18f7878a51-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:03:30.059923+00:00" -->
+#### You
+Good. So let's talk about this for a little while why would I consider using First contact to sell XGD?
+
+Well, first of all I want a site for XGD that does not look like it was built on a template system. So yes, I could build all the things I need with Claude, or for that matter with XGD, but let's just talk about what that is. It's much more than a website. I need the website and I need email capture I need the ability to be able to manage a mailing list I need the ability to be able to have a user portal and bill my customers on a recurring basis against some licensing solution. 
+
+I also want monitoring, analytics and an AI system tied into all the data that will help me build a business.
+
+I mean of course I want to be a user of first contact because I am building product to meet my needs. But my hope is that it would meet other people's needs who will also in my situation
 
 <!-- xgd-chat-end -->
