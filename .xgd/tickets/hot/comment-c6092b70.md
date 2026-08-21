@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-21T20:07:32.622718+00:00'
+updated_at: '2026-08-21T20:15:04.437065+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -342,5 +342,79 @@ Branch: 22 failed / 40 passed of 63. Now the same 8 files on `xgd-working`.
 <!-- xgd-chat role="user" ts="2026-08-21T20:07:32.484105+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="35153393-f3ec-47e6-86ce-8ef69180db81-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T20:15:04.327454+00:00" -->
+#### Claude
+Picking up where the baseline comparison got killed (exit 137 — OOM). Let me reorient first.
+
+Different worker counts aren't comparable — these suites are shared-state sensitive. Re-running the branch with the same settings.
+
+Counts move run-to-run — these are flaky. I need test-level names to compare. Capturing both.
+
+23 names captured (note `public-site` and `req115-builder-shell` didn't fail this time — flakiness confirmed). Now the baseline names.
+
+Four candidates, all in `reconciliation-builder-workspace-origin.test.ts` — which depends on the **out-of-band-installed webui packages**. My `pnpm install` likely pruned them from the worktree. Let me check.
+
+Neither tree has them in `node_modules` — they live in a shared artifact store. Let me read the actual failure.
+
+The failures are `/webui/...` 404s — the webui artifact store. That file is *also* in the `xgd-working` baseline failing list; the difference is worktree-vs-main-checkout reachability. Let me confirm.
+
+Decisive: `@lagrangefoundry/webui-shell` resolves from the main checkout (`/Users/martin/lagrangefoundry/node_modules/...`) but is **unresolvable from the worktree path**. Those 4 failures are a worktree-location artifact, not my change. Let me bump the version and re-verify the scope on the rebased branch.
+
+11 files / 56 tests pass. Committing the conversion and bump.
+
+Now the merge back. Let me check the protocol's commands.
+
+Merged cleanly (xgd-working had advanced again; git made a real merge commit). Let me verify the merged state.
+
+Merged tree is fully astro-free. Now the ticket transition.
+
+Version collision — REQ-149 already claimed 0.2.1. Let me find a free version rather than guess.
+
+REQ-149 bumped to 0.2.1 in `0e390334e`, so my bump collided into a no-op on merge. Bumping again on the merged tree.
+
+Ticket is `free_coded` with 3 commits. Updating the body to replace the now-resolved "Outstanding" section.
+
+Now releasing the lock and tearing down the branch.
+
+Everything landed. Let me save two non-obvious findings to memory.
+
+Shell writes are blocked there; using the Write tool.
+
+REQ-150 is complete and `free_coded`.
+
+## What landed
+
+Merged into `xgd-working` as `38ae1533d`, three commits recorded on the ticket at version **0.2.2**:
+
+| Commit | What |
+|---|---|
+| `258381e2d` | Launcher on plain Vite + Astro removed from the repo |
+| `aa64b3e15` | The last Astro site (`reconciliation-site-storage-port`) converted |
+| `c36373c10` | Version bump (0.2.1 was taken by REQ-149) |
+
+The launcher now takes `createServer` from `vite` directly with `configFile: false`; `vitest.node.config.mts` is a plain `defineConfig` from `vitest/config`. Astro is gone from every manifest, from all three lockfile importers, and from every source file — one explanatory comment is the only surviving mention. `@astrojs/markdown-remark` is untouched.
+
+## Two things I had to deal with
+
+**The branch couldn't be merged, only replayed.** `free-REQ-150` was cut before a `remap_commits`/resync rewrote `xgd-working`'s history, so `git merge` produced 32 conflicts including `add/add` on files the branch never touched. The branch's *content* was identical to `xgd-working` for every touched file, so I aborted and cherry-picked onto the new tip instead — clean, and REQ-149's edit elsewhere in `req119` survived intact.
+
+**That rebase surfaced a file the branch had never seen.** `tests/reconciliation-site-storage-port.test.ts` imported both `astro/container` and the `.astro` file REQ-148 deleted, so it was **already failing at collection on `xgd-working`** — all 8 tests unreachable. Converting it off the container restored them (8/8 pass).
+
+## Verification
+
+- `xgd-working` baseline: **9 files / 23 tests** failing. Branch: **8 files / 25 tests** — the file-level delta is exactly the suite I fixed.
+- The test-level delta is environmental, and I confirmed it rather than assuming: 4 `builder-workspace-origin` tests fail only in the worktree because `@lagrangefoundry/webui-shell` is installed out-of-band at `/Users/martin/lagrangefoundry/node_modules` and `require.resolve` returns `MODULE_NOT_FOUND` from a worktree path. `public-site` fails identically on unmodified `xgd-working` (EPERM against `~/Library/Preferences/.wrangler`).
+- Regression scope: **11 files / 56 tests passing**. Workers project: **5 files / 49 tests passing**.
+
+Lock released, branch and worktree torn down, working tree clean.
+
+## One step for you
+
+The main checkout's `node_modules` still carries `astro` — the manifests changed under it. Run `pnpm install` in `/Users/martin/lagrangefoundry/1stcontact` before trusting a local test run there; the `astro-absent` assertions check that `astro/container` *cannot* resolve, which only holds once the tree matches the lockfile. CI is unaffected — it installs `--frozen-lockfile` from scratch.
+
+Also worth knowing: the `claude.ai` Gmail/Calendar/Drive connectors flagged in this session need authorizing via your claude.ai connector settings; I can't run OAuth from a non-interactive session.
 
 <!-- xgd-chat-end -->
