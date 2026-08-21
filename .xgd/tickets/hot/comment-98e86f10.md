@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:11:11.269129+00:00'
+updated_at: '2026-08-21T02:13:16.366203+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -815,5 +815,47 @@ It's a comment-only fix. REQ-149 is already `free_coded` and merged, so folding 
 <!-- xgd-chat role="user" ts="2026-08-21T02:11:11.184227+00:00" -->
 #### You
 I ran your commands and I see the xgd site and the whitepapers page. 8788 is blank though
+
+<!-- xgd-turn id="60994785-9c97-4303-8f91-a3d027ded7f7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:13:16.283449+00:00" -->
+#### Claude
+Likely the `dist-assets` wipe again. Let me check rather than guess.
+
+That's it — `framework/` and `webui/` are missing; the last full test run wiped them, so the chrome loads but its module imports 404. Rebuilding:
+
+`No tenant '1stcontact'.` — that's the real cause. Let me confirm against the local database.
+
+Tenant row exists — so the running server is reading a *different* store than I just queried. Let me pin down which is which.
+
+The user's server is reading a store with no tenant row. `bin/publish` creates it — that both diagnoses and fixes:
+
+Diagnosed — two separate causes stacked, and I've fixed one of them for you.
+
+## What to do
+
+**Restart the builder** (Ctrl-C the `1c builder` terminal, run it again). Leave the 8789 one alone.
+
+## Cause 1 — missing assets (fixed on disk, needs the restart)
+
+`apps/control-app/dist-assets` held only `builder/`; `webui/` and `framework/` were gone. So the chrome document loaded fine and every module import 404'd — blank page.
+
+They were wiped by the last full test run: `reconciliation-platform-build-deploy-smoke` shells out to `bin/build`, which runs `1c assets`, which starts by deleting `dist-assets` and then fails partway because of an unrelated component-install issue. I've re-run `1c assets`, so the files are back — but Cloudflare's assets binding snapshots the manifest at startup, which is why `/webui/…` still 404s on your running process. Hence the restart.
+
+**Run `1c assets` after any full `npm test`.** That's a pre-existing hazard, not something this ticket introduced.
+
+## Cause 2 — no tenant row (fixed, no restart needed)
+
+Every asset was returning **503 `No tenant '1stcontact'`**. Your server was reading a store whose `tenants` table was empty. I ran `bin/publish xgd` against it, which creates the tenant as a side effect of importing — `/builder/main.js` went 503 → 200 immediately.
+
+## The thing worth taking seriously
+
+That 503 is a real defect, and it's the first thing anyone will hit on a fresh database — including on the actual Cloudflare deploy you asked about.
+
+`router.ts` builds the tenant-scoped store *before* the asset fall-through at the end. So when the tenant row doesn't exist, **every asset 503s**. But the chrome document is answered earlier, before the store is constructed — so you get a page that loads, with every import dead, and nothing anywhere saying why. A blank screen with the explanation buried in a network-tab response body.
+
+It's a chicken-and-egg: the tenant is only created by `/api/import`, so the builder can't render until you've pushed a site into it, and it won't tell you that.
+
+I noticed this because of your blank page, not because I was looking for it — the tests never caught it because every fixture creates its tenant first. It's outside REQ-149's scope and I'd rather not quietly widen a merged ticket. Want me to file it? My instinct on the fix is that the asset fall-through shouldn't need a store at all — it serves build artifacts, which have nothing to do with a tenant.
 
 <!-- xgd-chat-end -->
