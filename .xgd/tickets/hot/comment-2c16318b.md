@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:23:19.714757+00:00'
+updated_at: '2026-08-21T01:27:52.293379+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1486,5 +1486,11 @@ Attribution notices *where customers came from*. Insight notices *that nobody co
 Build-order note: monitoring is unusually cheap for its perceived value — uptime, one synthetic form transaction, and expiry checks covers most of it — and it directly answers your stated pain. I'd slot it right after capture and one-off billing, ahead of the list and portal work.
 
 Shall I fold all of this into DOC-35 §4.5 now? Between the last three turns there's a complete persona, the limb sequence, and the three-limb "attention" argument — and none of it is recorded yet.
+
+<!-- xgd-turn id="5a6c33f7-c2bc-4d4c-8b59-a30f17676398-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:27:52.200506+00:00" -->
+#### You
+Actually sorry there is one more piece I mentioned it but I didn't really expand on it. This is the marketing advice/marketing calendar. Website no generate traffic they consume it to generate traffic you need to go out and post. One of our tabs will provide this kind of business marketing advice and planning. It will create calendars for when the business owner should be sending out content it will provide reminders to create the content and to send it it will help with content creation and messaging and it will monitor the success of the contact thus created and help refine the plan for next time
 
 <!-- xgd-chat-end -->
