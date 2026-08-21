@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T02:13:53.319572+00:00'
+updated_at: '2026-08-21T02:16:46.569133+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1858,5 +1858,25 @@ Nothing ironic left in it — just one store that holds people and a lot of stor
 <!-- xgd-chat role="user" ts="2026-08-21T02:13:53.231887+00:00" -->
 #### You
 Can you write this up as two separate design docs - A data collection and a data deletion please
+
+<!-- xgd-turn id="ed7420e3-f6b1-4fa1-9833-4084fdad9d83-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:16:46.431779+00:00" -->
+#### Claude
+DOC-36 and DOC-37 landed with the IDs the cross-references assumed. Let me record them on the chat ticket.
+
+Both written.
+
+**DOC-36 — Data Collection: product telemetry & the outcome corpus** (`doc-d3aba72c`)
+
+The spine is §2's matched-pairs thesis and §4's *emit, don't mine*. §3 splits it into four layers and makes the point that most of the product-improvement value sits in the least sensitive one — which is what lets §4 reframe the consent question from "how do I get permission to mine transcripts" to "instrument so I rarely need to." §5 names the first four signals, including capability refusals as a customer-written backlog and spread rejection rate as a health check on our own divergence. §6 flags that our own capacity questions extract revenue data. §7 is the reciprocity bargain. §9 is the two now-or-never items.
+
+**DOC-37 — Data Deletion & Retention: erasure as identity severance** (`doc-92653384`)
+
+Everything derives from §2's one sentence. §4 takes your tenant-nuke framing as primary and puts crypto-shredding in its proper narrow place — what makes tenant deletion *true* against backups and append-only history, not a general mechanism. §5.1 reconciles "Sarah shouldn't touch it" with her being controller. §6 is the inventory including why the three retained items are retained *for* the person, and why "delete all my data" is a promise not to make. §6.3 and §7 are the two cheap-now decisions: identity/record separation, and registry-driven erasure as a test failure rather than a memory failure.
+
+They cross-reference each other and DOC-33/35/31. CHAT-21's body has the session summary appended.
+
+Two things still outstanding from earlier offers, in the order I'd do them given the two-week deadline: the **8 × 1hr session protocol**, then **DOC-35 §4.5**.
 
 <!-- xgd-chat-end -->
