@@ -5,9 +5,9 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-20T21:38:01.668152+00:00'
+updated_at: '2026-08-21T00:07:19.323935+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -256,3 +256,81 @@ Split out of [[REQ-145]] section 4, where "which serves `published` after this?"
 listed as an open question. Reading it resolved: everything moves to the cloud.
 Reading is cheap — `public-site` already does it — so REQ-145 keeps the read and
 this ticket takes the write.
+
+
+## Implementation notes (as landed)
+
+The seven decisions above all held. Five things the implementation settled that
+the ticket did not anticipate:
+
+**The port grew storage verbs, not a `publish()` verb.** `revisions`,
+`writeRevision`, `readRevision`, `draftBase`, `setDraftBase` — and
+`publish/publish.ts` sequences them. A `publish()` on the port would have put the
+sequence inside every adapter and made AC-6 a thing to maintain rather than a
+thing that cannot be otherwise.
+
+**`pendingChanges` left the port.** It had three implementations, all of them the
+same computation over different storage; it is now one service function over the
+revision verbs. `snapshot.ts` and `diff.ts` (directory-based) are deleted with it.
+
+**The diff is canonical, not byte-for-byte.** `diffSnapshots` now compares
+key-sorted JSON rather than file bytes, because the two stores hold the same
+definition in different shapes — comparing what each happens to serialize to
+would make "did this page change?" depend on which adapter answered. This is what
+makes AC-6 true rather than approximately true.
+
+**`RevisionEntry` gained `sha`.** Audit, not addressing, as the schema said —
+computed over the canonical snapshot listing via `crypto.subtle`, so both
+adapters record the same value for the same definition.
+
+**`publish` moved into the worker-safe toolbox core.** It was Node-only because
+it snapshotted a directory tree; that reason is gone, so the AI operation works
+against whichever store the host has. `add_asset` is now the only Node-only
+operation, and REQ-146's AC-7 UAT was restated around it.
+
+### One finding the suite caught
+
+The first cut of the `/api/publish` handler built its 409 body locally, outside
+the router's single scrubbing point. REQ-146's "every error path out of the
+router is scrubbed" UAT failed on it. Both non-500 outcomes — `SlugClaimedError`
+and `InvalidDefinitionError` — are now mapped in the bottom catch, where the
+scrubber is, rather than at the route.
+
+`InvalidDefinitionError` needed a 400 branch of its own: it is not a
+`CommandError`, and it carries a LIST of path-pointed errors that flattening to a
+single code/path/hint would discard.
+
+### Test changes
+
+Deleted (they test removed features): `req110-r2-deploy`,
+`reconciliation-deploy-snapshot`, `reconciliation-serve-deployed-snapshot`,
+`bug31-sandbox-r2-namespace`, `reconciliation-servable-root-confinement`.
+
+Rewritten over a shared fixture (`tests/fixtures/published-site.ts`) that runs a
+REAL publish and only relocates its output into a fake bucket, at keys the shared
+key builders decide: `req111-public-site-serving`,
+`req113-worker-extensionless-urls`, `reconciliation-clean-page-urls`.
+
+Added: `test_UAT_FC_REQ-149_publish_in_the_cloud.workers.test.ts` — eight UATs
+covering AC-1 through AC-9 inside workerd, against real D1 and R2, driving both
+Workers' own `fetch`. control-app publishes; public-site serves what it
+published.
+
+`test_UAT_FC_REQ-145_deferred_capabilities_answer_501_naming_their_ticket` is
+deleted: publish was the last deferral, and the test's own note said a route
+graduating was expected to leave. `notImplemented()` went with it.
+
+### Latent behaviour noticed, not changed
+
+`/site/<slug>/<dir>/` resolves to the key `<dir>`, not `<dir>/index.html` — only
+the SITE ROOT gets the index mapping. Predates this ticket; a nested directory
+URL has never served an index page. Not touched here.
+
+### Verification
+
+- workers project: 57/57 pass (7 files).
+- node project: failing-file set byte-identical to the pre-change baseline (10
+  files, all pre-existing: webui components not installed, a wrangler registry
+  EPERM, and `bin/build` wiping `dist-assets` mid-run). 1736 pass.
+- every package typechecks; control-app's pre-existing `node:fs` type-resolution
+  errors are unchanged in number and identity.
