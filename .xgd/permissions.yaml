@@ -115,5 +115,7 @@ roles:
       - Grep
       - Bash
     mode: bypassPermissions
+    additional_directories:
+    - ~/Library/Preferences/.wrangler/
     network: 'on'
     mach_lookup: 'on'
