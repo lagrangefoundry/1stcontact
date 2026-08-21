@@ -5,7 +5,7 @@ type: chat
 title: The design conversation
 created_by: xgd
 created_at: '2026-08-11T21:19:47.614246+00:00'
-updated_at: '2026-08-21T00:37:47.125911+00:00'
+updated_at: '2026-08-21T02:16:32.848095+00:00'
 completed_at: null
 last_field_updated: body
 status: open
@@ -396,6 +396,87 @@ customers. We have built toward the first and nothing toward the second.
 ### Next
 
 Solopreneur/founder persona (DOC-35 §4.5) — the one persona deliberately left as a stub.
+
+
+
+---
+
+## Session 2 (cont.) — data collection & deletion (→ [[DOC-36]], [[DOC-37]])
+
+Split into two docs because the two questions have different shapes, though they are one design:
+what you collect determines what you must be able to destroy.
+
+**Collection ([[DOC-36]]).** The thesis is **matched pairs** — decision → outcome — which nobody
+else can hold, because designers ship and leave and template platforms have traffic without
+decisions. Consequence: the design rubric that [[DOC-31]] implies and doesn't yet contain could
+eventually be *measured* rather than authored.
+
+Four layers with very different value-to-sensitivity ratios, and **most of the product-improvement
+value sits in the least sensitive one.** So the core principle is **emit, don't mine**: anything we
+know we'll want is a typed event at the moment of production, never recovered from prose. The
+transcript is raw material of last resort. This also reframes consent — the question isn't "how do
+we get permission to mine transcripts," it's "instrument so we rarely need to."
+
+Two named signals worth their own mention. **Capability refusals** are a feature backlog written by
+paying customers at the moment of genuine need. **Spread rejection rate** is a health check on *us*:
+if clients accept the first option most of the time, our "genuinely distinct" options aren't, which
+is the cheapest early warning on the template-DNA problem available.
+
+One catch on the "nothing private here" intuition: **our own elicitation deliberately extracts
+commercial numbers** — [[DOC-35]] §6.3 asks for client counts, churn and conversion. That's revenue
+concentration, not design preference, and it warrants stricter handling plus minimum cohort sizes on
+anything fed back.
+
+And the reframe that makes consent easy: **reciprocity.** Give the aggregate back as benchmarks a
+sole proprietor cannot obtain any other way. Consent becomes a feature people opt into rather than a
+legal chore, it's a retention mechanic, and it disciplines collection — if a signal can never be
+given back, ask why we're holding it.
+
+**Deletion ([[DOC-37]]).** One principle does all the work: **erasure severs the link between the
+rows and the human; it does not remove the rows.** We delete the person and keep the accounting.
+
+That resolves the apparent irony that everything on the day-one list — email, consent, billing —
+turns out to be partly retained. Email is destroyed but a one-way hash survives *so we keep not
+mailing them*; the consent event survives as the proof we complied; transactions survive because tax
+law overrides erasure and the person is redacted to the statutory minimum. So the honest feature is
+**"delete everything we're allowed to"** — promising more is worse than promising accurately.
+
+Operator's framing on the two levels was better than the crypto-shredding-first framing:
+**tenant-nuke handles level 1**, and the real question is the **escape boundary** — anything crossing
+it is either irreversibly aggregated at the moment it crosses, or carries the tenant key and dies
+with the tenant, never a third category. Crypto-shredding is then *narrow*: it's what makes
+tenant-nuke true against backups and append-only history (relevant if the ledger and transcript
+really do live in the git-backed ticket store per [[DOC-33]] §3), and against free text that can't be
+reliably scrubbed.
+
+On who acts: the operator is right that Sarah shouldn't touch it, and that's compatible with her
+being controller — controller allocates *responsibility*, not *labour*. A standing instruction plus
+the fact that a "delete my data" link on her site necessarily points at **our** infrastructure means
+her customer self-serves, we execute, she's notified. Her forgetting stops being a liability because
+no human is in the path.
+
+Two architectural decisions that are nearly free now and migrations later:
+- **Separate identity from record** — one identity store, everything else references an opaque
+  `person_id`. Most stores then need *no deletion logic at all* because they were never identifying.
+- **Registry-driven erasure** — every person-scoped store declares `delete` / `redact` /
+  `retain-with-reason` / `no-identity`. Adding an unregistered store becomes a **test failure rather
+  than a memory failure**, and the registry doubles as an always-accurate data inventory.
+
+Day one is cheaper than it looks precisely because of the closed loop: one person ends up fragmented
+across capture, list, billing, analytics and post-attribution. Trivial at one limb, a project at five.
+
+Also noted as a now-or-never: **record the eight onboarding sessions** (audio, transcribed). That's
+the register corpus [[DOC-35]] §9 currently asserts without evidence, including their own words for
+things — unobtainable later, free now.
+
+### Still outstanding
+
+- The **8 × 1hr session protocol** (offered, not yet written) — arc for the hour, observation sheet
+  tied to DOC-35's testable claims, don't-rescue rule, batching plan, pre-session form.
+- **[[DOC-35]] §4.5** — the Solopreneur/Founder persona, now fully discussed: pre-PMF vs
+  distribution-constrained as the real axis, the five limbs and the loop they close, the minimum
+  sellable trio (site + capture + one-off invoicing), and the customer-zero discipline — design
+  against Sarah or a shaman, validate against yourself, never the reverse.
 
 
 <!-- xgd-chat-end -->
