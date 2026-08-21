@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T00:34:14.915654+00:00'
+updated_at: '2026-08-21T00:38:05.647334+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1198,5 +1198,30 @@ Three distinct populations have now shown up in this conversation, all real, all
 Actually I don't want to overload your context why don't you create the document with what you have now this is the personas, modes document that frames how we are thinking about this discussion and perhaps lays out the needs and describes each persona. I don't think we want to create the persona playbook yet let's just capture what we have.
 
 When you're done with that I want to talk about the solopreure usecase. Some level this is why we are here I am a solo founder building two businesses one is XGD the other is first contact itself. Both of these should scale much better than my friends catering business they do not suffer from that same supply cap. There are obviously scaling considerations for these businesses but I will face those as I get to them I want sites that will do the work of customer conversion I do not have time for direct sales to begin with. I may at some point higher sales people to sell products on at an enterprise level but my goal would be to go out to consumers to begin with and make sales based on online content and website conversion. With some participation in events and but nevertheless the backbone has to be the presence. In addition I have another business that I am somewhat associated with that is growing today https://killbill.io/. I understand the shoestring bootstrap nature of this business and the people behind it who have full-time jobs doing something else. I think this is another small buisiness category area that I want to support - if only for my own needs
+
+<!-- xgd-turn id="85fba9fc-2b03-4f95-a098-1c9df785fee1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T00:38:05.556232+00:00" -->
+#### Claude
+I'll capture it now. Let me check the create interface first.
+
+Done — **DOC-35: Personas, Modes & Registers** (`doc-edba99c9`), and CHAT-21's body appended with the session's findings.
+
+*(Both auto-committed locally; the push failed — you're offline or the remote's unreachable.)*
+
+**What's in DOC-35:**
+
+- **§2** — the two errors it corrects: DOC-33 segments on *inventory* when it should segment on *diagnosis*, and it's artifact-anchored when DOC-32 §2B already ruled that the buyer purchases an outcome.
+- **§3** — the three orthogonal axes. Persona picks the door; mode and register float continuously once inside. This is what lets one product serve everyone.
+- **§4** — four confirmed personas (First-Timer, Embarrassed Owner, Underperformer, Grower), **§4.5 the Solopreneur stub** with what you said today, and **§4.6** arguing the Relauncher and the anxious novice are job×mode combinations rather than new personas — so the list stays job-shaped instead of drifting into demographics.
+- **§5** — the four real populations, named, with Sarah's diagnosis from the actual capture.
+- **§6** — capacity as a cross-cutting diagnosis: waitlist as safety stock, the four computable questions, and the lever *order* (buffer first, then price — your correction, which reversed what I had).
+- **§7–9** — elicitation rules, modes, registers. Including the asymmetric-detection argument (fluency is loud, confusion is silent → default careful and let fluency escalate), and the one consequence that bites: **plurality has a dose**, so spread size is the single mechanic that has to know who it's talking to.
+- **§10** — what this implies for DOC-33, recorded but not acted on. The weld to break, and the fact that stage 1 currently has no mechanism for telling a client their objective is wrong.
+- **§11** — open questions and dependencies, with §4.5 top of the list.
+
+Two things I deliberately kept out, per your steer: no per-persona playbooks, and no changes to DOC-33 itself.
+
+Ready for the solopreneur conversation whenever you are — and I think it's a genuinely different shape, because §6's entire diagnosis inverts when there's no supply cap.
 
 <!-- xgd-chat-end -->
