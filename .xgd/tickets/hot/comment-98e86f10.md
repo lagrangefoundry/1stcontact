@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:02:22.689130+00:00'
+updated_at: '2026-08-21T02:06:24.844453+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -754,5 +754,11 @@ cd apps/public-site && npx wrangler dev --port 8789 \
 ```
 
 That `--persist-to` is load-bearing — without it public-site gets its own empty store and everything 404s.
+
+<!-- xgd-turn id="1aa3adce-8a20-404f-a782-90fd0efd0528-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:06:24.760431+00:00" -->
+#### You
+OK, those URLs are not accessing any actual sites (if you open something in the background it dies at the end of the session. Just give me the command and I can start it myself) but more importantly those are local host references. I thought we were putting this in Cloudflare what have we actually done?
 
 <!-- xgd-chat-end -->
