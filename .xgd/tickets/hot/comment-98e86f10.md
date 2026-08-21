@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:06:24.844453+00:00'
+updated_at: '2026-08-21T02:07:47.077124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -760,5 +760,54 @@ That `--persist-to` is load-bearing — without it public-site gets its own empt
 <!-- xgd-chat role="user" ts="2026-08-21T02:06:24.760431+00:00" -->
 #### You
 OK, those URLs are not accessing any actual sites (if you open something in the background it dies at the end of the session. Just give me the command and I can start it myself) but more importantly those are local host references. I thought we were putting this in Cloudflare what have we actually done?
+
+<!-- xgd-turn id="1aa3adce-8a20-404f-a782-90fd0efd0528-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:07:46.984970+00:00" -->
+#### Claude
+Fair challenge, and the honest answer is: **nothing is in Cloudflare yet.** Everything I showed you was `wrangler dev --local` — miniflare simulating D1 and R2 on your laptop. Let me confirm exactly what state the real thing is in rather than assert it.
+
+No Cloudflare credentials here, so I can't inspect (or touch) the real account. Let me check what the deployed state is supposed to be.
+
+Straight answer: **nothing is in Cloudflare.** Everything I showed you was `wrangler dev --local` — miniflare simulating D1 and R2 on your laptop. Real workerd runtime, real SQLite, real R2 semantics, but all of it on disk in `apps/control-app/.wrangler/state`. There is no site at `1stcontact.io/site/xgd/`.
+
+## What REQ-149 actually delivered
+
+The code that *can* publish in a Worker with no filesystem, plus the migration file and the binding config. The ticket's scope list was exactly that — code, `0002_revisions.sql`, wrangler config. Deploying is `bin/deploy`, a separate operator action, deliberately not automated because it writes to production.
+
+So the ACs are met and verified; "live on the edge" was never inside them. That distinction was mine to make clearer earlier, and I didn't.
+
+## The commands you asked for
+
+```bash
+1c builder                                              # terminal 1 → :8788
+
+cd apps/public-site && npx wrangler dev --port 8789 \
+  --persist-to "$PWD/../control-app/.wrangler/state"    # terminal 2 → :8789
+```
+
+Then `http://localhost:8789/site/xgd/`. The `--persist-to` is load-bearing — without it public-site gets its own empty store.
+
+## What it takes to actually be in Cloudflare
+
+`bin/deploy` handles most of it: its migrate hook runs `wrangler d1 migrations apply --remote`, so `0002` lands on the real database, and public-site's new `DB` binding ships with its Worker.
+
+Two things to settle first, and I can't check either from here — no Cloudflare credentials in my environment.
+
+**1. Is anything currently published to production?** This is the one that matters. Sites published by the old `1c deploy` have their bytes and a `manifest.json` in R2 but **no rows in D1**. The new `public-site` reads D1. So the moment it deploys, any site that is live today starts 404-ing — the bytes are still there, but nothing tells the Worker which revision is live. There's no backfill for that in this ticket, because the ticket assumed the manifest was going away with nothing depending on it.
+
+If the answer is "nothing is live yet", this evaporates. The evidence points that way: `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are both empty in `[env.production.vars]`, and empty means deny — the deployed builder answers 503 to every request, so nothing could have been published through it. But that's inference, not a check.
+
+**2. Access needs configuring** before the deployed builder is usable at all, per `apps/control-app/ACCESS.md`.
+
+## One thing I broke and didn't notice
+
+`bin/deploy.d/migrate/10-d1-site-store` says:
+
+> WHY ONLY control-app. It is the only Worker with a `DB` binding — public-site serves rendered bytes out of R2 and reaches no database.
+
+That was true until this ticket gave public-site a `DB` binding. The hook's *behaviour* is still right — migrations should run once, from the schema owner — but the stated reason is now false and would mislead whoever reads it next.
+
+It's a comment-only fix. REQ-149 is already `free_coded` and merged, so folding it in means reopening the ticket and appending the commit. Want me to do that, or file it separately?
 
 <!-- xgd-chat-end -->
