@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T01:54:59.325446+00:00'
+updated_at: '2026-08-21T02:01:30.395879+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -711,5 +711,11 @@ Worth knowing when you demo this: publish and then immediately reload, and you m
 The migration also went on top of your existing `0001` database rather than a fresh one, so the `ALTER TABLE` upgrade path is proven, not just the from-scratch case.
 
 Working tree is clean, both servers stopped. Your local D1 now holds `xgd` at r2 — `bin/publish xgd` and republish any time you want to reset it.
+
+<!-- xgd-turn id="30b37cb4-6224-4a6b-8e86-fbb7fac35af0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:01:30.310688+00:00" -->
+#### You
+and I pull it up in a browser how?
 
 <!-- xgd-chat-end -->
