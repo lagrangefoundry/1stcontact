@@ -5,9 +5,9 @@ type: request
 title: '1c CLI: boot a plain Vite SSR server, not Astro''s'
 created_by: xgd
 created_at: '2026-08-18T19:57:23.404053+00:00'
-updated_at: '2026-08-21T20:13:27.357237+00:00'
+updated_at: '2026-08-21T20:14:00.667058+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: low
@@ -151,50 +151,74 @@ Regression scope: `tests/req37-launcher.test.ts`, `tests/req89-astro-lazy.test.t
 `tests/reconciliation-1c-install-preflight.test.ts`,
 `tests/test_UAT_FC_REQ-141_project_routing.test.ts`,
 `tests/test_UAT_FC_REQ-148_astro_free_render.test.ts`, plus the full node suite.
+
 ---
 
-## Implementation status (2026-08-20)
+## Implementation record (2026-08-21) — free_coded at 0.2.2
 
-All source changes are written and verified. The cycle is **blocked on one command the
-session cannot run**, described under "Outstanding" below.
+Landed on `xgd-working` as merge `38ae1533d`. Commits: `258381e2d` (the launcher
+and the dependency removal), `aa64b3e15` (the last Astro site), `c36373c10` (the
+version bump — see "version" below).
 
-### Verified
+### What shipped
 
-Measured by running the node suite twice in this worktree against the same `node_modules`:
-once with the change stashed (exact branch-base baseline) and once with it applied, where
-the post-install tree was simulated by linking `vite` out of the pnpm store and moving the
-`astro` links aside (both reversed afterwards — `node_modules` is gitignored, so nothing
-about this reaches the commit).
+Everything under "Settled scope" above, as written. The launcher takes
+`createServer` from `vite` directly with `configFile: false`, so its behaviour
+cannot depend on a `vite.config.*` that exists for some other purpose.
+`vitest.node.config.mts` is a plain `defineConfig` from `vitest/config`; no root
+`vite` entry was needed, since Vitest carries its own. Astro is absent from every
+manifest, from the lockfile's three importers, and from every source file — the
+single surviving occurrence is one explanatory comment.
 
-| Run | Test files | Tests |
-|---|---|---|
-| baseline (change stashed) | 13 failed / 217 passed / 4 skipped | 59 failed / 1631 passed / 67 skipped |
-| with the change applied | 13 failed / 218 passed / 4 skipped | 59 failed / 1636 passed / 67 skipped |
+### The branch had to be rebased, not merged
 
-The failure counts are **identical**, and the deltas are exactly the new UAT file and its
-five tests. The 59 pre-existing failures (`test_UAT_FC_REQ-129_l1_authoring` and others) are
-baseline breakage on this branch point and are untouched by this work.
+`free-REQ-150` was cut before a `remap_commits` / resync rewrote `xgd-working`'s
+history, so the two shared no useful merge base: `git merge xgd-working` produced
+32 conflicts, including `add/add` on files the branch never touched. The branch's
+*content* was nevertheless identical to `xgd-working` for every file the ticket
+touches, so the delta was replayed onto the new tip with `git cherry-pick`
+instead, which applied clean. `free-REQ-150-preremap` held the pre-rebase commit
+until the merge was confirmed.
 
-The declared regression scope was then run on its own against the simulated tree —
-`req37-launcher`, `req89-astro-lazy`, `req119-request-time-render`,
-`reconciliation-1c-astro-free-render`, `reconciliation-1c-cli-output-hygiene`,
-`reconciliation-1c-install-preflight`, `test_UAT_FC_REQ-141_project_routing`,
-`test_UAT_FC_REQ-145_build_artifacts`, `test_UAT_FC_REQ-148_astro_free_render`,
-`test_UAT_FC_REQ-150_plain_vite_bootstrap` — **10 files, 48 tests, all passing**.
+That rebase is what surfaced `tests/reconciliation-site-storage-port.test.ts`,
+a file the branch had never seen (`aa64b3e15`). It imported both `astro/container`
+and the `.astro` file REQ-148 deleted, so it was **already failing at collection
+on `xgd-working`** — all eight of its tests unreachable. Converting it off the
+container restored them; AC-1329's claim is unchanged, only its mechanism was
+Astro's, and the AC number (not the descriptive tail) is what links a UAT to its
+criterion.
 
-Statically confirmed as well: no source file in the repository imports `astro` or any
-`astro/*` subpath (the only surviving occurrence is one explanatory comment), and no
-`package.json` declares `astro`. `@astrojs/markdown-remark` is untouched.
+### Verification
 
-### Outstanding — `pnpm install`
+`xgd-working` baseline, full node suite in the main checkout: **9 files / 23
+tests failing**. The branch: **8 files / 25 tests failing** — the file-level
+delta is exactly `reconciliation-site-storage-port`, fixed here.
 
-`pnpm-lock.yaml` is tracked and still lists `astro` in all three importers, and both
-`.github/workflows/ci.yml` and `deploy.yml` run `pnpm install --frozen-lockfile`. Committing
-the manifest edits without regenerating the lockfile would therefore land a commit that
-fails CI on contact. Only pnpm can regenerate it — hand-editing a lockfile of this size is
-not a defensible substitute, and the symlink scaffolding used for verification above does
-not touch it.
+The test-level delta is environmental, not regression. Four
+`reconciliation-builder-workspace-origin` tests fail only in the worktree because
+`@lagrangefoundry/webui-shell` is installed out-of-band into
+`/Users/martin/lagrangefoundry/node_modules` and is reachable by walking up from
+the main checkout but **not** from a worktree parked under `~/.xgd/worktrees`;
+`require.resolve` returns `MODULE_NOT_FOUND` there, so the builder origin serves
+`/webui/...` as 404. The rest of that set (`public-site` EPERM against
+`~/Library/Preferences/.wrangler`, the builder/assistant cluster) is known flaky:
+its counts move run to run on an unchanged tree, and `public-site` reproduces
+identically on unmodified `xgd-working`.
 
-`pnpm install*` is on this environment's hard-deny list, so the session cannot run it. The
-remaining steps — install, full-suite re-run on the real tree, version bump, `[FREE-CODED]`
-commit, merge back to `xgd-working`, `move-to-free-coded` — are otherwise ready to go.
+Regression scope on the rebased branch: **11 files / 56 tests passing** (the ten
+declared, plus `reconciliation-site-storage-port` at 8/8). Workers project: **5
+files / 49 tests passing**.
+
+### Version
+
+The cycle bumped 0.2.0 → 0.2.1, but REQ-149 landed the identical bump on
+`xgd-working` first, so the two merged to the same value and this cycle claimed
+none of its own. `c36373c10` takes 0.2.2.
+
+### One operator step remains
+
+The main checkout's `node_modules` still carries `astro`, because the manifests
+changed under it. Run `pnpm install` there before trusting a local test run —
+the `astro-absent` assertions check that `astro/container` cannot be resolved,
+which is only true once the tree matches the lockfile. CI is unaffected: it
+installs `--frozen-lockfile` from scratch.
