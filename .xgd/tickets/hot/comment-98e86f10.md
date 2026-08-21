@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T00:07:23.386210+00:00'
+updated_at: '2026-08-21T01:33:39.722242+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -482,5 +482,11 @@ Workers project fully green. Final full node run.
 All 10 failing files are the baseline's pre-existing environment failures. Final typecheck across packages.
 
 Now updating the ticket body to record what the implementation actually settled, then marking it `free_coded`.
+
+<!-- xgd-turn id="da840c03-06cd-462f-828f-1a9230187d23-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:33:39.633618+00:00" -->
+#### You
+It still shows as free_coding?
 
 <!-- xgd-chat-end -->
