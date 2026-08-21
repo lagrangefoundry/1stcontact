@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:44:05.408260+00:00'
+updated_at: '2026-08-21T01:48:13.954430+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1680,5 +1680,11 @@ On T&Cs: for eight people you know, in a concierge session, I wouldn't let forma
 That second one isn't a legal concern, it's a product-honesty one, and it's the one I'd actually worry about with this group.
 
 Still happy to write the 8×1hr protocol whenever you want it.
+
+<!-- xgd-turn id="be529700-911c-4fd3-96e6-8ad29222aec0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:48:13.868738+00:00" -->
+#### You
+Oh that reminds me, there is another conversation that I'm meaning to have data collection. This is a web product and the experiences of the people using it will be extremely valuable in creating better products. I think it's important for the customers to save their chat transcripts. My goal here is to give them terms and conditions that will allow me to mine them - solely for the purpose of improving the product. I am a strong advocate for online privacy but this doesn't feel creepy to me people are building public websites not discussing medical conditions, there shouldn't be anything super private. I guess it is possible that there could be some discussion about competitors but again the goal here would not be to publish this information to anyone else. Or sell it. The goal would be entirely to use the data for product improvement. And I imagine we would probably let people opt out in fact we probably have to.
 
 <!-- xgd-chat-end -->
