@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
-import { experimental_AstroContainer as AstroContainer } from 'astro/container'
 import { afterEach, describe, expect, it } from 'vitest'
-import ContactForm from '../packages/framework/src/modules/contact-form/index.astro'
+import { contactForm as ContactForm } from '../packages/framework/src/modules/contact-form/component'
+import type { BehaviorProps } from '../packages/framework/src/modules/behavior'
 import { contactFormPreset } from '../packages/framework/src/l2/contact-form'
 import { ctxOf, handleBuilderRequest, PreviewRenderer, run } from '../tools/generate/src/cli'
 import { cmdNew } from '../tools/generate/src/cli/commands'
@@ -592,34 +592,40 @@ describe('story-3f4a5f2b — the SiteStore port', () => {
 
   // ── AC-1329 ────────────────────────────────────────────────────────────────
 
-  it('test_UAT_AC1329_the_split_kept_the_astro_runtime_and_partitions_cleanly', async () => {
-    // Behaviour-module components still render through the Astro container API
-    // in the runtime that has a filesystem — the transform the single
-    // configuration existed for is intact, executed rather than asserted about.
+  it('test_UAT_AC1329_the_split_kept_the_filesystem_runtime_and_partitions_cleanly', async () => {
+    // Behaviour modules still render in the runtime that has a filesystem, and
+    // the criterion is still executed rather than asserted about. What changed
+    // is only the mechanism: REQ-148 made the module a plain function, so it is
+    // called directly instead of through Astro's container, and REQ-150 removed
+    // the dependency that container came from. The claim — this runtime renders
+    // a behaviour module, the workerd one does not — is untouched.
     const fields = [{ name: 'email', label: 'Email', type: 'email', required: true }] as const
-    const container = await AstroContainer.create()
-    const html = await container.renderToString(ContactForm, {
-      props: {
-        config: { action: '/api/forms/contact', fields },
-        slots: { form: contactFormPreset(fields) },
-      } as Record<string, unknown>,
-    })
+    const html = ContactForm({
+      config: { action: '/api/forms/contact', fields },
+      slots: { form: contactFormPreset(fields) },
+    } as unknown as BehaviorProps)
     expect(html).toMatch(/<form[^>]+method="post"/)
     expect(html).toMatch(/<input[^>]+name="email"[^>]+type="email"/)
 
-    // That runtime still routes through Astro's own build configuration, and
-    // keeps the aliases and timeouts it had before the split.
+    // That runtime is configured by Vitest directly now. It used to route
+    // through Astro's build config (`getViteConfig`), which existed solely to
+    // put the `.astro` transform on the path; with no `.astro` file left to
+    // transform, REQ-150 replaced it with a plain `defineConfig`. The aliases
+    // and timeouts the split established are kept exactly as they were.
     const node = readRepo('vitest.node.config.mts')
-    expect(node).toContain("from 'astro/config'")
-    expect(node).toContain('getViteConfig({')
+    expect(node).toContain("from 'vitest/config'")
+    expect(node).toContain('defineConfig({')
+    expect(node).not.toMatch(/from 'astro/)
     expect(node).toContain('resolve: { alias: webuiAliases() }')
     expect(node).toContain('testTimeout: 60000')
     expect(node).toContain('hookTimeout: 60000')
     expect(node).toContain(`include: ['tests/**/*.test.ts']`)
     expect(node).toContain(`exclude: ['${WORKERS_GLOB}']`)
 
-    // The Workers runtime carries NO Astro transform, so a component-render test
-    // cannot be routed there by accident and pass for the wrong reason.
+    // Neither project carries Astro any more, so the assertion that the workerd
+    // one does not is kept as a floor rather than as the distinguishing fact:
+    // what separates the two now is the filesystem, which is why the render
+    // above is executed here and cannot be routed to workerd by accident.
     const workers = readRepo('vitest.workers.config.mts')
     expect(workers).not.toContain('astro')
     expect(workers).toContain(`include: ['${WORKERS_GLOB}']`)
