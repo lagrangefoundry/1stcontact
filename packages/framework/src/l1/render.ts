@@ -15,6 +15,7 @@ import {
   isSafeUrl,
   mapL1PaletteRefs,
   resolveL1Palette,
+  resolveSiteLocale,
   L1_EDIT_HOT_CLASS,
   L1_EDIT_MARKER_ATTR,
   L1_EDIT_PATH_ATTR,
@@ -23,6 +24,7 @@ import {
   type L1Link,
   type L1Palette,
   type L1SegmentKind,
+  type SiteLocaleInput,
 } from '@1stcontact/site-schema'
 import type {
   L1AxisSizing,
@@ -2484,11 +2486,25 @@ export function renderL1Fragment(
   return { htmls, css: serializeRules(state.rules) }
 }
 
-/** Render an L1 document to a complete, standalone HTML page. */
-export function renderL1Page(doc: L1Document, title = 'L1'): string {
+/**
+ * Render an L1 document to a complete, standalone HTML page.
+ *
+ * REQ-151 — `lang` and `dir` come from the site's locale identity, not from a
+ * literal. `locale` is the site's four raw fields; the resolution (country →
+ * locale/currency/timezone, and locale → direction) is `resolveSiteLocale`,
+ * which is also what the generator's page renderer calls. That shared call is
+ * the whole of AC-4: the two paths cannot drift apart because neither owns the
+ * rule. Absent, a site is `US`/`en-US` — the value this literal used to be.
+ */
+export function renderL1Page(
+  doc: L1Document,
+  title = 'L1',
+  locale: SiteLocaleInput = {},
+): string {
   const { html, css } = renderL1Document(doc)
+  const resolved = resolveSiteLocale(locale)
   return `<!doctype html>
-<html lang="en">
+<html lang="${escapeHtml(resolved.locale)}" dir="${resolved.dir}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />

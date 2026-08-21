@@ -15,6 +15,10 @@ export type { ValidationError, Result } from './validate'
 // L1 layout substrate (REQ-82) — the typed element tree + envelope validator.
 export * from './l1'
 
+// Site locale identity (REQ-151) — country → locale/currency/timezone derivation,
+// text direction, and the one `resolveSiteLocale` both renderers call.
+export * from './locale'
+
 // Font provenance registry (REQ-101) — the licence index over every font file.
 export * from './fonts'
 

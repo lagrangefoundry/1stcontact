@@ -2,6 +2,13 @@ import { z } from 'zod'
 import { l1DocumentSchema, l1NodeSchema } from './l1/schema'
 import { l1PaletteSchema } from './l1/palette'
 import { l1DocumentSlotNames } from './l1/slots'
+import {
+  COUNTRY_DEFAULTS,
+  isCurrencyCode,
+  isKnownTimezone,
+  isSupportedCountry,
+  isWellFormedLocale,
+} from './locale'
 
 /**
  * Zod schemas for 1st Contact site definitions.
@@ -890,6 +897,62 @@ export const siteConfigSchema = z.object({
    * `licence.redistribute_in_product: true`.
    */
   distribution: z.enum(['internal', 'product']).optional(),
+  /**
+   * REQ-151 — where this business is, as ISO 3166-1 alpha-2.
+   *
+   * The seed the other three derive from, and the only one an ordinary site
+   * needs to declare. Absent means {@link DEFAULT_COUNTRY} (`US`), so every site
+   * authored before this field existed validates and renders unchanged.
+   *
+   * Membership of {@link COUNTRY_DEFAULTS} — not merely the two-letter shape —
+   * because a country we have no row for has no defaults to derive, and quietly
+   * serving it American ones is the silent fallback this field exists to end.
+   * Adding a country is a one-row data edit.
+   */
+  country: z
+    .string()
+    .refine(isSupportedCountry, {
+      message: `country must be a supported ISO 3166-1 alpha-2 code (one of: ${Object.keys(
+        COUNTRY_DEFAULTS,
+      )
+        .sort()
+        .join(', ')})`,
+    })
+    .optional(),
+  /**
+   * REQ-151 — BCP 47 language tag (`en-IE`). Derived from `country` when absent.
+   * Decides `<html lang>`, `dir`, and the placement/separator half of every
+   * number and date this site formats.
+   */
+  locale: z
+    .string()
+    .refine(isWellFormedLocale, {
+      message: 'locale must be a well-formed BCP 47 language tag (e.g. en-IE)',
+    })
+    .optional(),
+  /**
+   * REQ-151 — ISO 4217 currency code (`EUR`). Derived from `country` when
+   * absent. Separate from `locale` because the two correlate without
+   * determining: `Intl.NumberFormat('en-IE', …EUR)` gives `€49.99` and
+   * `('de-DE', …EUR)` gives `49,99 €` — same currency, different locale.
+   */
+  currency: z
+    .string()
+    .refine(isCurrencyCode, {
+      message: 'currency must be a three-letter ISO 4217 code (e.g. EUR)',
+    })
+    .optional(),
+  /**
+   * REQ-151 — IANA time-zone id (`Europe/Dublin`). Derived from `country` when
+   * absent, and always worth overriding for a country spanning several zones.
+   * Checked against the runtime's own tz database rather than a pattern.
+   */
+  timezone: z
+    .string()
+    .refine(isKnownTimezone, {
+      message: 'timezone must be an IANA time-zone id (e.g. Europe/Dublin)',
+    })
+    .optional(),
 })
 
 /** Top-level site definition (DOC-7 §2.1). */

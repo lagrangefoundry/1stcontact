@@ -1,4 +1,9 @@
-import { l1ControlNames, l1NodeSchema, type L1Node } from '@1stcontact/site-schema'
+import {
+  l1ControlNames,
+  l1NodeSchema,
+  type L1Node,
+  type ResolvedLocale,
+} from '@1stcontact/site-schema'
 import type { L1ControlTag } from '../l1/render'
 
 /**
@@ -165,6 +170,17 @@ export interface BehaviorProps {
   instanceId?: string
   /** REQ-116 — render the edit channel: the module's own behaviour switched off. */
   edit?: boolean
+  /**
+   * REQ-151 — the site's settled locale identity (country, locale, currency,
+   * timezone, direction), handed down by the renderer.
+   *
+   * Optional so a module that never formats anything can ignore it and a test
+   * can omit it. A module that DOES format money or a date must read it rather
+   * than assume: `Intl.NumberFormat('en-IE', …EUR)` gives `€49.99` where
+   * `('de-DE', …EUR)` gives `49,99 €`, and a module guessing its own answer is
+   * how two modules on one page come to disagree about the same business.
+   */
+  locale?: ResolvedLocale
 }
 
 /**
