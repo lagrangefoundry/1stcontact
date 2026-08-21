@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:22:34.571342+00:00'
+updated_at: '2026-08-21T02:32:17.792942+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -900,5 +900,67 @@ That's moot for you now — the tenant exists — and it is *not* what's causing
 <!-- xgd-chat role="user" ts="2026-08-21T02:22:34.476362+00:00" -->
 #### You
 Sure please wire up so it gives an errror
+
+<!-- xgd-turn id="c97972cd-d22d-4f9a-aab5-ed2c636c06fb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:32:17.614707+00:00" -->
+#### Claude
+That's a code change, so it needs the protocol. REQ-149 is already merged, and I'm scoped to it — so I'll reopen it rather than file something new. First let me read what I'd be changing.
+
+Reopening REQ-149 rather than filing new, per this session's scope. Recording the added scope first.
+
+Now the router fix — open the store lazily so assets never need a tenant.
+
+Router fix in. Now the boot guard — inline, because an external one would be the very asset that might 404.
+
+Now the UATs — one for each acceptance criterion.
+
+All five pass. Now AC-10 — an asset must serve when the store holds no tenant.
+
+Both ACs covered. Full verification before committing.
+
+A real regression from my change — the store now throws inside the try, so a misconfigured tenant became 500 instead of 503. Let me see how it was handled before.
+
+Confirmed — the 503 came from the Worker's outer handler, and my move let the router swallow it. Rethrowing so the status is preserved:
+
+Workers green. Full node run to check for anything else the lazy store disturbed.
+
+Better than baseline — 8 failing files vs 10, no new ones, and two baseline failures now pass. Typecheck, then commit.
+
+Merged. Re-promoting with both commits:
+
+Done and landed. Restart the builder and you'll get a diagnosis instead of a blank page.
+
+```bash
+1c assets && 1c builder
+```
+
+## What it does now
+
+If `#app` is still empty 4 seconds in, the page renders what actually failed — and it asks `/api/sites` at that moment, so the cause is reported rather than guessed:
+
+- **missing asset** → names the URL that 404'd, tells you to run `1c assets` *and restart* (the assets manifest is read once at startup — that's the bit that caught you out)
+- **no tenant** → shows `503 No tenant '1stcontact'` verbatim, tells you to run `bin/publish <slug>`
+- **unreachable API** → says so rather than failing silently a second time
+
+It never overwrites a builder that mounted late — every write path re-checks that `#app` is empty first.
+
+## The root cause, also fixed
+
+`route()` was opening a tenant-scoped store *before any route matched*, so an unknown tenant made every `/builder/*` and `/webui/*` request 503 — build artifacts that have nothing to do with a tenant. The store is now opened lazily, only by routes that need one. The asset fall-through stays last, because moving it up would let an asset shadow a route.
+
+## One regression I caused and the suite caught
+
+Deferring the store moved its throw *inside* the router's `try`, which quietly downgraded a misconfigured deployment from **503** to **500**. REQ-145's own UAT failed on it. Store-construction failures are now rethrown so `index.ts` renders them at the status they always had — "this deployment is misconfigured" is not the same as "the server broke on your request".
+
+## Verification
+
+- workers: **58/58**
+- node: **8 failing files, down from the baseline's 10** — no new failures, and `public-site` and `req115-builder-shell` now pass
+- 6 new UATs; the guard is executed against a real DOM, not asserted as a substring — a test that only checked the string was present would pass on a guard that threw on its first line
+
+`0.2.1`, both commits recorded on REQ-149, branch cleaned, tree clean.
+
+Still outstanding from earlier and unrelated to this: the stale comment in `bin/deploy.d/migrate/10-d1-site-store` claiming public-site has no `DB` binding.
 
 <!-- xgd-chat-end -->
