@@ -298,6 +298,31 @@ describe('REQ-149 — publish in the cloud', () => {
     expect(res.headers.get('location')).toBe(`https://1stcontact.io/site/${slug}/`)
   })
 
+  it('test_UAT_FC_REQ-149_build_artifacts_serve_when_the_store_has_no_tenant', async () => {
+    // AC-10. `/builder/*` and `/webui/*` are BUILD ARTIFACTS — they have nothing
+    // to do with a tenant and must not depend on one.
+    //
+    // They used to. The router opened a tenant-scoped store before any route
+    // matched, so on a store with no tenant row `forTenant` refused and every
+    // asset answered 503. The document itself is served earlier, so the operator
+    // got a page that loaded 200 with every module in its import graph dead —
+    // a blank builder, with the reason reachable only in devtools.
+    //
+    // `nobody` is deliberately a tenant that does not exist: this asserts the
+    // asset path never opens a store at all, not that it opens one successfully.
+    const asset = await call('/builder/main.js', undefined, { TENANT_ID: 'nobody' })
+    expect(asset.status).toBe(200)
+    expect(await asset.text()).toBe('asset:/builder/main.js')
+
+    // The API routes still refuse, still say why, and still do it with the SAME
+    // STATUS as before — deferring the store moved when it is opened, and must
+    // not change what an unopenable one means. 503: the deployment is
+    // misconfigured, which is not the same as the server breaking on a request.
+    const refused = await call('/api/sites', undefined, { TENANT_ID: 'nobody' })
+    expect(refused.status).toBe(503)
+    expect(await refused.text()).toContain('nobody')
+  })
+
   it('test_UAT_FC_REQ-149_the_site_listing_reports_the_live_revision', async () => {
     // The selector said `latest: null` for every site while the store held no
     // revisions. There is something true to say now, and it is derived from the

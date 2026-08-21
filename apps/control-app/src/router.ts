@@ -15,6 +15,7 @@ import { publishSite, revisionHistory } from '../../../tools/generate/src/publis
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
 import { SlugClaimedError } from '../../../tools/generate/src/store/d1r2-store'
 import { publicSiteUrl } from './public-url'
+import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
   openSession,
@@ -24,7 +25,7 @@ import {
 import { workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
-import { storeFor, storeForImport, type StoreEnv } from './store'
+import { storeFor, storeForImport, TenantNotConfiguredError, type StoreEnv } from './store'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -301,12 +302,41 @@ async function routeUncached(
     }
   }
 
-  const store = await (deps.store ?? storeFor)(env)
+  /**
+   * THE STORE IS OPENED LAZILY, and that is a bug fix rather than a
+   * micro-optimisation (REQ-149).
+   *
+   * It used to be opened HERE, unconditionally, before any route matched — so
+   * every request built a tenant-scoped handle, including the ones that fall
+   * through to the assets binding at the bottom. `forTenant` refuses an unknown
+   * tenant, which is correct, so on a store with no tenant row every
+   * `/builder/*` and `/webui/*` request answered 503. Those are BUILD ARTIFACTS:
+   * they have nothing to do with a tenant and must not depend on one.
+   *
+   * The visible symptom was a blank builder. `/` is answered above, before the
+   * store, so the document arrived 200 while every module in its import graph
+   * died — a page that loaded successfully and did nothing, with the reason
+   * reachable only in devtools.
+   *
+   * WHY NOT MOVE THE FALL-THROUGH UP INSTEAD. Because the fall-through is last
+   * on purpose: an asset must never shadow a route. Deferring the store keeps
+   * that ordering exactly as it was and removes the dependency, which is the
+   * part that was actually wrong.
+   *
+   * Memoised per request, so a route that reads it twice still performs one
+   * tenant check — the same handle the eager version produced, obtained at the
+   * first moment something genuinely needs it.
+   */
+  let opening: Promise<TenantSiteStore> | null = null
+  const openStore = (): Promise<TenantSiteStore> => {
+    opening ??= (deps.store ?? storeFor)(env)
+    return opening
+  }
   // `actor: 'client'` — REQ-131. A write arriving on these routes is the
   // operator's own hand in the builder, and the journal says so, which is the
   // difference between the assistant reading "you changed this" and reading
   // "something changed".
-  const edit = { store, actor: 'client' as const }
+  const edit = async () => ({ store: await openStore(), actor: 'client' as const })
 
   try {
     if (p === '/api/sites' && method === 'GET') {
@@ -314,6 +344,7 @@ async function routeUncached(
       // never stored (REQ-149). It read `null` for every site while the store
       // held no revisions; saying so was better than implying one, and now there
       // is something true to say.
+      const store = await openStore()
       const slugs = await store.slugs()
       return json(
         200,
@@ -347,7 +378,7 @@ async function routeUncached(
       if (typeof body.slug !== 'string' || body.slug === '') {
         return json(400, { error: 'slug is required' })
       }
-      const result = await publishSite(store, body.slug, {
+      const result = await publishSite(await openStore(), body.slug, {
         message: typeof body.message === 'string' ? body.message : undefined,
       })
       return json(200, {
@@ -361,13 +392,13 @@ async function routeUncached(
     if (p === '/api/revisions' && method === 'GET') {
       const slug = url.searchParams.get('slug')
       if (!slug) return json(400, { error: 'slug is required' })
-      return json(200, await revisionHistory(store, slug))
+      return json(200, await revisionHistory(await openStore(), slug))
     }
 
     if (p === '/api/assets' && method === 'GET') {
       const slug = url.searchParams.get('slug')
       if (!slug) return json(400, { error: 'slug is required' })
-      return json(200, (await editAssetList(slug, edit)).data)
+      return json(200, (await editAssetList(slug, await edit())).data)
     }
 
     /**
@@ -383,7 +414,7 @@ async function routeUncached(
       if (method === 'GET') {
       const slug = url.searchParams.get('slug')
       if (!slug) return json(400, { error: 'slug is required' })
-      return json(200, (await editPaletteGet(slug, edit)).data)
+      return json(200, (await editPaletteGet(slug, await edit())).data)
       }
 
       if (method === 'POST') {
@@ -399,19 +430,20 @@ async function routeUncached(
           return json(400, { error: `unknown palette op '${op}'` })
       }
       if (typeof name !== 'string') return json(400, { error: 'name is required' })
+      const scope = await edit()
       const out =
           op === 'set'
-            ? await editPaletteSet(slug, name, value, edit)
+            ? await editPaletteSet(slug, name, value, scope)
             : op === 'add'
-              ? await editPaletteAdd(slug, name, value, edit)
+              ? await editPaletteAdd(slug, name, value, scope)
               : op === 'rm'
-                ? await editPaletteRm(slug, name, edit)
-                : await editPaletteRename(slug, name, String(to ?? ''), edit)
+                ? await editPaletteRm(slug, name, scope)
+                : await editPaletteRename(slug, name, String(to ?? ''), scope)
       // The census travels back with every write, so the popup redraws from
       // what the store now holds rather than from its own guess at it — a
       // rename changes one name and no count, a delete changes the list, and
       // the client needs neither to know which.
-      const census = (await editPaletteGet(slug, edit)).data as Record<string, unknown>
+      const census = (await editPaletteGet(slug, scope)).data as Record<string, unknown>
       return json(200, { ...(out.data as Record<string, unknown>), ...census })
       }
     }
@@ -468,8 +500,8 @@ async function routeUncached(
      * of that work itself.
      */
     if (p === '/api/copy') {
-      const scoped = (read: (k: string) => string | undefined) => ({
-      ...edit,
+      const scoped = async (read: (k: string) => string | undefined) => ({
+      ...(await edit()),
       module: read('module'),
       slot: read('slot'),
       })
@@ -484,7 +516,7 @@ async function routeUncached(
       if (!slug || !page || !addr) {
           return json(400, { error: 'slug, page and path are required' })
       }
-      return json(200, (await editCopyGet(slug, page, addr, scoped(get))).data)
+      return json(200, (await editCopyGet(slug, page, addr, await scoped(get))).data)
       }
 
       if (method === 'POST') {
@@ -511,7 +543,7 @@ async function routeUncached(
           page,
           addr,
           values as Record<string, unknown>,
-          scoped(get),
+          await scoped(get),
       )
       return json(200, out.data)
       }
@@ -541,7 +573,7 @@ async function routeUncached(
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
       }
-      return servePreview(store, slug, channel as PreviewChannel, preview[3] ?? '/')
+      return servePreview(await openStore(), slug, channel as PreviewChannel, preview[3] ?? '/')
     }
 
     // Not a route: the build artifacts, or a genuine 404 from the binding that
@@ -556,6 +588,15 @@ async function routeUncached(
     // the message naming which field was wrong and why.
     // Scrubbed on the way out, not at the throw site: the message that carries a
     // credential is the one nobody wrote — see `redact.ts`.
+    // A STORE THAT COULD NOT BE OPENED IS A CONFIGURATION FAILURE, not a bad
+    // request, and `index.ts` renders it as 503 in prose an operator can act on.
+    // It reaches this handler at all only because REQ-149 deferred the store's
+    // construction into this `try` — before that it threw past `route()`
+    // entirely. Rethrowing keeps the status exactly where it was: without it,
+    // moving WHEN the store opens would silently downgrade "this deployment is
+    // misconfigured" to "the server broke on your request".
+    if (err instanceof TenantNotConfiguredError || err instanceof UnknownTenantError) throw err
+
     const scrub = redactor(secretsOf(env))
     if (err instanceof CommandError) {
       return json(400, { error: scrub(err.message), ...err.toEnvelope() })
