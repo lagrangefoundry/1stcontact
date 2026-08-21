@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:33:45.312927+00:00'
+updated_at: '2026-08-21T01:36:48.512618+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1574,5 +1574,11 @@ The mitigation isn't complicated, it's just a rule: **every limb gets designed a
 ---
 
 Unless you've got more, I'll write DOC-35 §4.5 up now — the persona proper (pre-PMF vs distribution-constrained rather than funded vs bootstrap), the five limbs and what each one uniquely enables, the closed loop and why owning the stack makes attribution a foreign key rather than a CDP, the minimum sellable trio, the customer-zero discipline above, and the "attention as a service" frame. Plus a short note on DOC-33 §11 undersellling monitoring and marketing — flagged, not restructured.
+
+<!-- xgd-turn id="58b9c912-3eec-491b-a22a-1d6f0bfdab57-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:36:48.413838+00:00" -->
+#### You
+he shamans' friction is hypothetical until they arrive <-- in about two weeks!
 
 <!-- xgd-chat-end -->
