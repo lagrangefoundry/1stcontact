@@ -1,5 +1,5 @@
 /**
- * REQ-89, as REQ-148 left it.
+ * REQ-89, as REQ-148 and REQ-150 left it.
  *
  * REQ-89's claim was that the render path is Astro-*lazy*: a container is
  * constructed only when a page actually mounts a behavior module. REQ-148
@@ -9,10 +9,13 @@
  * make the same measurement and expect the stronger answer; the lazy branch they
  * used to prove is gone rather than moved.
  *
- * The third assertion is untouched REQ-89: the `1c` launcher must not leak
- * Astro's "Missing pages directory" WARN on a non-rendering command. Its Vite
- * bootstrap is still Astro's — collapsing that to a plain Vite SSR server is
- * REQ-150, deliberately kept out of REQ-148.
+ * REQ-150 then removed the `astro` dependency, taking the spy those two
+ * assertions used with it. `expectNoAstroContainerToConstruct` is what they
+ * measure with now, and it is strictly stronger again — see the helper for why.
+ *
+ * The third assertion is REQ-89's own, and REQ-150 widened it: the launcher had
+ * to not leak Astro's "Missing pages directory" WARN, and now boots a plain Vite
+ * SSR server that must not leak anything on either stream at all.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { spawnSync } from 'node:child_process'
@@ -20,7 +23,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { experimental_AstroContainer } from 'astro/container'
 import { cmdNew, cmdRender } from '../tools/generate/src/cli/commands'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { foldToL1 } from '../tools/generate/src/l1'
@@ -30,6 +32,7 @@ import type {
   StateProjection,
   ValueElement,
 } from '../tools/generate/src/cli/capture'
+import { expectNoAstroContainerToConstruct } from './support/astro-absent'
 
 const LADDER = [320, 375, 768, 1024, 1280, 1440]
 const HEADLINE = 'Front door heading'
@@ -101,7 +104,6 @@ describe('REQ-148 — Astro is absent from the render path', () => {
     writeL1(ref, foldToL1(l1Oracle()))
     cmdRepro('gigabyte', { cwd, ref })
 
-    const createSpy = vi.spyOn(experimental_AstroContainer, 'create')
     const { outDir } = await cmdRender('gigabyte', { cwd })
 
     // The L1 content rendered through the ordinary pipeline …
@@ -109,14 +111,13 @@ describe('REQ-148 — Astro is absent from the render path', () => {
     expect(html).toContain(HEADLINE)
     expect(html).not.toContain('data-fc-type') // no module hook
     // … and NO Astro container was ever constructed for it.
-    expect(createSpy).not.toHaveBeenCalled()
+    expectNoAstroContainerToConstruct()
   })
 
   it('test_UAT_FC_REQ-148_module_site_renders_without_astro_container', async () => {
     cmdNew('acme', { cwd })
     seedModules(cwd, 'acme')
 
-    const createSpy = vi.spyOn(experimental_AstroContainer, 'create')
     const { outDir } = await cmdRender('acme', { cwd })
 
     // A behavior-module page renders (its component CSS is folded into theme.css) …
@@ -127,19 +128,23 @@ describe('REQ-148 — Astro is absent from the render path', () => {
     // … and NO container was created for it either (REQ-148). This is the
     // assertion that used to read `toHaveBeenCalled()`: the module render no
     // longer goes through Astro at all, which is what lets it run in workerd.
-    expect(createSpy).not.toHaveBeenCalled()
+    expectNoAstroContainerToConstruct()
   })
 
   it('test_UAT_FC_REQ-89_cli_boots_no_missing_pages_warning', () => {
-    // Drive the real `1c` binary on a non-rendering command; its Astro Vite server
-    // boots at setup but must no longer leak the "Missing pages directory" WARN.
-    // Run from the repo root — the launcher roots its Astro Vite server at the repo
-    // and Astro's `.astro` compile cache is cwd-sensitive, so a foreign cwd is a
-    // pre-existing, unrelated failure mode; the operator always invokes `1c` in-repo.
+    // Drive the real `1c` binary on a non-rendering command. The warning this
+    // guards against was emitted by Astro's Vite plugin scanning for `src/pages`
+    // at server setup; REQ-150 replaced that server with a plain Vite one, so the
+    // plugin — and its scan — are gone rather than silenced. The assertion is kept
+    // (and tightened to both streams) because it is the observable the AC names:
+    // what matters to a caller is that nothing leaks, not which plugin didn't.
+    // Run from the repo root — the launcher roots its Vite server at the repo;
+    // the operator always invokes `1c` in-repo.
     const bin = path.join(repoRoot, 'tools', 'generate', 'bin', '1c.mjs')
     const res = spawnSync('node', [bin, 'help'], { cwd: repoRoot, encoding: 'utf8' })
     expect(res.status).toBe(0)
     expect(res.stdout).toContain('1c —') // the command actually ran
+    expect(res.stdout).not.toContain('Missing pages directory')
     expect(res.stderr).not.toContain('Missing pages directory')
   }, 60_000)
 })

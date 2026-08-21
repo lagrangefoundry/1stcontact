@@ -1,7 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["astro/client"],
+    // Explicitly no ambient type packages. This read `["astro/client"]` while the
+    // behavior modules were `.astro` components and needed Astro's ambient
+    // declarations to be imported at all; REQ-148 made them plain TypeScript and
+    // REQ-150 removed Astro. An empty list is not the same as omitting the key —
+    // omitting it would silently admit every `@types/*` package hoisted into the
+    // workspace, which is how a Node global creeps into code that must also
+    // compile for workerd.
+    "types": [],
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts"]

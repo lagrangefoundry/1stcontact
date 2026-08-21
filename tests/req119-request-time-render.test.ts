@@ -25,7 +25,7 @@ import {
   type BuilderHandle,
 } from '../tools/generate/src/cli'
 import { getModule } from '../packages/framework/src/modules/registry'
-import { astroContainer, renderSite, renderSiteFiles } from '../tools/generate/src/render'
+import { renderSite, renderSiteFiles } from '../tools/generate/src/render'
 import { loadSite, type LoadedSite } from '../tools/generate/src/store'
 
 const REPO = path.resolve(__dirname, '..')
@@ -99,13 +99,15 @@ describe('REQ-119 request-time draft and edit renders', () => {
     for (const edit of [false, true]) {
       const outDir = path.join(cwd, 'out', edit ? 'edit' : 'draft')
       const pages = await renderSite(loaded, outDir, { edit })
-      // The same seam `renderSite` supplies (REQ-145): `renderSiteFiles` no
-      // longer imports Astro itself, so a caller rendering a behavior-module
-      // page injects the container. Passing what the writer passes is what keeps
-      // this a comparison of the two paths rather than of two configurations.
+      // The same options `renderSite` supplies, which is what keeps this a
+      // comparison of the two paths rather than of two configurations. There
+      // used to be a third — `createContainer: astroContainer`, the injected
+      // Astro seam REQ-145 introduced so this file could render a behavior
+      // module without importing Astro. REQ-148 deleted the container and the
+      // export with it (the name has resolved to `undefined` here ever since);
+      // REQ-150 removed the dependency, so the seam is gone from the call too.
       const rendered = await renderSiteFiles(loaded, {
         edit,
-        createContainer: astroContainer,
         resolveModule: getModule,
       })
 
