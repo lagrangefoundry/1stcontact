@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:32:17.792942+00:00'
+updated_at: '2026-08-21T20:08:55.188586+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -962,5 +962,11 @@ Deferring the store moved its throw *inside* the router's `try`, which quietly d
 `0.2.1`, both commits recorded on REQ-149, branch cleaned, tree clean.
 
 Still outstanding from earlier and unrelated to this: the stale comment in `bin/deploy.d/migrate/10-d1-site-store` claiming public-site has no `DB` binding.
+
+<!-- xgd-turn id="cf31bd80-9f47-4aea-a3c5-e53b440a2214-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T20:08:55.091200+00:00" -->
+#### You
+ok so how do I deploy to Cloudflare?
 
 <!-- xgd-chat-end -->
