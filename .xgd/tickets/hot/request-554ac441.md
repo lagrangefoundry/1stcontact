@@ -5,9 +5,9 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-21T02:24:12.344901+00:00'
+updated_at: '2026-08-21T02:24:15.705431+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -339,3 +339,42 @@ URL has never served an index page. Not touched here.
   EPERM, and `bin/build` wiping `dist-assets` mid-run). 1736 pass.
 - every package typechecks; control-app's pre-existing `node:fs` type-resolution
   errors are unchanged in number and identity.
+
+
+## Follow-up: the builder must not fail silently
+
+Found while demoing the landed work: on a store with no tenant row, the builder
+serves a **blank page with no visible error**, and the same blank page appears
+when `dist-assets` is missing. Three different faults, one indistinguishable
+symptom, and the reason only ever reachable in devtools.
+
+### Why it happens
+
+`route()` constructs the tenant-scoped store BEFORE the asset fall-through at the
+end, so `UnknownTenantError` becomes a 503 on `/builder/*` and `/webui/*` — build
+artifacts that have nothing to do with a tenant. Meanwhile `/` is answered before
+the store is built and returns 200. So the document loads and every module in its
+import graph dies.
+
+`main.js` then compounds it: `const sites = await fetchSites()` is a TOP-LEVEL
+await, so any API failure rejects the module and nothing mounts.
+
+### Two changes
+
+1. **The store is opened lazily.** Only routes that need it open it, so an asset
+   request never constructs one. The fall-through stays LAST — moving it earlier
+   would let an asset shadow a route, which is the property the ordering exists
+   to protect.
+
+2. **A boot guard in the chrome document.** If `#app` is still empty after the
+   module graph has had its chance, it renders what actually went wrong —
+   including the live status of `GET /api/sites`, so "no tenant" reads as itself
+   rather than as a blank screen. Inline, because an external guard would be the
+   very asset that may have 404ed.
+
+### Acceptance criteria
+
+10. An asset request succeeds when the store holds no tenant — build artifacts do
+    not depend on one.
+11. A builder that cannot start says so IN THE PAGE, naming the cause, for a
+    missing tenant and for a missing asset alike.
