@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T02:04:57.990887+00:00'
+updated_at: '2026-08-21T02:13:53.319572+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1852,5 +1852,11 @@ Two residuals, and they're the genuinely hard ones:
 So the full shape: structured stores are anonymous by construction and need nothing; the identity store is the actual delete; free text is encrypted and shredded; legally-retained records are redacted to minimum; suppression hashes and consent events are kept *deliberately*, and you can say exactly why.
 
 Nothing ironic left in it — just one store that holds people and a lot of stores that hold facts.
+
+<!-- xgd-turn id="ed7420e3-f6b1-4fa1-9833-4084fdad9d83-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:13:53.231887+00:00" -->
+#### You
+Can you write this up as two separate design docs - A data collection and a data deletion please
 
 <!-- xgd-chat-end -->
