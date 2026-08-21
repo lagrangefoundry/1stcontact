@@ -5,15 +5,23 @@ type: request
 title: Site locale identity, and rendered lang/dir
 created_by: xgd
 created_at: '2026-08-20T21:59:13.430458+00:00'
-updated_at: '2026-08-21T20:31:38.164535+00:00'
+updated_at: '2026-08-21T20:31:44.561560+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: ced4356a6a0fb88f2fb4f71c6d47060e65881499
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 38e4a3cf22519d0ff24de047e0a3bb7a4d75dcb6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.3
 ---
 
 # Site locale identity, and rendered `lang` / `dir`
