@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:32:50.353279+00:00'
+updated_at: '2026-08-21T01:33:45.312927+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1548,5 +1548,31 @@ That feels like the whole picture now — five limbs, the loop they close, and a
 <!-- xgd-chat role="user" ts="2026-08-21T01:32:50.261794+00:00" -->
 #### You
 Right and here's the beauty of it I need all of that to sell both products...so....
+
+<!-- xgd-turn id="04e7f571-5db9-467e-9c18-8dec2ada4b7f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T01:33:45.213229+00:00" -->
+#### Claude
+...so the build *is* the go-to-market. Not a detour from it, not a prerequisite for it — the same work, counted once.
+
+Which resolves the race question properly. Two turns ago I said 1st Contact shipping first means XGD acquires its proof. That was too weak. **XGD cannot go to market efficiently until 1st Contact exists**, because 1st Contact *is* XGD's funnel — the capture for the whitepaper, the list, the portal, the subscription billing. Building it in a different order means building XGD's commercial stack twice. So the sequencing isn't a trade-off you're accepting; it's just correct.
+
+And it's the strongest possible forcing function on quality. You can't ship the billing limb without taking your own money through it. The bug that would embarrass a customer costs you revenue first, which is a better test than any staging environment.
+
+The demo argument is the other half. For the technical buyer we talked about — the one for whom polish without substance *reduces* credibility — "we run on it" is the only claim that survives contact with a skeptic. 1stcontact.com built by 1st Contact, converting through its own capture, invoiced by its own billing, watched by its own monitoring, promoted by its own calendar. Not a case study. A live one.
+
+**Two disciplines I'd impose on it, though.**
+
+**"I need it to sell" is infinitely extensible.** Every limb genuinely is needed, eventually — which makes it a poor filter. The tighter question is *what does 1st Contact need to take its first £200*, and the answer is three things: a site, capture, and one-off invoicing. Monitoring, list, portal, subscriptions and calendar are all post-first-revenue. And usefully, that same trio is the complete minimum for Sarah and the shamans too — capture the waitlist, invoice the deposit. **The first sellable version serves three of four personas at their most basic and funds the rest.**
+
+**And the customer-zero risk is real but specific.** It isn't that your sample is n=1 — you've actually got three businesses spanning pre-PMF and distribution-constrained, funded-solo and bootstrap-side-project. On business *shape* your sample is unusually good.
+
+Where it's degenerate is **fluency.** You are at one extreme of the axis DOC-35 §9.7 says is the wrong design centre. The pull will be constant and asymmetric, because your own friction hurts every day and the shamans' friction is hypothetical until they arrive. The specific failure to watch for: a billing limb that's perfect for a technical founder and unusable for a frightened sole trader — same data model, wrong surface entirely.
+
+The mitigation isn't complicated, it's just a rule: **every limb gets designed against Sarah or a shaman, and validated against yourself.** Never the reverse. You'll find the bugs either way; only one order finds the design errors.
+
+---
+
+Unless you've got more, I'll write DOC-35 §4.5 up now — the persona proper (pre-PMF vs distribution-constrained rather than funded vs bootstrap), the five limbs and what each one uniquely enables, the closed loop and why owning the stack makes attribution a foreign key rather than a CDP, the minimum sellable trio, the customer-zero discipline above, and the "attention as a service" frame. Plus a short note on DOC-33 §11 undersellling monitoring and marketing — flagged, not restructured.
 
 <!-- xgd-chat-end -->
