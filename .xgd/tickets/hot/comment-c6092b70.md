@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-08-20T21:20:35.464125+00:00'
+updated_at: '2026-08-21T01:38:22.598716+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -252,5 +252,11 @@ pnpm install --offline
 I'll re-run the full suite on the real tree, bump the version, commit with `[FREE-CODED]`, `xgd branch lock` + merge into `xgd-working`, `move-to-free-coded`, and `xgd branch clean`.
 
 The ticket body is current: I corrected one inaccuracy (it claimed `vite` was also added as a root devDependency — it isn't, and shouldn't be, since both Vitest configs use `vitest/config` and Vitest carries its own Vite) and appended the verification numbers and this outstanding step. Status remains `free_coding`.
+
+<!-- xgd-turn id="36a68b54-8b37-44ec-832d-b121de7a45f1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:38:22.502641+00:00" -->
+#### You
+Done
 
 <!-- xgd-chat-end -->
