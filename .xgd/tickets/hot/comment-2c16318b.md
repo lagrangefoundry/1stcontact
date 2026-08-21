@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T00:22:55.852425+00:00'
+updated_at: '2026-08-21T00:34:14.915654+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1190,5 +1190,13 @@ The thing I'd actually argue from all this: **your shamans aren't the edge case,
 So: design for the shaman, detect fluency, escalate. That's one product, not three.
 
 Three distinct populations have now shown up in this conversation, all real, all with someone you know attached to them. That's a strong enough spine that I think the personas doc is now the piece worth writing first — the capacity work and the mode model both hang off it, and the Elementor case is a dependency of one persona rather than the frame. Want me to start there instead?
+
+<!-- xgd-turn id="85fba9fc-2b03-4f95-a098-1c9df785fee1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T00:34:14.820409+00:00" -->
+#### You
+Actually I don't want to overload your context why don't you create the document with what you have now this is the personas, modes document that frames how we are thinking about this discussion and perhaps lays out the needs and describes each persona. I don't think we want to create the persona playbook yet let's just capture what we have.
+
+When you're done with that I want to talk about the solopreure usecase. Some level this is why we are here I am a solo founder building two businesses one is XGD the other is first contact itself. Both of these should scale much better than my friends catering business they do not suffer from that same supply cap. There are obviously scaling considerations for these businesses but I will face those as I get to them I want sites that will do the work of customer conversion I do not have time for direct sales to begin with. I may at some point higher sales people to sell products on at an enterprise level but my goal would be to go out to consumers to begin with and make sales based on online content and website conversion. With some participation in events and but nevertheless the backbone has to be the presence. In addition I have another business that I am somewhat associated with that is growing today https://killbill.io/. I understand the shoestring bootstrap nature of this business and the people behind it who have full-time jobs doing something else. I think this is another small buisiness category area that I want to support - if only for my own needs
 
 <!-- xgd-chat-end -->
