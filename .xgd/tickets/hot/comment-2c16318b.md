@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:51:04.423788+00:00'
+updated_at: '2026-08-21T02:00:28.635003+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1752,5 +1752,14 @@ One distinction worth keeping straight as this develops: using good sessions as 
 ---
 
 Want me to write this up as its own doc? It's cleanly separable from DOC-35 — something like *"Product Telemetry & the Outcome Corpus"*, covering the four layers, emit-don't-mine, the refusal backlog, the reciprocity model, and the two now-or-never decisions. Then the 8×1hr protocol, then §4.5.
+
+<!-- xgd-turn id="46f60a41-4cff-4e10-9015-6dc389fc3e12-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:00:28.542256+00:00" -->
+#### You
+On deletion - 
+There are two levels 
+1. 1c customers: there everything we do should be stored by tenant. Wouldn't we just nuke the tenant? 
+2. Their customers: a feature of the user portal from day one would be data deletion. We would store email, consent, billing and payments history. Perhaps that list would grow but the idea would be that delete all my data will exist from day one and we will maintain it as we add new data
 
 <!-- xgd-chat-end -->
