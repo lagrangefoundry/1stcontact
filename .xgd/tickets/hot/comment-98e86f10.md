@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T02:01:30.395879+00:00'
+updated_at: '2026-08-21T02:02:22.689130+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -717,5 +717,42 @@ Working tree is clean, both servers stopped. Your local D1 now holds `xgd` at r2
 <!-- xgd-chat role="user" ts="2026-08-21T02:01:30.310688+00:00" -->
 #### You
 and I pull it up in a browser how?
+
+<!-- xgd-turn id="30b37cb4-6224-4a6b-8e86-fbb7fac35af0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T02:02:22.600456+00:00" -->
+#### Claude
+Let me just start both and hand you the URLs.
+
+Both live. Open these:
+
+## **http://localhost:8789/site/xgd/**
+The published site — the whole point of the ticket. Those bytes came out of R2, and D1 said which revision to serve. Currently **r2**, the one carrying `REQ-149 LIVE` as the header text from the edit I made through the builder's API.
+
+Also worth clicking: **http://localhost:8789/site/xgd/whitepapers** — no `.html`, the clean URL that used to work in preview and 404 in production.
+
+## **http://localhost:8788/**
+The builder. Pick `xgd` in the site selector; the toolbar's **publish** button now does something. Watch for:
+
+- the selector shows the live revision (`r2`) rather than "unpublished"
+- pressing publish twice — the second press is a **no-op**, not an r3 that describes no difference
+- edit some copy, publish, then reload the 8789 tab
+
+One thing that will bite you on that last step: **give it up to 60 seconds, or hard-reload.** `public-site` caches every 200 for a minute — that's the documented v1 trade-off, not a local quirk. It's what made me briefly think the two processes weren't sharing a store. `?v=2` on the end of the URL skips it.
+
+`http://localhost:8788/preview/xgd/published/` will bounce you to `1stcontact.io` — that's the D4 redirect doing its job, and it goes to the real domain, not localhost. Expected; there's nothing there yet.
+
+---
+
+Both are running in the background here, so they'll die when this session ends. To run them yourself:
+
+```bash
+1c builder                                    # terminal 1
+
+cd apps/public-site && npx wrangler dev --port 8789 \
+  --persist-to $PWD/../control-app/.wrangler/state    # terminal 2
+```
+
+That `--persist-to` is load-bearing — without it public-site gets its own empty store and everything 404s.
 
 <!-- xgd-chat-end -->
