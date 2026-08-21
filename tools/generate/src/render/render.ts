@@ -23,7 +23,8 @@ import {
   renderL1Document,
 } from '@1stcontact/framework/worker'
 import type { BehaviorDefinition } from '@1stcontact/framework/worker'
-import type { Page, Site } from '@1stcontact/site-schema'
+import { resolveSiteLocale } from '@1stcontact/site-schema'
+import type { Page, ResolvedLocale, Site } from '@1stcontact/site-schema'
 import type { LoadedSite } from '../store/loadSite'
 
 /**
@@ -96,6 +97,7 @@ function renderModuleInstances(
   page: Page,
   resolveModule: ModuleResolver,
   edit: boolean,
+  locale: ResolvedLocale,
 ): string[] {
   const parts: string[] = []
   for (const m of page.modules) {
@@ -104,7 +106,18 @@ function renderModuleInstances(
     // of its markup afterwards. Only the module knows which of its attributes
     // carry behaviour (an endpoint, a submit verb) and which are presentation, so
     // only the module can say what it looks like with that behaviour switched off.
-    const rendered = Component({ config: m.config, slots: m.slots, instanceId: m.id, edit })
+    // REQ-151 — the site's resolved locale reaches the module as a prop. A
+    // behavior that formats money or a date needs the locale, the currency and
+    // the zone, and the alternative to handing it over is every such module
+    // re-deriving its own — which is how two modules on one page end up
+    // disagreeing about what country the business is in.
+    const rendered = Component({
+      config: m.config,
+      slots: m.slots,
+      instanceId: m.id,
+      edit,
+      locale,
+    })
     // Stamp the builder edit hook onto the module root so the web editor's preview can
     // target this instance.
     parts.push(stampEditHook(rendered, m.id, m.type))
@@ -130,7 +143,8 @@ function renderPage(
   // body and each module mounts into the `slot` it is bound to. Modules render
   // first and are handed to the pure L1 emitter as finished fragments; the page
   // schema has already proved every binding resolves to exactly one existing slot.
-  const rendered = renderModuleInstances(page, resolveModule, edit)
+  const locale = resolveSiteLocale(site.config)
+  const rendered = renderModuleInstances(page, resolveModule, edit, locale)
   const mounts: Record<string, string> = {}
   page.modules.forEach((m, i) => {
     if (m.slot) mounts[m.slot] = rendered[i]
@@ -177,8 +191,14 @@ function renderPage(
     .map((line) => `  ${line}`)
     .join('\n')
 
+  // REQ-151 — `lang`/`dir` from the site's resolved locale, never a literal.
+  // `resolveSiteLocale` is shared with the framework's `renderL1Page`, so the
+  // two render paths cannot disagree about a site's language (AC-4). `lang` is
+  // what a screen reader reads to choose pronunciation and what a search index
+  // stores, and a published revision is an immutable snapshot (DOC-12 §7) — so a
+  // wrong value here is not fixable by fixing this line later.
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(locale.locale)}" dir="${locale.dir}">
 <head>
 ${head}
 </head>
