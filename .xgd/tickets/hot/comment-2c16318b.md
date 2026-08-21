@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:15:39.698333+00:00'
+updated_at: '2026-08-21T01:21:50.392819+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1425,5 +1425,15 @@ I'd gently push back on framing it as a race, because the dependency runs one wa
 And there's a positioning argument for letting 1st Contact win deliberately. A development methodology with no shipped product is a hard sell to anyone. A methodology that visibly built, shipped and monetised a real commercial product sells itself — **1st Contact shipping first isn't XGD losing, it's XGD acquiring its proof.** Which also means XGD's whitepaper funnel isn't urgent yet, and the limbs to build first are the ones 1st Contact needs to sell itself.
 
 Worth capturing? DOC-35 §4.5 is still a stub, and between this and the last two turns there's now a fairly complete picture of the persona plus a limb-sequencing argument that isn't recorded anywhere.
+
+<!-- xgd-turn id="d7ba5540-5393-40ee-abef-b644f2f0a309-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:21:50.311227+00:00" -->
+#### You
+**Deliverability is the sleeper.** <-- trust me, I ran engineering for Groupon, we actually did our own emailing because there were no providers that operated at our scale we were literally one of the biggest sender of email on the planet. I don't want to build any of that. And the good news is it doesn't matter for Sara. Her email list will be so small that we could probably send it on a cc not that we would but a lot of of that stuff only really becomes a problem at scale but yeah I've no intention of writing stuff. And yes we absolutely need an owner facing surface. My thinking is that those would be the customers of first contact so they would be authenticated against the first contact website and the dashboard is the first contact Webb application that they get access to.
+
+Yes I would expect to build invoices before subscriptions, you asked what I needed for xgd...
+
+The other piece that I didn't mention is monitoring I'm expecting to leverage Google for a lot of that maybe other partners like pingdom. I think this is an important component of the system for me it is essential as a solo founder, I do not have time to check that my Webb delivery form is working. And my flow of incoming customers will initially be so slow that it could be weeks before I notice that it has been broken. So I need tools that are going to ensure that all of that stuff is working.
 
 <!-- xgd-chat-end -->
