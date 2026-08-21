@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T02:01:41.438286+00:00'
+updated_at: '2026-08-21T02:04:02.811963+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1803,5 +1803,11 @@ So: registry at limb one, and every subsequent limb pays a two-line tax instead 
 ---
 
 This is now a decent chunk of a document on its own. Shall I fold deletion into the telemetry doc — the escape-boundary rule, the registry, the three retention exceptions, controller/processor — since the two are really one design (what you collect determines what you have to be able to destroy)?
+
+<!-- xgd-turn id="2c4add53-db16-4d66-a440-88b7095c0e5c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:04:02.718672+00:00" -->
+#### You
+Structurally, for end-customer data **Sarah is the controller and we're the processor.** Her customer's deletion request goes to *her*, she actions it, and it has to propagate through our stores — and we need to be able to show that it did. <-- I still think Sara would just want us to delete the data for her. Maybe she needs to know that we did it and I hear your points about recordkeeping that the data was deleted… So actually all the things that I said we would we probably need to keep ironically.
 
 <!-- xgd-chat-end -->
