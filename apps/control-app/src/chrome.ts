@@ -1,4 +1,5 @@
 import importmap from './generated/importmap.json'
+import { APP_ID, BOOT_GUARD } from './boot-guard'
 
 /**
  * The chrome document (REQ-145).
@@ -12,6 +13,14 @@ import importmap from './generated/importmap.json'
  *
  * The map is imported as JSON and bundled, so serving this document costs no I/O
  * — no fetch into the assets binding, no store read. It is a string.
+ *
+ * THE BOOT GUARD IS INLINE AND COMES FIRST (REQ-149). Everything below this line
+ * can fail in a way that leaves the page blank and says nothing: a 404ed module,
+ * an API refusal `main.js` awaits at top level, a throw during mount. The guard
+ * is a classic script, so it runs at parse time and has its listeners registered
+ * before the deferred module executes — which is what lets it see the module's
+ * own load failure. See `boot-guard.ts` for why it is a string rather than a
+ * file.
  */
 
 interface ImportMap {
@@ -32,7 +41,8 @@ ${styles.map((href) => `<link rel="stylesheet" href="${href}">`).join('\n')}
 <script type="importmap">${JSON.stringify({ imports })}</script>
 </head>
 <body>
-<div id="app"></div>
+<div id="${APP_ID}"></div>
+<script>${BOOT_GUARD}</script>
 <script type="module" src="/builder/main.js"></script>
 </body>
 </html>
