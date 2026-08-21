@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:48:13.954430+00:00'
+updated_at: '2026-08-21T01:49:35.819197+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1686,5 +1686,13 @@ Still happy to write the 8×1hr protocol whenever you want it.
 <!-- xgd-chat role="user" ts="2026-08-21T01:48:13.868738+00:00" -->
 #### You
 Oh that reminds me, there is another conversation that I'm meaning to have data collection. This is a web product and the experiences of the people using it will be extremely valuable in creating better products. I think it's important for the customers to save their chat transcripts. My goal here is to give them terms and conditions that will allow me to mine them - solely for the purpose of improving the product. I am a strong advocate for online privacy but this doesn't feel creepy to me people are building public websites not discussing medical conditions, there shouldn't be anything super private. I guess it is possible that there could be some discussion about competitors but again the goal here would not be to publish this information to anyone else. Or sell it. The goal would be entirely to use the data for product improvement. And I imagine we would probably let people opt out in fact we probably have to.
+
+<!-- xgd-turn id="13fcb0ae-17a5-4b9a-ad92-2757a05821f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T01:49:35.728350+00:00" -->
+#### You
+Oh that reminds me, there is another conversation that I'm meaning to have data collection. This is a web product and the experiences of the people using it will be extremely valuable in creating better products. I think it's important for the customers to save their chat transcripts. My goal here is to give them terms and conditions that will allow me to mine them - solely for the purpose of improving the product. I am a strong advocate for online privacy but this doesn't feel creepy to me people are building public websites not discussing medical conditions, there shouldn't be anything super private. I guess it is possible that there could be some discussion about competitors but again the goal here would not be to publish this information to anyone else. Or sell it. The goal would be entirely to use the data for product improvement. And I imagine we would probably let people opt out in fact we probably have to.
+
+In any case I'm not proposing to have the legal conversation here what I was thinking about was the technical conversation this is probably worth a separate document. Given all the insight that we will have into these people's businesses and what works one and what doesn't work. All the transcripts from the on boarding sessions and where people got confused and how the AI succeeded in working through (or didn't) all of that is powerful information for product improvement. This is probably post launch discussion but I wanted to capture the idea and any inspiring thoughts around that now
 
 <!-- xgd-chat-end -->
