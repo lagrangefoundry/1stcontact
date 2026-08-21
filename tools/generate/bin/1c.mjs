@@ -2,47 +2,47 @@
 /**
  * `1c` entrypoint.
  *
- * The render path imports the framework's Astro module components, so the CLI
- * must run through a build that compiles `.astro` (and the TypeScript sources).
- * We do that with a Vite SSR server wired with Astro's plugin (`getViteConfig`),
- * loading the CLI through `ssrLoadModule` — the same transform path the UATs use
- * under Vitest. Vite is rooted at the repo (where the workspace packages and
- * Astro config live); data/dist paths follow the user's working directory.
+ * The CLI is TypeScript, so node cannot import it directly. We compile it on the
+ * fly with a Vite SSR server and load it through `ssrLoadModule` — the same
+ * transform path the UATs use under Vitest. Vite is rooted at the repo (where the
+ * workspace packages live); data/dist paths follow the user's working directory.
+ *
+ * WHY THIS IS PLAIN VITE (REQ-150). It used to be Astro's `getViteConfig()`,
+ * for exactly one reason: the render path imported `.astro` module components,
+ * which only Astro's transform can parse. REQ-148 made every behavior module a
+ * plain TypeScript function and deleted the last `.astro` file in the repo, so
+ * the plugin was transforming nothing — while still scanning for `src/pages`,
+ * still dragging Astro's logger in, and still being the only reason `vite`
+ * had to be located through `astro`'s own module graph. Astro is now absent
+ * from the repository; `vite` is a direct dependency and is imported as one.
  */
-import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getViteConfig } from 'astro/config'
+import { createServer } from 'vite'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 // tools/generate/bin → repo root
 const repoRoot = path.resolve(here, '..', '..', '..')
 
-const require = createRequire(import.meta.resolve('astro/package.json'))
-const { createServer } = await import(require.resolve('vite'))
-
-// Astro's Vite plugin scans for `src/pages` during server setup and, finding
-// none, logs "[WARN] Missing pages directory" through Astro's own logger (REQ-89).
-// `logLevel: 'error'` on the *Vite* config (first arg) gates Vite's logger, not
-// Astro's, so it never suppressed this. The fix is the second arg to
-// `getViteConfig` — the inline *Astro* config — whose `logLevel: 'error'` gates
-// Astro's logger and drops the WARN while still surfacing genuine errors.
-//
-// The stdout→stderr diversion below remains as defense in depth: any *other*
-// bootstrap chatter would otherwise corrupt a `--json` command's single document.
-// We restore stdout before `mod.run` prints the command's real output. (Render-time
-// chatter *inside* a command is handled separately by withCleanStdout in the CLI.)
+// Bootstrap chatter goes to stderr, never stdout, so a `--json` command's single
+// document survives whatever the server decides to say while it starts. This is
+// deliberately NOT tied to any one source of noise: Astro's "Missing pages
+// directory" WARN (REQ-89) was merely the loudest, and Vite has its own
+// (dependency re-optimization, plugin notices) that appear on cache-cold boots
+// and under future config changes. We restore stdout before `mod.run` prints the
+// command's real output. (Render-time chatter *inside* a command is handled
+// separately by withCleanStdout in the CLI.)
 const originalStdoutWrite = process.stdout.write.bind(process.stdout)
 process.stdout.write = (chunk, enc, cb) => process.stderr.write(chunk, enc, cb)
 
 let server
 try {
-  const cfgFn = getViteConfig({ root: repoRoot, logLevel: 'error' }, { logLevel: 'error' })
-  const cfg = typeof cfgFn === 'function' ? await cfgFn({ command: 'serve', mode: 'development' }) : cfgFn
-
   server = await createServer({
-    ...cfg,
     root: repoRoot,
+    // Take the config from here and nowhere else. Vite would otherwise search
+    // the root for a `vite.config.*`, making the launcher's behaviour depend on
+    // a file that exists for some other purpose entirely.
+    configFile: false,
     // `ws: false` returns a no-op WebSocket stub so the SSR server never binds
     // Vite's HMR port (24678). Under Vite 8, `hmr: false` alone no longer
     // suppresses the ws server — it is now gated on `server.ws` — so a running
@@ -70,7 +70,7 @@ try {
   //
   // (The other generated file, `module-assets.ts`, IS committed — it carries no
   // scope, so the same objection does not apply, and a UAT re-extracts it from
-  // the `.astro` sources to catch drift.)
+  // the module sources to catch drift.)
   //
   // Loading the one module it needs breaks the cycle. This is the only command
   // with that property: it is the one whose output everything else imports.
