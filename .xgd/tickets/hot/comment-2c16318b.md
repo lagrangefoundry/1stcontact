@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T01:36:48.512618+00:00'
+updated_at: '2026-08-21T01:37:48.015155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1580,5 +1580,38 @@ Unless you've got more, I'll write DOC-35 §4.5 up now — the persona proper (p
 <!-- xgd-chat role="user" ts="2026-08-21T01:36:48.413838+00:00" -->
 #### You
 he shamans' friction is hypothetical until they arrive <-- in about two weeks!
+
+<!-- xgd-turn id="58b9c912-3eec-491b-a22a-1d6f0bfdab57-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T01:37:47.916724+00:00" -->
+#### Claude
+Then they're not the hypothetical — they're the deadline, and they change what matters this fortnight.
+
+Two weeks is nowhere near enough to build software for them. It is exactly enough to **run the whole thing by hand.**
+
+And I'd argue that's not the consolation prize. Everything we've written today — the arc, the plurality dose, the register model, the capacity diagnosis, the four elicitation rules — is *reasoning*. None of it has met a human. A cohort of real anxious novices arriving in two weeks is the cheapest possible way to find out which parts are wrong, and it's available with zero code.
+
+**Concierge, not demo.** Don't put a product in front of them. Frame it as *"I'm going to build your website with you"* — you are the interface, Claude is the engine, and every rough edge is invisible because there's no product to be disappointed by. That framing is *especially* right for this population: an anxious novice wants a person, so being handheld by you is simultaneously their ideal first experience and your highest-fidelity research. The alternative — half-built software in front of your design centre and your referral network — is the one genuinely bad outcome available here.
+
+**A cohort is worth far more than a trickle.** Same conditions, similar fluency, arriving together, known to each other. You can run them sequentially and change something between each one, and actually attribute the difference. Random customers over six months teach you a fraction of that.
+
+Things that are testable in two weeks, all of which are currently just assertions in DOC-35:
+
+- Does **hero-in-15** survive contact with someone who has nothing and is frightened? (The four-arrival-states caveat I flagged lands hardest exactly here.)
+- **What's the right spread size** at this register — is three still an exam? Is two?
+- Which questions produce **blank stares**, which validates or kills §7.1.
+- Does the **their-domain-as-control-condition** trick actually detect confusion, or does everyone just go quiet uniformly?
+- Do the **four capacity questions** work on a 1:1 practitioner? They're probably supply-capped like Sarah, which means the "you may not need more leads" conversation applies — and that's a hell of a thing to test on someone who came for a website.
+- And the real outcome test: **what do they do with the site a month later.**
+
+Every one of those is answerable from three sessions and a notebook.
+
+The one thing I can't judge from here is how much of the builder is genuinely usable *by you* today — enough to get a shaman to a live URL with you driving. The recent publish work suggests the pipeline's there. If it is, the manual sessions produce real sites, not mockups, and that's a completely different conversation to have with them.
+
+---
+
+Given the deadline, I think the more urgent artifact is a **session protocol** — the runnable version of DOC-33 + DOC-35 for you to work from, with what to say, what to show, what to record, and the specific claims each session is testing. DOC-35 §4.5 is important but it's not date-bound.
+
+Want me to write the protocol first, and §4.5 after?
 
 <!-- xgd-chat-end -->
