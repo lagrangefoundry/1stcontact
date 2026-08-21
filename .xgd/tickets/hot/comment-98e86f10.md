@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T01:52:03.390789+00:00'
+updated_at: '2026-08-21T01:54:59.325446+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -645,5 +645,71 @@ Worth knowing: the publish→serve crossing *is* proven end-to-end, in `test_UAT
 <!-- xgd-chat role="user" ts="2026-08-21T01:52:03.297688+00:00" -->
 #### You
 Can you access that directory now?
+
+<!-- xgd-turn id="36b3789b-f29f-4fe2-a0de-9c9b1faa0a10-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T01:54:59.182013+00:00" -->
+#### Claude
+Let me test.
+
+Writable now. Let me run the full two-Worker demo.
+
+Builder is up (`latest: null` on that leftover site — correct, nothing published). Importing a real site:
+
+Now the moment of truth — publish through the Worker.
+
+All four behaviours confirmed against real bindings. Now the one thing I couldn't verify — public-site reading the same store.
+
+It works — no restart needed. Let me push harder on it.
+
+Now the sharp test — does a fresh publish reach public-site without a restart?
+
+Control-app sees r2 but public-site is serving r1. Let me find out which of two causes that is.
+
+It's the edge cache, not the store — a fresh cache key serves r2 immediately. Let me confirm the TTL expiry closes it.
+
+It works, end to end, on real bindings. Here's what actually happened.
+
+## The full cloud path, verified
+
+```
+1c assets → 1c builder (wrangler dev :8788)
+bin/publish xgd                     # 2 pages, 9 assets, site.json → local D1 + R2
+POST /api/publish {"slug":"xgd"}    # → id 1, published true
+```
+
+Then, with `public-site` on `:8789` pointed at control-app's store via `--persist-to`:
+
+| | |
+|---|---|
+| `GET /site/xgd/` | **200**, 79 KB of real HTML |
+| `GET /site/xgd/whitepapers` | **200** — extensionless page URL (REQ-113) |
+| `GET /site/xgd/theme.css` | **200** `text/css` |
+| `GET /site/xgd/assets/satoshi-400.woff2` | **200** `font/woff2` |
+| `GET /site/alpha/` | **404** — imported but never published |
+| `GET /site/nope/` | **404** — byte-identical to the above |
+
+That last pair is the "not an oracle" property holding: a site that exists but is unpublished and a site that doesn't exist give the same answer.
+
+And the rest of the contract, on the Worker:
+
+- second publish, unchanged draft → **`published: false`, id 1** — the no-op
+- `/api/sites` → `latest: 1`, derived from the log, not stored
+- `/api/revisions` → `r1 sha=c6309d907045 basedOn=null`
+- `/preview/xgd/published/` → **302** to `https://1stcontact.io/site/xgd/`
+
+## The two-process question — answered, and it turned up something
+
+I edited through the builder's own `/api/copy`, published **r2**, and public-site kept serving r1 while `/api/sites` already showed `latest: 2`.
+
+That looked like the store-sharing failure I'd warned you about. It isn't. A cache-busting query string returned the new content **instantly**, so the shared D1 was live and correct across both processes the whole time. What I was looking at was public-site's own edge cache — `public, max-age=60`, the accepted v1 window that `index.ts` documents in a comment about exactly this. The plain URL picked up r2 about 10 seconds later, on its own.
+
+So: **two `wrangler dev` processes on one local store works, live, no restart.** My caveat from the last message was wrong, and the thing that made it look right was a documented feature.
+
+Worth knowing when you demo this: publish and then immediately reload, and you may see the old page for up to a minute. That's production behaviour too, not a local artifact. Hard-reload or add `?v=2` to skip it.
+
+The migration also went on top of your existing `0001` database rather than a fresh one, so the `ALTER TABLE` upgrade path is proven, not just the from-scratch case.
+
+Working tree is clean, both servers stopped. Your local D1 now holds `xgd` at r2 — `bin/publish xgd` and republish any time you want to reset it.
 
 <!-- xgd-chat-end -->
