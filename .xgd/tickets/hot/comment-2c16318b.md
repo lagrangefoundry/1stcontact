@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T00:38:05.647334+00:00'
+updated_at: '2026-08-21T00:38:55.386693+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1223,5 +1223,11 @@ Done — **DOC-35: Personas, Modes & Registers** (`doc-edba99c9`), and CHAT-21's
 Two things I deliberately kept out, per your steer: no per-persona playbooks, and no changes to DOC-33 itself.
 
 Ready for the solopreneur conversation whenever you are — and I think it's a genuinely different shape, because §6's entire diagnosis inverts when there's no supply cap.
+
+<!-- xgd-turn id="c97fd530-a106-48b2-a1a0-b079dc7bc770-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T00:38:55.302361+00:00" -->
+#### You
+OK what's your thoughts on small tech startups?
 
 <!-- xgd-chat-end -->
