@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T01:33:39.722242+00:00'
+updated_at: '2026-08-21T01:35:42.146941+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -488,5 +488,53 @@ Now updating the ticket body to record what the implementation actually settled,
 <!-- xgd-chat role="user" ts="2026-08-21T01:33:39.633618+00:00" -->
 #### You
 It still shows as free_coding?
+
+<!-- xgd-turn id="da840c03-06cd-462f-828f-1a9230187d23-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-21T01:35:42.060735+00:00" -->
+#### Claude
+Correct — I appended the body but never completed step 5. Let me check state and finish the promotion.
+
+Sequence confirmed: lock → manual merge → `move-to-free-coded` → clean. Doing that now.
+
+Fast-forwarded cleanly. Now the promotion gate.
+
+Now tearing down the merged branch.
+
+Free-coding cycle complete. Saving two things that cost me time and would again.
+
+REQ-149 is complete and landed.
+
+## Final state
+
+| Step | |
+|---|---|
+| Ticket body | seven recorded decisions + implementation notes |
+| Branch | `free-REQ-149`, merged fast-forward into `xgd-working`, torn down |
+| Commit | `54b3e76a8` `[FREE-CODED]` |
+| Version | 0.2.0 (minor — the store port gained a contract) |
+| Ticket | `status=free_coded`, `commits=[54b3e76a…]`, `version=0.2.0` |
+| Lock | released |
+
+## What landed
+
+The port grew five revision **storage** verbs; `publish/publish.ts` sequences them once. `1c publish` and `/api/publish` are two callers of that one function — the CLI never became an HTTP client, because the endpoint already runs inside it. The Node transport's bespoke `/api/publish` interception is deleted; it was the only route where the two front doors disagreed.
+
+`manifest.json` is gone, not demoted. D1 is the only record and `live` is derived as `MAX(id)`. `1c deploy` and the sha-addressed draft previews went with it. Migration `0002` adds `site_revisions`, `published_sites` (whose PRIMARY KEY is what stops one tenant publishing over another's live site) and `sites.base_revision`.
+
+Net **−1,831 lines**.
+
+## Verification
+
+- **workers project: 57/57 pass.** Eight new UATs cover AC-1…AC-9 inside workerd against real D1 and R2, driving both Workers' own `fetch` — control-app publishes, public-site serves what it published.
+- **node project: failing-file set byte-identical to the pre-change baseline** (10 files, all pre-existing environment failures). 1,736 pass.
+
+## Two things worth your eye
+
+**The suite caught a real defect of mine.** My first `/api/publish` built its 409 body locally, outside the router's single scrubbing point; REQ-146's "every error path is scrubbed" UAT failed on it. Both non-500 outcomes are now mapped in the bottom catch where the scrubber is.
+
+**Three assertions I inverted rather than deleted.** REQ-145's "deferred capabilities answer 501" had no subject left — publish was the last deferral, and the test's own note said a graduating route was expected to leave, so it and `notImplemented()` are gone. REQ-146's "publish is not reachable from the Worker" was restated around `add_asset`, which is now the only operation that genuinely needs a disk.
+
+One latent behaviour I noticed and deliberately did not touch: `/site/<slug>/<dir>/` resolves to the key `<dir>`, not `<dir>/index.html` — only the site root gets the index mapping. It predates this ticket. Say the word if you want it filed.
 
 <!-- xgd-chat-end -->
