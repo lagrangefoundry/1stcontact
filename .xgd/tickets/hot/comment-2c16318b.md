@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-21
 created_by: xgd
 created_at: '2026-08-11T21:32:20.668310+00:00'
-updated_at: '2026-08-21T02:16:46.569133+00:00'
+updated_at: '2026-08-21T02:18:38.705226+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1878,5 +1878,11 @@ Everything derives from §2's one sentence. §4 takes your tenant-nuke framing a
 They cross-reference each other and DOC-33/35/31. CHAT-21's body has the session summary appended.
 
 Two things still outstanding from earlier offers, in the order I'd do them given the two-week deadline: the **8 × 1hr session protocol**, then **DOC-35 §4.5**.
+
+<!-- xgd-turn id="86890635-9b5b-4f4b-93a5-d06a2a1a2c23-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-21T02:18:38.615151+00:00" -->
+#### You
+Did you create a document for the updated reproduction system?
 
 <!-- xgd-chat-end -->
