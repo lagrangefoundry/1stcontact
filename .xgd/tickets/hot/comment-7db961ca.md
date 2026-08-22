@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-43
 created_by: xgd
 created_at: '2026-08-20T00:54:56.983510+00:00'
-updated_at: '2026-08-20T00:57:05.831300+00:00'
+updated_at: '2026-08-22T21:55:16.992897+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -43,5 +43,11 @@ Is this ticket still relevant?
 **Recommendation:** withdraw REQ-43 (`wont_fix`/`abandoned`), noting that the backfill landed under REQ-85 and folding the publish-gate wiring + exemption surfacing into REQ-17 as its hardening criteria. Alternative if you'd rather keep the ticket: narrow it to "publish-gate wiring + exemption surfacing only," drop the stamp/template entirely, and close REQ-17's overlap.
 
 Want me to do either? I haven't touched the ticket.
+
+<!-- xgd-turn id="ad298d2d-69a6-4abe-8268-4cfde8605d9b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-22T21:55:16.898828+00:00" -->
+#### You
+REQ-17 is no longer open for changes.
 
 <!-- xgd-chat-end -->
