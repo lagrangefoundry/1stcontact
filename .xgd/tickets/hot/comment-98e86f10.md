@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T22:04:31.319619+00:00'
+updated_at: '2026-08-22T22:09:03.853705+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1109,5 +1109,35 @@ npx wrangler whoami                        # confirms the token authenticates
 ```
 
 Two things worth noting: `export` only affects that shell, so run `bin/deploy` in the same one; and if the token file lives anywhere under the repo, check it's gitignored before you go further.
+
+<!-- xgd-turn id="5fa35ab9-0ad4-4e24-b403-018bb5845dee-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-22T22:09:03.742686+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/build
+
+==> Preflight
+node:internal/modules/package_json_reader:255
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from /Users/martin/lagrangefoundry/1stcontact/tools/generate/bin/1c.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:255:9)
+    at packageResolve (node:internal/modules/esm/resolve:767:81)
+    at moduleResolve (node:internal/modules/esm/resolve:853:18)
+    at defaultResolve (node:internal/modules/esm/resolve:983:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:801:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:725:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:309:38)
+    at #link (node:internal/modules/esm/module_job:201:49) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v24.2.0
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
