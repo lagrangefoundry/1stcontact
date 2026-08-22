@@ -5,9 +5,9 @@ type: request
 title: Module-contract template + stamp + publish-gate wiring
 created_by: xgd
 created_at: '2026-07-03T23:18:07.404402+00:00'
-updated_at: '2026-08-20T21:38:39.178064+00:00'
+updated_at: '2026-08-22T21:57:14.352639+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: abandoned
 fields:
   priority: medium
@@ -60,3 +60,46 @@ The long-term trait-AC / multi-surface (FRAGILE §6 gap #6) XGD primitive — tr
 ## Notes
 
 Framework code + matrix authoring → full free-coding ceremony. The template prose is duplicated per module by design (tree constraint); only the harness implementation is shared.
+
+
+---
+
+## ABANDONED — premise withdrawn by the framework pivot; backfill landed under REQ-85 (2026-08-22)
+
+This ticket was written when a "module" was a *layout* unit (hero, services-grid, …),
+the set was 8+ and growing with every design gap, and 4×M duplicated AC prose was the
+dominant cost. The framework pivot (REQ-79 / REQ-84 / REQ-96) withdrew that model:
+layout is owned by the L1 substrate ([[DOC-23]]) and a composition gap is closed by
+adding a typed L1 primitive, never by a new module. "Module" now means a *behavior*
+module — there are exactly two (`carousel`, `contact-form`), and [[DOC-26]] makes
+authoring a new one the last resort at the highest bar. At M=2 with rare growth, the
+stamp machinery costs more than the duplication it would remove.
+
+Deliverable by deliverable:
+
+- **Template (4 ACs).** Stale as written: [[REQ-85]] added a fifth dimension
+  (`isolation`), so the prose would need re-authoring before it could be stamped.
+- **Backfill.** Already landed, in code form, under [[REQ-85]]. Both behaviors declare
+  the full obligation set — `packages/framework/src/modules/carousel/meta.ts:48` and
+  `contact-form/meta.ts:79` (`conformance.obligations`) — which is the code-native
+  equivalent of the stamp, and both are exercised across every dimension
+  (`tests/req39-conformance.test.ts` … `req42-conformance-x-browser.test.ts`, plus
+  `tests/req85-conformance.test.ts` for isolation, with a negative fixture proving the
+  harness discriminates).
+- **Publish gate (draft-advisory / harden-mandatory).** Survives as *process*, not code:
+  [[DOC-26]] §4 defines the vetting obligations — contract, `validateBehavior*`, the
+  five universal conformance ACs of [[DOC-20]], vetted `client.js`, security review —
+  a behavior must clear before a site goes live on it. Its proposed code home,
+  [[REQ-17]], is itself abandoned and closed to changes.
+- **Stamp + supersession fan-out.** This is matrix authoring, which reconciliation
+  derives from free-coded commits ([[DOC-21]]); it is really the XGD trait-AC /
+  multi-surface primitive (`FRAGILE-INTENT-LIFECYCLE.md` §6 gap #6) that this ticket
+  already listed as out of scope. Unchanged, still out of scope, still unowned here.
+
+**One genuine remnant, currently unowned:** exemption *surfacing*. The harness accepts
+an `except` list (`tools/generate/src/conformance/types.ts:53`) and honours it, but no
+opt-out is recorded against a behavior's story or shown in the evidence projection — so
+a declared exemption is invisible to `proof.md`. Small, real, and homeless now that
+REQ-17 is closed; worth its own ticket if it is wanted.
+
+No code was written against this ticket.
