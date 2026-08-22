@@ -5,10 +5,10 @@ type: request
 title: Reserve locale-shaped page slugs
 created_by: xgd
 created_at: '2026-08-20T21:59:29.784434+00:00'
-updated_at: '2026-08-20T21:59:46.456137+00:00'
+updated_at: '2026-08-22T21:58:16.893367+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: low
   story_points: 1
