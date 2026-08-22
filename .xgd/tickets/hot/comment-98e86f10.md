@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-21T20:10:11.582161+00:00'
+updated_at: '2026-08-22T21:56:24.690931+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1023,5 +1023,11 @@ Neither blocks the deploy:
 - `bin/deploy.d/migrate/10-d1-site-store` — its comment says public-site "reaches no database", which stopped being true when I gave it a `DB` binding. The gating behaviour is still correct; only the stated reason is wrong.
 
 Both are my mess from REQ-149. Want me to clear them up in the same way — reopen, fix, re-promote?
+
+<!-- xgd-turn id="a821319e-2b12-4b80-a1e2-374d374a902e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-22T21:56:24.587698+00:00" -->
+#### You
+I have a Cloudflare access key, how do I use it?
 
 <!-- xgd-chat-end -->
