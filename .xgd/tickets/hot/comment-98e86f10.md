@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T23:27:53.703992+00:00'
+updated_at: '2026-08-22T23:53:15.647623+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1375,5 +1375,61 @@ echo "${CLOUDFLARE_ACCOUNT_ID:-(unset)}"
 ---
 
 If you'd rather skip the permission matrix entirely, `wrangler login` does an OAuth flow and grants everything your user account can already do — fine for a hands-on deploy. One catch: `CLOUDFLARE_API_TOKEN` takes precedence over OAuth, so you'd need to `unset CLOUDFLARE_API_TOKEN` first or wrangler will keep using the broken token.
+
+<!-- xgd-turn id="4499d6aa-e274-4728-b95f-83dba806626c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-22T23:53:15.542136+00:00" -->
+#### You
+Build error?
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/build
+
+==> Preflight
+ok    shared/browser  webui-shell
+ok    shared/browser  webui-split
+ok    shared/browser  webui-fields
+ok    shared/browser  webui-chat
+ok    shared/browser  webui-markdown
+ok    shared/server  ai
+ok    shared/server  ai-knowledge
+ok    shared/server  knowledge
+ok    shared/server  ticketing
+ok    npm            playwright
+ok    npm            sharp
+
+Preflight passed: 9 shared components, 2 declared packages.
+
+==> Control-app assets
+modules    2 css, 2 client.js → packages/framework/src/modules/module-assets.ts
+builder    18 files
+webui      48 files, 5 import-map entries, 5 stylesheets
+framework  edit-client.js, site-schema-edit.js, site-schema-shade.js
+ai         /Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/workers.js
+out        /Users/martin/lagrangefoundry/1stcontact/apps/control-app/dist-assets
+
+==> Typecheck and package builds
+Scope: 7 of 8 workspace projects
+apps/control-app build$ tsc --noEmit
+│ ../../tools/generate/src/store/fsutil.ts(10,8): error TS2591: Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @type…
+│ ../../tools/generate/src/store/fsutil.ts(11,18): error TS2591: Cannot find name 'node:path'. Do you need to install type definitions for node? Try `npm i --save-dev @t…
+│ ../../tools/generate/src/store/fsutil.ts(93,14): error TS7006: Parameter 'name' implicitly has an 'any' type.
+│ ../../tools/generate/src/store/loadSite.ts(1,18): error TS2591: Cannot find name 'node:path'. Do you need to install type definitions for node? Try `npm i --save-dev @…
+│ ../../tools/generate/src/store/paths.ts(1,18): error TS2591: Cannot find name 'node:path'. Do you need to install type definitions for node? Try `npm i --save-dev @typ…
+└─ Failed in 1.1s at /Users/martin/lagrangefoundry/1stcontact/apps/control-app
+packages/ui-kit build$ echo placeholder build: ui-kit
+│ placeholder build: ui-kit
+└─ Done in 16ms
+packages/builder-ui build$ echo placeholder build: builder-ui
+│ placeholder build: builder-ui
+└─ Done in 14ms
+apps/public-site build$ tsc --noEmit
+└─ Done in 946ms
+/Users/martin/lagrangefoundry/1stcontact/apps/control-app:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @1stcontact/control-app@0.0.0 build: `tsc --noEmit`
+Exit status 2
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
