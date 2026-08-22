@@ -6,8 +6,10 @@ import {
   COUNTRY_DEFAULTS,
   isCurrencyCode,
   isKnownTimezone,
+  isLocaleShapedSlug,
   isSupportedCountry,
   isWellFormedLocale,
+  localeShapedSlugMessage,
 } from './locale'
 
 /**
@@ -544,7 +546,21 @@ export const moduleInstanceSchema = z
 export const pageSchema = z
   .object({
     id: z.string(),
-    slug: z.string(),
+    /**
+     * The page's path segment — and, REQ-153, one that may not be mistaken for a
+     * locale. A slug is refused when it is *exactly* a locale segment (`de`,
+     * `pt-BR`, `es-419`); a slug that merely starts with a language code
+     * (`design`, `deals`, `de-luxe`) is untouched. See {@link isLocaleShapedSlug}.
+     *
+     * The reservation is cheap now and impossible later: a published revision is
+     * an immutable snapshot (DOC-12 §7) and its URLs are what inbound links and
+     * search rankings point at, so a page already live at `/de` cannot be moved
+     * out of the way of a `/de/about` language prefix — it can only be broken.
+     */
+    slug: z.string().superRefine((value, ctx) => {
+      if (!isLocaleShapedSlug(value)) return
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: localeShapedSlugMessage(value) })
+    }),
     title: z.string(),
     seoMeta: seoMetaSchema.optional(),
     modules: z.array(moduleInstanceSchema).default([]),

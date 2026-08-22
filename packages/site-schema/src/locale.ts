@@ -279,3 +279,92 @@ export function resolveSiteLocale(input: SiteLocaleInput = {}): ResolvedLocale {
     dir: localeDirection(locale),
   }
 }
+
+/**
+ * Every ISO 639-1 two-letter language code.
+ *
+ * DATA, NOT CODE — the same discipline as {@link COUNTRY_DEFAULTS}. The list is
+ * the whole registry rather than the languages this platform happens to render,
+ * because the reservation below (REQ-153) is about what a URL segment *could*
+ * mean later, not about what we support today; a code left out is a collision
+ * that can only be discovered once a site is already published under it.
+ */
+const ISO_639_1_LANGUAGES: ReadonlySet<string> = new Set([
+  'aa', 'ab', 'ae', 'af', 'ak', 'am', 'an', 'ar', 'as', 'av', 'ay', 'az',
+  'ba', 'be', 'bg', 'bh', 'bi', 'bm', 'bn', 'bo', 'br', 'bs',
+  'ca', 'ce', 'ch', 'co', 'cr', 'cs', 'cu', 'cv', 'cy',
+  'da', 'de', 'dv', 'dz',
+  'ee', 'el', 'en', 'eo', 'es', 'et', 'eu',
+  'fa', 'ff', 'fi', 'fj', 'fo', 'fr', 'fy',
+  'ga', 'gd', 'gl', 'gn', 'gu', 'gv',
+  'ha', 'he', 'hi', 'ho', 'hr', 'ht', 'hu', 'hy', 'hz',
+  'ia', 'id', 'ie', 'ig', 'ii', 'ik', 'io', 'is', 'it', 'iu',
+  'ja', 'jv',
+  'ka', 'kg', 'ki', 'kj', 'kk', 'kl', 'km', 'kn', 'ko', 'kr', 'ks', 'ku', 'kv', 'kw', 'ky',
+  'la', 'lb', 'lg', 'li', 'ln', 'lo', 'lt', 'lu', 'lv',
+  'mg', 'mh', 'mi', 'mk', 'ml', 'mn', 'mr', 'ms', 'mt', 'my',
+  'na', 'nb', 'nd', 'ne', 'ng', 'nl', 'nn', 'no', 'nr', 'nv', 'ny',
+  'oc', 'oj', 'om', 'or', 'os',
+  'pa', 'pi', 'pl', 'ps', 'pt',
+  'qu',
+  'rm', 'rn', 'ro', 'ru', 'rw',
+  'sa', 'sc', 'sd', 'se', 'sg', 'si', 'sk', 'sl', 'sm', 'sn', 'so', 'sq', 'sr', 'ss', 'st', 'su', 'sv', 'sw',
+  'ta', 'te', 'tg', 'th', 'ti', 'tk', 'tl', 'tn', 'to', 'tr', 'ts', 'tt', 'tw', 'ty',
+  'ug', 'uk', 'ur', 'uz',
+  've', 'vi', 'vo',
+  'wa', 'wo',
+  'xh',
+  'yi', 'yo',
+  'za', 'zh', 'zu',
+])
+
+/**
+ * A locale path segment's shape: `language[-region]`, anchored whole.
+ *
+ * Anchored is the entire point of AC-2 — `design` and `deals` begin with a
+ * language code and are not locale-shaped, because a locale segment is the
+ * *whole* segment or it is nothing. The region arm covers both forms a prefix
+ * takes in practice, `pt-BR` and the numeric `es-419`.
+ *
+ * The BCP 47 **script** subtag (`zh-Hans`) is deliberately NOT reserved. It
+ * would match any four-letter tail, and four-letter tails are ordinary English:
+ * `de-luxe`, `no-cost`, `it-team` are all plausible page slugs and none of them
+ * is a locale. Reserving them to defend `/zh-Hans/…` — a prefix that only
+ * arises for a language with two living scripts, on a site that also happened
+ * to slug a page `zh-hans` — trades a real cost for a negligible one.
+ */
+const LOCALE_SHAPED = /^([a-z]{2})(?:-(?:[a-z]{2}|[0-9]{3}))?$/
+
+/**
+ * Would this page slug be indistinguishable from a locale path segment?
+ *
+ * Case-insensitive: `/DE` collides with a `de` prefix exactly as `/de` does, and
+ * a rule that let the capitalised form through would reserve nothing.
+ *
+ * The language subtag must be a real ISO 639-1 code, so this refuses `de` and
+ * `pt-BR` while admitting `zz` or `qq` — reserving *shapes that could never
+ * become a locale* would be a tax with no collision behind it.
+ */
+export function isLocaleShapedSlug(slug: string): boolean {
+  const match = LOCALE_SHAPED.exec(slug.toLowerCase())
+  return match !== null && ISO_639_1_LANGUAGES.has(match[1] as string)
+}
+
+/**
+ * Why a locale-shaped slug is refused, and what to write instead.
+ *
+ * The message carries its own justification because a validation failure that
+ * reads as arbitrary is worse than none: the author cannot tell a rule from a
+ * bug, so they work around it rather than renaming the page. It names two
+ * concrete alternatives for the same reason — "pick something else" is not an
+ * instruction anyone can act on quickly.
+ */
+export function localeShapedSlugMessage(slug: string): string {
+  const lower = slug.toLowerCase()
+  return (
+    `page slug '${slug}' is reserved: it has the shape of a locale path segment, so a page ` +
+    `published at '/${slug}' could not be told apart from a language prefix like ` +
+    `'/${lower}/about' if this site ever serves more than one language. Qualify it instead — ` +
+    `'${lower}-services' or 'about-${lower}'.`
+  )
+}
