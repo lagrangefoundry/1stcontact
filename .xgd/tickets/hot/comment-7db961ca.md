@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-43
 created_by: xgd
 created_at: '2026-08-20T00:54:56.983510+00:00'
-updated_at: '2026-08-22T21:55:16.992897+00:00'
+updated_at: '2026-08-22T21:57:29.659211+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -49,5 +49,21 @@ Want me to do either? I haven't touched the ticket.
 <!-- xgd-chat role="user" ts="2026-08-22T21:55:16.898828+00:00" -->
 #### You
 REQ-17 is no longer open for changes.
+
+<!-- xgd-turn id="ad298d2d-69a6-4abe-8268-4cfde8605d9b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-22T21:57:29.563890+00:00" -->
+#### Claude
+Understood — so the "fold it into REQ-17" half of my recommendation is void. REQ-17 is `abandoned` too, with its own supersession note already appended.
+
+REQ-43 was likewise already at `abandoned`, but its body still read as live scope pointing at REQ-17 and DOC-14. I appended a supersession note (existing body preserved, title untouched, status unchanged) recording where each deliverable actually went:
+
+- **Premise** — template-and-stamp amortises 4×M prose duplication across a *growing* M. Post-pivot M=2 (`carousel`, `contact-form`) and DOC-26 makes a third the last resort. The machinery costs more than the duplication.
+- **Backfill** — already landed under REQ-85 in code form: `conformance.obligations` on both metas (`carousel/meta.ts:48`, `contact-form/meta.ts:79`) plus the REQ-39–42 + REQ-85 test files.
+- **Template prose** — stale anyway; REQ-85 added a fifth dimension (`isolation`) to the four.
+- **Publish gate** — survives as *process* in DOC-26 §4 (contract, `validateBehavior*`, the five conformance ACs, vetted `client.js`, security review), not as a `1c publish` flag.
+- **Stamp + supersession fan-out** — the XGD trait-AC / multi-surface gap (FRAGILE §6 #6), which this ticket already scoped out.
+
+One genuine remnant is now homeless: **exemption surfacing.** The harness honours `except` (`tools/generate/src/conformance/types.ts:53`) but nothing records an opt-out on the behavior's story or shows it in the evidence projection, so a declared exemption never reaches `proof.md`. I flagged it in the note rather than filing anything — say the word and I'll open a ticket for it.
 
 <!-- xgd-chat-end -->
