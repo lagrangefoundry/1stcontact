@@ -94,6 +94,14 @@ export type {
 
 export { BUILD_YEAR } from './buildInfo'
 
+// REQ-152 — the one place money and time become text. Exists ahead of the
+// payments and calendar modules so neither invents its own answer: money is
+// `{amountMinor, currency}` formatted by ICU (minor units are not always two),
+// and time is a UTC instant plus an IANA zone id, never a wall-clock string or
+// a fixed offset. `intl.ts` also carries the render-determinism rule (DOC-34
+// §8.4) that `buildInfo.ts` points at.
+export { formatMoney, formatDateTime } from './intl'
+
 // L1 layout substrate renderer (REQ-82) — the one safe emitter.
 export {
   renderL1Document,
