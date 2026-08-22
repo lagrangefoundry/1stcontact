@@ -5,15 +5,23 @@ type: request
 title: Reserve locale-shaped page slugs
 created_by: xgd
 created_at: '2026-08-20T21:59:29.784434+00:00'
-updated_at: '2026-08-22T22:09:46.260749+00:00'
+updated_at: '2026-08-22T22:09:53.039152+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: low
   story_points: 1
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: 31a4ca7da51ff8ff4dc9116434bd14e6acf8f60f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b404103fbde5313babac633855c81df57546bbeb
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.5
 ---
 
 # Reserve locale-shaped page slugs
