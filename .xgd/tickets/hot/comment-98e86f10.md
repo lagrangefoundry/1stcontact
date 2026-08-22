@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T22:41:30.016811+00:00'
+updated_at: '2026-08-22T22:42:21.187040+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1214,5 +1214,57 @@ Resource location: remote
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="2701641b-cf5a-4c07-851d-8bd2a4c9a074-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-22T22:42:21.085068+00:00" -->
+#### Claude
+Two separate things there — one is a real blocker, the other is expected and you should *not* "fix" it.
+
+## The warning — ignore it, deliberately
+
+```
+The following vars exist at the top level, but not on "env.production.vars": ACCESS_DEV_OPEN
+```
+
+That absence **is** the security control. From `wrangler.toml`:
+
+> `ACCESS_DEV_OPEN` is LOCAL ONLY and is declared at the top level DELIBERATELY… this key cannot reach the deployed Worker unless someone restates it there — and a UAT fails the build if anyone does.
+
+`ACCESS_DEV_OPEN=1` bypasses the Access gate. Adding it to `[env.production.vars]`, as wrangler suggests, would open the deployed builder to anyone. Wrangler can't tell the difference between a forgotten var and a withheld one. Leave it.
+
+## The error — your token can't see D1
+
+```
+The given account is not valid or is not authorized to access this service [code: 7403]
+```
+
+The account resolved fine (`8feaadfce9…`), and the call that failed was a *read* — the hook was only listing migrations. So it isn't a write-permission gap; the token has **no D1 access at all**. There's no `account_id` anywhere in the repo, so that account came from the token itself, which means the token is valid — just under-scoped.
+
+Narrow it in two commands:
+
+```bash
+npx wrangler whoami      # account + the token's permission scopes
+npx wrangler d1 list     # 7403 here confirms D1; success but no `1stcontact` means wrong account
+```
+
+If `d1 list` succeeds but doesn't show `1stcontact`, then the `database_id` in `wrangler.toml` (`0434cd88-…`) belongs to a different account than this token, which is a different problem.
+
+## What the token needs
+
+Recreate it at **My Profile → API Tokens → Create Token → Create Custom Token** with:
+
+| Scope | Permission | For |
+|---|---|---|
+| Account | Workers Scripts — **Edit** | deploying both Workers |
+| Account | D1 — **Edit** | migration `0002` |
+| Account | Workers R2 Storage — **Edit** | published bytes |
+| Account | Account Settings — **Read** | account resolution / `whoami` |
+| Zone (`1stcontact.io`) | Workers Routes — **Edit** | `app.1stcontact.io/*` and `*.1stcontact.io/*` |
+| Zone (`1stcontact.io`) | DNS — **Edit** | public-site's apex `custom_domain = true`, which provisions the record |
+
+The last two matter because both `wrangler.toml`s declare zone routes, and public-site's apex is a custom domain that wrangler provisions itself — an account-only token gets you through the migration and then fails at the upload.
+
+Worth noting the ordering held up: the migrate hook runs *before* the upload precisely so a failed migration stops the code that assumes it ran. Nothing was uploaded.
 
 <!-- xgd-chat-end -->
