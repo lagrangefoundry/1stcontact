@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T22:10:48.355536+00:00'
+updated_at: '2026-08-22T22:41:30.016811+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1175,5 +1175,44 @@ bin/deploy --dry-run
 ```
 
 If `--frozen-lockfile` errors, drop it and run plain `pnpm install` — that means the lockfile needs updating too, which would be a tracked change worth looking at before committing.
+
+<!-- xgd-turn id="2701641b-cf5a-4c07-851d-8bd2a4c9a074-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-22T22:41:29.850841+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/deploy --dry-run
+DRY RUN — hooks are told not to change anything, and nothing is uploaded.
+
+==> control-app → 1stcontact-control-app (--env production)
+  hook migrate/10-d1-site-store
+    would apply D1 migrations to '1stcontact' (--env production --remote)
+
+ ⛅️ wrangler 4.106.0
+────────────────────
+Resource location: remote 
+
+▲ [WARNING] Processing wrangler.toml configuration:
+
+  
+    - "env.production" environment configuration
+      - The following vars exist at the top level, but not on "env.production.vars".
+        This is probably not what you want, since "vars" configuration is not inherited by
+  environments.
+        Please add these vars to "env.production.vars":
+        - ACCESS_DEV_OPEN
+
+✘ [ERROR] A request to the Cloudflare API (/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/d1/database/0434cd88-07e0-4eb2-a7d8-7370c333534c/query) failed.
+
+  The given account is not valid or is not authorized to access this service [code: 7403]
+  
+  If you think this is a bug, please open an issue at:
+  https://github.com/cloudflare/workers-sdk/issues/new/choose
+
+🪵  Logs were written to "/Users/martin/Library/Preferences/.wrangler/logs/wrangler-2026-08-22_22-40-50_611.log"
+    (could not list migrations — check the D1 binding and credentials)
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
