@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T21:56:24.690931+00:00'
+updated_at: '2026-08-22T21:57:25.691509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1029,5 +1029,42 @@ Both are my mess from REQ-149. Want me to clear them up in the same way — reop
 <!-- xgd-chat role="user" ts="2026-08-22T21:56:24.587698+00:00" -->
 #### You
 I have a Cloudflare access key, how do I use it?
+
+<!-- xgd-turn id="a821319e-2b12-4b80-a1e2-374d374a902e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-22T21:57:25.598864+00:00" -->
+#### Claude
+Two completely different credentials are in play here — let me check which one your key is by looking at how each is consumed.
+
+Two different credentials are in play, and they do different jobs. Which one you have determines the answer.
+
+## If it's a Cloudflare **API token** (for deploying)
+
+That's the one wrangler asked me for earlier — it printed exactly this when I tried a remote call:
+
+> it's necessary to set a `CLOUDFLARE_API_TOKEN` environment variable for wrangler to work
+
+```bash
+export CLOUDFLARE_API_TOKEN='...'
+bin/build && bin/deploy --dry-run
+```
+
+It needs Workers Scripts *edit*, D1 *edit*, and R2 *edit* on the account. That covers `bin/deploy`, the D1 migration hook, and `bin/smoke`.
+
+Given you just asked about deploying, this is almost certainly what you have.
+
+## If it's an Access **service token** (for reaching the deployed builder)
+
+That's for `bin/publish --production` — getting through the Access gate on `app.1stcontact.io` after it's deployed. Different credential, different stage.
+
+But here you'd hit a real problem, which I found looking this up:
+
+`apps/control-app/ACCESS.md` specifies the mechanism as a **pair** — the caller sends `CF-Access-Client-Id` and `CF-Access-Client-Secret`, and Access exchanges them at the edge for a JWT. That's how Cloudflare service tokens actually work; you get two values from Zero Trust → Access → Service Auth.
+
+`bin/publish` takes a **single** value (`CF_ACCESS_TOKEN`, or `--token`) and `1c push` sends it as `cf-access-jwt-assertion`. That header is what Access *injects* into a request it has already verified — it isn't a credential a client presents. So with a genuine service token there's nowhere to put the two values, and the header it does send won't get you past the edge challenge.
+
+I'd call that broken for the documented mechanism, not just awkward. It predates REQ-149 — I didn't touch `push.ts` or `bin/publish` — so it's a separate defect, and it only bites once the deployed builder is actually reachable.
+
+**Which key do you have?** If it's the API token, you're unblocked right now. If it's a service token pair, tell me and I'll fix `bin/publish` to send the two headers ACCESS.md specifies — though you'll want the API token first regardless, since nothing is deployed yet for a service token to authenticate against.
 
 <!-- xgd-chat-end -->
