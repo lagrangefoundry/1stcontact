@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T21:57:25.691509+00:00'
+updated_at: '2026-08-22T22:04:00.630498+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1066,5 +1066,15 @@ But here you'd hit a real problem, which I found looking this up:
 I'd call that broken for the documented mechanism, not just awkward. It predates REQ-149 — I didn't touch `push.ts` or `bin/publish` — so it's a separate defect, and it only bites once the deployed builder is actually reachable.
 
 **Which key do you have?** If it's the API token, you're unblocked right now. If it's a service token pair, tell me and I'll fix `bin/publish` to send the two headers ACCESS.md specifies — though you'll want the API token first regardless, since nothing is deployed yet for a service token to authenticate against.
+
+<!-- xgd-turn id="7becee44-6139-4444-98b9-80dae178b7cc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-22T22:04:00.407567+00:00" -->
+#### You
+```bash
+export CLOUDFLARE_API_TOKEN='...'
+```
+
+I have the token saved in a file, can you give me the right formualtion to set the env variable from a file?
 
 <!-- xgd-chat-end -->
