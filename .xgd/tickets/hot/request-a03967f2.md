@@ -5,9 +5,9 @@ type: request
 title: Money and time representation, and the render-determinism resolution
 created_by: xgd
 created_at: '2026-08-20T21:59:25.587137+00:00'
-updated_at: '2026-08-22T22:06:55.848267+00:00'
+updated_at: '2026-08-22T22:07:40.115127+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -41,77 +41,115 @@ cannot re-interpret history without knowing which zone was meant. If it is store
 fixed offset (`+00:00`), it breaks across DST — and the EU and US transition on *different
 dates*, so a booking made in October for a November slot silently shifts by an hour.
 
-The codebase is currently **correct** on time: every timestamp is `toISOString()`
-(`deploy.ts:190`, `commands.ts:173`, `capture/pipeline.ts:196`, `store/journal-model.ts:124`,
-`store/d1r2-store.ts`). This REQ is about keeping it that way when a module starts handling
-*user-meaningful* time rather than system timestamps.
+The codebase was already **correct** on time: every timestamp is `toISOString()`. This REQ
+is about keeping it that way when a module starts handling *user-meaningful* time rather
+than system timestamps.
 
-**And there is a conflict that must be resolved before the calendar module is authored.**
-`packages/framework/src/buildInfo.ts:1-8` states that *"modules must never call `new Date()`
+**And there was a conflict that had to be resolved before the calendar module is authored.**
+`packages/framework/src/buildInfo.ts` stated that *"modules must never call `new Date()`
 at render time"*, because a page rendered twice from the same source must be byte-identical.
-A calendar renders **time-varying availability**. Both cannot hold as written.
+A calendar renders **time-varying availability**. Both could not hold as written.
 
-The failure mode if this is left undecided is nasty and silent: a published **immutable**
-snapshot with *"next available: 3 September"* baked into its HTML is wrong the following
-day and **cannot self-heal**, because a revision is by definition not re-rendered.
+The failure mode if left undecided is nasty and silent: a published **immutable** snapshot
+with *"next available: 3 September"* baked into its HTML is wrong the following day and
+**cannot self-heal**, because a revision is by definition not re-rendered.
 
-## What to change
+## What changed
 
-**1 — A shared formatting seam** (suggested `packages/framework/src/intl.ts`; exact path is
-an implementation call), so there is one obviously-correct way to do this the moment
-payments or calendar lands:
+### 1 — The shared formatting seam: `packages/framework/src/intl.ts`
 
-- `formatMoney(amountMinor: number, currency: string, locale: string): string`
-- `formatDateTime(instant: string, timeZone: string, locale: string, opts): string`
+Exported from the framework barrel. Two functions, no more — a module that formats money or
+a date reads `props.locale` (REQ-151) and calls these rather than inventing an answer.
 
-Both delegate to `Intl.NumberFormat` / `Intl.DateTimeFormat`. Neither hand-rolls a symbol,
-a separator or a date order.
+```ts
+formatMoney(amountMinor: number, currency: string, locale: string, options?): string
+formatDateTime(instant: string, timeZone: string, locale: string, options?): string
+```
 
-**2 — Money is `{ amountMinor: integer, currency: ISO-4217 }`.** Never a float, never a
-display string as the source of truth. **Minor units are not always 2** — JPY has 0, KWD has
-3 — so the currency must be passed to `Intl` rather than the amount divided by 100 anywhere.
+Both delegate wholly to ICU. Nothing hand-rolls a symbol, a separator or a date order.
 
-**3 — Time is an instant plus an IANA zone id.** UTC instant for the moment; `Europe/Dublin`
-for the zone. Never a wall-clock string, never a fixed offset.
+### 2 — Money is `{ amountMinor: integer, currency: ISO 4217 }`
 
-**4 — Resolve the determinism conflict, and record the resolution.** Proposed: *render
-output stays byte-deterministic; time-varying content is client-rendered or fetched at
-request time, and is never derived from the render clock.* Under that rule a calendar
-module emits a mount point plus data, not a baked date. This needs deciding explicitly
-because it constrains how the module is built — and once decided it belongs in both
-[[DOC-34]] §8.2 (which currently covers formatting and storage but **not** this tension)
-and the `buildInfo.ts` comment, which should point at the rule rather than implying no
-module may ever show a date.
+- The divisor comes from **ICU's minor-unit count for the currency**, never a literal
+  `/100`. JPY has 0 and KWD has 3, so a hardcoded scale undercharges one by a hundredfold
+  and overcharges the other by a thousand.
+- The decimal is built by **string arithmetic**, not division: `9007199254740991 / 100`
+  formats as `…409.90`, dropping a cent, and `Intl.NumberFormat` (V3) parses a decimal
+  string exactly. A shown price is a legal claim, so exactness is not optional.
+- A **non-integer amount throws**, and a **currency that is not ISO 4217-shaped throws** —
+  the two string arguments are transposable, and a swap would otherwise render something
+  plausible-looking.
 
-**5 — Record the obligations these place on the two unwritten modules**, per [[DOC-34]] §8
-and [[DOC-25]] §11:
+### 3 — Time is an instant plus an IANA zone id
 
-- *payments* — charged amount is `config`; displayed amount **derives** from it, so shown
-  and charged are equal by construction. Declares its VAT-display obligation per `country`
-  (EU/UK consumer prices must be VAT-inclusive — Price Indication Directive 98/6/EC; UK
-  Price Marking Order).
-- *calendar* — never emits a hand-formatted date/time string; surfaces the zone
-  abbreviation wherever a cross-zone booking is possible.
+- A **zone-less wall-clock string is refused**. Accepting it would silently reinterpret it
+  as whichever zone the build host happened to be in — a property of the machine, baked
+  into an immutable snapshot. Only `Z` or an explicit numeric offset is admitted.
+- An **unknown IANA id is refused** (`Europe/Dubland`), rather than allowed to produce an
+  opaque `RangeError` from inside ICU.
+- `timeZoneName` is passed through, so the calendar module can meet DOC-34 §8.2's
+  obligation to surface the zone wherever a cross-zone booking is possible.
 
-## Acceptance criteria (provisional)
+### 4 — The determinism conflict, resolved and recorded
 
-1. `formatMoney` renders `€49.99` for `(4999, 'EUR', 'en-IE')` and `49,99 €` for
-   `(4999, 'EUR', 'de-DE')` — same amount, same currency, different locale.
-2. `formatMoney` is correct for a **0-minor-unit** currency (JPY) and a **3-minor-unit**
-   currency (KWD) — proving no `/100` is hardcoded anywhere.
-3. `formatDateTime` renders the same instant differently for `Europe/Dublin` and
-   `America/New_York`, and is correct **across a DST boundary** where the EU and US
-   transition dates differ.
-4. Rendering the same page twice produces byte-identical output — the determinism rule in
-   `buildInfo.ts` still holds after this REQ.
-5. The determinism resolution is recorded in [[DOC-34]] §8.2 and referenced from
-   `buildInfo.ts`.
+Adopted the resolution the ticket proposed:
 
-## Test approach
+> **Render output stays byte-deterministic. Time-varying content is rendered on the client
+> or fetched at request time, and is NEVER derived from the render clock.**
 
-UATs named `test_UAT_FC_REQ-152_*` covering AC 1–4, with the DST case using explicit fixed
-instants (no reliance on the ambient clock — see AC 4). Regression scope is the framework
-render suite.
+The prohibition on reading the clock at render time therefore **stands exactly as it was**;
+what changed is that showing a date is no longer mistaken for breaking it. Two sanctioned
+shapes: an instant known at author time is data on the definition and formatted through the
+seam; content that depends on *now* is emitted as a **mount point plus data** for the client
+to resolve.
+
+`formatDateTime` has **no clock-reading overload** — the rule expressed as an API rather
+than as something to remember. Recorded in **DOC-34 §8.4** (new), in `intl.ts`'s header,
+and `buildInfo.ts` now points at both rather than implying no module may ever show a date.
+
+### 5 — Obligations on the two unwritten modules
+
+DOC-34 §8.1/§8.2 and DOC-25 §11 already carried these; both were updated to name the seam
+that now exists, so the next author finds the implementation rather than the principle.
+
+## Design decisions made during implementation
+
+- **Two functions, not four.** A `formatSiteMoney(amount, resolvedLocale)` convenience pair
+  was written and then removed: it would have created two ways to format money, against the
+  project's simplicity mandate. The transposition risk it existed to remove is handled
+  instead by the ISO-4217 guard, which throws.
+- **Recorded as DOC-34 §8.4, not inside §8.2.** The ticket said "§8.2", but §8.2 is the
+  calendar module's obligations and the determinism rule binds every module. §8.2 now points
+  at §8.4.
+- **`formatDateTime` accepts an explicit offset, not only `Z`.** DOC-34 §7's "never a fixed
+  offset" rule governs *storage of future local events* — a calendar-config concern. At a
+  formatting boundary the distinction that matters is ambiguous vs unambiguous, and an
+  explicit offset is unambiguous. A zone-less string is what gets refused.
+- **`NumberFormatV3` declared locally.** The project's `lib` is pinned at ES2022 and the
+  string-accepting `format` overload arrived in ES2023. Both hosts (Node 22, workerd)
+  implement it; only the type declaration is behind. Widening the whole project's lib to
+  reach one overload is a much larger claim than this needed.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-152_intl_seam.test.ts` — 15 UATs, all green.
+
+| AC | Covered by |
+|---|---|
+| 1 — same amount, two locales | `€49.99` (en-IE) vs `49,99 €` (de-DE); plus two currencies in one locale, proving the symbol comes from the currency argument |
+| 2 — 0- and 3-minor-unit currencies | JPY `￥4,999`, KWD `4.999`, ISK; plus exactness beyond float precision, non-integer refusal, transposed-argument refusal, negative amounts |
+| 3 — DST divergence | Dublin↔New York across 20 Oct / 28 Oct / 5 Nov 2026 — **five hours apart, then four, then five again**, because the EU leaves DST on 25 Oct and the US on 1 Nov. Plus zone-abbreviation output, wall-clock refusal, unknown-zone refusal |
+| 4 — byte-identical renders | The same page rendered twice through **both** renderers and compared file by file; **plus a structural check** that no source on the framework's render path contains a zero-arg `new Date()` or `Date.now()` — determinism as mechanism rather than discipline |
+| 5 — resolution recorded | `buildInfo.ts` references DOC-34 §8.4 and `intl.ts`; `intl.ts` carries the rule verbatim |
+
+All instants in the DST tests are fixed literals, so the suite asserts the same thing in
+July as in October.
+
+**Regression scope run**: full node suite (938 tests) plus the workerd behavior suite.
+Three files fail — `reconciliation-colour-census-and-retrofit`,
+`reconciliation-colour-retrofit-shade-model`, `test_UAT_FC_REQ-150_plain_vite_bootstrap` —
+and **all three fail identically on clean `xgd-working`**, verified by running them there.
+Pre-existing and unrelated to this change. Framework typecheck is clean.
 
 ## Why free-coded
 
@@ -122,5 +160,5 @@ payments and calendar are authored, so neither has to invent its own answer.
 
 [[CHAT-26]] · [[DOC-34]] §6–§8 · [[DOC-25]] §11 — FR-3 and FR-4 of that session's
 foundational review. The determinism conflict was found against
-`packages/framework/src/buildInfo.ts` after [[DOC-34]] was written, and is not yet
-reflected there.
+`packages/framework/src/buildInfo.ts` after [[DOC-34]] was written, and is now reflected
+there as §8.4.
