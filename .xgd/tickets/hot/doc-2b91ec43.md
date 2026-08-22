@@ -5,9 +5,9 @@ type: doc
 title: Internationalization & Localization Model
 created_by: xgd
 created_at: '2026-08-15T23:58:49.039815+00:00'
-updated_at: '2026-08-16T01:19:04.754045+00:00'
+updated_at: '2026-08-22T22:03:09.688674+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -197,15 +197,67 @@ copy. Currency comes from `config`, defaulting to the site's. Formatting is
 `Intl.NumberFormat` — never hand-rolled symbol concatenation. The module declares
 its VAT-display obligation per `country`.
 
+The seam exists: `formatMoney(amountMinor, currency, locale)` in
+`packages/framework/src/intl.ts` (REQ-152). It takes the amount in **minor
+units** and asks ICU for the currency's minor-unit count, so there is no `/100`
+to be wrong about JPY (0) or KWD (3); it builds the decimal exactly by string
+arithmetic rather than by division, because `9007199254740991 / 100` loses a
+cent and a price is a legal claim. It throws on a non-integer amount and on a
+currency that is not ISO 4217-shaped, so a transposed argument fails loudly
+instead of rendering something plausible.
+
 **8.2 Calendar.** The module never emits a hand-formatted date or time string:
 always `Intl.DateTimeFormat` with the page locale. It stores instants in UTC with
 an IANA zone id (§7), and surfaces the zone abbreviation wherever a cross-zone
 booking is possible.
 
+The seam is `formatDateTime(instant, timeZone, locale, opts)` in the same file.
+It refuses a zone-less wall-clock string outright — the unrecoverable case in §7
+— because the alternative is silently reinterpreting it as whichever zone the
+build host happened to be in, and refuses an IANA id the runtime does not know
+rather than let `Europe/Dubland` fall back to something. **It has no overload
+that reads the ambient clock**, which is §8.4 expressed as an API rather than as
+a rule to remember.
+
 **8.3 Neither is an aesthetic dial.** A formatted price and a formatted date are
 *data* resolved from locale, not presentation choices — so this stays inside
 [[DOC-25]] §2's "config is data-only, never aesthetics" line rather than
 straining it. Their *appearance* remains 100% L1.
+
+**8.4 Render determinism — the rule that lets a calendar exist (REQ-152).**
+
+`packages/framework/src/buildInfo.ts` said *"modules must never call `new Date()`
+at render time"*, because a page rendered twice from the same source must be
+byte-identical. A calendar renders **time-varying availability**. Both could not
+hold as written, and the conflict had to be settled *before* the module was
+authored, because it decides how the module is built.
+
+> **Render output stays byte-deterministic. Time-varying content is rendered on
+> the client or fetched at request time, and is NEVER derived from the render
+> clock.**
+
+The prohibition therefore stands exactly as it was; what changes is that showing
+a date is no longer mistaken for breaking it. Two sanctioned shapes:
+
+- The instant is **known at author time** — a class on 14 March, a deposit
+  deadline. It is data on the definition, the module formats it through §8.2's
+  seam, and rendering twice gives the same bytes because the input never moved.
+- The content depends on **now** — *"next available"*, *"3 slots left today"*.
+  The module emits a **mount point plus its data**, and the client (or a
+  request-time fetch) resolves *now*. Nothing time-varying is baked.
+
+Why this and not the obvious alternative of re-rendering on a schedule: a
+published revision is an **immutable R2 snapshot** (DOC-12 §7) and is by
+definition not re-rendered. *"Next available: 3 September"* baked into its HTML
+is wrong the following day and **cannot self-heal** — there is no later render to
+fix it. Determinism is not a preference here; it is what the storage model
+already forces, so the clock has to move to the client.
+
+This is recorded in `buildInfo.ts` (which now points here rather than implying no
+module may ever show a date) and in `intl.ts`'s header, and pinned by
+`test_UAT_FC_REQ-152_*`: two renders of the same page compared byte for byte, and
+a structural check that no source on the framework's render path reads the
+ambient clock at all.
 
 ## 9. Deliberately not built
 
@@ -240,3 +292,6 @@ directions) · [[DOC-26]] (authoring & vetting) · [[DOC-33]] (consultation; §1
 capability catalogue) · [[DOC-19]] (transcribe, don't reconstruct) · [[DOC-7]]
 (framework architecture; site schema) · [[DOC-32]] (our own pricing — out of
 scope here).
+
+Implementation: `packages/framework/src/intl.ts` (REQ-152) — the shared
+formatting seam §8.1/§8.2 name, and the home of §8.4's determinism rule.
