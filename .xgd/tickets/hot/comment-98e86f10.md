@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T23:27:15.063976+00:00'
+updated_at: '2026-08-22T23:27:53.703992+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1311,5 +1311,69 @@ Getting User settings...
 ```
 
 Can you walk mew through creating a new token with the correct permissions please?
+
+<!-- xgd-turn id="4649a29e-bc3f-4bb2-9a96-8fa6947a046f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-22T23:27:53.604895+00:00" -->
+#### Claude
+Your token is missing at least two things: `whoami` can't list accounts (no **Account Settings: Read**) and `d1 list` gets a bare auth error (no **D1**). Here's the full walkthrough.
+
+## Create the token
+
+1. Go to **https://dash.cloudflare.com/profile/api-tokens**
+   (or: dashboard → profile icon, top right → **My Profile** → **API Tokens**)
+2. **Create Token**
+3. Scroll past the templates to the bottom → **Create Custom Token** → **Get started**
+4. Name it something like `1stcontact deploy`
+
+### Permissions
+
+Add six rows (**+ Add more** after each):
+
+| Type | Resource | Level | Why |
+|---|---|---|---|
+| Account | Workers Scripts | **Edit** | uploading both Workers |
+| Account | D1 | **Edit** | migration `0002` — the step that just failed |
+| Account | Workers R2 Storage | **Edit** | published bytes |
+| Account | Account Settings | **Read** | `whoami` / account resolution — the *other* failure |
+| Zone | Workers Routes | **Edit** | `app.1stcontact.io/*`, `*.1stcontact.io/*` |
+| Zone | DNS | **Edit** | public-site's apex is `custom_domain = true`, so wrangler provisions the record |
+
+The two zone rows are easy to skip and will let you get all the way through the migration before failing at the upload.
+
+### Resources
+
+- **Account Resources** → Include → your account (the one holding `8feaadfce9…`)
+- **Zone Resources** → Include → **Specific zone** → `1stcontact.io`
+
+Leave TTL and IP filtering alone unless you want them.
+
+5. **Continue to summary** → **Create Token**
+6. **Copy it now** — Cloudflare shows it exactly once.
+
+## Then
+
+```bash
+export CLOUDFLARE_API_TOKEN="$(< ~/path/to/token)"
+
+npx wrangler whoami      # must list your account now
+npx wrangler d1 list     # must show `1stcontact`
+```
+
+Both need to pass before `bin/deploy` will get anywhere.
+
+## Two things that may bite
+
+**If `d1 list` succeeds but `1stcontact` isn't there** — the `database_id` in both `wrangler.toml`s (`0434cd88-…`) points at a database in a different account. That's a config problem, not a token one; tell me and we'll sort it.
+
+**Where did `8feaadfce9…` come from?** `whoami` couldn't retrieve account IDs, yet `d1 list` used that account — so you likely have `CLOUDFLARE_ACCOUNT_ID` set in your environment. Worth checking it matches the account you scope the new token to:
+
+```bash
+echo "${CLOUDFLARE_ACCOUNT_ID:-(unset)}"
+```
+
+---
+
+If you'd rather skip the permission matrix entirely, `wrangler login` does an OAuth flow and grants everything your user account can already do — fine for a hands-on deploy. One catch: `CLOUDFLARE_API_TOKEN` takes precedence over OAuth, so you'd need to `unset CLOUDFLARE_API_TOKEN` first or wrangler will keep using the broken token.
 
 <!-- xgd-chat-end -->
