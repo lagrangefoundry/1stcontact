@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T22:04:00.630498+00:00'
+updated_at: '2026-08-22T22:04:31.319619+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1076,5 +1076,38 @@ export CLOUDFLARE_API_TOKEN='...'
 ```
 
 I have the token saved in a file, can you give me the right formualtion to set the env variable from a file?
+
+<!-- xgd-turn id="7becee44-6139-4444-98b9-80dae178b7cc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-22T22:04:31.084280+00:00" -->
+#### Claude
+If the file contains just the token:
+
+```bash
+export CLOUDFLARE_API_TOKEN="$(< ~/path/to/token)"
+```
+
+Command substitution strips trailing newlines, so a file ending in `\n` is handled. `$(<file)` is a bash/zsh builtin — no subprocess, and the token never appears on the command line or in your history.
+
+If the file might have stray whitespace or a BOM:
+
+```bash
+export CLOUDFLARE_API_TOKEN="$(tr -d '[:space:]' < ~/path/to/token)"
+```
+
+If it's dotenv-style (`CLOUDFLARE_API_TOKEN=abc123`):
+
+```bash
+set -a; . ~/path/to/token; set +a
+```
+
+Verify without printing it:
+
+```bash
+echo "${#CLOUDFLARE_API_TOKEN} chars"     # sanity: non-zero, no trailing newline
+npx wrangler whoami                        # confirms the token authenticates
+```
+
+Two things worth noting: `export` only affects that shell, so run `bin/deploy` in the same one; and if the token file lives anywhere under the repo, check it's gitignored before you go further.
 
 <!-- xgd-chat-end -->
