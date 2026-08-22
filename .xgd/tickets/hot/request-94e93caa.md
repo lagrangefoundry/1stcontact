@@ -5,9 +5,9 @@ type: request
 title: Reserve locale-shaped page slugs
 created_by: xgd
 created_at: '2026-08-20T21:59:29.784434+00:00'
-updated_at: '2026-08-22T21:58:16.893367+00:00'
+updated_at: '2026-08-22T22:09:46.260749+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: low
@@ -20,44 +20,94 @@ fields:
 
 ## Why
 
-`pageSchema.slug` is an unconstrained `z.string()`
-(`packages/site-schema/src/schema.ts:540`). Nothing stops a page being slugged `de` or `fr`.
+`pageSchema.slug` was an unconstrained `z.string()`
+(`packages/site-schema/src/schema.ts`). Nothing stopped a page being slugged `de` or `fr`.
 
 If a locale path prefix (`/de/about`) is ever adopted — the conventional and most likely
 shape, and the one [[DOC-34]] §9 leaves open — a page already published at `/de` becomes
 structurally ambiguous with the locale segment. Because published URLs are what inbound
 links, search rankings and anything a customer has printed or shared all point at, that
-ambiguity is awkward to resolve after the fact rather than merely untidy.
+ambiguity is awkward to resolve after the fact rather than merely untidy. A published
+revision is an immutable snapshot (DOC-12 §7), so such a page can be broken but not moved.
 
 This is **cheap insurance, not a must**. Multilingual sites are explicitly deferred
 ([[DOC-34]] §9), and if a subdomain or query-parameter shape is chosen instead the concern
 disappears entirely. It is proposed only because the guard costs about half an hour now and
 removes a class of collision permanently.
 
-## What to change
+## What changed
 
-Add a refinement to `pageSchema.slug` rejecting bare ISO-639-1 two-letter language codes,
-and the `xx-XX` language-region form. The error must say **why** the slug is refused and
-suggest an alternative (`de` → `de-services`, `about-de`), because a validation failure
-that reads as arbitrary is worse than no validation.
+**`packages/site-schema/src/locale.ts`** — the reservation, alongside the rest of the
+platform's locale knowledge (REQ-151's country/locale/currency/timezone derivation):
 
-Existing sites must be checked before this lands — a slug that already violates the rule
-would break validation for a stored site. Neither current site has one, but the check
-belongs in the implementation rather than in this ticket's assumptions.
+- `ISO_639_1_LANGUAGES` — the whole ISO 639-1 registry as data, not a curated subset. The
+  rule is about what a URL segment *could* mean later, not what we render today; a code
+  left out is a collision discoverable only once a site is published under it.
+- `isLocaleShapedSlug(slug)` — true when the slug is *exactly* a locale segment:
+  `language` or `language-region`, anchored whole, matched **case-insensitively** (`/DE`
+  collides with a `de` prefix exactly as `/de` does). The language must be a real ISO 639-1
+  code, so `zz` and `qq` are admitted — reserving shapes that could never become a locale
+  is a tax with no collision behind it.
+- `localeShapedSlugMessage(slug)` — the refusal text.
 
-## Acceptance criteria (provisional)
+**`packages/site-schema/src/schema.ts`** — `pageSchema.slug` gains a `superRefine` calling
+the above. Because it sits on the field, the issue path is `/pages/N/slug` automatically,
+and because every writer funnels through `validateSite`, the guard reaches the CLI
+(`1c edit page add`), the AI toolbox's `add_page`, and the store loader without any of them
+being changed.
+
+## Design decisions made during implementation
+
+**The BCP 47 script subtag (`zh-Hans`) is deliberately NOT reserved.** An earlier draft
+accepted `language[-script][-region]`, which matches any four-letter tail — and four-letter
+tails are ordinary English. `de-luxe`, `no-cost` and `it-team` are all plausible page slugs
+and none is a locale. Reserving them to defend `/zh-Hans/…` — a prefix that only arises for
+a language with two living scripts, on a site that also happened to slug a page `zh-hans` —
+trades a real cost for a negligible one. The numeric region form (`es-419`) *is* reserved:
+a three-digit tail is never an English word, so it is free.
+
+**The message carries its own justification and two concrete alternatives.** A validation
+failure that reads as arbitrary is worse than none — the author cannot tell a rule from a
+bug, so they work around it rather than renaming the page. The text names *why* the slug is
+refused and gives `<slug>-services` / `about-<slug>`, because "pick something else" is not
+an instruction anyone can act on quickly.
+
+## Acceptance criteria
 
 1. A page slugged `de`, `fr` or `pt-BR` is a validation error with a machine-readable path
-   and an actionable message.
+   (`/pages/N/slug`) and an actionable message. ✅
 2. A page slugged `design`, `deals` or `delivery` validates — the rule matches *only* the
-   exact locale forms, never a prefix.
-3. Both existing sites still validate.
+   exact locale forms, never a prefix. ✅
+3. Both existing sites still validate. ✅
 
-## Test approach
+## Test plan
 
-UATs named `test_UAT_FC_REQ-153_*` covering AC 1–3, with AC 2 parameterized over
-near-miss slugs that begin with a language code. Regression scope is the site-schema
-validation suite.
+`tests/test_UAT_FC_REQ-153_locale_slug_reservation.test.ts` — 30 UATs:
+
+- **AC-1** parameterized over `de`, `fr`, `pt-BR`, `pt-br`, `DE`, `es-419`, `en`, `ga`;
+  each asserts an error at `/pages/0/slug` whose message names the slug, mentions the
+  locale reason, and offers both suggested forms.
+- **AC-1 at the authoring entry point** — `editPageAdd(..., { path: 'de' })` rejects with
+  a `CommandError` carrying `code: SCHEMA_INVALID` and `path: /pages/1/slug`, leaves no
+  half-written page behind, and the same page is created successfully at `de-services`.
+  This is what proves the guard is *reachable*, not merely present in the schema.
+- **AC-2** parameterized over `design`, `deals`, `delivery`, `french-lessons`, `portfolio`,
+  `english`, `zz`, `qq`, `no-fee`, `de-luxe`, `no-cost`, `it-team`, `zh-Hans`, `pt-brazil`,
+  plus the three slugs both real sites use.
+- **AC-3** enumerates `storage/sites/*` at runtime (rather than naming two sites) and
+  validates each site's draft *and every published revision*, since a frozen revision could
+  not be rescued by an edit. It also asserts the enumeration is non-empty, so the AC cannot
+  pass vacuously.
+
+Regression scope run green: `site-schema`, `req11-structured-edit`, `req22-storage`,
+`generate`, `req107-authored-l1-envelope`, `reconciliation-site-storage-port`,
+`test_UAT_FC_REQ-151_site_locale`, `test_UAT_FC_REQ-142_site_store_port`,
+`reconciliation-scaffold-starter-l1`, `req102-scaffold-l1`,
+`reconciliation-draft-change-journal` — 156 passed, 2 skipped.
+
+A full `vitest.node` sweep shows 8 pre-existing failing files (builder/webui/AI-host/deploy
+suites). Baselined by stashing this change and re-running the same set: identical
+4 files / 14 tests failing with and without it. Not caused by REQ-153.
 
 ## Why free-coded
 
