@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T22:09:03.853705+00:00'
+updated_at: '2026-08-22T22:10:48.355536+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1139,5 +1139,41 @@ Node.js v24.2.0
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="5fa35ab9-0ad4-4e24-b403-018bb5845dee-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-22T22:10:48.260906+00:00" -->
+#### Claude
+It fails for me too — `1c` is currently broken in this checkout. Let me find why.
+
+Found it. Not my change — commit `258381e2d` ("boot a plain Vite SSR server and drop Astro") swapped `astro` → `vite` in `tools/generate/package.json`, and `node_modules` here still reflects the old manifest. Let me check whether the fix touches tracked files.
+
+Lockfile already has `vite` — so this is `node_modules` being stale, and the fix touches nothing tracked. That commit landed today, 13 commits back, which is why `1c` worked for me earlier and stopped.
+
+Understood — that's yours to run. Here's the diagnosis and the fix.
+
+## Cause
+
+`tools/generate/package.json` declares `vite: ^8.1.0`, but `tools/generate/node_modules/` still contains `astro` and no `vite` — it reflects the manifest as it was *before* commit `258381e2d` ("boot a plain Vite SSR server and drop Astro"), which landed on `xgd-working` today, 13 commits back. `1c.mjs` imports `vite` statically at line 21, so **every** `1c` command fails at module load, not just `preflight`.
+
+Nothing to do with REQ-149 — it fails identically for me right now, and it would have started failing the moment that commit arrived in your checkout.
+
+## Fix
+
+```bash
+pnpm install --frozen-lockfile --prefer-offline
+```
+
+Safe to run: `pnpm-lock.yaml` **already** lists `vite` under `tools/generate`, so this only reconciles `node_modules` to the lockfile. `--frozen-lockfile` guarantees no tracked file changes and fails loudly if I've misread that. `vite@8.1.0` is already unpacked in `node_modules/.pnpm/`, so `--prefer-offline` should let it link without hitting the registry.
+
+## Verify, then carry on
+
+```bash
+bin/1c list          # should print your sites instead of ERR_MODULE_NOT_FOUND
+bin/build
+bin/deploy --dry-run
+```
+
+If `--frozen-lockfile` errors, drop it and run plain `pnpm install` — that means the lockfile needs updating too, which would be a tracked change worth looking at before committing.
 
 <!-- xgd-chat-end -->
