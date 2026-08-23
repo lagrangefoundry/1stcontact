@@ -26,6 +26,7 @@ fields:
   version: 0.1.29
   story_points: 8
   bundled_in: bundle-e59210c5
+  chat_comment: comment-3a4e4f6f
 ---
 
 # Builder chat panel — AI session, declared tool surface, per-site sessions
