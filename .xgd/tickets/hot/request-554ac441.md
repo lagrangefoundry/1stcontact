@@ -5,9 +5,9 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-23T22:01:13.176069+00:00'
+updated_at: '2026-08-23T22:05:12.768189+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -439,3 +439,80 @@ version already present at the tip of `xgd-working` on a commit not reachable
 from the ticket's own SHAs — here the ticket auto-commits that landed on top of
 the fix. The bump moves the claim onto a commit this ticket owns; no behaviour
 changes. Ticket version is now 0.2.7.
+
+
+## Follow-up: the deploy secret guard asked the wrong question
+
+`bin/deploy.d/secrets/10-anthropic-api-key` refused any deploy run from a shell
+without `ANTHROPIC_API_KEY`, including deploys whose secret had been in
+Cloudflare since the previous run. The operator was asked to re-supply a value
+the store already held, in order to overwrite it with itself. In practice this
+made `bin/deploy` unusable from a fresh shell and pushed the operator toward
+calling `wrangler deploy` directly, which skips the migrate hook as well — the
+guard's own failure mode, arrived at by a different route.
+
+### Cause
+
+The guard's rule is "never deploy a control app that cannot take a turn". That
+is a statement about the **store**, not about the operator's shell, and the hook
+tested the shell. `: "${ANTHROPIC_API_KEY:?...}"` cannot distinguish "this
+credential does not exist" from "this credential exists and is not in front of
+me right now".
+
+### The decision table
+
+| The value is | The Worker | Outcome |
+|---|---|---|
+| in the environment | either way | **push** — supplying a value is how a rotation is expressed |
+| absent | already holds the name | **keep** — reported, nothing overwritten |
+| absent | does not hold it | **fail** before anything is uploaded |
+| absent | could not be read at all | **fail**, naming the unread store |
+
+Only a *positive* read satisfies the guard: the store answered, and the name was
+in the answer. A `secret list` that fails for any reason — no such Worker on a
+first deploy, no network, a token without Workers Scripts read — counts as
+absent, because the failure mode being guarded against is a confident skip based
+on an answer nobody actually got. The names are the only half of a secret that
+is safe to read, and reading them mutates nothing, so the probe runs unchanged
+on a rehearsal.
+
+The probe is not called at all when the environment has the value, so the common
+path adds no network round-trip and no new token permission. CI is untouched:
+`.github/workflows/deploy.yml` calls `wrangler deploy` directly and never runs
+these hooks.
+
+`--dry-run` now reaches the same decision by the same route, *including the
+failure*. A rehearsal that passed while the real deploy would abort was not a
+rehearsal.
+
+### Acceptance criteria
+
+13. A deploy from a shell with no `ANTHROPIC_API_KEY` succeeds when the Worker
+    already holds the secret, reports that it left it alone, and does not
+    overwrite it.
+14. A deploy from a shell that supplies a value pushes it, even when the name is
+    already stored — rotation stays possible.
+15. A deploy still fails, before any upload, when the value is in neither place,
+    or when the store could not be read to check.
+16. `--dry-run` reports the decision it would have acted on and fails where the
+    real deploy would fail.
+
+### Test changes
+
+`tests/test_UAT_FC_REQ-149_deploy_secret_hook.test.ts` drives the hook as a
+subprocess with a stubbed `npx` first on `PATH`. That stub is what makes the
+branch this ticket fixes testable at all: the absent-locally / present-remotely
+case cannot be reached by a test that holds a real credential, and must not
+require one. Seven UATs cover the four outcomes, both rehearsal outcomes plus the
+rehearsed failure, the standing "never print the value" rule, and `public-site`
+exiting before it looks at the store — a model credential must never be pushed
+to the Worker that serves rendered bytes.
+
+Confirmed end to end against the real store: `bin/deploy --dry-run control-app`
+with `ANTHROPIC_API_KEY` unset now reports
+`ANTHROPIC_API_KEY already on 1stcontact-control-app — would leave it`.
+
+### Version bookkeeping
+
+The fix, its UATs, the `bin/deploy.d/secrets/README.md` contract update and the
+version bump are one commit. Ticket version is now 0.2.8.
