@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T20:35:31.976120+00:00'
+updated_at: '2026-08-23T20:36:40.622733+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2062,5 +2062,55 @@ I don't know what a CF_ZT token is or how to create one
 Lets back up. This is a constant, massive time sync.
 
 Can I just create a token with sufficient admin privilidges, put it in your path and have you manage the app creation etc?
+
+<!-- xgd-turn id="2aff9cca-3455-40b0-a383-f255cdbace2a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T20:36:40.490667+00:00" -->
+#### Claude
+Yes — that's the right call, and it's what I should have proposed an hour ago instead of narrating menus at you. Let me check one thing first, because there's a constraint on my end.
+
+Network works — that `400` is Cloudflare answering with "no token", not the sandbox blocking me. So yes, I can drive this directly. Let me check how this repo already handles secrets so I use the existing convention:
+
+Verified from my side: my sandbox **can** reach `api.cloudflare.com` (that `400` was Cloudflare replying "no token", not a firewall). So yes — give me a token and I'll do the app creation, the AUD lookup, the var wiring and the redeploy without sending you into another menu.
+
+## Making the token
+
+One page, stable URL: **https://dash.cloudflare.com/profile/api-tokens** → **Create Token** → **Custom token** → *Get started*.
+
+Add these permission rows (the dropdowns are three columns: scope / group / level):
+
+| Scope | Permission | Level |
+|---|---|---|
+| Account | Access: Apps and Policies | Edit |
+| Account | Access: Organizations, Identity Providers, and Groups | Read |
+| Account | Workers Scripts | Edit |
+| Zone | Workers Routes | Edit |
+| Zone | DNS | Edit |
+
+Account Resources → your account. Zone Resources → `1stcontact.io`. Continue → Create → copy the token (shown once).
+
+**Not the Global API Key.** That one is unscoped, can't be revoked per-use, and would let anything holding it touch billing and DNS for every zone you own. The custom token above is revocable from that same page the moment we're done.
+
+## Where to put it
+
+This repo's rule (`bin/deploy.d/secrets/README.md`) is that a secret lives in Cloudflare and in your environment, never in the repository — so it goes in your shell profile, not a file here:
+
+```bash
+# ~/.zshrc
+export CLOUDFLARE_API_TOKEN='<paste>'
+export CLOUDFLARE_ACCOUNT_ID='<from the dashboard URL, or I'll look it up>'
+```
+
+`CLOUDFLARE_API_TOKEN` is the name **wrangler reads natively**, so the same variable covers both my API calls and every deploy — one thing to set, not two. My Bash calls initialize from your profile, so it'll be there on the next call; open a fresh terminal or `source ~/.zshrc` in the one you're running Claude from, and tell me when it's set.
+
+## Then I'll take it from here
+
+1. Verify the token and confirm the account ID.
+2. List Access apps — settle whether one exists for `app.1stcontact.io` or the policy is orphaned.
+3. Create the app if it's missing, attaching your existing policy.
+4. Read back the `aud`, fetch the team domain.
+5. Set `ACCESS_TEAM_DOMAIN` / `ACCESS_AUD` in both var blocks of `apps/control-app/wrangler.toml`, redeploy, and confirm the hostname returns a login page instead of that refusal.
+
+Step 5 touches `wrangler.toml` — config, not code, so no ticket or branch needed. I'll report exactly what I created rather than just saying it worked, and I won't print the token anywhere.
 
 <!-- xgd-chat-end -->
