@@ -19,6 +19,7 @@ fields:
   - 70ff18245077844179d2eda45d91afc73f93312e
   version: 0.0.20
   bundled_in: bundle-adc60ee8
+  chat_comment: comment-57c30ff9
 ---
 
 ## Scope — module capability
