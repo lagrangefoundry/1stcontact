@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T22:21:22.366744+00:00'
+updated_at: '2026-08-23T22:22:53.886943+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,11 @@ Two decisions for you:
 
 1. **Getting a site in.** Your local store has `gigabytealchemy` and `xgd`, both unpublished. I can mint an Access service token via the API and add a Service Auth rule to the `1stcontact control app` policy — but that's creating a credential and changing your Access policy, so I'm not doing it unarranged. Say go and I will, along with the `push.ts` change to send client-id/secret.
 2. **BUG-36 scope.** Ticket is scoped: collapse `storeFor`/`storeForImport` into one opener that ensures the configured tenant on the cold path. Confirm and I'll cut the branch and code it.
+
+<!-- xgd-turn id="9ff61230-3c05-4221-ae13-eb4e614fced5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T22:22:53.650061+00:00" -->
+#### You
+I have the same API token in my environment - can we modify the bin/publish to use that/
 
 <!-- xgd-chat-end -->
