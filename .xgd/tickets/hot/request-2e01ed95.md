@@ -19,6 +19,7 @@ fields:
     main_sha: null
   version: 0.0.64
   story_points: 3
+  chat_comment: comment-523ed988
 ---
 
 ## Goal
