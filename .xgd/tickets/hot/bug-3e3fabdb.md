@@ -22,6 +22,7 @@ fields:
   version: 0.0.196
   story_points: 3
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-3cf6bde1
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Tooling defect in the reproduction
