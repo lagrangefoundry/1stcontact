@@ -20,6 +20,7 @@ fields:
   version: 0.1.9
   story_points: 2
   bundled_in: bundle-e0143ffa
+  chat_comment: comment-02316013
 ---
 
 ## Symptom
