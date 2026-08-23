@@ -92,6 +92,7 @@ fields:
   - working_sha: 763e819bcd5d78797147c996c25189d645c86036
     reconcile_sha: null
     main_sha: 763e819bcd5d78797147c996c25189d645c86036
+  chat_comment: comment-c8948b29
 ---
 
 ## Goal
