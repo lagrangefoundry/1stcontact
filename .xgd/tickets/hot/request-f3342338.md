@@ -22,6 +22,7 @@ fields:
   - 72b3e12a36f57c02e850f2be5d89af4066dd27bb
   version: 0.0.31
   bundled_in: bundle-adc60ee8
+  chat_comment: comment-e823d0e0
 ---
 
 ## Goal
