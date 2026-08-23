@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T20:12:29.184883+00:00'
+updated_at: '2026-08-23T20:13:12.096047+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2015,5 +2015,42 @@ This is brutal - all your instructions are for a different version of the WebUI 
 When I try to access `app.1stcontact.io/`  I get:
 
 Cloudflare Access is not configured: ACCESS_TEAM_DOMAIN and ACCESS_AUD are empty. This Worker refuses every request until it can verify one — see apps/control-app/ACCESS.md.
+
+<!-- xgd-turn id="5448206a-bfc4-43a3-be79-e0e42e68b6d3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T20:13:11.940998+00:00" -->
+#### Claude
+That error message is actually the most useful thing you've sent me — it's a diagnosis, not just a symptom.
+
+**It means Access never saw the request.** If an Access application covered `app.1stcontact.io`, Cloudflare would intercept at the edge and show you a login page — the Worker would never run. You got the Worker's own refusal, so nothing is guarding that hostname. Which confirms the guess: you created a *policy*, but the *application* was never created. There is no AUD to find. I've had you hunting for something that doesn't exist yet, which explains why every path I gave you dead-ended.
+
+(The one other explanation is an app whose policy action is **Bypass** — same fix path either way.)
+
+## Create the app via API — it returns the AUD
+
+This sidesteps the UI entirely, and reuses the policy you already made:
+
+```bash
+export CF_ZT_TOKEN='<token with Access: Apps → Edit>'
+export POLICY_ID='<the policy ID you already have>'
+
+curl -s -X POST \
+  "https://api.cloudflare.com/client/v4/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/access/apps" \
+  -H "Authorization: Bearer $CF_ZT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"name\": \"1stcontact control app\",
+    \"domain\": \"app.1stcontact.io\",
+    \"type\": \"self_hosted\",
+    \"session_duration\": \"24h\",
+    \"policies\": [\"$POLICY_ID\"]
+  }" | python3 -m json.tool
+```
+
+The response body contains `result.aud` — that's your AUD tag, created and handed back in one step. Token goes at `dash.cloudflare.com/profile/api-tokens` → Custom token → `Access: Apps` → Edit.
+
+Paste me the `aud` from the response plus your team domain and I'll set both Worker vars and redeploy.
+
+**If you'd rather not do API work:** screenshot whatever the apps list shows you and I'll work from the actual pixels instead of from docs. Your call — I'm fine either way, I just want to stop sending you into menus I can't see.
 
 <!-- xgd-chat-end -->
