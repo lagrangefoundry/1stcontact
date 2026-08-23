@@ -14,6 +14,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-70b033ef
 ---
 
 ## Scope — milestone / acceptance goal (not a single build)
