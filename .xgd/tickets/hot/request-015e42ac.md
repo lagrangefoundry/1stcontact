@@ -28,6 +28,7 @@ fields:
     main_sha: null
   version: 0.0.166
   bundled_in: bundle-31e474b9
+  chat_comment: comment-b0d6de61
 ---
 
 Part of the framework pivot — see **REQ-79 (request-87b26bca)**.
