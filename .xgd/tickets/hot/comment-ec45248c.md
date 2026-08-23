@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-154
 created_by: xgd
 created_at: '2026-08-23T23:26:13.624723+00:00'
-updated_at: '2026-08-23T23:45:12.468419+00:00'
+updated_at: '2026-08-23T23:46:55.709419+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,49 @@ That means AC2, AC3 and AC6 are provable in the existing workers project against
 1. ok lets go with 4
    2. lets keep everything in this ticket
    3. What do you think? If the browser can be reset reliably and it is cheaper to do so than restart it  ( I assume it would be ) then we should definitely reuse the browser rather than restarting it all the time
+
+<!-- xgd-turn id="2e120256-d2bf-45dc-ac70-73aa97f18a90-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T23:46:55.579024+00:00" -->
+#### Claude
+Good — 1 and 2 are settled. Before answering 3, let me verify the one fact my recommendation hinges on.
+
+Your assumption is right, and there's a fact in the code that makes it safe to act on.
+
+## The invariant that decides the shape
+
+I checked every driver call site — `pipeline.ts` (×4), `conformance/harness.ts`, `shot.ts`, `l1/roundtrip.ts`. **Every driver instance is navigated exactly once and then closed.** One driver = one navigation = one response set = one diagnostics set, uniformly, with no exceptions.
+
+That matters because `responses()` and `diagnostics()` accumulate into instance fields (`playwright-driver.ts:83-89`). Reusing a *driver* across navigations would silently merge viewport 1's network log into viewport 2's — and `diagnostics().requestedUrls` is what the security dimension checks egress against (`harness.ts:277`), so the corruption would land as a false conformance verdict, not a crash.
+
+So: reuse strictly *below* the driver. The driver stays one-navigation-scoped; the browser process underneath it is what gets pooled.
+
+## What I'd build
+
+**One browser per run; a fresh browser *context* (not just a page) per driver; `close()` destroys the context.**
+
+Context-per-driver rather than page-per-driver is the answer to your "if the browser can be reset reliably" — `createBrowserContext()` gives an own cookie jar, own cache, own storage, and closing it destroys all three. That's a real reset boundary, not a best-effort one. A bare page shares its context's cookies and cache, so "reset" there is a promise you'd be maintaining by hand.
+
+The payoff is that this preserves *today's* semantics exactly. Right now each viewport gets a brand-new browser, so it starts with a cold cache and no cookies. Context-per-driver reproduces that precisely while collapsing ~8 browser acquisitions into 1. Nothing about what the page sees changes — only the cost.
+
+**I'd deliberately not share a context to get a warm cache across the ladder.** It's tempting (fonts and images fetched once instead of eight times) but it changes what's being captured: a consent or A/B cookie set at viewport 320 pins every later viewport to that variant. That's a capture-fidelity decision wearing a performance costume, and it should be argued on its own evidence if the per-context cold cache ever turns out to dominate.
+
+## The honest cost: reuse makes AC6 harder, not easier
+
+Today there's one lifetime and `finally { driver.close() }` covers it. Reuse creates two — context per driver, browser per run — and the second one is the outage-shaped one the ticket warns about. So:
+
+- The lease needs an explicit owner (`withBrowserSession(env.BROWSER, fn)`) whose outer `finally` releases the browser even when the ladder throws at viewport 5 of 8.
+- Browser Rendering's idle reap is the backstop for a Worker that dies outright, and it's what makes leasing acceptable at all — without it a stranded session survives to the concurrency cap. I want to confirm the current idle timeout rather than quote a number from memory.
+- AC6's test then asserts **both** lifetimes: context released per driver close, browser released on success, on throw, and on timeout.
+
+Two smaller things fall out. `engineAvailable()` currently burns an entire browser to answer a boolean — under a lease it answers from the lease (chromium true, others false) with zero acquisition. And a browser that dies mid-ladder now takes out every remaining viewport, where today each was independent; that should re-acquire once, or fail once with "the session died" rather than eight identical messages.
+
+Threading costs nothing: `driverFactoryFor` and `driverFactory` are already injectable, so the lease-backed factory goes in from the Worker with no signature change anywhere.
+
+## One caveat before I start
+
+Option 4 rests on `@cloudflare/puppeteer` exposing `setRequestInterception`, which I still can't verify — this sandbox has no network. It's now load-bearing rather than exploratory, so it's the first thing I'll establish once I can install the dependency. Interception is per-page, so it gets re-armed on each new context/page, which fits the shape above cleanly. If it turns out to be absent, that forces us back to option 1 and I'll come back rather than substitute silently.
+
+Say the word and I'll update the REQ-154 body with the three decisions and their reasons (AC4 wants that recorded in DOC-13 too), cut the branch, and start.
 
 <!-- xgd-chat-end -->
