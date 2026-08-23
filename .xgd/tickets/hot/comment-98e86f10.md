@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T02:05:55.894969+00:00'
+updated_at: '2026-08-23T03:20:39.381290+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1705,5 +1705,11 @@ The record is added - but just to be clear I was expecting to have to login to c
 Let me verify what it's actually doing now that DNS resolves.
 
 My sandbox can't resolve that host (its DNS is blocked — `1stcontact.io` only worked via a cached proxy path), so probe it from your machine. But your question I can answer definitively from the code.
+
+<!-- xgd-turn id="6621f3e8-d345-4aad-a429-4fd987b7523d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T03:20:39.315141+00:00" -->
+#### You
+PLease continue
 
 <!-- xgd-chat-end -->
