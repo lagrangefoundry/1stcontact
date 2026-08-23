@@ -22,6 +22,7 @@ fields:
   version: 0.0.197
   story_points: 3
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-546ad063
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Motivating instance found in the
