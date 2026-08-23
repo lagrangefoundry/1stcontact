@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T00:52:47.680345+00:00'
+updated_at: '2026-08-23T00:53:23.112677+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1641,5 +1641,55 @@ curl: (6) Could not resolve host: app.1stcontact.io
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="3c49e5ab-c953-41ed-b3a9-1cd9160f0efb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T00:53:23.003778+00:00" -->
+#### Claude
+Confirmed — no DNS record for `app`. And your `public-site` config documents this exact trap:
+
+> The apex is a custom domain rather than a zone route so wrangler provisions the DNS record and certificate itself: **the zone has no proxied record for the apex, and a route alone would resolve to nothing.**
+
+`control-app` uses a plain zone route, so it needs a record that nothing created. Two ways out.
+
+## Option A — add the DNS record (fastest, no redeploy)
+
+Cloudflare dashboard → `1stcontact.io` → **DNS** → **Add record**:
+
+| Field | Value |
+|---|---|
+| Type | `AAAA` |
+| Name | `app` |
+| IPv6 address | `100::` |
+| Proxy status | **Proxied** (orange cloud) |
+
+`100::` is the IPv6 discard prefix — Cloudflare's documented placeholder for a hostname served entirely by a Worker route. Nothing ever reaches it; the route intercepts first. It just has to exist and be proxied, because an unproxied record never enters Cloudflare's edge where routes are evaluated.
+
+The route itself was already created by your deploy, so no redeploy needed:
+
+```bash
+dig +short app.1stcontact.io
+curl -sI https://app.1stcontact.io/ | head -1     # expect 503 — see below
+```
+
+## Option B — let wrangler own it
+
+Change control-app's production route to match public-site's apex:
+
+```toml
+routes = [
+  { pattern = "app.1stcontact.io", custom_domain = true }
+]
+```
+
+Then wrangler provisions the DNS record *and* the certificate on every deploy, and the config stops depending on a manual dashboard step nobody would remember. That's a `wrangler.toml` change, so no ticket needed.
+
+The one thing I'd want to verify before recommending it outright: public-site holds a wildcard route `*.1stcontact.io/*`, and the current comment explains that control-app's *more specific route* is what beats it for `app`. Custom domains are documented to take precedence over routes, so it should still hold — but that's a behaviour I'd rather see confirmed on your zone than assert at you.
+
+**I'd do A now** to unblock, and B later as a deliberate cleanup.
+
+## What you'll see next
+
+A **503** from `app.1stcontact.io`, and that's correct — not a new problem. `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are still `""`, and empty means deny; the Worker refuses everything rather than serving the builder unauthenticated. Configuring Access is the next step after DNS.
 
 <!-- xgd-chat-end -->
