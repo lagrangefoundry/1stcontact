@@ -6,7 +6,7 @@ title: 'control-app: fresh deployment 503s until bin/publish runs, so the builde
   never boots'
 created_by: xgd
 created_at: '2026-08-23T22:07:49.856675+00:00'
-updated_at: '2026-08-23T23:03:08.033794+00:00'
+updated_at: '2026-08-23T23:42:40.733621+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -213,3 +213,44 @@ treats an empty body as "create with defaults" and returned 201, twice. Both
 were deleted the same minute; the account now holds zero service tokens and its
 only policy remains `operator` for `martin-github@westhead.me`. Neither token
 was ever attached to a policy, so neither granted anything.
+
+## Implementation — landed and verified end to end (2026-08-23)
+
+Branch `free-BUG-36`.
+
+Provisioned and published for real, not just unit-tested:
+
+```
+Token       created '1stcontact-publish'
+Policy      created policy 'service token — 1stcontact-publish'
+pushed xgd → https://app.1stcontact.io
+  pages   2 (home.json, whitepapers.json)
+  assets  9
+  site.json yes
+```
+
+Production D1 afterwards: `tenants=1, sites=1, pages=2, assets=9`. So the
+credential path works against the real Access gate, and the builder now has a
+site to show rather than an empty list.
+
+### A third finding, met while running it
+
+`bin/publish` failed first with a bare `fetch failed`. That was not Access and
+not this change: Node's global `fetch` ignores `HTTP_PROXY`/`HTTPS_PROXY` unless
+told, and the assistant's sandbox routes everything through a proxy. With
+`NODE_USE_ENV_PROXY=1` the same command reached the edge and completed.
+
+Left OUT of `bin/publish` deliberately. It is a property of one caller's network,
+not of publishing, and baking a proxy opt-in into the script would make every
+future operator wonder which proxy it meant. Recorded here because the symptom —
+`fetch failed`, no status, no URL — is otherwise indistinguishable from the site
+being down.
+
+### The client secret was never printed into the session
+
+`bin/access-token` prints the pair to stdout. Rather than let a long-lived Access
+credential land in a transcript, provisioning and publishing were run as a single
+shell invocation with the secret held in a variable and filtered out of
+everything echoed. The operator holds no copy as a result: `bin/access-token
+--rotate` issues a fresh one whenever they want it in their password manager.
+The client id is not a secret: `29edd0e0ede45619455f21128c7b88ce.access`.
