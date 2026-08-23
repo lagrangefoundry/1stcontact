@@ -22,6 +22,7 @@ fields:
   version: 0.0.182
   story_points: 1
   bundled_in: bundle-cceaba25
+  chat_comment: comment-dc289615
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Appearance-population gap surfaced by the
