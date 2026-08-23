@@ -32,6 +32,7 @@ fields:
     - aea40e5d7eb148ebeb121d7cb55e5b1c40cd81fc
   version: 0.1.49
   bundled_in: bundle-77b28def
+  chat_comment: comment-10763fb1
 ---
 
 # Workers-runtime test project
