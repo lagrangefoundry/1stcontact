@@ -23,6 +23,7 @@ fields:
   version: 0.0.194
   story_points: 3
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-2c339d7a
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Related to [[bug-ad50b1df]] (BUG-2, capture asset
