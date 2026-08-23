@@ -38,6 +38,7 @@ fields:
     - b179902c314cff1f8027d9fa28d1c495df9ddda8
   version: 0.1.51
   bundled_in: bundle-77b28def
+  chat_comment: comment-30d4b30c
 ---
 
 # An async `SiteStore` port, with the filesystem behind it
