@@ -5,10 +5,10 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-23T22:10:16.014982+00:00'
+updated_at: '2026-08-23T22:13:13.317858+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 13
@@ -29,10 +29,18 @@ fields:
   - working_sha: 932f362e4f60b8797557ba8f4cdd1fddeb1c9068
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: 92fc26e7bcc2a941999ba0e55292cda6b092bd26
     reconcile_sha: null
     main_sha: null
-  version: 0.2.7
+    working_sha_history: []
+  - working_sha: ec144c856ed1840d23e4f1443dfddf4fb0ef2d67
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 02bd443784f6a1202cd5b1807a12dc52d012628f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.9
 ---
 
 # Publish in the cloud: revisions, history and rendered output without a filesystem
