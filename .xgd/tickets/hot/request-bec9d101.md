@@ -25,6 +25,7 @@ fields:
     main_sha: 2e508dd368e0b260da4f7c09727d1006662af020
   version: 0.0.96
   bundled_in: bundle-d9c2e655
+  chat_comment: comment-c17c03e1
 ---
 
 ## Goal
