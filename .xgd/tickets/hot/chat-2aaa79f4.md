@@ -9,7 +9,8 @@ updated_at: '2026-08-21T02:16:32.848095+00:00'
 completed_at: null
 last_field_updated: body
 status: open
-fields: {}
+fields:
+  chat_comment: comment-2c16318b
 ---
 
 ## The design conversation — playbook for the paid consultation session
