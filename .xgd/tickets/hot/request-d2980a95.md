@@ -21,6 +21,7 @@ fields:
   version: 0.1.42
   story_points: 5
   bundled_in: bundle-d9226698
+  chat_comment: comment-05c9b8ab
 ---
 
 # L1 palette: shade on the reference replaces named steps
