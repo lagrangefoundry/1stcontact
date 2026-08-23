@@ -29,6 +29,7 @@ fields:
   version: 0.0.159
   story_points: 2
   bundled_in: bundle-31e474b9
+  chat_comment: comment-c2754894
 ---
 
 # ⚠️ Framework changes under this ticket (reconciliation note)
