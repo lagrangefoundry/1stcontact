@@ -12,5 +12,6 @@ status: open
 fields:
   session_id: c112b394-4d2f-4d36-a7d6-42894c3744f0
   backend: claude_code+goal_tools
+  chat_comment: comment-378f989f
 ---
 
