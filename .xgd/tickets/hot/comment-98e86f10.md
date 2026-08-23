@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:16:40.033168+00:00'
+updated_at: '2026-08-23T21:18:16.200067+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2198,5 +2198,72 @@ The policy allows **`martin-github@westhead.me`** — not the `martin-cloudflair
 These custom tokens are driving me crazy - I want one token that lets us (you) do everything we need. You know its possible to take least privilidges too far.
 
 I need a token I can share with you that gives us admin access to all this stuff - can we do it right, once, please?
+
+<!-- xgd-turn id="0ca3cfee-b53a-4718-89e9-5fe36f181279-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T21:18:16.090005+00:00" -->
+#### Claude
+Fair — three tokens, three dead ends, and each one only revealed the next missing row. That's least-privilege as a guessing game, which is worth nothing. Let me see if I can just mint the right token directly rather than hand you another checklist.
+
+Can't mint tokens — so this has to be one dashboard trip. Let me make it the last one. First, what does this project actually touch, so the list is complete rather than another guess:
+
+Right — you can't mint tokens with this one, so it's one dashboard trip. Let me make it the last one you ever take.
+
+I checked what the project actually binds rather than guessing from today's error: **D1, R2, Workers assets, Access, Turnstile** (28 refs — the contact-form module), plus routes on `1stcontact.io` and `*.1stcontact.io`. The list below covers all of that and the things on the roadmap, so we don't rediscover a missing row at the next deploy.
+
+## The one setting that makes this the last token
+
+Include **User → API Tokens → Edit**. That's the row that ends the cycle: with it, I can mint, patch and rotate any future token myself via the API. Without it we're back here the next time Cloudflare invents a product. It's also the single most powerful row on the list — it's effectively "can grant itself anything later" — so it's worth knowing that's the trade you're making, not just a checkbox.
+
+## Create the token
+
+https://dash.cloudflare.com/profile/api-tokens → **Create Token** → **Custom token**
+
+Set the two scope selectors first — this is where these usually go wrong:
+
+- **Account Resources**: Include → **All accounts**
+- **Zone Resources**: Include → **All zones**
+- **TTL**: leave blank (no expiry), no IP filtering
+
+Then add these rows:
+
+| Scope | Permission | Level |
+|---|---|---|
+| Account | Workers Scripts | Edit |
+| Account | Workers R2 Storage | Edit |
+| Account | Workers KV Storage | Edit |
+| Account | D1 | Edit |
+| Account | Workers Tail | Read |
+| Account | Queues | Edit |
+| Account | Turnstile | Edit |
+| Account | Access: Apps and Policies | Edit |
+| Account | Access: Organizations, Identity Providers, and Groups | Edit |
+| Account | Access: Service Tokens | Edit |
+| Account | Cloudflare Pages | Edit |
+| Account | Workers AI | Edit |
+| Account | Vectorize | Edit |
+| Account | Browser Rendering | Edit |
+| Account | Logs | Edit |
+| Account | Account Settings | Read |
+| Zone | Workers Routes | Edit |
+| Zone | DNS | Edit |
+| Zone | Zone Settings | Edit |
+| Zone | Zone | Read |
+| Zone | SSL and Certificates | Edit |
+| Zone | Cache Purge | Purge |
+| User | API Tokens | Edit |
+| User | User Details | Read |
+
+Then hand it over the way you did last time — `export CLOUDFLARE_API_TOKEN=...` in the shell, which keeps it out of the transcript — and say "loaded".
+
+## What I'll do the moment it lands
+
+I'll probe every one of those permissions in a single pass and tell you concretely which are live, rather than discovering gaps one failed deploy at a time. Then finish the Access deploy, and delete the three superseded tokens via the API so you're not left with a drawer of half-scoped credentials.
+
+## On the Global API Key
+
+It exists, it's one string, and it genuinely does everything — so I'll name it rather than pretend the option isn't there. I'd still not use it: it can't be scoped or rotated without breaking every other thing that holds it, it carries billing and account-deletion rights that no deploy needs, and wrangler treats it as deprecated. The token above is the same convenience with a revoke button. Your call, though — say the word and I'll wire it instead.
+
+One note on your "least privilege taken too far" point: I'd say the failure here wasn't the scoping, it was doing the scoping *blind* — three tokens each built from the last error message instead of from what the repo actually binds. Broad-but-verified is the fix, and that's what the list above is.
 
 <!-- xgd-chat-end -->
