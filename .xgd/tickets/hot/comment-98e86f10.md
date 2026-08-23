@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:24:03.701866+00:00'
+updated_at: '2026-08-23T21:24:22.531784+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2302,5 +2302,15 @@ The User-scoped rows (`API Tokens: Edit`, `User Details: Read`) have no resource
 <!-- xgd-chat role="user" ts="2026-08-23T21:24:03.612096+00:00" -->
 #### You
 I see Browser Run not Browser Rendering?
+
+<!-- xgd-turn id="6a0482c8-9a6a-45a7-a006-a0314106bd29-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T21:24:22.444454+00:00" -->
+#### Claude
+Yes — take it, that's the same thing. The permission group label lags the product name in a couple of places in that editor; your screen is authoritative, mine was the product name.
+
+It's also the most skippable row on the list — nothing in the repo uses it today, I included it as future-proofing. Same goes for Vectorize, Queues and Workers AI.
+
+So don't get stuck on any row you can't find: skip it and move on. Once `API Tokens: Edit` is on the token, I can patch missing permissions in myself without you going back to the dashboard — which was the whole point of including it.
 
 <!-- xgd-chat-end -->
