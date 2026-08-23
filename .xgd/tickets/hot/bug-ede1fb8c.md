@@ -22,6 +22,7 @@ fields:
   version: 0.1.35
   story_points: 2
   merged_at_commit: f1664c557c5dcbac01839bac6543dc1b85c68b2f
+  chat_comment: comment-7bd15cc0
 ---
 
 ## Symptom
