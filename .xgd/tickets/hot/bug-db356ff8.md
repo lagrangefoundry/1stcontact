@@ -6,7 +6,7 @@ title: 'control-app: fresh deployment 503s until bin/publish runs, so the builde
   never boots'
 created_by: xgd
 created_at: '2026-08-23T22:07:49.856675+00:00'
-updated_at: '2026-08-23T22:21:09.946754+00:00'
+updated_at: '2026-08-23T23:03:08.033794+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -147,3 +147,69 @@ holds **no service tokens at all** (`GET /accounts/{id}/access/service_tokens`
 the CLI does not implement it.
 
 Needs its own ticket.
+
+---
+
+# Approved scope addition — fix the publish credential (option A)
+
+Operator approved 2026-08-23. Folded into this ticket rather than filed
+separately, per session scoping; split it out on request.
+
+## Why the API token cannot simply be swapped in
+
+Asked whether `bin/publish` could authenticate with `CLOUDFLARE_API_TOKEN`,
+which the operator already has in their environment. It cannot. Cloudflare
+Access at the edge accepts exactly three credentials:
+
+- a `CF_Authorization` cookie (a human's browser session),
+- a service token's `CF-Access-Client-Id` + `CF-Access-Client-Secret` pair,
+- a client certificate (mTLS).
+
+A Cloudflare **API** token authenticates to `api.cloudflare.com`. It is a
+different system; presented to `app.1stcontact.io` it gets the same 302 to the
+login page as no credential at all.
+
+What it CAN do is **provision** the credential that works — confirmed: the token
+carries Access read *and* write. So the API token is the thing that mints the
+service token; it is never the thing that publishes.
+
+## The change
+
+**`bin/access-token`** (new) — one-time provisioning, run by the operator.
+Uses `CLOUDFLARE_API_TOKEN` to ensure a named service token exists and that the
+`app.1stcontact.io` Access application carries a `non_identity` (Service Auth)
+policy including it. Prints the client secret ONCE, for the operator's password
+manager, and never writes it into the repo.
+
+**`tools/generate/src/cli/push.ts`** — send `CF-Access-Client-Id` and
+`CF-Access-Client-Secret`, replacing the `cf-access-jwt-assertion` header the
+edge ignores. Per CLAUDE.md's no-legacy-modes rule the old header is deleted,
+not kept as a fallback: it never worked against a deployed target.
+
+Also `redirect: 'manual'`, which is a real bug fix rather than tidiness. With
+the default `follow`, an unauthenticated push follows the 302 to the Access
+login page and comes back `200` with HTML — so `res.ok` is true, the error
+branch never runs, and `JSON.parse` throws on `<!DOCTYPE html>`. The operator
+sees a JSON parse error instead of "you are not authenticated".
+
+**`tools/generate/src/cli/index.ts`** — `--client-id` / `--client-secret`,
+defaulting from `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`. `--token` is
+removed.
+
+**`bin/publish`** — same two env vars, and the pre-flight refusal that already
+guards production is updated to name them.
+
+**`apps/control-app/ACCESS.md`** — record the provisioning step and the granted
+service-token identity in the § Automation table.
+
+No Worker change: `apps/control-app/src/access.ts:256-259` already accepts a
+service token's `common_name` claim, reporting it as `service-token:<name>`.
+
+## Note — two service tokens were created and revoked
+
+While probing whether the API token had Access write permission, an empty-body
+`POST .../access/service_tokens` was expected to fail validation. Cloudflare
+treats an empty body as "create with defaults" and returned 201, twice. Both
+were deleted the same minute; the account now holds zero service tokens and its
+only policy remains `operator` for `martin-github@westhead.me`. Neither token
+was ever attached to a policy, so neither granted anything.
