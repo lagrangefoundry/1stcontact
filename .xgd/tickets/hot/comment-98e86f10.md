@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T03:20:39.381290+00:00'
+updated_at: '2026-08-23T03:25:12.988349+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1711,5 +1711,54 @@ My sandbox can't resolve that host (its DNS is blocked — `1stcontact.io` only 
 <!-- xgd-chat role="user" ts="2026-08-23T03:20:39.315141+00:00" -->
 #### You
 PLease continue
+
+<!-- xgd-turn id="6621f3e8-d345-4aad-a429-4fd987b7523d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T03:25:12.916937+00:00" -->
+#### Claude
+First, housekeeping — the promotion that was mid-flight when the session broke is now finished.
+
+| | |
+|---|---|
+| Ticket | `free_coded`, four commits, version 0.2.7 |
+| Stale merge lock | released, `free-REQ-149` torn down |
+| Ticket body | now records the `render.ts` type-import fix and AC-12 |
+
+The fourth commit is a version bump alone — `move-to-free-coded` refuses a version already claimed at the working tip on a commit outside the ticket, and the ticket auto-commits that landed on top of the fix had taken 0.2.6. No behaviour in it.
+
+## Your question: is `app.1stcontact.io` publicly visible?
+
+**No — and right now it isn't visible to you either.** Try it and you'll get a **503**, not a login prompt.
+
+There are two independent locks, and this is deliberate (`access.ts`'s header says so in as many words: *"Either alone is a configuration away from open"*).
+
+**Lock 1 — Cloudflare Access at the edge.** This is the login you were expecting. It challenges before your Worker code runs. **It does not exist yet** — you have to create the Access application in Zero Trust and attach a policy to `app.1stcontact.io`. Deploying doesn't create it.
+
+**Lock 2 — the Worker verifies the token itself**, and this one *is* deployed and currently doing all the work:
+
+```ts
+if (teamDomain === '' || aud === '') {
+  return text(503, 'Cloudflare Access is not configured: … refuses every request until it can verify one')
+}
+```
+
+`ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are `""` in `[env.production.vars]`, so **empty means deny** — every request, from anyone, including you. That's the fail-closed state working, not a fault.
+
+Why the second lock exists at all: Access attaches to a *hostname*, and a Worker with `workers_dev = true` also answers on `<name>.<subdomain>.workers.dev`, which no Access policy covers. Your config sets `workers_dev = false` in both the top level and `[env.production]`, so that door is shut too. Once configured, the Worker independently checks the JWT's signature against the team's JWKS, pins `alg` to RS256 from the JWKS rather than trusting the token's own header, and checks `aud`, `iss` and `exp`.
+
+One thing worth knowing about that `aud` check: every application in an Access team is signed by the *same* keys. Signature alone only proves "someone in this team's Access" — `aud` is what proves "allowed into *this* application". Omitting it would grant the builder to anyone with any app in your team.
+
+**`ACCESS_DEV_OPEN=1`, the local-dev bypass, cannot reach production.** It's declared only at the top level, a named environment inherits no vars, and a UAT fails the build if anyone restates it under `[env.production.vars]`. It also has no effect once the two Access vars are set. That's why you should ignore wrangler's warning about it during deploy — that absence *is* the control.
+
+## To actually get in
+
+1. Zero Trust → Access → Applications → create a self-hosted app for `app.1stcontact.io`, with a policy allowing your email.
+2. Copy the **Application Audience (AUD) tag** and your **team domain** (`<team>.cloudflareaccess.com`).
+3. Put both into `[env.production.vars]` in `apps/control-app/wrangler.toml`.
+4. `bin/deploy` again.
+
+`apps/control-app/ACCESS.md` has the detail, and is also where granted identities are meant to be recorded. Neither value is a secret — the team domain is public and the AUD is an identifier, not a credential — which is why they live in `wrangler.toml` rather than `wrangler secret`, where an unreadable value would make the gate unauditable.
+
+`public-site` has no Access on it at all, by design — published customer sites are meant to be public. So `https://1stcontact.io/` stays reachable regardless.
 
 <!-- xgd-chat-end -->
