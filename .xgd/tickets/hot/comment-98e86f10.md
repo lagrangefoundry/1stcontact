@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:54:54.737374+00:00'
+updated_at: '2026-08-23T21:59:10.719266+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2395,5 +2395,11 @@ Then publish from the builder toolbar. Expect the Access service-token defect I 
 ## Old tokens — your call, not mine
 
 `1c deployment` (`d34b27f2…`) is the under-scoped one from this session and is safe to revoke. But three others (`Edit Cloudflare Workers`, `Install-setup-2`, `Set-up-install`) are ambiguous, and `faelan-dot-com build token`, `AI Admin Token` and the gendevlabs tunnel token clearly belong to other projects. Revoking a credential is irreversible and could break something I can't see, so I've left all of them alone. Tell me which to delete and I'll do it.
+
+<!-- xgd-turn id="a863f571-6ea6-4047-ba25-97e8e5a917c1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T21:59:10.630993+00:00" -->
+#### You
+Can you fix the deploy script so it doesn't require the anthropic key if there's one in place?
 
 <!-- xgd-chat-end -->
