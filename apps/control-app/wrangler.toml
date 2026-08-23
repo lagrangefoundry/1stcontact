@@ -67,8 +67,8 @@ run_worker_first = true
 [vars]
 TENANT_ID = "1stcontact"
 ACCESS_DEV_OPEN = "1"
-ACCESS_TEAM_DOMAIN = ""
-ACCESS_AUD = ""
+ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
+ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 
 # The site store (REQ-143 / DOC-12 §7 phase 2): definitions in D1, asset bytes in
 # R2. Declared at the top level for `wrangler dev` and REPEATED under
@@ -112,8 +112,8 @@ routes = [
 # moment Access were unconfigured. A UAT asserts this block does not name it.
 [env.production.vars]
 TENANT_ID = "1stcontact"
-ACCESS_TEAM_DOMAIN = ""
-ACCESS_AUD = ""
+ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
+ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 
 [env.production.assets]
 directory = "./dist-assets"
