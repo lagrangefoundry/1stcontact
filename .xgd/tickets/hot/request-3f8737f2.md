@@ -19,6 +19,7 @@ fields:
   - REQ-149
   auto_merge_back: true
   needs_review: true
+  chat_comment: comment-422ff2d4
 ---
 
 # The fidelity surface: the assistant can look, compare and judge
