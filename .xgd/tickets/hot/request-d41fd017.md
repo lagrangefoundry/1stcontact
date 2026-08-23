@@ -14,6 +14,7 @@ fields:
   story_points: 8
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-f6f1c1b0
 ---
 
 ## Scope
