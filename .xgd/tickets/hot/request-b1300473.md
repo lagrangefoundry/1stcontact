@@ -21,6 +21,7 @@ fields:
   version: 0.1.33
   story_points: 5
   bundled_in: bundle-e59210c5
+  chat_comment: comment-214c3fa5
 ---
 
 # L1 authoring on the control surface: verbatim `get_l1` / `set_l1`
