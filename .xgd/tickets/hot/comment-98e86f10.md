@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T00:39:07.891247+00:00'
+updated_at: '2026-08-23T00:40:47.818736+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1574,5 +1574,61 @@ Worth saying plainly: neither of these two build failures came from REQ-149. The
 ok so deploy succeeded questions:
 1. What was actually copied to Cloudflare when I did that? The application, I assume, what about the websites we created locally?
 2. How can I view this on cloud flare in a browser?
+
+<!-- xgd-turn id="76edf5ea-2896-446d-a106-b48b74e30d4b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T00:40:47.690751+00:00" -->
+#### Claude
+Let me check what's actually reachable rather than infer it.
+
+Good — I can reach the deployed origins, so here are facts rather than inference.
+
+## 1. What was copied
+
+**Code and schema. No content.**
+
+| Copied | |
+|---|---|
+| Both Workers' code | control-app + public-site |
+| control-app's `dist-assets` | builder client, webui components, framework bridges (assets binding) |
+| D1 **schema** | the migrate hook applied `0001` + `0002` to the remote database |
+
+**Not copied:** site definitions, asset bytes, revisions. Those live in your *local* miniflare store at `apps/control-app/.wrangler/state/v3/`, which `wrangler dev` created and never syncs anywhere. The remote D1 has the tables and no rows — no tenant, no sites, no revisions.
+
+That's confirmed, not assumed:
+
+```
+https://1stcontact.io/          → 200  "Hello from 1stcontact.io"   ← public-site is live
+https://1stcontact.io/site/xgd/ → 404  "Not Found"                  ← nothing published there
+```
+
+The apex response is `APEX_BODY` from `public-site/src/index.ts`, so the Worker is genuinely running and correctly reporting that `xgd` has no live revision.
+
+## 2. Viewing it
+
+**Working now:** `https://1stcontact.io/` — that's your deployed public-site.
+
+**To get a site up there,** three steps, plus one blocker:
+
+**A blocker first:** `https://app.1stcontact.io/` doesn't respond for me (instant connection failure, while the apex works). DNS lookups are blocked in my sandbox so I can't confirm the cause, but the config explains it: public-site's apex is `custom_domain = true`, which wrangler provisions the DNS record for. control-app uses a plain **zone route** (`app.1stcontact.io/*`), which requires a **proxied DNS record you create yourself**. Check from your machine:
+
+```bash
+dig +short app.1stcontact.io
+curl -sI https://app.1stcontact.io/ | head -1
+```
+
+Empty output means you need to add an `app` record in the Cloudflare dashboard, proxied (orange cloud). The content doesn't matter — the route intercepts it — but a record must exist.
+
+Then:
+
+1. **Configure Access.** `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are still `""` in `[env.production.vars]`, and empty means deny — the deployed builder answers 503 to everything until you create the Access application and fill both in, per `apps/control-app/ACCESS.md`. Redeploy after.
+
+2. **`bin/publish --production xgd`** — copies the local site definition into the remote D1/R2. Needs to get through Access, which is where that service-token defect I mentioned earlier will bite: `bin/publish` sends a single `cf-access-jwt-assertion` header, but Access service tokens are a Client-Id/Client-Secret *pair*. Tell me when you get there and I'll fix it.
+
+3. **Publish** — the toolbar button on `app.1stcontact.io`, or `POST /api/publish`.
+
+Then `https://1stcontact.io/site/xgd/` serves the same page you saw on `localhost:8789`.
+
+Nothing you've done locally is lost or wasted — the local store is a full working environment, it's just a separate one. `bin/publish --production` is the bridge.
 
 <!-- xgd-chat-end -->
