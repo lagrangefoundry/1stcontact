@@ -22,6 +22,7 @@ fields:
   version: 0.0.180
   story_points: 1
   bundled_in: bundle-cceaba25
+  chat_comment: comment-b2175fc6
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Finding 2 from the gigabytealchemy
