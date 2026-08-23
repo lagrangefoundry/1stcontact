@@ -5,9 +5,9 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-23T03:22:54.455335+00:00'
+updated_at: '2026-08-23T03:24:38.640592+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -389,3 +389,53 @@ await, so any API failure rejects the module and nothing mounts.
     not depend on one.
 11. A builder that cannot start says so IN THE PAGE, naming the cause, for a
     missing tenant and for a missing asset alike.
+
+
+
+## Follow-up: `bin/build` failed on a type-only reach into node
+
+Found while getting the operator to a Cloudflare deploy: `bin/build` failed at
+`apps/control-app`'s typecheck with five errors it had been emitting all along —
+
+```
+tools/generate/src/store/fsutil.ts(10,8):  Cannot find name 'node:fs'
+tools/generate/src/store/fsutil.ts(11,18): Cannot find name 'node:path'
+tools/generate/src/store/fsutil.ts(93,14): Parameter 'name' implicitly has an 'any' type
+tools/generate/src/store/loadSite.ts(1,18): Cannot find name 'node:path'
+tools/generate/src/store/paths.ts(1,18):   Cannot find name 'node:path'
+```
+
+`apps/control-app` is a Worker package: `types: ["@cloudflare/workers-types"]`,
+no node types. Nothing in it should reach a node-only module.
+
+### Cause
+
+`render.ts` imported the TYPE `LoadedSite` from `../store/loadSite`, which only
+RE-EXPORTS it while itself importing `node:path` and the filesystem helpers. The
+type is declared in `assemble.ts`, which reaches nothing. One specifier.
+
+### Why no test caught it
+
+REQ-146's import guard walks RUNTIME imports and deliberately skips type-only
+ones, because a bundler erases them — it is right about the bundle and silent
+about this. But `tsc` does NOT erase a type-only import before resolving it, so a
+type-only reach into a node-only module puts `node:fs` in a Worker's type
+program. The bundle was always fine; the build was not, and the suite stayed
+green while `bin/build` failed.
+
+A UAT now walks type-only imports too, from the Worker entrypoints outward, and
+fails on any that reach a node-only module. It was confirmed to fail against the
+pre-fix specifier, naming the chain.
+
+### Acceptance criterion
+
+12. No module reachable from a Worker entrypoint imports a node-only module,
+    including through a type-only import.
+
+### Version bookkeeping
+
+A fourth commit carries a version bump alone. `move-to-free-coded` refuses a
+version already present at the tip of `xgd-working` on a commit not reachable
+from the ticket's own SHAs — here the ticket auto-commits that landed on top of
+the fix. The bump moves the claim onto a commit this ticket owns; no behaviour
+changes. Ticket version is now 0.2.7.
