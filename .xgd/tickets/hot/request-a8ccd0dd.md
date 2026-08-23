@@ -21,6 +21,7 @@ fields:
     main_sha: 345dcb7685ac02043945a8c4cd65ef3aba7b1fa7
   version: 0.1.37
   merged_at_commit: 345dcb7685ac02043945a8c4cd65ef3aba7b1fa7
+  chat_comment: comment-5d147d68
 result: pass
 ---
 
