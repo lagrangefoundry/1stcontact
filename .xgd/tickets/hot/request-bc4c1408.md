@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.0.176
   bundled_in: bundle-cceaba25
+  chat_comment: comment-ac75ffef
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Closes the **form hole** in the L1
