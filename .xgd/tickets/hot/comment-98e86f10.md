@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:02:45.431111+00:00'
+updated_at: '2026-08-23T21:07:09.146221+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2118,5 +2118,77 @@ Step 5 touches `wrangler.toml` — config, not code, so no ticket or branch need
 <!-- xgd-chat role="user" ts="2026-08-23T21:02:45.281738+00:00" -->
 #### You
 I couldn't find the account id - api token is loaded though
+
+<!-- xgd-turn id="5784084e-cff9-4fbb-9926-64b22c74e9bb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T21:07:08.885911+00:00" -->
+#### Claude
+Token's there. And the account ID isn't a mystery — wrangler already printed it in an earlier error. Let me verify both.
+
+Token valid. Account ID is `8feaadfce95919ab2d2b93aa8df6f6ce` — the same one wrangler printed in your earlier error. Now the Access state:
+
+Found it — and it explains everything.
+
+Now fixing the actual problem — the app is attached to the wrong hostname.
+
+Normalisation confirmed — a bare hostname in the var is right. Now correcting the app's hostname:
+
+Access app now guards the right hostname. Wiring the Worker vars:
+
+Both blocks set. Deploying control-app:
+
+Token lacks D1 — that's a token-scope gap, not a config problem. Your earlier successful deploy used wrangler's OAuth login, which `CLOUDFLARE_API_TOKEN` now overrides. Falling back to it for the deploy:
+
+OAuth can't refresh non-interactively. Let me pin down exactly what this token is missing so you only make one edit:
+
+Everything on the Cloudflare side is now done. Let me commit the config change:
+
+Done on the Cloudflare side. One thing left for you, and it's a two-row edit.
+
+## The account ID was never hidden
+
+`8feaadfce95919ab2d2b93aa8df6f6ce` — wrangler had been printing it in every error message. You don't need to set `CLOUDFLARE_ACCOUNT_ID`; wrangler resolves it from the token.
+
+## What was actually wrong
+
+You *had* created the application. It was just pointed at **`1stcontact-app.1stcontact.io`** — no route serves that hostname, so Access never saw your requests, and the Worker's own fail-closed refusal is what answered. That's why every AUD hunt dead-ended: you were looking in the right place, at an app guarding the wrong door.
+
+I repointed it via the API. Nothing else about it changed — same app, same AUD, your `operator` policy still attached.
+
+| | |
+|---|---|
+| App | `1stcontact control app` → **`app.1stcontact.io`** |
+| Team domain | `lagrangefoundry.cloudflareaccess.com` |
+| AUD | `c802fa9c…60c74e` |
+| Policy | `operator` → allow `martin-github@westhead.me` |
+
+Both `wrangler.toml` var blocks are filled in and committed (`c8ba1d2ff`). Config only, so no ticket.
+
+Incidentally, the team's *display* name is `winter-sun-ff74` — its JWKS endpoint 404s. `lagrangefoundry` is the real auth domain and serves keys. Another way that hunt could have gone wrong.
+
+## What I need from you
+
+The token you loaded has Access, Workers Scripts and Zones, but **not D1 or R2** — so `bin/deploy` dies in the migration hook. Probed directly rather than guessed:
+
+```
+Account Settings: Read  200      D1               401   ← missing
+Workers Scripts         200      R2               403   ← missing
+Zones (list)            200      Access: Apps     200
+```
+
+**Edit the existing token** — don't make another. https://dash.cloudflare.com/profile/api-tokens → click your token → **Edit** → add two rows:
+
+- Account → **D1** → Edit
+- Account → **Workers R2 Storage** → Edit
+
+Save. The token value doesn't change, so nothing to re-export.
+
+Then say the word and I'll run the deploy and verify the hostname returns a login page instead of the refusal.
+
+(If you'd rather not wait: `unset CLOUDFLARE_API_TOKEN && bin/deploy control-app` in your own terminal works right now — wrangler's OAuth is still good interactively, it just can't refresh in my non-interactive shell.)
+
+## One thing to expect at the login screen
+
+The policy allows **`martin-github@westhead.me`** — not the `martin-cloudflaire@` address that owns the account. That's the address to enter for the one-time PIN. Say if you'd rather it were a different one; it's a one-line API change and a matching edit to the identity table in `ACCESS.md`.
 
 <!-- xgd-chat-end -->
