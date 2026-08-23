@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T03:28:37.466944+00:00'
+updated_at: '2026-08-23T03:30:04.764221+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1766,5 +1766,97 @@ One thing worth knowing about that `aud` check: every application in an Access t
 <!-- xgd-chat role="user" ts="2026-08-23T03:28:37.393676+00:00" -->
 #### You
 Sorry those instructions are not actionable, I need more context
+
+<!-- xgd-turn id="5d6a49f5-7b8a-4035-a689-86d9f6510956-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T03:30:04.690455+00:00" -->
+#### Claude
+You're right — I gave you the shape of the task, not the task. Let me get the actual values.
+
+Fair. The gap is that my step 1 assumed a Zero Trust team already exists — and on this account it doesn't. There's no team name recorded anywhere in the repo (every `*.cloudflareaccess.com` in the tree is a test fixture: `uat-team`, `example`, and `gendev` as a doc placeholder). Zero Trust onboarding is a separate one-time thing from your Workers account, and it's the actual first step.
+
+Here's the whole path with the real values.
+
+## Before anything: the deploy identity
+
+Your wrangler OAuth token expired on 2026-08-18. There's a live refresh token so `bin/deploy` will probably renew silently, but if it prompts, that's why. Note that reading that config printed both tokens into this transcript — it's your own machine and they went nowhere, but since the access token is expired anyway, `npx wrangler logout && npx wrangler login` is a cheap rotation.
+
+Worth knowing: those OAuth scopes cover Workers, D1, zones — **but nothing for Zero Trust/Access**. So none of the Access setup below can be done from the CLI with your current auth. It's dashboard work. That's not a limitation I can work around from here (this sandbox has no network either).
+
+## Step 1 — Create the Zero Trust team (one time)
+
+`https://one.dash.cloudflare.com/` → pick your account.
+
+If Zero Trust has never been used, it walks you through onboarding:
+
+- **Choose a team name.** This is the decision that matters — it's permanent-ish and becomes your `ACCESS_TEAM_DOMAIN`. If you enter `1stcontact`, your team domain is `1stcontact.cloudflareaccess.com`. That string goes into `wrangler.toml` verbatim.
+- **Pick the Free plan** (50 users). It still asks for a payment method. You aren't charged, but the flow won't complete without a card on file — this is the step that surprises people.
+
+If Zero Trust *is* already set up, skip to step 2 and read the team domain from **Settings → Custom Pages**, where it's shown as `<team>.cloudflareaccess.com`.
+
+## Step 2 — Create the Access application
+
+Zero Trust → **Access → Applications → Add an application → Self-hosted**.
+
+| Field | Value |
+|---|---|
+| Application name | `1stcontact builder` |
+| Session duration | 24 hours |
+| Subdomain | `app` |
+| Domain | `1stcontact.io` |
+| Path | leave empty (covers everything) |
+
+The domain dropdown only lists zones on this account. `1stcontact.io` must be there — it is, since `[env.production]` routes `app.1stcontact.io/*` with `zone_name = "1stcontact.io"`.
+
+**Identity provider:** on the login-methods step, leave **One-time PIN** enabled. That emails you a code — no Google/GitHub IdP setup needed, which is what makes this operator-only gate zero-effort.
+
+## Step 3 — The policy
+
+Add a policy on that application:
+
+- Name: `operator`
+- Action: **Allow**
+- Include → selector **Emails** → `martin-github@westhead.me`
+
+Use **Emails**, not *Emails ending in* — `ACCESS.md` is explicit that a domain rule grants everyone who ever holds an address at that domain, including people who don't exist yet.
+
+Note this is your **git** address, not the `martoin-claude@westhead.me` this session runs as. The ACCESS.md identity table already records the git one as the sole operator. If you'd rather sign in with a different address, that's the row to change — and the table is meant to be the record, so change it in both places.
+
+## Step 4 — Get the AUD tag
+
+After saving: Access → Applications → your app → **Overview** → **Application Audience (AUD) Tag**. It's 64 hex characters. Copy it.
+
+## Step 5 — The edit
+
+Four lines in `apps/control-app/wrangler.toml`, two blocks, **both required** — a named environment inherits no vars, so filling in only the top block leaves production deployed with empty strings and still 503:
+
+```toml
+# lines 70-71, top-level [vars]
+ACCESS_TEAM_DOMAIN = "<team>.cloudflareaccess.com"
+ACCESS_AUD = "<64 hex chars>"
+
+# lines 115-116, [env.production.vars]
+ACCESS_TEAM_DOMAIN = "<team>.cloudflareaccess.com"
+ACCESS_AUD = "<64 hex chars>"
+```
+
+Leave `ACCESS_DEV_OPEN = "1"` on line 69 alone. It stays top-level only, and once these two are non-empty it's inert anyway.
+
+Give me the two values and I'll make the edit and run the deploy — it's config, so no ticket needed.
+
+## Step 6 — Deploy and verify
+
+```bash
+bin/deploy --env production control-app
+curl -sSI https://app.1stcontact.io/ | head -1
+```
+
+Expect `HTTP/2 302` with a `location:` to `<team>.cloudflareaccess.com/cdn-cgi/access/login/...`. Then open it in a browser: you get the OTP screen, enter the emailed code, and land in the builder.
+
+If you still get **503**, the vars didn't reach the deployed Worker — the response body names which one is empty. If you get **401**, Access let you through but the Worker rejected the token, and the body names the reason (`aud` mismatch means the AUD tag was mistyped).
+
+## One correction to hand you
+
+`ACCESS.md`'s "Verifying it" section documents `bin/smoke --control-origin ... --workers-dev-origin ...`. **Those flags don't exist** — `bin/smoke` takes `--origin`, `--slug`, `--draft`. The doc was written against an interface that didn't land. Say the word and I'll fix that section to match the real script.
 
 <!-- xgd-chat-end -->
