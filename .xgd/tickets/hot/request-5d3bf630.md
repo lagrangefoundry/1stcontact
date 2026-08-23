@@ -23,6 +23,7 @@ fields:
   version: 0.1.45
   story_points: 5
   bundled_in: bundle-77b28def
+  chat_comment: comment-624d5069
 ---
 
 # Draft change journal — let the AI know what changed without re-reading the site
