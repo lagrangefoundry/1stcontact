@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.0.203
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-506604c6
 ---
 
 ## Problem
