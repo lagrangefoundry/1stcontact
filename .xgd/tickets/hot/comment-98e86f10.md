@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:20:19.125073+00:00'
+updated_at: '2026-08-23T21:24:03.701866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2296,5 +2296,11 @@ Two things worth checking if it still doesn't show:
 - If you're *editing* the existing token rather than creating a new one, the resource selectors render read-only for scopes it was created without — in that case create fresh rather than fight it.
 
 The User-scoped rows (`API Tokens: Edit`, `User Details: Read`) have no resource selector at all, which is expected — they're inherently scoped to you.
+
+<!-- xgd-turn id="6a0482c8-9a6a-45a7-a006-a0314106bd29-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T21:24:03.612096+00:00" -->
+#### You
+I see Browser Run not Browser Rendering?
 
 <!-- xgd-chat-end -->
