@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T03:30:04.764221+00:00'
+updated_at: '2026-08-23T19:56:26.395940+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1858,5 +1858,11 @@ If you still get **503**, the vars didn't reach the deployed Worker — the resp
 ## One correction to hand you
 
 `ACCESS.md`'s "Verifying it" section documents `bin/smoke --control-origin ... --workers-dev-origin ...`. **Those flags don't exist** — `bin/smoke` takes `--origin`, `--slug`, `--draft`. The doc was written against an interface that didn't land. Say the word and I'll fix that section to match the real script.
+
+<!-- xgd-turn id="6b7b2e58-f304-4796-86d2-3fd4cc86929d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T19:56:26.255788+00:00" -->
+#### You
+I see no interface to pick a team name - can you please check your instructions against the latest UI
 
 <!-- xgd-chat-end -->
