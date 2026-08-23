@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T23:43:00.147968+00:00'
+updated_at: '2026-08-23T23:46:50.090589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -210,5 +210,26 @@ That issues a fresh secret and prints it in your own terminal. The client id isn
 **A third finding, worth knowing about.** The first publish attempt died with a bare `fetch failed`. Not Access, and not the code — Node's global `fetch` ignores `HTTP_PROXY`/`HTTPS_PROXY` unless told, and my sandbox routes everything through a proxy. `NODE_USE_ENV_PROXY=1` fixed it. I deliberately did *not* bake that into `bin/publish`: it's a property of my network, not of publishing. It's recorded on the ticket because the symptom — no status, no URL, just `fetch failed` — is otherwise indistinguishable from the site being down.
 
 Still to do: full-suite comparison against base, then the `[FREE-CODED]` commit and ticket status. And BUG-36's original tenant fix is still scoped-but-uncoded, waiting on your confirm — worth noting that the manual `INSERT` I did earlier is the only reason a fresh deployment works right now.
+
+<!-- xgd-turn id="01413f1a-a1b4-47f3-8607-977283943993-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T23:46:49.949418+00:00" -->
+#### You
+# Error 1102 Ray ID: a2fdfdebed498183 • 2026-08-23 23:45:36 UTC
+
+## Worker exceeded resource limits
+
+## What happened?
+
+You've requested a page on a website (app.1stcontact.io) that is on the Cloudflare network. An unknown error occurred while rendering the page.
+
+## What can I do?
+
+**If you are the owner of this website:**
+refer to Workers - Errors and Exceptions and check Workers Logs for app.1stcontact.io.
+
+Cloudflare Ray ID: **a2fdfdebed498183** • Your IP: • Performance & security by Cloudflare
+
+I am now seeing this?
 
 <!-- xgd-chat-end -->
