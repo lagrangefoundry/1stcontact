@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T20:11:25.469010+00:00'
+updated_at: '2026-08-23T20:11:49.424652+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1985,5 +1985,25 @@ Sources: [Validate JWTs — Cloudflare One](https://developers.cloudflare.com/cl
 <!-- xgd-chat role="user" ts="2026-08-23T20:11:25.320691+00:00" -->
 #### You
 This is brutal - all your instructions are for a different version of the WebUI you have no idea how painful this is
+
+<!-- xgd-turn id="149c661b-209b-4fed-9080-d8aabb967833-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T20:11:49.281179+00:00" -->
+#### Claude
+You're right, and I should stop handing you nav paths — the docs lag the live dashboard and I've now sent you down three wrong ones. Let me invert it.
+
+**Fastest: deep link, no navigation.**
+
+```
+https://one.dash.cloudflare.com/8feaadfce95919ab2d2b93aa8df6f6ce/access/apps
+```
+
+That lands on the applications list directly.
+
+**Then just show me what you see.** Screenshot it and paste it into the chat, or type out the labels on screen. I'll read the actual UI instead of guessing at it — that's the part I should have been doing rather than reciting doc paths.
+
+**Or skip the dashboard for the AUD entirely.** Create a token at `dash.cloudflare.com/profile/api-tokens` (Custom token → `Access: Apps` → Read), and the curl I sent prints every app's AUD and hostname. One stable page, no hunting.
+
+If the apps list comes up empty, that answers it too — the application was never created, only a policy, and there's no AUD to find yet.
 
 <!-- xgd-chat-end -->
