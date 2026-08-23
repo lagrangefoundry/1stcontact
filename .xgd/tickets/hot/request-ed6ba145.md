@@ -21,6 +21,7 @@ fields:
   version: 0.1.34
   story_points: 8
   bundled_in: bundle-e59210c5
+  chat_comment: comment-a3f23a36
 ---
 
 # Beyond L1: structured config, module instantiation, page metadata and generated assets
