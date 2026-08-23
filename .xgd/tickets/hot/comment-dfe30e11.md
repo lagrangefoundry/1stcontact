@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T23:46:50.090589+00:00'
+updated_at: '2026-08-23T23:52:43.772757+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -231,5 +231,61 @@ refer to Workers - Errors and Exceptions and check Workers Logs for app.1stconta
 Cloudflare Ray ID: **a2fdfdebed498183** • Your IP: • Performance & security by Cloudflare
 
 I am now seeing this?
+
+<!-- xgd-turn id="01413f1a-a1b4-47f3-8607-977283943993-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T23:52:43.488691+00:00" -->
+#### Claude
+Error 1102 is the Worker exceeding CPU/memory — different failure, and it appeared right after the import. Getting real data:
+
+All routes respond fine now, so it's not a simple always-fails. Capturing live Worker logs while I reproduce a full page load:
+
+Can't reproduce it from my side — every route answers 200. Checking historical Worker error data around your Ray ID instead of guessing:
+
+Found the failure in the analytics — and it's informative:
+
+```
+2026-08-23T23:45:36Z  exceededResources  req=1 err=1  cpuP99=94,388µs   wall=339ms
+2026-08-23T23:45:32Z  success            req=3       cpuP99=170,452µs  wall=655ms
+2026-08-23T23:45:30Z  success            req=12      cpuP99=243,830µs  wall=1,765ms
+2026-08-23T23:48:17Z  success            req=1       cpuP99=391,763µs  wall=737ms
+```
+
+The invocation that died used *less* CPU (94ms) than several that succeeded (390ms). That points at memory, not CPU time. Let me try to reproduce it under concurrency:
+
+Diagnosed as far as the data allows. Here's what I found.
+
+**The error is real and I located the exact invocation** — but it's a single event, not a broken state:
+
+```
+exceededResources invocations, last 2 days: 1
+  2026-08-23T23:45:36Z  req=1  subrequests=0  cpu=94ms  wall=340ms
+```
+
+Three things about it point away from "the builder is broken":
+
+- **It used 94ms of CPU.** Requests around it used 244ms and 392ms and *succeeded*. So it wasn't killed for being expensive.
+- **It made zero subrequests.** It died before touching D1 or R2 — it never got as far as doing work.
+- **It's one occurrence in two days**, seven seconds after your page load burst (57 requests at 23:45:29, then 12 at 23:45:30 with 1.76s wall).
+
+That shape is a memory kill, and Workers memory is per-*isolate*, shared across concurrent requests — the request that gets terminated is frequently the victim rather than the cause. The 12 concurrent renders just before it are the plausible cause; the cheap request at :36 is what got shot.
+
+**I could not reproduce it.** I fired 12 concurrent preview renders (both channels, both pages, both stylesheets) and all 12 returned 200 in 0.5–1.2s. Every route is healthy right now:
+
+| | |
+|---|---|
+| `/` | 200 |
+| `/api/sites` | 200 — `[{"slug":"xgd","latest":null}]` |
+| `/preview/xgd/draft/` and `/edit/` | 200, ~79KB / ~51KB |
+| `/api/assets`, `/api/palette`, `/api/revisions` | 200 |
+| all 12 builder + webui modules, in parallel | 200 |
+
+**So: reload it.** I expect it to work. If it recurs, that's a genuine capacity problem in the render path worth its own ticket.
+
+One real gap this exposed: I could tell you *that* a request died but not *which URL*, because the Worker has no `[observability]` block, so there are no retained logs — only aggregate analytics. Adding one is a few lines in `wrangler.toml` and would make this diagnosable instead of inferred. That's outside BUG-36 and I haven't touched it; say the word and I'll scope it.
+
+Housekeeping: I deleted the staged service-token secret from disk rather than leave a live Access credential sitting in a temp file — consistent with the design I just shipped. `bin/access-token --rotate` re-issues one whenever you want it.
+
+Still outstanding on BUG-36 itself: the full-suite comparison is running, then the `[FREE-CODED]` commit; and the tenant-opener fix is scoped but uncoded pending your confirm — right now a fresh deployment still only works because of the manual `INSERT` I ran.
 
 <!-- xgd-chat-end -->
