@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:18:16.200067+00:00'
+updated_at: '2026-08-23T21:19:52.050856+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2265,5 +2265,13 @@ I'll probe every one of those permissions in a single pass and tell you concrete
 It exists, it's one string, and it genuinely does everything — so I'll name it rather than pretend the option isn't there. I'd still not use it: it can't be scoped or rotated without breaking every other thing that holds it, it carries billing and account-deletion rights that no deploy needs, and wrangler treats it as deprecated. The token above is the same convenience with a revoke button. Your call, though — say the word and I'll wire it instead.
 
 One note on your "least privilege taken too far" point: I'd say the failure here wasn't the scoping, it was doing the scoping *blind* — three tokens each built from the last error message instead of from what the repo actually binds. Broad-but-verified is the fix, and that's what the list above is.
+
+<!-- xgd-turn id="56d734a3-c95a-4dd9-b7ad-1ec774cedf47-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T21:19:51.957843+00:00" -->
+#### You
+Just to be clear I want to do the deploys myself once we are rolling but I want to have one token that we share to do it.
+
+I see no "Zone Resources"
 
 <!-- xgd-chat-end -->
