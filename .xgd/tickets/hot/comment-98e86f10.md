@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T00:30:25.851157+00:00'
+updated_at: '2026-08-23T00:39:07.891247+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1566,5 +1566,13 @@ bin/deploy --dry-run
 ```
 
 Worth saying plainly: neither of these two build failures came from REQ-149. The `node:fs` one predated it (I found and fixed it because it blocked your deploy); this one is `node_modules` drifting from a manifest change in `258381e2d`. Your actual blocker for deploying is still the Cloudflare token permissions.
+
+<!-- xgd-turn id="76edf5ea-2896-446d-a106-b48b74e30d4b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T00:39:07.786439+00:00" -->
+#### You
+ok so deploy succeeded questions:
+1. What was actually copied to Cloudflare when I did that? The application, I assume, what about the websites we created locally?
+2. How can I view this on cloud flare in a browser?
 
 <!-- xgd-chat-end -->
