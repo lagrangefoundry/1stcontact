@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T22:19:55.521968+00:00'
+updated_at: '2026-08-23T22:21:42.401539+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2486,5 +2486,44 @@ The builder itself is still waiting on you to sign in at `app.1stcontact.io` as 
 <!-- xgd-chat role="user" ts="2026-08-23T22:19:55.358205+00:00" -->
 #### You
 I am signed in - see BUG-36 I get a 503 - no tenant - BUG-36 agent is working on it
+
+<!-- xgd-turn id="4a1c2c28-7ed4-4b4d-b395-722b69b30138-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T22:21:42.222922+00:00" -->
+#### Claude
+Noted — I'll stay out of the code path BUG-36 owns. Let me read the ticket and check the live state, since I have Cloudflare API access that agent may not.
+
+Important: the live state has changed since BUG-36 was written.
+
+The live state has moved since BUG-36 was written — worth knowing before that agent lands a fix against a stale premise.
+
+## The tenant row now exists
+
+```
+tenants:  {id: 1stcontact, name: 1stcontact, status: active,
+           created_at: 2026-08-23T22:19:48Z}   ← ~1 minute ago
+```
+
+BUG-36 says "the `tenants` table exists and is empty." That is no longer true. Something registered the tenant a minute ago — and it wasn't a deploy: the newest Worker version is still `6e98ca4e`, the one I pushed at 21:53. So it was the manual unblock (`bin/publish`, or a direct insert), not a code fix.
+
+**Refresh `app.1stcontact.io`.** The 503 was `UnknownTenantError` from `storeFor`, and the tenant it was looking for is now there. Per the ticket's own diagnosis, `app.js:66` already handles an empty list (`sites[0]?.slug ?? null`), so the builder should boot — just with no sites in it.
+
+## Expect it to be empty
+
+```
+sites: 0   pages: 0   revisions: 0   published_sites: 0
+```
+
+R2 has bytes from an older run (`sites/xgd/manifest.json`, a `preview/fa0344fb47a8/` tree with fonts), but D1 has no rows. So the tenant got registered and the import did not land — consistent with the publish path failing partway. If that publish was `bin/publish` over Access, the service-token defect I flagged earlier is the first thing I'd suspect: it sends a single `cf-access-jwt-assertion` header where Access wants a Client-Id/Client-Secret pair.
+
+## Two things for the BUG-36 agent
+
+The bug is still real and still worth fixing — a fresh deploy is dead on arrival until someone runs a CLI from a dev machine. Registering the row by hand unblocks you; it doesn't fix that.
+
+But the ticket's "Immediate unblock (no code change)" section now reads as untried when it has in fact been run, and its premise line ("the table is empty") is stale. If that agent is reasoning from the body, it's reasoning from a state that no longer holds. Worth telling it the tenant exists and `sites` is still 0 — that reframes the remaining problem from "no tenant" to "import doesn't land."
+
+I haven't touched any of it — no code, no ticket edits, read-only queries only. My REQ-149 commits (`ec144c85`, `02bd4437`) are intact beneath the six ticket-bookkeeping commits that agent has added on top.
+
+Tell me what you see after the refresh and I'll take it from there — or leave BUG-36 to its agent and I'll stay clear.
 
 <!-- xgd-chat-end -->
