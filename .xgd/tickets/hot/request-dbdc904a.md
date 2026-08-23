@@ -13,6 +13,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-ab46f06f
 ---
 
 # Complete DOC-30 — the L1 control surface API, and the gap list
