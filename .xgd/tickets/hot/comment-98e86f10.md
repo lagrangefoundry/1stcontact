@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:19:52.050856+00:00'
+updated_at: '2026-08-23T21:20:19.125073+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2273,5 +2273,28 @@ One note on your "least privilege taken too far" point: I'd say the failure here
 Just to be clear I want to do the deploys myself once we are rolling but I want to have one token that we share to do it.
 
 I see no "Zone Resources"
+
+<!-- xgd-turn id="56d734a3-c95a-4dd9-b7ad-1ec774cedf47-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T21:20:19.041520+00:00" -->
+#### Claude
+Same token works for both of us — nothing in the recipe changes. Since you'll be running the deploys, put it somewhere durable rather than re-exporting each time (a `chmod 600` file you source from your shell profile, or whatever you used before), so it's live in your shell *and* in mine.
+
+On the missing selector: **Zone Resources only renders once at least one Zone-scoped row exists in the Permissions list.** My table put all sixteen Account rows first, so if you've been working top-down you'd have hit exactly that — Account Resources visible, no Zone section anywhere.
+
+Fix: add a Zone row first, then the section appears.
+
+1. In Permissions, set the first dropdown of a new row to **Zone**
+2. Pick **Workers Routes → Edit**
+3. **Zone Resources** now appears below → Include → **All zones**
+
+Then carry on adding the rest in any order.
+
+Two things worth checking if it still doesn't show:
+
+- You need **Create Token → Custom token → Get started**, not one of the templates above it (*Edit Cloudflare Workers* and friends have preset, non-editable scopes and a cut-down UI).
+- If you're *editing* the existing token rather than creating a new one, the resource selectors render read-only for scopes it was created without — in that case create fresh rather than fight it.
+
+The User-scoped rows (`API Tokens: Edit`, `User Details: Read`) have no resource selector at all, which is expected — they're inherently scoped to you.
 
 <!-- xgd-chat-end -->
