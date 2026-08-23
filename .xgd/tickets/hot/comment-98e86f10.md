@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T03:25:12.988349+00:00'
+updated_at: '2026-08-23T03:28:37.466944+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1760,5 +1760,11 @@ One thing worth knowing about that `aud` check: every application in an Access t
 `apps/control-app/ACCESS.md` has the detail, and is also where granted identities are meant to be recorded. Neither value is a secret — the team domain is public and the AUD is an identifier, not a credential — which is why they live in `wrangler.toml` rather than `wrangler secret`, where an unreadable value would make the gate unauditable.
 
 `public-site` has no Access on it at all, by design — published customer sites are meant to be public. So `https://1stcontact.io/` stays reachable regardless.
+
+<!-- xgd-turn id="5d6a49f5-7b8a-4035-a689-86d9f6510956-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T03:28:37.393676+00:00" -->
+#### You
+Sorry those instructions are not actionable, I need more context
 
 <!-- xgd-chat-end -->
