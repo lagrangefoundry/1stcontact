@@ -31,6 +31,7 @@ fields:
     - e70668dd1ce02f09ab7f914cbaa5ac672454535a
   version: 0.1.46
   bundled_in: bundle-77b28def
+  chat_comment: comment-cd188be0
 ---
 
 # Page editor: colour — text colour and panel background from the palette
