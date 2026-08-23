@@ -14,6 +14,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-a86c1b28
 ---
 
 ## Scope
