@@ -20,6 +20,7 @@ fields:
   version: 0.1.38
   story_points: 5
   merged_at_commit: a23c4c512e0cf233376dc128bea8b124ca9c5dc4
+  chat_comment: comment-28658562
 result: pass
 ---
 
