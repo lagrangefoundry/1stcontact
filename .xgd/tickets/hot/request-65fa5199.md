@@ -21,6 +21,7 @@ fields:
     main_sha: null
   version: 0.0.48
   bundled_in: bundle-df065afc
+  chat_comment: comment-d2af3cca
 ---
 
 ## Scope
