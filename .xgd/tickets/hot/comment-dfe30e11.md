@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T22:13:51.251481+00:00'
+updated_at: '2026-08-23T22:18:33.381437+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,11 @@ Token per `apps/control-app/ACCESS.md`. I can't run it from here — this sandbo
 Worth noting the fix gets you a *booting* builder against an empty store, not a usable one — there's no create-site route, so `bin/publish` remains the only way to get a site in. If you want the deploy to stop producing a dead builder at all, seeding the tenant in a `bin/deploy.d/` hook is the alternative (or complement) — say the word and I'll scope that instead.
 
 Ticket body is populated with the full diagnosis and test plan. Confirm the scope and I'll cut the branch and code it.
+
+<!-- xgd-turn id="5487ae7a-8187-400e-941c-10e9ef0fd420-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T22:18:33.213701+00:00" -->
+#### You
+You should have a pretty powerful API token in the environment - I do not have a CF_ACCESS_TOKEN
 
 <!-- xgd-chat-end -->
