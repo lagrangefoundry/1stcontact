@@ -20,6 +20,7 @@ fields:
   version: 0.0.204
   story_points: 2
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-ad8884dc
 ---
 
 ## Problem
