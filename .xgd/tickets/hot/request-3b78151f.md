@@ -27,6 +27,7 @@ fields:
     - a7fbde3b3be9bfd1d9efb0815172f62f1e0f2552
   version: 0.1.16
   bundled_in: bundle-15c1f647
+  chat_comment: comment-ef79939e
 ---
 
 ## Problem
