@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T23:01:58.289904+00:00'
+updated_at: '2026-08-23T23:12:25.881908+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -133,5 +133,37 @@ Separately, still open from before: BUG-36's own scope (collapse `storeFor`/`sto
 <!-- xgd-chat role="user" ts="2026-08-23T23:01:58.123021+00:00" -->
 #### You
 Lets do A
+
+<!-- xgd-turn id="b2ac6600-4b79-4701-8018-ea069204cb0c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T23:12:25.727566+00:00" -->
+#### Claude
+Now implementing. Starting with `push.ts`:
+
+Now `bin/publish`:
+
+Now the docs and the UATs:
+
+The suite output got truncated to its tail. Re-running with structured output so I can compare against the base:
+
+I'll let that finish. Meanwhile, here's where the implementation stands:
+
+**Written and passing their own UATs (10/10):**
+
+| File | Change |
+|---|---|
+| `bin/access-token` (new) | Provisions the service token + its `non_identity` policy from `CLOUDFLARE_API_TOKEN`. Prints the pair once, writes it nowhere. `--rotate` for a lost secret. |
+| `tools/generate/src/cli/push.ts` | Sends `CF-Access-Client-Id`/`CF-Access-Client-Secret`. Old assertion header deleted, not kept as a fallback. |
+| `tools/generate/src/cli/index.ts` | `--client-id`/`--client-secret`, defaulting from the env pair; refuses half a credential. |
+| `bin/publish` | Same pair; pre-flight refusal now names `bin/access-token`. |
+| `apps/control-app/ACCESS.md` | Provisioning steps, the API-token-is-not-an-Access-credential distinction, and the service token in the granted-identities table. |
+
+One thing I found while writing it that's worth calling out: `redirect` was defaulting to `follow`, so an unauthenticated push followed Access's 302 to the login page and came back `200` with HTML — `res.ok` was true, the refusal branch never ran, and `JSON.parse` threw on `<!DOCTYPE html>`. That's why this failed as a parse error rather than as "you're not authenticated". Now `manual`, with 3xx and opaque-redirect both reported as an Access refusal.
+
+Verified directly: `bin/publish --production` refuses with no credential and with half a credential; `tsc` clean; the REQ-145/146/147 suites still pass (53 tests).
+
+**One decision I want to flag before I run the provisioner.** `bin/access-token` prints the client secret to stdout — which means it lands in this transcript if I run it plainly. I don't want to put a long-lived Access credential there. So I'd run provision-and-publish as a single shell invocation where the secret goes into a shell variable and is never echoed; you'd then run `bin/access-token --rotate` yourself when convenient, so your own copy reaches your password manager without passing through me. Alternatively you run both commands yourself and I stay out of it entirely. Say which — I'll hold on provisioning until you do.
+
+Also still open: BUG-36's original tenant fix (collapse `storeFor`/`storeForImport`) is scoped on the ticket and not yet coded, pending your confirm.
 
 <!-- xgd-chat-end -->
