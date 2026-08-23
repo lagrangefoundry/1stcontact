@@ -24,6 +24,7 @@ fields:
   version: 0.0.168
   story_points: 5
   bundled_in: bundle-31e474b9
+  chat_comment: comment-94f08d2a
 ---
 
 Part of the framework pivot — see **REQ-79 (request-87b26bca)**. Depends on the L1 substrate REQ.
