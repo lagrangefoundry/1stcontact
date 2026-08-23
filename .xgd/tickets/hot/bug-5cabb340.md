@@ -23,6 +23,7 @@ fields:
   version: 0.1.25
   pid: 21357
   merged_at_commit: 125f1dccf1d687ee30cea8ee6db751175296bc31
+  chat_comment: comment-bc71b831
 ---
 
 ## Intent
