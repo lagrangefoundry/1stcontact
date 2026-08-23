@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T20:05:15.711362+00:00'
+updated_at: '2026-08-23T20:11:25.469010+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1979,5 +1979,11 @@ Once you have it, paste me the AUD and the team domain (`<team>.cloudflareaccess
 While you're in there: `apps/control-app/ACCESS.md` still documents the old *Overview* path and some `bin/smoke` flags that don't exist. Say the word and I'll correct it — docs-only, commits directly.
 
 Sources: [Validate JWTs — Cloudflare One](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/) · [Application token](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/)
+
+<!-- xgd-turn id="149c661b-209b-4fed-9080-d8aabb967833-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T20:11:25.320691+00:00" -->
+#### You
+This is brutal - all your instructions are for a different version of the WebUI you have no idea how painful this is
 
 <!-- xgd-chat-end -->
