@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T23:12:25.881908+00:00'
+updated_at: '2026-08-23T23:40:41.185292+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -165,5 +165,11 @@ Verified directly: `bin/publish --production` refuses with no credential and wit
 **One decision I want to flag before I run the provisioner.** `bin/access-token` prints the client secret to stdout — which means it lands in this transcript if I run it plainly. I don't want to put a long-lived Access credential there. So I'd run provision-and-publish as a single shell invocation where the secret goes into a shell variable and is never echoed; you'd then run `bin/access-token --rotate` yourself when convenient, so your own copy reaches your password manager without passing through me. Alternatively you run both commands yourself and I stay out of it entirely. Say which — I'll hold on provisioning until you do.
 
 Also still open: BUG-36's original tenant fix (collapse `storeFor`/`storeForImport`) is scoped on the ticket and not yet coded, pending your confirm.
+
+<!-- xgd-turn id="24b1baeb-b9bd-4dd5-b68a-6ac12c199dbf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T23:40:40.901112+00:00" -->
+#### You
+That's ok you run it
 
 <!-- xgd-chat-end -->
