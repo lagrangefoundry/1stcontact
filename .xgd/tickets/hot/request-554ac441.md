@@ -5,7 +5,7 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-23T22:05:12.768189+00:00'
+updated_at: '2026-08-23T22:10:16.014982+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -514,5 +514,12 @@ with `ANTHROPIC_API_KEY` unset now reports
 
 ### Version bookkeeping
 
-The fix, its UATs, the `bin/deploy.d/secrets/README.md` contract update and the
-version bump are one commit. Ticket version is now 0.2.8.
+The fix, its UATs and the `bin/deploy.d/secrets/README.md` contract update are
+one commit, which bumped to 0.2.8. A second commit carries a further bump alone.
+
+`move-to-free-coded` refuses a version present at the tip of `xgd-working` on a
+commit not reachable from the ticket's own SHAs, and the ticket auto-commit for
+this very section landed on top of the fix — so the tip held 0.2.8 without
+belonging to the ticket. This is the same bookkeeping the previous increment
+hit, and the same remedy: the bump moves the claim onto a commit this ticket
+owns. No behaviour changes. Ticket version is now 0.2.9.
