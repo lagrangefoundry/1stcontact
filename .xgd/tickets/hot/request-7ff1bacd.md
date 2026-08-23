@@ -41,6 +41,7 @@ fields:
   version: 0.0.205
   story_points: 12
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-024feeba
 ---
 
 ## What changed
