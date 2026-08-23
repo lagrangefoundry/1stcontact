@@ -22,6 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.5
+  chat_comment: comment-18e5a285
 ---
 
 # Reserve locale-shaped page slugs
