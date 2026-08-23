@@ -21,6 +21,7 @@ fields:
   version: 0.0.162
   story_points: 8
   bundled_in: bundle-31e474b9
+  chat_comment: comment-7591b3ca
 ---
 
 Part of the framework pivot — see **REQ-79 (request-87b26bca)**. Do after the L1 substrate REQ (render.ts is the L1 loop by then).
