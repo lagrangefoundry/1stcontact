@@ -23,6 +23,7 @@ fields:
     - 7dc0ea8ba25b6b7f9bda4f1191623272e36a5d89
   version: 0.1.28
   bundled_in: bundle-e59210c5
+  chat_comment: comment-505b98c5
 ---
 
 # REQ-121 — The copy-edit modal, made elegant
