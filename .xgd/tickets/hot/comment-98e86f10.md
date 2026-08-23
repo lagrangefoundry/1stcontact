@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T20:03:22.799181+00:00'
+updated_at: '2026-08-23T20:05:15.711362+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1945,5 +1945,39 @@ Sources: [Get started — Cloudflare One](https://developers.cloudflare.com/clou
 <!-- xgd-chat role="user" ts="2026-08-23T20:03:22.650549+00:00" -->
 #### You
 ok I am muddling through - I can't finf the AUD TAG only a Policy Id
+
+<!-- xgd-turn id="0550078f-b6c8-4a6c-920e-2fa581f0dbd1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T20:05:15.586805+00:00" -->
+#### Claude
+Policy ID is the wrong object — the AUD belongs to the **application**, not the policy. Policies are reusable components now (one policy can be attached to several apps), so they carry their own IDs, and that's what you're looking at.
+
+## Where it actually is
+
+**Zero Trust → Access controls → Applications** → click **Configure** on your app → scroll to **Additional settings** → **Application Audience (AUD) Tag**.
+
+Not on an Overview tab (that's where my earlier instructions had it — stale), and not anywhere in the policy editor. It's 64 hex characters, and it never changes unless you delete and recreate the application.
+
+**If there's no app in that list**, that's the real problem: you created a policy but the application creation didn't complete. Policies can exist standalone under Access controls → Policies. No app → no AUD. Start the Create-new-application flow again and attach the existing policy at the policy step rather than making a second one.
+
+## Two fallbacks if the dashboard keeps hiding it
+
+**The API** — works even if the UI is being awkward. Needs a token with `Access: Apps` **Read** (your wrangler OAuth token has no Zero Trust scopes, so this needs a new custom token):
+
+```bash
+curl -s -H "Authorization: Bearer $CF_ZT_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/8feaadfce95919ab2d2b93aa8df6f6ce/access/apps" \
+| python3 -c 'import json,sys; [print(a["aud"], a["domain"]) for a in json.load(sys.stdin)["result"]]'
+```
+
+**The JWT itself** — no extra token needed. Once the app exists, hit `https://app.1stcontact.io/`, complete the OTP login, and Access sets a `CF_Authorization` cookie. Decode its payload (jwt.io, or base64 the middle segment) and read the `aud` claim. You'll still get a 503 from the Worker afterwards — that's expected until the vars are set — but the cookie is already yours by then.
+
+---
+
+Once you have it, paste me the AUD and the team domain (`<team>.cloudflareaccess.com`, from Zero Trust → Settings) and I'll make the four-line `wrangler.toml` edit and redeploy. That's config, so no ticket.
+
+While you're in there: `apps/control-app/ACCESS.md` still documents the old *Overview* path and some `bin/smoke` flags that don't exist. Say the word and I'll correct it — docs-only, commits directly.
+
+Sources: [Validate JWTs — Cloudflare One](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/) · [Application token](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/)
 
 <!-- xgd-chat-end -->
