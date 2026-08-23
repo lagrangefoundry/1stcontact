@@ -19,6 +19,7 @@ fields:
     main_sha: null
   version: 0.1.32
   bundled_in: bundle-e59210c5
+  chat_comment: comment-0891bc1f
 ---
 
 # L1 tooling configuration over the control surface API
