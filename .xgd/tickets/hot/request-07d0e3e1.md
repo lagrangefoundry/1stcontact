@@ -37,6 +37,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.137
+  chat_comment: comment-bfd601b7
 ---
 
 ## Goal
