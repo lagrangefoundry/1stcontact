@@ -17,6 +17,7 @@ fields:
   - REQ-143
   auto_merge_back: true
   needs_review: true
+  chat_comment: comment-2b271313
 ---
 
 # Capture in workerd: a ReferenceStore port, with the filesystem behind it
