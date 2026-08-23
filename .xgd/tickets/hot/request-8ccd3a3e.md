@@ -17,6 +17,7 @@ fields:
   - cf37056212f3f7908d463764b4db4a0db7747d48
   version: 0.0.33
   bundled_in: bundle-adc60ee8
+  chat_comment: comment-8f9135e0
 ---
 
 ## Behavior
