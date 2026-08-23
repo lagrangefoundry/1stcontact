@@ -22,6 +22,7 @@ fields:
   version: 0.0.172
   story_points: 2
   bundled_in: bundle-cceaba25
+  chat_comment: comment-6f4f1ffa
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). **Must land before the folder emits any
