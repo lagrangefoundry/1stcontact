@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T00:28:41.132379+00:00'
+updated_at: '2026-08-23T00:30:25.851157+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1515,5 +1515,56 @@ Exit status 2
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="93029842-d1a1-44e0-9b14-183a039a4299-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T00:30:25.749657+00:00" -->
+#### Claude
+Let me check the actual state — I merged a fix for exactly this, so either it didn't land or something reverted it.
+
+The fix is present (`render.ts:35` imports from `assemble`) and `apps/control-app` typechecks clean. Your paste predates the merge. Let me confirm the whole build passes in your checkout now.
+
+Different error, and this is the real one — the earlier paste was pre-merge. Let me find why pnpm wants to purge.
+
+Root `node_modules` has only 8 entries but `package.json` declares 10 top-level devDependencies — `astro`, `vitest`, `wrangler` and `yaml` have no top-level links. That's the inconsistency pnpm wants to resolve.
+
+Two different failures, and the first one is already gone.
+
+## Your paste predates the fix
+
+`render.ts:35` now imports `LoadedSite` from `assemble`, and `apps/control-app` typechecks **clean** (exit 0) at HEAD `932f362e4`. Those five `node:fs` errors are fixed and merged — the terminal output you pasted was from before the merge landed.
+
+## The build now fails on something else
+
+```
+[ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY] Aborted removal of modules directory due to no TTY
+```
+
+`pnpm -r build` runs a dependency-status check, decides `node_modules` is out of sync with the manifests, and tries to reinstall — which means purging `node_modules` first. It asks for confirmation, and I have no TTY, so it aborts.
+
+The drift is real: root `package.json` declares `astro: ^7.0.4` (still needed — `vitest.node.config.mts` imports `astro/config`), but there's no `node_modules/astro` link. Same class as the `vite` problem, and from the same commit that swapped one for the other.
+
+**You have a TTY, so this is a one-liner:**
+
+```bash
+pnpm install     # answer 'y' to the purge prompt
+```
+
+or non-interactively:
+
+```bash
+CI=true pnpm install
+```
+
+It reinstalls from `pnpm-lock.yaml`, so it needs network but changes nothing tracked. The out-of-band webui components live in `/Users/martin/lagrangefoundry/node_modules/`, outside this repo, so the purge won't touch them — and `1c preflight` verifies them at the top of every build if you want the reassurance.
+
+## Then
+
+```bash
+bin/build
+bin/deploy --dry-run
+```
+
+Worth saying plainly: neither of these two build failures came from REQ-149. The `node:fs` one predated it (I found and fixed it because it blocked your deploy); this one is `node_modules` drifting from a manifest change in `258381e2d`. Your actual blocker for deploying is still the Cloudflare token permissions.
 
 <!-- xgd-chat-end -->
