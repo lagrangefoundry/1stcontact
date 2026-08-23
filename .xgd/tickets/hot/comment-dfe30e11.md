@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T23:40:41.185292+00:00'
+updated_at: '2026-08-23T23:43:00.147968+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -171,5 +171,44 @@ Also still open: BUG-36's original tenant fix (collapse `storeFor`/`storeForImpo
 <!-- xgd-chat role="user" ts="2026-08-23T23:40:40.901112+00:00" -->
 #### You
 That's ok you run it
+
+<!-- xgd-turn id="24b1baeb-b9bd-4dd5-b68a-6ac12c199dbf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T23:42:59.970425+00:00" -->
+#### Claude
+Provisioning now — the secret goes into a shell variable and is filtered out of everything printed:
+
+Token and policy created. The secret only lives inside a single shell invocation, so rotating and publishing together:
+
+`fetch failed` was my sandbox's proxy — Node's fetch ignores `HTTPS_PROXY` unless told. With `NODE_USE_ENV_PROXY=1` it reaches Access and gets the expected 302. Retrying the publish:
+
+Import landed: **1 tenant, 1 site, 2 pages, 9 assets** in production D1. Now finishing the protocol — full suite with structured output so I can compare against the base:
+
+The publish path is proven end to end. While the suite runs, here's what happened:
+
+**Provisioned and published successfully.**
+
+```
+Token       created '1stcontact-publish'
+Policy      created policy 'service token — 1stcontact-publish'
+pushed xgd → https://app.1stcontact.io
+  pages   2 (home.json, whitepapers.json)
+  assets  9
+  site.json yes
+```
+
+Production D1 now reads `tenants=1, sites=1, pages=2, assets=9`. **Reload app.1stcontact.io — the builder should come up with the `xgd` site in it**, not an empty list.
+
+**Your credential.** The secret never entered this transcript — provisioning and publishing ran as one shell invocation with it held in a variable and filtered out of everything echoed. The side effect is that you don't hold a copy either. When you want one in your password manager:
+
+```bash
+bin/access-token --rotate
+```
+
+That issues a fresh secret and prints it in your own terminal. The client id isn't a secret: `29edd0e0ede45619455f21128c7b88ce.access`.
+
+**A third finding, worth knowing about.** The first publish attempt died with a bare `fetch failed`. Not Access, and not the code — Node's global `fetch` ignores `HTTP_PROXY`/`HTTPS_PROXY` unless told, and my sandbox routes everything through a proxy. `NODE_USE_ENV_PROXY=1` fixed it. I deliberately did *not* bake that into `bin/publish`: it's a property of my network, not of publishing. It's recorded on the ticket because the symptom — no status, no URL, just `fetch failed` — is otherwise indistinguishable from the site being down.
+
+Still to do: full-suite comparison against base, then the `[FREE-CODED]` commit and ticket status. And BUG-36's original tenant fix is still scoped-but-uncoded, waiting on your confirm — worth noting that the manual `INSERT` I did earlier is the only reason a fresh deployment works right now.
 
 <!-- xgd-chat-end -->
