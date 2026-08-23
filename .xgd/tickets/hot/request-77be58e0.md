@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.0.63
+  chat_comment: comment-83adea6d
 ---
 
 ## Scope
