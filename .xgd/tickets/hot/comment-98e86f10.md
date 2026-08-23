@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:07:09.146221+00:00'
+updated_at: '2026-08-23T21:16:40.033168+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2190,5 +2190,13 @@ Then say the word and I'll run the deploy and verify the hostname returns a logi
 ## One thing to expect at the login screen
 
 The policy allows **`martin-github@westhead.me`** — not the `martin-cloudflaire@` address that owns the account. That's the address to enter for the one-time PIN. Say if you'd rather it were a different one; it's a one-line API change and a matching edit to the identity table in `ACCESS.md`.
+
+<!-- xgd-turn id="0ca3cfee-b53a-4718-89e9-5fe36f181279-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T21:16:39.920105+00:00" -->
+#### You
+These custom tokens are driving me crazy - I want one token that lets us (you) do everything we need. You know its possible to take least privilidges too far.
+
+I need a token I can share with you that gives us admin access to all this stuff - can we do it right, once, please?
 
 <!-- xgd-chat-end -->
