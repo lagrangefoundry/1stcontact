@@ -23,6 +23,7 @@ fields:
     main_sha: null
   version: 0.1.31
   bundled_in: bundle-e59210c5
+  chat_comment: comment-2e8da8c2
 ---
 
 ## What this builds
