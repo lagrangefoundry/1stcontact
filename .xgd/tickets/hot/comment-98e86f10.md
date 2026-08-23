@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T00:56:17.949601+00:00'
+updated_at: '2026-08-23T02:05:55.894969+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1697,5 +1697,13 @@ A **503** from `app.1stcontact.io`, and that's correct — not a new problem. `A
 <!-- xgd-chat role="user" ts="2026-08-23T00:56:17.836439+00:00" -->
 #### You
 The record is added - but just to be clear I was expecting to have to login to cloudflare to access this - it must not be publicly visible
+
+<!-- xgd-turn id="06011155-b38d-4140-af10-e78361863d89-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T00:56:39.307864+00:00" -->
+#### Claude
+Let me verify what it's actually doing now that DNS resolves.
+
+My sandbox can't resolve that host (its DNS is blocked — `1stcontact.io` only worked via a cached proxy path), so probe it from your machine. But your question I can answer definitively from the code.
 
 <!-- xgd-chat-end -->
