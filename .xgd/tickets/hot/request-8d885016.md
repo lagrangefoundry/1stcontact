@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.0.136
   bundled_in: bundle-31e474b9
+  chat_comment: comment-b082d2cd
 ---
 
 ## Goal
