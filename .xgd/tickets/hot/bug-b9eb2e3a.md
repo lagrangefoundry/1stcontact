@@ -21,6 +21,7 @@ fields:
     main_sha: null
   version: 0.0.178
   bundled_in: bundle-cceaba25
+  chat_comment: comment-d296ef9d
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). This is the mechanism that makes
