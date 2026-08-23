@@ -13,6 +13,7 @@ status: null
 fields:
   doc_kind: architecture
   system_kb: true
+  chat_comment: comment-32293ac9
 ---
 
 Research report, commissioned via a 10-agent Workflow research pass (3 parallel sourcing agents + synthesis), 2026-08-10. Source material: agency "why hire us" pages, freelance/agency pricing surveys and published pricing pages, and existing AI-website-builder pricing pages (Wix, Squarespace, Framer, Durable, 10Web, Dorik, Hostinger, B12). Commissioned from the [[CHAT-134]] strategy discussion — companion to [[DOC-31]] (design differentiation audit). Feeds the pricing/packaging decision in that discussion; see [[CHAT-134]] for 1stcontact's own unit-economics follow-up, which this report explicitly does not attempt.
