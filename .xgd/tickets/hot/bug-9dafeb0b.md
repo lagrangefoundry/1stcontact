@@ -22,6 +22,7 @@ fields:
   version: 0.0.187
   story_points: 2
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-c51b7259
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). Surfaced in the gigabytealchemy round:
