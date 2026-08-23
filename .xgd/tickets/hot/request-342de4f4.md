@@ -24,6 +24,7 @@ fields:
   - d4fd3f7d1b5a7c9d0db9beef0cbc55b7828016af
   version: 0.0.39
   bundled_in: bundle-adc60ee8
+  chat_comment: comment-ee713574
 ---
 
 ## Scope
