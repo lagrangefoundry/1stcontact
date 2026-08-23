@@ -60,6 +60,7 @@ fields:
   version: 0.1.23
   story_points: 4
   bundled_in: bundle-15c1f647
+  chat_comment: comment-40779c8d
 ---
 
 ## What this builds
