@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T21:59:10.719266+00:00'
+updated_at: '2026-08-23T22:14:07.903963+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2401,5 +2401,84 @@ Then publish from the builder toolbar. Expect the Access service-token defect I 
 <!-- xgd-chat role="user" ts="2026-08-23T21:59:10.630993+00:00" -->
 #### You
 Can you fix the deploy script so it doesn't require the anthropic key if there's one in place?
+
+<!-- xgd-turn id="a863f571-6ea6-4047-ba25-97e8e5a917c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T22:14:07.742103+00:00" -->
+#### Claude
+Let me read the ticket and understand the existing test conventions before changing anything.
+
+`tests/deploy-workflow.test.ts` already exists — let me match its conventions.
+
+Now let me confirm how `wrangler secret list` reports, so the check is built on real output.
+
+Prior REQ-149 commits landed directly on `xgd-working`; this is a small contained change, so same path. Marking work started:
+
+Now the hook. Writing the new version:
+
+Hook syntax is clean. Now a UAT that exercises all four decision paths against a stubbed `wrangler` — no network, no real secret:
+
+All 7 pass. Now the real proof — the actual command that failed before, with nothing exported:
+
+Works against the real store. Updating the README, since it documents the hook contract and still shows the old pattern:
+
+Now the ticket. Appending the commit and updating the body:
+
+Ticket body next — reading the tail so I append rather than replace:
+
+The gate is still running. Waiting on it.
+
+"Version already published" — let me find which ticket claimed 0.2.8 rather than guess.
+
+No other ticket holds 0.2.8. Let me read the gate's actual check rather than guess at it.
+
+Understood — the tip is the ticket auto-commit that landed on top of my fix, so the version claim needs to sit on a commit the ticket owns. Same bookkeeping as last time. Fixing the body note first, so no edit lands after the gate:
+
+Tip is now the ticket's own commit. Running the gate:
+
+Ticket is at `free_coded`. Final check — tests plus the real command, and a clean tree:
+
+Done. `bin/deploy` now runs from a fresh shell.
+
+## The guard was asking the wrong question
+
+The rule is "never deploy a control app that cannot take a turn" — that's a statement about the **store**, not about your shell. The hook tested the shell, and `${ANTHROPIC_API_KEY:?...}` can't tell "this credential doesn't exist" from "this credential exists and isn't in front of me right now." So it demanded you re-supply a value Cloudflare had held for weeks, in order to overwrite it with itself.
+
+Worse, it pushed you toward calling `wrangler deploy` directly — which skips the migrate hook too. The guard's own failure mode, reached by a different route. That's exactly what I did last turn.
+
+## The decision table
+
+| The value is | The Worker | Outcome |
+|---|---|---|
+| in your environment | either way | **push** — supplying a value is how a rotation is expressed |
+| absent | already holds the name | **keep** — reported, nothing overwritten |
+| absent | doesn't hold it | **fail** before anything uploads |
+| absent | couldn't be read at all | **fail**, naming the unread store |
+
+Only a *positive* read satisfies it: the store answered, and the name was in the answer. A `secret list` that fails for any reason — no such Worker on a first deploy, no network, a token without Workers Scripts read — counts as absent. The failure being guarded against is a confident skip based on an answer nobody actually got.
+
+Two things that keep the cost at zero: the probe isn't called at all when your environment has the value, so the common path adds no round-trip and no new token permission; and CI is untouched, since `deploy.yml` calls `wrangler deploy` directly and never runs these hooks.
+
+`--dry-run` now reaches the same decision by the same route **including the failure** — a rehearsal that passed while the real deploy would abort wasn't a rehearsal.
+
+## Verified both ways
+
+```
+$ bin/deploy --dry-run control-app          # nothing exported
+    ANTHROPIC_API_KEY already on 1stcontact-control-app — would leave it
+
+$ ANTHROPIC_API_KEY=… bin/deploy --dry-run control-app
+    would push ANTHROPIC_API_KEY to 1stcontact-control-app
+```
+
+7 UATs in `tests/test_UAT_FC_REQ-149_deploy_secret_hook.test.ts`, all passing. They drive the hook as a subprocess against a stubbed `npx` first on `PATH` — that stub is what makes this testable at all, since the absent-locally/present-remotely branch can't be reached by a test holding a real credential and mustn't require one. Coverage: the four outcomes, both rehearsal outcomes plus the rehearsed failure, the standing "never print the value" rule, and `public-site` exiting before it even looks at the store.
+
+## Ticket
+
+REQ-149 is at `free_coded`, version 0.2.9, six commits recorded. The gate rejected 0.2.8 first — the tip of `xgd-working` was the ticket auto-commit for my own body update, so the version sat on a commit the ticket didn't own. Same bookkeeping the previous increment hit, same remedy: a second commit carrying the bump alone. Body updated to describe the increment as it landed, with acceptance criteria 13–16.
+
+Two notes on what I changed beyond the hook: I also updated `bin/deploy.d/secrets/README.md`, since it documents the hook contract for future secrets and still showed the old environment-only pattern — leaving it would have propagated the bug into the next hook someone writes. And the version bump is the project's per-cycle convention, not a release decision.
+
+The builder itself is still waiting on you to sign in at `app.1stcontact.io` as `martin-github@westhead.me`.
 
 <!-- xgd-chat-end -->
