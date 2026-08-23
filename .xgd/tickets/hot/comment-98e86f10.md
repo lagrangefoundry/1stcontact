@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T19:56:26.395940+00:00'
+updated_at: '2026-08-23T19:59:09.012179+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1864,5 +1864,80 @@ If you still get **503**, the vars didn't reach the deployed Worker — the resp
 <!-- xgd-chat role="user" ts="2026-08-23T19:56:26.255788+00:00" -->
 #### You
 I see no interface to pick a team name - can you please check your instructions against the latest UI
+
+<!-- xgd-turn id="6b7b2e58-f304-4796-86d2-3fd4cc86929d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T19:59:08.712430+00:00" -->
+#### Claude
+I'll check the current docs rather than reason from memory.
+
+Checked against the current docs — my instructions were written against the old nav, and the dashboard has been reorganised since. Two things changed, and one of them explains exactly what you're seeing.
+
+## Why there's no team-name prompt
+
+The team name is only offered **once, on the Zero Trust onboarding screen**, the first time the account ever opens Zero Trust. If you're not seeing it, this account has already been onboarded — a team name exists, and you need to *read* it, not create it.
+
+That fits what I found earlier: I said no team name was recorded anywhere in the repo, and inferred none existed. Wrong inference — the repo just never recorded it.
+
+**Find it:** `https://one.dash.cloudflare.com/` → **Settings**. It's shown as your team name plus the full team domain `<team>.cloudflareaccess.com`.
+
+Alternative path if Settings doesn't surface it: **Zero Trust → Reusable components → Custom pages → Team name and domain**. Same value, and that's also where you'd change it.
+
+The full string — `<team>.cloudflareaccess.com`, not the bare name — is what goes into `ACCESS_TEAM_DOMAIN`.
+
+If you genuinely land on an onboarding wizard instead, then it *hasn't* been onboarded, and the wizard asks for the team name first and a plan + payment method second (Free plan still requires a card on file; you aren't charged).
+
+## The corrected Access application steps
+
+My step 2 was also stale. Current flow:
+
+**Zero Trust → Access controls → Applications** (it used to be just "Access → Applications")
+
+1. **Create new application** — not "Add an application"
+2. **Self-hosted and private**
+3. **Add public hostname**
+4. **Domain** dropdown → `1stcontact.io`; subdomain `app`; leave path empty
+5. Under **Access policies**, create a policy: Action **Allow**, Include → selector **Emails** → `martin-github@westhead.me`
+
+   Use *Emails*, not *Emails ending in* — a domain rule grants everyone who ever holds an address there, including people who don't exist yet.
+6. Leave **One-time PIN** enabled as the login method — that emails you a code, so no IdP setup
+7. **Session Duration** → 24 hours
+8. **Create**
+
+## The AUD tag moved too
+
+Not on an Overview tab any more. After creating the app:
+
+**Access controls → Applications → Configure** on your app → **Additional settings** → copy **Application Audience (AUD) Tag** (64 hex chars).
+
+It never changes unless you delete and recreate the application.
+
+## Then the edit
+
+Same as before — four lines in `apps/control-app/wrangler.toml`, **both** blocks, since a named environment inherits no vars:
+
+```toml
+# lines 70-71, top-level [vars]
+ACCESS_TEAM_DOMAIN = "<team>.cloudflareaccess.com"
+ACCESS_AUD = "<64 hex chars>"
+
+# lines 115-116, [env.production.vars]
+ACCESS_TEAM_DOMAIN = "<team>.cloudflareaccess.com"
+ACCESS_AUD = "<64 hex chars>"
+```
+
+Then `bin/deploy` and:
+
+```bash
+curl -sSI https://app.1stcontact.io/ | head -1     # expect 302 → <team>.cloudflareaccess.com/cdn-cgi/access/login/...
+```
+
+Give me the two values and I'll make the edit and deploy — it's config, so no ticket needed.
+
+---
+
+`apps/control-app/ACCESS.md` carries these same stale paths (it says *Settings → Custom Pages* for the team domain and *the app → Overview* for the AUD), plus the `bin/smoke --control-origin` flags that don't exist. Want me to correct that file while you're in the dashboard? Documentation-only, so it commits directly.
+
+Sources: [Get started — Cloudflare One](https://developers.cloudflare.com/cloudflare-one/setup/) · [Getting started FAQ](https://developers.cloudflare.com/cloudflare-one/faq/getting-started-faq/) · [Self-hosted public app](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/) · [Validate JWTs](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)
 
 <!-- xgd-chat-end -->
