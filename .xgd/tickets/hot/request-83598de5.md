@@ -19,6 +19,7 @@ fields:
     main_sha: null
   version: 0.0.47
   bundled_in: bundle-df065afc
+  chat_comment: comment-5fbbf487
 ---
 
 ## Goal
