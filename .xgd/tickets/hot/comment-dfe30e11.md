@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T22:24:23.925160+00:00'
+updated_at: '2026-08-23T23:01:58.289904+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -127,5 +127,11 @@ I'd go with A — B's convenience is one command's worth, and it buys it by putt
 Either way `push.ts` changes, so this is a code change under the free-coding protocol, and it's finding #2 — not the tenant bug this session is scoped to. Tell me which shape, and whether to fold it into BUG-36 or file it separately.
 
 Separately, still open from before: BUG-36's own scope (collapse `storeFor`/`storeForImport` into one opener that ensures the configured tenant on the cold path) is drafted and waiting on your confirm before I cut the branch.
+
+<!-- xgd-turn id="b2ac6600-4b79-4701-8018-ea069204cb0c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T23:01:58.123021+00:00" -->
+#### You
+Lets do A
 
 <!-- xgd-chat-end -->
