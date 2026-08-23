@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-22T23:53:15.647623+00:00'
+updated_at: '2026-08-23T00:23:18.876460+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1431,5 +1431,33 @@ Exit status 2
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="4499d6aa-e274-4728-b95f-83dba806626c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-23T00:23:18.745362+00:00" -->
+#### Claude
+These are the five errors I've been filtering out as pre-existing all session — I confirmed at the start (with my work stashed) that they exist on the base commit too. But they *gate the build*, so they're in your way now. Let me find the actual cause.
+
+Cause confirmed: `render.ts` imports the type `LoadedSite` from `loadSite.ts`, but it's actually **defined** in `assemble.ts`. `loadSite.ts` only re-exports it — while dragging `node:path`, `node:fs` and `paths.ts` into a Worker type program that has no node types. Let me test the one-line fix.
+
+All five clear with a one-line change, and it's type-only so there's no runtime effect. Verifying it doesn't disturb anything else:
+
+`bin/build` passes end to end now — both Workers bundle. Let me do this properly under the protocol. First, is there an existing boundary test to extend?
+
+No precedent for shelling out to `tsc`, and the repo prefers static walks. Let me read the existing resolver so my test matches the house style.
+
+Now the protocol. Reopening REQ-149 and moving the fix onto a branch.
+
+Now the essential check — does the test actually catch the bug it was written for?
+
+The test fails with the exact import chain named. Restoring the fix and verifying everything.
+
+Fresh-worktree bootstrap issue (generated files absent). Let me build assets first.
+
+The run hit my 10-minute cap in a cold worktree. Since the change is type-only (erased at runtime, and `tsc` confirms both paths resolve to the same interface), let me verify with a targeted subset rather than burn another full pass.
+
+Merge landed. The ticket command is hanging — let me check state.
+
+Promotion exited 0 but didn't take. Let me see the full output.
 
 <!-- xgd-chat-end -->
