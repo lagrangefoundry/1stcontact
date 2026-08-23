@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.4
+  chat_comment: comment-869ded75
 ---
 
 # Money and time representation: the constraints, and the render-determinism resolution
