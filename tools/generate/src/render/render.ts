@@ -25,7 +25,14 @@ import {
 import type { BehaviorDefinition } from '@1stcontact/framework/worker'
 import { resolveSiteLocale } from '@1stcontact/site-schema'
 import type { Page, ResolvedLocale, Site } from '@1stcontact/site-schema'
-import type { LoadedSite } from '../store/loadSite'
+// From `assemble`, which DEFINES `LoadedSite`, not from `loadSite`, which merely
+// re-exports it while importing `node:path` and the filesystem helpers. A
+// type-only import is erased before a bundler sees it, so the Worker's BUNDLE
+// was always fine — but it is not erased before `tsc`, and control-app's
+// tsconfig carries no node types, so re-exporting through the filesystem module
+// put `node:fs` and `node:path` in a Worker's TYPE program and failed its build.
+// Import a type from where it is declared (REQ-149).
+import type { LoadedSite } from '../store/assemble'
 
 /**
  * Resolve a module instance's `type` + `version` to its renderable definition.
