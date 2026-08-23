@@ -24,6 +24,7 @@ fields:
   version: 0.0.179
   story_points: 8
   bundled_in: bundle-cceaba25
+  chat_comment: comment-fcc262b5
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). The folder is the **narrowest link**;
