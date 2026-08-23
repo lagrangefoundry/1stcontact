@@ -14,6 +14,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-bf3e29de
 ---
 
 # An image generation component — one internal API, several providers behind it
