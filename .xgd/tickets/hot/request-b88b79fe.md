@@ -17,6 +17,7 @@ fields:
   - REQ-147
   auto_merge_back: true
   needs_review: true
+  chat_comment: comment-ec45248c
 ---
 
 # The headless browser in the cloud: a Browser Rendering driver behind the existing seam
