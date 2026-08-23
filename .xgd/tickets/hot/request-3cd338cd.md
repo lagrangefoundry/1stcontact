@@ -21,6 +21,7 @@ fields:
   version: 0.1.12
   story_points: 13
   bundled_in: bundle-0385746c
+  chat_comment: comment-a3fa692b
 ---
 
 ## What this builds
