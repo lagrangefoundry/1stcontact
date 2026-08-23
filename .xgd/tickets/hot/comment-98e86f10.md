@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T22:14:07.903963+00:00'
+updated_at: '2026-08-23T22:19:55.521968+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2480,5 +2480,11 @@ REQ-149 is at `free_coded`, version 0.2.9, six commits recorded. The gate reject
 Two notes on what I changed beyond the hook: I also updated `bin/deploy.d/secrets/README.md`, since it documents the hook contract for future secrets and still showed the old environment-only pattern — leaving it would have propagated the bug into the next hook someone writes. And the version bump is the project's per-cycle convention, not a release decision.
 
 The builder itself is still waiting on you to sign in at `app.1stcontact.io` as `martin-github@westhead.me`.
+
+<!-- xgd-turn id="4a1c2c28-7ed4-4b4d-b395-722b69b30138-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T22:19:55.358205+00:00" -->
+#### You
+I am signed in - see BUG-36 I get a 503 - no tenant - BUG-36 agent is working on it
 
 <!-- xgd-chat-end -->
