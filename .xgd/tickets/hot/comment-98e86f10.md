@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T00:40:47.818736+00:00'
+updated_at: '2026-08-23T00:52:47.680345+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1630,5 +1630,16 @@ Then:
 Then `https://1stcontact.io/site/xgd/` serves the same page you saw on `localhost:8789`.
 
 Nothing you've done locally is lost or wasted — the local store is a full working environment, it's just a separate one. `bin/publish --production` is the bridge.
+
+<!-- xgd-turn id="3c49e5ab-c953-41ed-b3a9-1cd9160f0efb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T00:52:47.571937+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % curl app.1stcontact.io
+curl: (6) Could not resolve host: app.1stcontact.io
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
