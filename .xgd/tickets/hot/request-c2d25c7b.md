@@ -70,6 +70,7 @@ fields:
     main_sha: null
   version: 0.0.131
   bundled_in: bundle-ab9e0cb6
+  chat_comment: comment-69a7aea9
 ---
 
 ## Goal
