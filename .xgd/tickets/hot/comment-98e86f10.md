@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T00:53:23.112677+00:00'
+updated_at: '2026-08-23T00:56:17.949601+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1691,5 +1691,11 @@ The one thing I'd want to verify before recommending it outright: public-site ho
 ## What you'll see next
 
 A **503** from `app.1stcontact.io`, and that's correct — not a new problem. `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are still `""`, and empty means deny; the Worker refuses everything rather than serving the builder unauthenticated. Configuring Access is the next step after DNS.
+
+<!-- xgd-turn id="06011155-b38d-4140-af10-e78361863d89-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T00:56:17.836439+00:00" -->
+#### You
+The record is added - but just to be clear I was expecting to have to login to cloudflare to access this - it must not be publicly visible
 
 <!-- xgd-chat-end -->
