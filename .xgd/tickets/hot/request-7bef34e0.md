@@ -25,6 +25,7 @@ fields:
     - cd6f00c6e0802569098bbfccc0befd33bc9d78b4
   version: 0.1.50
   bundled_in: bundle-77b28def
+  chat_comment: comment-5dcdad31
 ---
 
 # Build, deploy and smoke-test scripts — and the `[vars]` bug that makes production 503
