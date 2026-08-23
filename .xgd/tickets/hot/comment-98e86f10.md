@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T20:11:49.424652+00:00'
+updated_at: '2026-08-23T20:12:29.184883+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2005,5 +2005,15 @@ That lands on the applications list directly.
 **Or skip the dashboard for the AUD entirely.** Create a token at `dash.cloudflare.com/profile/api-tokens` (Custom token → `Access: Apps` → Read), and the curl I sent prints every app's AUD and hostname. One stable page, no hunting.
 
 If the apps list comes up empty, that answers it too — the application was never created, only a policy, and there's no AUD to find yet.
+
+<!-- xgd-turn id="5448206a-bfc4-43a3-be79-e0e42e68b6d3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T20:12:29.061605+00:00" -->
+#### You
+This is brutal - all your instructions are for a different version of the WebUI you have no idea how painful this is
+
+When I try to access `app.1stcontact.io/`  I get:
+
+Cloudflare Access is not configured: ACCESS_TEAM_DOMAIN and ACCESS_AUD are empty. This Worker refuses every request until it can verify one — see apps/control-app/ACCESS.md.
 
 <!-- xgd-chat-end -->
