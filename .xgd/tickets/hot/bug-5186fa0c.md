@@ -21,6 +21,7 @@ fields:
     main_sha: null
   version: 0.0.190
   bundled_in: bundle-4ff83a8b
+  chat_comment: comment-5d1f9d7e
 ---
 
 Scope under [[request-7ff1bacd]] (REQ-88). From the round-3 gigabytealchemy
