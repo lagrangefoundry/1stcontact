@@ -21,6 +21,7 @@ fields:
   version: 0.0.167
   story_points: 4
   bundled_in: bundle-31e474b9
+  chat_comment: comment-be9974ae
 ---
 
 Part of the framework pivot — see **REQ-79 (request-87b26bca)**. The end-to-end validation; do last.
