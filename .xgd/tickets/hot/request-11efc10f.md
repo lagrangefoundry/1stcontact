@@ -21,6 +21,7 @@ fields:
   version: 0.0.160
   story_points: 5
   bundled_in: bundle-31e474b9
+  chat_comment: comment-6b8f7701
 ---
 
 Part of the framework pivot — see **REQ-79 (request-87b26bca)** for the full architecture decision, plan, and design (D1–D6).
