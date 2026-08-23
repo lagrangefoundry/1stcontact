@@ -24,6 +24,7 @@ fields:
   version: 0.1.43
   story_points: 13
   bundled_in: bundle-77b28def
+  chat_comment: comment-b9821b09
 ---
 
 # Palette popup: display, pick and edit the site's colors
