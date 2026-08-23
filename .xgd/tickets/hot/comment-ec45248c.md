@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-154
 created_by: xgd
 created_at: '2026-08-23T23:26:13.624723+00:00'
-updated_at: '2026-08-23T23:35:26.427907+00:00'
+updated_at: '2026-08-23T23:45:12.468419+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -64,5 +64,13 @@ That means AC2, AC3 and AC6 are provable in the existing workers project against
 1. **Option 4 (interception) vs option 1 (service token)** — contingent on that `setRequestInterception` check. If interception works, option 1's credential is unnecessary and I'd argue against holding it.
 2. **AC1's blast radius** — do we accept splitting `shot.ts` into a pure core plus a Node shell inside this ticket, or does that become its own scope?
 3. **Session budget** — does the CF driver reuse one browser across the viewport ladder (a `keepAlive`/`connect` shape), or does the ladder itself change? Either way AC6's "released on every path" needs restating, because "one driver, one session" is currently false for the biggest consumer.
+
+<!-- xgd-turn id="2e120256-d2bf-45dc-ac70-73aa97f18a90-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T23:45:12.334766+00:00" -->
+#### You
+1. ok lets go with 4
+   2. lets keep everything in this ticket
+   3. What do you think? If the browser can be reset reliably and it is cheaper to do so than restart it  ( I assume it would be ) then we should definitely reuse the browser rather than restarting it all the time
 
 <!-- xgd-chat-end -->
