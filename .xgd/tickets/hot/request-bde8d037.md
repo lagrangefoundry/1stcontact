@@ -20,6 +20,7 @@ fields:
   version: 0.0.175
   story_points: 2
   bundled_in: bundle-cceaba25
+  chat_comment: comment-aef5f38c
 ---
 
 # Astro boots on every `1c` command — silence `Missing pages directory: src/pages`
