@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-149
 created_by: xgd
 created_at: '2026-08-18T01:34:34.192504+00:00'
-updated_at: '2026-08-23T19:59:09.012179+00:00'
+updated_at: '2026-08-23T20:03:22.799181+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1939,5 +1939,11 @@ Give me the two values and I'll make the edit and deploy — it's config, so no 
 `apps/control-app/ACCESS.md` carries these same stale paths (it says *Settings → Custom Pages* for the team domain and *the app → Overview* for the AUD), plus the `bin/smoke --control-origin` flags that don't exist. Want me to correct that file while you're in the dashboard? Documentation-only, so it commits directly.
 
 Sources: [Get started — Cloudflare One](https://developers.cloudflare.com/cloudflare-one/setup/) · [Getting started FAQ](https://developers.cloudflare.com/cloudflare-one/faq/getting-started-faq/) · [Self-hosted public app](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/) · [Validate JWTs](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)
+
+<!-- xgd-turn id="0550078f-b6c8-4a6c-920e-2fa581f0dbd1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-23T20:03:22.650549+00:00" -->
+#### You
+ok I am muddling through - I can't finf the AUD TAG only a Policy Id
 
 <!-- xgd-chat-end -->
