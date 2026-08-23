@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-e2cd0ddf
 ---
 
 ## Summary
