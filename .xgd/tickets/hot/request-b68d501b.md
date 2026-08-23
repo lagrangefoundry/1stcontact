@@ -18,6 +18,7 @@ fields:
   version: 0.0.32
   story_points: 4
   bundled_in: bundle-adc60ee8
+  chat_comment: comment-ab756572
 ---
 
 ## Goal
