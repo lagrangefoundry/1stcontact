@@ -20,6 +20,7 @@ fields:
     main_sha: null
   version: 0.1.6
   bundled_in: bundle-e0143ffa
+  chat_comment: comment-b97d8fa1
 ---
 
 ## The gap
