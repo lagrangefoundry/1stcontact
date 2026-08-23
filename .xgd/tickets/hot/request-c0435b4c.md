@@ -20,6 +20,7 @@ fields:
   version: 0.0.211
   story_points: 3
   bundled_in: bundle-ee56a66e
+  chat_comment: comment-f4d684d3
 ---
 
 ## The gap
