@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:25:10.855082+00:00'
+updated_at: '2026-08-24T21:25:59.617239+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -163,5 +163,37 @@ ok I just upgraded to a paid plan (there was a 10ms limit). Am I good?
 <!-- xgd-chat role="user" ts="2026-08-24T21:25:10.754097+00:00" -->
 #### You
 ok I just upgraded to a paid plan (there was a 10ms limit). Am I good? It seems to work
+
+<!-- xgd-turn id="50296815-5a12-4b76-95ca-d687823c55d5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T21:25:59.526333+00:00" -->
+#### Claude
+Yes — that was it, and my 94 ms inference was wrong. The free plan's 10 ms ceiling is exactly the right size to explain this: I measured **~78 ms CPU per preview request**, which blows a 10 ms limit by ~8×, on every single request. That matches the "100% reproducible" report precisely. Whatever the 94 ms figure was, it wasn't the killed request's CPU.
+
+The upgrade takes you from 10 ms to the paid default of 30 s — about 3,000× headroom on a request that needs 78 ms. So the outage is genuinely resolved, not papered over.
+
+One thing worth knowing: on the free plan, *everything* was marginal, not just Edit. `/api/sites`, `/api/copy`, publish — all of them route through the same `loadDraft`, all of them were over 10 ms. So the upgrade likely fixed things you hadn't attributed to this yet. (It also means "View worked" was probably browser caching — preview responses carry no `Cache-Control`, so View's already-loaded document was being reused while Edit was a fresh URL. That was the one fact I could never reconcile, and it's moot now.)
+
+## But BUG-37 isn't fixed — the ceiling moved, the waste didn't
+
+Both defects I measured are still live:
+
+- **~95% of every preview request is re-validating the site definition.** `assembleSite` costs 72–89 ms and runs on *every* request, and no cache in the current design can avoid it: `PreviewRenderer.file()` calls `store.loadDraft()` before consulting its cache, deliberately, so the stamp check stays a store read.
+- **The `PREVIEWS` WeakMap render cache is dead in the Worker** — confirmed empirically, five consecutive requests at ~77 ms with no amortisation. The Node/Worker divergence flagged at `builder.ts:103` is real and currently one-sided.
+
+Practical impact now that you won't 1102: it's a ~80 ms latency floor on every preview byte, paid twice per page load and again on every editor save round-trip. It scales linearly at ~18 ms per page, so a site 5× the size of `xgd` costs ~390 ms per request — still far under 30 s, so this won't recur as an outage, but the editor gets progressively less responsive as sites grow. Cost isn't a concern: the $5 plan's included 30M CPU-ms is ~385,000 preview requests.
+
+The fix I'd recommend is unchanged from my earlier note, and it's the one that actually matters — cache the *validated* definition keyed `(tenant, slug, version)`. `version` is already the stamp, so `siteRow` (~1 ms) still proves currency while the ~75 ms validation is skipped. That turns a 78 ms request into ~5 ms and subsumes the WeakMap re-keying entirely.
+
+## How do you want to play the ticket?
+
+Two reasonable options, and it's your call:
+
+1. **Close BUG-37 as resolved by the plan upgrade**, and open a separate performance ticket for the validation cost and the dead cache. Cleanest, since the reported symptom is gone and the remaining work is a different thing.
+2. **Keep BUG-37 open, re-scoped** to the performance defect, with the plan upgrade recorded as the mitigation.
+
+Either way I'd like to correct the ticket body — its leading hypothesis (dead render cache → memory exhaustion) is falsified, and the measurements should be on record so the next person doesn't re-derive them. Say the word and I'll update it, preserving the existing content.
+
+Separately, still worth doing regardless: adding `[observability]` (config-only, top level *and* `[env.production]`). You got lucky that this one was diagnosable from source and a plan page. The next one may not be.
 
 <!-- xgd-chat-end -->
