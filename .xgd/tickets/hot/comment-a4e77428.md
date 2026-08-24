@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:17:45.116114+00:00'
+updated_at: '2026-08-24T21:21:06.917943+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,11 @@ So the ticket's own prerequisite — add `[observability]` (top level *and* unde
 - **(2) bound what a render holds / (3) stream the edit render** — look unnecessary on these numbers.
 
 Two things I'd want before committing to a fix: the plan/CPU-limit answer, and the observability data. Shall I add the `[observability]` block (config-only, no ticket needed) so the next reproduction is actually readable?
+
+<!-- xgd-turn id="39fb6724-8afe-4724-93d6-8ec03320c46c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T21:21:06.858297+00:00" -->
+#### You
+I don't know if I am paying for this plan - can you check with the wrangler access you have
 
 <!-- xgd-chat-end -->
