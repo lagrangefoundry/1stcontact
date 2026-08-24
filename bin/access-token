@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+"""`bin/access-token` — provision the service token `bin/publish` authenticates with.
+
+WHY THIS SCRIPT EXISTS AT ALL. `app.1stcontact.io` is behind Cloudflare Access
+(REQ-147), and Access is an *identity* gate at the edge. It accepts exactly three
+things: a `CF_Authorization` cookie from a human's browser session, a client
+certificate, or a service token's `CF-Access-Client-Id` / `CF-Access-Client-Secret`
+pair. Automation has no browser, so automation needs a service token — and a
+service token has to be created before it can be used.
+
+WHAT IT IS NOT. It is not a login, it is not run on every publish, and it does not
+belong in `bin/deploy`. It is run ONCE by the operator, by hand, and its output
+goes into a password manager. A deploy that could mint credentials would be a
+deploy that could grant access, which is a much larger thing than shipping code.
+
+THE API TOKEN IS THE PROVISIONER, NEVER THE CREDENTIAL. `CLOUDFLARE_API_TOKEN`
+authenticates to `api.cloudflare.com`; it is not an Access credential and
+presenting it to `app.1stcontact.io` earns the same 302 to the login page as
+presenting nothing. So it is used here, to CREATE the service token, and never by
+`bin/publish`, which uses the service token itself. Conflating the two is the
+mistake this script exists to make impossible.
+
+THE SECRET IS SHOWN ONCE, BY CLOUDFLARE'S DESIGN. It is printed to stdout here
+and written to no file: not into this repository, not into a dotfile, not into a
+log. Losing it means rotating the token, which is cheap; leaking it means someone
+else can write to the builder's store, which is not.
+
+Usage:
+  bin/access-token                          # provision (idempotent)
+  bin/access-token --name 1stcontact-publish
+  bin/access-token --app app.1stcontact.io
+  bin/access-token --rotate                 # new secret for the existing token
+
+Environment:
+  CLOUDFLARE_API_TOKEN     required — needs Access: Service Tokens and
+                           Access: Apps and Policies, both Edit
+  CLOUDFLARE_ACCOUNT_ID    optional — inferred when the token sees one account
+
+Exit codes: 0 success; 1 anything else.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+API = "https://api.cloudflare.com/client/v4"
+
+DEFAULT_TOKEN_NAME = "1stcontact-publish"
+DEFAULT_APP_DOMAIN = "app.1stcontact.io"
+
+
+def die(message: str) -> "None":
+    print(f"bin/access-token: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def call(method: str, path: str, api_token: str, body: dict | None = None) -> dict:
+    """One Cloudflare API call, with its envelope unwrapped.
+
+    Cloudflare answers 200 with `success: false` for a refused operation as
+    readily as it answers 4xx, so BOTH are checked. A caller that only looked at
+    the HTTP status would treat "you may not do that" as a successful no-op.
+    """
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(
+        f"{API}{path}",
+        data=data,
+        method=method,
+        headers={
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read())
+    except urllib.error.HTTPError as err:
+        try:
+            payload = json.loads(err.read())
+        except Exception:
+            die(f"{method} {path} → HTTP {err.code}")
+        errors = "; ".join(e.get("message", "?") for e in payload.get("errors") or [])
+        die(f"{method} {path} → HTTP {err.code}: {errors or 'no detail'}")
+    except urllib.error.URLError as err:
+        die(f"{method} {path} → {err.reason}")
+    if not payload.get("success"):
+        errors = "; ".join(e.get("message", "?") for e in payload.get("errors") or [])
+        die(f"{method} {path} refused: {errors or 'no detail'}")
+    return payload
+
+
+def resolve_account(api_token: str) -> str:
+    """The account to provision in — named explicitly, or inferred only when unambiguous.
+
+    A token scoped to several accounts gets no guess. Picking the first would
+    provision against whichever account Cloudflare happened to list first, which
+    is a coin flip the operator never saw.
+    """
+    from_env = (os.environ.get("CLOUDFLARE_ACCOUNT_ID") or "").strip()
+    if from_env:
+        return from_env
+    accounts = call("GET", "/accounts", api_token).get("result") or []
+    if len(accounts) == 1:
+        return accounts[0]["id"]
+    if not accounts:
+        die("this API token can see no accounts — check its scope")
+    names = ", ".join(f"{a['name']} ({a['id']})" for a in accounts)
+    die(f"this API token sees {len(accounts)} accounts; set CLOUDFLARE_ACCOUNT_ID. Saw: {names}")
+    raise AssertionError("unreachable")
+
+
+def find_app(account: str, domain: str, api_token: str) -> dict:
+    """The Access application guarding `domain`, matched on the domain itself.
+
+    Not on the name, which is a label an operator can change in the dashboard
+    without meaning to change anything. The domain IS the application's identity
+    as far as this script is concerned, because it is what `bin/publish` posts to.
+    """
+    apps = call("GET", f"/accounts/{account}/access/apps", api_token).get("result") or []
+    for app in apps:
+        if (app.get("domain") or "").rstrip("/") == domain:
+            return app
+    known = ", ".join(a.get("domain") or "?" for a in apps) or "none"
+    die(f"no Access application for '{domain}'. Applications present: {known}")
+    raise AssertionError("unreachable")
+
+
+def find_token(account: str, name: str, api_token: str) -> dict | None:
+    tokens = call("GET", f"/accounts/{account}/access/service_tokens", api_token)
+    for token in tokens.get("result") or []:
+        if token.get("name") == name:
+            return token
+    return None
+
+
+def ensure_policy(account: str, app: dict, token_id: str, name: str, api_token: str) -> str:
+    """A Service Auth rule on the app that includes this token.
+
+    `decision: non_identity` is what makes it a Service Auth rule rather than an
+    identity one; an `allow` policy with a service-token include would ask Access
+    to check a human identity that a service token does not carry.
+
+    A SEPARATE POLICY, never an edit of the operator's. Widening the existing
+    `allow` rule would put a machine credential and a human identity in one
+    object, so revoking the automation would mean editing the rule that keeps the
+    operator logged in. Two rules revoke independently.
+    """
+    app_id = app["id"]
+    policies = call(
+        "GET", f"/accounts/{account}/access/apps/{app_id}/policies", api_token
+    ).get("result") or []
+    for policy in policies:
+        for rule in policy.get("include") or []:
+            if (rule.get("service_token") or {}).get("token_id") == token_id:
+                return f"already included by policy '{policy.get('name')}'"
+    created = call(
+        "POST",
+        f"/accounts/{account}/access/apps/{app_id}/policies",
+        api_token,
+        {
+            "name": f"service token — {name}",
+            "decision": "non_identity",
+            "include": [{"service_token": {"token_id": token_id}}],
+        },
+    )
+    return f"created policy '{created['result'].get('name')}'"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(add_help=True, description=__doc__.splitlines()[0])
+    parser.add_argument("--name", default=DEFAULT_TOKEN_NAME, help="service token name")
+    parser.add_argument("--app", default=DEFAULT_APP_DOMAIN, help="Access application domain")
+    parser.add_argument(
+        "--rotate",
+        action="store_true",
+        help="issue a new secret for an existing token (the old one stops working)",
+    )
+    args = parser.parse_args()
+
+    api_token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
+    if not api_token:
+        die(
+            "CLOUDFLARE_API_TOKEN is not set. It needs Access: Service Tokens (Edit) "
+            "and Access: Apps and Policies (Edit)."
+        )
+
+    account = resolve_account(api_token)
+    app = find_app(account, args.app, api_token)
+    print(f"Account     {account}")
+    print(f"Application {app.get('name')} ({args.app})")
+
+    existing = find_token(account, args.name, api_token)
+    secret: str | None = None
+
+    if existing and args.rotate:
+        token_id = existing["id"]
+        rotated = call(
+            "POST",
+            f"/accounts/{account}/access/service_tokens/{existing['id']}/rotate",
+            api_token,
+        )["result"]
+        client_id, secret = rotated["client_id"], rotated["client_secret"]
+        print(f"Token       rotated '{args.name}' — the previous secret no longer works")
+    elif existing:
+        token_id = existing["id"]
+        client_id = existing["client_id"]
+        print(f"Token       '{args.name}' already exists — not recreated")
+    else:
+        created = call(
+            "POST",
+            f"/accounts/{account}/access/service_tokens",
+            api_token,
+            {"name": args.name},
+        )["result"]
+        token_id = created["id"]
+        client_id, secret = created["client_id"], created["client_secret"]
+        print(f"Token       created '{args.name}'")
+
+    print(f"Policy      {ensure_policy(account, app, token_id, args.name, api_token)}")
+    print()
+
+    if secret is None:
+        # Cloudflare returns the secret only at creation and at rotation. Saying
+        # so plainly, with the one command that produces a fresh one, beats an
+        # operator hunting a dashboard field that does not exist.
+        print("The client secret is shown only when the token is created or rotated.")
+        print("If you no longer have it:")
+        print(f"    bin/access-token --rotate --name {args.name}")
+        print()
+        print(f"    export CF_ACCESS_CLIENT_ID='{client_id}'")
+        print("    export CF_ACCESS_CLIENT_SECRET=...   # from your password manager")
+        return 0
+
+    print("Put BOTH in your password manager now — Cloudflare will not show the")
+    print("secret again, and nothing here writes it to disk.")
+    print()
+    print(f"    export CF_ACCESS_CLIENT_ID='{client_id}'")
+    print(f"    export CF_ACCESS_CLIENT_SECRET='{secret}'")
+    print()
+    print("Then:  bin/publish --production <slug>")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

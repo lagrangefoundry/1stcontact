@@ -67,6 +67,7 @@ who ever holds an address at that domain, including people who do not exist yet.
 | Identity | Why | Added |
 |---|---|---|
 | `martin-github@westhead.me` (Martin Westhead, operator) | Sole operator of the platform; builds and publishes every site | REQ-147 |
+| `1stcontact-publish` (service token, `non_identity` policy) | `bin/publish` writing a site into the store from a developer machine; no human at the keyboard | BUG-36 |
 
 <!-- Append a row when an identity is added, and say WHY. A row removed here must also be removed
      from the Cloudflare policy — this table is the record, not a copy of one. -->
@@ -77,7 +78,34 @@ Anything calling `app.1stcontact.io` without a human at the keyboard needs an Ac
 **service token** (Zero Trust → Access → Service Auth), added to the application's policy as a
 *Service Auth* rule. The caller sends `CF-Access-Client-Id` and `CF-Access-Client-Secret`; Access
 exchanges them at the edge for a JWT carrying `common_name` instead of `email`, which
-`verifyAccessJwt` accepts on the same terms as a human identity.
+`verifyAccessJwt` accepts on the same terms as a human identity (`src/access.ts`, which reports it
+as `service-token:<name>`).
+
+Provision one — once, by hand, from an environment holding `CLOUDFLARE_API_TOKEN`:
+
+```bash
+bin/access-token                 # creates the token and its Service Auth policy
+bin/access-token --rotate        # a fresh secret, if the old one is lost
+```
+
+It prints the pair once and writes it nowhere. Then:
+
+```bash
+export CF_ACCESS_CLIENT_ID='…access'
+export CF_ACCESS_CLIENT_SECRET='…'
+bin/publish --production xgd
+```
+
+**The API token is the provisioner, never the credential.** `CLOUDFLARE_API_TOKEN` authenticates
+to `api.cloudflare.com`. It is not an Access credential, and presenting it to `app.1stcontact.io`
+earns the same 302 to the login page as presenting nothing at all. `bin/access-token` uses it to
+*create* a service token; `bin/publish` never sees it.
+
+> Until BUG-36, `1c push` sent its credential as a `cf-access-jwt-assertion` header. That could
+> never have worked against a deployed target: it is the header Access **sets** on the request it
+> forwards to the origin, carrying an identity it has already verified — not an inbound credential.
+> The symptom was not a clean refusal but a `JSON.parse` error, because the client followed
+> Access's 302 to the login page and parsed the HTML as an import result.
 
 The client secret is a real credential: it goes in the operator's password manager and, if a
 deploy hook ever needs it, into Cloudflare's own secret store via `bin/deploy.d/secrets/`. Never

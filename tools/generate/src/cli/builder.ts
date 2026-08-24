@@ -112,10 +112,7 @@ function depsFor(ctx: StoreContext): RouterDeps {
     }
     return handle
   }
-  return {
-    store,
-    importStore: store,
-  }
+  return { store }
 }
 
 /**

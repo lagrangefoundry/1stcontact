@@ -266,13 +266,14 @@ Build preflight (REQ-144) — what \`bin/build\` runs before it builds:
     where that is caught instead.
 
 Push a site to the cloud store (REQ-145) — what \`bin/publish\` runs:
-  1c push <slug> [--origin URL] [--token JWT] [--json]
+  1c push <slug> [--origin URL] [--client-id ID --client-secret SECRET] [--json]
     Reads the local draft (definition + assets) and posts it to the builder Worker's
     import route, which writes it into D1 and R2 through the same store it serves from.
     Idempotent: re-running after an edit replaces each page and asset by name.
-    --origin defaults to http://localhost:8788 (\`wrangler dev\`). --token carries a
-    Cloudflare Access service-token JWT when the target is a deployed builder.
-    This is NOT \`1c publish\`, which mints a revision from a draft.
+    --origin defaults to http://localhost:8788 (\`wrangler dev\`). A deployed builder
+    is behind Cloudflare Access and needs a service token: --client-id/--client-secret,
+    or CF_ACCESS_CLIENT_ID/CF_ACCESS_CLIENT_SECRET in the environment. Provision one
+    with \`bin/access-token\`. This is NOT \`1c publish\`, which mints a revision.
 
 Control-app assets (REQ-145) — the build step behind /builder, /webui and /framework:
   1c assets [--json]
@@ -557,10 +558,32 @@ export async function run(argv: string[]): Promise<void> {
       // what a site is made of. See push.ts.
       const slug = requireSlug(rest[0])
       const origin = typeof flags.origin === 'string' ? flags.origin : 'http://localhost:8788'
-      const token = typeof flags.token === 'string' ? flags.token : undefined
+      // Flags win over the environment so a one-off push can name a different
+      // token without editing a shell profile; the environment is the ordinary
+      // path, because a secret on the command line lands in shell history.
+      const clientId =
+        typeof flags['client-id'] === 'string'
+          ? flags['client-id']
+          : process.env.CF_ACCESS_CLIENT_ID
+      const clientSecret =
+        typeof flags['client-secret'] === 'string'
+          ? flags['client-secret']
+          : process.env.CF_ACCESS_CLIENT_SECRET
+      // BOTH OR NEITHER. Half a credential is not a weaker credential, it is a
+      // request that will be refused at the edge with a message about identity
+      // rather than about the half that was missing here.
+      if ((clientId ? 1 : 0) + (clientSecret ? 1 : 0) === 1) {
+        throw new Error(
+          'A Cloudflare Access service token is a PAIR. Set both ' +
+            'CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET (or pass both ' +
+            '--client-id and --client-secret). Run bin/access-token to provision one.',
+        )
+      }
       const result = await pushSite(fsSiteStore(ctxOf(global)), slug, {
         origin,
-        accessToken: token,
+        ...(clientId && clientSecret
+          ? { access: { clientId, clientSecret } }
+          : {}),
       })
       if (flags.json === true) {
         console.log(JSON.stringify(result, null, 2))

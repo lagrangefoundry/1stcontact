@@ -88,6 +88,19 @@ export interface TenantRecord {
 export class UnknownTenantError extends Error {
   readonly name = 'UnknownTenantError'
   readonly tenantId: string
+  /**
+   * WHICH refusal this is, and the distinction is load-bearing (BUG-36).
+   *
+   * `unknown` means there is no row — a state a fresh database is in for every
+   * tenant, including the one the deployment is configured to serve, and one a
+   * caller that owns the configuration may legitimately resolve by registering
+   * it. `inactive` means a row exists and someone deactivated it, which is a
+   * decision no caller may undo by retrying. Collapsing the two into one
+   * `UnknownTenantError` left the bootstrap unable to tell "not yet" from
+   * "no", and a bootstrap that cannot tell them apart must either refuse a
+   * fresh deployment or reopen a closed account.
+   */
+  readonly reason: 'unknown' | 'inactive'
 
   constructor(tenantId: string, reason: 'unknown' | 'inactive') {
     super(
@@ -96,6 +109,7 @@ export class UnknownTenantError extends Error {
         : `Tenant '${tenantId}' is not active.`,
     )
     this.tenantId = tenantId
+    this.reason = reason
   }
 }
 
