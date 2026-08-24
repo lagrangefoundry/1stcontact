@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-24T23:32:15.860574+00:00'
+updated_at: '2026-08-24T23:33:51.575977+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -174,5 +174,93 @@ So, as I think of this I still really only see two knowledge bases a system know
 I anticipate the primary use case for these to be structured search for query terms across all KBs with the results co-ranked and presented as one. We will probably give the AI tools to also specify a particular kb.
 
 What you may be describing with your six different categories are actually different ticket types that we need, perhaps, rather than knowledge basis. Although even with a smaller number of tickets we can still capture the axis that you're pointing to with meta-data fields
+
+<!-- xgd-turn id="974e0cd1-d8c4-4572-9fae-0bcf7d9d0eb1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T23:33:51.499655+00:00" -->
+#### Claude
+You're right, and the code makes your case harder than you put it. I checked the knowledge component before answering.
+
+## Conceding the six — and why I was wrong structurally, not just numerically
+
+Three things in `components/knowledge/js/src`:
+
+**KB membership is overlapping, not partitioning.** `search.js:140` filters `row.kbs` — a *list* — against the scope. A document belongs to as many KBs as have predicates matching it. So "which KB does this live in?" isn't a filing question at all. I was treating KBs as folders. They're **views**.
+
+**The corpus is a predicate over ticket fields.** `corpusPredicates()` renders `type=X AND fields.y=true`. So every axis I proposed is a field, and any view I might want later is one config line over data that never moves. There is no cost to deferring a split and no migration when you make one.
+
+**Re-indexing is already incremental by change feed.** `corpusPredicates(spec, {since})` restricts to `updated_at >= cursor` and re-embeds idempotently. That kills my "the site changes too fast" argument outright — freshness was never a KB-boundary concern.
+
+And your expected access pattern is the shipped default: `search(q, {kb})` with `kb` optional, all-KB co-ranked otherwise.
+
+So: **two KBs.** `system` (shipped, above tenancy, already exists) and `project` (tenant store). My six were ticket types and fields wearing KB costume — exactly your last line.
+
+## The one thing that survives, with a sharp edge
+
+The site. Your instinct to hold it apart has a mechanism reason you may not have hit yet:
+
+`search.js:142` — `kbWeight = Math.max(...inScope.map(name => scope.get(name).weight))`.
+
+**Weight is max-over-KBs, so a second KB can only ever *raise* a document's rank, never lower it.** Down-weighting requires *exclusive* membership.
+
+That matters because site copy is the one corpus member likely to pollute co-ranking: it's a punchy, condensed restatement of the positioning material, which is precisely the profile that wins cosine similarity against queries about the business. Ask *"what do we say about pricing"* and the pricing page crowds out the positioning paper explaining *why*.
+
+But I'd still not split now. Put site material in `project` with `fields.origin=site`. If measurement shows pollution, the split is `project`'s predicate gaining `NOT fields.origin=site` plus a `site` KB at weight 0.6 — one config change, no data movement. DOC-10 §6.3 already set this precedent ("answered with data, not in advance").
+
+## And the site doesn't need to become tickets
+
+This is the better version of what I proposed last turn. `corpus.js` — *"A KB declaring no `source` reads the project store. Any other name is looked up in `sources`."* That's a seam for a **store adapter**, not just for shipped directories.
+
+So the site's pages become KB documents via a `source: site` adapter that presents the site store's pages through the doc-reader contract — projecting text on read. No page tickets, no write amplification on every keystroke-settle, and no parallel copy that can drift from or be written back into the definition. The L1 control surface stays the sole authority; the KB gets a read-only window onto it.
+
+Same escape applies to capture bundles if we want it.
+
+## Your attachments model — yes, and one sharpening
+
+The sharpening: **the ticket body is the text-shadow of the blob.** For a PDF, the extracted/summarised text. For a JPEG, a VLM-written description. For a font, what it is and when to reach for it.
+
+That's not a convenience — it's what makes the modality axis disappear. The KB indexes bodies, uniformly, and never learns that images exist. It also upgrades what I said last turn: photos aren't "metadata only, not really in the KB", they're first-class corpus members, findable by *"the photo of the kitchen at dusk"*. Media becomes searchable prose without a second retrieval path.
+
+**One factual correction, because it changes the estimate:** the JS ticketing component doesn't have attachments today. `cli.js:25-39` gives the op surface — `create / update / get / query / comment / comments / backlinks` — and `PUBLIC-API.md` has no attachment, blob, or binary name in it. So "we supported attachments in the original conception" is true of the conception, not of the shipped component. This is framework work in `lagrange-framework`, not wiring in 1stcontact. Worth its own ticket there, in the shape REQ-142/143 used for `SiteStore` — a storage contract that gets reviewed rather than smuggled in inside a feature.
+
+## The type set
+
+Types where the *shape* differs; fields for everything else.
+
+| Type | Why a type | Status |
+|---|---|---|
+| `doc` | shipped, tenant-free, release-built index | exists |
+| `chat` | transcript in a CAS comment, summary in body | exists (DOC-10 §8) |
+| `material` | blob attachment + rights + AI-written body | **new — the real gap** |
+| `reference` | points at a capture *bundle*, re-extractable | **new**, judgement call |
+| `brief` | one per site, canonical decisions | **new** |
+
+`material` covers 3c, 4a and 4b — uploaded PDF, fetched industry report, uploaded photo are one shape: *a blob with a text shadow and a rights record*.
+
+`reference` is the close call. It's `material` with a different attachment shape (a multi-member bundle, not one blob) and a real lifecycle of its own — DOC-13 §9's "capture once, re-map forever", plus gap logging. I'd separate it, but if you'd rather it were `material.kind=capture` with a bundle-valued attachment, that's defensible and I wouldn't fight it.
+
+`brief` is a type but mostly *not* a retrieval target: it's small and always relevant, so it belongs in the priming context inlined, not fetched by search. Being in the `project` corpus too is harmless.
+
+Fields carrying the axes, on `material` and `reference`:
+
+```
+rights:        owned | licensed | third_party
+republishable: bool        # may bytes/copy enter a published site
+exportable:    bool        # may it cross the tenant boundary (DOC-36 §8)
+origin:        uploaded | captured | fetched | site
+kind:          document | image | font | capture
+source_url:    string
+attachments:   [{key, content_type, size, sha}]
+```
+
+`republishable` and `exportable` stay explicit rather than derived from `rights`, because §1 of our last exchange showed they invert between 3a and 3b — a rule that derives one from the other would be wrong for half the cases.
+
+And quarantine gets simpler than what I proposed: not a KB boundary, but `fields.republishable=false` riding on the hit through to the write path, where verbatim third-party copy in a `set-text` call is the detectable event.
+
+---
+
+Where that leaves the open questions from last turn: #2 dissolves (one project KB, rights is a field). #1 stands — where the rights bits get set at capture/upload time, and whether we ask or infer from the declared domain.
+
+Want me to turn this into a DOC now? I'd write it as **Content Model, Rights & the Project Corpus**, and it supersedes DOC-13 §10's parked IP question and closes DOC-10 §12's attachments question.
 
 <!-- xgd-chat-end -->
