@@ -264,24 +264,36 @@ function managerKey(slug: string, deps: HostDeps): string {
 }
 
 /**
- * Session ids this host has minted, and the site each one is bound to.
+ * Resolve a session id back to the site it names, or null (BUG-38).
  *
- * The registry is what makes a session id arriving from a client RESOLVED rather
- * than trusted. `sessionIdFor` is derivable, so the slug could equally be
- * recovered by recomputation — but then whatever string arrived would be a
- * free-form key into the session store, resuming or creating a conversation by
- * that name. A session id is exactly the kind of value that invites being taken
- * as an authority, so the host answers only for ids it issued.
+ * THE RESOLUTION IS A STORE READ, and it has to be. This used to be a
+ * module-level `Map` that {@link openSession} wrote and this read — which made
+ * the binding a property of ONE PROCESS. Under `1c builder` that process is the
+ * operator's whole session, so it held; in workerd it is one isolate, and
+ * `/api/ai/session` and `/api/ai/prompt` are two requests that are not promised
+ * the same one. A turn arriving at a cold isolate found the map empty and was
+ * told its conversation was closed — which was, in the cloud, every turn.
  *
- * Keyed by store as well as by id, on the same reasoning as {@link managerKey}:
- * two checkouts can hold sites of the same name, and their conversations are not
- * the same conversation. `\0` rather than a literal NUL byte — the same string at
- * runtime, without making this file binary to `grep` and `diff`.
+ * Nothing was lost by deleting it, because it held nothing that is not
+ * derivable: {@link sessionIdFor} is the total inverse of the strip below, and
+ * the rest of the host was already built for isolate churn — the archive is
+ * durable and `attach` resumes from it whenever the live junction has nothing.
+ *
+ * WHAT THE REGISTRY WAS ACTUALLY FOR SURVIVES, strengthened. Its job was to stop
+ * an arbitrary client string becoming a free-form key into the session store,
+ * resuming or creating a conversation by whatever name arrived. `hasDraft` is
+ * that same check made against storage instead of against memory: an id resolves
+ * only if it names a site THIS TENANT ACTUALLY HOLDS — a fact that does not
+ * depend on which isolate is asking, and that a per-process map could not have
+ * checked at all.
  */
-const minted = new Map<string, string>()
+const SESSION_PREFIX = 'site-'
 
-function mintedKey(sessionId: string, deps: HostDeps): string {
-  return `${hostKey(deps)}\0${sessionId}`
+async function slugForSession(sessionId: string, deps: HostDeps): Promise<string | null> {
+  if (!sessionId.startsWith(SESSION_PREFIX)) return null
+  const slug = sessionId.slice(SESSION_PREFIX.length)
+  if (slug === '') return null
+  return (await deps.store.hasDraft(slug)) ? slug : null
 }
 
 /**
@@ -515,13 +527,14 @@ export async function openSession(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): Promise<ChatSession> {
+  // NOTHING IS RECORDED HERE (BUG-38). The binding used to be written into a
+  // per-process map at exactly this point, ahead of touching the backend, so
+  // that a session opened into a frozen panel could still take a turn once the
+  // operator supplied an API key. That property is now free rather than
+  // arranged: {@link slugForSession} derives the same binding from the id and
+  // the store, so it holds for any isolate, at any time, whether or not this
+  // call was the one that opened the session.
   const sessionId = sessionIdFor(slug)
-  // Recorded BEFORE the backend is touched, and regardless of how the rest of
-  // this call goes. "This id belongs to this site" is true whether or not the
-  // assistant can currently run, and a session opened into a frozen panel must
-  // still be able to take a turn once the operator supplies an API key and
-  // restarts — the binding is not what failed.
-  minted.set(mintedKey(sessionId, deps), slug)
   let manager: Untyped
   try {
     manager = await managerFor(slug, opts, deps)
@@ -560,7 +573,7 @@ export async function* streamPrompt(
   opts: GlobalOptions = {},
   deps: HostDeps,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
-  const slug = minted.get(mintedKey(sessionId, deps))
+  const slug = await slugForSession(sessionId, deps)
   if (!slug) throw new UnknownSessionError(sessionId)
   const manager = await managerFor(slug, opts, deps)
   await attach(manager, sessionId, slug)
@@ -615,8 +628,7 @@ export async function aiStatus(
 }
 
 /**
- * Drop every cached manager and issued id. Exported for tests that rebuild a
- * store per case.
+ * Drop every cached manager. Exported for tests that rebuild a store per case.
  *
  * The KNOWLEDGE RUNTIME is not dropped here, because it is not held here — it is
  * the Node host's, and `host.ts` clears it alongside this. Its lifetime is the
@@ -626,7 +638,6 @@ export async function aiStatus(
  */
 export function resetAiHost(): void {
   managers.clear()
-  minted.clear()
   roles.clear()
   baselines.clear()
 }
