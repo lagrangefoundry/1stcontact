@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-24T01:31:36.311148+00:00'
+updated_at: '2026-08-24T01:51:53.777422+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -299,5 +299,40 @@ It is 100% reproducible. Every time I switch to Edit mode I get the error
 <!-- xgd-chat role="user" ts="2026-08-24T01:31:36.292773+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="f6bf12a6-0620-4949-b214-2cf3c71991dc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T01:51:53.734313+00:00" -->
+#### Claude
+Now the UAT for the tenant half:
+
+Now the merge back into `xgd-working`:
+
+BUG-36 is free-coded and landed.
+
+**What shipped** — commit `ea48502d0`, version `0.2.10`, merged into `xgd-working`, branch cleaned.
+
+The ticket had two halves. The credential half was already written last session; this session coded the half the ticket was opened for.
+
+| File | Change |
+|---|---|
+| `apps/control-app/src/store.ts` | `storeFor` registers the configured tenant on the cold path; `storeForImport` deleted |
+| `apps/control-app/src/router.ts` | `deps.importStore` removed; the import route opens through `deps.store ?? storeFor` like every other route |
+| `tools/generate/src/cli/builder.ts` | Node transport no longer supplies `importStore` |
+| `tools/generate/src/store/d1r2-store.ts` | `UnknownTenantError` carries `reason: 'unknown' \| 'inactive'` |
+
+The `reason` field is what makes the fix safe rather than merely convenient. `unknown` means no row — the state every fresh database is in, which the caller that owns the configuration may resolve. `inactive` means someone deactivated the account, which no caller may undo by retrying. Without the distinction the bootstrap would have had to either refuse fresh deployments or reopen closed accounts. Scope is unchanged from the argument `storeForImport` already made: the id comes from `TENANT_ID`, so it names exactly the account the deployment names and can reach no other. An unset `TENANT_ID` is still `TenantNotConfiguredError`.
+
+**Tests** — `tests/test_UAT_FC_BUG-36_tenant_bootstrap.workers.test.ts`, five UATs in workerd against real D1, since the whole claim is about what an empty `tenants` table does to a real Worker's `fetch`. The load-bearing one asserts `GET /api/sites` returns `200 []` where it used to return `503 No tenant`.
+
+One REQ-149 assertion was superseded: `..._build_artifacts_serve_when_the_store_has_no_tenant` closed by probing `TENANT_ID: 'nobody'` and expecting 503. That is precisely what this changes. AC-10's own claim — build artifacts serve without opening a store — is untouched; only the probe moved to `TENANT_ID: ''`, the case still genuinely unopenable.
+
+**Verification** — workers project 63/63; `tsc --noEmit` clean across all five packages; full suite 1888 passed / 29 failed. Those 29 are pre-existing: I stashed the changes and re-ran the same 9 files, getting 30 failures on the untouched tree (one more, a port-flaky case). Re-run post-merge in the main checkout, 4 of the files pass — they were worktree resolution artifacts. The remaining 14 (chat host, session binding, assistant conversation, parameter sheet) fail identically with and without this change.
+
+The interim production `INSERT` is no longer load-bearing — the Worker registers the row itself now.
+
+**The Edit-mode 1102 is not fixed and is not this ticket.** I recorded a concrete lead as `COMMENT-1447`: Edit mode is `/preview/<slug>/edit/`, and the router's render cache is `WeakMap<TenantSiteStore, PreviewRenderer>` keyed on the store handle — which `storeFor` builds fresh per request, deliberately. So the cache never hits in the Worker and every preview request renders the whole site into isolate memory. That matches the kill you saw (94ms CPU, zero subrequests, one victim after a 12-request burst) better than a CPU ceiling does. It predates this ticket and this change neither caused nor fixes it. Two things would settle it: an `[observability]` block in `wrangler.toml` (there are no retained logs today, only aggregates — which is why the earlier pass could say a request died but not which URL), and probing `/preview/<slug>/edit/` specifically, since the earlier pass probed `/edit/...`, which matches no route and falls through to the assets binding.
+
+Say the word and I'll file that as its own ticket.
 
 <!-- xgd-chat-end -->
