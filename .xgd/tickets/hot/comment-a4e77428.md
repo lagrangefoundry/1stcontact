@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:21:06.917943+00:00'
+updated_at: '2026-08-24T21:23:21.099681+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -109,5 +109,47 @@ Two things I'd want before committing to a fix: the plan/CPU-limit answer, and t
 <!-- xgd-chat role="user" ts="2026-08-24T21:21:06.858297+00:00" -->
 #### You
 I don't know if I am paying for this plan - can you check with the wrangler access you have
+
+<!-- xgd-turn id="39fb6724-8afe-4724-93d6-8ec03320c46c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T21:23:21.012166+00:00" -->
+#### Claude
+Not authenticated (expired token, non-interactive, and this sandbox has no network access). Let me mine the local wrangler logs instead — 1727 runs are recorded there.
+
+Wrangler can't answer it — but the ticket's own telemetry can. Let me verify one consequence first.
+
+## Can't check it directly
+
+`wrangler whoami` fails: the OAuth token in `~/Library/Preferences/.wrangler/config/default.toml` has expired and can't refresh in a non-interactive session, there's no `CLOUDFLARE_API_TOKEN` set, and this sandbox has no network access anyway (`allowedHosts: []`). So no API call is possible from here — that needs `wrangler login` in an interactive terminal, or a token in the env.
+
+I mined the 1,725 local wrangler logs instead. No plan or usage-model field is ever recorded. The only deploy metric present is `Total Upload: 1621.41 KiB / gzip: 321.17 KiB`, which is under both plans' script-size caps and so doesn't discriminate.
+
+## But you don't need the API — the ticket already answers it
+
+The recorded victim **burned 94 ms of CPU**. A request cannot accumulate 94 ms of CPU under a ceiling lower than that; it gets killed at the ceiling. So this account's per-invocation CPU limit is **> 94 ms**, which rules out the Workers Free plan (10 ms). You're on a paid plan, and `wrangler.toml` declares no `[limits]` block, so the default applies — 30 s.
+
+Corroborating independently: I measured ~78 ms CPU per preview request. Under a 10 ms ceiling, View would 1102 as reliably as Edit. View works.
+
+## This inverts my previous conclusion
+
+I flagged the plan as "the most decision-relevant unknown" because a free-plan 10 ms ceiling would have explained everything. It's settled, and it settles the wrong way for that theory: **with a 30 s ceiling and a 94 ms victim, the kill was not CPU exhaustion.**
+
+1102 with trivial CPU means **memory** — and the ticket's instinct there was right even though the mechanism it proposed isn't. Workers memory is per-*isolate* and shared across concurrent requests, and an OOM kills **whichever request happens to be running when the ceiling is breached, not the one that caused it.** That is exactly the shape of the two facts that fit nothing else: a 94 ms / zero-subrequest victim, and death ~7 s *after* a 12-request burst. The victim was a bystander.
+
+Which means I was looking in the wrong place when I dismissed memory on render size. A `RenderedSite` is 131–210 KB and is collectable — it's not the problem. What is *not* collectable is module-global state that lives for the isolate's life:
+
+- `CHAT` (`router.ts:96`) — one `WorkerHost` per isolate, deliberately never per-request. `resetChatHost()` exists for tests only; nothing in production drops it.
+- `managers`, `roles`, `baselines` (`host-core.ts:211,222,236`) — module-global `Map`s, never evicted, each holding a `SessionManager` that accumulates conversation history for as long as the isolate lives.
+
+And that gives a far better answer to "why Edit and not View" than anything about render size, because it isn't about the mode's cost at all: **it's about when in a session's life you reach it.** Edit is what you do after the chrome has booted, the chat pane has opened a session, and turns have accumulated. View is what's on screen from the first second.
+
+## Two caveats, since this is now load-bearing
+
+- I'm treating "94 ms CPU" as belonging to the *specific* killed request. If that figure was actually an aggregate across invocations, the inference weakens considerably. Worth confirming where it came from.
+- The isolate-lifetime-state theory is a hypothesis, not a verified finding. I haven't measured retained heap.
+
+The `[observability]` prerequisite still gates everything — but the question it needs to answer has changed. It's no longer "which URL died"; it's "what does this isolate retain across requests, and does the kill correlate with isolate age and chat activity rather than with the preview route."
+
+Want me to add the `[observability]` block (config-only, both top level and `[env.production]`)? And separately — worth me digging into `SessionManager`'s retention to see whether it's genuinely unbounded per isolate, before you spend a deploy cycle?
 
 <!-- xgd-chat-end -->
