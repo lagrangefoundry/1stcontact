@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-24T21:05:13.749534+00:00'
+updated_at: '2026-08-24T21:06:51.912093+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -340,5 +340,25 @@ Say the word and I'll file that as its own ticket.
 <!-- xgd-chat role="user" ts="2026-08-24T21:05:13.726407+00:00" -->
 #### You
 please create a new ticket - do not execute on it though
+
+<!-- xgd-turn id="cefb3f6c-cba0-432d-8b3e-5d7caed4f870-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T21:06:51.832986+00:00" -->
+#### Claude
+Now cross-link from BUG-36 so the lead points at the ticket:
+
+**BUG-37** (`bug-6612c4b7`) — *control-app: Edit mode dies with Cloudflare 1102 — the preview render cache never hits in the Worker*. Status `draft`, severity high, priority high. No branch cut, no code written.
+
+Before writing it I verified each claim against the current tree rather than restating the comment:
+
+- **Edit mode is `/preview/<slug>/edit/`** — `builder/app.js:82-90` registers View and Edit over the same URL builder, differing only in channel. That also means the earlier "cannot reproduce" pass is not evidence: it probed `/edit/...`, which matches no route and falls through to `env.ASSETS.fetch` at `router.ts:582`, so it returned a build artifact and never touched the edit render.
+- **The cache key is the store object** — `PREVIEWS` is a `WeakMap<TenantSiteStore, PreviewRenderer>` at `router.ts:78`, and `storeFor` builds a fresh handle per request, correctly (a memoised handle would outlive a deactivation). New key every request, so the cache is dead in the Worker and each request allocates a whole `RenderedSite` that lives until GC. Workers memory is per-isolate, so concurrent previews hold N full renders at once — which fits the recorded victim (94ms CPU, zero subrequests, dying seven seconds after a 12-request burst) better than a CPU ceiling does.
+- **`apps/control-app/wrangler.toml` has no `[observability]` block.** I made that the ticket's stated prerequisite: everything above is inference from source plus aggregate counters until real invocation logs name the failing URL.
+
+One thing I found while writing it that wasn't in the comment: `tools/generate/src/cli/builder.ts` already memoises the store handle per workspace, with a comment naming this exact hazard — "the router caches a `PreviewRenderer` against the store OBJECT, so handing back a new one per request would rebuild the render cache on every fetch." So the Node transport has caching and the Worker doesn't, and the divergence is invisible because both satisfy `RouterDeps`. The ticket asks that a fix close that gap rather than add a second workaround.
+
+Three candidate fixes are recorded and explicitly not chosen; re-keying on `<tenantId>\0<slug>` is flagged as the cheapest thing that would falsify the hypothesis.
+
+BUG-36 now carries `COMMENT-1472` pointing at it. Repo is clean apart from the pre-existing untracked `.pnpm-store/`.
 
 <!-- xgd-chat-end -->
