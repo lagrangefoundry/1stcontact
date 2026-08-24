@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-24T01:51:53.777422+00:00'
+updated_at: '2026-08-24T21:05:13.749534+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -334,5 +334,11 @@ The interim production `INSERT` is no longer load-bearing — the Worker registe
 **The Edit-mode 1102 is not fixed and is not this ticket.** I recorded a concrete lead as `COMMENT-1447`: Edit mode is `/preview/<slug>/edit/`, and the router's render cache is `WeakMap<TenantSiteStore, PreviewRenderer>` keyed on the store handle — which `storeFor` builds fresh per request, deliberately. So the cache never hits in the Worker and every preview request renders the whole site into isolate memory. That matches the kill you saw (94ms CPU, zero subrequests, one victim after a 12-request burst) better than a CPU ceiling does. It predates this ticket and this change neither caused nor fixes it. Two things would settle it: an `[observability]` block in `wrangler.toml` (there are no retained logs today, only aggregates — which is why the earlier pass could say a request died but not which URL), and probing `/preview/<slug>/edit/` specifically, since the earlier pass probed `/edit/...`, which matches no route and falls through to the assets binding.
 
 Say the word and I'll file that as its own ticket.
+
+<!-- xgd-turn id="cefb3f6c-cba0-432d-8b3e-5d7caed4f870-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T21:05:13.726407+00:00" -->
+#### You
+please create a new ticket - do not execute on it though
 
 <!-- xgd-chat-end -->
