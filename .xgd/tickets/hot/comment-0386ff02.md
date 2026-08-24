@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-24T23:11:38.927112+00:00'
+updated_at: '2026-08-24T23:30:05.292499+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,23 @@ Two things I'd want your call on before this becomes a DOC:
 2. **Whether `business` and `references` are really two KBs or one with a rights facet.** I've argued two because the quarantine boundary should be a scope you can *exclude*, not a field you must remember to filter — but it does mean a client's own prior-site capture (3a) sits awkwardly between them.
 
 Want me to write this up as a DOC (Content Model & Rights) once those two are settled?
+
+<!-- xgd-turn id="03e97c2e-987d-4877-a31a-732f70b7d90d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T23:30:05.213228+00:00" -->
+#### You
+In the original conception of the tickets we supported attachments. We could allow attachments for PDFs JPEG's PNG's etc. and use the ticket body for identification classification summary etc. that would be quite convenient and it would save us having additional stores.
+
+So the model line would be that the user would upload something. We would go through a process to put it into a ticket. The attachments would obviously be stored in some different blob storage somewhere but the ticket would point to them and classify them and make them available to the knowledge base trivially. 
+
+The ticket storage system also gives us all the matter data requirements that we would need.  We can capture your different axis, if those proved to be the right ones and the knowledge base already knows how to represent tickets. So that's perfect.
+
+One thing I want to push on a little bit is six knowledge basis? That does feel a little excessive. Let's discuss the knowledge based concept a little I may change my mind on that but let's talk about what they're for.
+
+A knowledge base is a searchable corpus of text based data. It is a little semantic Google search over a body of documents. The primary expected modality is to provide AI knowledge. There are two primary divisions of knowledge type here. There is knowledge that is provided by the core application that tells the AI how to use the tools, how to talk to the user about website design, what are the capabilities of first contact and how could this user make use of them. This is intended to be a library that will be reasonably general, not just use a manuals and play books but it could include industry descriptions of how the website industry is changing or whatever. The second area is project material this is at least tenant specific and probably site specific. This is a searchable corpus of data that the AI can use to quickly search for content semantically that is relevant to this project. It includes of course the transcripts that the AI has had with the user designing the site, it may also include things like documents that the user has uploaded to describe their business concept or their business operation etc. Each knowledge base has an awareness map that clusters content based on semantic distance and they has an AI summarize what is there. The idea here is to help the AI understand what it could search for. The knowledge basis are deliberately informal and relatively chaotic. I was expecting that a knowledge base would scale to several thousand documents.
+
+So, as I think of this I still really only see two knowledge bases a system knowledge base and a project knowledge base. Perhaps there is value in a separate site knowledge base because it changes more frequently but even that will be stable eventually. 
+
+I anticipate the primary use case for these to be structured search for query terms across all KBs with the results co-ranked and presented as one. We will probably give the AI tools to also specify a particular kb.
 
 <!-- xgd-chat-end -->
