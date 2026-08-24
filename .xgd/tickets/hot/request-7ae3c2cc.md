@@ -5,10 +5,10 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-24T01:14:11.664692+00:00'
+updated_at: '2026-08-24T02:10:41.503955+00:00'
 completed_at: null
-last_field_updated: commits
-status: ready_to_reconcile
+last_field_updated: status
+status: bundled
 fields:
   priority: low
   story_points: 8
@@ -31,6 +31,7 @@ fields:
     - a6e92ca2603cba91fb5b905c826566ac208737ac
   version: 0.1.60
   chat_comment: comment-a4605dbc
+  bundled_in: bundle-b3b7c399
 ---
 
 # Behavior modules render in workerd: Astro leaves the render path
