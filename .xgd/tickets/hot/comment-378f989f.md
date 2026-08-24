@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-17
 created_by: xgd
 created_at: '2026-08-05T23:00:28.136693+00:00'
-updated_at: '2026-08-06T00:55:53.300550+00:00'
+updated_at: '2026-08-24T22:41:06.762959+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -463,5 +463,77 @@ I think the **declared value is right and the derivation is misleading here**, s
 Ready frontier is six, but still not a frontier: nothing is at `planned`, so "ready" continues to mean "started". Provenance is 32/32 `planned` — expected for a transcription, meaningless until goals start arriving as `discovered` or `bug`.
 
 The planning pass is now the obvious next move, and it's more tractable than it was an hour ago: **Launch site** is the natural first `planned` goal with a target date, and it pulls four Phase 1 children up the ladder behind it. I left Launch site without hard `depends_on` edges to copy/whitepapers/email-capture because that ordering is editorial judgement rather than mechanical blocking — say so and I'll make them real.
+
+<!-- xgd-turn id="55acc57a67c34ff19f5d437bf0332c32-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T22:36:35.813522+00:00" -->
+#### You
+Can you create some goals for me please:
+1) adding the knowledge management system to the 1c app 
+a) core system 
+b) system kb
+c) project kb
+
+2) adding asset and background upload
+a) drag and drop upload - ui and storage
+b) kb access and awareness
+ 
+3) Unanswered questions:
+- Storage and access of reference sites and content
+- What gets included in the project kb
+- Basically what does the backend data morel really look like
+
+<!-- xgd-turn id="55acc57a67c34ff19f5d437bf0332c32-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T22:36:48.502248+00:00" -->
+#### Claude
+Reading the docs that bear on these before filing — KM and reference storage both have prior art here.
+
+Two things changed under me: it's now **2026-08-24**, nineteen days on from the filing, and xgd has moved 0.15.85 → 0.15.385. Pulling a fresh digest before I add anything, and checking what KM already exists — DOC-10 says the substrate has landed.
+
+The map has moved a lot — 21 goals now, two `realized`, and new structure I didn't file. Reading it before I add anything.
+
+Fresh picture, and it's changed substantially. Before I file, two things you should see.
+
+**Two roll-up disagreements the digest is flagging:**
+
+- **Phase 1** (`goal-71e85fa6`) — declared `in_progress`, derives `realized`. Both children (Draft site, Draft site served from Cloudflare) completed 2026-07-31. The declared state looks stale; if Phase 1 is genuinely done, marking it `realized` would also flip XGD website's roll-up. I won't touch it without you saying so.
+- **Web editor** (`goal-f0a19e64`) — declared `in_progress`, derives `concept`. Its three children (Blog, User portal, Payments modules) are all `concept`, but it has six `implemented_by` requests. Here I'd guess the *declared* state is right and the children are stale — real work has landed that the children don't reflect.
+
+**Also:** the two flagship-site roots I filed — Lagrange Foundry website and 1st Contact site — are no longer on the map, and `goal-d976334c` was retitled from "Web builder" to "Site". Your restructure, and I'll leave it alone; just confirming I'm reading it right rather than re-filing something you deliberately removed.
+
+Checking what KM already exists in this repo before I set states.
+
+No KM code and no asset-upload code in this repo — both are genuinely unstarted, so everything below lands at `concept`.
+
+Filing eight goals: two parents you named with their five children, plus your three open questions grouped under one parent (you grouped them under a heading, so I'm keeping that shape — easy to flatten if you'd rather they sat directly on the app root).
+
+Wiring the edges.
+
+Patch merges rather than replaces — provenance survived. Continuing.
+
+Filed — eleven goals, map now at 32, no new disagreements introduced.
+
+**Knowledge management** (`concept`, `planned`) → KM core system · System KB · Project KB
+**Asset and background upload** (`concept`, `discovered`) → Drag and drop upload (UI and storage) · KB access and awareness
+**Open design questions** (`concept`, `discovered`) → Storage and access of reference sites · What gets included in the project KB · What the backend data model really looks like
+
+All three attached to the app root. One `depends_on` wired: **KB access and awareness → KM core system**. That's real lateral ordering, not composition — an asset the AI can't reason about is inert, so the KB has to exist first. Everything else I left unwired.
+
+Three judgment calls worth your eye:
+
+- **KM provenance is `planned`, not `discovered`.** DOC-10 committed to the memory substrate and the Reference Document library back on 2026-06-30, so this was planned from early. What changed is the *route*: REQ-123 revised DOC-10 so the chat schema, reference library and memory tools all come from components rather than bespoke machinery. Same intent, different implementation.
+- **Asset upload is `discovered`.** DOC-4/DOC-5 name asset storage as substrate but drag-and-drop upload isn't in the MVP scope list — it surfaced from building.
+- **I grouped your three questions under a parent** because you raised them as a group, and it keeps the app root from sprawling. Say the word and I'll flatten them onto the root.
+
+Two things I noticed while writing the bodies, both recorded there:
+
+**The reference corpus is currently un-queryable.** DOC-15 makes it dual-purpose — the module-gap source *and* the taste library the AI reasons from. Three captures sit on the filesystem under `storage/references`, and DOC-5 says filespace is a seed representation, not a permanent store. A taste library the AI can't query isn't doing the second job.
+
+**Your backend data model question is bigger than DOC-5's version of it.** DOC-5 lists "exact D1 schema" as its first open question and names its entities — but L1 site definitions, chat sessions, the two KBs, reference bundles and uploaded assets have all appeared since, and several have no home in that entity list. The forcing constraint is the revision model: forward-only, every revision an immutable whole-site snapshot. That shapes every table it touches, which is why settling it beats retrofitting.
+
+**Provenance is finally informative:** 78% planned / 22% discovered, up from the meaningless 100% planned I flagged at genesis.
+
+Still open from before, and now more pressing since the KM work sits behind it: **the two roll-up disagreements**. Phase 1 derives `realized` (both children completed 2026-07-31); Web editor derives `concept` despite six `implemented_by` requests. My read is Phase 1's declared state is stale and Web editor's children are stale — opposite directions, so I won't guess. Both are one-line fixes once you tell me which side is right.
 
 <!-- xgd-chat-end -->
