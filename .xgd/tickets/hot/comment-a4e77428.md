@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:43:24.908993+00:00'
+updated_at: '2026-08-24T21:51:28.484093+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -274,5 +274,13 @@ Two things I did **not** do, both still open:
 - **Promotion to `ready_to_reconcile` is yours.** I've left it at `free_coded` deliberately; setting it fires `xgd reconcile` within ~30 seconds.
 
 One caveat worth stating plainly: this is verified in workerd via Miniflare, not against production. The measurements are real and the correctness UATs are real, but the deployed behaviour is unverified until it ships.
+
+<!-- xgd-turn id="6db0f3f2-3ff6-48de-8bf5-1c20f8ff88b3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T21:51:28.450678+00:00" -->
+#### You
+sure add observability?
+
+do I need to rebuild and redeploy to apply your fix?
 
 <!-- xgd-chat-end -->
