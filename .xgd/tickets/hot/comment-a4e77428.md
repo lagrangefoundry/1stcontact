@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:29:01.344906+00:00'
+updated_at: '2026-08-24T21:43:24.908993+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -201,5 +201,78 @@ Separately, still worth doing regardless: adding `[observability]` (config-only,
 <!-- xgd-chat role="user" ts="2026-08-24T21:29:01.073076+00:00" -->
 #### You
 If you have an easy way to fix the performance. go ahead
+
+<!-- xgd-turn id="2cb21d71-e731-4c17-910a-5d7df60dd738-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T21:43:24.827622+00:00" -->
+#### Claude
+Let me follow the free-coding protocol properly. First, the process doc and a correctness check on the invalidation key.
+
+Process understood. Let me check the version-bump gate and current version before starting.
+
+Now Step 1 — update the ticket body to reflect the confirmed root cause and this fix's scope.
+
+Now the implementation.
+
+Typecheck is clean for my change (the two errors are pre-existing generated-file artifacts absent in a fresh worktree). Now the UATs.
+
+Now the UAT suite.
+
+Test fixture bug — `siteJson.name` isn't a schema field, so the validator strips it and nothing actually changes. Let me mutate real content instead.
+
+Let me verify these UATs actually fail without the fix.
+
+Now let me measure the actual improvement through the Worker, and run the full suite for regressions.
+
+Before: every request ~77 ms. After: ~2–5 ms warm, and the 12-request concurrent burst went **890 ms → 18 ms**. Now the full suite.
+
+33 node failures — I need to know whether they're mine. Let me get the failing file list, then compare against the same worktree with my change stashed.
+
+Baseline without my change fails **6** files; with it, **5** — a strict subset. All pre-existing (worktree artifacts); no new failures. Now the quality gate and version bump.
+
+Quality gate: **SUCCESS** (0 errors, 0 warnings). Now the version bump and commit.
+
+Done and landed on `xgd-working`.
+
+## What the fix does
+
+`assembleSite` — `validateSite` over the whole definition — was running once per preview *byte*, because `PreviewRenderer.file()` calls `loadDraft` before consulting its render cache (deliberately: the stamp check has to be a store read). That put ~75 ms of validation on a path no cache could reach.
+
+The assembled value is now memoised per isolate in `d1r2-store.ts`, keyed `(tenantId, slug)`, holding `{ version, result }`. `siteRow` still runs on every `loadDraft` (~1 ms) and its `version` is compared before the entry is used — so currency is proven by a live D1 read, not assumed. Every draft mutation ends with `version = version + 1`, asset writes included, so nothing that changes the assembled value leaves the version still. Because the check is a D1 read rather than isolate state, a write from **another isolate or `bin/publish` from a laptop** invalidates it correctly too.
+
+Two properties I was deliberate about:
+
+- **It caches data, never a store handle.** That's what makes it safe where re-keying the router's `PREVIEWS` WeakMap would not be — a cached `PreviewRenderer` would read through a tenant check predating the request, which is exactly the staleness `storeFor` refuses. `forTenant` still runs per request, so a deactivated tenant is still turned away.
+- **Keyed by site and replaced on version change**, not keyed by version and accumulated — so it holds at most one entry per site and can't grow with edit count. That distinction is the difference between a cache and a leak.
+
+I left `PREVIEWS` dead on purpose. Re-keying it would trade the tenant-deactivation guarantee for the 1–4 ms the render now costs. That's recorded on the ticket.
+
+## Measured, in workerd through the Worker's own `fetch`
+
+| | before | after |
+|---|---|---|
+| warm preview request | ~77 ms | **2–5 ms** |
+| 12-request concurrent burst | 890 ms | **18 ms** |
+
+Cold first request still pays one assemble (~100 ms), as it must.
+
+## Verification
+
+- **6 UATs**, `test_UAT_FC_BUG-37_*`, in real workerd against real D1 — pass.
+- **RED-checked**: with the memo disabled, `..._an_unchanged_draft_is_assembled_once` fails. The other five pass either way by design — they're the invalidation guards (write, cross-handle write, cross-tenant, forget/recreate, end-to-end save through `/preview/<slug>/edit/`), and they'd fail if the cache were *wrong* rather than merely absent. They assert object identity rather than timing, since a timing assertion for a perf fix is flaky by construction and identity is the deterministic form of the same claim.
+- Full workers suite: **69/69**.
+- Node suite: 5 failing files, against **6** on the same worktree with my change stashed — a strict subset, all pre-existing worktree artifacts.
+- `xgd quality run`: SUCCESS, 0 errors, 0 warnings.
+
+## Ticket
+
+BUG-37 is at `free_coded`, commit `2058a16`, version bumped to 0.2.11, branch merged and cleaned. The body now records the confirmed root cause (free-plan 10 ms ceiling vs ~78 ms/request), the fix, and — kept explicitly — the falsified original hypothesis and my wrong "94 ms proves it isn't the free plan" inference, so nobody re-derives either.
+
+Two things I did **not** do, both still open:
+
+- **`[observability]` is still absent** from `wrangler.toml` (top level *and* `[env.production]`, which inherits nothing). Config-only, no ticket needed — say the word.
+- **Promotion to `ready_to_reconcile` is yours.** I've left it at `free_coded` deliberately; setting it fires `xgd reconcile` within ~30 seconds.
+
+One caveat worth stating plainly: this is verified in workerd via Miniflare, not against production. The measurements are real and the correctness UATs are real, but the deployed behaviour is unverified until it ships.
 
 <!-- xgd-chat-end -->
