@@ -6,9 +6,9 @@ title: 'Builder chat: every turn fails in the cloud with "conversation is no lon
   open"'
 created_by: xgd
 created_at: '2026-08-24T22:12:54.350656+00:00'
-updated_at: '2026-08-24T22:19:50.974264+00:00'
+updated_at: '2026-08-24T22:19:54.763848+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.14
+  story_points: 2
 ---
 
 ## Symptom
