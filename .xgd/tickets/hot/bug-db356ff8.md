@@ -6,7 +6,7 @@ title: 'control-app: fresh deployment 503s until bin/publish runs, so the builde
   never boots'
 created_by: xgd
 created_at: '2026-08-23T22:07:49.856675+00:00'
-updated_at: '2026-08-23T23:42:40.733621+00:00'
+updated_at: '2026-08-24T01:48:23.782519+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -96,7 +96,10 @@ the read path too, where its absence is what produces the dead builder.
 
 ## Status
 
-Scope drafted, awaiting operator confirmation before coding.
+Both halves landed and verified (2026-08-23). The tenant fix is implemented as
+described under **Proposed fix**; the publish-credential addition is described
+under **Approved scope addition** below. See **Implementation — the tenant fix**
+at the end.
 ## Production state — confirmed empirically (2026-08-23)
 
 Queried the deployed D1 directly with `CLOUDFLARE_API_TOKEN` via
@@ -254,3 +257,110 @@ shell invocation with the secret held in a variable and filtered out of
 everything echoed. The operator holds no copy as a result: `bin/access-token
 --rotate` issues a fresh one whenever they want it in their password manager.
 The client id is not a secret: `29edd0e0ede45619455f21128c7b88ce.access`.
+
+---
+
+# Implementation — the tenant fix
+
+Landed on `free-BUG-36`, the second half of this ticket and the one it was
+opened for.
+
+## What changed
+
+| File | Change |
+|---|---|
+| `apps/control-app/src/store.ts` | `storeFor` registers the configured tenant on the cold path; `storeForImport` deleted |
+| `apps/control-app/src/router.ts` | `deps.importStore` removed from `RouterDeps`; the import route opens the store through `deps.store ?? storeFor` like every other route |
+| `tools/generate/src/cli/builder.ts` | Node transport no longer supplies `importStore` |
+| `tools/generate/src/store/d1r2-store.ts` | `UnknownTenantError` carries `reason: 'unknown' \| 'inactive'` |
+
+`storeFor` now reads:
+
+```ts
+const root = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
+try {
+  return await root.forTenant(tenantId)
+} catch (err) {
+  if (!(err instanceof UnknownTenantError) || err.reason !== 'unknown') throw err
+  await root.createTenant({ id: tenantId, name: tenantId })
+  return root.forTenant(tenantId)
+}
+```
+
+## Why `reason` had to be exposed
+
+`UnknownTenantError` collapsed two different refusals into one. `unknown` means
+there is no row — the state every fresh database is in, and one the caller that
+owns the configuration may legitimately resolve. `inactive` means a row exists
+and someone deactivated it, which no caller may undo by retrying.
+
+Without the distinction the bootstrap could not tell "not yet" from "no", and
+would have had to either refuse a fresh deployment or reopen a closed account.
+`createTenant` is `INSERT OR IGNORE`, so an inactive row would in fact have
+survived a blind retry — but a guarantee that holds by accident of the insert's
+flavour is not one, so the reason is checked explicitly.
+
+## Scope of what the bootstrap may create
+
+Unchanged from the argument `storeForImport` already made. `tenantId` comes from
+the deployment's own `TENANT_ID` var, so this can name exactly the account the
+configuration already names and can reach no other. The library barrier is
+untouched: `d1r2SiteStore.forTenant` still refuses an unknown tenant, and an
+unset `TENANT_ID` is still `TenantNotConfiguredError` — there is no name to
+register, and inventing one would let a misconfigured Worker write into whichever
+account happened to carry it.
+
+Cost on the warm path is nil: the ordinary request finds the row on the first
+`forTenant` and pays one indexed lookup by primary key, as before. The create
+runs once in a database's life.
+
+## Tests
+
+`tests/test_UAT_FC_BUG-36_tenant_bootstrap.workers.test.ts` — five UATs, in
+workerd against a real D1, because the whole claim is about what a real database
+with no `tenants` row does to a real Worker's `fetch`:
+
+- `..._a_fresh_database_serves_an_empty_site_list` — the outage itself: schema
+  applied, no tenant row, `GET /api/sites` → `200 []` rather than `503 No tenant`.
+- `..._reading_registers_the_configured_tenant_and_no_other` — the row exists and
+  is active afterwards, and exactly one tenant was added.
+- `..._an_import_still_lands_on_a_fresh_database` — the regression guard for
+  deleting the second opener, which used to carry the only registration.
+- `..._a_deactivated_tenant_stays_refused` — 503, and the tenant is still
+  suspended afterwards.
+- `..._an_unset_tenant_id_is_still_a_configuration_error` — 503 naming
+  `TENANT_ID`.
+
+Each case uses its own tenant id: the database is shared across the file and the
+bootstrap is a write, so a shared id would let case order decide whether a tenant
+was "fresh" — the one property under test.
+
+## Supersession — one REQ-149 assertion
+
+`test_UAT_FC_REQ-149_build_artifacts_serve_when_the_store_has_no_tenant`
+(AC-10) closed with a companion assertion that `GET /api/sites` under
+`TENANT_ID: 'nobody'` answers 503. That is exactly the behaviour this ticket
+changes, and deliberately: a configured tenant with no row is every NEW
+deployment.
+
+AC-10's actual claim — build artifacts serve without opening a store — is
+untouched. Only the probe moved, to `TENANT_ID: ''`, which is the case that is
+still genuinely unopenable. The companion property ("deferring the store must
+not change what an unopenable one means") is preserved intact.
+
+## Verified
+
+- `vitest run --project workers` — 63 passed, 8 files, including the new UAT and
+  every REQ-143/145/146/148/149 workerd suite.
+- `tsc --noEmit` clean across `site-schema`, `framework`, `public-site`,
+  `control-app`, `generate`.
+- The interim production `INSERT` recorded above is no longer load-bearing: the
+  Worker registers the row itself on the next fresh database or deployment.
+
+## Still open, and NOT this ticket
+
+`app.1stcontact.io` returns Cloudflare **Error 1102 — Worker exceeded resource
+limits** when switching the builder to **Edit** mode, reproducibly. Edit mode is
+`/preview/<slug>/edit/` — the request-time edit-channel render in workerd, which
+stamps segment addresses on top of the ordinary draft render. Unrelated to the
+tenant bootstrap or the publish credential; it needs its own ticket.
