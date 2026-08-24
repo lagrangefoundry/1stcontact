@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:51:28.484093+00:00'
+updated_at: '2026-08-24T21:57:55.874085+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -282,5 +282,67 @@ One caveat worth stating plainly: this is verified in workerd via Miniflare, not
 sure add observability?
 
 do I need to rebuild and redeploy to apply your fix?
+
+<!-- xgd-turn id="6db0f3f2-3ff6-48de-8bf5-1c20f8ff88b3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T21:57:55.851417+00:00" -->
+#### Claude
+Both — let me check what UATs pin `wrangler.toml` first, since several assert its shape.
+
+The parser ignores tables without a `binding` key, so `[observability]` is safe for the existing UATs. Since this file pins every inheritance trap with a test — and a dropped `[env.production]` repeat would silently lose production logs again, which is the whole bug — I'll add the UAT too. That makes it code, so: branch, per protocol.
+
+Careful — that insertion point would swallow the `routes` key into the new table. Let me check.
+
+Good catch — `routes` got swallowed into the new table. Fixing.
+
+Structure is correct — `routes` stayed on `[env.production]`. Now the UAT.
+
+My own comment text contains the literal `[env.production]`, so the slice started at the wrong place. Anchoring to line start.
+
+All 66 pass. Now the deploy dry-run to prove wrangler itself accepts the config.
+
+Dry-run passes (the `ACCESS_DEV_OPEN` warning is the intended, UAT-asserted security control). Committing.
+
+Now updating the ticket body — the "Still outstanding" section is no longer accurate.
+
+Both commits are ancestors and the code is on disk. Let me diagnose the version gate.
+
+The gate expects the tip to be my own commit, but my ticket-body update landed after the merge. Its prescribed remedy is a fresh bump. Taking the session lock for a one-line change rather than cutting a branch.
+
+Both changes are in and BUG-37 is back at `free_coded` with all three commits recorded.
+
+## Yes — you need to redeploy
+
+Nothing is live yet. Both changes require it, for different reasons:
+
+- **The store fix is Worker source.** `wrangler deploy` rebuilds from source at deploy time and does *not* consume `dist/` — the repo's own `bin/build` says so explicitly. So the bundle I verified is evidence, not input.
+- **The observability block is deploy-time config**, read from `wrangler.toml` when the Worker is uploaded.
+
+```bash
+bin/build            # preflight → 1c assets → typecheck → bundle
+bin/deploy control-app
+```
+
+`bin/deploy` does **not** build — it runs its `deploy.d/` hooks (D1 migrations, secrets) and uploads. So run `bin/build` first; `apps/control-app/src/generated/` and `dist-assets/` are gitignored and the Worker imports two of them. `bin/deploy --dry-run` rehearses the same path if you want a look first.
+
+One blocker: **your wrangler token is expired** — that's why I couldn't check the plan earlier. You'll need `wrangler login` in an interactive terminal before either command will work.
+
+After deploying, the thing worth checking is that the 1102 diagnosis was complete: pull the invocation logs (now retained) and confirm preview requests land at single-digit milliseconds.
+
+## Observability
+
+Declared at the top level **and** under `[env.production]`, with `head_sampling_rate = 1`. `observability` is on wrangler's inheritable list, so the production repeat is redundant today — I wrote it anyway because this file's standing rule is that nothing depends on remembering which keys inherit, and losing that declaration fails silently: the deploy succeeds and the logs are just gone.
+
+Worth flagging: **I made a real mistake here and the test caught it.** My first placement put `[env.production.observability]` before `routes`, which a TOML table header swallows — the file still parses, wrangler still deploys, and the production route silently stops being declared. I caught it on inspection, verified with `tomllib` that `routes` now sits on `[env.production]`, and wrote `test_UAT_FC_BUG-37_the_production_route_survives_the_new_table` to reproduce it. RED-checked: reintroduce the bad ordering and that test fails.
+
+4 UATs, all passing. The neighbouring `wrangler.toml` UATs (REQ-143/144/145/147, public-site, naming) still pass — 66 tests. `wrangler deploy --env production --dry-run` resolves with every binding present; the `ACCESS_DEV_OPEN` warning it prints is the intended, UAT-asserted security control.
+
+## Ticket
+
+`free_coded`, version 0.2.13, three commits: `2058a16` (store memo), `0fe586d` (observability), `999579b` (version bump). The body now covers the observability work and states plainly that neither change is live until redeploy.
+
+The third commit needs explaining: the free-coded gate compares the version at the tip of `xgd-working` against the recorded SHAs, and my ticket-body update auto-committed *after* the merge — moving the tip to a commit carrying 0.2.12 without having introduced it. The gate's own remedy is a fresh bump, which is what that commit is. Worth knowing for future sessions: ticket writes after a merge but before `move-to-free-coded` will trip this every time.
+
+Promotion to `ready_to_reconcile` is still yours — it fires `xgd reconcile` within ~30 seconds.
 
 <!-- xgd-chat-end -->
