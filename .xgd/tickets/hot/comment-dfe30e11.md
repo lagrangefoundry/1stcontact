@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-24T00:43:03.184219+00:00'
+updated_at: '2026-08-24T01:31:36.311148+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -293,5 +293,11 @@ Still outstanding on BUG-36 itself: the full-suite comparison is running, then t
 <!-- xgd-chat role="user" ts="2026-08-24T00:43:02.949264+00:00" -->
 #### You
 It is 100% reproducible. Every time I switch to Edit mode I get the error
+
+<!-- xgd-turn id="f6bf12a6-0620-4949-b214-2cf3c71991dc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T01:31:36.292773+00:00" -->
+#### You
+please complete the free-coding of this ticket
 
 <!-- xgd-chat-end -->
