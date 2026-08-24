@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:24:52.552595+00:00'
+updated_at: '2026-08-24T21:25:10.855082+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -157,5 +157,11 @@ Want me to add the `[observability]` block (config-only, both top level and `[en
 <!-- xgd-chat role="user" ts="2026-08-24T21:24:52.458204+00:00" -->
 #### You
 ok I just upgraded to a paid plan (there was a 10ms limit). Am I good?
+
+<!-- xgd-turn id="50296815-5a12-4b76-95ca-d687823c55d5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T21:25:10.754097+00:00" -->
+#### You
+ok I just upgraded to a paid plan (there was a 10ms limit). Am I good? It seems to work
 
 <!-- xgd-chat-end -->
