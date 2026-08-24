@@ -1,4 +1,5 @@
 import { assembleSite } from './assemble'
+import type { LoadResult } from './assemble'
 import { contentTypeOf } from './content-type'
 import type { ChangeSlice, JournalRecord } from './journal-model'
 import { JOURNAL_WINDOW } from './journal-model'
@@ -145,6 +146,55 @@ export interface TenantSiteStore extends SiteStore {
   forget(slug: string): Promise<void>
   /** The slugs this tenant holds a draft for, sorted. */
   slugs(): Promise<string[]>
+}
+
+/**
+ * The assembled draft, memoised per ISOLATE and keyed `(tenantId, slug)` — BUG-37.
+ *
+ * WHAT THIS IS FOR. `PreviewRenderer.file()` calls `loadDraft` on EVERY request,
+ * before it consults its own render cache, and that ordering is deliberate: the
+ * stamp check has to be a store read or a stale render could be served. So
+ * `assembleSite` — which is `validateSite` over the whole definition — ran once
+ * per preview byte. Measured in workerd against the real `xgd` site that is
+ * 72-89ms of the ~78ms a preview request costs, against 2-3ms of D1 I/O and
+ * 1-4ms of actual rendering. It was ~95% of the request, and no cache in the
+ * previous design could avoid it.
+ *
+ * `version` IS THE INVALIDATION KEY, AND IT IS STILL READ PER REQUEST. `siteRow`
+ * runs on every `loadDraft` (~1ms, primary-key lookup) and its `version` is
+ * compared before the entry is used, so currency is proven by a live read rather
+ * than assumed from a timer. What the hit skips is `readPages` + `assembleSite`.
+ * Every draft mutation ends with `UPDATE sites SET version = version + 1`
+ * — including asset writes, which `assembleSite` consumes as `assetFiles` — so
+ * nothing that changes the assembled value leaves the version still. Because the
+ * check is a D1 read rather than isolate state, a write from ANOTHER isolate or
+ * another process (`bin/publish` from a laptop) invalidates this correctly too.
+ *
+ * IT CACHES DATA, NEVER A HANDLE, and that is what makes it safe where the
+ * router's `PREVIEWS` WeakMap is not. A cached `PreviewRenderer` would hold the
+ * store handle it was built with and read through a tenant check that predates
+ * the request — the staleness `storeFor` refuses. Nothing here outlives a tenant
+ * check: `forTenant` still runs per request, and a deactivated tenant is still
+ * turned away before this map is ever reached.
+ *
+ * BOUNDED BY CONSTRUCTION. Keyed by `(tenantId, slug)` and REPLACED when the
+ * version moves, rather than keyed by version and accumulated — so it holds at
+ * most one entry per site and cannot grow with edit count. That distinction is
+ * the whole reason this is not itself a leak.
+ */
+const ASSEMBLED = new Map<string, { version: number; result: LoadResult }>()
+
+/** The memo key. `\0` cannot occur in either part, so the join is unambiguous. */
+function assembledKey(tenantId: string, slug: string): string {
+  return `${tenantId}\0${slug}`
+}
+
+/**
+ * Drop a site's memo. For tests that need a cold assemble, and for `forget`,
+ * which makes the cached value describe a site that no longer exists.
+ */
+export function resetAssembledCache(): void {
+  ASSEMBLED.clear()
 }
 
 /** JSON, as every definition column holds it. */
@@ -349,6 +399,10 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     },
 
     async forget(slug) {
+      // BUG-37 — the memo goes first. A site recreated under the same slug starts
+      // at version 0 again, so an entry left behind could be mistaken for the new
+      // site's by a version comparison that is, correctly, only about writes.
+      ASSEMBLED.delete(assembledKey(tenantId, slug))
       // R2 first: an orphaned object is invisible and costs storage, whereas an
       // asset row pointing at bytes that are already gone would read back as a
       // present asset with no content.
@@ -746,7 +800,18 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
 
     async loadDraft(slug): Promise<DraftSnapshot | null> {
       const row = await siteRow(slug)
-      if (!row) return null
+      const key = assembledKey(tenantId, slug)
+      if (!row) {
+        // A site the store no longer holds must not leave a memo behind that
+        // would describe a LATER site of the same name (see `forget`).
+        ASSEMBLED.delete(key)
+        return null
+      }
+
+      // BUG-37 — the memo, checked against the version this request just read.
+      const hit = ASSEMBLED.get(key)
+      if (hit && hit.version === row.version) return { result: hit.result, stamp: `d1:${row.version}` }
+
       const pages = await this.readPages(slug)
       const result = assembleSite({
         slug,
@@ -756,6 +821,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         pages: pages.map((p) => p.page),
         assetFiles: await assetNames(slug),
       })
+      ASSEMBLED.set(key, { version: row.version, result })
       return { result, stamp: `d1:${row.version}` }
     },
   }
