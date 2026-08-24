@@ -1,4 +1,8 @@
-import { d1r2SiteStore, type TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import {
+  d1r2SiteStore,
+  UnknownTenantError,
+  type TenantSiteStore,
+} from '../../../tools/generate/src/store/d1r2-store'
 
 /**
  * The Worker's store handle (REQ-145).
@@ -42,7 +46,35 @@ export class TenantNotConfiguredError extends Error {
 }
 
 /**
- * The store for this request.
+ * The store for this request, with the configured tenant made to exist.
+ *
+ * WHAT WENT WRONG WITHOUT THIS (BUG-36). A freshly deployed builder was dead on
+ * arrival. `bin/deploy` applies the migrations, so the schema was there and the
+ * `tenants` table was empty — and `forTenant` refuses an unregistered tenant, as
+ * it must. So every read 503'd, the chrome's top-level `await` on `/api/sites`
+ * rejected, and nothing mounted: the operator got a boot guard rather than a
+ * builder. The only cure was for someone to run `bin/publish` from a laptop,
+ * because the import route opened the store through a SECOND function that
+ * registered the tenant first. One deployment, one configured tenant, two
+ * openers that disagreed about whether it existed.
+ *
+ * They are one opener now, and the registration is the read path's too. This is
+ * not a widening of what a Worker may create: `tenantId` comes from the
+ * deployment's own `TENANT_ID`, so this can name exactly the account the
+ * configuration already names and can reach no other. That was always the
+ * argument for putting it on the import route; it is the same argument, applied
+ * where its absence was the outage.
+ *
+ * ONLY ON `unknown`, NEVER ON `inactive`. A deactivated tenant is a decision
+ * someone made, and self-healing past it would turn account suspension into a
+ * suggestion. The reason is checked explicitly rather than relied upon to fail
+ * again on the retry — `createTenant` is `INSERT OR IGNORE`, so an inactive row
+ * survives it, but a guarantee that reads as an accident is not one.
+ *
+ * COLD PATH ONLY. The ordinary request finds the row on the first `forTenant`
+ * and pays one indexed lookup by primary key, exactly as before; the create runs
+ * once in a database's life. Registering unconditionally would put a write on
+ * every request to buy nothing.
  *
  * Constructed per request rather than memoised per isolate: `forTenant` performs
  * the tenant check, and a handle cached across requests would carry a check made
@@ -53,31 +85,12 @@ export class TenantNotConfiguredError extends Error {
 export async function storeFor(env: StoreEnv): Promise<TenantSiteStore> {
   const tenantId = (env.TENANT_ID ?? '').trim()
   if (tenantId === '') throw new TenantNotConfiguredError()
-  return d1r2SiteStore({ DB: env.DB, SITES: env.SITES }).forTenant(tenantId)
-}
-
-/**
- * The store for an IMPORT, with the configured tenant made to exist first.
- *
- * A fresh database has the schema and no rows, so `forTenant` correctly refuses
- * — there is genuinely no such tenant — and the very first `bin/publish` could
- * never land. Something has to create the row, and the choice is where.
- *
- * It is HERE, and it is bounded to `TENANT_ID`. This registers exactly the one
- * tenant the deployment is already configured to serve and can name no other, so
- * it cannot become a way to reach or create a second account; that is why it is
- * not on {@link storeFor}, where every read and write would inherit it and an
- * unknown tenant would stop being an error at all. A migration could not do it
- * either: migrations are schema, and which tenant a deployment serves is
- * configuration.
- *
- * Idempotent — `createTenant` is idempotent on id — so it is a no-op on every
- * import after the first.
- */
-export async function storeForImport(env: StoreEnv): Promise<TenantSiteStore> {
-  const tenantId = (env.TENANT_ID ?? '').trim()
-  if (tenantId === '') throw new TenantNotConfiguredError()
   const root = d1r2SiteStore({ DB: env.DB, SITES: env.SITES })
-  await root.createTenant({ id: tenantId, name: tenantId })
-  return root.forTenant(tenantId)
+  try {
+    return await root.forTenant(tenantId)
+  } catch (err) {
+    if (!(err instanceof UnknownTenantError) || err.reason !== 'unknown') throw err
+    await root.createTenant({ id: tenantId, name: tenantId })
+    return root.forTenant(tenantId)
+  }
 }
