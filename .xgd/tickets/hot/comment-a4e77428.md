@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:25:59.617239+00:00'
+updated_at: '2026-08-24T21:29:01.344906+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -195,5 +195,11 @@ Two reasonable options, and it's your call:
 Either way I'd like to correct the ticket body — its leading hypothesis (dead render cache → memory exhaustion) is falsified, and the measurements should be on record so the next person doesn't re-derive them. Say the word and I'll update it, preserving the existing content.
 
 Separately, still worth doing regardless: adding `[observability]` (config-only, top level *and* `[env.production]`). You got lucky that this one was diagnosable from source and a plan page. The next one may not be.
+
+<!-- xgd-turn id="2cb21d71-e731-4c17-910a-5d7df60dd738-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T21:29:01.073076+00:00" -->
+#### You
+If you have an easy way to fix the performance. go ahead
 
 <!-- xgd-chat-end -->
