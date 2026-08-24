@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-24T23:33:51.575977+00:00'
+updated_at: '2026-08-24T23:40:38.661688+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -262,5 +262,11 @@ And quarantine gets simpler than what I proposed: not a KB boundary, but `fields
 Where that leaves the open questions from last turn: #2 dissolves (one project KB, rights is a field). #1 stands — where the rights bits get set at capture/upload time, and whether we ask or infer from the declared domain.
 
 Want me to turn this into a DOC now? I'd write it as **Content Model, Rights & the Project Corpus**, and it supersedes DOC-13 §10's parked IP question and closes DOC-10 §12's attachments question.
+
+<!-- xgd-turn id="f95a6fb4-09f0-4990-a783-329e68651f43-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T23:40:38.626439+00:00" -->
+#### You
+Yes - please create a doc and can you create a ticket in lagrange-framework to add attachments to the ticket system with metadata - a question there - would the attachements live in the same store as the tickets? How are attachments referenced?
 
 <!-- xgd-chat-end -->
