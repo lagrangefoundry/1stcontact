@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-38
 created_by: xgd
 created_at: '2026-08-24T22:13:59.493208+00:00'
-updated_at: '2026-08-24T22:20:10.568862+00:00'
+updated_at: '2026-08-24T22:24:01.859312+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,11 @@ Regression: 7 workerd/panel suites, 48 tests, all green. `tsc --noEmit` clean on
 Ticket BUG-38 is at `free_coded`, commit `63df97c9`, version 0.2.14. **You'll need to redeploy the control-app Worker** for this to take effect in the cloud.
 
 One thing I did not touch, flagged rather than fixed: `tests/test_UAT_FC_REQ-122_chat_host.test.ts` has 5 pre-existing failures on `xgd-working` — identical before and after my change, and identical in the main checkout, so unrelated to this bug. They look like the Node builder origin failing to resolve the shared `ai` library. Worth a separate ticket if you want it chased.
+
+<!-- xgd-turn id="ccea0766-c26a-450c-bd28-57edd1cd074f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T22:24:01.837675+00:00" -->
+#### You
+Can you create a bug to fix those tests please?
 
 <!-- xgd-chat-end -->
