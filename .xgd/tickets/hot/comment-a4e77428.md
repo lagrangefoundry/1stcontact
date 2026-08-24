@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-37
 created_by: xgd
 created_at: '2026-08-24T21:09:26.563508+00:00'
-updated_at: '2026-08-24T21:23:21.099681+00:00'
+updated_at: '2026-08-24T21:24:52.552595+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -151,5 +151,11 @@ And that gives a far better answer to "why Edit and not View" than anything abou
 The `[observability]` prerequisite still gates everything — but the question it needs to answer has changed. It's no longer "which URL died"; it's "what does this isolate retain across requests, and does the kill correlate with isolate age and chat activity rather than with the preview route."
 
 Want me to add the `[observability]` block (config-only, both top level and `[env.production]`)? And separately — worth me digging into `SessionManager`'s retention to see whether it's genuinely unbounded per isolate, before you spend a deploy cycle?
+
+<!-- xgd-turn id="a9273f11-18c5-4039-8d66-d0b00ddf059d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T21:24:52.458204+00:00" -->
+#### You
+ok I just upgraded to a paid plan (there was a 10ms limit). Am I good?
 
 <!-- xgd-chat-end -->
