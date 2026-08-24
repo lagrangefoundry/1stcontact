@@ -5,7 +5,7 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-24T01:11:09.731950+00:00'
+updated_at: '2026-08-24T01:11:17.010113+00:00'
 completed_at: null
 last_field_updated: status
 status: ready_to_reconcile
