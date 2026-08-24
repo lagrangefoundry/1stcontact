@@ -5,10 +5,10 @@ type: request
 title: 'Publish in the cloud: revisions, history and rendered output without a filesystem'
 created_by: xgd
 created_at: '2026-08-17T20:14:14.189240+00:00'
-updated_at: '2026-08-24T01:11:17.010113+00:00'
+updated_at: '2026-08-24T02:10:41.591464+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: medium
   story_points: 13
@@ -41,6 +41,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.9
+  bundled_in: bundle-b3b7c399
 ---
 
 # Publish in the cloud: revisions, history and rendered output without a filesystem
