@@ -5,13 +5,17 @@ type: goal
 title: Knowledge management
 created_by: xgd
 created_at: '2026-08-24T22:38:42.816121+00:00'
-updated_at: '2026-08-24T22:38:42.816121+00:00'
+updated_at: '2026-08-24T22:40:31.555436+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: children
 status: concept
 fields:
   provenance: planned
   workstream: false
+  children:
+  - goal-deb3d7f8
+  - goal-c1360ece
+  - goal-d9c45a7e
 ---
 
 Bring the knowledge-management system into the 1st Contact app.
