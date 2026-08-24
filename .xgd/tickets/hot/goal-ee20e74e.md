@@ -5,13 +5,16 @@ type: goal
 title: Asset and background upload
 created_by: xgd
 created_at: '2026-08-24T22:39:14.418289+00:00'
-updated_at: '2026-08-24T22:39:14.418289+00:00'
+updated_at: '2026-08-24T22:40:37.791364+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: children
 status: concept
 fields:
   provenance: discovered
   workstream: false
+  children:
+  - goal-4bfe7535
+  - goal-a66b9250
 ---
 
 Let the operator bring their own images, backgrounds and assets into a site, and make the AI aware of them.
