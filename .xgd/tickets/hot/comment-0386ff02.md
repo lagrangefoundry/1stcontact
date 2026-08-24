@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-24T23:40:38.661688+00:00'
+updated_at: '2026-08-24T23:45:19.314007+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -268,5 +268,48 @@ Want me to turn this into a DOC now? I'd write it as **Content Model, Rights & t
 <!-- xgd-chat role="user" ts="2026-08-24T23:40:38.626439+00:00" -->
 #### You
 Yes - please create a doc and can you create a ticket in lagrange-framework to add attachments to the ticket system with metadata - a question there - would the attachements live in the same store as the tickets? How are attachments referenced?
+
+<!-- xgd-turn id="f95a6fb4-09f0-4990-a783-329e68651f43-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T23:45:19.219729+00:00" -->
+#### Claude
+Good questions — they shape the ticket, so let me settle them first, then write both.
+
+Both questions have precedent in this codebase, so let me settle them and write them into the ticket.
+
+Both created. One trap to close first — `REQ-104` also exists in *this* repo as an unrelated L1 ticket, so a wikilink would resolve wrongly:
+
+Done. **DOC-38** (this repo) and **`lagrange-framework` REQ-104**. Both committed locally; the auto-push failed as offline, so they'll go up on your next push.
+
+## Your two questions
+
+**Do attachments live in the same store as the tickets?** No — and you've already settled this twice, so I took the precedent rather than reopening it. `0001_site_store.sql` says it outright: *"Asset bytes are not [rows]: they live in R2 and this schema holds only the pointer to them."* DOC-10 §4.4 says the same for chat blobs. Attachments follow: **metadata in the ticket store, bytes in a blob store.**
+
+The component-level consequence is that ticketing must not depend on R2 — so the blob store is a **fourth injected seam** (`put`/`get`/`head`/`delete`), same shape as knowledge's `IndexSource` and 1stcontact's `SiteStore`. R2 in the Worker, filesystem for the file-backed store, in-memory for tests.
+
+**How are they referenced?** As **child records, by analogy to comments** — which the component already homes as a sub-record keyed by parent uid with its own op (`store.js`, `type: 'comment'`). New ops `attach` / `attachments` / `detach`. Not a `fields.attachments` array: unvalidated, rewrites the whole ticket on every change, and gives GC nothing to sweep against.
+
+The blob address is `sha256` **within a tenant prefix** — `t/<tenant>/blob/<sha256>`.
+
+That prefix is the reason I made this a separate ticket rather than a bullet in the DOC. Global content-addressing means two clients uploading the same file *share a blob*, which is two distinct failures, both invisible in any single-tenant test:
+
+- **an existence oracle across the tenant barrier** — a deduping `put` is observably cheaper, so tenant A learns tenant B holds a given file. The barrier bound into the store handle gets circumvented by physics rather than by a query.
+- **an erasure contradiction with DOC-37** — erasing A must not delete B's bytes, but keeping them means A's bytes survive A's erasure request.
+
+Prefixing dedups within a tenant and isolates across, which is the strength each boundary actually wants.
+
+Two more things the ticket pins down: **blob first, then the record** (a crash leaves an orphan blob a sweep collects, never a dangling pointer nothing can heal), and **`rights`/`republishable`/`exportable` live in `fields` on the ticket, not on the attachment** — they're properties of the material, and a general component shouldn't learn our copyright model. `meta` on the record is there for genuinely per-blob attributes (dimensions, page count), validated by the host's TypePack.
+
+## What went into DOC-38
+
+Your framing won on the KB question and the doc says so with the code reasons — overlapping membership, predicate corpora, incremental `since` re-indexing. Two KBs, `system` and `project`; my six became types (`material`, `reference`, `brief` new; `doc` and `chat` exist) and fields.
+
+Three things worth flagging as I wrote it:
+
+- **§8.2 is a finding, not a restatement.** `kbWeight = Math.max(...)` means a second KB can only ever *raise* a document's rank. So if site copy does prove to pollute co-ranking, the fix requires the corpora to be **disjoint** — that's a constraint on how the split is done, and it's the kind of thing that's invisible until someone adds a "low-weight" KB and wonders why nothing changed.
+- **§8.3 dropped my page-tickets idea** in favour of a source adapter. `corpus.js` — *"A KB declaring no `source` reads the project store; any other name is looked up in `sources`"* — is a store seam, not just a shipped-directory seam. So the site is searchable without materialising tickets, which kills both the write amplification and the parallel-copy risk.
+- **§11 moved quarantine to the write path.** Excluding third-party material from retrieval defeats the point — we captured it so the AI would look at it. The detectable event is a control-surface call carrying verbatim non-republishable text, which is mechanical rather than exhortative.
+
+DOC-38 won't reach the builder AI until you run `1c kb build` (needs the Cloudflare creds for embeddings) — worth doing before the next builder session, since §5's asset-promotion invariant is the sort of thing the AI should be able to find.
 
 <!-- xgd-chat-end -->
