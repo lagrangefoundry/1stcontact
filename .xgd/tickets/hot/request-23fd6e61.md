@@ -5,10 +5,10 @@ type: request
 title: 'The builder is private: Cloudflare Access on app.1stcontact.io'
 created_by: xgd
 created_at: '2026-08-15T20:34:01.076509+00:00'
-updated_at: '2026-08-24T01:15:24.843755+00:00'
+updated_at: '2026-08-24T02:10:41.151671+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 5
@@ -26,6 +26,7 @@ fields:
     - fc75f0ca26d8e2953514bca9dc9b04cc1b6d0b6d
   version: 0.1.53
   chat_comment: comment-d6476701
+  bundled_in: bundle-b3b7c399
 ---
 
 # The builder is private: Cloudflare Access on `app.1stcontact.io`
