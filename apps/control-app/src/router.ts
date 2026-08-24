@@ -25,7 +25,7 @@ import {
 import { workerHost, type WorkerHost } from './ai'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
-import { storeFor, storeForImport, TenantNotConfiguredError, type StoreEnv } from './store'
+import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -181,8 +181,6 @@ export interface RouterEnv extends StoreEnv {
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv) => Promise<TenantSiteStore>
-  /** The store an import writes through — it may register the configured tenant. */
-  importStore?: (env: RouterEnv) => Promise<TenantSiteStore>
 }
 
 /**
@@ -276,14 +274,17 @@ async function routeUncached(
       if (!Array.isArray(payload.pages) || !Array.isArray(payload.assets)) {
         return json(400, { error: 'pages and assets must be arrays' })
       }
-      // This route runs BEFORE `storeFor` below, and uses its own handle,
-      // because `forTenant` refuses an unknown tenant — which on a fresh
-      // database is every request, including the one that would populate it.
-      // `storeForImport` registers the configured tenant and no other.
-      const importStore = await (deps.importStore ?? storeForImport)(env)
-      await importStore.createDraft(payload.slug)
+      // The SAME opener every other route uses (BUG-36). This route had its own
+      // for a while, because `forTenant` refuses an unknown tenant — which on a
+      // fresh database is every request, including the one that would populate
+      // it. But that made the import the only way a deployment's tenant ever got
+      // registered, so a builder nobody had published to could not be read at
+      // all. `storeFor` registers the configured tenant itself now, and there is
+      // one opener again.
+      const store = await (deps.store ?? storeFor)(env)
+      await store.createDraft(payload.slug)
       const write = payloadToWrite(payload)
-      await importStore.write(payload.slug, write)
+      await store.write(payload.slug, write)
       return json(200, {
         pages: write.pages.length,
         assets: write.assets.length,

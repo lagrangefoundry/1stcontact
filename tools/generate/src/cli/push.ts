@@ -96,11 +96,33 @@ export function payloadToWrite(payload: SitePayload): {
   return write
 }
 
+/**
+ * A Cloudflare Access service token, as Access itself issues it.
+ *
+ * THE PAIR IS THE CREDENTIAL, and that is not an implementation detail worth
+ * hiding. This used to send a `cf-access-jwt-assertion` header, which could
+ * never have worked against a deployed target: that is the header Access SETS
+ * on the request it forwards to the origin, carrying the identity it has
+ * already verified. It is not an inbound credential, and a request arriving
+ * with one is refused at the edge exactly like a request arriving with none.
+ *
+ * What the edge does accept from automation is this pair, which it exchanges
+ * for the JWT it then forwards. So the client's job is to present id and
+ * secret; the assertion header is the far side's business and is never written
+ * here.
+ */
+export interface AccessServiceToken {
+  /** `CF-Access-Client-Id` — the public half, ends in `.access`. */
+  clientId: string
+  /** `CF-Access-Client-Secret` — a real credential. Never logged. */
+  clientSecret: string
+}
+
 export interface PushOptions {
   /** Where the builder Worker is, e.g. `http://localhost:8788`. */
   origin: string
-  /** An `cf-access-jwt-assertion` value, for a deployment behind Access. */
-  accessToken?: string
+  /** Service-token credentials, for a deployment behind Access. */
+  access?: AccessServiceToken
   fetch?: typeof fetch
 }
 
@@ -113,19 +135,39 @@ export async function pushSite(
   const payload = await readSitePayload(store, slug)
   const doFetch = opts.fetch ?? globalThis.fetch
   const headers: Record<string, string> = { 'content-type': 'application/json' }
-  if (opts.accessToken) headers['cf-access-jwt-assertion'] = opts.accessToken
+  if (opts.access) {
+    headers['CF-Access-Client-Id'] = opts.access.clientId
+    headers['CF-Access-Client-Secret'] = opts.access.clientSecret
+  }
 
   const res = await doFetch(new URL('/api/import', opts.origin).toString(), {
     method: 'POST',
     headers,
+    // `manual`, and this is the difference between a legible failure and a
+    // baffling one. Access answers an unauthenticated request with a 302 to its
+    // login page. Followed, that redirect returns 200 with an HTML document —
+    // so `res.ok` is TRUE, the refusal branch below never runs, and the operator
+    // sees `JSON.parse` choke on `<!DOCTYPE html>`. Left unfollowed the 302
+    // arrives as itself and can be reported as what it is.
+    redirect: 'manual',
     body: JSON.stringify(payload),
   })
   const body = (await res.text()).trim()
   if (!res.ok) {
+    // ANY redirect belongs with 401/403: it is Access declining, in a redirect's
+    // clothing. Status 0 is here too — that is what an unfollowed redirect reads
+    // as under a `fetch` that returns an opaque response for one, so the two
+    // shapes of "we were bounced to a login page" report identically.
+    const bounced = res.status === 0 || (res.status >= 300 && res.status < 400)
+    const refusedByAccess = bounced || res.status === 401 || res.status === 403
     throw new Error(
-      `Import of '${slug}' was refused with ${res.status}: ${body || '(no body)'}\n` +
-        (res.status === 401 || res.status === 403
-          ? 'The target is behind Cloudflare Access — pass --token with a service-token JWT.'
+      `Import of '${slug}' was refused with ` +
+        `${bounced ? `${res.status || 'a redirect'} to a login page` : res.status}: ` +
+        `${body || '(no body)'}\n` +
+        (refusedByAccess
+          ? 'The target is behind Cloudflare Access. Set CF_ACCESS_CLIENT_ID and ' +
+            'CF_ACCESS_CLIENT_SECRET to a service token, or pass --client-id and ' +
+            '--client-secret. Run bin/access-token to provision one.'
           : ''),
     )
   }

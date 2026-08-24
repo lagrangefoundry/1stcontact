@@ -314,13 +314,23 @@ describe('REQ-149 — publish in the cloud', () => {
     expect(asset.status).toBe(200)
     expect(await asset.text()).toBe('asset:/builder/main.js')
 
-    // The API routes still refuse, still say why, and still do it with the SAME
-    // STATUS as before — deferring the store moved when it is opened, and must
-    // not change what an unopenable one means. 503: the deployment is
-    // misconfigured, which is not the same as the server breaking on a request.
-    const refused = await call('/api/sites', undefined, { TENANT_ID: 'nobody' })
+    // The API routes still refuse an UNOPENABLE store, still say why, and still
+    // do it with the SAME STATUS as before — deferring the store moved when it
+    // is opened, and must not change what an unopenable one means. 503: the
+    // deployment is misconfigured, which is not the same as the server breaking
+    // on a request.
+    //
+    // THE PROBE CHANGED, AND ONLY THE PROBE (BUG-36). This used to name a
+    // tenant that did not exist. That is no longer an unopenable store: the
+    // configured tenant is registered on first use, because a deployment whose
+    // migrations have run and whose `tenants` table is empty is every NEW
+    // deployment, and refusing it left the builder dead until someone published
+    // from a laptop. An unset `TENANT_ID` is the case that is still genuinely
+    // unopenable — there is no name to register — so it is what proves the
+    // property AC-10 is actually about.
+    const refused = await call('/api/sites', undefined, { TENANT_ID: '' })
     expect(refused.status).toBe(503)
-    expect(await refused.text()).toContain('nobody')
+    expect(await refused.text()).toContain('TENANT_ID is not configured')
   })
 
   it('test_UAT_FC_REQ-149_the_site_listing_reports_the_live_revision', async () => {
