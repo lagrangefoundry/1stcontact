@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-36
 created_by: xgd
 created_at: '2026-08-23T22:09:32.635330+00:00'
-updated_at: '2026-08-23T23:52:43.772757+00:00'
+updated_at: '2026-08-24T00:43:03.184219+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -287,5 +287,11 @@ One real gap this exposed: I could tell you *that* a request died but not *which
 Housekeeping: I deleted the staged service-token secret from disk rather than leave a live Access credential sitting in a temp file — consistent with the design I just shipped. `bin/access-token --rotate` re-issues one whenever you want it.
 
 Still outstanding on BUG-36 itself: the full-suite comparison is running, then the `[FREE-CODED]` commit; and the tenant-opener fix is scoped but uncoded pending your confirm — right now a fresh deployment still only works because of the manual `INSERT` I ran.
+
+<!-- xgd-turn id="f322f7f1-e488-4c01-9e61-a545710acef1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-24T00:43:02.949264+00:00" -->
+#### You
+It is 100% reproducible. Every time I switch to Edit mode I get the error
 
 <!-- xgd-chat-end -->
