@@ -29,6 +29,8 @@ fields:
     new_sha: cdc183507ceea2ae91aedf780b79dbcbd715adf6
   - old_sha: a74ac03993024fbbffb13bf95ca29a0605894043
     new_sha: 2d1fc953ba7c6c125dffd002d73d30268590f368
+  - old_sha: ec7e98e301bf042cfad3b6f0d0bdfc4fd8d21f0f
+    new_sha: 896e0faed22a61dcd1dbd5b357b0cbb8d6a743d6
 ---
 
 {
