@@ -15,6 +15,27 @@ compatibility_flags = ["nodejs_compat"]
 # inherit is one refactor from silently flipping back on.
 workers_dev = false
 
+# Invocation logs, and the reason this is not optional (BUG-37).
+#
+# Without this block the account retains NO per-invocation logs — only aggregate
+# analytics. BUG-37 was diagnosed from source and a billing page because of that
+# absence: it was possible to establish THAT a request had been killed and not
+# WHICH URL killed it, which turned a one-log answer into an inference chain.
+#
+# `head_sampling_rate = 1` keeps every invocation. This Worker serves one
+# operator's builder, so the volume is trivial and a sampled log is a log that is
+# missing exactly the request you came to read.
+#
+# REPEATED UNDER [env.production] BELOW. `observability` is on wrangler's
+# inheritable list, unlike vars and bindings — so the repeat is redundant TODAY
+# and is written anyway, for the reason the vars below are: this file's own rule
+# is that nothing depends on remembering which keys inherit. A UAT pins both
+# declarations, because the failure mode of losing the production one is silent —
+# the deploy succeeds and the logs simply are not there.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 # The builder's browser assets (REQ-145), built by `1c assets`.
 #
 # THE HANG IS GONE. This binding was refused before because an [assets] binding
@@ -119,6 +140,14 @@ workers_dev = false
 routes = [
   { pattern = "app.1stcontact.io/*", zone_name = "1stcontact.io" }
 ]
+
+# See the top-level block: restated rather than inherited, on purpose (BUG-37).
+# LAST in this environment's bare keys, because a TOML table header ends the
+# table above it — declared before `routes`, this header would capture it and the
+# production route would silently stop being declared at all.
+[env.production.observability]
+enabled = true
+head_sampling_rate = 1
 
 # THE DEPLOYED GATE'S CONFIGURATION. This block — not the top-level one — is
 # where the real Access identifiers belong, because this is the only one
