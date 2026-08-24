@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-38
 created_by: xgd
 created_at: '2026-08-24T22:13:59.493208+00:00'
-updated_at: '2026-08-24T22:24:01.859312+00:00'
+updated_at: '2026-08-24T22:25:35.663099+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -71,5 +71,31 @@ One thing I did not touch, flagged rather than fixed: `tests/test_UAT_FC_REQ-122
 <!-- xgd-chat role="user" ts="2026-08-24T22:24:01.837675+00:00" -->
 #### You
 Can you create a bug to fix those tests please?
+
+<!-- xgd-turn id="ccea0766-c26a-450c-bd28-57edd1cd074f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-24T22:25:35.638383+00:00" -->
+#### Claude
+The user's explicitly asking for a new ticket, so that's the exception to this session's scope. Let me get enough detail first to make it actionable.
+
+Confirmed the cause. Filing it:
+
+Filed as **BUG-39** (`bug-23d1ec27`), status `draft`. While writing it up I found the actual cause, so it's a scoped ticket rather than a "these are red, investigate" note.
+
+**Cause:** the Node suite's model double still speaks the pre-streaming Anthropic contract — its steps return a finished message:
+
+```ts
+const says = (text: string) => () => ({ content: [{ type: 'text', text }] })
+```
+
+But the shared library's backend (`lagrange-framework/components/ai/js/src/backends/claude_api.js:104`) calls `messages.create({..., stream: true})` and iterates the result as raw wire events. Iterating a plain `{content: [...]}` object yields nothing, so every turn completes having seen no text and no `tool_use` — which is exactly the shape of all five failures: user turn recorded, assistant half absent, no tool ever runs.
+
+The backend moved to streaming upstream and this suite didn't move with it. Its workerd counterpart did — `test_UAT_FC_REQ-146_ai_host_in_workerd.workers.test.ts` emits `content_block_start`/`_delta`/`_stop` and passes, and its own comment spells out the contract the Node one is missing.
+
+**Fix in the ticket:** move the Node double onto the streaming contract, and define the scripted client *once* in `tests/support/` imported by both suites. Two hand-maintained transcriptions of the same wire protocol is how this drifted — one suite got the update, the other didn't.
+
+One thing worth your attention, flagged in the ticket: the **3 tests in that file that currently pass may be passing vacuously.** They were written against the old contract too, so any asserting only on transport (status, content-type, SSE framing) would pass whether or not the double produced anything. That's AC3 — confirm each still means what its name claims once the double is fixed.
+
+I didn't cut a branch or start on it, since you asked me to create the bug rather than fix it. Say the word if you want me to pick it up.
 
 <!-- xgd-chat-end -->
