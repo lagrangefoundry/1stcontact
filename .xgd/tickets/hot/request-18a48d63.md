@@ -5,9 +5,9 @@ type: request
 title: 'The Cloudflare SiteStore: definitions in D1, bytes in R2'
 created_by: xgd
 created_at: '2026-08-15T20:31:46.590606+00:00'
-updated_at: '2026-08-17T20:06:08.338803+00:00'
+updated_at: '2026-08-24T01:14:03.796380+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: commits
 status: ready_to_reconcile
 fields:
   priority: high
@@ -37,11 +37,8 @@ fields:
     main_sha: null
     working_sha_history:
     - b71a8641182d62dd46b5fa6d0cf78a582cff4eb7
+    - 7ebc721b83ab6202fdec600cd0493b69964bac39
     - 761b7fbd0efa55515fdea9a8ddc5f9a38be91c4d
-  - working_sha: 7ebc721b83ab6202fdec600cd0493b69964bac39
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
   version: 0.1.54
   chat_comment: comment-8536a49b
 ---
