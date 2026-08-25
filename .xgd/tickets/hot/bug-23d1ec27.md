@@ -15,6 +15,7 @@ fields:
   severity: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-72dd436d
 ---
 
 ## Symptom
