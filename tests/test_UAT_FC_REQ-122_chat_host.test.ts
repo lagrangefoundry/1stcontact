@@ -6,6 +6,7 @@ import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/buil
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
+import { calls, says, scriptedClient } from './support/scripted-model-client'
 
 /**
  * REQ-122 — **the assistant, end to end over the builder origin**.
@@ -51,42 +52,11 @@ function headline(cwd: string, slug: string): string {
 }
 
 // ── the model double ─────────────────────────────────────────────────────────
-
-interface ModelRequest {
-  system: string
-  messages: { role: string; content: unknown }[]
-  tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
-}
-
-/**
- * A client that answers with a scripted sequence of Anthropic messages and
- * records everything it was asked.
- *
- * The recording is half the evidence: what the model is SENT — the assembled
- * priming, the reminder, the tool schemas — is produced by the host and is
- * exactly the thing that silently rots. The last script step repeats, so a loop
- * that runs an extra iteration is a failed assertion rather than a crash.
- */
-function scriptedClient(steps: Array<(req: ModelRequest) => unknown>) {
-  const seen: ModelRequest[] = []
-  let index = 0
-  return {
-    seen,
-    messages: {
-      create: async (req: ModelRequest) => {
-        seen.push(req)
-        const step = steps[Math.min(index, steps.length - 1)]
-        index += 1
-        return step(req)
-      },
-    },
-  }
-}
-
-const says = (text: string) => () => ({ content: [{ type: 'text', text }] })
-const calls = (name: string, input: Record<string, unknown>) => () => ({
-  content: [{ type: 'tool_use', id: `call-${name}`, name, input }],
-})
+//
+// One transcription of the provider's streaming protocol, shared with every
+// other chat-host suite (BUG-39). It used to be copied here, against the
+// PRE-streaming contract, which is why five of these cases were asserting on an
+// assistant turn that never happened.
 
 // ── the transport ────────────────────────────────────────────────────────────
 
@@ -287,7 +257,12 @@ describe('REQ-122 — what the model is told', () => {
   it('test_UAT_FC_REQ-122_the_model_is_primed_with_the_generated_manual_and_bound_to_this_site', async () => {
     const client = scriptedClient([says('Understood.')])
     setModelClient(client)
-    await turn(base, SLUG, 'What can you do?')
+    const events = await turn(base, SLUG, 'What can you do?')
+
+    // A real turn ran — the model was called AND its answer came back down the
+    // stream. Asserted because everything below reads what the model was SENT,
+    // which a turn that died on the way out would still have produced (BUG-39).
+    expect(events.map((e) => e.content ?? '').join('')).toContain('Understood.')
 
     const { system, tools } = client.seen[0]
 
@@ -325,7 +300,8 @@ describe('REQ-122 — what the model is told', () => {
   it('test_UAT_FC_REQ-122_an_enum_reaches_the_model_as_a_sentence_it_can_act_on', async () => {
     const client = scriptedClient([says('Understood.')])
     setModelClient(client)
-    await turn(base, SLUG, 'hello')
+    const events = await turn(base, SLUG, 'hello')
+    expect(events.map((e) => e.content ?? '').join('')).toContain('Understood.')
 
     // Every parameter description the model receives is COMPOSED — the declared
     // text plus whatever the schema constrains — so the two can never disagree
