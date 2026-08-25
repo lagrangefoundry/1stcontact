@@ -7,6 +7,7 @@ import { R2TranscriptArchive, flushAudit } from '../apps/control-app/src/ai'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
+import { calls, says, scriptedClient } from './support/scripted-model-client'
 
 /**
  * REQ-146 — **the AI host, in workerd**.
@@ -32,72 +33,12 @@ import { nextSlug, siteSeed } from './support/site-seed'
  * import-graph assertion over the shipped bundle, not a passing turn.
  */
 
-interface ModelRequest {
-  system: string
-  messages: { role: string; content: unknown }[]
-  tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
-}
-
-/** One Anthropic streaming event, as the SDK emits them. */
-type WireEvent = Record<string, unknown>
-
 /**
- * A client that answers with a scripted sequence of STREAMS.
- *
- * The backend calls `messages.create({stream: true})` and consumes an async
- * iterable of raw Anthropic events — `content_block_start` / `_delta` / `_stop`
- * — which it reassembles into a message. So the double has to speak that
- * protocol rather than hand back a finished message: anything else is a
- * different contract from the one production uses, and the test would be
- * asserting against a fiction.
- *
- * The last script step repeats, so a tool loop that runs an extra iteration
- * fails an assertion rather than hanging.
+ * The model double is the shared one (BUG-39): one transcription of the
+ * provider's streaming protocol, imported by every chat-host suite, so the two
+ * runtimes are compared on exactly the same contract and the next upstream
+ * protocol change breaks one place.
  */
-function scriptedClient(steps: Array<(req: ModelRequest) => WireEvent[]>) {
-  const seen: ModelRequest[] = []
-  let index = 0
-  return {
-    seen,
-    messages: {
-      create: async (req: ModelRequest) => {
-        seen.push(req)
-        const step = steps[Math.min(index, steps.length - 1)]
-        index += 1
-        const events = step(req)
-        return (async function* () {
-          for (const event of events) yield event
-        })()
-      },
-    },
-  }
-}
-
-/** Prose, as one text block streamed in a single delta. */
-const says =
-  (text: string) =>
-  (): WireEvent[] => [
-    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
-    { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
-    { type: 'content_block_stop', index: 0 },
-  ]
-
-/** A tool call, with its arguments streamed as partial JSON like the real wire. */
-const calls =
-  (name: string, input: Record<string, unknown>) =>
-  (): WireEvent[] => [
-    {
-      type: 'content_block_start',
-      index: 0,
-      content_block: { type: 'tool_use', id: `call-${name}`, name },
-    },
-    {
-      type: 'content_block_delta',
-      index: 0,
-      delta: { type: 'input_json_delta', partial_json: JSON.stringify(input) },
-    },
-    { type: 'content_block_stop', index: 0 },
-  ]
 
 const TENANT = 'req146'
 
