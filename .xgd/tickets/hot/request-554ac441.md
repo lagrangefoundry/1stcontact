@@ -42,6 +42,7 @@ fields:
     main_sha: null
   version: 0.2.9
   bundled_in: bundle-b3b7c399
+  chat_comment: comment-98e86f10
 ---
 
 # Publish in the cloud: revisions, history and rendered output without a filesystem
