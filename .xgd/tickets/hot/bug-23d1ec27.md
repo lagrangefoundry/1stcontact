@@ -6,10 +6,10 @@ title: 'Node chat-host UATs fail: the model double still speaks the pre-streamin
   contract'
 created_by: xgd
 created_at: '2026-08-24T22:25:21.810676+00:00'
-updated_at: '2026-08-24T22:25:21.810676+00:00'
+updated_at: '2026-08-25T23:21:06.793799+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   severity: medium
