@@ -12,6 +12,7 @@ import {
 } from '../tools/generate/src/cli/edit'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
+import { says, scriptedClient } from './support/scripted-model-client'
 import { createL1Toolbox, L1_DECLARATION } from '../tools/generate/src/cli/ai/toolbox'
 import { JOURNAL_WINDOW } from '../tools/generate/src/store'
 import type { ChangeSlice } from '../tools/generate/src/store'
@@ -340,22 +341,11 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
 
 // ── the push signal ──────────────────────────────────────────────────────────
 
-/** A client that records what it was sent and answers with scripted text. */
-function scriptedClient(replies: string[]) {
-  const seen: { system: string }[] = []
-  let index = 0
-  return {
-    seen,
-    messages: {
-      create: async (req: { system: string }) => {
-        seen.push(req)
-        const text = replies[Math.min(index, replies.length - 1)]
-        index += 1
-        return { content: [{ type: 'text', text }] }
-      },
-    },
-  }
-}
+// The model double is the shared one (BUG-39). It used to be a fourth
+// transcription here, and a PRE-streaming one: these cases read what the model
+// was SENT, so they still passed — while the turns they were reading produced no
+// assistant reply at all, which is not the conversation the reminder is asserted
+// against.
 
 describe('REQ-131 — a session is TOLD when the site moved under it', () => {
   let builder: BuilderHandle
@@ -394,7 +384,7 @@ describe('REQ-131 — a session is TOLD when the site moved under it', () => {
   it('test_UAT_FC_REQ_131_the_reminder_carries_the_signal_only_when_something_changed', async () => {
     // AC-9, both halves, through the real host: a real session manager, the real
     // reminder channel, the real journal on disk.
-    const client = scriptedClient(['Right.'])
+    const client = scriptedClient([says('Right.')])
     setModelClient(client)
 
     const opened = await fetch(`${base}api/ai/session`, {

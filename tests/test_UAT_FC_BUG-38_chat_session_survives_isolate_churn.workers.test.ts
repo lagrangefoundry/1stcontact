@@ -4,6 +4,7 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
+import { says, scriptedClient } from './support/scripted-model-client'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 
@@ -29,31 +30,12 @@ import { nextSlug, siteSeed } from './support/site-seed'
  * resolution under test is the real thing, against a real D1 store.
  */
 
-interface ModelRequest {
-  system: string
-  messages: { role: string; content: unknown }[]
-  tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
-}
-
-type WireEvent = Record<string, unknown>
-
-/** Answers with one text block, streamed as the SDK streams it. */
-function speaks(text: string) {
-  return {
-    messages: {
-      create: async (_req: ModelRequest) =>
-        (async function* () {
-          yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }
-          yield {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'text_delta', text },
-          }
-          yield { type: 'content_block_stop', index: 0 }
-        })() as AsyncGenerator<WireEvent>,
-    },
-  }
-}
+/**
+ * Answers with one text block, streamed as the SDK streams it — the shared
+ * double (BUG-39), so this suite cannot fall behind the protocol the backend
+ * consumes while still appearing to hold a conversation.
+ */
+const speaks = (text: string) => scriptedClient([says(text)])
 
 const TENANT = 'bug38'
 

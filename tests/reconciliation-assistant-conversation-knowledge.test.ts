@@ -33,6 +33,7 @@ import {
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
 import { cmdNew } from '../tools/generate/src/cli/commands'
+import { says, scriptedClient } from './support/scripted-model-client'
 import type { L1Node } from '@1stcontact/site-schema'
 
 /**
@@ -440,28 +441,14 @@ describe('no knowledge base is ordinary; one that cannot be opened is reported',
 
     /** Open the site's conversation, speak in it, and report what the model was offered. */
     async function toolsOfferedByATurn(): Promise<string[]> {
-      const seen: { tools: { name: string }[] }[] = []
       // The one double in this file's origin path: the Anthropic client, which is
-      // the network. It answers in the backend's own streamed wire events rather
-      // than in a finished message, because that is what the backend consumes —
+      // the network. It is the SHARED one (BUG-39), so it answers in the
+      // backend's own streamed wire events rather than in a finished message —
       // a double shaped like the reply the SDK would hand back, not like a
       // convenience the loop never sees.
-      setModelClient({
-        messages: {
-          create: async (req: { tools: { name: string }[] }) => {
-            seen.push(req)
-            return (async function* speaks() {
-              yield { type: 'content_block_start', index: 0, content_block: { type: 'text' } }
-              yield {
-                type: 'content_block_delta',
-                index: 0,
-                delta: { type: 'text_delta', text: 'Understood.' },
-              }
-              yield { type: 'content_block_stop', index: 0 }
-            })()
-          },
-        },
-      })
+      const client = scriptedClient([says('Understood.')])
+      setModelClient(client)
+      const seen = client.seen
 
       const opened = await openSession(SLUG, { cwd })
       expect(opened.ready, opened.error).toBe(true)
