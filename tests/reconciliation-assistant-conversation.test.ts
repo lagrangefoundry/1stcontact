@@ -15,6 +15,7 @@ import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
+import { calls, says, scriptedClient } from './support/scripted-model-client'
 
 /**
  * **One continuing conversation about one site** (story-a58a0974).
@@ -71,40 +72,12 @@ function filesUnder(dir: string): string[] {
 
 // ── the model double ─────────────────────────────────────────────────────────
 
-interface ModelRequest {
-  system: string
-  messages: { role: string; content: unknown }[]
-  tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
-}
-
-/**
- * A client that answers with a scripted sequence and records what it was asked.
- *
- * The recording is half the evidence: what the model is SENT — the assembled
- * priming, the reminder, the tool schemas — is produced by the host. The last
- * script step repeats, so a loop running an extra iteration is a failed
- * assertion rather than a crash.
- */
-function scriptedClient(steps: Array<(req: ModelRequest) => unknown>) {
-  const seen: ModelRequest[] = []
-  let index = 0
-  return {
-    seen,
-    messages: {
-      create: async (req: ModelRequest) => {
-        seen.push(req)
-        const step = steps[Math.min(index, steps.length - 1)]
-        index += 1
-        return step(req)
-      },
-    },
-  }
-}
-
-const says = (text: string) => () => ({ content: [{ type: 'text', text }] })
-const calls = (name: string, input: Record<string, unknown>) => () => ({
-  content: [{ type: 'tool_use', id: `call-${name}`, name, input }],
-})
+// The model double is the shared one (BUG-39): one transcription of the
+// provider's streaming protocol, imported by every chat-host suite.
+//
+// The recording half of the evidence is unchanged — what the model is SENT (the
+// assembled priming, the reminder, the tool schemas) is produced by the host,
+// and `seen` is where these cases read it.
 
 /** Rename the headline, then say so — the site-changing turn these cases use. */
 const renames = (to: string) => [

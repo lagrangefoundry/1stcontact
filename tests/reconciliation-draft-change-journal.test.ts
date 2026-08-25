@@ -32,6 +32,7 @@ import {
   setModelClient,
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
+import { calls, says, scriptedClient } from './support/scripted-model-client'
 import { JOURNAL_TEXT_LIMIT, JOURNAL_WINDOW, revisionDir } from '../tools/generate/src/store'
 import type { ChangeSlice, JournalRecord } from '../tools/generate/src/store'
 import type { L1Node } from '@1stcontact/site-schema'
@@ -616,56 +617,12 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
 
 // ── the push signal, through a real session ──────────────────────────────────
 
-/**
- * A client that records what it was sent and answers with a scripted sequence.
- *
- * The ONE double in this file, and it is the network: the backend's own client
- * seam. It speaks the provider's streaming shape (`stream: true`) because that
- * is what the backend asks for and what its accumulator reassembles from —
- * everything on this side of it (the tool loop, the tool handlers, the session
- * store, the reminder channel, the journal) is the real thing.
- */
-type ModelStep = () => AsyncGenerator<Record<string, unknown>>
-
-function scriptedClient(steps: ModelStep[]) {
-  const seen: { system: string }[] = []
-  let index = 0
-  return {
-    seen,
-    messages: {
-      create: async (req: { system: string }) => {
-        seen.push(req)
-        const step = steps[Math.min(index, steps.length - 1)]
-        index += 1
-        return step()
-      },
-    },
-  }
-}
-
-/** One prose reply, as the provider streams it. */
-const says = (text: string): ModelStep =>
-  async function* () {
-    yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }
-    yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } }
-    yield { type: 'content_block_stop', index: 0 }
-  }
-
-/** One tool call, with its input arriving as the provider fragments it. */
-const calls = (name: string, input: Record<string, unknown>): ModelStep =>
-  async function* () {
-    yield {
-      type: 'content_block_start',
-      index: 0,
-      content_block: { type: 'tool_use', id: `call-${name}`, name },
-    }
-    yield {
-      type: 'content_block_delta',
-      index: 0,
-      delta: { type: 'input_json_delta', partial_json: JSON.stringify(input) },
-    }
-    yield { type: 'content_block_stop', index: 0 }
-  }
+// The model double is the shared one (BUG-39) — the ONE double in this file, and
+// it is the network: the backend's own client seam. It speaks the provider's
+// streaming shape because that is what the backend asks for and what its
+// accumulator reassembles from; everything on this side of it (the tool loop,
+// the tool handlers, the session store, the reminder channel, the journal) is
+// the real thing.
 
 describe('story-6cd17452 — a session is TOLD when the site moved under it', () => {
   beforeEach(() => {

@@ -6,6 +6,7 @@ import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/buil
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
+import { calls, says, scriptedClient } from './support/scripted-model-client'
 
 /**
  * REQ-127 — **the site binding lives in the session**.
@@ -57,33 +58,9 @@ function headline(cwd: string, slug: string): string {
   return home.l1.root.children[0].text
 }
 
-interface ModelRequest {
-  system: string
-  messages: { role: string; content: unknown }[]
-  tools: { name: string; description: string; input_schema: Record<string, unknown> }[]
-}
-
-/** A client that answers with a scripted sequence and records what it was asked. */
-function scriptedClient(steps: Array<(req: ModelRequest) => unknown>) {
-  const seen: ModelRequest[] = []
-  let index = 0
-  return {
-    seen,
-    messages: {
-      create: async (req: ModelRequest) => {
-        seen.push(req)
-        const step = steps[Math.min(index, steps.length - 1)]
-        index += 1
-        return step(req)
-      },
-    },
-  }
-}
-
-const says = (text: string) => () => ({ content: [{ type: 'text', text }] })
-const calls = (name: string, input: Record<string, unknown>) => () => ({
-  content: [{ type: 'tool_use', id: `call-${name}`, name, input }],
-})
+// The model double is the shared one (BUG-39): one transcription of the
+// provider's streaming protocol, so a suite cannot be left behind on a contract
+// the backend no longer speaks.
 
 /** Rename the headline — the one write these cases use as evidence. */
 const renames = (to: string) => [
