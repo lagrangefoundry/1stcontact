@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-26T23:33:22.984619+00:00'
+updated_at: '2026-08-26T23:35:43.321857+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -317,5 +317,73 @@ DOC-38 won't reach the builder AI until you run `1c kb build` (needs the Cloudfl
 <!-- xgd-chat role="user" ts="2026-08-26T23:33:22.653111+00:00" -->
 #### You
 I am talking with REQ-104 in lagrange-framework - I'm not sure it has sufficient context and I want to make sure that I am representing our position here correctly. Can you read the ticket (which you wrote) and more importantly the transcript to understand the plan and lets discuss where I should take that conversation
+
+<!-- xgd-turn id="d5fd36d4-6e49-4edf-88a7-847fcd806182-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-26T23:35:43.008057+00:00" -->
+#### Claude
+Read the ticket and the full transcript. The agent's analysis is strong — findings 1, 3, 5, 6 and 9 are all real and it caught things I didn't specify. Let me check the two tickets it spun out before advising:
+
+The agent's work is good — findings 1, 3, 5, 6 and 9 are all real, and REQ-108's quarantine-age race is a catch I'd missed. But you're right that it's short on context: **it has never seen DOC-38.** It's been reasoning purely from the component side, which is why it can't answer 9, and why one of your own answers to it contradicted our doc without either of you noticing.
+
+Here's what I'd carry back, ordered by consequence.
+
+## 1. Walk back the `site_assets` note — this is the important one
+
+You told it *"we will probably abandon what is there in favor of ticket attachments."* That's not what DOC-38 §5 says, and the agent correctly smelled scope creep ("materially widens REQ-104"). It's right to resist, but the real answer isn't "in scope or follow-on" — it's that the premise needs splitting:
+
+- **`site_assets.r2_key` as the store of record for bytes** → yes, abandon. It becomes a pointer into the content-addressed blob store, and gets dedup for free.
+- **`site_assets` as the name→blob binding scoped to a site** → **keep.** `apps/public-site` serves `GET /assets/logo.png` by *name*, on a hot path. Content addresses aren't names, and a records scan on a request path is exactly the wrong access pattern — which is precisely the agent's objection, and it's correct.
+
+Two lifecycle facts make this not merely a performance dodge: an asset can sit in the library **unused** (uploaded, not yet placed), and one blob can back **two sites** in the same tenant. Pure ticket-attachments has nowhere to say *"used by site X under name Y"*.
+
+So: the ticket carries provenance, rights and the description; the `site_assets` row carries the name binding; both point at one content-addressed blob. **REQ-104 doesn't widen** — the second access pattern lives in 1c, not in the component. That closes the agent's open item rather than deferring it.
+
+## 2. Answer 5: optional capability group — and we have the argument it's missing
+
+Confirm the agent's read. The reason it can't see: **our knowledge path never touches attachments.** DOC-38 §6 puts the material's text in the *ticket body* — the "text shadow" — so the KB indexes bodies uniformly and never learns media exists. An implementation without a BlobStore therefore loses nothing on the retrieval path.
+
+That converts "optional" from a compliance dodge into a design consequence, and it does make the Python-peer question disappear.
+
+## 3. Answer 9: ~25MB, and there's a tension it hasn't spotted
+
+Real profile from DOC-38's inventory:
+
+| Material | Size |
+|---|---|
+| Fonts (woff2), logos/SVG | tens of KB |
+| Client photos (4a) | 2–12MB |
+| Industry reports, articles (3c) | <10MB |
+| **Brand-guideline PDFs (4b)** | **20–50MB, occasionally more** |
+| Capture bundles (3a/3b) | many small members, never one big blob |
+
+So low-tens-of-MB is fine for everything except image-heavy brand guidelines, which are the one plausible exceeder. I'd set an explicit, enforced ceiling around **25MB** with a clear rejection, and document the escape hatch as **direct-to-R2 presigned PUT** rather than a streaming port.
+
+But flag this to the agent, because it's a genuine wrinkle: **direct-to-R2 and content addressing are in tension.** If the client PUTs straight to R2, the server never sees the bytes and can't compute the sha256. The mitigation is a client-asserted sha verified asynchronously — and that's tolerable *only because of the tenant prefix*: a client asserting a wrong hash can poison a dedup slot in **their own namespace and nobody else's**. That's a consequence of the prefix decision REQ-104 argued on isolation and erasure grounds; it turns out to also be what makes deferred verification safe. Worth adding to the ticket, since it's the argument that lets v1 ship bytes-only without painting the escape hatch into a corner.
+
+## 4. REQ-108's unarchive contradiction — take option 3, and here's why it's cheap
+
+Of its three resolutions, **"unarchive restores what it can and reports the loss"** is right, and our side supplies the reason it's not painful:
+
+- **Guaranteed restoration and guaranteed erasure are incompatible.** If unarchive can resurrect bytes, DOC-37 erasure is a lie. Option 2 (refuse unarchive) preserves honesty by removing a capability; option 3 preserves both.
+- **A blob-less attachment record is still most of the thing.** Because the body is the text shadow, the *description* survives — as do `sha256`, `filename` and the rights fields. What's lost is bytes, not knowledge. The AI can still find it, cite it, and know what it was.
+
+That last point is only visible from our side, and it turns "the canonical shape grows a way to say *this record's bytes are gone*" from a wart into a useful provenance state.
+
+## 5. DOC-8 item #3: yes it closes it, with one constraint attached
+
+You said body-offload belongs here and the agent agreed. Add the consumer constraint neither of you has: **the KB reads bodies.** If bodies transparently offload to blobs, a full index build over a few thousand documents becomes a few thousand R2 GETs.
+
+Our bodies are extracted document text — a long report's shadow can run past 100KB. So the offload threshold needs a floor well above typical body size (**256KB+**) so it effectively never fires on the retrieval path. Cheap to state now, expensive to discover during the first full project-KB build.
+
+## 6. Endorse without argument
+
+- **REQ-107 (`forTenant` on the port).** Right, and worth telling it to scope the ticket to *the pattern*, not this port — the knowledge component will want a tenant-scoped `IndexSource` for exactly the same reason.
+- **Its pushback on your finding 7** (attachments list on the parent). It's correct; that's the `fields.attachments` array under another name, with the same two-writes-no-transaction problem.
+- **Its proposed index fix** — generated column on `json_extract(fields,'$.subject_uid')`. Say yes to the small ticket. It matters more than it looks: DOC-10 homes chat transcripts as comments, so a chatty tenant already pays that full scan today, before any attachment exists.
+
+---
+
+One process suggestion: rather than relaying all of this, give it **DOC-38 §6, §7 and §9** directly — the text-shadow model, the attachment spec, and the type/field table. Most of what's above is derivable from those three sections, and it'll stop the next round of questions from needing you as the transport. §5's classification table is also worth it if you want it to understand why `rights` sits on the ticket rather than the attachment record.
 
 <!-- xgd-chat-end -->
