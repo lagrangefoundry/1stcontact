@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-154
 created_by: xgd
 created_at: '2026-08-23T23:26:13.624723+00:00'
-updated_at: '2026-08-26T23:21:46.621931+00:00'
+updated_at: '2026-08-26T23:52:10.296703+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,23 @@ Say the word and I'll update the REQ-154 body with the three decisions and their
 <!-- xgd-chat role="user" ts="2026-08-26T23:21:46.065310+00:00" -->
 #### You
 Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+<!-- xgd-turn id="50be9e78-3141-4bb9-b2b8-579664698491-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-26T23:52:10.093202+00:00" -->
+#### Claude
+Now let me write the shared page scripts module.
+
+Now the CF Browser Rendering driver and the session lease.
+
+Now refactor `shot.ts` to use the shared core:
+
+Now the control-app shot composition:
+
+Now the wrangler binding:
+
+Now update the capture barrel and typecheck:
+
+Now the node-side structural UAT for AC1 and the config parity:
 
 <!-- xgd-chat-end -->
