@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-27T00:11:55.010081+00:00'
+updated_at: '2026-08-27T00:53:03.502729+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -504,5 +504,11 @@ Two things it does *not* cover, deliberately:
 - The four judgement calls I flagged last turn are now written as decisions rather than options — **A**, **B**, **D** and the 25MB ceiling. If any of those are wrong, they're cheaper to change now than after REQ-155 lands.
 
 The push is still failing as offline, so both DOC-38 revisions are local commits awaiting your next push. And DOC-38 won't reach the builder AI until `1c kb build` runs.
+
+<!-- xgd-turn id="beb4e822-68df-4bfd-8513-9dfe7f4838e6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-27T00:53:03.114160+00:00" -->
+#### You
+Do we need lagrange-framework to complete REQ-107 and REQ-108 before we can continue?
 
 <!-- xgd-chat-end -->
