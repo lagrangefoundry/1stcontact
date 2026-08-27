@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-27T00:07:53.145685+00:00'
+updated_at: '2026-08-27T00:11:35.823386+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -474,5 +474,11 @@ So captures aren't the constraint — **class 4b brand-guideline PDFs are**, at 
 Four of these are judgement calls I've now committed to paper, so overturn any you disagree with before the agent builds on them: **A** (substrate — the largest architectural commitment, and it touches REQ-155's sequencing), **B** (N records), **D** (system tenant), and the **25MB** ceiling.
 
 Also worth passing on: it flagged that `attachments(uid)` inherits `comments`' full-tenant scan. That's worse than it looks for us specifically — DOC-10 homes chat transcripts as comments, so a chatty tenant already pays it today. Its proposed generated-column index fixes both; say yes to that small ticket.
+
+<!-- xgd-turn id="f53c3fbb-1253-407a-9f27-1e5e708e5193-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-27T00:11:35.360171+00:00" -->
+#### You
+So is DOC-38 updated?
 
 <!-- xgd-chat-end -->
