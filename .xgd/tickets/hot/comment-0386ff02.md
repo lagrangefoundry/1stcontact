@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-27T00:11:35.823386+00:00'
+updated_at: '2026-08-27T00:11:55.010081+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -480,5 +480,29 @@ Also worth passing on: it flagged that `attachments(uid)` inherits `comments`' f
 <!-- xgd-chat role="user" ts="2026-08-27T00:11:35.360171+00:00" -->
 #### You
 So is DOC-38 updated?
+
+<!-- xgd-turn id="f53c3fbb-1253-407a-9f27-1e5e708e5193-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-27T00:11:54.675032+00:00" -->
+#### Claude
+Yes. Let me confirm from the store rather than assert it:
+
+Confirmed — stored and committed, `updated_at: 2026-08-27T00:07:15Z`, 30KB.
+
+New sections present in the stored ticket:
+
+- **§7.5** One byte substrate, not three sibling stores *(question A)*
+- **§7.6** The internal corpus is a tenant, not an unscoped handle *(D)*
+- **§7.7** The serving path does not read attachment records *(C)*
+- **§14** The size envelope *(H)*
+
+Revised in place: **§7.1** (adds `list` and `forTenant` to the port), **§7.2** (DOC-12 key convention corrected to principle-not-format; flags the untenanted existing site keys), **§7.3** (retention vs collection ownership, erasure via deactivate-then-sweep, the unarchive resolution), **§9** (bundle = N attachment records, resolving the §5/§9 contradiction), **§12** (detach on a timer), **§13**/**§2** (open questions updated; DOC-8 item #3 recorded as closed with the KB threshold constraint).
+
+Two things it does *not* cover, deliberately:
+
+- **Question G** — G1 versus optional capability group is a framework policy call, so DOC-38 states our side of the argument but doesn't decide it. That answer has to come from you.
+- The four judgement calls I flagged last turn are now written as decisions rather than options — **A**, **B**, **D** and the 25MB ceiling. If any of those are wrong, they're cheaper to change now than after REQ-155 lands.
+
+The push is still failing as offline, so both DOC-38 revisions are local commits awaiting your next push. And DOC-38 won't reach the builder AI until `1c kb build` runs.
 
 <!-- xgd-chat-end -->
