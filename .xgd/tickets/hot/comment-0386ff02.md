@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-27T00:53:03.502729+00:00'
+updated_at: '2026-08-27T00:54:50.413859+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -510,5 +510,52 @@ The push is still failing as offline, so both DOC-38 revisions are local commits
 <!-- xgd-chat role="user" ts="2026-08-27T00:53:03.114160+00:00" -->
 #### You
 Do we need lagrange-framework to complete REQ-107 and REQ-108 before we can continue?
+
+<!-- xgd-turn id="beb4e822-68df-4bfd-8513-9dfe7f4838e6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-27T00:54:49.980742+00:00" -->
+#### Claude
+**No.** Neither blocks you, and the critical path doesn't run through lagrange-framework at all right now.
+
+## Why REQ-107 doesn't block
+
+It's a *generalisation* of a pattern REQ-104 needs one instance of. `MultiTenantTicketStore.forTenant()` already exists and already hands the core a scoped accessor — wiring a scoped blob handle alongside it is a local change inside REQ-104. REQ-107's value is extending that to the other ports (knowledge's `IndexSource` will want it), which is real but later.
+
+Worth telling the agent explicitly: it raised this as finding 1, its blocker list, and may be treating REQ-107 as a prerequisite. It isn't. REQ-104 ships `BlobStore.forTenant()` itself; REQ-107 generalises afterwards.
+
+## Why REQ-108 doesn't block
+
+It's the take-bytes-out half. Attaching, reading, indexing and retrieving need none of it.
+
+But two things have to land *inside* REQ-104 or they become breaking changes:
+
+- **`list` on the port.** Additive and free now; a port signature change later.
+- **`detach` as mark-only from day one.** If REQ-104 ships it as a hard delete and REQ-108 later makes it soft, that's a semantic change to a destructive op.
+
+The cost of deferring the collector is that orphan blobs accumulate. At our scale that's a bill, not a bug.
+
+## What's actually unblocked — and one thing worth more than attachments
+
+Checking the tree turned up something: **the builder AI has no knowledge surface wired.**
+
+REQ-122 (chat panel) and REQ-123 (system KB) are both `free_and_reconciled`. `tools/generate/src/cli/ai/toolbox.ts` has the seam — it takes a `knowledge` argument and builds a surface through the `ai-knowledge` bridge — but it defaults to `null`, *"what a host with no knowledge corpus supplies."* And `apps/control-app/src/ai.ts` never passes it.
+
+So `1c kb build` produces the corpus, the index and the awareness map as a release artifact, and nothing in the deployed Worker reads them. **The builder AI cannot currently search its own documentation.** That's shipped-but-unwired, needs zero framework work, and it's the thing that makes every later corpus decision in DOC-38 testable rather than theoretical.
+
+Beyond that, all unblocked:
+
+- **The types** — `material`, `reference`, `brief` in the product TypePack with §9's fields. Pure schema.
+- **The `project` KB** — a config entry plus corpus predicates over those types.
+- **The site source adapter** (§8.3) — projecting pages as documents. Depends on nothing.
+- **Ingestion steps 2–5** (classify, shadow, create, index). Only step 1 is the blob write.
+- **The quarantine gate** (§11) and the asset-promotion invariant.
+
+## The one genuinely time-sensitive item
+
+REQ-155 is `draft` and REQ-154 is `free_coding` — so the capture-in-cloud track is live *now*. DOC-38 §7.5 says the thing that must be agreed before that lands isn't the port, it's the **key convention and tenant prefix**: `t/<tenant>/blob/<sha256>`.
+
+A `ReferenceStore` written against prefixed, content-addressed keys refactors onto `BlobStore` mechanically. One that invents its own identity scheme — which REQ-155's body currently proposes, *"derived from the captured URL and the capture time"* — doesn't. That's a decision, not an implementation, and it's cheap today and a migration in a month.
+
+That's what I'd take back to the framework conversation ahead of either REQ-107 or REQ-108.
 
 <!-- xgd-chat-end -->
