@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-27T00:03:45.913111+00:00'
+updated_at: '2026-08-27T00:07:53.145685+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -391,5 +391,88 @@ One process suggestion: rather than relaying all of this, give it **DOC-38 §6, 
 <!-- xgd-chat role="user" ts="2026-08-27T00:03:45.460572+00:00" -->
 #### You
 ok read the tail of the transcript and help me with the questions - perhaps we should update DOC-38?
+
+<!-- xgd-turn id="40be2cb7-9cd1-4cfa-88a3-7c8f79af7581-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-27T00:07:52.744637+00:00" -->
+#### Claude
+Confirmed two things worth telling the agent immediately — and I have hard numbers for H:
+
+Now the DOC-38 revision. Six substantive corrections:
+
+Now the three new subsections — the substrate question, the non-tenant scope, and the serving path:
+
+DOC-38 updated — §§7.5, 7.6, 7.7 and 14 are new, and §7.1–7.3, §9, §12, §13 revised. But first, the thing that matters most:
+
+## The agent is reading the wrong ticket store
+
+It reported *"DOC-37 isn't written yet"* and *"DOC-12 isn't in 1stcontact's ticket store — I checked both tiers."* Both exist:
+
+```
+DOC-12  Site Storage, Versioning & Rendering Model
+DOC-37  Data Deletion & Retention — erasure as identity severance
+```
+
+It's running in `lagrange-framework`, and **`cd` doesn't switch XGD ticket stores** — it needs `XGD_PROJECT_ROOT=/Users/martin/lagrangefoundry/1stcontact` on the command. Everything it read as absent is present. Tell it that before anything else: its question F is built on a false premise, and it's about to design a primitive around DOC-37 not existing.
+
+## A — the big one. BlobStore is the substrate, not a third sibling
+
+It's right to raise this and right about the danger. Three sibling stores means three tenancy models and three erasure stories, which is REQ-104's own stated failure mode, times three — and DOC-37 would need three sweeps with three different safety properties.
+
+DOC-38 §7.5 now splits **by verb, not by bytes**: `BlobStore` owns byte addressing, the tenant prefix, `list` and deletion; `SiteStore` keeps revisions and the manifest; `ReferenceStore` keeps bundle identity, member naming and re-extraction. The domain stores lose nothing.
+
+**This doesn't block REQ-155.** What must be agreed now, because it's cheap now and a migration later, is the **key convention and the tenant prefix**. A ReferenceStore writing prefixed content-addressed keys refactors onto BlobStore mechanically; one that invents a second tenancy scheme doesn't.
+
+Related, and I'd flag it explicitly: **the existing site R2 keys have no tenant component** (`<root>/<slug>/…`, DOC-12 §7) because they predate tenancy being a column. That's now in §7.2 — a migration that's invisible while one tenant exists is one the second tenant discovers.
+
+## B — bundles are N attachment records, one per member
+
+You had a genuine contradiction in DOC-38: §5 said ReferenceStore, §9 said bundle-valued attachment. They're one home described from two levels, and §9 now says so.
+
+Not one record over an archive: re-extraction reads `capture.json`, a screenshot, and `rendered.html` *selectively*, so a tar would force a Worker to pull all 11–23MB to read one member. Not a manifest inside one record: that's N records with extra indirection and no listing.
+
+Bonus that falls out — content addressing means **recapturing a site dedups against the previous capture automatically**, which matters far more for DOC-15's permanently-retained internal corpus than for any tenant.
+
+## C — `site_assets` survives, in a reduced role
+
+New §7.7. Serving resolves **name → key** through `site_assets`, then reads the blob. It never touches the attachment record. Your "we'll probably abandon it" was too broad: what's abandoned is `site_assets` as the *store of record for bytes*; what survives is the site-scoped **name binding**, which expresses two things the ticket can't — an asset sitting in the library unused, and one blob backing two sites under different names.
+
+## D — a system tenant, not an unscoped handle
+
+The agent correctly spotted that an unscoped handle "quietly demotes the isolation rule back to a convention." §7.6: the internal corpus is **an ordinary tenant row with an ordinary scoped handle that happens to be ours.** DOC-36 §8's export becomes an explicit copy between two scoped handles held by one job — auditable, and obviously a boundary crossing at the call site.
+
+## E — it's right, and I've written its position in
+
+Retention is the consumer's, collection is the component's. We detach on a timer; the sweep collects what nothing names. §7.3 and §12.
+
+While there: §7.3 now also takes **option 3** on its unarchive contradiction (restore what you can, report the loss), because guaranteed restoration and guaranteed erasure can't both hold — and the cost is low, since the record keeps `sha256`, filename, rights **and the body's text shadow**. What's lost is bytes, not knowledge.
+
+## F — erasure is the sweep under a different policy
+
+Not a second primitive: set `tenants.status` away from `active` — which makes handle construction fail, so no writer can exist — then sweep the prefix. The quarantine age the sweep otherwise needs against a racing `attach` is unnecessary because deactivation removed the racer. Uses the status check that's already in the schema.
+
+## G — this one is yours, and the answer is "optional capability group"
+
+I can't make a framework policy call for you, but the argument is settled from our side: **our retrieval path never touches attachments.** DOC-38 §6 puts the text in the ticket *body*, so an implementation without a BlobStore loses nothing on the KB path. That makes "optional" a design consequence rather than a compliance dodge, and it makes the Python-peer question disappear. Say that and it's done.
+
+## H — measured, not estimated. New §14
+
+I measured the three real captures on disk:
+
+| | Total | Members | Largest member |
+|---|---|---|---|
+| `faelan.com` | 11 MB | 11 | 7.4 MB |
+| `gigabytealchemy.ai` | 14 MB | 19 | 2.4 MB |
+| `joyfulculinarycreations.com` | 23 MB | 99 | 2.8 MB |
+
+**No single blob is close to the ceiling** — largest observed member 7.4MB, screenshots 2–3MB. `1c capture site` multiplies the bundle total without moving the per-member figure. Note this *depends on B*: as a single archive, 23MB would already be within one order of magnitude of a 128MB isolate.
+
+So captures aren't the constraint — **class 4b brand-guideline PDFs are**, at 20–50MB. §14 sets **25MB per blob for v1**, enforced with a clear rejection.
+
+---
+
+Four of these are judgement calls I've now committed to paper, so overturn any you disagree with before the agent builds on them: **A** (substrate — the largest architectural commitment, and it touches REQ-155's sequencing), **B** (N records), **D** (system tenant), and the **25MB** ceiling.
+
+Also worth passing on: it flagged that `attachments(uid)` inherits `comments`' full-tenant scan. That's worse than it looks for us specifically — DOC-10 homes chat transcripts as comments, so a chatty tenant already pays it today. Its proposed generated-column index fixes both; say yes to that small ticket.
 
 <!-- xgd-chat-end -->
