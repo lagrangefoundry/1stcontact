@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-26T23:35:43.321857+00:00'
+updated_at: '2026-08-27T00:03:45.913111+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -385,5 +385,11 @@ Our bodies are extracted document text — a long report's shadow can run past 1
 ---
 
 One process suggestion: rather than relaying all of this, give it **DOC-38 §6, §7 and §9** directly — the text-shadow model, the attachment spec, and the type/field table. Most of what's above is derivable from those three sections, and it'll stop the next round of questions from needing you as the transport. §5's classification table is also worth it if you want it to understand why `rights` sits on the ticket rather than the attachment record.
+
+<!-- xgd-turn id="40be2cb7-9cd1-4cfa-88a3-7c8f79af7581-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-27T00:03:45.460572+00:00" -->
+#### You
+ok read the tail of the transcript and help me with the questions - perhaps we should update DOC-38?
 
 <!-- xgd-chat-end -->
