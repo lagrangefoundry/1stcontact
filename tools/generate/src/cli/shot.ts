@@ -7,6 +7,11 @@
  * screenshots the **served** page — so `/assets/` references resolve over HTTP.
  * That is the fix for first-contact's blank-screenshot bug: screenshotting a
  * page that could not reach its own assets produced an empty PNG.
+ *
+ * REQ-154 — THIS IS THE NODE SHELL. Rendering, serving and writing the PNG all
+ * need a filesystem, which workerd does not have; the navigate-and-screenshot
+ * core moved to `capture/screenshot.ts` so a Worker can reach it. The viewport
+ * presets are re-exported from here so every existing importer keeps its path.
  */
 import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -15,18 +20,13 @@ import { cmdRender } from './commands'
 import { startServe } from './serve'
 import { createPlaywrightDriver } from './capture'
 import type { BrowserDriverFactory, Viewport } from './capture'
+import { resolveViewport, screenshotUrl, VIEWPORTS } from './capture/screenshot'
+import type { ViewportName } from './capture/screenshot'
 import type { RenderChannel, SiteSource } from '../store'
 import { distDir } from '../store'
 
-/** Named viewport presets (DOC-8 §3.4). Width is the deterministic dimension; */
-/** full-page height grows with content. */
-export type ViewportName = 'mobile' | 'tablet' | 'desktop'
-
-export const VIEWPORTS: Record<ViewportName, Viewport> = {
-  mobile: { width: 375, height: 667 },
-  tablet: { width: 768, height: 1024 },
-  desktop: { width: 1280, height: 800 },
-}
+export { VIEWPORTS }
+export type { ViewportName }
 
 export interface ShotOptions extends GlobalOptions {
   /** Site slug to render + serve + screenshot. Mutually exclusive with `url`. */
@@ -62,10 +62,7 @@ export interface ShotResult {
  */
 export async function cmdShot(opts: ShotOptions): Promise<ShotResult> {
   const viewportName = opts.viewport ?? 'desktop'
-  const viewport = VIEWPORTS[viewportName]
-  if (!viewport) {
-    throw new Error(`Unknown viewport '${viewportName}'. Use mobile|tablet|desktop.`)
-  }
+  const viewport = resolveViewport(viewportName)
   const factory = opts.driverFactory ?? createPlaywrightDriver
 
   if (opts.url && opts.slug) {
@@ -115,20 +112,15 @@ async function shotSlug(
   }
 }
 
-/** Drive a fresh driver: navigate, full-page screenshot at `viewport`, write PNG. */
+/** The shared core (`capture/screenshot.ts`), plus the one thing it cannot do
+ *  in a Worker: write the bytes to a file. */
 async function screenshotTo(
   url: string,
   viewport: Viewport,
   factory: BrowserDriverFactory,
   outFile: string,
 ): Promise<number> {
-  const driver = await factory()
-  try {
-    await driver.navigate(url)
-    const png = await driver.screenshot(viewport)
-    await writeFile(outFile, png)
-    return png.byteLength
-  } finally {
-    await driver.close()
-  }
+  const png = await screenshotUrl(url, viewport, factory)
+  await writeFile(outFile, png)
+  return png.byteLength
 }

@@ -132,6 +132,43 @@ export interface BrowserDriver {
 /** Injectable factory so tests can supply a fake driver (DOC-13 §2.2). */
 export type BrowserDriverFactory = () => Promise<BrowserDriver>
 
+/** One artifact an {@link OriginResolver} can hand a browser in place of a fetch. */
+export interface OriginFile {
+  status: number
+  contentType: string
+  body: string | Uint8Array
+}
+
+/**
+ * REQ-154 — a host the driver serves **in-process** instead of over the network.
+ *
+ * THE PROBLEM IT SOLVES. A browser the Worker launches is a new, unauthenticated
+ * client. Our own preview output lives on a host Cloudflare Access guards
+ * ([[REQ-147]]), so that browser is challenged and faithfully screenshots the
+ * challenge page: nothing errors, the picture is simply wrong. Handing the
+ * browser the bytes at request time removes the fetch, and with it the challenge
+ * — there is no credential to hold, leak or revoke, because no request is made.
+ *
+ * THE RULE IS PER-HOST, NOT PER-PATH, and that is what makes the guarantee
+ * mechanical rather than careful: a resolver **owns** {@link host} outright.
+ * Every request to it is answered from {@link file} or 404'd, so no request from
+ * this browser can reach our gated origin by any route — not a favicon, not a
+ * stray absolute link. Requests to any *other* host are untouched and go to the
+ * network, because a page legitimately loads third-party fonts and images and a
+ * capture that silently dropped them would be a different kind of wrong picture.
+ *
+ * Rendering still happens against a real origin with a real `baseURI`, so
+ * relative asset URLs resolve exactly as they do in a browser pointed at the
+ * deployed site — which is what DOC-13 §6 records as the fix for first contact's
+ * blank-screenshot bug, and what a `setContent()` / `data:` URL would give up.
+ */
+export interface OriginResolver {
+  /** The host this resolver owns, e.g. `app.1stcontact.io`. */
+  host: string
+  /** The artifact at `pathname`, or `null` when this host has nothing there. */
+  file(pathname: string): Promise<OriginFile | null>
+}
+
 // ── capture.json schema (DOC-13 §4) ──────────────────────────────────────────
 
 export type ColorUsage = 'text' | 'background' | 'accent'
