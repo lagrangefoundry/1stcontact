@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T21:10:41.865764+00:00'
+updated_at: '2026-08-28T21:12:13.816145+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -680,5 +680,57 @@ The knowledge management system that we are building involves a few things:
       2. A project kb - this changes every time new assets of background docs are uploaded we need to discuss how/when the awareness map gets updated - probably on each upload, at least to begin with
 
 That's the overall scope - just want to make sure we're aligned on the big picture?
+
+<!-- xgd-turn id="9559178f-a4d9-430c-a66b-018e886e4c04-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-28T21:12:13.668084+00:00" -->
+#### Claude
+Aligned on the big picture — that's DOC-38 §8 exactly. Four precisions worth making before the ticket, because two of them change your open question.
+
+## Where your framing is exactly right
+
+Two KBs, each a RAG-searchable corpus plus a precompiled awareness map giving the AI a description of what's in there and validated entry terms. System static, project dynamic. Yes.
+
+Worth affirming one detail you implied: the map's search terms aren't suggestions — the build **validates every candidate access point with a real search** before publishing it (`validateAccessPoints` / `validationTopK`). The map can't promise a term that returns nothing. That's also *why* the map build is expensive: a search per candidate, an LLM call per territory.
+
+## Four precisions
+
+**1. The system KB isn't tickets at runtime.** Its corpus is `source: shipped` — markdown exported *from* doc tickets at build time, read at runtime through `DocDirStore`/`bundleDocReader`. No tickets exist in any tenant. That's precisely what puts it above the tenancy barrier and makes it byte-identical for every client. The project KB is the one that's literally tickets in the tenant's store.
+
+**2. The project KB changes far more often than "on upload."** Per DOC-38 §8 its corpus is `chat` + `material` + `reference` + `brief`, plus the site adapter. **Transcripts change on every conversation turn** — orders of magnitude more often than uploads. If the map rebuild were coupled to corpus writes, it'd fire constantly.
+
+**3. So separate the two cadences — this is the answer to your open question.**
+
+| | What it is | Cadence |
+|---|---|---|
+| **Vector index** | embeddings of new/changed docs | **incremental, on write** — that's what `corpusPredicates(spec, {since})` exists for |
+| **Awareness map** | cluster + LLM-describe + validate | **triggered, rarely** |
+
+The reason they decouple: **a new document rarely moves a territory.** Uploading one more brand document into a corpus that already has a "brand and positioning" territory changes nothing the map should say. Rebuilding per upload is expensive *and* almost always a no-op.
+
+My recommendation instead of a schedule: at ingestion you already embed the document — compare it against the existing territory centroids. Close to one? The map already describes it, do nothing. Far from all of them? That's an **outlier**, and it's the signal the map is stale. The component already has the vocabulary for this (`OUTLIER`, `Territory`, `Representative`). Cheap, and it fires when the map is actually wrong rather than when the clock says so.
+
+**4. The bootstrap case needs a defined behaviour.** A new tenant's project KB has three documents. Clustering three documents into eight territories is noise, and that map is the *first* thing the AI sees about the client. So there needs to be a floor below which the map degrades to a plain listing rather than a fabricated topology. Worth deciding, because every new client hits it on day one.
+
+None of that blocks the system KB, which is why the ticket below is scoped to just that.
+
+**REQ-158** created — *The system KB in the Worker: bundle-resident index, AI binding, knowledge surface on the builder toolbox*. High priority, 8 points.
+
+It covers the six items, records the bundle-residency decision with the caveat that it must not be generalised to the project KB, and puts the behavioural test as the acceptance that matters: the AI answers from a design document and names it. Scoped to the static half — project KB, attachments and the site adapter are all explicitly out.
+
+On your build failure: that's the expected message, not a fault. `1c kb build` wants `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` — the same pair `pnpm deploy:*` uses — because the index has to be embedded with the *same* model the Worker will query with, and that model is Workers AI. Building the index from a local embedder would produce vectors that silently disagree with query-time vectors: not an error, just quietly bad results. The credential requirement is what makes index/query parity true by construction.
+
+Two notes on it:
+- Running the build is a **prerequisite** to REQ-158, not part of it — but the ticket isn't done until it's been run, because nobody has yet exercised the embedder, describer or awareness passes against the current 33-document corpus. DOC-38 landed in it two days ago and has never been indexed.
+- `bin/1c` also currently dies on a missing `vite`, so `pnpm install` first. There's a half-written `.pnpm-store/` sitting untracked in the tree.
+
+## The two things still to decide, when you want them
+
+Both belong to the project KB ticket, not REQ-158:
+
+1. **Map-refresh trigger.** My recommendation stands: index incrementally on write, rebuild the map only when an ingested document lands far from every existing territory centroid. It fires when the map is actually wrong rather than on a clock, and it reuses the `OUTLIER`/`Territory` vocabulary the component already has.
+2. **The bootstrap floor.** What the map does for a tenant with three documents. This one's more urgent than it sounds — it's the first thing the AI learns about every new client.
+
+Say the word and I'll scope the project-KB ticket with those two as its design questions.
 
 <!-- xgd-chat-end -->
