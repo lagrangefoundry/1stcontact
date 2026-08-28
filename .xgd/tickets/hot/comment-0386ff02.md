@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-27T00:54:50.413859+00:00'
+updated_at: '2026-08-28T02:41:46.352997+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -557,5 +557,11 @@ REQ-155 is `draft` and REQ-154 is `free_coding` — so the capture-in-cloud trac
 A `ReferenceStore` written against prefixed, content-addressed keys refactors onto `BlobStore` mechanically. One that invents its own identity scheme — which REQ-155's body currently proposes, *"derived from the captured URL and the capture time"* — doesn't. That's a decision, not an implementation, and it's cheap today and a migration in a month.
 
 That's what I'd take back to the framework conversation ahead of either REQ-107 or REQ-108.
+
+<!-- xgd-turn id="bca137fd-7e5b-4c31-b128-ffb69ff10540-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-28T02:41:46.296366+00:00" -->
+#### You
+ok so lets make a decision
 
 <!-- xgd-chat-end -->
