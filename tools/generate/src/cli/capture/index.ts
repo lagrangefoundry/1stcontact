@@ -2,6 +2,13 @@
  * REQ-12 — rendered-only reference capture ([[DOC-13]]). Public surface for the
  * `1c capture page` command, the capture pipeline, the CF-shaped BrowserDriver
  * seam, and offline re-extraction.
+ *
+ * `cf-driver.ts` IS DELIBERATELY ABSENT (REQ-154). This barrel re-exports
+ * `playwright-driver`, so importing it drags Playwright in — which is exactly
+ * what must not reach a Worker bundle. The Browser Rendering driver is therefore
+ * reached by deep path (`capture/cf-driver`), the same convention `router.ts`
+ * already follows for every `tools/generate` import it makes. Adding it here
+ * would suggest this barrel is Worker-reachable, and it is not.
  */
 export { cmdCapturePage } from './capture'
 export type { CapturePageOptions, CapturePageResult } from './capture'
@@ -14,6 +21,9 @@ export type {
   StructuralHintsOptions,
 } from './pipeline'
 export { HINTS_SCRIPT, extractHints } from './hints'
+export { VIEWPORTS, resolveViewport, screenshotUrl } from './screenshot'
+export type { ViewportName } from './screenshot'
+export { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
 export type { StructuralHints, HintNode, ParentLayout, SizingUnit, HintDriver } from './hints'
 export {
   createPlaywrightDriver,
