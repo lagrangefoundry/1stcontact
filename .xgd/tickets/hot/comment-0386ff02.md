@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T20:22:58.398750+00:00'
+updated_at: '2026-08-28T20:24:44.941318+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -607,5 +607,53 @@ If you're happy with this, I'll draft the message to take back to the REQ-104 co
 #### You
 1 sure
 3 yes lets proceed with the KMS. Whats next there?
+
+<!-- xgd-turn id="30858ff9-6050-42a1-95f0-643bb1ac775b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-28T20:24:44.873003+00:00" -->
+#### Claude
+Investigated the actual state. Three things, one of which changes the plan.
+
+## The KB has never been built
+
+`kb/system/` holds 33 exported markdown files and **nothing else** — no `index/`, no `chunks/`, no awareness-map document. Only `1c kb export` has ever run.
+
+REQ-123 is `free_and_reconciled`, but what that shipped is the *export* half. The embedder path, the describer path and the awareness build are all unexercised against the current corpus — and DOC-38 was added to it two days ago, so the corpus has moved since anyone last looked.
+
+So step zero is `1c kb build`, which needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` and reaches the network — my sandbox blocks both, so it's yours to run. (`./bin/1c` also currently dies on a missing `vite`, so `pnpm install` first. There's an untracked `.pnpm-store/` in the tree suggesting an install was already half-attempted.)
+
+That's worth doing before any code, because it's zero-risk and it either validates the whole build path or tells us it rotted.
+
+## The Worker gap — five concrete things
+
+The seam already exists: `createL1ToolboxCore` accepts a `knowledgeSurface`, and the node-side `createL1Toolbox` builds one through the `ai-knowledge` bridge. The Worker path just never constructs it.
+
+1. **No `[ai]` binding** in `apps/control-app/wrangler.toml`. Query-time embedding needs `WorkersAiEmbedder({binding: env.AI})`. It has to go in **both** the top-level and `[env.production]` blocks — that file's own rule, since a named environment inherits no bindings, and there are UATs pinning the other pairs.
+2. **No bundle-resident artifacts.** `openKnowledgeRuntime()` (`kb.ts:720`) is built on `nodeIndexSource(...)` — filesystem, unusable in workerd.
+3. **No Worker-side runtime opener** — the peer of that function, using `memoryIndexSource` + `DocDirStore(bundleDocReader(DOCS))` + the AI binding.
+4. **`ai.ts` never passes `knowledgeSurface`** into the core toolbox.
+5. **Priming** — `primeSession` injecting the awareness map into the system prompt, which is what DOC-10 §5.1 means by "the map, not the pile."
+
+## The one decision: index residency
+
+| | Bundle | R2 |
+|---|---|---|
+| 33 docs | ~50KB doc vectors, ~0.5–1MB with chunks | same bytes, fetched |
+| Cost | bundle size | a cold-start fetch |
+| Status | fits comfortably | `SITES` bucket already bound |
+
+**Recommend bundle for v1.** The knowledge README names exactly this case as the simplest v1, the numbers are nowhere near a limit, and it makes the KB a pure release artifact with no runtime dependency. `IndexSource` means R2 later is a swap, not a rewrite.
+
+One caveat worth stating now so nobody generalises wrongly: **the `project` KB can never be bundle-resident.** It's tenant data, written continuously. So the R2/store path will be needed — just for a different KB, through the same seam. Bundle-for-system is not a decision that has to hold twice.
+
+## Acceptance
+
+The builder AI, asked something answerable only from a design document, cites it. That's the whole test, and it's currently impossible.
+
+---
+
+Sequence: `pnpm install` → `1c kb build` → then the Worker wiring as one ticket, roughly 5–8 points.
+
+Want me to scope that as a REQ? Per the free-coding protocol I'd need one before touching code, and I'd write it against the five items above with the residency decision recorded. Say the word and I'll draft it — otherwise run the build first and we can see what it tells us.
 
 <!-- xgd-chat-end -->
