@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-154
 created_by: xgd
 created_at: '2026-08-23T23:26:13.624723+00:00'
-updated_at: '2026-08-28T16:22:37.031040+00:00'
+updated_at: '2026-08-28T16:41:17.295853+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -146,5 +146,72 @@ Now the node-side structural UAT for AC1 and the config parity:
 <!-- xgd-chat role="user" ts="2026-08-28T16:22:36.992771+00:00" -->
 #### You
 please complete the free-coding of this ticket
+
+<!-- xgd-turn id="47e7ccda-28cc-49ee-b5e2-abb31f0ed9b0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-28T16:41:17.203593+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me establish the current state first.
+
+The branch exists. Let me inspect its state.
+
+All work is uncommitted in the worktree. Let me review what was built before validating it.
+
+Implementation looks complete. Now let me validate — typecheck and tests.
+
+Dependencies are installed. Running the new UATs.
+
+All 29 pass. Now typecheck and broader regression.
+
+Both typecheck clean. Now the regression scope.
+
+Dry-run confirms `env.BROWSER → Browser Run` is bound. Let me identify the 4 failing files and check whether they're pre-existing.
+
+Let me check that background task and meanwhile inspect the router change, which is the only thing that could plausibly affect those suites.
+
+The router change is only an export + optional type — cannot affect those suites. Let me confirm with the baseline run.
+
+Let me get a definitive baseline by stashing the changes in this worktree.
+
+Identical baseline — 5 files, 11 failures, 29 passed. Pre-existing, unrelated to REQ-154. Restoring.
+
+Let me verify DOC-13 was updated and check the version-bump tooling.
+
+DOC-13 is already amended (§6.1–6.3, §8). Now the version bump.
+
+Version at 0.2.16. Committing.
+
+Committed. Now the merge lock and merge-back.
+
+Now story points and the ticket body update. Let me read the existing body in full first.
+
+Let me check what the UATs actually assert so the record is accurate.
+
+Now updating the ticket body — preserving the original and appending the implementation record.
+
+Ticket updated. Now cleaning up the branch.
+
+Free-coding complete. REQ-154 is at `free_coded`, commit `29c0e86dd` on `xgd-working`, branch and worktree torn down.
+
+## What landed
+
+The prior session had written all the code but never committed it — the work was sitting uncommitted in the `free-REQ-154` worktree. I validated it, committed, merged back, and recorded it.
+
+**AC3 was answered by a fourth option** the ticket didn't list: the Worker fulfils the request in-process. The browser navigates the real absolute preview URL and the driver intercepts every request to that host, answering from the same `PreviewRenderer` the `/preview/*` route serves from. No request is made, so Access never sees one. That takes the service token's real origin and `setContent`'s absence-of-a-credential at the same time — no trade. The rule is per-**host**, not per-path, which is what makes it mechanical: a resolver owns the host outright, so nothing reaches the gated origin by any route, while other hosts still go to the network so third-party fonts and images load.
+
+**Session economics**: `withBrowserSession` leases one browser per run; each driver takes a fresh browser *context*. That preserves today's cold-start-per-viewport semantics exactly while collapsing ~8 acquisitions into 1. Reuse stops strictly below the driver — a reused driver would merge network logs and land as a false security verdict, not a crash.
+
+## Validation
+
+- 25 new UATs across 3 files, all passing (workerd project for the runtime ones)
+- `tsc --noEmit` clean in `apps/control-app` and `tools/generate`
+- `pnpm dryrun:control` confirms `env.BROWSER → Browser Run` on the production bundle
+- Regression scope (capture, shot, conformance, ladder, live preview, access gate, preview memo) all pass
+
+**One thing to flag**: the full suite has 5 pre-existing failing files — `reconciliation-assistant-conversation`, `reconciliation-copy-edit-parameter-sheet`, `reconciliation-platform-build-deploy-smoke`, `req117-edit-loop`, `test_UAT_FC_REQ-127_session_binding` (11 tests). I confirmed these are not mine by stashing the branch and re-running: identical result, 11 failed / 29 passed either way. They're unrelated to capture or the browser, but they are red on `xgd-working` right now and nothing I did addresses them.
+
+Deliberately not done, and recorded as such: no HTTP route exposes the screenshot capability (that's a rate-limiting/authorisation decision belonging to REQ-157), and `storage/references/` bytes have not moved to R2 — this is eyes-in-the-cloud, not capture-in-the-cloud.
+
+The ticket is parked at `free_coded`. Promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
