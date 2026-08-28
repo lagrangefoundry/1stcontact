@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T02:41:46.352997+00:00'
+updated_at: '2026-08-28T02:42:21.915713+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -563,5 +563,42 @@ That's what I'd take back to the framework conversation ahead of either REQ-107 
 <!-- xgd-chat role="user" ts="2026-08-28T02:41:46.296366+00:00" -->
 #### You
 ok so lets make a decision
+
+<!-- xgd-turn id="bca137fd-7e5b-4c31-b128-ffb69ff10540-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-28T02:42:21.897408+00:00" -->
+#### Claude
+Here's what I'd commit to, in the order it matters.
+
+## 1. Lock the key convention today — `t/<tenant>/blob/<sha256>`
+
+Binding on REQ-104, REQ-155, and the eventual site-key migration.
+
+This is the only genuinely time-sensitive decision: REQ-154 is `free_coding` and REQ-155 is `draft` with a body proposing its own identity scheme *"derived from the captured URL and the capture time."* Once that's written, converging costs a migration.
+
+Crucially, **this doesn't require winning the substrate argument.** Even if the framework decides `BlobStore` stays a sibling to `ReferenceStore` rather than sitting under it, prefixed content-addressed keys are still right — for dedup, for erasure, and for the existence oracle. So decision 1 is safe to make now and independent of anything the agent might push back on.
+
+## 2. REQ-104 ships standalone; 107 and 108 follow
+
+Tell the agent: don't sequence behind them.
+
+- `BlobStore.forTenant()` lands **in** REQ-104 — `MultiTenantTicketStore.forTenant()` already exists, so it's a local wiring change. REQ-107 generalises the pattern afterwards.
+- `list` lands in REQ-104 — additive now, a port signature change later.
+- `detach` is **mark-only from day one**, with no collector. Orphan blobs accumulate until REQ-108; that's a bill, not a bug, at our scale.
+- **Question G: optional capability group**, not G1. Our retrieval path reads bodies and never touches attachments, so a store without a BlobStore loses nothing. That also disposes of the Python-peer question.
+
+## 3. 1stcontact builds the knowledge surface next — not attachments
+
+This is the one I'd push hardest on. Wire `knowledge` through `apps/control-app/src/ai.ts` into the toolbox seam that already exists and currently defaults to `null`.
+
+The reason it goes first isn't just that it's unblocked. It's that **DOC-38 is currently unfalsifiable.** §8.3's co-ranking question ("does site copy crowd out the positioning material?") is explicitly meant to be answered with measurement, and §8.2's max-weight constraint only bites once there are two KBs. Neither is observable until something actually searches. Right now `1c kb build` produces a corpus, an index and an awareness map that nothing reads.
+
+Order after that: types in the TypePack → `project` KB config → site source adapter → ingestion steps 2–5. Attachments slot in when REQ-104 lands, and nothing above waits on it.
+
+---
+
+What I need from you: **confirm 1 and 3**, and G is yours to say since it's framework policy.
+
+If you're happy with this, I'll draft the message to take back to the REQ-104 conversation — it needs the store-path correction, the sequencing call, and the key-convention lock, and I'd rather you sent one clear note than relayed six.
 
 <!-- xgd-chat-end -->
