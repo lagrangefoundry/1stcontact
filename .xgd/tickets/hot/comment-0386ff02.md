@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T21:19:08.084606+00:00'
+updated_at: '2026-08-28T21:29:20.973167+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -738,5 +738,17 @@ Say the word and I'll scope the project-KB ticket with those two as its design q
 <!-- xgd-chat role="user" ts="2026-08-28T21:19:08.064722+00:00" -->
 #### You
 My recommendation instead of a schedule: at ingestion you already embed the document — compare it against the existing territory centroids. Close to one? The map already describes it, do nothing. Far from all of them? That's an **outlier**, and it's the signal the map is stale. The component already has the vocabulary for this (`OUTLIER`, `Territory`, `Representative`). Cheap, and it fires when the map is actually wrong rather than when the clock says so. <-- agreed, we need something similar for transcripts - perhaps we review the transcript every N characters using the same approach?
+
+<!-- xgd-turn id="ce34a489-f9b2-4eb6-93ac-c4d5a6dbb3fe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-28T21:29:20.936151+00:00" -->
+#### You
+My recommendation instead of a schedule: at ingestion you already embed the document — compare it against the existing territory centroids. Close to one? The map already describes it, do nothing. Far from all of them? That's an **outlier**, and it's the signal the map is stale. The component already has the vocabulary for this (`OUTLIER`, `Territory`, `Representative`). Cheap, and it fires when the map is actually wrong rather than when the clock says so. <-- agreed, we need something similar for transcripts - perhaps we review the transcript every N characters using the same approach?
+
+on question 2 - I actually think we could consider rebuilding the map everytime the user uploads a doc or we download relevant content. These are very different situations from the chat transcript growth. Chat transcripts are (by definition) in the current context - no need to make them more accessible. Docs are being added because the user wants to discuss them now.
+
+Note that there is a problem here it is important to articulate. The user is in the middle of a design chat - AI says "Have you any relevant docs" User says yes and uploads one. Now even if we add that doc to the awareness map - the current plan is that the awareness map is just part of the sessions INITIAL priming - so there is nothing to tell the AI that a document is there.
+
+Suggestion: each KB should maintain a change log. 1. Every piece of content added gets logged 2. this log should be a ticket that is referenced in the awareness map so the AI can read the whole thing any time 3. In the reminder system prompt we could add the log entries that appeared since the last turn so the AI is kept upto date on KB changes.
 
 <!-- xgd-chat-end -->
