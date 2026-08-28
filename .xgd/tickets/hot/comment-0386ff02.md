@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T21:29:20.973167+00:00'
+updated_at: '2026-08-28T21:31:07.274012+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -750,5 +750,68 @@ on question 2 - I actually think we could consider rebuilding the map everytime 
 Note that there is a problem here it is important to articulate. The user is in the middle of a design chat - AI says "Have you any relevant docs" User says yes and uploads one. Now even if we add that doc to the awareness map - the current plan is that the awareness map is just part of the sessions INITIAL priming - so there is nothing to tell the AI that a document is there.
 
 Suggestion: each KB should maintain a change log. 1. Every piece of content added gets logged 2. this log should be a ticket that is referenced in the awareness map so the AI can read the whole thing any time 3. In the reminder system prompt we could add the log entries that appeared since the last turn so the AI is kept upto date on KB changes.
+
+<!-- xgd-turn id="ce34a489-f9b2-4eb6-93ac-c4d5a6dbb3fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-28T21:31:07.146441+00:00" -->
+#### Claude
+Let me verify one thing your problem statement rests on, because it changes the fix:
+
+Your docs/transcripts split is right, and the reason you gave for it is the strongest part: **uploads are a request for attention, transcript growth isn't.** Let me sharpen both halves and then push back on one piece of the mechanism.
+
+## Transcripts: index every N characters, never rebuild the map
+
+Agreed on the trigger unit — N characters is right, and it's already the system's unit (DOC-10's 5k-char tail), so nothing new gets invented.
+
+But I'd drop the centroid check for transcripts specifically. Not because it's wrong, because it's knowably a no-op: it will essentially always come back "close to the conversations territory," and you'll have paid an embed and a comparison to learn that.
+
+The deeper reason is that **the map's value is discovery** — telling the AI about knowledge it wouldn't think to look for. The AI always knows conversations happened; it's sitting in one. Describing transcript territories has near-zero marginal value against a real LLM-describe cost.
+
+One extension to your "already in context" argument, because it has a boundary: that's true of the *tail of the current session*, not of older turns in it, and not of **other sessions on the same site** — DOC-10 §2.3's "what did we decide about the palette?" is answered from a previous chat. So transcripts still need **index** freshness so search works. They just don't need **map** freshness. Clean split:
+
+| | Index | Map |
+|---|---|---|
+| Transcripts | every N chars | never |
+| Uploads / downloads / captures | on write | rebuild |
+
+## Your premise is slightly off, and your conclusion is right anyway
+
+Priming isn't initial-only by design — DOC-10 §5.1 says *"on every chat turn"*, and the map is an ordinary ticket read (`findAwarenessReport`), so re-priming per turn is cheap and would pick up a rebuilt map.
+
+But that doesn't rescue the situation, for a better reason than staleness: **a map is a description, not a notification.** A new brand document lands inside the existing "brand and positioning" territory and changes the map's prose not at all. So even a correctly rebuilt, freshly re-read map says nothing new, and the AI still doesn't know the document it just asked for has arrived.
+
+So you need a delta channel. Your instinct is correct; only the diagnosis moves.
+
+## But don't build a change-log ticket — the change feed already exists
+
+Your point (c) is the valuable one and I'd keep it exactly. Points (a) and (b) I'd drop, because `corpusPredicates(spec, {since})` already restricts a corpus to `updated_at >= cursor`. That's a change feed, it's already there for incremental indexing, and "what's new since your last turn" is the same query with a different cursor.
+
+Store the cursor on the chat session — it's a ticket, it has fields. Each turn: ask the corpus what changed since, inline the titles.
+
+Three reasons that beats a log ticket:
+
+- **No hot row.** A log ticket rewritten on every upload is a compare-and-set contention point, and it grows unboundedly in a single body.
+- **No corpus pollution.** A log ticket *in* the corpus surfaces as search hits competing with real content; a log ticket *excluded* from the corpus is one more predicate everyone has to remember.
+- **Automatically complete.** The feed catches every corpus member — uploads, downloads, captures, the site adapter — not just the ones someone remembered to log.
+
+What your log had that the feed doesn't is *why* and *by whom*. But that's already in the material ticket: its title, its `kind`, its `rights`, and the body's text shadow. The log entry would be a copy of them.
+
+The one real gap: removals. An archived or detached document may not appear in an `updated_at >=` sweep. Minor, worth knowing.
+
+## The delta is also what makes rebuild-on-upload affordable
+
+Worth naming, because it changes how the rebuild can be scheduled: a map build is cluster + an LLM describe per territory + a **validated search per access point**. Doing that synchronously mid-conversation is a visible stall right at the moment the user is waiting to talk about their document.
+
+With the delta channel, it doesn't have to be synchronous. The feed tells the AI the document exists *immediately* — it can search it on the very next turn, because search only needs the **index**, not the map. The map rebuild runs behind and catches up.
+
+So: index synchronously on upload, delta on the next turn, map rebuild async. The AI is never blocked and never blind.
+
+## Still open: the bootstrap floor
+
+Rebuilding on every upload makes this *more* pressing, not less — the first upload triggers a map build over a one-to-four document corpus. Clustering that into territories produces fabricated topology, and it's the first thing the AI ever learns about that client. There needs to be a floor below which the map degrades to a plain listing.
+
+---
+
+Want me to scope the project-KB ticket now? It'd carry: the tenant-scoped corpus and store-backed `IndexSource`, incremental indexing with the two triggers above, the per-turn delta via the change cursor, async map rebuild on upload, and the bootstrap floor as its one open design question.
 
 <!-- xgd-chat-end -->
