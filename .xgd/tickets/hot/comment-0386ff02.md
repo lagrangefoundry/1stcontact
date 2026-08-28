@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T20:24:44.941318+00:00'
+updated_at: '2026-08-28T21:10:41.865764+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -655,5 +655,30 @@ The builder AI, asked something answerable only from a design document, cites it
 Sequence: `pnpm install` → `1c kb build` → then the Worker wiring as one ticket, roughly 5–8 points.
 
 Want me to scope that as a REQ? Per the free-coding protocol I'd need one before touching code, and I'd write it against the five items above with the residency decision recorded. Say the word and I'll draft it — otherwise run the build first and we can see what it tells us.
+
+<!-- xgd-turn id="9559178f-a4d9-430c-a66b-018e886e4c04-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-28T21:10:41.730364+00:00" -->
+#### You
+You are a design chat - please let the ticket do the coding.
+
+Please do create the ticket.
+
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/1c kb build
+The knowledge index needs Workers AI: set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (the same credentials `pnpm deploy:*` uses). The embedding model is the one the Worker serves, so the index and the search agree by construction.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+I'm returning to this coversation after a few days so I want to make sure we are on the same page - let me take a few steps back.
+
+The knowledge management system that we are building involves a few things:
+ - the KMS which comprises one or more KBs each KB is a RAG-searchable set of tickets with a precompiled Awareness Map - this is a document that gives a description of what the KB contains and search terms to help the AI extract the knowledge it needs.
+ - specifically we are building system with two KBs:
+      1. A system kb - this changes only at development time. The awareness map is built once (at build/deploy time)
+      2. A project kb - this changes every time new assets of background docs are uploaded we need to discuss how/when the awareness map gets updated - probably on each upload, at least to begin with
+
+That's the overall scope - just want to make sure we're aligned on the big picture?
 
 <!-- xgd-chat-end -->
