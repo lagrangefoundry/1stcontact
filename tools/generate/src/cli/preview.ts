@@ -2,6 +2,7 @@ import { renderSiteFiles, type RenderedSite } from '../render/render'
 import type { DraftSnapshot, SiteStore } from '../store/site-store'
 import { MIME } from '../store/content-type'
 import { InvalidDefinitionError } from './errors'
+import type { OriginFile, OriginResolver } from './capture/types'
 
 /**
  * Request-time renders of the draft and edit channels (REQ-119 / DOC-28 §12 T5).
@@ -158,5 +159,51 @@ export class PreviewRenderer {
     })
     this.cache.set(key, { stamp: snapshot.stamp, rendered })
     return rendered
+  }
+}
+
+/**
+ * REQ-154 — the preview channels as an {@link OriginResolver}, so a browser can
+ * be handed our own output instead of fetching it.
+ *
+ * THE PROBLEM. The builder is served from a host Cloudflare Access guards
+ * ([[REQ-147]]). A browser the Worker launches is a new, unauthenticated client:
+ * it is challenged, and it faithfully screenshots the challenge page. Nothing
+ * errors — the picture is simply wrong, which is the worst shape a failure can
+ * take for a tool whose entire job is to be believed.
+ *
+ * WHY THIS AND NOT A CREDENTIAL. A service token would work, and would put a
+ * long-lived Access credential in the Worker for the sole purpose of letting it
+ * talk to itself — a secret to rotate, leak and revoke, standing in for a
+ * round-trip that did not need to happen. Fulfilling the request in-process
+ * removes the trip and the credential together. An Access *bypass* on an
+ * internal path was the third candidate and is a hole in the exact wall REQ-147
+ * built. See [[DOC-13]] §6.1 for the full record.
+ *
+ * WHY NOT `setContent()` / a `data:` URL. Because the page would have no real
+ * origin: relative `/assets/` references would not resolve, which is precisely
+ * the blank-screenshot bug DOC-13 §6 records. Here the browser still navigates
+ * a real absolute URL with a real `baseURI`; only the transport is short-circuited.
+ *
+ * SCOPE. This resolver owns `/preview/<slug>/<draft|edit>/…` and nothing else on
+ * its host — every other path resolves to `null`, which the driver answers 404,
+ * so no request from that browser can reach the gated origin by any route. A
+ * `published` shot is not served here on purpose: published bytes live on
+ * public-site's own host, which no Access policy covers, so the browser simply
+ * fetches them.
+ */
+export function previewOriginResolver(renderer: PreviewRenderer, host: string): OriginResolver {
+  return {
+    host,
+    async file(pathname: string): Promise<OriginFile | null> {
+      const match = /^\/preview\/([^/]+)\/([^/]+)(\/.*)?$/.exec(pathname)
+      if (!match) return null
+      const slug = decodeURIComponent(match[1])
+      const channel = decodeURIComponent(match[2])
+      if (channel !== 'draft' && channel !== 'edit') return null
+      const file = await renderer.file(slug, channel, match[3] ?? '/')
+      if (file === null) return null
+      return { status: 200, contentType: file.contentType, body: file.body }
+    },
   }
 }

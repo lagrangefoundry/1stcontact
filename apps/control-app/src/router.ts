@@ -111,7 +111,15 @@ export function resetChatHost(): void {
   CHAT = null
 }
 
-function previewRenderer(store: TenantSiteStore): PreviewRenderer {
+/**
+ * The renderer for a store, memoised per store (see {@link PREVIEWS}).
+ *
+ * EXPORTED for REQ-154. A screenshot of `/preview/<slug>/draft/` is fulfilled
+ * from this renderer rather than fetched, so it must be the SAME renderer the
+ * route uses — a second instance would render the draft a second time and could
+ * answer from a different stamp than the one the operator is looking at.
+ */
+export function previewRenderer(store: TenantSiteStore): PreviewRenderer {
   let renderer = PREVIEWS.get(store)
   if (!renderer) {
     renderer = new PreviewRenderer(store)
@@ -160,6 +168,16 @@ export interface RouterEnv extends StoreEnv {
    * history, and says why it cannot take a turn.
    */
   ANTHROPIC_API_KEY?: string
+  /**
+   * Browser Rendering ([[REQ-154]]), for `shot.ts` — the assistant's eyes.
+   *
+   * OPTIONAL, and absent must stay an ordinary state rather than a boot failure,
+   * for the same reason the key above is: a builder that cannot take a picture
+   * still edits, renders and publishes, and should say what it cannot do rather
+   * than refuse to start. `bindingLauncher` raises a named error naming the
+   * missing binding.
+   */
+  BROWSER?: Fetcher
 }
 
 /**

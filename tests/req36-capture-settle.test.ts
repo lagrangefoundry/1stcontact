@@ -24,6 +24,21 @@ const driverSrc = readFileSync(
   fileURLToPath(new URL('../tools/generate/src/cli/capture/playwright-driver.ts', import.meta.url)),
   'utf8',
 )
+/**
+ * REQ-154 — the settle scripts moved OUT of the driver and into one shared
+ * source, so the Browser Rendering driver runs the same four steps rather than a
+ * second copy of them that could drift. The obligations below are unchanged;
+ * what changed is which file holds the script text, so the assertions read the
+ * pair. `tests/test_UAT_FC_REQ-154_page_scripts.test.ts` now also EXECUTES these
+ * scripts and asserts their effects, which is a stronger claim than any of the
+ * source matches here.
+ */
+const scriptsSrc = readFileSync(
+  fileURLToPath(new URL('../tools/generate/src/cli/capture/page-scripts.ts', import.meta.url)),
+  'utf8',
+)
+/** The driver plus the scripts it runs — where the settle behaviour now lives. */
+const settleSrc = `${driverSrc}\n${scriptsSrc}`
 
 // ── Part A: source-level guarantees (browser-free, always run) ────────────────
 
@@ -41,14 +56,16 @@ describe('REQ-36 capture settle — driver behaviour', () => {
   it('test_UAT_FC_REQ-36_capture_settle_reveals_animated_and_promotes_lazy', () => {
     // Reveals Elementor's pre-animation hidden state so `fadeIn` text is not
     // captured at opacity 0.
-    expect(driverSrc).toMatch(/\.elementor-invisible\{[^}]*visibility:visible!important/)
-    expect(driverSrc).toMatch(/animation-duration:0s!important/)
+    expect(settleSrc).toMatch(/\.elementor-invisible\{[^}]*visibility:visible!important/)
+    expect(settleSrc).toMatch(/animation-duration:0s!important/)
     // Scrolls the full height to trip lazy-load / entrance observers.
-    expect(driverSrc).toMatch(/scrollTo\(0, y\)/)
-    expect(driverSrc).toMatch(/document\.body\.scrollHeight/)
+    expect(settleSrc).toMatch(/scrollTo\(0, y\)/)
+    expect(settleSrc).toMatch(/document\.body\.scrollHeight/)
     // Promotes residual lazy images to eager and waits for them to decode.
-    expect(driverSrc).toMatch(/img\.loading = 'eager'/)
-    expect(driverSrc).toMatch(/img\.complete/)
+    expect(settleSrc).toMatch(/img\.loading = 'eager'/)
+    expect(settleSrc).toMatch(/img\.complete/)
+    // This one stays on the DRIVER: waiting for the network is a Playwright call,
+    // not page script, and each driver spells it in its own library's terms.
     expect(driverSrc).toMatch(/waitForLoadState\('networkidle'\)/)
   })
 })
