@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T21:12:13.816145+00:00'
+updated_at: '2026-08-28T21:19:08.084606+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -732,5 +732,11 @@ Both belong to the project KB ticket, not REQ-158:
 2. **The bootstrap floor.** What the map does for a tenant with three documents. This one's more urgent than it sounds — it's the first thing the AI learns about every new client.
 
 Say the word and I'll scope the project-KB ticket with those two as its design questions.
+
+<!-- xgd-turn id="0a16a8fc-6973-4d6d-824b-444021354027-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-28T21:19:08.064722+00:00" -->
+#### You
+My recommendation instead of a schedule: at ingestion you already embed the document — compare it against the existing territory centroids. Close to one? The map already describes it, do nothing. Far from all of them? That's an **outlier**, and it's the signal the map is stale. The component already has the vocabulary for this (`OUTLIER`, `Territory`, `Representative`). Cheap, and it fires when the map is actually wrong rather than when the clock says so. <-- agreed, we need something similar for transcripts - perhaps we review the transcript every N characters using the same approach?
 
 <!-- xgd-chat-end -->
