@@ -120,6 +120,24 @@ migrations_dir = "../../db/migrations"
 binding = "SITES"
 bucket_name = "1stcontact-sites"
 
+# Browser Rendering — the assistant's eyes in the cloud (REQ-154, [[DOC-13]] §6).
+#
+# A headless Chromium the Worker drives through `@cloudflare/puppeteer`, so the
+# assistant can screenshot what it just built instead of describing it.
+#
+# METERED AND CAPPED, which is why `withBrowserSession` leases ONE browser per
+# run and hands each driver a fresh browser CONTEXT rather than a whole browser.
+# The account has a concurrency cap and an acquisition rate limit; a driver that
+# stranded a session would degrade into an outage that looks like a hang.
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings — the same rule every other binding in this file records.
+# Forgetting the repeat is not a silent degradation: the deployed Worker sees no
+# binding at all and every screenshot raises BrowserNotConfiguredError. A UAT
+# pins the two sides together so it cannot recur unnoticed.
+[browser]
+binding = "BROWSER"
+
 [env.production]
 name = "1stcontact-control-app"
 workers_dev = false
@@ -158,3 +176,7 @@ migrations_dir = "../../db/migrations"
 [[env.production.r2_buckets]]
 binding = "SITES"
 bucket_name = "1stcontact-sites"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-154).
+[env.production.browser]
+binding = "BROWSER"
