@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-29T00:00:19.594981+00:00'
+updated_at: '2026-08-29T00:01:12.876271+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -823,5 +823,40 @@ OK be I think we need an API for the AI to read the change log directly agreed?
 There needs to be a floor below which the map degrades to a plain listing. <-- yes that's fair. Its also simple - up to a dozen docs say? the map is just a list of doc titiles and first 200 characters?
 
 ---
+
+<!-- xgd-turn id="d303dda3-7a5c-495f-b13c-eba36d879e42-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-29T00:01:12.777181+00:00" -->
+#### Claude
+Agreed on both. Two refinements.
+
+## The change-log API: yes, and here's the justification that makes it non-negotiable
+
+**RAG cannot answer "what changed."** Cosine similarity has no notion of time. The ranker has a `recencyFactor`, but that biases *relevance* — it doesn't let the AI ask a temporal question. So "what's arrived since we last spoke?" or "did we ever upload the pricing deck?" have no path through search, and the per-turn delta I proposed only covers *since the last turn*: push-only, bounded, and lossy across session boundaries.
+
+So the pull API is a real capability, not a convenience. Two shaping notes:
+
+**It's an operation on the declared knowledge surface, not a bespoke tool.** DOC-10 §5.2 replaced four hand-written memory tools with operations on `knowledge_surface.json`, and the reasoning applies here unchanged — declaring it buys argument validation, the capability grant, results marked untrusted, the audit trail, and the projected manual, none of which we'd want to write by hand for a third tool.
+
+**It's a listing over the corpus by time, not a second store.** Same `since` predicate that already drives incremental indexing, ordered by `updated_at`, returning uid + title + `kind` + `rights`. Same KB scope argument as search, defaulting to all. Nothing new is persisted — which is what keeps it automatically complete across uploads, downloads, captures and the site adapter.
+
+The one gap to record: removals. An archive or detach may not surface in an `updated_at >=` sweep, so the feed is reliably additive and unreliably subtractive.
+
+## The floor: right, and it's an upgrade rather than a degradation
+
+Your numbers are good and I'd take them. But I'd reframe what the floor *is*, because it changes how you pick the threshold.
+
+A complete listing is **strictly better** than a clustered map. The map exists only because the corpus doesn't fit in the prompt — it's a lossy summary accepted under duress. So below the floor you're not degrading, you're doing the better thing. Which means the threshold isn't "too few documents to cluster meaningfully" — it's **"few enough to enumerate in full."**
+
+That makes the real constraint a **character budget**, not a document count. A dozen entries at ~200 chars is ~2.5KB, which is fine; the count is a good proxy for the budget, but the budget is the actual rule. Enumerate while the listing fits in roughly 2–4KB; cluster above it.
+
+Two small things that follow:
+
+- **Label it.** The listing should say it's complete — *"this client's corpus is small enough to list in full"* — so a short list reads as *"you know everything there is"* rather than *"knowledge here is thin."* Those produce very different behaviour from the AI in front of a new client.
+- **Your 200-char excerpt works better than it has any right to,** and it's worth knowing why: in the project KB, *every body is already a written summary* — the text shadow for `material`, the AI-maintained summary for `chat`. DOC-38 §6 bought that without aiming at it. It'd work far worse over raw documents.
+
+---
+
+That closes both open questions on the project KB. Shall I scope it now? It'd carry the tenant-scoped corpus and store-backed `IndexSource`, incremental indexing on the two triggers, the per-turn delta via the session cursor, the change-feed operation on the declared surface, async map rebuild on upload, and the enumerate-vs-cluster floor with its character budget.
 
 <!-- xgd-chat-end -->
