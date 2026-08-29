@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-28T21:31:07.274012+00:00'
+updated_at: '2026-08-29T00:00:19.594981+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -813,5 +813,15 @@ Rebuilding on every upload makes this *more* pressing, not less — the first up
 ---
 
 Want me to scope the project-KB ticket now? It'd carry: the tenant-scoped corpus and store-backed `IndexSource`, incremental indexing with the two triggers above, the per-turn delta via the change cursor, async map rebuild on upload, and the bootstrap floor as its one open design question.
+
+<!-- xgd-turn id="d303dda3-7a5c-495f-b13c-eba36d879e42-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-29T00:00:19.484086+00:00" -->
+#### You
+OK be I think we need an API for the AI to read the change log directly agreed?
+
+There needs to be a floor below which the map degrades to a plain listing. <-- yes that's fair. Its also simple - up to a dozen docs say? the map is just a list of doc titiles and first 200 characters?
+
+---
 
 <!-- xgd-chat-end -->
