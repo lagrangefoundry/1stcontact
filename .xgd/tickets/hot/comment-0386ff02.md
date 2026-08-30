@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-30T22:55:42.766093+00:00'
+updated_at: '2026-08-30T23:14:54.045050+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -938,5 +938,16 @@ So the knowledge component's specification for ranking, priming, the awareness b
 It's recorded as DOC-39 §11. I'd raise a `lagrange-framework` ticket to find or reconstruct it — my guess is it predates the extraction from XGD and was never carried across, in which case the git history of `lagrangefoundry/knowledge` in the xgd repo is where I'd look next. Say the word.
 
 Still outstanding: the project-KB ticket itself. DOC-39 now holds every decision it needs, so it'd be a short one.
+
+<!-- xgd-turn id="39013400-d1f3-4ef3-8a8e-f28f5b54c64a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-30T23:14:54.019810+00:00" -->
+#### You
+There's a problem - docs are going missing...indexing issue? I have a bug open. Lets proceed though
+
+This doc (DOC-39) also needs to cover:
+ - chat session seeding with the kb
+ - chat turn reminders with the kb
+ - which docs to include in the system kb
 
 <!-- xgd-chat-end -->
