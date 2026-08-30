@@ -61,6 +61,8 @@ fields:
     new_sha: e0d75a3eb1ef0faefbabfbeeed7f5da5c7ccc46d
   - old_sha: 4d662611d4538159f5e983711a2feba535ab29dd
     new_sha: 591c812498ab034bbb5ba71a3246ae5d72174c19
+  - old_sha: e47e08d254f0bff4d23b874c2d5479c6ac5dbd5e
+    new_sha: d8d87c7943bd2af94d3e790390a5e28b9fc42cbe
 ---
 
 {
