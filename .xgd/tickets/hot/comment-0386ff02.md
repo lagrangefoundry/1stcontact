@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-30T22:53:27.873927+00:00'
+updated_at: '2026-08-30T22:55:42.766093+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -909,5 +909,34 @@ Want me to write it? And separately — do you know where DOC-7 went, or should 
 <!-- xgd-chat role="user" ts="2026-08-30T22:53:26.914251+00:00" -->
 #### You
 Yes please create this - I don't know about DOC-7 (try ../xgd and ../lagrange-framework)
+
+<!-- xgd-turn id="7f6ffec3-14ec-4020-b8de-b90a5ded49bb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-30T22:55:42.699798+00:00" -->
+#### Claude
+DOC-7 hunt: it's **gone, and it's load-bearing**.
+
+**DOC-39 — The Knowledge Management System.** Eleven sections; the load-bearing ones are §4 (two clocks), §5 (map ≠ notification, and the delta), §6 (three surfaces), §7 (enumerate then cluster).
+
+Two places where writing it changed the answer slightly:
+
+- **§7 reframes your floor as a character budget, not a document count.** Since a complete listing beats a map, the question isn't "too few to cluster" but "few enough to enumerate" — ~2–4KB, which your dozen documents is a good proxy for. And I noted *why* your 200-char excerpt works better than it should: every body in the project KB is already a written summary, courtesy of DOC-38 §6. It would be a poor heuristic over raw documents.
+- **§4.2 puts rebuild-on-every-upload as the v1 answer** and demotes the centroid test to an optimisation for bulk cases. Your reasoning — uploads are rare and the trigger is legible — beats a cheaper test that's harder to reason about.
+
+## DOC-7 is gone, and it's worse than a dangling link
+
+I searched both repos you named, ticket stores and filesystems:
+
+- Not in `lagrange-framework` (3 docs total: DOC-8, DOC-14, DOC-21)
+- Not in `xgd` — neither the ticket store nor `docs/`
+- In 1stcontact, `DOC-7` is *Website Framework Architecture Principles* — an unrelated document that happens to share the number
+
+Meanwhile the component cites it **over a hundred times** across both language peers — `§2`, `§3`, `§4`, `§4.2`, `§5`, `§6` (36 references to §6 alone), `§8`, and four separate **Amendments A–D** carrying real contract decisions: the index-backed backlinks primitive, the incremental re-index cursor.
+
+So the knowledge component's specification for ranking, priming, the awareness build and the corpus contract is currently its own source comments. That was enough to write DOC-39 from — but it's not enough to *argue with*, and anyone changing ranking or awareness semantics would be doing it without the reasoning that produced them.
+
+It's recorded as DOC-39 §11. I'd raise a `lagrange-framework` ticket to find or reconstruct it — my guess is it predates the extraction from XGD and was never carried across, in which case the git history of `lagrangefoundry/knowledge` in the xgd repo is where I'd look next. Say the word.
+
+Still outstanding: the project-KB ticket itself. DOC-39 now holds every decision it needs, so it'd be a short one.
 
 <!-- xgd-chat-end -->
