@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-30T23:14:54.045050+00:00'
+updated_at: '2026-08-30T23:15:50.464841+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -949,5 +949,19 @@ This doc (DOC-39) also needs to cover:
  - chat session seeding with the kb
  - chat turn reminders with the kb
  - which docs to include in the system kb
+
+<!-- xgd-turn id="80e1b9fe-60c9-4b82-ab1f-531b69c017bc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-30T23:15:50.377861+00:00" -->
+#### You
+There's a problem - docs are going missing...indexing issue? I have a bug open. Lets proceed though
+
+This doc (DOC-39) also needs to cover:
+
+- chat session seeding with the kb
+- chat turn reminders with the kb
+- which docs to include in the system kb
+
+We have REQ-158 what else is needed? Yes please create a ticket for the work
 
 <!-- xgd-chat-end -->
