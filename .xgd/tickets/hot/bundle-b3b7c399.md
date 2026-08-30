@@ -5,10 +5,10 @@ type: bundle
 title: REQ-147 + REQ-143 + REQ-145 + REQ-146 + REQ-148 + 5 more
 created_by: xgd
 created_at: '2026-08-24T02:10:41.035843+00:00'
-updated_at: '2026-08-30T04:32:26.124260+00:00'
+updated_at: '2026-08-30T04:33:05.696608+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: reconciling
 fields:
   commits:
   - working_sha: de2e29930271cafaa00ac20cd8c7e5fdc8bf7c80
