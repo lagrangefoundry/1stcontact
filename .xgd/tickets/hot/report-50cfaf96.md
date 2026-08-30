@@ -17,6 +17,8 @@ fields:
   orphan_commits:
   - old_sha: 9e5327cff07685365d160f79e3878e0a28e83f8e
     new_sha: be7143cc310a5790c24829ebf409594ce96b79fe
+  - old_sha: 932f362e4f60b8797557ba8f4cdd1fddeb1c9068
+    new_sha: 3a7e8985e7609d133610ecea15eae05b12ae43a9
 ---
 
 {
