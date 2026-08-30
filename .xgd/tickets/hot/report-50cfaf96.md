@@ -2677,6 +2677,8 @@ fields:
     new_sha: 3a124abefed4a327a8d73a9a1ba3f8246d241a9a
   - old_sha: 535b8bedd0451e0ebc8d0de7f14dc44608668c26
     new_sha: a7ba4304fe4dce6e6eec7bf0e972f2e68359c165
+  - old_sha: 6c61cee28d8eb08d8c466d7c1dd0bd510ec660a2
+    new_sha: fdcedd5dc338e3a674b7a7e266fad3b6cb97cc2f
 ---
 
 {
