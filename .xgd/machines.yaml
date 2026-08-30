@@ -1,6 +1,0 @@
-machines:
-  a9eae48d:
-    hostname: nyx
-    ip: 10.168.168.3
-    registered_at: '2026-06-30T00:54:52Z'
-    remote_branch: xgd-working-a9eae48d
