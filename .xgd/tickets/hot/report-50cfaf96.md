@@ -123,6 +123,8 @@ fields:
     new_sha: 385018d7ce93875ad45ea2df0c9190df8cafe449
   - old_sha: 6b640d55f55495ee34e87b96ea69412cc0e5cdb3
     new_sha: 97d000dbb03a3cc89a286516a394fda91ecc4239
+  - old_sha: 75c027876cd27553a320dcd8ba3ca0bfa1ff0652
+    new_sha: 09e39e02683f9c7865b18a33c6bc6cc516d08fa8
 ---
 
 {
