@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-29T00:01:12.876271+00:00'
+updated_at: '2026-08-30T20:40:25.675265+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -858,5 +858,11 @@ Two small things that follow:
 ---
 
 That closes both open questions on the project KB. Shall I scope it now? It'd carry the tenant-scoped corpus and store-backed `IndexSource`, incremental indexing on the two triggers, the per-turn delta via the session cursor, the change-feed operation on the declared surface, async map rebuild on upload, and the enumerate-vs-cluster floor with its character budget.
+
+<!-- xgd-turn id="53ad9151-9b32-47e3-bceb-288adbad4ab6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-30T20:40:24.907788+00:00" -->
+#### You
+Do we have a design doc for this work?
 
 <!-- xgd-chat-end -->
