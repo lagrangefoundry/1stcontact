@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-30T20:40:25.675265+00:00'
+updated_at: '2026-08-30T20:41:18.828002+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -864,5 +864,44 @@ That closes both open questions on the project KB. Shall I scope it now? It'd ca
 <!-- xgd-chat role="user" ts="2026-08-30T20:40:24.907788+00:00" -->
 #### You
 Do we have a design doc for this work?
+
+<!-- xgd-turn id="53ad9151-9b32-47e3-bceb-288adbad4ab6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-30T20:41:18.644205+00:00" -->
+#### Claude
+**No — and the gap is bigger than this conversation.**
+
+Here's what actually exists:
+
+| Where | Covers |
+|---|---|
+| **DOC-38 §8** (1stcontact) | the two-KB decision, `Math.max` weight semantics, the site source adapter, the corpus predicates |
+| **DOC-10 §5.1, §6** (1stcontact) | tail-prime, "the map not the pile", the system KB as shipped-not-seeded |
+| **DOC-8** (lagrange-framework) | the ticket API contract the corpus reads through |
+
+Nothing covers the KMS as a thing in itself. Specifically, **everything we settled in the last three exchanges is written down nowhere**: the index/map cadence split, transcripts-index-but-never-map, upload-triggers-rebuild, the per-turn delta via a session cursor, the change-feed operation on the declared surface, async rebuild, and the enumerate-vs-cluster floor with its character budget.
+
+## And there's a dangling citation worth knowing about
+
+The knowledge component cites **DOC-7** throughout as its design authority — *"Knowledge management (DOC-7) in JavaScript"*, `DOC-7 §2, §4.1`, `DOC-7 §8` for priming, `DOC-7 Amendment A` and `Amendment C` for the index-backed backlinks primitive and the incremental re-index cursor.
+
+`DOC-7` does not resolve in `xgd` or in `lagrange-framework`. In 1stcontact it resolves to *Website Framework Architecture Principles* — an unrelated document that happens to share the number.
+
+So the component's stated design authority is unreachable from any store I can see. Either it lives somewhere I haven't looked, or it was lost in the extraction from XGD. Worth running down before REQ-158 codes against the component, because those citations are the closest thing to a specification for ranking, priming and the awareness build — and right now the component's `.js` comments are the specification.
+
+## What I'd write
+
+A DOC in 1stcontact, **The Knowledge Management System** — the product-side companion to DOC-38 §8, covering:
+
+- The two KBs and what makes them genuinely different (source, tenancy, write rate, index residency)
+- **Two clocks**: the vector index and the awareness map, their triggers, and why conflating them is the error
+- The map as *description, not notification* — and the delta channel that follows from it
+- The three surfaces: search (semantic), the change feed (temporal), priming (the map)
+- Enumerate-vs-cluster, as a budget rather than a count
+- What the map costs to build, and why that forces async
+
+That's roughly a 150–200 line doc and it's the thing REQ-158 and the project-KB ticket should both cite. I'd write it *before* scoping the project-KB ticket, so the ticket references decisions rather than restating them.
+
+Want me to write it? And separately — do you know where DOC-7 went, or should I dig?
 
 <!-- xgd-chat-end -->
