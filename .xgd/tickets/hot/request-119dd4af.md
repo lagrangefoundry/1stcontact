@@ -6,9 +6,9 @@ title: 'The project knowledge base: tenant-scoped corpus, incremental index, and
   map''s two triggers'
 created_by: xgd
 created_at: '2026-08-30T23:18:38.731734+00:00'
-updated_at: '2026-08-30T23:18:38.731734+00:00'
+updated_at: '2026-08-30T23:19:15.023866+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -74,7 +74,7 @@ client is not being thorough; they want to discuss it now.
 **The rebuild is asynchronous.** A map build is cluster + an LLM describe per
 territory + a validating search per candidate access point. Run synchronously on
 upload it stalls the AI exactly when the client is waiting to talk about their
-document. Async is safe because search needs only the index — see [[REQ-159]],
+document. Async is safe because search needs only the index — see [[REQ-160]],
 which makes the arrival visible without waiting for the map.
 
 ## The floor: enumerate, then cluster
@@ -91,7 +91,7 @@ enumeration is the better case, not the degraded one.
 
 ## Out of scope
 
-- **Seeding, the delta channel and the change-feed operation** — [[REQ-159]].
+- **Seeding, the delta channel and the change-feed operation** — [[REQ-160]].
 - **The site source adapter** ([[DOC-38]] §8.3) — a later corpus member; nothing
   here should assume it is absent or present.
 - **Attachments** (`lagrange-framework` REQ-104) — `material` tickets carry their
