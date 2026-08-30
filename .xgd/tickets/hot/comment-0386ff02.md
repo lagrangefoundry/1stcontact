@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-30T23:15:50.464841+00:00'
+updated_at: '2026-08-30T23:19:30.637377+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -963,5 +963,34 @@ This doc (DOC-39) also needs to cover:
 - which docs to include in the system kb
 
 We have REQ-158 what else is needed? Yes please create a ticket for the work
+
+<!-- xgd-turn id="80e1b9fe-60c9-4b82-ab1f-531b69c017bc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-30T23:19:30.332044+00:00" -->
+#### Claude
+Noted on the indexing bug — I'll work from what resolves and flag anything that looks like a gap rather than assuming absence.
+
+Three sections added to DOC-39, placed as subsections so nothing renumbers:
+
+Two tickets rather than one — they're genuinely separable, and the second depends on the first:
+
+**DOC-39 updated** with the three sections you asked for:
+
+- **§3.1 What belongs in the system KB** — the rule is *include what the AI could act on or say to a client; exclude what only someone building the product could act on*. Four categories: product knowledge (in), consultation knowledge (in, deliberately — it's the "reasonably general library" half you described), development-process knowledge (out), engineering policy (mostly out, security policy worth reading individually). It reconciles with DOC-10 §6.3 rather than contradicting it: §6.3 rejected a *distillation pass* — a parallel rewritten set that drifts — not *corpus membership*, which is a predicate over documents that are never copied. And `fields.system_kb` is already selective, so curation was happening regardless; this just gives it a rule.
+- **§6.1 Seeding** — both maps in one landscape section (splitting them recreates the failure DOC-10 §5.2 removed), project first, small corpora enumerated, resumed sessions get "while you were gone" free from the cursor.
+- **§6.2 Turn reminders** — delta + compact mechanism + tail. Three requirements that aren't polish: an empty delta emits *nothing* (a line that's almost always empty trains the model to skip the region the non-empty case needs to be noticed in), the delta is capped, and **stable content sits before volatile content** so the seeded prefix stays prompt-cached instead of being invalidated every turn.
+
+## What else is needed, beyond REQ-158
+
+Two tickets, split because they're separable and sequential:
+
+- **REQ-159** — *The project knowledge base* (13 pts). Tenant-scoped corpus, store-backed `IndexSource` (explicitly **not** the bundle — that decision doesn't transfer from REQ-158), incremental indexing, the two triggers, async map rebuild, the enumerate/cluster floor.
+- **REQ-160** — *Session seeding and turn reminders* (8 pts). Two-KB priming, the session cursor, the delta, the change-feed operation on the declared surface. Depends on both REQ-158 and REQ-159 — the delta is inert without a second KB, which is why it isn't folded into either.
+
+Each carries a behavioural acceptance test as the criterion that matters: for REQ-159, *upload a document and later ask something only it answers*; for REQ-160, *upload mid-session and have the AI know on the next turn, without waiting for a map rebuild*.
+
+Not ticketed, because it isn't code: applying §3.1's rule is a `fields.system_kb` sweep across the ~35 doc tickets. Worth doing before the next `1c kb build` so the first real index is built over the intended corpus.
+
+On the missing docs — if the indexing bug is dropping tickets from queries, then REQ-158's corpus export is downstream of it, and a build run now could bake an incomplete corpus into the release artifact. Worth resolving your bug before that build rather than after.
 
 <!-- xgd-chat-end -->
