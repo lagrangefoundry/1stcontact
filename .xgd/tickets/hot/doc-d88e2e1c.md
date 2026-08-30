@@ -5,9 +5,9 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-30T22:55:29.789468+00:00'
+updated_at: '2026-08-30T23:17:47.639230+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -81,6 +81,50 @@ Per [[DOC-38]] §8. They differ in everything that governs mechanism:
 tickets at build time and read through `DocDirStore` / `bundleDocReader`. No
 tickets are created in any tenant, which is exactly what puts it above the
 tenancy barrier and makes it byte-identical for every client.
+
+### 3.1 What belongs in the system KB
+
+[[DOC-10]] §6.3 says *"every design document, in full. There is deliberately no
+curation pass."* That still holds, and this section is not a reversal of it —
+because §6.3 was rejecting a **distillation pass**, a parallel set of rewritten
+documents that would drift from the originals. It was not rejecting **corpus
+membership**, which is a predicate over documents that are never copied.
+
+The distinction matters because membership is already selective:
+`fields.system_kb` is opt-in, and `1c kb build` already reports which doc tickets
+it skipped. So curation is happening whether or not it has a rule. This is the
+rule.
+
+**Include what the AI could act on or say to a client. Exclude what only someone
+building the product could act on.**
+
+| Category | Example | In? |
+|---|---|---|
+| **Product knowledge** — what the system is and does | the layout substrate, the storage model, the module contract, the control surface, this document | **yes** |
+| **Consultation knowledge** — how to talk to a client about design | the consultation playbook, personas and registers, why people pay for design | **yes** |
+| **Development-process knowledge** — how *we* build the product | conformance harnesses, the reproduction growth loop, successor runbooks, test asset catalogues, module authoring process | **no** |
+| **Engineering policy** — what binds our code | architecture, interface and security policy | **mostly no** (see below) |
+
+Consultation knowledge is deliberately in. It is the *"reasonably general
+library"* half of the system KB — not just tool manuals, but how the industry
+works and what makes design worth paying for. An AI that can only describe its
+own controls is a manual with a chat interface.
+
+Development-process knowledge is out because the AI cannot act on it and it
+competes for rank against material that answers the question actually asked. This
+is also the specific thing [[DOC-10]] §6.3 said to settle with data — so the
+exclusion should be **measured, not assumed**: it is the cleanest available
+retrieval experiment, and the corpus is small enough to run it both ways.
+
+**Engineering policy is the one judgement call.** Most of it binds our
+implementation and is inert to a client conversation. Security policy is the
+exception worth reading individually, because it may carry constraints the AI
+must respect rather than merely constraints we must implement.
+
+Two mechanical notes: the awareness map is written into the corpus directory but
+is **excluded from the corpus it describes**, with no special case either way;
+and a document leaving the KB is a `fields.system_kb` change, not a deletion —
+the document remains, it simply stops being retrievable.
 
 ## 4. Two clocks
 
@@ -237,6 +281,67 @@ Priming's own section ordering is fixed by the component and is load-bearing:
 landscape (what exists) → role purpose (what to do) → mechanism and trigger (how
 to search; go). The last thing the agent reads is the first thing it does.
 
+### 6.1 Seeding a session
+
+At session start the AI is handed a map and a mechanism, never a pile of
+documents. Concretely, `primeSession` assembles:
+
+1. **The landscape** — the awareness map of *every* default-visible KB, in one
+   section. Both KBs, together.
+2. **The role purpose** — what this agent is here to do.
+3. **The mechanism and the trigger** — how to search, then *"prime yourself
+   now"*.
+
+**Both maps, not one.** Presenting them separately would recreate the failure
+[[DOC-10]] §5.2 removed when it merged the transcript tools into the knowledge
+surface: the AI had to know *which kind of thing* it was looking for before it
+could look. A question half-answered by a design document and half by the
+client's own positioning paper should return both, ranked together.
+
+**Project map first, then system.** Both are visible; the ordering is the config
+order and is a genuine choice. The client's own material is what the session is
+about, and the system KB is standing capability that the role purpose already
+frames. Cheap to flip if it reads wrong.
+
+**A small project KB is enumerated, not mapped** (§7). For a new client the
+landscape section *is* the whole corpus, which is exactly right: the AI should
+know everything about a client who has told it very little.
+
+**A resumed session seeds identically**, plus the tail ([[DOC-10]] §2.1) and plus
+whatever arrived while the client was away — which falls out of the cursor in
+§5.1 rather than needing its own mechanism. The first turn back naturally opens
+with *"while you were gone, these arrived."*
+
+What seeding must never do is inline document bodies. That is the whole of
+[[DOC-10]] §5.1's argument and the reason the prompt stays bounded as the corpus
+grows.
+
+### 6.2 The turn reminder
+
+Each subsequent turn carries a **reminder**, not a re-seed:
+
+- **the delta** — what entered the corpus since this session's cursor (§5.1);
+- **the mechanism**, restated compactly — generated from the declared surface,
+  never hand-written, so the instructions cannot drift from the tools;
+- **the tail** — the last ~5k characters of transcript ([[DOC-10]] §5.1).
+
+**Ordering is a cost decision, not only a legibility one.** The maps are stable
+across turns and the delta and tail are not, so the stable material must sit
+*before* the volatile material in the prompt. Put the delta early and every turn
+invalidates the prompt cache from that point on; put it late and the entire
+seeded prefix stays cached for the life of the session. Stable first, volatile
+last, trigger last of all.
+
+**An empty delta emits nothing.** Not *"nothing new"* — a line that appears every
+turn and is almost always empty is noise that trains the model to skip the region
+it appears in, which is the same region the non-empty case needs to be noticed
+in.
+
+**The delta needs a ceiling.** A bulk import or a capture run can put hundreds of
+entries into one turn. Cap the inline list and summarise the remainder — *"…and
+34 more"* — with the change-feed operation (§6) available to read the rest. An
+unbounded delta would reintroduce exactly the pile that priming exists to avoid.
+
 ## 7. Enumerate, then cluster
 
 A new tenant's project KB holds three documents. Clustering three documents into
@@ -297,9 +402,10 @@ Worth stating so nobody is surprised into abandoning the map:
 - **Cursor semantics across sessions.** A cursor per session means a client who
   uploads in session A and opens session B sees the upload as "new" again. That
   is probably right — B genuinely has not seen it — but it should be decided.
-- **Delta size ceiling.** A bulk import puts hundreds of entries in one turn's
-  delta. It needs a cap and a "…and N more" summary rather than an unbounded
-  inline list.
+- **The delta cap's size**, and whether it is a count or a character budget
+  (§6.2 settles that there is one, not what it is).
+- **Whether excluding development-process documents helps retrieval** (§3.1) —
+  the experiment [[DOC-10]] §6.3 asked for, now that there is a rule to test.
 - **Whether the enumerate/cluster switch is per-KB or global.** A tenant may sit
   below the floor on `project` while `system` is far above it.
 
