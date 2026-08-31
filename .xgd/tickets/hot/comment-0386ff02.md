@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:12:55.142482+00:00'
+updated_at: '2026-08-31T22:18:42.702921+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2512,5 +2512,12 @@ There's also a practical argument: one path to the model is one place for auth, 
 ---
 
 Neither blocks REQ-163. Q1 needs an answer only when someone files the framework ticket; Q2 only when the first re-shadow is wanted. But both are cheaper to settle now than to discover.
+
+<!-- xgd-turn id="db0f1006-c50b-4ef7-a3e9-5c978c83cde2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T22:18:42.256490+00:00" -->
+#### You
+Q1 A - please create a ticket in lf
+Q2 -- lets back up what is shadowing. what's it even for?
 
 <!-- xgd-chat-end -->
