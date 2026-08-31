@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-31T23:58:12.255894+00:00'
+updated_at: '2026-08-31T23:59:32.658811+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -552,5 +552,88 @@ Answer those and I'll cut the branch and write A–D as proper request tickets.
 <!-- xgd-chat role="user" ts="2026-08-31T23:58:12.232709+00:00" -->
 #### You
 **The chat host takes the *****resolved***** tenant, never **`env.TENANT_ID`**.** When you open a session while operating `acct_kate`, the AI's store handle, its knowledge base, and its transcript archive are all scoped to `acct_kate`. `ai.ts` already takes `tenantId` as a parameter — it's the four env reads in ticket B that need replacing, and this is one of them. <-- actually that wasn't what I meant. That might be sufficient but what I really want is a super-chat that can see everything. I want to ask "Is that bug we are seeing in tenant X the cause to that complaint form tenant Y" etc?
+
+<!-- xgd-turn id="f6399c20-819d-4648-bec2-fa2eb1927b5b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T23:59:32.560215+00:00" -->
+#### Claude
+This is a meaningfully different ask, and it cuts against something the codebase enforces on purpose. Let me check what the stores actually permit before answering.
+
+Understood — that's a platform-operations assistant, not a differently-scoped builder chat. Real need, and worth being precise about, because it runs straight into a wall the codebase built deliberately.
+
+## The wall
+
+There is no cross-tenant read path in either store, and that's not an omission:
+
+- `SiteStoreRoot` "can do exactly one thing — `forTenant`" (`d1r2-store.ts:42`)
+- The ticketing store's scoped handle is **terminal** — `forTenant` on it throws, so holding one tenant's store conveys no reach into another's
+- `BLOBS` was split into a separate R2 bucket from `SITES` specifically so that customer-confidential material sits behind a binding boundary rather than a path convention
+
+So a super-chat isn't a parameter change. It's a new capability that breaks a structural invariant, and the design question is *how to break it in exactly one auditable place* rather than by loosening `forTenant` — because if the general mechanism gains a wildcard, every scoped handle in the system is one bug away from being global.
+
+## The design I'd argue for
+
+**1. A separate platform scope, not a widened tenant scope.** A distinct constructor (`platformView(env)`) that never returns a `TenantSiteStore`. `forTenant` stays terminal, unchanged. The two paths don't share code, so a mistake in one can't leak into the other.
+
+**2. Read-only. This is the load-bearing constraint.** Your corpus contains customer-supplied content — uploaded files, captured competitor sites, imported pages. An AI that reads attacker-controllable text *and* holds a write handle to every tenant is an unbounded blast radius from a single prompt injection. Reading across tenants is a support tool; writing across tenants is an incident waiting for a trigger. If you later need a cross-tenant write, make it a specific verb with a specific target, not a capability the chat holds.
+
+**3. Narrow the surface to ops data.** Your example questions — "is that bug in tenant X the cause of that complaint from tenant Y" — are about **tickets and logs**, not about site content. That's a much smaller and much safer surface than "everything":
+
+| In scope | Out of scope |
+|---|---|
+| tickets (bugs, complaints, sessions, status) | site definitions and page content |
+| revision history, publish log | `BLOBS` — client uploads, briefs, captures |
+| users, memberships, entitlements | per-tenant knowledge base indexes |
+
+You can answer every question you posed from the left column. The right column is where the confidentiality promise lives, and there's no reason the ops assistant needs it. If you later find a question you genuinely can't answer, widen it then — deliberately, one thing at a time.
+
+**4. A separate chat, not a mode.** Different route (`/admin/chat`), different system prompt, different toolset. The builder chat's tool surface then *never* gains a cross-tenant verb, so injection in a customer's uploaded PDF can't reach one even in principle. It's also just a different assistant: one edits sites, one investigates incidents.
+
+**5. Transcripts live in the platform tenant.** A super-chat transcript contains cross-tenant data by construction, so it can never land in a customer's tenant. That also settles the question I'd left open about where admin-invoked session transcripts go — for the *builder* chat operating one account, it's that account's tenant; for the super-chat, always `1stcontact`.
+
+## What this changes
+
+**Schema 0004: nothing.** Users, memberships, entitlements stand as written.
+
+**Ticket B, one shape change:** make the resolved scope a value rather than a bare string —
+
+```ts
+type Scope =
+  | { kind: 'tenant'; id: string }        // everything today
+  | { kind: 'platform' }                  // read-only, admin only
+```
+
+Costs nothing now, and means adding the platform path later doesn't rework every call site. This is the only thing I'd change today on account of the super-chat.
+
+**One new table, with ticket F** (new table, so no migration cost whenever it lands):
+
+```sql
+CREATE TABLE IF NOT EXISTS platform_access_log (
+  id            TEXT PRIMARY KEY,
+  actor_user_id TEXT NOT NULL,
+  session_id    TEXT,            -- the super-chat session, if any
+  action        TEXT NOT NULL,
+  tenant_ids    TEXT NOT NULL,   -- JSON array of tenants actually touched
+  detail        TEXT,            -- the query, and what it returned counts of
+  at            TEXT NOT NULL
+);
+```
+
+**Ticket F: the platform ops assistant.** After onboarding, not before — nothing about it is on the critical path for getting people logged in.
+
+## One problem worth knowing about now
+
+DOC-37 erasure. Once a customer's data has been quoted into a super-chat transcript in the platform tenant, a deletion request has to reach that transcript too — and a chat transcript is exactly the kind of place data hides from a deletion sweep. Three ways out, and they compose: retention-bound the transcripts (90 days), include the platform tenant in the erasure sweep, or bias the assistant's tools toward returning *ticket references* rather than quoted content. Cheapest is the retention bound. Worth deciding before F is built, not after.
+
+---
+
+Still open from last round, and I need these to write A–D:
+
+1. **Tenant ids** — opaque `acct_<random>`, or a slug? (They're permanent, they're in R2 keys forever.)
+2. **Plan string on today's grants** — `'pro'` or `'preview'`?
+3. **The starter site** — blank page, template copy, or import of their existing site? (This one can blow up D.)
+4. **Expired grant** — locked out, or read-only?
+
+And one new: does the super-chat need to be **read-only forever**, or are you expecting to eventually say "fix that for tenant X" and have it act? I've designed for read-only; if you want write, it should be specific verbs with explicit targets rather than a general handle, and that's a different ticket shape.
 
 <!-- xgd-chat-end -->
