@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:44:48.474900+00:00'
+updated_at: '2026-08-31T19:47:17.893014+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1769,5 +1769,11 @@ The whole substrate layer is built. Everything outstanding is 1stcontact.
 **Ingestion (#1) is the largest hole and is also unblocked** — REQ-104 landing means the blob path exists. It's the only item on this list that a user would notice the absence of.
 
 Want me to file 1, 2, 3 and 8? Those four are what stand between us and REQ-158 being buildable plus the first user-visible capability.
+
+<!-- xgd-turn id="3cdd208a-16b9-4100-bd05-de63fba4cbaa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T19:47:17.552182+00:00" -->
+#### You
+Please create a ticket in xgd to add to the enum
 
 <!-- xgd-chat-end -->
