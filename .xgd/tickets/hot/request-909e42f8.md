@@ -6,10 +6,10 @@ title: 'Corpus export correctness: doc_kind filter, unrestricted shipped corpus,
   listing'
 created_by: xgd
 created_at: '2026-08-31T20:33:32.231166+00:00'
-updated_at: '2026-08-31T21:54:37.784341+00:00'
+updated_at: '2026-08-31T22:09:06.973741+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-6fb39b2a
+  commits:
+  - working_sha: 858d63202fae2badbaf3e8495363244f8bd3a9fd
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c056002a525bf126e635f32118b64e2c76ad3ab0
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.22
 ---
 
 # Corpus export correctness: the `doc_kind` filter, an unrestricted shipped corpus, and exhaustive listing
