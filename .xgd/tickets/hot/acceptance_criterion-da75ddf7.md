@@ -6,10 +6,10 @@ title: Asset bytes round-trip byte-for-byte including non-text sequences, typed 
   name, listable and removable
 created_by: xgd
 created_at: '2026-08-31T09:47:47.268616+00:00'
-updated_at: '2026-08-31T09:47:47.268616+00:00'
+updated_at: '2026-08-31T10:04:13.545164+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
