@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T01:13:00.951326+00:00'
+updated_at: '2026-08-31T19:20:57.395983+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -150,8 +150,27 @@ is. Leaving it in place means a file dropped into the corpus without the right
 frontmatter is silently invisible.
 
 The one real mechanism is the **build-time export**: which tickets are copied
-into the distribution as `.md`. That is `fields.kind = "system_kb"`, and it is
-the only place membership is decided.
+into the distribution as `.md`. That is **`doc_kind: system_kb`**, and it is the
+only place membership is decided.
+
+`doc_kind` is the existing sub-classification on `doc` tickets — `type` says it
+is a document, `doc_kind` says what sort — and it already carries `architecture`,
+`security_policy`, `interface_design_policy` and others. Three reasons it is the
+right home rather than a new field:
+
+- **It is single-valued**, so §3.1's exclusivity is enforced by the shape rather
+  than by discipline. A document cannot be `architecture` *and* `system_kb`.
+- **It already means exactly this.** "What kind of document is this" is the
+  question being asked; the field answering it exists.
+- **It avoids the knowledge component's namespace.** The component writes
+  `fields.kind = AWARENESS_REPORT_KIND` on the awareness reports it creates and
+  queries that field to find them again. Nothing would break if we used `kind`
+  too — reports are a different ticket type, so neither query can match the
+  other's rows — but it would leave our marker sitting in a field another
+  component owns and may extend.
+
+The `system_kb: true` boolean it replaces is retired: it expressed membership as
+a flag, which is precisely the shape §3.1 argues against.
 
 ### 3.4 Why author them as tickets at all
 
@@ -516,11 +535,10 @@ Worth stating so nobody is surprised into abandoning the map:
   material and the intended set does not exist yet. Sequencing matters: the seed
   set is what [[REQ-158]]'s acceptance test runs against, so it stays until the
   machinery is proven, and is replaced after.
-- **`fields.kind` collides with a component convention.** The knowledge component
-  writes `fields.kind = AWARENESS_REPORT_KIND` on awareness reports and queries
-  it to find them, and uses `KB_FIELD = 'kb'` for KB naming. Our values differ and
-  our predicate is type-scoped, so nothing breaks — but the namespace is shared
-  and that should be a deliberate choice rather than a collision discovered later.
+- **Migrating the marker.** `doc_kind: system_kb` is decided (§3.3), but the 41
+  doc tickets carrying `system_kb: true` today have not been converted and the
+  export filter still reads the boolean. Both change together or the corpus
+  empties.
 - **Whether the enumerate/cluster switch is per-KB or global.** A tenant may sit
   below the floor on `project` while `system` is far above it.
 
