@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:57:24.733019+00:00'
+updated_at: '2026-08-31T23:12:04.344589+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2638,5 +2638,11 @@ Pipeline step 3 is now **Describe** rather than **Shadow**, and the fields are `
 On the `reference` wrinkle — many attachments, one body — I left the term and it reads fine in context: REQ-166 says the body describes the captured site, which is what the attachment set collectively is. Worth revisiting only if it trips someone up.
 
 One consequence for **REQ-111** in lagrange-framework: I wrote it before this rename, so it refers to "describing uploaded images so they can be retrieved" — which happens to still be accurate and doesn't use the old term. No change needed there.
+
+<!-- xgd-turn id="2f79d4a1-4aed-4628-9b94-0a42c5de1e3b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T23:12:03.778837+00:00" -->
+#### You
+PLease check REQ-111 including the transcript to make sure it is still on track
 
 <!-- xgd-chat-end -->
