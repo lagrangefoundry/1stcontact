@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-21 (BUG-36 + BUG-37 + BUG-38) — free-coded commits'
 created_by: xgd
 created_at: '2026-08-31T16:34:45.744832+00:00'
-updated_at: '2026-08-31T17:04:50.300968+00:00'
+updated_at: '2026-08-31T17:18:39.182808+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -184,7 +184,7 @@ fields:
       this is a property of the same configuration files and the same check surface.
       It is one point because it is one declaration with one placement hazard, not
       a subsystem.'
-    story_uid: null
+    story_uid: story-d5167ced
     target_story_ids:
     - story-d5167ced
     intent_delta_summary: STORY-119 gains a criterion that the operator surface's
