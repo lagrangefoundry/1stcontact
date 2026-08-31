@@ -6,10 +6,10 @@ title: The model key ships as a deploy secret, and the deploy asks the deploymen
   whether it is already in place rather than the operator's shell
 created_by: xgd
 created_at: '2026-08-31T10:39:07.452948+00:00'
-updated_at: '2026-08-31T10:39:07.452948+00:00'
+updated_at: '2026-08-31T10:59:26.875467+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
