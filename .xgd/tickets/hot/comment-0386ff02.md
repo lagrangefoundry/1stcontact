@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T01:11:18.125800+00:00'
+updated_at: '2026-08-31T01:13:14.980286+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1273,5 +1273,42 @@ Two offers: I can add a line to REQ-825 explicitly distinguishing it from BUG-13
 DOC-39 says that the reminder should contain 5k of doc changes!! The goal here is to reduce the context window size not STUFF IT with nonsense.
 
 Why would we do that? We need to review really carefully the specifics for (1) session initiation (2) session resumption (3) per-turn reminders <- the goal is awareness and retrieval power and minimal forced content
+
+<!-- xgd-turn id="6eadc722-3ba6-4488-8d0b-f71ede1d6008-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T01:13:14.441718+00:00" -->
+#### Claude
+Let me look at exactly what I wrote, because I think I conflated the transcript tail with KM content:
+
+You read it as written and the writing was wrong. The 5k is DOC-10's **transcript tail** — the conversation itself — and listing it as a bullet of "the turn reminder" made it read as though KM injects 5k of document changes every turn. It doesn't and shouldn't. But the deeper fault is that §6.1/§6.2 never stated a budget at all, so there was nothing to stop that reading.
+
+Rewriting all three moments against an explicit principle:
+
+DOC-39 §6 rewritten as four sections with an explicit budget.
+
+**§6.1 — the principle and the numbers.** A map exists to make a good *first query* possible, not to convey knowledge. The test for anything in forced context isn't "is this useful?" but **"does this change what the AI does next, often enough to justify carrying it every turn?"**
+
+| Moment | KM contributes | Budget | Paid |
+|---|---|---|---|
+| Initiation | landscape + role + mechanism | ~2–3KB | once; cached |
+| Resumption | same, + what arrived while away | +≤400 chars | once per resume |
+| **Per turn — nothing changed** | **nothing** | **0** | — |
+| Per turn — something changed | titles, capped | ≤400 chars | only on change |
+
+Two facts make that affordable: **the landscape is O(territories), not O(documents)** — eight territories is the same size over forty documents or four thousand, which is the whole reason a map is the right artifact — and stable content sits in the cached prefix, so "priming every turn" means the same tokens are *present*, not that new ones accumulate.
+
+**KM's marginal cost on a typical turn is zero.** That's now stated as the target, with "any design that does not hit it has gone wrong."
+
+**§6.4 — the per-turn reminder** is now one line, only when something arrived:
+
+```
+2 documents added: "Brand guidelines 2024", "Q3 positioning note"
+```
+
+Titles only. No excerpts, no summaries, no rights annotations. The AI knows the material exists and can search it — that's the whole job. The cap holds regardless of volume; 41 arrivals become *"41 documents added, including … — use the change feed for the rest"*, and the change feed is what makes truncating safe: nothing is hidden, it's merely not forced.
+
+**§6.3 — resumption** explicitly disclaims the tail: the ~5k belongs to DOC-10 §5.1 and is the conversation itself, not knowledge about it. KM adds a handful of titles to a resumed session and nothing else. Named only so the two can't be confused again.
+
+I also tightened §7 while I was in there — the enumerate floor was budgeting ~200 characters of body per document, which is conveying content and violates §6.1's own principle. It's now **titles, ~1KB total**, with excerpts as a per-entry fallback rather than a default. That works better than it sounds because DOC-38 §6 gives every project-KB entry an AI-written *title* as well as body — a `material` ticket isn't called `Notes.pdf`.
 
 <!-- xgd-chat-end -->
