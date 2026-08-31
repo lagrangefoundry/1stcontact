@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:02:54.011432+00:00'
+updated_at: '2026-08-31T22:07:21.387262+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2438,5 +2438,11 @@ And the missing-API-key behaviour combines with Q6 better than the agent noticed
 All eight recommendations approved. Additions: log loudly when no indexer is wired (1); name the vision-path consolidation point (3); design `shadow_status` once for all three degraded cases (3+5+6); check `unpdf`'s licence and measure its bundle contribution, then report it to REQ-158 (4); mark fetched content untrusted as well as guarding the fetch (7).
 
 Want me to write that into REQ-163's body so it survives the transcript?
+
+<!-- xgd-turn id="08cd3887-aa94-4f21-9f68-40f7407c41be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T22:07:21.183381+00:00" -->
+#### You
+Yes
 
 <!-- xgd-chat-end -->
