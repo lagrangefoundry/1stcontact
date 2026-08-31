@@ -6,15 +6,16 @@ title: 'Palette management: read the site''s colours with their usage counts, an
   change, add, remove or rename them under guards the store enforces'
 created_by: xgd
 created_at: '2026-08-20T01:19:10.715657+00:00'
-updated_at: '2026-08-20T06:29:36.715645+00:00'
+updated_at: '2026-08-31T21:32:05.529171+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: uat_coverage
 status: completed
 fields:
   intent_uid: bundle-77b28def
   capability_uid: capability-a0bba4ec
   story_kind: feature
   story_points: 3
+  uat_coverage: pass
 ---
 
 ## Story
@@ -131,10 +132,6 @@ change would move and no way to remove or rename at all.
   is true of the guard, the code and the unchanged draft, and not of the wording. Closing it
   would mean carrying the thrown error's own message through the toolbox's refusal renderer,
   which is upstream of this repository.
-- **Divergence to note — renaming an entry to its own name.** The collision guard compares only
-  against *other* entries, so renaming an entry to the name it already has is accepted and
-  performs a write that changes nothing. The intent is silent on this case; it is recorded here
-  rather than asserted either way.
 - **Ordering.** The stored palette keeps the order an operator arranged it in, and a rename
   moves the key in place rather than deleting and re-appending it. The *listing* returned by a
   read is sorted by name, so "keeps its order" is a property of the stored definition and is
@@ -147,6 +144,24 @@ change would move and no way to remove or rename at all.
 - **The write path.** Reads and writes go through the one validated write path every other
   editing surface uses, which is what makes the guards uniform across callers and what lets the
   whole of a rename cross the storage boundary as a single transition.
+
+## Reconciliation Decisions
+
+- **Renaming an entry to its own current name is a no-op** (auto-defaulted
+  at fix_uat_coverage, 2026-08-31): REQ-133 states why a rename onto an
+  existing name is refused — "a new name that already exists would merge
+  two entries... the same class of decision as deleting one in use."
+  Renaming an entry to its own current name does not merge two entries;
+  there is only one entry involved, so REQ-133's own stated rationale for
+  the refusal does not reach this case. REQ-133 never states this exact
+  case, but the code's existing behavior (the collision guard's
+  `to !== from` exclusion, `tools/generate/src/cli/edit.ts:1744`) is a
+  direct application of that rationale, not an arbitrary choice. Formalized
+  as AC-1458. Both candidate readings (no-op, or refuse as
+  `INVALID_INPUT`) are low-impact — neither loses data nor opens a security
+  exposure — so per BUG-1306 (lagrangefoundry/xgd) this defaults to the
+  reading that matches current shipped code. Flag with a bug report if this
+  default is wrong.
 
 ## Dependencies
 
