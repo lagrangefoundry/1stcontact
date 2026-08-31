@@ -169,6 +169,26 @@ bucket_name = "1stcontact-material"
 [browser]
 binding = "BROWSER"
 
+# Workers AI — the embedding model behind the project knowledge base (REQ-159).
+#
+# ONE MODEL ON BOTH SIDES, which is a correctness property rather than a
+# convenience. Search takes the dot product of a query vector and an index vector
+# as their cosine similarity; vectors from two different models are not
+# comparable, and the failure mode is not an error but plausible-looking
+# nonsense. `1c kb build` indexes the system KB with Workers AI's
+# `@cf/baai/bge-small-en-v1.5` over REST; this binding is the same model reached
+# in-datacentre, so build-time and query-time vectors come from the same place by
+# construction — and this side carries no credential at all.
+#
+# REPEATED UNDER [env.production] because a named environment inherits NEITHER
+# vars NOR bindings — the rule every other binding in this file records.
+# Forgetting the repeat is not a silent degradation: the deployed Worker sees no
+# binding and `projectKnowledgeFor` raises AiNotConfiguredError, which is the
+# loud failure this repository chooses over a knowledge base that quietly stops
+# knowing anything. A UAT pins the two sides together.
+[ai]
+binding = "AI"
+
 [env.production]
 name = "1stcontact-control-app"
 workers_dev = false
@@ -216,3 +236,7 @@ bucket_name = "1stcontact-material"
 # See the top-level block: restated rather than inherited, on purpose (REQ-154).
 [env.production.browser]
 binding = "BROWSER"
+
+# See the top-level block: restated rather than inherited, on purpose (REQ-159).
+[env.production.ai]
+binding = "AI"
