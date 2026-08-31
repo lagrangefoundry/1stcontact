@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:13:12.152752+00:00'
+updated_at: '2026-08-31T19:20:12.245432+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1450,5 +1450,13 @@ That is *already* the document-kind field. It's ours, nothing else writes it, an
 ---
 
 Both are one-line changes to the docs if you agree — `doc_kind: system_kb` into DOC-39 §3.3 and §10, and the inference model into DOC-38 §13. Want me to make them?
+
+<!-- xgd-turn id="2cc37378-f7cc-405e-8dc3-1c02ad80de75-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T19:20:11.302602+00:00" -->
+#### You
+Yes use doc_kind (I don't understand why docs need a special kind but if that's what we have use it).
+
+On 2 - I agree we infer republishability from the source
 
 <!-- xgd-chat-end -->
