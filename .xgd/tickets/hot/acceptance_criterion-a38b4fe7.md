@@ -6,10 +6,10 @@ title: A workspace that cannot start says so in the page, naming the cause and a
   and never overwrites one that started slowly
 created_by: xgd
 created_at: '2026-08-31T10:13:04.798231+00:00'
-updated_at: '2026-08-31T10:13:04.798231+00:00'
+updated_at: '2026-08-31T10:30:56.537292+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
