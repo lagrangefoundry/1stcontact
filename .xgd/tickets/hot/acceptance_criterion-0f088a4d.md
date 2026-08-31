@@ -6,10 +6,10 @@ title: Astro is absent from every workspace manifest, the lockfile and every sou
   file, and off disk; @astrojs/markdown-remark stays
 created_by: xgd
 created_at: '2026-08-31T11:18:53.491051+00:00'
-updated_at: '2026-08-31T11:18:53.491051+00:00'
+updated_at: '2026-08-31T11:28:21.701474+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
