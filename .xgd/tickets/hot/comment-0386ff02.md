@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:38:25.622810+00:00'
+updated_at: '2026-08-31T19:41:57.487537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1671,5 +1671,20 @@ Not because it's hard, but because the removal on its own leaves the system in a
 Done separately, any ordering leaves a window where `1c kb build` produces something wrong — and #3 is code, so it needs the free-coding path anyway.
 
 That migration is currently unticketed and it blocks REQ-158, which can't have a correct corpus without it. Want me to file it? It'd be small — the three changes above plus the `readDocTickets` pagination fix, which is the other thing standing between REQ-158 and a trustworthy export.
+
+<!-- xgd-turn id="a6225b70-95a1-4ef0-8789-554ada539d69-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T19:41:57.040986+00:00" -->
+#### You
+So: **initialise the cursor to the awareness map's build timestamp, not the session's start time. AGREED**
+
+**on the docs - please convert the first 4 we will edit them in due course and likely return to your last 3**
+
+**Removal - it doesn't matter**
+**Sequencing - it doesn't matter**
+
+**There's no one using this yet - please just make the changes and don't fuss**
+
+**Lets go back to REQs, what do we have, what is missing, what are the dependencies?**
 
 <!-- xgd-chat-end -->
