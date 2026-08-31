@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:20:00.195319+00:00'
+updated_at: '2026-08-31T22:53:14.344528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2558,5 +2558,15 @@ Going back to first principles surfaced a gap. DOC-38 §6 says an image gets "a 
 A good shadow front-loads the words someone would actually search by: what it depicts, what it concerns, whose business it belongs to. A description that reads elegantly but never uses the word "kitchen" fails at the only job it has. Whoever writes the `describeImage` prompt will otherwise ask the model for a nice description — which is a different thing.
 
 Want me to add that to DOC-38 §6?
+
+<!-- xgd-turn id="91b7482d-8d16-40d9-a4e0-1c82c239bcff-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T22:53:13.426084+00:00" -->
+#### You
+Shadow is a very confusing name - this is blob metadata.
+
+So on uploadwe inspect pictures and PDFs and create descriptions that live in the body of the ticket they are attached to. Fair enough.
+
+What is meant by status?
 
 <!-- xgd-chat-end -->
