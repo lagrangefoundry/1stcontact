@@ -5,16 +5,21 @@ type: request
 title: 'Ingestion: from a dropped file to an indexed material ticket'
 created_by: xgd
 created_at: '2026-08-31T20:33:08.539304+00:00'
-updated_at: '2026-08-31T23:36:19.641639+00:00'
+updated_at: '2026-08-31T23:39:02.618587+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-0fb97f84
+  commits:
+  - working_sha: d99c1f438572f2da868db0bc384c798858681cac
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.24
 ---
 
 # Ingestion: from a dropped file to an indexed `material` ticket
