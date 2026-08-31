@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T19:21:15.400873+00:00'
+updated_at: '2026-08-31T19:38:13.330127+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -421,10 +421,22 @@ What initiation must never do is inline document bodies. That is the whole of
 
 ### 6.3 Session resumption
 
-Identical to initiation, plus **one** addition from KM: what entered the corpus
-while the client was away, from the session's stored cursor (§5.1). Titles only,
-under the same ≤400-character cap as any other delta, so a fortnight's absence
-costs the same as an hour's.
+Identical to initiation. There is **no** "while you were away" report, and the
+reason is a division of labour: the landscape's job is to make the session aware
+of what already exists, and the delta's job is to report what arrives *during*
+it. Announcing existing material as new would be both duplicative and confusing —
+the client knows what they uploaded.
+
+**So the cursor initialises to the landscape's coverage, not to the session's
+start.** Concretely: the awareness map's build timestamp. That is not the same as
+"now", and the difference is the case that would otherwise fall through — a
+document uploaded shortly before the session opens, after the last map rebuild,
+belongs in neither the map nor a start-of-session cursor. Anchoring on the map's
+build time makes the two exactly complementary.
+
+Below the enumerate floor (§7), where the listing is generated fresh at session
+start, this reduces to session start. One rule either way: **the cursor starts
+where the landscape's coverage ends.**
 
 **The transcript tail is not KM's contribution and is not counted here.** The
 ~5k-character tail belongs to [[DOC-10]] §5.1 and is the conversation itself, not
@@ -448,10 +460,13 @@ No excerpts, no summaries, no rights annotations. The AI now knows the material
 exists and can search it — which is the entire job, and it is done in one line.
 Anything more is answering a question that has not been asked yet.
 
-**The cap holds regardless of volume.** A bulk import or a capture run can land
-hundreds of items; the line becomes *"41 documents added, including … — use the
-change feed for the rest"* and stays under budget. The change-feed operation (§6)
-is what makes truncation safe: nothing is hidden, it is merely not forced.
+**The count is always exact; the titles are what get truncated.** A character
+budget is a hard stop on content, but the *number* is one integer and is always
+reported in full — so a bulk import reads *"41 documents added, including … "*
+and the AI knows both the magnitude and a sample. Truncating the count instead
+would hide the magnitude, which is the one thing that cannot be recovered by
+searching. The change-feed operation (§6) makes the truncation safe: the rest is
+not hidden, merely not forced.
 
 **An empty delta emits literally nothing.** A line that appears every turn and is
 almost always empty is worse than absent — it teaches the model that this region
@@ -526,15 +541,13 @@ Worth stating so nobody is surprised into abandoning the map:
 
 ## 10. Open questions
 
-- **Cursor semantics across sessions.** A cursor per session means a client who
-  uploads in session A and opens session B sees the upload as "new" again. That
-  is probably right — B genuinely has not seen it — but it should be decided.
-- **The delta cap's size**, and whether it is a count or a character budget
-  (§6.2 settles that there is one, not what it is).
-- **Which system-KB documents get written** (§3.5). The corpus today is seed
-  material and the intended set does not exist yet. Sequencing matters: the seed
-  set is what [[REQ-158]]'s acceptance test runs against, so it stays until the
-  machinery is proven, and is replaced after.
+- **The delta's character budget** — §6.4 settles that it is characters and that
+  the document count is always exact; the number itself is unset.
+- **Which system-KB documents get written** (§3.5). **Deferred deliberately** —
+  an authoring exercise to run once the structure is in place, not a question to
+  answer in advance. The near-term corpus is a handful of existing documents
+  reclassified for testing (§10's migration item), flagged for rewriting rather
+  than treated as finished.
 - **Migrating the marker.** `doc_kind: system_kb` is decided (§3.3), but the 41
   doc tickets carrying `system_kb: true` today have not been converted and the
   export filter still reads the boolean. Both change together or the corpus
