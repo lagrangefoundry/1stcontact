@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-162
 created_by: xgd
 created_at: '2026-08-31T20:44:16.045382+00:00'
-updated_at: '2026-08-31T20:48:33.306435+00:00'
+updated_at: '2026-08-31T21:15:19.365654+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,11 @@ Adding `/api/tickets/*` now would put API surface in this ticket that REQ-161 ow
 Everything else is settled: migration `0003_ticket_store.sql` beside the existing two (and its line added to `tests/support/d1-site-factory.ts`'s explicit `MIGRATIONS` list), a `src/generated/ticketing.js` shim written by `1c assets` exactly as `ai-workers.js` is done — bare specifiers don't resolve from a linked worktree — the pack merging `chatSchemas()` from `@lagrangefoundry/ai` with `ATTACHMENT_SCHEMA` and the three new types, and UATs pinning both wrangler halves, cross-tenant refusal, and the field enums.
 
 Answer 1 and 5 and I'll cut the branch and build it.
+
+<!-- xgd-turn id="116e6abb-5636-4057-a432-bb5d43da0875-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T21:15:19.190495+00:00" -->
+#### You
+Please re read the ticket - you should have all the answers there
 
 <!-- xgd-chat-end -->
