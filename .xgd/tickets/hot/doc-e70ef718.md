@@ -5,9 +5,9 @@ type: doc
 title: Chat Session Persistence and AI Memory
 created_by: xgd
 created_at: '2026-06-30T01:02:05.433710+00:00'
-updated_at: '2026-08-16T01:19:16.118069+00:00'
+updated_at: '2026-08-31T00:50:27.937839+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -236,12 +236,32 @@ tenant-specific even though half its inputs are not.
 
 ### 6.3 What is in it
 
-Every design document, in full. There is deliberately no curation pass: the
-scaling answer is chunk search plus an awareness map, not a hand-picked subset,
-and choosing the subset before there is retrieval evidence would be guessing.
-Some documents are development-process knowledge rather than product knowledge —
-whether that hurts retrieval is a question to answer with data once the feature
-exists.
+**Seed material, not a policy.** Corrected here because the original wording of
+this section read as a settled principle and has since been cited as one.
+
+What it said was that the KB holds *"every design document, in full"*, with
+*"deliberately no curation pass"*. What was meant was narrower and temporary:
+point the machinery at the documents that already existed, so the indexing,
+awareness and retrieval path could be exercised at all. It was a development
+expedient chosen to make the system testable, and it was never a claim about what
+the finished corpus should contain.
+
+The distinction matters because the two readings lead to different products. As
+policy it says the AI should read the documents we write for *ourselves* — design
+rationale, rejected alternatives, construction contracts — which is a category
+error: material authored for someone deciding how to build the product, consumed
+by something advising a client. As seed material it says only that this is what
+was lying around when the corpus needed contents.
+
+What the system KB should actually hold is settled in [[DOC-39]] §3, which
+distinguishes documents authored **for the AI** from architecture documents
+authored **for us**, and treats the two as different kinds rather than as one set
+with a membership flag.
+
+**The seed set stays until the machinery is proven.** It is the only corpus that
+exists, and the acceptance test for wiring the KB into the Worker is that the AI
+answers from a document and names it. Replacing the corpus before that test can
+run would remove the thing the test needs. Seed first, verify, then author.
 
 ### 6.4 Lifecycle
 
