@@ -6,14 +6,14 @@ title: 'The builder is private: only granted identities reach it, on every addre
   it answers on'
 created_by: xgd
 created_at: '2026-08-31T09:31:03.958986+00:00'
-updated_at: '2026-08-31T09:41:06.296942+00:00'
+updated_at: '2026-08-31T17:04:20.494767+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-b3b7c399
   capability_uid: capability-3606e35b
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
 ---
 
@@ -21,7 +21,8 @@ fields:
 
 **As the** operator of the platform, **I want** the builder to be reachable only
 by identities I have granted, on every address it answers on, **so that** the
-surface that edits and publishes every site is not exposed to whoever finds it.
+surface that edits and publishes every site is not exposed to whoever finds it —
+and **so that** my own automation can actually be one of those identities.
 
 ## Description
 
@@ -55,21 +56,51 @@ The same identity is accepted however it arrives: on the header the gateway
 attaches, in the cookie a browser holds, and as an automation service identity
 that carries a machine name instead of a person's address.
 
+**And a granted automation identity can actually present itself.** A gate that
+admits a service identity nobody can produce a credential for is shut to
+everyone, which is the state this surface was in: the copy-a-site-up command
+sent the gateway's *own forwarded assertion header* as though it were an inbound
+credential, so every call to the deployed builder was bounced to the sign-in
+page — and, because the bounce was followed, the operator met a document-parse
+error rather than an authentication refusal. So this story also owns the
+caller's side of admission:
+
+- what an automation caller **presents** — the client-id/client-secret pair the
+  gateway exchanges at the edge for the assertion it forwards inward, never the
+  assertion header itself, which is the far side's and proves nothing coming the
+  other way;
+- what a **partial or absent** credential does — half a pair is refused before a
+  request is made and before the first site moves, naming both halves and the
+  command that provisions them, because a run that half-succeeded leaves the
+  operator working out which sites moved;
+- how a **bounce** is reported — the redirect is not followed, and neither a
+  redirect status nor an opaque response is permitted to read as success;
+- how the identity is **minted** — one documented, operator-run provisioning
+  command, driven by a management API credential that is never itself a gate
+  credential, adding a *separate* Service Auth policy so the automation revokes
+  without touching the operator's own rule, printing the secret once and writing
+  it nowhere.
+
 Finally, the granted identities, the two controls, the settings and how to
 verify them are recorded in the repository, because a policy that lives only in
-a dashboard is one nobody can review.
+a dashboard is one nobody can review — and the granted automation identity is a
+row in that same record, with its reason, and without its secret.
 
-**In scope**: the refusal and admission behaviour of the gate; the deployment
-configuration that leaves one door; the repository record of who is granted and
-why.
+**In scope**: the refusal and admission behaviour of the gate; what a granted
+automation caller presents to it and how it is told when it is refused; the
+provisioning of that automation identity; the deployment configuration that
+leaves one door; the repository record of who is granted and why.
 
 **Out of scope**: what lies *behind* the gate. This story requires only that an
 admitted identity reaches the surface and receives whatever it currently
 answers — not that the builder works. Asserting an edit or a model turn here
 would make the gate depend on the builder while the builder depends on the gate.
-Also out of scope: customer sign-in to a tenant's own builder (a different
-product surface, belonging with the tenancy model), and the public site's
-link-private draft addressing, which this story does not revisit.
+The automation criteria hold to the same line: they assert what is presented and
+what a refusal says, never what the import behind the gate then does with the
+site — that belongs to the store's copy path. Also out of scope: customer
+sign-in to a tenant's own builder (a different product surface, belonging with
+the tenancy model), and the public site's link-private draft addressing, which
+this story does not revisit.
 
 ## Technical Context
 
@@ -101,6 +132,15 @@ against the real handler driven with real signatures, and against the
 deployment configuration that governs every future deploy; the live-origin
 assertions are CAP-102's and are provable against a deploy rather than against
 production.
+
+**The automation-credential criteria are provable without the gate being
+deployed either.** What a caller presents, what a partial credential does and
+how a bounce reads are all properties of the client and the operator scripts,
+observable against a stub answering as the gate does; the provisioning command's
+properties are observable in its own source and in the policy record it writes
+into. The one thing that needed a live gate — that the pair is in fact admitted
+— was confirmed empirically by the operator (BUG-36's implementation record: a
+real push against the real Access gate landed a site into production storage).
 
 ## Reconciliation Decisions
 
@@ -154,11 +194,49 @@ production.
   claim, and pinning a transient state as an acceptance criterion would make the
   correct next step a test failure.
 
+- **The automation caller's side of admission belongs to this story** (decided
+  at reconciliation, 2026-08-31): BUG-36's approved scope addition landed the
+  credential fix in the copy-a-site-up command, which sits alongside the store's
+  copy path (AC-1402) and the deploy-secret mechanism (AC-1342). Neither of
+  those is about *identity*. This story already owns "only granted identities
+  reach the builder" and already both admits an automation service identity
+  (AC-1376) and requires the granted identities be recorded in the repository
+  (AC-1384); "who may reach the builder" is incomplete while nothing states what
+  a granted automation caller presents or what it is told when refused. Filed
+  here as AC-1450 through AC-1453 rather than against the copy path. It is not
+  behind the gate, so it does not cross this story's out-of-scope boundary.
+
+- **An opaque response is a bounce too** (decided at reconciliation,
+  2026-08-31): the intent ticket names the redirect and the parse error it
+  caused, and is silent on the opaque response a redirect reads as under a
+  client that returns one instead of the 3xx. The landed code reports both
+  identically. Formalized inside AC-1452 rather than as its own criterion,
+  because it is the same event observed through two conforming clients and a
+  criterion covering only one would let the other regress into "refused with 0:
+  (no body)".
+
+- **The single-value credential name is deleted, not deprecated** (decided at
+  reconciliation, 2026-08-31, following the repository's no-legacy-modes rule
+  which the intent ticket invokes explicitly): the former option and environment
+  variable never denoted anything the gateway accepts, so there is no working
+  path to preserve. AC-1451 asserts their absence, because leaving the name in
+  place is precisely how this defect survived a written policy record — an
+  operator who reads the record then hunts for a value that cannot be obtained.
+
+- **Two deliberate non-changes, recorded and not formalized** (2026-08-31): the
+  proxy environment opt-in that the operator needed to reach the edge from a
+  sandboxed network was deliberately kept out of the publish path — it is a
+  property of one caller's network, not of publishing — and no criterion asserts
+  it. Nor does any criterion assert the live-gate admission itself, which is
+  CAP-102's live-origin territory and cannot be proved from this repository.
+
 ## Dependencies
 
 None. This story is deliberately independent of the builder working: the gate is
 provable against the Worker as it stands, and the surface behind it depends on
-the gate rather than the other way round.
+the gate rather than the other way round. The automation-credential criteria are
+likewise independent — they are properties of what a caller sends and of what
+the operator scripts refuse, not of what the builder does once a caller is in.
 
 ## Story Points
 
