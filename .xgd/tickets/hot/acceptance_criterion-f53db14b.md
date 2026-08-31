@@ -6,10 +6,10 @@ title: A transcript is stored in one language-neutral form byte for byte, so a c
   written by either host loads in the other
 created_by: xgd
 created_at: '2026-08-31T10:37:57.123084+00:00'
-updated_at: '2026-08-31T10:37:57.123084+00:00'
+updated_at: '2026-08-31T10:59:27.511206+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
