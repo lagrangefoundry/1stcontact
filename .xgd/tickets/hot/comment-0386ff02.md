@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:13:52.881203+00:00'
+updated_at: '2026-08-31T20:15:36.056423+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1901,5 +1901,47 @@ Yes we need a REQ for a Library tab. It would use the standard split pane compon
 
 Upload:
 2 routes - (1) drag and drop into chat on the Site tab (site builder) (2) drag and drop into the Library. In both cases I think we have the same UX: full screen translucent overlay with the screen split into areas, one for each type they are labeled, with icons, Top level instruction: Drop the file into the area corresponding to its type... (better language needed).
+
+<!-- xgd-turn id="d636c065-3230-4529-8584-5ca977107fab-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T20:15:35.422283+00:00" -->
+#### Claude
+Let me check what components exist to reuse, so the ticket names real things:
+
+Real components confirmed — `@lagrangefoundry/webui/list-detail` (`mountListDetail`, flat-or-tree list with persisted selection) and `webui/split` (pointer-drag, breakpoint collapse). Both already consumed by the builder shell.
+
+One thing in your spec I'd change, and it's in the ticket as a proposal:
+
+**REQ-161** created — 8 points, high priority. It takes your spec as given: `webui/split` + `webui/list-detail`, filter at the top of the list, click-to-detail, existing editors reused rather than new ones.
+
+## The one change I made, and why
+
+You said the drop areas should be **one per type**. I've written them as **one per role** instead.
+
+Sorting by file type asks the client for something we already know — a `.pdf` is a document, a `.woff2` is a font — while leaving unasked the one thing we genuinely can't infer: what it's *for*.
+
+The case that settles it: a JPEG might be a hero photograph destined for the site, or a screenshot of a competitor's page the AI should study and must **never** publish. Identical bytes, identical MIME type, opposite `republishable`. Type zones would be wrong for that file; role zones capture exactly the distinction DOC-38 §4 is built on. So the client picks the role, the system infers `kind` from the content type.
+
+Two areas, with draft copy:
+
+> **What's this for?**
+>
+> **Put it on the site** — Photos, logos, fonts. Things your visitors will see.
+>
+> **Just for you to read** — Brand guidelines, notes, reports. I'll use these to understand your business; they won't appear on your site.
+
+That second sub-line is doing real work rather than decorating: a client uploading their positioning document wants to know it stays private, and the drop is the moment to say so.
+
+## Two things I added
+
+**Scope.** The Library is tenant-wide, the bindings are per-site — DOC-38 §7.7 has one blob backing two sites, and DOC-10 §4.1 makes cross-site knowledge sharing deliberate. So "used on this site" is a badge and a filter, never a boundary.
+
+**The description is editable.** The detail pane shows the AI-written shadow, and the client can correct it. It's a ticket body, they may know better than we guessed, and a correction improves retrieval directly.
+
+## Open questions in the ticket
+
+A third area for fonts (published, but not really "for visitors to see"); a click-to-browse path for accessibility; and what an ambiguous drop does — prompt, or default to "just for you to read" as the safe side.
+
+Dependencies are both unfiled: **the material types** and **the ingestion pipeline**. This tab is a read view over what ingestion creates — cheap after it, impossible before. Those are still the next two to file, plus the marker migration and the pagination fix.
 
 <!-- xgd-chat-end -->
