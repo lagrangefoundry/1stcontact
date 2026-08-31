@@ -65,7 +65,7 @@ async function buildFixtureKb(root: string): Promise<void> {
   writeFileSync(configPath(root), JSON.stringify({
         knowledge_bases: {
           system: {
-            prompt: 'Test system knowledge.',
+            description: 'Test system knowledge.',
             corpus: { type: ['doc'], 'fields.system_kb': true },
             landscape: 'authored',
             source: 'shipped',

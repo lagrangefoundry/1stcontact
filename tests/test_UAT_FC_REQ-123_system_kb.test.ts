@@ -109,7 +109,7 @@ function seedCorpus(root: string): void {
     JSON.stringify({
         knowledge_bases: {
           system: {
-            prompt: 'Test system knowledge.',
+            description: 'Test system knowledge.',
             corpus: { type: ['doc'], 'fields.system_kb': true },
             landscape: 'authored',
             source: 'shipped',
@@ -460,7 +460,7 @@ describe('REQ-123 — the corpus export', () => {
         JSON.stringify({
           knowledge_bases: {
             system: {
-              prompt: 'Declared prompt, not a hard-coded one.',
+              description: 'Declared description, not a hard-coded one.',
               corpus: { type: ['doc'], 'fields.system_kb': true },
               landscape: 'authored',
               source: 'shipped',
