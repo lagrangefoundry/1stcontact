@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T00:32:39.128489+00:00'
+updated_at: '2026-08-31T00:51:08.537921+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -41,7 +41,7 @@ The organizing unit. A KB is declared, not built:
 ```jsonc
 "system": {
   "prompt":    "…what this KB is, in one paragraph…",
-  "corpus":    { "type": ["doc"], "fields.system_kb": true },
+  "corpus":    { },                 // the distribution IS the corpus — §3.3
   "landscape": "authored",
   "source":    "shipped",
   "weight":    1
@@ -52,8 +52,10 @@ Four things follow from that shape, and each of them is a decision this document
 depends on:
 
 - **The corpus is a predicate, not a collection.** `corpusPredicates()` renders
-  it to `type=doc AND fields.system_kb=true`. Membership is therefore computed,
-  and re-carving a KB is a config change over data that never moves.
+  a spec to `type=doc AND fields.x=true`, so membership is computed and
+  re-carving a KB is a config change over data that never moves. A shipped KB is
+  the degenerate case: its predicate is empty because the directory is already
+  the boundary (§3.3).
 - **Membership overlaps.** Ranked search filters `row.kbs` — a *list*. A document
   belongs to every KB whose predicate matches it. KBs are **views**, not folders.
 - **`weight` is a ranking multiplier taken as a maximum** over the KBs a document
@@ -83,42 +85,98 @@ tickets at build time and read through `DocDirStore` / `bundleDocReader`. No
 tickets are created in any tenant, which is exactly what puts it above the
 tenancy barrier and makes it byte-identical for every client.
 
-### 3.1 What belongs in the system KB
+### 3.1 Three kinds of document, and only one of them is in the KB
 
-**Exactly the documents carrying the marker. No more, no less.**
+The system KB is **not a subset of the design documents**. It is a different kind
+of document with a different reader, and conflating the two is the error this
+section exists to prevent.
 
-The corpus predicate is not a summary of an editorial policy — it *is* the
-definition. There is no curation pass behind it, no "spirit of the rule" a
-document could satisfy without carrying the marker, and no category a document
-could fall into that would include or exclude it independently. To put a
-document in the system KB you set the marker; to take it out you unset it. A
-document that leaves the KB is not deleted — it stops being retrievable, and
-nothing else about it changes.
+| Kind | Written for | Source of truth | In the KB |
+|---|---|---|---|
+| **architecture** | us, building the product | authored | no |
+| **system_kb** | the AI, advising a client | authored | **yes** |
+| **projected reference** | the AI | the live registry / declared surface | generated, never authored |
 
-This is [[DOC-10]] §6.3 unchanged, and worth restating because the two are easy
-to confuse. §6.3 rejected a **distillation pass** — a parallel set of rewritten,
-hand-condensed documents that would silently drift from the originals. It did not
-reject **membership**, which is a predicate over documents that are never copied.
-Membership is mechanical; distillation was editorial. Only the second was ever
-the problem.
+An architecture document explains why we chose this and rejected that. It is
+addressed to someone deciding how to build the product. An AI advising a nervous
+café owner does not need the rejected alternatives; it needs to know what the
+system does and how to talk about it. Feeding it the former is not merely noisy —
+it is material written for a different reader entirely.
 
-**Which documents carry the marker is deliberately unanswered here.** It is a
-real question — the corpus currently contains development-process material
-alongside product material, and whether that helps or hurts retrieval is what
-[[DOC-10]] §6.3 said to settle with data. But it is a question about *this
-corpus*, answerable at any time by changing a field on a ticket, and nothing in
-the mechanism depends on the answer. See §10.
+**A document is one kind or the other, never both.** This is why membership is a
+`kind` rather than a flag: a boolean invites *"this architecture document is
+**also** a system document"*, and that sentence is the category error in
+grammatical form. If a fact is needed by both readers, the answer is the third
+row, not dual membership.
 
-**The marker's field name is unsettled**, and one candidate is unavailable:
-`fields.kind` is already the knowledge component's own namespace, written as
-`fields.kind = AWARENESS_REPORT_KIND` on awareness reports and queried to find
-them (`awareness.js`). The component also already has a KB-membership convention
-in `KB_FIELD = 'kb'`, used as `fields.kb = <kb name>`. Today the marker is
-`fields.system_kb: true`, which works and is deployed. §10 carries the choice.
+### 3.2 The third row: project, do not restate
 
-One mechanical note either way: the awareness map is written into the corpus
-directory but is **excluded from the corpus it describes**, with no special case
-for either.
+Some facts the AI needs are specified in architecture documents — the module
+catalogue, the L1 vocabulary, the control surface. Tagging those into the KB
+would break §3.1's exclusivity; writing system-KB counterparts would create two
+sources of truth for one fact, which is exactly the drift [[DOC-10]] §6 warned
+about.
+
+Neither is necessary, because this system already answers that question twice:
+the tool manual is **projected from the declared surface** so instructions and
+tools cannot drift apart ([[DOC-10]] §5.1), and capture mapping runs against the
+**live module registry** rather than a written catalogue ([[DOC-13]] §8).
+
+So: **machine-readable facts are generated, never authored.** A projected
+reference is not a document anybody maintains, and it cannot be stale.
+
+### 3.3 The mechanism: one filter, at build time
+
+At runtime there is **no membership mechanism at all**. The shipped corpus is a
+directory of markdown in the distribution, served through the ticket interface by
+a read-only store. The system documents are the documents in the distribution —
+nothing more, nothing less.
+
+It follows that **the shipped KB's corpus should be unrestricted** (`corpus: {}`,
+`source: shipped`). Today it re-applies `type=doc AND fields.system_kb=true` to a
+directory where everything already matched by construction — a build-time filter
+re-run at query time, which is what made this look like more mechanism than it
+is. Leaving it in place means a file dropped into the corpus without the right
+frontmatter is silently invisible.
+
+The one real mechanism is the **build-time export**: which tickets are copied
+into the distribution as `.md`. That is `fields.kind = "system_kb"`, and it is
+the only place membership is decided.
+
+### 3.4 Why author them as tickets at all
+
+The documents ship as flat markdown, so authoring them as tickets is a choice
+rather than a necessity. It is worth it for what the ticket store gives that a
+directory does not: the editing interface, review, history, and `[[DOC-N]]`
+resolution across the whole document set. The cost is one export step in the
+release build — which already exists.
+
+### 3.5 What a system-KB document is
+
+*"Authored for the AI"* has to be more than a slogan if people are going to write
+these. Concretely, a system-KB document:
+
+- **Is addressed to the AI as its reader.** Not "we decided", but "when a client
+  says X, what they usually mean is Y."
+- **Is actionable in a conversation.** If nothing in it could change what the AI
+  says next, it does not belong.
+- **Carries no rationale for our engineering choices.** Why the storage model is
+  forward-only is architecture; that published sites cannot be silently edited is
+  product behaviour the AI may need to explain.
+- **States no machine-readable fact that could be projected instead** (§3.2).
+- **Is written in the register it is meant to produce.** These are read by
+  something that imitates; a document written in dense internal shorthand teaches
+  the AI to speak in dense internal shorthand.
+
+The natural first set is consultation knowledge — how to open a conversation with
+someone who has never commissioned design, how to talk about colour and type
+without jargon, what to do when a client asks for something that will look bad,
+how the web-design market works and what clients are usually comparing us to.
+
+**Which documents exist today, and which get written, is deliberately open.** The
+current corpus is seed material ([[DOC-10]] §6.3) chosen so the machinery could
+be exercised at all; it is not the intended set and should not be mistaken for
+one. See §10.
 
 ## 4. Two clocks
 
@@ -398,15 +456,15 @@ Worth stating so nobody is surprised into abandoning the map:
   is probably right — B genuinely has not seen it — but it should be decided.
 - **The delta cap's size**, and whether it is a count or a character budget
   (§6.2 settles that there is one, not what it is).
-- **Which documents carry the system-KB marker** (§3.1). Independent of the
-  mechanism, changeable at any time, and the specific experiment [[DOC-10]] §6.3
-  asked for: the corpus holds development-process material beside product
-  material, and whether that hurts retrieval is measurable both ways.
-- **The marker's field name** (§3.1): keep `fields.system_kb: true`, or move to
-  the component's own `fields.kb: "system"` convention. Not `fields.kind`, which
-  the component already owns. A rename is a sweep over ~35 tickets plus the KB
-  config — cheap, but it buys nothing functional today, and a single-valued field
-  would forbid the overlapping membership §2 relies on.
+- **Which system-KB documents get written** (§3.5). The corpus today is seed
+  material and the intended set does not exist yet. Sequencing matters: the seed
+  set is what [[REQ-158]]'s acceptance test runs against, so it stays until the
+  machinery is proven, and is replaced after.
+- **`fields.kind` collides with a component convention.** The knowledge component
+  writes `fields.kind = AWARENESS_REPORT_KIND` on awareness reports and queries
+  it to find them, and uses `KB_FIELD = 'kb'` for KB naming. Our values differ and
+  our predicate is type-scoped, so nothing breaks — but the namespace is shared
+  and that should be a deliberate choice rather than a collision discovered later.
 - **Whether the enumerate/cluster switch is per-KB or global.** A tenant may sit
   below the floor on `project` while `system` is far above it.
 
