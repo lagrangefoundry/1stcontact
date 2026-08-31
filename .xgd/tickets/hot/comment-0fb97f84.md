@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-163
 created_by: xgd
 created_at: '2026-08-31T21:50:18.634804+00:00'
-updated_at: '2026-08-31T21:53:34.297436+00:00'
+updated_at: '2026-08-31T23:12:44.127378+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -47,5 +47,11 @@ I've read the ticket, REQ-162's landed store, the ticketing component's `attach`
 One more, not in your open questions: **the asset-promotion gate** (§5, "the most damaging single action available"). There is currently no material→site-asset promotion path at all, so there is nothing to gate. → **Recommendation:** implement the promotion function *with* the gate in this ticket (refusing when the source bundle is not `republishable`), unrouted, so REQ-161 wires a surface to something that is already safe rather than inventing one later. Say if you'd rather defer it.
 
 Tell me which of these to flip and I'll cut the branch and implement; if they all read right, say so and I'll proceed on the recommendations.
+
+<!-- xgd-turn id="5bee3eec-eb38-4f42-8416-edda0d7e50ba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T23:12:44.047200+00:00" -->
+#### You
+Please check the ticket for updates that answer your questions
 
 <!-- xgd-chat-end -->
