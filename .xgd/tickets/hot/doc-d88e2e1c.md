@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-31T19:20:57.395983+00:00'
+updated_at: '2026-08-31T19:21:15.400873+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -81,7 +81,7 @@ Per [[DOC-38]] §8. They differ in everything that governs mechanism:
 
 | | `system` | `project` |
 |---|---|---|
-| Corpus | the shipped `system_kb` documents (§3.1) | `chat`, `material`, `reference`, `brief`, + the site adapter |
+| Corpus | the shipped `doc_kind: system_kb` documents (§3.1) | `chat`, `material`, `reference`, `brief`, + the site adapter |
 | Source | `shipped` — a directory of markdown | the tenant's ticket store |
 | Tenancy | **above** the barrier; identical for everyone | tenant data |
 | Written | at development time | continuously |
@@ -114,9 +114,9 @@ system does and how to talk about it. Feeding it the former is not merely noisy 
 it is material written for a different reader entirely.
 
 **A document is one kind or the other, never both.** This is why membership is a
-`kind` rather than a flag: a boolean invites *"this architecture document is
-**also** a system document"*, and that sentence is the category error in
-grammatical form. If a fact is needed by both readers, the answer is the third
+**kind** rather than a flag (§3.3 settles which field): a boolean invites *"this
+architecture document is **also** a system document"*, and that sentence is the
+category error in grammatical form. If a fact is needed by both readers, the answer is the third
 row, not dual membership.
 
 ### 3.2 The third row: project, do not restate
