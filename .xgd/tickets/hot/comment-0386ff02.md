@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T18:53:02.753307+00:00'
+updated_at: '2026-08-31T19:11:21.325396+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1376,5 +1376,15 @@ I verified none of REQ-158/159/160 mention `corpus: {}`, `fields.kind`, or pagin
 Three things, in order: file **ingestion** (it's a genuine feature-sized hole), fold **#2 and #3 into REQ-158** since it can't complete correctly without either, and answer the **`fields.kind`** question since #3 depends on it.
 
 Want me to file the ingestion REQ and amend REQ-158?
+
+<!-- xgd-turn id="c033306b-eccb-47a8-8849-00cd4aa730b6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T19:11:20.836508+00:00" -->
+#### You
+All the lf and xgd tickets you list have been implemented (Note we work off working so they do not need to be reconciled to main before we can use them)
+
+`fields.kind`** collides with the component's own namespace** (DOC-39 §10). It writes `fields.kind = AWARENESS_REPORT_KIND` on awareness reports. Nothing breaks, but REQ-158's export filter depends on this choice. <-- please explain and turn this into a question. I don't understand what you are asking
+
+**Where the rights bits get set** (DOC-38 §13) — capture/upload time is the only honest point, but it puts a legal question in front of a novice. This has been open since our second exchange. <-- again more details please
 
 <!-- xgd-chat-end -->
