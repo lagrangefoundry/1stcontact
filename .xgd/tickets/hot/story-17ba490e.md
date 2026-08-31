@@ -5,9 +5,9 @@ type: story
 title: 'Site Locale Identity: A Site Says Where It Is, And Every Page Declares It'
 created_by: xgd
 created_at: '2026-08-31T12:27:25.034269+00:00'
-updated_at: '2026-08-31T12:27:25.034269+00:00'
+updated_at: '2026-08-31T12:29:18.346931+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-b3b7c399
@@ -115,7 +115,7 @@ The resolved locale identity is consumed by the Money & Time Formatting Seam
   a lowercase currency discovered only when a customer in that country signs up —
   is a user-visible defect with a longer feedback loop than anything else in this
   story, and because "adding a country is a one-row data edit" is only a safe
-  claim if the row is checked.
+  claim if the row is checked. Formalised as AC-1435.
 
 - **The slug reservation is asserted at an authoring entry point, not only at the
   schema** (decided at reconciliation, 2026-08-31): REQ-153's acceptance criteria
@@ -123,14 +123,15 @@ The resolved locale identity is consumed by the Money & Time Formatting Seam
   guard is *reachable* from the page-creation command and leaves no half-written
   page behind. The AC is stated at the authoring boundary rather than at the
   validator, because a reservation that exists in a schema no writer reaches is
-  indistinguishable from one that does not exist.
+  indistinguishable from one that does not exist. Formalised as AC-1436.
 
 - **No-regression covers published revisions, not just drafts** (decided at
   reconciliation, 2026-08-31): REQ-153 AC-3 says "both existing sites still
   validate"; the landed test validates every stored site's draft *and every
   published revision*, since a frozen revision could not be rescued by an edit.
   Folded into the no-regression AC, stated over stored sites generally rather
-  than over two named ones, so it cannot pass vacuously or go stale.
+  than over two named ones, so it cannot pass vacuously or go stale. Formalised
+  as part of AC-1428.
 
 **No intent/code contradiction was found.** The one apparent tension —
 REQ-151's "what to change" says the country defaults to `US` (which would derive
