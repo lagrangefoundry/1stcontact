@@ -5,10 +5,10 @@ type: bundle
 title: BUG-36 + BUG-37 + BUG-38
 created_by: xgd
 created_at: '2026-08-26T17:36:26.915596+00:00'
-updated_at: '2026-08-26T17:36:26.915596+00:00'
+updated_at: '2026-08-31T14:23:56.450244+00:00'
 completed_at: null
-last_field_updated: created_at
-status: ready_to_reconcile
+last_field_updated: status
+status: reconciling
 fields:
   commits:
   - working_sha: ea48502d0d90bb607ac528e34099e71eaab6df40
