@@ -6,10 +6,10 @@ title: A site's whole draft copies between any two stores as one whole change, a
   a destination that does not hold the site is refused
 created_by: xgd
 created_at: '2026-08-31T09:47:56.005033+00:00'
-updated_at: '2026-08-31T09:47:56.005033+00:00'
+updated_at: '2026-08-31T10:04:13.228949+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
