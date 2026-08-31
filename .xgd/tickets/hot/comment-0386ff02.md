@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:55:04.440273+00:00'
+updated_at: '2026-08-31T00:56:16.930042+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1204,5 +1204,25 @@ The pagination bug is the one thing here I'd treat as urgent — `readDocTickets
 <!-- xgd-chat role="user" ts="2026-08-31T00:55:04.123147+00:00" -->
 #### You
 Please create an REQ in xgd for the missing pagination
+
+<!-- xgd-turn id="ee057f49-9add-4d14-9042-7d2ade27e11a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T00:56:16.674732+00:00" -->
+#### Claude
+Facts confirmed, and there's a trap in there worth naming:
+
+**xgd REQ-825** created — *`ticket list --json` truncates silently at the default limit, and `--all` does not mean all results*. High priority, 5 points.
+
+The facts I verified while writing it:
+
+- Default limit is **50**; the envelope is `{items, next_cursor}`, currently `next_cursor: None` at 38 docs — so nothing is being dropped yet.
+- Human mode prints *"More results available (cursor: …)"*. **`--json` prints nothing** — the machine-facing path, where it actually matters, is the one with no warning.
+- **`--all` means all ticket *types*, not all *results*.** That's the trap: a script author reaching for the flag literally named "all" gets 50 rows and no signal. And there's currently no way to say "give me every match" in one call — `--limit` takes a number, so exhaustiveness means guessing a ceiling, which is the same bug with a bigger constant.
+
+The ticket proposes three fixes in value order: an explicit exhaustive mode, making truncation visible in `--json` (so a consumer that ignores it is *ignoring* something rather than *missing* something), and disambiguating `--all` — which gets worse rather than better if an exhaustive flag lands beside it.
+
+I framed the argument as *the next consumer shouldn't have to discover this the same way*, using `readDocTickets` as the worked example: the symptom would surface as "the assistant doesn't seem to know about that document" — a retrieval-quality complaint several artifacts downstream of the cause, with nothing pointing back at pagination.
+
+**The 1stcontact-side fix is explicitly out of scope** in that ticket and isn't filed anywhere yet. It's a cursor loop in `readDocTickets`, small, and it shouldn't wait on xgd. Want me to file it in 1stcontact, or fold it into REQ-158 since that ticket already can't complete without a correct corpus export?
 
 <!-- xgd-chat-end -->
