@@ -5,13 +5,12 @@ type: doc
 title: 'Process: Reproduction-Driven Framework Growth Loop'
 created_by: xgd
 created_at: '2026-07-08T17:34:34.188088+00:00'
-updated_at: '2026-08-16T01:20:18.978921+00:00'
+updated_at: '2026-08-31T19:43:05.992642+00:00'
 completed_at: null
 last_field_updated: system_kb
 status: draft
 fields:
   doc_kind: architecture
-  system_kb: true
 ---
 
 # Process: Reproduction-Driven Framework Growth Loop
