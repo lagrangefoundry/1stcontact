@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-08-20T05:03:42.654046+00:00'
+updated_at: '2026-08-31T10:37:04.534345+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -63,9 +63,18 @@ In scope:
   That grant is read-only, and it names the system knowledge base on both scope
   axes — what may be searched and what may be read — from one declaration, so the
   two cannot come to mean different things.
-- **Continuity** — one conversation per site, stored with the workspace the site
-  belongs to, replayed after the origin restarts, and never sacrificed to report
-  an unrelated failure.
+- **Continuity** — one conversation per site, stored **through the store the site
+  belongs to** rather than beside a directory on one machine, replayed after the
+  host that served it is gone, and never sacrificed to report an unrelated
+  failure. The tier in front of the archive holds only the turn in flight, so
+  losing the host mid-turn costs that turn and not the conversation.
+- **Where the conversation runs** — the same host serves the conversation from
+  the operator's machine and from the deployed edge runtime, over one session
+  model, one tool loop and one write path. Which one is answering is not
+  something the conversation contract knows: what a turn is, what it may reach,
+  where the transcript lives and how a failure is reported are the same either
+  way, and the stored transcript is the same bytes, so a conversation begun in
+  one can be read by the other.
 - **Honest failure** — a refused operation the assistant corrects within the same
   turn with the site untouched; a missing prerequisite explained to the operator
   alongside their history rather than instead of it; a conversation identifier
@@ -74,7 +83,8 @@ In scope:
   hanging. A knowledge base that was never built is not a failure at all — it is
   an ordinary state, and the conversation runs on its site operations alone —
   while one that *was* built and cannot be opened is reported rather than
-  silently dropped.
+  silently dropped. Nothing the assistant says back, on any of those paths,
+  carries the credential the host holds.
 
 Out of scope:
 
@@ -89,6 +99,11 @@ Out of scope:
 - **The browser pane.** The surface that renders the conversation for the
   operator is its own story, for the same reason the display panel and the origin
   behind it are separate.
+- **The store the transcript is written through.** Tenancy, atomicity and the
+  byte path of the cloud store belong to the site-store capability
+  (capability-c4c7a854); this story claims only that the conversation is written
+  through the site's own store rather than beside it, and that no request address
+  can name it.
 - **Building the knowledge base.** The corpus export, the document and chunk
   indexes, the generated awareness map, the operator commands that produce them,
   and the rule by which a document is a member of the corpus are their own
@@ -105,8 +120,8 @@ Out of scope:
 - The conversation host sits on the builder workspace origin (CAP-85 /
   story-e674c60a), which owns the routes' shared behaviour — confinement,
   freshness, and the route-coverage guard that requires every declared route to
-  be probed. This story adds three routes to that origin and inherits those
-  properties rather than restating them.
+  be probed. This story adds routes to that origin and inherits those properties
+  rather than restating them.
 - Every change the assistant makes goes through the same validated, atomic write
   path the command line and the click-to-edit modal use (CAP-87 /
   story-37a3921b). Nothing here re-implements validation, atomicity or re-render,
@@ -134,7 +149,10 @@ Out of scope:
   fails to open (most often because the embedding credentials are absent) is
   reported to the operator on the origin's error output while the conversation
   still opens, because the two situations have very different fixes and must not
-  look the same.
+  look the same. The deployed edge runtime is a third instance of the *ordinary*
+  state: the corpus bridge is bound to the operator's filesystem, so a
+  conversation there runs on its site operations alone, silently, exactly as one
+  on a workspace that never built a corpus does.
 - **Intent supersession within the bundle that created this story.** REQ-122
   specified a turn carrying `{slug, text}` and a site identity held by the
   browser. REQ-127 withdrew that, and also withdrew its own earlier clause making
@@ -151,13 +169,16 @@ Out of scope:
   asserts the property the intent is about (a named refusal the assistant can act
   on within the turn, site untouched) and does not claim the per-call address is
   delivered.
-- REQ-127 deliberately carried an upstream transcript-storage migration
-  (incremental archive; the live tier placed explicitly). Its observable
-  consequence is that both tiers of a conversation sit under the workspace
-  directory rather than half of it under a machine-global home path — which is
-  what the continuity criterion is written against.
-- Transcripts are operator-local and frequently contain verbatim business detail;
-  they are stored with the workspace and excluded from version control.
+- Transcripts are operator-local in the filesystem host and frequently contain
+  verbatim business detail; there they are stored with the workspace and excluded
+  from version control.
+- **One conversation host per isolate in the edge runtime, deliberately.** Every
+  other route on that origin builds its store per request so the tenant check is
+  never stale; the conversation routes cannot, because the session cache is keyed
+  by the store's own identity and a fresh store per request would be a fresh
+  conversation per request. The tenant is still checked once, when the host is
+  built; what is given up is re-checking a mid-isolate deactivation, on the
+  conversation routes alone. Recorded as the intent's own stated deviation.
 - **The system knowledge base sits above tenancy, and this repo has no tenancy
   yet.** REQ-123 records the design a later store ticket inherits — the corpus is
   a release artefact that takes the scope parameters and does not vary by them,
@@ -170,14 +191,68 @@ Out of scope:
   the production embedding credentials was never opened by a session in the
   authoring session itself, so what is asserted is the wiring and the shape of
   priming, not retrieval quality against the real corpus.
+- **The turn in the edge runtime is evidenced against a doubled model, not a live
+  one.** It runs inside the real runtime against the real database and object
+  store, with the model client as the single double — one that speaks the
+  streaming wire protocol the backend actually consumes, because a
+  finished-message double would assert against a fiction. Nothing here is
+  asserted against a live model provider.
+
+## Reconciliation Decisions
+
+Decisions taken on **2026-08-31** while reconciling BUNDLE-20 (REQ-146, plus
+REQ-149's deploy-secret follow-up). The intent named each of these outcomes;
+where it named an outcome and not an observable, the observable chosen below is
+this reconciliation's decision, made now.
+
+- **"Stored with the workspace" becomes "stored through the store the site
+  belongs to."** REQ-146 §1 and §4 state that the transcript "reconciles with
+  REQ-143 rather than adding a store" and implements the archive port over the
+  bindings the site store already built. The criterion is rewritten to the
+  property that holds in both hosts — the conversation is written through the
+  site's own store and replayed once the host that served it is gone — rather
+  than to the directory that was only ever one host's answer.
+- **The stored form is claimed as a portability property, separately from where
+  it lives.** The intent's stated reason is that a runtime-shaped record "would
+  have made the two runtimes stop being the same product". Where a transcript
+  lives and what shape it is written in are independently observable and fail
+  independently, so they are two criteria rather than one.
+- **The junction's cost is stated inside the criterion rather than hidden.** The
+  intent declares the tier in front of the archive in-memory and drained during
+  the turn. That is a real, bounded loss — the turn in flight — and a criterion
+  that omitted it would claim more than the code does.
+- **Redaction is claimed as an absence at the boundary, not as a scrubbing
+  routine.** The intent's AC4 is "no API key appears in logs, error envelopes, or
+  client responses". The observable is the absence, on the error paths most
+  likely to carry it. That the defence matches known values at the response
+  boundary rather than matching a pattern at each throw site is recorded as
+  context, because it is a design reason and not something a caller can see.
+- **The import-graph guard is a criterion in its own right**, because the intent
+  says explicitly that a passing turn is not evidence for it: the filesystem
+  module *resolves* under the compatibility flag and hands back a per-isolate
+  ephemeral disk, so a file-backed archive passes a test and loses every
+  conversation on the next eviction. What is observable is the shipped artifact.
+- **The deploy-secret guard is carried here** rather than under the publish or
+  build capability. It was filed against REQ-149, but it governs the model key's
+  lifecycle, and the model key is what decides whether this conversation can take
+  a turn at all.
+- **The capability answer is served by the operator's local transport and not by
+  the deployed route table.** The criterion for asking what the assistant is
+  (AC-1051) is unchanged and still holds where it is served. The asymmetry is
+  recorded here rather than formalised as a criterion: the intent is silent on
+  it, and the workspace-origin capability (CAP-85 / story-e674c60a) owns the
+  one-route-table property that would decide whether it is a defect. Flagged
+  there, neither claimed nor denied here.
 
 ## Dependencies
 
 The declared control surface the assistant acts through, and the browser pane
 that renders the conversation, are related work that must not be re-derived here.
-The knowledge half additionally depends on the system knowledge base having been
-built (STORY-117 / story-c4f329d3) — but only for its knowledge criteria; every
-other criterion holds with no knowledge base present at all.
+The store the transcript and audit are written through is the site-store
+capability (capability-c4c7a854), and the origin that hosts the routes is CAP-85
+(story-e674c60a). The knowledge half additionally depends on the system knowledge
+base having been built (STORY-117 / story-c4f329d3) — but only for its knowledge
+criteria; every other criterion holds with no knowledge base present at all.
 
 ## Story Points
 
