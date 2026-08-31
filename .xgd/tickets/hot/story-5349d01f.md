@@ -6,9 +6,9 @@ title: 'Publish a site to shared storage: one revision-minting publish, driven f
   the builder and the command line'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-08-31T11:32:41.152533+00:00'
+updated_at: '2026-08-31T11:36:11.183021+00:00'
 completed_at: null
-last_field_updated: story_kind
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
