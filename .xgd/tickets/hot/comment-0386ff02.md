@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:41:13.277798+00:00'
+updated_at: '2026-08-31T00:43:02.038344+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1056,5 +1056,59 @@ So we have three mechanisms and we probably don't need any this is way too compl
 In the final system the system documents do not exist in the ticket store. They are manifested in the distribution install as md docs. There is a special read only ticket implementation that makes them available through the ticketing interface. So, at some level no mechanism is needed the system documents are the documents that are included in the distribution. Nothing more nothing less.
 
 So, the next question is how do we build those documents and maintain them. Our document editing interface works on tickets, so it is desirable for the sake of the user interaction to that content as tickets that are copied into the distribution at build time. (lets discuss this) if we do this then we need to recognize which tickets in this store get copied into the distribution as .md files. Now, let's be clear I believe these are not architecture documents or design documents or other kinds of system documents I believe these are a specific document kind which is system knowledge base that is why I think Fields.kind is the right way to represent this concept. If we introduce another or functional representation we open the opportunity for architecture documents to be also included as system documents that is a category error. A document should be a system document designed for this purpose or an architecture document for system construction.
+
+<!-- xgd-turn id="be31216c-0b34-4c49-ab8f-0b67aa71e7f0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T00:43:01.690001+00:00" -->
+#### Claude
+This is the right frame, and it dissolves the confusion — including mine. Let me check one thing that I think explains why it looked like three mechanisms:
+
+Confirmed — `DocDirStore` parses frontmatter and serves files through the ticket interface, and its own comment notes the common case is *"files that mostly have no frontmatter at all."*
+
+## Your runtime model is right, and it's already built
+
+`source: shipped` + `DocDirStore(bundleDocReader(DOCS))` is exactly the read-only ticket implementation you describe. At runtime the corpus is the directory. Nothing more, nothing less.
+
+Here's the redundancy that made it look like three mechanisms: **the corpus predicate is still evaluated at runtime, against the shipped files.** The exported `.md` retain their frontmatter, including `system_kb: true`, and `resolveCorpus` re-applies `type=doc AND fields.system_kb=true` to a directory where — by construction — everything already matched. It's a build-time export filter being re-run at query time and mistaken for a membership rule.
+
+So the concrete simplification: the shipped KB's corpus should be **unrestricted** — `corpus: {}`, `source: shipped`. The directory is the boundary. One less thing that can silently exclude a file someone dropped in without the right frontmatter.
+
+That leaves **exactly one mechanism**, at build time: which tickets get exported. And `fields.kind` is the right shape for it, for your reason.
+
+## Authoring as tickets: agree
+
+You get the editing interface, review, history, linking, and `[[DOC-N]]` resolution — none of which a directory of markdown gives you. The costs are real but small: an export step in the release build, and a build-time dependency on the ticket store. Both already exist (`1c kb export`).
+
+## The category error — this is the substantial claim
+
+You're right, and it's bigger than a field name. It's a partial reversal of DOC-10 §6.3 (*"every design document, in full"*), and a legitimate one, because §6.3 was arguing against something different.
+
+§6.3 rejected **distillation** — a derived, hand-condensed copy of design documents, which drifts because the source moves and the copy doesn't. You're proposing **origination** — documents authored *for the AI*, which are the source of truth for their own content. Nothing to drift from. A document on how to discuss colour with a nervous client isn't a condensation of anything; there's no design doc underneath it.
+
+And your exclusivity argument holds: a boolean invites "this architecture document is *also* a system document," which is how the corpus ends up half-full of rationale about rejected alternatives — material written for someone deciding how to build the product, being read by something advising a client.
+
+## The hard case, and the third kind that resolves it
+
+Where exclusivity bites: the AI genuinely needs product facts that are specified in architecture documents — the module catalogue, the L1 vocabulary, the control surface. Under your rule you can't tag DOC-25 into the KB, and writing a system-KB counterpart is exactly the distillation §6.3 killed.
+
+The way out is already precedented here twice: **don't author those facts, project them.** DOC-10 §5.1 has the tool manual *generated from the declared surface* so instructions and tools can't drift apart; DOC-13 §8 maps captures against the *live module registry* rather than a written catalogue.
+
+So three kinds, and the third isn't a document:
+
+| | Audience | Source of truth | In the KB? |
+|---|---|---|---|
+| **architecture** | us, building the product | authored | no |
+| **system_kb** | the AI, advising a client | authored | yes |
+| **projected reference** | the AI | the live registry / declared surface | generated, never authored |
+
+That keeps `kind` exclusive, removes the drift risk from the hard case, and means no product fact is ever written down twice.
+
+## The consequence you should hear plainly
+
+Under this model, **the current 33-document corpus is almost entirely the wrong kind.** DOC-33 (Consultation Playbook) and DOC-35 (Personas, Modes & Registers) are already system-KB-shaped; DOC-31/32 probably are. The rest are architecture docs about how we build the product.
+
+So this isn't a relabelling exercise — it's a writing project. The system KB starts close to empty and gets authored deliberately, which is a better outcome and a larger one. It also changes REQ-158's character: the wiring still matters, but the first real index will be built over a thin corpus, and that's correct rather than a problem.
+
+Want me to rewrite DOC-39 §3.1 and DOC-38 §8 around this — the three kinds, the build-time export as the single mechanism, and the unrestricted shipped corpus? And I'd add a section on what a system-KB document *is*, since "authored for the AI" needs to be more than a sentence if people are going to write them.
 
 <!-- xgd-chat-end -->
