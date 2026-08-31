@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T01:13:14.980286+00:00'
+updated_at: '2026-08-31T18:51:53.803546+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1310,5 +1310,11 @@ Titles only. No excerpts, no summaries, no rights annotations. The AI knows the 
 **§6.3 — resumption** explicitly disclaims the tail: the ~5k belongs to DOC-10 §5.1 and is the conversation itself, not knowledge about it. KM adds a handful of titles to a resumed session and nothing else. Named only so the two can't be confused again.
 
 I also tightened §7 while I was in there — the enumerate floor was budgeting ~200 characters of body per document, which is conveying content and violates §6.1's own principle. It's now **titles, ~1KB total**, with excerpts as a per-entry fallback rather than a default. That works better than it sounds because DOC-38 §6 gives every project-KB entry an AI-written *title* as well as body — a `material` ticket isn't called `Notes.pdf`.
+
+<!-- xgd-turn id="7ef1d53c-ac2b-4e2c-bfc9-93e6c6fde3c8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T18:51:52.761543+00:00" -->
+#### You
+Can you sumarize where we are with the KMS design and documentation - what doc tickets do we have? what REQ tickets do we have? Are all the open design questions answered? Do our REQ tickets cover all the work?
 
 <!-- xgd-chat-end -->
