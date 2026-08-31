@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:50:39.342457+00:00'
+updated_at: '2026-08-31T20:53:03.576782+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2090,5 +2090,67 @@ So: no new ticket, one decision recorded, and REQ-162 stays the root of the tree
 <!-- xgd-chat role="user" ts="2026-08-31T20:50:39.201706+00:00" -->
 #### You
 Please read the chat transcript for REQ-162 and help me answer its questions
+
+<!-- xgd-turn id="0d369718-3970-4451-8750-a0e485d5e042-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T20:53:03.455215+00:00" -->
+#### Claude
+Confirmed the blocker — installed `ticketing` has no `attachments.js` or `blob_store.js`. Let me check whether it's the only stale package, since that changes the answer:
+
+The framework checkout's `ticketing/js/src` is **identical to the installed copy** — so REQ-104's code isn't in `/Users/martin/lagrangefoundry/lagrange-framework` either. Checking the worktrees:
+
+REQ-104's code exists in exactly one place: the **`resync-577be0d7` scratch worktree** — not on `main`, not in the `xgd-working` checkout. Let me establish whether that's mid-flight or stranded:
+
+Answers below. **Q1 needs more than a yes** — the proposed fix wouldn't work.
+
+## 1. Don't run the install yet — it would install the same stale code
+
+The blocker is real, but the diagnosis is one level short. I traced where REQ-104's code actually is:
+
+```
+main                  attachments.js=0  blob_store.js=0
+xgd-working           attachments.js=0  blob_store.js=0   ← the plain checkout
+resync-577be0d7       attachments.js=1  blob_store.js=1   ← only here
+```
+
+The commit is `a60537ee3c [FREE-CODED] REQ-104: ticket attachments — a BlobStore port with typed records`, dated 2026-08-26, sitting on an **in-flight resync scratch branch**. Its most recent commits (2026-08-30) are updates to `report-577be0d7`, the resync's own report.
+
+And `bin/install` resolves `COMPONENTS = REPO / "components"` — it installs from whatever checkout it's run in. Run from `/Users/martin/lagrangefoundry/lagrange-framework` (on `xgd-working`), it would copy the same pre-REQ-104 files that are already installed, succeed, and change nothing.
+
+So: **REQ-104/107/108 are free-coded but not on `xgd-working`.** The resync that was carrying them hasn't published back. Given BUG-1303 — a resync strip commit leaking onto main and deleting 26,017 tickets in the xgd repo — an unfinished resync in lagrange-framework is worth looking at directly before installing anything out of it.
+
+The sequence I'd want: land the resync (or recover the three commits onto `xgd-working` directly), verify `components/ticketing/js/src/attachments.js` exists in the plain checkout, *then* run the install. Answer the agent "not yet, and here's why" rather than "no".
+
+## 2. Yes — one shared `tenants` registry
+
+The analysis is right and so is the remedy. `SCHEMA_STATEMENTS` plus `ALTER TABLE tenants ADD COLUMN config`, one registry serving both stores.
+
+The reason to prefer it beyond convenience: DOC-10 §4.1 makes the tenant the hard information barrier, and the site store already refuses a non-`active` tenant at handle construction. Two registries would be two places for one fact and could disagree about whether an account is active — which is a security property, not bookkeeping.
+
+## 3. Yes — enforce at our wiring layer
+
+And the component isn't wrong here; it's right. "Refuses `attach` at call time, otherwise fully conforming" is exactly the **optional capability group** shape — the same answer we gave when the framework asked whether attachments should bind every implementation. A component that made a blob store mandatory would break the Python file-backed store for no consumer.
+
+So `ticketStoreFor(env)` throwing on a missing `env.BLOBS`, like `storeFor` does on `TENANT_ID`, is the right place. I'll fix REQ-162's acceptance line — it currently reads as though the component has a defect, which it doesn't.
+
+## 4. Yes — `1stcontact-material`
+
+Good name, matches the `material` type. And the `wrangler r2 bucket create 1stcontact-material` step is worth putting *in the ticket body* rather than leaving in the transcript — miniflare conjuring it locally while Cloudflare doesn't is precisely the kind of thing that surfaces as a production-only failure weeks later.
+
+## 5. Confirmed — no HTTP routes
+
+A `.workers.test.ts` booting the real env and going through `ticketStoreFor(env)` is a *stronger* acceptance than an HTTP round-trip, not a weaker one — it exercises the wiring against real D1 and real R2 inside workerd. `/api/tickets/*` belongs to REQ-161, and adding surface nothing calls is scope creep.
+
+## 6. Agree with both
+
+**`reference` stays its own type.** The N-attachment-records-per-member design is what makes DOC-13 §9's "capture once, re-map forever" workable — re-extraction reads `capture.json` without pulling 23MB, which is the measured size of the largest real bundle we have.
+
+**`brief` stays a type with `fields.site_slug`.** One-per-*site* isn't one-per-tenant, and sites aren't tickets — they're rows in the `sites` table — so a slug field is the right shape either way.
+
+---
+
+Also worth telling the agent: the `src/generated/ticketing.js` shim is the correct workaround and a known trap in this repo, not a novel problem. Bare `@lagrangefoundry/*` specifiers failing to resolve from a linked worktree has bitten the builder/webui path before.
+
+Want me to update REQ-162 with the Q3 acceptance correction and the bucket-create step?
 
 <!-- xgd-chat-end -->
