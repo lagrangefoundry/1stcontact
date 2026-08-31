@@ -2,13 +2,13 @@
 uid: story-5349d01f
 id: STORY-94
 type: story
-title: 'Ship a site off the laptop: a content-addressed snapshot deploy that returns
-  a shareable URL'
+title: 'Publish a site to shared storage: one revision-minting publish, driven from
+  the builder and the command line'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-08-16T07:24:11.838477+00:00'
+updated_at: '2026-08-31T11:32:41.152533+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -21,117 +21,121 @@ fields:
 
 ## Story
 
-**As a** site operator, **I want** to ship a rendered site to shared storage in one
-command and get back a URL, **so that** someone other than me — a client, a
-reviewer, a visitor — can see it, and so that shipping the same site twice costs
-nothing while shipping a changed site never destroys what came before.
+**As a** site operator, **I want** publishing to freeze my draft as a numbered
+revision and put its rendered output into shared storage — from the builder's
+toolbar or from one command — **so that** someone other than me can see the
+site, pressing publish twice costs nothing, and nothing I published before is
+ever destroyed.
 
 ## Description
 
-Before this capability a site existed only on the operator's machine: rendering
-wrote bytes to a local directory and publishing froze a draft into a revision,
-but nothing put either where anyone else could look. This story is the operator
-half of delivery — the act of shipping. The visitor half (what a URL serves) is
-a separate story in the same capability.
+This story is the operator half of delivery — the act of shipping. The visitor
+half (what a URL serves) is a separate story in the same capability.
+
+Publishing no longer happens on the operator's machine. It happens wherever the
+site's storage is: the builder's publish call and the command line are two
+callers of one publish, and that publish reaches storage only through the store
+port, so it runs against the operator's filesystem and against the cloud store
+without knowing which it was handed.
 
 In scope:
 
-- **One command, two channels.** A *draft* deploy mints an immutable, shareable
-  **preview** of the current working draft. A *published* deploy ships the site's
-  current latest published revision and moves the live pointer.
-- **Rendering is not optional.** Every deploy renders first. Previously-rendered
-  output on disk is never trusted as an input, so stale bytes cannot be shipped.
-- **The artifact is complete.** What ships is both the rendered output *and* the
-  site definition it was rendered from, so the shipped snapshot is a whole
-  revision rather than only its render — which makes a later migration of the
-  store an import rather than a re-derivation from someone's laptop.
-- **Shipping is scoped to the store tree the site came from.** The operator's
-  machine keeps real sites and throwaway scratch in two separate store trees, and
-  that separation survives the crossing: the tree a definition was loaded from is
-  part of the address its snapshot ships to. Every key a deploy writes carries it,
-  each tree keeps its own deploy index, and a prune enumerates only the tree being
-  pruned. Two sites that share a slug across the trees therefore never touch each
-  other's bytes, index or live pointer.
-- **A snapshot that nothing can serve says so.** Only one store tree is publicly
-  servable. A deploy from the other ships and indexes exactly as normal but
-  returns no shareable URL, and its report terminates in the snapshot's storage
-  prefix with an explicit note that it is not publicly reachable — rather than a
-  URL that could never resolve.
-- **Content addressing.** A snapshot's identity is a digest of its contents.
-  Redeploying identical bytes is a no-op that returns the same URL; changed bytes
-  land *beside* the previous snapshot, never on top of it.
-- **Two deploys do not silently overwrite each other.** A deploy whose stored
-  deploy index changed underneath it fails by name and writes no index of its
-  own, leaving the index exactly as the other deploy left it — a concurrent
-  deploy loses loudly rather than clobbering the winner's record.
-- **Previews are not revisions.** A draft deploy never mints a revision number
-  and never enters publish history, so previews can be shared freely without
-  polluting the publish record.
-- **Publish mints, deploy ships.** The published channel carries no such
-  shortcut: a published deploy of a site whose publish history is empty is
-  refused by name and writes nothing, directing the operator at the publish
-  command rather than shipping an empty channel or minting a revision itself.
-- **Rehearsal and cleanup.** A dry run prints the complete plan and writes
-  nothing. A prune deletes only stored snapshot objects that the site's deploy
-  index does not reference — the orphans an interrupted deploy leaves behind.
-- **A legible report.** Every stage names itself on its own line and the report
-  terminates in the shareable URL, or — where there is none — in the storage
-  prefix and the reason.
+- **One publish, two front doors.** The builder's publish request and the
+  operator's publish command produce the same store state from the same draft.
+  There is exactly one implementation and no second handler behind the builder's
+  route — the local transport used to answer publish itself, and that was the
+  one route where the two front doors disagreed about what a route does.
+- **No filesystem on the cloud path.** Minting the revision, freezing the
+  definition, rendering, and recording the entry all happen through storage
+  verbs, so the whole publish runs inside the edge runtime.
+- **Validate first, write nothing on failure.** An invalid draft publishes
+  nothing at all — not a revision, not a log entry, not a byte of output — and
+  the failure names which fields are wrong rather than reporting "publish
+  failed".
+- **An unchanged draft mints nothing.** Publishing a draft that matches the live
+  revision returns the live revision and records no new one, because publish is
+  a toolbar button and buttons get pressed twice. Re-publishing unchanged with a
+  new message therefore changes nothing, message included.
+- **The artifact is complete.** What is stored is both the rendered output *and*
+  the frozen definition it was rendered from. This is now load-bearing for a
+  different reason than it was: the mutable draft lives in the database, so the
+  frozen definition beside the render is the only copy of what the site looked
+  like at that revision — which is what makes a checkout possible at all.
+- **History is readable and forward-only.** Every revision carries its lineage,
+  message, author, per-path change list and an audit digest. Checking out an
+  earlier revision re-parents the draft onto it rather than rewinding the log, so
+  the next publish mints a new highest revision and records what it descended
+  from. A revision is never removed, renumbered or reused.
+- **A published address belongs to whoever claimed it first.** The public URL
+  grammar carries no account, so the first publish of a slug claims it and a
+  second account publishing the same slug is refused before any byte is written,
+  leaving the live site untouched.
 
-Out of scope (explicit non-goals from the intent): moving the canonical site
-store off the operator's machine, custom domains, and per-site subdomain
-routing. Serving the deployed bytes to a visitor, the confinement of what a URL
-may address to the one servable store tree, and the refusal of a snapshot whose
-contents would collide with the preview route, belong to the serving story.
-
-Also out of scope: making the non-servable tree servable. A snapshot shipped from
-it is uploaded and indexed but unreachable by design; exercising the serving path
-means using a throwaway slug in the servable tree instead, which the command's
-own help says.
+Out of scope: what a URL serves — including where the live revision is read from
+and how the builder's published view reaches it — belongs to the serving story
+in the same capability. Per-account hostnames and custom domains remain deferred.
 
 ## Technical Context
 
-- **Delivery migrates serving, not storing.** Site definitions remain canonical
-  on the operator's machine and authoring is unchanged; only the artifact crosses
-  the wire. Moving canonical storage while authoring is local would create a
-  bidirectional sync problem that no planned end state has (see DOC-5, REQ-7).
-- **Shared storage sits behind a client seam**, so the whole deploy pipeline is
-  exercisable end-to-end without network access. The shipping implementation adds
-  no new dependencies; because that mechanism cannot enumerate stored objects, a
-  write-ahead record of the keys a deploy is about to write is what makes an
-  interrupted deploy's orphans collectable. Both are implementation choices the
-  acceptance criteria deliberately do not name.
-- **Root-scoping was a correction, and the resolution chosen was to namespace
-  rather than refuse** (BUG-31). The store-tree distinction existed locally from
-  the start; the shared-storage layout originally flattened it, so a scratch
-  deploy could read, rewrite and overwrite a real site's index and published bytes
-  whenever the two shared a slug. Refusing to deploy the scratch tree outright was
-  the considered alternative; namespacing was chosen because it keeps the flag
-  uniform across every command instead of adding a one-command refusal, and it
-  remains a small follow-on to withdraw the scratch root if it proves dead weight.
-- **Known divergence from intent (flag for regression).** The intent specifies a
-  *conditional write* (compare-and-swap on the stored deploy index) so a lost
-  update fails loudly. The chosen upload mechanism does not expose conditional
-  writes, so the implementation compares a re-read of the index against the bytes
-  it started from. That preserves the property the intent asked for — a lost
-  update fails loudly rather than silently clobbering — but narrows rather than
-  closes the race window. Single-operator today; the later database phase removes
-  the concern.
-- **Preview URLs are unguessable-private by decision, not access-controlled.**
-  There is no authentication on a preview link. A content-derived snapshot id is
-  in principle computable by anyone who can reproduce the exact rendered bytes;
-  this is an accepted v1 trade-off, and the stated fix (a random token in the
-  index pointing at the content-addressed location) needs no layout change.
-- The deploy command's machine-readable output hygiene is owned by STORY-79
-  (1c CLI flag parsing and clean `--json` documents), not by this story.
-- Delivery depends on rendered output being relocatable — a snapshot served from
-  a path prefix rather than a host root — which STORY-83 owns.
+- **Publishing is a sequence over storage verbs, not a storage verb.** The store
+  port carries the storage a publish needs — read the log, freeze a revision with
+  its content, read one back, read and set the draft's lineage pointer — and the
+  order those happen in lives in exactly one place above the port. Putting a
+  publish verb *on* the port would have put the sequence inside every adapter,
+  making "one implementation" something to maintain rather than something that
+  cannot be otherwise.
+- **The change list is canonical, not byte-for-byte.** Two stores hold the same
+  definition in different shapes, so comparing what each happens to serialise to
+  would make "did this page change?" depend on which store answered. Comparison
+  is over the definition with keys ordered, which is what makes "the same publish
+  produces the same store state on either store" true rather than approximately
+  true.
+- **The audit digest is not an address.** A revision is named by its number, and
+  every stored key and public URL is built from that. The digest answers only the
+  question a change list cannot — are these the same bytes? — across two stores.
+- **What was removed, and why it was removed rather than ported.** The
+  content-addressed deploy command is gone entirely, and with it: the draft and
+  published deploy channels, snapshot identity as a digest of contents, the
+  per-store-tree deploy index and its concurrent-writer refusal, the "shipped but
+  not publicly reachable" report, the dry run, and the prune. Shipping a
+  revision's bytes and recording it live is what publish itself now does with
+  both storage bindings in hand. Prune has no home once the command is gone;
+  bytes orphaned by an interrupted publish are unreachable, because the recorded
+  revision is what vouches for them, and cost only storage.
+- **Draft preview snapshots are dropped, not ported.** The shareable
+  digest-addressed draft links were backed by the per-site index that has been
+  deleted, so they could not remain while revisions moved without leaving exactly
+  the half-migrated split the project forbids. The builder's own draft preview is
+  unaffected; sharing a draft returns later as a builder control.
+
+## Reconciliation Decisions
+
+Recorded 2026-08-31 during reconciliation of BUNDLE-20 (REQ-149). These formalise
+behaviour the implementation settled where the intent was silent, and are
+decisions taken now rather than open questions.
+
+1. **A publish against the operator's filesystem store also refreshes the local
+   published output directory**, at the path the local serve, screenshot and
+   fidelity loops already read, and the publish command reports that location.
+   The intent specified where a revision is frozen and did not say what happens
+   to the operator's local rendered tree; keeping the local loop fed is what the
+   implementation chose, and it is observable at the command line, so it is
+   stated in AC rather than left to be discovered.
+2. **The publish command's no-op is reported distinctly** — an unchanged draft is
+   reported as already published at its existing revision, rather than printing a
+   revision number an operator would reasonably read as newly minted. The intent
+   named the no-op; it did not name how it reads.
+3. **Assets travel into both halves of a revision.** The frozen definition holds
+   the asset bytes as they were, and the rendered output carries its own copy, so
+   a published page whose images resolved only while the draft still held them
+   cannot decay. The intent said the artifact is complete; which halves carry
+   assets was left open.
 
 ## Dependencies
 
-None. (Pairs with the public-site serving story, which consumes the storage
-layout this story defines; the two were designed to be built in parallel against
-that layout as a shared spec.)
+The store port and its cloud adapter (the revision storage verbs are part of that
+port), and the builder origin that hosts the publish route. Pairs with the
+serving story, which reads what this one records.
 
 ## Story Points
 
