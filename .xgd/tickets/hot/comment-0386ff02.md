@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:31:35.586902+00:00'
+updated_at: '2026-08-31T20:33:44.348519+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2025,5 +2025,34 @@ If that wasn't obvious from the docs, it's worth fixing: DOC-39 §3 describes ho
 <!-- xgd-chat role="user" ts="2026-08-31T20:31:35.423328+00:00" -->
 #### You
 ok please create the three tickets for 1-4
+
+<!-- xgd-turn id="586717bb-583d-42b4-a56c-aa15bffea01f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T20:33:44.001730+00:00" -->
+#### Claude
+Checking turned up something that resizes item 1: **there is no product ticket store at all.** No `@lagrangefoundry/ticketing` import anywhere, no ticket tables in `db/migrations/` (only site store and revisions), and chat doesn't persist to one. DOC-10 §8's model is designed but unbuilt — so the three types have nowhere to live yet.
+
+Filing accordingly:
+
+Three tickets filed.
+
+| | Ticket | Pts |
+|---|---|---|
+| **REQ-162** | The product ticket store: D1 schema, the TypePack, and the material types | 13 |
+| **REQ-163** | Ingestion: from a dropped file to an indexed `material` ticket | 13 |
+| **REQ-164** | Corpus export correctness: `doc_kind` filter, unrestricted shipped corpus, exhaustive listing | 3 |
+
+**REQ-162 grew** from what I described as "add three types." There's no ticket store in the product at all — no ticketing import, no ticket tables in `db/migrations/`, no TypePack, and chat doesn't persist to one. So it now covers standing the store up: the schema as a migration against the existing `DB` binding, `MultiTenantTicketStore` with tenancy bound at construction, and the TypePack carrying `material`/`reference`/`brief` plus DOC-10's chat schemas. That last inclusion means it also unblocks chat persistence, which has been designed since June and blocked on exactly this.
+
+**REQ-163** puts the weight on step 3 — the shadow — because that's what makes it a real ticket rather than plumbing: four sub-pipelines with four failure modes, and a weak shadow means material that can't be found. It carries the 25MB ceiling and the asset-promotion invariant, and leaves capture→ticket out as its own slice.
+
+**REQ-164** bundles the three silent-shrinkage bugs, with `depends_on: REQ-827`. The framing that justifies one ticket: each of the three independently produces a smaller corpus than intended with no error, and shipping them apart leaves the export wrong in a different way each time.
+
+Two things worth flagging from writing them:
+
+- **REQ-162 is now the root of the tree.** REQ-159, REQ-160, REQ-161 and REQ-163 all need it. It's the single highest-leverage thing on the board.
+- **REQ-164's margin is thinner than it reads.** 38 doc tickets against a page size of 50 — twelve documents from silent truncation, and this line of work keeps adding documents.
+
+Remaining unticketed: capture→ticket, `site_assets` migration, reference lifetime, projected reference, site source adapter, quarantine write gate, DOC-7 reconstruction.
 
 <!-- xgd-chat-end -->
