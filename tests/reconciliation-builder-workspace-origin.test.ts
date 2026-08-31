@@ -400,6 +400,28 @@ describe('story-e674c60a builder origin', () => {
         init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       },
 
+      // Ingestion ([[REQ-163]]). Probed in their REJECTION shape, for the same
+      // reason the assistant's POSTs are: the success shape would store a blob
+      // and call a model, and this criterion is about a header. A cacheable
+      // refusal is the specific harm here — a client who fixes the file and
+      // retries would be shown the old refusal.
+      {
+        route: '/api/material',
+        url: '/api/material',
+        ok: false,
+        init: {
+          method: 'POST',
+          headers: { 'content-type': 'multipart/form-data; boundary=x' },
+          body: '--x--\r\n',
+        },
+      },
+      {
+        route: '/api/material/fetch',
+        url: '/api/material/fetch',
+        ok: false,
+        init: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      },
+
       // A rendered page in EACH channel, plus the two ways a preview request
       // fails. `published` REDIRECTS since REQ-149 (D4) — a 302 is still a
       // response this origin returns, and the directive must be on it too: a
