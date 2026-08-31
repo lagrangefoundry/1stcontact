@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T00:58:25.813910+00:00'
+updated_at: '2026-08-31T01:00:03.640210+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1230,5 +1230,40 @@ I framed the argument as *the next consumer shouldn't have to discover this the 
 <!-- xgd-chat role="user" ts="2026-08-31T00:58:24.927014+00:00" -->
 #### You
 Note xgd BUG-1303 - there are a lot of tickets missing - could that be the problem?
+
+<!-- xgd-turn id="1b1440b8-2549-499d-8b1f-36c3a7260de3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T01:00:03.032909+00:00" -->
+#### Claude
+BUG-1303 is a different failure — but its *mechanism* is worth checking against 1stcontact:
+
+No — different bug, and I verified it hasn't touched 1stcontact.
+
+**BUG-1303** is data loss in *xgd's own* store: commit `393dab73`, a resync scratch-branch strip that leaked onto `main` and deleted 26,017 ticket files. Confirmed diagnosis, `free_coded`.
+
+**The decisive test for 1stcontact is whether a strip commit is reachable from `main`.** It isn't:
+
+```
+$ git log main --grep="strip .xgd/tickets"
+(nothing)
+```
+
+Ten such commits exist in 1stcontact's history, but all on scratch `resync-*` branches — which is exactly where they're supposed to stay. And the store agrees with the index: 2900 hot / 197 cold on disk against the index's 2897 / 195, the difference being the tickets we created this session.
+
+So three separate things, worth not conflating:
+
+| | What | Status |
+|---|---|---|
+| **BUG-1303** (xgd) | strip commit leaked onto main, 26k files gone | real, confirmed, xgd only |
+| **REQ-825** (xgd) | `--json` truncates silently at 50 | latent — 38 docs, `next_cursor: None`, not firing |
+| **Your 1stcontact observation** | "docs going missing" | not explained by either |
+
+On the third: the likeliest innocent explanation is what I hit earlier. The 1stcontact *working copy* has **4** `doc-*.md` files in `.xgd/tickets/hot`; the canonical worktree has **36**. `.xgd/tickets` sits outside the sparse-checkout cone here, so browsing the repo directly shows a fraction of the store while the ticket API reads the full one. If what you saw was files rather than `xgd ticket list` output, that's the whole answer and nothing is lost.
+
+If it *was* `ticket list` output, that's a different matter and worth chasing separately.
+
+One anomaly I noticed while doing this, possibly relevant: **the `xgd` entry point vanished from `.venv-working/bin` mid-session.** It was there at 16:08 — the CLI's own argv logged `/Users/martin/lagrangefoundry/xgd/.venv-working/bin/xgd` — and is gone now. `.venv-main/bin/xgd` exists but fails with `ModuleNotFoundError: No module named 'xgd_source'`. I've been running from source since. A half-installed CLI is the kind of thing that produces inexplicable results, so it may be worth reinstalling before trusting any further diagnosis.
+
+Two offers: I can add a line to REQ-825 explicitly distinguishing it from BUG-1303 so nobody closes it as a duplicate; and the definitive independent check for silent loss in 1stcontact is BUG-1303's own tell — ID counters far ahead of file counts. Say the word and I'll run it.
 
 <!-- xgd-chat-end -->
