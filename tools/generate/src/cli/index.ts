@@ -64,7 +64,15 @@ import {
 } from './shared-store'
 import { startServe } from './serve'
 import { startBuilder } from './builder'
-import { buildKb, ensureConfig, exportCorpus, kbStatus, KB_USAGE } from './kb'
+import {
+  buildKb,
+  ensureConfig,
+  exportCorpus,
+  kbStatus,
+  DOC_KIND_FIELD,
+  MEMBER_KIND,
+  KB_USAGE,
+} from './kb'
 import { cmdShot, VIEWPORTS, type ViewportName } from './shot'
 import {
   cmdValuesDiff,
@@ -747,7 +755,9 @@ export async function run(argv: string[]): Promise<void> {
         // something is missing without telling them what, which is the version
         // of this message that generates a support question.
         if (skipped.length) {
-          console.log(`not in the KB (no fields.system_kb): ${skipped.join(', ')}`)
+          console.log(
+            `not in the KB (no ${DOC_KIND_FIELD}: ${MEMBER_KIND}): ${skipped.join(', ')}`,
+          )
         }
         return
       }
@@ -768,8 +778,20 @@ export async function run(argv: string[]): Promise<void> {
       }
       if (sub === 'status') {
         const s = kbStatus()
+        // The ticket count sits ON the corpus line rather than under its own
+        // heading, because the only thing it is for is to be read against the
+        // number beside it: a corpus is not "37 documents", it is "37 of the 38
+        // there should be", and a truncated export is a thing an operator sees
+        // rather than a thing they later infer from an assistant's silence.
+        const expected =
+          s.tickets === null
+            ? ' (ticket store unreadable — cannot check)'
+            : s.tickets === s.corpus
+              ? ` (of ${s.tickets} ticket(s) carrying ${DOC_KIND_FIELD}: ${MEMBER_KIND})`
+              : ` ⚠ ${s.tickets} ticket(s) carry ${DOC_KIND_FIELD}: ${MEMBER_KIND} —` +
+                ` the corpus is stale; run \`1c kb export\``
         console.log(
-          `corpus: ${s.corpus} document(s)\n` +
+          `corpus: ${s.corpus} document(s)${expected}\n` +
             `index:  ${s.index ? 'built' : 'missing'}\n` +
             `chunks: ${s.chunks ? 'built' : 'missing'}\n` +
             `map:    ${s.map ? 'built' : 'missing'}`,
