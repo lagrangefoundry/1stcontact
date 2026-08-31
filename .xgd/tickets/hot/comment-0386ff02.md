@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T20:30:43.775837+00:00'
+updated_at: '2026-08-31T20:31:12.989708+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1996,5 +1996,28 @@ That would leave 5–10 as genuine backlog rather than blockers. Want me to file
 <!-- xgd-chat role="user" ts="2026-08-31T20:30:43.328586+00:00" -->
 #### You
 Is the ingestion pipeline just for system docs?
+
+<!-- xgd-turn id="090bcd12-5d6b-4cfc-8e33-6c644981bc92-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T20:31:12.268108+00:00" -->
+#### Claude
+No — the opposite. Ingestion is **only** for client material. System documents never touch it.
+
+Two entirely separate paths that happen to share the knowledge component:
+
+| | **System KB** | **Project KB** |
+|---|---|---|
+| Where it comes from | we author it as a doc ticket | the client uploads it, or we fetch/capture it |
+| How it enters | `doc_kind: system_kb` → `1c kb export` → `kb/system/*.md` → ships in the distribution | the ingestion pipeline, at runtime, per tenant |
+| Blobs | none, ever | always — the blob is the point |
+| Classification | none — we set the kind when we write it | inferred from content type |
+| Rights | ours | inferred from provenance (DOC-38 §10.1) |
+| Indexed | once, at release build | incrementally, on write |
+
+**The clearest way to see the difference is the body.** For client material the ticket body is a *shadow* of something else — extracted PDF text, a written description of a photo. For a system document the body **is** the document; there's nothing underneath it to shadow. So a system doc has no attachment, needs no extraction step, and there is nothing for ingestion to do to it.
+
+DOC-38 §10 opens with *"Upload is not a write; it is a small pipeline"* — it's a section of the client-material document, and every step in it presupposes a blob that arrived from outside.
+
+If that wasn't obvious from the docs, it's worth fixing: DOC-39 §3 describes how system documents come into being but never says *"and they do not go through §10"*. One sentence would close it. Want me to add it?
 
 <!-- xgd-chat-end -->
