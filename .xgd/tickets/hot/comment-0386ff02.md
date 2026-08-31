@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T19:48:13.060522+00:00'
+updated_at: '2026-08-31T19:50:24.294070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1792,5 +1792,11 @@ It's a one-line additive change at `ticket_types.yaml:567`. The body carries:
 That unblocks item **8**, which unblocks **2** (the marker migration), which is the critical path to REQ-158 having a correct corpus.
 
 Still unticketed: ingestion (1), the marker migration (2), the `readDocTickets` pagination fix (3), projected reference (4), site adapter (5), quarantine gate (6), DOC-7 (7).
+
+<!-- xgd-turn id="e2be444b-b145-4fef-9f3a-3c2e8ff4d894-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T19:50:23.981929+00:00" -->
+#### You
+Is 1 referring to uploading content?
 
 <!-- xgd-chat-end -->
