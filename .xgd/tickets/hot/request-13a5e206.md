@@ -5,7 +5,7 @@ type: request
 title: 'The product ticket store: D1 schema, the TypePack, and the material types'
 created_by: xgd
 created_at: '2026-08-31T20:32:40.203324+00:00'
-updated_at: '2026-08-31T21:18:42.322070+00:00'
+updated_at: '2026-08-31T21:40:00.013990+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-aa271bc5
 ---
+
 
 # The product ticket store: D1 schema, the TypePack, and the material types
 
@@ -205,3 +206,110 @@ the cases.
   the builder/webui path.
 - The new migration's line belongs in `tests/support/d1-site-factory.ts`'s
   explicit `MIGRATIONS` list.
+
+---
+
+## What landed (free-coded, 2026-08-31)
+
+Implemented as scoped. The two open questions above resolved as the body already
+proposed: `reference` keeps its own type, and `brief` is a type carrying
+`fields.site_slug` — "one per site" is not "one per tenant", and a well-known
+ticket of another type would need that field anyway plus a lookup convention on
+top of it.
+
+**`db/migrations/0003_ticket_store.sql`** — `SCHEMA_STATEMENTS`, transcribed,
+because wrangler's migration runner reads `.sql` off disk and cannot import a JS
+constant. A transcription is a fork unless something checks it, so
+`UAT_FC_REQ-162 every statement in SCHEMA_STATEMENTS is in the migration`
+asserts each one appears in the file: an upstream schema change now fails this
+repository's suite instead of leaving the deployed database a version behind.
+
+*One statement is not a transcription, and it was not foreseen when this ticket
+was written.* `0001_site_store.sql` already created `tenants` — without the
+`config` column `Accessor.putTenant` INSERTs. The component's own `CREATE` is
+`IF NOT EXISTS`, so it sees that table and leaves it alone, and the first tenant
+registration through the ticket store would have failed with `no such column:
+config` against a migration that appeared to have applied cleanly. `ALTER TABLE
+tenants ADD COLUMN config` reconciles them. Removing that one line fails 13 of
+the 15 workerd UATs, which is how it is known to be load-bearing rather than
+decorative. One registry serves both stores deliberately: a deployment must not
+hold a tenant one store thinks is active and the other has never heard of.
+
+**`apps/control-app/src/tickets.ts`** — `productTypePack()` and
+`ticketStoreFor(env)`.
+
+- Three new types with the [[DOC-38]] §9 field block shared verbatim between
+  `material` and `reference`, since [[REQ-159]]'s corpus predicate and
+  [[REQ-161]]'s Library both query across the two.
+- `republishable` and `exportable` are **required**, not defaulted. A
+  fail-closed `false` default was considered and rejected: the failure it
+  produces is not a refusal anyone sees, it is a corpus silently marked unusable
+  and indistinguishable from one genuinely marked so. §4.2's "explicit" only
+  means something if a create that omits them is refused.
+- No `status` vocabulary on the three new types. §9 specifies six fields and no
+  lifecycle; the component already ships `archive`/`unarchive`, and a status enum
+  invented here would be a lifecycle nothing implements and every later ticket
+  would have to honour.
+- Chat schemas are imported from the AI component rather than restated, because
+  `TicketSessionArchive` is what reads them back and a local copy would drift
+  from the code that depends on it.
+
+**The acceptance line about construction, resolved at the wiring layer.** The
+component does the opposite of what that line asks, deliberately: a store built
+without a `BlobStore` refuses `attach`/`attachments` at first call and is
+otherwise fully conforming — correct for a general component that cannot know
+whether its host has bytes to store. This host does, so `ticketStoreFor` raises
+`BlobsNotConfiguredError` at construction, in the same shape `TENANT_ID`'s
+absence already had. The component's own policy is left as upstream wrote it.
+
+**Tenant bootstrap, register-if-absent.** `forTenant` refuses an unregistered
+tenant and a freshly migrated database has an empty registry — BUG-36's dead
+builder, on this store. The row is made to exist, but only after a read proves
+it absent: `putTenant` is an upsert that overwrites `status`, so registering
+unconditionally would reactivate a deactivated tenant on the next request and
+turn suspension into a suggestion.
+
+**`1stcontact-material`**, declared in both wrangler blocks and added to
+`vitest.workers.config.mts` so the UATs run against real R2.
+
+**`1c assets` emits a ticketing shim**, exactly as REQ-146 does for the AI
+library: a bare specifier resolves from the main checkout and not from a linked
+worktree, so the specifier is resolved at build time and written out as an
+absolute re-export.
+
+### Evidence
+
+15 UATs in workerd against real D1 and both real R2 buckets
+(`test_UAT_FC_REQ-162_ticket_store.workers.test.ts`) — create-and-read-back
+through the Worker's own wiring via two independent handles, cross-tenant
+refusal on rows *and* on bytes, attachments landing in `BLOBS` and provably not
+in `SITES`, the §9 field rules including `required_when` on `source_url`, and a
+chat session persisting as a ticket with its `chat_transcript` comment. 7 static
+UATs (`..._ticket_store_bindings.test.ts`) pin both wrangler halves, the bucket
+separation, and the schema-drift check.
+
+Both security-critical claims were mutation-tested rather than assumed: wiring
+the blob store to `SITES` fails the disclosure UAT, and dropping the `ALTER`
+fails 13 of 15.
+
+### Collateral
+
+`test_UAT_FC_REQ-143_store_bindings` asserted `bucket_name` occurrences
+file-wide were exactly 2 and identical. That was the same claim while `SITES`
+was the only bucket, and became wrong — not merely imprecise — the moment a
+second bucket was added correctly. It now pairs by binding name, which is what
+it always meant.
+
+Prose in three new files had to stop spelling the component scope: AC-960 holds
+it to a single declaration, because a restatement would read as "not installed
+yet" rather than as a defect.
+
+### Not done here
+
+Ingestion, chat-session migration into the store, and the knowledge base over
+these types ([[REQ-159]]) remain out of scope as written above. No HTTP routes
+were added — [[REQ-161]] owns the Library surface, and nothing yet calls one.
+
+**Operator note:** `wrangler r2 bucket create 1stcontact-material` is needed
+before the next production deploy. Miniflare conjures the bucket locally;
+Cloudflare does not.
