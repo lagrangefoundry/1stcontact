@@ -2,13 +2,13 @@
 uid: acceptance_criterion-33a6622a
 id: AC-894
 type: acceptance_criterion
-title: Every deploy renders first, so previously rendered output on disk can never
-  be shipped
+title: Publishing always renders from the current draft definition, so previously
+  rendered output can never be published
 created_by: xgd
 created_at: '2026-08-06T18:39:26.493395+00:00'
-updated_at: '2026-08-16T07:23:13.635005+00:00'
+updated_at: '2026-08-31T11:33:17.683360+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: title
 status: active
 fields:
   story_uid: story-5349d01f
@@ -19,16 +19,17 @@ fields:
 
 ## Criterion
 
-There is no way to ship stale bytes: a deploy always re-renders from the current
-site definition before hashing and uploading, and never treats existing local
-rendered output as an input. If the local rendered output on disk disagrees with
-the current site definition, the *uploaded* bytes reflect the current definition,
-and the uploaded rendered output and uploaded definition agree with each other.
+There is no way to publish stale bytes. A publish renders from the draft
+definition it has just validated and frozen, and never treats previously rendered
+output as an input. If rendered output already exists and disagrees with the
+current draft, the revision's stored output reflects the current definition, and
+the stored output and the frozen definition beside it agree with each other.
 
 ## Verification
 
-Deploy a site, then change the site definition and overwrite the local rendered
-output with deliberately stale content. Deploy again. Assert that the uploaded
-entry page contains the new content and does not contain the stale content, that
-the uploaded definition half carries the same new content, and that the local
-rendered output on disk was itself refreshed by the deploy's own render.
+Publish a site, then change the site definition and overwrite the previously
+rendered output with deliberately stale content. Publish again. Assert the new
+revision's stored entry page carries the new content and does not carry the stale
+content, that the frozen definition stored with it carries the same new content,
+and — on the operator's filesystem store — that the local published output
+directory was itself refreshed by the publish's own render.
