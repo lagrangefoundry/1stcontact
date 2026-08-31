@@ -6,6 +6,19 @@
       "landscape": "authored",
       "source": "shipped",
       "weight": 1
+    },
+    "project": {
+      "description": "This client's own knowledge: the conversations held with them, the material they uploaded, the reference sites captured on their behalf, and the brief recording what was decided. Everything a site is made FROM, as against how the system that builds it works.",
+      "corpus": {
+        "type": [
+          "chat",
+          "material",
+          "reference",
+          "brief"
+        ]
+      },
+      "landscape": "derived",
+      "weight": 1
     }
   }
 }
