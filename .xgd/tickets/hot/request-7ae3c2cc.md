@@ -5,10 +5,10 @@ type: request
 title: 'Behavior modules render in workerd: contact-form precompiled'
 created_by: xgd
 created_at: '2026-08-15T20:34:22.601169+00:00'
-updated_at: '2026-08-24T02:10:41.503955+00:00'
-completed_at: null
+updated_at: '2026-08-31T14:22:36.772226+00:00'
+completed_at: '2026-08-31T14:22:36.772226+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: low
   story_points: 8
