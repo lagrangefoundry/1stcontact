@@ -3,10 +3,17 @@
  *
  * Deliberately derived from the served path rather than from R2's stored
  * `httpMetadata`, so what a client is told does not depend on whichever upload
- * mechanism happened to write the object. The table mirrors the one `1c deploy`
- * publishes with (`tools/generate/src/deploy/r2.ts`); the duplication is across
- * a deployment boundary — the Worker bundle cannot import Node-side deploy code
- * — and the pair is pinned together by a UAT rather than by hope.
+ * mechanism happened to write the object.
+ *
+ * THE PUBLISH SIDE STATES THE SAME TABLE, in `tools/generate/src/store/content-type.ts`
+ * — where REQ-143 put it when the D1/R2 store replaced the `1c deploy` R2 module
+ * this comment used to name. That copy labels objects as they are written; this
+ * one labels them as they are served, and a Worker bundle cannot import the
+ * Node-side package, so the duplication is across a deployment boundary rather
+ * than an oversight.
+ *
+ * The copy that is pinned to this one by a UAT is `bin/smoke`'s, which runs
+ * outside the bundle for the same reason (REQ-144).
  */
 const CONTENT_TYPES: Record<string, string> = {
   html: 'text/html; charset=utf-8',

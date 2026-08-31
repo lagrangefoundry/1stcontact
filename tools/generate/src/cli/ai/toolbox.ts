@@ -16,10 +16,13 @@
  *   - the system KB bridge, itself loaded by file URL.
  *
  * WHY A SPLIT RATHER THAN A FLAG. It is not a preference: a Worker that imports
- * this file imports `../commands`, which imports the Astro module registry, and
- * the bundle fails outright on `No loader is configured for ".astro" files`.
- * Reachability is decided by the import graph, not by which branch runs — so the
- * only way for the Worker not to carry this is for the Worker not to import it.
+ * this file imports `../commands`, which reaches the filesystem store and through
+ * it `node:fs`. (Louder still before REQ-148/150 removed Astro from the render
+ * path: `../commands` pulled the Astro module registry and the bundle failed
+ * outright on `No loader is configured for ".astro" files`. The bundle error went
+ * with it; the reason for the split did not.) Reachability is decided by the
+ * import graph, not by which branch runs — so the only way for the Worker not to
+ * carry this is for the Worker not to import it.
  *
  * It is also the split upstream already made for the same reason and describes
  * in the same terms: `FileArchive` moved out of `archive.js` into

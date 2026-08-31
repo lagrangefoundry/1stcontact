@@ -18,11 +18,18 @@
  *   - the system KB and the priming document KM builds from it.
  *
  * WHY THE SPLIT IS NOT OPTIONAL. A Worker that imports this file imports
- * `../commands`, which imports the Astro module registry, and the bundle fails
- * with `No loader is configured for ".astro" files`. What a runtime can carry is
- * decided by the import graph, not by which branch executes — so the Worker
- * imports `./host-core` and supplies its own adapters, and the two hosts share
- * every line that matters instead of agreeing by inspection.
+ * `../commands`, and `../commands` reaches the filesystem store — `fsSiteStore`,
+ * `ensureDir`, `pathExists` — and through it `node:fs`, which the Worker has no
+ * business carrying whatever `nodejs_compat` will polyfill. (The split was
+ * originally forced by something louder: `../commands` used to pull the Astro
+ * module registry and the bundle failed outright on `No loader is configured for
+ * ".astro" files`. REQ-148/150 removed Astro from the render path, so that
+ * particular bundle error is gone — the reason for the split is not.)
+ *
+ * What a runtime can carry is decided by the import graph, not by which branch
+ * executes — so the Worker imports `./host-core` and supplies its own adapters,
+ * and the two hosts share every line that matters instead of agreeing by
+ * inspection.
  *
  * THE PUBLIC NAMES ARE UNCHANGED: `openSession`, `streamPrompt`, `aiStatus`,
  * `resetAiHost`, `sessionsDir`, `setModelClient` and `UnknownSessionError` all

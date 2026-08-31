@@ -25,8 +25,8 @@ Either alone is one configuration mistake away from open. Together, opening the 
 
 ## Configuration
 
-Both values are set in `wrangler.toml`, at the top level and repeated under `[env.production]`
-(a named environment inherits neither `vars` nor bindings — REQ-144).
+Both values are declared in `wrangler.toml` twice, because a named environment inherits neither
+`vars` nor bindings (REQ-144) — but only one of the two declarations carries the identifiers.
 
 | Var | What it is | Where to find it |
 |---|---|---|
@@ -41,9 +41,14 @@ nobody can audit.
 the missing var. It never serves unverified — an unconfigured gate that let traffic through is the
 hole this ticket exists to close.
 
-> ⚠️ **Both vars ship empty.** Fill them in from the Cloudflare dashboard when the Access
-> application is created. Until then `app.1stcontact.io` is closed, which is the correct state for
-> a private builder that is not yet in use.
+> ⚠️ **The values go under `[env.production.vars]`, and the top-level `[vars]` pair stays empty.**
+> That is not an oversight to tidy up later. `wrangler dev` reads the top-level block, and
+> `ACCESS_DEV_OPEN` — the var that lets an operator reach their own builder on `127.0.0.1`, which
+> no Access policy fronts and which therefore presents no token — is **inert unless both
+> identifiers are empty**. Fill them in at the top level and `1c builder` comes up and answers
+> `401` to every request; the deployed gate is unaffected either way, because production inherits
+> nothing from that block. A UAT pins both halves
+> (`tests/test_UAT_FC_REQ-145_build_artifacts.test.ts`).
 
 ## The Access application
 
@@ -84,9 +89,12 @@ into this repository.
   unguessable, content-addressed URL (DOC-12 §5.1). Access sits in front of `control-app` only,
   and this ticket does not revisit that decision.
 - **`wrangler dev` is unaffected at the edge** — Access is in front of the *deployed* Worker. The
-  in-Worker check still applies, so a locally-run `control-app` with empty vars answers 503. The
-  local builder surface is the Node origin itself (`1c builder`, `http://localhost:8790`), which
-  is unproxied and unaffected.
+  in-Worker check still applies, and there is no longer a separate local surface for it to miss:
+  REQ-145 deleted the Node origin, so `1c builder` **is** this Worker under `wrangler dev`
+  (`http://localhost:8788`). What lets an operator reach it is `ACCESS_DEV_OPEN = "1"` together
+  with the empty top-level identifiers described under [Configuration](#configuration); with the
+  identifiers filled in locally the gate correctly refuses a loopback request that carries no
+  Access token, which is why they are not filled in there.
 - **The preview iframe is same-origin**, so it inherits the Access cookie. The SSE streaming turn
   (`/api/ai/prompt`) surviving Access is *confirmed*, not presumed, by REQ-146 — it needs a
   running assistant to confirm against.

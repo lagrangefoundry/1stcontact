@@ -41,34 +41,48 @@ run_worker_first = true
 # well-known fallback name would let a misconfigured Worker read and WRITE into
 # whichever tenant happened to carry it.
 #
+# THIS BLOCK IS THE `wrangler dev` CONFIGURATION, AND ONLY THAT. `wrangler dev`
+# reads [vars]; `wrangler deploy --env production` reads [env.production.vars]
+# and inherits nothing from here. The real Access identifiers therefore live
+# under [env.production.vars] and NOT here — see below for why that separation is
+# load-bearing rather than tidiness.
+#
 # ACCESS_DEV_OPEN is LOCAL ONLY and is declared at the top level DELIBERATELY.
-# `wrangler dev` reads [vars]; `wrangler deploy --env production` reads
-# [env.production.vars] and inherits nothing, so this key cannot reach the
-# deployed Worker unless someone restates it there — and a UAT fails the build if
-# anyone does. It has no effect at all once ACCESS_TEAM_DOMAIN / ACCESS_AUD are
-# set, so it cannot open a configured deployment either. See src/index.ts.
+# It cannot reach the deployed Worker unless someone restates it under
+# [env.production.vars] — and a UAT fails the build if anyone does. It has no
+# effect at all once ACCESS_TEAM_DOMAIN / ACCESS_AUD are non-empty, so it cannot
+# open a configured deployment either. See src/index.ts.
+#
+# ACCESS_TEAM_DOMAIN / ACCESS_AUD identify the Access application this Worker
+# will accept tokens for (REQ-147). Neither is a secret — the team domain is
+# public and the AUD tag is an identifier, not a credential — so both live in
+# this file rather than in `wrangler secret`, where a value nobody can read would
+# make the gate unauditable.
+#
+# BOTH ARE DECLARED EMPTY HERE, AND THE EMPTINESS IS THE POINT — not a value
+# nobody got round to filling in. `wrangler dev` serves on 127.0.0.1, which no
+# Access policy fronts and which therefore presents no token; the gate fails
+# closed, so a locally-run builder with the production identifiers in scope
+# answers 401 to every request an operator makes to their own machine. Empty here
+# is what makes ACCESS_DEV_OPEN reachable, and reachable is what makes
+# `1c builder` work. Filling these two in — rather than the [env.production.vars]
+# pair below — silently re-closes the local loop; a UAT now pins them empty.
+#
+# EMPTY MEANS DENY, and that still holds where it matters: for anything that is
+# not the loopback dev server, an unconfigured gate answers 503 rather than
+# serving unverified. The deployed identifiers are recorded in
+# apps/control-app/ACCESS.md alongside the granted identities.
 #
 # Every var below is REPEATED under [env.production] because a named environment
 # does not inherit vars — the same rule public-site's wrangler.toml records for
 # bindings. Omitting a repeat is not a silent degradation: the deployed Worker
 # sees the key as absent (REQ-144). A UAT pins the two sides together so the
 # omission cannot recur unnoticed.
-# ACCESS_TEAM_DOMAIN / ACCESS_AUD identify the Access application this Worker
-# will accept tokens for (REQ-147). Neither is a secret — the team domain is
-# public and the AUD tag is an identifier, not a credential — so both live here
-# rather than in `wrangler secret`, where a value nobody can read would make the
-# gate unauditable.
-#
-# EMPTY MEANS DENY. Until they are filled in, the Worker answers 503 to every
-# request rather than serving unverified: an unconfigured gate that let traffic
-# through would be the exact hole this ticket closes. Fill them in per
-# apps/control-app/ACCESS.md, which is also where the granted identities are
-# recorded.
 [vars]
 TENANT_ID = "1stcontact"
 ACCESS_DEV_OPEN = "1"
-ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
-ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
+ACCESS_TEAM_DOMAIN = ""
+ACCESS_AUD = ""
 
 # The site store (REQ-143 / DOC-12 §7 phase 2): definitions in D1, asset bytes in
 # R2. Declared at the top level for `wrangler dev` and REPEATED under
@@ -106,6 +120,10 @@ routes = [
   { pattern = "app.1stcontact.io/*", zone_name = "1stcontact.io" }
 ]
 
+# THE DEPLOYED GATE'S CONFIGURATION. This block — not the top-level one — is
+# where the real Access identifiers belong, because this is the only one
+# `wrangler deploy --env production` reads.
+#
 # No ACCESS_DEV_OPEN here, and that absence is the security control (REQ-145).
 # A named environment inherits no vars, so the top-level declaration cannot reach
 # production; restating it here would open the deployed builder to anyone the

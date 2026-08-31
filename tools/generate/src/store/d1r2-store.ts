@@ -402,14 +402,31 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       // claim testable: every refusal really does execute its writes and really
       // is rolled back, rather than being turned away before the batch is sent.
 
+      // An asset whose name would leave the namespace is DROPPED, and the rest
+      // of the change still lands: a whole change is one call, and discarding a
+      // caller's other edits over one malformed name would lose work they had
+      // every right to expect. Partitioned once, here, so the two loops below
+      // cannot disagree about which names were kept — and REPORTED, because
+      // "stored nothing, said nothing" leaves a caller reading an asset list
+      // that is short by one with no way to learn why.
+      const assets = change.assets ?? []
+      const refused = assets.filter((a) => isUnsafeName(a.name))
+      const accepted = assets.filter((a) => !isUnsafeName(a.name))
+      if (refused.length > 0) {
+        console.warn(
+          `[site-store] ${slug}: refused ${refused.length} asset name(s) that would leave the ` +
+            `site's namespace — ${refused.map((a) => JSON.stringify(a.name)).join(', ')}. ` +
+            'The rest of the change was applied.',
+        )
+      }
+
       // R2 is written OUTSIDE the transaction, because it has none to join.
       // Bytes first, metadata second: an object with no row is invisible and
       // costs storage, whereas a row with no object is an asset that lists and
       // then 404s. Neither ordering is atomic across the two stores — that is a
       // property of R2, not a shortcut taken here — so the failure mode is
       // chosen rather than left to chance.
-      for (const { name, bytes } of change.assets ?? []) {
-        if (isUnsafeName(name)) continue
+      for (const { name, bytes } of accepted) {
         await SITES.put(assetKey(slug, name), bytes as unknown as ArrayBuffer, {
           httpMetadata: { contentType: contentTypeOf(name) },
         })
@@ -442,8 +459,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
           ).bind(tenantId, slug, name),
         )
       }
-      for (const { name, bytes } of change.assets ?? []) {
-        if (isUnsafeName(name)) continue
+      for (const { name, bytes } of accepted) {
         statements.push(
           DB.prepare(
             'INSERT INTO site_assets (tenant_id, slug, name, r2_key, content_type, size) ' +

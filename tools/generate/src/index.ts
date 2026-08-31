@@ -6,7 +6,7 @@ export * from './store'
 export { renderSite } from './render'
 export type { ModuleResolver, RenderSiteOptions } from './render'
 export * from './cli'
-// R2 artifact store + `1c deploy` (REQ-110).
+// Module conformance harness (DOC-20) — the per-module contract self-tests.
 export * from './conformance'
 // L1 round-trip gate (REQ-82) — render/serve/capture an L1 doc + diff vs L1.
 export * from './l1'

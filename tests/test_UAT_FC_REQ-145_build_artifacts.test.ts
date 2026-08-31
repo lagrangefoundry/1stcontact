@@ -30,6 +30,28 @@ const WRANGLER = path.join(REPO, 'apps/control-app/wrangler.toml')
 const config = readWranglerConfig(WRANGLER)
 const toml = readFileSync(WRANGLER, 'utf8')
 
+/**
+ * The VALUES assigned in the top-level `[vars]` block — which the shared reader
+ * deliberately does not report, because inheritance is a question about which
+ * keys are declared.
+ *
+ * It is not the whole question here. `ACCESS_DEV_OPEN` is inert unless the two
+ * Access identifiers are EMPTY, so for that one claim the value is the fact
+ * under test and a key list cannot express it. "Top level" means before the
+ * first table header, which is also what it means to wrangler.
+ */
+function topLevelVars(source: string): Map<string, string> {
+  const rest = source.slice(source.search(/^\[vars\]$/m))
+  const next = rest.indexOf('\n[', 1)
+  const block = next === -1 ? rest : rest.slice(0, next)
+  const values = new Map<string, string>()
+  for (const line of block.split('\n').slice(1)) {
+    const assignment = /^([A-Za-z0-9_]+)\s*=\s*"(.*)"\s*$/.exec(line.replace(/(^|\s)#.*$/, '').trim())
+    if (assignment) values.set(assignment[1], assignment[2])
+  }
+  return values
+}
+
 describe('REQ-145 — build artifacts and the config that must match them', () => {
   it('test_UAT_FC_REQ-145_precompiled_module_chrome_matches_its_sources', async () => {
     // The drift guard. `1c assets` writes `module-assets.ts` from the modules'
@@ -82,6 +104,45 @@ describe('REQ-145 — build artifacts and the config that must match them', () =
     // the top-level declaration cannot reach production. Restating it here would.
     expect(config.topLevel.vars).toContain('ACCESS_DEV_OPEN')
     expect(config.envs.production.vars).not.toContain('ACCESS_DEV_OPEN')
+  })
+
+  it('test_UAT_FC_REQ-145_the_dev_access_bypass_is_reachable_from_wrangler_dev', async () => {
+    // THE OTHER HALF, and it is the half that actually broke. `ACCESS_DEV_OPEN`
+    // is INERT unless ACCESS_TEAM_DOMAIN and ACCESS_AUD are both empty — that
+    // condition is the whole reason it cannot open a configured deployment
+    // (`isUnconfiguredLocalDev` in src/index.ts). `wrangler dev` reads the
+    // top-level [vars] block, so putting the real identifiers THERE — as
+    // distinct from [env.production.vars], where they belong — makes the guard
+    // permanently false and gates the local builder shut: `1c builder` comes up
+    // and answers 401 to every request on 127.0.0.1, which holds no
+    // CF_Authorization cookie and receives no cf-access-jwt-assertion header.
+    //
+    // The test above asserts the key is DECLARED; nothing asserted that it could
+    // ever take effect, so filling the values in at the top level passed the
+    // suite and broke the documented local loop. This is that assertion.
+    const values = topLevelVars(toml)
+    for (const key of ['ACCESS_TEAM_DOMAIN', 'ACCESS_AUD']) {
+      // Declared — the inheritance pin in REQ-144/REQ-147 wants the key present
+      // on both sides of the line — but declared EMPTY.
+      expect(config.topLevel.vars, `${key} is not declared at the top level`).toContain(key)
+      expect(
+        values.get(key),
+        `${key} carries a value in the top-level [vars] block, which \`wrangler dev\` reads. ` +
+          'That makes ACCESS_DEV_OPEN inert and the local builder answers 401 to everything. ' +
+          'The deployed identifiers belong under [env.production.vars] only.',
+      ).toBe('')
+    }
+
+    // Non-vacuous in the direction that matters: production must still carry the
+    // real identifiers, or this would pass by the gate being unconfigured
+    // everywhere — which is the hole REQ-147 closed.
+    for (const key of ['ACCESS_TEAM_DOMAIN', 'ACCESS_AUD']) {
+      expect(config.envs.production.vars, `${key} is not declared for production`).toContain(key)
+    }
+    expect(
+      toml.match(/^ACCESS_AUD = "[0-9a-f]{64}"$/gm),
+      'no real AUD tag is configured for the deployed gate',
+    ).toHaveLength(1)
   })
 
   it('test_UAT_FC_REQ-145_every_var_and_binding_is_repeated_under_production', async () => {

@@ -45,6 +45,24 @@ const SKEW_SECONDS = 60
 /** How long a fetched JWKS is reused before it is fetched again. */
 const JWKS_TTL_MS = 60 * 60 * 1000
 
+/**
+ * Minimum gap between two cache-bypassing refreshes of the same JWKS.
+ *
+ * THE REFRESH IS DRIVEN BY UNVERIFIED INPUT. An unrecognised `kid` is the shape
+ * of a key rotation, so it forces a re-read — but `kid` is read out of the token
+ * BEFORE any signature is checked, because checking the signature is what the
+ * key is needed for. Without a floor, a caller who reaches the Worker at all can
+ * present a fresh random `kid` per request and turn each one into an outbound
+ * fetch to the team's certificate endpoint.
+ *
+ * A minute is chosen to be shorter than any rotation an operator would notice
+ * and longer than a request loop: rotation is picked up within it (AC-1380 asks
+ * for "without a restart", not "on the next request"), while a flood collapses
+ * to one fetch per isolate per minute. The refusal itself is unaffected — an
+ * unmatched `kid` is refused either way.
+ */
+const JWKS_REFRESH_FLOOR_MS = 60 * 1000
+
 export interface AccessClaims {
   /** The Access application this token was minted for. */
   aud: string[]
@@ -85,6 +103,14 @@ export interface AccessJwk extends JsonWebKey {
 interface CachedJwks {
   keys: AccessJwk[]
   fetchedAt: number
+  /**
+   * When a cache-bypassing refresh was last spent. Zero means never.
+   *
+   * Separate from `fetchedAt` because the two are rate-limited by different
+   * things: an ordinary read is bounded by the TTL, whereas a refresh is
+   * triggered by an ATTACKER-CHOSEN value — see {@link JWKS_REFRESH_FLOOR_MS}.
+   */
+  refreshedAt: number
 }
 
 /**
@@ -127,10 +153,17 @@ function decodeJson(segment: string): Record<string, unknown> | undefined {
  * `force` bypasses the cache, which is how key ROTATION is survived: a token
  * signed by a key minted after the cache was filled would otherwise be rejected
  * for an hour, and "valid token, refused" is an outage.
+ *
+ * A forced refresh is RATE-LIMITED, not unconditional, because the thing that
+ * asks for it is an unverified `kid` — see {@link JWKS_REFRESH_FLOOR_MS}. Inside
+ * the floor the cached keys are returned instead, which refuses the token on the
+ * `kid` it named rather than on a fetch nobody asked for.
  */
 async function fetchJwks(url: string, doFetch: typeof fetch, force: boolean): Promise<AccessJwk[]> {
   const cached = jwksCache.get(url)
-  if (!force && cached && Date.now() - cached.fetchedAt < JWKS_TTL_MS) return cached.keys
+  const now = Date.now()
+  if (!force && cached && now - cached.fetchedAt < JWKS_TTL_MS) return cached.keys
+  if (force && cached && now - cached.refreshedAt < JWKS_REFRESH_FLOOR_MS) return cached.keys
 
   const res = await doFetch(url)
   if (!res.ok) throw new Error(`${url} returned ${res.status}`)
@@ -138,7 +171,15 @@ async function fetchJwks(url: string, doFetch: typeof fetch, force: boolean): Pr
   const keys = Array.isArray(body.keys) ? body.keys : []
   if (keys.length === 0) throw new Error(`${url} published no keys`)
 
-  jwksCache.set(url, { keys, fetchedAt: Date.now() })
+  const fetchedAt = Date.now()
+  // A refresh spends the floor; an ordinary TTL-expiry read does not, or a
+  // steadily-used gate would refill `refreshedAt` for free and the floor would
+  // never apply to the case it exists for.
+  jwksCache.set(url, {
+    keys,
+    fetchedAt,
+    refreshedAt: force ? fetchedAt : (cached?.refreshedAt ?? 0),
+  })
   return keys
 }
 
@@ -213,7 +254,10 @@ export async function verifyAccessJwt(options: VerifyOptions): Promise<VerifyRes
   try {
     keys = await fetchJwks(url, doFetch, false)
     // A `kid` the cache has never seen is the shape of a rotation, so the cache
-    // is refreshed once before the token is called unsigned.
+    // is refreshed once before the token is called unsigned. `kid` is unverified
+    // input at this point — it has to be, since the key it names is what the
+    // signature would be checked with — so the refresh is rate-limited rather
+    // than granted per request. See JWKS_REFRESH_FLOOR_MS.
     if (!keys.some((k) => k.kid === kid)) keys = await fetchJwks(url, doFetch, true)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
