@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:56:03.419415+00:00'
+updated_at: '2026-08-31T22:57:24.733019+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2613,5 +2613,30 @@ Want me to strip "shadow" from DOC-38 §6, DOC-39, and REQ-163 — replacing it 
 <!-- xgd-chat role="user" ts="2026-08-31T22:56:03.396875+00:00" -->
 #### You
 Can we call it attachment description?
+
+<!-- xgd-turn id="5773523e-64ca-400a-b95d-d14e2d4aef74-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-08-31T22:57:24.512824+00:00" -->
+#### Claude
+Yes — better than mine on every count: plain, self-explanatory, and it names the relationship instead of a metaphor.
+
+One place it strains, worth deciding now rather than tripping over later: a `reference` ticket has **many** attachments (one per capture-bundle member) and **one** body. There the body describes the capture as a whole, not any single attachment. I'd phrase it as describing *the attached capture* and not worry further — but it means the term is exact for `material` and slightly loose for `reference`.
+
+Let me find every occurrence before changing anything:
+
+The blanket replace left a couple of awkward artifacts — fixing those before I push:
+
+Renamed everywhere — DOC-38, DOC-39, REQ-161, REQ-163, REQ-166. Zero occurrences of "shadow" remain.
+
+**DOC-38 §6** is now *"Everything is a ticket; the body is the attachment description"*, and I used the rewrite to add the two things that came out of your questions:
+
+- **It is not metadata**, with the reason: `AttachmentRecord` already carries `sha256`, `size`, `content_type`, `filename` and sits beside the body on the same ticket. The description is generated content *about* the file. Two different things that sharing a word would confuse.
+- **It is written for retrieval, not elegance** — lead with the words someone would search by. A description that reads beautifully and never uses the word "kitchen" has failed at the only job it has. That's the note that stops whoever writes the `describeImage` prompt from asking for a nice paragraph.
+
+Pipeline step 3 is now **Describe** rather than **Shadow**, and the fields are `description_status` (`ok` | `degraded` | `failed`) and `description_model`.
+
+On the `reference` wrinkle — many attachments, one body — I left the term and it reads fine in context: REQ-166 says the body describes the captured site, which is what the attachment set collectively is. Worth revisiting only if it trips someone up.
+
+One consequence for **REQ-111** in lagrange-framework: I wrote it before this rename, so it refers to "describing uploaded images so they can be retrieved" — which happens to still be accurate and doesn't use the old term. No change needed there.
 
 <!-- xgd-chat-end -->
