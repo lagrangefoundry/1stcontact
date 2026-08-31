@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-23
 created_by: xgd
 created_at: '2026-08-15T01:15:33.799432+00:00'
-updated_at: '2026-08-31T23:34:31.924863+00:00'
+updated_at: '2026-08-31T23:53:18.074383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -377,5 +377,31 @@ A and B are the ones that must land before a stranger touches the builder. C is 
 **8. File CHAT-13's α/β/γ now, or when you need them?** β (email delivery) is no longer on the critical path given Access does the OTP. But you'll want it for anything transactional — invites, notifications, and eventually your own magic link. I'd file it as a known-next rather than build it.
 
 Give me calls on 1–7 and I'll write the tickets.
+
+<!-- xgd-turn id="631290d4-97ab-45e6-872c-b417710126aa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T23:53:17.996740+00:00" -->
+#### You
+I am fine doing throwaway code but I would prefer to avoid data migrations. So I would like to get the data model correct (or a subset of correct) for the ultimate product.
+
+I'm ok with Cloudflare OTP infrastructure, lets start there. Free tier.
+
+Ultimately:
+(1) Anyone with an email can create an account
+(2) There will be a trial version of the tool that you can access with just an account
+(3) Paid subscribers in good standing (or in warning period) will get access to the paid tool
+(4) Admin can give free (or later discounted) access to specific email addresses - this should be date-bounded.
+
+Can we build and use 4 with 1-3 in mind for later? (Note I do not want 1 today)
+
+**2. Does each user get their own tenant?** yes
+**3. Where do *****you***** live? **Time-boxed `support` membership rows (auditable, expiring), or a `platform_admin` flag on your user row (one day less work, ambient)? I was expecting the admin flag - explain what a memberrship row is?
+**4. Who can reach **`/admin`**? env var for now**
+**5. Does the pilot need site *****creation*****? yes - I think this ia all admin UI - when I create the entitilement list I should create their sites too.**
+
+**6. T&C text.** Does it exist? If not it's a blocker on C and it's not something I can generate for you. Version string can be a date (`2026-09-01`). - its not a blocker for now just ipsum lorum it at I will get text
+7 same table
+
+One other thought on tenancy. Admin-invoked chat sessions need the same access as the admin.
 
 <!-- xgd-chat-end -->
