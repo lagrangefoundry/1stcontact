@@ -132,7 +132,7 @@ async function buildFixtureKb(root: string): Promise<void> {
     JSON.stringify({
       knowledge_bases: {
         [SYSTEM_KB]: {
-          prompt: 'Test system knowledge.',
+          description: 'Test system knowledge.',
           corpus: { type: ['doc'], 'fields.system_kb': true },
           landscape: 'authored',
           source: 'shipped',

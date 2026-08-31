@@ -343,7 +343,7 @@ export function exportCorpus(root: string = kbRoot()): ExportResult {
  * (DOC-7 §4). So the declaration is authored data that lives in the repository
  * and is edited by hand; this only writes the starting point, so that a fresh
  * checkout can build without first hand-writing a file. A build that overwrote it
- * would silently discard a tuned prompt or an adjusted weight on the next run.
+ * would silently discard a tuned description or an adjusted weight on the next run.
  *
  * `landscape: authored` is the RUNTIME contract and is not a claim that a human
  * wrote the map. It says the map is a fixed artefact that ships — read, never
@@ -368,7 +368,7 @@ export function ensureConfig(root: string = kbRoot()): string {
   const config = {
     knowledge_bases: {
       [SYSTEM_KB]: {
-        prompt:
+        description:
           '1stcontact system knowledge: how the product is designed and why — its ' +
           'architecture, storage model, the L1 layout substrate, the behavior-module ' +
           'contract, the builder application, and the development method behind them.',
@@ -423,10 +423,10 @@ export interface KbBinding {
  * KB is — a build that indexed one corpus while the session searched another
  * would produce hits that resolve to nothing, with no error anywhere.
  *
- * THE DECLARATION IS PARSED, NOT PARAPHRASED. Every field — the prompt, the
+ * THE DECLARATION IS PARSED, NOT PARAPHRASED. Every field — the description, the
  * corpus predicate, the landscape mode, the weight — comes from
  * `knowledge_bases.json` through the library's own `parseKbConfig`. An earlier
- * version read the prompt from the file and hand-constructed the rest, which
+ * version read the description from the file and hand-constructed the rest, which
  * meant editing the declared corpus predicate changed nothing: the file said one
  * thing and the code built another, with no error to notice. A declaration that
  * is not the thing actually used is worse than no declaration.

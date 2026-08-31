@@ -641,7 +641,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
         JSON.stringify({
           knowledge_bases: {
             system: {
-              prompt: 'Declared prompt, not a hard-coded one.',
+              description: 'Declared description, not a hard-coded one.',
               corpus: { type: ['doc'], 'fields.system_kb': true },
               landscape: 'authored',
               source: 'shipped',
@@ -672,7 +672,12 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
         configPath(root),
         JSON.stringify({
           knowledge_bases: {
-            tenant: { prompt: 'Somebody else.', corpus: { type: ['doc'] }, landscape: 'authored', source: 'shipped' },
+            tenant: {
+              description: 'Somebody else.',
+              corpus: { type: ['doc'] },
+              landscape: 'authored',
+              source: 'shipped',
+            },
           },
         }),
         'utf8',
