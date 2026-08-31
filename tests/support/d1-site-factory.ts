@@ -42,6 +42,10 @@ export function storeEnv(): SiteStoreEnv {
 const MIGRATIONS = [
   () => import('../../db/migrations/0001_site_store.sql?raw'),
   () => import('../../db/migrations/0002_revisions.sql?raw'),
+  // REQ-162 — the ticket store. It comes after 0001 and the order is load-bearing
+  // for the same reason 0002's is: 0001 creates `tenants` without the `config`
+  // column the ticket store's accessor writes, and 0003 is what adds it.
+  () => import('../../db/migrations/0003_ticket_store.sql?raw'),
 ]
 
 export async function applySchema(): Promise<void> {

@@ -62,16 +62,35 @@ describe('REQ-143 — the store bindings', () => {
     expect(production).toMatch(/bucket_name\s*=\s*"1stcontact-sites"/)
   })
 
-  it('UAT_FC_REQ-143 the two halves name the same database and bucket', () => {
+  it('UAT_FC_REQ-143 the two halves name the same database and buckets', () => {
     // Not a duplicate of the two above: those check each half in isolation and
     // would both pass if production pointed at a different database.
     const ids = [...toml.matchAll(/database_id\s*=\s*"([0-9a-f-]{36})"/g)].map((m) => m[1])
     expect(ids).toHaveLength(2)
     expect(new Set(ids).size).toBe(1)
 
-    const buckets = [...toml.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)].map((m) => m[1])
-    expect(buckets).toHaveLength(2)
-    expect(new Set(buckets).size).toBe(1)
+    // PAIRED BY BINDING NAME, not counted (REQ-162). This read `toHaveLength(2)`
+    // over every `bucket_name` in the file, which was the same assertion while
+    // SITES was the only bucket — and became wrong, not merely imprecise, the
+    // moment REQ-162 added BLOBS: two DIFFERENT buckets correctly declared twice
+    // each fails both a length-2 and a one-distinct-value check. The claim being
+    // made has not changed — each binding names the same bucket on both sides —
+    // so it is now expressed per binding, which is what it always meant and
+    // which keeps holding as bindings are added.
+    const perBinding = new Map<string, Set<string>>()
+    for (const half of [top, production]) {
+      for (const block of half.split(/\[\[[^\]]*r2_buckets\]\]/).slice(1)) {
+        const binding = /binding\s*=\s*"([^"]+)"/.exec(block)?.[1]
+        const bucket = /bucket_name\s*=\s*"([^"]+)"/.exec(block)?.[1]
+        if (!binding || !bucket) continue
+        if (!perBinding.has(binding)) perBinding.set(binding, new Set())
+        perBinding.get(binding)!.add(bucket)
+      }
+    }
+    expect([...perBinding.keys()].sort()).toEqual(['BLOBS', 'SITES'])
+    for (const [binding, names] of perBinding) {
+      expect(names.size, `${binding} names one bucket across both halves`).toBe(1)
+    }
   })
 
   it('UAT_FC_REQ-143 migrations_dir points at a directory that holds the schema', () => {
