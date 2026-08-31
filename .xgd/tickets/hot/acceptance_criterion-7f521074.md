@@ -6,10 +6,10 @@ title: A real site copied into the cloud store assembles and renders identically
   the store it came from
 created_by: xgd
 created_at: '2026-08-31T09:48:00.109291+00:00'
-updated_at: '2026-08-31T09:48:00.109291+00:00'
+updated_at: '2026-08-31T10:04:13.099286+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
