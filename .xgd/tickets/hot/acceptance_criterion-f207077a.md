@@ -6,10 +6,10 @@ title: Publishing mints a revision, renders it and stores it with no filesystem 
   the path, driven identically from the builder and the command line
 created_by: xgd
 created_at: '2026-08-31T11:33:58.380274+00:00'
-updated_at: '2026-08-31T11:33:58.380274+00:00'
+updated_at: '2026-08-31T11:46:20.931978+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5349d01f
   kind: behavior
