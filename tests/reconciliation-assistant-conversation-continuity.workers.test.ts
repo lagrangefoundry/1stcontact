@@ -17,7 +17,10 @@ import { nextSlug, siteSeed } from './support/site-seed'
  * `reconciliation-assistant-conversation-deployed.workers.test.ts`; the local
  * host's contract lives in `reconciliation-assistant-conversation.test.ts`.
  * THIS criterion is the one that can only be established where two requests are
- * not promised the same process, so it runs in workerd.
+ * not promised the same process, so it runs in workerd. AC-1055's companion half
+ * rides along for the same reason: the criterion states its refusal on two origin
+ * shapes, and the streaming one — "the origin's own message ahead of the
+ * completion" — exists only here.
  *
  * WHY IT RUNS HERE AND NOT IN NODE. `1c builder` holds one process for the
  * operator's whole session, so a binding kept in memory there looks durable
@@ -241,5 +244,83 @@ describe('a conversation is not a property of the process that opened it', () =>
     expect(again.turns[1].markdown).toContain('The first thing I said.')
     expect(again.turns[2].markdown).toContain('Are you still there?')
     expect(again.turns[3].markdown).toContain('The second thing I said.')
+  })
+})
+
+// ── the refusal, on the origin that always streams ───────────────────────────
+
+/**
+ * AC-1055's companion half, and the one that can only be established here.
+ *
+ * The criterion states the refusal on TWO origin shapes: "as a plain structured
+ * not-found answer, with no event stream, on the origin that answers turns with
+ * a status code, and as the origin's own message ahead of the completion on the
+ * origin that always streams." The first is asserted against the local host in
+ * `reconciliation-assistant-conversation.test.ts`. This is the second: workerd
+ * has already sent the status line with the first byte, so there is no status
+ * code left to change and a dropped socket would render as a turn that simply
+ * stopped — the caller has to be told in the channel it is already reading.
+ */
+describe('an unresolvable identifier is refused in the channel the caller is reading', () => {
+  it('test_UAT_AC1055_the_streaming_origin_refuses_in_channel_ahead_of_the_completion', async () => {
+    // A real site exists in this account, so a refusal below is a statement
+    // about the identifier rather than about an empty store.
+    const held = nextSlug('streaming-refusal')
+    await seedSite(held)
+
+    // Transcript storage as it stands BEFORE any refusal. Compared as a delta
+    // rather than asserted empty: the bucket is shared with the criterion above,
+    // whose conversation legitimately left a transcript, and "no transcript
+    // storage appears" is a claim about what a refusal adds.
+    const transcripts = async (): Promise<string[]> =>
+      (await env.SITES.list({ prefix: `chat/${TENANT}/` })).objects.map((o) => o.key).sort()
+    const before = await transcripts()
+
+    const unresolvable = [
+      ['a fabricated identifier', 'not-a-session-id'],
+      ['one naming a site that does not exist', sessionIdFor(nextSlug('never-seeded'))],
+      ['one carrying no derivable site name', 'site-'],
+      ['one carrying path-traversal characters', 'site-../../chat/other'],
+    ] as const
+
+    for (const [what, sessionId] of unresolvable) {
+      newProcess()
+      // The model is armed rather than absent: "nothing of the assistant's was
+      // streamed" is only worth asserting if there was something to stream.
+      const model = scriptedClient('An answer that must never be given.')
+      setModelClient(model)
+
+      const res = await post('/api/ai/prompt', { sessionId, text: 'Are you there?' })
+
+      // The origin that always streams does not switch shape to refuse: it is
+      // still 200, still an event stream.
+      expect(res.status, what).toBe(200)
+      expect(res.headers.get('content-type'), what).toContain('text/event-stream')
+
+      const events = await frames(res)
+      // The origin's own message …
+      expect(spoken(events), what).toContain('no longer open')
+      // … and nothing of the assistant's: no fabricated apology, and the model
+      // was never reached, so the refusal arrived AHEAD of anything streamed.
+      expect(spoken(events), what).not.toContain('An answer that must never be given.')
+      expect(model.seen, `${what}: the turn reached the model`).toHaveLength(0)
+      // … followed by the completion that releases the caller. A panel left
+      // waiting on a stream that never completes is indistinguishable from one
+      // still thinking.
+      expect(events.filter((e) => e.kind === 'done'), what).toHaveLength(1)
+      expect(events[events.length - 1].kind, `${what}: the completion was not last`).toBe('done')
+
+      // No conversation was created: transcript storage is keyed by session id
+      // outside every site prefix, and none of these produced an object.
+      expect(await transcripts(), `${what}: a refusal left transcript storage behind`).toEqual(before)
+    }
+
+    // And the site this account does hold is untouched by any of it — it still
+    // opens, and opens empty.
+    newProcess()
+    setModelClient(null)
+    const opened = await open(held)
+    expect(opened.sessionId).toBe(sessionIdFor(held))
+    expect(opened.turns).toEqual([])
   })
 })

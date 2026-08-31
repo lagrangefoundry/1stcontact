@@ -112,6 +112,24 @@ export function readWranglerConfig(file: string): WranglerConfig {
   return parseWranglerConfig(readFileSync(file, 'utf8'))
 }
 
+/**
+ * The single variable exempt from the repeat rule, named here rather than left
+ * as a gap in the report.
+ *
+ * `ACCESS_DEV_OPEN` exists to relax the Access gate for a `wrangler dev` server
+ * on loopback, which no Access policy fronts. Its ABSENCE from a named
+ * environment is precisely what keeps the relaxation out of a deployed Worker
+ * (apps/control-app/wrangler.toml records the same reasoning beside the
+ * declaration itself), so demanding its repetition would invert the rule this
+ * function exists to enforce.
+ *
+ * ONE VARIABLE WIDE, deliberately. A second top-level variable added later is
+ * still required to be repeated and is still reported by name; the exception is
+ * a named constant rather than a predicate over the name so that widening it is
+ * an edit somebody has to make on purpose.
+ */
+export const DEV_ONLY_VAR = 'ACCESS_DEV_OPEN'
+
 /** What `env` fails to repeat from the top level. Empty means it inherits nothing it needs. */
 export function missingFromEnv(
   config: WranglerConfig,
@@ -119,7 +137,7 @@ export function missingFromEnv(
 ): { vars: string[]; bindings: string[] } {
   const env = config.envs[envName] ?? { vars: [], bindings: [] }
   return {
-    vars: config.topLevel.vars.filter((v) => !env.vars.includes(v)),
+    vars: config.topLevel.vars.filter((v) => v !== DEV_ONLY_VAR && !env.vars.includes(v)),
     bindings: config.topLevel.bindings.filter((b) => !env.bindings.includes(b)),
   }
 }

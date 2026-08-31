@@ -18,14 +18,18 @@
  *   • AC-1334 — a hook that fails aborts that app before anything is uploaded.
  *   • AC-1335 — target selection: all discovered by default, named apps honoured,
  *     an unknown app refused listing the real ones.
- *   • AC-1336 — nine checks pass against a correctly serving origin, exit zero.
+ *   • AC-1336 — every applicable check passes against a correctly serving origin
+ *     and the run exits zero; the two control-surface checks, which sit on an
+ *     independent axis, are NAMED as skipped rather than forbidden.
  *   • AC-1337 — each distinct silent breakage fails, naming the check that owns it.
  *   • AC-1338 — a check with nothing to test against is skipped, never passed.
  *   • AC-1339 — every same-origin asset a preview references resolves, following
  *     one level into stylesheets.
  *   • AC-1340 — an unpublished site is indistinguishable from an unknown one.
- *   • AC-1341 — every named environment repeats every top-level var and binding.
- *   • AC-1342 — no secret value is committed, and the documented push is piped.
+ *   • AC-1341 — every named environment repeats every top-level var and binding,
+ *     with exactly one stated exception: the local-development relaxation.
+ *   • AC-1342 — no secret value is committed, and the documented push is piped,
+ *     newline-free, and echoes only the name — proven by running the hook.
  *
  * THREE BOUNDARIES, chosen per criterion for what it actually claims:
  *
@@ -67,7 +71,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contentTypeFor } from '../apps/public-site/src/content-type'
-import { missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
+import { DEV_ONLY_VAR, missingFromEnv, parseWranglerConfig, readWranglerConfig } from './support/wrangler-toml'
 // `WEBUI_SCOPE` is imported rather than written: AC-960 declares the component
 // scope exactly once, and every reference — this suite's included — composes it
 // from that declaration.
@@ -253,6 +257,66 @@ function realRepoShims(label: string): { env: NodeJS.ProcessEnv; log: () => stri
 }
 
 /**
+ * Run the real `10-anthropic-api-key` secret hook — the worked example the hook
+ * documentation points at — with the upload boundary replaced by a recorder.
+ *
+ * `npx` (wrangler) is the external boundary and the only thing stubbed: it is
+ * what makes the composed command line, the value's arrival on standard input,
+ * and the absence of an upload on a rehearsal observable at all. Nothing
+ * internal is replaced — the bytes that ship are the bytes that run.
+ */
+function runSecretHook(opts: { label: string; env?: NodeJS.ProcessEnv }): {
+  run: Run
+  log: () => string[]
+  stdin: () => string
+} {
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), `d5167ced-${opts.label}-`)))
+  roots.push(dir)
+  const shim = path.join(dir, 'shim')
+  mkdirSync(shim, { recursive: true })
+  const shimLog = path.join(dir, 'shim.log')
+  const stdinFile = path.join(dir, 'stdin.bin')
+  writeFileSync(shimLog, '')
+  writeScript(
+    path.join(shim, 'npx'),
+    `printf 'npx|%s\\n' "$*" >> "$SHIM_LOG"\n` +
+      // Captured RAW — a trailing newline is exactly what must not be there, so
+      // it cannot be read back through a shell substitution that strips it.
+      `if [[ "$*" == *"secret put"* ]]; then cat > "$STDIN_CAPTURE"; fi\n` +
+      `if [[ "$*" == *"secret list"* ]]; then printf '%s\\n' "\${SECRET_LIST:-[]}"; fi\n`,
+  )
+  const appDir = path.join(dir, 'apps', 'control-app')
+  mkdirSync(appDir, { recursive: true })
+
+  const run = sh(path.join(REPO, 'bin', 'deploy.d', 'secrets', '10-anthropic-api-key'), [], {
+    cwd: REPO,
+    env: {
+      PATH: `${shim}:${process.env.PATH ?? ''}`,
+      SHIM_LOG: shimLog,
+      STDIN_CAPTURE: stdinFile,
+      // The deploy context `bin/deploy` hands every hook. The deployed Worker's
+      // name deliberately differs from the directory, so an echo naming the
+      // destination cannot pass by naming the app.
+      DEPLOY_APP: 'control-app',
+      DEPLOY_APP_DIR: appDir,
+      DEPLOY_ENV: 'production',
+      DEPLOY_WORKER_NAME: 'prod-control-app',
+      DEPLOY_DRY_RUN: '0',
+      DEPLOY_REPO_ROOT: dir,
+      ...opts.env,
+    },
+  })
+  return {
+    run,
+    log: () =>
+      readFileSync(shimLog, 'utf8')
+        .split('\n')
+        .filter((l) => l !== ''),
+    stdin: () => (existsSync(stdinFile) ? readFileSync(stdinFile, 'utf8') : ''),
+  }
+}
+
+/**
  * A `--import` hook that makes named packages genuinely unresolvable, exactly as
  * a machine that never ran the out-of-band install sees them. `require.resolve`
  * is the path `webuiPackageDir` takes, so hiding it there is what makes the
@@ -407,7 +471,11 @@ async function smoke(
   })) as Report
 }
 
-const NINE_CHECKS = [
+/**
+ * The nine checks that answer "does this public origin serve?", in the order the
+ * report lists them. Selected by `--origin` plus `--slug` / `--draft`.
+ */
+const PUBLIC_CHECKS = [
   'apex_resolves',
   'unknown_slug_not_found',
   'unpublished_slug_indistinguishable',
@@ -418,6 +486,19 @@ const NINE_CHECKS = [
   'draft_miss_is_noindex_404',
   'draft_assets_resolve',
 ]
+
+/**
+ * The two checks on the INDEPENDENT axis — "is the operator surface private?"
+ * (AC-1425). They are selected by their own options, so a run pointed at a
+ * public-serving origin has nothing to point them at and they skip. Held apart
+ * from `PUBLIC_CHECKS` rather than appended to it because the distinction is the
+ * subject of AC-1336: a passing run is not required to have skipped nothing, it
+ * is required to NAME what it skipped.
+ */
+const CONTROL_CHECKS = ['control_app_challenges_unauthenticated', 'control_app_workers_dev_closed']
+
+/** Every check the report lists, in order. */
+const ALL_CHECKS = [...PUBLIC_CHECKS, ...CONTROL_CHECKS]
 
 // ═════════════════════════════════════════════════════════════════════════════
 // AC-1330 — the environment preflight
@@ -852,19 +933,36 @@ describe('story-d5167ced — deploy targets come from what is discovered', () =>
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('story-d5167ced — the smoke check against an origin that serves correctly', () => {
-  it('test_UAT_AC1336_all_nine_checks_pass_with_nothing_skipped_and_the_command_exits_zero', () => {
+  it('test_UAT_AC1336_every_applicable_check_passes_and_each_skip_is_named_with_a_zero_exit', () => {
     // The origin under test is a parameter of the run, so the same checks are
     // used against production and against any other serving origin.
     const run = runSmokeCli(['--origin', FAKE_ORIGIN, '--slug', SLUG, '--draft', DRAFT], correctOrigin())
 
     expect(run.code, run.all).toBe(0)
-    for (const name of NINE_CHECKS) {
+    for (const name of PUBLIC_CHECKS) {
       expect(run.out, `${name} did not pass`).toContain(`PASS  ${name}`)
     }
-    expect(run.out).not.toContain('skip  ')
     expect(run.out).not.toContain('FAIL  ')
-    // The summary states how many passed and how many were skipped.
-    expect(run.out).toContain(`Smoke passed against ${FAKE_ORIGIN}: ${NINE_CHECKS.length} passed, 0 skipped.`)
+
+    // A passing run is NOT required to have skipped nothing. The two
+    // control-surface checks sit on an independent axis, selected by their own
+    // options, and this run — pointed at a public-serving origin — has nothing
+    // to point them at. What the run must do is NAME each one it skipped, so
+    // "everything applicable passed" and "nothing was left untested" stay
+    // distinguishable rather than being conflated into one green result.
+    for (const name of CONTROL_CHECKS) {
+      expect(run.out, `${name} was not named as skipped`).toContain(`skip  ${name}`)
+      expect(run.out, `${name} was reported as a pass`).not.toContain(`PASS  ${name}`)
+    }
+    // Exactly those two, and no more: a skip that crept into the applicable set
+    // would otherwise pass this test by being counted rather than named.
+    expect(run.out.match(/^\s*skip {2}/gm)?.length ?? 0).toBe(CONTROL_CHECKS.length)
+
+    // The summary states how many passed and how many were skipped, counting
+    // them separately.
+    expect(run.out).toContain(
+      `Smoke passed against ${FAKE_ORIGIN}: ${PUBLIC_CHECKS.length} passed, ${CONTROL_CHECKS.length} skipped.`,
+    )
 
     // The asset check reports the number it verified, rather than reporting a
     // pass having verified none.
@@ -942,8 +1040,10 @@ describe('story-d5167ced — each way a deploy is silently broken fails the smok
       const failure = report.failed[0]
       expect(failure.detail.length, `${what}: the failure says nothing about what it expected`).toBeGreaterThan(0)
       // The remaining checks still report their own outcome — the run does not
-      // stop at the first failure.
-      expect(report.checks.map((c) => c.name)).toEqual(NINE_CHECKS)
+      // stop at the first failure. Every check the report can list is listed,
+      // the two control-surface ones included: this run supplies neither of
+      // their options, so they report a skip rather than going unreported.
+      expect(report.checks.map((c) => c.name)).toEqual(ALL_CHECKS)
       for (const other of report.checks.filter((c) => c.name !== check)) {
         expect(['pass', 'skip'], `${what}: ${other.name} did not report an outcome`).toContain(other.status)
       }
@@ -977,33 +1077,48 @@ describe('story-d5167ced — a check with nothing to test against is skipped', (
     for (const name of ['apex_resolves', 'unknown_slug_not_found']) {
       expect(bySlugRun[name].status, `${name} should still run`).toBe('pass')
     }
-    for (const name of NINE_CHECKS.slice(2)) {
+    for (const name of PUBLIC_CHECKS.slice(2)) {
       expect(bySlugRun[name].status, `${name} should be skipped`).toBe('skip')
       // The reason names the input that was missing.
       expect(bySlugRun[name].detail).toContain('--slug')
     }
+    // The control-surface checks skip for a reason of their own — their own
+    // option, not the site slug — and each names it, so a reader can tell which
+    // input to supply to make that check run.
+    for (const name of CONTROL_CHECKS) {
+      expect(bySlugRun[name].status, `${name} should be skipped`).toBe('skip')
+      expect(bySlugRun[name].detail).not.toContain('--slug')
+      expect(bySlugRun[name].detail).toMatch(/--(control|workers-dev)-origin/)
+    }
     // Skips are counted SEPARATELY from passes, so a run that proved nothing is
     // visibly a run that proved nothing rather than a green result.
-    expect(formatReport(noSlug)).toContain('2 passed, 7 skipped.')
+    expect(formatReport(noSlug)).toContain(`2 passed, ${ALL_CHECKS.length - 2} skipped.`)
 
     // ── a slug but no preview identifier: the preview checks alone skip ──
     const noDraft = await smoke(table, { draft: undefined })
     expect(noDraft.ok).toBe(true)
     const byDraftRun = Object.fromEntries(noDraft.checks.map((c) => [c.name, c]))
-    for (const name of NINE_CHECKS.slice(0, 4)) {
+    for (const name of PUBLIC_CHECKS.slice(0, 4)) {
       expect(byDraftRun[name].status, `${name} should still run`).toBe('pass')
     }
-    for (const name of NINE_CHECKS.slice(4)) {
+    for (const name of PUBLIC_CHECKS.slice(4)) {
       expect(byDraftRun[name].status, `${name} should be skipped`).toBe('skip')
       expect(byDraftRun[name].detail).toContain('--draft')
     }
-    expect(formatReport(noDraft)).toContain('4 passed, 5 skipped.')
+    // Supplying a slug says nothing about the control surface: those two skip
+    // for their own missing option either way.
+    for (const name of CONTROL_CHECKS) {
+      expect(byDraftRun[name].status, `${name} should be skipped`).toBe('skip')
+    }
+    expect(formatReport(noDraft)).toContain(
+      `4 passed, ${PUBLIC_CHECKS.length - 4 + CONTROL_CHECKS.length} skipped.`,
+    )
 
     // A skipped check never fails the run: the exit status stays zero.
     const run = runSmokeCli(['--origin', FAKE_ORIGIN], table)
     expect(run.code, run.all).toBe(0)
     expect(run.out).toContain('skip  unpublished_slug_indistinguishable')
-    expect(run.out).toContain('2 passed, 7 skipped.')
+    expect(run.out).toContain(`2 passed, ${ALL_CHECKS.length - 2} skipped.`)
   })
 })
 
@@ -1164,12 +1279,20 @@ describe('story-d5167ced — every named environment repeats every var and bindi
       }
     }
 
-    // The control application's production environment carries the builder
-    // origin it needs — the omission that made a first deploy answer its own
-    // service-unavailable response to every request.
+    // The control application's production environment carries the
+    // configuration its deployed form needs. `TENANT_ID` is the one whose
+    // omission reproduces the failure this criterion is named for: with it
+    // absent the store cannot be opened at all and the Worker answers its own
+    // service-unavailable response to every request. The Access identifiers are
+    // the same class — a gate with nothing to verify against fails closed.
     const control = readWranglerConfig(path.join(REPO, 'apps', 'control-app', 'wrangler.toml'))
-    expect(control.topLevel.vars).toContain('BUILDER_ORIGIN')
-    expect(control.envs.production.vars).toContain('BUILDER_ORIGIN')
+    for (const key of ['TENANT_ID', 'ACCESS_TEAM_DOMAIN', 'ACCESS_AUD']) {
+      expect(control.topLevel.vars, `${key} is not declared at the top level`).toContain(key)
+      expect(
+        control.envs.production.vars,
+        `${key} is not repeated under [env.production] — the deployed Worker would not see it`,
+      ).toContain(key)
+    }
 
     // The check is only worth having if it CATCHES the configuration that
     // shipped: the builder origin and a storage binding declared only at the top.
@@ -1215,6 +1338,66 @@ binding = "SITES"
 bucket_name = "1stcontact-sites"
 `
     expect(missingFromEnv(parseWranglerConfig(fixed), 'production')).toEqual({ vars: [], bindings: [] })
+
+    // ── the one stated exception, and that it is exactly one variable wide ───
+    //
+    // A variable whose purpose is to relax a security control for local
+    // development is not required to be repeated: its absence from the named
+    // environment is what keeps the relaxation out of the deployed Worker, so
+    // reporting it missing would invert the rule.
+    expect(DEV_ONLY_VAR).toBe('ACCESS_DEV_OPEN')
+    // In the real tree: the control app declares it at the top level, does NOT
+    // repeat it under production, and the check reports nothing missing — which
+    // is only true because the exception is implemented in the check itself.
+    expect(control.topLevel.vars).toContain(DEV_ONLY_VAR)
+    expect(control.envs.production.vars).not.toContain(DEV_ONLY_VAR)
+    expect(missingFromEnv(control, 'production').vars).toEqual([])
+
+    // The exception is a NAME, not a licence. A second top-level variable is
+    // still required to be repeated, and the report still names that one — and
+    // only that one — when it is not.
+    const withRelaxation = `
+name = "1stcontact-control-app"
+
+[vars]
+${DEV_ONLY_VAR} = "1"
+TENANT_ID = "1stcontact"
+
+[env.production]
+name = "1stcontact-control-app"
+
+[env.production.vars]
+TENANT_ID = "1stcontact"
+`
+    expect(missingFromEnv(parseWranglerConfig(withRelaxation), 'production').vars).toEqual([])
+
+    const alsoDroppingTheOther = withRelaxation.replace(
+      '[env.production.vars]\nTENANT_ID = "1stcontact"\n',
+      '[env.production.vars]\n',
+    )
+    expect(missingFromEnv(parseWranglerConfig(alsoDroppingTheOther), 'production').vars).toEqual(['TENANT_ID'])
+
+    // ── the rule's stated scope: repeats that are neither var nor binding ────
+    //
+    // The operator surface repeats under [env.production] two declarations the
+    // tool WOULD have inherited — the platform-default-hostname control and the
+    // invocation-log retention — because the rule must not depend on anyone
+    // remembering which keys inherit. Neither may join the sets this check
+    // counts: each is pinned by the criterion that owns it, and a retention key
+    // arriving among the variables would fail this check for someone else's
+    // reason.
+    const controlToml = readFileSync(path.join(REPO, 'apps', 'control-app', 'wrangler.toml'), 'utf8')
+    expect(controlToml).toContain('[observability]')
+    expect(controlToml).toContain('[env.production.observability]')
+    expect(controlToml.match(/^workers_dev\s*=/gm)?.length ?? 0).toBeGreaterThanOrEqual(2)
+    for (const key of ['workers_dev', 'enabled', 'head_sampling_rate', 'observability']) {
+      expect(control.topLevel.vars, `${key} was counted as a variable`).not.toContain(key)
+      expect(control.envs.production.vars, `${key} was counted as a variable`).not.toContain(key)
+      expect(
+        control.topLevel.bindings.some((b) => b.startsWith(`${key}:`) || b.endsWith(`:${key}`)),
+        `${key} was counted as a binding`,
+      ).toBe(false)
+    }
   })
 })
 
@@ -1261,9 +1444,8 @@ describe('story-d5167ced — no secret value is committed, and the push is piped
     // … in a form that appends no trailing newline …
     expect(doc).toContain('newline becomes part')
     // … and never echoed back: a hook reports the name and the destination.
-    expect(doc).toContain('would push ANTHROPIC_API_KEY to $DEPLOY_WORKER_NAME')
-    expect(doc).toContain('pushed ANTHROPIC_API_KEY to $DEPLOY_WORKER_NAME')
     expect(doc).toContain('Never echo the value')
+    expect(doc).toContain('Report the *name* and the destination')
     // No form that passes the value as an argument appears anywhere.
     expect(doc).not.toMatch(/wrangler secret put \w+ [^-\n]/)
     // The only listing offered is of NAMES.
@@ -1275,5 +1457,46 @@ describe('story-d5167ced — no secret value is committed, and the push is piped
     const deploy = readFileSync(path.join(REPO, 'bin', 'deploy'), 'utf8')
     expect(deploy).toMatch(/printf '%s'[^\n]*\|\s*npx wrangler secret put/)
     expect(deploy).not.toMatch(/wrangler secret put \w+ [^-\n]/)
+
+    // ── the worked example, RUN rather than read ────────────────────────────
+    //
+    // "Prints only the name and the destination" is a claim about behaviour, and
+    // the documentation's own wording is the weakest possible evidence for it —
+    // an assertion on prose passes for as long as nobody rewrites the prose, and
+    // fails when somebody does without the hook having changed at all. So the
+    // real hook the document points at is executed, on both paths the criterion
+    // names, with the upload boundary (`npx wrangler`) replaced by a recorder.
+    // The value handed to it is one this file can recognise in any output.
+    const VALUE = 'uat-1342-value-never-printed'
+
+    // ── the real path: the value is pushed, and only its name is echoed ──────
+    const real = runSecretHook({ label: 'push', env: { ANTHROPIC_API_KEY: VALUE } })
+    expect(real.run.code, real.run.all).toBe(0)
+    expect(real.run.out).toContain('pushed ANTHROPIC_API_KEY to prod-control-app')
+    expect(real.run.all, 'the hook echoed the secret value').not.toContain(VALUE)
+
+    // Piped, never an argument: the command line carries the NAME and the
+    // environment and nothing that could appear in `ps` or in shell history.
+    const put = real.log().find((line) => line.includes('secret put'))
+    expect(put, 'the hook did not push the secret').toBeDefined()
+    expect(put).toBe('npx|wrangler secret put ANTHROPIC_API_KEY --env production')
+    expect(put, 'the value was passed as an argument').not.toContain(VALUE)
+
+    // And it arrived on standard input with NO trailing newline — `printf`
+    // rather than `echo`, because a newline would become part of the secret.
+    expect(real.stdin()).toBe(VALUE)
+
+    // ── the rehearsal: the same decision, reported, and nothing uploaded ─────
+    const rehearsal = runSecretHook({
+      label: 'dry',
+      env: { ANTHROPIC_API_KEY: VALUE, DEPLOY_DRY_RUN: '1' },
+    })
+    expect(rehearsal.run.code, rehearsal.run.all).toBe(0)
+    expect(rehearsal.run.out).toContain('would push ANTHROPIC_API_KEY to prod-control-app')
+    expect(rehearsal.run.all, 'the rehearsal echoed the secret value').not.toContain(VALUE)
+    expect(
+      rehearsal.log().filter((line) => line.includes('secret put')),
+      'a rehearsal uploaded the secret',
+    ).toEqual([])
   })
 })
