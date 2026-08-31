@@ -6,10 +6,10 @@ title: Reading an unchanged draft repeatedly assembles it once, with currency pr
   by a live version read on every read
 created_by: xgd
 created_at: '2026-08-31T16:37:44.339228+00:00'
-updated_at: '2026-08-31T16:37:44.339228+00:00'
+updated_at: '2026-08-31T16:46:33.565586+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
