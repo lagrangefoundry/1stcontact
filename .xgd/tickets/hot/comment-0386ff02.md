@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-30
 created_by: xgd
 created_at: '2026-08-24T23:08:41.235599+00:00'
-updated_at: '2026-08-31T22:53:58.546234+00:00'
+updated_at: '2026-08-31T22:56:03.419415+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2607,5 +2607,11 @@ If we drop "shadow", the fields go with it:
 - `shadow_model` → **`body_model`** (the model id, null when the body was extracted rather than generated)
 
 Want me to strip "shadow" from DOC-38 §6, DOC-39, and REQ-163 — replacing it with plain "the body, produced by reading the file" — and rename the two fields while REQ-163 is still in draft? It's the cheapest moment; once it's implemented the rename costs a migration.
+
+<!-- xgd-turn id="5773523e-64ca-400a-b95d-d14e2d4aef74-user" -->
+
+<!-- xgd-chat role="user" ts="2026-08-31T22:56:03.396875+00:00" -->
+#### You
+Can we call it attachment description?
 
 <!-- xgd-chat-end -->
