@@ -5,7 +5,7 @@ type: doc
 title: The Knowledge Management System
 created_by: xgd
 created_at: '2026-08-30T22:55:29.789468+00:00'
-updated_at: '2026-08-30T23:17:47.639230+00:00'
+updated_at: '2026-08-31T00:32:39.128489+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,47 +85,40 @@ tenancy barrier and makes it byte-identical for every client.
 
 ### 3.1 What belongs in the system KB
 
-[[DOC-10]] §6.3 says *"every design document, in full. There is deliberately no
-curation pass."* That still holds, and this section is not a reversal of it —
-because §6.3 was rejecting a **distillation pass**, a parallel set of rewritten
-documents that would drift from the originals. It was not rejecting **corpus
-membership**, which is a predicate over documents that are never copied.
+**Exactly the documents carrying the marker. No more, no less.**
 
-The distinction matters because membership is already selective:
-`fields.system_kb` is opt-in, and `1c kb build` already reports which doc tickets
-it skipped. So curation is happening whether or not it has a rule. This is the
-rule.
+The corpus predicate is not a summary of an editorial policy — it *is* the
+definition. There is no curation pass behind it, no "spirit of the rule" a
+document could satisfy without carrying the marker, and no category a document
+could fall into that would include or exclude it independently. To put a
+document in the system KB you set the marker; to take it out you unset it. A
+document that leaves the KB is not deleted — it stops being retrievable, and
+nothing else about it changes.
 
-**Include what the AI could act on or say to a client. Exclude what only someone
-building the product could act on.**
+This is [[DOC-10]] §6.3 unchanged, and worth restating because the two are easy
+to confuse. §6.3 rejected a **distillation pass** — a parallel set of rewritten,
+hand-condensed documents that would silently drift from the originals. It did not
+reject **membership**, which is a predicate over documents that are never copied.
+Membership is mechanical; distillation was editorial. Only the second was ever
+the problem.
 
-| Category | Example | In? |
-|---|---|---|
-| **Product knowledge** — what the system is and does | the layout substrate, the storage model, the module contract, the control surface, this document | **yes** |
-| **Consultation knowledge** — how to talk to a client about design | the consultation playbook, personas and registers, why people pay for design | **yes** |
-| **Development-process knowledge** — how *we* build the product | conformance harnesses, the reproduction growth loop, successor runbooks, test asset catalogues, module authoring process | **no** |
-| **Engineering policy** — what binds our code | architecture, interface and security policy | **mostly no** (see below) |
+**Which documents carry the marker is deliberately unanswered here.** It is a
+real question — the corpus currently contains development-process material
+alongside product material, and whether that helps or hurts retrieval is what
+[[DOC-10]] §6.3 said to settle with data. But it is a question about *this
+corpus*, answerable at any time by changing a field on a ticket, and nothing in
+the mechanism depends on the answer. See §10.
 
-Consultation knowledge is deliberately in. It is the *"reasonably general
-library"* half of the system KB — not just tool manuals, but how the industry
-works and what makes design worth paying for. An AI that can only describe its
-own controls is a manual with a chat interface.
+**The marker's field name is unsettled**, and one candidate is unavailable:
+`fields.kind` is already the knowledge component's own namespace, written as
+`fields.kind = AWARENESS_REPORT_KIND` on awareness reports and queried to find
+them (`awareness.js`). The component also already has a KB-membership convention
+in `KB_FIELD = 'kb'`, used as `fields.kb = <kb name>`. Today the marker is
+`fields.system_kb: true`, which works and is deployed. §10 carries the choice.
 
-Development-process knowledge is out because the AI cannot act on it and it
-competes for rank against material that answers the question actually asked. This
-is also the specific thing [[DOC-10]] §6.3 said to settle with data — so the
-exclusion should be **measured, not assumed**: it is the cleanest available
-retrieval experiment, and the corpus is small enough to run it both ways.
-
-**Engineering policy is the one judgement call.** Most of it binds our
-implementation and is inert to a client conversation. Security policy is the
-exception worth reading individually, because it may carry constraints the AI
-must respect rather than merely constraints we must implement.
-
-Two mechanical notes: the awareness map is written into the corpus directory but
-is **excluded from the corpus it describes**, with no special case either way;
-and a document leaving the KB is a `fields.system_kb` change, not a deletion —
-the document remains, it simply stops being retrievable.
+One mechanical note either way: the awareness map is written into the corpus
+directory but is **excluded from the corpus it describes**, with no special case
+for either.
 
 ## 4. Two clocks
 
@@ -405,8 +398,15 @@ Worth stating so nobody is surprised into abandoning the map:
   is probably right — B genuinely has not seen it — but it should be decided.
 - **The delta cap's size**, and whether it is a count or a character budget
   (§6.2 settles that there is one, not what it is).
-- **Whether excluding development-process documents helps retrieval** (§3.1) —
-  the experiment [[DOC-10]] §6.3 asked for, now that there is a rule to test.
+- **Which documents carry the system-KB marker** (§3.1). Independent of the
+  mechanism, changeable at any time, and the specific experiment [[DOC-10]] §6.3
+  asked for: the corpus holds development-process material beside product
+  material, and whether that hurts retrieval is measurable both ways.
+- **The marker's field name** (§3.1): keep `fields.system_kb: true`, or move to
+  the component's own `fields.kb: "system"` convention. Not `fields.kind`, which
+  the component already owns. A rename is a sweep over ~35 tickets plus the KB
+  config — cheap, but it buys nothing functional today, and a single-valued field
+  would forbid the overlapping membership §2 relies on.
 - **Whether the enumerate/cluster switch is per-KB or global.** A tenant may sit
   below the floor on `project` while `system` is far above it.
 
